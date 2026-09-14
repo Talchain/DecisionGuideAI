@@ -68,7 +68,10 @@
  */
 
 import { useCanvasStore } from '../store'
+import { interventionNumericValue } from '../../utils/interventionValue'
 import { logger } from '../../lib/logger'
+import { canonicalJson } from '../../lib/canonical-hash'
+import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
@@ -86,14 +89,47 @@ import {
   restoreUserProvenance,
 } from './hydrateProvenance'
 
-/** Structural equality, matching the overlay's own no-op test. */
+/** JSON object property order can change at persistence without an edit. */
 function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true
   try {
-    return JSON.stringify(a) === JSON.stringify(b)
+    return canonicalJson(a) === canonicalJson(b)
   } catch {
     return false
   }
+}
+
+/**
+ * Hydration may replace a scalar intervention with its equally valued record.
+ * Keep that reasoning/provenance without treating acquisition as a model edit.
+ * Only that acquisition is exempt: a canonical rich→scalar replacement or a
+ * change between rich records keeps the existing overwrite treatment.
+ */
+function isOptionRecordAcquisition(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): boolean {
+  const { interventions: previous, ...previousRest } = before
+  const { interventions: incoming, ...incomingRest } = after
+  if (!deepEqual(previousRest, incomingRest)) return false
+  if (!previous || typeof previous !== 'object' || Array.isArray(previous) ||
+      !incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return false
+
+  const oldMap = previous as Record<string, unknown>
+  const newMap = incoming as Record<string, unknown>
+  const keys = Object.keys(oldMap)
+  if (keys.length === 0 || keys.length !== Object.keys(newMap).length) return false
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(newMap, key)) return false
+    const oldValue = interventionNumericValue(oldMap[key])
+    const newValue = interventionNumericValue(newMap[key])
+    // No coercion, dropped targets or null→zero equivalence, even when some
+    // other entries in this option are valid. Preserve full numeric precision.
+    if (oldValue === null || newValue === null || !Object.is(oldValue, newValue)) return false
+    if (deepEqual(oldMap[key], newMap[key])) continue
+    if (typeof oldMap[key] !== 'number' || typeof newMap[key] === 'number') return false
+  }
+  return true
 }
 
 /**
@@ -275,6 +311,7 @@ export function mergeServerGraphOnHydrate(
   // that strips honest user stamps on an unchanged value AND leaves a "checked
   // by you" badge on a number the server just changed. See `hydrateProvenance`.
   let updatedNodeCount = 0
+  const valueChangedNodeIds: string[] = []
   const mergedNodes = store.nodes.map((n: any) => {
     const serverNode = serverNodeById.get(n.id)
     if (!serverNode) return n
@@ -287,17 +324,23 @@ export function mergeServerGraphOnHydrate(
       ? restoreUserProvenance(overlaid.data, userStamps)
       : clearUserProvenance(overlaid.data)
     const next = nextData === overlaid.data ? overlaid : { ...overlaid, data: nextData }
+    const previousData = n.type === 'option' ? normaliseInterventionKeys(n.data ?? {}) : n.data
+    const incomingData = next.type === 'option' ? normaliseInterventionKeys(next.data ?? {}) : next.data
+    const recordAcquisition = n.type === 'option' && next.type === 'option' &&
+      isOptionRecordAcquisition(previousData, incomingData)
 
     // A merge whose ONLY effect was to strip a user stamp and then put it back
     // is a no-op, and must stay one — otherwise every boot writes the store and
     // dirties history for a canvas that did not change.
-    if (next.type === n.type && deepEqual(next.data, n.data)) return n
+    if (next.type === n.type && deepEqual(incomingData, previousData)) return n
 
     updatedNodeCount += 1
+    if (!recordAcquisition) valueChangedNodeIds.push(n.id)
     return next
   })
 
   let updatedEdgeCount = 0
+  const valueChangedEdgeIds: string[] = []
   const mergedEdges = store.edges.map((e: any) => {
     const key = canvasEdgePairKey(e)
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
@@ -322,6 +365,19 @@ export function mergeServerGraphOnHydrate(
     if (deepEqual(next.data, e.data)) return e
 
     updatedEdgeCount += 1
+    // Acquiring server readback is a store change, not a changed model value.
+    // Mask ONLY that record; every other change retains the existing edit
+    // classification. The overlay preserves user stamps on tuple-only reads.
+    const comparableReadback = { ...next.data, serverStrength: e.data?.serverStrength }
+    // Registration already sends absent edge_type as directed. Learning that
+    // explicit spelling on reload is not a new causal relationship. Any other
+    // type/value/direction change still follows the existing invalidation path.
+    if (e.data?.edge_type === undefined && comparableReadback.edge_type === 'directed') {
+      delete comparableReadback.edge_type
+    }
+    if (!deepEqual(comparableReadback, e.data)) {
+      valueChangedEdgeIds.push(e.id)
+    }
     return next
   })
 
@@ -490,7 +546,8 @@ export function mergeServerGraphOnHydrate(
   // So: whenever at least one EXISTING element's value changes, snapshot first.
   // Additions alone do not qualify — nothing is being overwritten — and a
   // no-op merge already returned above.
-  const overwroteExistingValues = updatedNodeCount > 0 || updatedEdgeCount > 0
+  const overwroteExistingValues = valueChangedNodeIds.length > 0 || valueChangedEdgeIds.length > 0
+  const modelChanged = overwroteExistingValues || addedNodes.length > 0 || addedEdges.length > 0
   if (overwroteExistingValues) {
     useCanvasStore.getState().pushHistory()
   }
@@ -506,7 +563,9 @@ export function mergeServerGraphOnHydrate(
   useCanvasStore.getState().beginExternalGraphMutation?.('hydrate')
   try {
     useCanvasStore.setState({
-      nodes: [...mergedNodes, ...addedNodes] as any,
+      // Metadata acquisition still needs to be stored when it is not an edit.
+      nodes: updatedNodeCount > 0 || addedNodes.length > 0
+        ? [...mergedNodes, ...addedNodes] as any : store.nodes,
       edges: [...mergedEdges, ...addedEdges] as any,
       // Requested in the SAME write as the nodes it describes: a separate
       // `setPendingLayout` call would leave a frame in which the canvas holds an
@@ -573,7 +632,7 @@ export function mergeServerGraphOnHydrate(
   // the EXPLICIT, ATOMIC 3-flag call — `markGraphStructurallyEdited` is the
   // store's declared API for external mutators for this reason.
   //
-  // ⚠ THE PREDICATE IS `changed`, NOT `overwroteExistingValues`, AND THE
+  // ⚠ THE PREDICATE IS `modelChanged`, NOT `overwroteExistingValues`, AND THE
   // DIVERGENCE FROM THE TWO GATES EITHER SIDE OF IT IS DELIBERATE — DO NOT
   // "TIDY" THESE INTO ONE. Three different questions share this block:
   //   · pushHistory            — "is the user's work about to be destroyed?"
@@ -588,9 +647,10 @@ export function mergeServerGraphOnHydrate(
   //
   // ⚠ NOT UNCONDITIONAL: marking every boot stale would be its own defect — a
   // false stale on the commonest boot of all, the idempotent one. The
-  // `if (!changed) return result` above is what buys that, and both directions
-  // are pinned in `mergeServerGraph.staleness.spec.ts`.
-  useCanvasStore.getState().markGraphStructurallyEdited?.()
+  // early no-op return and modelChanged guard buy that. Tuple-only readback
+  // and equivalent option-record acquisition are stored without invalidating
+  // unchanged analysis; real overwrites AND additions still invalidate it.
+  if (modelChanged) useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // ── DISCLOSURE: never move a number the user is looking at in silence ──────
   //
@@ -601,12 +661,8 @@ export function mergeServerGraphOnHydrate(
   // canvas.
   if (overwroteExistingValues) {
     pulseAppliedTargets({
-      nodeIds: mergedNodes
-        .filter((n: any, i: number) => n !== store.nodes[i])
-        .map((n: any) => n.id as string),
-      edgeIds: mergedEdges
-        .filter((e: any, i: number) => e !== store.edges[i])
-        .map((e: any) => e.id as string),
+      nodeIds: valueChangedNodeIds,
+      edgeIds: valueChangedEdgeIds,
     })
   }
 

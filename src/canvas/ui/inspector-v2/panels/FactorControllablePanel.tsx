@@ -5,7 +5,7 @@
  * the separate Impact / Investigation value sections.
  */
 
-import { memo, useState, useMemo, useCallback } from 'react'
+import { memo, useState, useMemo, useCallback, useRef } from 'react'
 import { Link, MessageSquare } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { useCanvasStore } from '../../../store'
@@ -18,7 +18,8 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import { shouldShowNormalised } from '../normalisedDisplay'
-import { unwrapInterventionValue, classifyUnit } from '../../../utils/labelUtils'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { getFactorOptionRows } from '../../../utils/factorOptionSetting'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   GROUP_LABELS,
@@ -38,13 +39,20 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
+import {
+  investigationValueTier,
+  INVESTIGATION_VALUE_LABEL,
+  INVESTIGATION_VALUE_INVITATION,
+} from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
+import { SEND_BLOCKED } from '../../../conversation/useConversation'
 import {
   acceptsElicitedBelief,
   buildFactorValueEditEvent,
+  factorValueHasNoUsableScale,
   resolveValueInputSeed,
   type ValueInputSeedBasis,
 } from '../../../conversation/factorValueEdit'
@@ -59,36 +67,89 @@ import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 
-/**
- * Extract a non-empty string intervention value, accepting either a bare
- * string or a `{ value: string }` object. Used by the connections badge
- * which renders qualitative interventions verbatim. Returns null when no
- * non-empty string is present (so the caller can fall back to "no badge").
- */
-function extractStringIntervention(raw: unknown): string | null {
-  if (typeof raw === 'string') return raw.trim() === '' ? null : raw
-  if (raw != null && typeof raw === 'object' && 'value' in raw) {
-    const v = (raw as { value: unknown }).value
-    if (typeof v === 'string') return v.trim() === '' ? null : v
-  }
-  return null
-}
-
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
   techMode,
   onClose,
   onNavigate,
+  /**
+   * ⛔ A DUTY, NOT A PERMISSION (see `InspectorPanelProps`). The Router no
+   * longer wraps this pane, so every control that reaches a mutation WITHOUT a
+   * durable carrier must sit behind this panel's own fence. What the opt-in
+   * buys is the ability to leave the rest alive: the value control that DOES
+   * have a carrier, plus navigation, disclosure and coaching, all of which the
+   * blanket wrap was disabling for a reason that was never about them.
+   */
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const ceeOptions = useCanvasStore(s => s.ceeAnalysisReady?.options)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
+  /**
+   * ⭐⭐ WHAT ACTUALLY HAPPENED TO THE LAST VALUE COMMIT — because `dispatched`
+   * IS NOT `saved`, and the panel used to say otherwise.
+   *
+   * `useEditConfirmation` records that a LOCAL STORE WRITE happened. On its own
+   * that rendered "Updated ✓" in success green the instant the field blurred,
+   * whether the turn had been issued, deferred behind the dispatcher's
+   * in-flight lock, or never attempted at all because no conversation provider
+   * was mounted. Three outcomes, one green tick.
+   *
+   * ⚠ `local_only` IS THE ONE THAT MATTERED. There the write reaches the store
+   * and nothing else — the next server rehydrate silently discards it — and the
+   * old copy called that "Updated". This is the exact shape of the July defect
+   * (#513) that made these edits real turns in the first place: a confident
+   * receipt over a change the server never heard about.
+   */
+  /**
+   * ⚠⚠ THREE STATES, NOT TWO — MEASURED ON THE DEPLOYED BUILD AND THE TWO-STATE
+   * VERSION WAS WRONG IN THE OTHER DIRECTION.
+   *
+   * The first version set `local_only` provisionally and upgraded to `sent`
+   * when the dispatcher resolved. Driving staging as a guest, the turn takes
+   * ~1.8s (measured: 1756ms / 1801ms / 2019ms) — so for nearly two seconds the
+   * panel told the user **"Not sent to Olumi"** about an edit that was in
+   * flight and about to land. It then flipped to "Sent" and faded.
+   *
+   * The brief was "show save failures without claiming success". A pessimistic
+   * provisional obeys the letter and breaks the spirit: it claims FAILURE
+   * without knowing, which is the same defect mirrored — and it is the more
+   * alarming half, because the user is told their work was lost while it is
+   * being saved.
+   *
+   * `sending` is the honest state while the promise is open. It is not a
+   * success claim: no tick, no success tone.
+   */
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | null>(null)
+  /**
+   * Which commit the notice belongs to. The wire attempt is fire-and-forget,
+   * so its outcome can land after a later commit — or after the person has
+   * moved to another factor. Both make the resolution stale, and a stale
+   * resolution writing "Sent to Olumi" over a different edit is the same
+   * class of untrue receipt this state exists to prevent.
+   */
+  const valueCommitSeqRef = useRef(0)
+  /** Always the factor on screen, so a late resolution can tell it moved. */
+  const shownNodeIdRef = useRef(nodeId)
+  shownNodeIdRef.current = nodeId
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
+
+  /**
+   * ⭐ ONE LADDER, SHARED. The tier decision used to be typed out twice in this
+   * file and four more times in the two sibling factor panels — six copies of
+   * `>= 0.7` / `>= 0.4` over one field. The WORDS below stay here, because they
+   * differ by factor category on purpose; only the boundary moved.
+   */
+  const voiTier =
+    displayMetadata.valueOfInformation === null
+      ? null
+      : investigationValueTier(displayMetadata.valueOfInformation)
 
   // Shared display text with FactorNode and the debug bundle — routes through
   // formatFactorDisplayValue. See the priority order on
@@ -255,11 +316,28 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // magnitude (300000) there, which is exactly what CEE's validator refuses.
       mutations.setObservedValue(modelValue, opts.writeRawAnchor ? typedValue : rawMagnitude)
       confirmEdit('value')
+      // ⚠ Provisional = `local_only` ONLY where there is no dispatcher at all,
+      // because then nothing further will resolve and the edit really is local.
+      // Where a dispatcher exists the state below moves to `sending` and waits.
+      setValueCommitOutcome('local_only')
 
       // Then the wire. Before this, the chain ENDED at the store write: the edit
       // never reached CEE, its graph_hash never moved, and the rerun the
       // freshness strip invited could not possibly reflect the change.
       if (!sendSystemEvent) return
+
+      // ⚠ THE PRESENCE OF THE FUNCTION IS NOT A DISPATCH, AND AN EARLIER VERSION
+      // OF THIS COMMITTED 'sent' RIGHT HERE — i.e. because the provider existed.
+      // `sendSystemEvent` returns `SEND_BLOCKED` as a RESOLVED value on two
+      // paths that never reach the wire (`useConversation.ts:5935` when the
+      // orchestrator is off, `:5945` when the event type is not serialisable),
+      // and the `.catch` below cannot see either. So the outcome is read off
+      // what the dispatcher actually returns, and only a genuine dispatch or a
+      // deferral — which the deferral buffer WILL flush — is allowed to say
+      // "Sent to Olumi".
+      const commitSeq = ++valueCommitSeqRef.current
+      const commitNodeId = nodeId
+      setValueCommitOutcome('sending')
     // Fire-and-forget: the response is ingested by the shared turn path
     // (applyV5State applies graph_patch + analysis_ready for system-event turns
     // exactly as it does for message turns). Awaiting here would block the blur
@@ -277,7 +355,16 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     // `useConversation`'s `deferredSystemSendsRef`.
       void Promise.resolve(
         sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
-      ).catch(() => {
+      ).then(outcome => {
+        // A later commit, or a move to another factor, owns the notice now.
+        if (commitSeq !== valueCommitSeqRef.current || commitNodeId !== shownNodeIdRef.current) return
+        setValueCommitOutcome(outcome === SEND_BLOCKED ? 'local_only' : 'sent')
+      }).catch(() => {
+        // A genuine send failure leaves the edit local. Saying so is the whole
+        // point of this state — the store write did happen, the wire one did not.
+        if (commitSeq === valueCommitSeqRef.current && commitNodeId === shownNodeIdRef.current) {
+          setValueCommitOutcome('local_only')
+        }
         // Swallowed deliberately: a genuine send failure is already recorded by
         // the conversation's own failure channel. Re-throwing from a blur handler
         // would surface as an unhandled rejection and tell the user nothing they
@@ -327,46 +414,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     [commitValue, elicitation],
   )
 
-  // Connections: options that set this + outbound influences
-  const setByOptions = useMemo(() => {
-    return edges
-      .filter(e => e.target === nodeId)
-      .map(e => {
-        const src = nodes.find(n => n.id === e.source)
-        const kind = (src?.type || src?.data?.kind || 'factor') as NodeType
-        if (kind !== 'option') return null
-        // Interventions may be stored as plain numbers (legacy/analysis_ready),
-        // as UIInterventionValue/CEEInterventionV3 objects ({ value, source,
-        // ... }), or — for qualitative factors — as plain strings or
-        // {value: string} objects. unwrapInterventionValue handles the numeric
-        // path; the string-pass-through branch below covers the rest.
-        // The connections badge is one of the few intervention display sites
-        // that can render strings verbatim — the editable / arithmetic sites
-        // (OptionPanel, OptionAdvancedEditor, FactorNode hover) require finite
-        // numbers and correctly drop string entries.
-        const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-        const raw = ivs?.[nodeId ?? '']
-        const { value: interventionValue, displayValue: interventionDisplayValue } = unwrapInterventionValue(raw)
-        const interventionStringValue =
-          interventionValue == null ? extractStringIntervention(raw) : null
-        return {
-          nodeId: e.source,
-          label: resolveElementLabel(src?.data),
-          interventionValue,
-          interventionDisplayValue,
-          interventionStringValue,
-          unit,
-        }
-      })
-      .filter(Boolean) as Array<{
-        nodeId: string
-        label: string
-        interventionValue: number | null
-        interventionDisplayValue: string | null
-        interventionStringValue: string | null
-        unit?: string
-      }>
-  }, [edges, nodes, nodeId, unit])
+  // Full counterpart of the factor preview, including options without a setting.
+  const setByOptions = useMemo(
+    () => getFactorOptionRows(nodeId ?? '', nodes, ceeOptions, obs),
+    [nodeId, nodes, ceeOptions, obs],
+  )
 
   const influences = useMemo(() => {
     return edges
@@ -400,6 +452,18 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       {/* ── Context group ─────────────────────────────────────── */}
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {/* Description — Pattern B (EmptyDescriptionPrompt) */}
+        {/* `mutations.setDescription` writes to the local store ONLY — there is
+            no `description` carrier, so the next server rehydrate overwrites it.
+            Fenced HERE rather than at the Router so the value control beside it,
+            which DOES have one, can stay live.
+
+            ⚠ THE FENCE WRAPS BOTH BRANCHES, INCLUDING THE EMPTY PROMPT. That
+            prompt performs no write itself — it opens the editor — so a fence
+            scoped to the textarea alone would still pass a self-fencing audit
+            while leaving a button whose whole purpose is to invite text that
+            cannot be saved. Inviting the input is the harm; the write is only
+            where it lands. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
         {description || isEditingDescription ? (
           <textarea
             value={description}
@@ -420,6 +484,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             onStartEditing={() => setIsEditingDescription(true)}
           />
         )}
+        </fieldset>
 
         {/* Provenance pills: factor type identity + extraction source */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
@@ -507,17 +572,19 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                   <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
                 )}
               </div>
-              {displayMetadata.valueOfInformation !== null && (
+              {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
+                  is derived from this value, so a human reads the second as
+                  implying the first — but TypeScript does not narrow through a
+                  derived local, and `DataBar` takes `number`, not `number | null`.
+                  Dropping either one is a type error, which is the compiler
+                  making the same point. */}
+              {displayMetadata.valueOfInformation !== null && voiTier !== null && (
                 <div>
                   <DataBar
                     value={displayMetadata.valueOfInformation}
                     label={INLINE_LABELS.investigationValue}
                     colour="info"
-                    trailingLabel={
-                      displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                      : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                      : 'Low'
-                    }
+                    trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
                   />
                   {/* Its own label, in the same place ImportanceBar puts its own —
                       without it, that bar's label reads as this bar's. */}
@@ -525,11 +592,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                     {INLINE_LABELS.investigationValue}
                   </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                    {displayMetadata.valueOfInformation >= 0.7
-                      ? 'Gathering more evidence here could significantly improve confidence.'
-                      : displayMetadata.valueOfInformation >= 0.4
-                      ? 'Additional evidence here would moderately sharpen the analysis.'
-                      : 'Further investigation here is unlikely to change the outcome.'}
+                    {INVESTIGATION_VALUE_INVITATION.evidence}
                   </p>
                 </div>
               )}
@@ -641,12 +704,146 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               ))}
             </div>
           )}
+          {/* ⭐ THE NUMBER THE ENGINE CANNOT PLACE, SAID ON THE FACTOR ITSELF.
+              A factor with no cap, no unit AND NO FRAME RECOVERABLE FROM ITS
+              `{value, raw_value}` PAIR holds `value` AS the model scale, so a
+              recorded `70` beside `raw_value: 70` is a model-scale quantity
+              with nothing saying seventy of what.
+
+              ⚠⚠ THE PAIR CLAUSE WAS MISSING, and this comment carried the
+              premise that made it missing: *"CEE persists `raw_value = value`
+              on that shape"*. FALSE — corrected in place, not deleted (trap
+              14). CEE writes magnitude-scaled factors as CAPLESS FRAMED PAIRS,
+              so capless is exactly where the pair carries the frame. The panel
+              was warning about factors whose scale CEE's run gate had already
+              resolved, and sending the user to a remedy Olumi refuses.
+              `buildFactorValueEditEvent` already refuses to SEND such a commit;
+              until now nothing SAID so on the surface where the number lives,
+              and an analysis could refuse for this reason while the factor
+              carrying it looked ordinary.
+
+              ⛔ THE PREDICATE IS IMPORTED, NEVER RE-TYPED. A range test written
+              here would be a second scale authority, which is the mirror this
+              estate keeps paying for (trap 12).
+
+              ⚠ AND IT CLAIMS NO CAUSE. It does not say this is why any analysis
+              refused: refusal codes are produced server-side from the whole
+              graph, and asserting the link from here would be a claim this
+              panel cannot see. It states what is true of this one number, and
+              routes to the writer that can actually change it — the
+              conversational path, which persists, rather than a local control
+              that would be destroyed by the next rehydrate.
+
+              ⛔⛔ THE REMEDY NAMED HERE WAS THE ONE THAT DOES NOT WORK, AND IT
+              WAS CHANGED TO THE ONE THAT DOES (2026-09-11). This line used to
+              read "Ask Olumi to set the range it can move between". A journey
+              witness asked exactly that, twice, in natural language, and the
+              deployed assistant declined both times — "I can't currently store
+              a movable range". It is not a model failing: no range editor is
+              reachable anywhere in the product, and `model-tab-v2/contracts.ts`
+              declares `proposePriorRange` with ZERO implementations. The
+              sibling surface for this same defect class
+              (`model-tab-v2/ModelRowView.tsx`'s `NO_RANGE_NOTICE`) had already
+              reached that conclusion and WITHHOLDS a remedy on exactly this
+              ground, its spec banning the literals 'add a range' and 'set a
+              range'. This panel was the unsupported side of that disagreement.
+
+              ⭐ WHY A STATED UNIT, AND WHY "PERCENTAGE" SPECIFICALLY. Derived
+              in CEE at `staging` d9b06ea8, not guessed. The analysis gate is
+              `findScaleIncoherentBaselineFactorIds`
+              (`orchestrator-v5/tools/plot-intervention-scale.ts:813`) and it
+              exempts on four grounds; a stated unit reaches the second. The
+              chain: the router is told to send `{ value, unit, cap? }` and is
+              given the worked example "set churn to 5%"
+              (`routing/tool-schema.ts:231-239`), so the form is one the
+              assistant already recognises → `parseProposalValue` sets
+              `inputHasUnit` (`handlers/set-factor-value.ts:199-215`) →
+              `normaliseFactorValue`'s unit limb calls `unitPinnedScaleFrame`
+              (`d1-shared/normalise-factor-value.ts:293-300`) → percent pins
+              frame 100 (`cee/draft/records/unit-scale-class.ts:363`), so "12%"
+              is written `{raw_value: 12, value: 0.12}` → the gate exempts at
+              `plot-intervention-scale.ts:839` (`baseline ∈ [0,1]`) and the run
+              proceeds. CEE pins that whole walk end to end in
+              `handlers/__tests__/stated-unit-scale-survives-to-analysis.test.ts`.
+
+              ⛔ AND WHY THE COPY DOES NOT SAY "TELL OLUMI WHAT IT IS MEASURED
+              IN". `unitPinnedScaleFrame` pins a frame for PERCENT and BASIS
+              POINTS AND NOTHING ELSE (`unit-scale-class.ts:363-364`); a
+              currency or a count classes `unknown`, is written raw, and the
+              gate STILL refuses — the same spec pins that as its
+              opposite-direction twin. A general "state the unit" instruction
+              would be a NEW false remedy, and a worse one than the old: a unit
+              of any kind makes `factorValueHasNoUsableScale` return false, so
+              the disclosure below would VANISH while the analysis went on
+              refusing. Naming the one family that resolves it keeps the
+              warning and the remedy honest together.
+
+              ⛔ AND WHY IT NAMES A BOUND (0 TO 100) RATHER THAN JUST "A
+              PERCENTAGE". The first draft said "If it is a percentage, tell
+              Olumi the value with its unit", and an independent re-review
+              showed that unbounded form prescribes a route into the SILENT
+              dead end this very comment rejects one paragraph above. Derived
+              again at CEE `staging` 7aa49ec8: `unitPinnedScaleFrame` pins
+              frame 100 for percent ONLY while `magnitude <= 100`, and returns
+              undefined for `magnitude < 0` (`unit-scale-class.ts:363`); with
+              no frame pinned the write falls back to RAW
+              (`normalise-factor-value.ts:303`); and the stated unit is
+              persisted ANYWAY (`set-factor-value.ts:580-590`). A recorded unit
+              is NOT among the run gate's four exemptions - a cap,
+              `baseline ∈ [0,1]`, a recoverable pair frame, and user-authored
+              self-framing interventions (`plot-intervention-scale.ts:836-882`).
+              So "set it to 150%" writes `{raw_value: 150, value: 150, unit:
+              '%'}`, the disclosure below VANISHES (any unit,
+              `factorValueEdit.ts:436`) and the analysis STILL refuses.
+              Negatives behave the same. The set that actually works is exactly
+              percent in [0, 100] - 0 and 0.5 clear on the `[0,1]` limb, 1 to
+              100 on the pinned frame - so the sentence names that set and no
+              more, and the advice and the population it works for are the same
+              set. CASE 4 of the spec is the guard.
+
+              ⛔ NO EM DASH IN THIS SENTENCE. `Brief3Panels.spec.tsx`
+              ("Em-dash enforcement") forbids U+2014 in rendered panel output
+              and `FactorExternalPanel.tsx` records that it caught the first
+              draft of a sibling sentence. It caught nothing here: that suite
+              keeps a HAND-LIST of three panels and this one is not on it (trap
+              12, inside the guard written to enforce the rule). Widening the
+              list is separate, measured work and is rowed, not folded into a
+              copy PR; CASE 5 pins this sentence in the meantime. */}
+          {factorValueHasNoUsableScale(node?.data) && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1.5`}
+              data-testid="factor-value-no-scale"
+            >
+              This value has no scale recorded, so nothing states what it is measured against. If it is a percentage between 0 and 100, tell Olumi the value with its unit. For example, set it to 12%.
+            </p>
+          )}
         </PrimaryControlCard>
 
         {/* Edit feedback */}
         {lastConfirmed?.field === 'value' && (
           <div className="flex items-center gap-2 mt-1">
-            <EditConfirmation trigger={lastConfirmed.ts} />
+            {/* ⚠ NEITHER BRANCH CLAIMS "SAVED", AND THAT IS DELIBERATE. The
+                value has a durable carrier, so `sent` is a true and useful
+                thing to say — but this panel cannot observe the server
+                APPLYING it, and a receipt derived from our own optimistic
+                write would be an optimistic write wearing a confirmation.
+                Settling `sent` against the canonical applied value is real
+                work and is rowed separately; overstating it here in the
+                meantime is exactly the defect being removed. */}
+            {/* ⚠ "Saved on this device only" until `guestStorageClaims.spec.ts`
+                refused the same claim one file over. It is FALSE — a guest's
+                graph also exists server-side — and it evaded that guard only
+                because its regex is verb-specific ("stays on", not "saved on").
+                Reported to the guard's owner rather than left as a near-miss.
+                The label now states what this app did, which is the part we
+                can actually vouch for. */}
+            {valueCommitOutcome === 'sending' ? (
+              <EditConfirmation trigger={lastConfirmed.ts} label="Sending to Olumi…" tone="pending" hold />
+            ) : valueCommitOutcome === 'local_only' ? (
+              <EditConfirmation trigger={lastConfirmed.ts} label="Not sent to Olumi" tone="pending" />
+            ) : (
+              <EditConfirmation trigger={lastConfirmed.ts} label="Sent to Olumi" tone="pending" />
+            )}
             <InlineRerunPrompt visible={isStaleAfterEdit} />
           </div>
         )}
@@ -664,21 +861,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
         {setByOptions.length > 0 && (
           <>
-            <div className={`${typography.panelMeta} text-text-light mb-1`}>Set by options:</div>
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>Option values:</div>
             {setByOptions.map(o => {
-              // Precedence: CEE display_value (verbatim) > numeric (unit-prefixed
-              // or bare) > qualitative string fallback. F.6 passthrough: when CEE
-              // authored a label, render it without numeric re-formatting.
-              const badgeContent = o.interventionDisplayValue
-                ? o.interventionDisplayValue
-                : o.interventionValue != null
-                  ? (o.unit && classifyUnit(o.unit).kind !== 'placeholder' ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
-                  : o.interventionStringValue != null
-                    ? o.interventionStringValue
-                    : null
+              const badgeContent = o.displayValue
               return (
                 <ConnectionRow
-                  key={o.nodeId}
+                  key={o.id}
                   nodeKind="option"
                   label={o.label}
                   badge={badgeContent != null ? (
@@ -688,7 +876,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                   ) : undefined}
                   fullLabel
                   techMode={techMode}
-                  onClick={() => onNavigate(o.nodeId)}
+                  onClick={() => onNavigate(o.id)}
                 />
               )
             })}
@@ -716,8 +904,19 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       </PanelGroup>
 
       {/* ── Expert-only model detail ──────────────────────────── */}
+      {/* ⚠⚠ WRITERS 2–15 OF 15, AND THE FOURTEEN A FILE-SCOPED SWEEP MISSES.
+          `FactorControllableEditor` holds 14 `mutations.set*` call sites, every
+          one a bare `updateNode` with NO wire carrier — including
+          `setObservedValue`, which writes the SAME field as the headline value
+          control without the `factor_value_edit` send and clears
+          `display_value` on the way. None of them is spelled in this file, and
+          a review caught them after I enumerated only the controls written
+          here. Audit the tree, not the file — the identical omission was
+          caught on the sibling pane and is recorded at `OptionPanel.tsx:71`. */}
       <TechnicalDisclosure visible={techMode}>
-        <FactorControllableEditor nodeId={nodeId} />
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+          <FactorControllableEditor nodeId={nodeId} />
+        </fieldset>
         {/* Raw model values moved here from the value card — tech-mode only */}
         {shouldShowNormalised(techMode, rawValue) && value != null && (
           <div className={`${typography.panelMeta} text-text-light mt-2`}>

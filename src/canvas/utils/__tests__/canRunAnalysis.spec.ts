@@ -465,18 +465,30 @@ describe('analysisHeldOn — the ONE home for the honest-gate predicate', () => 
 
   it('names the provenance only for a client-injected graph on the CEE-routed path', () => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
-    expect(analysisHeldOn(templateNodes)).toBe('template')
-    expect(analysisHeldOn(draftedNodes)).toBeNull()
+    expect(analysisHeldOn(unregistered(templateNodes))).toBe('template')
+    expect(analysisHeldOn(unregistered(draftedNodes))).toBeNull()
   })
 
   it('null off the canonical path — a V2-direct run CAN analyse canvas graphs', () => {
     isV5CanonicalRunPathMock.mockReturnValue(false)
-    expect(analysisHeldOn(templateNodes)).toBeNull()
+    expect(analysisHeldOn(unregistered(templateNodes))).toBeNull()
   })
 
   it('the exported refusal constant IS the sentence the gate emits (one home, no drift)', () => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
-    const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, analysisHeldOn: analysisHeldOn(templateNodes) })
+    const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, analysisHeldOn: analysisHeldOn(unregistered(templateNodes)) })
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.template)
   })
 })
+
+/**
+ * The hold's input for a graph CEE has NOT acknowledged holding — the state
+ * every case in this file describes. `analysisHeldOn` takes the canvas STATE
+ * rather than the nodes, because the registration posture is not derivable from
+ * them; wrapping here keeps each case reading as it did while making the
+ * posture it assumes explicit rather than implied.
+ */
+function unregistered(nodes: unknown): never {
+  return { nodes, importPendingServerRegistration: true } as never
+}
+

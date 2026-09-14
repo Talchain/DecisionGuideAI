@@ -37,6 +37,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 import { StrengthenTheReasoning } from '../sections/StrengthenTheReasoning'
+import { useCanvasStore } from '../../../../canvas/store'
+import { recordKey } from '../../../../canvas/stores/strengthenStore'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -84,7 +86,17 @@ const renderOpen = (ui: React.ReactElement) => {
   return r
 }
 
+/**
+ * ⚠ THE DECISION IS NAMED, because the store's writes are keyed by it now. This
+ * spec previously left `currentScenarioId` at its default and the point never
+ * came up; with a (decision, finding) key it decides what `dispute` is called
+ * with, so leaving it implicit would make the assertion below depend on a
+ * default nobody set deliberately.
+ */
+const SPEC_DECISION = 'scenario-under-test'
+
 beforeEach(() => {
+  useCanvasStore.setState({ currentScenarioId: SPEC_DECISION } as never)
   records = {}
   dismiss.mockClear()
   restoreDismissed.mockClear()
@@ -145,7 +157,10 @@ describe('the "I disagree" composer is reachable and announced', () => {
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-save'))
 
     // Bound by identity to the recommendation, so a save of the wrong row fails.
-    expect(dispute).toHaveBeenCalledWith('strengthen:success-measure', 'The base rate here is wrong.')
+    expect(dispute).toHaveBeenCalledWith(
+      recordKey(SPEC_DECISION, 'strengthen:success-measure'),
+      'The base rate here is wrong.',
+    )
     expect(document.activeElement).toBe(trigger)
   })
 })

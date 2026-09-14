@@ -159,8 +159,69 @@ describe('B4 · resolveElementLabel states absence, it never invents a name', ()
  */
 const ID_FALLBACK_LABEL = /\.data\?\.label\s*\?\?\s*[^\s'"`]/g
 
+/**
+ * ⭐⭐ THE SECOND SHAPE — ADDED 10 Sep 2026, AND IT IS WHY THIS FILE'S OWN
+ * "NO OFFENDERS" WAS A STATEMENT ABOUT THE INSTRUMENT.
+ *
+ * `ID_FALLBACK_LABEL` is anchored on the literal text `.data?.label`, because
+ * every one of the fourteen original call sites read a NODE'S DATA BAG. The
+ * defect CLASS is wider: it is *a label read whose fallback is an expression*,
+ * and the label can belong to a WIRE OBJECT that has no `data` bag at all.
+ *
+ * Measured at `2e8e6d43`, in this directory, which this file walks recursively
+ * and certified clean:
+ *
+ *     {String(c.label ?? c.node_id ?? `#${i + 1}`)}   GoalAdvancedEditor.tsx:73
+ *     label: String(factorData?.label ?? factorId),   OptionAdvancedEditor.tsx:41
+ *
+ * The first printed a CONSTRAINT's target id — a production hash — as the
+ * constraint's NAME, on a group whose `label` the contract documents as
+ * "genuinely absent in practice" (`adapters/cee/types.ts:278-285`), i.e. the
+ * normal case. Neither matched, because `c.label` and `factorData?.label` are
+ * not `.data?.label`.
+ *
+ * ⚠ THE SIBLING GUARD WAS BLIND TOO, ON A DIFFERENT AXIS, AND THE TWO
+ * BLINDNESSES ARE NOT THE SAME FACT. `modelTabNoRawIdFallback.sourceScan
+ * .spec.ts` matches `\?\?\s*…\.(?:id|source|target)\b` — which reads ZERO on
+ * `?? c.node_id` (measured: its own positive control reads 1 on `?? node.id`),
+ * because `node_id` is not `id`. So that scan misses this class on its PATTERN
+ * as well as on its SCOPE, and fixing the scope alone would not have caught it.
+ *
+ * This is trap 12d: a guard derived from the one spelling its author had just
+ * fixed proves agreement with that spelling and nothing about the class. The
+ * widened matcher keeps the original's real insight — match the FALLBACK SHAPE
+ * (an unquoted expression), not a list of id variable names — and simply stops
+ * requiring the `data?.` segment.
+ */
+const ID_FALLBACK_LABEL_WIRE = /\.label\s*\?\?\s*[^\s'"`]/g
+
+/**
+ * The one site this widening surfaced that is NOT this commit's to fix, pinned
+ * with its reason and asserted for EXACT EQUALITY in both directions.
+ *
+ * `OptionAdvancedEditor.tsx:41` builds an intervention row's display label as
+ * `String(factorData?.label ?? factorId)` — a genuine live leak of the same
+ * class, in a different editor, reached by a different panel. It is PINNED
+ * rather than fixed here because this lane's surface is the GOAL editor and a
+ * drive-by fix to the OPTION editor would be the "while we're here" work the
+ * scope rule prohibits; it is pinned rather than IGNORED so a NEW leak cannot
+ * hide behind it.
+ *
+ * Growth is a new leak. SHRINKAGE is the follow-up landing, and it must red too,
+ * so that commit has to come here and say so rather than quietly satisfying a
+ * `<=`.
+ */
+const WIRE_LABEL_PINNED: Record<string, number> = {
+  'OptionAdvancedEditor.tsx': 1,
+}
+
 function idFallbacksIn(src: string, file: string): number {
   return [...stripComments(src, file).matchAll(ID_FALLBACK_LABEL)].length
+}
+
+/** The widened class: any `label` read with an unquoted `??` fallback. */
+function wireLabelFallbacksIn(src: string, file: string): number {
+  return [...stripComments(src, file).matchAll(ID_FALLBACK_LABEL_WIRE)].length
 }
 
 const INSPECTOR_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -225,5 +286,92 @@ describe('B4 · no inspector-v2 source falls back to an id for a display label',
       if (n > 0) offenders.push(`${basename(file)}: ${n}`)
     }
     expect(offenders).toEqual([])
+  })
+})
+
+describe('B4 · the WIDENED class — a WIRE object’s label falls back to no id either', () => {
+  const files = sourceFilesIn(INSPECTOR_DIR)
+
+  it('POSITIVE CONTROL: the widened matcher detects BOTH live shapes it was written for', () => {
+    // The two exact expressions that stood in this directory while the narrow
+    // matcher above reported no offenders. Through the same pipeline the claim
+    // below uses, so a transform change cannot hollow this out.
+    expect(
+      wireLabelFallbacksIn('{String(c.label ?? c.node_id ?? `#${i + 1}`)}', 'x.tsx'),
+    ).toBe(1)
+    expect(
+      wireLabelFallbacksIn('label: String(factorData?.label ?? factorId),', 'x.tsx'),
+    ).toBe(1)
+  })
+
+  it('POSITIVE CONTROL: it still detects the ORIGINAL node-data shape', () => {
+    // The widening must be a SUPERSET. If it ever stops matching the shape the
+    // narrow matcher was built for, the two guards have diverged and the
+    // original fourteen call sites could return under a green suite.
+    expect(wireLabelFallbacksIn('const l = String(n.data?.label ?? n.id)', 'x.tsx')).toBe(1)
+  })
+
+  it('⭐ REGRESSION CONTROL: the NARROW matcher provably could NOT see the wire shape', () => {
+    // Pins WHY the widening was needed, as a fact about the instrument rather
+    // than a claim in a comment — so nobody "simplifies" the two matchers back
+    // into one by keeping the narrow one and silently restores the blind spot.
+    const live = '{String(c.label ?? c.node_id ?? `#${i + 1}`)}'
+    expect(idFallbacksIn(live, 'x.tsx')).toBe(0)
+    expect(wireLabelFallbacksIn(live, 'x.tsx')).toBe(1)
+  })
+
+  it('CONTRAST CONTROL: sanctioned quoted fallbacks are still clean', () => {
+    // Without this the widened matcher could pass the claim below by flagging
+    // everything, and it would be narrowed back to uselessness by the first
+    // lane it inconvenienced.
+    expect(wireLabelFallbacksIn("const l = String(c.label ?? 'Constraint')", 'x.tsx')).toBe(0)
+    expect(wireLabelFallbacksIn("const l = String(c.label ?? '')", 'x.tsx')).toBe(0)
+    expect(wireLabelFallbacksIn('const l = c.label ?? `fallback`', 'x.tsx')).toBe(0)
+  })
+
+  it('CONTRAST CONTROL: the honest formatter call is clean', () => {
+    // The shape this commit ships. A guard that reddened the correct fix would
+    // be deleted by the next lane, so the fix is pinned as acceptable here.
+    expect(wireLabelFallbacksIn('{goalConstraintText(c, nodes)}', 'x.tsx')).toBe(0)
+    expect(
+      wireLabelFallbacksIn('const key = c.constraint_id ?? c.id ?? i', 'x.tsx'),
+    ).toBe(0)
+  })
+
+  it('CONTRAST CONTROL: the defect form inside a COMMENT is not counted', () => {
+    // This file's own header quotes both live expressions, and so does
+    // `GoalAdvancedEditor`'s. A scan matching its own documentation would
+    // report leaks that do not exist.
+    expect(wireLabelFallbacksIn('// String(c.label ?? c.node_id)\nconst x = 1', 'x.tsx')).toBe(0)
+  })
+
+  it('the GOAL editor — the site this commit fixes — is at ZERO', () => {
+    // Named explicitly rather than left to the aggregate below: this is the
+    // assertion that the raw-id fallback is GONE, not merely unreached by the
+    // render tests in `GoalAdvancedEditor.constraintsRead.spec.tsx`. A refactor
+    // that reinstated `?? c.node_id` would pass every render test that does not
+    // happen to use an unresolvable target.
+    const goalEditor = files.find(f => basename(f) === 'GoalAdvancedEditor.tsx')
+    expect(goalEditor).toBeDefined()
+    expect(wireLabelFallbacksIn(readFileSync(goalEditor!, 'utf8'), goalEditor!)).toBe(0)
+  })
+
+  it('the residual matches the pinned set EXACTLY — growth is a leak, shrinkage is the follow-up', () => {
+    const found: Record<string, number> = {}
+    for (const file of files) {
+      const n = wireLabelFallbacksIn(readFileSync(file, 'utf8'), file)
+      if (n > 0) found[basename(file)] = n
+    }
+    expect(found).toEqual(WIRE_LABEL_PINNED)
+  })
+
+  it('CONTRAST CONTROL: the scan reads real files, and it discriminates', () => {
+    // A magnitude check against a known non-zero, so the ZERO asserted for the
+    // goal editor cannot be the output of a scan that silently read nothing.
+    // The pinned offender must read non-zero through the SAME helper.
+    expect(files.length).toBeGreaterThan(40)
+    const pinned = files.find(f => basename(f) === 'OptionAdvancedEditor.tsx')
+    expect(pinned).toBeDefined()
+    expect(wireLabelFallbacksIn(readFileSync(pinned!, 'utf8'), pinned!)).toBe(1)
   })
 })

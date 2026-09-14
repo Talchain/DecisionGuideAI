@@ -807,6 +807,17 @@ The only custom icon in the system. Marks any element where clicking triggers an
 - **Icon + short label** only where the action is ambiguous.
 - **No icons in running text** or descriptions.
 - **Maximum three icon actions per row.** Beyond three, use overflow menu (`MoreHorizontal`).
+- **Canvas quick actions:** Ask Olumi, Challenge, More, gated by their existing
+  capabilities. Open details moves into More; clicking the node also opens its
+  inspector. Keep the top-centre node shape and existing node geometry.
+- **Option inspector names:** wrap the full title below the type row. Place
+  header controls beside the type label, preserving the existing rename path.
+- **Canvas quick-action tooltips:** use the shared portalled tooltip in
+  `src/components/Tooltip.tsx` with `asChild`, 300 ms hover delay, keyboard-focus
+  disclosure, Escape dismissal and viewport repositioning. The node preview
+  yields while the quick-action row is hovered or focused. Empty `title`
+  attributes block inherited browser tooltips; tooltip copy lives in the shared
+  component. This desktop refinement preserves their existing hit areas.
 - **Tooltips mandatory** on all icon-only interactive elements.
 - **No emoji.** No unicode symbol characters as icon replacements (e.g. '⚠', '⛔', 'ℹ', '✕'). Use Lucide.
 

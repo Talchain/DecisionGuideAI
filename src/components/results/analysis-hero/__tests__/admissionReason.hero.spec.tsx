@@ -90,10 +90,34 @@ const PANEL_PROPS = { rerunDisabled: false, focusPanelMounted: false } as const
 const MODE_REFUSES = 'quantified_provisional'
 const MODE_PERMITS = 'comparative_leader'
 
+/**
+ * ⚠⚠ THE `field` NAMES USED TO BE INVENTED (`field_0`, `field_1`, …) AND THAT
+ * IS WHY THIS FILE WAS GREEN OVER A LIVE MISSTATEMENT.
+ *
+ * No reason carried `permitted_analysis_mode`, so every case below was
+ * satisfied by whatever sat at index 0 — the spec could not tell "selects the
+ * refusing conjunct" from "takes the first element". `buildHeroModel` read
+ * `reasons?.[0]?.message`, and on the real wire index 0 is the AFFIRMATIVE
+ * `structurally_analysable` / `READY_TO_COMPARE` conjunct, so the slot rendered
+ * "Analysis can run on this model as it stands" as the reason no leader was
+ * named. A fixture you wrote yourself is not evidence about the wire.
+ *
+ * The first message is therefore THE SELECTED CONJUNCT, and the helper emits it
+ * with the producer's real field name — and LAST, as the live payload does, so
+ * nothing here can pass by position. The verbatim capture and the
+ * order-invariance pair live in `refusalIsLegible.hero.spec.tsx`; this helper
+ * only has to stop being positional.
+ */
+const TARGET_FIELD = 'permitted_analysis_mode'
+
 function admission(messages: string[], mode: string = MODE_REFUSES) {
+  const [selected, ...others] = messages
   return {
     permitted_analysis_mode: mode,
-    reasons: messages.map((message, i) => ({ field: `field_${i}`, message })),
+    reasons: [
+      ...others.map((message, i) => ({ field: `other_conjunct_${i}`, message })),
+      { field: TARGET_FIELD, message: selected },
+    ],
   }
 }
 
@@ -153,11 +177,17 @@ describe('analysis hero — the withheld run says WHY no leader was named', () =
     expect(getByTestId(TESTID).textContent).toBe(ADMISSION_MESSAGE)
   })
 
-  it('renders the FIRST reason only when several arrive', () => {
-    const model = heroModel({
-      verdict: WITHHELD_VERDICT,
-      analysisAdmission: admission([ADMISSION_MESSAGE, SECOND_MESSAGE]),
-    })
+  it('renders the permitted_analysis_mode conjunct only, when several arrive', () => {
+    // ⚠ THIS TEST WAS TITLED "renders the FIRST reason only" AND ASSERTED THE
+    // DEFECT. With the real field names in place the selected conjunct is the
+    // LAST element here, so a positional reader renders `SECOND_MESSAGE` and
+    // this goes red — which is the point.
+    const admissionPayload = admission([ADMISSION_MESSAGE, SECOND_MESSAGE])
+    // Precondition pinned in-test: the target is NOT at index 0.
+    expect(admissionPayload.reasons[0].field).not.toBe(TARGET_FIELD)
+    expect(admissionPayload.reasons.at(-1)?.field).toBe(TARGET_FIELD)
+
+    const model = heroModel({ verdict: WITHHELD_VERDICT, analysisAdmission: admissionPayload })
     expect(model.designationsWithheld, 'fixture must reproduce the withheld state').toBe(true)
 
     const { getByTestId, queryAllByText } = render(

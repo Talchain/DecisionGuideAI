@@ -33,6 +33,9 @@ const sel = (over: Partial<AssumedStrengthSelection> = {}): AssumedStrengthSelec
   switchProbability: 0.35,
   alternativeWinnerLabel: 'Consolidate',
   strengthProvenance: 'ai_inferred',
+  // The destination's answer. Defaulted TRUE so every existing claim below is
+  // exercised on the arm that actually renders an act; the matrix varies it.
+  strengthEditReachable: true,
   ...over,
 })
 
@@ -157,6 +160,26 @@ describe('assumedStrengthCopy — the claim boundary, held mechanically', () => 
       const ask = assumedStrengthAsk(sel({ strengthProvenance }))
       expect(ask).toMatch(/\bwhether\b/i)
       expect(ask).toMatch(/re-run/i)
+    }
+  })
+
+  it('⛔ prescribes NOTHING where the destination cannot serve the act', () => {
+    // The defect this pairing exists to close: an imperative beside no control.
+    // Both provenances, because the instruction differs and the rule does not.
+    for (const strengthProvenance of ['ai_inferred', 'missing'] as const) {
+      expect(assumedStrengthAsk(sel({ strengthProvenance, strengthEditReachable: false }))).toBeNull()
+    }
+  })
+
+  it('⛔ never tells the reader to CONFIRM — the route cannot perform that act', () => {
+    // `edge_strength_edit` sends `intent: 'set'`, and CEE refuses an unchanged
+    // set (`set_target_unchanged`); ratifying is `confirm_current`, which no UI
+    // builder emits. A reader who AGREES is the likeliest reader, so a
+    // "Confirm" here is a promise broken by the most ordinary response to it.
+    // ⚠ Bound to the imperative, not to the word: "unconfirmed"/"not confirmed"
+    // are DESCRIPTIONS elsewhere in this module and must stay legal.
+    for (const s of allSentences()) {
+      expect(s).not.toMatch(/\bconfirm (?:olumi|the|this|its|it)\b/i)
     }
   })
 

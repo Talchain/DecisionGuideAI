@@ -153,8 +153,14 @@ describe('CommandPalette DOM - Rich Node Types', () => {
     const input = screen.getByPlaceholderText('Search actions...')
     fireEvent.change(input, { target: { value: 'factor' } })
 
+    // ⚠ SHAPE CHANGED 7 Sep 2026. The command is still withheld and still not
+    // executable — that part is unchanged and is what `mockAddNode` pins. What
+    // changed is that the palette no longer answers with its GENERIC empty
+    // state, which said the same thing for "withheld" and "no such command".
+    // The reason now shows instead; see `CommandPalette.withheldNotice.spec.tsx`.
     expect(screen.queryByText('Add Factor Node')).not.toBeInTheDocument()
-    expect(screen.getByText('No actions found')).toBeInTheDocument()
+    expect(screen.queryByText('No actions found')).not.toBeInTheDocument()
+    expect(screen.getByTestId('command-palette-withheld-notice')).toBeInTheDocument()
     expect(mockAddNode).not.toHaveBeenCalled()
   })
 

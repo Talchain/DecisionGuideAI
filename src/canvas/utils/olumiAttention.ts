@@ -47,10 +47,39 @@ export interface OlumiAttentionNote {
   actions?: Array<{ id: string; label: string; prompt?: string }>
 }
 
+/**
+ * ⭐ A DISCLOSURE ABOUT THE MARK — NOT A FINDING ABOUT THE MODEL.
+ *
+ * `OlumiAttentionNote` is the producer's own coaching, rendered verbatim; this
+ * file's rule is that nothing here composes a sentence beside it. A caveat is a
+ * DIFFERENT KIND OF STRING and needs its own field so the two can never be read
+ * as one: it says something about **the mark the UI just drew**, in the UI's own
+ * voice, exactly as the card's staleness notice already does.
+ *
+ * The distinction is load-bearing. Merging a caveat into `note.body` would put a
+ * UI-authored sentence inside the channel whose whole contract is "the producer
+ * said this" — the fabricated-coaching defect, arrived at by tidiness.
+ *
+ * `sourceLine` is the producer's own reason, rendered verbatim when present, so
+ * the WHY is never invented here either. `AnalysisAdmissionV1.reasons` is
+ * contractually non-empty on a refusal, which is what makes that possible.
+ */
+export interface OlumiAttentionCaveat {
+  /** UI-authored, about the mark itself. */
+  text: string
+  /** The producer's own sentence. Rendered verbatim — never composed here. */
+  sourceLine?: string
+}
+
 export interface OlumiAttention {
   nodeIds: string[]
   edgeIds: string[]
   note: OlumiAttentionNote | null
+  /**
+   * What the UI has to admit about the mark it drew. Independent of `note`: a
+   * hold may carry a caveat with no coaching, coaching with no caveat, or both.
+   */
+  caveat: OlumiAttentionCaveat | null
   /** The turn this attention belongs to — see the binding note above. */
   turnId: string | null
   /** The model version it was computed against. */
@@ -68,6 +97,7 @@ export function requestOlumiAttention(next: {
   nodeIds?: string[]
   edgeIds?: string[]
   note?: OlumiAttentionNote | null
+  caveat?: OlumiAttentionCaveat | null
   turnId?: string | null
 }): { applied: string[]; dropped: string[] } {
   const state = useCanvasStore.getState()
@@ -117,6 +147,7 @@ export function requestOlumiAttention(next: {
     nodeIds: liveNodes,
     edgeIds: liveEdges,
     note: next.note ?? null,
+    caveat: next.caveat ?? null,
     turnId: next.turnId ?? null,
     modelVersion: typeof state.layoutVersion === 'number' ? state.layoutVersion : null,
   })

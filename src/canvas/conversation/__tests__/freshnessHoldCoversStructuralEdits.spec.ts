@@ -11,10 +11,13 @@
  * model" over a graph CEE never held.
  *
  * THE PREDICATE'S DOMAIN, WHICH IS THE WHOLE POINT (CLAUDE.md trap 22). The
- * hold must cover every MODEL-CHANGING deferred event and NOTHING ELSE. Four
- * of the eleven `WIRE_SYSTEM_EVENT_TYPES` write graph state at CEE
+ * hold must cover every MODEL-CHANGING deferred event and NOTHING ELSE. Five
+ * of the twelve `WIRE_SYSTEM_EVENT_TYPES` write graph state at CEE
  * (`SYSTEM_EVENT_HANDLING: 'mutating'`): factor_value_edit, structural_add,
- * structural_delete, structural_rename. Of the other seven, SIX are
+ * structural_delete, structural_rename and — since its emitter landed on
+ * 2026-09-07 — edge_strength_edit, whose classification is additionally gated
+ * on `rpcEnforce` (see the adjudication test at the foot of this file). Of the
+ * other seven, SIX are
  * `'ack_and_commit'` or `'fact_and_commit'` at CEE and the seventh —
  * `direct_analysis_run` — is not a CEE system-event kind at ALL, going over as
  * `kind='message'` (`v5/buildPayload.ts:369`). None of the seven writes a
@@ -282,10 +285,27 @@ describe('the undispatched-edit hold covers EVERY model-changing system event', 
  * stated on the test itself.
  */
 describe('what actually pins the model-changing set', () => {
-  it('names exactly the four mutating wire members', () => {
+  it('names exactly the seven mutating wire members', () => {
+    // 2026-09-08 (schemas 0.54.0): `option_intervention_edit` joins, and it is
+    // HELD for the sharpest version of the reason the others are. An option's
+    // effect value is INSIDE CEE's analysis-affecting hash projection — the
+    // published `CANONICAL_GRAPH_HASH_NESTED_PROJECTION` names `interventions`
+    // on both the node and the option carrier — so an undispatched one means a
+    // freshness verdict computed about a graph the user has already changed.
+    // CEE declares the kind `'mutating'`.
+    // 2026-09-11 (schemas 0.50.0 member, writer landed now): `structural_add_edge`
+    // joins, and it is HELD for the plainest version of the reason: a new causal
+    // edge is INSIDE the analysis-affecting hash projection — the published
+    // projection names `from`, `to`, `edge_type`, `exists_probability`,
+    // `effect_direction` and strength `mean`/`std` — so an undispatched one means
+    // a freshness verdict computed about a graph the user has already changed.
+    // CEE declares the kind `'mutating'`, unconditionally.
     expect([...MODEL_CHANGING_SYSTEM_EVENT_TYPES].sort()).toEqual([
+      'edge_strength_edit',
       'factor_value_edit',
+      'option_intervention_edit',
       'structural_add',
+      'structural_add_edge',
       'structural_delete',
       'structural_rename',
     ])
@@ -299,7 +319,7 @@ describe('what actually pins the model-changing set', () => {
     expect(
       WIRE_SYSTEM_EVENT_TYPES.filter((t) => held.has(t)).length,
       'contrast control — the partition can see the held members',
-    ).toBe(4)
+    ).toBe(7)
 
     expect(
       WIRE_SYSTEM_EVENT_TYPES.filter((t) => !held.has(t))
@@ -311,6 +331,24 @@ describe('what actually pins the model-changing set', () => {
       'direct_graph_edit',
       'edge_adjudication',
       'feedback_submitted',
+      // ⭐ THE GUARD FIRED AGAIN (2026-09-11, schemas 0.55.0) AND THIS IS THE
+      // ADJUDICATION IT DEMANDED: HELD-OUT, and pinned positively here so a
+      // later regression to held fails rather than passing quietly.
+      //
+      // A `finding_dissent` is a record of WHAT A HUMAN SAID. It writes no
+      // graph — the contract member carries no `base_graph_hash` at all, and
+      // its own comment gives the reason: five members carry that field as a
+      // STALE GATE whose rule is "CEE MUST refuse on divergence", and applying
+      // it to a dissent would refuse a true statement of what a person said
+      // because the graph had moved underneath it.
+      //
+      // ⚠ SO HOLDING WOULD BE THE LIE HERE, not the safe direction. The hold
+      // exists because a verdict computed without a pending GRAPH CHANGE is a
+      // statement about a different graph. Nothing about a dissent changes the
+      // graph, so holding on one would fabricate "Model changed since this
+      // analysis" over a run that genuinely is current — the same lie the
+      // hold exists to prevent, pointing the other way.
+      'finding_dissent',
       'patch_accepted',
       'patch_dismissed',
       'prior_range_edit',
@@ -321,33 +359,47 @@ describe('what actually pins the model-changing set', () => {
   })
 
   /**
-   * ⭐ THE COMPLETENESS QUESTION, ANSWERED AS AN ASSERTION RATHER THAN A
-   * SENTENCE. CEE's `SYSTEM_EVENT_HANDLING` classifies FIVE kinds `'mutating'`;
-   * the list above names FOUR. The fifth is `edge_strength_edit`, and the
-   * reason it is not here is not an oversight to be argued in prose — it is a
-   * RELATIONSHIP between two lists in this repo, so it is pinned:
-   * `edge_strength_edit` is not a member of `WIRE_SYSTEM_EVENT_TYPES` at all,
-   * so it cannot be serialised, cannot be enqueued behind the in-flight lock,
-   * and is outside anything `publishPendingEditCount` is able to see.
+   * ⭐ THE GUARD FIRED, AND THIS IS THE ADJUDICATION IT DEMANDED (2026-09-07).
    *
-   * ⚠ THIS IS THE FAILURE WE WANT. `model-tab-v2/contracts.ts` records
-   * `proposeEdgeStrength → edge_strength_edit` as in-flight work. The day that
-   * emitter lands, the member joins `WIRE_SYSTEM_EVENT_TYPES` — and this test
-   * AND the PARTITION above both go RED until someone adjudicates it into one
-   * side. A count in a comment would have gone quietly stale instead.
+   * The previous version of this test asserted `edge_strength_edit` was NOT a
+   * member of `WIRE_SYSTEM_EVENT_TYPES`, with the message "when this REDs,
+   * edge_strength_edit is sendable and the held list needs adjudicating". The
+   * emitter landed, it RED, and the answer is HELD — pinned positively below
+   * rather than merely dropped, so a silent regression to unheld fails here.
+   *
+   * ⚠⚠ AND THE ADJUDICATION IS NOT THE OBVIOUS ONE, so it is written down. CEE
+   * declares this kind `'mutating'` CONDITIONALLY: `dispatch.ts:570-577` at
+   * staging `9de184f1` demotes it to `'reader_only_refusal'` unless
+   * `config.features.graphCas.rpcEnforce === true`, and it is the ONLY one of
+   * the five so gated. Under the refusing posture CEE writes no graph, so one
+   * could argue an undispatched event changes nothing and need not hold.
+   *
+   * That argument is wrong in the direction that hurts. The hold is about edits
+   * the UI has NOT YET DISPATCHED, and the UI cannot observe the posture — CEE's
+   * own config header says it is "UNOBSERVABLE FROM ANY CLIENT by
+   * construction". Holding on an edit the server would have refused OVERSTATES
+   * staleness: the user is invited to re-run something that is already current.
+   * NOT holding on an edit the server DID apply UNDERSTATES it: the user is
+   * shown a verdict about a graph that no longer exists. Only one of those two
+   * lies is about the numbers.
    */
-  it("the fifth kind CEE calls 'mutating' is not a wire member, so this filter cannot reach it", () => {
+  it("the mutating kind CEE gates on rpcEnforce is HELD, under both postures", () => {
     const wire = WIRE_SYSTEM_EVENT_TYPES as readonly string[]
+    const held = new Set<string>(MODEL_CHANGING_SYSTEM_EVENT_TYPES)
 
     // Contrast control first — an absence claim from a probe that sees nothing
     // is blindness, not evidence.
     expect(wire, 'contrast control — the probe can see a member that IS present').toContain(
       'structural_rename',
     )
+    // And the discriminating half: the same probe must be able to answer NO.
+    // `chip_click` is a real CEE SystemEventKind the UI does not emit, so a
+    // probe that says yes to everything fails here.
+    expect(wire, 'contrast control — the probe can also answer NO').not.toContain('chip_click')
 
-    expect(
-      wire,
-      'when this REDs, edge_strength_edit is sendable and the held list needs adjudicating',
-    ).not.toContain('edge_strength_edit')
+    expect(wire, 'the emitter landed, so the member is sendable').toContain('edge_strength_edit')
+    expect(held, 'and a graph-changing edit holds the freshness overlay').toContain(
+      'edge_strength_edit',
+    )
   })
 })

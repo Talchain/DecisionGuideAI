@@ -192,6 +192,302 @@ export function acceptsElicitedBelief(nodeData: unknown): boolean {
   return unit.length === 0
 }
 
+/**
+ * ⭐⭐ WHAT THIS FACTOR'S OWN PRIOR ADMITS — everything an editor needs to judge a
+ * typed number, and nothing it needs to RENDER one.
+ *
+ * ⚠⚠ `priorMin`/`priorMax` ARE MODEL SCALE, and that is the whole point.
+ * `nodes/shared/factorPriorRange.ts` states the contract: *"prior.range_min/max
+ * are NORMALISED 0–1 values"*. The number a user TYPES may be in user units, so
+ * the two are not comparable until the SAME forward transform this module
+ * already owns (`normaliseRawFactorValue`) has been applied to the typed number.
+ * `cap` and `inUserUnits` are carried so that transform can be run at the
+ * editor; they are not a second scale rule, they are the inputs to the existing
+ * one.
+ *
+ * ⛔ NO BOUND IS EVER INVERTED TO REACH A VERDICT. Comparing the value the
+ * commit WOULD STORE against the prior's own untouched numbers means the guard
+ * admits exactly what the model can hold, by construction. The inverse
+ * (`bound × cap`) appears once, in the SENTENCE, chosen AFTER the verdict —
+ * the discipline `unproposableDraftReason` already follows on the goal arm.
+ */
+export interface FactorValueAdmission {
+  /** The prior's declared lower bound, MODEL scale, untransformed. */
+  priorMin: number
+  /** The prior's declared upper bound, MODEL scale, untransformed. */
+  priorMax: number
+  /** The factor's cap, for the forward transform. `null` when it declares none. */
+  cap: number | null
+  /** Whether the editor's input is showing a USER-UNIT magnitude. */
+  inUserUnits: boolean
+}
+
+/**
+ * ⭐⭐ THE FACTOR'S DECLARED SUPPORT, or `null` when it declares none.
+ *
+ * ⚠⚠ ABSENCE IS THE DEFAULT AND IT FAILS OPEN. A factor that declares no usable
+ * range gains NO refusal from this — a guard that invents a bound is a worse
+ * defect than the one it closes, because it locks a user out of a row they can
+ * still fix. Every arm below therefore returns `null` rather than a fallback.
+ *
+ * ⚠ THE SHAPES ARE ENUMERATED FROM THE TYPE, NOT FROM A GREP OF LIVE PAYLOADS.
+ * `PriorSchema = z.union([z.number().min(0).max(1), PriorDistributionSchema])`
+ * (`domain/nodes.ts`), and BOTH range ends are `.optional()` on the object arm.
+ * So: absent · a bare probability · an object with neither end · an object with
+ * ONE end · an object with both. Only the last is a range, and it is a range
+ * only when both ends are finite and ordered.
+ *
+ * ⚠⚠ A MAGNITUDE-SCALED FACTOR IS EXCLUDED, and this is not a special case — it
+ * is the same fact `isMagnitudeScaledFactor` was minted for. When a factor
+ * declares a unit and NO cap, CEE stores `value` and `raw_value` IDENTICALLY
+ * (witnessed shape `{value: 40000, unit: '£', raw_value: 40000}`), so a 0–1
+ * prior is NOT the support of `value` there and comparing against it would
+ * refuse a perfectly legitimate £40,000. The prior's numbers are only the
+ * support of `value` where `value` is genuinely a normalised quantity.
+ *
+ * ⚠ AN IGNORANCE PRIOR IS STILL A SUPPORT, AND THAT IS A DELIBERATE RULING
+ * (CLAUDE.md trap 21 — name the question each authority answers).
+ * `isUnquantifiedPrior` answers *"may a surface PRESENT this as an estimate?"*
+ * and is consumed by display code, which suppresses the printed "Range:" line.
+ * This function answers a DIFFERENT question — *"does the prior's support admit
+ * this number?"* — and `uniform(0,1)` supports [0,1] however it came to exist.
+ * Aligning the two would make this guard dark on exactly the factors the
+ * measured defect was found on, every one of which carries `{0, 1}`. So
+ * `isUnquantifiedPrior` is deliberately NOT called here.
+ */
+export function resolveFactorValueAdmission(nodeData: unknown): FactorValueAdmission | null {
+  const data = nodeData as { prior?: unknown } | undefined
+  const prior = data?.prior
+  // The bare-probability arm of the union, and every non-object, carry no range.
+  if (typeof prior !== 'object' || prior === null) return null
+  const { range_min: min, range_max: max } = prior as {
+    range_min?: unknown
+    range_max?: unknown
+  }
+  if (typeof min !== 'number' || !Number.isFinite(min)) return null
+  if (typeof max !== 'number' || !Number.isFinite(max)) return null
+  // An inverted declaration is degenerate: refuse nothing rather than everything.
+  if (min > max) return null
+  // See the header — the prior's numbers are not the support of a magnitude-scaled
+  // `value`, so this factor declares no bound THIS GUARD CAN USE.
+  if (isMagnitudeScaledFactor(nodeData)) return null
+
+  const obs = getObservedState(nodeData)
+  const cap = readNumber(obs.cap)
+  const { inUserUnits } = resolveValueInputSeed(nodeData)
+  return { priorMin: min, priorMax: max, cap: cap ?? null, inUserUnits }
+}
+
+/**
+ * The bound as the user would TYPE it. Display only — see `FactorValueAdmission`.
+ *
+ * `toPrecision` trims the float noise a multiplication leaves (`0.3 × 7` reads
+ * `2.0999999999999996`) so the sentence names a number a person can enter. It
+ * cannot affect a verdict: no caller compares against this.
+ */
+function boundAsTyped(bound: number, { cap, inUserUnits }: FactorValueAdmission): string {
+  const shown = inUserUnits && cap !== null && cap > 0 ? bound * cap : bound
+  return factorValueAsTyped(shown)
+}
+
+/**
+ * A factor's number AS A PERSON WOULD TYPE IT. Display only.
+ *
+ * `toPrecision` trims the float noise a multiplication leaves (`0.3 x 7` reads
+ * `2.0999999999999996`) so a rendered number is one a reader could enter into
+ * the field beside it.
+ *
+ * ⚠ EXTRACTED FROM `boundAsTyped`, NOT WRITTEN BESIDE IT. The refusal
+ * sentence and any surface disclosing a current value are rendering the same
+ * kind of quantity into the same field's vocabulary; two spellings of that
+ * would drift the day either is adjusted (CLAUDE.md trap 12), and the drift
+ * would be a row and its own error message disagreeing about a number.
+ *
+ * ⚠ IT CANNOT REACH A VERDICT, exactly as `boundAsTyped` cannot: no caller
+ * compares against this, so no rounding here can widen or narrow what is
+ * admitted.
+ */
+export function factorValueAsTyped(value: number): string {
+  return String(Number(value.toPrecision(12)))
+}
+
+/**
+ * ⭐⭐ WHY THIS DRAFT IS OUTSIDE THE FACTOR'S OWN DECLARED RANGE — or `null`.
+ *
+ * ⚠ THE INVARIANT IS THE SPEC, NOT THE SYMPTOM: *the value the commit would
+ * store lies within `[range_min, range_max]`*. It is deliberately NOT "the typed
+ * number is at most 1", which is the shape of the measured failure and which
+ * would refuse the legitimate `10` on a cap-10 factor.
+ *
+ * ⚠ SIGN-SYMMETRIC, DELIBERATELY. A `> max` test passes every case the defect
+ * was found through and leaves the entire lower half open — the asymmetry that
+ * has cost this estate a shipped inverse before (CLAUDE.md trap 13d).
+ *
+ * ⚠ `parseFloat`, NOT `Number` — the commit path parses with `parseFloat`
+ * (`ModelTabV2Panel.confirmEdit`), and a guard that read the draft differently
+ * from the committer would judge a number nobody is about to store.
+ *
+ * An unparseable draft returns `null` here on purpose: it is already refused,
+ * by name, one arm earlier. Two vocabularies for one question is the drift.
+ *
+ * ⭐ `act` NAMES THE SURFACE'S OWN ADVANCE CONTROL, AND IT EXISTS SO THERE STAYS
+ * ONE SENTENCE RATHER THAN TWO. The bound, the scale transform and the verdict
+ * are what is dangerous to re-derive; the trailing act is the one clause that is
+ * genuinely different per surface, because the surfaces press different buttons.
+ * The Model tab's row editor advances through `Review change`, so it takes the
+ * default and its rendered bytes are UNCHANGED by this parameter. The Reasoning
+ * tab's `FactorValueControl` advances through `Save`, and a sentence telling
+ * that reader to "review" an act their panel does not offer would be an
+ * instruction they cannot follow.
+ *
+ * ⚠ IT CANNOT REACH A VERDICT. `act` is appended AFTER every comparison has
+ * returned, so no caller can widen or narrow what is admitted by choosing a
+ * word — the same discipline `boundAsTyped` already follows.
+ */
+export function factorValueAdmissionRefusal(
+  admission: FactorValueAdmission | null | undefined,
+  draft: string,
+  act: string = 'review this change',
+): string | null {
+  if (!admission) return null
+  const typed = parseFloat(draft)
+  if (!Number.isFinite(typed)) return null
+  // The SAME forward transform the emitter runs, so the number judged here is
+  // the number the model would hold. Called, never re-typed.
+  const value = admission.inUserUnits
+    ? normaliseRawFactorValue(typed, admission.cap)
+    : typed
+  if (!Number.isFinite(value)) return null
+  if (value >= admission.priorMin && value <= admission.priorMax) return null
+  return `Enter a value between ${boundAsTyped(admission.priorMin, admission)} and ${boundAsTyped(admission.priorMax, admission)} to ${act}`
+}
+
+/**
+ * ⭐⭐ THE FRAME A `{value, raw_value}` PAIR ENCODES — A DELIBERATE CROSS-REPO
+ * MIRROR OF CEE's `recoverScaleFrame`, AND IT IS DECLARED AS ONE.
+ *
+ * ⚠⚠ THIS IS A DUPLICATED RULE, which is this estate's dominant defect class
+ * (CLAUDE.md trap 12). It is duplicated because it CANNOT be imported: the
+ * owning function lives in another service and no shared package carries it
+ * (swept at UI `b93904c9`, `src`: `recoverScaleFrame|scale_frame|scaleFrame` =
+ * 0 files, against a contrast control of `raw_value` = 188 files, so the
+ * absence is real rather than instrument blindness). The duplication is
+ * therefore made LOUD instead of implicit, and pinned by
+ * `__tests__/factorValueScaleFrameAgreement.spec.ts`, whose expectations are
+ * CEE's own executed output rather than this file's opinion.
+ *
+ * ── THE OWNER, AND THE BYTES THIS MIRRORS ──────────────────────────────────
+ * `recoverScaleFrame` —
+ * `olumi-assistants-service` `staging` @ `c6c16885`,
+ * `src/orchestrator-v5/tools/handlers/d1-shared/scale-frame.ts:39-52`.
+ * Its four preconditions, in its order and with its strictness:
+ *   `value` a finite number · `raw` a finite number · `value > 0` ·
+ *   `raw > value` · quotient finite and `> 1`.
+ * The run gate `findScaleIncoherentBaselineFactorIds`
+ * (`plot-intervention-scale.ts:813`) EXEMPTS a factor whenever that call
+ * returns a frame, which is why this question decides the disclosure.
+ *
+ * ── WHAT WOULD MAKE THE TWO DRIFT ──────────────────────────────────────────
+ * A change to any precondition above, or to the gate's decision to consult it.
+ * Nothing enforces the coupling at build time; the agreement spec is the whole
+ * of it, and it fails HERE rather than as a user-visible contradiction.
+ *
+ * ⚠ READS THE STORED FIELDS RAW, exactly as CEE does — no `readNumber`
+ * unwrapping. A shape CEE cannot read must not yield a frame here either;
+ * declining leaves the disclosure ON, which is the conservative direction.
+ *
+ * Pure, total, no I/O.
+ */
+export function recoverScaleFrameFromPair(
+  value: unknown,
+  rawValue: unknown,
+): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) return undefined
+  if (!(value > 0)) return undefined
+  if (!(rawValue > value)) return undefined
+  const frame = rawValue / value
+  if (!Number.isFinite(frame) || frame <= 1) return undefined
+  return frame
+}
+
+/**
+ * ⭐ IS THIS NUMBER ONE THE ENGINE CANNOT PLACE?
+ *
+ * ⚠ TWO QUESTIONS, NAMED APART — NOT AN INCONSISTENCY TO RECONCILE (trap 21).
+ * `factorValueAdmissionRefusal` above answers *"would the number this user is
+ * TYPING fall outside the prior's declared support?"* — a refusal on an edit in
+ * flight, and it needs a draft to have an answer at all. This answers *"does the
+ * value this factor ALREADY HOLDS have any scale to be read against?"* — a
+ * disclosure about recorded state, true before anyone types anything.
+ * They overlap on the magnitude-scaled shape and disagree nowhere: a factor with
+ * no cap and no unit yields NO admission for the first (its prior is not the
+ * support of that `value`) and is exactly the shape this one exists to disclose.
+ * Collapsing them into one predicate would make the disclosure dark.
+ *
+ * ⚠⚠ THE PREMISE THIS PARAGRAPH USED TO STATE WAS FALSE, and it is corrected
+ * in place rather than deleted. It said: *"true for a factor that carries NO cap
+ * and NO unit — THE SHAPE WHERE CEE PERSISTS `raw_value = value`, so `value` IS
+ * the model scale."* **Capless does NOT imply `raw_value === value`.** CEE's
+ * records projector (pass 3d) writes magnitude-scaled factors as CAPLESS FRAMED
+ * PAIRS — `value` is the level (raw ÷ frame), `raw_value` is the user's
+ * magnitude — and deliberately does NOT persist the frame as a `cap`, because a
+ * stored cap would flip every later edit to cap-normalised writes. Capless is
+ * therefore precisely where the pair CARRIES the frame.
+ * (`olumi-assistants-service` `staging` @ `c6c16885`,
+ * `src/orchestrator-v5/tools/handlers/d1-shared/scale-frame.ts:1-38`.)
+ *
+ * The cost of that premise was a false alarm that dead-ends: the panel told the
+ * user a framed factor had "no scale recorded" and prescribed *"Ask Olumi to set
+ * the range it can move between"* — which Olumi then refuses, because it cannot
+ * store a range. A warning the product declines to act on is worse than silence.
+ *
+ * So the predicate is now: NO cap, NO unit, a finite `value` OUTSIDE [0,1],
+ * **AND no frame recoverable from the `{value, raw_value}` pair.** On that
+ * shape a bare `70` asserts a model-scale quantity seventy times the top of the
+ * scale, and there is nothing recorded saying seventy of what.
+ *
+ * ⚠ THIS IS THE SAME RULE THE BUILDER ALREADY ENFORCES, NOT A SECOND ONE.
+ * `buildFactorValueEditEvent` refuses a `model_scale` commit with
+ * `typedValue < 0 || typedValue > 1` (see the structural refusals above), so a
+ * value in this shape is one this module would decline to send. Asking the
+ * question here rather than re-deriving it in a panel is what keeps one scale
+ * authority (CLAUDE.md trap 12): a panel with its own range test would be the
+ * mirror that drifts.
+ *
+ * ⛔ WHAT IT DOES NOT CLAIM. It says nothing about why any particular analysis
+ * refused. The engine's own refusal codes (`baseline_scale_unresolved` and its
+ * siblings) are produced server-side from the whole graph, and binding this
+ * local predicate to one of them would assert a causal link this module cannot
+ * see. It answers one narrow question about ONE factor's recorded number.
+ */
+export function factorValueHasNoUsableScale(nodeData: unknown): boolean {
+  const obs = getObservedState(nodeData)
+  const cap = readNumber(obs.cap)
+  // A positive cap IS the scale. Nothing to disclose.
+  if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return false
+  // A unit makes the magnitude readable even without a cap ("£40,000"), and
+  // `isMagnitudeScaledFactor` already treats that shape as scaled.
+  const unit = typeof obs.unit === 'string' ? obs.unit.trim() : ''
+  if (unit.length > 0) return false
+  const value = readNumber(obs.value)
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false
+  // In [0,1] the number is a coherent model-scale belief; only outside it is
+  // there a quantity with nothing to measure it against.
+  if (value >= 0 && value <= 1) return false
+  // ⭐ A PAIR-ENCODED FRAME IS A RESOLVED SCALE, NOT AN UNRESOLVED ONE — the
+  // clause that was missing, and the one the engine has always applied. A
+  // capless `{value: 7, raw_value: 70}` states its own frame (10) exactly, and
+  // CEE's run gate exempts it; saying "no scale recorded" about it was a false
+  // alarm whose prescribed remedy the product then refuses.
+  //
+  // ⛔ THIS IS A POSITIVE DETERMINATION, NOT A WIDENED WINDOW. It fires only
+  // where a frame is genuinely RECOVERABLE, so every unresolvable shape still
+  // discloses: a bare raw baseline (`raw === value`), an inverted pair, a
+  // negative pair, and a level with no magnitude beside it.
+  return recoverScaleFrameFromPair(obs.value, obs.raw_value) === undefined
+}
+
 export interface FactorValueEditInput {
   /** The factor node's id. ID-ADDRESSED — a label would retarget on a rename. */
   nodeId: string
@@ -325,4 +621,64 @@ export function buildFactorValueEditEvent(
   }
 
   return { type: 'factor_value_edit', payload }
+}
+
+/**
+ * ⭐⭐ DOES THIS FACTOR DECLARE A RANGE AT ALL? `true` when it declares NONE.
+ *
+ * ⚠⚠ THIS IS NOT `resolveFactorValueAdmission` WITH THE SIGN FLIPPED, AND THE
+ * TWO MUST NEVER BE COLLAPSED (CLAUDE.md trap 21 — name the question each
+ * authority answers, do not reconcile the defaults).
+ *
+ *   `resolveFactorValueAdmission` (#1428) answers *"does this prior's support
+ *   admit the number being typed?"* and returns `null` on THREE different
+ *   grounds: no range declared · an inverted declaration · a magnitude-scaled
+ *   factor whose prior is not the support of `value`. All three mean "refuse
+ *   nothing", which is the right answer to ITS question.
+ *
+ *   This function answers *"has anyone recorded a range for this factor?"* A
+ *   factor with an inverted declaration, and a magnitude-scaled factor carrying
+ *   `{range_min, range_max}`, both HAVE a recorded range. Reading the other
+ *   function's `null` as this function's `true` would state a falsehood on both
+ *   of them, on screen, to the user.
+ *
+ * ⛔ NO RANGE IS INVENTED, INFERRED OR DEFAULTED HERE, and nothing downstream
+ * may refuse on this. It returns a FACT about what the node records, and the one
+ * consumer prints that fact. A guard that synthesised a bound would be a worse
+ * defect than the one this closes: it would lock a user out of a row whose only
+ * repair route is already unreachable.
+ *
+ * ⚠ IT FAILS OPEN, IN THE DIRECTION OF SILENCE. Every shape this cannot read
+ * returns `false` — say nothing rather than assert an absence that may not be
+ * one. The claim is only made when BOTH ends are readable and BOTH are missing.
+ *
+ * ⚠ THE FIELD IS `data.prior.{range_min, range_max}` AND THAT IS THE ONLY PLACE
+ * A RANGE LIVES. Swept at `staging` 08a3724d across `src/` with `grep -a` and a
+ * contrast control (`raw_value`, 287 non-test hits): every non-test reader of a
+ * factor range in the tree reads that one path (`NodeInspector.tsx:116`,
+ * `useInspectorMutations.ts:381`, `FactorExternalEditor.tsx:50`,
+ * `FactorExternalPanel.tsx:113`, `DecisionNode.tsx:199`,
+ * `nodes/shared/factorPriorRange.ts:111`). No second carrier exists to miss.
+ *
+ * ⚠ PRESENCE ONLY. No ordering test, no cap, no scale, no unit rule — so this is
+ * not a second range PARSER and cannot drift from the one that owns those
+ * questions. It reads the two ends and asks whether either is a finite number.
+ */
+export function factorDeclaresNoRange(nodeData: unknown): boolean {
+  const data = nodeData as { prior?: unknown } | undefined
+  const prior = data?.prior
+  // A bare probability (`PriorSchema`'s number arm) and every non-object carry
+  // no range ends to read. `undefined` is the witnessed shape of the factor this
+  // was found on; `null` is grouped with it because `typeof null === 'object'`.
+  if (prior === undefined || prior === null) return true
+  if (typeof prior === 'number') return true
+  if (typeof prior !== 'object') return false
+  const { range_min: min, range_max: max } = prior as {
+    range_min?: unknown
+    range_max?: unknown
+  }
+  const hasMin = typeof min === 'number' && Number.isFinite(min)
+  const hasMax = typeof max === 'number' && Number.isFinite(max)
+  // ONE end recorded is still a record. Only the empty case is claimed.
+  return !hasMin && !hasMax
 }

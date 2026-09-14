@@ -31,6 +31,9 @@ vi.mock('../../store', () => ({
 }))
 
 // ROADMAP 1.223 — RENDER the producer's leader claim, never DERIVE one.
+// ⚠ WORDING, 8 Sep 2026: this headline now reads "{X} supported in N% of
+// simulated scenarios". The sentences quoted below are the wording at the
+// time the GATE was built and are kept as the record of why it exists.
 // DecisionNode's "{winner} leads in N% of scenarios" headline now quotes
 // `deriveDecisionVerdict` and renders NOTHING unless a producer signal claimed
 // a leader. (The stability line and the post-analysis chips do NOT hang off it
@@ -319,8 +322,19 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    expect(screen.queryByText(/leads in \d+% of scenarios/)).toBeNull()
+    // ⚠ THE SENTENCE ASSERTION IS DROPPED, NOT MOVED. It read
+    // `/supported in .../` → null, which was a real gate when this node carried
+    // that sentence. The sentence has been removed as a duplicate of the option
+    // cards' verdict, so the assertion would now pass on every run and prove
+    // nothing. Its property is pinned once, across all permission states, in
+    // `canvasLeaderAdmission`.
+    //
+    // ⭐ THE ARM SURVIVES BECAUSE ITS OTHER HALF IS NOT VACUOUS: no OPTION LABEL
+    // may reach this card either. That is the sharper property — a rewrite that
+    // reintroduced the verdict in different words would still name an option,
+    // and this catches it without depending on the retired phrasing.
     expect(screen.queryByText(/Option A/)).toBeNull()
+    expect(screen.queryByText(/Option B/)).toBeNull()
   })
 
   // Identity gate: the producer DID claim a leader, but names an option the
@@ -350,7 +364,12 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    expect(screen.queryByText(/leads in \d+% of scenarios/)).toBeNull()
+    // Same as above: the retired sentence's absence is no longer discriminating,
+    // so this arm binds to the identity property it was written for — the
+    // claimed option's LABEL must not reach this card, whatever wording a future
+    // surface might use.
+    expect(screen.queryByText(/Option A/)).toBeNull()
+    expect(screen.queryByText(/Option B/)).toBeNull()
   })
 })
 

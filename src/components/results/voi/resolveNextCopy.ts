@@ -96,7 +96,7 @@ export const RESOLVE_NEXT_COPY = {
    * the honesty disclosure IS that we name the basis and the restraint.
    */
   note:
-    'Ranked by value of information — what a run says it is worth learning before deciding. No amounts shown.',
+    'Ranked by value of information. That is what a run says it is worth learning before deciding. No amounts shown.',
   /** Rank-1 of the `status: 'resolved'` rows, in producer wire order. */
   lead: 'Most worth resolving next',
   /** Ranks 2..n, producer wire order. */
@@ -130,7 +130,7 @@ export const RESOLVE_NEXT_COPY = {
    * "yet" is load-bearing: it leaves open that a longer run resolves something.
    */
   noneAboveResolution:
-    'Nothing stands out to resolve yet — this run does not have the precision to tell these unknowns apart.',
+    'Nothing stands out to resolve yet. This run does not have the precision to tell these unknowns apart.',
 
   // ── V7-C slice 2a — THE DECISION-LEVEL LINE ────────────────────────────────
   //
@@ -168,7 +168,7 @@ export const RESOLVE_NEXT_COPY = {
    * estimator made no such recommendation.
    */
   decisionNotZero:
-    'Measured for the decision as a whole, this run did not come back at zero — so "nothing stands ' +
+    'Measured for the decision as a whole, this run did not come back at zero. So "nothing stands ' +
     'out here" is not the same as "nothing left to learn". This ranking scores unknowns one at a ' +
     'time, and leaves out anything an option already controls.',
 
@@ -186,6 +186,6 @@ export const RESOLVE_NEXT_COPY = {
    * anyway is deliberate — a sweep with a carve-out is a sweep that widens.
    */
   decisionZero:
-    'Measured for the decision as a whole, this run came back at zero — on this model, learning ' +
+    'Measured for the decision as a whole, this run came back at zero. On this model, learning ' +
     'every unknown would leave the same choice.',
 } as const

@@ -211,7 +211,7 @@ describe('ModelRowView — attention markers match the row exactly', () => {
     render(<ModelRowView row={row({ id: 'f1', attention: ['fragile'] })} tier="plain" />)
     expect(screen.getByTestId('model-row-v2-f1-attention-fragile')).toHaveAttribute(
       'aria-label',
-      'Could flip the result',
+      'Could flip the answer',
     )
   })
 })

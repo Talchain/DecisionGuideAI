@@ -425,11 +425,65 @@ function producerAuthoredImprovement(
   // still renders a row — non-empty, and therefore not caught by the shared
   // emptiness degrade. Mapped to `undefined` so the shared body degrades the
   // WHOLE sentence, which is what a fabricated entry deserves.
-  return composeProducerAuthoredSentences(
-    improvements.map(improvement =>
-      improvement?.action === IMPROVEMENT_ACTION_PLACEHOLDER ? undefined : improvement?.action,
-    ),
+  const items = readinessAuthoredImprovementItems(readiness)
+  return items === null ? null : items.map((item) => item.text).join(' ')
+}
+
+/**
+ * The producer's own repair guidance as ROUTED LINES — or `null` when it cannot
+ * ship as written.
+ *
+ * ── ⭐⭐ WHY IT IS EXPORTED (12 Sep 2026) ───────────────────────────────────
+ * It was private, and read on ONE branch: `composeReadinessBlockedReason`'s
+ * rung 4, i.e. only where `analysisReadiness` is NOT stated. `canRunAnalysis`
+ * composes its sentence from whichever authority decided, and once the producer
+ * has stated one it takes the OTHER arm — `corroboration ?? analysisBlockedItems`
+ * — where `corroboration` reads `readiness_issues`/`blocker_reason` only and
+ * `analysisBlockedItems([])` returns `BLOCKED_REASON_COPY.unspecified`.
+ *
+ * So on the deployed Run chip's own refusal turn (`status: 'blocked'` with
+ * `blockers` absent — measured at CEE `c110c5e3`, see `canRunAnalysis.ts`) the
+ * user read *"Ask in the chat and it will explain what is missing"* while these
+ * remedies sat in `readinessStore`, unread. Since #1503 that field is populated
+ * on exactly those turns, from `/bff/cee/graph-readiness`'s `quality_factors`
+ * filtered on a non-empty `recommendation`.
+ *
+ * ⚠ THE CALLER'S CONTRACT IS `readinessAuthoredRefusalItems`', UNCHANGED. The
+ * side-car may CORROBORATE a refusal the producer made; it may never AUTHOR
+ * one. This is asked only while the side-car ITSELF refuses and its verdict is
+ * not stale, and only AFTER that sibling has declined — owed repairs and CEE's
+ * adjudicated headline are its refusal, these are the step before giving up.
+ * That is the same order `composeReadinessBlockedReason` already keeps between
+ * its rung 0 and its rung 4, not a second rule.
+ *
+ * ⚠ AND THE SCOPE IS THE SIBLING'S RULE, NOT A LOOSER ONE. A line gets a route
+ * only when EXACTLY ONE improvement authored that exact text AND that
+ * improvement names EXACTLY ONE affected node. De-duplication can collapse two
+ * improvements onto one line, and a remedy spanning several nodes has no single
+ * destination — linking either would send the user to an arbitrary one while
+ * looking exactly as authoritative as a correct link. `resolveBlockerTarget`
+ * then still degrades to plain text when the id is on no canvas.
+ */
+export function readinessAuthoredImprovementItems(
+  readiness: GraphReadiness | null | undefined,
+): readonly GateBlockedItem[] | null {
+  const improvements = readiness?.improvements
+  if (!Array.isArray(improvements) || improvements.length === 0) return null
+
+  const usable = improvements.map((improvement) =>
+    improvement?.action === IMPROVEMENT_ACTION_PLACEHOLDER ? undefined : improvement?.action,
   )
+  const authored = composeProducerAuthoredSentenceList(usable)
+  if (authored === null) return null
+
+  return authored.map((text) => {
+    const authors = improvements.filter((i) => (i?.action ?? '').trim() === text)
+    if (authors.length !== 1) return { text }
+    const nodes = authors[0]?.affected_nodes
+    if (!Array.isArray(nodes) || nodes.length !== 1) return { text }
+    const id = nodes[0]
+    return typeof id === 'string' && id.trim().length > 0 ? { text, scope: { id } } : { text }
+  })
 }
 
 /**
@@ -799,12 +853,14 @@ function composeProducerAuthoredSentenceList(
   return isSafeCeeText(joined) ? sentences : null
 }
 
-/** The joined form. Derived from the list, so the two cannot disagree. */
-function composeProducerAuthoredSentences(
-  values: readonly (string | undefined)[],
-): string | null {
-  return composeProducerAuthoredSentenceList(values)?.join(' ') ?? null
-}
+// ⚠ THE GENERIC JOINED HELPER IS GONE, AND ITS ABSENCE IS THE POINT.
+// `composeProducerAuthoredSentences(values)` was the only caller-facing way to
+// get a joined string WITHOUT first building the item list, and
+// `producerAuthoredImprovement` was its last caller. Both joined forms are now
+// derived from their own `…Items` function — `items.map(i => i.text).join(' ')`
+// — so a surface that renders the list and a surface that renders the join
+// cannot disagree about what the producer said. Re-introducing a join that does
+// not pass through the item list would re-open exactly that drift.
 
 function producerAuthoredSentences(
   blockers: readonly AnalysisBlocker[],

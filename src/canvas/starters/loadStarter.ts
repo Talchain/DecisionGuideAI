@@ -19,6 +19,7 @@
 
 import { applyDraftResult } from '../utils/applyDraftResult'
 import { useCanvasStore } from '../store'
+import { markGraphImported } from '../store/importRegistrationMarker'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import manifest from './starters.manifest.json'
@@ -177,6 +178,33 @@ function stampStarterProvenance(id: string, title: string): void {
   })
 }
 
+/**
+ * Arm the server-registration train for the starter now on the canvas.
+ *
+ * ⚠ THIS IS A CORRECTION OF `applyDraftResult`, NOT AN ADDITION TO IT. That
+ *   function releases `importPendingServerRegistration` UNCONDITIONALLY, and
+ *   its own comment names this exact case as the one it does not cover: a
+ *   starter routes through the draft path but CEE has never seen the graph. The
+ *   release is right for a CEE draft (the server drafted it, so it holds it)
+ *   and wrong for a starter, and the difference is knowable only here.
+ *
+ * ⚠ IT RUNS AFTER THE STAMP AND BEFORE THE AUTOSAVE, and both halves matter.
+ *   The marker's identity is STRUCTURAL (node ids + edge pairs) so the stamp
+ *   does not move it — but the store flag must be set after `applyDraftResult`
+ *   has cleared it, or it is simply overwritten. Writing the marker before the
+ *   autosave is what makes the hold survive a reload: the boot path re-derives
+ *   the flag from the marker against the graph it restores.
+ *
+ * Two writes, one fact: the localStorage marker is the STATE (it outlives the
+ * page), and the store flag is the derivation every surface reads. They are
+ * written together here for the same reason `importCanvas` writes both.
+ */
+function armServerRegistration(): void {
+  const { nodes, edges } = useCanvasStore.getState()
+  markGraphImported(nodes, edges)
+  useCanvasStore.setState({ importPendingServerRegistration: true })
+}
+
 export interface ApplyStarterResult {
   nodeCount: number
   edgeCount: number
@@ -218,6 +246,7 @@ export async function applyStarter(id: string): Promise<ApplyStarterResult> {
     throw new Error(`[starters] "${id}" applied zero nodes — fixture is not a usable graph`)
   }
   stampStarterProvenance(id, meta.title)
+  armServerRegistration()
   // Same projection every other writer uses (autosaveProjection.ts's single
   // constructor invariant, pinned by tests/ci-guards).
   //

@@ -154,6 +154,50 @@ export function isUnquantifiedPrior(prior: unknown): boolean {
 }
 
 /**
+ * ⭐⭐ DO BOTH ENDPOINTS SIT INSIDE THE 0-1 NORMALISED SCALE?
+ *
+ * ⚠ THIS IS A QUESTION ABOUT THE SCALE THE ENDPOINTS PRINT ON. It is NOT a
+ * question about whether the prior is an estimate — that is
+ * `isUnquantifiedPrior` above, which reads a provenance flag and must never be
+ * approximated by arithmetic (trap 21: two questions under similar names).
+ * Callers that need both ask both.
+ *
+ * ── WHY IT LIVES HERE RATHER THAN AT EITHER CALL SITE ───────────────────────
+ *
+ * Two surfaces render the same prior and had two answers to this one question.
+ * `NodeInspector.describePrior` earned the four limbs the expensive way: it
+ * shipped as `range_min >= 0 && range_max <= 1`, a ONE-SIDED bound wearing a
+ * membership test's comment, so `{30, 1}` rendered "30 to 1 on 0-1 scale" and
+ * `{0.5, -2}` rendered "0.5 to -2 on 0-1 scale". Each ENDPOINT needs BOTH
+ * bounds; four limbs, not two.
+ *
+ * `resolveFactorPriorRange` then needed the same discrimination and, rather
+ * than importing it, derived a bound from the endpoints themselves
+ * (`Math.max(1, |min|, |max|)`). That silently changed the question from "is
+ * this value off the scale?" to "is this value above the range?" — measured
+ * asymmetry: against a prior of 10 to 30, a displayed `31` lost its range line
+ * while a displayed `9` kept it. Nothing about SCALE is asymmetric, so the
+ * asymmetry was the proof that scale was not what it measured.
+ *
+ * One owner, both surfaces, so the pair cannot drift again.
+ *
+ * ── REACHABILITY OF OUT-OF-SCALE ENDPOINTS ──────────────────────────────────
+ *
+ * `PriorDistributionSchema` applies `.min(0).max(1)` to the NUMERIC branch only;
+ * the object branch is a `.passthrough()` with no bounds. Out-of-scale
+ * endpoints are witnessed in the evidence corpus
+ * (`fac_price {distribution: 'uniform', range_min: 10, range_max: 30}`) and are
+ * reachable with no CEE involvement at all: `FactorExternalPanel`'s blur
+ * handlers write any parseFloat-able value through `setPriorRange` unclamped.
+ */
+export function priorEndpointsAreNormalised(rangeMin: number, rangeMax: number): boolean {
+  return (
+    rangeMin >= 0 && rangeMin <= 1 &&
+    rangeMax >= 0 && rangeMax <= 1
+  )
+}
+
+/**
  * Base node data schema (v3)
  * All nodes share: label, type, optional description
  * v3 adds v1.2 API fields: kind, prior, utility, body
@@ -328,6 +372,27 @@ export const FactorNodeDataSchema = NodeDataSchema.extend({
   controllability: ControllabilityEnum.optional(),
   /** CEE V12.4: Explicit category from CEE analysis (takes precedence over derived controllability) */
   category: FactorCategoryEnum.optional(),
+  /**
+   * ⭐⭐ `true` WHEN THIS UI INVENTED THE `category` BESIDE IT, never when the
+   * producer stated it. `adapters/cee/client.ts` `inferMissingCategories` fills
+   * an omitted `category` from edge shape on every ingestion path, into the same
+   * key, so the guess is byte-identical to a stamp; this marker is the only
+   * thing that tells them apart. `model-tab-v2` reads it through
+   * `statedFactorCategoryLabel` and says nothing rather than presenting a guess
+   * as the model's own classification.
+   *
+   * ⚠ DECLARED HERE BECAUSE `AnyNodeDataSchema` STRIPS UNDECLARED KEYS. An
+   * undeclared marker would be dropped on export/import while the invented
+   * `category` — which IS declared — survived, so a round trip would silently
+   * launder the guess into a stated fact. That is the failure direction this
+   * whole marker exists to prevent, and it is pinned in
+   * `importFieldSurvival.2590.spec.ts`.
+   *
+   * ⚠ ABSENCE IS THE NARROW CLAIM *the ingestion inference did not write this*,
+   * NOT a positive attestation that CEE did. `false` is written explicitly by
+   * `useInspectorMutations.setCategory` when a human picks the value.
+   */
+  categoryInferredByUi: z.boolean().optional(),
   observedState: ObservedStateSchema.nullable().optional(),
   /** CEE wire-shape top-level display text (mirrored in ObservedStateSchema for legacy reads). */
   display_value: z.string().nullable().optional(),

@@ -41,6 +41,31 @@
  * still yields `null` rather than an empty card.
  */
 
+/**
+ * ⏳ PRODUCTION-ORPHANED, KEPT ON PURPOSE — WITH A RE-SURFACE TRIGGER.
+ *
+ * As of the v1 Model-tab removal (2026-09-11) this module has NO production
+ * caller. Its only consumer was `<GoalSection>`, deleted with that stack. It is
+ * kept on fitness-for-v2 grounds (§7.5 KEEP), not because a spec pins it — and
+ * a parked thing with no trigger is how this estate loses work: the register
+ * almost always has the row, what dies is anything that re-surfaces it.
+ *
+ * RE-SURFACE TRIGGER — whichever comes first:
+ *   (a) DEPENDENCY — any file under `src/canvas/model-tab-v2/` renders a
+ *       per-option goal-probability or goal-fit surface. At that moment this
+ *       module is either the implementation or it is provably redundant.
+ *   (b) DATE — 2026-12-11 (three months). If v2 has not grown that surface by
+ *       then, the fitness-for-v2 premise has not held and is no longer a reason
+ *       to keep the file.
+ *
+ * ACTION WHEN IT FIRES: wire it, or delete it together with its four specs.
+ * "Keep it a bit longer" is not an outcome — it is this comment being reset,
+ * which is the drift the trigger exists to stop.
+ *
+ * ⚠ Do NOT read the mentions in `ModelTabBody.tsx:27` or `OutputsDock.tsx:1979`
+ * as call sites: both are doctrine COMMENTS, not executable references. Derived
+ * at the deletion head — the only executable callers are the specs.
+ */
 import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../../domain/canvasLabels'
 import type { Node } from '@xyflow/react'
 import {

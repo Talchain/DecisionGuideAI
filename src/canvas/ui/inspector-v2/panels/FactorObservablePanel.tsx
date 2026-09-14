@@ -36,6 +36,11 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
+import {
+  investigationValueTier,
+  INVESTIGATION_VALUE_LABEL,
+  INVESTIGATION_VALUE_INVITATION,
+} from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorObservableEditor } from '../editors/FactorObservableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
@@ -59,6 +64,17 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const mutations = useNodeMutations(nodeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
+
+  /**
+   * ⭐ ONE LADDER, SHARED. The tier decision used to be typed out twice in this
+   * file and four more times in the two sibling factor panels — six copies of
+   * `>= 0.7` / `>= 0.4` over one field. The WORDS below stay here, because they
+   * differ by factor category on purpose; only the boundary moved.
+   */
+  const voiTier =
+    displayMetadata.valueOfInformation === null
+      ? null
+      : investigationValueTier(displayMetadata.valueOfInformation)
 
   // Shared display text with FactorNode and the debug bundle — see the
   // priority order on FactorDisplayInput.display_value: fresh raw_value +
@@ -255,17 +271,19 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                 <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
               )}
             </div>
-            {displayMetadata.valueOfInformation !== null && (
+            {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
+                is derived from this value, so a human reads the second as
+                implying the first — but TypeScript does not narrow through a
+                derived local, and `DataBar` takes `number`, not `number | null`.
+                Dropping either one is a type error, which is the compiler
+                making the same point. */}
+            {displayMetadata.valueOfInformation !== null && voiTier !== null && (
               <div>
                 <DataBar
                   value={displayMetadata.valueOfInformation}
                   label={INLINE_LABELS.investigationValue}
                   colour="info"
-                  trailingLabel={
-                    displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                    : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                    : 'Low'
-                  }
+                  trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
                 />
                 {/* Its own label, in the same place ImportanceBar puts its own —
                     without it, that bar's label reads as this bar's. */}
@@ -273,11 +291,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                   {INLINE_LABELS.investigationValue}
                 </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {displayMetadata.valueOfInformation >= 0.7
-                    ? 'Updating this measurement could significantly improve the analysis.'
-                    : displayMetadata.valueOfInformation >= 0.4
-                    ? 'More recent data here would moderately sharpen the analysis.'
-                    : 'Further investigation here is unlikely to change the outcome.'}
+                  {INVESTIGATION_VALUE_INVITATION.measurement}
                 </p>
               </div>
             )}

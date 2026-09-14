@@ -55,6 +55,7 @@
 
 import type { Node } from '@xyflow/react'
 import { kindOf } from './graphFacts'
+import { mayClaimOlumiAuthorship } from '../../../domain/olumiAuthorshipClaim'
 import type { Attribution } from '../types'
 
 /**
@@ -75,14 +76,33 @@ export type AuthoredEntityKind = 'option' | 'risk'
 /**
  * The ONE reading of CEE's authorship stamp for a named entity.
  *
- * `ai_inferred` is Olumi's own; everything else — `from_brief`, a user-created
- * node with no stamp at all — is the person's, and renders unmarked. The
- * asymmetry is the design: we mark what Olumi authored, we do not badge the
- * user's own words back at them.
+ * Olumi's own renders an `[Olumi]` pill; everything else — `from_brief`, a
+ * user-created node with no stamp at all — is the person's, and renders
+ * unmarked. The asymmetry is the design: we mark what Olumi authored, we do not
+ * badge the user's own words back at them.
+ *
+ * ⛔⛔ IT ASKS THE OWNER; IT DOES NOT DECIDE. This read `provenance ===
+ * 'ai_inferred'` until #1537, which is why the panel put an `[Olumi]` pill on a
+ * node the canvas card beside it correctly left unmarked. `ai_inferred` is
+ * CEE's CATCH-ALL: `transforms/schema-v3.ts:1178-1181` stamps it for everything
+ * that is not `stated` AND `brief_binding: verified`, so it ALSO means "the
+ * user stated it and the brief check came back unverified". Announcing Olumi's
+ * authorship over that case tells a user their own thinking was ours.
+ *
+ * `mayClaimOlumiAuthorship` owns the distinction (a recorded `source_quote`
+ * beside the catch-all ⇒ nobody may be named) and three surfaces now ask it,
+ * so none of them can drift from the others. ⛔ DO NOT INLINE THE PREDICATE
+ * HERE — copying it back is the hand-maintained mirror (CLAUDE.md trap 12) that
+ * let the three answers diverge in the first place.
+ *
+ * ⚠ IT SUPPRESSES NOTHING TRUE. `source_quote` is declared "present iff
+ * `stated`" (`draft/records/projector.ts:250`), so a genuine invention never
+ * carries one and stays marked — the disclosure this projection exists for is
+ * untouched. Measured over this repo's 293 captured option nodes: 145 are
+ * `ai_inferred` with no quote, 0 are `ai_inferred` with one.
  */
 export function attributionOfNode(data: unknown): Attribution {
-  const provenance = (data as Record<string, unknown> | undefined)?.provenance
-  return provenance === 'ai_inferred'
+  return mayClaimOlumiAuthorship(data)
     ? { kind: 'olumi' }
     : { kind: 'person', displayName: 'You' }
 }

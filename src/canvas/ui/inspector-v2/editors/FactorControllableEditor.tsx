@@ -8,6 +8,7 @@ import { X, Plus } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { useNodeMutations } from '../useInspectorMutations'
 import { getProvenanceLabel } from '../inspectorStrings'
+import { FACTOR_CATEGORY_LABEL } from '../../../domain/vocabulary'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
@@ -25,11 +26,21 @@ const FACTOR_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
-const CATEGORY_OPTIONS = [
-  { value: 'controllable', label: 'Controllable' },
-  { value: 'observable', label: 'Observable' },
-  { value: 'external', label: 'External' },
-]
+/**
+ * ⚠ DERIVED FROM THE ONE VOCABULARY, not re-typed. These three words are now
+ * also read by the Model tab's detail region; two copies of a product noun is
+ * the hand-maintained mirror `domain/vocabulary.ts` exists to abolish, and it
+ * has already cost this estate a nine-site rename.
+ *
+ * ⚠ THE `?? 'controllable'` DEFAULT BELOW IS UNCHANGED AND IS REPORTED, NOT
+ * FIXED HERE. It shows an unclassified factor as *Controllable* — a
+ * classification nobody made — and correcting it changes THIS surface's
+ * behaviour, which is not this lane's to decide. The Model tab deliberately
+ * does the opposite and says nothing when the producer said nothing.
+ */
+const CATEGORY_OPTIONS = (
+  Object.keys(FACTOR_CATEGORY_LABEL) as (keyof typeof FACTOR_CATEGORY_LABEL)[]
+).map(value => ({ value, label: FACTOR_CATEGORY_LABEL[value] }))
 
 const EXTRACTION_OPTIONS = [
   { value: 'explicit', label: 'Explicit' },

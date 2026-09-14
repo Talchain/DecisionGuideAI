@@ -14,6 +14,8 @@ import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
+import { withEdgeAccessibleNames } from './domain/edgeAccessibleName'
+import { useEdgeLabelMode } from './store/edgeLabelMode'
 import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
@@ -48,8 +50,8 @@ import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
-import { ModelExtentNotice } from './components/ModelExtentNotice'
 import { FirstModelNotice } from './components/FirstModelNotice'
+import { ModelExtentNotice } from './components/ModelExtentNotice'
 import { OlumiAttentionCard } from './components/OlumiAttentionCard'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
@@ -126,6 +128,7 @@ import { PanelApplyDrainHost } from './conversation/PanelApplyDrainHost'
 import { StructuralDeleteDrainHost } from './conversation/StructuralDeleteDrainHost'
 import { StructuralRenameDrainHost } from './conversation/StructuralRenameDrainHost'
 import { StructuralAddDrainHost } from './conversation/StructuralAddDrainHost'
+import { StructuralAddEdgeDrainHost } from './conversation/StructuralAddEdgeDrainHost'
 import { GuidanceInvalidationHost } from './conversation/GuidanceInvalidationHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import {
@@ -136,6 +139,31 @@ import {
 
 const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
+)
+
+/**
+ * ⭐⭐ THE EDGE-DRAW GATE, JUDGED BY ITS OWN CARRIER.
+ *
+ * Four sites answer "may a human draw a link on their own model": the handles
+ * (`nodesConnectable`), the drag validator (`isValidConnection`), the drop
+ * handler (`onConnect`) and the nearby-node confirm (`handleConfirmConnect`).
+ * All four are carried by `structural_add_edge`, which CEE gained a writer for
+ * on 13 Sep 2026 — so they are judged by `canvasEdgeAddWithServerHash` and NOT
+ * by the blanket `canvasSemanticMutations` above.
+ *
+ * ⛔ DO NOT COLLAPSE THESE TWO CONSTANTS. The blanket key still gates undo,
+ * redo, paste and the blueprint insert, none of which has a durable carrier.
+ * Witnessed live before this change: the served pane menu showed FOUR of the
+ * SEVEN entries `buildPaneMenu` emits, with undo/redo/paste filtered out.
+ *
+ * ⭐ AND OPENING THIS IS WHAT MAKES THE HONEST SENTENCE REACHABLE. With
+ * `nodesConnectable` false, `onConnect` never ran — so `store.addEdge`'s
+ * `needs_strength` announcement could never fire either. Before this change the
+ * drag was INERT: no connection line, edge count unchanged at 15s, zero turn
+ * calls. The gesture was not refused with a reason; it silently did nothing.
+ */
+const CANVAS_EDGE_ADD_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash,
 )
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
@@ -926,10 +954,38 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       return true
     })
   }, [nodesWithGhost])
-  // Deduplicate edges by ID similarly
+  /**
+   * ⭐ EVERY EDGE IS NAMED HERE, AND ONLY HERE.
+   *
+   * React Flow names an unnamed edge `Edge from ${source} to ${target}` — our
+   * internal ids. Measured on staging `e5a62322`: 21 of 21 connections spoke
+   * hex to assistive technology. `StyledEdge` composes a good name, but onto an
+   * element that exists only while the edge's label is visible, so at ordinary
+   * zoom the document held none at all (`edgesWithInnerAria: 0`).
+   *
+   * ⚠ APPLIED AT THE SEAM, NOT AT THE CONSTRUCTION SITES. `type: 'styled'`
+   * edges are built in at least three places; naming them there is the
+   * hand-maintained mirror (trap 12) — the next site added ships hex again
+   * under a green suite. This is the one place every edge passes through on its
+   * way to `<ReactFlow>`.
+   *
+   * ⛔ AND IT ADDS NO HOOK, DELIBERATELY. This component carries a
+   * rules-of-hooks exception for 117 EXISTING violations, and the ratchet's
+   * wording is not decoration — "each one is a render-time crash". An earlier
+   * draft of this took a `useEdgeLabelMode` subscription plus its own `useMemo`
+   * and pushed the file to 119; CI caught it. The label map is built inside the
+   * memo that already exists, and the mode is read from the store imperatively.
+   *
+   * ⚠ THE PRICE OF THAT, STATED RATHER THAN HIDDEN: the mode is read at memo
+   * time, not subscribed. Toggling human/numeric repaints the visible label
+   * immediately (`StyledEdge` does subscribe) but leaves this name describing
+   * the previous mode until the next graph change. That is a stale *description
+   * clause* on an already-correct name, never a wrong one — and the alternative
+   * was a hook in a file where hooks crash.
+   */
   const memoizedEdges = useMemo(() => {
     const seen = new Set<string>()
-    return edges.filter((edge) => {
+    const unique = edges.filter((edge) => {
       if (seen.has(edge.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate edge ID filtered: ${edge.id}`)
@@ -939,7 +995,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       seen.add(edge.id)
       return true
     })
-  }, [edges])
+    const nodeLabelById = new Map<string, string>()
+    for (const node of memoizedNodes) {
+      const label = (node.data as { label?: unknown } | undefined)?.label
+      if (typeof label === 'string') nodeLabelById.set(node.id, label)
+    }
+    return withEdgeAccessibleNames(unique, nodeLabelById, useEdgeLabelMode.getState().mode)
+  }, [edges, memoizedNodes])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)
@@ -1592,7 +1654,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // P0-8: Confirm connection to nearby node
   const handleConfirmConnect = useCallback(() => {
-    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+    if (!CANVAS_EDGE_ADD_CONNECTED) {
       showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
       setConnectPrompt(null)
       return
@@ -2206,7 +2268,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const onConnect = useCallback((connection: Connection) => {
-    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+    if (!CANVAS_EDGE_ADD_CONNECTED) {
       showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
       return
     }
@@ -2226,7 +2288,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Graph Editing Experience Task 2c: Validate connections during drag
   const isValidConnection = useCallback((connection: Connection) => {
-    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) return false
+    if (!CANVAS_EDGE_ADD_CONNECTED) return false
     if (!connection.source || !connection.target) return false
     if (isSelfLoop(connection.source, connection.target)) return false
     const { nodes, edges, engineLimits } = useCanvasStore.getState()
@@ -2622,7 +2684,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             multiSelectionKeyCode={['Meta', 'Control']}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
-            nodesConnectable={CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
+            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
@@ -2633,17 +2695,36 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
-            <svg style={{ position: 'absolute', top: 0, left: 0 }}>
-              <defs>
-                {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
-                <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="var(--surface-border)" />
-                </marker>
-                <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="var(--info)" />
-                </marker>
-              </defs>
-            </svg>
+            {/* ⛔ TWO ARROWHEAD MARKERS STOOD HERE AND NOTHING EVER REFERENCED
+                THEM. A repo-wide sweep returned exactly 2 hits for
+                `arrowhead-(default|selected)` — both of them these definitions —
+                against a contrast control of 18 for `edge-influence-label` in
+                the same run, so the probe discriminated and the absence was
+                real. Meanwhile 39 edges rendered on deployed staging with
+                `marker-end` empty on all 39.
+
+                They are DELETED rather than wired up, because their colours were
+                wrong in two different ways (derived at the token bytes):
+
+                  `arrowhead-default`  fill `var(--surface-border)`
+                    → `--border-default` → `238 230 216` = #EEE6D8. StyledEdge's
+                      own leader-line note measured this exact token on this
+                      exact surface: "a pale cream ... on the canvas ground it is
+                      very nearly the background". An arrowhead in it repeats the
+                      invisible-leader defect fixed on 31 Aug.
+
+                  `arrowhead-selected` fill `var(--info)` = `rgb(39 122 157)`,
+                    keyed on SELECTION — which is not a colour rule in
+                    `EDGE_STROKE_RULES` at all; selection changes stroke WIDTH.
+
+                Neither is among the seven values `resolveEdgeStroke` can return,
+                so either would have shipped an arrow in a different colour from
+                its own line. Left in place they were a decoy: the obvious "just
+                wire up the existing markers" fix was the wrong one.
+
+                The direction mark now lives per-edge in `StyledEdge`, reading
+                the resolved stroke decision directly. See
+                `EDGE_DIRECTION_MARKER_RULES` in `edges/edgePresentation.ts`. */}
             {/* D2: level-of-detail zoom watcher — main canvas only. */}
             <LodSync />
             {/* Counter-scales canvas label text against the viewport transform
@@ -2675,6 +2756,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         onRedoClick={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? redo : () => {}}
         canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}
         canRedo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canRedo()}
+        /* The greyed button was the last surface still declining to say that
+           the canvas has no undo. It now answers the gesture the way the
+           keyboard already does — see the reasoning at the buttons in
+           `LeftSidebar`. This is the ONE place the authority is read: the
+           sidebar is handed a plain fact and never consults the flag itself,
+           so the day this constant folds true, both props go false, the
+           notice branch retires and the real `undo`/`redo` above take over. */
+        undoUnavailable={!CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
+        redoUnavailable={!CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
       />
       {/* ⚠ SCREEN SPACE, NOT FLOW SPACE — and the counter-scale census is what
           caught this — and it also flags the mention, so this note describes
@@ -2703,6 +2793,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />
+      {/* ⛔ THIS MOUNT WAS MISSING, AND EVERY COMMENT AROUND IT ASSUMED IT WAS
+          NOT. The band migration moved four components here and left
+          `ModelExtentNotice` behind; the vacated-top-centre note below still
+          reasons FROM its presence ("because `ModelExtentNotice` owns that
+          position"), and the note above cites it as the precedent for mounting
+          `CanvasLodNotice` at this level. So the only surface that tells a
+          person PART OF THEIR MODEL IS OFF-SCREEN has not rendered since.
+
+          `overlayOwner.sourceScan.spec.ts` could not see it: its claim scan
+          reads `useOverlayCell` CALL SITES, and `ModelExtentNotice.tsx:234`
+          has one. A component that is never mounted never runs that call, so
+          the table and the call sites agreed perfectly about a component no
+          user could see — a derived guard proving agreement and structurally
+          blind to completeness. The mount-completeness assertion added to that
+          spec is the half that was missing. */}
       <ModelExtentNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
@@ -3005,6 +3110,7 @@ export function MaybeConversationProvider({ children }: { children: import('reac
             as the two hosts above: aiPanelV2 is ON for every fresh user, so a
             drain hosted only in DraftChat is a drain that never runs. */}
         <StructuralAddDrainHost />
+        <StructuralAddEdgeDrainHost />
         {/* N-23 — guidance invalidation's flag-ON host. `clearGuidanceItems()`
             had one production caller, inside `useGraphEditEvents`, whose only
             host is DraftChat (mounted only when aiPanelV2 is OFF). With the flag

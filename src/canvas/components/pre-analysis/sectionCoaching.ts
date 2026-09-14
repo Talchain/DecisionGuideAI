@@ -15,6 +15,7 @@
 
 import type { ReviewNextSignal, TriageSignal, OptionQualitySignal, BiasSignal } from './pickStartHere'
 import { analysisMetricPredicate } from '@/components/results/influenceScaleCopy'
+import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../shared/biasSignalTitles'
 
 /**
  * Build the review-tier coaching line from the picked Start here signal,
@@ -40,6 +41,31 @@ export function getReviewNextCoachingLine(startHere: ReviewNextSignal | null): s
     }
     case 'bias': {
       const b = startHere as BiasSignal
+      /**
+       * ⛔ AN UNCATEGORISED SIGNAL HAS NO NAME TO PUT IN THIS SENTENCE.
+       *
+       * `biasType` is `trigger.title`, which is the neutral fallback whenever
+       * the registry could not resolve the producer's code — so this read
+       * "Watch for reasoning check when reviewing the items below", treating a
+       * heading that deliberately names no bias as though it were a bias name.
+       *
+       * ⚠ MY DEFECT: I changed the fallback constant and swept for the literal
+       * it replaced, not for the places that INTERPOLATE it. The subtitle twin
+       * of this bug was already fixed at `normaliseCeeBiasFinding`.
+       *
+       * ⭐ A STRING COMPARISON, AND DELIBERATELY NOT THE REFERENCE CHECK USED
+       * THERE. That site holds the resolved `config` and can ask
+       * `config === BIAS_FALLBACK`, which is exact. This one receives only the
+       * TITLE, so the constant is the sole thing it can compare against — a
+       * real difference in what the two call sites know, not a weaker choice.
+       *
+       * The replacement names no category and needs none: the card directly
+       * above already carries the observation, so this line's job is to direct
+       * attention to the items, which it now does without inventing a label.
+       */
+      if (b.biasType === UNRECOGNISED_BIAS_SIGNAL_TITLE) {
+        return 'Review the items below with that in mind.'
+      }
       return `Watch for ${b.biasType.toLowerCase()} when reviewing the items below.`
     }
   }

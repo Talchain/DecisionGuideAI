@@ -48,23 +48,23 @@ describe('analysisHeldOn — starter provenance', () => {
   })
 
   it('POSITIVE CONTROL: still fires for template inserts (the predicate is alive)', () => {
-    expect(analysisHeldOn(templateNodes)).toBe('template')
+    expect(analysisHeldOn(unregistered(templateNodes))).toBe('template')
   })
 
   it('fires for a starter graph — CEE has no persisted graph for a client-injected starter', () => {
-    expect(analysisHeldOn(starterNodes)).toBe('starter')
+    expect(analysisHeldOn(unregistered(starterNodes))).toBe('starter')
   })
 
   it('does NOT fire for a genuine CEE-drafted graph (the gate stays narrow)', () => {
-    expect(analysisHeldOn(ceeDraftedNodes)).toBeNull()
+    expect(analysisHeldOn(unregistered(ceeDraftedNodes))).toBeNull()
   })
 
   it('does not fire off the V5 canonical path — a V2-direct run sends the graph itself', () => {
     isV5CanonicalRunPathMock.mockReturnValue(false)
     // Presence first: the same input is `true` on-path (asserted above), so a
     // `false` here is the flag doing work, not the predicate being dead.
-    expect(analysisHeldOn(starterNodes)).toBeNull()
-    expect(analysisHeldOn(templateNodes)).toBeNull()
+    expect(analysisHeldOn(unregistered(starterNodes))).toBeNull()
+    expect(analysisHeldOn(unregistered(templateNodes))).toBeNull()
   })
 
   it('a starter graph refuses the run with the sentence for a STARTER, chosen by the graph', () => {
@@ -77,7 +77,7 @@ describe('analysisHeldOn — starter provenance', () => {
       readiness: null,
       hasBlockers: false,
       nodeCount: 18,
-      analysisHeldOn: analysisHeldOn(starterNodes),
+      analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
     })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
@@ -87,9 +87,21 @@ describe('analysisHeldOn — starter provenance', () => {
       readiness: null,
       hasBlockers: false,
       nodeCount: 18,
-      analysisHeldOn: analysisHeldOn(templateNodes),
+      analysisHeldOn: analysisHeldOn(unregistered(templateNodes)),
     })
     expect(templateResult.reason).toBe(ANALYSIS_HELD_NOTICE.template)
     expect(ANALYSIS_HELD_NOTICE.template).not.toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 })
+
+/**
+ * The hold's input for a graph CEE has NOT acknowledged holding — the state
+ * every case in this file describes. `analysisHeldOn` takes the canvas STATE
+ * rather than the nodes, because the registration posture is not derivable from
+ * them; wrapping here keeps each case reading as it did while making the
+ * posture it assumes explicit rather than implied.
+ */
+function unregistered(nodes: unknown): never {
+  return { nodes, importPendingServerRegistration: true } as never
+}
+

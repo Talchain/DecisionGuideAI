@@ -293,7 +293,6 @@ const KNOWN_WITHHELD_FIELD_READS: readonly string[] = [
  * assertion that no pin edit can satisfy.
  */
 const CLEARED_SURFACES: readonly string[] = [
-  'src/canvas/components/model-tab/StatusBar.tsx',
   'src/canvas/components/model-tab/ModelHealthSection.tsx',
   'src/canvas/components/ModelTabBody.tsx',
   'src/canvas/compare-tab/TrajectorySection.tsx',
@@ -305,6 +304,15 @@ const CLEARED_SURFACES: readonly string[] = [
 /** Deleted outright — dead code, zero importers, absent from the deployed bundle. */
 const DELETED_SURFACES: readonly string[] = [
   'src/components/results/TrustOneLiner.tsx',
+  // MOVED FROM `CLEARED_SURFACES` BY THE v1 MODEL-TAB REMOVAL — not dropped.
+  // ROADMAP 2.1273 cleared this file of withheld-field reads; the v1 stack has
+  // since been deleted whole (zero importers, re-derived across the tracked
+  // tree at the deletion head). Moving the entry here rather than deleting it
+  // keeps a real obligation on the file: `CLEARED_SURFACES` asserted "exists
+  // and reads the field zero times", and this list asserts "must not come
+  // back". A file that returns carrying its old fabrication path REDs either
+  // way, which is the property worth preserving.
+  'src/canvas/components/model-tab/StatusBar.tsx',
 ]
 
 function deriveFoundReads(): string[] {
@@ -324,7 +332,15 @@ describe('withheld-field read ban (wide scan: results/ + canvas/)', () => {
     // Identity-bound anchors, one per root — a walk that silently stopped
     // after the first root would otherwise still look healthy.
     expect(rels).toContain('src/components/results/useResultsSectionData.ts')
-    expect(rels).toContain('src/canvas/components/model-tab/StatusBar.tsx')
+    // ⚠ RE-POINTED BY THE v1 MODEL-TAB REMOVAL. This anchor was
+    // `model-tab/StatusBar.tsx`, deleted with the v1 stack. It is NOT a list
+    // entry that can simply be dropped: it is the ONLY assertion that the
+    // `src/canvas` root is walked at all, so removing it would let a walk that
+    // stopped after `src/components/results` keep reporting a healthy scan —
+    // and every ban below would then pass over an untouched tree. Re-pointed at
+    // a live file in the same directory, so the claim ("both roots are
+    // reached") is unchanged and still provable.
+    expect(rels).toContain('src/canvas/components/model-tab/ModelHealthSection.tsx')
   })
 
   it('excludes the analysis-hero subtree owned by the sibling guard', () => {

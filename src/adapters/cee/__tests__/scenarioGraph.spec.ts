@@ -203,6 +203,54 @@ describe('scenarioGraph — 200 semantics', () => {
     expect(res.layoutPresent).toBe(false)
   })
 
+  /**
+   * ⭐⭐ THE WRITE PRECONDITION — carried opaquely, or not at all.
+   *
+   * This is the field a restored session needs before its FIRST manual edit can
+   * be encoded. It reached the client only on a turn response until CEE started
+   * returning it here, which is why a reload's first Save was refused.
+   */
+  it('carries `graph_hash` VERBATIM — the value is the server\'s, never parsed or recomputed', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ graph_hash: '9f2c1b0ae4d37c5a' })))
+    const res = await fetchScenarioGraph(SCENARIO_ID)
+    if (res.status !== 'graph') throw new Error('expected graph')
+    expect(res.graphHash).toBe('9f2c1b0ae4d37c5a')
+  })
+
+  it('⚠ is NULL when CEE did not answer with one — absence is not a base', async () => {
+    // An older CEE, or a body that simply omits it. The only correct response is
+    // the one that was already there: refuse the edit and say so.
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
+    const res = await fetchScenarioGraph(SCENARIO_ID)
+    if (res.status !== 'graph') throw new Error('expected graph')
+    expect(res.graphHash).toBeNull()
+  })
+
+  it.each([
+    ['an empty string', ''],
+    ['a non-string', 12345],
+    ['null', null],
+  ] as Array<[string, unknown]>)('⚠ treats %s as no answer, never as a base', async (_n, value) => {
+    // A blank would be a base that matches NOTHING: the server would refuse it
+    // as stale and the user would read "your edit conflicted" for a base the
+    // client never held. Fail closed, exactly as absence does.
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ graph_hash: value })))
+    const res = await fetchScenarioGraph(SCENARIO_ID)
+    if (res.status !== 'graph') throw new Error('expected graph')
+    expect(res.graphHash).toBeNull()
+  })
+
+  it('⚠ DISCRIMINATING CONTROL: it is NOT read from the identity envelope', async () => {
+    // The two answer different questions, and on an unchanged graph a
+    // substitution still MATCHES — so this asserts the parser reads the field it
+    // names, on a body where the identity is present and the base is not.
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
+    const res = await fetchScenarioGraph(SCENARIO_ID)
+    if (res.status !== 'graph') throw new Error('expected graph')
+    expect(res.identity?.value).toBe(CEE_TOKEN)
+    expect(res.graphHash).toBeNull()
+  })
+
   it('CONSUMER NOTE 1 — reads `.value` off the envelope, never the object', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
     const res = await fetchScenarioGraph(SCENARIO_ID)

@@ -17,7 +17,7 @@
  *      Defect at tip: `fe.switch_probability ?? fe.marginal_switch_probability`
  *      renders a percentage for a marginal-only edge.
  *   B. StrengthenContainer fragileEdges mapping → buildRecommendations flip
- *      trigger "NN% chance the result flips…" + the action wire param
+ *      trigger "NN% chance {alt} scores highest instead…" + the action wire param
  *      literally named `switch_probability`. Defect at tip: the mapping
  *      PREFERRED marginal over a PRESENT measured switch_probability.
  *
@@ -61,6 +61,44 @@ const EDGE_BASE = {
   alternative_winner_label: 'Plan B',
 }
 
+/**
+ * PRECONDITION FOR THE TWO RENDER PINS BELOW: a run that MAY name a leader.
+ *
+ * ⚠ WHY THIS EXISTS, stated so the next editor does not delete it as noise.
+ * The callout's comparative sentence ("Plan B could overtake (42% probability)")
+ * is now gated on the shared claim policy (`analysisClaimPolicy`), because a
+ * witnessed staging run rendered it a few lines above the same panel's
+ * "Leading option not assessed".
+ *
+ * `seedReportWithFragileEdges` seeds `nodes: []`, so the hook derives
+ * `separation: 'unknown'` / `hasLeadingOption: false` — a genuinely WITHHELD
+ * run, on which the callout correctly says "If Price shifts, the result could
+ * change." and prints no percentage. Correct product behaviour, and it would
+ * make chain A's two render assertions unable to observe the thing they exist
+ * for: whether a MEASURED `switch_probability` reaches the DOM and a
+ * MARGINAL-only one does not.
+ *
+ * So the leader gate is pinned OPEN here, and only here. This is a state a
+ * real run produces (two separated options plus a fragile edge); it is simply
+ * not the state this seed helper builds. The percentage question and the
+ * leader question are different questions, and this keeps chain A pointed at
+ * its own one. Each render pin asserts the precondition held before asserting
+ * its result, so a future change to the gate REDs as a precondition failure
+ * rather than silently hollowing the pin out.
+ */
+function permitLeaderClaim(data: ResultsSectionDataReturn): ResultsSectionDataReturn {
+  // Assigned through the DECLARED types, with no cast: both fields are real
+  // members of `DecisionResultData`, so the compiler checks this fixture is a
+  // shape the product can actually hold. A `Record<string, unknown>` cast here
+  // would have typed the check away.
+  data.recommendation.leaderDesignationPermitted = true
+  data.recommendation.verdict = {
+    leaderId: 'opt_a', separation: 'clear', hasLeadingOption: true, gapPp: 40,
+    source: 'producer_band',
+  }
+  return data
+}
+
 describe('chain A — topFragileEdge presence-branches on switch_probability (schemas 0.30.0)', () => {
   beforeEach(() => {
     useCanvasStore.setState({
@@ -102,10 +140,13 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
   it('PIN (render): a marginal-only edge renders the flip-risk callout WITHOUT a percentage', () => {
     seedReportWithFragileEdges([{ ...EDGE_BASE, marginal_switch_probability: 0.35 }])
     const { result } = renderHook(() => useResultsSectionData())
-    render(<TriageActionCardsBody data={result.current} />)
+    render(<TriageActionCardsBody data={permitLeaderClaim(result.current)} />)
     const callout = screen.getByTestId('t1-flip-risk-callout')
+    // PRECONDITION: the leader gate is open, so an absent percentage is the
+    // switch_probability branch and not the claim-policy branch.
+    expect(callout.textContent, 'leader gate closed — this pin would be vacuous')
+      .toContain('could overtake')
     // Honest absent state: "If Price shifts, Plan B could overtake." — no number.
-    expect(callout.textContent).toContain('could overtake')
     expect(callout.textContent).not.toMatch(/%\s*probability/)
   })
 
@@ -114,8 +155,34 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
       { ...EDGE_BASE, switch_probability: 0.42, marginal_switch_probability: 0.99 },
     ])
     const { result } = renderHook(() => useResultsSectionData())
+    render(<TriageActionCardsBody data={permitLeaderClaim(result.current)} />)
+    const callout = screen.getByTestId('t1-flip-risk-callout')
+    expect(callout.textContent, 'leader gate closed — this control would be vacuous')
+      .toContain('could overtake')
+    expect(callout.textContent).toMatch(/42% probability/)
+  })
+
+  /**
+   * ⭐ THE OTHER DIRECTION, added with the claim-policy gate so chain A cannot
+   * be read as evidence that the percentage is unconditional. A WITHHELD run
+   * suppresses the comparative sentence AND its number even when
+   * `switch_probability` is measured — `switch_probability` means P(the
+   * alternative OVERTAKES), so it is a ranking claim expressed as a number.
+   * Full coverage of that gate lives in
+   * `analysisClaimPolicy.leaderContradiction.spec.tsx`; this arm exists so a
+   * change here cannot pass chain A while breaking it.
+   */
+  it('WITHHELD RUN: the measured percentage goes with the comparative verb', () => {
+    seedReportWithFragileEdges([{ ...EDGE_BASE, switch_probability: 0.42 }])
+    const { result } = renderHook(() => useResultsSectionData())
+    // No `permitLeaderClaim` — the seed's own `nodes: []` yields a withheld run.
+    expect(result.current.recommendation.verdict?.hasLeadingOption).toBe(false)
     render(<TriageActionCardsBody data={result.current} />)
-    expect(screen.getByTestId('t1-flip-risk-callout').textContent).toMatch(/42% probability/)
+    const callout = screen.getByTestId('t1-flip-risk-callout')
+    expect(callout.textContent).not.toContain('could overtake')
+    expect(callout.textContent).not.toMatch(/42% probability/)
+    // …and the finding itself survives.
+    expect(callout.textContent).toContain('Price')
   })
 })
 
@@ -160,7 +227,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('20% chance the result flips to Plan B')
+    expect(flip!.snapshot.signal).toContain('20% chance Plan B scores highest instead')
     expect(flip!.snapshot.signal).not.toContain('60%')
     // The wire param named switch_probability must carry the measured value.
     expect((flip!.snapshot.action as any).parameters.switch_probability).toBe(0.2)
@@ -168,7 +235,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     // panel's "Show N more" fold — expand before asserting).
     const showMore = screen.queryByText(/Show \d+ more/)
     if (showMore) fireEvent.click(showMore)
-    expect(screen.getByText(/20% chance the result flips to Plan B/)).toBeTruthy()
+    expect(screen.getByText(/20% chance Plan B scores highest instead/)).toBeTruthy()
   })
 
   it('PIN: an edge WITHOUT a measured switch_probability produces NO flip recommendation (absence renders nothing)', () => {
@@ -204,7 +271,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('45% chance the result flips to Plan B')
+    expect(flip!.snapshot.signal).toContain('45% chance Plan B scores highest instead')
   })
 
   it('CONTROL: a measured switch_probability of 0 still renders (0% is a measurement, not absence)', () => {
@@ -223,7 +290,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('0% chance the result flips to Plan B')
+    expect(flip!.snapshot.signal).toContain('0% chance Plan B scores highest instead')
   })
 })
 

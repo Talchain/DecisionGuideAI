@@ -44,6 +44,7 @@
 import { create } from 'zustand'
 
 import type { NotModelledManifest } from '../../adapters/cee/notModelled'
+import type { ModelBuildingNoticesView } from '../conversation/modelBuildingNotices'
 
 /**
  * ── WHY `scenarioId` IS BACK, AND WHY IT MUST HAVE A READER ────────────────
@@ -100,6 +101,30 @@ export interface ContextIntegrityState {
   /** CEE's manifest. `null` = we were told nothing. NEVER "nothing dropped". */
   manifest: NotModelledManifest | null
   /**
+   * ⭐⭐ THE SECOND SOURCE FOR "what did NOT make it into the model", AND THE
+   * ONLY ONE A FIRST SESSION HAS — ROADMAP 2.1379.
+   *
+   * The manifest above arrives ONLY on the scenario-graph cold read, which
+   * answers `absent` for a decision this fresh, so on a first session it is
+   * `null` and the register can say nothing about omissions. The DRAFT TURN,
+   * meanwhile, already carried `model_building_notices` — a declared field on
+   * `OlumiResponseSchema` — and the chat bubble is displaying its count two
+   * panels away. This field keeps that attestation where the register can read
+   * it.
+   *
+   * ⚠ THEY ARE NOT THE SAME QUANTITY AND MUST NEVER BE FOLDED (CLAUDE.md trap
+   * 21). The manifest answers *"which figures from the brief reached the
+   * model?"*; this answers *"what did the drafting model have to leave out?"*.
+   * Overlapping populations, different questions, different provenance rules —
+   * the manifest's rows are the user's own figures, and these are mostly not.
+   *
+   * ⚠ `null` MEANS NO ATTESTATION WAS SUPPLIED, NEVER "nothing was left out".
+   * The producer's contract cannot encode zero (`total_count` is positive,
+   * `groups` is `.min(1)`), so absence is silence. Same invariant as the
+   * manifest, for the same reason.
+   */
+  modelBuildingNotices: ModelBuildingNoticesView | null
+  /**
    * `scenarioId` is REQUIRED, deliberately: content this store cannot attribute
    * to a decision is content the surface must never show, and making the caller
    * state it means a new writer cannot omit it by accident.
@@ -115,8 +140,34 @@ export interface ContextIntegrityState {
    * this scenario already exists (the cold read's copy, or an earlier call),
    * when the brief is blank, or when the id is not a non-empty string: content
    * this store cannot attribute to a decision must never be stored.
+   *
+   * ⚠ WHEN IT WRITES, THE DECISION HAS CHANGED, so it clears
+   * `modelBuildingNotices` for the same reason `setContextIntegrity` does —
+   * the attestation belongs to the scenario, not to the writer.
    */
   recordBriefForFreshDraft: (input: { scenarioId: string; briefText: string }) => boolean
+  /**
+   * Record what the drafting turn attested it had to leave out, for the
+   * decision it drafted. Returns `true` only when it wrote.
+   *
+   * ⚠ IT IS A SEPARATE WRITER FROM `recordBriefForFreshDraft`, DELIBERATELY.
+   * That one answers *"what did the user write for this decision?"* and its
+   * NEVER-DISPLACE rule is right for a brief, which does not change. This
+   * answers *"what did THIS draft turn leave out?"*, and a later draft of the
+   * same decision builds a different model — so it replaces rather than
+   * refuses. Two questions under one name is trap 21; folding them would drop
+   * a fresh attestation on the floor whenever a cold read had already landed.
+   *
+   * ⚠ FAIL-CLOSED ON IDENTITY. It writes ONLY when this store is already
+   * describing that scenario. Content this store cannot attribute to the
+   * decision on screen is content the surface must never show, and the P0 in
+   * this file's header — a PREVIOUS decision's brief rendered verbatim — is
+   * exactly what an unattributed write reopens, in a new field.
+   */
+  recordModelBuildingNotices: (input: {
+    scenarioId: string
+    notices: ModelBuildingNoticesView
+  }) => boolean
   reset: () => void
 }
 
@@ -124,19 +175,73 @@ const EMPTY = {
   scenarioId: null,
   briefText: null,
   manifest: null,
+  modelBuildingNotices: null,
 } as const
 
 export const useContextIntegrityStore = create<ContextIntegrityState>((set, get) => ({
   ...EMPTY,
   setContextIntegrity: ({ scenarioId, briefText, manifest }) =>
-    set({ scenarioId, briefText, manifest }),
+    set((s) => ({
+      scenarioId,
+      briefText,
+      manifest,
+      /**
+       * ⚠⚠ THE NOTICES BELONG TO THE SCENARIO, NOT TO THE WRITER, AND THIS ONE
+       * LINE IS WHAT KEEPS BOTH DOORS WATCHED (trap 22b).
+       *
+       * This action overwrites unconditionally and is reached on EVERY
+       * successful cold read. Clearing the notices here would blink the
+       * capability out seconds into a live session, the moment the
+       * scenario-graph read lands — a correct thing shipping dark. NOT
+       * clearing them on a scenario CHANGE would leave decision A's omissions
+       * standing under decision B's brief, which is this store's own P0.
+       *
+       * So the rule is derived from the identity rather than from the caller:
+       * the same decision keeps what the draft turn attested; a different one
+       * keeps nothing. `zustand`'s merge would preserve the field silently in
+       * BOTH cases, which is why this is stated rather than left implicit.
+       */
+      modelBuildingNotices: s.scenarioId === scenarioId ? s.modelBuildingNotices : null,
+    })),
   recordBriefForFreshDraft: ({ scenarioId, briefText }) => {
     if (typeof scenarioId !== 'string' || scenarioId.length === 0) return false
     if (typeof briefText !== 'string' || briefText.trim().length === 0) return false
     // A record for this scenario already stands — the cold read's (with its
     // manifest) or an earlier draft turn's. Never displace it.
     if (get().scenarioId === scenarioId) return false
-    set({ scenarioId, briefText, manifest: null })
+    /**
+     * ⚠⚠ THE SECOND DOOR. `setContextIntegrity` is not the only action that
+     * moves `scenarioId`, and the notices belong to the SCENARIO rather than to
+     * the writer (see that action's note) — so the same rule has to hold here.
+     *
+     * This line is reached ONLY when the decision differs: the refusal above
+     * returns first for the same id. So the clear is unconditional here and
+     * still means exactly what the conditional one above means — a different
+     * decision keeps nothing. Leaving it out left decision A's omission counts
+     * standing under decision B's brief, with the re-scoped refusal's *"What I
+     * can show is below"* pointing at them: this file's own P0, wearing a new
+     * field, and NOT catchable at the render gate, because after this write the
+     * store genuinely IS describing B.
+     *
+     * ⚠ IT CANNOT CLOBBER THE NEW DECISION'S OWN ATTESTATION. `useConversation`
+     * records the brief BEFORE the notices on the same turn, and
+     * `recordModelBuildingNotices` fails closed unless this store is already
+     * describing that scenario — so this write is what LETS the new one land.
+     * The opposite-direction twin (a refused re-record keeping the
+     * attestation) is pinned beside the tests for this one, because a clear
+     * written without it would blink the capability out on the second turn.
+     */
+    set({ scenarioId, briefText, manifest: null, modelBuildingNotices: null })
+    return true
+  },
+  recordModelBuildingNotices: ({ scenarioId, notices }) => {
+    if (typeof scenarioId !== 'string' || scenarioId.length === 0) return false
+    // ⚠ A POSITIVE MATCH, NOT `!==` — the same shape as the readers' identity
+    // gate, and for the same reason: `!==` passes when either side is `null`,
+    // and `null` is exactly the state this store sits in for a decision it was
+    // never told about.
+    if (get().scenarioId !== scenarioId) return false
+    set({ modelBuildingNotices: notices })
     return true
   },
   reset: () => set({ ...EMPTY }),

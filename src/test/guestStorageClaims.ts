@@ -150,13 +150,14 @@ export function findGuestStorageClaim(text: string): RegExp | null {
  */
 export const GUEST_STORAGE_CLAIM_ADJUDICATED: Readonly<Record<string, string>> = {
   'src/components/results/modals/DecisionRecordModal.tsx':
-    'TRUE AS WRITTEN, and deliberately so. `persistenceNote` names a SPLIT — choice, '
-    + 'confidence, expectation and review date go to the account; rationale, assumption '
-    + 'and revisit trigger stay local. That is a precise claim about NAMED FIELDS, not a '
-    + "blanket claim about the user's model, and its docblock says it was written to "
-    + 'claim neither more nor less than is true. `guestNote` beside it reads similarly '
-    + 'and has ZERO CONSUMERS. ROWED: retire the dead `guestNote`, and re-derive whether '
-    + 'the split still holds after any change to decision-record persistence.',
+    'Decision-record fields, not the model: the record uses owner/scenario-bound '
+    + 'localStorage. Native guest acceptance on 8 Sep refuted the old unconditional '
+    + 'account-saving note. The modal now consumes guestNote for resolved guests, '
+    + 'withholds account claims while identity resolves, and names only an attempted '
+    + 'signed-in save of choice, confidence, expectation and review date when a '
+    + 'scenario exists. Rationale, assumption and revisit trigger stay local. '
+    + 'Only the existing confirmed commit result licenses the saved-to-account toast. '
+    + 'No automatic migration or cross-device read-back is claimed.',
   'src/canvas/versions/ServerVersionsSection.tsx':
     'THE MATCH IS ON A CORRECTLY-SCOPED TRUE CLAIM, and my pattern is the thing at '
     + 'fault. "Sign in to save SHARED versions" is scoped to shared versions, which are '

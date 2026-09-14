@@ -79,3 +79,7 @@ storybook-static
 # Claude Code — ignore private config, track shared settings
 .claude/*
 !.claude/settings.json
+
+# Mutation-isolation sentinel — written to prove a throwaway tree is not hard-linked
+# to its source (CLAUDE.md trap 9g). It must never reach a branch; it did once.
+.iso-sentinel

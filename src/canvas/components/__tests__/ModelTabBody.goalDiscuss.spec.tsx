@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { ModelTabBody } from '../ModelTabBody'
 import type { Node } from '@xyflow/react'
+import { openOutlineGroups } from '../../model-tab-v2/__tests__/openOutlineGroups'
 
 // ── Mocks (same shape as ModelTabBody.spec.tsx) ───────────────────────────────
 
@@ -85,6 +86,10 @@ describe('Model goal coaching stays on the connected route', () => {
       />,
     )
     const panel = screen.getByTestId('model-tab-v2-panel')
+    // NAVIGATION, NOT A RELAXED ASSERTION — the outline opens closed. The
+    // subject (the goal is readable on the v2 outline, and the retired goal
+    // card is NOT mounted) and every assertion are unchanged.
+    openOutlineGroups()
     const row = screen.getByTestId('model-row-v2-goal-1')
     expect(panel).toContainElement(row)
     expect(within(row).getByText('Maximise Revenue')).toBeInTheDocument()

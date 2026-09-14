@@ -77,6 +77,8 @@ export interface AnalysisNewSectionProps {
    */
   emptyMessage?: string | null
   onFocusTarget?: (targetId: string) => void
+  /** Routes a row to the editor for its subject. Threaded, never composed here. */
+  onReviewTarget?: (targetId: string) => void
   onRunIntervention?: (recommendationId: string) => void
   /**
    * Rendered ABOVE the findings, inside the opened section — for a section
@@ -102,6 +104,7 @@ export function AnalysisNewSection({
   subtitle,
   emptyMessage,
   onFocusTarget,
+  onReviewTarget,
   onRunIntervention,
   icon,
   header,
@@ -171,6 +174,7 @@ export function AnalysisNewSection({
                 key={f.id}
                 finding={withoutRunScopedMarker(f)}
                 onFocusTarget={onFocusTarget}
+                onReviewTarget={onReviewTarget}
                 onRunIntervention={onRunIntervention}
                 testIdPrefix={testId}
                 /* ⭐ ONE FINDING, ONE DOOR. The section above already opens

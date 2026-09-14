@@ -9,11 +9,10 @@ import { METRIC_NOUN, METRIC_UNSET } from '../shared/metricVocabulary'
  * ⭐ THE SEEN HALF OF THE ROW, AND THE DISTINCTION IS LOAD-BEARING (3 Sep 2026).
  *
  * Where nobody set the bridge strength, the producer's assumed figure is
- * DEMOTED to the row's screen-reader phrase rather than deleted — so
- * `container.textContent` still contains "85%" while nothing on screen does.
- * A guard that read the whole subtree would refuse the demotion this change is
- * built on. `NodeMetricRow` marks every seen element `aria-hidden`, so the two
- * audiences are already separated at the DOM; this reads the seen one.
+ * disclosed as an assumption through the tooltip and accessible name. The
+ * resting row must still carry no numeric bar. This helper reads only the
+ * visible labels, which `NodeMetricRow` marks `aria-hidden` because the row's
+ * accessible name carries their meaning.
  */
 const seenText = (root: HTMLElement): string =>
   Array.from(root.querySelectorAll('[aria-hidden="true"]'))
@@ -21,6 +20,7 @@ const seenText = (root: HTMLElement): string =>
     .join(' ')
 
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
 import { USER_EDGE_DEFAULTS, DEFAULT_EDGE_DATA } from '../../domain/edges'
@@ -64,6 +64,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 const baseProps = {
@@ -128,6 +129,90 @@ describe('OutcomeNode', () => {
   it('renders shape indicator (type line removed in v1.1)', () => {
     renderOutcome()
     expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+  })
+
+  it('previews the authored consequence and keeps the full description expandable', async () => {
+    const description = 'Customer support demand may grow before the extra revenue covers new staffing. '.repeat(5).trim()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    const body = 'Keep the wider strategic context and unresolved disagreements visible.'
+    const { container } = renderOutcome({ description, body })
+    expect(screen.getByTestId('outcome-context-preview')).toHaveTextContent(description)
+    expect(container.querySelector('.node-description')).toBeNull()
+    screen.getByRole('button', { name: 'Expand description' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(container.querySelector('.node-description')).toHaveTextContent(description)
+    expect(container.querySelector('.node-description')).toHaveTextContent(body)
+    expect(screen.getByTestId('outcome-context-preview')).toHaveClass('group-aria-expanded:hidden')
+    expect(screen.getByLabelText(/outcome node:/i)).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it.each([undefined, '   '])('uses the authored body when description is %s', async (description) => {
+    const body = '  Preserve the source wording.\nAlso retain the second paragraph.  '
+    const { container } = renderOutcome({ description, body })
+    expect(screen.getByTestId('outcome-context-preview').textContent).toBe(body)
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    // The shared renderer preserves the authored newline as <br>, not a text space.
+    const expanded = container.querySelector('.node-description')
+    expect(expanded).toHaveTextContent('Preserve the source wording.')
+    expect(expanded).toHaveTextContent('Also retain the second paragraph.')
+    expect(container.querySelector('.node-description br')).not.toBeNull()
+  })
+
+  it('does not repeat matching body text in the expanded context', async () => {
+    const { container } = renderOutcome({ description: 'Review the evidence.', body: ' Review the evidence. ' })
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    expect(container.querySelector('.node-description')?.textContent?.trim()).toBe('Review the evidence.')
+  })
+
+  it('handles blank names and descriptions without inventing a consequence', () => {
+    renderOutcome({ label: '   ', description: '   ' })
+    expect(screen.getByText('Untitled outcome')).toBeDefined()
+    expect(screen.queryByTestId('outcome-context-preview')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Expand description' })).toBeNull()
+  })
+
+  it.each(['idle', 'complete'])('can explore an adverse consequence in the %s phase with its authored context', async (status) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ results: { status, report: null } }) as any))
+    const dispatch = vi.fn()
+    vi.spyOn(useGuidanceStore, 'getState').mockReturnValue({ ...useGuidanceStore.getState(), _dispatchAction: dispatch })
+    renderOutcome({ label: 'Increased customer churn', description: 'Existing customers may leave after a price increase.', body: 'The wider effect on referrals is unresolved.' })
+    await userEvent.click(screen.getByRole('button', { name: 'Explore consequences' }))
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
+      parameters: { chip_id: 'outcome_explore_consequences' },
+      message: 'What would Increased customer churn mean for this model, including possible benefits and downsides?\nOutcome context: Existing customers may leave after a price increase.\n\nThe wider effect on referrals is unresolved.',
+      source: 'chip',
+    }))
+  })
+
+  it('keeps long upstream names intact when validating an outcome assumption', async () => {
+    const factorLabel = 'Availability of experienced account managers during the autumn renewal period'
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({
+      results: { status: 'complete', report: null },
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: { label: factorLabel, type: 'factor' } },
+        { id: 'outcome-1', type: 'outcome', data: { label: 'Revenue growth', type: 'outcome' } },
+      ],
+      edges: [{ id: 'factor-outcome', source: 'factor-1', target: 'outcome-1', data: { weight: 0.6, weightSource: 'user' } }],
+    }) as any))
+    const dispatch = vi.fn()
+    vi.spyOn(useGuidanceStore, 'getState').mockReturnValue({ ...useGuidanceStore.getState(), _dispatchAction: dispatch })
+    renderOutcome({ description: 'Retaining existing accounts supports this outcome.' })
+    expect(screen.getByText(`Test the connection from ${factorLabel}`)).toBeDefined()
+    await userEvent.click(screen.getByRole('button', { name: 'Validate this assumption' }))
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
+      message: `How can I validate my assumption about ${factorLabel} and its effect on Revenue growth?\nOutcome context: Retaining existing accounts supports this outcome.`,
+    }))
+  })
+
+  it('keeps goal probability out of the compact Standard card', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: 0.68, stabilityPercentage: null, winRate: null, isResultsMode: true,
+      predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    } as any)
+    renderOutcome()
+    expect(screen.queryByText('Goal chance: 68%')).toBeNull()
   })
 
   it('has displayName set', () => {
@@ -239,7 +324,7 @@ describe('OutcomeNode', () => {
       voiRank: null,
     })
     renderOutcome()
-    expect(screen.getByText(`${METRIC_NOUN.chance}: 68%`)).toBeDefined()
+    expect(screen.getByText('Goal chance: 68%')).toBeDefined()
   })
 
   // Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): same
@@ -283,7 +368,7 @@ describe('OutcomeNode', () => {
       voiRank: null,
     })
     renderOutcome()
-    expect(screen.getByText(`${METRIC_NOUN.chance}: 68%`)).toBeDefined()
+    expect(screen.getByText('Goal chance: 68%')).toBeDefined()
     expect(screen.queryByTestId('goal-fit-basis-caveat-outcome-node')).toBeNull()
   })
 
@@ -490,10 +575,17 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
     })
 
-    it('POSITIVE CONTROL: accepts CEE back-compat evidence (strength_mean)', () => {
+    it('discloses CEE back-compat strength_mean as an assumption, without a settled bar', async () => {
+      const user = userEvent.setup()
       bridgeStore({ strength_mean: 0.45, weight: 0.3 })
       renderOutcome()
-      expect(screen.getByText(/45%/)).toBeDefined()
+      const row = screen.getByTestId('outcome-strength-row')
+      expect(row).toHaveTextContent(METRIC_UNSET.standalone)
+      expect(row).not.toHaveTextContent('45%')
+      expect(row.querySelector('[style]')).toBeNull()
+      expect(row).toHaveAccessibleName(/assum.*45%/i)
+      await user.hover(row)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(/assum.*45%/i)
     })
   })
 })

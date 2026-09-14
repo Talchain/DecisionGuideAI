@@ -57,11 +57,33 @@ const STARTER: StarterId = 'build-vs-buy'
  */
 const CAPTION_FLOOR_PX = 56
 
-/** Every metric row the shared component renders, named so a row that stops mounting is visible. */
+/**
+ * Every metric row the shared component renders, named so a row that stops
+ * mounting is visible.
+ *
+ * ⛔ `decision-leader-metric-row` WAS REMOVED FROM THIS LIST, AND THE REASON
+ * MATTERS BECAUSE THIS FILE EXISTS TO NOTICE EXACTLY THAT.
+ *
+ * The row is gone from the product, not merely un-mounted on some fixture. It
+ * rendered `option_probabilities[leader]` under `METRIC_NOUN.support` — the
+ * same field, caption and scale the most-supported OptionNode already draws —
+ * so it was a duplicate of the option card's bar sitting under a heading that
+ * asks a question. It was removed with the verdict sentence above it.
+ *
+ * ⚠ A ROW LEAVING THIS LIST MUST ALWAYS BE A DELIBERATE, EXPLAINED CHANGE.
+ * Silently deleting an id is indistinguishable from a row that stopped mounting
+ * by accident, which is the failure this list is here to make loud. The four
+ * remaining rows keep every geometry check they had; nothing about their
+ * measurement is relaxed by the removal.
+ *
+ * The absence itself is pinned in unit tests rather than here — across all
+ * comparative-permission states in `canvasLeaderAdmission`, and per-permission
+ * in `nodeMetricRow.goalDecision` — because a visual spec cannot tell "removed
+ * on purpose" from "broken today".
+ */
 const METRIC_ROW_TEST_IDS = [
   'outcome-strength-row',
   'risk-strength-row',
-  'decision-leader-metric-row',
   'factor-influence-row',
   'goal-achievement-metric-row',
 ] as const

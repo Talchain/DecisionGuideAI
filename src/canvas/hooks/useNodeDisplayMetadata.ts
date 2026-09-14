@@ -16,6 +16,7 @@ import {
   determinedRankDepth,
   hasMeaningfulMagnitude,
   rowCarriesMagnitudeMetric,
+  MAX_BADGED_RANK,
 } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
@@ -32,12 +33,15 @@ import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatu
 /**
  * The deepest ordinal the canvas badge is willing to print ("Key driver #N").
  *
- * Exported so the gate that decides WHETHER a rank is determined and the cap
- * that decides HOW MANY get badged are one number. They were two — a gate
- * about rank 1 and a literal `rank <= 3` — and the gap between them is exactly
- * how `#2` and `#3` came to be handed out on alphabetical order.
+ * ⚠ DECLARED IN `components/results/driverDisplayModel.ts`, beside
+ * `determinedRankDepth`, and re-exported here under the name every existing
+ * importer already uses. It moved when the factor row ordering became a third
+ * consumer: that consumer sits in `useResultsSectionData.ts`, which is where
+ * THIS file imports `selectDriverPolicyFeed` from, so importing the constant
+ * back out of here would have closed a module cycle. One declaration, one
+ * value, no cycle.
  */
-export const MAX_BADGED_RANK = 3
+export { MAX_BADGED_RANK } from '../../components/results/driverDisplayModel'
 
 export interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
@@ -53,6 +57,13 @@ export interface NodeDisplayMetadata {
    * the Drivers panel. Null whenever `influence` is null.
    */
   influenceProvenance: DriverDisplayProvenance | null
+  /**
+   * The producer's `importance_basis` stamp for this factor's influence
+   * figure, verbatim, or null. Read off the SAME shared display entry the
+   * Drivers panel reads, and interpreted only by `influenceScaleCopy` — this
+   * hook never decides what a basis means.
+   */
+  influenceImportanceBasis: string | null
   /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
@@ -246,6 +257,7 @@ export function useNodeDisplayMetadata(
         sensitivityRank: null,
         influence: null,
         influenceProvenance: null,
+        influenceImportanceBasis: null,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
@@ -269,6 +281,7 @@ export function useNodeDisplayMetadata(
     let sensitivityRank: number | null = null
     let influence: number | null = null
     let influenceProvenance: DriverDisplayProvenance | null = null
+    let influenceImportanceBasis: string | null = null
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -435,6 +448,7 @@ export function useNodeDisplayMetadata(
         if (measured && modelEntry) {
           influence = modelEntry.value
           influenceProvenance = modelEntry.provenance
+          influenceImportanceBasis = modelEntry.importanceBasis
         }
 
         // Confidence: resolved through THE shared display policy, never read
@@ -642,6 +656,7 @@ export function useNodeDisplayMetadata(
       sensitivityRank,
       influence,
       influenceProvenance,
+      influenceImportanceBasis,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,

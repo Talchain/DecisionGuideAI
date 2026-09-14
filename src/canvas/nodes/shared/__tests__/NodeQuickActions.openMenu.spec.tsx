@@ -141,7 +141,14 @@ describe('NodeQuickActions — opening the node menu without a right-click', () 
     // name and nothing more. It guards deletion, which is the realistic
     // failure; the geometry is a browser claim and is not made here.
     renderInHost()
-    expect(screen.getByTestId('node-action-menu-n1').className).toContain('before:-inset-[2px]')
+    // ⚠ THE SLOP IS COUNTER-SCALED NOW. `before:-inset-[2px]` reached the user
+    // as 1px per side inside React Flow's viewport transform, so the literal
+    // this used to assert was never the thing the user got. The size invariant
+    // itself lives in `canvasGlyphTargetScale.spec.tsx`, in RENDERED px; this
+    // only needs the expansion to still be present on this button.
+    expect(screen.getByTestId('node-action-menu-n1').className).toContain(
+      'before:-inset-[calc(2px*var(--canvas-label-scale,1))]',
+    )
   })
 
   it('sits LAST, after the two named shortcuts — overflow, not a third peer', () => {

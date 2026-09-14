@@ -39,10 +39,19 @@ import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
-import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
+import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
+import { inset, PANEL_INSET_ACTION } from '../panelSurfaces'
+
+/**
+ * How many parameter names fit before the line stops being readable. Four is a
+ * layout judgement, not a claim about the set — the remainder is disclosed,
+ * never dropped.
+ */
+const WITHHELD_PARAMETER_CAP = 4
 
 /** Verdict tone → the accent that carries it. */
 const TONE_PILL: Record<string, string> = {
@@ -169,6 +178,18 @@ export interface AtAGlanceProps {
      * producer's code names one — see `recommendationMethod.ts`. */
     signalCode?: string
     /**
+     * The canonical bias the producer named on a bias-signal finding; absent
+     * otherwise.
+     *
+     * ⚠ CARRIED BECAUSE OMITTING IT WOULD MAKE TWO SURFACES DISAGREE ABOUT ONE
+     * FINDING. This card is a promoted reference to a Strengthen row, and that
+     * row resolves its method with the bias code. Without it the promoted card
+     * would name "Review a possible bias" while the row beneath it named "Apply
+     * the outside view" — the same producer fact, two answers, which is the
+     * defect class CLAUDE.md trap 21 is about. Never rendered as user copy.
+     */
+    biasCode?: string
+    /**
      * ⚠ RESTORED, AND ONLY THE CATALOGUE PATH MAY RENDER IT. Removing this
      * outright made the card strictly LESS informative on the catalogue
      * recommendations, measured on the top-priority one:
@@ -202,6 +223,31 @@ export interface AtAGlanceProps {
    * alone.
    */
   onReanalyse?: () => void
+  /**
+   * ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL. Takes the reader to where an estimate
+   * this comparison rests on can be reviewed or replaced with their own.
+   *
+   * The producer's withheld-designation sentence names its own remedy in words
+   * — "until you have set at least one of them" — and then leaves the reader
+   * nowhere to go. That is the complaint `honestSentenceHasAMove.spec.tsx`
+   * makes about the staleness ribbon, one slot further down this panel: the
+   * surface was optimised for truthfulness and never for usefulness.
+   *
+   * ⚠ ABSENT = NO CONTROL, exactly as `onReanalyse` above. A refusal with a
+   * dead button beside it is worse than the refusal alone, and this component
+   * is mounted by hosts that cannot route anywhere (every render test in the
+   * tree among them), so the fail-closed branch is a legitimate state rather
+   * than a defect to detect.
+   *
+   * ⚠ NOT A STORE READ, DELIBERATELY. `useUIStore` is imported NOWHERE under
+   * `components/results/analysisNew/`, and the destination — the outputs
+   * dock's active tab — is the DOCK's own state. `OutputsDock` owns this
+   * handler beside `onReanalyse`, `onFocusNode` and `onSendMessage`, all of
+   * which reach this surface the same way; adding a store subscription to a
+   * presentational section to avoid one prop would put the tab's navigation in
+   * the one file that cannot see the tab.
+   */
+  onReviewEstimates?: () => void
   /**
    * ⭐⭐ DERIVED FROM THE RUN GATE'S VERDICT IN ONE PLACE — NOT A SECOND
    * PREDICATE HERE. `AnalysisNewTabBody` passes `!canRunAnalysis && !isRunning`
@@ -319,6 +365,7 @@ export function AtAGlance({
   staleKind = 'unconfirmed',
   isProvisional = false,
   onReanalyse,
+  onReviewEstimates,
   reanalyseBlocked,
   reanalyseBlockedReason,
   isRunning,
@@ -466,22 +513,103 @@ export function AtAGlance({
 
   /**
    * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
-   * provenance line modifies the verdict above it, but lived as a SIBLING of
+   * provenance line qualifies the READING above it, but lived as a SIBLING of
    * the verdict inside the section's `space-y-3` — 12px below the sentence it
    * qualifies and 12px above one it does not, in identical typography.
    * Nothing bound it upward, and it read as an orphaned fragment.
+   *
+   * ⚠⚠ SUPERSEDED WORDING, NAMED SO IT IS NOT REINSTATED. This paragraph read
+   * "modifies the verdict ABOVE IT" until 9 Sep 2026. It does not — see the
+   * block below, witnessed on the deployed build: `glance.verdict` is a
+   * robustness word and is NOT something this phrase can qualify. A reader who
+   * took the old sentence at face value would find apparent authorisation to
+   * put the verdict back into the gate, and the tests would then RED for a
+   * reason the comment had denied. The LAYOUT finding above is untouched by
+   * this and still holds.
    *
    * ⚠ A LOCAL MARGIN CANNOT FIX IT: `space-y-3` compiles to
    * `.space-y-3 > :not([hidden]) ~ :not([hidden])`, which out-specifies a
    * plain `.-mt-2` — measured in a browser, the override changed the file and
    * NOT the render. The gap is owned by the parent, so the fix is structural.
    */
+  /**
+   * ⚠⚠ `glance.verdict` IS NOT SOMETHING THIS PHRASE CAN QUALIFY — WITNESSED ON
+   * THE DEPLOYED BUILD `2416ac3f`, 9 Sep 2026, guest, restored saved example,
+   * COMPLETED run. The live DOM carried NO headline, NO win share and NO win
+   * bar, a verdict line reading "Sensitive", and beneath it, alone:
+   *
+   *     "On inputs whose source Olumi could not establish"
+   *
+   * A bare prepositional phrase with no clause anywhere to attach to, sitting
+   * between the robustness line and the action card. All six sanctioned
+   * provenance sentences are QUALIFIERS of a READING — "Scored highest in 66%
+   * of simulated futures", or a named leading option. A tone word plus the
+   * producer's reason clause about robustness is neither.
+   *
+   * ⭐ AND GROUPING COULD NOT FIX IT. `glanceHoldsAtTheFloor.spec.tsx` already
+   * moved this line INSIDE the reading block so the section's `space-y-3` would
+   * stop spacing the qualifier away from what it qualifies. That was the right
+   * fix for that defect. It cannot help when the block holds no reading at all.
+   *
+   * ⚠ THE STATE IS ROUTINE, NOT AN EDGE CASE. `buildAnalysisNewViewModel`
+   * documents producing it above `shareOnScreen`: a leader determined by
+   * expected outcome carries a null win probability, and a run with a
+   * robustness verdict but no entitled leader lands here every time.
+   *
+   * ⚠⚠ THIS DOES NOT SUPPRESS THE HONESTY LINE, and the distinction is the
+   * argument. The module exists to stop a PROMINENT READING sitting with its
+   * basis stated nowhere — "the consequent in its largest type and the
+   * antecedent nowhere". With no reading on screen there is no consequent for
+   * this phrase to qualify, so that harm cannot occur. Every run that shows a
+   * reading still shows the line; the twins in
+   * `glanceQualifierNeedsAReading.spec.tsx` pin both directions.
+   *
+   * ⭐ WHAT "NO READING" IS DERIVED TO MEAN — this is the claim, and it is the
+   * WHOLE claim. In `buildAnalysisNewViewModel.ts`, `winShare` (:1732),
+   * `winFraction` (:1740) and `leaderLabel` (:1763) are each non-null only
+   * where `headline` is, and `headline` implies `showAnswer` implies this
+   * gate. So the share, the win bar and the NAMED LEADING OPTION can never
+   * render while this line is suppressed. That is a derivation over three
+   * fields — NOT a statement about everything this section can draw.
+   *
+   * ⚠⚠ AND IT IS NARROWER THAN IT FIRST READ. Until 9 Sep 2026 this paragraph
+   * also said "no option named", which is FALSE. Two sibling blocks below are
+   * outside the chain above and are NOT covered by it:
+   *   · SCOPE gates on `comparisonScope.kind === 'partial' &&
+   *     comparativeClaim !== 'none'`, and in the suppressed state
+   *     `buildAnalysisNewViewModel.ts:1755-1758` sets `comparativeClaim` to
+   *     `'order'`, NOT `'none'` — so on a partial scope it renders and prints
+   *     each excluded option's LABEL. Options ARE named on screen there.
+   *   · CONDITION gates on `glance.condition != null`, which `glanceCondition`
+   *     (:1586) ties to `flipThresholdsStatus` and a usable row, never to
+   *     leader entitlement — so it can print an input-derived number here.
+   * Whether either counts as a READING for this gate is OPEN. The argument
+   * that they do not — an excluded row carries the NOT-ANALYSED badge and
+   * states SCOPE rather than an outcome — is an argument, and the derivation
+   * above does not reach it. Do not cite this comment as settling it.
+   *
+   * ⚠ SCOPE OF THAT, STATED PRECISELY, AND DO NOT WIDEN IT. Component-side
+   * reachability is derived at the bytes here. It is NOT established that the
+   * producer emits a partial comparison scope, or a computed flip threshold,
+   * on a leader-withheld run — that needs a capture or a producer-side
+   * derivation, and neither exists. So this bounds the JUSTIFICATION; it is
+   * not a proven live regression, and the gate below is unchanged by it.
+   * RE-SURFACE TRIGGER: a live capture of a leader-withheld run that carries a
+   * partial comparison scope or a computed flip threshold. If one lands,
+   * re-open whether SCOPE and CONDITION count as readings for this gate.
+   *
+   * ⚠ THE SECOND DISJUNCT IS CURRENTLY SUBSUMED — `winShare` is gated upstream
+   * on `headline`, which is what `showAnswer` reads — and is written anyway.
+   * This gate then states what THIS component renders rather than depending on
+   * an upstream coupling it cannot see and nothing here pins.
+   */
+  const readingOnScreen = showAnswer || Boolean(glance.verdict && glance.winShare)
+
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
-  const showInputProvenance =
-    Boolean(glance.inputProvenance) && (showAnswer || Boolean(glance.verdict))
+  const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
@@ -493,7 +621,7 @@ export function AtAGlance({
              to FOUR lines of two words. `flex-wrap` plus the floor below drops
              the control to its own line exactly when the sentence can no
              longer afford to share one, and keeps it inline at 420px. */
-          className="flex flex-wrap items-start gap-1.5 rounded-md border border-warning/30 bg-warning/[0.05] px-2 py-1.5"
+          className={`flex flex-wrap items-start gap-1.5 ${inset('warning')}`}
           role="status"
           data-testid={`${testId}-ribbon`}
         >
@@ -602,6 +730,179 @@ export function AtAGlance({
           >
             {glance.leaderLabel ?? glance.headline}
           </p>
+          {/* ── ⭐⭐ WHOSE IDEA THIS WAS ────────────────────────────────────
+              IMMEDIATELY BENEATH THE NAME, NOT IN A DISCLOSURE AND NOT AT THE
+              FOOT OF THE PANEL — the same rule the scope note and the condition
+              line follow: it changes what the line above MEANS, so a reader who
+              sees one must see the other. A founder read "Raise Price to £54
+              (Soft Increase)" as the answer at 73% and had no way to learn that
+              the £54 was ours and not his.
+
+              ⛔ IT NEVER SUPPRESSES THE NAME. The leading option is still the
+              only large type on the surface; this adds a line, removes nothing,
+              and re-ranks nothing. Olumi inventing options is the product
+              working — the defect was the silence about it, not the invention.
+
+              ⚠ SILENT UNLESS THE CLAIM IS WARRANTED. `optionOrigin` is null for
+              the user's own option, for CEE's ambiguous `ai_inferred`-with-a-
+              quote case, for an unstamped node, and wherever no leader is named
+              at all. There is no fallback wording, because every other wording
+              attributes the idea to somebody. */}
+          {glance.optionOrigin ? (
+            <p
+              className={`${typography.panelMeta} text-text-light m-0 mt-1`}
+              data-testid={`${testId}-option-origin`}
+              data-option-origin={glance.optionOrigin}
+            >
+              {OPTION_ORIGIN_COPY[glance.optionOrigin]}
+            </p>
+          ) : null}
+        </div>
+      ) : glance.designationWithheldReason ? (
+        /* ── WHY THERE IS NO ANSWER ────────────────────────────────────────
+           ⭐⭐ SILENCE IS NOT A DENIAL. Until this slot existed, a run whose
+           model REFUSED to license a comparative claim rendered exactly what an
+           ordinary run with no leading candidate rendered: nothing. The reader
+           could not tell "the model declined to conclude this" from "there was
+           nothing to conclude". `heroTypes.ts:411-412` names that hazard for the
+           hero; this is its Reasoning-tab twin.
+
+           The sentence is the PRODUCER'S, rendered unparaphrased and
+           untruncated. It is not composed here and it is not templated: the
+           panel may not soften, sharpen or summarise what the model refused,
+           because the refusal is the model's claim to make and ours to carry.
+
+           ⚠ `role="status"` — this is a statement about the run, in the slot
+           where the answer would otherwise be, so it must reach a screen reader
+           the way the ribbon above does rather than as unannounced prose. */
+        <div role="status">
+          <Eyebrow>{COPY.glance.eyebrowWhyWithheld}</Eyebrow>
+          <p
+            className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
+            data-testid={`${testId}-withheld-reason`}
+          >
+            {glance.designationWithheldReason}
+          </p>
+          {/* ⭐⭐ THE MOVE THAT ANSWERS THE SENTENCE — the staleness ribbon's
+              argument, applied to the refusal. The producer names its own
+              remedy ("until you have set at least one of them") and the reader
+              has no way to reach it from here: the estimates live on the Model
+              tab, which is a different surface in a dock this panel does not
+              control. The sentence was legible and inert.
+
+              ⛔⛔ WHAT THIS CONTROL DOES NOT SAY, AND WHY IT IS A MEASUREMENT.
+              One user-stated value out of twenty flips CEE from
+              `quantified_provisional` to `comparative_leader` while nineteen
+              estimates stay Olumi's own — so a caption promising a more
+              confident answer would describe a real transition and still lie
+              about it. What the transition licenses is the CLAIM, because a
+              human entered the loop; not a better result. It equally may not
+              offer to CONFIRM the figures as they stand, which would launder a
+              machine estimate into a user-stated one and satisfy the gate
+              while meaning nothing. `COPY.glance.reviewEstimates` carries both
+              ceilings and `withheldReasonHasAMove.spec.tsx` holds them.
+
+              ⚠ NO FACTOR IS NAMED, AND THE ROUTE REFLECTS THAT. Measured on
+              the live wire, `missing_important_inputs` is EMPTY on this
+              refusal and the sentence says "at least ONE of them" — there is
+              no particular estimate to point at, so the destination is the
+              factors SECTION. The dock's handler passes no target id for the
+              same reason; inventing one would be a deep link to an arbitrary
+              row dressed as the answer.
+
+              ⛔⛔ AND IT IS GATED ON THE CAUSE, NOT JUST ON THE HANDLER —
+              THIS IS THE HALF THAT MAKES THE ACT TRUE. Every mode other than
+              `comparative_leader` withholds the designation, so the sentence
+              above is one of SEVERAL producer refusals, and only two of them
+              name an estimate. The others say "Name at least two different
+              options you are weighing", or "This model cannot be analysed
+              yet". Offering "review or set an estimate" under those takes the
+              reader to Factors to do something that cannot lift the refusal —
+              a futile instruction under a true sentence, which is worse than
+              the sentence alone, because it spends trust the refusal just
+              earned. `glance.designationWithheldRemedy` is `'estimate'` only
+              for the two causes whose own words ask for one, fail-closed on
+              every other and on an unrecognised one. Its corpus, including the
+              opposite-direction twins, is in
+              `withheldReasonHasAMove.spec.tsx`.
+
+              ⚠ FAIL-CLOSED TWICE OVER, AND THE TWO HALVES ANSWER DIFFERENT
+              QUESTIONS — do not fold them. The handler asks "can this host
+              route anywhere?"; the remedy asks "does the sentence above ask
+              for an estimate?". A host with nowhere to send the user and a
+              refusal that names an option are both reasons to render the
+              sentence alone, but they are not the same reason, and collapsing
+              them would put one predicate where two belong. */}
+          {/* ── WHICH PARAMETERS, NAMED ─────────────────────────────────
+              ⛔ THE WHOLE SET, NEVER A MEMBER. CEE publishes these in GRAPH
+              ORDER and computes no priority over them, so rendering one as
+              "the place to start" would be the arbitrary row dressed as the
+              answer that the block above forbids. The builder returns the set
+              or nothing; this renders the set or nothing.
+
+              ⚠ THE CAP IS THE CONSUMER'S AND IT DISCLOSES ITSELF. Four names
+              plus "and N more" — a reader can see the list is cut. The
+              PRODUCER may not cap for exactly the inverse reason: a truncated
+              wire list is an understatement nothing downstream can detect.
+
+              ⛔ AND THE DISCLOSURE IS THE LIST'S FINAL MEMBER, NOT A SUFFIX
+              BOLTED ON AFTER IT. That is what makes the sentence above come
+              out as written: `formatConjunctionList` is `Intl.ListFormat`
+              with `type: 'conjunction'`, so handing it five items yields
+              "four names, comma-separated, AND the fifth" — which is exactly
+              "Four names plus 'and N more'". The joiner owns every comma and
+              the single "and", which is also why the en-GB punctuation rules
+              live in one place rather than being re-derived here.
+
+              ⚠⚠ SO `COPY.glance.withheldParametersMore` MUST NOT OPEN WITH
+              "and", AND IT DID UNTIL 2026-09-12. The joiner inserted its own
+              before this member and the line rendered "… Customer and Staff
+              Engagement AND AND 4 more" on a refusal witnessed on deployed
+              staging. Two ways to put that back: restore the "and" to the
+              constant, or lift this member out of the array and append it as
+              a suffix — the second reads "… Disruption and Customer and Staff
+              Engagement and 4 more", which is the same clumsiness one comma
+              further along, and it needs a second joiner for the labels. The
+              constant carries the other half of this note.
+              `withheldParametersReadAsOneSentence.spec.tsx` pins the rendered
+              English in BOTH branches by exact equality. */}
+          {glance.designationWithheldParameters.length > 0 ? (
+            <p
+              className={`${typography.panelMeta} mt-1 text-text-light`}
+              data-testid={`${testId}-withheld-parameters`}
+            >
+              {COPY.glance.withheldParametersLeadIn}{' '}
+              <span className="text-text-body">
+                {formatConjunctionList([
+                  ...glance.designationWithheldParameters
+                    .slice(0, WITHHELD_PARAMETER_CAP)
+                    .map((p) => p.label),
+                  ...(glance.designationWithheldParameters.length > WITHHELD_PARAMETER_CAP
+                    ? [
+                        COPY.glance.withheldParametersMore(
+                          glance.designationWithheldParameters.length - WITHHELD_PARAMETER_CAP,
+                        ),
+                      ]
+                    : []),
+                ])}
+              </span>
+            </p>
+          ) : null}
+          {onReviewEstimates && glance.designationWithheldRemedy === 'estimate' ? (
+            <button
+              type="button"
+              onClick={onReviewEstimates}
+              /* ⚠ INFO IS THE ACTION COLOUR ON THIS PANEL and this is a real
+                 `<button>`, so `actionColourMeansPressable.spec.ts` licenses
+                 it by ancestry. Underline plus `text-info` is what says
+                 PRESSABLE here — the sentence above is `panelBody
+                 text-text-body`, so the two cannot be confused at rest. */
+              className={`${typography.panelMeta} mt-1.5 inline-block rounded text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-withheld-review-estimates`}
+            >
+              {COPY.glance.reviewEstimates}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -778,7 +1079,25 @@ export function AtAGlance({
                 <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="text-text-body">{o.label}</span>
-                  {' — '}
+                  {/* ⭐ A FULL STOP, NOT A DASH. Paul, 10 Sep 2026: no em dashes in
+                      product content. This slot held `{' — '}` and was the last one
+                      on this tab, carried as a HANDED_OFF row in
+                      `noEmDashesInRenderedCopy.spec.ts` while another seat held the
+                      file. That row is now deleted; leaving it would RED the guard.
+
+                      ⚠ THE STOP IS CHOSEN FOR THE CONCATENATION, NOT FOR THE LINE.
+                      The `sr-only` span below opens with its own `. `, so an
+                      assistive technology reads the three parts as three complete
+                      statements:
+
+                        "<label>. Not analysed. The analysis returned no result …"
+
+                      `NOT_ANALYSED_BADGE` is the constant 'Not analysed' and carries
+                      no terminal punctuation, so nothing here doubles a full stop and
+                      no fragment is left stranded. An en dash was NOT an option: it
+                      is the same hedge in a narrower glyph. The two halves both
+                      survive — the label and the badge are untouched. */}
+                  {'. '}
                   {NOT_ANALYSED_BADGE}
                   <span className="sr-only">{`. ${o.reasonCopy}`}</span>
                 </span>
@@ -843,9 +1162,13 @@ export function AtAGlance({
           ⚠ WHAT WENT WITH IT, AND WHERE IT WENT. The basis caption
           ("Influence" / "Relative influence") disclosed which scale the bars
           were on through a `title` tooltip, which a touch reader cannot open;
-          the drivers section now carries both branches of that disclosure as a
-          VISIBLE caveat (`coverage.structuralInfluence` /
-          `coverage.setRelativeInfluence`). The "+N more drivers" line declared
+          the drivers section carries that disclosure as a VISIBLE caveat.
+          ⚠ CORRECTED 7 Sep 2026 — this said "both branches … (`coverage.
+          structuralInfluence` / `coverage.setRelativeInfluence`)". Since #1228
+          only `coverage.setRelativeInfluence` reaches a screen; the structural
+          branch was reachable only on a run with no bars, where its own
+          sentence opens "Each bar", and the basis line is now withheld there.
+          The "+N more drivers" line declared
           this list’s cap of three; the section states the true count on its
           collapsed row and the chart renders every row, so there is no cap
           left to declare.
@@ -875,7 +1198,7 @@ export function AtAGlance({
           )
           return (
             <div
-              className="rounded-md border border-warning/30 bg-warning/[0.04] px-2 py-1.5"
+              className={inset('warning')}
               data-testid={`${testId}-condition`}
             >
               {focusable ? (
@@ -908,7 +1231,7 @@ export function AtAGlance({
         <button
           type="button"
           onClick={() => onRunIntervention(primaryIntervention.id)}
-          className="w-full flex items-start gap-2 rounded-lg bg-info/[0.06] px-2.5 py-2 text-left hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          className={`w-full flex items-start gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${PANEL_INSET_ACTION}`}
           data-testid={`${testId}-primary-intervention`}
           data-recommendation-id={primaryIntervention.id}
         >
@@ -940,6 +1263,7 @@ export function AtAGlance({
               const method = methodForRecommendation(
                 primaryIntervention.id,
                 primaryIntervention.signalCode,
+                primaryIntervention.biasCode,
               )
               return method ? (
                 <span

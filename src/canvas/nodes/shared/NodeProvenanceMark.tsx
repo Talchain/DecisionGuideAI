@@ -5,6 +5,8 @@ import {
   VALUE_PROVENANCE_ICON,
   PROVENANCE_ICON_SIZE_CLASSES,
 } from '../../domain/valueProvenanceIcon'
+import Tooltip from '../../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 /**
  * ⭐⭐ WHO PUT THIS ELEMENT HERE — on the card, at a fixed position, on every
@@ -84,8 +86,41 @@ import {
  * But a HOVER-ONLY tooltip on a non-focusable element is unreachable by keyboard
  * AND by touch, and this is a PROVENANCE claim. So `role="img"` + `aria-label`
  * put the full claim in the accessible name, which needs no focus and no hover;
- * `title` keeps the mouse tooltip; and `CanvasLegendPopover` — a real toolbar
- * BUTTON — keys these glyphs so the picture is a public code, not a private one.
+ * the mouse tooltip carries the same sentence; and `CanvasLegendPopover` — a
+ * real toolbar BUTTON — keys these glyphs so the picture is a public code, not a
+ * private one.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐ THE MOUSE TOOLTIP IS NO LONGER `title=` (7 Sep 2026)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The founder, driving the deployed canvas: *"if you hover over any individual
+ * icon, it doesn't tell you what it is or what to do about it (with a hover
+ * state of any kind or something like that)."*
+ *
+ * ⚠ THIS MARK IS THE SHARPEST INSTANCE OF THAT REPORT, AND THE REASON IS IN THIS
+ * FILE'S OWN HISTORY. Defect 2 above converted a text pill into a GLYPH on his
+ * standing ruling that identical copy on every card is furniture — *"they should
+ * all be icons with hoverover states."* It shipped as an icon whose only hover
+ * state was a native `title`: OS chrome, after the platform's ~1s dwell, with no
+ * visual change on the glyph. **The words were replaced by a picture and the
+ * hover state that was supposed to pay for them never arrived.** So the mark
+ * answered half his ruling and the unanswered half is what he hovered.
+ *
+ * `title` is REMOVED rather than kept alongside: both render, so the pair paints
+ * the styled bubble and then the OS tooltip on top of it with the same sentence.
+ * `aria-label` is untouched, so the no-hover/no-focus channel this component
+ * argues for above is exactly as reachable as it was.
+ *
+ * ⚠ AND IT IS STILL NOT A TAB STOP. The shared `Tooltip` adds hover and focus
+ * LISTENERS via floating-ui; it does not add `tabIndex`, so the "no second tab
+ * stop per node" contract this file shares with `EstimateMarker` is unchanged,
+ * and its spec still asserts it. (The other in-repo `Tooltip` —
+ * `canvas/components/Tooltip.tsx` — forces `tabIndex ?? 0` on its child and
+ * would have broken that contract silently. It is not interchangeable, and this
+ * is one of the two reasons the node surface standardises on the other one; the
+ * other is that this one PORTALS, so the bubble escapes React Flow's viewport
+ * transform instead of being clipped by the card and scaled to ~7px at the
+ * post-draft auto-fit zoom.)
  *
  * ⚠ THE TOOLTIP NO LONGER LEAKS THE WIRE LITERAL. It used to read
  * `"AI estimate — source: ai_inferred"`, putting a producer-internal enum into
@@ -127,19 +162,23 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
   const Icon = VALUE_PROVENANCE_ICON[cls.kind]
 
   return (
-    <span
-      data-testid="node-provenance-mark"
-      data-provenance-kind={cls.kind}
-      data-provenance-claim={claim}
-      // The claim itself, available with no hover and no focus.
-      role="img"
-      aria-label={label}
-      title={label}
-      className="inline-flex shrink-0 items-center text-text-light"
-    >
-      {/* `aria-hidden` because the accessible name is on the wrapper — without
-          it a screen reader would announce the mark twice. */}
-      <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
-    </span>
+    <Tooltip asChild content={label} delay={NODE_TOOLTIP_DELAY_MS}>
+      <span
+        data-testid="node-provenance-mark"
+        data-node-tooltip="true"
+        data-provenance-kind={cls.kind}
+        data-provenance-claim={claim}
+        // The claim itself, available with no hover and no focus. The tooltip
+        // above is the MOUSE channel for the same sentence — one source, so the
+        // two cannot drift into saying different things about one glyph.
+        role="img"
+        aria-label={label}
+        className="inline-flex shrink-0 items-center text-text-light cursor-help"
+      >
+        {/* `aria-hidden` because the accessible name is on the wrapper — without
+            it a screen reader would announce the mark twice. */}
+        <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
+      </span>
+    </Tooltip>
   )
 }

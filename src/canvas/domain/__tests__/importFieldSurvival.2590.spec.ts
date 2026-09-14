@@ -260,6 +260,19 @@ const READER_CORPUS: readonly CorpusEntry[] = [
     reader:
       'WRITER canvas/ui/inspector-v2/useInspectorMutations.ts:279 setExtractionType · READERS canvas/components/pre-analysis/hooks/usePreAnalysisData.ts:789-792 ("extractionType has two storage locations… node.data.extractionType — factors edited via the inspector"), FactorObservableEditor.tsx:96, FactorControllableEditor.tsx:149',
   },
+  // ⭐⭐ THE HARMFUL DIRECTION IS `true` BEING DROPPED, which is why the value
+  //    here is `true` and not the `false` the setter writes. `category` is a
+  //    DECLARED field and always survives; if this marker did not, an export /
+  //    import round trip would strip the admission and leave the UI's own
+  //    edge-shape guess behind, now indistinguishable from a producer stamp —
+  //    laundering exactly what it exists to disclose.
+  {
+    nodeId: 'fac_capacity',
+    field: 'categoryInferredByUi',
+    value: true,
+    reader:
+      'WRITER adapters/cee/client.ts inferMissingCategories (marks its own guess) · WRITER canvas/ui/inspector-v2/useInspectorMutations.ts setCategory (writes false when a human states it) · READER canvas/domain/vocabulary.ts statedFactorCategoryLabel, consumed by canvas/model-tab-v2/adapters.ts to withhold an inferred classification',
+  },
   {
     nodeId: 'fac_capacity',
     field: 'factor_type',

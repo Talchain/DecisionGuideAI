@@ -1,6 +1,13 @@
 # Olumi Design System — Quick Reference
 
-> Full specification: [`docs/design/Olumi_Design_System_v4.md`](docs/design/Olumi_Design_System_v4.md)
+> Full specification: [`docs/Design/Olumi_Design_System_v5.md`](docs/Design/Olumi_Design_System_v5.md)
+>
+> ⚠ This link previously read `docs/design/…_v4.md` — **lower-case `design`, and v4**. The
+> directory is `docs/Design/` (capital `D`), so the old path resolved on a case-insensitive
+> macOS checkout and would fail on Linux/CI. v5 declares itself *"Single source of truth for
+> all UI implementation. Supersedes all previous versions."*
+>
+> **The `v4 §N` citations below are deliberate and mostly still correct — see "Key Files".**
 
 ## Philosophy
 
@@ -198,19 +205,62 @@ A node's **kind** is carried by its border hue + shape glyph. Two ratified
 border modifiers exist, and they mean different things — never conflate them:
 
 - **Dashed border = "outside your control"** (external factors).
-- **Amber border = "needs your judgement"** (a controllable node missing its
-  value; the goal missing its target).
+- **Amber = "needs your judgement"** (a controllable node missing its value;
+  the goal missing its target). ⚠ **Ruled 2026-09-08: amber is a BADGE beside
+  the kind hue, not a border replacing it** — see the ruling below. The code
+  still paints the border (`BaseNode.tsx:602`) until the implementing lane lands.
 
-External factors NEVER get amber, even with no value (pinned in
-`FactorNode.spec.tsx`). New states must reuse this vocabulary, not invent a
-third border treatment.
+External factors NEVER get the needs-judgement treatment, even with no value —
+pinned in both directions by `FactorNode.spec.tsx:531-542` and
+`BaseNode.incompleteBorderVocabulary.spec.tsx:166-179`. New states must reuse
+this vocabulary, not invent a third treatment.
 
-> **Open question (flagged 2026-07-16, Paul to rule):** amber-on-incomplete
-> replaces the kind hue on the border, and amber `#FFA656` sits one perceptual
-> step from the risk border `#EA7B4B` — the same ΔE neighbourhood the E1 edge
-> work deliberately moved away from. An alternative (kind-hue border + amber
-> badge for needs-judgement) would preserve the kind channel; changing it
-> means re-ruling wireframe v4, so it is recorded here rather than changed.
+> **RULED 2026-09-08 (Paul).** Supersedes the open question flagged 2026-07-16.
+> **The kind hue STAYS on the border. "Needs your judgement" becomes an AMBER
+> BADGE, not an amber border.**
+>
+> The original question was framed around amber-vs-risk (ΔE2000 **13.9**, the
+> figure measured in `BaseNode.incompleteBorderVocabulary.spec.tsx`).
+> **That is not the worst collision, and the framing understated the problem.**
+> CIEDE2000, with dichromat simulation (Viénot–Brettel–Mollon 1999):
+>
+> | amber vs | normal | deuteranopia | protanopia |
+> |---|---|---|---|
+> | risk / danger | 13.9 | 9.0 | 12.3 |
+> | **goal** | 17.0 | **5.5** | **8.6** |
+> | outcome / success | 43.6 | 19.6 | **12.8** |
+> | factor | 22.0 | 20.8 | 17.4 |
+> | option | 42.9 | 53.6 | 50.6 |
+> | decision / info | 51.0 | 58.8 | 49.1 |
+>
+> - **Amber vs GOAL is ΔE 5.5 under deuteranopia and 8.6 under protanopia** —
+>   effectively the same colour. And the amber rule explicitly covers *"the goal
+>   missing its target"*, **so the rule is least visible exactly where it is most
+>   used.** Amber vs outcome/success is only 12.8 under protanopia.
+> - **Decisively: amber-replacing-the-hue makes colour the SOLE channel for
+>   "needs your judgement".** It overwrites the kind hue, so no second channel
+>   survives to carry the state. **This document's own Developer Checklist
+>   requires "Colour is not the sole information channel"** — the current border
+>   rule contradicts the same document's accessibility rule.
+> - **A badge is a shape-and-position channel**, so it survives every dichromat
+>   case *and* it preserves the kind channel. Precedent already exists in the
+>   same component: `BaseNode.tsx:958` renders an amber dot
+>   (`h-2.5 w-2.5 rounded-full bg-warning border border-canvas`) for "edited
+>   since the last analysis".
+>
+> **Unchanged by this ruling — external factors NEVER get the needs-judgement
+> treatment.** Dashed still means "outside your control". The exemption sits
+> upstream of the border expression in `isFactorNeedsInput`, and is pinned in
+> both directions by `FactorNode.spec.tsx:531-542` (external → `border-factor`,
+> never amber) and `BaseNode.incompleteBorderVocabulary.spec.tsx:166-179`
+> (external keeps the dash; the incomplete node loses it).
+>
+> **Implementation is a separate lane; this entry is the ruling, not the change.**
+> Until it lands, `BaseNode.tsx:602` still returns `border-warning`, and the
+> comments at `BaseNode.tsx:578-581` and
+> `BaseNode.incompleteBorderVocabulary.spec.tsx:19-25` still describe this as an
+> open question awaiting Paul. **Those two comments are now stale and belong to
+> that lane to update.**
 
 ### Edge polarity tokens
 
@@ -218,8 +268,51 @@ Causal-edge colours are tokens, not literals: `--edge-positive` /
 `--edge-negative` / `--edge-neutral` (+ `-dark` variants) in `brand.css`,
 with the full CVD/ΔE rationale attached to the tokens. `directionStroke.ts`
 owns the *rule* (which state gets which token); the token file owns the hues.
-Truly uninitialised edges use `--goal` yellow; amber stays reserved for the
-warning/fragility family.
+Amber stays reserved for the warning/fragility family (Paul's C2 ruling).
+
+**RULED 2026-09-08: an edge nobody has set is GREY (`--edge-neutral`) — not
+`--goal` yellow.** This section previously read *"truly uninitialised edges use
+`--goal` yellow"*. **The code deliberately does not do that**
+(`directionStroke.ts:56-63`, a stated exception); that exception is hereby
+promoted to the rule. Three grounds, recorded so the question is not re-opened
+cheaply:
+
+1. **It is NOT a contrast problem, so contrast cannot decide it — and did not.**
+   Goal yellow is perfectly separable from the edge palette (ΔE2000 35.4 from
+   `--edge-positive`, 59.1 from `--edge-negative`; worst dichromat case 20.7).
+   Grey is separable too (27.5 / 39.3; 17.1 / 28.6 under deuteranopia).
+   **Both candidates pass on contrast.** The decision turns on channel ownership.
+2. **It is a channel-collision problem, and this document's own rule settles it:**
+   *"No channel should duplicate another."* `--goal` is the goal ENTITY's
+   identity. Spending it on "we have no data" overloads one hue with two
+   meanings — painting a large share of a fresh graph's edges in the goal hue
+   would say something about goals, not about missing data.
+3. **Grey REUSES the existing vocabulary rather than minting a third hue.** Grey
+   already means "we have no verdict" here: it is what a
+   weight-set-but-no-direction edge gets, and what the deliberate weight = 0
+   choice gets. This is exactly what the border section above already demands —
+   *"New states must reuse this vocabulary, not invent a third treatment."*
+
+⛔ **The unset state is decided by PROVENANCE, never by a value.** The branch
+this replaces was commented *"truly uninitialised: no direction AND weight is
+undefined"* and **could not fire**: `USER_EDGE_DEFAULTS` fabricates
+`weight: 0.3` and `direction: 'positive'`, so `rawWeight === undefined` never
+happened in the product and **every freshly drawn edge was painted the
+confirmed-positive green**. Colour is read pre-attentively, so it asserted
+"this is a confirmed positive influence" about a connection the user had merely
+drawn. `computeDirectionStroke` now takes `EdgeValueDisplay` /
+`EdgeDirectionDisplay` rather than numbers, because there is no argument meaning
+"0.3, source unknown". **Any future rule here must key on whether anyone
+SUPPLIED the value — never on the value itself, which always has a default.**
+
+The shipped legend already teaches grey: `CanvasLegendPopover.tsx:114` renders
+*"Grey: direction not set yet"* against `var(--edge-neutral)`, and the
+unset-thickness row uses the same token. **There is no yellow row.**
+
+> ⚠ `src/styles/brand.css:213-215` still carries the superseded sentence
+> (*"Yellow (--goal) stays reserved for truly uninitialised edges"*). It is a
+> source file and out of scope for this documentation change — it needs the same
+> correction. See the PR description.
 
 ### Edge-label signals
 
@@ -246,6 +339,38 @@ duplicates at the convergence (visibility rules live in
 At most **two persistent icon affordances** per node (e.g. edit + confirm).
 Everything else — AI suggestions, visibility, help — appears on hover or
 selection. Icons are Lucide only; text glyphs (✓ ✕ ⚠) are never icons.
+
+**Node quick actions (V3 refinement):** At most three shortcuts, in the order
+Ask Olumi (`MessageSquare`), Challenge (`Zap`), More (`MoreHorizontal`). Retain
+the existing availability gates. Ask sends the existing explanation request;
+Challenge opens an editable draft. More includes Open details (`PanelRight`),
+so details stays keyboard-reachable alongside the existing node-click route.
+Preserve the top-centre type shape, origin glyph, node dimensions and connectors.
+
+Quick actions use the portalled `src/components/Tooltip.tsx` with `asChild` to
+attach to the button without changing its hit area. Use a 300 ms hover delay,
+focus disclosure, Escape dismissal, wrapping and viewport repositioning. Do
+not add native tooltip copy to these controls; `asChild` applies an empty
+`title` to block inherited browser tooltips. `usePopoverHover` gives
+the action row priority over the node preview while it is hovered or focused;
+moving back to the node body restores the preview after its normal delay.
+Tooltips explain actions; actionable content belongs in the preview/inspector.
+These controls appear on hover, focus or selection and are not persistent
+status indicators. Unknown provenance, review or contributor counts must never
+be inferred from their presence.
+
+**Metric explanations:** A node metric with a scale, provenance or unset-state
+explanation uses the same positioned tooltip and 300 ms delay. The metric row
+is keyboard-focusable, Escape dismisses its explanation, and the body preview
+yields while that row is active. Preserve the visible label, value and bar;
+the accessible name includes the value as well as its meaning. A row without
+an explanation adds no tab stop. Do not encode these explanations only in a
+native `title`, or add a separate persistent icon to expose them.
+
+**Option inspector title:** Show the full name at the existing header type
+size. Wrap words instead of truncating; place Back to results, technical detail
+and Close beside the Option type label so they do not compete with the name.
+Keep the existing rename control, limit and save path.
 
 ## Patterns
 
@@ -376,7 +501,26 @@ Before shipping any UI work:
 
 ## Key Files
 
-- `docs/design/Olumi_Design_System_v4.md` — Full design system specification
+- `docs/Design/Olumi_Design_System_v5.md` — Full design system specification (**current**;
+  its own header says it supersedes all previous versions)
+- `docs/Design/Olumi_Design_System_v4.md` — retained: the `v4 §N` citations in this file
+  point here, and a citation to where a rule was ratified is not stale merely because a
+  newer document exists
+
+**Citation audit (verified 2026-09-08 against both documents' headings):**
+
+| Cited here | v4 | v5 | Verdict |
+|---|---|---|---|
+| v4 §3.2 Light shade restrictions | §3.2 Two-shade rule | §3.2 Two-shade rule | correct in both — **not stale** |
+| v4 §8.5 Pills and badges | §8.5 Pills and badges | §8.5 Pills and badges | correct in both — **not stale** |
+| v4 §11.6 Evaluative colour thresholds | §11.6 | §11.6 | correct in both — **not stale** |
+| v4 §15 Coaching cards | §15 Coaching card pattern | **§16** Coaching card pattern | **renumbered in v5** (v5 inserts §15 "Scroll behaviour") — correct as a v4 citation, wrong if read as v5 |
+
+⚠ The **"Border vocabulary"** and **"Edge polarity tokens"** sections above cite
+*wireframe* v4, not the v4 document. Neither the v4 nor the v5 design-system document
+mentions amber, "needs your judgement", "outside your control" or the edge tokens
+(verified by sweep with a positive control) — **for the canvas border and edge rules this
+file is the sole written authority**, which is why both rulings are recorded here.
 - `src/styles/brand.css` — CSS custom properties (colour source of truth)
 - `tailwind.config.js` — Tailwind colour mappings
 - `src/styles/typography.ts` — Typography tokens

@@ -17,7 +17,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useEdgeMutations } from '../useInspectorMutations'
+import { useEdgeMutations, type EdgeStrengthConfirmOutcome } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -40,6 +40,7 @@ import {
   edgeValueBand,
   edgeValueSource,
   resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
@@ -48,6 +49,8 @@ import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { edgeStrengthEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
+import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -199,10 +202,44 @@ export const EdgePanel = memo(function EdgePanel({
   // UI default has no source and is not an estimate the user can honestly
   // confirm. Keep the exact store number visible beside the action so consent
   // covers the number that will receive the user provenance stamp.
+  /**
+   * ⛔⛔ GATED ON THE AUTHORITY THE ACT ACTUALLY REQUIRES, NOT ON A SECOND
+   * FUNCTION THAT AGREES WITH IT TODAY.
+   *
+   * This asked only `edgeValueSource(data,'weight') === 'cee'` — *"did a producer
+   * originate this number?"* — while `confirmCurrentStrength` succeeds only when
+   * `serverStatedStrengthOf(data)` returns a tuple — *"does the SERVER hold this
+   * number?"*. Different questions over different fields, and
+   * `edgeServerStatedStrength.ts` exists precisely because they were conflated
+   * once before: `'cee'` is stamped by paths that write a producer's number
+   * locally BEFORE any server write exists. An edge in that state satisfied the
+   * render and failed the act, so the person read *"Olumi's current estimate is
+   * 0.3. Confirm this estimate"*, clicked, and nothing happened anywhere.
+   *
+   * ⭐ MEASURED, since the divergence was decidable and the frequency was not:
+   * on a real drafted graph (29 edges, served `afcb2e2b`, scenario `52cf4a0c`)
+   * **29/29 carry `serverStrength` and 0/29 are in the divergent class.** So this
+   * is a latent seam rather than a live defect — which is exactly why it is worth
+   * closing by CONSTRUCTION now rather than by a frequency argument that the next
+   * ingestion path could falsify.
+   *
+   * ⚠ THE SECOND CONJUNCT, NOT A REPLACEMENT, AND THE CHOICE IS DELIBERATE.
+   * Deriving the magnitude itself from `serverStatedStrengthOf` also closes the
+   * divergence, but it silently changes WHICH NUMBER IS SHOWN — from the live
+   * `weight` to the server's last stated mean. Those differ exactly when a store
+   * refresh has moved `weight`, and a sibling spec pins the control reading the
+   * LIVE value. Closing a gate divergence must not quietly re-point a display.
+   * ⚠ RESIDUAL, NAMED NOT FIXED: the number shown is `weight`, the number
+   * confirmed is `expected.mean`. They agree on every real edge measured above;
+   * where a refresh moves one and not the other they would not, and that is a
+   * DISPLAY honesty question with its own answer, not this gate's job.
+   */
   const currentEstimatedWeight = useMemo(() => {
     const data = edge?.data as Record<string, unknown> | undefined
     const value = data?.weight
     return edgeValueSource(data, 'weight') === 'cee' &&
+      // the act's own authority — one function, both readers
+      serverStatedStrengthOf(data) !== null &&
       typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
       ? value
       : null
@@ -217,8 +254,20 @@ export const EdgePanel = memo(function EdgePanel({
 
   // Local slider state
   const [localStrength, setLocalStrength] = useState(signedValue)
+  // Kept OUT of `useEditConfirmation` on purpose: that hook's `lastConfirmed`
+  // is what gates `InlineRerunPrompt`, and a confirmation changes no value, so
+  // it must not invite a re-run.
+  const [strengthConfirm, setStrengthConfirm] =
+    useState<{ ts: number; outcome: EdgeStrengthConfirmOutcome } | null>(null)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
+
+  // Canvas-wide edge label mode. The numeric form was fully built — the store
+  // below, its localStorage persistence, `formatNumericLabel`, and StyledEdge's
+  // monospace treatment — and NOTHING in the product called `setMode`, so no
+  // user could ever see an edge's number. This panel is where a person is
+  // already looking at that number, so the control lives here. It is a display
+  // preference only: it changes no model value and sends nothing.
 
   // Existence band for the colour + track-fill channels. Provenance comes from
   // the STORE (the only thing that knows whether anyone set this); the value
@@ -297,13 +346,43 @@ export const EdgePanel = memo(function EdgePanel({
     confirmEdit('strength')
   }, [mutations, clearPreview, confirmEdit])
 
+  /**
+   * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.
+   * Wire-witnessed on served `1d0306a0`, scenario `52cf4a0c`, not reasoned:
+   *
+   *   - it called `setStrength(currentEstimatedWeight)`, which emits
+   *     `intent: 'set'` at a magnitude EQUAL to the persisted value — the exact
+   *     `set_target_unchanged` case. CEE answered *"That link already has
+   *     exactly that strength and direction, so I haven't recorded it as your
+   *     judgement."* `blocks: []`, `graph_hash` unchanged, `weightSource` still
+   *     `cee`. Nothing was recorded.
+   *   - it then called `confirmEdit('strength')` UNCONDITIONALLY, which rendered
+   *     `EditConfirmation` at its defaults — **"Updated" in success green** —
+   *     and, 2s later, `InlineRerunPrompt`: *"Re-run to see how this affects the
+   *     results."* So the person was told their agreement was saved and invited
+   *     to spend an analysis on a change that did not exist.
+   *
+   * ⚠ NOT A DEAD BUTTON — A BUTTON THAT REPORTED THE OPPOSITE OF WHAT HAPPENED.
+   * The truthful sentence went to the Olumi conversation, a surface the person
+   * must open deliberately; it appeared NOWHERE in the canvas view.
+   *
+   * Both halves are closed here. The act now rides `confirm_current`, the only
+   * carrier that can land it. And the feedback is kept SEPARATE from
+   * `confirmEdit`: a confirmation changes no value, so it must not mark the
+   * panel edited — that is what raised the re-run prompt. `EditConfirmation`'s
+   * own header supplied `label`/`tone` for exactly this caller and warned that
+   * *"it stops being harmless the moment a pane unfences."* It unfenced.
+   */
   const handleConfirmCurrentStrength = useCallback(() => {
     if (currentEstimatedWeight === null) return
-    // Confirm the exact live canonical magnitude, not a band midpoint or local
-    // slider draft. Magnitude confirmation says nothing about causal direction.
-    mutations.setStrength(currentEstimatedWeight, { preserveDirection: true })
-    confirmEdit('strength')
-  }, [currentEstimatedWeight, mutations, confirmEdit])
+    // ⛔ EVERY OUTCOME IS NAMED, AND THE SILENT ONE IS WHY. `dispatched` says
+    // SENT, never saved. Anything else means NO statement left this client, and
+    // the person still pressed a button — so it says so rather than doing
+    // nothing. `no_carrier` in particular is a fact about the render context
+    // (no conversation to send through), NOT about the edge, so the render gate
+    // above cannot eliminate it: silence there would be permanent, not transient.
+    setStrengthConfirm({ ts: Date.now(), outcome: mutations.confirmCurrentStrength() })
+  }, [currentEstimatedWeight, mutations])
 
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
@@ -315,6 +394,92 @@ export const EdgePanel = memo(function EdgePanel({
     setLocalStd(v)
     mutations.setStd(v)
   }, [mutations])
+
+  /**
+   * ⭐ MAY THIS EDGE'S STRENGTH REACH THE MODEL AT ALL?
+   *
+   * Asked of the emitter, never re-derived here — `edgeStrengthEditIsAssertable`
+   * calls `buildEdgeStrengthEditEvent` and reports whether it would build. An
+   * edge whose weight came from `DEFAULT_EDGE_DATA` has no assertable `expected`
+   * tuple, so the event cannot be built and `setStrength` would return
+   * `not_wire_encodable` before anything left the browser.
+   *
+   * ⛔ IT FAILS CLOSED, and that direction is the point: an editable edge that
+   * renders disabled is a disclosure, while an editor whose write cannot land is
+   * the lie this panel is being unfenced to stop.
+   */
+  const strengthReachesTheModel = edgeStrengthEditIsAssertable(edge)
+
+  /**
+   * ⭐⭐ A DIFFERENT QUESTION FROM THE ONE ABOVE, AND THAT IS THE WHOLE DESIGN.
+   *
+   * `strengthReachesTheModel` asks *"can I build an EDIT event for this edge?"*
+   * and rightly answers no for a link the user just drew — `edge_strength_edit`
+   * EDITS an edge the server already holds, and the server has never received
+   * this one. **That fence is correct and is deliberately left alone.**
+   *
+   * This asks *"did this link stand down for want of a stated strength?"* — and
+   * if so the user has never been offered a way to state one. The answer rides
+   * `structural_add_edge`, which ADDS the link WITH the magnitude the person
+   * supplies. Two populations, two carriers, two controls (CLAUDE.md trap 21);
+   * giving them one control is what made the old copy impossible to write
+   * honestly.
+   *
+   * ⛔ NOTHING HERE INVENTS A MAGNITUDE. Until the person picks one the link
+   * stays on the canvas and says so.
+   */
+  // `edge` is narrowed a few lines below, not here — optional access, because the
+  // repo's typecheck GATE flags what a bare `tsc --noEmit` let through.
+  const awaitingStatedStrength =
+    (edge?.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
+    'strength_not_stated'
+
+  /**
+   * States the strength for a link that has never reached the model, with the
+   * provenance stamps that make it a CLAIM rather than a default. The store's
+   * `updateEdge` sees a recorded stand-down plus a now-stated strength and
+   * re-runs the capture exactly once — see `retryStructuralAddEdgeCapture`.
+   */
+  const handleStateStrengthForSave = useCallback(
+    (v: number) => {
+      if (!edgeId) return
+      // ⭐ THE PANEL'S OWN STATE, NOT JUST THE STORE'S. `localStrength` is
+      // `useState(signedValue)` — its initialiser runs ONCE, at mount, and
+      // nothing resyncs it from the store. Writing only to the store left the
+      // band derived from the mount-time value, so a person who chose "Strong"
+      // watched "Moderate 0.30" light up: the FABRICATED DEFAULT this panel
+      // already refuses to propose BEFORE a save, reappearing after it.
+      // Measured on served `e6d7971b` — stated 0.55 showed 0.30, stated 0.85
+      // showed 0.30, both saved correctly. The model was right; the screen was
+      // wrong about the user's own choice.
+      setLocalStrength(v)
+      // ⭐ AND THE PREVIEW BASELINE, which both siblings already maintain —
+      // `handleStrengthBlur` (:290) and `handleStrengthPresetChange` (:305).
+      // `origStrengthRef` is what every impact delta is measured from
+      // (`previewEdit(edgeId, v - origStrengthRef.current)`), and it is seeded at
+      // MOUNT. Leaving it behind here meant the first fine-tune after a save
+      // measured from the fabricated 0.3 default instead of the strength the
+      // person actually stated.
+      //
+      // ⛔ THE ERROR INVERTS THE SIGN, it does not merely shift it. Stating 0.85
+      // then easing to 0.55 is a WEAKENING of −0.30; against the stale baseline
+      // it previews as +0.25 — the product showing the user the opposite of the
+      // adjustment they just made. Measured, not reasoned.
+      //
+      // ⚠ NOT closed by #1546's `key={edgeId}`: a key only remounts when the key
+      // CHANGES. Switching edges re-seeds this ref and is fixed there; staying on
+      // the SAME edge across a save never remounts, which is exactly where the
+      // save happens.
+      origStrengthRef.current = v
+      useCanvasStore.getState().updateEdgeData(edgeId, {
+        weight: Math.abs(v),
+        weightSource: 'user',
+        direction: v >= 0 ? 'positive' : 'negative',
+        directionSource: 'user',
+      } as never)
+    },
+    [edgeId],
+  )
 
   if (!edgeId || !edge) return null
 
@@ -373,7 +538,55 @@ export const EdgePanel = memo(function EdgePanel({
 
           {/* ── Your input group ──────────────────────────────── */}
           <PanelGroup kind="input" label={GROUP_LABELS.input}>
-            {/* Strength — primary editing surface */}
+            {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL
+                WITH A WIRE CARRIER (`edge_strength_edit`), so it is the one that
+                may present itself as a shared-model edit. The fieldset is the
+                same mechanism `InspectorRouter` used to apply to the whole
+                panel — kept, but pointed at the question that actually decides
+                it: can THIS edge's strength be asserted? */}
+            {awaitingStatedStrength ? (
+              /* ⭐ THE ADD CONTROL. Rendered INSTEAD of the edit fieldset, never
+                 beside it: two strength controls on one edge would be two
+                 answers to one question, which is the defect this panel already
+                 carries a trap-21 note about one fence down. */
+              <PrimaryControlCard>
+                <p
+                  className={`${typography.panelBody} text-text-body mb-1.5`}
+                  data-testid="edge-state-strength-for-save"
+                >
+                  {INLINE_LABELS.strengthQuestionForSave}
+                </p>
+                {/* ⛔ `unset` DERIVED FROM THE PROVENANCE GATE, never from the
+                    branch we are already inside. Asking the gate keeps this
+                    honest if the branch's condition ever changes: it is the same
+                    reader `captureStructuralAddEdge` is handed, so the control
+                    can only ever highlight a number that reader calls SET. */}
+                <StrengthBandButtons
+                  value={localStrength}
+                  onChange={handleStateStrengthForSave}
+                  unset={!resolveEdgeSignedStrengthDisplay(edge?.data as Record<string, unknown> | undefined).show}
+                />
+              </PrimaryControlCard>
+            ) : (
+            <>
+            {/* ⚠ MARKED `no-strength-basis`, NOT `disabled`, AND THE NAME IS THE
+                POINT. Two fences now live in this panel and they answer
+                DIFFERENT questions (CLAUDE.md trap 21): the one below asks
+                "does this control have a wire carrier at all?", this one asks
+                "does THIS edge have a strength the server stated, to assert
+                against?". Marking both `data-authority="disabled"` gave the
+                estate's escape guard two regions where it resolves exactly one
+                — it read the FIRST and reported the existence slider, which is
+                genuinely fenced, as an escapee. Named apart, each guard keeps
+                measuring the region it was written for. */}
+            <fieldset
+              disabled={!strengthReachesTheModel}
+              data-testid="edge-strength-controls"
+              className="contents"
+              {...(strengthReachesTheModel
+                ? {}
+                : { 'data-authority': 'no-strength-basis', 'aria-describedby': 'inspector-authority-notice' })}
+            >
             <PrimaryControlCard>
               <p className={`${typography.panelBody} text-text-body mb-1.5`}>
                 {INLINE_LABELS.strengthQuestion}
@@ -393,6 +606,23 @@ export const EdgePanel = memo(function EdgePanel({
                   >
                     {ACTION_LABELS.confirmCurrentStrength}
                   </button>
+                </div>
+              )}
+              {/* Confirmation feedback — SENT, not saved, and no re-run prompt:
+                  ratifying the existing estimate changes no value. */}
+              {strengthConfirm !== null && (
+                <div
+                  className="flex items-center gap-2 mt-1"
+                  data-testid="edge-strength-confirm-sent"
+                  data-outcome={strengthConfirm.outcome}
+                >
+                  <EditConfirmation
+                    trigger={strengthConfirm.ts}
+                    label={strengthConfirm.outcome === 'dispatched'
+                      ? ACTION_LABELS.strengthConfirmSent
+                      : ACTION_LABELS.strengthConfirmNotSent}
+                    tone="pending"
+                  />
                 </div>
               )}
               {/* Edit feedback */}
@@ -420,6 +650,22 @@ export const EdgePanel = memo(function EdgePanel({
                 </div>
               </details>
             </PrimaryControlCard>
+            </fieldset>
+            </>
+            )}
+
+            {/* ⛔ EVERYTHING BELOW WRITES NOTHING TO THE SHARED MODEL.
+                `setExistsProbability` and `setStd` each perform ONE local
+                `updateEdge` and emit no wire event, so a control that looked
+                saveable here would be destroyed by the next server rehydrate.
+                Unfencing this panel was a DUTY to fence these, not a licence to
+                let them through with the strength control. */}
+            <fieldset
+              disabled
+              aria-describedby="inspector-authority-notice"
+              data-authority="disabled"
+              className="contents"
+            >
 
             {/* Existence slider — secondary control, outside card */}
             <div className="mt-3">
@@ -449,6 +695,15 @@ export const EdgePanel = memo(function EdgePanel({
               <ExpertAnnotation techMode={techMode} editable value={localBelief} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
             </div>
 
+            {/* ⛔ THE LABEL-MODE TOGGLE USED TO SIT HERE AND WAS INERT.
+                `EdgePanel`'s only mount is inside `InspectorRouter`'s
+                unconditional `<fieldset disabled>`, which natively inerts every
+                form-associated descendant, so `setMode` was never reachable from
+                a real render. It now mounts OUTSIDE that boundary as
+                `<EdgeLabelModeToggle />` — it writes no model value, so it is a
+                presentation control and does not belong under a notice saying
+                these fields cannot be saved. Do not move it back. */}
+
             {/* Uncertainty — expert mode only */}
             {techMode && (
               <div className="mt-3">
@@ -474,6 +729,7 @@ export const EdgePanel = memo(function EdgePanel({
                 </div>
               </div>
             )}
+            </fieldset>
 
             {/* Coaching */}
             <InspectorCoaching

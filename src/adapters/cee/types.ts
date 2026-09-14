@@ -455,6 +455,36 @@ export type PermittedAnalysisMode =
 export interface AnalysisAdmissionReason {
   /** Which conjunct refused. Machine-readable; never user copy on its own. */
   field: string
+  /**
+   * ⭐⭐ WHICH CAUSE, MACHINE-READABLE — and the ONLY field that separates
+   * refusals whose `message` prescribes DIFFERENT REMEDIES.
+   *
+   * `field` says which conjunct refused; `permitted_analysis_mode` says how much
+   * may be claimed. NEITHER says what the user should go and do. Several distinct
+   * producer sentences share one `field` and one mode while naming different
+   * objects to fix — an estimate, a relationship, an option — so a surface that
+   * offers an ACT beside the sentence must read this, or it prescribes the same
+   * act under all of them. CEE's own note on that hazard: a refusal that
+   * misnames its cause "tells the user to fix something that is not wrong …
+   * it prescribes a futile action — which is worse than saying nothing."
+   *
+   * ⚠ OPTIONAL BECAUSE THE WIRE IS OLDER THAN THIS TYPE, NOT BECAUSE IT IS RARE.
+   * It was on the wire before it was typed here: the dated capture
+   * `cee-normal-start-graphless-fallback-wire-20260907.json` carries it on all
+   * three reason objects, and `analysis_admission` is absent from
+   * `@talchain/schemas` 0.54.0 altogether (derived: `analysis_admission` reads 0
+   * in its `dist`, against `analysis_ready` 8), so no `.strict()` schema strips
+   * it and nothing on the ingest path rebuilds the object —
+   * `applyV5State.ts` casts the envelope and `store.ts:1968-1969` retains the
+   * same reference. Typing it optional is the honest statement that a
+   * pre-`code` producer is possible, NOT a hint that consumers may skip it.
+   *
+   * ⛔ ANY CONSUMER GATING BEHAVIOUR ON THIS MUST FAIL CLOSED ON ABSENCE —
+   * a positive allowlist of causes it understands, never a negative list.
+   * An unrecognised cause must lose the affordance, not inherit another
+   * cause's: a missing act is a gap, and a wrong act is a lie.
+   */
+  code?: string
   /** User-facing sentence. By contract `reasons` is NEVER empty on a refusal. */
   message: string
 }

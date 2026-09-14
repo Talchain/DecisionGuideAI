@@ -916,9 +916,84 @@ async function fetchReadiness(): Promise<void> {
           typeof data.confidence_explanation === 'string'
             ? data.confidence_explanation
             : 'Analysis available',
-        improvements: Array.isArray(data.improvements)
-          ? data.improvements.map((imp: any): GraphImprovement => ({
-              category: imp.category || 'general',
+        /**
+         * ⭐ THE COACHING ARRIVES AS `quality_factors`, AND THIS READ ONLY
+         * NAMED `improvements` — so six ranked recommendations were dropped.
+         *
+         * Measured on the wire, deployed staging `515214b8`: the
+         * `/bff/cee/graph-readiness` response carries NO `improvements` key at
+         * all. It carries `quality_factors`, six entries deep, each with a
+         * `recommendation`, an `impact` and a `potential_improvement` —
+         * "Connect outcomes to goals so analysis can measure success against
+         * objectives", "Link risk nodes to the options they affect". So
+         * `Array.isArray(data.improvements)` was false on every real response
+         * and the tier below it received `[]`.
+         *
+         * This function's own comments name the mechanism twice: it "builds an
+         * explicit object, so a field not named here is silently dropped before
+         * any UI code can see it". `quality_factors` was such a field. Two names
+         * for one concept, which is this estate's chronic defect — and here the
+         * consumer read the name the producer does not send.
+         *
+         * ⭐ THE PER-ITEM MAPPER ALREADY SPEAKS THIS SHAPE — it was written for
+         * it and only the array was never wired: `imp.recommendation` feeds
+         * `action`, `imp.potential_improvement` feeds `quality_impact`, and
+         * `imp.impact` feeds `priority`. The single missing field is the
+         * category, which a quality factor spells `factor`.
+         *
+         * ⛔ PRECEDENCE, NOT REPLACEMENT. A response that genuinely carries
+         * `improvements` still wins: that is the richer shape (it can name
+         * affected nodes and edges) and a future CEE build may send it. This
+         * only stops an EMPTY list being published when the coaching is
+         * present under the other name.
+         */
+        improvements: (() => {
+          // ⚠ `.length > 0`, NOT `Array.isArray` — an EMPTY `improvements`
+          // array beside a populated `quality_factors` would otherwise win and
+          // publish `[]`: the exact state this exists to end, reached by the
+          // other door. Unreachable on today's producer, which sends no
+          // `improvements` key at all; guarded because a producer that starts
+          // sending an empty one would silently reinstate the defect.
+          const fromImprovements = Array.isArray(data.improvements) && data.improvements.length > 0
+          /**
+           * ⛔ A QUALITY FACTOR WITH NO REMEDY IS DROPPED, NOT FABRICATED OVER.
+           *
+           * The per-item mapper below turns an entry carrying neither `action`
+           * nor `recommendation` into `IMPROVEMENT_ACTION_PLACEHOLDER` so the
+           * improvements LIST still renders a row — deliberate, and pinned by
+           * `readinessStore.improvementFabrication.spec.ts`. `composeBlockedReason`
+           * REFUSES that value, so on the path that fabrication was written for
+           * it is caught downstream.
+           *
+           * ⚠ BUT THIS CHANGE SWITCHES ON TWO CONSUMERS THAT HAVE NEVER RECEIVED
+           * ANYTHING, and only one of the three readers filters the placeholder:
+           * `composeBlockedReason.ts:430` does; `PreAnalysisHealth.tsx:169-176`
+           * and `useUnifiedActions.ts:176-177` do not. Making a previously-empty
+           * list non-empty therefore makes an unfiltered "Review this area"
+           * reachable AS IF IT WERE the producer's coaching. Raised by review of
+           * this PR; latent today because all six captured factors carry a
+           * `recommendation`.
+           *
+           * Filtering HERE rather than at the two readers keeps the fabrication
+           * exactly where it was written for — the `improvements` path is
+           * untouched, so its pin still holds — while ensuring nothing this arm
+           * introduces can be spoken as a remedy. A quality factor with no
+           * recommendation has no coaching to give; a row saying "Review this
+           * area" is worse than no row.
+           */
+          const usableQualityFactors = Array.isArray(data.quality_factors)
+            ? data.quality_factors.filter(
+                (q: any) => typeof q?.recommendation === 'string' && q.recommendation.trim().length > 0,
+              )
+            : null
+          const raw: unknown = fromImprovements
+            ? data.improvements
+            : usableQualityFactors && usableQualityFactors.length > 0
+              ? usableQualityFactors
+              : null
+          return Array.isArray(raw)
+          ? raw.map((imp: any): GraphImprovement => ({
+              category: imp.category || imp.factor || 'general',
               action: imp.action || imp.recommendation || IMPROVEMENT_ACTION_PLACEHOLDER,
               current_gap: imp.current_gap || '',
               quality_impact:
@@ -951,7 +1026,8 @@ async function fetchReadiness(): Promise<void> {
               current_score:
                 typeof imp.current_score === 'number' ? imp.current_score : undefined,
             }))
-          : [],
+          : []
+        })(),
         // UI-SEM-091 (CEE #612): forward the scaffold intent verbatim. Without
         // this explicit forward the field would be silently dropped by the
         // normaliser (the schema-skew hazard). Absent/malformed ⇒ undefined,

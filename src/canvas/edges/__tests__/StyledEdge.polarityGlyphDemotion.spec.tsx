@@ -313,3 +313,96 @@ describe('polarity glyph — numeric mode suppresses only where the SIGN carries
     expect(glyph(container)).toBeNull()
   })
 })
+
+/**
+ * ⭐⭐ THE SUPPRESSION MUST ASK THE PAINT, NOT THE STRING.
+ *
+ * Measured on deployed `e5a62322` at the whole-model zoom: the chip is capped at
+ * `LABEL_HALF_WIDTH * 2` GRAPH units while the font counter-scales UP for
+ * legibility, so `Moderate boost` needs 151px and gets 103px and `Moderate drag`
+ * needs 141px — and BOTH paint `Moderat…`. `distinctPainted` across three chips
+ * was exactly ONE string: two opposite causal claims, identical on screen.
+ *
+ * And the glyph that would tell them apart is suppressed BECAUSE OF that label.
+ * `directionStroke.ts:23-32` measured this palette as separating WORSE for a
+ * dichromat than the green/red it replaced (ΔE2000 11.7 vs 28.3 under
+ * deuteranopia), which is why the suppression block says the shape "IS NEVER
+ * DELETED" — yet on a truncated label polarity falls back to hue alone, exactly
+ * the state that file forbids.
+ *
+ * ⚠ THIS FILE ALREADY FIXED THIS SHAPE ONCE, for the numeric arm: a clause was
+ * added because "the predicate asserted its own name rather than checking it".
+ * Truncation is the same defect through a different door.
+ */
+describe('polarity glyph — a label that does not PAINT its direction cannot suppress it', () => {
+  /**
+   * jsdom has no layout: `scrollWidth` and `clientWidth` are both 0, so the
+   * component would always read "not truncated". These override the pair on the
+   * prototype so the branch is reachable at all — the trap `isEffectivelyDisabled`
+   * records one file over, where a raw DOM property was mistaken for an
+   * actionability check.
+   */
+  function withOverflow(overflowing: boolean, run: () => void): void {
+    const sw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth')
+    const cw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() { return overflowing ? 200 : 100 },
+    })
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() { return 100 },
+    })
+    try {
+      run()
+    } finally {
+      if (sw) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', sw)
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth
+      if (cw) Object.defineProperty(HTMLElement.prototype, 'clientWidth', cw)
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth
+    }
+  }
+
+  it('⭐ THE FIX: a TRUNCATED strength label does NOT suppress the glyph', () => {
+    pinAsTopStrength()
+    withOverflow(true, () => {
+      const { container } = render(<StyledEdge {...(props as any)} />)
+      // The label is on screen and says nothing legible about direction, so the
+      // non-colour polarity channel must survive.
+      expect(strengthText(container)).not.toBeNull()
+      expect(glyph(container)).not.toBeNull()
+    })
+  })
+
+  /**
+   * ⭐⭐ THE DISCRIMINATING TWIN. Without this, "the glyph is present" would be
+   * satisfied by a change that simply stopped suppressing ever — which would
+   * reinstate the clutter the founder reported and that the suppression exists
+   * to remove. The two arms differ in ONE fact: whether the text overflows.
+   */
+  it('TWIN: a label that FITS still suppresses it, exactly as before', () => {
+    pinAsTopStrength()
+    withOverflow(false, () => {
+      const { container } = render(<StyledEdge {...(props as any)} />)
+      expect(strengthText(container)).not.toBeNull()
+      expect(glyph(container)).toBeNull()
+    })
+  })
+
+  /**
+   * ⛔ THE FAIL-SAFE DIRECTION, PINNED. The measurement cannot run before the
+   * chip is in the document, so the first frame has no answer. Assuming "not
+   * truncated" would suppress the glyph on a guess; assuming truncated shows a
+   * redundant mark for one frame. Only one of those loses a channel a dichromat
+   * depends on, and this asserts the safe one: with NO measurable element the
+   * glyph stays.
+   */
+  it('with nothing measurable, it keeps the glyph rather than guessing', () => {
+    pinAsTopStrength()
+    mockLabelMode = 'numeric'
+    withOverflow(true, () => {
+      const { container } = render(<StyledEdge {...(props as any)} />)
+      expect(glyph(container)).not.toBeNull()
+    })
+  })
+})

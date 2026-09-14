@@ -6,6 +6,7 @@
  */
 
 import type { ComponentType } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import type { NodeType } from '../domain/nodes'
@@ -52,7 +53,7 @@ export interface MenuItemDef {
   id: string
   label: string
   /** Lucide icon component */
-  icon?: ComponentType<{ className?: string; size?: number }>
+  icon?: LucideIcon | ComponentType<{ className?: string; size?: number }>
   /** Shape glyph for Add node submenu (rendered as text, not icon component) */
   glyph?: string
   /** Glyph colour class (e.g. 'text-danger') */

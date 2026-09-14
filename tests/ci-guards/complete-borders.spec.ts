@@ -91,7 +91,18 @@ const CONTENT_CARD_FILES = [
   'canvas/components/ValidationPanel.tsx',
   'canvas/components/ProvenanceHubTab.tsx',
   'canvas/components/GraphTextView.tsx',
-  'canvas/components/model-tab/ModelTabHeader.tsx',
+  // ── `canvas/components/model-tab/ModelTabHeader.tsx` REMOVED with the v1
+  //    Model-tab stack. A SUCCESSOR WAS LOOKED FOR AND THERE IS NONE. Its host
+  //    `canvas/components/ModelTabBody.tsx` survives, but it carries zero
+  //    border tokens in 903 lines (two `className` occurrences total, measured
+  //    by grep and rg with a live contrast control) — it is a composition host,
+  //    not a content card. Re-pointing at it would add an entry this rule can
+  //    never fire on, which is a scan-list entry that agrees with itself: worse
+  //    than no entry, because the list would look unshrunk.
+  //    So this convention retires with the capability, exactly as the V7 note
+  //    below records for cards that were not re-homed. The guard's teeth are
+  //    unaffected: 18 hand entries plus the derived `analysisNew` tree remain,
+  //    and the three self-test controls below are independent of this list.
   'canvas/ui/inspector/InspectorGuidanceSection.tsx',
   'components/assistants/ProvenanceChip.tsx',
   // ── The V7 fork is DELETED; these 12 entries are replaced by their LIVE

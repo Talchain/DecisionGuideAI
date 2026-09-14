@@ -93,7 +93,54 @@ export function admitsRunAffordance(
  * They cannot collapse: one is `undefined`, the other an object.
  */
 export function useAnalysisAdmission(): AnalysisAdmissionV1 | undefined {
-  return useCanvasStore((s) => s.ceeAnalysisReady?.analysis_admission)
+  return useCanvasStore((s) =>
+    resolveEffectiveAdmission(s.ceeAnalysisReady?.analysis_admission, s.retainedAnalysisAdmission),
+  )
+}
+
+/**
+ * ⭐⭐ WHICH ABSENCE IS THIS? — the one question `analysis_admission`'s absence
+ * used to answer two ways under one name.
+ *
+ * `licensesComparativeLeaderClaim(undefined)` is `true`, and that is RIGHT for
+ * the absence it was written for: **the producer never spoke**. An older CEE
+ * sends no admission, and reading that as a refusal would silently strip the
+ * leader from every legacy payload. That arm is pinned by ARM A of
+ * `useResultsSectionData.admissionGatesLeader.spec.ts` and is NOT changed here.
+ *
+ * It is WRONG for a second absence that reaches the same predicate: **we nulled
+ * it ourselves**. `invalidateAnalysisReady` clears `ceeAnalysisReady` — the
+ * admission's only carrier — on every analytical edit, so one keystroke turns a
+ * recorded refusal into a licence. WITNESSED on staging 9eb30b54, 2026-09-10: a
+ * `quantified_provisional` run showed "What this run may not conclude", and 59ms
+ * after a single factor value was edited the same slot showed "Most likely to
+ * serve your goal / Double Down on SMB".
+ *
+ * The two are told apart by a fact neither the predicate nor the payload carried:
+ * HAS THIS DECISION'S PRODUCER EVER SPOKEN? `retainedAnalysisAdmission` holds
+ * that, so:
+ *
+ *   live admission present        -> it wins, in either direction
+ *   absent, nothing retained      -> `undefined`: no authority     (ARM A, unchanged)
+ *   absent, something retained    -> the last thing CEE said       (the fix)
+ *
+ * ⚠ THE SECOND ARGUMENT MAY ONLY EVER WITHHOLD, and that is structural rather
+ * than a rule to remember: the retained value is a value the producer sent, so it
+ * can license nothing CEE did not license. Where CEE licensed the leader and the
+ * user then edits, this returns the licence unchanged — which is the deliberate
+ * stale-but-licensed behaviour `AtAGlance.tsx` keeps, hedged by the staleness
+ * ribbon. Suppressing those would be a different product decision, not this fix.
+ *
+ * ⚠ IT KEYS ON THE ABSENT **ADMISSION**, NEVER ON AN ABSENT PAYLOAD.
+ * `reselectGoalNode` constructs a readiness stub carrying no admission and is not
+ * an older producer; keying on `ceeAnalysisReady == null` would let that stub
+ * re-license the claim after an edit — the same defect by a second route.
+ */
+export function resolveEffectiveAdmission(
+  liveAdmission: AnalysisAdmissionV1 | undefined | null,
+  retained: AnalysisAdmissionV1 | undefined | null,
+): AnalysisAdmissionV1 | undefined {
+  return liveAdmission ?? retained ?? undefined
 }
 
 /**

@@ -21,7 +21,7 @@ export interface InspectorRobustness {
 export interface InspectorOptionComparison {
   option_id: string
   option_label?: string
-  outcome?: { mean?: number }
+  outcome?: { mean?: number | null; p10?: number | null; p50?: number | null; p90?: number | null }
   win_probability?: number
   p10?: number
   p90?: number
@@ -81,9 +81,9 @@ export function useOptionComparison(): InspectorOptionComparison[] | undefined {
  * Rule (strict-render):
  *   - If `option_comparison` is a non-empty array, at least one option
  *     MUST have a finite `win_probability`. A non-empty-but-all-null
- *     array is an engine-returned "I tried to compute per-option but
- *     failed" state; downstream success copy ("Option A wins at X%")
- *     has nothing to render. The root `probability_of_goal` does NOT
+ *     array has no option probability to render, whether computation failed
+ *     or CEE intentionally withheld ranking. Probability-specific copy
+ *     ("Option A wins at X%") has nothing to render. The root `probability_of_goal` does NOT
  *     rescue this case — per-option nulls veto.
  *   - If `option_comparison` is absent or an empty array, fall back to
  *     the root `probability_of_goal` as a goal-level success signal.
@@ -119,4 +119,35 @@ export function selectHasAnyRealProbability(s: { results?: { report?: unknown } 
 /** Hook wrapper over hasAnyRealProbability for components. */
 export function useHasAnyRealProbability(): boolean {
   return useCanvasStore((s) => hasAnyRealProbability(selectReport(s)))
+}
+
+/**
+ * General result-content presence, NOT ranking permission or model reliability.
+ * An unrequested first pass deliberately omits ranking probabilities while
+ * retaining computed outcome distributions. The existing mapper and outcome
+ * panel preserve/render these values; a probability-only test loses that result.
+ * Inspect only those numeric result channels, never placeholder headline values,
+ * labels, summary prose, graph inputs or an envelope's mere presence.
+ */
+export function hasRenderableAnalysisResult(report: InspectorReport | undefined | null): boolean {
+  if (!report) return false
+  const status = report.option_comparison_status
+  if (status === 'pending' || status === 'running' || status === 'error' || status === 'failed') {
+    return false
+  }
+  if (hasAnyRealProbability(report)) return true
+  const options = report.option_comparison
+  if (!Array.isArray(options)) return false
+  return options.some(option => {
+    const outcome = option?.outcome
+    if (!outcome) return false
+    return [outcome.mean, outcome.p10, outcome.p50, outcome.p90].some(
+      value => typeof value === 'number' && Number.isFinite(value),
+    )
+  })
+}
+
+/** Shared store read for overall result surfaces; probability widgets stay strict. */
+export function selectHasRenderableAnalysisResult(s: { results?: { report?: unknown } }): boolean {
+  return hasRenderableAnalysisResult(selectReport(s))
 }

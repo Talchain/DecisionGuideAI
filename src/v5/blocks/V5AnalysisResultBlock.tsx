@@ -63,6 +63,7 @@ import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -385,11 +386,21 @@ function V5AnalysisResultBlockImpl({
         </p>
       )}
 
+      {/* ⚠⚠ A CONTEST-FRAME SURVIVOR THAT REACHES ONLY ASSISTIVE-TECHNOLOGY
+          USERS. This is an accessible NAME on a `role="list"` container with no
+          matching text node, so it is invisible to a body-text sweep and to a
+          visual review alike — which is why #1281's replacement set, which
+          targeted the visible strings ("Ahead", "Leading option", "Leads via",
+          "leads at N%"), never reached it.
+
+          The ruling was applied to what the product SHOWS and left in what it
+          SAYS. `byOptionAria` is the register's own answer for exactly this
+          shape, taken by reference so it cannot drift back. */}
       {hasProbs && (
         <div
           className="flex flex-wrap gap-2"
           role="list"
-          aria-label="Option win probabilities"
+          aria-label={COMPARATIVE_COPY.byOptionAria}
           data-testid="v5-analysis-result-probabilities"
         >
           {/*

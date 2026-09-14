@@ -99,7 +99,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 
 import { InspectorRouter } from '../InspectorRouter'
-import { INSPECTOR_READ_ONLY_REASON } from '../useInspectorMutations'
+import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON } from '../useInspectorMutations'
 import { useCanvasStore } from '../../../store'
 
 vi.mock('@xyflow/react', () => ({
@@ -127,15 +127,31 @@ const NODE_FIXTURE = [
   },
 ]
 
-/** A node kind whose panel renders a real editing INPUT (not only buttons). */
-const CONTROLLABLE_FACTOR_FIXTURE = [
+/**
+ * A node kind whose panel renders a real editing INPUT (not only buttons) AND
+ * is still wrapped by the Router.
+ *
+ * ⚠⚠ THIS WAS A CONTROLLABLE FACTOR AND CANNOT BE ANY MORE — the change is
+ * forced, not cosmetic. `factor-controllable` joined
+ * `InspectorRouter`'s `AUTHORITY_OWNING_PANELS`, because the factor VALUE has a
+ * durable carrier (`factor_value_edit`). It therefore renders NO
+ * `fieldset[data-authority="disabled"]` at all, and every helper below opens
+ * with `PRECONDITION FAILED: no authority boundary rendered`.
+ *
+ * ⭐ THE FIX KEEPS THE PROPERTY THE FIXTURE WAS CHOSEN FOR. An OBSERVABLE
+ * factor renders the same shape of numeric input and has NOT opted in, so the
+ * boundary still has something to be true about. Repointing at the risk fixture
+ * would have quietly reduced these four tests to a duplicate of the ones above,
+ * which assert over buttons only — green, and no longer testing an input.
+ */
+const BOUNDED_FACTOR_FIXTURE = [
   {
     id: 'f1',
     type: 'factor',
     data: {
       label: 'Price',
       kind: 'factor',
-      category: 'controllable',
+      category: 'observable',
       observedState: { raw_value: 49, value: 0.49, unit: '£' },
     },
     position: { x: 0, y: 0 },
@@ -238,10 +254,10 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
     expect(controls.length).toBeGreaterThan(0)
   })
 
-  it('explains the boundary with INSPECTOR_READ_ONLY_REASON — the constant, not a copy', () => {
+  it('explains the boundary with the EDGE constant, not a copy and not the node one', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
-      INSPECTOR_READ_ONLY_REASON,
+      INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON,
     )
   })
 
@@ -253,7 +269,7 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
     const explanation = document.getElementById(describedBy as string)
     expect(explanation).not.toBeNull()
-    expect(explanation).toHaveTextContent(INSPECTOR_READ_ONLY_REASON)
+    expect(explanation).toHaveTextContent(INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON)
     expect(explanation).toBe(screen.getByTestId('inspector-authority-notice'))
   })
 
@@ -373,6 +389,24 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
 }> = [
   { selector: '[data-testid="inspector-back-to-results"]', why: 'navigation' },
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
+  {
+    selector: '[data-testid="edge-label-mode-toggle"]',
+    why: 'presentation toggle — sets whether the BOARD draws connection labels as phrases or numbers; writes no model value, so it is the same class as "Show technical detail" above',
+    // EDGE ONLY, and deliberately: the control is mounted in the Router's edge
+    // branch. It first shipped INSIDE `EdgePanel` and was therefore inert under
+    // the fieldset below, which is the defect this entry's placement records.
+    panels: ['edge'],
+  },
+  {
+    selector: '[data-testid="edge-strength-controls"] button, [data-testid="edge-strength-controls"] input',
+    why: 'the link STRENGTH — the one editing control on an edge with a receipt-bearing carrier (`edge_strength_edit`, consumed by CEE since schemas 0.42.0 and routed through `adjust_edge_strength`). Same class as the node panel\'s rename below: it is outside because it CAN be saved, not because it is exempt. The block fences ITSELF on any edge whose strength the server has not stated, via `edgeStrengthEditIsAssertable` — that fence is marked `data-authority="no-strength-basis"` so it cannot be confused with the carrier boundary.',
+    panels: ['edge'],
+  },
+  {
+    selector: '[aria-label="Dismiss suggestion"]',
+    why: 'coaching dismissal — writes no model value. The edge notice says in terms that coaching still works; until the panel was unfenced this button sat inside the boundary and was inert, so the sentence was false.',
+    panels: ['edge'],
+  },
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
   { selector: '[data-testid="inspector-quick-analysis"]', why: 'navigation' },
   {
@@ -471,10 +505,11 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   })
 
   it('leaves no editing control outside the boundary in the node panel', () => {
-    // ⚠ NOT the risk fixture used above. A controllable factor renders a real
-    // number input inside the boundary, so the boundary has something to be
-    // true ABOUT rather than only buttons.
-    setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
+    // ⚠ NOT the risk fixture used above. A factor panel renders a real number
+    // input inside the boundary, so the boundary has something to be true ABOUT
+    // rather than only buttons. See the fixture's header for why it is the
+    // OBSERVABLE factor and no longer the controllable one.
+    setStoreState(BOUNDED_FACTOR_FIXTURE)
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(escapedControls()).toEqual([])
   })
@@ -486,7 +521,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   })
 
   it('leaves no effectively-enabled FORM CONTROL inside the node boundary', () => {
-    setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
+    setStoreState(BOUNDED_FACTOR_FIXTURE)
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     const { fieldset } = readBoundary()
     const formControls = Array.from(
@@ -537,7 +572,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   ]
 
   it('pins EXACTLY which controls the fieldset does not inert (node panel)', () => {
-    setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
+    setStoreState(BOUNDED_FACTOR_FIXTURE)
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(notInertedInsideBoundary()).toEqual(NOT_INERTED_BY_THE_FIELDSET_NODE)
   })
@@ -554,7 +589,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
     // absence probe must be shown capable of detecting a presence). This is
     // the M5 shape, injected directly: an enabled control inside the Inspector
     // region and outside the boundary.
-    setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
+    setStoreState(BOUNDED_FACTOR_FIXTURE)
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(escapedControls()).toEqual([])
 

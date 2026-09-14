@@ -47,8 +47,9 @@ import { test, expect } from '@playwright/test'
 import {
   draftAsGuest, owningNodeIds, textOf, measureControl, footerCopy, literalRe,
   readinessVerdict, BLOCKING_VOCAB,
+  openDockTab,
 } from './lib/harness'
-import { recordSpecRan } from './lib/manifest'
+import { recordSpecRan, recordSpecSkipped } from './lib/manifest'
 
 test.beforeAll(() => recordSpecRan('E2-readiness-truthful'))
 
@@ -137,6 +138,135 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     // single-sentence branch (`PanelFooter.tsx`) carried NO testid, so on precisely
     // the honest arm above, the only surface bearing the truth was invisible here.
     // Reading just the headline is what made the old assertion look reasonable.
+    // ---- OPEN THE TAB THAT OWNS THIS SURFACE --------------------------------
+    //
+    // ⛔⛔ THIS SPEC FAILED 6/6 ACROSS SIX STAGING COMMITS BECAUSE IT READ A
+    // SURFACE IT NEVER NAVIGATED TO, AND ITS FAILURE MESSAGE DESCRIBED THE
+    // PRODUCT INSTEAD OF THE DOM.
+    //
+    // `PreAnalysisPanelV3` is *"mounted by OutputsDock in the Analysis tab"*
+    // (`PreAnalysisPanelV3.tsx:5`). The default dock tab is Olumi, and neither
+    // this spec nor `draftAsGuest` selected Analysis. `textOf` returns `[]` for
+    // an absent testid, so `headline.length` was 0 and the assertion below read
+    // "the readiness footer says nothing at all" — a PRODUCT claim produced by
+    // an ABSENT ELEMENT. Two sessions independently read that red as the product
+    // being silent about a real gap, and escalated it as a truthfulness defect.
+    //
+    // MEASURED on the served build, one session, one model, both tabs:
+    //   Olumi     headline []
+    //   Analysis  headline ["Not ready for analysis yet"]
+    //             subline  ["Your model is still being drafted — its values are
+    //                       still settling. Run analysis once drafting finishes."]
+    // The gap markers read 1 on BOTH tabs, so the contrast isolates the TAB and
+    // not the model state.
+    await openDockTab(page, 'Analysis')
+
+    // ⚠⚠ OPENING THE TAB IS NECESSARY AND NOT SUFFICIENT, AND THIS IS WHERE THE
+    // SPEC STILL FAILS. Derived at `OutputsDock.tsx:3484`, the panel's real gate is
+    //
+    //     isPreRun && nodes.length > 0 && isPreAnalysisV3Enabled()
+    //
+    // so the readiness footer is a PRE-RUN panel: once an analysis starts,
+    // `isPreRun` goes false and the whole panel unmounts. A run where an analysis
+    // has begun by the time we read will find NO footer on the correct tab — the
+    // snapshot of the failing run carries `status: "Analysis started."` beside an
+    // absent footer, and an earlier run that read BEFORE the start found the
+    // footer populated ("Analysis available").
+    //
+    // ⛔ SO THE REMAINING WORK IS TO PIN THE PRE-RUN STATE, NOT TO ADD ANOTHER
+    // SELECTOR. Asserting the gap is announced is only meaningful while the
+    // product is still offering to run; after the run the question is a different
+    // one with a different surface. Whoever takes this must decide whether
+    // `draftAsGuest` can guarantee a stable pre-run window, or whether E2 should
+    // assert the pre-run state as its own precondition and skip loudly otherwise.
+
+    // NON-VACUITY, one level above the subline guard below: assert the footer is
+    // MOUNTED, not merely that its text is non-empty. Those are different
+    // failures with different causes, and collapsing them is what produced the
+    // six-week misreading — an unmounted footer and a silent product are
+    // indistinguishable once you only look at string length.
+    // ---- RACE THE TWO OUTCOMES; NEVER INSPECT THE AFTERMATH ---------------------
+    //
+    // ⛔⛔ THE FIRST VERSION OF THIS BLOCK WAS STRICTLY WORSE THAN THE PERMANENT RED
+    // IT REPLACED, and Panel blocked it. It read an END STATE — footer absent AND an
+    // analysis-started marker present — and **two histories share that end state**:
+    //
+    //   A  footer mounted while pre-run -> analysis started -> it unmounted   SKIP is right
+    //   B  footer NEVER mounted while pre-run -> analysis started             FAIL is right
+    //
+    // At the moment of the check these are the same page. Nothing in that condition
+    // observed whether the footer was EVER mounted — only that it is absent NOW and
+    // something else is also true NOW. **And the three causes B hides are the three
+    // this spec's own failure message lists**: the panel no longer hosting the footer,
+    // the flag off, the tab no longer owning the panel. A sanctioned skip is DESIGNED
+    // to stop people looking, so hiding a live defect behind one is the exact decay
+    // this PR exists to prevent, arriving through the remedy instead of through the
+    // word "advisory".
+    //
+    // ⭐ SO OBSERVE THE TRANSITION, NOT THE RESIDUE — the same move `openDockTab`
+    // makes. Poll while the product is still PRE-RUN and let the first of two things
+    // settle it:
+    //   · the footer appears while pre-run          -> proceed and assert normally
+    //   · we observe PRE-RUN with the footer ABSENT -> that IS the defect; hard fail
+    //   · an analysis had ALREADY started at the first look -> we never saw the
+    //     pre-run window at all. Undecidable, and a HARNESS fault rather than a
+    //     product one, so it skips — with its OWN reason string, because
+    //     "the window closed before I looked" and "the window closed while I was
+    //     looking" are different facts and only one licenses a claim about ordering.
+    const analysisStarted = () =>
+      page.getByText(/analysis started|analysing|running analysis/i).count().catch(() => 0)
+    const footerCount = () =>
+      page.locator('[data-testid="pre-analysis-v3-footer-headline"]').count()
+
+    let sawPreRunWithoutFooter = false
+    let footerNodes = await footerCount()
+    if (footerNodes === 0) {
+      const startedAtFirstLook = (await analysisStarted()) > 0
+      if (startedAtFirstLook) {
+        const reason =
+          'an analysis had ALREADY started at the first look, so the pre-run window was ' +
+          'never observed. PreAnalysisPanelV3 is gated on isPreRun and unmounts once a run ' +
+          'begins. This is a HARNESS ordering fault, not a product fault — and it licenses ' +
+          'NOTHING about readiness guidance, including that the footer was ever mounted.'
+        recordSpecSkipped('E2-readiness-truthful', reason)
+        test.skip(true, `[E2] ${reason}`)
+      }
+      // Still pre-run. The footer is allowed to be slow, not allowed to be absent.
+      for (let i = 0; i < 20 && footerNodes === 0; i++) {
+        await page.waitForTimeout(500)
+        footerNodes = await footerCount()
+        if (footerNodes > 0) break
+        if ((await analysisStarted()) === 0) sawPreRunWithoutFooter = true
+      }
+    }
+
+    // ⚠ PINNED SO THE BRANCH CANNOT GO VACUOUS: if we fell through with no footer, we
+    // must have positively observed the pre-run state without one. Otherwise this
+    // assertion would be firing on an aftermath again, which is the defect above.
+    if (footerNodes === 0) {
+      expect(
+        sawPreRunWithoutFooter,
+        '[E2] fell through with no footer and without ever observing the pre-run state — ' +
+        'the discriminator did not run. This assertion would be reading an aftermath, which ' +
+        'is exactly the defect this block was rewritten to remove.',
+      ).toBe(true)
+    }
+
+    expect(
+      footerNodes,
+      '[E2] the readiness footer is NOT MOUNTED after opening the Analysis tab that owns it. ' +
+      'MOST LIKELY CAUSE, and check it FIRST: the panel is gated on `isPreRun` ' +
+      '(OutputsDock: isPreRun && nodes.length > 0 && isPreAnalysisV3Enabled()), so it ' +
+      'UNMOUNTS as soon as an analysis starts. Look for "Analysis started." in the page ' +
+      'snapshot beside the absent footer — that is this failure, and it is a RACE in the ' +
+      'preamble, not a product fault. ' +
+      'Only if the run is genuinely still pre-run, check: PreAnalysisPanelV3 still hosts the ' +
+      'footer, the `preAnalysisV3` flag is on in this build, and the dock tab named ' +
+      '"Analysis" still owns that panel. ' +
+      'Do NOT read this as the product failing to announce a gap — that is the misdiagnosis ' +
+      'this guard exists to prevent.',
+    ).toBeGreaterThan(0)
+
     const headline = (await textOf(page, 'pre-analysis-v3-footer-headline')).join(' ')
     const subline = [
       ...(await textOf(page, 'pre-analysis-v3-footer-subline')),

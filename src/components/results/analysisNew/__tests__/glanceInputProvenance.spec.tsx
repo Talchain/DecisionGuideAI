@@ -246,6 +246,17 @@ const glanceModel = (
   overrides: Partial<AtAGlanceModel> = {},
 ): AtAGlanceModel => ({
   headline: 'Raise price currently scores higher',
+  // This factory models a run that DID license a designation, so there is no
+  // refusal to explain. Explicit rather than optional: the field is required on
+  // `AtAGlance` so that a construction site which forgets it is a TS error at
+  // the site, not a silent `undefined` reaching the renderer.
+  designationWithheldReason: null,
+  // Same run, same reason: nothing was withheld here, so no remedy is prescribed
+  // and no act may be offered. `null` is the fail-closed value, not "unknown".
+  designationWithheldRemedy: null,
+  // Same reason as the two above: a run that licensed a designation has no
+  // refusal, so there are no parameters to name.
+  designationWithheldParameters: [],
   leaderLabel: 'Raise price',
   winShare: 'Ahead in 68% of simulated futures',
   winFraction: 0.68,
@@ -256,6 +267,12 @@ const glanceModel = (
   influenceIsSetRelative: false,
   condition: null,
   inputProvenance,
+  // Same reason as the three above, and it is a DIFFERENT question from the
+  // line this file tests: `inputProvenance` is whose FIGURES the run used;
+  // `optionOrigin` is whose IDEA the option on screen was. This factory models
+  // a run saying nothing about the second, so the panel renders nothing for it
+  // and these arms measure the condition line alone.
+  optionOrigin: null,
   ...overrides,
 })
 

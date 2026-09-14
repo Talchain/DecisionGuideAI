@@ -15,7 +15,7 @@
 import { useEffect, useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
-import { licensesComparativeLeaderClaim } from '../../canvas/hooks/useAnalysisReady'
+import { licensesComparativeLeaderClaim, resolveEffectiveAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
@@ -52,6 +52,7 @@ import type {
   ConfidenceProvenance,
   ConditionalWinner,
   ConditionalWinnerBucket,
+  EvidenceGapItem,
 } from './types'
 import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
 import {
@@ -59,7 +60,7 @@ import {
   polarityToFactorDirection,
   type FactorDirection,
 } from '../../lib/factorDirection'
-import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
+import { deriveDecisionVerdict, comparableOptions, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
@@ -81,7 +82,9 @@ import {
   computeNormalisedInfluences,
   resolveDriverSemanticLabels,
   selectDriverDisplayModel,
+  MAX_BADGED_RANK,
 } from './driverDisplayModel'
+import { deriveDeterminedFactorOrder } from '../../canvas/utils/factorRowOrder'
 import { classifyUnit } from '../../utils/unitClassifier'
 import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
@@ -96,6 +99,7 @@ import {
   selectAssumedStrengthToResolve,
   type AssumedStrengthDecision,
 } from './strengthElicitation/selectAssumedStrengthToResolve'
+import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 
 // =============================================================================
 // Winner Selection Helper
@@ -454,6 +458,14 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     direction,
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
+    // Producer basis stamp — STRICT read, snake_case only (same rule as
+    // influence_score above: the panel never reads camelCase, so accepting it
+    // here would let one surface disclose a basis another surface cannot see).
+    // Absence and an empty string both fail closed to undefined.
+    importanceBasis:
+      typeof typed.importance_basis === 'string' && typed.importance_basis.length > 0
+        ? typed.importance_basis
+        : undefined,
     influenceScore,
     influenceRank,
     zeroReason,
@@ -504,6 +516,14 @@ export interface DriverPolicyRow {
   key: string
   /** Producer influence score — snake-case wire field only; undefined when absent. */
   influenceScore: number | undefined
+  /**
+   * The producer's `importance_basis` stamp for `influenceScore`, verbatim,
+   * or null when the row carried none. Carried on the SHARED feed for the
+   * same reason `confidenceIsDefaulted` is: the canvas and the panel must
+   * disclose the same basis for the same report, and a per-surface re-read of
+   * the wire is exactly how those two forked before.
+   */
+  importanceBasis: string | null
   /**
    * Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent).
    * UNSIGNED — always `Math.abs`'d at construction. Consumers rank on this
@@ -687,6 +707,7 @@ export function selectDriverPolicyFeed(
     return {
       key: getFactorKey(norm, index),
       influenceScore: norm.influenceScore,
+      importanceBasis: norm.importanceBasis ?? null,
       // Math.abs is load-bearing, not defensive: this field is a MAGNITUDE
       // (see DriverPolicyRow), and the sole consumer ranks on it via
       // compareByDisplayModel, whose tie-break sorts the number as given. A
@@ -971,10 +992,29 @@ function deriveConfidenceTierLegacy(
     return 'needs_work'
   }
 
-  // 3. Fallback: report.confidence.level
-  if (report?.confidence?.level) {
-    return mapConfidenceLevel(report.confidence.level)
-  }
+  // 3. RETIRED (UI-SEM-015): `report.confidence.level` was consulted here.
+  // It is a UI-LOCAL re-derivation — a ratio over the lengths of the
+  // robust/fragile edge arrays, duplicated in `responseMapper.ts` and
+  // `mapV5AnalysisToReport.ts` — of the question PLoT already answers as
+  // `confidence_tier`. Measured over a 33-observation capture corpus the two
+  // disagree on 30% of runs and 18% MAXIMALLY (locally derived 'low' against a
+  // producer tier of 'strong'); 30% derive 'low' purely by construction,
+  // because `robust_edges` is empty so the ratio is 0. The derivation consults
+  // no `switch_probability` or `marginal_switch_probability` — its own
+  // signature declares `fragile_edges?: string[]` while the runtime items are
+  // OBJECTS carrying those fields, so the correcting data was structurally
+  // invisible to it.
+  //
+  // It is NOT re-derived here, and deliberately not replaced by a tuned
+  // variant: applying the UI's own 0.15 fragile-edge floor was measured to
+  // halve maximal disagreement (6→3) while leaving overall disagreement
+  // UNCHANGED at 31% — a win on the symptom metric only.
+  //
+  // Where the producer's tier is absent the cascade now says NOTHING rather
+  // than substituting a local guess: it falls to CEE readiness (steps 1-2,
+  // above) or `graph_quality.score` (step 4, below), and otherwise returns
+  // 'unknown', which the surface renders as "Unknown / Unable to assess model
+  // quality" and which selects the LESS committal option-card chip.
 
   // 4. Last resort: report.graph_quality.score (0-100)
   if (typeof report?.graph_quality?.score === 'number') {
@@ -1260,6 +1300,17 @@ export interface ResultsSectionDataReturn {
    * as the most important thing to resolve. See the selector's header.
    */
   assumedStrength: AssumedStrengthDecision
+  /**
+   * `"<fromId>-><toId>"` → the canvas edge id, for fragile-relationship rows the
+   * Model tab can serve an editor for. Absent key = no act on that row.
+   *
+   * OPTIONAL ON PURPOSE, and do not tighten it: six fixtures across the results
+   * suites construct this return shape for unrelated questions, and making this
+   * required turns every one of them into a TS2739 the count-based typecheck
+   * ratchet nets to zero against unrelated churn. Every consumer reads it
+   * fail-closed (`?.`), so absent means "no act offered", never a crash.
+   */
+  sensitivityReviewTargets?: ReadonlyMap<string, string>
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -1271,10 +1322,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     hasCompletedFirstRun,
     currentScenarioFraming,
     m1Coaching,
+    evidenceAssessment,
     reviewStatus,
     m1ReviewAssumptions,
     goalThreshold,
     ceeAnalysisReady,
+    retainedAnalysisAdmission,
     rawV2FlipThresholds,
     rawAutoNoiseProvenance,
     rawFlipThresholdsStatus,
@@ -1293,10 +1346,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       hasCompletedFirstRun: s.hasCompletedFirstRun,
       currentScenarioFraming: s.currentScenarioFraming,
       m1Coaching: s.runMeta?.m1Coaching ?? null,
+      evidenceAssessment: s.runMeta?.evidenceAssessment ?? null,
       reviewStatus: s.runMeta?.reviewStatus,
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: s.goalThreshold,
       ceeAnalysisReady: s.ceeAnalysisReady,
+      retainedAnalysisAdmission: s.retainedAnalysisAdmission,
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
       // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
       // Display-honesty: PLoT v2/run emits flip_thresholds at the top level
@@ -1717,11 +1772,24 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // that are not factor nodes at all, which have no editor by kind.
           //
           // ⚠ NODE KIND IS CHECKED HERE, and the reason is defensive rather than
-          // borrowed. `useModelEditAuthority.ts:247` — the `'not_encodable'` guard
-          // for a non-factor — belongs to `proposeFactorConfirmation`, NOT to
-          // `proposeFactorValue` (`:146`), which performs no kind check of its own.
-          // (The earlier version of this comment cited `:247` as though it guarded
-          // the value writer; corrected in review.) So this check is not mirroring
+          // borrowed. The only `'not_encodable'` refusal for a non-factor is
+          // `useModelEditAuthority.proposeFactorConfirmation`'s
+          // `resolveNodeTypeLiteral(node) !== 'factor'` guard. It does NOT belong
+          // to `proposeFactorValue`, which performs no kind check of its own —
+          // its refusals are a missing `activeNodeId`, a node absent from the
+          // store, and a null from `buildFactorValueEditEvent`, and that builder
+          // is never handed a kind at all.
+          //
+          // ⚠ CITE THE GUARD, NOT THE LINE. This comment twice carried line
+          // numbers (`:247`, `:146`) and both were wrong before anyone noticed:
+          // a line-number citation is a hand-maintained mirror by construction
+          // (CLAUDE.md trap 12) and drifts on the next edit to a file it does not
+          // even live in. Named this way it cannot rot silently — the symbol
+          // either exists or a grep finds nothing.
+          //
+          // ⚠ AND DO NOT CONFUSE IT with `proposeOptionIntervention`'s
+          // `resolveNodeTypeLiteral(option) !== 'option'`: two kind guards, two
+          // different questions. So this check is not mirroring
           // an existing refusal — it is the only kind gate on this path, which is
           // why it stays: `resolveNodeTypeLiteral` returns null for an unrecognised
           // id, so an unknown id fails CLOSED to `'none'` and offers nothing.
@@ -1757,6 +1825,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    * producer's fragile-edge rows, the canvas edges (which carry the provenance
    * stamps this join reads), and the label map.
    */
+  /**
+   * Which edges the Model tab can serve a strength editor for. Every judgement
+   * lives in `strengthElicitation/reviewableEdges` (pure, unit-pinned, and
+   * composed only of the destination's own authorities). This memo supplies the
+   * two inputs and nothing else.
+   */
+  const reviewableEdgeIds = useMemo(
+    () => reviewableStrengthEdgeIds(nodes, edges as Parameters<typeof reviewableStrengthEdgeIds>[1]),
+    [nodes, edges],
+  )
+
   const assumedStrength = useMemo(
     () =>
       selectAssumedStrengthToResolve({
@@ -1768,8 +1847,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           data: e.data as Record<string, unknown> | undefined,
         })),
         nodeLabels: nodeLabelMap,
+        reviewableEdgeIds,
       }),
-    [report, edges, nodeLabelMap],
+    [report, edges, nodeLabelMap, reviewableEdgeIds],
   )
 
   /**
@@ -2202,6 +2282,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       },
     )
 
+    /**
+     * ⭐⭐ THE RUN'S OWN COMPARISON POPULATION — unfiltered by what is on the
+     * canvas now, and that is the entire point.
+     *
+     * `leaderVerdict` above is deliberately filtered by `visibleOptionIds`,
+     * because "is there a leading option ON SCREEN?" must follow a deletion. But
+     * "did this RUN rank anything?" is a fact about the report, and a report does
+     * not un-rank itself when the user tidies the canvas.
+     *
+     * ⚠ Same `comparableOptions` the verdict uses, called WITHOUT the visibility
+     * set — one definition of "comparable", two questions (trap 21), and no
+     * second hand-written loop to drift (trap 12).
+     */
+    const rankedComparisonPopulation = comparableOptions(
+      report as DecisionVerdictReportLike | null | undefined,
+    ).length
+
     // ROADMAP 1.267 — THE ORDER DESIGNATION IS AUTHORED HERE.
     //
     // This line is where the CANONICAL order dies. `unsortedOptions` is
@@ -2223,8 +2320,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // ABSENCE => OLDER PRODUCER => EXACTLY TODAY'S BEHAVIOUR. This `true` arm is
     // what makes the consumer safe to land before the CEE half merges. It is not
     // a convenience default and it carries its own test (ARM A).
+    //
+    // ⚠⚠ AND IT READS THE **EFFECTIVE** ADMISSION, NOT THE LIVE FIELD ALONE.
+    // `ceeAnalysisReady` is the admission's only carrier and
+    // `invalidateAnalysisReady` nulls it on every analytical edit, so reading the
+    // live field alone made ONE KEYSTROKE turn a recorded refusal into a licence:
+    // Q1 flipped to `true`, `report` survived (a different slice), so Q2 stayed
+    // `true`, and the composed answer below licensed the designation CEE had
+    // declined. WITNESSED on staging 9eb30b54, 2026-09-10 — the refusal slot was
+    // replaced by "Most likely to serve your goal / Double Down on SMB" 59ms after
+    // one factor value was edited.
+    //
+    // `resolveEffectiveAdmission` separates THE PRODUCER NEVER SPOKE (still
+    // `undefined`, so the `true` arm and ARM A are untouched) from WE NULLED IT
+    // OURSELVES (the last thing CEE said still governs). It can only ever
+    // withhold: the retained value is one the producer sent.
     const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
-      ceeAnalysisReady?.analysis_admission,
+      resolveEffectiveAdmission(ceeAnalysisReady?.analysis_admission, retainedAnalysisAdmission),
     )
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
@@ -2238,8 +2350,40 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     //     Q2 absent => false  (no result, so no claim may be authored)
     // Aligning them — `??`-ing one through the other, or giving them a shared
     // default — would put two questions under one name, which is the defect this
-    // estate has paid for twice. Neither term is folded into the other, and
-    // neither is ever read alone at a render site.
+    // estate has paid for twice. Neither term is folded into the other.
+    //
+    // ⚠ THIS COMMENT USED TO END "…and neither is ever read alone at a render
+    // site." THAT WAS FALSE AT THE TIP THAT SHIPPED IT, and a false sentence
+    // describing verification is worse than no sentence: it tells the next
+    // reader the sweep has already been done.
+    //
+    // ⚠⚠ THE PARAGRAPH THAT STOOD HERE IS WITHDRAWN. It described a LIVE hero
+    // gap that is CLOSED at this head, and it did so in the one register this
+    // comment itself warns against two lines above — asserting a measurement.
+    // It was caught by an independent review of a merge resolution, and all
+    // three of its claims were checked at the bytes rather than inferred:
+    //
+    //   (a) IT QUOTED AN EXPRESSION THAT IS IN NO VERSION OF THE FILE. It
+    //       attributed `verdict != null && !verdict.hasLeadingOption` to
+    //       `buildHeroModel.ts:279`. The actual line is `:326` —
+    //       `const designationsWithheld = recommendation.verdict != null &&
+    //       leaderDesignationPermitted(recommendation) !== true` — under a
+    //       docblock at `:281` reading, in as many words, "READS THE COMPOSED
+    //       ANSWER, NOT ONE CONJUNCT". That is the exact opposite of the claim.
+    //   (b) THE GAP IS CLOSED. Because the hero reads the composed answer
+    //       through the same `leaderDesignationPermitted` this module computes,
+    //       the "Q2 true, Q1 false" divergence it described cannot arise.
+    //   (c) THE PIN IT NAMED NEVER EXISTED.
+    //       `analysis-hero/__tests__/heroReadsQ2Alone.knownGap.spec.ts` is
+    //       absent — contrast control in the same check: 41 sibling `.spec.`
+    //       files ARE present in that directory, so the probe discriminates.
+    //
+    // A comment naming a pin spec is the strongest "already audited" signal
+    // this codebase has, which is why a false one costs more than silence.
+    // Nothing replaces it: there is no gap here to record.
+    //
+    // The narrow true statement, which is all this comment may now assert:
+    // neither term is read alone at a render site IN THIS MODULE.
     const leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms
 
     const designationsWithheld = !leaderDesignationPermitted
@@ -2493,9 +2637,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // meaning exactly "did the result separate the arms" (Q2). These two are
       // the NEW question — "may this panel DESIGNATE?" — and its raw evidence.
       leaderDesignationPermitted,
+      // ⭐ AND THE RUN'S OWN RANKED-NESS, which neither `verdict` nor `allOptions`
+      // can report: both are rebuilt from the CURRENT option nodes, so a deletion
+      // makes them say "this run ranked nothing" about a report that ranked two.
+      rankedComparisonPopulation,
       // Raw, for `reasons[]` (the "what would change it" copy) and
       // `missing_important_inputs[]`. Undefined => pre-admission CEE.
-      analysisAdmission: ceeAnalysisReady?.analysis_admission,
+      // THE SAME EFFECTIVE ANSWER THE GATE ABOVE USED. Handing consumers the raw
+      // live field while gating on the effective one would put two answers to one
+      // question in one object — and `buildAnalysisNewViewModel` reads this field
+      // to compose the refusal's REASON, so a disagreement here renders a withheld
+      // designation with no explanation beside it.
+      analysisAdmission: resolveEffectiveAdmission(
+        ceeAnalysisReady?.analysis_admission,
+        retainedAnalysisAdmission,
+      ),
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
@@ -2642,7 +2798,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
+  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -2892,6 +3048,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // (Triage dominance nudge) can distinguish a producer causal share
           // from a set-relative fallback value.
           displayProvenance: displayModel.get(f.key)?.provenance,
+          // Producer basis stamp, verbatim, off the SAME shared display entry
+          // the canvas influence row reads (`FactorNode` via
+          // `useNodeDisplayMetadata`; it was the MetricPills pill until #1277
+          // deleted that branch) — so the panel and the canvas cannot answer
+          // "what is this figure derived from" differently for one report.
+          importanceBasis: displayModel.get(f.key)?.importanceBasis ?? undefined,
           // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
           influenceRank: f.raw.influenceRank,
           // ISL zero_reason - explains why sensitivity is zero
@@ -3059,7 +3221,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         : tier === 'fair'
           ? 'Your model covers the basics. Address the items below.'
           : tier === 'needs_work'
-            ? 'Add the missing elements below before relying on the result.'
+            ? 'Add the missing elements below before relying on the analysis.'
             : 'Unable to assess model quality.',
     }
 
@@ -3450,6 +3612,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         displayText: saDisplayText,
         suggestion: 'Review this assumption',
         affectedNodes: [fromId, toId].filter(Boolean),
+        // Which end is which — `affectedNodes` above cannot say, and a consumer
+        // reading its positions would be binding by order rather than identity.
+        ...(fromId ? { edgeFromId: fromId } : {}),
+        ...(toId ? { edgeToId: toId } : {}),
         severity,
         factorConfidence,
         eValue: rawEValue,
@@ -3576,9 +3742,59 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // is deliberately the NARROW test (`Array.isArray`), not `m1Coaching !=
       // null`: it is true only when the producer actually sent the array, so
       // silence can never be read as an assessment.
-      evidenceGapsAssessed: Array.isArray(m1Coaching?.evidence_gaps),
+      /**
+       * ⭐ TWO ROUTES, ONE QUESTION, AND THE LIVE ONE WINS.
+       *
+       * `evidenceAssessment` is written by `applyV5State` on every V5 analysis
+       * turn; `m1Coaching` is written only by the restore-from-Supabase path
+       * (`hydrateAnalysis`) — re-derived; an earlier version of this note also
+       * named a direct `/v2/run` writer and no such writer exists. On a live journey the second is absent, which
+       * is why this check rendered "Evidence not assessed" on every run.
+       *
+       * The live block is preferred when present and the legacy read is kept as
+       * the fallback rather than deleted — the restore path still produces it,
+       * and deleting a working producer to make room for a new one is how a
+       * surface loses an answer it already had.
+       *
+       * ⚠ STILL THE NARROW TEST. `evidenceAssessment` is non-null only when the
+       * producer said it looked AND every gap parsed, so silence still cannot be
+       * read as an assessment.
+       */
+      evidenceGapsAssessed: evidenceAssessment != null || Array.isArray(m1Coaching?.evidence_gaps),
       // Task 4 (M1 Coaching): Evidence gaps - sorted by VOI descending, deduped by factor_id
       ...(() => {
+        if (evidenceAssessment != null) {
+          /**
+           * ⚠ `confidence: null` IS THE HONEST VALUE, NOT A PLACEHOLDER. The
+           * projected block carries no confidence — the Tier-3 ban keeps the
+           * quantities behind it — and `everyEvidenceGapAddressed` needs one to
+           * return true. So a run read through this route can render "Evidence
+           * gaps" and never "Evidence covered", which is correct: the producer
+           * told us a gap exists, not that anyone has closed it. A `?? 0` here
+           * would assert 0% confidence, which is the defect the nullable type
+           * was introduced to prevent.
+           */
+          const gaps: EvidenceGapItem[] = evidenceAssessment.gaps.map(
+            (g: { factorId: string; factorLabel: string }) => ({
+              factorId: g.factorId,
+              factorLabel: g.factorLabel,
+              /**
+               * ⚠ EVERY FIELD THE PROJECTION DOES NOT CARRY IS STATED AS ABSENT,
+               * NEVER AS A VALUE. `confidence` and `voi` are nullable precisely
+               * so "we were not told" cannot be rendered as a zero — that defect
+               * has shipped here before ("This factor has 0% confidence"), and a
+               * `?? 0` is what caused it. `suggestion` has no nullable form, so
+               * it takes the empty string the sibling path already uses for the
+               * same state (`gap.suggestion ?? ''`), and consumers already read
+               * empty as absent (`gap.suggestion || undefined`).
+               */
+              confidence: null,
+              voi: null,
+              suggestion: '',
+            }),
+          )
+          return { evidenceGaps: gaps, topEvidenceGaps: gaps.slice(0, 3) }
+        }
         const rawGaps = safeArray(m1Coaching?.evidence_gaps)
         if (rawGaps.length === 0) return {}
 
@@ -3945,6 +4161,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
           return {
             code: String(w.code ?? ''),
+            // ⚠ CARRIED, BECAUSE FOR THE DEFAULTING FAMILY IT IS THE ONLY IDENTITY
+            // THERE IS. `affected_nodes` is `[]` for these codes, so rebuilding the
+            // warning without `field` discarded the one thing that tells two
+            // same-code rows apart — a loss invisible to unit tests that feed raw
+            // producer shapes straight past this adapter.
+            field: typeof w.field === 'string' ? w.field : undefined,
             affected_nodes: nodeIds,
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
@@ -4036,6 +4258,50 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // computed from the previous run's flip evidence.
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation])
 
+  /**
+   * ⭐⭐ WHICH SENSITIVITY ROWS NAME A RELATIONSHIP THE READER CAN GO AND CHANGE.
+   *
+   * "What would change your mind" and the assumed-strength card read the SAME
+   * producer array (`robustness.fragile_edges`). The card additionally requires a
+   * canvas edge it can name; the sensitivity rows do not, which is why they
+   * render on ordinary runs and why the act belongs on them too.
+   *
+   * ⚠ NO CLAIM IS MADE HERE ABOUT HOW OFTEN THE CARD RENDERS, and an earlier
+   * version of this comment made one it could not support ("never seen by a
+   * user", from three captures, with no artefact cited). `selectAssumedStrengthToResolve`
+   * is TOTAL and returns a named `refusalReason` for every null —
+   * `no_robustness_data` / `all_strengths_set` / `no_edge_identity`. That datum
+   * says WHY, it is cheap to read on any ordinary run, and until someone reads
+   * it the cause is unmeasured. `all_strengths_set` would mean the card is
+   * simply correct. The structural argument for this map does not need the
+   * frequency claim and is not resting on it.
+   *
+   * ⚠ MATCHED BY ENDPOINTS. ISL emits `"<from>-><to>"` and the canvas holds
+   * `e-0`/`e-1`; measured on a committed capture, 0/9 match by id and 9/9 by
+   * from/to, so an endpoint map is what this needs.
+   * (NOT "an id-first lookup would read a clean zero" — that was refuted at the
+   * bytes: `matchCanvasEdge` is DUAL-FORMAT, `edge_id` first with a
+   * `from_id`/`to_id` fallback, so it is a SUPERSET of this endpoint-only
+   * match.)
+   *
+   * ⚠ AND THE GATE IS THE DESTINATION'S, reused rather than restated:
+   * `reviewableEdgeIds` is the two-conjunct set (a causal row exists AND the
+   * strength is assertable). A row whose edge is not in it carries no act.
+   */
+  const sensitivityReviewTargets = useMemo(() => {
+    const byEndpoints = new Map<string, string>()
+    for (const e of edges) byEndpoints.set(`${e.source}->${e.target}`, e.id)
+    const out = new Map<string, string>()
+    for (const u of confidence.uncertainties ?? []) {
+      if (u.code !== 'SENSITIVE_ASSUMPTION') continue
+      if (!u.edgeFromId || !u.edgeToId) continue
+      const edgeId = byEndpoints.get(`${u.edgeFromId}->${u.edgeToId}`)
+      if (edgeId && reviewableEdgeIds.has(edgeId)) out.set(`${u.edgeFromId}->${u.edgeToId}`, edgeId)
+    }
+    return out as ReadonlyMap<string, string>
+  }, [confidence, edges, reviewableEdgeIds])
+
+
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)
   // ==========================================================================
@@ -4107,6 +4373,57 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
   }, [optionIdsKey])
 
+  // ⭐⭐ THE FACTOR ROW READS IN THE ORDER ITS BADGES CLAIM (Paul, 8 Sep 2026).
+  //
+  // Paul's original screenshot complaint, one row down from where it was fixed.
+  // The option cards now read left to right by position; the factor cards still
+  // carry `#1 #2 #3` ("Key driver #N: ranked by influence on the outcome",
+  // `canvas/nodes/BaseNode.tsx`) printed on a row whose left-to-right order is
+  // ELK's edge-crossing pass. Same defect, still on screen.
+  //
+  // ⚠ THE FIX ABOVE CANNOT BE REPEATED HERE, AND THE REASON PICKS THE REMEDY.
+  // `Option N` is a LABEL — it asserts nothing beyond identity, so it was free
+  // to be REDEFINED as canvas reading order and minted from position. `#N` on a
+  // factor is a guarded MEASUREMENT: `useNodeDisplayMetadata.ts` prints it only
+  // to `determinedRankDepth`, and withholds the whole set on a tie, precisely
+  // so `#2` and `#3` are never handed out on `key.localeCompare`. Minting it
+  // from position would reopen that defect by hand. So the remedy inverts: the
+  // number is the true thing, therefore the POSITION moves to the number.
+  // Derivation in `canvas/utils/factorRowOrder.ts`.
+  //
+  // ⚠ IT CLAIMS EXACTLY AS FAR AS THE BADGE CLAIMS. `deriveDeterminedFactorOrder`
+  // asks the badge's own question at the badge's own owner
+  // (`compareByDisplayModel` + `determinedRankDepth` + `MAX_BADGED_RANK`), so a
+  // row the analysis cannot separate is not separated by position either — and
+  // position is the stronger channel, with no tooltip to qualify it.
+  //
+  // THIS SITE OWNS THE ORDER; THE STORE OWNS THE GEOMETRY. The move is a
+  // permutation of slots those same cards already occupy: no new pixels, no new
+  // rows, ruling R1 untouched.
+  const determinedFactorOrder = useMemo(
+    () => {
+      const feed = selectDriverPolicyFeed(report ?? null)
+      return deriveDeterminedFactorOrder(
+        feed.policyRows.map((r) => ({
+          key: r.key,
+          elasticity: r.rawElasticity,
+          // The SAME resolved display value the badge ranks from, and the same
+          // `?? 0` fallback the canvas hook applies — a private default here
+          // would be a second basis for one number.
+          value: feed.displayModel.get(r.key)?.value ?? 0,
+        })),
+        MAX_BADGED_RANK,
+      )
+    },
+    [report],
+  )
+  const determinedFactorOrderKey = JSON.stringify(determinedFactorOrder)
+  useEffect(() => {
+    if (determinedFactorOrder.length < 2) return
+    useCanvasStore.getState().orderFactorRowByInfluence(determinedFactorOrder)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- determinedFactorOrderKey is the canonical value key for determinedFactorOrder
+  }, [determinedFactorOrderKey])
+
   // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
   // pin): with the results body mounted through a run, a fresh return
   // object here defeated ResultsBody's memo on every SSE progress tick.
@@ -4129,6 +4446,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       decisionVoi,
       attributionSuppression,
       assumedStrength,
+      sensitivityReviewTargets,
     }),
     [
       recommendation,
@@ -4146,6 +4464,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       decisionVoi,
       attributionSuppression,
       assumedStrength,
+      sensitivityReviewTargets,
     ],
   )
 }

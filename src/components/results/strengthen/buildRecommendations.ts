@@ -28,6 +28,8 @@
 import { guidanceCategoryRank, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
 import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
+import { biasCodeFromPhase3Item } from './biasTypesFromGuidance'
+import { SUCCESS_TARGET_PROMPT } from './successTargetPrompt'
 
 /**
  * The deterministic "define a success measure" recommendation's id.
@@ -71,7 +73,43 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     // assumption check and minted `clarify` for both.
     ...(item.signal_code ? { signalCode: item.signal_code } : {}),
     ...(item.coaching_kind ? { coachingKind: item.coaching_kind } : {}),
-    targetIds: item.target_object?.id ? [item.target_object.id] : [],
+    /**
+     * ⭐⭐ `target_object` FIRST, THEN `related_elements` — AND THE SECOND HALF
+     * WAS SIMPLY NOT READ, WHICH LEFT A DEAD AFFORDANCE ON THIS PANEL.
+     *
+     * `GuidanceItem.related_elements` is the producer's own list of the other
+     * elements a finding is about — its declared job, in the field's own words,
+     * is that *"Inspectors match `id` against the currently selected element in
+     * addition to `target_object.id`"*, and `InspectorCoaching.tsx:58-66` does
+     * exactly that, with `target_object` taking precedence.
+     *
+     * This mapper read only `target_object`. So a finding the producer named
+     * ONLY through `related_elements` — a WEAKLY_CONNECTED_NODE signal about a
+     * node and its isolated neighbours is the documented example — arrived here
+     * with `targetIds: []`, became `targetId: null` at `:397`, and
+     * `StrengthenPanel.tsx:239` gates "Show me on the canvas" on exactly that.
+     * **The Inspector could take you to the element and this panel could not**,
+     * on the same producer fact. Two surfaces, one payload, different answers —
+     * and the panel's silence looked like the producer had said nothing.
+     *
+     * ⚠ PRECEDENCE IS COPIED FROM THE INSPECTOR, NOT INVENTED. `target_object`
+     * stays first, so `targetIds[0]` is UNCHANGED for every item that has one:
+     * this can only add a route where there was none. A second ordering rule
+     * for one producer field is how two readers of one fact drift apart.
+     *
+     * ⚠ AND NOTHING IS FILTERED BY `type` OR CHECKED AGAINST THE CANVAS HERE.
+     * This mapper is pure and has no store; `focusModelTarget` is fail-CLOSED
+     * and already resolves nodes AND edges, and its callers degrade with
+     * `STRENGTHEN_COPY.focusFailedNotice` when an id names nothing — the same
+     * contract `target_object.id` has always had. Adding a resolution test here
+     * would put a second, store-bound answer beside the one that exists.
+     */
+    targetIds: [
+      ...(item.target_object?.id ? [item.target_object.id] : []),
+      ...(item.related_elements ?? [])
+        .map((r) => r.id)
+        .filter((id): id is string => typeof id === 'string' && id !== ''),
+    ].filter((id, i, all) => all.indexOf(id) === i),
     ...(typeof item.priorityRank === 'number' ? { priorityRank: item.priorityRank } : {}),
   }
 }
@@ -194,7 +232,7 @@ const PRIORITY = {
  * defaulted row must not imply an ordering the producer never sent. */
 const PHASE3_SOURCE_RANKED = 'Source: Olumi model review.'
 const PHASE3_SOURCE_UNRANKED =
-  'Source: Olumi model review (not ranked — shown in the order received).'
+  'Source: Olumi model review (not ranked, shown in the order received).'
 
 /** Text normalisation for the UI-SEM-075 dedupe keys (case/whitespace only). */
 function normaliseText(text: string): string {
@@ -228,7 +266,64 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // one is a legacy/fixture caller and keeps the previous behaviour. Read ONCE,
   // here, so a trigger added later cannot quietly reintroduce the conflation by
   // reaching for `analysisComplete` again.
+  //
+  // ⚠ SAME NAME AS THE EXPORT IN `analysisClaimPolicy.ts`, AND — SINCE #1190 —
+  // THE SAME ANSWER. This local is NOT a second question. Both production
+  // callers thread the COMPOSED answer into `inputs.hasLeadingOption`:
+  //
+  //   `strengthen/StrengthenContainer.tsx`                  → leaderDesignationPermitted(data.recommendation)
+  //   `analysisNew/buildStrengthenInputsForAnalysisNew.ts`  → leaderDesignationPermitted(data.recommendation)
+  //
+  // so on every live path `inputs.hasLeadingOption` already carries the CEE
+  // lattice AND this result's separation, and this local means exactly what
+  // the export means. Importing the export here would change no trigger.
+  //
+  // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT SAID THE OPPOSITE — that the local
+  // "answers Q2 ALONE, because `inputs` carries no admission and this module
+  // is not on that seam", and that importing the export "would silently change
+  // which triggers fire". Both sentences were false at the tip that shipped
+  // them: `StrengthenContainer` already threaded the composed answer, so the
+  // divergence was never local-vs-export but CALLER-vs-CALLER, and #1190 then
+  // closed the one caller that did read Q2 alone. A false comment describing
+  // successor work is worse than no comment — it tells the next reader the
+  // question is settled in the wrong direction — which is why the correction
+  // is recorded here rather than the old text simply being deleted.
+  //
+  // THE REAL, REMAINING HAZARD IS THE INTERFACE, NOT THE NAME. This module
+  // DERIVES nothing: it reads whatever its caller threaded. A third caller
+  // that threads `verdict.hasLeadingOption` instead would silently re-open the
+  // divergence on `quantified_provisional`, here, with no red. That is pinned
+  // by `__tests__/strengthenInputsCallersThreadComposed.spec.ts`, which
+  // enumerates the production call sites rather than trusting this paragraph —
+  // a comment is a hand-maintained mirror, and this one has already drifted
+  // once (CLAUDE.md trap 12).
   const leaderClaimWithheld = inputs.hasLeadingOption === false
+
+  // ── THE SUBJECT OF A PERMITTED CLAIM: A NAME, NOT A RANK POSITION ─────────
+  //
+  // ⭐⭐ PERMISSION AND IDENTITY ARE TWO QUESTIONS AND THIS ENGINE ONLY HELD ONE
+  // OF THEM (CLAUDE.md trap 21). `leaderClaimWithheld` above answers *may this
+  // panel designate a leader?* — it is entitlement, and it says nothing about
+  // what the option is CALLED. So the two triggers it permits wrote their
+  // subject as the only referent they had: "the option that scored highest",
+  // which is TRUE of rank 0, FALSE of every other option, and NAMES NONE. The
+  // reader is handed a placing and left to resolve it, on a claim the system
+  // chose and the user never asked for.
+  //
+  // ⚠ AND NO VOCABULARY GUARD CAN SEE IT — the sentence contains no banned
+  // word. `ownedLeaderClaim.strengthen.spec.tsx`'s designating-form net catches
+  // leader NOUNS ("the leader", "the leading option") and was green throughout.
+  // The race frame lives in the REFERENT, so the repair is a referent change:
+  // where the gate already permits naming an option, SAY THE NAME. That is also
+  // the weaker claim of the two, because it drops the ranking assertion instead
+  // of restating it.
+  //
+  // ⚠ TRIMMED, AND EMPTY IS ABSENT. A producer label of `''` or `'   '` would
+  // otherwise render "Pressure-test " with nothing after it.
+  const permittedLeadingOptionName =
+    !leaderClaimWithheld && typeof inputs.leadingOptionLabel === 'string'
+      ? inputs.leadingOptionLabel.trim() || null
+      : null
 
   /**
    * ── Clarify: define a measurable success (deterministic) ──────────────────
@@ -283,7 +378,18 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         kind: 'open-modal',
         modal: 'define-success',
         label: 'Define success',
-        prompt: 'Help me define what success looks like for this decision.',
+        /**
+         * ⭐⭐ THE PROMPT IS THE HAND-OFF, AND ON THE LIVE POSTURE IT IS THE ONLY
+         * ROUTE THIS CARD HAS. `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is
+         * `'disabled'` in a `const satisfies` object, so `hasServerGraphAuthority`
+         * is a compile-time `false` and BOTH Strengthen surfaces fall through to
+         * the Ask-Olumi drawer rather than the modal. Whatever this string says
+         * is what the user sends — so it is shared with the canvas coaching
+         * panel's own Define-success row rather than spelled twice. See
+         * `successTargetPrompt.ts` for the staging witness it replaces and why
+         * each of its clauses exists.
+         */
+        prompt: SUCCESS_TARGET_PROMPT,
       },
       targetId: null,
       priority: PRIORITY.successMeasure,
@@ -344,6 +450,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     .slice(0, MAX_PHASE3_PROMOTED)
   let promotedIndex = 0
   for (const item of promotedPhase3) {
+    const biasCode = biasCodeFromPhase3Item(item)
     recs.push({
       id: `strengthen:phase3:${item.id}`,
       // Stage 3: the producer's own `signal_code`, where it names a move we can
@@ -412,6 +519,22 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       // Stage 3: carried so the surface can attach a named technique to a
       // PRODUCER finding, not only to the UI's own triggers.
       ...(item.signalCode ? { signalCode: item.signalCode } : {}),
+      /**
+       * ⭐⭐ WHICH bias, not merely THAT a bias was found — the fact that
+       * decides whether the card can offer the corrective for the bias in hand
+       * or only the generic "review a possible bias".
+       *
+       * `signalCode` above is `COGNITIVE_BIAS` for every one of them, so the
+       * identity was arriving and dying here: the producer names the bias in the
+       * card's TITLE, the registry is the estate's one authority on what those
+       * titles mean, and nothing was reading the two together on a per-card
+       * basis. `biasCodeFromPhase3Item` requires BOTH producer facts
+       * (`coaching_kind === 'bias_signal'` AND a registry-recognised title) and
+       * returns `null` otherwise — so this is absent on every non-bias card and
+       * on any bias this estate has no code for. Nothing is inferred from the
+       * model or the brief.
+       */
+      ...(biasCode ? { biasCode } : {}),
     })
   }
 
@@ -459,10 +582,20 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     recs.push({
       id: `strengthen:flip:${top.edgeId}`,
       helpType: 'evaluate',
-      title: 'Test the assumption most likely to change the leader',
+      // ⭐ THE SAME REFERENT REPAIR, ON THE OTHER PERMITTED TRIGGER. This read
+      // "Test the assumption most likely to change which option scores
+      // highest" — an argmax description of the ASSUMPTION wrapped around a
+      // ranking assertion about the OPTIONS, naming neither. The assumption has
+      // a name and the engine is already holding it, so the title says it.
+      //
+      // ⚠ NOTHING IS LOST. The reason this assumption rather than another is
+      // the `signal` directly beneath ("NN% chance the result flips to {alt} if
+      // {factor} shifts"), and `whyNow` carries the urgency. The title was
+      // restating the selection rule; now it states the subject.
+      title: `Test the assumption about ${top.factorLabel}`,
       signal: alt
-        ? `${pct(top.switchProbability)} chance the result flips to ${alt} if ${top.factorLabel} shifts.`
-        : `${pct(top.switchProbability)} chance the result flips if ${top.factorLabel} shifts.`,
+        ? `${pct(top.switchProbability)} chance ${alt} scores highest instead if ${top.factorLabel} shifts.`
+        : `${pct(top.switchProbability)} chance a different option scores highest if ${top.factorLabel} shifts.`,
       whyNow: 'This single relationship carries the most decision risk right now.',
       tryThis: 'Plan one check that would confirm or correct this assumption before you rely on the ranking.',
       sourceLine: 'Source: robustness analysis (fragile relationships).',
@@ -568,20 +701,34 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // own it (#494 kept "Analysis complete (robust)" for the same reason).
   const level = inputs.robustness.level?.toLowerCase() ?? null
   if (!leaderClaimWithheld && inputs.analysisComplete && (level === 'low' || level === 'very_low')) {
+    // ⭐ THE SUBJECT IS THE NAMED OPTION WHENEVER ONE RESOLVES. See
+    // `permittedLeadingOptionName` above for why a rank description is not an
+    // acceptable subject even on a run entitled to designate.
+    //
+    // ⚠ AND THE UNNAMED ARM ADDRESSES THE RESULT, NEVER THE RANKING. Permission
+    // without an identity is a degenerate path (production resolves a label
+    // wherever it resolves a leader), and the two truthful answers there are
+    // "say nothing" or "talk about the run". Silence would delete a real
+    // producer finding — the run's own robustness grade — to remove a claim the
+    // sentence need never have made, so the copy drops to the RUN, which is
+    // what `signal`, `whyNow` and the button already talk about. What it must
+    // NOT do is fall back to "the option that scored highest": that is the
+    // defect, not the fallback.
+    const subject = permittedLeadingOptionName ?? 'this result'
     recs.push({
       id: 'strengthen:robustness',
       helpType: 'challenge',
-      title: 'Pressure-test the leading option',
-      signal: 'The current lead does not hold up strongly under stress-testing.',
-      whyNow: 'A fragile lead can flip with small changes, so it deserves a challenge before you act on it.',
-      tryThis: 'Build the strongest case AGAINST the current leader and see if it survives.',
+      title: `Pressure-test ${subject}`,
+      signal: 'This result does not hold up strongly under stress-testing.',
+      whyNow: 'A fragile result can shift with small changes, so it deserves a challenge before you act on it.',
+      tryThis: `Build the strongest case against ${subject} and see what survives.`,
       sourceLine: 'Source: robustness analysis.',
       action: {
         kind: 'ai-dialogue',
-        label: 'Challenge the leader',
+        label: 'Challenge this result',
         actionType: 'challenge_assumption',
         parameters: { topic: 'challenge_leader' },
-        prompt: 'Build the strongest case against the current leading option.',
+        prompt: `Build the strongest case against ${subject}.`,
       },
       targetId: null,
       priority: PRIORITY.robustness,
@@ -596,7 +743,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       helpType: 'broaden',
       title: 'Find a route that works differently',
       signal: 'Your options look structurally similar.',
-      whyNow: 'Comparing near-identical routes can crown a winner without testing the real alternatives.',
+      whyNow: 'Comparing near-identical routes can settle on one without testing the real alternatives.',
       tryThis: 'Generate one materially different option before relying on this comparison.',
       sourceLine: 'Source: framing review.',
       action: {
@@ -621,7 +768,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       id: 'strengthen:commit',
       helpType: 'commit',
       title: 'Record the decision and what would trigger a rethink',
-      signal: 'The result held up under stress-testing.',
+      signal: 'On the data so far, these numbers held up under stress-testing.',
       whyNow: 'Capturing the decision and its revisit triggers now preserves the reasoning while it is fresh.',
       tryThis: 'Note the chosen option, the key assumptions, and the one change that would reopen this.',
       sourceLine: 'Source: robustness analysis (result stable).',

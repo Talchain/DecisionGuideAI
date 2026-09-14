@@ -42,7 +42,8 @@
  */
 
 import { truncateAtWordBoundary } from '../../../utils/text'
-import { leaderDesignationPermitted } from '../leaderDesignation'
+import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
+import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import {
   ASSUMED_STRENGTH_TITLE,
   assumedStrengthAsk,
@@ -84,6 +85,8 @@ import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
+import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
+import type { OptionOrigin } from './optionOriginDisclosure'
 import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
@@ -110,11 +113,37 @@ import type {
   ModelImplication,
   ChecksCode,
   ChecksState,
+  GlanceWithheldRemedy,
 } from './analysisNewTypes'
 // ⚠ THE OWNER'S EXPORTED PREDICATE, NOT A LOCAL `gaps.every(...)`. Its contract
 // is explicit that an empty list returns `false` on purpose, because "no gaps"
 // is a different question — see `buildChecks`.
 import { everyEvidenceGapAddressed } from '../utils/evidenceGapConfidenceDisplay'
+
+/**
+ * ⭐⭐ THE ADMISSION CAUSES WHOSE SENTENCE NAMES AN ESTIMATE AS THE REMEDY.
+ *
+ * The `permitted_analysis_mode` reason `code`s for which "review or set an
+ * estimate" is the act the producer's own sentence asks for. Every other cause
+ * that can occupy that slot names a different object, names no act at all, or is
+ * not a refusal — see the long note at the single use site below for the full
+ * six-way derivation, the measured (field, code) hazard, and why this is an
+ * allowlist rather than a prefix test.
+ *
+ * ⛔ NOT A DENYLIST AND NOT A PREFIX. `USER_STATED_PARAMETERS_NOT_MATERIAL`
+ * carries no `CONFIDENCE_PARAMETERS_` prefix and IS an estimate refusal, while
+ * `CONFIDENCE_PARAMETERS_PARTLY_USER_STATED` carries the prefix and is a
+ * LICENCE. A prefix test gets both of those backwards.
+ *
+ * Derived at CEE `staging` `8449e54e`; NOT importable — `analysis_admission` is
+ * absent from `@talchain/schemas` 0.54.0 and CEE types `code` as `z.string()`.
+ * Adding a member here is a claim about a producer sentence in another repo, so
+ * read that sentence first and pin it in `withheldReasonHasAMove.spec.tsx`.
+ */
+const ESTIMATE_REMEDY_ADMISSION_CAUSES: ReadonlySet<string> = new Set([
+  'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
+  'USER_STATED_PARAMETERS_NOT_MATERIAL',
+])
 
 /**
  * §2 of the brief: "a very small number of high-value insights".
@@ -192,6 +221,25 @@ export interface AnalysisNewViewModelInputs {
    * says its basis was never established, and no claim is made either way.
    */
   nodeValueSources?: ReadonlyMap<string, string>
+  /**
+   * Node id → label, from the graph store. Lets a producer gap name the factor
+   * it is about instead of repeating one anonymous sentence per unset root.
+   * Optional by design: without it every sentence is exactly what it was.
+   */
+  nodeLabels?: ReadonlyMap<string, string>
+  /**
+   * Node id → whose IDEA that element was, built by the store-aware hook from
+   * the same `nodes` slice as `nodeValueSources`. SPARSE: a node absent from the
+   * map has nothing honest to say about its origin, which is most of them.
+   *
+   * ⚠ A DIFFERENT QUESTION FROM `nodeValueSources`, ON A DIFFERENT FIELD. That
+   * map carries `observed_state.source` — who authored a factor's NUMBER. This
+   * carries `provenance` — who put the ELEMENT on the board. The analysis result
+   * carries neither, which is why both come from canvas state.
+   *
+   * Absent (older callers/tests) the panel is exactly what it was.
+   */
+  nodeOrigins?: ReadonlyMap<string, OptionOrigin>
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────
@@ -382,7 +430,7 @@ function buildKeyInsights(
       implication: namesBoth
         ? `Above ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}, ${high} scores higher; below it, ${low} does.`
         : `The preferred direction changes around ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}.`,
-      groundedIn: 'the conditional-winner split from the simulation',
+      groundedIn: 'the conditional split from the simulation',
       marker: staleMarker,
       targetId: cw.factor_id,
       inspect: rows(row('Split value', splitValue), row('Factor', cw.factor_label)),
@@ -416,7 +464,7 @@ function buildKeyInsights(
       groundedIn: 'the fragile-relationship analysis',
       marker: staleMarker,
       targetId: hinge.fromId,
-      inspect: rows(row('Chance the result flips', pctOrNull(hinge.switchProbability))),
+      inspect: rows(row('Chance the answer changes', pctOrNull(hinge.switchProbability))),
       intervention: interventionFor(recommendations, hinge.fromId),
     })
   }
@@ -551,7 +599,7 @@ function driverFinding(
         : `Relative influence ${pct(influence)}.`,
     detail:
       d.fragileEdgeInfo?.switchProbability != null
-        ? `This relationship is one the result is sensitive to.`
+        ? `These numbers are sensitive to this relationship.`
         : undefined,
     /* ⚠ THE GROUNDING IS A DIFFERENT QUESTION FROM THE SCALE, and it was
        riding the same flag. Now that the scale answer is the same for both
@@ -593,7 +641,7 @@ function driverFinding(
       // ⚠ ONLY `true` RENDERS. `false` is "no contested edge found", which is
       // not a finding, and printing it would fill every row with a negative.
       row('Contested evidence', d.hasContestedEdge === true ? 'yes' : null),
-      row('Chance the result flips', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
+      row('Chance the answer changes', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
     ),
     intervention: interventionFor(recommendations, target),
   }
@@ -860,6 +908,28 @@ function buildUncertainty(
    * a button that no-ops. A control that cannot act is an advertisement, not an
    * affordance. The edge is reachable via canvas focus below; wiring the ask is
    * a separate, honest step.
+   *
+   * ⭐⭐ THAT SEPARATE STEP IS `reviewTargetId`, AND IT IS A DIFFERENT ACT FROM
+   * THE ONE REFUSED ABOVE — 13 Sep 2026. The refusal stands, unamended, for the
+   * INTERVENTION: asking Olumi still needs a recommendation id this surface
+   * cannot mint. What is attached instead routes the reader to the editor for
+   * this exact edge, and needs no recommendation at all — only the edge id this
+   * finding already carries. The two are not the same button wearing different
+   * words: one asks the engine to act, the other lets the PERSON act, and this
+   * product's premise is that the person is the author.
+   *
+   * ⚠ AND IT IS GATED ON THE DESTINATION, NOT ON THIS ROW'S OWN CONFIDENCE.
+   * `strengthEditReachable` is the Model tab's own eligibility, answered by its
+   * own authorities (`getCausalEdges` for row existence, and the wire builder
+   * via `edgeStrengthEditIsAssertable`). Where it is false the sentence renders
+   * with no act, which is the honest state — the card's value is the naming,
+   * and the naming survives a missing route.
+   *
+   * ⛔ THE COPY AND THE ACT MOVE TOGETHER OR NOT AT ALL. `assumedStrengthAsk`
+   * prescribes what the reader should do; if it ever prescribes an act this
+   * gate withholds, the product is back to instructing people to press a
+   * control that is not there. `assumedStrengthCopy.claims.spec.ts` holds that
+   * pairing, not this comment.
    */
   const assumed = data.assumedStrength?.selected ?? null
   if (assumed) {
@@ -877,6 +947,9 @@ function buildUncertainty(
       // `focusModelTarget` resolves against nodes AND edges, so an edge id is a
       // live target here — verified at `focusHelpers.ts:183-205`.
       targetId: assumed.edgeId,
+      // Present only where the Model tab can serve the editor. Same id, second
+      // question — see the block comment above for why these are two fields.
+      ...(assumed.strengthEditReachable ? { reviewTargetId: assumed.edgeId } : {}),
       inspect: [],
     })
   }
@@ -1005,7 +1078,7 @@ function buildUncertainty(
      */
     const labelLength = truncateAtWordBoundary(text, 80)
     const headlineText = u.threshold
-      ? `${u.threshold.variable} could tip the result`
+      ? `${u.threshold.variable} could change the answer`
       : labelLength === text
         ? text
         : ''
@@ -1016,6 +1089,64 @@ function buildUncertainty(
      * SENTENCE, and that sentence is the producer's to reword.
      */
     const bucket = u.code === 'SENSITIVE_ASSUMPTION' ? sensitivityFindings : findings
+    /**
+     * ⭐⭐ THE ACT, ON THE ROWS THAT ACTUALLY RENDER.
+     *
+     * "What would change your mind" and the assumed-strength card read the SAME
+     * producer array. The card additionally needs a canvas edge it can NAME;
+     * these rows do not, which is why they render on ordinary runs. Attaching
+     * the same act here reaches them.
+     *
+     * ⚠ NO FREQUENCY CLAIM. "3/3 non-render on the served build" was retracted —
+     * a sample presented as a population, cause never measured. See
+     * `useResultsSectionData`'s `sensitivityReviewTargets` header.
+     *
+     * ⛔ AND IT IS DEDUPED AGAINST THE CARD BY EDGE IDENTITY, NOT BY POSITION.
+     * Both selections are built in this function. Where the card has claimed an
+     * edge, the row for that same edge carries NO act — the mount's own rule is
+     * that "a reader meeting one sentence in two sections is a defect this panel
+     * has already shipped", and two doors to one place is the same defect wearing
+     * an affordance.
+     */
+    const rowEdgeKey = u.edgeFromId && u.edgeToId ? `${u.edgeFromId}->${u.edgeToId}` : null
+    // ⚠ OPTIONAL READ, FAIL-CLOSED. A consumer that predates this field — or a
+    // fixture whose cast return omits it — yields NO ACT rather than a throw.
+    // Absent is the same answer as "the destination cannot serve this edge",
+    // which is the safe direction and the one the rest of this design takes.
+    const rowEdgeId = rowEdgeKey ? data.sensitivityReviewTargets?.get(rowEdgeKey) : undefined
+    /**
+     * ⛔⛔ THREE FIELDS, THREE QUESTIONS — DO NOT COLLAPSE THEM AGAIN.
+     *
+     * The first draft of this change pointed `targetId` at the EDGE, because
+     * "Show on canvas" was framing the SOURCE NODE of a sentence whose subject
+     * is a RELATIONSHIP. That reasoning was right about the camera and wrong
+     * about the field: `targetId` has a SECOND reader with a different need.
+     *
+     * `nodeInsights.buildNodeInsights` keys mentions by `targetId` into a
+     * NODE-KEYED map (`:289-293`) that `ModelStrip` reads as
+     * `insights.get(active.id)`. An edge id there is a key no node lookup can
+     * ever hit, so the row's mention vanishes from the strip — MEASURED by the
+     * reviewer: baseline keys `["fac_demand"]`, changed keys `["e-7"]`. And
+     * because the repoint is conditional on `reviewableEdgeIds`, the rows that
+     * went quiet were THE MOST ACTIONABLE ONES.
+     *
+     * So (CLAUDE.md trap 21): write down the question each reader asks.
+     *   `targetId`       — *which NODE does this finding join to?*  identity
+     *                      join, unchanged meaning, unchanged readers.
+     *   `focusTargetId`  — *what should the camera FRAME?*  the edge when one
+     *                      resolves, because the sentence is about a
+     *                      relationship. Falls back to `targetId`.
+     *   `reviewTargetId` — *which edge can the Model tab SERVE an editor for?*
+     *                      the act, and the only one the dedup suppresses.
+     *
+     * ⚠ THE CAMERA IS NOT DEDUPED AND THAT IS DELIBERATE. The dedup exists so
+     * one edge is not OFFERED TWICE; showing the reader where the relationship
+     * is was never the duplicated thing. A one-token `targetId: rowEdgeId ??
+     * …` would have fixed the camera on deduped rows and re-broken the strip —
+     * the two repairs are in tension only while one field answers both.
+     */
+    const focusTarget = rowEdgeId ?? undefined
+    const reviewTarget = rowEdgeId && rowEdgeId !== assumed?.edgeId ? rowEdgeId : undefined
     bucket.push({
       id: uncertaintyKey(u, i),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
@@ -1083,14 +1214,28 @@ function buildUncertainty(
         // already has reaches the site that lacked it.
         ? `The ordering changes around ${formatThresholdValue(u.threshold.value)}${
             u.threshold.direction === 'positive'
-              ? ' — above it, the ordering differs'
+              ? '. Above it, the ordering differs'
               : u.threshold.direction === 'negative'
-                ? ' — below it, the ordering differs'
+                ? '. Below it, the ordering differs'
                 : ''
           }.`
         : undefined,
       groundedIn: 'the sensitivity and critique analysis',
+      /**
+       * ⚠ THE CAMERA TARGET IS THE EDGE WHERE ONE RESOLVES, NOT THE SOURCE NODE.
+       * This read `u.affectedNodes?.[0]` — the FROM node — on a row whose whole
+       * sentence is about a RELATIONSHIP, so "Show on canvas" framed one end of
+       * the thing being discussed. Where the endpoints resolve to a canvas edge
+       * the row now points at the edge, which is what the assumed-strength card
+       * already does for the same population (`targetId: assumed.edgeId`). The
+       * node remains the fallback, so a row whose edge we cannot name keeps the
+       * behaviour it had.
+       */
       targetId: u.affectedNodes?.[0],
+      // Present only where the Model tab can serve the editor for that exact
+      // edge. Same id, second question — see `analysisNewTypes.ts`.
+      ...(focusTarget ? { focusTargetId: focusTarget } : {}),
+      ...(reviewTarget ? { reviewTargetId: reviewTarget } : {}),
       inspect: rows(
         row('Severity', u.severity),
         row('E-value', u.eValue != null ? String(u.eValue) : null),
@@ -1344,8 +1489,20 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   // now, `<dt class="sr-only">CODE</dt><dd>sentence</dd>`. Two rows were
   // indistinguishable then and are indistinguishable now, and a screen reader
   // still hears the code once per row. Nothing is over-suppressed.
-  const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(conf.inferenceWarnings)
-    .map((w) => ({ label: w.code, value: w.title, statement: true }))
+  // ⭐ THE LABELS ARE WHAT MAKE TWO IDENTICAL ROWS INTO TWO FINDINGS. ISL raises
+  // this family once PER NODE, so an unset root pair printed one anonymous
+  // sentence twice; the id rides on the warning's structured `field` and the
+  // store turns it into the name the user typed. Absent, the copy is unchanged.
+  const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(
+    conf.inferenceWarnings,
+    inputs.nodeLabels,
+  )
+    // ⭐ `nodeId` IS WHAT TURNS "Add its current value." FROM AN INSTRUCTION INTO
+  //   AN ACT. It is the VALUE-SLOT id, not merely the warning's node: the
+  //   selector refuses `GOAL_ANCESTOR_DATA_GAP`'s id, which names the GOAL
+  //   while the sentence asks for its ancestors. Rows without one render as
+  //   prose, exactly as they do today.
+  .map((w) => ({ label: w.code, value: w.title, statement: true, nodeId: w.valueNodeId }))
   if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
 
   // ⚠ READINESS SIGNALS, RENDERED AS THE PRODUCER'S OWN NUMBERS. `m1_coaching
@@ -1635,9 +1792,27 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
     : current
       ? `${usable.label} moves from ${current} to ${flip}`
       : `${usable.label} changes materially`
+  /**
+   * ⭐ THE FIGURE, CARRIED AS STRUCTURE, ON EXACTLY THE TWO ARMS THAT PRINT ONE.
+   *
+   * Gated on the SAME `unit || current` the sentence above is gated on, and
+   * from the same variables — so the structure cannot claim a quotable figure
+   * on a run whose sentence dropped it. Writing the condition twice in two
+   * spellings is the hand-maintained mirror this file keeps paying for, which
+   * is why the ternary and this gate read the same two locals rather than
+   * re-deriving the producer row.
+   *
+   * `flip` is reused verbatim rather than re-formatted: a second call to `fmt`
+   * would be a second formatter in waiting, and a consumer quoting a figure
+   * that differs in the last decimal from the one beside it is the same
+   * one-threshold-two-renderings defect `flipThresholdDisplay`'s header names.
+   */
+  const quantity =
+    unit || current ? { factorLabel: usable.label, thresholdText: flip } : null
   return {
     text,
     targetId: typeof usable.node_id === 'string' && usable.node_id.length > 0 ? usable.node_id : null,
+    quantity,
   }
 }
 
@@ -1650,6 +1825,8 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
 function buildAtAGlance(
   data: ResultsSectionDataReturn,
   nodeValueSources?: ReadonlyMap<string, string>,
+  nodeLabels?: ReadonlyMap<string, string>,
+  nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -1662,6 +1839,130 @@ function buildAtAGlance(
     leaderDesignationPermitted(rec) === true && leader && !rec.isSingleOption
       ? `${leader.label} currently scores higher`
       : null
+
+  // ── WHY THERE IS NO ANSWER, WHEN THE MODEL IS THE REASON ──────────────────
+  //
+  // ⚠⚠ SELECTED BY `field`, NEVER BY POSITION. `analysis_admission.reasons` is
+  // an array of conjuncts and the ORDER IS THE PRODUCER'S. On the live wire
+  // (staging `103ac4fd`, fresh guest, 2026-09-09) `reasons[0]` is
+  // `structurally_analysable` / `READY_TO_COMPARE` — "Analysis can run on this
+  // model as it stands" — and the sentence a reader needs sits at [1] and [2].
+  // `buildHeroModel.ts:952` reads `reasons?.[0]?.message` and therefore puts the
+  // AFFIRMATIVE sentence in its withheld slot. Do not copy that shape here.
+  //
+  // ⚠ AND GATED ON THE ADMISSION, NOT ON THE COMPOSED FIELD. `licensesComparativeLeaderClaim`
+  // is the SAME reader `useResultsSectionData.ts:2275` uses to build Q1 — reused,
+  // not re-expressed, so there is one predicate for one question. Its absence arm
+  // returns `true` ("the producer has not spoken"), which is exactly right here:
+  // no admission means no refusal to explain, and `invalidateAnalysisReady`
+  // (`store.ts:1893-1904`) makes that state reachable on the user's own keystroke.
+  //
+  // ⛔ NOT `leaderDesignationPermitted(rec) !== true`. That is `Q1 && Q2`, so it
+  // is also false when the ARMS did not separate — and this sentence would then
+  // assert a model refusal the producer never made.
+  //
+  // ⚠ THE CONJUNCT OBJECT IS FOUND ONCE, AND BOTH FIELDS BELOW COME OFF IT.
+  // `designationWithheldReason` is the sentence shown; `designationWithheldRemedy`
+  // says what that SAME sentence prescribes. Finding the reason twice would be
+  // two readers of one question, which is how a surface ends up offering an act
+  // that answers a different sentence than the one above it (trap 21).
+  const designationWithheldConjunct =
+    licensesComparativeLeaderClaim(rec.analysisAdmission) === false
+      ? (rec.analysisAdmission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode') ??
+        null)
+      : null
+
+  const designationWithheldReason = (designationWithheldConjunct?.message?.trim() ?? null) || null
+
+  // ── WHAT THE REFUSAL ABOVE ACTUALLY ASKS THE USER TO GO AND DO ─────────────
+  //
+  // ⭐⭐ THE MODE IS NOT THE REMEDY, AND NEITHER IS `field`. Every mode other than
+  // `comparative_leader` withholds the designation, so ONE sentence slot carries
+  // several distinct producer refusals — and only some of them name an ESTIMATE as
+  // the thing to go and fix. Offering "review or set an estimate" under the others
+  // prescribes a futile act: setting a factor estimate cannot invent a second
+  // option or clear a structural blocker. CEE built this split for exactly that
+  // reason (`analysis-admission.ts:833-836`): "a refusal that misnames its own
+  // cause is worse than a silent one: it tells the user to fix something that is
+  // not wrong." A UI that offers one fixed act under all causes collapses the
+  // split back to one.
+  //
+  // Derived at CEE `staging` `8449e54e`, `analysis-admission.ts` (`SEMANTIC_REASON`
+  // :945-968 x `MODE_REASON` :979-995, pushed at :1131-1134), TWICE and
+  // independently — a static read of both tables, and a runtime probe over 29
+  // graph members (8 purpose-built topologies, 5 synthetic, 16 real captures).
+  // Six codes are type-reachable in this slot:
+  //
+  //   ESTIMATE   CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED   "…until you have set
+  //              at least one of them"                         → the act applies
+  //   ESTIMATE   USER_STATED_PARAMETERS_NOT_MATERIAL          "…until you have set a
+  //              value on a factor one of the options changes" → the act applies
+  //   OPTION     NOTHING_TO_COMPARE        "Name at least two different options…"
+  //   NO ACT     MODEL_HAS_BLOCKERS        "This model cannot be analysed yet."
+  //   NO ACT     NO_COMPARISON_SUBSTRATE   "Nothing in this model connects the
+  //              options to your goal" — a diagnosis, naming no imperative.
+  //              ⚠ TYPE-reachable, MEASURED-ABSENT: 8 topologies built to force it
+  //              all collapsed to `none`. Handled anyway; never assumed dead.
+  //   LICENCE    CONFIDENCE_PARAMETERS_PARTLY_USER_STATED — NOT a refusal at all.
+  //              ⚠ THE SLOT IS PUSHED ON EVERY VERDICT, not only refusals, so this
+  //              code occupies it whenever the mode IS `comparative_leader`. It is
+  //              excluded here by `licensesComparativeLeaderClaim` above, which is
+  //              why that gate must stay in front of this one.
+  //
+  // ⛔⛔ MATCH ON (field, code) — NEVER ON CODE ALONE, AND THIS IS MEASURED, NOT
+  // THEORETICAL. The two ESTIMATE codes ALSO ride the `semantic_quality_sufficient`
+  // reason, which CEE pushes unconditionally (`:1124-1128`). A graph measured in the
+  // probe carries `NOTHING_TO_COMPARE` in THIS slot while its
+  // `semantic_quality_sufficient` reason carries ALL_MACHINE_AUTHORED — so a search
+  // across `reasons[]` for an estimate code would offer "set an estimate" to a user
+  // whose actual next move is "name two different options". The `find` above binds
+  // by `field` FIRST and this reads `code` off THAT SAME object, so the two cannot
+  // come from different conjuncts.
+  //
+  // ⛔ A POSITIVE ALLOWLIST, FAIL-CLOSED, AND THAT DIRECTION IS THE WHOLE POINT. An
+  // unrecognised or absent `code` yields `null`, so the surface renders the
+  // producer's sentence ALONE. A cause CEE adds later loses the button until someone
+  // reads its sentence and decides which remedy it names — a gap, which is honest
+  // and visible. A denylist, a `CONFIDENCE_PARAMETERS_` PREFIX test, or defaulting
+  // to `'estimate'` would each hand a future cause an act chosen for a different
+  // one, which is the lie. ⚠ The prefix is especially tempting and especially wrong:
+  // it admits the LICENCE code and misses `USER_STATED_PARAMETERS_NOT_MATERIAL`,
+  // which carries no such prefix and IS an estimate refusal.
+  //
+  // ⚠ NOT DERIVABLE FROM THE CONTRACT. `analysis_admission` is absent from
+  // `@talchain/schemas` 0.54.0 altogether (derived: 0 hits in its `dist` against 8
+  // for `analysis_ready`), and CEE types `code` as a bare `z.string()`, so there is
+  // no enum to import and no schema-level guarantee. This list is a hand-written
+  // mirror of a producer in another repo, and trap 12d applies in full: it cannot
+  // prove its own completeness. `withheldReasonHasAMove.spec.tsx` therefore carries
+  // a CORPUS of the other reachable causes as opposite-direction twins. If CEE
+  // renames a cause the button goes quiet rather than wrong, and that spec says so.
+  const designationWithheldRemedy: GlanceWithheldRemedy | null =
+    designationWithheldReason !== null &&
+    designationWithheldConjunct?.code !== undefined &&
+    ESTIMATE_REMEDY_ADMISSION_CAUSES.has(designationWithheldConjunct.code)
+      ? 'estimate'
+      : null
+
+  // ── WHICH PARAMETERS THE REFUSAL IS ABOUT ─────────────────────────────────
+  //
+  // ⛔ GATED ON THE REMEDY, NOT ON THE REASON, and that is the same conjunct the
+  // button reads rather than a second one. Only the causes whose own words ask
+  // for an estimate can be answered by naming parameters; under "Name at least
+  // two different options you are weighing" a list of factors is a futile
+  // instruction under a true sentence. One predicate, one question (trap 21).
+  //
+  // ⚠ THE HEADER IN `AtAGlance.tsx` SAID NO FACTOR IS NAMED, AND HALF OF IT
+  // STILL BINDS. Its first clause — "there is no particular estimate to point
+  // at" — was measured before CEE published
+  // `semantic_signals.material_parameters_awaiting_user_node_ids`, and is what
+  // this supersedes. Its second — "inventing one would be a deep link to an
+  // arbitrary row dressed as the answer" — is honoured: the whole set is named
+  // and no member is selected, because the producer ranks nothing.
+  const designationWithheldParameters =
+    designationWithheldRemedy === 'estimate'
+      ? namedMaterialParametersAwaitingUser(rec.analysisAdmission, nodeLabels)
+      : []
 
   // ── SCOPE: what does the win share range over? ────────────────────────────
   //
@@ -1716,7 +2017,7 @@ function buildAtAGlance(
   // probability of reaching the goal. "Achieves your goal in 99%" would have
   // been a worse claim than the contest framing it replaced, so the wording
   // keeps the ranking meaning and drops the contest metaphor only.
-  const winShare = winPct ? `Scored highest against your goal in ${winPct} of simulated futures` : null
+  const winShare = winPct ? `Scored highest in ${winPct} of simulated futures` : null
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.
@@ -1725,8 +2026,66 @@ function buildAtAGlance(
     winPct && typeof winRaw === 'number' && Number.isFinite(winRaw)
       ? Math.max(0, Math.min(1, winRaw > 1 ? winRaw / 100 : winRaw))
       : null
+  /**
+   * ⭐⭐ THE REASON IS GATED ON THE LEADER ENTITLEMENT; THE GRADE IS NOT.
+   *
+   * ⚠ MEASURED ON THE DEPLOYED BUILD `73825428`, driving a real guest session.
+   * The producer's own authority said the claim was withheld —
+   * `producer_leader_permission: { permitted: false, withheld_reason:
+   * "leader_claim_withheld" }` — and the panel rendered, in the glance:
+   *
+   *   "none of the factors we could test changed WHICH OPTION LEADS on its own,
+   *    and this result mostly held up under the other changes we tested"
+   *
+   * while three sections below, on the same screen, "What we checked" correctly
+   * said *"Which option is most likely — not assessed"* and *"This run returned
+   * no comparison verdict, so any ordering you see is unconfirmed"*.
+   *
+   * One surface, one run, two answers — and the producer told us which one is
+   * right. This is the estate's most-repeated harm (a withheld leader
+   * reconstructed by a neighbouring sentence) reached through the one field on
+   * this block nobody had gated.
+   *
+   * ⚠⚠ THE GATE IS THE PERMISSION, NEVER THE WORDS. A predicate that suppressed
+   * sentences containing "leads" would be a vocabulary over natural language
+   * drawn from one author's head — the class this estate keeps getting wrong
+   * (trap 22), and it would break the moment CEE rephrases. `robustness_caveat`,
+   * this sentence's sibling, is ALREADY treated as a leader-ranking member and
+   * gated exactly this way on the parked tab. The asymmetry between the two was
+   * the defect, not the wording of either.
+   *
+   * ⚠ THE GRADE SURVIVES, DELIBERATELY. `tone` and `label` are a RUN-LEVEL
+   * robustness verdict, not a claim about any option, and #494 kept
+   * "Analysis complete (robust)" for that reason. Only the sentence that
+   * explains the verdict by reference to a ranking is withheld.
+   *
+   * ⚠ AND NOTHING LICENSED IS LOST FROM THE SCREEN. `checks.leaderMeaning`
+   * already states the honest version of this, is already licensed, and is
+   * already on the surface — which is also why a CAVEAT here would be a third
+   * restatement rather than a repair (`ModelHeldUp` records shipping exactly
+   * that mistake with this same field).
+   *
+   * Same call as the headline twenty lines up: `=== true`, because the
+   * predicate is three-valued and an `undefined` that coerces to "permitted" is
+   * the fail-OPEN default this seam has been burned by before.
+   */
+  /**
+   * ⚠ CORRECTED AFTER REVIEW: this was `leaderDesignationPermitted(rec) === true`,
+   * which is TOO WIDE. It withheld on an open strategic challenge — no options,
+   * no arms to separate, never a ranking to withhold — deleting the producer's
+   * licensed FACTOR-SENSITIVITY sentence ("Small changes in supplier lead time
+   * change which direction looks better."). Two harms cannot share one
+   * parameter; `rankingWasWithheld` asks whether a ranking EXISTED first.
+   */
+  const mayExplainByRanking = !rankingWasWithheld(rec)
   const verdictBlock = word
-    ? { tone: word.tone, label: word.label, ...(rec.robustnessVerdictReason ? { reason: rec.robustnessVerdictReason } : {}) }
+    ? {
+        tone: word.tone,
+        label: word.label,
+        ...(mayExplainByRanking && rec.robustnessVerdictReason
+          ? { reason: rec.robustnessVerdictReason }
+          : {}),
+      }
     : null
 
   // ⚠⚠ WHAT THE SURFACE ACTUALLY PUTS ON SCREEN, computed from the SAME fields
@@ -1739,14 +2098,58 @@ function buildAtAGlance(
   // claims and both need the scope disclosure. Gating on the share alone
   // suppressed it on exactly those runs.
   const shareOnScreen = Boolean(verdictBlock && winShare)
-  const comparativeClaim: GlanceComparativeClaim = shareOnScreen
+
+  // ⚠⚠ HOISTED, AND THE HOIST IS THE FIX (ROADMAP 2.1340 row F).
+  // `condition` used to be computed in the returned object literal BELOW this
+  // point, so the enumeration could not consult it even in principle: the two
+  // values were built in two places and the render path recombined them. A
+  // flip condition is candidate-set-dependent, so a run whose only claim was a
+  // condition resolved to `'none'` and `AtAGlance` suppressed the scope note —
+  // printing a threshold derived from 1 of 2 options with nothing saying so.
+  const condition = glanceCondition(data)
+
+  /**
+   * ⭐⭐ EVERY SET-DEPENDENT CLAIM THIS PANEL CAN MAKE, IN ONE PLACE, AND THE
+   * COMPILER OWNS THE LIST.
+   *
+   * Three review rounds of #921 each found ONE more member of this enumeration
+   * (the expected-outcome superlative, the robustness verdict, and now the
+   * flip condition) and nothing failed loud when the next was added — CLAUDE.md
+   * trap 12, the hand-maintained mirror, in the gate that exists to stop an
+   * unqualified number reaching a reader.
+   *
+   * The `Record<Exclude<GlanceComparativeClaim, 'none'>, boolean>` annotation
+   * is the mechanism that replaces remembering: adding a member to
+   * `GlanceComparativeClaim` is a TYPE ERROR here until that member is given a
+   * truth condition, so a fifth claim cannot be minted without deciding
+   * whether it needs the scope beside it. `'none'` is then the residue —
+   * provably "no claim was made" rather than "no claim was listed".
+   */
+  const setDependentClaims: Record<Exclude<GlanceComparativeClaim, 'none'>, boolean> = {
+    /** The win share, as RENDERED — `AtAGlance` draws it inside the verdict block. */
+    value: shareOnScreen,
+    /** The headline superlative, or the robustness ordering verdict. */
+    order: Boolean(headline || verdictBlock),
+    /** A flip threshold, which ISL derives over the candidate set. */
+    condition: condition !== null,
+  }
+
+  // Precedence is the amount of the register each claim licenses, widest
+  // first: a run carrying a share is a `'value'` claim whatever else is on
+  // screen, and `'condition'` is reached only when nothing louder was said.
+  const comparativeClaim: GlanceComparativeClaim = setDependentClaims.value
     ? 'value'
-    : headline || verdictBlock
+    : setDependentClaims.order
       ? 'order'
-      : 'none'
+      : setDependentClaims.condition
+        ? 'condition'
+        : 'none'
 
   return {
     headline,
+    designationWithheldReason,
+    designationWithheldRemedy,
+    designationWithheldParameters,
     leaderLabel: headline && leader ? leader.label : null,
     winShare,
     winFraction,
@@ -1755,8 +2158,23 @@ function buildAtAGlance(
     verdict: verdictBlock,
     drivers,
     influenceIsSetRelative: setRelative,
-    condition: glanceCondition(data),
+    condition,
     inputProvenance: glanceInputProvenance(data, nodeValueSources),
+    /**
+     * ⭐⭐ GATED ON `headline && leader`, WHICH IS THE ENTITLEMENT ITSELF, NOT A
+     * SECOND COPY OF IT. `headline` is non-null only where
+     * `leaderDesignationPermitted(rec) === true`, so this sentence is reachable
+     * only on runs the product has ALREADY decided it may name a leader on.
+     * It cannot create a designation, cannot restore a withheld one, and cannot
+     * suppress or re-rank anything — it can only add a disclosure beside a name
+     * that is going on screen regardless.
+     *
+     * ⚠ JOINED BY ID, NEVER BY LABEL (CLAUDE.md trap 19). Two options can share
+     * a label; `leader.id` is the graph node's own identity. A join on label
+     * would attach one option's origin to another's name — the precise class of
+     * error this disclosure exists to correct.
+     */
+    optionOrigin: headline && leader ? (nodeOrigins?.get(leader.id) ?? null) : null,
   }
 }
 
@@ -2095,7 +2513,28 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
     : { kind: 'diverged', outcome, goal }
 }
 
-function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparisonSection {
+/**
+ * ⚠ RETURNS THE SECTION MINUS ITS FIGURE LICENCE, AND THE `Omit` IS THE POINT.
+ *
+ * `comparativeClaim` is the GLANCE's answer and is attached at the assembly
+ * below, where `glance` is in scope and the shared value is visible in one
+ * expression. Typing this builder as the whole section would let a future edit
+ * satisfy the compiler by computing a licence HERE, from the rows — a second
+ * authority on one question, which is the #709/#737 shape (CLAUDE.md trap 21).
+ * The `Omit` makes that edit fail to typecheck instead of passing quietly.
+ */
+function buildOptionsComparison(
+  data: ResultsSectionDataReturn,
+  /**
+   * ⭐ THE GLANCE'S OWN MAP, PASSED IN — never rebuilt here. `buildAtAGlance`
+   * receives the identical reference from the identical caller, so the leader
+   * sentence and every row below it read one map by one join and cannot
+   * disagree about a node. Optional, matching the hook's own input: an absent
+   * map means "nothing known about authorship", which must render as silence
+   * rather than as a claim.
+   */
+  nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
+): Omit<OptionsComparisonSection, 'comparativeClaim'> {
   const allOptions = data.recommendation.allOptions ?? []
 
   /**
@@ -2124,16 +2563,44 @@ function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparis
     const label = usableOptionLabel(o)
     if (label === null) continue
 
+    /**
+     * ⭐ RESOLVED ONCE, ABOVE THE FORKS, READ BY ALL THREE. Whose idea an option
+     * was does not depend on whether the run compared it, so asking the map
+     * inside each branch would be three expressions answering one question —
+     * the shape that lets two rows come to disagree about one node
+     * (CLAUDE.md trap 21, and the `reason` default two lines below is here for
+     * exactly the same reason).
+     *
+     * ⚠ JOINED BY `o.id`, the graph node's own identity — the same join
+     * `buildAtAGlance` makes on `leader.id`, and `recommendedOption` is an
+     * element OF `allOptions` (`useResultsSectionData.ts:2404`), so the leader
+     * sentence and this row are keyed into one map by one id space.
+     */
+    const origin = nodeOrigins?.get(o.id) ?? null
+
     if (o.notAnalysed === true) {
+      // ⭐ RESOLVED ONCE, READ TWICE. The sentence the row renders and the
+      // ground the act beside it switches on are now the SAME value, so they
+      // cannot disagree about why this option was left out. Two `??` defaults
+      // at two call sites is how one surface comes to say "you have not set
+      // this up" while the control beside it asks about a run that never saw
+      // the option (CLAUDE.md trap 21, built out of one repeated expression).
+      //
+      // `not_returned` is the same default `buildAtAGlance` applies, and it is
+      // the weaker of the two claims: it reports that the analysis came back
+      // with nothing, and prescribes no action the user cannot take. It is
+      // UNREACHABLE from the live producer — `useResultsSectionData.ts:2227`
+      // sets `notAnalysed` and `notAnalysedReason` in one object literal — and
+      // stays here only because the field is optional on `OptionResult`.
+      const reason = o.notAnalysedReason ?? 'not_returned'
       rows.push({
         kind: 'not_analysed',
         id: o.id,
         label,
+        origin,
         // The SANCTIONED sentence, resolved here so no component re-words it.
-        // `not_returned` is the same default `buildAtAGlance` applies, and it
-        // is the weaker of the two claims: it reports that the analysis came
-        // back with nothing, and prescribes no action the user cannot take.
-        reasonCopy: notAnalysedReasonCopy(o.notAnalysedReason ?? 'not_returned'),
+        reasonCopy: notAnalysedReasonCopy(reason),
+        reason,
       })
       continue
     }
@@ -2165,6 +2632,7 @@ function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparis
         kind: 'not_computed',
         id: o.id,
         label,
+        origin,
         reasonCopy: notComputedReasonCopy(o.computeStatusReason),
       })
       continue
@@ -2188,6 +2656,7 @@ function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparis
       kind: 'analysed',
       id: o.id,
       label,
+      origin,
       // The display-honesty authority, given the SAME arguments `OptionCards`
       // gives it, so the two tabs cannot print two different readouts of one
       // probability on one run. A measured-but-tiny share renders "<0.01%",
@@ -2519,7 +2988,7 @@ export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
   const { data, recommendations, isStale, nodeValueSources } = inputs
-  const glance = buildAtAGlance(data, nodeValueSources)
+  const glance = buildAtAGlance(data, nodeValueSources, inputs.nodeLabels, inputs.nodeOrigins)
 
   /**
    * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
@@ -2548,8 +3017,18 @@ export function buildAnalysisNewViewModel(
 
   return {
     status: buildStatus(inputs),
+    /**
+     * ⭐ ONE CALL, QUOTED — never re-derived by a consumer. `=== true` because
+     * the predicate is three-valued: `undefined` means the authority could not
+     * answer, and an `undefined` that coerces to "permitted" is exactly the
+     * fail-OPEN default this seam has been burned by before.
+     *
+     * ⚠ PRE-RUN IS `false`, and that is not a special case: before a run there
+     * is no ranking to speak about, so nothing gated on this may render.
+     */
+    leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, optionOrigin: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF
@@ -2566,9 +3045,32 @@ export function buildAnalysisNewViewModel(
      * data to produce the right answer by accident.
      */
     modelImplication: preRun ? { kind: 'none' } : buildModelImplication(data),
+    /**
+     * ⭐⭐ THE FIGURE'S LICENCE IS THE GLANCE'S, SPREAD IN HERE — one value, two
+     * readers, and no arithmetic between them.
+     *
+     * `glance.comparativeClaim` is the authority on whether this run licenses a
+     * comparative magnitude at all, and it is already published on `atAGlance`
+     * twelve lines up. `OptionsComparison` draws a magnitude, so it needs that
+     * same answer; computing one here from the ROWS would be a second authority
+     * on one question, which is the #709/#737 shape this surface has already
+     * shipped once (CLAUDE.md trap 21). Assigned in this one expression so a
+     * reader can SEE it is the same value rather than a matching one.
+     *
+     * ⚠ PRE-RUN IS `'none'`, matching the `atAGlance` literal above rather than
+     * being reasoned about separately: before a run nothing comparative exists
+     * to draw, and the two literals must not be able to disagree.
+     */
     optionsComparison: preRun
-      ? { rows: [], totalCount: 0 }
-      : buildOptionsComparison(data),
+      ? { rows: [], totalCount: 0, comparativeClaim: 'none' as const }
+      : {
+          // ⚠ `inputs.nodeOrigins` — THE SAME REFERENCE `buildAtAGlance` was
+          // handed at the top of this function, so the leader's disclosure and
+          // the rows' cannot be derived from two different readings of the
+          // canvas.
+          ...buildOptionsComparison(data, inputs.nodeOrigins),
+          comparativeClaim: glance.comparativeClaim,
+        },
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),

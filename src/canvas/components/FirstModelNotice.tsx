@@ -96,7 +96,7 @@ export const FIRST_MODEL_NOTICE_TESTID = 'first-model-notice'
  * for why authorship is not something this predicate can establish.
  */
 export const FIRST_MODEL_NOTICE_COPY =
-  'This is a first model, not a conclusion — nothing in it carries your judgement yet.'
+  'This is a first model, not a conclusion. Nothing in it carries your judgement yet.'
 
 /** The invitation. Claims nothing; asks for the one thing that would fix it. */
 export const FIRST_MODEL_NOTICE_INVITATION =

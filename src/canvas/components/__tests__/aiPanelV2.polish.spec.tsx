@@ -153,10 +153,10 @@ describe('Item 4 — AIInputBar generating state (isThinking + empty canvas)', (
       act(() => { vi.advanceTimersByTime(20_000) })
       expect(status).toHaveTextContent('Still drafting your decision model…')
       act(() => { vi.advanceTimersByTime(25_000) })
-      expect(status).toHaveTextContent('Still drafting — complex decisions can take a while…')
+      expect(status).toHaveTextContent('Still drafting. Complex decisions can take a while…')
       // The final line holds — it must still be true at the client timeout.
       act(() => { vi.advanceTimersByTime(60_000) })
-      expect(status).toHaveTextContent('Still drafting — complex decisions can take a while…')
+      expect(status).toHaveTextContent('Still drafting. Complex decisions can take a while…')
     } finally {
       vi.useRealTimers()
     }

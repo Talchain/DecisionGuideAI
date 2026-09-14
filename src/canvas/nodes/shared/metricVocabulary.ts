@@ -165,22 +165,28 @@ export const METRIC_NOUN = {
  * than the flattening statistics above, which describe how OFTEN the old
  * behaviour looked wrong rather than why it WAS wrong.
  *
- * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — NOT FIXED
- * HERE. Thickness still carries the magnitude and `vectorEffect:
+ * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — STILL NOT
+ * FIXED HERE. Thickness still carries the magnitude and `vectorEffect:
  * 'non-scaling-stroke'` makes it a SCREEN width, so it is one of the few
  * channels that does not degrade at low zoom (where this metric row sits at
- * ~8.8px). But `weightMagnitudeToStrokeWidth` has three bands (≥0.7→3, ≥0.4→2,
- * else 1.5) and `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest
- * band. Across the 24 starter magnitudes (0.18–0.65) that is exactly TWO
- * distinguishable widths, one of them ambiguous with "unset".
+ * ~8.8px). `weightMagnitudeToStrokeWidth` still has three bands (≥0.7→3,
+ * ≥0.4→2, else 1.5), so across the 24 starter magnitudes (0.18–0.65) there are
+ * still only TWO distinguishable measured widths. That half of the gap stands.
  *
- * ⛔ DELIBERATELY NOT BUILT. Whether "unset" should be visually distinct from
- * "weakest" is a live product question with Paul, and changing
- * `UNSET_EDGE_STROKE_WIDTH` or the band scheme would pre-empt it from a lane
- * scoped to a card row. Rowed, not built. (An in-repo middle exists if he wants
- * one: the canvas already uses DASH to mean uncertainty, so a visibly unsettled
- * bar — hatched or ghosted, clearly outside measurement grammar — would keep 24
- * edges comparable at a glance while still refusing the claim. Unexamined here.)
+ * ✅ THE OTHER HALF IS BUILT (8 Sep 2026). This note used to continue: *"and
+ * `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest band … one of
+ * them ambiguous with 'unset'. ⛔ DELIBERATELY NOT BUILT. Whether 'unset'
+ * should be visually distinct from 'weakest' is a live product question with
+ * Paul."* Paul cleared it; `UNSET_EDGE_STROKE_WIDTH` is now strictly below
+ * every measured band, so the "unset" ambiguity is gone and width reads as a
+ * total order — unset < weak < moderate < strong.
+ *
+ * ⚠ THE PARENTHETICAL THAT USED TO SIT HERE SUGGESTED DASH, AND THE BUILD LANE
+ * MEASURED IT AND REFUSED. *"The canvas already uses DASH to mean uncertainty"*
+ * is precisely the problem: `EDGE_DASH_RULES` already carries `contested`,
+ * `existence_certainty` and `visual_props`, and `resolveEdgeDash` returns the
+ * FIRST match — so a fourth rule would be invisible on exactly the edges most
+ * in question. Recorded so the dead suggestion is not re-proposed.
  *
  * ⛔ WHY A SHARED CONSTANT AND NOT A LITERAL AT EACH SITE. Three surfaces say
  * this — the risk card, the outcome card, and the reduced line both of them
@@ -309,6 +315,58 @@ export interface MetricLegendRow {
   gloss: string
 }
 
+/**
+ * ⭐⭐ THE TWO CLAUSES THE LEGEND AND THE BADGES BOTH SPEAK — ONE AUTHORITY.
+ *
+ * ⚠ THIS EXISTS BECAUSE A COMMENT CLAIMED IT ALREADY DID. `#1414` gave the two
+ * canvas badges accessible names and wrote, at both call sites, that the
+ * wording was "DERIVED from the legend's own gloss … so the two cannot drift
+ * into saying different things about the same badge". **There was no import.**
+ * Both `aria-label`s were template literals that happened to repeat the
+ * legend's words — a hand-maintained mirror (CLAUDE.md trap 12) whose comment
+ * asserted the derivation that would have made it safe. The comments are
+ * preserved and corrected forward at those sites rather than deleted; what
+ * they say is now true because of these two constants, not because of them.
+ *
+ * ⛔ THE DRIFT IS SILENT AND IT LANDS ON ONE READER ONLY. Nothing tested the
+ * badge against the legend: `ORDINAL_ROW_MUST_STATE_MINT` is only ever applied
+ * to `row.gloss`. So a legend rewrite kept the mint guard green, left the
+ * badges on the old wording, and told a screen-reader user something different
+ * from what a sighted user reads in the popover — the two surfaces disagreeing
+ * about the same badge, with no red anywhere.
+ *
+ * ⚠ SCOPE, STATED NARROWLY. These constants couple the legend row and the
+ * badge name for the SAME badge. They are not a general copy register — that
+ * is `METRIC_NOUN` — and they do not make the sentences correct, only
+ * identical. The clauses' truth is guarded separately: the ordinal's mint
+ * qualifier by `ORDINAL_ROW_MUST_STATE_MINT`, and the residual O1 limit is
+ * still open in the ⚠⚠ block above.
+ *
+ * The rows below are built from these, so the register reads exactly as it
+ * did — the change is where the words live, never what they say.
+ */
+export const SENSITIVITY_RANK_CLAUSE = 'the factors the result is most sensitive to'
+export const ORDINAL_MINT_CLAUSE = 'the order the options were first laid out in'
+
+/**
+ * The rank badge's accessible name. `BaseNode` renders `#N` and nothing else,
+ * so without this a screen reader gets the bare string "#1" — and "#1" on a
+ * factor means the OPPOSITE of "1" on an option card, which is the confusion
+ * the legend exists to prevent.
+ */
+export const sensitivityRankBadgeAccessibleName = (rank: number): string =>
+  `Key driver #${rank}: one of ${SENSITIVITY_RANK_CLAUSE}`
+
+/**
+ * The option ordinal badge's accessible name. Deliberately NOT a bare
+ * "Option N", which reads as a rank; the trailing clause is what distinguishes
+ * it from `sensitivityRankBadgeAccessibleName` above.
+ *
+ * ⚠ The separator is an EM DASH (—), matching what ships today.
+ */
+export const optionOrdinalBadgeAccessibleName = (optionNumber: number): string =>
+  `Option ${optionNumber} — ${ORDINAL_MINT_CLAUSE}, not a ranking`
+
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
     noun: METRIC_NOUN.support,
@@ -359,12 +417,19 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   },
   {
     noun: '#1, #2, #3',
-    gloss: 'the factors the result is most sensitive to',
+    // ⭐ SHARED WITH THE BADGE'S OWN ACCESSIBLE NAME, by import rather than by
+    // repetition — see SENSITIVITY_RANK_CLAUSE above. Byte-identical to the
+    // literal it replaced.
+    gloss: SENSITIVITY_RANK_CLAUSE,
   },
   {
     noun: '1, 2, 3 on an option',
     // ⚠ THE QUALIFIER IS LOAD-BEARING — see ORDINAL_ROW_MUST_STATE_MINT below.
-    gloss: 'the order the options were first laid out in. Not a ranking, and it stays with a card when you move it.',
+    // ⭐ The first clause is shared with the badge's accessible name
+    // (ORDINAL_MINT_CLAUSE above). The two sentences below it are the legend's
+    // alone: a badge name has no room for them. Byte-identical to the literal
+    // it replaced.
+    gloss: `${ORDINAL_MINT_CLAUSE}. Not a ranking, and it stays with a card when you move it.`,
   },
   {
     noun: METRIC_UNSET.standalone,
@@ -406,27 +471,31 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * absence by reference rather than re-typing them, and so a reader of this
  * file can see what the board used to say.
  *
- * ⚠⚠ TWO LIVE USES OF "Leads" SURVIVE ON PURPOSE, AND BOTH ARE VERBS.
- * Disclosed here because the review found the second one and the residual
- * section had named only `lodMetricLine`:
+ * ⭐⭐ BOTH "VERB SURVIVORS" ARE GONE. RE-DERIVED 8 Sep 2026 AT THIS TIP.
  *
- *   · `DecisionNode` — the sentence "{X} leads in N% of scenarios", locked by
- *     the eight-surface owned-leader-claim corpus.
- *   · `OptionNode:1601` — "Leads via {factor}, the #1 driver", beneath the
- *     `Ahead 47%` anchor on the recommended option.
+ * This section used to disclose two deliberate survivors and argue for them on
+ * part-of-speech grounds. Both claims are now false, and the second was
+ * already false when it was written:
  *
- * ⭐ THE DISTINCTION IS PART OF SPEECH, NOT TASTE. This register governs the
- * NOUN that CAPTIONS A NUMBER — the word in the column beside a bar, where a
- * reader must be able to tell that two cards show the same quantity. Neither
- * survivor captions a number: both are verbs inside sentences, and "leads" is
- * ordinary English for what the option is doing. Renaming a verb to match a
- * column heading would make the prose worse to make a table look tidier.
+ *   · `DecisionNode` — "{X} leads in N% of scenarios". CHANGED 8 Sep 2026 to
+ *     the register's own `COMPARATIVE_COPY.clause`, so the card's sentence and
+ *     the card's bar caption are one vocabulary. It was ONE number, read from
+ *     ONE binding, captioned twice eight pixels apart. The part-of-speech
+ *     defence is sound in general and did not hold here: a verb and a noun
+ *     describing the SAME quantity on the SAME card are not two ideas.
+ *   · `OptionNode` — "Leads via {factor}, the #1 driver" was already absent
+ *     in the 8 Sep sweep; "Supported by {factor}" remained at that point.
+ *     On 9 Sep the option refinement replaces that residual with "Factor to
+ *     examine": global factor importance supports navigation, not an
+ *     option-specific causal explanation. No vocabulary export changes.
  *
- * ⚠ THE COST, STATED: a reader sees "Ahead 47%" and "Leads via …" on one card.
- * That is a real if minor friction, and it is the strongest argument against
- * this decision. It is left standing because the alternative touches a locked
- * corpus for a copy preference — a bigger and differently-reviewed change.
- * `RETIRED_METRIC_NOUNS` therefore retires "Leads" AS A CAPTION only.
+ * ⭐ SO "Leads" IS RETIRED AS A CAPTION *AND* HAS NO LIVE PROSE USE ON THE
+ * CANVAS. The narrower ruling is kept below because it is the right rule — a
+ * register governs captions, not every verb — but no survivor now relies on it.
+ * `RETIRED_METRIC_NOUNS` still retires "Leads" AS A CAPTION only.
+ *
+ * ⚠ THE COST THIS SECTION USED TO STATE ("a reader sees `Ahead 47%` and
+ * `Leads via …` on one card") IS PAID OFF, not argued away.
  *
  * ⭐ `strength` (LOWER CASE) IS IN THIS LIST, AND IT IS RETIRED BY CASE RATHER
  * THAN BY WORD. `Strength` is live; the lower-case caption that shipped on the
@@ -436,9 +505,11 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * hand-maintained mirror this whole file exists to abolish (CLAUDE.md trap 12).
  *
  * ⚠ THE CASE DISTINCTION IS LOAD-BEARING AND THE GUARD RELIES ON IT. The sweep
- * is case-SENSITIVE on purpose: `DecisionNode:718` renders the sentence
- * "{X} leads in N% of scenarios" and `EdgePills` renders "Link strength", and
- * both are ordinary English that must survive.
+ * is case-SENSITIVE on purpose: `EdgePills` renders "Link strength", which is
+ * ordinary English that must survive. (The other example named here was
+ * `DecisionNode`'s "{X} leads in N% of scenarios" — reworded 8 Sep 2026, so
+ * `EdgePills` now carries this justification alone. It is enough; the rule is
+ * not weakened, its second witness simply went away.)
  *
  * ⚠ `Chance of leading` is on the option INSPECTOR, not a card. It is retired
  * for the same reason as the rest — it was a third word for the first

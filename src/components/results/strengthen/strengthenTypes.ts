@@ -88,6 +88,27 @@ export interface Recommendation {
    * named, while "Run a pre-mortem" sits two clicks away in a menu.
    */
   signalCode?: string
+  /**
+   * The canonical bias code the producer's OWN bias-signal card names — set
+   * only on phase-3 recs whose `coaching_kind` is `bias_signal` and whose title
+   * the registry recognises. Derived by `biasCodeFromPhase3Item`; absent
+   * everywhere else, including on every UI-minted trigger.
+   *
+   * ⭐⭐ WHY IT IS SEPARATE FROM `signalCode`, WHICH ALREADY IDENTIFIES A BIAS
+   * CARD. `signal_code` on these cards is `COGNITIVE_BIAS` — one value for all
+   * sixteen biases the registry names — so it can only ever select the generic
+   * "Review a possible bias". WHICH bias was found lives in the card's title and
+   * nowhere else on the wire. Two fields because they answer two questions: "is
+   * this a bias finding" and "which bias", and collapsing them would mean a
+   * detected anchor and a detected overconfidence getting the same corrective
+   * (CLAUDE.md trap 21 — name the concepts apart).
+   *
+   * ⚠ NEVER RENDERED AS USER COPY. The bias is named to the user only by the
+   * producer's own card title; this field selects a METHOD, and the method's
+   * copy is the catalogue's. "You are anchoring" is a diagnosis about a person
+   * and this estate does not make one — see `ANALYSIS_HERO_BANNED_TERMS` §18.
+   */
+  biasCode?: string
 }
 
 // ── Engine inputs (narrow, fixture-friendly) ─────────────────────────────────
@@ -209,13 +230,25 @@ export interface StrengthenInputs {
   /** Whether a completed analysis exists (most triggers need one). */
   analysisComplete: boolean
   /**
-   * ROADMAP 1.243 — `DecisionVerdict.hasLeadingOption` VERBATIM: the ONE
-   * boolean any surface must hold before asserting OR presupposing a leading
-   * option. Threaded by `StrengthenContainer` from
-   * `data.recommendation.verdict`, the same instance the canvas reads. Never
-   * re-derived here, and never inferred from `analysisComplete`: a completed
-   * analysis is not an entitlement to name a leader, which is precisely the
-   * conflation that let "Challenge the leader" render on withheld runs.
+   * ROADMAP 1.243 — the ONE boolean any surface must hold before asserting OR
+   * presupposing a leading option. Never re-derived in `buildRecommendations`,
+   * and never inferred from `analysisComplete`: a completed analysis is not an
+   * entitlement to name a leader, which is precisely the conflation that let
+   * "Challenge the leader" render on withheld runs.
+   *
+   * ⚠ THE COMPOSED ANSWER, NOT `verdict.hasLeadingOption`. This doc said
+   * "`DecisionVerdict.hasLeadingOption` VERBATIM … threaded by
+   * `StrengthenContainer` from `data.recommendation.verdict`" and that was
+   * false: the container threads `leaderDesignationPermitted(data.recommendation)`,
+   * which folds the CEE admission in as well, and since #1190 so does
+   * `analysisNew/buildStrengthenInputsForAnalysisNew.ts`. The two differ
+   * exactly on `permitted_analysis_mode: 'quantified_provisional'` — a run
+   * whose arms separated but whose model licenses no comparative claim — so a
+   * caller that believed this sentence and threaded the raw verdict would
+   * re-open "Challenge the leader" on precisely the runs the gate exists for.
+   * This interface's own contract doc is the likeliest thing a future caller
+   * reads, which is why the correction lives here and is pinned by
+   * `__tests__/strengthenInputsCallersThreadComposed.spec.ts`.
    *
    * Strict read (`=== false` suppresses). `undefined` means no verdict was
    * supplied and leaves the legacy behaviour untouched — the same concession
@@ -225,6 +258,41 @@ export interface StrengthenInputs {
    * pinned by test so it cannot drift to silence.
    */
   hasLeadingOption?: boolean
+  /**
+   * ⭐⭐ THE NAME OF THE OPTION THIS RUN DESIGNATES — A DIFFERENT QUESTION FROM
+   * {@link StrengthenInputs.hasLeadingOption}, WHICH IS WHY IT IS A SECOND FIELD.
+   *
+   * `hasLeadingOption` answers *may this surface designate a leader at all?*
+   * (ROADMAP 1.243, PERMISSION). This answers *what is that option called?*
+   * (IDENTITY). Permission was already threaded and identity was not, so every
+   * trigger that had permission wrote its subject as a RANK POSITION — "the
+   * option that scored highest" — a definite description the reader has to
+   * resolve, true of rank 0 and false of every other option, naming none.
+   *
+   * ⚠ NO VOCABULARY GUARD CAN SEE THAT, which is the whole reason this field
+   * exists. The sentence contains no banned word; the race frame is in the
+   * REFERENT. `ownedLeaderClaim.strengthen.spec.tsx`'s designating-form net
+   * catches leader NOUNS and was fully green while the rank description shipped.
+   *
+   * ⚠ `data.recommendation.recommendedOption?.label`, and DELIBERATELY THE SAME
+   * SOURCE the glance headline already names. `buildAnalysisNewViewModel.ts`
+   * renders `` `${leader.label} currently scores higher` `` from
+   * `rec.recommendedOption` under the same `leaderDesignationPermitted` gate, so
+   * this tab already puts that option's name on screen. Reading a different
+   * authority here — `verdict.leaderId`, which prefers
+   * `robustness.recommended_option_id` and falls back to the win-probability
+   * argmax while `determineWinnerSelection` also admits
+   * `recommendation.option_id` — would let one panel pressure-test an option a
+   * sentence above it never designated. One surface, one designated option, one
+   * name.
+   *
+   * ⚠ `null` IS A REAL STATE AND MUST NOT DEGRADE TO THE RANK DESCRIPTION. When
+   * permission is granted but no label resolves, the copy addresses THE RESULT
+   * rather than an option; it never falls back to "the option that scored
+   * highest". Absent (`undefined`) reads the same as `null` — a legacy or
+   * fixture caller supplying no identity is not an identity.
+   */
+  leadingOptionLabel?: string | null
   /**
    * The producer's flip-threshold ROWS, uninterpreted. Handed to
    * `attestsNoFactorFlip()`, which delegates to `classifyFlipEvidence` — this

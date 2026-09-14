@@ -20,6 +20,7 @@ import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
 import { runLabel } from './runLabels'
 import { UNCHARACTERISED_CHANGE_SUMMARY, type GraphChangeKind } from './graphChangeDiff'
 import type { AnalysisSnapshot, LeaderClaim, RunPairComparison } from './types'
+import { METRIC_NOUN } from '../nodes/shared/metricVocabulary'
 
 interface RunPairCompareProps {
   comparison: RunPairComparison
@@ -144,9 +145,14 @@ export function RunPairCompare({ comparison }: RunPairCompareProps) {
         <span className={`${typography.panelMeta} text-text-light`}>Change</span>
       </div>
 
-      {/* ── Outcome: win probability per option ─────────────────────────── */}
+      {/* ── Outcome: comparative support per option ──────────────────────
+          ⛔ READ "Win probability by option" UNTIL NOW. A visible heading, and
+          a contest-frame survivor of #1281 — the compare tab was outside that
+          PR's sweep, and it is outside the 16-finding survivor audit too, which
+          is why this one is worth naming: two independent sweeps of this class
+          both missed a plainly visible string. */}
       <div className={`${typography.panelMeta} px-4 pt-2 pb-1 text-text-light`}>
-        Win probability by option
+        {METRIC_NOUN.support} by option
       </div>
       {comparison.options.length === 0 ? (
         <Row label="Options" from={NOT_ASSESSED} to={NOT_ASSESSED} delta="" testId="option-row-empty" />

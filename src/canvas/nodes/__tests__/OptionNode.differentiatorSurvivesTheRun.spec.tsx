@@ -95,9 +95,10 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     inSensitivityAnalysis: false,
     achievementProbability: null,
     stabilityPercentage: null,
-    // Leader withheld: no win rate to show, which is the captured state.
+    // This fixture has no per-option result; draft metadata must stay in
+    // draft mode when a test changes the store's analysis lifecycle.
     winRate: null,
-    isResultsMode: true,
+    isResultsMode: useCanvasStore((state) => state.results.status) === 'complete',
     predictedOutcome: null,
     valueOfInformation: null,
     voiRank: null,
@@ -219,7 +220,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
   /**
    * ⚠ THE FIXTURE MUST PRODUCE A CHIP, or the suppression never fires and these
    * tests pass without exercising the branch. Measured: without an
-   * `observedState` on the factor and a baseline option present,
+   * an intervention on a declared baseline option,
    * `structuredDeltas` is EMPTY, `differentiatorDuplicatesChip` can never be
    * true, and reverting the fix leaves every test GREEN — which is exactly what
    * the first cut of this block did.
@@ -241,7 +242,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
   const BASELINE_OPTION = {
     id: 'option-b',
     type: 'option',
-    data: { label: 'Status quo', type: 'option', is_baseline: true },
+    data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
   }
 
   const renderShared = (storeOverrides: Record<string, unknown> = {}) => {
@@ -270,11 +271,17 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     expect(paras.length).toBeGreaterThan(0)
   })
 
-  it('⭐ THE TWIN: pre-analysis is UNCHANGED — still suppressed, because the chip is there', () => {
-    // The fix must not widen into pre-analysis. There the chip renders and
-    // already carries the value, so the footer would repeat it.
+  // ⭐ RULING 10 Sep 2026 (Paul): BOTH STAY. The chip states the CHANGE, the
+  // footer states WHICH FACTOR differentiates. The dedup that dropped the
+  // footer as a duplicate is retired, and it was phase-free, so this twin now
+  // asserts the same thing its post-analysis partner does.
+  it('THE TWIN: pre-analysis shows the footer too', () => {
+    // Was `toEqual([])`: pre-analysis the chip rendered and the footer was
+    // dropped as a duplicate. The ruling is phase-free, so the footer now
+    // renders in both phases and this twin asserts the same thing its
+    // post-analysis partner does.
     const { container } = renderShared({ results: { status: 'idle', report: null } })
-    expect(paragraphTexts(container)).toEqual([])
+    expect(paragraphTexts(container).join(' | ')).toContain('→')
   })
 
   it('PRECONDITION: the shared `→` form, AND the suppression was really in play', () => {
@@ -286,13 +293,14 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     expect(joined).not.toContain('is the key difference')
     post.unmount()
 
-    // ⭐ AND THE ONE THE FIRST CUT MISSED: pre-analysis the chip must RENDER and
-    // the differentiator must be SUPPRESSED. If no chip exists there is nothing
-    // to suppress against, `differentiatorDuplicatesChip` is false either way,
-    // and reverting the fix would leave this whole block green.
+    // ⭐ THE PRECONDITION THE FIRST CUT MISSED, KEPT AND RE-AIMED: pre-analysis
+    // the chip must RENDER — without one there is nothing for the footer to sit
+    // beside and the case above proves nothing. Its second half asserted the
+    // footer was SUPPRESSED there; under the ruling both render, so it now
+    // asserts both are present rather than that one is missing.
     const pre = renderShared({ results: { status: 'idle', report: null } })
     const chips = Array.from(pre.container.querySelectorAll('li')).map((li) => li.textContent ?? '')
     expect(chips.join(' | ')).toContain('3 engineers')
-    expect(paragraphTexts(pre.container)).toEqual([])
+    expect(paragraphTexts(pre.container).join(' | ')).toContain('→')
   })
 })

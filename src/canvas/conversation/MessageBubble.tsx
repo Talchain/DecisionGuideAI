@@ -18,6 +18,7 @@
 
 import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
+import { ICON_STANDALONE, ICON_STROKE } from './panelIcons'
 import { safeRichText } from '../utils/safeRichText'
 import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
 import { GroundedOnNotice } from './GroundedOnNotice'
@@ -559,8 +560,8 @@ export const MessageBubble = memo(function MessageBubble({
 })
 
 /**
- * FollowUpActions — subtle Explain more + Summarise icon row on assistant
- * messages. Routes through the existing conversation send path (the same
+ * FollowUpActions — subtle Explain more + Summarise row on assistant messages.
+ * Routes through the existing conversation send path (the same
  * onArtefactMessage callback used by InsightsStrip actions), so no new
  * prompt/PMS/backend wiring is required. User-facing copy is visible in
  * the resulting user-message bubble so nothing internal leaks.
@@ -568,7 +569,55 @@ export const MessageBubble = memo(function MessageBubble({
  * Subtle by design — same visual weight as the feedback thumbs row, never
  * a large CTA. Per-row single-flight guard so a double-click can't fire
  * the same follow-up twice.
+ *
+ * ⚠ THE LABELS ARE VISIBLE, AND THAT IS THE FIX — the rest of the report about
+ * these two was already false. They were reported as "unlabelled icon buttons
+ * with no obvious affordance", with a warning about the estate's onDoubleClick
+ * defect. Checked at the source: both already carry an `aria-label` AND a
+ * `title`, both are native <button> with onClick (so Enter and Space work and
+ * neither touches onDoubleClick), and both reach a live handler. What was
+ * genuinely missing is VISIBLE meaning: `ListPlus` and `AlignLeft` are not
+ * conventions anyone arrives already knowing, so a sighted user who had not
+ * hovered could not tell what either did. The accessible names are unchanged;
+ * a visible label is added beside each glyph.
+ *
+ * Sizes come from `panelIcons` rather than a raw `w-3.5 h-3.5` (14px). The
+ * FeedbackRow directly beneath this one — the row this was built to match in
+ * weight — already uses ICON_STANDALONE/ICON_STROKE, and two adjacent icon
+ * rows at different sizes is the drift panelIcons.ts exists to end.
+ *
+ * ⚠⚠ THE ACCESSIBLE NAME MUST CONTAIN THE VISIBLE LABEL — WCAG 2.1 SC 2.5.3
+ * (Label in Name, Level A), and adding the visible label is what made the rule
+ * APPLY here. `aria-label` outranks contents in the accessible-name
+ * computation, so a button reading "Explain more" whose name is "Explain in
+ * more detail" has a name that does not contain its own visible text. A
+ * speech-input user (Voice Control, Dragon, Voice Access) says "click Explain
+ * more", the matcher resolves against the ACCESSIBLE NAME, and the command
+ * misses a control they can plainly see.
+ *
+ * Before the visible label existed, 2.5.3 did not apply to these buttons at
+ * all — so the first draft of this change introduced a Level A failure in the
+ * very PR that exists to make them legible. Caught in review, not by me.
+ * `aria-label` is now a SUPERSET of the visible text on both, which is what
+ * keeps the extra context without breaking the containment rule.
+ *
+ * ⚠ AND `title` IS GONE, DELIBERATELY. With `aria-label` supplying the name, a
+ * `title` is no longer a tooltip of last resort — it becomes the accessible
+ * DESCRIPTION, which NVDA and JAWS announce at common verbosity settings. The
+ * Explain control announced as "Explain more about this response, button.
+ * Explain more." — the visible label read back after the name. FeedbackRow,
+ * the row this one matches, carries no `title` for the same reason.
  */
+/**
+ * One recipe for both buttons, so they cannot drift apart. Quiet by default and
+ * only picking up colour on hover — the row must stay lighter than the answer
+ * above it. Padding is on the DS v5 4/8px scale.
+ */
+const FOLLOW_UP_BUTTON_CLASS =
+  'inline-flex items-center gap-1 px-2 py-1 rounded text-text-light ' +
+  'hover:text-text-body hover:bg-panel-hover ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
+
 function FollowUpActions({ onSendFollowUp }: { onSendFollowUp: (text: string) => void }) {
   const sentRef = useRef(false)
   const dispatch = (text: string) => {
@@ -581,29 +630,29 @@ function FollowUpActions({ onSendFollowUp }: { onSendFollowUp: (text: string) =>
   }
   return (
     <div
-      className="flex items-center gap-1 mt-1"
+      className="flex items-center gap-2 mt-1"
       data-testid="message-follow-up-actions"
       aria-label="Follow up on this response"
     >
       <button
         type="button"
         onClick={() => dispatch('Please explain that in more detail.')}
-        className="inline-flex items-center justify-center w-6 h-6 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        aria-label="Explain in more detail"
-        title="Explain more"
+        className={FOLLOW_UP_BUTTON_CLASS}
+        aria-label="Explain more about this response"
         data-testid="message-action-explain-more"
       >
-        <ListPlus className="w-3.5 h-3.5" aria-hidden="true" />
+        <ListPlus size={ICON_STANDALONE} strokeWidth={ICON_STROKE} className="flex-none" aria-hidden="true" />
+        <span className={typography.panelMeta}>Explain more</span>
       </button>
       <button
         type="button"
         onClick={() => dispatch('Please summarise that as concise bullets.')}
-        className="inline-flex items-center justify-center w-6 h-6 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        className={FOLLOW_UP_BUTTON_CLASS}
         aria-label="Summarise this response"
-        title="Summarise"
         data-testid="message-action-summarise"
       >
-        <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
+        <AlignLeft size={ICON_STANDALONE} strokeWidth={ICON_STROKE} className="flex-none" aria-hidden="true" />
+        <span className={typography.panelMeta}>Summarise</span>
       </button>
     </div>
   )

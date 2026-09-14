@@ -26,6 +26,7 @@ import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNot
 import { useProvisionalAnalysisDelivery } from '../canvas/hooks/useProvisionalAnalysisDelivery'
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
+import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
 
 const TEMPLATE_GRAPH_MUTATIONS_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
@@ -174,7 +175,9 @@ export default function CanvasMVP() {
       const scenario = getScenario(currentScenarioId)
       if (scenario?.name) return scenario.name
     }
-    return framing?.title?.trim() || 'Untitled model'
+    // A model with no stored title is named after the goal it is about — see
+    // `canvas/domain/modelDisplayName`. Display only; nothing is written here.
+    return resolveModelDisplayName(framing?.title, (framing as Record<string, unknown> | null)?.goal)
   })()
 
   const lastSaved = lastSavedAt ? new Date(lastSavedAt) : null

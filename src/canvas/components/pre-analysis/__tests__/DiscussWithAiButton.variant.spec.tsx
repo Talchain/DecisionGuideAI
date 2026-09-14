@@ -14,6 +14,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { DiscussWithAiButton } from '../DiscussWithAiButton'
+import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../../shared/biasSignalTitles'
 
 describe('DiscussWithAiButton — Brief 5.1 Task 9 variant prop', () => {
   it('defaults to the primary variant when no variant prop is provided', () => {
@@ -63,6 +64,30 @@ describe('DiscussWithAiButton — Brief 5.1 Task 9 variant prop', () => {
     // Forbidden: invisible-but-focusable — no opacity-0 or sr-only.
     expect(btn.className).not.toContain('opacity-0')
     expect(btn.className).not.toContain('sr-only')
+  })
+
+  it('⛔ an UNCATEGORISED bias gets an accessible name that names no bias', () => {
+    // ⚠ THIS IS THE DEFAULT ARIA LABEL, so it reached SCREEN-READER USERS ONLY.
+    // `biasType` is `trigger.title`, the neutral fallback whenever the registry
+    // could not resolve the producer's code — so an uncategorised signal
+    // announced "Discuss Reasoning check with AI" as though that were a bias.
+    render(
+      <DiscussWithAiButton
+        element={{ kind: 'bias', biasType: UNRECOGNISED_BIAS_SIGNAL_TITLE }}
+        onSend={() => {}}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: 'Discuss this reasoning check with AI' })
+    expect(btn).toBeInTheDocument()
+  })
+
+  it('⭐ CONTRAST — a RECOGNISED bias is still named, so the branch is not a blanket', () => {
+    // Without this the fix could have replaced the label for every bias,
+    // losing the categorisation we DO have. The arm above cannot see that.
+    render(
+      <DiscussWithAiButton element={{ kind: 'bias', biasType: 'Anchoring' }} onSend={() => {}} />,
+    )
+    expect(screen.getByRole('button', { name: 'Discuss Anchoring with AI' })).toBeInTheDocument()
   })
 
   it('primary variant does NOT add the opacity reveal classes (keeps behaviour at non-Analysis-tab call sites)', () => {

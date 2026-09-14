@@ -71,6 +71,19 @@ import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
  * `ESTIMATE_SUBJECT_TITLE.strength` survive PINNED ONLY BY TESTS, and are named
  * as such rather than defended.
  *
+ * ⚠⚠ THE PARAGRAPH ABOVE IS NOW OUT OF DATE, AND IS KEPT RATHER THAN REWRITTEN
+ * BECAUSE ITS REASONING IS STILL THE REASON THIS VARIANT EXISTS. As of the edge
+ * strength-settlement disclosure, `subject: 'strength'` HAS EXACTLY ONE
+ * PRODUCTION CALL SITE: `canvas/edges/StyledEdge.tsx`, on the edge label of a
+ * connection whose strength a producer supplied and no human has settled
+ * (`strengthIsHumanSettled` inverted — the same predicate named above). It is
+ * the CANVAS surface, not a card, which is why the cards' own row moving to
+ * `METRIC_UNSET.standalone` did not take this variant with it.
+ *
+ * ⛔ THE COUNT IS ONE. Do not restore the "zero readers" reading from the
+ * paragraph above without re-enumerating — a stale count in a header is how a
+ * live variant gets deleted as dead (CLAUDE.md trap 12: derive, don't mirror).
+ *
  * ⭐ THE SHARED CONSTANT THAT GENUINELY SURVIVES IS `STRENGTH_OBJECT`. That is
  * what keeps the distinction this file exists to hold (trap 21 — the header
  * mark answers *who put this element here*, the strength sentence answers *this

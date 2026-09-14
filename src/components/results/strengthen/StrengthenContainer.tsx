@@ -40,6 +40,7 @@ import {
   selectHistory,
   useStrengthenStore,
   type RecRecord,
+  recordKey,
 } from '../../../canvas/stores/strengthenStore'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { attentionNoteForRecommendation } from './recommendationAttention'
@@ -92,7 +93,23 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   const records = useStrengthenStore((s) => s.records)
   const priorityOrder = useStrengthenStore((s) => s.priorityOrder)
   const active = useMemo(() => selectActive({ records, priorityOrder }), [records, priorityOrder])
-  const history = useMemo(() => selectHistory({ records, priorityOrder }), [records, priorityOrder])
+  /*
+   * ⭐ THE DECISION ON SCREEN, READ ONCE FOR THE WHOLE COMPONENT. It was
+   * already subscribed further down for `useDecisionRecordForScenario`; hoisted
+   * here rather than declared twice, because two reads of one identity is how
+   * two answers to "which decision is this?" get into one file.
+   */
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  /*
+   * The trail is scoped to that decision. This surface consumes the same
+   * selector as the Reasoning tab, so it gets the same answer — leaving it
+   * unscoped would have made two tabs disagree about whose reasoning this is,
+   * which is the class of split this estate keeps paying for.
+   */
+  const history = useMemo(
+    () => selectHistory({ records, priorityOrder }, currentScenarioId),
+    [records, priorityOrder, currentScenarioId],
+  )
   const addressedCount = useMemo(
     () => Object.values(records).filter((r) => r.status === 'addressed').length,
     [records],
@@ -112,6 +129,18 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // Undefined when a legacy caller supplies no verdict; the engine's read
       // is strict (`=== false`), so only an explicit withheld claim suppresses.
       hasLeadingOption: leaderDesignationPermitted(data.recommendation),
+      // ⭐ IDENTITY, BESIDE THE PERMISSION ABOVE — two questions, two fields.
+      // The line above says a leader MAY be designated on this run; this says
+      // what that option is CALLED, so a permitted trigger names it rather than
+      // writing its subject as a rank position ("the option that scored
+      // highest"), which is true of one option, false of the rest, and names
+      // none. See `buildRecommendations.ts`'s `permittedLeadingOptionName`.
+      //
+      // ⚠ MIRRORED IN `analysisNew/buildStrengthenInputsForAnalysisNew.ts` AND
+      // PINNED BY `strengthenInputsMirror.drift.spec.tsx`, which deep-equals
+      // the two objects. Adding this key to one builder only goes RED there and
+      // names the diverging key; do not "fix" that by loosening the spec.
+      leadingOptionLabel: data.recommendation.recommendedOption?.label ?? null,
       // Presence branch (schemas 0.30.0; UI half of plot-lite-service#294):
       // only a MEASURED switch_probability may feed the engine's rendered
       // "% chance the result flips" claim and the switch_probability wire
@@ -175,7 +204,16 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   useEffect(() => {
     if (!inputs.analysisComplete && inputs.goalThreshold != null) return
     const { reconcile } = useStrengthenStore.getState()
-    reconcile(buildRecommendations(inputs), resultsHash ?? 'no-analysis')
+    // The decision these findings are about, so the reasoning trail on the
+    // other tab can tell them from another decision's. Threaded rather than
+    // looked up inside the store: the identity has to be present at MINT time
+    // and a store-side lookup would depend on a mount ordering neither surface
+    // can see.
+    reconcile(
+      buildRecommendations(inputs),
+      resultsHash ?? 'no-analysis',
+      useCanvasStore.getState().currentScenarioId,
+    )
   }, [inputs, resultsHash])
 
   // Setting a success target credits the success-measure rec DIRECTLY —
@@ -186,32 +224,47 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     const prev = prevGoalThresholdRef.current
     prevGoalThresholdRef.current = inputs.goalThreshold
     if (prev != null || inputs.goalThreshold == null) return
-    const record = useStrengthenStore.getState().records['strengthen:success-measure']
+    /* ⚠⚠ A KEYED READ, NOT A BARE ID — AND THE COMPILER CANNOT SEE THIS ONE.
+       `records` is a `Record<string, …>`, so indexing it with a finding id
+       still compiles perfectly and simply returns `undefined` once the key
+       carries the decision. The credit would then stop firing silently, with no
+       red anywhere. The branded key protects the CALLS; the READS have to be
+       found by hand, and these two were. */
+    const scenarioNow = useCanvasStore.getState().currentScenarioId
+    const record = useStrengthenStore.getState().records[
+      recordKey(scenarioNow, 'strengthen:success-measure')
+    ]
     if (
       record &&
       (record.status === 'recommended' || record.status === 'in_progress' || record.status === 'reopened')
     ) {
-      useStrengthenStore.getState().markAddressed('strengthen:success-measure', 'success target set')
+      useStrengthenStore
+        .getState()
+        .markAddressed(recordKey(scenarioNow, 'strengthen:success-measure'), 'success target set')
     }
   }, [inputs.goalThreshold])
 
   // The model changed since the last completed analysis: label, never evict.
   useEffect(() => {
-    if (freshnessDirty) useStrengthenStore.getState().markAllStale()
+    if (freshnessDirty) useStrengthenStore.getState().markAllStale(currentScenarioId)
   }, [freshnessDirty])
 
   // A captured decision record credits the commit rec — same direct-credit
-  // pattern as the success-measure threshold effect above.
-  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  // pattern as the success-measure threshold effect above. `currentScenarioId`
+  // is read once at the top of this component.
   const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
   useEffect(() => {
     if (!decisionRecord) return
-    const record = useStrengthenStore.getState().records['strengthen:commit']
+    // ⚠ Keyed read — see the success-measure effect above for why.
+    const scenarioNow = useCanvasStore.getState().currentScenarioId
+    const record = useStrengthenStore.getState().records[recordKey(scenarioNow, 'strengthen:commit')]
     if (
       record &&
       (record.status === 'recommended' || record.status === 'in_progress' || record.status === 'reopened')
     ) {
-      useStrengthenStore.getState().markAddressed('strengthen:commit', 'decision recorded')
+      useStrengthenStore
+        .getState()
+        .markAddressed(recordKey(scenarioNow, 'strengthen:commit'), 'decision recorded')
     }
   }, [decisionRecord])
 
@@ -248,9 +301,27 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
           // Keep the coaching action useful without opening the local-only
           // success editor: hand the user into an editable Olumi draft. No
           // graph claim or mutation happens until they explicitly send it.
+          //
+          // ⭐ THE CARD'S OWN PROMPT, NOT THE GENERIC WORK-THROUGH DRAFT. This
+          // arm sent `workThroughDraft(rec.title)` — "Help me work through:
+          // Define what success looks like" — which asks for a CONVERSATION
+          // about setting a target rather than for the target itself. Measured
+          // on staging 2026-09-11: following it cost four turns and ended in
+          // "I could not apply that constraint…", with the goal node still
+          // reading "Target not captured". The recommendation already carries
+          // an apply-able instruction in `action.prompt` (see
+          // `buildRecommendations.ts`, which documents why each of its clauses
+          // exists), and the analysisNew surface
+          // (`sections/StrengthenTheReasoning.tsx`) already prefers it — so the
+          // two surfaces now read ONE string from ONE authority instead of
+          // disagreeing about what this CTA asks for.
+          //
+          // `??` keeps every other `open-modal` route on exactly its previous
+          // behaviour: `prompt` is optional, and a card without one still gets
+          // the generic draft.
           openAskOlumi({
             context: rec.whyNow,
-            draft: COPY.workThroughDraft(rec.title),
+            draft: rec.action.prompt ?? COPY.workThroughDraft(rec.title),
             label: rec.title,
             targetId: rec.targetId ?? undefined,
             parameters: rec.action.parameters,
@@ -283,7 +354,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     // §8.8: close only after the action genuinely succeeds — a successful
     // dispatch marks IN PROGRESS (the user confirms addressed themselves).
     if (ok) {
-      useStrengthenStore.getState().markInProgress(record.id)
+      useStrengthenStore.getState().markInProgress(recordKey(record.scenarioId, record.id))
       return
     }
     // ⭐ L-10 FIX: the failure arm was SILENT. Every `ok === false` path here
@@ -345,15 +416,15 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   }
 
   const onNotRelevant = (record: RecRecord) => {
-    useStrengthenStore.getState().dismiss(record.id)
+    useStrengthenStore.getState().dismiss(recordKey(record.scenarioId, record.id))
   }
 
   const onUndoDismiss = (record: RecRecord) => {
-    useStrengthenStore.getState().restoreDismissed(record.id)
+    useStrengthenStore.getState().restoreDismissed(recordKey(record.scenarioId, record.id))
   }
 
   const onMarkAddressed = (record: RecRecord) => {
-    useStrengthenStore.getState().markAddressed(record.id)
+    useStrengthenStore.getState().markAddressed(recordKey(record.scenarioId, record.id))
   }
 
   return (

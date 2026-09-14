@@ -333,6 +333,13 @@ export function deriveRerunActionLabel({
     case 'current':
     case 'none':
       return RERUN_LABEL_CANNOT_CONFIRM
+    // ⭐ NEVER RUN — the currency claim has NO SUBJECT. There is no prior result
+    // to be out of date, so neither "model changed" nor "can't confirm current"
+    // is a true thing to say: both presuppose a result whose standing is in
+    // question. Plain is the only honest wording, and it is the weaker claim,
+    // which is the direction this switch already resolves disagreements in.
+    case 'never_run':
+      return RERUN_LABEL_PLAIN
     default: {
       // RUNTIME FLOOR + COMPILE-TIME EXHAUSTIVENESS, the pair this repo uses
       // wherever a producer enum can outgrow its pin. A semantic this build

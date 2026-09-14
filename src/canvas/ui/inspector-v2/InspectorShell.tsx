@@ -95,7 +95,7 @@ export const InspectorShell = memo(function InspectorShell({
     >
       {/* Header — draggable when dragHandlers provided */}
       <div
-        className={`px-4 pt-3.5 pb-3 border-b border-panel-border select-none ${
+        className={`relative px-4 pt-3.5 pb-3 border-b border-panel-border select-none ${
           dragHandlers ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''
         }`}
         {...(dragHandlers ? {
@@ -106,7 +106,7 @@ export const InspectorShell = memo(function InspectorShell({
         } : {})}
       >
         {/* Type row: shape icon + type label — top of header */}
-        <div className="flex items-center gap-1.5 mb-2">
+        <div className={`flex items-center gap-1.5 mb-2 ${nodeKind === 'option' ? 'pr-40' : ''}`}>
           {nodeKind ? (
             <NodeShapeIndicator nodeKind={nodeKind} size={22} />
           ) : (
@@ -133,6 +133,7 @@ export const InspectorShell = memo(function InspectorShell({
               <EditableLabel
                 key={nodeId ?? 'inspector-label'}
                 value={label}
+                wrap={nodeKind === 'option'}
                 onSave={onLabelChange}
                 maxLength={NODE_LABEL_MAX_LENGTH}
                 autoEdit={autoEditLabel}
@@ -164,9 +165,9 @@ export const InspectorShell = memo(function InspectorShell({
           {/* Back to results (FF v2) + Tech toggle + Close. The "Back to
               results" affordance is the brief §8 link surfaced when the
               inspector replaces analysis content in the embedded top zone
-              (correction #5). Strictly FF-gated so the legacy inspector
-              chrome is unchanged when FF off. */}
-          <div className="flex gap-1 items-center flex-shrink-0">
+              (correction #5). The link remains FF-gated. Option titles keep
+              their full-width row whether or not that link is available. */}
+          <div className={`flex gap-1 items-center flex-shrink-0 ${nodeKind === 'option' ? 'absolute top-3.5 right-4' : ''}`}>
             {isAiPanelV2Enabled() && (
               <button
                 onClick={onClose}

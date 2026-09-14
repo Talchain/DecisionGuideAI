@@ -14,6 +14,7 @@ import {
   getControllabilityBorderStyle,
   deriveControllability,
   formatDisplayValue,
+  EDGE_STROKE_WIDTH_BANDS,
 } from '../graphDisplayCalculations'
 
 describe('graphDisplayCalculations', () => {
@@ -213,34 +214,34 @@ describe('graphDisplayCalculations', () => {
     //   |mean| >= 0.7 -> 3px
     //   |mean| >= 0.4 -> 2px
     //   |mean| <  0.4 -> 1.5px
-    it('returns 1.5px for magnitude 0', () => {
-      expect(weightMagnitudeToStrokeWidth(0)).toBe(1.5)
+    it('returns the weak band for magnitude 0', () => {
+      expect(weightMagnitudeToStrokeWidth(0)).toBe(EDGE_STROKE_WIDTH_BANDS.weak)
     })
 
-    it('returns 1.5px just below the 0.4 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.39)).toBe(1.5)
+    it('returns the weak band just below the 0.4 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.39)).toBe(EDGE_STROKE_WIDTH_BANDS.weak)
     })
 
-    it('returns 2px at the 0.4 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.4)).toBe(2)
+    it('returns the moderate band at the 0.4 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.4)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
     })
 
-    it('returns 2px just below the 0.7 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.69)).toBe(2)
+    it('returns the moderate band just below the 0.7 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.69)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
     })
 
-    it('returns 3px at the 0.7 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.7)).toBe(3)
+    it('returns the strong band at the 0.7 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.7)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
     })
 
-    it('returns 3px for magnitude 1.0', () => {
-      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(3)
+    it('returns the strong band for magnitude 1.0', () => {
+      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
     })
 
     it('handles negative values via internal Math.abs', () => {
-      expect(weightMagnitudeToStrokeWidth(-0.7)).toBe(3)
-      expect(weightMagnitudeToStrokeWidth(-0.4)).toBe(2)
-      expect(weightMagnitudeToStrokeWidth(-0.1)).toBe(1.5)
+      expect(weightMagnitudeToStrokeWidth(-0.7)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
+      expect(weightMagnitudeToStrokeWidth(-0.4)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
+      expect(weightMagnitudeToStrokeWidth(-0.1)).toBe(EDGE_STROKE_WIDTH_BANDS.weak)
     })
   })
 

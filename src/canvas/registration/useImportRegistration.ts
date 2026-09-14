@@ -40,11 +40,21 @@ import { useEffect, useRef } from 'react'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
+import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { logger } from '../../lib/logger'
 import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
 import { useCanvasStore } from '../store'
-import { releaseImportRegistration } from '../store/importRegistrationMarker'
+import {
+  releaseImportRegistration,
+  markGraphServerAcknowledged,
+  isGraphServerAcknowledged,
+  isSameAnalyticalModel,
+  markGraphImported,
+} from '../store/importRegistrationMarker'
+import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
+import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
+import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -93,13 +103,83 @@ export function useImportRegistration(): void {
    */
   const attempted = useRef(new Set<string>())
 
+  const nodesNow = useCanvasStore((s) => s.nodes)
+  const edgesNow = useCanvasStore((s) => s.edges)
+
+  /**
+   * ⚠ RELOAD RECOVERY — WITHOUT THIS, "SAFE HOLDING" BECOMES A PERMANENT WALL.
+   *
+   * `hydrateGraphSlice` re-derives `importPendingServerRegistration` from the
+   * PENDING marker alone. After a normal acknowledgement that marker is gone,
+   * so if the acknowledgement record is later lost — eviction, cleared storage,
+   * private mode — a reload produces a model that is HELD (no acknowledgement)
+   * and NOT pending (no marker), and this hook returned immediately. No second
+   * registration was ever attempted: reproduced as one fetch where two were
+   * expected. Re-arming turns that dead end into the redundant registration the
+   * design always claimed it was.
+   */
+  useEffect(() => {
+    const st = useCanvasStore.getState()
+    if (st.importPendingServerRegistration) return
+    if (analysisHeldOn(st as never) === null) return
+    if (isGraphServerAcknowledged(st.currentScenarioId, st.nodes as never, st.edges as never)) return
+    markGraphImported(st.nodes as never, st.edges as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true })
+    logger.info('import_registration.re_armed_after_lost_acknowledgement', {
+      scenarioId: st.currentScenarioId ?? null,
+    })
+  }, [nodesNow, edgesNow, scenarioId])
+
   useEffect(() => {
     if (!pending) return
     if (!scenarioId || !UUID_PATTERN.test(scenarioId)) {
-      // No addressable scenario row yet. The hold stays armed and the product
-      // keeps saying it cannot confirm — which is TRUE: there is nowhere to
-      // register this graph.
-      logger.warn('import_registration.no_scenario_id', { scenarioId: scenarioId ?? null })
+      // ⭐ "THERE IS NOWHERE TO REGISTER THIS GRAPH" WAS TRUE, AND THAT MADE IT
+      //    A THING TO FIX RATHER THAN A THING TO LOG. A fresh guest who opens a
+      //    bundled saved example has no `currentScenarioId` at all — one is
+      //    minted lazily by the FIRST TURN (`useConversation`'s mint guard) —
+      //    so the registration train bailed here every single time and the only
+      //    remaining route to an analysable model was a non-deterministic LLM
+      //    re-draft.
+      //
+      // ⚠ NO RATE IS QUOTED HERE ON PURPOSE. An earlier draft of this comment
+      //   said "succeeds roughly 36-57% of the time". That figure is WITHDRAWN:
+      //   it dates from 24 Jul, spans two different populations, and was never
+      //   measured on the path this button actually takes (it used
+      //   `/assist/v1/draft-graph`; `handleRedraft` goes via
+      //   `/proxy/v5/turn/stream`). It is not replaced with a newer number here
+      //   because no measurement on THIS path has been made that would support
+      //   one — and a comment is the worst place to park an unverified
+      //   statistic, since it reads as settled and nobody re-derives it.
+      //   The argument does not need a rate: a re-draft is non-deterministic,
+      //   registration is not, and that alone is why this seam exists.
+      //   ⚠ The same withdrawn figure is still quoted in
+      //   `components/StarterProvenanceBanner.tsx` and its spec — PRE-EXISTING,
+      //   deliberately not touched here to keep this candidate scoped. Rowed.
+      //
+      // ⚠ THE MINT RULE IS `useConversation`'S, NOT A NEW ONE, and refusing for
+      //   a persisted session is the load-bearing half. Minting for a signed-in
+      //   user manufactures a decision they never asked for: they have a real
+      //   route to a real scenario (the Decisions page), so refusing costs them
+      //   nothing and inventing one costs them their place. A guest's decisions
+      //   are local and they have no such list, which is exactly why the mint is
+      //   correct there and only there.
+      //
+      // Refusing leaves the hold ARMED, so the product goes on saying it cannot
+      // confirm — the honest posture, unchanged from before this branch existed.
+      if (isPersistenceSessionActive()) {
+        logger.warn('import_registration.no_scenario_id', { scenarioId: scenarioId ?? null })
+        return
+      }
+      const mintedId = crypto.randomUUID()
+      logger.info('import_registration.minted_scenario_id', { scenarioId: mintedId })
+      // Store AND the localStorage writer, exactly as the turn path does, so a
+      // reload reuses this row rather than registering the same graph twice
+      // into a second scenario the user never asked for.
+      useCanvasStore.setState({ currentScenarioId: mintedId })
+      setCurrentScenarioId(mintedId)
+      // The effect re-runs on the new `scenarioId` and registers there. It does
+      // NOT fall through: `attempted` would otherwise be keyed on a scenario
+      // that was null when the key was built.
       return
     }
 
@@ -120,6 +200,7 @@ export function useImportRegistration(): void {
 
     const controller = new AbortController()
     let cancelled = false
+    const initialBriefText = resolveStarterRegistrationBrief(nodes)
 
     void (async () => {
       // ⚠ BOTH FIELDS COME FROM THE SAME READ, and that is the whole point.
@@ -135,6 +216,7 @@ export function useImportRegistration(): void {
         userId: identity.userId,
         accessToken: identity.accessToken,
         signal: controller.signal,
+        initialBriefText,
       })
       if (cancelled) return
 
@@ -159,6 +241,35 @@ export function useImportRegistration(): void {
       // THE ACKNOWLEDGEMENT. Release the marker for the identity that was
       // registered, and re-derive the store flag from the SAME snapshot so the
       // two cannot disagree.
+      // Record the POSITIVE acknowledgement first: `analysisHeldOn` releases on
+      // this and never on the absence of the pending marker, so writing it
+      // before the removal keeps the hold correct even if the second write is
+      // dropped by storage.
+      // ⚠ A LATE CALLBACK MAY NOT CONFIRM A REPLACEMENT. `nodes`/`edges` here are
+      //   the snapshot taken BEFORE the await. If the user replaced the model
+      //   while this request was in flight — same scenario, same ids, same
+      //   endpoints, different weight — then this receipt is about the graph we
+      //   SENT and says nothing about the graph now on screen. Re-read the live
+      //   store and confirm the analytical identity is unchanged before
+      //   admitting anything. Reproduced: A at weight 0.2 in flight, replaced by
+      //   B at 0.9, A's receipt resolved, and B read as acknowledged.
+      const live = useCanvasStore.getState()
+      const stillCurrent =
+        live.currentScenarioId === scenarioId &&
+        isSameAnalyticalModel(nodes, edges, live.nodes as never, live.edges as never)
+      if (!stillCurrent) {
+        logger.info('import_registration.superseded', { scenarioId })
+        // The receipt is real, so record it against WHAT WAS SENT — a later
+        // undo back to that model is then legitimately released. The current
+        // model keeps its own hold and will register on its own turn.
+        markGraphServerAcknowledged(scenarioId, nodes, edges)
+        releaseImportRegistration(nodes, edges)
+        return
+      }
+
+      // THE ACKNOWLEDGEMENT. Memory first, so a storage refusal cannot cost the
+      // release of the model on screen right now.
+      markGraphServerAcknowledged(scenarioId, nodes, edges)
       const released = releaseImportRegistration(nodes, edges)
       useCanvasStore.setState({ importPendingServerRegistration: false })
       logger.info('import_registration.acknowledged', {

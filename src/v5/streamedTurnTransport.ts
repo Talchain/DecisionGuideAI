@@ -30,9 +30,12 @@
  */
 import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store'
 
+import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 import { StreamAbandonedError } from './streamedDraftFrames'
 import { __internals as adapterInternals } from './v5Adapter'
 
+import type { OlumiResponseWithExtensions } from './responseParser'
+import type { V5CallResult } from './v5Adapter'
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary'
 
 function streamEndpointFor(bufferedEndpoint: string): string {
@@ -194,6 +197,114 @@ export async function openV5TurnStream(
     duration: Date.now() - requestedAt,
   })
   return res
+}
+
+/**
+ * Header stamped on the terminal-ingest trace record, so a bundle reader can
+ * tell it from a genuinely buffered turn. The record is deliberately filed
+ * under the BUFFERED endpoint (see `recordStreamedTerminalIngest`); this is
+ * where that choice is disclosed rather than hidden.
+ */
+export const STREAM_TERMINAL_INGEST_HEADER = 'x-olumi-trace-record-kind'
+export const STREAM_TERMINAL_INGEST_KIND = 'streamed_terminal_ingest'
+
+/**
+ * Record the streamed turn's TERMINAL FRAME as a settled trace entry.
+ *
+ * ── WHY THIS EXISTS ──────────────────────────────────────────────────────
+ * `openV5TurnStream` records the SSE OPEN and, by design, nothing else: its
+ * body is `STREAM_OPEN_TRACE_BODY` and its own spec pins that BY REFERENCE,
+ * because a record that never observed the turn must not claim a turn
+ * outcome. The consequence, unnoticed until 2026-09-10, is that a streamed
+ * cold draft that SUCCEEDS leaves the trace store with no record of the
+ * response body at all. `payloads.cee_response` in the debug bundle is
+ * `findBestPayload(..., 'CEE')?.response?.body` — so on the streamed path it
+ * resolved to the OPEN MARKER, and every top-level key CEE returned was
+ * simply absent from the bundle. `_prompt_capture` — the verbatim served
+ * system prompt — is returned ONLY on a cold draft, which is exactly and
+ * only the turn shape that takes this route (`streamedDraftEligible`). The
+ * one turn carrying the prompt was the one turn whose body was never
+ * recorded.
+ *
+ * ── WHY THE BUFFERED ENDPOINT, NOT THE STREAM ENDPOINT ───────────────────
+ * `detectService` derives the service FROM the endpoint, so the record must
+ * carry a CEE endpoint to be reachable at all. Given that, the choice is
+ * between the stream sibling and the buffered original, and it is NOT
+ * cosmetic: `readTransportKind` in `recentConversationTurns.ts` matches
+ * `/turn/<sub>$`, and `deriveOutcome`'s FIRST branch short-circuits anything
+ * that is not `buffered_turn` to `outcome: 'transport_leg'` — before it ever
+ * looks at `assistant_text`. Filed under `.../turn/stream`, this record
+ * would score as a second transport leg and `turn_record_count` would stay
+ * ZERO for a turn that was answered.
+ *
+ * The buffered endpoint is also the ACCURATE description of what this record
+ * holds. This module's header states the property: the terminal frame's
+ * `payload` IS the buffered body, handed to the buffered path's own parser,
+ * byte-equivalent by construction. And it makes the streamed SUCCESS path
+ * produce the same ledger shape the streamed FALLBACK path already produces
+ * — where the buffered re-send writes exactly this record itself. The
+ * transport truth is not lost: it is stamped on the response headers.
+ *
+ * ── SETTLED IN ONE CALL ──────────────────────────────────────────────────
+ * Request and response are recorded together, synchronously. A request-only
+ * entry would be read by `detectFailedHttpRecord` as a FAILED V5 HTTP record
+ * for the whole session — the exact defect this module's header documents
+ * removing, reintroduced one record over.
+ */
+export function recordStreamedTerminalIngest(params: {
+  payload: OrchestratorTurnPayload
+  parsed: V5CallResult
+  statusCode: number
+  durationMs: number
+  headers?: Record<string, string>
+}): void {
+  const id = crypto.randomUUID()
+  const endpoint = adapterInternals.resolveEndpoint()
+
+  recordRequestPayload({
+    id,
+    endpoint,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(params.headers ?? {}),
+    },
+    // The turn payload VERBATIM, exactly as the buffered adapter records it.
+    // Selectors such as `readTurnOrActionType` read this body; a marker here
+    // would make the streamed turn invisible to them.
+    body: params.payload,
+  })
+
+  // Promote the parser's additive-extensions sidecar to an ENUMERABLE
+  // property on a shallow clone. `parseV5Response` attaches it
+  // non-enumerable, and the redactor walks `Object.keys`, which skips
+  // non-enumerable properties — so without this the sidecar is destroyed
+  // before the bundle can read it, and `_prompt_capture` (an unknown
+  // top-level key, therefore a sidecar key) never arrives. Same promotion,
+  // and the same reason, as `v5Adapter.callV5Turn`.
+  let traceBody: unknown
+  if (params.parsed.kind === 'response') {
+    const additive = (params.parsed.response as OlumiResponseWithExtensions)[
+      ADDITIVE_EXTENSIONS_KEY
+    ]
+    traceBody = additive
+      ? { ...params.parsed.response, [ADDITIVE_EXTENSIONS_KEY]: additive }
+      : params.parsed.response
+  } else {
+    traceBody = params.parsed
+  }
+
+  recordResponsePayload({
+    id,
+    status: params.statusCode,
+    headers: {
+      'content-type': 'application/json',
+      [STREAM_TERMINAL_INGEST_HEADER]: STREAM_TERMINAL_INGEST_KIND,
+    },
+    body: traceBody,
+    duration: params.durationMs,
+  })
 }
 
 export const __streamInternals = { streamEndpointFor, terminalPayloadToResponse }

@@ -97,7 +97,7 @@ describe('composeNotModelledQuestion — the turn the CTA fires', () => {
       'My brief mentions £31m, which is not in the model yet. ' +
         'The brief says: "We are a 34-person B2B sales team with annual revenue of £31m." ' +
         "What could this figure influence in this decision, and where would it belong? " +
-        "Don't change the model yet — tell me the options first.",
+        "Don't change the model yet. Tell me the options first.",
     )
   })
 

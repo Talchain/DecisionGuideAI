@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
+import { applyV5State } from '../../../v5/applyV5State'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_SCENARIO_ID = '99999999-8888-4777-8666-555555555555'
@@ -308,5 +309,186 @@ describe('hydrateCanvasFromServer — the late-answer deadline (A3)', () => {
     })
     expect(outcome).toBe('unusable')
     expect(useCanvasStore.getState().nodes).toBe(before)
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE WRITE PRECONDITION A RESTORED SESSION NEEDS BEFORE ITS FIRST EDIT.
+ *
+ * A manual edit is a compare-and-set: the server refuses unless
+ * `computeAnalysisAffectingGraphHash(persistedGraph)` equals the base the client
+ * sent. That base reached the client ONLY through a turn response, and a reload
+ * runs no turn — so a restored session held none and every FIRST edit was
+ * refused. Witnessed natively on 2026-09-09: the editor opened, Cancel correctly
+ * sent nothing, and Save honestly sent nothing either.
+ *
+ * ⚠ WHAT THESE PIN IS THE FENCE, NOT JUST THE HAPPY PATH. A base installed by a
+ * read that was refused, aborted, superseded or about another scenario would be
+ * a client asserting a precondition for a graph it is not showing — worse than
+ * having none, because the server would then accept a write against bytes the
+ * user never saw.
+ */
+describe('hydrateCanvasFromServer — the server write base', () => {
+  const WRITE_BASE = '9f2c1b0ae4d37c5a'
+  const OTHER_BASE = '1122334455667788'
+
+  function clearBase(): void {
+    // Direct, because the setter deliberately never clears: absence→clear would
+    // forget a good base on a turn that simply said nothing about the graph.
+    useCanvasStore.setState({ lastServerGraphHash: null } as never)
+  }
+
+  function base(): string | null {
+    return useCanvasStore.getState().lastServerGraphHash
+  }
+
+  it('⭐ a MERGED read installs the base for the graph it just applied', async () => {
+    clearBase()
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ graph_hash: WRITE_BASE })))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(base()).toBe(WRITE_BASE)
+  })
+
+  it('⭐ an UNCHANGED read installs it too — and that is the ordinary reload', async () => {
+    // "The server has not moved" means the canvas already holds exactly the
+    // graph this response describes, so its base is true of what the user is
+    // looking at. Skipping here would leave the ordinary restore with no base,
+    // which IS the defect.
+    clearBase()
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(base()).toBeNull()
+
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ graph_hash: WRITE_BASE })))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('unchanged')
+    expect(base()).toBe(WRITE_BASE)
+  })
+
+  it('⚠ a body with NO base leaves the session exactly as it was — fail closed', async () => {
+    clearBase()
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    // An older CEE. The edit stays refused and says so; nothing is invented.
+    expect(base()).toBeNull()
+  })
+
+  it('⚠ a REFUSED merge installs nothing — the graph it describes is not on screen', async () => {
+    clearBase()
+    fetchSpy.mockResolvedValue(
+      jsonResponse(
+        200,
+        okBody({
+          graph_hash: WRITE_BASE,
+          graph_identity_hash: envelope(CEE_TOKEN_2),
+          // Zero node-id overlap with a non-empty canvas — the merge's own
+          // load-bearing refusal.
+          graph: { nodes: [{ id: 'other-1', kind: 'factor', label: 'Elsewhere' }], edges: [] },
+        }),
+      ),
+    )
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('mergeRefused')
+    expect(base()).toBeNull()
+  })
+
+  /**
+   * ⚠⚠ THIS PINS THE OPTION'S CONTRACT, NOT THE BOOT PATH — stated because an
+   * earlier version of this file presented it as the superseded-read control
+   * and it is not one. The spec supplies `canApply` itself; the real boot caller
+   * passes only auth and an abort signal, so this schedule is one no production
+   * caller produces. The control that does cover the real schedule is below.
+   */
+  it('honours an explicit canApply:false — the option means what it says', async () => {
+    clearBase()
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ graph_hash: OTHER_BASE })))
+    expect(
+      await hydrateCanvasFromServer(SCENARIO_ID, { canApply: () => false }),
+    ).toBe('skipped')
+    expect(base()).toBeNull()
+  })
+
+  /**
+   * ⭐⭐⭐ THE SCHEDULE THE ABORT SIGNAL DOES NOT COVER, and the one an
+   * independent review had to find because my own control could not see it.
+   *
+   * The boot caller passes no `canApply`, and its abort signal tracks scenario,
+   * auth and unmount — NOT a same-scenario turn landing while a read is in
+   * flight. So: start read A, let a GENUINE turn install hB, then deliver A. Its
+   * hA must not replace hB, or the next manual edit sends a superseded
+   * precondition and earns a stale refusal from the writer.
+   *
+   * ⚠ Silently, too: a turn does not touch `serverGraphIdentity`, so the
+   * UNCHANGED branch keeps the displayed graph correct while downgrading only
+   * the base. Nothing visible moves.
+   *
+   * The newer base is installed by the REAL applicator, wired as
+   * `useConversation` wires it — not by poking the store, which would prove the
+   * rule against a fixture rather than against the thing that actually competes
+   * with this read.
+   */
+  it('⭐ a LATE read cannot replace a base a real turn installed while it was in flight', async () => {
+    clearBase()
+
+    let deliverA!: (r: Response) => void
+    fetchSpy.mockReturnValue(new Promise<Response>(resolve => { deliverA = resolve }))
+    const readA = hydrateCanvasFromServer(SCENARIO_ID)
+    await Promise.resolve()
+
+    // The genuine competitor: a real turn, through the real applicator.
+    const snapshot = useCanvasStore.getState()
+    applyV5State(
+      {
+        response_version: 2,
+        assistant_text: 'ok',
+        blocks: [],
+        suggested_actions: [],
+        insights: [],
+        stage_indicator: 'analyse',
+        graph_hash: OTHER_BASE,
+      } as never,
+      { ...snapshot, currentResultsHash: snapshot.results?.hash ?? null } as never,
+    )
+    expect(base()).toBe(OTHER_BASE)
+
+    // Now A arrives, carrying the base that was current when it was issued.
+    deliverA(jsonResponse(200, okBody({ graph_hash: WRITE_BASE })))
+    await readA
+
+    // The turn is newer. A late read does not get to undo it.
+    expect(base()).toBe(OTHER_BASE)
+  })
+
+  it('⭐ DISCRIMINATING TWIN: with NO turn in flight, that same late read DOES install its base', async () => {
+    // Without this the rule above would pass against an adoption that never
+    // fires — which is the defect this whole change exists to fix.
+    clearBase()
+
+    let deliverA!: (r: Response) => void
+    fetchSpy.mockReturnValue(new Promise<Response>(resolve => { deliverA = resolve }))
+    const readA = hydrateCanvasFromServer(SCENARIO_ID)
+    await Promise.resolve()
+
+    deliverA(jsonResponse(200, okBody({ graph_hash: WRITE_BASE })))
+    await readA
+
+    expect(base()).toBe(WRITE_BASE)
+  })
+
+  it('⚠ an ABSENT graph installs nothing — there is nothing to write against', async () => {
+    clearBase()
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, okBody({ graph: null, graph_present: false, graph_hash: WRITE_BASE })),
+    )
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).not.toBe('merged')
+    expect(base()).toBeNull()
+  })
+
+  it('POSITIVE CONTROL: these refusals are about their own cause', async () => {
+    // Without this, every assertion above would pass against a hydration that
+    // never installs a base at all — which is the state this change exists to
+    // end.
+    clearBase()
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ graph_hash: WRITE_BASE })))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(base()).toBe(WRITE_BASE)
   })
 })

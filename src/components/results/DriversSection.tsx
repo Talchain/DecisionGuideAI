@@ -38,9 +38,7 @@ import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/Discus
 import { ExpertBlock } from './ExpertBlock'
 import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
 import {
-  INFLUENCE_EXPLANATION_GENERIC,
-  INFLUENCE_EXPLANATION_RELATIVE,
-  INFLUENCE_EXPLANATION_ABSOLUTE,
+  influenceExplanation,
   INFLUENCE_RANKING_EXPLAINER_GENERIC,
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
@@ -943,16 +941,46 @@ export function DriversSection({
   // follow it. Q1 keeps its own gate below: the two normalisations still differ,
   // and collapsing them would trade a false claim for a vague one.
   const influenceScaleIsSetRelative = influenceBasis !== 'unknown'
+  // The producer's own `importance_basis` stamp for the ranked set. The
+  // display model resolves ONE basis for the whole panel, so a single stamped
+  // row describes it — the same belt-and-braces read as influenceBasisStamped
+  // above. Fail-closed: an absent stamp, or two rows disagreeing, yields null
+  // and the panel says nothing new. (Disagreement is not observed in any
+  // capture in this tree, but a mixed set must not silently pick a winner.)
+  const stampedBases = Array.from(
+    new Set(
+      drivers
+        .map(d => d.importanceBasis)
+        .filter((b): b is string => typeof b === 'string' && b.length > 0),
+    ),
+  )
+  const panelImportanceBasis = stampedBases.length === 1 ? stampedBases[0] : null
   // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
-  // pill consumes too — surfaces cannot drift (review fix 3: the strings are
-  // also policed there for the DS em-dash ban). This is the Q1 gate: each arm
-  // names its own quantity, and neither claims an absolute scale.
-  const influenceTooltipContent =
+  // influence surface consumes too — surfaces cannot drift (review fix 3: the
+  // strings are also policed there for the DS em-dash ban). This is the Q1
+  // gate: each arm names its own quantity, and neither claims an absolute
+  // scale.
+  //
+  // ⚠ "THE CANVAS PILL" WOULD BE THE WRONG NAME AT THIS HEAD. Influence became
+  // the shared `NodeMetricRow` on 1 Sep 2026 and #1277 then deleted the pill
+  // branch from `MetricPills` as already-unreachable, so the canvas consumer of
+  // this copy is `FactorNode`'s influence row (plus its Detailed-view bar), not
+  // a pill. Same module, same strings; only the surface's name changed.
+  //
+  // ⚠ ROUTED THROUGH THE SHARED BUILDER, not re-spelled here. This used to be
+  // its own ternary over the same three constants — a second copy of a
+  // decision the module already makes, and the seam that would have let the
+  // panel and the canvas disclose different things about one figure. Behaviour
+  // for the three existing arms is unchanged; the builder also appends the
+  // structural-basis note when the producer stamped one.
+  const influenceTooltipContent = influenceExplanation(
     influenceBasis === 'relative'
-      ? INFLUENCE_EXPLANATION_RELATIVE
+      ? 'normalised_elasticity'
       : influenceBasis === 'absolute'
-        ? INFLUENCE_EXPLANATION_ABSOLUTE
-        : INFLUENCE_EXPLANATION_GENERIC
+        ? 'influence_score'
+        : null,
+    panelImportanceBasis,
+  )
 
   return (
     <div className="space-y-4">

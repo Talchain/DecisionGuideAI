@@ -47,6 +47,58 @@ export const EXPECTED_CORE_SPECS = [
 ] as const
 
 /**
+ * ⭐⭐ THE SPECS ALLOWED TO SKIP, PINNED BY NAME — trap 22f's KNOWN-DROPPED pattern.
+ *
+ * ⛔ WHY THIS EXISTS, and it is the cost of the alternative rather than a nicety.
+ * `Core E2E · System E` sat RED on six consecutive staging commits. Every lane
+ * skipped it on the word "advisory" — one account did so four times in one night,
+ * in writing, inside merge arguments — and the failure it was reporting turned out
+ * to be an assertion pointed at an unmounted surface. **A permanently red advisory
+ * check is what TEACHES a team to stop reading it**, so "fails accurately" decays
+ * into the same blindness within a fortnight.
+ *
+ * So a spec that cannot hold its own precondition SKIPS LOUDLY instead of failing,
+ * and this set is what stops that becoming the new silence: **a skip by anything
+ * not named here is a HARD FAILURE.** The gap stays visible in the suite rather
+ * than in a comment, and a second spec quietly joining the first REDs immediately.
+ *
+ * ⚠ E2's skip is CONDITIONAL, not permanent, which is why this set says "allowed
+ * to skip" and not "expected to skip". Its surface (`PreAnalysisPanelV3`) is gated
+ * on `isPreRun`, so it unmounts once an analysis starts — a RACE in the preamble.
+ * When the race falls the other way E2 runs and asserts normally, and that must
+ * NOT be red. A set demanding it skip every time would be a different lie.
+ *
+ * ⛔ NOT A PLACE TO PARK A FAILING SPEC. Adding a name here is a claim that the
+ * spec cannot ASSERT anything in that state, never that it is inconvenient.
+ *
+ * ⭐⭐ THERE IS A SIBLING GUARD IN CEE AND THEY MUST NOT BE CONSOLIDATED.
+ *
+ * `olumi-assistants-service` runs `Test-skip inventory (AST, ratcheted)` — verified
+ * at the bytes, `completed/failure` at `ac917507`, with a positive control of 22
+ * checks at that SHA so the read is not silence. It is RED there for exactly the
+ * condition this set makes a hard failure: a skip with no inventory entry.
+ *
+ * ⛔ THE TWO ANSWER DIFFERENT QUESTIONS AND NEITHER SUBSUMES THE OTHER. CEE's is
+ * AST-DERIVED: it reads the SOURCE and sees a `.skip()` that EXISTS, whether or not
+ * it ever runs. This one is RUNTIME-RECORDED: `recordSpecSkipped` fires when a skip
+ * ACTUALLY HAPPENS, and captures the reason the condition was true at that moment.
+ *
+ * **The blind spots are opposite.** An AST guard cannot see a CONDITIONAL skip that
+ * fires at runtime on a measured page state — which is precisely E2, whose
+ * `test.skip(true, …)` is called inside the body. A runtime manifest cannot see a
+ * skip that is DECLARED AND NEVER REACHED, so a dead `.skip()` sitting in a file is
+ * invisible to it forever. And a reason string captured at the moment the condition
+ * held is **not derivable from source at all**.
+ *
+ * ⚠ So this estate's chronic move — notice two guards answering similar questions
+ * and align them — would delete half the coverage here. **Name them apart (trap 21);
+ * do not reconcile them.** Ship both.
+ */
+export const KNOWN_SKIPPABLE_CORE_SPECS = [
+  'E2-readiness-truthful',
+] as const
+
+/**
  * Not yet written. DOCUMENTATION ONLY — never read by the completeness guard, because
  * a name in an enforced list is a claim that a spec ran, and a spec that does not
  * exist cannot run. Each name moves into EXPECTED_CORE_SPECS in the same commit that
@@ -120,6 +172,8 @@ export function assertRunCompleteness(
   expected: string[],
   actual: string[],
   partial: boolean,
+  skipped: ReadonlyArray<{ name: string; reason: string }> = [],
+  allowedToSkip: ReadonlyArray<string> = KNOWN_SKIPPABLE_CORE_SPECS,
 ): void {
   if (actual.length === 0) {
     throw new Error(
@@ -130,6 +184,51 @@ export function assertRunCompleteness(
       `  Likely causes: a testMatch that matches nothing, a bad --grep, or every spec skipping.\n` +
       `  CORE_PARTIAL=1 does NOT suppress this: it declares a deliberate SUBSET, and zero is\n` +
       `  not a subset of anything you can report.`,
+    )
+  }
+
+  /**
+   * ⭐ A SKIP IS A THIRD OUTCOME — CHECKED AFTER ZERO-RAN, BEFORE EVERYTHING ELSE.
+   *
+   * ⚠ ORDER IS LOAD-BEARING AND I GOT IT WRONG FIRST. I put these checks at the very
+   * top, which contradicts this file's own stated invariant — "zero-ran is checked
+   * FIRST and unconditionally. Zero is not a subset." A run that executed NOTHING
+   * would have printed a cheerful sanctioned-skips line before reporting that it had
+   * measured nothing. **The tests still passed; only the printed output showed it.**
+   *
+   * ⛔ TWO WAYS THIS GOES WRONG AND BOTH ARE GUARDED:
+   *  · a spec NOT named in the allowed set skips — that is the "advisory, ignore"
+   *    condition spreading, and it is a HARD FAILURE however green the rest is.
+   *  · the allowed set names a spec that is not even EXPECTED — a graveyard entry,
+   *    kept alive after its file was renamed or deleted, silently permitting a skip
+   *    for a spec that can no longer run at all.
+   */
+  const unsanctioned = skipped.filter((sk) => !allowedToSkip.includes(sk.name))
+  if (unsanctioned.length) {
+    throw new Error(
+      `[core] COMPLETENESS GUARD FAILED: a spec SKIPPED that is not allowed to.\n` +
+      unsanctioned.map((sk) => `  ${sk.name} — ${sk.reason}\n`).join('') +
+      `  Allowed to skip, pinned BY NAME: ${allowedToSkip.join(', ') || '(none)'}\n` +
+      `  A skip is not a pass. If this spec genuinely cannot assert in this state, add it to\n` +
+      `  KNOWN_SKIPPABLE_CORE_SPECS **in the same commit**, with the reason — that list exists\n` +
+      `  so a second spec quietly joining the first REDs instead of widening the silence.`,
+    )
+  }
+  const graveyard = allowedToSkip.filter((n) => !expected.includes(n))
+  if (graveyard.length) {
+    throw new Error(
+      `[core] COMPLETENESS GUARD FAILED: KNOWN_SKIPPABLE_CORE_SPECS names a spec that is not\n` +
+      `  EXPECTED to run at all: ${graveyard.join(', ')}\n` +
+      `  A permission to skip outlived the spec it was written for. Remove it, or restore the spec.`,
+    )
+  }
+  if (skipped.length) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[core] ⚠ SANCTIONED SKIPS THIS RUN — a green exit does NOT licence these:\n` +
+      skipped.map((sk) => `  ${sk.name} — ${sk.reason}`).join('\n') +
+      `\n  Each is permitted by KNOWN_SKIPPABLE_CORE_SPECS. A skip is NOT evidence the\n` +
+      `  behaviour works; it is a recorded gap. Cite it as a gap.`,
     )
   }
 
@@ -162,7 +261,11 @@ export function assertRunCompleteness(
     `     are UNSTAFFED, not passing.`,
   )
 
-  const missing = expected.filter((n) => !actual.includes(n))
+  // ⚠ A SANCTIONED SKIP IS NOT "MISSING". It ran, decided it could not assert, and said
+  // so — which is a different fact from a spec that never executed, and conflating them
+  // would make the loud skip indistinguishable from the silence it replaces.
+  const skippedNames = skipped.map((sk) => sk.name)
+  const missing = expected.filter((n) => !actual.includes(n) && !skippedNames.includes(n))
   const unexpected = actual.filter((n) => !expected.includes(n))
   const duplicates = actual.filter((n, i) => actual.indexOf(n) !== i)
 
@@ -289,6 +392,40 @@ export function recordSpecRan(name: string): void {
       JSON.stringify({ ran: [...cur, name], buildAtStart: buildAtStart() }, null, 2),
     )
   }
+}
+
+/**
+ * Record that a spec SKIPPED, with the reason it could not assert.
+ *
+ * ⚠ A skip is not a pass and not a failure — it is a THIRD outcome, and the
+ * completeness guard treats it as such. Writing the reason here rather than only
+ * to the console is deliberate: the console line is lost to whoever reads the
+ * summary, and a skip with no recorded reason is indistinguishable from a spec
+ * that silently stopped running (the 204-day defect this file's header records).
+ */
+export function recordSpecSkipped(name: string, reason: string): void {
+  mkdirSync(dirname(MANIFEST_PATH), { recursive: true })
+  const raw = existsSync(MANIFEST_PATH)
+    ? (JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Record<string, unknown>)
+    : {}
+  const cur = Array.isArray(raw.skipped) ? (raw.skipped as Array<{ name: string; reason: string }>) : []
+  if (!cur.some((e) => e.name === name)) {
+    writeFileSync(
+      MANIFEST_PATH,
+      JSON.stringify(
+        { ...raw, ran: readManifest(), skipped: [...cur, { name, reason }], buildAtStart: buildAtStart() },
+        null,
+        2,
+      ),
+    )
+  }
+}
+
+/** The skips recorded this run, with their reasons. */
+export function readSkipped(): Array<{ name: string; reason: string }> {
+  if (!existsSync(MANIFEST_PATH)) return []
+  const raw = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Record<string, unknown>
+  return Array.isArray(raw.skipped) ? (raw.skipped as Array<{ name: string; reason: string }>) : []
 }
 
 export function readManifest(): string[] {

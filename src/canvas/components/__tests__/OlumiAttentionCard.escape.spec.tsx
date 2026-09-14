@@ -46,7 +46,7 @@ describe('OlumiAttentionCard — Escape releases the hold', () => {
 
   it('clears a held attention that is showing a card', () => {
     useCanvasStore.setState({
-      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note, turnId: null, modelVersion: null },
+      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note, caveat: null, turnId: null, modelVersion: null },
     })
     render(<OlumiAttentionCard />)
     // Precondition, pinned in-test: the hold is actually on, so what follows
@@ -64,7 +64,7 @@ describe('OlumiAttentionCard — Escape releases the hold', () => {
   // with a dimmed model and no exit.
   it('clears a held attention that is showing NO card, because the dim is still on', () => {
     useCanvasStore.setState({
-      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note: null, turnId: null, modelVersion: null },
+      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note: null, caveat: null, turnId: null, modelVersion: null },
     })
     const { container } = render(<OlumiAttentionCard />)
     expect(container).toBeEmptyDOMElement()
@@ -78,7 +78,7 @@ describe('OlumiAttentionCard — Escape releases the hold', () => {
   // The opposite direction: a global key listener must not fire on other keys.
   it('leaves the hold alone for any other key', () => {
     useCanvasStore.setState({
-      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note, turnId: null, modelVersion: null },
+      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note, caveat: null, turnId: null, modelVersion: null },
     })
     render(<OlumiAttentionCard />)
 
@@ -90,7 +90,7 @@ describe('OlumiAttentionCard — Escape releases the hold', () => {
 
   it('removes the listener on unmount rather than leaving a global handler behind', () => {
     useCanvasStore.setState({
-      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note, turnId: null, modelVersion: null },
+      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note, caveat: null, turnId: null, modelVersion: null },
     })
     const { unmount } = render(<OlumiAttentionCard />)
     unmount()

@@ -175,8 +175,38 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   // already what FactorNode and GraphTextView show for the same factor via
   // `preserveTierLabel`. Returning it here makes the option card agree with
   // them instead of contradicting them with a fabricated percentage.
+  //
+  // ⭐ THE BAND KEEPS ITS NUMBER. Returning the BARE tier word was still
+  // lossy in a way that hid real changes: qualitativeTierLabel's bands are
+  // wide (`0.4 < v <= 0.6` is all "Medium"), so two DIFFERENT values inside
+  // one band rendered as the SAME string. Witnessed on the founder's pricing
+  // graph: "Pro Plan Monthly Price" (value 0.49 → 0.59, factor_type 'other',
+  // no unit, no cap) rendered "Medium → Medium" — a genuine £49→£59 move
+  // displayed identically to a no-op, so a correct upstream value could not
+  // be seen at all.
+  //
+  // Appending the value keeps the honest ordinal frame (the tier word is
+  // still what carries meaning) while restoring the resolution the band
+  // throws away. It does NOT reinstate the banned percentage: no "%" is
+  // emitted and no scale is asserted.
+  //
+  // The shape matches what CEE already emits for this same concept
+  // (`display-value.ts` builds `${band} (${displayValue})` → "Moderate (0.49)",
+  // and the wire already carries e.g. "Very high (1)"), so the two services
+  // describe one intervention the same way rather than contradicting each
+  // other — which is this module's whole reason to exist.
+  //
+  // The value is the NORMALISED 0-1 value deliberately, because that is the
+  // number CEE puts in its own parentheses. Reaching this branch means no
+  // unit survived, so there is no real-world quantity to print instead.
   if (isTierLabel(fallback)) {
-    return fallback
+    // ⚠ `parseFloat(v.toFixed(2))` DELIBERATELY, byte-for-byte with CEE's
+    // `display-value.ts` priority-6 branch. The obvious `Math.round(v*100)/100`
+    // is NOT equivalent: the two disagree on 44 values in [0,1] at half-cent
+    // boundaries (e.g. 0.155 → CEE "0.15", rounding "0.16"), which would put
+    // the two services back into exactly the contradiction this module exists
+    // to prevent. Measured, not assumed.
+    return `${fallback} (${parseFloat(chip.value.toFixed(2))})`
   }
   // Raw normalised number (no unit, value in [0,1] like "0.15") → percentage
   if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {

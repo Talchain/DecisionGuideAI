@@ -506,6 +506,34 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
   // `fontSize`/`fontWeight`, and its scope is still narrower than the dock
   // closure. Two guards over one rule, neither redundant: this one measures the
   // closure a user actually loads, that one gates the ratchet. Keep both.
+  // ⛔⛔ 2026-09-11 (v1 Model-stack removal): TWO ENTRIES REMOVED, AND NOT AS A
+  // BURN-DOWN. `GraphTextView.tsx` (8) and `ui/inspector/StrengthBar.tsx` (1)
+  // LEFT THE DOCK CLOSURE. Neither file is touched by that PR and NEITHER WAS
+  // REPAIRED — both still carry exactly the raw typography pinned here; they are
+  // simply no longer reachable from `OutputsDock`.
+  //
+  // ⚠ THE FAILURE MESSAGE ABOVE PRESCRIBES THE WRONG REMEDY FOR THIS CASE, which
+  // is the whole reason this note exists. `shrank` is computed as
+  // `(measured[f] ?? 0) < n`, and `measured` only ever has keys for files IN the
+  // closure — so "burned down to 0" and "left the closure entirely" produce a
+  // byte-identical red saying `8 -> 0`. Writing 0 here would have recorded a
+  // repair that never happened, in the file that is supposed to be the record.
+  //
+  // Derived rather than assumed, by rebuilding `dockImportClosure()` at the
+  // merge-base and at the head: closure 757 -> 741 files; both files present at
+  // the base and absent at the head. Cause, traced to the importer: at the base
+  // `GraphTextView` was reached through `ModelTabBody` and five deleted v1
+  // sections plus `ModelHealthSection` (whose `SectionErrorBoundary` import that
+  // PR re-points at the REPORTING twin) — at the head its only importer is its
+  // own Storybook story. `StrengthBar` was reached only through the deleted
+  // `RelationshipsSection`; it now hangs off `ui/inspector/index.ts` and its
+  // story, neither of which the dock loads.
+  //
+  // So the entries are REMOVED, not zeroed: this guard's subject is the closure
+  // a user actually loads, and these files are no longer in it. Their raw
+  // typography is unfixed and unpinned HERE — if either re-enters the closure it
+  // arrives as `grew` against a `?? 0` and reds on the way back in, which is the
+  // correct direction for a guard that measures reachability.
   const RAW_TYPOGRAPHY_BY_FILE: Record<string, number> = {
     'src/canvas/compare-tab/CompareFooter.tsx': 2,
     'src/canvas/compare-tab/DotProgression.tsx': 2,
@@ -513,7 +541,6 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/compare-tab/TrajectorySection.tsx': 3,
     'src/canvas/components/DegeneracyWarning.tsx': 6,
     'src/canvas/components/EvidenceCoverage.tsx': 2,
-    'src/canvas/components/GraphTextView.tsx': 8,
     'src/canvas/components/IdentifiabilityBadge.tsx': 1,
     'src/canvas/components/OutputsDock.tsx': 6,
     'src/canvas/components/SectionErrorBoundary.tsx': 6,
@@ -530,7 +557,6 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/conversation/zones/ChatThread.tsx': 1,
     'src/canvas/conversation/zones/ComposerTools.tsx': 1,
     'src/canvas/shared/AnalysisFooter.tsx': 1,
-    'src/canvas/ui/inspector/StrengthBar.tsx': 1,
     'src/components/Tooltip.tsx': 1,
     // 38 -> 36 on 2026-08-31: the 32px display token was retired (it carried an
     // arbitrary size and a raw weight). Lowered here in the same PR so the
@@ -618,8 +644,17 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // separates this from banking slack. A rise anywhere else, or a rise in
     // this file for anything but a new token, is the defect this pair exists to
     // catch and must be refused.
-    expect(files).toBe(30)
-    expect(total).toBe(105)
+    // ⛔ 11 Sep 2026: 30 -> 28 files, 105 -> 96 occurrences. This is the pair
+    // working exactly as the note above describes — removing the two map entries
+    // turned the ratchet green and turned THIS assertion red, so neither end can
+    // be hollowed out quietly. ⚠ BUT READ WHY BEFORE COPYING THE PATTERN: unlike
+    // every earlier movement of these numbers, the −9 is NOT a burn-down. It is
+    // `GraphTextView.tsx` (8) and `StrengthBar.tsx` (1) LEAVING THE DOCK CLOSURE
+    // with the v1 Model-stack removal, still carrying every occurrence. A fall
+    // here means "the closure got smaller" at least as often as it means "we
+    // fixed something", and the map's header comment is where that is recorded.
+    expect(files).toBe(28)
+    expect(total).toBe(96)
   })
 })
 

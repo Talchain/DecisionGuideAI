@@ -369,8 +369,14 @@ After the Canvas loads, verify:
 
 **Port 5173 already in use:**
 ```bash
-# Kill existing process
-lsof -ti:5173 | xargs kill -9
+# ⚠ Find the LISTENER only. `lsof -ti:5173` matches EVERY socket on the port,
+# including the browser's CLIENT connections, so it reads as "the port will not
+# free" long after the server is gone — and `| xargs kill -9` on that list kills
+# whatever happened to be CONNECTED to the port, including other people's work.
+lsof -nP -iTCP:5173 -sTCP:LISTEN
+
+# Then kill only the PID that command printed:
+kill -9 <pid>
 
 # Restart dev server
 npm run dev

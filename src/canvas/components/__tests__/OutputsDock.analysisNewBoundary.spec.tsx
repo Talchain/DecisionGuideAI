@@ -73,12 +73,36 @@ vi.mock('../../../flags', async (importOriginal) => {
   }
 })
 
-import { OutputsDock } from '../OutputsDock'
+import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { ToastProvider } from '../../ToastContext'
 
 const NEW_TAB = 'outputs-dock-tab-analysisNew'
 const OLD_TAB = 'outputs-dock-tab-results'
+
+/**
+ * ⚠ THE HARNESS MUST START SOMEWHERE OTHER THAN THE THROWING TAB — AND SINCE
+ * 9 Sep 2026 THAT TAKES A DELIBERATE STEP.
+ *
+ * Every case here is "go to the broken tab and prove the dock survives". That
+ * needs a BEFORE: the strip alive, the sibling present, nothing thrown yet. The
+ * default-tab ruling moved the dock's default onto `analysisNew`, so without
+ * this seed the doubled body throws during the very first render and each case
+ * would be asserting survival of a failure that had already happened before it
+ * looked — the same conclusion reached for a different reason, which is how a
+ * guard stops discriminating.
+ *
+ * ⭐ THE REPAIR IS IN THE HARNESS, NOT IN THE BOUNDARY. Nothing about the error
+ * boundary changed; what changed is where a session starts. Seeding the dock's
+ * own persisted state is the product's real "the user chose Analysis" path, so
+ * the case still drives a genuine transition rather than a contrived one.
+ */
+function startOnAnalysisTab() {
+  sessionStorage.setItem(
+    OUTPUTS_DOCK_STORAGE_KEY,
+    JSON.stringify({ isOpen: true, activeTab: 'results' }),
+  )
+}
 
 /**
  * The Analysis surface must render at least this many testid-bearing elements
@@ -97,6 +121,7 @@ const OLD_TAB = 'outputs-dock-tab-results'
  * module-level and survives `cleanup()` — and asserts only its POSTCONDITION.
  */
 function renderDock() {
+  startOnAnalysisTab()
   const result = render(
     <ToastProvider>
       <ConversationProvider>
@@ -109,6 +134,16 @@ function renderDock() {
     fireEvent.click(control)
   }
   expect(screen.getByTestId(OLD_TAB), 'the dock did not expand').toBeInTheDocument()
+  // ⚠ THE SEED MUST HAVE TAKEN, AND IT CANNOT BE CHECKED BY LOOKING FOR THE
+  // THROWING BODY — the double renders no testid at all, so that query is null
+  // whether the tab is fronted or not. Bind to the STRIP's selection instead:
+  // if the dock opened on `analysisNew`, every case below asserts survival of a
+  // failure that had already happened before it looked, and reaches the right
+  // conclusion for the wrong reason.
+  expect(
+    screen.getByTestId(OLD_TAB).getAttribute('aria-selected'),
+    'the dock did not open on Analysis — the BEFORE state these cases need does not exist',
+  ).toBe('true')
   return result
 }
 

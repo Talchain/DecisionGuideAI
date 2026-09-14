@@ -35,6 +35,8 @@ vi.mock('../nodeMarks', async (orig) => ({
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { useCanvasStore } from '../../../../canvas/store'
+import { recordKey } from '../../../../canvas/stores/strengthenStore'
 
 /** Records the mocked store hands back; set per test before rendering. */
 let RECORDS: Record<string, RecRecord> = {}
@@ -69,17 +71,30 @@ const snapshot = (id: string): Recommendation =>
     priority: 10,
   }) as Recommendation
 
+/**
+ * The decision this trail belongs to. The store now stamps every record with
+ * the decision it was authored under, and `selectHistory` claims only records
+ * that match the one on screen — so a fixture with no stamp is, correctly,
+ * nobody's history.
+ */
+const SPEC_DECISION = 'scenario-under-test'
+
 const record = (id: string, status: 'addressed' | 'dismissed'): RecRecord => ({
   id,
   status,
   snapshot: snapshot(id),
   analysisHash: 'h',
   isStale: false,
+  scenarioId: SPEC_DECISION,
   history: [{ at: 1, event: status }],
 })
 
 const setTrail = (...recs: RecRecord[]) => {
-  RECORDS = Object.fromEntries(recs.map((r) => [r.id, r]))
+  // ⚠ KEYED BY THE RECORD'S OWN STAMP, exactly as the store keys it. Seeding
+  // by bare id would put the fixture under a key `selectHistory` cannot reach,
+  // and the trail would read empty for a reason that is the FIXTURE's, not the
+  // component's — a test failing for the wrong reason is a test nobody trusts.
+  RECORDS = Object.fromEntries(recs.map((r) => [recordKey(r.scenarioId, r.id), r]))
 }
 
 const renderOpen = () => {
@@ -90,6 +105,7 @@ const renderOpen = () => {
 
 beforeEach(() => {
   RECORDS = {}
+  useCanvasStore.setState({ currentScenarioId: SPEC_DECISION })
   vi.mocked(openAskOlumi).mockClear()
 })
 

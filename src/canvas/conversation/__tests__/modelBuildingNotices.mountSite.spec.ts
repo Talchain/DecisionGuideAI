@@ -151,10 +151,83 @@ describe('model-building notices have exactly one production mount site', () => 
     // One place owns kind -> user-visible string. A second mapper elsewhere is
     // how two vocabularies for one concept get shipped (Paul's convergence
     // rule: name the canonical owner, never add a parallel one).
+    //
+    // ⭐⭐ THREE IMPORTERS ADDED 12 Sep 2026 (ROADMAP 2.1379), AND THE SET IS
+    // STATED SO EACH ONE HAD TO COME AND JUSTIFY ITSELF. The Reasoning tab's
+    // "Not modelled yet" pane now answers from this same attestation when the
+    // cold read's manifest cannot — so the register and the bubble describe one
+    // payload. That is the OPPOSITE of a second vocabulary, but only because
+    // each new importer CONSUMES the authority rather than restating it:
+    //
+    //   contextIntegrity/notModelledNotices.ts   asks `modelBuildingNoticeOutcome`
+    //     for which kinds may sit under "Not modelled yet". A predicate written
+    //     there would put two answers to one question on one screen.
+    //   contextIntegrity/WhatIWasGivenSection.tsx  takes the ROW TYPE only; the
+    //     strings it renders are the ones the wire binding already resolved.
+    //   canvas/stores/contextIntegrityStore.ts    takes the VIEW TYPE only, to
+    //     carry the draft turn's attestation to a surface mounted much later.
+    //
+    // ⚠ THE LIST IS THE WEAKER HALF OF THIS GUARANTEE — it says WHO imports,
+    // never WHAT they took. The assertion below is the half that actually pins
+    // the ruling, and it is the one to read first if this set ever grows again.
     expect(importersOf('modelBuildingNotices', files)).toEqual([
       'canvas/conversation/ModelBuildingNoticesNotice.tsx',
       'canvas/conversation/types.ts',
       'canvas/conversation/useConversation.ts',
+      'canvas/stores/contextIntegrityStore.ts',
+      'components/results/contextIntegrity/WhatIWasGivenSection.tsx',
+      'components/results/contextIntegrity/notModelledNotices.ts',
     ])
+  })
+
+  /**
+   * ⭐⭐ THE RULING ITSELF, PINNED — not the list of files that happen to hold it.
+   *
+   * `describeModelBuildingNoticeKind` is the ONLY path from a producer kind to a
+   * user-visible string, and its own header says a kind with no phrasing renders
+   * NOTHING rather than its code. A second caller is how a surface acquires a
+   * `?? kind` fallback and starts printing `existence_boundary_crossing` at a
+   * user — the exact defect that file exists to end.
+   *
+   * So the ONE legitimate caller is the wire binding inside the module itself,
+   * which resolves every string once at `toModelBuildingNoticesView`. Every
+   * consumer downstream renders `row.description` and never reaches for the map.
+   * Stated as an import-specifier scan rather than a file list, because the file
+   * list grows for honest reasons and this must not.
+   */
+  it('NOTHING outside the module reaches for the kind -> string map', () => {
+    const importers = importersOf('modelBuildingNotices', files)
+
+    /**
+     * What each importer actually TOOK from the module. Bounded by `[^}]`, so a
+     * match cannot run past its own brace into a neighbouring import — a lazy
+     * cross-statement match is how a scan of this shape silently reads the
+     * wrong specifiers.
+     */
+    const specifiersTakenBy = (relPath: string): string => {
+      const src = stripComments(readFileSync(join(SRC, relPath), 'utf8'))
+      const re = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*\bmodelBuildingNotices['"]/g
+      return [...src.matchAll(re)].map((m) => m[1]).join(',')
+    }
+    const taken = new Map(importers.map((f) => [f, specifiersTakenBy(f)]))
+
+    /**
+     * ⚠ CONTROL FIRST, IN THE SAME RUN (traps 13 / 13e). A specifier scan that
+     * matched nothing would report a perfect absence below. So: every importer
+     * must have yielded a non-empty specifier list, and a CONTRAST symbol that
+     * IS genuinely shared must be seen in more than one of them. An absence is
+     * believed only once the same scan has produced a presence.
+     */
+    for (const [file, specifiers] of taken) {
+      expect(`${file} -> ${specifiers}`).toMatch(/->\s*\S/)
+    }
+    const outcomeCallers = [...taken].filter(([, s]) => s.includes('modelBuildingNoticeOutcome'))
+    expect(outcomeCallers.length).toBeGreaterThan(1)
+
+    // And the claim itself.
+    const describeCallers = [...taken]
+      .filter(([, s]) => s.includes('describeModelBuildingNoticeKind'))
+      .map(([f]) => f)
+    expect(describeCallers).toEqual([])
   })
 })

@@ -25,34 +25,116 @@
  * a confirmation (contracts.ts §1 C11). When the receipt-bearing transaction
  * API lands, the three-beat's tail states plug in at `useModelEditAuthority`.
  *
- * EDIT COVERAGE AT THIS TIP (widened 18 Aug 2026, the REHOME → DELETE lane):
+ * EDIT COVERAGE AT THIS TIP:
  *   · FACTOR VALUES — the reference canonical transaction, server-backed.
  *   · OPTION INTERVENTION TARGETS — in the detail region of the selected option.
- *   · FACTOR CONFIRMATION — the row's Confirm chip, stamping `user_confirmed`.
- * The last two are LOCAL COMMITS with no wire carrier, dispatched through the
- * same authority; see `useModelEditAuthority`'s header for why that does not
- * re-open design §2 F6 and for the outcome type that makes an over-claim
- * unrepresentable.
+ *     SERVER-BACKED (`option_intervention_edit`), base-hash gated, and it
+ *     REFUSES rather than writing locally when the hash is absent.
+ *   · FACTOR CONFIRMATION — ⛔ NOT MOUNTED. See below.
  *
- * STILL DISABLED, HONESTLY: edge strength / likelihood / direction and the goal
- * target. They have no authority entry point, so `editConnectedIds` keeps their
- * affordances disabled with a label saying so. Wiring them through a local-only
- * write instead would recreate F6 on the surface built to kill it.
+ * ⚠⚠ TWO SENTENCES HERE WERE MEASURABLY FALSE AND ARE CORRECTED, NOT TRIMMED,
+ * because both drifted the same way and the next reader needs the mechanism.
+ * They read:
+ *
+ *   ~~"· FACTOR CONFIRMATION — the row's Confirm chip, stamping `user_confirmed`."~~
+ *   ~~"The last two are LOCAL COMMITS with no wire carrier."~~
+ *
+ * (1) FACTOR CONFIRMATION IS COMPILED OUT.
+ *     `CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation` is `'disabled'`, so
+ *     `FACTOR_CONFIRMATION_CONNECTED` is `false` and the row Confirm chip
+ *     (`onConfirmValueAsIs`), the "N to verify" attention chip and the entire
+ *     `RepairQueueList` branch never render. `proposeFactorConfirmation` and its
+ *     dispatcher are live code and UNREACHABLE. A header advertising a
+ *     compiled-out capability is the worst place in the file for a stale claim:
+ *     it is what a new lane reads first to learn what this surface can do, and
+ *     it did mislead one.
+ * (2) OPTION INTERVENTIONS ARE NOT LOCAL COMMITS. `modelOptionIntervention`
+ *     flipped to `'server_graph'`; the edit builds a real wire event and refuses
+ *     rather than writing locally. Lumping it with factor confirmation as "the
+ *     last two" could not express a state where the two keys DISAGREE — which is
+ *     exactly the state they are in (trap 21: two questions under one name).
+ *
+ * ⭐ AND THE MECHANISM, WITH ITS LIMIT STATED — because the first version of
+ * this paragraph overclaimed, which is the very failure it was describing:
+ * `__tests__/affordancesFollowTheAuthorityTable.spec.tsx` binds the AFFORDANCES
+ * to the table two ways. It DERIVES each expectation from the imported table at
+ * run time, so the surface cannot drift from the table; and it PINS what the
+ * table says today in a literal, so the table cannot move without reddening
+ * that file. It needs both. Derivation alone was measured NOT to red on a key
+ * flip, because the expectation and the surface's own gate were the same
+ * function over the same key and moved together.
+ *
+ * ⚠ WHAT IT DOES NOT DO IS HOLD THIS PROSE. These corrected sentences are a
+ * file-level JSDoc block, and the directory's source scanners strip comments by
+ * design, so nothing binds this header to the table. The earlier claim here
+ * that the mechanism meant this "cannot rot a third time" was not true, and
+ * asserting a guarantee no guard supplies is how the two sentences above rotted
+ * in the first place. Treat this block as prose that must be RE-READ whenever a
+ * key in `mutationAuthority.ts` changes; the spec's literal pin is what forces
+ * someone to that moment. See `useModelEditAuthority`'s header for why a
+ * genuinely local commit would not re-open design §2 F6, and for the outcome
+ * type that makes an over-claim unrepresentable.
+ *
+ *   · RELATIONSHIP STRENGTH — added 2026-09-08, server-backed, AND GATED PER
+ *     EDGE. See below.
+ *
+ * ⚠⚠ THE PARAGRAPH BELOW WAS TRUE UNTIL 2026-09-08 AND IS NARROWED, NOT DELETED,
+ * because its reasoning still governs the three that remain:
+ *
+ *   ~~STILL DISABLED, HONESTLY: edge strength / likelihood / direction and the
+ *   goal target. They have no authority entry point, so `editConnectedIds` keeps
+ *   their affordances disabled with a label saying so. Wiring them through a
+ *   local-only write instead would recreate F6 on the surface built to kill
+ *   it.~~
+ *
+ * Goal minimum-target editing now uses the existing typed add_constraint
+ * authority: explicit absolute level/unit → review → confirm → server receipt.
+ * Other disabled controls remain unchanged. No goal value is written locally
+ * before acknowledgement.
+ *
+ * ⭐ EDGE STRENGTH GRADUATED BECAUSE IT GAINED A CARRIER, not because the rule
+ * was relaxed. `edge_strength_edit` has had a CEE writer since Train C and, since
+ * #1287/#1295, a UI emitter at `useEdgeMutations.setStrength` with an `expected`
+ * tuple that is recorded at INGESTION rather than read off a locally-mutated
+ * field. `proposeEdgeStrength` is its entry point here.
+ *
+ * ⚠⚠ AND THE GATE IS PER EDGE, WHICH IS THE ONE THING TO GET RIGHT ON THIS
+ * SURFACE. `expected` is an assertion about what the SERVER holds, so an edge the
+ * server never stated a strength for has no assertable `expected`: the builder
+ * returns null, the edit would land LOCAL-ONLY, and enabling the affordance there
+ * would recreate precisely the F6 the paragraph above refuses. Two relationship
+ * rows in one list may therefore differ, and that is the design rather than an
+ * inconsistency — the surface offers an editor exactly where the write lands.
+ *
+ * ⚠ WHAT THOSE ROWS KEEP IS **SILENCE**. This paragraph said they "keep their
+ * existing disabled affordance and their label"; there is neither. `ModelRowView`
+ * renders a bare `<span>` where the writer is absent, per the NOT SET WALL rule
+ * (see that file's header, corrected alongside this one), and the only sanctioned
+ * reason-surface is `SectionWriterNotice` — which today reaches `missing-intervention`
+ * and therefore OPTIONS, not relationships. So a relationship the server never
+ * stated a strength for shows a value the user cannot change and nothing says why.
+ * That gap is real, open, and pinned in `aRowWithNoWriterSaysNothing.spec.tsx`
+ * rather than left to be rediscovered.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { typography } from '../../styles/typography'
+import { ModelQuestionLine } from './ModelQuestionLine'
 import type { EdgeData } from '../domain/edges'
 import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
+import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { resolveGoalTarget } from '../domain/goalTarget'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
 import { ValueProvenanceKey } from './ValueProvenanceKey'
 import { ModelOutline } from './ModelOutline'
+import { unproposableDraftReason } from './ModelRowView'
 import { ModelDetailRegion } from './ModelDetailRegion'
 import { RepairQueueList } from './RepairQueueList'
 import { REPAIR_QUEUE } from './rowPresentation'
@@ -62,9 +144,55 @@ import {
   toRepairQueueItems,
   toRowDetail,
   nodeKind,
+  resolveEdgeStrengthEditSeed,
   type ModelProjectionInput,
 } from './adapters'
+import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
+import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
+import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspectorMutations'
+
+/**
+ * ⭐⭐ WHAT THE ROW SAYS WHEN AGREEING WITH AN ESTIMATE DOES NOT LAND.
+ *
+ * ⛔ Until now it said NOTHING. `proposeEdgeStrengthConfirmation`'s send was
+ * swallowed and its synchronous refusals were dropped on the floor here, so a
+ * person pressed "this is correct", CEE answered no, and the surface that made
+ * the statement never heard. On the one act whose entire point is that the
+ * SERVER records it.
+ *
+ * ⛔ THERE IS NO SUCCESS LINE, DELIBERATELY. `'sent'` means a POST left, not
+ * that the agreement is on file — CEE owns edge provenance and the canvas
+ * learns it from the response. A row that said "recorded" on `'sent'` would be
+ * the optimistic write this surface exists to remove. Only failure is
+ * renderable from this seam; the affirmative half needs the receipt.
+ */
+const CONFIRM_SEND_NOTICE: Readonly<
+  Record<Exclude<SystemEventSendSettlement, 'sent'>, string>
+> = {
+  // ⚠ Unreachable while the carrier passes `deferIfBusy: false` — and mapped
+  // anyway, because "unreachable" is a claim about today's carrier and a
+  // settlement with no sentence would render an empty alert.
+  queued: 'Not recorded yet — this is waiting behind another change.',
+  blocked: 'Not sent — another change is still in flight. Try again in a moment.',
+  refused:
+    'Not recorded — the model moved on while this was in flight. ' +
+    'Ask Olumi about this link, then agree again.',
+  // ⚠ THE CAUTIOUS HALF, AND IT IS THE DANGEROUS ONE. Answering "not sent" to
+  // a failure that MAY have written invites the user to re-send something the
+  // model already holds. The uncertainty is stated, not resolved.
+  unverified: 'Olumi may not have recorded this. Check the conversation before agreeing again.',
+}
+
+/** The refusals that happen BEFORE any send, and were equally silent. */
+const CONFIRM_REFUSAL_NOTICE: Readonly<
+  Record<Exclude<EdgeStrengthConfirmOutcome, 'dispatched'>, string>
+> = {
+  refused_unassertable:
+    'Olumi has not stated a strength for this link, so there is nothing to agree with yet.',
+  no_carrier: 'Not sent — this decision has no open conversation to record it in.',
+  not_encodable: 'Not sent — this link could not be identified.',
+}
 
 export interface ModelTabV2PanelProps {
   nodes: Node[]
@@ -77,6 +205,8 @@ export interface ModelTabV2PanelProps {
    * otherwise.
    */
   fragileEdgeIds?: ReadonlySet<string>
+  /** A group a deep link wants open; forwarded straight to `ModelOutline`. */
+  openGroupRequest?: ModelGroupId | null
   /**
    * Hand a turn to Olumi, having FRONTED the conversation first.
    *
@@ -88,6 +218,73 @@ export interface ModelTabV2PanelProps {
    * boundary guard meaningful.
    */
   onHandOffToOlumi?: (message: string, reason: string) => void
+  /**
+   * ⚠⚠ THESE TWO ARRIVE AS PROPS BECAUSE THE LANE BOUNDARY SAYS SO, AND THE
+   * BOUNDARY IS RIGHT.
+   *
+   * An earlier cut of the effect-edit transaction read them by calling
+   * `useCanvasStore` here. `modelTabV2Boundary.sourceScan` refused it, on two
+   * counts and for one reason: no v2 file may import a store module, and no v2
+   * file may INVOKE a hook from outside this namespace — "nothing here can FIRE
+   * while unmounted". The mount host owns every live-app seam, which is what
+   * keeps this directory's guard meaningful; `nodes`, `edges` and
+   * `goalThreshold` already arrive the same way and for the same reason.
+   *
+   * OPTIONAL, and the degradation is SAFE rather than silent-wrong: with neither
+   * passed, the scenario fence compares two absent values and raises no notice,
+   * and the stale-base notice simply never self-clears — the behaviour before
+   * either existed. Nothing claims anything untrue without them.
+   */
+  /** The scenario the mounted model belongs to. Fences a pending effect edit. */
+  currentScenarioId?: string | null
+  /**
+   * The last CEE-stamped `graph_hash`. Read to notice when the ONE recoverable
+   * refusal (`needs_fresh_base`) has actually been recovered.
+   */
+  lastServerGraphHash?: string | null
+  /**
+   * ⭐ THE PRODUCT'S ONE EXPERT PREFERENCE — `olumi.expertMode`, owned by
+   * `OutputsDock.tsx:1150` and persisted to localStorage.
+   *
+   * The tier control in this panel's header USED to drive a private
+   * `useState<DetailTier>('plain')`. That made the Model tab carry two
+   * independent switches for one user intention: this outline, and everything
+   * else on the tab (`ModelAdjustments` / `ModelHealthSection` via
+   * `DetailToggleContext`) plus Compare, Results and PreAnalysis. Worse, the
+   * private one was DISCARDED on every tab switch — `OutputsDock.tsx:3686`
+   * mounts `ModelTabBody` conditionally, so the panel unmounts and the user's
+   * choice silently reverted to Plain.
+   *
+   * This is the same convergence 2.581 performed for Compare, whose pill owned
+   * a separate `feature.compareExpert`. Same defect, same fix.
+   *
+   * OPTIONAL, because sixteen specs render this panel standalone. When absent
+   * the panel falls back to local state and behaves exactly as before, so no
+   * existing mount claims anything untrue. `ModelTabBody.threadsExpertMode.spec`
+   * asserts the REAL mount passes both — without it the convergence is dark.
+   */
+  expertMode?: boolean
+  /**
+   * Ask the owner to change that preference.
+   *
+   * ⚠ THE PANEL DOES NOT SET IT ITSELF. Holding a local copy alongside would
+   * reproduce the exact divergence this prop removes — the outline reading
+   * Advanced while `olumi.expertMode` stayed false.
+   */
+  onToggleExpert?: (next: boolean) => void
+  /**
+   * ⭐ Rename an element from its row.
+   *
+   * Arrives as a prop for the same reason `nodes` and `currentScenarioId` do:
+   * `modelTabV2Boundary.sourceScan` forbids every file in this directory from
+   * importing a store module or invoking a foreign hook — the mount host owns
+   * each live-app seam. `ModelTabBody` builds it from `store.updateNodeLabel`,
+   * the one chokepoint every rename gesture in the product crosses.
+   *
+   * OPTIONAL, and the degradation is honest rather than silent: without it the
+   * row renders NO rename affordance at all, instead of one that writes nowhere.
+   */
+  onRenameRow?: (id: string, nextLabel: string) => void
 }
 
 /**
@@ -109,6 +306,9 @@ type MountedQueueId = Extract<RepairQueue['id'], 'confirm-estimates'>
 const FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation,
 )
+const EDGE_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.modelEdgeStrengthConfirmation,
+)
 const OPTION_INTERVENTION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelOptionIntervention,
 )
@@ -118,6 +318,9 @@ interface ActiveEdit {
   rowId: string
   phase: 'editing' | 'proposed'
   draft: string
+  unit?: string
+  scenarioId?: string | null
+  notice?: string
   /** What the row displayed when the edit began — the `from` of the proposal. */
   from: string
 }
@@ -127,9 +330,41 @@ export function ModelTabV2Panel({
   edges,
   goalThreshold,
   fragileEdgeIds,
+  openGroupRequest,
   onHandOffToOlumi,
+  currentScenarioId = null,
+  lastServerGraphHash = null,
+  expertMode,
+  onToggleExpert,
+  onRenameRow,
 }: ModelTabV2PanelProps) {
-  const [tier, setTier] = useState<DetailTier>('plain')
+  /**
+   * ⭐ ONE SWITCH. The tier is the product's expert preference, not a second
+   * opinion about it.
+   *
+   * CONTROLLED whenever the mount host supplies a setter — which the real one
+   * always does (`ModelTabBody` → `OutputsDock`'s `setExpertMode`). The local
+   * state below survives ONLY for the sixteen specs that render this panel
+   * standalone; in the mounted product it is never read.
+   *
+   * ⚠ CONTROLLED IS KEYED ON THE SETTER, NOT ON THE VALUE. A host that threads
+   * `expertMode` and forgets `onToggleExpert` would otherwise render correctly
+   * and write nowhere — an inert control that LOOKS live, which is worse than
+   * the divergence being fixed. Keyed this way, a half-wiring falls back to the
+   * old honest behaviour instead.
+   */
+  const [localTier, setLocalTier] = useState<DetailTier>('plain')
+  const isControlled = typeof onToggleExpert === 'function'
+  const tier: DetailTier = isControlled
+    ? (expertMode ? 'advanced' : 'plain')
+    : localTier
+  const setTier = useCallback(
+    (next: DetailTier) => {
+      if (isControlled) onToggleExpert(next === 'advanced')
+      else setLocalTier(next)
+    },
+    [isControlled, onToggleExpert],
+  )
   /**
    * Which repair queue the user is standing in, if any.
    *
@@ -198,8 +433,65 @@ export function ModelTabV2Panel({
    * refuse it (the factor is not the new option's), but the user would be
    * looking at their number in a box that no longer means what it says.
    */
+  /**
+   * ⭐ `phase` AND `notice` EXIST BECAUSE CLOSING THE ROW IS A CLAIM.
+   *
+   * This state was `{optionId, factorId, draft}` and the commit closed it
+   * unconditionally. With no wire carrier that was harmless — the local write
+   * always succeeded. Now the gesture is a turn, and closing the row on a
+   * REFUSAL tells the user their edit went through when nothing was sent; while
+   * closing it on a DISPATCH claims the model holds a number the server has not
+   * acknowledged yet. Both are the same lie in opposite directions, and both are
+   * the harm this surface's own notice exists to avoid.
+   *
+   * So the row stays open and says which of the three things happened:
+   *   · `editing` — the user is typing.
+   *   · `pending` — the turn is with the server. The value is NOT in the model
+   *     yet and the row does not pretend otherwise.
+   *   · a `notice` on `editing` — nothing was sent, and this is why.
+   */
+  /**
+   * Monotonic, never reused, never rendered. A ref rather than state: minting an
+   * attempt must not itself re-render, and nothing reads it except the fence.
+   */
+  const interventionAttemptRef = useRef(0)
   const [interventionEdit, setInterventionEdit] = useState<
-    { optionId: string; factorId: string; draft: string } | null
+    {
+      optionId: string
+      factorId: string
+      draft: string
+      phase: 'editing' | 'pending' | 'queued'
+      notice?: string
+      /**
+       * ⭐⭐ THE ATTEMPT THIS ROW IS WAITING ON — the identity a late callback is
+       * checked against.
+       *
+       * Fencing on factor and value was not enough, and the hole is reachable:
+       * A(option A, factor X, 0.6) is pending; the user moves to option B and
+       * saves B(option B, factor X, 0.6), which is BLOCKED; A's rejection then
+       * arrives and relabels B "Sent, but I could not confirm" — about a send
+       * that never happened. Same factor, same number, different edit. An
+       * attempt is minted per Save and never reused, so it is the one identity
+       * two edits cannot share.
+       */
+      attemptId?: number
+      /** The exact number sent, so the settlement below compares like with like. */
+      sentValue?: number
+      /** The scenario the send belongs to. A pending state must not outlive it. */
+      sentScenarioId?: string | null
+      /**
+       * ⭐ SET ONLY BY THE `needs_fresh_base` REFUSAL, and it is what makes that
+       * notice CURRENT rather than merely true-when-written.
+       *
+       * The notice names an action — a turn refreshes the base — so the moment
+       * the base actually arrives it is stale, and a stale instruction is worse
+       * than none: the user has already done the thing and the row still tells
+       * them to do it. Flagged rather than matched on the copy, because
+       * recognising a state by the sentence it renders is how a copy edit
+       * silently unwires behaviour.
+       */
+      awaitingFreshBase?: boolean
+    } | null
   >(null)
 
   const projection: ModelProjectionInput = useMemo(
@@ -227,17 +519,38 @@ export function ModelTabV2Panel({
   )
 
   /**
-   * The rows whose edit has a canonical transaction at this tip: factors.
-   * Derived from the NODES (kind), not from the row's `editable` flag — that
-   * flag states what the design intends to be editable; this set states what
-   * the frozen transaction path can actually carry today.
+   * The rows whose edit has a canonical transaction at this tip: factors, and
+   * the relationships whose strength the server has actually stated.
+   *
+   * Derived from the NODES and EDGES themselves, never from the row's `editable`
+   * flag — that flag states what the design intends to be editable; this set
+   * states what the frozen transaction path can actually carry today. The
+   * docstring is kept true by the two derivations below rather than by anybody
+   * remembering to update it.
+   *
+   * ⚠⚠ THE EDGE ARM IS PER EDGE, AND THE ASYMMETRY WITH THE FACTOR ARM IS THE
+   * POINT. A factor's value has a wire carrier for EVERY reachable value, so the
+   * factor arm can key on KIND alone. An edge's does not: `edge_strength_edit`
+   * carries an `expected` tuple asserting what the SERVER holds, and for an edge
+   * the server never stated a strength for there is nothing truthful to put
+   * there. `buildEdgeStrengthEditEvent` refuses those, the edit would land
+   * LOCAL-ONLY, and offering the editor anyway is design §2 F6 — the harm this
+   * whole surface exists to remove. So the gate asks PER EDGE, and a
+   * non-qualifying relationship renders its value with NO control at all — not
+   * "the disabled affordance it has today", which this line used to claim and
+   * which does not exist (see this file's header and `ModelRowView`'s).
+   *
+   * ⚠ THE PREDICATE IS THE EMITTER'S OWN, ASKED — NOT COPIED. `edgeStrengthEditIsAssertable`
+   * puts the question to `buildEdgeStrengthEditEvent`, so this panel holds no
+   * second copy of the endpoint-id rule, the magnitude domain or the
+   * server-stated-`expected` requirement, and cannot drift out of agreement with
+   * the thing that actually builds the event (CLAUDE.md trap 12).
+   *
+   * ⚠ EDGES THAT ARE NOT RELATIONSHIP ROWS ARE INERT HERE, not a leak. `toModelRows`
+   * admits only `getCausalEdges`, so an id added for a non-causal edge matches no
+   * row and reaches no affordance; ids are set membership, and this set is only
+   * ever read BY ROW ID.
    */
-  const editConnectedIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const node of nodes) if (nodeKind(node) === 'factor') ids.add(node.id)
-    return ids as ReadonlySet<string>
-  }, [nodes])
-
   const selectedRow = useMemo(
     () => (selectedId === null ? null : rows.find(r => r.id === selectedId) ?? null),
     [rows, selectedId],
@@ -282,8 +595,33 @@ export function ModelTabV2Panel({
    * inside the fix. The precedence below is total and the two states are
    * mutually exclusive in practice: beginning either clears the other.
    */
-  const activeAuthorityNodeId = edit?.rowId ?? interventionEdit?.optionId ?? null
-  const authority = useModelEditAuthority(activeAuthorityNodeId)
+  /*
+   * ⚠ AN EDGE ROW'S id IS AN EDGE id, AND IT MUST NOT ARRIVE IN THE NODE SLOT.
+   * `edit.rowId` is a node id for a factor row and an edge id for a relationship
+   * row — one field, two identity spaces — so the row's KIND decides which
+   * parameter it fills. Passing an edge id as `activeNodeId` would key
+   * `useNodeMutations` to an element that does not exist: harmless today only by
+   * luck, and exactly the kind of wrong-kind addressing the two-parameter
+   * authority was widened to make unrepresentable.
+   */
+  const editingRelationshipId =
+    edit !== null && rows.find(r => r.id === edit.rowId)?.kind === 'relationship'
+      ? edit.rowId
+      : null
+  const activeAuthorityNodeId =
+    editingRelationshipId !== null
+      ? (interventionEdit?.optionId ?? null)
+      : (edit?.rowId ?? interventionEdit?.optionId ?? null)
+  const authority = useModelEditAuthority(activeAuthorityNodeId, editingRelationshipId)
+  const editConnectedIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const node of nodes) {
+      if (nodeKind(node) === 'factor' || (resolveNodeTypeLiteral(node) === 'goal' &&
+          hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget) && authority.goalTargetDispatchAvailable)) ids.add(node.id)
+    }
+    for (const edge of edges) if (edgeStrengthEditIsAssertable(edge)) ids.add(edge.id)
+    return ids as ReadonlySet<string>
+  }, [nodes, edges, authority.goalTargetDispatchAvailable])
 
   /**
    * The confirmation authority for ONE row.
@@ -295,13 +633,67 @@ export function ModelTabV2Panel({
    * node it could borrow. Hooks cannot be called per row, so the host tracks the
    * row whose confirmation is pending and dispatches on the next render.
    */
-  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
-  const confirmAuthority = useModelEditAuthority(pendingConfirmId)
+  /**
+   * ⭐⭐ TWO KINDS OF RATIFICATION, ONE CHIP, AND THE KIND DECIDES THE CARRIER.
+   *
+   * A factor confirmation is a LOCAL provenance stamp (`proposeFactorConfirmation`
+   * → `setObservedSource('user_confirmed')`, which the server's own enum cannot
+   * carry). A relationship confirmation is a WIRE act: CEE owns edge provenance
+   * and `confirm_current` is *"permission to stamp exactly two provenance
+   * fields"*. So they are not one gesture with a switch inside — they are two
+   * acts the same chip can start, and the row's KIND is what picks.
+   *
+   * ⚠ THE ID SPACES DIFFER, AS `edit.rowId`'s note above says: a factor row's id
+   * is a NODE id and a relationship row's is an EDGE id. `useModelEditAuthority`
+   * takes them in different slots, so the kind must travel WITH the id or the
+   * edge id arrives in the node slot and the authority silently addresses
+   * nothing.
+   */
+  /** Keyed to the row it is about; one at a time, like every other commit state. */
+  const [confirmNotice, setConfirmNotice] = useState<{ rowId: string; reason: string } | null>(
+    null,
+  )
+  const confirmAttemptRef = useRef(0)
+
+  const [pendingConfirm, setPendingConfirm] = useState<
+    { id: string; kind: 'node' | 'edge' } | null
+  >(null)
+  const confirmAuthority = useModelEditAuthority(
+    pendingConfirm?.kind === 'node' ? pendingConfirm.id : null,
+    pendingConfirm?.kind === 'edge' ? pendingConfirm.id : null,
+  )
   useEffect(() => {
-    if (pendingConfirmId === null) return
-    confirmAuthority.proposeFactorConfirmation()
-    setPendingConfirmId(null)
-  }, [pendingConfirmId, confirmAuthority])
+    if (pendingConfirm === null) return
+    const rowId = pendingConfirm.id
+    // ⭐ FENCED BY THE ATTEMPT, minted per confirmation and never reused. A late
+    // settlement for a row the user has since left must not relabel whatever
+    // they confirmed next — the sibling's intervention seam proved that hole
+    // reachable, so it is closed here by construction rather than by argument.
+    const attempt = ++confirmAttemptRef.current
+    const say = (reason: string) =>
+      setConfirmNotice(prev => (confirmAttemptRef.current === attempt ? { rowId, reason } : prev))
+
+    if (pendingConfirm.kind === 'edge') {
+      const outcome = confirmAuthority.proposeEdgeStrengthConfirmation(rowId, {
+        onSendSettled: settlement => {
+          if (settlement === 'sent') return
+          say(CONFIRM_SEND_NOTICE[settlement])
+        },
+      })
+      // The synchronous half. These return BEFORE any send, so no settlement
+      // will ever arrive for them and a caller that waited would wait forever.
+      if (outcome !== 'dispatched') say(CONFIRM_REFUSAL_NOTICE[outcome])
+    } else {
+      // ⚠ NOT SWEPT HERE, AND NAMED RATHER THAN SKIPPED SILENTLY.
+      // `proposeFactorConfirmation` is a LOCAL provenance stamp with no carrier
+      // — `LocalCommitOutcome` is `'committed' | 'not_encodable'` — so it has no
+      // settlement to report and its one refusal is a different gap with a
+      // different remedy. Reporting it through this sentence set would be the
+      // justification-by-sibling that produced the defect above.
+      confirmAuthority.proposeFactorConfirmation()
+    }
+    setPendingConfirm(null)
+  }, [pendingConfirm, confirmAuthority])
 
   /**
    * ⚠ F8 — RESOLVING THE LAST ITEM RETURNS YOU TO THE OUTLINE.
@@ -330,20 +722,113 @@ export function ModelTabV2Panel({
   )
 
   const commitByRowId = useMemo(() => {
-    if (edit === null) return undefined
+    /**
+     * ⚠ ONE ENTRY, STILL. `ModelRowView`'s `proposed` arm rests on it in prose —
+     * "one row at a time can hold a commit state (`commitByRowId` is a one-entry
+     * map)" — and that is what licenses the taller row there. An open edit WINS
+     * over a stale confirmation verdict: they are two states of one interaction
+     * and the user has visibly moved on from the second.
+     */
+    if (edit === null) {
+      return confirmNotice
+        ? new Map<string, EditCommitState>([
+            [confirmNotice.rowId, { phase: 'confirm_unsettled', reason: confirmNotice.reason }],
+          ])
+        : undefined
+    }
     const state: EditCommitState =
       edit.phase === 'editing'
-        ? { phase: 'editing', draft: edit.draft }
-        : { phase: 'proposed', from: edit.from, to: edit.draft }
+        ? { phase: 'editing', draft: edit.draft, ...(edit.unit !== undefined ? { unit: edit.unit } : {}) }
+        : { phase: 'proposed', from: edit.from,
+            ...(edit.notice ? { notice: edit.notice } : {}),
+            to: edit.unit !== undefined ? `At least ${edit.draft} ${edit.unit} (absolute level)` : edit.draft }
     return new Map<string, EditCommitState>([[edit.rowId, state]])
-  }, [edit])
+  }, [edit, confirmNotice])
+
+  /**
+   * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See
+   * `interventionEdit`'s declaration: a draft outliving its option is a number
+   * shown in a box that no longer addresses it.
+   */
+  const selectRow = useCallback((id: string) => {
+    setSelectedId(prev => {
+      if (prev !== id) setInterventionEdit(null)
+      return id
+    })
+  }, [])
 
   const beginEdit = useCallback(
     (rowId: string) => {
       const row = rows.find(r => r.id === rowId)
       if (!row) return
+
+      /*
+       * ⭐⭐ EDITING A ROW SELECTS IT — AND WITHOUT THIS LINE THE DETAIL REGION
+       * IS UNREACHABLE FROM THE EDITOR, WHICH IS WHERE THE ESTIMATE NOW LIVES.
+       *
+       * MEASURED, not reasoned about: the value control calls
+       * `e.stopPropagation()` (it must — the click opens an editor rather than
+       * selecting), so it never reached the row's `onClick={() => onSelect(...)}`
+       * and `model-detail-v2` stayed ABSENT FROM THE DOM while the user typed.
+       * The detail region renders on `selectedRow !== null`, so surfacing
+       * anything there for an editing user was surfacing it where they were not
+       * looking — a capability that is deployed, mounted, and not reachable.
+       *
+       * ⚠ IT ROUTES THROUGH `selectRow`, NEVER THROUGH `setSelectedId`. A second
+       * copy of "select this row" would drop the intervention-draft clearing
+       * that `selectRow` owns, and a draft outliving its option is a number in a
+       * box that no longer addresses it.
+       *
+       * ⚠ THE SAME-ROW CASE COSTS NOTHING: `selectRow` clears the intervention
+       * draft only when the selection actually MOVES.
+       */
+      selectRow(rowId)
+
+      /*
+       * ⚠ A RELATIONSHIP ROW SEEDS FROM ITS EDGE, NOT FROM A NODE. `rowId` is an
+       * EDGE id here, so the node lookup below would miss and the editor would
+       * never open — which is exactly why relationship rows were inert before
+       * they had a carrier, and why this branch has to exist rather than the
+       * node path being loosened.
+       *
+       * ⭐ THE SEED IS THE NUMBER THE ROW IS ALREADY SHOWING, resolved by
+       * `resolveEdgeStrengthEditSeed` — the same function `edgeValue` builds the
+       * row's own label from. The user therefore opens the editor on the value
+       * they were just reading, and the two cannot disagree, because they are one
+       * derivation and not two that happen to agree today.
+       *
+       * ⚠ IT IS **NOT** SEEDED FROM `expected`. The server-stated tuple is what
+       * the wire ASSERTS ABOUT THE PAST; the seed is what this canvas is showing
+       * now, which may legitimately differ (a local edit already made). Seeding
+       * from `expected` would put a number on screen that the row is not
+       * displaying — and `expected` keeps its own, separate derivation at the
+       * builder, where it belongs.
+       */
+      if (row.kind === 'relationship') {
+        const edge = edges.find(e => e.id === rowId)
+        const seeded = resolveEdgeStrengthEditSeed(edge?.data as Record<string, unknown> | undefined)
+        // Fail CLOSED. `editConnectedIds` should have kept this row's affordance
+        // shut, so arriving here with nothing to seed means the two derivations
+        // disagree — open nothing rather than an editor over a blank.
+        if (seeded === null) return
+        setEdit({
+          rowId,
+          phase: 'editing',
+          draft: String(seeded.seed),
+          from: row.primaryValue ?? 'Not set',
+        })
+        return
+      }
+
       const node = nodes.find(n => n.id === rowId)
       if (!node) return
+      if (row.kind === 'goal') {
+        const target = resolveGoalTarget(node.data)
+        setEdit({ rowId, phase: 'editing', draft: target ? String(target.raw) : '',
+          unit: target?.unit ?? '', scenarioId: authority.captureScenarioId(),
+          from: target ? `${target.raw}${target.unit ? ` ${target.unit}` : ''}` : 'Not set' })
+        return
+      }
       // THE one seed rule (`resolveValueInputSeed`, default `raw_or_value`
       // basis): the input shows `raw_value ?? value`, exactly as the inspector
       // panel and the v1 Model-tab chips do. A second copy of that rule is how
@@ -356,23 +841,37 @@ export function ModelTabV2Panel({
         from: row.primaryValue ?? 'Not set',
       })
     },
-    [rows, nodes],
+    [rows, nodes, edges, authority, selectRow],
   )
 
-  const changeDraft = useCallback((rowId: string, draft: string) => {
-    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft } : prev))
+  const changeDraft = useCallback((rowId: string, draft: string, unit?: string) => {
+    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft, ...(unit !== undefined ? { unit } : {}) } : prev))
   }, [])
 
   const proposeEdit = useCallback((rowId: string) => {
+    // ⚠ THE ROW'S OWN DECLARED BOUND, resolved by the projection that built the
+    // row, so the host judges the SAME prior the control showed the user. Read
+    // outside the updater: `setEdit`'s callback must stay pure.
+    const admission = rows.find(r => r.id === rowId)?.valueAdmission
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
-      // Intent must parse before it can be proposed. An unparseable draft
-      // stays in `editing` — nothing to confirm, nothing to send.
-      const num = parseFloat(prev.draft)
-      if (!Number.isFinite(num)) return prev
+      /*
+       * Intent must parse before it can be proposed. An unparseable draft stays
+       * in `editing` — nothing to confirm, nothing to send.
+       *
+       * ⚠⚠ THE CONDITIONS ARE UNCHANGED; WHAT CHANGED IS THAT THE ROW CAN NOW
+       * READ THEM. They used to be two inline `return prev` arms here, so the
+       * refusal existed only inside this callback and the user got no signal of
+       * any kind: type something invalid, press Enter, nothing happens.
+       * `unproposableDraftReason` IS those two arms, in the same order, moved
+       * to a function both this guard and the row's message call — one
+       * derivation, so a control that offers to advance and a host that refuses
+       * to cannot disagree.
+       */
+      if (unproposableDraftReason(rowId, prev.draft, prev.unit, admission) !== null) return prev
       return { ...prev, phase: 'proposed' }
     })
-  }, [])
+  }, [rows])
 
   const discardEdit = useCallback((rowId: string) => {
     setEdit(prev => (prev && prev.rowId === rowId ? null : prev))
@@ -381,8 +880,111 @@ export function ModelTabV2Panel({
   const confirmEdit = useCallback(
     (rowId: string) => {
       if (!edit || edit.rowId !== rowId || edit.phase !== 'proposed') return
+      if (edit.unit !== undefined) {
+        /*
+         * ⚠ `'at_least'` IS STATED, NOT INHERITED — and it is deliberately
+         * UNCHANGED behaviour for this surface. The Model tab's review line
+         * reads "At least {draft} {unit} (absolute level)" (`:629`), so a
+         * floor is what this tab shows and a floor is what it must record.
+         * Offering the choice here is the same capability one surface over and
+         * is NOT in this change's scope; the parameter is required precisely so
+         * that this call site has to say which bound it means.
+         */
+        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null, 'at_least') === 'dispatched') setEdit(null)
+        else setEdit({ ...edit, notice: 'Target not sent. Reopen the target in the current model; your proposed value is shown here.' })
+        return
+      }
       const num = parseFloat(edit.draft)
       if (!Number.isFinite(num)) return
+
+      /*
+       * ⭐ A RELATIONSHIP ROW COMMITS THROUGH `proposeEdgeStrength`, and it is a
+       * DIFFERENT OPERATION rather than the factor one pointed at an edge: the
+       * carrier is `edge_strength_edit`, the identity is the edge's `(from, to)`
+       * pair, and the outcome vocabulary has a state the factor path does not.
+       *
+       * ⚠⚠ `directionStated` IS DERIVED FROM THE EDGE, NEVER FROM THE SIGN OF
+       * WHAT THE USER TYPED. The contract's own words: *"a MAGNITUDE CANNOT
+       * CARRY A SIGN"* — reading `num < 0` as a direction claim is precisely the
+       * fabrication it forbids, and at zero it is not even ambiguous, it is
+       * unrepresentable (`-0 >= 0` is `true`).
+       *
+       * The honest source is the one the ROW ITSELF speaks from:
+       * `resolveEdgeStrengthEditSeed`, i.e. `resolveEdgeDirectionDisplay`. Where
+       * a direction is stated the row reads "… positive effect", the seed is
+       * SIGNED, and typing a signed number restates that direction. Where none
+       * is, the row reads "… effect, direction not stated", the seed is a bare
+       * MAGNITUDE, and the authority preserves the absent direction rather than
+       * minting one — the edge goes on saying "direction not stated", which is
+       * exactly the outcome the contract prescribes.
+       *
+       * ⚠ SO A MINUS TYPED INTO A MAGNITUDE-ONLY ROW SETS THE SIZE AND NOTHING
+       * ELSE, disclosed here rather than left to be discovered: this surface
+       * offers no direction control, so a sign typed into it states nothing the
+       * product may act on.
+       *
+       * ⚠⚠ THE REASON GIVEN HERE UNTIL 2026-09-08 WAS FALSE, and it is corrected
+       * rather than deleted so it is not re-derived. It read: *"Giving
+       * relationships a direction affordance needs `proposeEdgeDirection`, which
+       * has no carrier"*. The carrier EXISTS and is deployed —
+       * `edge_strength_edit.direction_intent`, in the schemas version this repo
+       * pins, with a CEE writer that resolves it. The seam is now built
+       * (`useInspectorMutations.setDirection` emits; see `contracts.ts` §1) and
+       * the per-edge gate is `edgeDirectionEditIsAssertable` — which has no
+       * product consumer yet; see `contracts.ts` §1 and the correction below.
+       *
+       * WHAT REMAINS IS A SURFACE DECISION, NOT A TRANSPORT GAP: adding a
+       * direction control to THIS row is a design change with its own review,
+       * deliberately not made in the lane that built the carrier.
+       *
+       * ⛔ CORRECTED FORWARD, 10 Sep 2026 (independent review) — DO NOT ACT ON
+       * THE SENTENCE THAT CLOSED THIS PARAGRAPH. It read: *"The two other
+       * direction controls (`EdgeAdvancedEditor`, `RelationshipsSection`) reach
+       * the server today"*. IT IS FALSE IN BOTH HALVES, for different reasons.
+       * The honest statement is that THE CARRIER IS BUILT AND HAS NO OPERABLE
+       * CONSUMER YET: `setDirection` has exactly two call sites and a user can
+       * operate neither.
+       *
+       *   · `RelationshipsSection.tsx:284` IS NOT MOUNTED.
+       *     `ModelTabBody.tsx:131` hardcodes `LEGACY_DETAILED_EDITOR_MOUNTED =
+       *     false` — no flag. Derived by brace balance rather than by eye, the
+       *     gate `{LEGACY_DETAILED_EDITOR_MOUNTED && (` spans `:988`–`:1110`
+       *     and `<RelationshipsSection` sits at `:1066`, inside it. That
+       *     constant's own header: "no visual, pointer or accessibility route
+       *     can reach it."
+       *   · `EdgeAdvancedEditor.tsx:127` IS MOUNTED BUT INERT.
+       *     `InspectorRouter.tsx:245-250` renders `<EdgePanel>` inside an
+       *     UNCONDITIONAL `<fieldset disabled>` (no branch), under the visible
+       *     `INSPECTOR_READ_ONLY_REASON` notice. The direction control is
+       *     `AdvancedField type="select"`, i.e. a native `<select>`
+       *     (`AdvancedField.tsx:157`), which a disabled fieldset inerts per the
+       *     HTML spec — as this repo's own boundary guard says in terms:
+       *     `inspectorAuthorityBinding.spec.tsx:330-331`, *"The four element
+       *     types `<fieldset disabled>` actually inerts, per the HTML spec"*,
+       *     `NATIVELY_DISABLEABLE = 'button, input, select, textarea'`.
+       *
+       * SO ON THE DEPLOYED PRODUCT, CHOOSING HELPS/HURTS STILL REACHES NOTHING,
+       * and this row offers no direction control at all (see four lines above).
+       * DO NOT READ THIS LANE AS CLOSING THE USER-FACING DEFECT — it builds the
+       * carrier that the surface work will need, and that surface work is
+       * unscheduled. Scope of the claim, deliberately narrow: derived from
+       * source at this head plus that guard, not from driving the product.
+       */
+      if (editingRelationshipId === rowId) {
+        const edge = edges.find(e => e.id === rowId)
+        const seeded = resolveEdgeStrengthEditSeed(edge?.data as Record<string, unknown> | undefined)
+        if (seeded === null) {
+          setEdit(null)
+          return
+        }
+        // Fail CLOSED on anything the wire cannot carry: `proposeEdgeStrength`
+        // returns `refused_unassertable` and writes NOTHING, so the row keeps
+        // showing the unchanged model rather than a local value dressed as saved.
+        authority.proposeEdgeStrength(rowId, num, { directionStated: seeded.directionStated })
+        setEdit(null)
+        return
+      }
+
       // The canonical transaction. Whatever the outcome, the edit state
       // clears: on `dispatched`/`local_only` the store now shows the
       // optimistic value (and the dispatcher owns refusal-revert); on
@@ -391,7 +993,7 @@ export function ModelTabV2Panel({
       authority.proposeFactorValue(num)
       setEdit(null)
     },
-    [edit, authority],
+    [edit, authority, editingRelationshipId, edges],
   )
 
   /**
@@ -403,20 +1005,32 @@ export function ModelTabV2Panel({
   const confirmValueAsIs = useCallback((rowId: string) => {
     setEdit(null)
     setInterventionEdit(null)
-    setPendingConfirmId(rowId)
-  }, [])
+    // A fresh attempt replaces the last one's verdict rather than sitting under it.
+    setConfirmNotice(null)
+    // The kind is read from the ROWS, not guessed from the id's shape — an edge
+    // id and a node id are both opaque strings and a shape test would be a
+    // fourth place that decides what kind of thing an id names.
+    const kind = rows.find(r => r.id === rowId)?.kind === 'relationship' ? 'edge' : 'node'
+    setPendingConfirm({ id: rowId, kind })
+  }, [rows])
 
   const beginInterventionEdit = useCallback(
     (factorId: string, seed: string) => {
       if (selectedId === null) return
       setEdit(null)
-      setInterventionEdit({ optionId: selectedId, factorId, draft: seed })
+      setInterventionEdit({ optionId: selectedId, factorId, draft: seed, phase: 'editing' })
     },
     [selectedId],
   )
 
   const changeInterventionDraft = useCallback((factorId: string, draft: string) => {
-    setInterventionEdit(prev => (prev && prev.factorId === factorId ? { ...prev, draft } : prev))
+    setInterventionEdit(prev => {
+      if (!prev || prev.factorId !== factorId) return prev
+      // Typing clears a stale refusal: a notice about the PREVIOUS number, left
+      // beside a new one, is a sentence about something the user cannot see.
+      const { notice: _cleared, ...rest } = prev
+      return { ...rest, draft }
+    })
   }, [])
 
   const discardInterventionEdit = useCallback(() => setInterventionEdit(null), [])
@@ -453,23 +1067,231 @@ export function ModelTabV2Panel({
         return
       }
 
-      authority.proposeOptionIntervention(factorId, num)
-      setInterventionEdit(null)
+      // ⚠ THE OUTCOME IS READ, NOT DISCARDED. This line used to be
+      // `authority.propose…(); setInterventionEdit(null)` — the row closed
+      // whatever happened, so a refusal looked exactly like a success.
+      // ⚠ THE PENDING STATE IS SET BEFORE THE SEND, NOT AFTER, AND THAT ORDER IS
+      // A CORRECTNESS DETAIL RATHER THAN A STYLE ONE. The settlement callback
+      // fences on the value we sent; if the state were written after the call,
+      // a settlement resolving on the same microtask would find `sentValue`
+      // still undefined and be dropped — the row would hang on "sent" forever
+      // for exactly the fastest cases.
+      // The scenario as this render knows it — `currentScenarioId` is in this
+      // callback's deps, so a switch re-creates it rather than leaving a stale
+      // capture behind. (It was `useCanvasStore.getState()`, which the lane
+      // boundary bans; see the prop's declaration.)
+      const scenarioAtSend = currentScenarioId
+      // The option this attempt addresses, captured with it. `interventionEdit`
+      // is non-null here (the guard at the top of this callback), and reading it
+      // once keeps the fence below about ONE frozen identity rather than about
+      // whatever the closure happens to hold later.
+      const optionAtSend = interventionEdit.optionId
+      const attempt = ++interventionAttemptRef.current
+      setInterventionEdit(prev =>
+        prev && prev.factorId === factorId
+          ? {
+              ...prev,
+              phase: 'pending',
+              attemptId: attempt,
+              sentValue: num,
+              sentScenarioId: scenarioAtSend,
+              notice: undefined,
+            }
+          : prev,
+      )
+
+      const outcome = authority.proposeOptionIntervention(factorId, num, {
+        // Two of the sender's three answers mean the turn has NOT happened.
+        // Without reading them the row said "sent" over an edit that was queued
+        // behind another turn, or one that was never queued at all.
+        onSendSettled: settlement => {
+          setInterventionEdit(prev => {
+            if (!prev) return prev
+            // ⭐⭐ FENCED BY THE ATTEMPT, plus the option and factor it addressed.
+            //
+            // Factor-and-value was NOT enough and the hole was reachable: A
+            // (option A, factor X, 0.6) pending, the user moves to option B and
+            // saves the same factor and number, B is blocked, and A's late
+            // rejection then relabels B about a send that never happened. The
+            // attempt is minted per Save and never reused, so it is the one
+            // identity two edits cannot share; the option and factor are stated
+            // as well because this row is keyed by them and an identity check
+            // should read as one.
+            if (
+              prev.attemptId !== attempt ||
+              prev.optionId !== optionAtSend ||
+              prev.factorId !== factorId
+            ) {
+              return prev
+            }
+            // ⚠ AND ONLY WHILE THE ROW IS STILL WAITING. A scenario switch has
+            // already returned it to `editing` with its own notice; a late
+            // callback must not overwrite that with an outcome about a model
+            // this row is no longer describing.
+            if (prev.phase !== 'pending' && prev.phase !== 'queued') return prev
+            if (settlement === 'queued') return { ...prev, phase: 'queued' }
+            if (settlement === 'blocked') {
+              // SEND_BLOCKED ONLY — the busy lock. This sentence names that
+              // cause specifically, which is why a transport failure may not
+              // borrow it.
+              return {
+                ...prev,
+                phase: 'editing',
+                notice: 'Not sent — another change is still in flight. Try again in a moment.',
+              }
+            }
+            // ⭐ THE OTHER WAY PENDING ENDS. The canonical settlement below
+            // covers the APPLIED half — the value lands in the store and the
+            // row clears. These two are the refused half, and without them a
+            // server answer of "no" left the row saying "sent, not saved yet"
+            // for the rest of the session: a stuck label, the same class of
+            // harm as the optimistic write this surface replaced.
+            if (settlement === 'refused') {
+              // Proven no-write. For this event the certified category is a
+              // stale base — CEE refuses before any write and hands back the
+              // current hash. The recovery is the one that actually refreshes
+              // the base, and it is the SAME action `needs_fresh_base` names,
+              // because it is the same problem arriving one moment later.
+              const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+              return {
+                ...rest,
+                phase: 'editing',
+                notice:
+                  'Not saved — the model moved on while this was in flight. ' +
+                  'Ask me anything about this decision, then set this value again.',
+              }
+            }
+            if (settlement === 'unverified') {
+              // ⚠⚠ NEITHER SAVED NOR REFUSED NOR UNSENT, AND THE COPY MAY NOT
+              // PICK ONE. A write is not ruled out, so "not saved" would invite
+              // the user to re-send a number the model may already hold, and
+              // "saved" is the lie this whole surface exists to avoid.
+              //
+              // ⚠ IT ALSO MAY NOT SAY "SENT". This arm now also carries every
+              // TRANSPORT rejection, where the request may or may not have
+              // reached CEE — `v5Adapter` catches a fetch rejection without
+              // observing acceptance, so a commit whose response is lost looks
+              // exactly like being offline. The row states what is actually
+              // known, offers no retry it cannot justify, and names the action
+              // that SHOWS the user the answer instead of guessing it.
+              const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+              return {
+                ...rest,
+                phase: 'editing',
+                notice:
+                  'I could not confirm whether that reached the model. ' +
+                  'Ask me anything about this decision to see where it stands.',
+              }
+            }
+            // `sent`: the turn was issued. The row stays pending until the
+            // CANONICAL store carries the value — this hook does not echo its
+            // own number back as a confirmation.
+            return prev
+          })
+        },
+      })
+
+      if (outcome === 'dispatched') return
+
+      setInterventionEdit(prev => {
+        if (!prev || prev.factorId !== factorId) return prev
+        const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+        if (outcome === 'needs_fresh_base') {
+          // The one refusal the user can clear. The action named is the ONE that
+          // actually refreshes the base — a turn — inherited from the
+          // delete/add/rename family rather than re-reasoned: "try again"
+          // re-sends the same stale base forever, and a reload builds a fresh
+          // store with no server hash at all.
+          return {
+            ...rest,
+            phase: 'editing',
+            awaitingFreshBase: true,
+            notice:
+              'Not sent yet — I need to re-sync with the saved model first. ' +
+              'Ask me anything about this decision, then set this value again.',
+          }
+        }
+        return {
+          ...rest,
+          phase: 'editing',
+          notice: 'Not sent: an effect value has to be between 0 and 1 on the model scale.',
+        }
+      })
     },
-    [interventionEdit, authority, selectedDetail],
+    [interventionEdit, authority, selectedDetail, currentScenarioId],
   )
 
   /**
-   * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See
-   * `interventionEdit`'s declaration: a draft outliving its option is a number
-   * shown in a box that no longer addresses it.
+   * ⭐⭐ THE CANONICAL SETTLEMENT — what ENDS a pending state.
+   *
+   * `pending` had no way to finish. The row said "sent, not saved yet" and then
+   * said it forever, whatever the server did, because nothing was watching for
+   * the answer. A state that can only be entered is not a state, it is a stuck
+   * label — and the harm is the same class as the optimistic write it replaced:
+   * a row telling the user something about their model that stopped being true.
+   *
+   * ⚠ THE SETTLEMENT IS THE CANONICAL STORE, NEVER AN ECHO. It clears when the
+   * projected value for THIS option and THIS factor equals the number that was
+   * sent — i.e. when the applied response has actually carried it into the
+   * model the rest of the surface reads. This hook never confirms its own send:
+   * "an authority that echoed its own typed value back as an 'applied' receipt
+   * would be an optimistic write wearing a confirmation".
+   *
+   * ⚠ AND IT IS FENCED THREE WAYS, because a pending state that survives the
+   * wrong context is worse than none: by OPTION and FACTOR (identity, never
+   * position), and by SCENARIO — switching scenario mid-flight must not let a
+   * value arriving in a different model close a row about this one.
    */
-  const selectRow = useCallback((id: string) => {
-    setSelectedId(prev => {
-      if (prev !== id) setInterventionEdit(null)
-      return id
-    })
-  }, [])
+  useEffect(() => {
+    if (interventionEdit === null) return
+    if (interventionEdit.phase !== 'pending' && interventionEdit.phase !== 'queued') return
+    if (interventionEdit.sentValue === undefined) return
+    if (interventionEdit.sentScenarioId !== currentScenarioId) {
+      // The model changed underneath the send. Say so rather than guessing what
+      // happened to it in a scenario this row is no longer about.
+      setInterventionEdit(prev =>
+        prev && prev.phase !== 'editing'
+          ? {
+              ...prev,
+              phase: 'editing',
+              notice: 'The scenario changed while that was sending, so I can’t confirm it landed here.',
+            }
+          : prev,
+      )
+      return
+    }
+    if (interventionEdit.optionId !== selectedId) return
+    const landed = selectedDetail?.interventions?.find(
+      iv => iv.factorId === interventionEdit.factorId,
+    )
+    if (landed?.numericValue === interventionEdit.sentValue) setInterventionEdit(null)
+  }, [interventionEdit, selectedDetail, selectedId, currentScenarioId])
+
+  /**
+   * ⭐ THE RECOVERY ACTUALLY COMPLETING — the other end of `needs_fresh_base`.
+   *
+   * That refusal is an instruction: run a turn and this clears. Nothing was
+   * watching for the turn, so the instruction stayed on screen after the user
+   * had followed it — the row telling them to do something they had just done,
+   * beside a number that would now send perfectly well. Truthful when written
+   * and false a second later is the same defect class as a pending state with
+   * no exit, and this surface has now had both.
+   *
+   * ⚠ IT CLEARS THE NOTICE, NOT THE DRAFT. The number the user typed stays in
+   * the box, because it is still what they meant; only the reason it could not
+   * go is gone. Re-sending it for them would be a decision the user did not
+   * make — the base is fresh now, but the model it describes has moved, which
+   * is exactly why the base was stale.
+   */
+  useEffect(() => {
+    if (!interventionEdit?.awaitingFreshBase) return
+    if (typeof lastServerGraphHash !== 'string' || lastServerGraphHash.length === 0) return
+    setInterventionEdit(prev =>
+      prev?.awaitingFreshBase
+        ? { ...prev, awaitingFreshBase: false, notice: undefined }
+        : prev,
+    )
+  }, [interventionEdit?.awaitingFreshBase, lastServerGraphHash])
 
   return (
     <section
@@ -492,6 +1314,12 @@ export function ModelTabV2Panel({
           The tier control, IN the tab (design §4.3 rule 3). A content switch
           only: `ModelOutline`'s layout function takes no tier argument, so
           flipping this cannot reorder, open or close anything.
+
+          ⭐ WHAT IT WRITES CHANGED; WHERE IT LIVES DID NOT. It now sets the
+          product's ONE expert preference (`olumi.expertMode`) rather than a
+          private tier, so the user's choice persists across tab switches and
+          sessions and the outline can no longer disagree with the scientific
+          transparency block directly beneath it.
         */}
         {/* The key for the row marks, beside the tier control — the marks are
             useless as a code until something states what they mean. */}
@@ -526,6 +1354,24 @@ export function ModelTabV2Panel({
           </button>
         </div>
       </header>
+
+      {/*
+        WHAT QUESTION IS THIS MODEL ABOUT — the tab's opening line, and the
+        first content beneath the chrome.
+
+        Closes the 29 Jul design's sharpest criticism (§2): "Nothing on the tab
+        says what this decision is." The question DOES reach the outline as a
+        row — `adapters.ts` files a `decision` node into the `goal` group — but
+        `initiallyClosedGroups={MODEL_GROUP_IDS}` below means every group
+        arrives CLOSED, so on open the reader meets five collapsed headers and
+        learns nothing about what is being worked out.
+
+        ⚠ IT IS FED THE SAME `nodes` THE OUTLINE PROJECTS ITS ROWS FROM, and
+        resolves kind and label through the same two policies those rows use. A
+        line that sourced either differently could name the question one thing
+        here and another in the row directly below it.
+      */}
+      <ModelQuestionLine nodes={nodes} />
 
       {/*
         THE ATTENTION CHIP — the first time "N to verify" is a control.
@@ -571,6 +1417,25 @@ export function ModelTabV2Panel({
         </>
       ) : (
       <ModelOutline
+        /* ⭐ THE OUTLINE OPENS AS AN OUTLINE.
+           `initiallyClosedGroups` has existed since this component was written
+           and NOTHING has ever passed it, so all seven groups rendered open:
+           measured on deployed staging with a real analysis, 8 of 9 expanded
+           regions and 1,817px of scroll before the reader has chosen anything.
+           That is a dump, not disclosure.
+
+           Closing them costs NO information, which is the only reason this is
+           safe: the collapsed header already carries the group name, the row
+           COUNT, and `unsetSummary` — "2 with no value yet" — all derived from
+           the same fields the rows read. So the closed state IS the model at a
+           glance, and one click opens the part the reader wants.
+
+           ⚠ NOT the piecemeal pattern. Each of these seven hides a real list,
+           not a sentence; the complaint being answered is twelve small doors
+           each buying one line. Level 1 is the shape of the model, level 2 is
+           the rows. */
+        initiallyClosedGroups={MODEL_GROUP_IDS}
+        openGroupRequest={openGroupRequest}
         rows={rows}
         tier={tier}
         filter={filter}
@@ -584,7 +1449,17 @@ export function ModelTabV2Panel({
         onProposeEdit={proposeEdit}
         onDiscardEdit={discardEdit}
         onConfirmEdit={confirmEdit}
+        /* ⚠ TWO RATIFICATIONS, TWO GATES, AND NEITHER BORROWS THE OTHER'S.
+           The factor stamp stays withheld under the B3 policy because it is a
+           local-only write. The relationship stamp is the receipt-bearing
+           `confirm_current` act, so it is gated on its own authority key and is
+           live. Connectivity is decided HERE, as it already was; the row still
+           decides applicability by its attention reason alone. */
         onConfirmValueAsIs={FACTOR_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined}
+        onConfirmRelationshipAsIs={
+          EDGE_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined
+        }
+        onRenameRow={onRenameRow}
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}
       />
@@ -596,9 +1471,29 @@ export function ModelTabV2Panel({
           detail={selectedDetail}
           tier={tier}
           onFocusOnCanvas={focusOnCanvas}
+          /*
+           * ⚠⚠ FORWARD THE PHASE AND THE NOTICE. This projected exactly
+           * `{factorId, draft}`, so the two fields that carry the honest
+           * outcome were dropped on the way to the only component that renders
+           * them: the row could NEVER show pending or a refusal, whatever the
+           * commit decided.
+           *
+           * ⭐ AND THE TEST THAT SHOULD HAVE CAUGHT IT COULD NOT. Injecting
+           * `interventionEdit` straight into the child asserts the child's
+           * rendering and says nothing about what the parent sends — a whole
+           * seam between two green halves. That is why the controls for this now
+           * drive the REAL panel, not the child alone.
+           */
           interventionEdit={
             OPTION_INTERVENTION_CONNECTED && interventionEdit && interventionEdit.optionId === selectedRow.id
-              ? { factorId: interventionEdit.factorId, draft: interventionEdit.draft }
+              ? {
+                  factorId: interventionEdit.factorId,
+                  draft: interventionEdit.draft,
+                  phase: interventionEdit.phase,
+                  ...(interventionEdit.notice !== undefined
+                    ? { notice: interventionEdit.notice }
+                    : {}),
+                }
               : null
           }
           onBeginInterventionEdit={OPTION_INTERVENTION_CONNECTED ? beginInterventionEdit : undefined}

@@ -28,7 +28,11 @@ import { buildTransportFailureCopy, isTransportFailure, isUnverifiedDelivery } f
 import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
 import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
 import { parseV5Response } from '../../v5/responseParser'
-import { openV5TurnStream, __streamInternals as streamTransport } from '../../v5/streamedTurnTransport'
+import {
+  openV5TurnStream,
+  recordStreamedTerminalIngest,
+  __streamInternals as streamTransport,
+} from '../../v5/streamedTurnTransport'
 import { streamStageFrames } from '../../v5/streamedDraftFrames'
 import {
   responseBelongsToDispatchingScenario,
@@ -113,6 +117,7 @@ import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
+import { redactStatedReason } from './findingDissent'
 import type {
   ConversationMessage,
   ConversationBlock,
@@ -653,6 +658,9 @@ async function runStreamedDraftTurn(args: {
   }
 
   let res: Response
+  // Anchors the terminal-ingest record's duration. Taken BEFORE the open, so
+  // it measures the turn the user waited for, not the frame parse.
+  const streamStartedAt = Date.now()
   try {
     res = await openV5TurnStream(payload, { headers, signal })
   } catch (e) {
@@ -848,6 +856,28 @@ async function runStreamedDraftTurn(args: {
   const result = await parseV5Response(
     streamTransport.terminalPayloadToResponse(outcome.terminalPayload, outcome.statusCode),
   )
+
+  // Settle the turn in the diagnostic trace store.
+  //
+  // Until now the streamed path recorded the SSE OPEN and nothing else, so a
+  // streamed cold draft that SUCCEEDED left `payloads.cee_response` in the
+  // debug bundle pointing at the open MARKER — and every top-level key the
+  // turn returned was absent from the export. That includes
+  // `_prompt_capture`, the verbatim served system prompt, which CEE returns
+  // ONLY on a cold draft: the one turn shape that takes this route. See
+  // `recordStreamedTerminalIngest` for why the record is filed under the
+  // buffered endpoint and how the transport truth is disclosed.
+  //
+  // Placed AFTER the parse and OUTSIDE any try: a throw from a diagnostic
+  // write must never be readable as a turn failure, which is the scoping
+  // rule `streamedTurnTransport` states for its own records.
+  recordStreamedTerminalIngest({
+    payload,
+    parsed: result,
+    statusCode: outcome.statusCode,
+    durationMs: Date.now() - streamStartedAt,
+    headers,
+  })
 
   // ═══ ADVERSARIAL REVIEW F4 ══════════════════════════════════════════════
   // A 200 terminal frame that carries NO extractable `draft_graph` while a
@@ -4969,6 +4999,36 @@ export function useConversation(): UseConversationReturn {
                   scenarioId: scenarioIdAtDispatch,
                   briefText: message,
                 })
+                // ── What this draft had to leave out, kept where the register
+                // ── can read it — ROADMAP 2.1379.
+                //
+                // `model_building_notices` rides this same response and is
+                // already rendered on the bubble below. The REGISTER could not
+                // see it, so on a first session it refused ("I can't show this
+                // yet for this decision") while the chat two panels away
+                // displayed a count — one screen, two answers to one question.
+                // It cannot be closed by filling the manifest instead: at the
+                // pinned contract (0.55.0) `not_modelled` is not a declared key
+                // at all, and the manifest arrives only on the cold read, which
+                // answers `absent` for a decision this fresh.
+                //
+                // ⚠ THE SAME EXTRACTOR THE BUBBLE USES, not a second read of
+                // the field. One authority, asked twice (trap 12).
+                //
+                // ⚠ FAIL-CLOSED AT BOTH HOPS: the extractor returns null on an
+                // absent or malformed field and the spread below attaches
+                // nothing; the store refuses any write it cannot attribute to
+                // the decision it is already describing. Absence of the field
+                // means NO ATTESTATION WAS SUPPLIED — never "this draft left
+                // nothing out" — so nothing is written and the register keeps
+                // its unqualified refusal.
+                const draftNotices = extractModelBuildingNoticesSidecar(target.response)
+                if (draftNotices) {
+                  useContextIntegrityStore.getState().recordModelBuildingNotices({
+                    scenarioId: scenarioIdAtDispatch,
+                    notices: draftNotices,
+                  })
+                }
               }
               if (import.meta.env.DEV) {
                 console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
@@ -5948,7 +6008,25 @@ export function useConversation(): UseConversationReturn {
       recordCrossSurfaceEvent({
         eventType: event.type,
         summary: typeof event.payload?.summary === 'string' ? event.payload.summary : event.type,
-        payloadSummary: event.payload,
+        // ⚠⚠ THE USER'S STATED REASON NEVER ENTERS DEBUG STATE.
+        //
+        // schemas 0.55.0 widened R-004 to permit PERSISTING a stated reason as
+        // authored user content. Its changelog is explicit that the widening
+        // "does not license re-emitting the text into telemetry or logs, which
+        // is the half of R-004 that still stands" — so `statement`, which may
+        // contain PII, is dropped here while the event's IDENTITY is kept.
+        //
+        // ⚠ WHY IT IS REDACTED THOUGH `crossSurfaceEvents` HAS NO READER TODAY.
+        // Derived, with a contrast control, at this tip: `getCrossSurfaceEvents`
+        // occurs exactly ONCE in the tree — its own definition — so the list is
+        // write-only. Its SIBLING `getUserActions`, declared eleven lines above
+        // it in the same module, is read by `debug/utils/exportBundle.ts` and
+        // ships in a bundle a user can download and send on. The distance
+        // between "no reader" and "in a downloadable artefact" is one import in
+        // a module where that import already exists for the neighbouring API.
+        // Relying on the absence of a reader is relying on a fact nothing
+        // enforces; dropping the field is enforced by construction.
+        payloadSummary: redactStatedReason(event.payload),
       })
 
       // Return the outcome so a caller can distinguish DISPATCHED from

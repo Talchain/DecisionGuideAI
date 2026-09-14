@@ -227,6 +227,17 @@ function labelEl(container: HTMLElement): HTMLElement {
 }
 
 const labelText = (c: HTMLElement) => labelEl(c).textContent ?? ''
+
+/**
+ * The CLAIM alone — the span that owns the band words, without the chip's other
+ * rows. `labelText` above reads the whole CONTAINER, so it also picks up the
+ * unconfirmed-strength marker that now rides beside the claim
+ * (`StyledEdge.strengthSettlementDisclosure.spec.tsx`). Reading the claim from
+ * its own element keeps this file's pins measuring the thing they are about.
+ */
+const labelClaim = (c: HTMLElement) =>
+  (labelEl(c).querySelector('[data-testid="edge-influence-label-text"]') as HTMLElement | null)
+    ?.textContent ?? ''
 const labelTooltip = (c: HTMLElement) => labelEl(c).getAttribute('title') ?? ''
 const labelAria = (c: HTMLElement) => labelEl(c).getAttribute('aria-label') ?? ''
 
@@ -401,7 +412,21 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
      * "88% confident" from the live one. The qualifier is gone because the
      * likelihood is known, not because the gate was loosened.
      */
-    expect(labelText(container)).toBe('Moderate drag')
+    // ⚠ READ FROM THE CLAIM'S OWN SPAN, NOT THE CHIP. This assertion is
+    // UNCHANGED in strength — still exact equality on the band words — but it
+    // used to read the whole container, and the container gained a second row.
+    //
+    // ⛔ AND THE ROW IT GAINED IS NOT A LOOSENING OF THIS GATE. `SET_WIRE` is a
+    // real CEE draft edge: a producer supplied its strength and no human has
+    // settled it, so the line now discloses it as an unconfirmed estimate the
+    // way the risk and outcome cards already did. The claim itself is
+    // deliberately untouched — pinned here, and the disclosure pinned beside it
+    // so this pair cannot be "tidied" back into a single loose substring match.
+    expect(labelClaim(container)).toBe('Moderate drag')
+    expect(
+      labelEl(container).querySelector('[data-testid="estimate-marker"]'),
+      'a producer-sourced, human-unsettled strength lost its unconfirmed marker',
+    ).not.toBeNull()
   })
 
   it('PRECONDITION: the SET fixture carries a producer-stamped likelihood', () => {

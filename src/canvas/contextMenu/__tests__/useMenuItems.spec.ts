@@ -5,6 +5,8 @@ import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget, MenuItemDef, Menu
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../../domain/edges'
+import { NodeTypeEnum, type NodeType } from '../../domain/nodes'
+import { CHALLENGE_KINDS, buildChallengeTooltip } from '../actions'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -35,7 +37,29 @@ vi.mock('../../store', () => {
   }
 })
 
-vi.mock('../actions', () => ({
+/**
+ * ⚠ THIS MOCK WAS A HAND-MAINTAINED ALLOWLIST, AND IT BIT ON 8 Sep 2026.
+ *
+ * A `vi.mock` factory REPLACES the module. This one listed the thirteen action
+ * FUNCTIONS the menu calls, which was fine while `actions.ts` exported nothing
+ * else the menu reads. The moment `useMenuItems` also read `CHALLENGE_KINDS`
+ * and `buildChallengeTooltip` from it, both arrived `undefined` and every node
+ * menu case threw — the estate's dominant defect (a list a human must remember
+ * to sync), in the mock written to isolate the thing being tested.
+ *
+ * It is now `importOriginal`-spread: the real module first, the side-effecting
+ * mutation actions stubbed over it by name. So a NEW export is visible here by
+ * construction, and the copy this file asserts on comes from the real producer
+ * rather than from a fixture that could drift from it. The stubs stay because
+ * these tests assert menu SHAPE, and letting `deleteAction` &c. run would drive
+ * the store.
+ *
+ * Note the direction of the original failure: it was loud (a throw), not green.
+ * The version of this that reads green is a mock listing a PREDICATE the code
+ * later stops using — so keep the spread, not a longer list.
+ */
+vi.mock('../actions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../actions')>()),
   deleteAction: vi.fn(),
   addNodeAction: vi.fn(),
   addConnectedFactorAction: vi.fn(),
@@ -94,26 +118,54 @@ describe('pane menu', () => {
     expect(ids).toContain('ask-ai-pane')
     expect(ids).toContain('auto-arrange')
     expect(ids).toContain('toggle-view-mode')
-    expect(ids).not.toContain('add-node')
-    expect(ids).not.toContain('paste')
-    expect(ids).not.toContain('undo')
-    expect(ids).not.toContain('redo')
+    // ⭐⭐ BOTH FIXES KEPT (rebase, 13 Sep 2026).
+    // #1538: `add-node` is NOT a local semantic write — its writer captures a
+    // durable `structural_add`, so `canvasNodeAddWithServerHash` is
+    // `server_graph` and the door RENDERS. #1304: the keyboard-reachable
+    // gestures are SURFACED AS DISABLED ROWS WITH A REASON rather than deleted,
+    // so the property for those is "not actionable", not "not present".
+    // Taking either side wholesale loses the other: #1304 alone re-hides the
+    // door, #1538 alone restores the silence.
+    expect(ids).toContain('add-node')
+    for (const id of ['paste', 'undo', 'redo']) {
+      expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
   })
 
-  it('does not mount paste even when the clipboard state would disable it', () => {
+  it('mounts paste as disabled-with-a-reason rather than deleting it', () => {
+    // The clipboard is null in this fixture, so paste would be disabled anyway.
+    // What matters is that the row EXISTS and carries a reason: a user who
+    // pressed ⌘C then found no Paste at all could not tell "constrained" from
+    // "broken", which is the defect this replaced.
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const paste = findItem(result.current, 'paste')
-    expect(paste).toBeUndefined()
+    expect(paste).toBeDefined()
+    expect(paste!.enabled).toBe(false)
+    expect(paste!.disabledReason).toBeTruthy()
   })
 
-  it('does not leak any nested add-node actions', () => {
+  /**
+   * ⚠⚠ THIS TEST USED TO ASSERT THE OPPOSITE, AND THE REVERSAL IS DELIBERATE.
+   * It read "does not leak any nested add-node actions" and pinned BOTH the
+   * parent and every `add-node-*` child as absent. That was a correct pin on a
+   * gesture with no durable carrier, and it silently became the thing keeping a
+   * built capability dark once `structural_add` landed: a user could delete,
+   * copy and rename their own model and could not add anything to it
+   * (deployed `fec043bf`, 13 Sep 2026, seven probes).
+   *
+   * The claim is inverted rather than deleted, so the overturned assertion is
+   * visible to whoever reads this next. Its full replacement — the six kinds by
+   * name, the wire-persistability derivation, the carrierless neighbours, and
+   * the contrast control — is `paneAddNodeDurableDoor.spec.tsx`.
+   */
+  it('mounts the nested add-node actions, because their carrier is durable', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
-    expect(getAllItemIds(result.current)).not.toContain('add-node')
-    expect(getAllItemIds(result.current).some(id => id.startsWith('add-node-'))).toBe(false)
+    expect(getAllItemIds(result.current)).toContain('add-node')
+    expect(getAllItemIds(result.current).some(id => id.startsWith('add-node-'))).toBe(true)
   })
 })
 
@@ -139,11 +191,16 @@ describe('factor node menu (full)', () => {
     expect(ids).toContain('explore')
     expect(ids).toContain('copy')
     expect(ids).toContain('delete')
+    // ⚠ SHAPE CHANGED 7 Sep 2026: the keyboard-reachable gestures are now
+    // SURFACED as disabled rows with a reason instead of deleted, so the
+    // property asserted here is "not actionable", not "not present". Which ids
+    // are surfaced vs hidden is pinned in `menuSaysWhyUnavailable.spec.ts`.
     expect(ids).not.toContain('set-value')
     expect(ids).not.toContain('add-connected-factor')
     expect(ids).not.toContain('mark-assumption')
-    expect(ids).not.toContain('cut')
-    expect(ids).not.toContain('duplicate')
+    for (const id of ['cut', 'duplicate']) {
+      expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
   })
 
   it('Ask AI has Explain and Challenge submenu items', () => {
@@ -170,23 +227,57 @@ describe('decision node menu (reduced)', () => {
     kind: 'node', nodeId: 'd1', nodeType: 'decision', node, screenPos: { x: 0, y: 0 },
   }
 
-  it('does NOT include explore, set value, or trace to goal', () => {
+  /**
+   * ⭐ THE NON-WIDENING GUARD, and the reason challenge got its own Set.
+   *
+   * The obvious way to give a Question node "Challenge this" was to add
+   * `decision` to `FULL_MENU_KINDS`. That Set gates FOUR things, so it would
+   * also have handed this node Explore, Set value (Best case / Worst case /
+   * Reset to observed) and Mark as assumption — controls for a kind that has no
+   * range and no observed value, which would render permanently disabled.
+   *
+   * This case is what REDs if a later change reaches for that shortcut.
+   */
+  it('does NOT include explore, set value, trace to goal, or mark as assumption', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
     expect(ids).not.toContain('explore')
     expect(ids).not.toContain('set-value')
+    expect(ids).not.toContain('mark-assumption')
   })
 
-  it('Ask AI only has Explain (no Challenge)', () => {
+  /**
+   * A team must be able to argue with the QUESTION it is answering. Staging
+   * `80ccf768` withheld it: decision carried ask · inspect · menu only.
+   */
+  it('Ask AI has both Explain and Challenge', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const askAI = findItem(result.current, 'ask-ai')
     const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
     expect(subIds).toContain('ask-ai-explain')
-    expect(subIds).not.toContain('ask-ai-challenge')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
+
+  /**
+   * The tooltip must be true for the kind it is shown on. The shipped string
+   * says "argue against this element's current setup" — a Question has no
+   * setup, it has a framing. Bound to the decision entry by identity (the item
+   * id), not by position in the submenu.
+   */
+  it('offers a tooltip about the framing, not about a "current setup"', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const challenge = askAI?.submenuItems?.find(
+      (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
+    )
+    expect(challenge?.tooltip).toBe('Ask AI to argue this is the wrong question to be asking')
+    expect(challenge?.tooltip).not.toContain('current setup')
   })
 
   it('withholds add connected factor without a receipt-bearing carrier', () => {
@@ -195,6 +286,121 @@ describe('decision node menu (reduced)', () => {
     )
     const ids = getItemIds(result.current)
     expect(ids).not.toContain('add-connected-factor')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Challenge — the menu is pinned to the producer, across every kind
+// ---------------------------------------------------------------------------
+
+describe('challenge gate — the menu offers it for exactly the kinds the producer admits', () => {
+  /**
+   * The per-kind blocks above each assert a fixed expectation for one kind, so
+   * none of them can see the menu and the producer DRIFTING APART — the same
+   * hole measured in the hover row's spec, and closed there the same way.
+   *
+   * Derived on both sides and walking every member of `NodeTypeEnum`, so a
+   * newly-minted kind is covered the day it is added. Its own precondition is
+   * pinned: both classes must be non-empty, or the comparison is satisfiable by
+   * a menu that offers challenge everywhere or nowhere.
+   */
+  it('across every NodeTypeEnum member, with no hand-listed kinds', () => {
+    const admitted: NodeType[] = []
+    const withheld: NodeType[] = []
+
+    for (const kind of NodeTypeEnum.options) {
+      const node = {
+        id: `n-${kind}`, type: kind, position: { x: 0, y: 0 },
+        data: { label: 'Anything', kind },
+      } as Node
+      const target: NodeTarget = {
+        kind: 'node', nodeId: `n-${kind}`, nodeType: kind, node, screenPos: { x: 0, y: 0 },
+      }
+      const { result } = renderHook(() =>
+        useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+      )
+      const askAI = findItem(result.current, 'ask-ai')
+      const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+      ;(subIds.includes('ask-ai-challenge') ? admitted : withheld).push(kind)
+    }
+
+    expect(admitted.length).toBeGreaterThan(0)
+    expect(withheld.length).toBeGreaterThan(0)
+    expect(new Set(admitted)).toEqual(new Set(CHALLENGE_KINDS))
+  })
+
+  /**
+   * And the tooltip, likewise derived: every offered kind's tooltip must be the
+   * string the producer builds for that kind. A menu that reverted to one fixed
+   * literal REDs here on the three kinds whose copy differs.
+   */
+  it('shows the producer\'s tooltip for each admitted kind', () => {
+    for (const kind of NodeTypeEnum.options) {
+      if (!CHALLENGE_KINDS.has(kind)) continue
+      const node = {
+        id: `n-${kind}`, type: kind, position: { x: 0, y: 0 },
+        data: { label: 'Anything', kind },
+      } as Node
+      const target: NodeTarget = {
+        kind: 'node', nodeId: `n-${kind}`, nodeType: kind, node, screenPos: { x: 0, y: 0 },
+      }
+      const { result } = renderHook(() =>
+        useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+      )
+      const askAI = findItem(result.current, 'ask-ai')
+      const challenge = askAI?.submenuItems?.find(
+        (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
+      )
+      expect(challenge?.tooltip).toBe(buildChallengeTooltip(kind))
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Node menu — option
+// ---------------------------------------------------------------------------
+
+describe('option node menu', () => {
+  const node = {
+    id: 'o1', type: 'option', position: { x: 0, y: 0 },
+    data: { label: 'Enter via partnership', kind: 'option' },
+  } as Node
+  const target: NodeTarget = {
+    kind: 'node', nodeId: 'o1', nodeType: 'option', node, screenPos: { x: 0, y: 0 },
+  }
+
+  /** The choices on the table are the other thing a team most wants to
+   *  contest, and staging withheld it. */
+  it('Ask AI has both Explain and Challenge', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+    expect(subIds).toContain('ask-ai-explain')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
+
+  it('names the option in its tooltip rather than an "element\'s current setup"', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const challenge = askAI?.submenuItems?.find(
+      (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
+    )
+    expect(challenge?.tooltip).toBe('Ask AI to argue against this option')
+  })
+
+  /** Same non-widening guard as the decision block: challenge arrives without
+   *  the range-shaped controls an option has no values for. */
+  it('still does NOT include explore or set value', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const ids = getItemIds(result.current)
+    expect(ids).not.toContain('explore')
+    expect(ids).not.toContain('set-value')
   })
 })
 
@@ -210,6 +416,22 @@ describe('constraint node menu', () => {
   const target: NodeTarget = {
     kind: 'node', nodeId: 'c1', nodeType: 'constraint', node, screenPos: { x: 0, y: 0 },
   }
+
+  /**
+   * Constraint is included on the strength of its own schema, not by analogy:
+   * `ConstraintNodeDataSchema` carries `constraintType`, `thresholdValue`,
+   * `unit` and `hardConstraint`, so it has more genuinely challengeable setup
+   * than a goal — which already ships the control.
+   */
+  it('Ask AI has both Explain and Challenge', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+    expect(subIds).toContain('ask-ai-explain')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
 
   it('does NOT include add connected factor or mark as assumption', () => {
     const { result } = renderHook(() =>
@@ -318,8 +540,13 @@ describe('multi-select menu', () => {
     expect(ids).toContain('ask-ai')
     expect(ids).toContain('copy')
     expect(ids).toContain('delete')
-    expect(ids).not.toContain('cut')
-    expect(ids).not.toContain('duplicate')
+    // ⚠ SHAPE CHANGED 7 Sep 2026: the keyboard-reachable gestures are now
+    // SURFACED as disabled rows with a reason instead of deleted, so the
+    // property asserted here is "not actionable", not "not present". Which ids
+    // are surfaced vs hidden is pinned in `menuSaysWhyUnavailable.spec.ts`.
+    for (const id of ['cut', 'duplicate']) {
+      expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
   })
 })
 
@@ -407,13 +634,21 @@ describe('central context-menu authority audit', () => {
       edge: { id: 'e1', source: 'f1', target: 'g1', data: {} } as Edge<EdgeData>,
     } as EdgeTarget,
     { kind: 'multi', nodeIds: ['f1'], edgeIds: [], screenPos: { x: 1, y: 2 } } as MultiTarget,
-  ])('recursively excludes every local semantic action for $kind targets', target => {
+  ])('never makes a local semantic action ACTIONABLE for $kind targets', target => {
+    // ⚠ THIS ASSERTION CHANGED SHAPE ON PURPOSE (7 Sep 2026). It used to demand
+    // every local-semantic id be ABSENT. Absence was never the property worth
+    // guarding — it is what made the canvas look broken rather than
+    // constrained. The property that actually matters is that none of them is
+    // ACTIONABLE, which is what a missing writer requires, and which holds
+    // whether the id is hidden or surfaced as a disabled row.
+    // Which ids are surfaced vs hidden is pinned in `menuSaysWhyUnavailable.spec.ts`.
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const mounted = new Set(getAllItemIds(result.current))
     for (const forbidden of LOCAL_SEMANTIC_CONTEXT_MENU_IDS) {
-      expect(mounted.has(forbidden), `${forbidden} mounted for ${target.kind}`).toBe(false)
+      const item = findItem(result.current, forbidden)
+      expect(item?.enabled ?? false, `${forbidden} is actionable for ${target.kind}`).toBe(false)
     }
     expect(mounted.has('delete')).toBe(target.kind !== 'pane')
   })

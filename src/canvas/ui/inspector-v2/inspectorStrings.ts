@@ -422,6 +422,20 @@ export const INLINE_LABELS = {
   sensitiveAssumption: 'Sensitive assumption',
   flipRisk:     '{pct}% flip risk',
   strengthQuestion: 'How strong is this effect?',
+  /**
+   * ⭐ THE DRAWN-LINK VARIANT. It STATES THE PRECONDITION AND PROMISES NO
+   * OUTCOME, which is the register UI #1540 arrived at after three drafts: the
+   * sender has no revert lifecycle, so "the edge is SENT" is honest and "the
+   * edge is SAVED" is not. Naming what the link NEEDS is true whatever the
+   * transport then does.
+   */
+  strengthQuestionForSave:
+    'How strong is this effect? This connection needs one before it can be sent to the model.',
+  // ⛔ "SENT", NOT "REACH". A draft said "reach the model" — and reaching is
+  // ARRIVAL, not dispatch, which is the same overclaim this file's sibling
+  // comment refuses ("the edge is SENT, never SAVED"). It is also precisely what
+  // the open acceptance test exists to decide, so asserting it here would be
+  // claiming the result in advance. "Sent" is true under BOTH outcomes.
   existenceQuestion: 'Does this connection exist?',
   strengthUncertainty: 'Strength uncertainty',
   contributesToGoal: 'Contributes to your goal',
@@ -521,6 +535,21 @@ export const ACTION_LABELS = {
   seeAllDrivers: 'See all drivers',
   compareOptions: 'Compare all options',
   confirmCurrentStrength: 'Confirm this estimate',
+  /**
+   * ⛔ DELIBERATELY NOT "Updated" AND DELIBERATELY NOT A TICK. Confirming sends
+   * a statement; only CEE can record it. The previous copy claimed the act had
+   * landed at the instant of the click, on the one path where it was in fact
+   * being refused. This says exactly what is true at that moment.
+   */
+  strengthConfirmSent: 'Sent to Olumi',
+  /**
+   * ⛔ THE STATE THAT WAS SILENT. `no_carrier` means this session has no
+   * conversation to send through — a fact about the RENDER CONTEXT, not about the
+   * edge, so no gate over edge data can eliminate it. Saying nothing there is
+   * PERMANENT silence at a control the person just pressed. Wording follows
+   * `FactorControllablePanel:840-846`, which already states all three outcomes.
+   */
+  strengthConfirmNotSent: 'Not sent to Olumi',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────
@@ -540,7 +569,19 @@ export const ASK_TEMPLATES: Record<string, string> = {
   'factor-observable':   'What would happen if {label} changed?',
   'factor-external':     'How sensitive are the results to {label}?',
   edge:                  'Explain the relationship between {sourceLabel} and {targetLabel}',
-  option:                'How does {label} compare to the other options?',
+  /**
+   * ⛔ NOT "how does this compare to the other options?", which is what shipped
+   * until now. That sentence asks the product to rank one option against the
+   * rest — the race framing Paul has ruled out repeatedly, and a conclusion the
+   * product is not entitled to state. The user clicked ONE option; the three
+   * questions we ARE entitled to answer about it are the expected outcome, the
+   * width of the uncertainty, and what would have to change for that to move.
+   *
+   * The closing clause is deliberate: the ask ends by handing judgement back to
+   * the user rather than substituting for it. Humans remain the authors.
+   */
+  option:
+    'For {label}, what outcome does this model currently expect, how wide is the uncertainty, and what would have to change for that expectation to move? Say which of those assumptions are mine to judge.',
   outcome:               'What drives {label} the most?',
   risk:                  'How can we reduce {label}?',
   decision:              'What are the key trade-offs in {label}?',

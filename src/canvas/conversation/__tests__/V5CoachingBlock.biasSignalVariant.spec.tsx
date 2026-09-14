@@ -154,8 +154,23 @@ describe('InlineBlocks routing — one component, two variants', () => {
     render(<InlineBlocks blocks={[BIAS_BLOCK, OTHER_COACHING_BLOCK]} />)
     expect(screen.getAllByTestId('bias-signal-card')).toHaveLength(1)
     expect(screen.getAllByTestId('v5-coaching')).toHaveLength(1)
-    // The non-bias coaching block still renders its own producer copy.
-    expect(screen.getByTestId('v5-coaching-title')).toHaveTextContent('An assumption to check')
+    /*
+      The non-bias coaching block still renders its own producer copy.
+
+      ⚠ PIN MOVED, NOT WEAKENED (compact coaching lines). This asserted
+      `getByTestId('v5-coaching-title')`. Inside a `CoachingLine` the card no
+      longer prints its own title row — the line's `<summary>` renders it, from
+      the same `block.title`, so printing both showed the title twice. The claim
+      here is unchanged and is deliberately re-bound to the SCREEN rather than to
+      that card-internal testid: the producer's title must be on screen for this
+      block. Asserted through the line's own summary testid, so it still fails if
+      the title stops rendering anywhere. The card-internal testid remains pinned
+      by V5CoachingHierarchy.spec.tsx and V5Phase3Blocks.spec.tsx, which mount the
+      card directly and therefore still see the header.
+    */
+    expect(
+      screen.getByTestId(`coaching-line-summary-${OTHER_COACHING_BLOCK.block_id}`),
+    ).toHaveTextContent('An assumption to check')
   })
 })
 

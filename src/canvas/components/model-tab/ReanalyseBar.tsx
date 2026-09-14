@@ -162,7 +162,18 @@ export function ReanalyseBar({
   // instead of asserting a change. You can be honestly unsure AND still offer
   // the button.
   const heldUnsure = importHold && semantic === 'cannot_confirm'
-  if (semantic !== 'changed' && !heldUnsure) return null
+  /**
+   * ⭐ NEVER RUN — THE AFFORDANCE STAYS, THE CLAIM GOES. This bar is this
+   * surface's ONLY run control (`shellContract.ts` gives both `diagnostics` and
+   * `analysisNew` `footerBar: 'reanalyse'`), so returning null here would take
+   * the Reasoning tab's only way to START an analysis with it — the exact
+   * ROADMAP 2.129 (a) regression this file's header records, re-opened from the
+   * other side. The header's own rule decides it: "You can be honestly unsure
+   * AND still offer the button." A model with no completed run is the strongest
+   * case of that — we are not unsure, we simply have nothing to be stale.
+   */
+  const neverRun = semantic === 'never_run'
+  if (semantic !== 'changed' && !heldUnsure && !neverRun) return null
 
   // The gate's verdict, and the gate's own sentence. Both arrive from the shell;
   // neither is recomputed. `blockedSentence` goes through the shared
@@ -212,14 +223,16 @@ export function ReanalyseBar({
     <div
       className="bg-panel border-t border-warning/30 px-3 py-2 flex items-center justify-between gap-2"
       data-testid="reanalyse-bar"
-      data-reason={heldUnsure ? 'import-unregistered' : 'model-changed'}
+      data-reason={neverRun ? 'never-run' : heldUnsure ? 'import-unregistered' : 'model-changed'}
       role="status"
       aria-live="polite"
     >
       <span className={`${typography.panelMeta} text-text-light flex-1 min-w-0`}>
-        {heldUnsure
-          ? "Can't confirm this analysis matches the current model."
-          : 'Model changed. Results may be out of date.'}
+        {neverRun
+          ? 'This model has not been analysed yet.'
+          : heldUnsure
+            ? "Can't confirm this analysis matches the current model."
+            : 'Model changed. Results may be out of date.'}
         {/* ⚠ TEXT, NOT ONLY A `title`. A tooltip is unreachable by touch and by
             keyboard, so a reason that exists only on hover is not a reason the
             user can reach. The `title` below is kept as well, for parity with
@@ -258,7 +271,11 @@ export function ReanalyseBar({
         {/* The sibling's ANALYSING arm, which the first cut left behind while
             taking its two expressions: a control disabled with no title, no
             subline and an unchanged label reads as broken rather than busy. */}
-        {isAnalysing ? 'Analysing…' : 'Re-analyse'}
+        {/* ⚠ "Re-analyse" PRESUPPOSES A PRIOR RUN. On a model that has never
+            been analysed the prefix is a small, constant lie in the one control
+            the user needs, so the label follows the same fact the headline does
+            rather than being spelled from a second derivation. */}
+        {isAnalysing ? 'Analysing…' : neverRun ? 'Analyse' : 'Re-analyse'}
       </button>
     </div>
   )

@@ -9,7 +9,31 @@
  * mirrors that failed exactly this way — a dead search prop, a dead `isContested`
  * prop, and a hand-copied band-threshold table (design §2, F3/F12).
  *
- * NOTHING HERE IS MOUNTED. See `types.ts` for the directory-level statement.
+ * ⚠⚠ THIS FILE USED TO SAY "NOTHING HERE IS MOUNTED. See `types.ts` for the
+ * directory-level statement." BOTH HALVES WERE WRONG, and the second is the
+ * instructive one: `types.ts` — the very file it sent the reader to for
+ * authority — has said **"MOUNTED since the 16 Aug 2026 mount train"** since
+ * that train landed. A pointer to a contradicting authority reads as
+ * corroboration, because nobody follows it.
+ *
+ * ⭐ MOUNTED, AND TRACED RATHER THAN ASSERTED. `OutputsDock` renders
+ * `ModelTabBody` when `activeTab === 'diagnostics'`; `ModelTabBody:931` renders
+ * `ModelTabV2Panel`; and this module has five live importers, two of them on
+ * that path — `ModelTabV2Panel.tsx:85` (`REPAIR_QUEUE`) and `ModelOutline.tsx:40`
+ * (`GROUP_TITLE`), plus `ModelRowView`, `ModelDetailRegion` and
+ * `RepairQueueList`. Every label and glyph defined below is on a user's screen.
+ *
+ * ⚠ IT WAS A BANNER FROM BEFORE THE MOUNT TRAIN THAT NOBODY SWEPT — the same
+ * hand-maintained-mirror defect this file's own header goes on to warn about,
+ * sitting in the header that warns about it. The cost is not cosmetic: a
+ * sentence telling the next session that a live surface is dead is how a live
+ * surface stops being improved, and how its vocabulary gets "tidied away".
+ *
+ * ⚠ ONE NEIGHBOURING NOT-MOUNTED CLAIM IS TRUE AND IS NOT THIS ONE.
+ * `__tests__/inputsStayAtMinimumSize.spec.ts` excepts `InlineEdit` because ITS
+ * call sites are the V1 sections, which `ModelTabBody` renders inside
+ * `{LEGACY_DETAILED_EDITOR_MOUNTED && (` with that constant hardcoded `false`.
+ * Two directories, two different answers; do not reconcile them.
  */
 
 import type {
@@ -53,10 +77,6 @@ function formatDeferralDate(iso: string): string {
 }
 
 /**
- * The seven group headings, mapping 1:1 onto the brief's IA (design §4.1).
- * Total over `ModelGroupId` — a new group cannot render as an untitled section.
- */
-/**
  * THE FOUR REPAIR QUEUES, TOTAL BY CONSTRUCTION (design §5.3).
  *
  * ⚠ A `Record` over `RepairQueue['id']`, for the same reason as every other map
@@ -98,14 +118,22 @@ export const REPAIR_QUEUE: Record<RepairQueue['id'], RepairQueue> = {
   },
 }
 
+/**
+ * The group headings, mapping onto the brief's IA (design §4.1). Total over
+ * `ModelGroupId` — a new group cannot render as an untitled section.
+ *
+ * ⭐ 'Assumptions & provenance' AND 'Evidence & review state' WERE REMOVED
+ * (9 Sep 2026) with their group ids: no producer could ever put a row under
+ * either heading, so both were headings over a permanent "Nothing in this group
+ * yet". See `types.ts`'s `MODEL_GROUP_IDS` for the derivation and for what
+ * replaced the one affordance that lived there.
+ */
 export const GROUP_TITLE: Record<ModelGroupId, string> = {
   goal: 'Goal',
   options: 'Options',
   factors: 'Factors',
   'outcomes-risks': 'Outcomes & risks',
   relationships: 'Relationships',
-  'assumptions-provenance': 'Assumptions & provenance',
-  'evidence-review': 'Evidence & review state',
 }
 
 /**
@@ -180,9 +208,33 @@ export function labelIsTypeDefault(row: { kind: ModelElementKind; label: string 
   return row.kind === 'decision' && row.label.trim() === DECISION_NODE_LABEL
 }
 
-/** What a placeholder name says it is, for hover and assistive tech. */
+/**
+ * What a placeholder name says it is, for hover and assistive tech.
+ *
+ * ⚠⚠ IT SAYS WHAT THE CLICK DOES, AND IT USED TO SAY SOMETHING ELSE. This read
+ * "Your question is not written yet — open this to write it." and was wrong
+ * twice over, measured at `bdf4fb89`:
+ *
+ *   · Clicking THAT VERY LABEL opens nothing. `ModelRowView.tsx`'s label button
+ *     does `e.stopPropagation(); onFocusOnCanvas?.(row.id)` — which reaches
+ *     `ModelTabV2Panel`'s `focusOnCanvas` → `focusNodeById` → `useFocusCamera`'s
+ *     `handleFocusNode`, i.e. `selectNodeWithoutHistory` + `setFocusDim` + a
+ *     conditional camera fit. It SELECTS AND HIGHLIGHTS THE NODE ON THE CANVAS.
+ *   · The detail region that a ROW click does open renders the label as a
+ *     read-only `<h3>` (`ModelDetailRegion.tsx:261`) with no writer in it — and
+ *     there is no label writer anywhere in this directory (zero across 17
+ *     non-test files, contrast control 34 app-wide).
+ *
+ * So the sentence promised a writer twice and the product has neither. It now
+ * names the one thing the click genuinely does. Where to write the question is
+ * a real gap and is deliberately left as one: per the standing ruling a gap is
+ * acceptable where a lie is not.
+ *
+ * ⚠ TWO SENTENCES, NO EM DASH — Paul's standing ruling on product content
+ * (10 Sep 2026). Pinned by a test.
+ */
 export const UNWRITTEN_QUESTION_TITLE =
-  'Your question is not written yet — open this to write it.'
+  'Your question is not written yet. This highlights it on the canvas.'
 
 export const ATTENTION_MARK: Record<AttentionReason, LucideIcon> = {
   'no-value': CircleDashed,
@@ -212,6 +264,6 @@ export const ATTENTION_LABEL: Record<AttentionReason, string> = {
   // being copied.
   'unconfirmed-estimate': UNCONFIRMED_ESTIMATE_LABEL,
   contested: 'Two passes disagree',
-  fragile: 'Could flip the result',
+  fragile: 'Could flip the answer',
   'missing-intervention': 'No target value for this option',
 }

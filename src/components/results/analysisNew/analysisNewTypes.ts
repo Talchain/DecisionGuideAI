@@ -23,6 +23,9 @@ import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../ty
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
+import type { NotAnalysedReason } from '../utils/notAnalysedOptions'
+import type { NamedMaterialParameter } from './materialParametersAwaitingUser'
+import type { OptionOrigin } from './optionOriginDisclosure'
 
 /**
  * How confident the SURFACE is entitled to sound — never an "AI confidence".
@@ -72,6 +75,16 @@ export interface InspectRow {
    * this content, under a green suite.
    */
   statement?: boolean
+  /**
+   * THE FACTOR THIS ROW'S SENTENCE ASKS THE READER TO SUPPLY A VALUE FOR.
+   *
+   * Present only where the producer's `field` addresses that node's
+   * `observed_state.value` — see `valueNodeIdFromWarning`, which refuses the
+   * ids that name a goal or a category. Absent means "this row names no
+   * single factor a value can be written to", and the renderer's rule is that
+   * such a row gets NO control rather than a disabled one.
+   */
+  nodeId?: string
 }
 
 /**
@@ -104,6 +117,31 @@ export interface AnalysisNewFinding {
   marker?: ProvisionalMarker
   /** Canvas focus target, when the producer named one. */
   targetId?: string
+  /**
+   * The exact model element this row's own sentence tells the reader to CHANGE,
+   * present only when the destination can actually serve that act.
+   *
+   * ⚠ DELIBERATELY NOT `targetId`, and they are not interchangeable. `targetId`
+   * moves the CAMERA and answers "where is this thing"; this answers "where do
+   * I go to change it", which is a different surface with its own eligibility.
+   * A row is routinely showable and not editable — folding the two would make
+   * every focusable row advertise an editor, which is the failure this field
+   * exists to avoid.
+   *
+   * Absent ⇒ no act renders. Never a disabled one: a control that cannot act is
+   * an advertisement, and the reader is better served by the sentence alone.
+   */
+  /**
+   * What the camera should FRAME — the edge, when one resolves, because a
+   * sensitivity sentence's subject is a RELATIONSHIP and `targetId` names only
+   * one of its endpoints. Absent ⇒ the camera falls back to `targetId`.
+   *
+   * ⛔ SEPARATE FROM `targetId` ON PURPOSE. `targetId` is a NODE-identity join
+   * read by `buildNodeInsights` into a node-keyed map; an edge id there is a
+   * key no node lookup can hit. One field cannot answer both questions.
+   */
+  focusTargetId?: string
+  reviewTargetId?: string
   /** Level 3 — inspect. Empty array renders no inspect affordance. */
   inspect: InspectRow[]
   intervention?: ContextualIntervention
@@ -434,6 +472,42 @@ export type ComparisonOption =
       /** `OptionResult.label`, verbatim. Never re-worded, never truncated here. */
       label: string
       /**
+       * ⭐⭐ WHOSE IDEA THIS OPTION WAS — and it is on EVERY member of the union,
+       * on purpose.
+       *
+       * ── THE DEFECT IT CLOSES (deployed build, measured) ────────────────
+       * The product invented a hybrid option the user never named. It ranked
+       * THIRD of four and nothing on the surface marked it as ours. The
+       * disclosure existed and was correct; it was computed for the LEADER
+       * ALONE (`buildAtAGlance`'s `optionOrigin`). On that run the leader was
+       * the user's own option, so the one channel that gets this right
+       * correctly answered "say nothing" — and every other row went unasked.
+       *
+       * ── IT IS THE GLANCE'S ANSWER, NOT A SECOND ONE ────────────────────
+       * Read from the SAME `nodeOrigins` map `buildAtAGlance` reads, by the
+       * same `id` join, in the same builder. A second derivation over the same
+       * nodes would be a SECOND AUTHORITY on one question, and this estate has
+       * already paid for that shape — #709 opened a permission channel and
+       * #737 gave the same question a second conjunct, after which the
+       * confirmation withheld a leader while the sentence beneath it named one
+       * (CLAUDE.md trap 21). One map, one join, two placements.
+       *
+       * ⚠ JOINED BY ID, NEVER BY LABEL (CLAUDE.md trap 19). Two options can
+       * share a label; a label join would attach one option's origin to
+       * another's name — the precise class of error this disclosure corrects.
+       *
+       * ⚠ REQUIRED, NOT OPTIONAL, for the reason `reason` is required below: an
+       * optional field invites a `?? null` at every new consumer, i.e. a
+       * surface quietly asserting nobody authored an option it never asked
+       * about. `null` here is a MEASURED silence — the common and correct
+       * answer — and the compiler makes a new reader say which it means.
+       *
+       * ⛔ NOTHING IS CLASSIFIED HERE. `canvas/domain/olumiAuthorshipClaim`
+       * owns "may the product claim this element as its own?", and the map is
+       * built from it. Do not re-express the predicate at this layer.
+       */
+      origin: OptionOrigin | null
+      /**
        * `formatProbabilityWithResolution(winProbability, nValidSamples)` — the
        * estate's display-honesty authority, NOT a local `Math.round`.
        *
@@ -480,6 +554,17 @@ export type ComparisonOption =
       id: string
       label: string
       /**
+       * Whose idea this option was — see the `'analysed'` member for the rule.
+       *
+       * ⚠ ON THIS MEMBER TOO, DELIBERATELY. Authorship is a fact about the
+       * OPTION; whether the run compared it is a fact about the RUN, and the
+       * two are independent. An option Olumi invented and the analysis left out
+       * is still Olumi's invention, and it is the row a reader is most likely
+       * to be puzzled by. Omitting the field here would have made the union's
+       * shape encode a dependency that does not exist.
+       */
+      origin: OptionOrigin | null
+      /**
        * `notAnalysedReasonCopy(reason)`, verbatim — the estate's single source
        * for what the results panel says about an unanalysed option. Carried as
        * a RESOLVED STRING rather than as a reason code so no component can
@@ -487,6 +572,28 @@ export type ComparisonOption =
        * `not_returned`) cannot silently collapse into one at a new call site.
        */
       reasonCopy: string
+      /**
+       * ⭐ THE GROUND ITSELF, beside the resolved sentence and never instead of
+       * it. `reasonCopy` answers *"what does the row SAY?"*; this answers
+       * *"which ground did the run state?"*, and only the second can be
+       * switched on.
+       *
+       * It exists because the act beside this row has to compose a QUESTION
+       * whose truth depends on the ground: `no_interventions` means nothing was
+       * ever computed about this option, `not_returned` means it was submitted
+       * and the run returned nothing. A question written from `reasonCopy`
+       * would have to re-parse a sentence to recover a fact the producer
+       * already stated — the re-derivation this estate keeps paying for.
+       *
+       * ⚠ REQUIRED, NOT OPTIONAL, AND THAT IS A CLAIM ABOUT THE PRODUCER.
+       * `deriveNotAnalysedReason` is total over the two-value union and
+       * `useResultsSectionData.ts:2227` sets the flag and the reason in one
+       * object literal, so a not-analysed option always carries its ground.
+       * Making this optional would invite a `?? 'not_returned'` at every new
+       * consumer, i.e. a surface silently asserting the analysis returned
+       * nothing for an option it may never have submitted.
+       */
+      reason: NotAnalysedReason
     }
   | {
       /**
@@ -513,6 +620,11 @@ export type ComparisonOption =
       kind: 'not_computed'
       id: string
       label: string
+      /**
+       * Whose idea this option was — see the `'analysed'` member for the rule,
+       * and the `'not_analysed'` member for why a numberless row carries it.
+       */
+      origin: OptionOrigin | null
       /**
        * `notComputedReasonCopy(producerReason)`, verbatim — resolved here for
        * the same reason `'not_analysed'`'s is: so no component can re-word it,
@@ -557,6 +669,31 @@ export interface OptionsComparisonSection {
    * difference as a plain count rather than silently shortening the list.
    */
   totalCount: number
+  /**
+   * ⭐⭐ MAY THIS SECTION DRAW A COMPARATIVE MAGNITUDE? — and it is THE GLANCE'S
+   * ANSWER, carried here, never a second one computed from the rows.
+   *
+   * ⚠ THE SAME VALUE, NOT AN AGREEING ONE. `buildAnalysisNewViewModel` assigns
+   * this from the very `glance.comparativeClaim` it puts on `atAGlance`, in one
+   * expression, so the two are the same value by construction rather than by two
+   * derivations happening to land together. That is the whole point: a second
+   * predicate over the same rows would be a SECOND AUTHORITY on whether a
+   * magnitude is licensed, and this estate has already paid for exactly that
+   * shape — #709 opened a permission channel and #737 gave the same question a
+   * second, display-scoped conjunct, after which the confirmation withheld a
+   * leader while the sentence beneath it named one (CLAUDE.md trap 21).
+   *
+   * ⚠⚠ AND IT IS THE SAME NAME ON PURPOSE. Renaming it here would read as a
+   * different question with a different answer, which is the drift the trap
+   * describes. One question, one name, one value.
+   *
+   * ⚠ WHAT IT DOES **NOT** GATE, stated so a later reader does not widen it. The
+   * per-option win READOUT, the badges, the producer's per-option sentence and
+   * the withheld-comparison sentence are all OWN-OPTION statements or copy with
+   * their own authorities, and none of them moves with this field. It governs
+   * the drawn FIGURE and nothing else.
+   */
+  comparativeClaim: GlanceComparativeClaim
 }
 
 /**
@@ -674,6 +811,24 @@ export interface SensitivitySection {
 
 export interface AnalysisNewViewModel {
   status: AnalysisNewStatus
+  /**
+   * ⭐⭐ MAY THIS RUN'S RANKING BE SPOKEN ABOUT AT ALL? `leaderDesignationPermitted
+   * (rec) === true`, computed ONCE and quoted — never re-derived downstream.
+   *
+   * ⚠ IT EXISTS SO A LEADER-RANKING MEMBER CAN BE GATED THE WAY THE PARKED TAB
+   * GATES IT, and the harm it guards is recorded in that tab's own words:
+   * *"CEE strips it on a withheld turn and its absence IS the withheld signal.
+   * The caveat's own presence must never be read as evidence that a ranking may
+   * be spoken about — that is how Authority 3 came to reconstruct a withheld
+   * leader and print 'X is slightly ahead' beside CEE's 'no option can be put
+   * forward yet'."*
+   *
+   * ⚠ REQUIRED, NEVER DEFAULTED, at every consumer. A default of `true` silently
+   * re-opens the claim for every future caller — the mirror-that-reads-green.
+   * And it is NOT `designationsWithheld`: that one carries an extra
+   * `rec.verdict != null` conjunct and answers a different question (trap 21).
+   */
+  leaderClaimPermitted: boolean
   atAGlance: AtAGlance
   /** ⭐ The two readings and whether they agree. Sits with the glance. */
   modelImplication: ModelImplication
@@ -711,6 +866,42 @@ export interface AnalysisNewViewModel {
   /** ⭐ What the run CHECKED — including the checks it did not make. */
   checks: ChecksSection
 }
+
+/**
+ * ⭐⭐ EVERY SECTION OF THIS PANEL THAT RENDERS `AnalysisNewFinding[]`, DERIVED
+ * FROM THE VIEW MODEL'S OWN TYPE RATHER THAN LISTED BY HAND.
+ *
+ * ⚠⚠ IT EXISTS BECAUSE A HAND-WRITTEN LIST OF EXACTLY THESE SECTIONS SHIPPED
+ * SHORT, AND THE SHORTFALL READ GREEN. The model strip's *"Nothing else on this
+ * panel refers to this node"* is a claim about the WHOLE panel; the list
+ * answering it named TWO of the FOUR. `GLANCE_DRIVER_COUNT` caps the glance's
+ * driver list at three while the Drivers section is uncapped, so on any run with
+ * four or more drivers the rank-4 node was told nothing referred to it while the
+ * Drivers section was naming it on screen. That is CLAUDE.md trap 12 exactly: a
+ * list a human must remember to sync WILL drift, and the drift always reads
+ * green.
+ *
+ * Resolves to `'keyInsights' | 'drivers' | 'uncertainty' | 'sensitivity'` at
+ * this head, and NOTHING NEEDS UPDATING WHEN THAT CHANGES. A new
+ * finding-bearing section widens this union automatically, and every
+ * `Record<AnalysisNewFindingSectionKey, …>` in the tree then FAILS TO COMPILE
+ * until it is covered. A comment promising completeness is what shipped the
+ * defect; a compiler error is the fail-loud mechanism that replaces it.
+ *
+ * ⚠ WHAT IT DOES NOT REACH, STATED RATHER THAN LEFT IMPLICIT. Sections whose
+ * rows are a DIFFERENT SHAPE are invisible to this by construction, and each
+ * would need its own derivation rather than this one: `optionsComparison`
+ * (`rows: ComparisonOption[]`), `strengthen` (`interventions: Recommendation[]`,
+ * already joined separately), `deeper` (`groups`/`critiques`/`caveats`) and
+ * `checks` (`items: ChecksItem[]`). None carries an `AnalysisNewFinding` join.
+ */
+export type AnalysisNewFindingSectionKey = {
+  [K in keyof AnalysisNewViewModel]-?: AnalysisNewViewModel[K] extends
+    | { findings: AnalysisNewFinding[] }
+    | { insights: AnalysisNewFinding[] }
+    ? K
+    : never
+}[keyof AnalysisNewViewModel]
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WHAT WE CHECKED — the trust readout, and the only surface that speaks for
@@ -853,6 +1044,40 @@ export interface GlanceDriver {
 export interface GlanceCondition {
   text: string
   targetId: string | null
+  /**
+   * ⭐⭐ THE PRODUCER'S OWN QUANTITY BEHIND `text`, PRESENT ONLY WHEN A NUMBER
+   * ACTUALLY SURVIVED INTO IT.
+   *
+   * `text` has THREE forms and only two of them carry a figure: "{label} passes
+   * {flip}", "{label} moves from {current} to {flip}", and — when neither a
+   * printable unit nor a `current_value` exists — "{label} changes materially",
+   * where the producer's number is DROPPED because the reader has nothing to
+   * place it against.
+   *
+   * ⚠⚠ THAT THIRD ARM IS WHY THIS FIELD IS NOT JUST A REPHRASING OF `text != null`.
+   * A consumer asking "did this run calculate a reversal condition I may quote
+   * a figure from?" cannot answer it from `text`, because all three arms are
+   * non-empty strings and only prose tells them apart. Reading the question off
+   * the sentence would be exactly the prose-matching this view model forbids.
+   * So the discriminator is carried as STRUCTURE: present ⇔ a figure is quotable.
+   *
+   * ⚠ IT INVENTS NOTHING AND IT CHOOSES NOTHING. Both strings are lifted from
+   * the SAME producer row `glanceCondition` already selected, formatted by the
+   * SAME formatter that composed `text`. There is no second chooser here — a
+   * consumer re-deriving "which flip row is the one" would be the two-choosers
+   * defect `selectFlipRisk`'s header exists to end.
+   *
+   * `null` (or absent) means: no figure may be quoted for this condition.
+   */
+  quantity?: GlanceConditionQuantity | null
+}
+
+/** The two producer strings a grounded question may name. Both verbatim. */
+export interface GlanceConditionQuantity {
+  /** `flip_thresholds[].label` — the factor the run named. */
+  factorLabel: string
+  /** `flip_value`, formatted exactly as `text` renders it. Never re-rounded. */
+  thresholdText: string
 }
 
 /**
@@ -911,6 +1136,20 @@ export type GlanceComparativeClaim =
   | 'value'
   /** A superlative or an ordering verdict renders, but no percentage. Sentence only. */
   | 'order'
+  /**
+   * A FLIP CONDITION renders and nothing else does. Sentence only.
+   *
+   * ⚠ ADDED 11 Sep 2026, ROADMAP 2.1340 row F — the FOURTH member of this list
+   * found by a review round, which is the finding. ISL derives the flip
+   * thresholds OVER THE CANDIDATE SET, exactly as it does `win_probability`
+   * and `rank`, so "Could change if X moves from 2 to 3" is a claim about the
+   * compared subset and reads as a claim about the user's whole option set.
+   *
+   * It takes the neutral sentence and NOT `detail`: a threshold puts no rank
+   * and no percentage on screen, so "ranks and comparative percentages
+   * describe those N only" would describe magnitudes that are not there.
+   */
+  | 'condition'
   /** Nothing set-dependent is on screen. Qualify nothing. */
   | 'none'
 
@@ -922,9 +1161,90 @@ export type GlanceComparisonScope =
   /** The candidate set cannot be established. The share is WITHHELD, not qualified. */
   | { kind: 'unresolved' }
 
+/**
+ * The object a withheld-designation sentence asks the reader to go and fix, when
+ * the producer's cause names one this build understands.
+ *
+ * ⚠ A UNION OF ONE IS DELIBERATE, NOT A BOOLEAN WAITING TO GROW. Naming the
+ * remedy keeps the meaning at the call site — `=== 'estimate'` reads as "this
+ * sentence asks for an estimate", where a boolean would read as "the button is
+ * on" and invite a second predicate beside it. The other reachable causes name an
+ * option or name no act; neither has a control to offer yet, and inventing copy
+ * for them here would be speculation rather than a product decision.
+ */
+export type GlanceWithheldRemedy = 'estimate'
+
 export interface AtAGlance {
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
+  /**
+   * ⭐ WHY THE HEADLINE IS ABSENT, IN THE PRODUCER'S OWN WORDS — the slot that
+   * makes a refusal legible. `heroTypes.ts:411-412` states the hazard this
+   * closes: "The withheld headline … is SILENCE, not a denial, and silence is
+   * indistinguishable from an ordinary run."
+   *
+   * Non-null ONLY when the model itself refused to license a comparative leader
+   * claim AND published the conjunct saying so. Three narrower statements, each
+   * load-bearing:
+   *
+   * 1. It is the `permitted_analysis_mode` conjunct, SELECTED BY `field` — never
+   *    `reasons[0]`, which on the live wire is the AFFIRMATIVE `READY_TO_COMPARE`
+   *    ("Analysis can run on this model as it stands"). `buildHeroModel.ts:952`
+   *    reads position and therefore renders the affirmative sentence into its
+   *    withheld slot; measured on staging `103ac4fd`, 2026-09-09.
+   * 2. It is `null` when the admission is ABSENT. Absence is not a refusal —
+   *    `invalidateAnalysisReady` nulls `ceeAnalysisReady` on every analytical
+   *    edit (`store.ts:1893-1904`), so this state is reached on the user's own
+   *    keystroke, measured live at +300ms after a factor edit.
+   * 3. It is `null` when the headline is absent for a DIFFERENT reason — arms
+   *    that did not separate. `leaderDesignationPermitted` is
+   *    `modelLicensesComparativeClaim && resultSeparatesArms`, so its falsity has
+   *    two causes and this field explains only the first. The second is a real
+   *    remaining gap, named rather than papered over.
+   */
+  designationWithheldReason: string | null
+  /**
+   * ⭐⭐ WHAT THE SENTENCE ABOVE ASKS THE USER TO GO AND DO — the field that
+   * decides whether an ACT may be offered beside it, and which one.
+   *
+   * `designationWithheldReason` being non-null says only that the model refused.
+   * It does NOT say why, and the causes that can fill that one slot prescribe
+   * DIFFERENT remedies: two of them name an estimate, one names an option, two
+   * name nothing at all. A surface that offers one fixed act under all of them
+   * tells some users to fix something that is not wrong — which is the precise
+   * harm CEE's cause split exists to prevent, and strictly worse than offering
+   * no act, because a futile instruction spends the reader's trust.
+   *
+   * `'estimate'` — and ONLY `'estimate'` — licenses the review-estimates control.
+   *
+   * ⛔ `null` IS THE FAIL-CLOSED DEFAULT AND MEANS "DO NOT OFFER AN ACT". It
+   * covers three different situations on purpose: the cause names some other
+   * object, the cause is one this build does not recognise, and the producer sent
+   * no `code` at all. None of them may inherit another cause's affordance. Do not
+   * read `null` as "no refusal" — that question is `designationWithheldReason`.
+   *
+   * Derived in `buildAnalysisNewViewModel`, off the SAME reason object the
+   * sentence comes from, so the act and the sentence cannot describe different
+   * conjuncts. Corpus and opposite-direction twins in
+   * `withheldReasonHasAMove.spec.tsx`.
+   */
+  designationWithheldRemedy: GlanceWithheldRemedy | null
+  /**
+   * WHICH parameters the refusal above is about, named — empty when the
+   * producer does not publish them, when the set is empty, or when anything
+   * about it is unreadable.
+   *
+   * ⛔ THE WHOLE SET OR NOTHING. The producer publishes these in GRAPH ORDER
+   * and ranks nothing, so a surface may render them as a set and may NEVER
+   * present a member as the one to do first. See
+   * `materialParametersAwaitingUser.ts` for why that is the binding constraint
+   * rather than a style preference.
+   *
+   * ⚠ ONLY POPULATED WHEN `designationWithheldRemedy === 'estimate'`. The other
+   * refusals do not ask for an estimate, and naming factors under them would
+   * prescribe a futile act — the same defect the remedy split exists to close.
+   */
+  designationWithheldParameters: readonly NamedMaterialParameter[]
   /**
    * The leading option's LABEL alone, so the surface can typeset the name as
    * the answer and choose its own framing verb. Same source as `headline`
@@ -1005,6 +1325,26 @@ export interface AtAGlance {
    * the other.
    */
   inputProvenance: GlanceInputProvenance | null
+  /**
+   * ⭐⭐ WHOSE OPTION IS WINNING — and it is a THIRD axis, named apart from the
+   * two above on purpose (CLAUDE.md trap 21).
+   *
+   * `condition` is the TIPPING POINT. `inputProvenance` is WHOSE FIGURES the run
+   * used, per FACTOR. This is WHOSE IDEA THE WINNER WAS, about one ELEMENT.
+   * Three producers, three questions; the product announced an option it had
+   * invented as the answer at 73% and none of the other two could say so.
+   *
+   * ⚠ IT IS NOT A SEVENTH `GlanceInputProvenance` KIND, AND THAT WAS THE
+   * TEMPTING WRONG MOVE. `inputProvenance` is ONE value rendered in ONE `<p>`,
+   * so a seventh kind is mutually exclusive with the other six: on exactly the
+   * runs where the leader was invented, the surface would STOP saying what the
+   * figures rested on. A separate field ADDS; a seventh kind DISPLACES.
+   *
+   * `null` means say nothing, and it is the common answer — the user's own
+   * option, an ambiguous stamp, an unstamped node, or no leader named at all.
+   * See `optionOriginDisclosure.ts` for the predicate and why it is CEE's.
+   */
+  optionOrigin: OptionOrigin | null
 }
 
 /**

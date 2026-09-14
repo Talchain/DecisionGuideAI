@@ -22,11 +22,16 @@
  * Boot alone cannot arm it — it arms on `running`, which is boot-declined — so
  * this needed its own repair rather than riding the boot fix.
  *
- * ⚠⚠ SCOPE, AND IT TRAVELS WITH THIS FIX EVERYWHERE:
- * REACHABLE IN CODE, CONDITIONAL ON A REFUSED BOOT, WHICH HAS NOT BEEN OBSERVED
- * LIVE. These tests prove that GIVEN a refused boot the harm follows. They do
- * NOT prove refused boots reach real users. And they are store-level: jsdom
- * cannot show the rendered sentence.
+ * ⚠⚠ SCOPE — CORRECTED. This header used to say the class was "REACHABLE IN
+ * CODE, CONDITIONAL ON A REFUSED BOOT, WHICH HAS NOT BEEN OBSERVED LIVE".
+ * **That is withdrawn.** The harm was WITNESSED on the deployed build (issue
+ * #1204) and NO REFUSED BOOT IS REQUIRED — see
+ * `hooks/__tests__/provisionalDelivery.optionIdentityContainment.spec.ts`,
+ * which reproduces the live starter-template shape. What THIS file still
+ * covers is narrower and unchanged: the REFUSED-BOOT route into the same
+ * class. These tests prove that given a refused boot the harm follows; they do
+ * NOT prove refused boots reach real users, and that residual is honest. They
+ * are store-level either way: jsdom cannot show the rendered sentence.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * TWO HARMS, PARAMETERISED SEPARATELY — the point of the whole change
@@ -342,6 +347,15 @@ describe('⭐ THE OTHER DOOR — an honest canvas still receives its verdict', (
 // MERGE REFUSAL DOES NOT CLEAR IT. So once any recorder has fired, the guards
 // read `true` and do not fire — and the defect this file exists to close
 // survives on that path.
+//
+// ⚠ NARROWED, NOT CLOSED, BY THE #1204 CONTAINMENT CONJUNCT. The supplier now
+// ALSO requires that CEE's readiness options be present on the canvas, which
+// closes the class wherever readiness is provably foreign. It does NOT close
+// this pin: the fixtures below carry no `ceeAnalysisReady`, containment fails
+// OPEN with no operands to compare, and the acceptance PROXY is still what
+// decides. The residual is exactly the one this block was written for — a
+// prior recorder defeating `lastAuthoritativeGraph` — and closing it still
+// needs state meaning "derives from a server-accepted graph".
 //
 // This block PINS that gap as an executing test rather than a comment or a
 // skip. Its two halves fail in opposite directions on purpose:

@@ -7,7 +7,7 @@
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { AlertTriangle, Check, Pencil } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { NODE_REGISTRY, isUnquantifiedPrior } from '../domain/nodes'
+import { NODE_REGISTRY, isUnquantifiedPrior, priorEndpointsAreNormalised } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { Tooltip } from '../components/Tooltip'
@@ -132,9 +132,11 @@ function describePrior(prior: unknown): PriorDisplay | null {
         // `setPriorRange(parsed, rangeMax ?? parsed)` unclamped, so a user
         // whose max is 1 typing 30 into min produces the first row verbatim.
         // Four limbs, because each endpoint needs both bounds.
-        normalised:
-          range_min >= 0 && range_min <= 1 &&
-          range_max >= 0 && range_max <= 1,
+        // ⭐ THE FOUR LIMBS NOW LIVE IN `domain/nodes`, because the factor
+        // card asks this same question and answered it differently — it
+        // derived a bound from the endpoints, which turned "is this off the
+        // scale?" into "is this above the range?". One owner, both surfaces.
+        normalised: priorEndpointsAreNormalised(range_min, range_max),
       }
     }
   }
@@ -636,7 +638,25 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isOptionNode && displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
         <div className="mt-3 pt-2 border-t border-panel-border">
           <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
-            <span className={`${typography.panelMeta} text-text-light`}>Win probability</span>
+            {/*
+             * ⚠ THE LABEL CARRIES THE FREQUENCY, BECAUSE THE VALUE CANNOT.
+             * `formatWinProbability` returns a BARE percentage — derived at the
+             * function, not from a comment about it: `labelUtils.ts` delegates to
+             * `formatProbabilityWithResolution(raw, undefined)`, which has FOUR
+             * output shapes — `63%` · `< 1%` (the shared floor, ROADMAP 2.236) ·
+             * `0%` · `—` (non-finite). A label that composes a sentence across
+             * the gap ("Scored highest in") therefore renders "Scored highest in
+             * —" on the fourth, which is worse than saying nothing.
+             * ⚠⚠ AND A BARE SUPERLATIVE HERE IS A PLACING. The 8 Sep ruling
+             * (`noWinnerVocabulary.spec.ts`) ratifies the COMPLETE phrase
+             * "scored highest in N% of runs" — every passing example carries the
+             * frequency clause. Naming the SHARE keeps the number the quantity of
+             * a named thing under all four outputs, including `—`.
+             * ⚠ THE GUARD CANNOT HOLD THIS FOR YOU: `noContestFraming.canvas.spec.ts`
+             * BANS phrases, it does not ENFORCE the ratified one. A bare
+             * "Scored highest" passes it completely clean — measured, not assumed.
+             */}
+            <span className={`${typography.panelMeta} text-text-light`}>Share of runs scoring highest</span>
             <span className={`${typography.panelBody} text-text-body tabular-nums`}>
               {formatWinProbability(displayMetadata.winRate)}
             </span>

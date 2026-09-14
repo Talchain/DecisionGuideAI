@@ -155,18 +155,28 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
           data-testid={`compare-progression-row-${row.nodeId ?? 'unidentified'}`}
           className="flex items-center mb-1"
         >
+          {/* ⚠ `truncate` MUST SIT ON THE ELEMENT THAT OWNS THE TEXT. It used to
+              sit here, on the 68px column, while the text lived two levels
+              deeper inside `GraphLink`'s <button>. `text-overflow: ellipsis`
+              does not apply to an overflowing inline child, so a long option
+              name HARD-CLIPPED MID-GLYPH with no "…" — the same class of defect
+              as the Model tab's "Olu" for "Olumi: …". The column keeps its
+              width and gains `min-w-0` (without it a flex child refuses to
+              shrink below its content); `truncate` moves down to the button and
+              to the plain-text arm. */}
           <span
-            className={`${typography.panelBody} font-medium w-[68px] flex-shrink-0 truncate`}
+            className={`${typography.panelBody} font-medium w-[68px] min-w-0 flex-shrink-0`}
           >
             {row.nodeId ? (
               <span
+                className="block min-w-0"
                 onMouseEnter={() => highlightNode(row.nodeId!)}
                 onMouseLeave={clearHighlight}
               >
-                <GraphLink nodeId={row.nodeId} label={row.label} />
+                <GraphLink nodeId={row.nodeId} label={row.label} className="block truncate max-w-full" />
               </span>
             ) : (
-              row.label
+              <span className="block truncate">{row.label}</span>
             )}
           </span>
           {row.values.map((val, ri) => (

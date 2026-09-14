@@ -13,10 +13,40 @@ import {
  * make it authoritative, then make the implementation manifest agree.
  */
 const EXPECTED_MOUNTED_AUTHORITY = {
+  modelGoalMinimumTarget: {
+    authority: 'server_graph',
+    entrySurfaces: ['Model goal row with a conversation dispatcher'],
+    requiredEvidence: 'explicit absolute minimum and unit, confirmed typed add_constraint, applied receipt before target sync',
+  },
   modelFactorValue: {
     authority: 'server_graph',
     entrySurfaces: ['Model factor row'],
     requiredEvidence: 'accepted factor_value_edit plus GraphV3 readback',
+  },
+  // 13 Sep 2026 — RATIFYING a strength the server already holds. It qualifies on
+  // its siblings' terms and on no weaker ones: the SAME receipt-bearing carrier
+  // as an ordinary strength edit (`edge_strength_edit`), a server-side write to
+  // `scenarios.graph`, and CEE's own implementation rather than a stub — an
+  // explicit `confirm_current` branch scoped to "permission to stamp exactly two
+  // provenance fields", guarded by a full-graph provenance-only diff with its own
+  // refusal arm (`confirmation_would_change_non_provenance_state`).
+  //
+  // ⚠ ITS FACTOR SIBLING IS `disabled` AND THAT IS NOT AN INCONSISTENCY — it is
+  // this table's test applied to two different acts. `modelFactorConfirmation`
+  // stays local-only because the server enum cannot carry a user stamp; this one
+  // is the server's write by construction. Same gesture in the UI, two carriers.
+  //
+  // ⛔ THE EVIDENCE LINE IS WHAT IS REQUIRED, NOT WHAT IS WITNESSED. The `set`
+  // arm of this carrier IS wire-witnessed (applied `graph_patch` receipt,
+  // `operation: 'adjust_edge_strength'`, served `e6d7971b`, 3/3). The
+  // `confirm_current` arm is SOURCE-DERIVED at CEE `0321e22e` and has no driven
+  // witness yet. Stated here so the next reader inherits the gap rather than the
+  // impression it was closed.
+  modelEdgeStrengthConfirmation: {
+    authority: 'server_graph',
+    entrySurfaces: ['Model relationship row confirm chip'],
+    requiredEvidence:
+      'accepted edge_strength_edit with intent confirm_current, and an applied graph_patch receipt for that exact edge',
   },
   structuralDeleteWithServerHash: {
     authority: 'server_graph',
@@ -50,10 +80,17 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['canvas selection', 'canvas layout'],
     requiredEvidence: 'copy makes no shared-model or analysis claim',
   },
+  // 0.54.0 — the option's effect on a factor JOINS the receipt-bearing set, and
+  // the evidence names what was actually earned rather than what was hoped for:
+  // the `option_intervention_edit` carrier, CEE's identity-exact writer, and the
+  // CANONICAL COMMITTED RECEIPT it returns. The row settles on that receipt
+  // reaching the store — never on its own typed value — which is why "applied"
+  // appears here at all.
   modelOptionIntervention: {
-    authority: 'disabled',
+    authority: 'server_graph',
     entrySurfaces: ['Model option detail'],
-    requiredEvidence: 'no pointer or keyboard control mounts',
+    requiredEvidence:
+      'accepted option_intervention_edit plus the canonical committed receipt carrying the value',
   },
   modelFactorConfirmation: {
     authority: 'disabled',
@@ -105,6 +142,12 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['pre-analysis v3 option group', 'pre-analysis v3 risk group'],
     requiredEvidence:
       'inline Add rows mount and each add emits ONE structural_add carrying no value, resolved against the server receipt',
+  },
+  canvasEdgeAddWithServerHash: {
+    authority: 'server_graph',
+    entrySurfaces: ['canvas connection drag', 'canvas nearby-node confirm'],
+    requiredEvidence:
+      'CEE holds structural_add_edge at mutating with a dedicated writer (#1443); a drag with no stated strength stands down at captureStructuralAddEdge and the user is told via STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE ONLY WHERE THE CANVAS OWNS A SERVER GRAPH — announceStructuralAddEdgeState early-returns on !ownsServerGraph (store.ts:2707), so with currentScenarioId and lastAuthoritativeGraph both null the stand-down is SILENT; measured on a518dca8, a node added to a blank canvas produced toast: null and no structural_add on the wire',
   },
   canvasNodeAddWithServerHash: {
     authority: 'server_graph',
@@ -200,14 +243,27 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       // here. ⚠ THIS LIST IS SORTED, so the new members land first rather than
       // beside their delete sibling; that is the sort's doing, not a claim about
       // ordering.
+      // 13 Sep 2026 — the EDGE add joins on its siblings' terms, and not before:
+      // CEE held `structural_add_edge` at `reader_only_refusal` until #1443
+      // shipped the writer, so a durable emit would have saved nothing. Sorted
+      // first by the list's own ordering, not by precedence.
+      'canvasEdgeAddWithServerHash',
       'canvasNodeAddWithServerHash',
       'canvasNodeRenameWithServerHash',
+      'modelEdgeStrengthConfirmation',
       'modelFactorValue',
+      'modelGoalMinimumTarget',
+      // 0.54.0 — the option-effect edit joins on the same terms as its
+      // siblings: a wire carrier, a server writer, and a receipt the row
+      // settles against. Sorted, so it lands here rather than beside the
+      // factor-value row it is most often confused with — and those two are
+      // exactly the pair a witnessed defect once collapsed.
+      'modelOptionIntervention',
       'preAnalysisV3FactorValue',
       'preAnalysisV3StructuralAdd',
       'structuralDeleteWithServerHash',
     ])
-    expect(CANONICAL_EDIT_AUTHORITY.modelOptionIntervention).toBe('disabled')
+    expect(CANONICAL_EDIT_AUTHORITY.modelOptionIntervention).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.postRunFactorValue).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.postRunFactorConfirmation).toBe('disabled')

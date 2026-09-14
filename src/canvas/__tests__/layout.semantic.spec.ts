@@ -448,27 +448,31 @@ describe('balanced row splits (exact remainder)', () => {
     return true
   }
 
-  // ── The discriminating pair. 6 is the widest tier the canonical budget still
-  // admits as a single row; 7 is the first that splits. Neither assertion alone
-  // shows the boundary is where it is — 6-does-not-split would stay green if the
-  // splitter stopped working entirely, and 7-splits would stay green if
+  // ── The discriminating pair. 8 is the widest tier the canonical budget still
+  // admits as a single row; 9 is the first that splits. Neither assertion alone
+  // shows the boundary is where it is — 8-does-not-split would stay green if the
+  // splitter stopped working entirely, and 9-splits would stay green if
   // everything split. Together they pin it.
-  it('6 factors do NOT split — the widest single row the canonical budget admits', async () => {
-    const sizes = rowSizesFor(await layoutFactors(6), 'f')
-    expect(sizes).toEqual([6])
+  //
+  // ⚠ WAS 6 AND 7. `CANONICAL_LAYOUT_WIDTH` moved 1185 → 1482 so that seven-
+  // and eight-wide tiers single-row; at 1185 those tiers split and three of the
+  // five shipped starters came out portrait in a landscape pane.
+  it('8 factors do NOT split — the widest single row the canonical budget admits', async () => {
+    const sizes = rowSizesFor(await layoutFactors(8), 'f')
+    expect(sizes).toEqual([8])
   })
 
-  it('8 factors split balanced', async () => {
-    const sizes = rowSizesFor(await layoutFactors(8), 'f')
+  it('10 factors split balanced', async () => {
+    const sizes = rowSizesFor(await layoutFactors(10), 'f')
     expect(balancedAdjacentDifference(sizes)).toBe(true)
-    expect(sizes.reduce((a, b) => a + b, 0)).toBe(8)
+    expect(sizes.reduce((a, b) => a + b, 0)).toBe(10)
     expect(sizes.length).toBeGreaterThan(1)
   })
 
-  it('7 factors split balanced — the first tier width that splits', async () => {
-    const sizes = rowSizesFor(await layoutFactors(7), 'f')
+  it('9 factors split balanced — the first tier width that splits', async () => {
+    const sizes = rowSizesFor(await layoutFactors(9), 'f')
     expect(balancedAdjacentDifference(sizes)).toBe(true)
-    expect(sizes.reduce((a, b) => a + b, 0)).toBe(7)
+    expect(sizes.reduce((a, b) => a + b, 0)).toBe(9)
     expect(sizes.length).toBeGreaterThan(1)
   })
 
@@ -543,7 +547,15 @@ describe('constants contract', () => {
   })
 
   it('NODE_CARD_MAX_W is 320; NODE_LAYOUT_MIN_W is the label-scale-derived floor', () => {
-    expect(NODE_CARD_MAX_W).toBe(320)
+    // ⚠ 320 → 336 (12 Sep 2026). The maximum a card may take on the single-row
+    // branch, and the only place card width is actually decided — the canonical
+    // budget never set it (see `CANONICAL_LAYOUT_WIDTH`'s derivation note).
+    // Raised because the canvas type ramp moved to the design system's own
+    // stated 14px minimum; BOUNDED at 336 because the options row is laid on
+    // the same stride, and `e2e/visual/firstViewFraming.visual.spec.ts` REDs at
+    // 360 with an option under the Outputs dock at 1280x800. Measured, not
+    // argued: 336 passes, 360 fails, 400 fails on 4 of 5 starters.
+    expect(NODE_CARD_MAX_W).toBe(336)
 
     // ⚠ WAS `toBe(140)` (17 Aug 2026). `NODE_LAYOUT_MIN_W` is no longer a
     // number anyone may state: canvas label text is counter-scaled, and a card

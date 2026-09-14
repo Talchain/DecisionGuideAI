@@ -153,9 +153,20 @@ describe('describeModelBuildingNoticeKind — ⭐ derived completeness + no leak
 
 describe('modelBuildingNotices copy — ⭐ user-facing strings stay human', () => {
   it('the summary agrees in number and never prints a code', () => {
-    expect(modelBuildingNoticesSummary(1)).toContain('1 thing from your brief')
-    expect(modelBuildingNoticesSummary(1)).not.toContain('1 things')
-    expect(modelBuildingNoticesSummary(4)).toContain('4 things')
+    // ⚠ THE SUMMARY TAKES THE VIEW, NOT A BARE TOTAL — because the omission
+    // count is `absentCountOf(rows)` and a total cannot yield it. The old
+    // signature is what let the deployed build headline `total_count`, which
+    // includes kinds the producer says are still in the model.
+    const absent = (count: number) =>
+      toModelBuildingNoticesView({
+        total_count: count,
+        groups: [{ kind: 'relationship_not_used', count }],
+        details_redacted: true,
+      })
+    // ⚠ WHOLE-STRING both ways: `toContain('4 things')` passes on "14 things".
+    expect(modelBuildingNoticesSummary(absent(1))).toBe('Olumi left 1 thing out of this model')
+    expect(modelBuildingNoticesSummary(absent(1))).not.toContain('1 things')
+    expect(modelBuildingNoticesSummary(absent(4))).toBe('Olumi left 4 things out of this model')
   })
 
   it('the pointer names a conversational action, not a control this notice renders', () => {

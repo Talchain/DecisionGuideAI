@@ -39,7 +39,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   footerCopy, literalRe, readinessVerdict, BLOCKING_VOCAB,
@@ -51,6 +51,7 @@ import {
   EXPECTED_CORE_SPECS,
   PLANNED_CORE_SPECS,
   specFilesOnDisk,
+  KNOWN_SKIPPABLE_CORE_SPECS,
 } from '../../e2e/core/lib/manifest'
 
 const SHIPPED = [...EXPECTED_CORE_SPECS]
@@ -251,5 +252,66 @@ describe('System E · planned specs are documentation, never enforcement', () =>
   it('E6 is in NEITHER list — its surfaces were never observed to mount', () => {
     const everywhere = [...SHIPPED, ...PLANNED_CORE_SPECS].join(' ')
     expect(everywhere).not.toMatch(/\bE6\b/)
+  })
+})
+
+
+/**
+ * ⭐⭐ THE LOUD-SKIP LIMB — trap 22f's KNOWN-DROPPED pattern, pinned.
+ *
+ * ⛔ THE CONDITION THIS EXISTS TO STOP, stated as the cost rather than the rule:
+ * `Core E2E · System E` sat RED on six consecutive staging commits, and every lane
+ * skipped it on the word "advisory" — one account four times in a single night, in
+ * writing, inside merge arguments. The red was real and the CAUSE was an assertion
+ * pointed at an unmounted surface. **A permanently red check is what teaches a team
+ * to stop reading it**, so "fails accurately" is not a resting state either.
+ *
+ * A spec that cannot hold its precondition now SKIPS LOUDLY. These assertions are
+ * what stop that becoming the new silence.
+ */
+describe('System E · a skip is a THIRD outcome, and the set of who may skip is pinned', () => {
+  beforeEach(() => { delete process.env.CORE_PARTIAL })
+
+  it('PRECONDITION: every name allowed to skip is also a spec we EXPECT to run', () => {
+    // Otherwise the permission outlives the spec and silently licences a gap for
+    // something that can no longer run at all.
+    for (const n of KNOWN_SKIPPABLE_CORE_SPECS) expect(SHIPPED).toContain(n)
+  })
+
+  it('a SANCTIONED skip is not a failure, and is NOT counted as missing', () => {
+    const skipper = KNOWN_SKIPPABLE_CORE_SPECS[0]
+    const ranTheRest = SHIPPED.filter((n) => n !== skipper)
+    expect(() =>
+      assertRunCompleteness(SHIPPED, ranTheRest, false, [{ name: skipper, reason: 'precondition unmet' }]),
+    ).not.toThrow()
+  })
+
+  it('⛔ an UNSANCTIONED skip is a HARD FAILURE however green the rest is', () => {
+    const victim = SHIPPED.find((n) => !KNOWN_SKIPPABLE_CORE_SPECS.includes(n as never))
+    expect(victim, 'fixture needs at least one spec that is NOT allowed to skip').toBeTruthy()
+    const ranTheRest = SHIPPED.filter((n) => n !== victim)
+    expect(() =>
+      assertRunCompleteness(SHIPPED, ranTheRest, false, [{ name: victim as string, reason: 'felt like it' }]),
+    ).toThrow(/SKIPPED that is not allowed to/)
+  })
+
+  it('⛔ a GRAVEYARD permission — allowed to skip, but not even expected — is a HARD FAILURE', () => {
+    expect(() =>
+      assertRunCompleteness(SHIPPED, SHIPPED, false, [], ['E9-deleted-long-ago']),
+    ).toThrow(/not\n?\s*EXPECTED to run at all|EXPECTED to run at all/)
+  })
+
+  it('DISCRIMINATING: the same run is green with the skip sanctioned and RED without', () => {
+    const skipper = KNOWN_SKIPPABLE_CORE_SPECS[0]
+    const ranTheRest = SHIPPED.filter((n) => n !== skipper)
+    const skips = [{ name: skipper, reason: 'precondition unmet' }]
+    expect(() => assertRunCompleteness(SHIPPED, ranTheRest, false, skips, [skipper])).not.toThrow()
+    expect(() => assertRunCompleteness(SHIPPED, ranTheRest, false, skips, [])).toThrow()
+  })
+
+  it('a skip does NOT rescue a zero-ran run — zero is still not a subset', () => {
+    expect(() =>
+      assertRunCompleteness(SHIPPED, [], false, [{ name: KNOWN_SKIPPABLE_CORE_SPECS[0], reason: 'x' }]),
+    ).toThrow(/ZERO Core specs executed/)
   })
 })

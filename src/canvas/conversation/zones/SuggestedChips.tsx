@@ -184,7 +184,7 @@ export function SuggestedChips({
   // (Related, same neighbourhood: the wire already carries `usable_for_chips` —
   // CEE's own chip-safety statement — surfaced at `analysisStateSelector` and
   // read today only by the coherence DIAGNOSTIC, never by this surface.)
-  const heldOn = useCanvasStore((s) => analysisHeldOn(s.nodes))
+  const heldOn = useCanvasStore((s) => analysisHeldOn(s))
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return

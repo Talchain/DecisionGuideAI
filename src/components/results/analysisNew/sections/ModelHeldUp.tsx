@@ -36,6 +36,7 @@
 import { CheckCircle2 } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { surface } from '../panelSurfaces'
 
 export interface ModelHeldUpProps {
   /** The producer's robustness tone. */
@@ -62,8 +63,22 @@ export interface ModelHeldUpProps {
    * predicate and shared its blind spot).
    */
   isProvisional: boolean
-  /** Open the decision-recording ask. Absent = no move is offered. */
-  onRecord?: () => void
+  /**
+   * ⚠⚠ `onRecord` WAS HERE AND IS GONE — DELIBERATELY, AND IT MUST NOT COME
+   * BACK. Superseded: ~~onRecord?: () => void — Open the decision-recording
+   * ask. Absent = no move is offered.~~
+   *
+   * This component answers ONE question: "did this model hold up?" — the
+   * five-limb conjunction in `modelHeldUp` below. Recording a decision answers
+   * a DIFFERENT question: "may I write down what we chose?". Hanging the second
+   * off the first meant it inherited the first one's answer, so the act was
+   * reachable only on a run that held up — and a fragile, mixed or stale result
+   * is precisely when writing down your reasoning matters most. Two questions
+   * under one predicate (CLAUDE.md trap 21).
+   *
+   * The act now lives in `DecisionRecorded`, gated only on a run existing.
+   * `theActIsNotGatedOnSuccess` REDs if a record affordance reappears here.
+   */
   testId: string
 }
 
@@ -107,7 +122,6 @@ export function ModelHeldUp({
   isStale,
   isPreRun,
   isProvisional,
-  onRecord,
   testId,
 }: ModelHeldUpProps) {
   if (
@@ -117,7 +131,7 @@ export function ModelHeldUp({
 
   return (
     <section
-      className="rounded-lg border border-success/30 bg-success/[0.05] px-3 py-2.5"
+      className={surface('success')}
       data-testid={testId}
       aria-label={COPY.heldUp.title}
     >
@@ -144,17 +158,10 @@ export function ModelHeldUp({
           <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${testId}-limit`}>
             {COPY.heldUp.limit}
           </p>
-          {/* Fail-closed: no handler, no move — never a dead affordance. */}
-          {onRecord ? (
-            <button
-              type="button"
-              onClick={onRecord}
-              className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-              data-testid={`${testId}-record`}
-            >
-              {COPY.heldUp.record}
-            </button>
-          ) : null}
+          {/* ⚠⚠ NO MOVE HERE. The record button stood at this line and was
+              removed with its prop — see `ModelHeldUpProps` for why. This
+              banner states a result; the act is a section of its own and is
+              offered on every run, not only the ones that held up. */}
         </div>
       </div>
     </section>

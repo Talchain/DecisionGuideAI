@@ -1,8 +1,17 @@
 /**
  * LeftSidebar — the Undo/Redo tooltips must not promise a keyboard shortcut.
  *
+ * ⚠ AMENDED — THE BUTTONS ARE NO LONGER DISABLED, AND THIS PIN IS UNCHANGED
+ * IN PURPOSE. The paragraph below describes the state at the time it was
+ * written; both buttons are now reachable and answer a click with
+ * `canvasUndoUnavailableNotice()`, the same sentence the keyboard already
+ * gives. What that repair did NOT do is make any shortcut work — the undo and
+ * redo branches are still gated on the same `'disabled'` authority — so the
+ * rule this file enforces stands exactly as written: no tooltip here may name
+ * a key. Only the PRECONDITION at the foot has changed, and it says why.
+ *
  * ── WHY THIS PIN EXISTS ─────────────────────────────────────────────────────
- * These two buttons are PERMANENTLY disabled. `ReactFlowGraph.tsx` passes
+ * These two buttons were PERMANENTLY disabled. `ReactFlowGraph.tsx` passes
  * `canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}`, and that
  * constant is `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY
  * .canvasSemanticMutations)` where the authority is `'disabled'` — so it folds
@@ -80,13 +89,28 @@ describe('LeftSidebar undo/redo tooltips make no shortcut promise', () => {
 
   /**
    * The precondition this pin depends on. Without it the two assertions above
-   * could pass on a build where the buttons had become enabled and the
-   * shortcuts live — i.e. they would be asserting nothing about the defect.
+   * could pass on a build where the shortcuts had become LIVE — i.e. they
+   * would be asserting nothing about the defect.
+   *
+   * ⚠ UPDATED WITH THE BUTTON, AND THE DISTINCTION IS THE POINT. This used to
+   * assert `toBeDisabled()` and was titled "when the authority withholds
+   * them". Both buttons are now REACHABLE in exactly that posture: the
+   * authority still withholds, so clicking answers with
+   * `canvasUndoUnavailableNotice()` instead of greying out — see the reasoning
+   * at the buttons in `LeftSidebar`. What has NOT changed, and what this pin
+   * is actually about, is that no keyboard shortcut works, so no tooltip here
+   * may name one. Asserting `toBeDisabled()` would now pin the wrong fact and
+   * would red on the honest build.
    */
-  it('PRECONDITION: both buttons are disabled when the authority withholds them', () => {
-    render(<LeftSidebar canUndo={false} canRedo={false} />)
+  it('PRECONDITION: the authority still withholds — present, and not operable', () => {
+    render(<LeftSidebar canUndo={false} canRedo={false} undoUnavailable redoUnavailable />)
 
-    expect(screen.getByRole('button', { name: /^undo$/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /^redo$/i })).toBeDisabled()
+    for (const name of [/^undo$/i, /^redo$/i]) {
+      const button = screen.getByRole('button', { name })
+      // Reachable, so the tooltip and the explanation can both be got at...
+      expect(button).not.toBeDisabled()
+      // ...but never advertised as able to perform the action it names.
+      expect(button).toHaveAttribute('aria-disabled', 'true')
+    }
   })
 })

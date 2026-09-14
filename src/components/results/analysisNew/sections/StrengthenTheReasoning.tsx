@@ -61,11 +61,21 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { SEVERITY_BADGE_CLASS, NOTICE_MS } from '../../strengthen/StrengthenPanel'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
-import type { ScienceGrounding } from '../analysisNewTypes'
+import type { GlanceCondition, ScienceGrounding } from '../analysisNewTypes'
+import { ArgueTheOpposite } from './ArgueTheOpposite'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
-import { useStrengthenStore, selectHistory } from '../../../../canvas/stores/strengthenStore'
+import {
+  useStrengthenStore,
+  selectHistory,
+  recordKey,
+  type RecordKey,
+} from '../../../../canvas/stores/strengthenStore'
+import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
+import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
+import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
+import { useCanvasStore } from '../../../../canvas/store'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -93,6 +103,55 @@ export interface StrengthenTheReasoningProps {
   analysisHash?: string | null
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
+  /**
+   * ⭐ OPEN ON MOUNT, AND THE ONLY CALLER THAT SETS IT IS THE PRE-RUN PANEL.
+   *
+   * `SectionShell`'s default is CLOSED and that is the collapsed IA the design
+   * asks for — its header measured the panel at 1,584px against a 769px
+   * viewport before the rows landed, so this is a budget, not a preference.
+   * Its own doc states the one licence: "A section may open by default only
+   * when something above it depends on the content being visible."
+   *
+   * Pre-run, nothing above it renders at all. Every run-derived section is
+   * gated off in `buildAnalysisNewViewModel`, so this row IS the panel's
+   * content — and behind it sits the only sentence on the tab that says what
+   * the measurement gap costs. A collapsed row and a bare count is the reader
+   * being told a number and asked to guess whether it is worth a click.
+   *
+   * ⚠ IT IS A DEFAULT, NOT A LOCK, AND IT IS READ EXACTLY ONCE. `SectionShell`
+   * seeds `useState(defaultOpen)`, so the open state belongs to the toggle from
+   * the first render of that instance onwards. The caller does stop passing
+   * `true` once a run is displayed, and that later `false` is NOT re-read: the
+   * section stays in whatever state the reader left it in.
+   *
+   * ⚠⚠ THAT IS THE INTENDED BEHAVIOUR — DO NOT MAKE IT AUTOMATIC. The only way
+   * to force the default to be re-read is to remount (a `key` on the call site
+   * does exactly this), and that was tried and REVERTED: `SectionShell` unmounts
+   * a closed region, this section's "I disagree" composer holds UNSAVED text,
+   * and the keyed version discarded a reader's draft when the run landed. The
+   * measurement and the two reasons are recorded at the call site in
+   * `AnalysisNewTabBody.tsx`.
+   */
+  defaultOpen?: boolean
+  /**
+   * ⭐⭐ THE RUN'S CALCULATED REVERSAL CONDITION, for the consider-the-opposite
+   * act. `null` (the default) renders NO act at all.
+   *
+   * ⚠ WHY IT ARRIVES HERE RATHER THAN BEING RENDERED WHERE THE CONDITION IS.
+   * The condition's own home is the glance ("Could change if …"), which is
+   * where an act beside it would ideally sit. That component is held by another
+   * live seat, so this change may not put anything in it. This section is the
+   * tab's designated CHALLENGE surface and already owns every other act the
+   * reader has on a finding, so the act is mounted here and the grounded form
+   * QUOTES the condition's factor and threshold — the reader does not have to
+   * scroll back up to know what it is about. The placement is a constraint, not
+   * a preference, and it is recorded as owed rather than silently taken.
+   *
+   * ⚠ PASSED WHOLE, never pre-decided by the caller. Which of the two honest
+   * claims this run entitles is `buildArgueTheOppositeAsk`'s question and no
+   * mount's.
+   */
+  argueTheOpposite?: GlanceCondition | null
   testId?: string
 }
 
@@ -116,6 +175,8 @@ export function StrengthenTheReasoning({
   preview,
   analysisHash = null,
   icon,
+  defaultOpen = false,
+  argueTheOpposite = null,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
   /**
@@ -157,7 +218,16 @@ export function StrengthenTheReasoning({
    * then fail silently (trap 12). Cheap to be correct now.
    */
   const priorityOrder = useStrengthenStore((st) => st.priorityOrder)
-  const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
+  /* ⚠ THE UNDO PAYLOAD CARRIES THE DECISION, not just the finding id. Undo
+     restores the record that was DISMISSED — which lives under the decision it
+     was dismissed on. Re-deriving the decision at click time would restore
+     under whatever is open when the user presses it, and the toast outlives a
+     decision switch. */
+  const [undoable, setUndoable] = useState<{
+    id: string
+    title: string
+    scenarioId: string | null
+  } | null>(null)
 
   /**
    * ⚠ THE NOTICE IS TRANSIENT, ON THE OWNER'S TIMING. An earlier draft left it up
@@ -173,7 +243,7 @@ export function StrengthenTheReasoning({
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
 
-  const showUndo = useCallback((next: { id: string; title: string }) => {
+  const showUndo = useCallback((next: { id: string; title: string; scenarioId: string | null }) => {
     setUndoable(next)
     if (noticeTimer.current) clearTimeout(noticeTimer.current)
     noticeTimer.current = setTimeout(() => setUndoable(null), NOTICE_MS)
@@ -210,6 +280,108 @@ export function StrengthenTheReasoning({
   const showToast = useShowToastSafe()
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [dissentSaveError, setDissentSaveError] = useState<string | null>(null)
+  const disputeContext = useRef<{ scenarioId: string | null; analysisHash: string | null } | null>(null)
+  /**
+   * ⭐ THE DURABLE DISSENT FOR THE SCENARIO ON SCREEN.
+   *
+   * ⚠ Re-read on an EPOCH rather than on every render: `readDissent()` touches
+   * localStorage, and a component that re-read it on each pass would do storage
+   * IO in the render path. The epoch bumps when this surface records one, which
+   * is the only way it changes while this component is mounted — a write from
+   * another tab is a different question, and one this build deliberately does
+   * not answer (see `dissentStore`'s header on why a `storage` listener is a
+   * freshness mechanism and not a correctness one).
+   */
+  const [dissentEpoch, setDissentEpoch] = useState(0)
+  /**
+   * ⭐⭐ THE SEND, AND WHY THE SURFACE HOLDS ITS OUTCOME RATHER THAN ASSUMING IT.
+   *
+   * `sendSystemEvent` is taken through the OPTIONAL context on purpose: this
+   * component renders inside `OutputsDock`, which is not guaranteed to sit
+   * under a `ConversationProvider` on every route. An absent dispatcher is a
+   * legitimate state, not an error — it means the dissent is browser-local on
+   * this surface today, and the copy must go on saying exactly that.
+   */
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  /**
+   * ⭐⭐ THE SET OF DISSENTS THIS SESSION ACTUALLY GOT ONTO THE WIRE — the ONLY
+   * thing that licenses the stronger sentence.
+   *
+   * ⚠⚠ IT IS KEYED BY `recordKey(decision, finding)` AND IT IS DELIBERATELY NOT
+   * PERSISTED, AND BOTH HALVES ARE THE HONESTY.
+   *
+   *   · KEYED BY THE PAIR, because this surface's identity IS the pair. A
+   *     boolean would let a successful send on one finding label a DIFFERENT
+   *     finding's local-only dissent as sent — and a BARE FINDING ID does the
+   *     same thing one axis over, across DECISIONS. Recommendation ids are
+   *     deterministic and scenario-agnostic (`strengthen:robustness` is a fixed
+   *     literal in every decision), so a bare-id key collides as the NORMAL
+   *     case: send in one decision, switch to another — `activeScenarioId` is a
+   *     live subscription, so that re-renders this surface WITHOUT unmounting it
+   *     and the set survives — and the second decision's browser-local words
+   *     would be labelled as having reached the shared model. That is this
+   *     feature's own honesty defect pointed at a user, and it is the reason the
+   *     set holds `RecordKey`s: the brand makes `.has(rec.id)` a COMPILE ERROR
+   *     rather than a thing a later reader has to notice. Every other identity
+   *     in this component already composes the same key, and the rendered
+   *     dissent is scenario-scoped via `readDissent(activeScenarioId)`; this was
+   *     the one read that disagreed with all of them.
+   *   · NOT PERSISTED, because on the next mount we know only that a local
+   *     record exists; we do NOT know that any server still holds it, and there
+   *     is no read-back to ask. Re-asserting "sent" from a remembered flag would
+   *     be claiming a server state observed in a previous session and never
+   *     since. After a reload the honest sentence is the local one, so that is
+   *     what renders.
+   */
+  const [sentRecordKeys, setSentRecordKeys] = useState<ReadonlySet<RecordKey>>(() => new Set())
+  /**
+   * ⭐⭐ WILL THIS CARD'S WORDS LEAVE THE BROWSER — ASKED WHILE THE USER IS STILL
+   * DECIDING WHAT TO TYPE, which is the only moment a privacy disclosure counts.
+   *
+   * ⚠⚠ IT IS THE SEND'S OWN PREDICATE, IMPORTED, NOT A SECOND ONE. The gate
+   * below is `if (sendSystemEvent && event)`, and `event` is null exactly when
+   * `isSendableAddress` is false or the statement is not sendable. This asks the
+   * same two questions the same way, from the same module, so the sentence on
+   * the textarea cannot drift from what the button does. Writing the condition
+   * out again here is precisely how the falsehood this repairs would return.
+   *
+   * ⚠ THE STATEMENT CLAUSE IS LEFT OUT ON PURPOSE, and including it would have
+   * reproduced the defect exactly: the draft is EMPTY while the prompt is being
+   * read, so a prompt keyed on the full builder would promise locality at the
+   * one moment the user is deciding whether to type at all, then flip after the
+   * words exist. The address is knowable now; the words are not. See
+   * `isSendableAddress` for why the residue can only over-warn.
+   *
+   * ⚠⚠ AND IT READS THE SNAPSHOT, NOT THE LIVE PROP. `commitDispute` addresses
+   * the send with `disputeContext.current.analysisHash`, captured when the
+   * composer opened. Reading the live `analysisHash` here would let a run
+   * settling mid-compose move the copy while the send kept the old hash — the
+   * two would then be answering about different runs, which is the drift in
+   * miniature. `openDispute` writes the ref before it sets `disputingId`, and
+   * this label only renders while that id is set, so the snapshot is always
+   * present by the time this is asked.
+   */
+  const dissentWillSend = (findingId: string): boolean =>
+    Boolean(sendSystemEvent) &&
+    isSendableAddress({
+      findingId,
+      analysisId: disputeContext.current?.analysisHash ?? null,
+    })
+  /**
+   * ⚠⚠ THE SCENARIO ID IS A DEPENDENCY, AND LEAVING IT OUT WAS A REAL BUG.
+   *
+   * Recommendation ids carry NO scenario component — `strengthen:robustness`,
+   * `strengthen:broaden` and `strengthen:commit` are constant literals
+   * identical in every decision, and the interpolated ones are built from
+   * canvas-local ids (`factor-1`, `e-0`) that repeat across decisions. The
+   * per-scenario KEY is what keeps one decision's words off another's card; but
+   * a memo that did not re-read on a scenario change would hold the previous
+   * decision's bucket and defeat it at the last inch — showing a person their
+   * own words about a decision they never wrote them about.
+   */
+  const activeScenarioId = useCanvasStore((st) => st.currentScenarioId)
+  const durableDissent = useMemo(() => readDissent(activeScenarioId), [dissentEpoch, activeScenarioId])
 
   /**
    * ⭐ WHERE FOCUS GOES, AND WHY THIS DIRECTORY HAD NO ANSWER.
@@ -235,10 +407,12 @@ export function StrengthenTheReasoning({
   const openDispute = useCallback(
     (id: string, existing: string, trigger: HTMLButtonElement | null) => {
       disputeTriggerRef.current = trigger
+      disputeContext.current = { scenarioId: activeScenarioId, analysisHash: analysisHash ?? null }
+      setDissentSaveError(null)
       setDisputingId(id)
       setDraft(existing)
     },
-    [],
+    [activeScenarioId, analysisHash],
   )
 
   /** Focus into the composer on open — without it, activating "I disagree"
@@ -337,6 +511,8 @@ export function StrengthenTheReasoning({
   const closeDispute = useCallback(() => {
     setDisputingId(null)
     setDraft('')
+    setDissentSaveError(null)
+    disputeContext.current = null
     // Restore BEFORE the browser settles on body. The trigger is still mounted.
     disputeTriggerRef.current?.focus()
   }, [])
@@ -368,22 +544,153 @@ export function StrengthenTheReasoning({
 
   const commitDispute = useCallback(
     (rec: Recommendation) => {
+      if (!draft.trim()) { closeDispute(); return }
+      const context = disputeContext.current
+      if (!context || context.scenarioId !== useCanvasStore.getState().currentScenarioId) {
+        setDissentSaveError(COPY.dissent.scenarioChanged)
+        return
+      }
       // ⚠ SEED FIRST. `dispute` opens with `if (!record) return`, and this
       // surface never reconciles — so without this the objection would be
       // silently discarded on any finding the OTHER tab had not already
       // recorded, which on a measured run was four of six.
-      seedIfAbsent(rec, analysisHash)
+      seedIfAbsent(rec, context.analysisHash, activeScenarioId)
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
-      dispute(rec.id, draft)
+      dispute(recordKey(activeScenarioId, rec.id), draft)
+      // A board without a persisted identity can still keep a session-only
+      // objection. Its standing text explicitly names that narrower scope.
+      if (!context.scenarioId) { closeDispute(); return }
+      /**
+       * ⭐ AND DURABLY, so it outlives the tab. `strengthenStore` keeps its
+       * session scope untouched — its lifecycle statuses are written from the
+       * Analysis tab, which this lane may not make permanent — while the user's
+       * own words get a home that survives.
+       *
+       * ⚠ THE RUN IS STAMPED HERE, at the moment the words are composed, from
+       * the `analysisHash` this callback already holds. The `disputed` history
+       * event carries no run identity at all, so without this a dissent shown
+       * beside a later analysis would be a claim the user never made.
+       */
+      const saved = recordDissent(context.scenarioId, rec.id, draft, context.analysisHash)
+      setDissentEpoch((n) => n + 1)
+      if (!saved) {
+        // Do not close/clear the user's new words or let the old durable copy
+        // masquerade as the submitted revision. The same editor can retry.
+        setDissentSaveError(COPY.dissent.notSaved)
+        return
+      }
+      /**
+       * ⭐⭐ AND TO THE SHARED MODEL, so the words reach the user's team rather
+       * than dying in this browser. schemas 0.55.0 `finding_dissent`.
+       *
+       * ⚠⚠ THE LOCAL RECORD IS ALREADY WRITTEN BY THE TIME THIS RUNS, AND THE
+       * ORDER IS THE POINT. Losing what someone typed because a POST failed is
+       * the worst outcome available on this surface, so the send is strictly
+       * ADDITIVE: every failure path below leaves the durable record intact and
+       * the user's words on screen, and changes only which sentence sits beside
+       * them. Nothing here can subtract.
+       *
+       * ⚠ THE ADDRESS IS BOTH IDS, BOUND BY IDENTITY. `rec.id` is the finding's
+       * own id — never its label and never the rendered sentence, both of which
+       * this panel truncates. `context.analysisHash` is the run it was rendered
+       * from, taken from the SAME snapshot the local record was stamped with, so
+       * the two records cannot disagree about which analysis was on screen.
+       *
+       * ⚠⚠ AND IT IS GUARDED, NOT ASSUMED. `buildFindingDissentEvent` returns
+       * null when the run identity is not real — `''` before a run and the
+       * literal `'error'` on a failed one are both live values of that hash —
+       * or when the statement is blank or over the contract's bound. A null is
+       * not an error to report at the user: the dissent is recorded locally,
+       * exactly as it was before this lane, and the copy stays local. A
+       * placeholder id would commit a claim the user never made to a fact row
+       * that outlives every session able to correct it.
+       */
+      const event = buildFindingDissentEvent({
+        findingId: rec.id,
+        analysisId: context.analysisHash,
+        // ⚠ THE UNTRIMMED DRAFT. The words are the record; the builder asks its
+        // non-blank question of a trimmed copy and sends this one.
+        statement: draft,
+      })
+      if (sendSystemEvent && event) {
+        /**
+         * ⚠⚠ THE KEY IS COMPOSED HERE, FROM THE DECISION THIS SEND BELONGS TO,
+         * and it is captured rather than read later. By the time the promise
+         * settles the user may be looking at a different decision; a key read at
+         * that moment would mark whichever decision happened to be on screen.
+         *
+         * `activeScenarioId` is the decision this card was rendered and clicked
+         * under, and `commitDispute` has already asserted it is the live one
+         * (`context.scenarioId !== …currentScenarioId` returns above). It is the
+         * same key `dispute(...)` wrote the local record under, so the marker
+         * and the record cannot disagree about which decision they describe.
+         */
+        const sentKey = recordKey(activeScenarioId, rec.id)
+        void Promise.resolve(sendSystemEvent(event))
+          .then((outcome) => {
+            /**
+             * ⚠⚠ A RESOLUTION IS NOT A SEND, AND THE PREDICATE IS THE
+             * PRODUCER'S OWN RATHER THAN MY READING OF IT.
+             *
+             * `SendTurnOutcome` is declared `SEND_DEFERRED | SEND_BLOCKED |
+             * undefined`, and its own comment states the rule in terms:
+             * "`undefined` is the only accepted/dispatched outcome". So the
+             * test is written against THAT, not against the failure mode I
+             * happened to have in mind.
+             *
+             * ⚠ AN EARLIER CUT OF THIS LINE EXCLUDED ONLY `SEND_BLOCKED`, AND
+             * IT WAS WRONG IN THE DIRECTION THAT LIES. `SEND_DEFERRED` means
+             * the event was QUEUED behind an in-flight turn and has reached no
+             * server either — it resolves without rejecting, so the card would
+             * have announced "sent to Olumi" about an event still sitting in a
+             * client-side queue. Excluding one named failure admits every
+             * failure nobody named; asserting the success value admits none.
+             */
+            if (outcome !== undefined) return
+            setSentRecordKeys((prev) => {
+              const next = new Set(prev)
+              next.add(sentKey)
+              return next
+            })
+          })
+          .catch(() => {
+            /**
+             * ⚠ SWALLOWED ON PURPOSE, AND IT IS NOT SILENCE.
+             *
+             * The user's words are already durable and already on screen; the
+             * only thing this rejection changes is that the stronger sentence
+             * does not appear, so the card goes on saying the local truth. That
+             * IS the report — it is visible, it is accurate, and it costs the
+             * user nothing.
+             *
+             * ⚠⚠ AND NOTHING IS LOGGED HERE. The rejection carries the turn,
+             * and the turn carries the statement, which may contain PII;
+             * schemas 0.55.0 licenses persisting those words as authored user
+             * content but explicitly not "re-emitting the text into telemetry
+             * or logs". A `console.error(err)` on this line would be the leak.
+             */
+          })
+      }
       closeDispute()
     },
-    [dispute, seedIfAbsent, analysisHash, draft, closeDispute],
+    [dispute, seedIfAbsent, draft, closeDispute, activeScenarioId, sendSystemEvent],
   )
 
+  /**
+   * ⭐⭐ SCOPED TO THE DECISION ON SCREEN. This read `selectHistory` with no
+   * identity, and that selector filtered on STATUS ALONE over a store persisted
+   * under one fixed session key that nothing in product code clears — so a
+   * reader who set two findings aside on one decision and then opened another
+   * was shown those findings as the NEW decision's reasoning trail.
+   *
+   * ⚠ `activeScenarioId` IS ALREADY SUBSCRIBED IN THIS COMPONENT (`:241`) and
+   * this file already compares it against the store's own at `:407`. The
+   * identity was here the whole time; the trail simply never asked for it.
+   */
   const retired = useMemo(
-    () => selectHistory({ records: strengthenRecords, priorityOrder }),
-    [strengthenRecords, priorityOrder],
+    () => selectHistory({ records: strengthenRecords, priorityOrder }, activeScenarioId),
+    [strengthenRecords, priorityOrder, activeScenarioId],
   )
   /**
    * Counted BY STATUS, each on its own predicate — see the succeeded-state
@@ -434,6 +741,7 @@ export function StrengthenTheReasoning({
       title={COPY.sections.strengthen}
       icon={icon}
       count={interventions.length > 0 ? interventions.length : null}
+      defaultOpen={defaultOpen}
       testId={testId}
     >
       {/* ⚠ THE UNDO IS NOT OPTIONAL FURNITURE. Dismissing removes the card on
@@ -454,7 +762,7 @@ export function StrengthenTheReasoning({
             ref={undoButtonRef}
             type="button"
             onClick={() => {
-              restoreDismissed(undoable.id)
+              restoreDismissed(recordKey(undoable.scenarioId, undoable.id))
               clearUndo()
             }}
             className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
@@ -522,12 +830,26 @@ export function StrengthenTheReasoning({
           </div>
         )
       ) : (
-        <ul className="space-y-3 list-none p-0 m-0" id={`${testId}-list`}>
+        <>
+          {/* ⭐ THE ACT LEADS THE FINDINGS. It is rendered only inside the
+              non-empty branch, so it never appears above an empty state or a
+              completed one: an act to challenge a finding needs a finding. It
+              renders nothing of its own when the run produced no reversal
+              condition. */}
+          <ArgueTheOpposite
+            condition={argueTheOpposite}
+            testId={`${testId}-argue-the-opposite`}
+          />
+          <ul className="space-y-3 list-none p-0 m-0" id={`${testId}-list`}>
           {visible.map((rec) => {
             const grounding = scienceGrounding[rec.id]
             // `null` for most findings, and that is correct — see
             // `recommendationMethod.ts`. No placeholder, no default technique.
-            const method = methodForRecommendation(rec.id, rec.signalCode)
+            // `rec.biasCode` is the producer's OWN bias, named on this card
+            // and nowhere else on the wire; it selects the corrective for THAT
+            // bias rather than the one generic "review a possible bias" every
+            // one of the sixteen shared. Absent on every non-bias finding.
+            const method = methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)
             /**
              * ⭐ THE MARK MOVES WORK OUT OF THE SENTENCE AND INTO THE FORM.
              * A card about a Risk now carries the risk shape, in the risk
@@ -545,10 +867,28 @@ export function StrengthenTheReasoning({
              * they said should see what they now think, not the first thing
              * they typed — so this scans BACKWARDS and stops at the first hit.
              */
-            const record = strengthenRecords[rec.id]
-            const standingDispute = record
-              ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
-              : undefined
+            /* ⚠⚠ KEYED, AND THE COMPILER CANNOT SEE THIS ONE. `records` is a
+               `Record<string, …>`, so indexing it with a bare finding id
+               compiles cleanly and simply returns `undefined` — the standing
+               objection would stop rendering with no red anywhere. The branded
+               `RecordKey` protects the store's CALLS; its READS have to be
+               found by hand, and `oneRecordKeyPerRead.spec.ts` exists because
+               this was the second one found that way. */
+            const record = strengthenRecords[recordKey(activeScenarioId, rec.id)]
+            /**
+             * ⭐ DURABLE FIRST, session second. A disagreement recorded in an
+             * earlier session has no history event in this one, so reading only
+             * `record.history` is how it used to disappear. The session copy
+             * remains the fallback so nothing regresses for a board with no
+             * scenario id, which has no durable home.
+             */
+            const durable = durableDissent[rec.id]
+            const standingDispute =
+              durable?.reason ??
+              (record
+                ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
+                : undefined)
+            const disputeCurrency = dissentCurrency(durable, analysisHash)
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -828,9 +1168,9 @@ export function StrengthenTheReasoning({
                     type="button"
                     onClick={() => {
                       // Seed first, for the same reason as the objection above.
-                      seedIfAbsent(rec, analysisHash)
-                      dismiss(rec.id)
-                      showUndo({ id: rec.id, title: rec.title })
+                      seedIfAbsent(rec, analysisHash, activeScenarioId)
+                      dismiss(recordKey(activeScenarioId, rec.id))
+                      showUndo({ id: rec.id, title: rec.title, scenarioId: activeScenarioId })
                     }}
                     className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
@@ -849,11 +1189,27 @@ export function StrengthenTheReasoning({
                     id={`${testId}-disagree-form-${rec.id}`}
                     data-testid={`${testId}-disagree-form`}
                   >
+                    {/* ⭐⭐ THE DISCLOSURE, AND IT IS READ BEFORE A SINGLE WORD
+                        IS TYPED. Standing rule R-004 keeps user free text out of
+                        persistence; Paul widened it on 2026-09-11 for stated
+                        reasoning about a finding, which is what this composer
+                        produces. A widening the user is not told about at the
+                        moment of decision is indistinguishable, from their side,
+                        from a leak, so the sentence beside the box has to say
+                        where the words are going while they are still deciding
+                        what to put in it.
+
+                        `dissentWillSend` is the SEND'S OWN predicate rather than
+                        a copy of it — see its comment. The local sentence is not
+                        retired: it is the true one whenever no send can happen,
+                        which is every route without a dispatcher and every run
+                        with no real hash. */}
                     <label
                       className={`${typography.panelMeta} block text-text-light mb-1`}
                       htmlFor={`${testId}-disagree-input-${rec.id}`}
+                      data-testid={`${testId}-disagree-prompt`}
                     >
-                      {COPY.dissent.prompt}
+                      {dissentWillSend(rec.id) ? COPY.dissent.promptSendsToOlumi : COPY.dissent.prompt}
                     </label>
                     <textarea
                       ref={disputeInputRef}
@@ -864,6 +1220,12 @@ export function StrengthenTheReasoning({
                       className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel-hover px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-disagree-input`}
                     />
+                    {dissentSaveError ? (
+                      <p role="alert" className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                        data-testid={`${testId}-disagree-save-error`}>
+                        {dissentSaveError}
+                      </p>
+                    ) : null}
                     <div className="mt-1 flex items-center gap-3">
                       <button
                         type="button"
@@ -893,6 +1255,50 @@ export function StrengthenTheReasoning({
                       {COPY.dissent.standing}:{' '}
                     </span>
                     {standingDispute}
+                    {/* ⭐⭐ ONE SENTENCE ABOUT WHERE THESE WORDS LIVE, AND THE
+                        STRONGER ONE IS EARNED RATHER THAN ASSUMED.
+
+                        `sentRecordKeys` holds only dissents whose send this
+                        session actually resolved as dispatched, keyed by
+                        (DECISION, finding) — the same key everything else on
+                        this surface composes. So the stronger sentence cannot
+                        appear because a SIBLING card's send succeeded, because
+                        the SAME finding's send succeeded IN A DIFFERENT
+                        DECISION, because a dispatcher happens to be mounted, or
+                        because the attempt was made — only because this card's
+                        dissent reached Olumi and Olumi did not refuse it.
+
+                        ⚠ THE DECISION HALF IS NOT DECORATION. Recommendation ids
+                        are fixed literals repeated in every decision, so a
+                        bare-id lookup here claimed "sent to Olumi" over another
+                        decision's browser-local words — measured on the DOM with
+                        one send ever dispatched.
+
+                        ⚠ THE TWO HALVES DEPLOY INDEPENDENTLY. Until CEE's
+                        `finding_dissent` reader is live no send can succeed, so
+                        every card here keeps the local wording — which is what
+                        makes this copy true at the intermediate deploy state as
+                        well as the final one. */}
+                    {sentRecordKeys.has(recordKey(activeScenarioId, rec.id)) ? (
+                      <span
+                        className={`${typography.panelMeta} text-text-light ml-1`}
+                        data-testid={`${testId}-disagreement-sent`}
+                      >
+                        {COPY.dissent.sentToOlumi}
+                      </span>
+                    ) : !activeScenarioId ? (
+                      <span className={`${typography.panelMeta} text-text-light ml-1`}>
+                        {COPY.dissent.sessionOnly}
+                      </span>
+                    ) : null}
+                    {disputeCurrency === 'changed' ? (
+                      <span
+                        className={`${typography.panelMeta} text-text-light ml-1`}
+                        data-testid={`${testId}-disagreement-earlier`}
+                      >
+                        {COPY.dissent.writtenEarlier}
+                      </span>
+                    ) : null}
                   </p>
                 ) : null}
 
@@ -907,7 +1313,8 @@ export function StrengthenTheReasoning({
               </li>
             )
           })}
-        </ul>
+          </ul>
+        </>
       )}
 
       {/* ⭐ THE TAIL IS REACHABLE, AND IT SAYS HOW LONG IT IS. Same control,
@@ -1001,7 +1408,7 @@ export function StrengthenTheReasoning({
                     {record.status === 'dismissed' ? (
                       <button
                         type="button"
-                        onClick={() => restoreDismissed(record.id)}
+                        onClick={() => restoreDismissed(recordKey(record.scenarioId, record.id))}
                         className={`${typography.panelMeta} flex-none text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                         data-testid={`${testId}-history-restore`}
                       >

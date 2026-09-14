@@ -400,7 +400,7 @@ describe('withheld fields (ROADMAP 2.1273) — never read, never rendered', () =
   it('still renders the HONEST statistic it was standing beside', () => {
     // The discriminating half: without this, deleting the win share outright
     // would satisfy the absence case above and prove nothing.
-    expect(build(genuineDecision()).atAGlance.winShare).toBe('Scored highest against your goal in 69% of simulated futures')
+    expect(build(genuineDecision()).atAGlance.winShare).toBe('Scored highest in 69% of simulated futures')
   })
 })
 
@@ -728,11 +728,42 @@ describe('the assumed relationship worth pinning down', () => {
     switchProbability: 0.41,
     alternativeWinnerLabel: 'RudderStack',
     strengthProvenance: 'ai_inferred' as const,
+    strengthEditReachable: true,
   }
   const withSelection = (assumedFragileCount: number) =>
     makeData({ assumedStrength: { selected: selection, refusalReason: null, assumedFragileCount } })
   const found = (vm: ReturnType<typeof build>) =>
     uncertaintyDerivedFindings(vm).find((f) => f.id === `uncertainty:assumed-strength:${selection.edgeId}`)
+
+  it('offers the act on the edge the producer named, and only where the Model tab can serve it', () => {
+    // ⭐ THE DISCRIMINATING PAIR. The first arm alone would pass against a
+    // constant `true`; the second alone would pass against a constant `false`.
+    // Together they prove the field is READ, and read per-edge.
+    const reachable = found(build(withSelection(3)))
+    expect(reachable!.reviewTargetId).toBe(selection.edgeId)
+
+    const unreachable = build(
+      makeData({
+        assumedStrength: {
+          selected: { ...selection, strengthEditReachable: false },
+          refusalReason: null,
+          assumedFragileCount: 3,
+        },
+      }),
+    )
+    const row = uncertaintyDerivedFindings(unreachable).find(
+      (f) => f.id === `uncertainty:assumed-strength:${selection.edgeId}`,
+    )
+    // The row SURVIVES — its value is the naming, and the naming does not need
+    // a route. Only the act goes. A row that vanished with its editor would
+    // hide the reasoning to hide the missing control.
+    expect(row).toBeDefined()
+    expect(row!.reviewTargetId).toBeUndefined()
+    // ⚠ And the CAMERA target is untouched: showable and editable are two
+    // questions, and losing the first with the second would be the fold this
+    // field exists to prevent.
+    expect(row!.targetId).toBe(selection.edgeId)
+  })
 
   it('names the relationship, what wins when it is wrong, and how often', () => {
     const f = found(build(withSelection(3)))
@@ -792,7 +823,7 @@ describe('the partial-analysis warning', () => {
 
   it("names the producer's own missing REQUIRED keys, in this surface's words", () => {
     const vm = withMissing(['win_probability', 'robustness_level'])
-    expect(vm.status.missingResults).toEqual(['the win share', 'the robustness check'])
+    expect(vm.status.missingResults).toEqual(['the win share', 'the overall robustness rating'])
   })
 
   /**

@@ -10,13 +10,14 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_READ_ONLY_REASON } from './useInspectorMutations'
+import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 
 // Panel imports — lazy would be premature, these are small
 import { EdgePanel } from './panels/EdgePanel'
+import { EdgeLabelModeToggle } from './shared/EdgeLabelModeToggle'
 import { OptionPanel } from './panels/OptionPanel'
 import { GoalPanel } from './panels/GoalPanel'
 import { FactorControllablePanel } from './panels/FactorControllablePanel'
@@ -28,6 +29,7 @@ import { RiskPanel } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { resolveElementLabel } from '../../domain/elementLabel'
+import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
 import { typography } from '../../../styles/typography'
 
 // Entity colour map — used as fallback for inspector header entity colour
@@ -209,6 +211,31 @@ export const InspectorRouter = memo(function InspectorRouter({
     // Top bar inherits source node type colour
     const sourceKind = (sourceNode?.type || sourceNode?.data?.kind || 'factor') as NodeType
 
+    /**
+     * ⭐ THE PANEL NOW OWNS ITS OWN AUTHORITY, so the notice must say what is
+     * true of THIS edge rather than of the whole surface. Asked of the emitter
+     * (`edgeStrengthEditIsAssertable` → `buildEdgeStrengthEditEvent`), which is
+     * the same question `EdgePanel` asks to decide whether to fence the control
+     * — one derivation with two readers, not two rules kept in step by hand.
+     */
+    const edgeStrengthReaches = edgeStrengthEditIsAssertable(edge)
+    /**
+     * ⛔ THE THIRD CASE, AND WITHOUT IT THIS PANEL WOULD CONTRADICT ITSELF.
+     *
+     * `INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON` tells the reader to *"Ask Olumi
+     * to set its strength"*. That is sound for a link the SERVER HOLDS with no
+     * stated strength. It is WRONG for a link the user has just drawn, because
+     * `EdgePanel` now offers them a control that states it themselves — and a
+     * notice telling you to delegate an action the surface beside it is offering
+     * is the same defect UI #1540 shipped and then corrected.
+     *
+     * Two populations, one sentence — CLAUDE.md trap 21, and this is the branch
+     * that names them apart.
+     */
+    const edgeAwaitingStatedStrength =
+      (edge.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
+      'strength_not_stated'
+
     return (
       <InspectorShell
         topBarColor={TOP_BAR_COLORS[sourceKind] ?? TOP_BAR_COLORS.factor}
@@ -240,21 +267,65 @@ export const InspectorRouter = memo(function InspectorRouter({
           data-testid="inspector-authority-notice"
           className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
         >
-          {INSPECTOR_READ_ONLY_REASON}
+          {edgeStrengthReaches
+            ? INSPECTOR_EDGE_REASON
+            : edgeAwaitingStatedStrength
+              ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
+              : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
         </div>
-        <fieldset
-          disabled
-          aria-describedby="inspector-authority-notice"
-          data-authority="disabled"
-          className="contents"
-        >
+        {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
+            This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
+            `<fieldset disabled>` below. A disabled fieldset natively inerts every
+            form-associated descendant, `<button>` included, so the control
+            rendered and `setMode` was uncallable — the reachability zero it was
+            written to close stayed open, and the panel's own spec could not see
+            it because that spec renders `EdgePanel` directly and never crosses
+            this boundary.
+
+            It belongs out here on the same grounds as `Show technical detail`,
+            which the authority guard's register already lists as a presentation
+            toggle: it writes NO model value, it only changes how the canvas
+            draws labels it already has. The notice above says the fields inside
+            "are read-only for now"; a display preference does not sit under that
+            sentence.
+
+            ⚠ Registered in `DELIBERATELY_OUTSIDE` so this is a defended
+            exception rather than an escape — that guard requires the entry to
+            match a real element AND to resolve outside the boundary, so it REDs
+            if the control is renamed, removed, or moved back inside. */}
+        <div className="mb-2">
+          <EdgeLabelModeToggle />
+        </div>
+        {/* ⭐⭐ NO BLANKET FENCE HERE ANY MORE, AND THAT IS THE CHANGE.
+            This branch used to wrap the whole panel in `<fieldset disabled>`,
+            which natively inerts every form-associated descendant — so the
+            strength slider rendered, and `setStrength` was uncallable for every
+            user. The whole chain behind it was already built and connected:
+            `buildEdgeStrengthEditEvent` → `sendSystemEvent` →
+            `buildPayload.ts` `adaptEdgeStrengthEdit` → CEE's
+            `dispatchEdgeStrengthEdit`. The only thing missing was a user able
+            to touch it.
+
+            ⚠ OPTING OUT IS A DUTY, NOT A RELEASE. `EdgePanel` now fences its
+            OWN carrier-less writers — existence probability, uncertainty — and
+            fences the strength control too on any edge whose strength cannot be
+            asserted. The boundary did not disappear; it moved to the question
+            that decides it. */}
+          {/* ⭐ KEYED ON THE EDGE, exactly as the node panels below are keyed on
+              `nodeId` (`:533`, `:541`). Without it, selecting a different edge
+              REUSES this component instance, so every `useState(...)` initialiser
+              keeps its first value and the panel goes on reporting the edge you
+              LEFT — measured: a fresh mount of an 0.85 edge reads "Very strong",
+              but switching 0.30 → 0.85 without unmount stays "Moderate 0.30".
+              The asymmetry with the node branch was the whole defect: one
+              branch remounts per subject and the other does not. */}
           <EdgePanel
+            key={edgeId}
             edgeId={edgeId}
             techMode={techMode}
             onClose={onClose}
             onNavigate={handleNavigate}
           />
-        </fieldset>
       </InspectorShell>
     )
   }
@@ -305,6 +376,70 @@ export const InspectorRouter = memo(function InspectorRouter({
     onClose,
     onNavigate: handleNavigate,
   }
+
+  /**
+   * ⭐⭐ WHY ONE PANEL IS ALLOWED OUT OF THE BLANKET WRAP.
+   *
+   * `<fieldset disabled>` inerts EVERY form-associated descendant, so the wrap
+   * below was disabling three controls in `OptionPanel` that write nothing at
+   * all: the factor-navigation button on each intervention row, each connection
+   * row, and the coaching card. A reader who opened a node to understand it
+   * could not follow the model from the panel built to explain it.
+   *
+   * This repo already made this argument once, at the header rename above: a
+   * blanket "these changes cannot be saved" over a control that does not save
+   * is trap 21 — two questions under one sentence. The rename needed a durable
+   * wire carrier to earn its exemption; navigation and coaching need nothing,
+   * because a control that performs no write cannot perform an unsavable one.
+   *
+   * ⭐ SECOND PANEL, AND THE REASON IS A CARRIER, NOT A PREFERENCE.
+   * `factor-controllable` opts in because the factor VALUE has a durable
+   * server-authoritative carrier — `factor_value_edit`, built and merged in
+   * July (#513) and still the panel's commit path today. It has been
+   * unreachable ever since, not because the write was unsafe but because the
+   * blanket wrap below could not tell a control that saves from one that does
+   * not. Nothing about the write changed here; only the fence moved to the
+   * place that can see the difference.
+   *
+   * ⛔ AND IT DOES NOT ADMIT THE REST OF THE PANEL. `setDescription` has no
+   * carrier and stays fenced INSIDE the panel. The test of a control is
+   * whether it reaches a carrier that survives the next server rehydrate —
+   * never whether it sits next to one that does.
+   *
+   * ⭐ THIRD PANEL — `factor-external`, and again the reason is a CARRIER.
+   * `setPriorRange` writes `data.prior` through `updateNode` and the round trip
+   * is pinned in `useAutosave.analysisFieldPersist.spec.ts` (hash flips, the
+   * autosave fires, a real save→load rehydrates the value); it ALSO emits
+   * `prior_range_edit` to CEE. Built, wired, tested — and no user could operate
+   * it, because the blanket wrap below inerted the whole pane.
+   *
+   * ⛔ THIS IS NOT COSMETIC. `analyticalNodeFields.ts` records the consequence
+   * in terms: a factor's prior range is analysis-affecting, riding the V2
+   * adapter's passthrough to PLoT, and was "NOT user-editable today". The
+   * deployed product refuses an analysis when a factor is "recorded as a bare
+   * amount with no range", and then offered no control to supply one. A refusal
+   * that names a remedy the UI does not provide is a dead end wearing an
+   * explanation.
+   *
+   * ⚠ THIS COMMENT SAID "OPT-IN, ONE PANEL, DELIBERATELY" while the set below
+   * already held TWO. Corrected rather than extended: the rule was never a
+   * COUNT, it is a TEST — does this panel own a control that reaches a durable
+   * carrier, and will it fence the rest itself? Stating it as a number is how a
+   * doctrine comment drifts from the code beside it.
+   *
+   * Every panel NOT in the set keeps the wrap below byte-for-byte. The question
+   * "does this control reach a mutation?" is answerable only inside the panel —
+   * in `OptionPanel` two buttons eighteen lines apart differ on it — so a
+   * Router-side allow-list would be a mirror of knowledge that lives elsewhere,
+   * which is this estate's most expensive defect class.
+   *
+   * ⛔ AND THE PANEL DOES NOT GAIN AUTHORITY BY OPTING IN. It takes on the duty
+   * of fencing its own writers, which `OptionPanel.readOnlyFence.spec.tsx`
+   * asserts as a discriminating pair — every writer disabled AND every
+   * non-writer enabled — so it cannot pass by fencing everything or nothing.
+   */
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external'])
+  const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
   // early return above, null by the guard at the top). Before this it was an
@@ -375,16 +510,46 @@ export const InspectorRouter = memo(function InspectorRouter({
         data-testid="inspector-authority-notice"
         className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
       >
-        {INSPECTOR_READ_ONLY_REASON}
+        {/* ⚠ A BOOLEAN CANNOT PICK THIS ANY MORE. With one opting-in panel the
+            notice was "self-fenced or not"; with two it is "WHAT saves here",
+            and the two panes answer differently — the option pane saves the
+            name, the factor pane also saves the value. Keyed by panel type so
+            adding a third cannot silently inherit a sentence written about
+            another surface. */}
+        {!panelOwnsAuthority
+          ? INSPECTOR_READ_ONLY_REASON
+          : panelType === 'factor-controllable'
+            ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
+            : panelType === 'factor-external'
+              ? INSPECTOR_FACTOR_EXTERNAL_REASON
+              : INSPECTOR_OPTION_READ_ONLY_REASON}
       </div>
-      <fieldset
-        disabled
-        aria-describedby="inspector-authority-notice"
-        data-authority="disabled"
-        className="contents"
-      >
-        <PanelComponent {...panelProps} />
-      </fieldset>
+      {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
+          STYLE CHOICE. Without a key React reconciles the panel for node A onto
+          node B and keeps the instance — so any state a panel seeds ONCE at
+          mount survives the switch and is displayed against the wrong node.
+          `OptionPanel` seeds its description buffer that way, and the drafting
+          notes beside it are derived, so the two came apart: A's description
+          under B's notes.
+
+          ⚠ THE KEY IS `nodeId` ALONE, DELIBERATELY. It must fire when the
+          IDENTITY changes and stay quiet when the same node's CONTENT changes —
+          a key on the content would remount mid-edit and discard what the user
+          was typing. That is the same split #1343 made one level down, where an
+          intervention row is keyed `${optionId}:${factorId}` and a focus-guarded
+          effect covers same-option writes the key cannot see. */}
+      {panelOwnsAuthority ? (
+        <PanelComponent key={nodeId} {...panelProps} readOnly />
+      ) : (
+        <fieldset
+          disabled
+          aria-describedby="inspector-authority-notice"
+          data-authority="disabled"
+          className="contents"
+        >
+          <PanelComponent key={nodeId} {...panelProps} />
+        </fieldset>
+      )}
     </InspectorShell>
   )
 })

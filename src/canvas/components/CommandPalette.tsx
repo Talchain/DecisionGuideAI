@@ -15,7 +15,7 @@ import { fitBoundsFor } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
-import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../mutations/mutationAuthority'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority, CANVAS_STRUCTURAL_EDIT_NOTICE } from '../mutations/mutationAuthority'
 
 interface Action {
   id: string
@@ -189,14 +189,33 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       })
     } },
     { id: 'save-snapshot', label: 'Save Snapshot', shortcut: '⌘S', execute: () => saveSnapshot() },
-  ].filter(action => (
-    hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
-    || !action.id.startsWith('add-')
-  ))
+  ]
 
-  const filteredActions = query.trim() === ''
+  const semanticMutationsConnected = hasServerGraphAuthority(
+    CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
+  )
+  /**
+   * The commands this authority withholds. They stay OUT of the executable
+   * list — running one would look like a shared-model edit with no writer
+   * behind it — but they are kept here so the palette can say WHY a search for
+   * them comes back empty.
+   *
+   * ⚠ WITHOUT THIS, TYPING "add" RETURNED "No actions found", which is the
+   * defect in miniature: identical output for "this product cannot do that"
+   * and "this search is broken".
+   */
+  const withheldActions = semanticMutationsConnected
+    ? []
+    : actions.filter(a => a.id.startsWith('add-'))
+  const availableActions = semanticMutationsConnected
     ? actions
-    : actions.filter(a => a.label.toLowerCase().includes(query.toLowerCase()))
+    : actions.filter(a => !a.id.startsWith('add-'))
+
+  const matchesQuery = (label: string) =>
+    query.trim() === '' || label.toLowerCase().includes(query.toLowerCase())
+
+  const filteredActions = availableActions.filter(a => matchesQuery(a.label))
+  const withheldMatches = withheldActions.filter(a => matchesQuery(a.label))
 
   // Focus restoration: capture trigger element on open, restore on close
   useEffect(() => {
@@ -314,7 +333,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-carrot-500"></div>
               <p className="mt-2">Executing...</p>
             </div>
-          ) : filteredActions.length === 0 ? (
+          ) : filteredActions.length === 0 && withheldMatches.length === 0 ? (
             <div className="px-4 py-8 text-center text-gray-500">
               No actions found
             </div>
@@ -342,6 +361,22 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
                 )}
               </button>
             ))
+          )}
+
+          {/*
+            Says why the add-node commands are not in the list, and only when
+            the user's query would have matched one. Not a button: there is
+            nothing here to run, and offering one would be a control with no
+            writer.
+          */}
+          {withheldMatches.length > 0 && (
+            <div
+              role="note"
+              data-testid="command-palette-withheld-notice"
+              className={`px-4 py-3 border-t border-gray-100 ${typography.body} text-gray-500`}
+            >
+              {CANVAS_STRUCTURAL_EDIT_NOTICE}
+            </div>
           )}
         </div>
       </div>

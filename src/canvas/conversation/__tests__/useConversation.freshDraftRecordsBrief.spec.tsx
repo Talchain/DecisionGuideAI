@@ -6,28 +6,35 @@
  * THE DEFECT (witnessed on deployed UI `127bdee7`, 6 Sep 2026, fresh guest)
  * ═══════════════════════════════════════════════════════════════════════════
  * A 279-character brief was typed, a model drafted and a provisional analysis
- * delivered — and the decision node still read "Question" with no brief block,
- * because `contextIntegrityStore` had only one writer, the cold read, which
- * answers `absent` for a scenario that fresh. A page reload hydrated the store
- * and the node then carried the full brief on `title`. So the anchor brief that
- * #1229 shipped was reachable ONLY after a reload.
+ * delivered — and the brief was nowhere, because `contextIntegrityStore` had
+ * only one writer, the cold read, which answers `absent` for a scenario that
+ * fresh. A page reload hydrated the store and the brief then appeared. So it
+ * was reachable ONLY after a reload.
  *
- * The component spec (`DecisionNode.anchorBrief.spec.tsx`) seeds the store by
- * hand and so could not see this: it proves store → node, and this file proves
- * the half that was missing, draft turn → store, against the live hook.
+ * ⚠ THE CONSUMER THIS FILE ORIGINALLY RENDERED IS GONE (7 Sep 2026). It had a
+ * seventh test, "…and the anchor node then carries that brief" — a store → node
+ * check against `DecisionNode`, which echoed the brief on the canvas card.
+ * Paul retired that echo: *"It also doesn't need to say what you gave me. The
+ * user should be able to see that."* The test was REMOVED rather than re-pointed
+ * because its subject no longer exists, and the first test below already proves
+ * draft turn → store in full. The store keeps a live product consumer in
+ * `WhatIWasGivenSection` (the results panel's "What you gave me"), so the write
+ * this file pins is not orphaned — that was checked at the bytes, not assumed.
+ *
+ * What remains is the half that was actually missing on `127bdee7`:
+ * draft turn → store, driven through the live hook.
  *
  * ── WHAT IS MOCKED, AND WHAT IS NOT ────────────────────────────────────────
- * Mocked (eight `vi.mock` calls, listed so the header cannot under-count them):
+ * Mocked (five `vi.mock` calls, listed so the header cannot under-count them):
  * the streamed transport and the buffered adapter (the two network calls);
  * `isV5Eligible`, forced eligible, exactly as the sibling harness
  * `scenarioResponseFence.dispatchIdIsMinted.spec.tsx` does; the supabase
- * identity (a guest — no user id, no token); `scenarioService.loadScenario`
- * (null); and, for the node render only, React Flow's `Handle`, the
- * `NodePopover` shell and `useNodeDisplayMetadata`.
+ * identity (a guest — no user id, no token); and `scenarioService.loadScenario`
+ * (null). The three render-only mocks went with the node test above.
  * NOT mocked: `sendTurn` and its lazy mint, `responseBelongsToDispatchingScenario`,
- * `applyDraftResult`, `useCanvasStore`, `useContextIntegrityStore`, and
- * `DecisionNode` itself. The assertions bind to the MINTED id, never to a value
- * another decision's record could satisfy (CLAUDE.md trap 19).
+ * `applyDraftResult`, `useCanvasStore` and `useContextIntegrityStore`. The
+ * assertions bind to the MINTED id, never to a value another decision's record
+ * could satisfy (CLAUDE.md trap 19).
  *
  * ── THE NEGATIVE CASES ARE THE LOAD-BEARING ONES ───────────────────────────
  * A record that displaced the cold read's copy would drop the manifest; a
@@ -38,14 +45,12 @@
  * (CLAUDE.md trap 13b).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act, render, screen } from '@testing-library/react'
-import { ReactFlowProvider } from '@xyflow/react'
+import { renderHook, act } from '@testing-library/react'
 
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
 import { useContextIntegrityStore } from '../../stores/contextIntegrityStore'
-import { DecisionNode } from '../../nodes/DecisionNode'
 import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
 
 const mockOpenStream = vi.fn()
@@ -77,25 +82,6 @@ vi.mock('../../../lib/supabase', () => ({
 
 vi.mock('../../../services/scenarioService', () => ({ loadScenario: async () => null }))
 
-// The node render below needs the same three seams the component spec mocks:
-// React Flow handles, the popover shell, and the display-metadata hook.
-vi.mock('@xyflow/react', async () => {
-  const actual = await vi.importActual('@xyflow/react')
-  return { ...actual, Handle: () => null }
-})
-vi.mock('../../nodes/shared/NodePopover', () => ({
-  NodePopover: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="decision-node-popover">{children}</div>
-  ),
-}))
-vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
-  useNodeDisplayMetadata: vi.fn(() => ({
-    sensitivityRank: null, influence: null, confidence: null,
-    inSensitivityAnalysis: false, achievementProbability: null,
-    stabilityPercentage: null, winRate: null, isResultsMode: false,
-    predictedOutcome: null, valueOfInformation: null, voiRank: null,
-  })),
-}))
 
 const TERMINAL_BODY = wireFixture as unknown as Record<string, unknown>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -111,11 +97,22 @@ function frame(obj: Record<string, unknown>): string {
   return `event: stage\ndata: ${JSON.stringify(obj)}\n\n`
 }
 
-/** A complete stream, pre-enqueued: DRAFTING then COMPLETE carrying the terminal body. */
-function completedStream(): Response {
+/**
+ * A complete stream, pre-enqueued: DRAFTING then COMPLETE carrying the terminal
+ * body.
+ *
+ * ⚠ A VARIANT IS COMPOSED AT THE CALL SITE, NEVER WRITTEN INTO THE FIXTURE.
+ * `cee-draft-goal-constraints-wire.json` is a RECORD OF A REAL TURN, and a
+ * fixture that pins what the product once received is evidence rather than a
+ * convenience to keep current (CLAUDE.md trap 14b). So the notices case below
+ * spreads an extra field over a copy and the file on disk is untouched — which
+ * also means the UNMODIFIED fixture stays available as that case's contrast
+ * control.
+ */
+function completedStream(payload: Record<string, unknown> = TERMINAL_BODY): Response {
   const text =
     frame({ stage: 'DRAFTING', seq: 0, status: 'in_progress' }) +
-    frame({ stage: 'COMPLETE', seq: 4, status: 'complete', status_code: 200, payload: TERMINAL_BODY })
+    frame({ stage: 'COMPLETE', seq: 4, status: 'complete', status_code: 200, payload })
   const body = new ReadableStream<Uint8Array>({
     start(c) {
       c.enqueue(new TextEncoder().encode(text))
@@ -142,8 +139,11 @@ function resetCanvasToNoDecision() {
   } as never)
 }
 
-async function sendBrief(text: string, opts: { hidden?: boolean } = {}) {
-  mockOpenStream.mockResolvedValue(completedStream())
+async function sendBrief(
+  text: string,
+  opts: { hidden?: boolean; body?: Record<string, unknown> } = {},
+) {
+  mockOpenStream.mockResolvedValue(completedStream(opts.body))
   const { result } = renderHook(() => useConversation())
   await act(async () => {
     await (result.current.sendMessage(text, {
@@ -189,75 +189,6 @@ describe('the draft turn records the brief for the decision it drafted', () => {
     expect(recorded.manifest).toBeNull()
   })
 
-  it('…and the anchor node then carries that brief, full text on `title` (draft → store → node)', async () => {
-    await sendBrief(BRIEF)
-    assertDraftLanded()
-    const canvas = useCanvasStore.getState()
-    const decision = canvas.nodes.find((n) => n.type === 'decision')
-    expect(decision).toBeDefined()
-
-    const nodeProps = {
-      id: decision!.id,
-      type: 'decision',
-      data: decision!.data,
-      position: { x: 0, y: 0 },
-      selected: false,
-      isConnectable: true,
-      positionAbsoluteX: 0,
-      positionAbsoluteY: 0,
-      dragging: false,
-      zIndex: 0,
-    } as unknown as Parameters<typeof DecisionNode>[0]
-    const view = render(
-      <ReactFlowProvider>
-        <DecisionNode {...nodeProps} />
-      </ReactFlowProvider>,
-    )
-
-    // The brief displaces only the CONTENT-FREE resting lines (#1229's rule).
-    // Straight after a draft the card carries a `Top gap:` triage headline
-    // instead, and the block is ABSENT — measured on the RENDERED card, with
-    // the headline asserted as the precondition so this cannot pass on a card
-    // that simply failed to mount (trap 13b). A cold seat found the first
-    // version of this check ran before the render and measured nothing.
-    expect(view.container.textContent).toContain('Top gap:')
-    expect(screen.queryByTestId('decision-node-brief')).toBeNull()
-
-    // A completed run puts the card on `completedRunLine`, which is the state
-    // the deployed witness was taken in (a provisional analysis had delivered
-    // itself within the first minute). The store is the real one, so the
-    // subscribed card re-renders inside `act`; the explicit rerender is
-    // belt-and-braces, not the mechanism.
-    const options = canvas.nodes.filter((n) => n.type === 'option').map((n) => n.id)
-    expect(options.length).toBeGreaterThan(0)
-    act(() => {
-      useCanvasStore.setState({
-        results: {
-          status: 'complete',
-          report: {
-            option_probabilities: Object.fromEntries(
-              options.map((id, i) => [id, { win_probability: i === 0 ? 0.6 : 0.4 }]),
-            ),
-            robustness: { recommended_option_id: options[0], recommendation_stability: 0.62 },
-          },
-        },
-      } as never)
-    })
-    view.rerender(
-      <ReactFlowProvider>
-        <DecisionNode {...nodeProps} />
-      </ReactFlowProvider>,
-    )
-    expect(view.container.textContent).not.toContain('Top gap:')
-
-    const quote = screen.getByTestId('decision-node-brief-text')
-    expect(quote.getAttribute('title')).toBe(BRIEF)
-    // The fixture is long enough to truncate, so `title` recovering the full
-    // text is a real recovery and not shown === full (trap 13b).
-    expect(quote.textContent).not.toBe(BRIEF)
-    expect(BRIEF.length).toBeGreaterThan((quote.textContent ?? '').length)
-  })
-
   it('⛔ the P0 twin: the PREVIOUS decision’s record is replaced by the new decision’s own, under its own id', async () => {
     // Exactly as the cold read leaves it for the previous decision.
     useContextIntegrityStore
@@ -275,6 +206,62 @@ describe('the draft turn records the brief for the decision it drafted', () => {
     expect(recorded.scenarioId).toBe(minted)
     expect(recorded.briefText).toBe(BRIEF)
     expect(recorded.briefText).not.toContain('tech lead')
+  })
+
+  /**
+   * ⭐⭐ THE DRAFT TURN'S OWN ATTESTATION REACHES THE STORE — ROADMAP 2.1379.
+   *
+   * `model_building_notices` rode this response all along and the register
+   * could not see it, so on a first session the panel refused ("I can't show
+   * this yet for this decision") while the bubble two panels away displayed the
+   * count. This is the wire hop that closes it, driven through the real
+   * `sendTurn` rather than by seeding the store — a render test alone would
+   * pass on a build where nothing ever writes the field.
+   *
+   * ⚠ THE FIXTURE IS NOT EDITED. This body is a COPY carrying one extra field;
+   * the recorded turn on disk is untouched (trap 14b).
+   */
+  it('the draft turn’s model-building notices are recorded under the MINTED id', async () => {
+    await sendBrief(BRIEF, {
+      body: {
+        ...TERMINAL_BODY,
+        model_building_notices: {
+          total_count: 15,
+          groups: [
+            { kind: 'detail_not_connected', count: 12 },
+            { kind: 'alternative_consolidated', count: 3 },
+          ],
+          details_redacted: true,
+        },
+      },
+    })
+    const minted = assertDraftLanded()
+
+    const recorded = useContextIntegrityStore.getState()
+    expect(recorded.scenarioId).toBe(minted)
+    // The producer's own count, carried verbatim — never re-derived from rows.
+    expect(recorded.modelBuildingNotices?.totalCount).toBe(15)
+    expect(recorded.modelBuildingNotices?.rows.map((r) => r.kind)).toEqual([
+      'detail_not_connected',
+      'alternative_consolidated',
+    ])
+  })
+
+  /**
+   * ⚠ THE CONTRAST CONTROL, IN THE SAME SUITE AND ON THE SAME SEAM (trap 13e).
+   * The test above proves the extractor can see a payload; only this one proves
+   * it is seeing THAT payload rather than writing something unconditionally.
+   * The unmodified fixture carries no `model_building_notices`, and absence
+   * means NO ATTESTATION WAS SUPPLIED — never "this draft left nothing out" —
+   * so the store must stay `null` and the panel keeps its unqualified refusal.
+   */
+  it('a draft turn with no attestation records no notices at all', async () => {
+    await sendBrief(BRIEF)
+    assertDraftLanded()
+
+    // Precondition: the seam DID run — the brief landed on this same turn.
+    expect(useContextIntegrityStore.getState().briefText).toBe(BRIEF)
+    expect(useContextIntegrityStore.getState().modelBuildingNotices).toBeNull()
   })
 
   it('a HIDDEN turn that lands a graph records nothing — machine text is not "what you gave me"', async () => {

@@ -18,7 +18,6 @@ import {
 } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
-import { typography } from '../../styles/typography'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore, type ModelTabSectionId } from '../../stores/uiStore'
@@ -27,34 +26,32 @@ import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
 // raw-id fallback here would have become permanent when the sections go — the
 // same argument that fixed `buildGoalFitRows` in place rather than pinning it.
 import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../domain/canvasLabels'
-import { edgeValueSource, resolveEdgeValueDisplay, compareEdgeValueDisplays, type EdgeValueSource } from '../domain/edgeValueProvenance'
+import { edgeValueSource, resolveEdgeValueDisplay, compareEdgeValueDisplays } from '../domain/edgeValueProvenance'
 import { getCausalEdges } from '../domain/edgeUtils'
-import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
-import { GoalSection } from './model-tab/GoalSection'
-import { buildGoalFitRows } from './model-tab/buildGoalFitRows'
-import { OptionsSection } from './model-tab/OptionsSection'
-import { FactorsSection } from './model-tab/FactorsSection'
-import { RelationshipsSection } from './model-tab/RelationshipsSection'
-import type { UserAction, ValidationMetadata } from '../domain/validation'
-import { buildEdgeAdjudicationEvent } from '../conversation/edgeAdjudication'
-import { useOptionalConversationContext } from '../conversation/ConversationContext'
+/**
+ * The constraints list — live, and the reason it survived the v1 removal.
+ *
+ * ⭐ HISTORY, KEPT BECAUSE IT IS THE ARGUMENT THAT SAVED IT. Until the v1
+ * removal (Paul's ruling, 2026-09-11) this file imported nine sibling sections
+ * from `model-tab/`, all of them inside a `LEGACY_DETAILED_EDITOR_MOUNTED =
+ * false` gate and therefore dead. This one was deliberately mounted OUTSIDE
+ * that gate; had it been placed inside, it would have shipped dark — the
+ * failure mode this estate keeps repeating. The gate and the nine dead
+ * sections are gone; this section stays live.
+ */
+import { GoalConstraintsSection } from './model-tab/GoalConstraintsSection'
 import type { EdgeData } from '../domain/edges'
-import { RisksSection } from './model-tab/RisksSection'
 import { ModelHealthSection, type AuditTrailData } from './model-tab/ModelHealthSection'
 import { normalizeAutoNoiseProvenance } from '../../components/results/types'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
-import { ModelTabHeader } from './model-tab/ModelTabHeader'
 import { DetailToggleContext } from './model-tab/DetailToggleContext'
 import { ModelFooter } from './model-tab/ModelFooter'
-import { StatusBar } from './model-tab/StatusBar'
-import { EntityBar } from './model-tab/EntityBar'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { countFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
-import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 // The Model Editor v2 (16 Aug 2026 mount train). Mounted ON, no flag: the
 // no-dark-launches rule. Its factor-value edits ride the SAME canonical
 // transaction as FactorsSection's chips (`useModelEditAuthority`); everything
@@ -62,6 +59,7 @@ import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from 
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
+import { type ModelGroupId } from '../model-tab-v2/types'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
@@ -80,8 +78,6 @@ interface ModelTabBodyProps {
   nodes: Node[]
   edges: Edge[]
   robustness: MappedRobustness | null
-  /** Factor influence map from PLoT enrichment — keyed by node ID */
-  factorInfluence?: Map<string, number>
   /**
    * ⚠ RETIRED — the shell owns this now, and the prop is gone rather than
    * kept "just in case". Its only consumer was `ReanalyseBar`, which the shell
@@ -92,6 +88,16 @@ interface ModelTabBodyProps {
   /** CEE quality dimensions from store */
   ceeQuality?: import('../store').CeeQualityDimensions | null
   expertMode?: boolean
+  /**
+   * ⭐ Ask `OutputsDock` to flip `olumi.expertMode` — the product's ONE expert
+   * preference (`OutputsDock.tsx:1150`, localStorage-persisted).
+   *
+   * This tab does not own the preference; it forwards the setter so the tier
+   * control inside `ModelTabV2Panel` writes the same thing the `</>` toggle in
+   * the tab strip writes. Before this existed the outline held a private,
+   * unpersisted tier and the two disagreed — see that panel's `expertMode` prop.
+   */
+  onToggleExpert?: (next: boolean) => void
   onSendMessage?: (message: string, opts?: { hidden?: boolean; debugSource?: string }) => void
 }
 
@@ -105,33 +111,95 @@ interface ModelTabBodyProps {
 // mirror).
 
 /**
- * The id `model-tab-v1-disclosure` points `aria-controls` at. A module constant
- * rather than a literal at both use sites: the button and the region it labels
- * must agree, and two hand-copied literals are the mirror this estate keeps
- * paying for.
+ * Assistant/pre-analysis section names → their connected v2 receiver.
+ *
+ * ⭐⭐ ONE ENTRY CARRIES BOTH FACTS — WHERE TO SCROLL AND WHAT TO OPEN — AND
+ * THAT IS THE REPAIR, NOT A TIDY-UP (9 Sep 2026).
+ *
+ * This map used to hold testid strings only, and the effect below opened the
+ * target with a SEPARATE lookup:
+ *     `MODEL_GROUP_IDS.find(g => g === (pendingSection as string))`
+ * i.e. it compared a SECTION id against a GROUP id. Four of the six matched by
+ * luck of shared spelling; `risks` did not, because its group is
+ * `outcomes-risks`. So the assistant's "show me the risks" scrolled to the right
+ * heading and left it SHUT — a deep link that lands on a collapsed section is
+ * the defect `outlineDeepLinkAndSearchToggle.spec.tsx` was written to close,
+ * arriving through the one id whose two names differ.
+ *
+ * That second lookup was a hand-maintained mirror of a mapping this table
+ * already held (trap 12). Now the group IS the entry, the testid is DERIVED from
+ * it, and the two cannot drift apart again.
+ *
+ * ⭐ `modelcard` HAS NO GROUP, AND THAT IS THE HONEST ANSWER. It pointed at
+ * `model-group-v2-evidence-review` — an outline group no producer could ever
+ * fill (see `model-tab-v2/types.ts`), so the model-card deep link landed the
+ * reader on the words "Nothing in this group yet". The real Model card was
+ * mounted the whole time: `ModelHealthSection`, `testId="model-health-section"`,
+ * inside `model-scientific-transparency` and OUTSIDE the then-present
+ * `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate (that gate and the dead stack
+ * it held were removed on 2026-09-11). It is not an outline group, so
+ * it carries an explicit `testId` and an `openSection` instead — the controlled
+ * accordion key this component already owns.
+ *
+ * ⚠⚠ THE MEASUREMENT THAT ESTABLISHED THE DEAD TARGET — RETAINED FROM #1380,
+ * whose fix for this same entry merged first as `103ac4fd` while this branch was
+ * in review. It is a dated record of what the product once rendered, so it is
+ * kept rather than rewritten (trap 14b). Measured at `3b2df4ce` by rendering the
+ * real panel with a drafted model (goal + option + factor + risk + edge) and
+ * opening every group: goal 5 · options 5 · factors 8 · outcomes-risks 4 ·
+ * relationships 4 · assumptions-provenance 0 · evidence-review 0 — and that
+ * group's text read, verbatim, "Evidence & review state0Nothing in this group
+ * yet". The zero is STRUCTURAL, not a state a model grows out of.
+ *
+ * ⚠ SCOPE, from that same measurement: no in-repo caller passes `'modelcard'`
+ * — the literal `requestModelTabSection` arguments in `src/` are
+ * `'relationships'` and `'factors'`. The reachable route is the ASSISTANT's:
+ * `applyV5State.ts:1161` narrows a server-supplied `open_section` id through
+ * `isModelTabSectionId` and forwards anything in `MODEL_TAB_SECTION_IDS`,
+ * `'modelcard'` included. A live sanctioned route with a broken destination —
+ * not a witnessed wire capture.
+ *
+ * ⚠ WHY #1380's `model-card-region` WRAPPER IS NOT KEPT ALONGSIDE THIS.
+ * #1380 routed this entry to a wrapper `<div>` it added, on the stated premise
+ * that `ModelHealthSection` "renders no single wrapping testid of its own".
+ * That premise is false at the bytes: the MOUNTED card is
+ * `model-tab/ModelHealthSection.tsx:217`, which renders
+ * `testId="model-health-section"` — and that testid is resolved in a real
+ * `ModelTabBody` render by `ModelTabBody.modelCardOpen.spec.tsx:128`, a spec
+ * that predates both changes, so the fact is executed rather than argued. The
+ * wrapper was therefore a SECOND addressable name for one card (trap 21) with
+ * zero consumers repo-wide (`rg -a` over the whole tree: three hits, all inside
+ * this file; contrast control `model-health-section` non-zero in seven files in
+ * the same sweep). It is removed rather than left as a decoy for the next
+ * reader asking where a model-card deep link lands. ⭐ #1380's CAPABILITY is
+ * UNCHANGED and strictly better pinned: the link still lands on the card and
+ * still OPENS it, and both lanes' specs assert it — #1380's by containment
+ * (`landed.contains(model-card-methodology)`), this lane's by identity.
  */
-const V1_STACK_CONTENT_ID = 'model-tab-v1-stack-content'
-/**
- * B5 convergence: the duplicate legacy editor is not part of the mounted
- * product. Its implementation remains in this bounded change only to minimise
- * merge risk while B3 lands beside it; no visual, pointer or accessibility
- * route can reach it. The connected v2 outline is the sole Model surface.
- */
-const LEGACY_DETAILED_EDITOR_MOUNTED = false
+type ModelSectionTarget =
+  /** An outline group: `ModelOutline` owns both the testid and the opening. */
+  | { readonly group: ModelGroupId }
+  /**
+   * A surface that is not an outline group. `testId` must name a MOUNTED
+   * element; `openSection` is the controlled-accordion key that reveals it.
+   */
+  | { readonly group?: undefined; readonly testId: string; readonly openSection: ModelTabSectionId }
 
-/** Assistant/pre-analysis section names → their connected v2 receiver. */
-const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, string>> = {
-  goal: 'model-group-v2-goal',
-  options: 'model-group-v2-options',
-  factors: 'model-group-v2-factors',
-  relationships: 'model-group-v2-relationships',
-  risks: 'model-group-v2-outcomes-risks',
-  modelcard: 'model-group-v2-evidence-review',
+const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, ModelSectionTarget>> = {
+  goal: { group: 'goal' },
+  options: { group: 'options' },
+  factors: { group: 'factors' },
+  relationships: { group: 'relationships' },
+  risks: { group: 'outcomes-risks' },
+  modelcard: { testId: 'model-health-section', openSection: 'modelcard' },
+}
+
+/** The element a section request scrolls to. Derived — never a second literal. */
+function sectionTargetTestId(target: ModelSectionTarget): string {
+  return target.group ? `model-group-v2-${target.group}` : target.testId
 }
 
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
-const EMPTY_NODE_IDS = new Set<string>()
-const EMPTY_EDGE_IDS = new Set<string>()
 type KindKey = typeof KIND_ORDER[number]
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -147,9 +215,9 @@ export const ModelTabBody = memo(function ModelTabBody({
   nodes,
   edges,
   robustness,
-  factorInfluence,
   ceeQuality,
   expertMode,
+  onToggleExpert,
   onSendMessage,
 }: ModelTabBodyProps) {
   // ⚠ THE SEARCH STATE IS GONE, NOT PARKED. It was declared here, threaded to
@@ -166,30 +234,76 @@ export const ModelTabBody = memo(function ModelTabBody({
   // section's own `defaultExpanded` inert.
   //
   // ⚠ WHY THIS CLOSES NOTHING, which is the only reason it is safe in a
-  // single-open group: the previous value `'factors'` names a section that is
+  // single-open group: the previous value `'factors'` named a section that was
   // NOT MOUNTED. `FactorsSection` and every other `makeSectionProps` consumer
-  // (options/factors/relationships/risks, and the second ModelHealthSection)
-  // live inside the `LEGACY_DETAILED_EDITOR_MOUNTED &&` block below, and that
-  // constant is `false`. So the live tree has exactly ONE member of this
-  // group — the Model card — and it was the one member the initial state
-  // never named, i.e. the group could only ever render fully closed.
+  // (options/factors/relationships/risks, and a second ModelHealthSection) lived
+  // inside a `LEGACY_DETAILED_EDITOR_MOUNTED = false` block — all of it DELETED
+  // on 2026-09-11. The live tree has exactly ONE member of this group — the
+  // Model card — and it was the one member the initial state never named, i.e.
+  // the group could only ever render fully closed.
   const [openSection, setOpenSection] = useState<string | null>('modelcard')
 
-  // ── The v1 stack's disclosure (2026-08-20) ──────────────────────────────────
+  // ── The v1 stack: REMOVED 2026-09-11 (Paul's ruling) ───────────────────────
   //
-  // The Model tab renders TWO complete editors of the SAME model, stacked: the
-  // v2 outline and, below it, the v1 sections. Measured on the deployed build
-  // `d4b9f981` by a fresh guest with their own drafted brief: 2,967px of
-  // content in a 669px dock body — 4.47 screens — at both 1280×800 and
-  // 1440×900, before and after analysis. The lower block addressed NO entity
+  // ⭐ THIS IS A RECORD, NOT A DESCRIPTION OF LIVE CODE. It is retained because
+  // it carries dated measurements and a reachability derivation that would
+  // otherwise be lost with the code (trap 14b: a dated measurement is evidence,
+  // not a fixture to keep current).
+  //
+  // WHAT WAS HERE. The Model tab used to render TWO complete editors of the SAME
+  // model, stacked: the v2 outline and, below it, nine v1 sections. Measured on
+  // the deployed build `d4b9f981` by a fresh guest with their own drafted brief:
+  // 2,967px of content in a 669px dock body — 4.47 screens — at both 1280×800
+  // and 1440×900, before and after analysis. The lower block addressed NO entity
   // the outline did not already address.
   //
-  // COLLAPSED BY DEFAULT, NOT DELETED AND NOT GATED AWAY. Six capabilities have
-  // no v2 equivalent and must stay reachable: contested-edge adjudication, CEE
-  // structural repairs, the model card / audit trail, goal-target editing, edge
-  // strength/direction/likelihood editing, and factor prior-range + baseline
-  // editing. This is a default, not a removal.
-  const [v1Expanded, setV1Expanded] = useState(false)
+  // It was then gated behind `const LEGACY_DETAILED_EDITOR_MOUNTED = false` — a
+  // plain module constant, never a feature flag — so from that day nothing below
+  // it could render on any route, for any user, under any configuration.
+  //
+  // WHAT THE REMOVAL COST, stated precisely because the previous version of this
+  // comment warned that deleting the block "is not free". Derived at the tip,
+  // with a contrast control proving the sweep can see a live mount:
+  //
+  //   contested-edge adjudication   ⛔ was ALREADY UNREACHABLE before this
+  //                                 removal. `ContestedEdgeCard`'s two hosts were
+  //                                 `RelationshipsSection` (inside the dead gate)
+  //                                 and `pre-analysis/AllImprovements`, which is
+  //                                 ITSELF unmounted. Removing the gate deleted
+  //                                 the first host. `ContestedEdgeCard` and
+  //                                 `AllImprovements` were BOTH KEPT — the card
+  //                                 still has a (dead) host, so it is not dead by
+  //                                 manifest, and reviving adjudication is a
+  //                                 product decision, not a tidy-up.
+  //                                 ⚠ THE HONEST DISTINCTION: this removal cost
+  //                                 no user any capability, because the gate was
+  //                                 already `false`. What it removed is the
+  //                                 ability to revive the surface by flipping one
+  //                                 constant. That is a real loss of optionality
+  //                                 and it is recorded here deliberately.
+  //   CEE structural repairs        ✅ `RepairQueueList`, in `ModelTabV2Panel`.
+  //   model card / audit trail      ✅ `ModelHealthSection`, mounted above — it
+  //                                 always sat outside the gate. A SECOND
+  //                                 `<ModelHealthSection>` inside the gate was
+  //                                 deleted with it. Witnessed on deployed
+  //                                 `14276d5b` as "Model card".
+  //                                 ⚠ NO LINE NUMBER HERE, DELIBERATELY. This
+  //                                 row said ":950" when first written and was
+  //                                 FALSE BY THE TIME THE PATCH APPLIED. A line
+  //                                 number in a comment is the hand-maintained
+  //                                 mirror this paragraph exists to warn about.
+  //   goal-target editing           ✅ but on ANOTHER SURFACE — the Reasoning
+  //                                 tab's `SuccessTargetLine`. Not here.
+  //   edge strength / direction /   ◐ STRENGTH ✅ via `proposeEdgeStrength`
+  //   likelihood                    (it gained a wire carrier in #1287/#1295).
+  //                                 Direction and likelihood remain disabled,
+  //                                 honestly and deliberately — no carrier.
+  //   factor prior-range + baseline ✅ but on ANOTHER SURFACE — the Inspector's
+  //                                 `useInspectorMutations.setPriorRange`.
+  //
+  // ⚠ THE DURABLE POINT, KEPT VERBATIM IN SPIRIT FROM THE ORIGINAL: a comment
+  // that says "nothing was removed" is exactly the comment nobody re-checks, and
+  // it sat above a constant that removed everything below it.
   const isExpert = expertMode ?? false
   const makeSectionProps = useCallback((sectionId: string) => {
     if (isExpert) return {} // expert mode: uncontrolled (multi-open)
@@ -249,12 +363,49 @@ export const ModelTabBody = memo(function ModelTabBody({
   // relationships", and ContestedSection. Pinned in
   // `__tests__/ModelTabBody.v1StackCollapsed.spec.tsx`.
   const pendingSection = useUIStore(s => s.pendingModelTabSection)
+  /**
+   * The group the deep link wants OPEN — held here rather than read from
+   * `pendingSection`, which is cleared at the end of the effect below, so the
+   * outline would never see it.
+   *
+   * Since the outline began arriving closed, all five callers of this deep link
+   * landed the reader on a COLLAPSED heading: the `<section>` this scrolls to
+   * renders unconditionally, its body does not. The comment above still
+   * describes the intended behaviour — a passive-effect state update flushes
+   * before paint, so the RAF callback sees the expanded DOM — which is exactly
+   * what had stopped happening, because nothing outside `ModelOutline` could
+   * open a group.
+   */
+  const [openGroupRequest, setOpenGroupRequest] = useState<ModelGroupId | null>(null)
   useEffect(() => {
     if (!pendingSection) return
+    // Set BEFORE the RAF is scheduled, so the outline re-renders expanded and
+    // only then does the callback measure and scroll.
+    //
+    // ⚠ ONE READ OF ONE TABLE decides both what opens and what is scrolled to.
+    // Two lookups is how `risks` came to scroll to a heading it left collapsed.
+    const target = MODEL_SECTION_TARGET[pendingSection]
+    if (target?.group) {
+      setOpenGroupRequest(target.group)
+    } else {
+      // ⭐ Not an outline group — reveal it through the controlled accordion.
+      // The reader may have shut the card since arrival, in which case scrolling
+      // to it without opening it lands them on a closed header: the same harm as
+      // a collapsed group, one component along. That is precisely the defect
+      // #1275 shipped for the outline groups, and the reason `setOpenGroupRequest`
+      // exists at all (rationale retained from #1380, which fixed this for
+      // `modelcard` as a special case; the table generalises it).
+      //
+      // Harmless when the card is already open (`openSection` starts at
+      // `'modelcard'`), and it does not fight the reader: it fires only on an
+      // explicit request, never on render.
+      setOpenGroupRequest(null)
+      if (target) setOpenSection(target.openSection)
+    }
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
-      const target = MODEL_SECTION_TARGET[pendingSection] ?? 'model-tab-v2-panel'
-      const el = document.querySelector<HTMLElement>(`[data-testid="${target}"]`)
+      const testId = target ? sectionTargetTestId(target) : 'model-tab-v2-panel'
+      const el = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
     useUIStore.getState().requestModelTabSection(null)
@@ -267,20 +418,51 @@ export const ModelTabBody = memo(function ModelTabBody({
   // P4 transport — contested-edge verdicts ride the conversation dispatcher
   // (deferral buffer included) when a provider is present; optional so an
   // isolated Model tab render still resolves locally.
-  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
   const repairsApplied = useCanvasStore(s => s.repairsApplied)
   const results = useCanvasStore(s => s.results)
   const hasCompletedFirstRun = useCanvasStore(s => s.hasCompletedFirstRun)
-  const selectionNodeIds = useCanvasStore(s => s.selection?.nodeIds ?? EMPTY_NODE_IDS)
-  const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
-  const updateEdge = useCanvasStore(s => s.updateEdge)
+  /**
+   * ⭐ THE RENAME WRITE, read HERE because this file is the Model tab's only
+   * live-app seam — `modelTabV2Boundary.sourceScan` forbids the v2 directory
+   * from importing a store module at all.
+   *
+   * `updateNodeLabel` is not a plain setter and must not be replaced with one.
+   * Its own header calls it "THE ONE CHOKEPOINT EVERY RENAME GESTURE CROSSES"
+   * (`store.ts:3035`): it records the `structural_rename` intent BEFORE the
+   * local write — so `expected_label` asserts the label the user was LOOKING AT
+   * rather than the one just written, which is what keeps the concurrency gate
+   * from being a tautology — then pushes history and supersedes a goal's
+   * `from_brief` provenance. The inspector title, the canvas double-click and
+   * both pre-analysis editors already land here; the Model tab is the fourth
+   * gesture and inherits every one of those properties for free.
+   */
+  const updateNodeLabel = useCanvasStore(s => s.updateNodeLabel)
   const rawV2Response = useCanvasStore(s => s.rawV2Response)
   // The v2 outline's goal row reads the store scalar (RAW user units — the
   // single-writer carrier `setGoalThresholdAndUpdateNode` maintains it).
   const goalThreshold = useCanvasStore(s => s.goalThreshold ?? null)
+  /**
+   * ⚠ READ HERE, NOT IN THE PANEL, AND THAT IS THE LANE BOUNDARY DOING ITS JOB.
+   * `modelTabV2Boundary.sourceScan` bans a store import and a foreign hook call
+   * in every `model-tab-v2` file: the mount host owns every live-app seam. These
+   * two feed the effect-edit transaction's scenario fence and its recovery of
+   * the one clearable refusal, and they arrive exactly as `nodes`/`edges` do.
+   */
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
+  /**
+   * The model's stated constraints, for the read-only list rendered beside the
+   * outline. Read HERE for the same reason every selector above is: the mount
+   * host owns the store seams.
+   *
+   * ⚠ THE SLICE IS camelCase `goalConstraints`. A snake_case `goal_constraints`
+   * sweep under-reports this feature badly — `GoalPanel`, the richest existing
+   * consumer, contains no literal `goal_constraints` at all.
+   */
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
 
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
@@ -291,129 +473,6 @@ export const ModelTabBody = memo(function ModelTabBody({
   //      Survives history loads (rawV2Response is null after Supabase hydration).
   //   2. rawV2Response.factor_sensitivity / downstream_calls — fresh-run fallback
   //      when the V1 mapper hasn't populated the report yet.
-
-  const { attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap } = useMemo(() => {
-    const stability = new Map<string, string>()
-    const elasticity = new Map<string, number>()
-    const flipRate = new Map<string, number>()
-    const confidence = new Map<string, FactorConfidenceDisplay>()
-
-    const reportFactors = (results?.report as any)?.factor_sensitivity
-    const rawTopLevelFactors = (rawV2Response as any)?.factor_sensitivity
-    const rawDownstreamFactors = (rawV2Response as any)?.downstream_calls?.isl?.response?.factor_sensitivity
-    const factors =
-      (Array.isArray(reportFactors) && reportFactors.length > 0 && reportFactors) ||
-      (Array.isArray(rawTopLevelFactors) && rawTopLevelFactors.length > 0 && rawTopLevelFactors) ||
-      (Array.isArray(rawDownstreamFactors) && rawDownstreamFactors) ||
-      []
-    if (!Array.isArray(factors)) {
-      return { attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
-    }
-
-    for (const f of factors) {
-      const id = f?.node_id ?? f?.factor_id
-      if (!id) continue
-
-      // ⛔ EVPI PERCENTAGE POINTS — EXTRACTION REMOVED, DO NOT REINSTATE.
-      //
-      // This built `evpiMap`, which fed three user-visible surfaces on the
-      // model tab: the "Worth Xpp if resolved" factor chip, the `EVPI  Xpp`
-      // detail row, the StatusBar `"Xpp via EVPI"` chip (a SUM of the top three
-      // figures) — plus the factor list's ORDER and the visible
-      // `ranked by EVPI` label above it.
-      //
-      // `evpi_percentage_points` is not merely uncalibrated, it is REFUTED.
-      // Replayed live 2026-07-25 against PLoT 1dd45b6a → ISL 3aea011c: PLoT
-      // published 12.3pp for *Market Receptivity to Feature* while ISL, in the
-      // SAME response one level away, measured that factor at
-      // `p_win_delta_percentage_points: 0.0` and `factor_evppi: 0.0`. Likewise
-      // 10.2 and 6.6 on decision a4b32ee2, both 0.0 at ISL.
-      //
-      // The formula (PLoT coaching/evidence-gaps.ts:75) is
-      // `voi × winProbSpread × 100` — it multiplies BY the top-two
-      // win-probability gap, INVERTING decision theory: a foregone conclusion
-      // scores high and a coin-flip scores ~0. ISL measures the near-tied
-      // decision as worth 16× the foregone one; PLoT ranks them opposite.
-      //
-      // The earlier P1-9 note here was right that a unit-conflated fallback was
-      // worse than a blank surface. This goes one step further: the field
-      // itself does not support the claim, so there is no honest surface to
-      // keep alive. See tests/contracts/no-evpi-display.contract.test.ts.
-
-      // Attribution stability (from PLoT, when present — no UI derivation)
-      if (typeof f?.attribution_stability === 'string') stability.set(id, f.attribution_stability)
-
-      // Elasticity
-      if (typeof f?.elasticity === 'number') elasticity.set(id, f.elasticity)
-
-      // Rank flip rate
-      if (typeof f?.rank_flip_rate === 'number') flipRate.set(id, f.rank_flip_rate)
-
-      // Confidence (0-1) — resolved through THE shared display policy
-      // (components/results/driverConfidenceDisplayPolicy), never read raw.
-      //
-      // ⛔ This map fed "Confidence NN%" in the factor detail rows off the same
-      // `factor_sensitivity[].confidence` the Drivers panel refuses to render.
-      // In both real staging captures that value is a defaulted 0.25. The
-      // resolver reads the confidence fields off the RAW row here (this surface
-      // never touches the normalised driver feed), so there is still only one
-      // implementation of the rule.
-      // F9: the MAP now carries the resolved DISPLAY, not the value. A number
-      // in this map was a value stripped of the decision that produced it —
-      // the next reader had to re-derive whether it was showable, which is the
-      // fork this module exists to close.
-      confidence.set(id, resolveRawFactorConfidenceDisplay(f))
-    }
-
-    return { attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
-  }, [rawV2Response, results?.report])
-
-  // Edge E-value map from ISL edge_e_values (already passed through in response mapper)
-  const edgeEValueMap = useMemo(() => {
-    const map = new Map<string, number>()
-    const eValues = (results?.report as any)?.robustness?.edge_e_values
-    if (!Array.isArray(eValues)) return map
-    for (const ev of eValues) {
-      if (typeof ev?.edge_id === 'string' && typeof ev?.e_value === 'number') {
-        map.set(ev.edge_id, ev.e_value)
-      }
-    }
-    return map
-  }, [results])
-
-  // Conditional winners from ISL (already passed through in response mapper)
-  // Only include entries where required fields are present — no defaulting to 0 or ''
-  const conditionalWinners = useMemo(() => {
-    const raw = (results?.report as any)?.conditional_winners ??
-      (results?.report as any)?.robustness?.conditional_winners
-    if (!Array.isArray(raw) || raw.length === 0) return undefined
-    const mapped = raw
-      .filter((w: any) => {
-        // Require factor label, split_value, and at least one bucket with a winner
-        const hasLabel = w.factor_label || w.label
-        const hasSplit = typeof w.split_value === 'number'
-        const hasHigh = w.high_bucket?.winner_id || w.high_bucket?.option_id
-        const hasLow = w.low_bucket?.winner_id || w.low_bucket?.option_id
-        return hasLabel && hasSplit && (hasHigh || hasLow)
-      })
-      .map((w: any) => ({
-        factorLabel: String(w.factor_label ?? w.label),
-        factorId: String(w.factor_id ?? w.node_id ?? ''),
-        splitValue: w.split_value as number,
-        splitUnit: w.split_unit ?? w.unit ?? undefined,
-        highBucket: {
-          winnerId: String(w.high_bucket?.winner_id ?? w.high_bucket?.option_id ?? ''),
-          winnerLabel: String(w.high_bucket?.winner_label ?? w.high_bucket?.label ?? ''),
-          winProbability: typeof w.high_bucket?.win_probability === 'number' ? w.high_bucket.win_probability : undefined,
-        },
-        lowBucket: {
-          winnerId: String(w.low_bucket?.winner_id ?? w.low_bucket?.option_id ?? ''),
-          winnerLabel: String(w.low_bucket?.winner_label ?? w.low_bucket?.label ?? ''),
-          winProbability: typeof w.low_bucket?.win_probability === 'number' ? w.low_bucket.win_probability : undefined,
-        },
-      }))
-    return mapped.length > 0 ? mapped : undefined
-  }, [results])
 
   // Audit trail for ModelHealthSection
   const auditTrail = useMemo(() => ({
@@ -449,29 +508,6 @@ export const ModelTabBody = memo(function ModelTabBody({
     autoNoiseProvenance: normalizeAutoNoiseProvenance(rawV2Response?.auto_noise_provenance),
     stabilityPenaltyFactor: (rawV2Response as any)?.stability_penalty_factor ?? null,
   }), [rawV2Response, repairsApplied, results, robustness])
-
-  // Edge repairs map: filter repairs_applied by field_path containing edge identifiers
-  const edgeRepairsMap = useMemo(() => {
-    const map = new Map<string, Array<{ code: string; reason: string; before?: unknown; after?: unknown }>>()
-    if (!repairsApplied || !Array.isArray(repairsApplied)) return map
-    for (const r of repairsApplied) {
-      if (!r?.field_path) continue
-      // Match repairs with field_path containing "edge" or matching edge IDs
-      const path = String(r.field_path)
-      const match = path.match(/edges?\[([^\]]+)\]/) ?? path.match(/edge[_.](.+?)\./)
-      if (!match) continue
-      const edgeId = match[1]
-      const existing = map.get(edgeId) ?? []
-      existing.push({
-        code: String(r.code ?? ''),
-        reason: String(r.reason ?? ''),
-        before: r.before,
-        after: r.after,
-      })
-      map.set(edgeId, existing)
-    }
-    return map
-  }, [repairsApplied])
 
   // ── Synthesised prior lookup from repair summary ───────────────────────────
 
@@ -539,16 +575,6 @@ export const ModelTabBody = memo(function ModelTabBody({
     [nodes, edges]
   )
 
-  // Per-option goal-fit rows for the goal card (journey-walk §10.4 tab
-  // parity). Same source object the conditional-winners and e-value maps
-  // above already read (`results.report`); the chooser and the complete-field
-  // gate live in buildGoalFitRows.
-  const goalFitRows = useMemo(() => {
-    const report = (results as { report?: { option_probabilities?: Record<string, unknown> } } | null)
-      ?.report
-    return buildGoalFitRows(grouped.option, report?.option_probabilities)
-  }, [results, grouped.option])
-
   // ── Robustness data ───────────────────────────────────────────────────────
 
   // hasAnalysisData is true if either:
@@ -573,8 +599,6 @@ export const ModelTabBody = memo(function ModelTabBody({
     }
     return map
   }, [fragileLookup])
-
-  const fragileEdgeCount = hasRobustnessData ? fragileEdgeIds.size : 0
 
   const factorsToVerify = useMemo(() => countFactorsToVerify(grouped.factor), [grouped.factor])
 
@@ -662,132 +686,6 @@ export const ModelTabBody = memo(function ModelTabBody({
     : null
 
   // ── Contested pending count (reactive — updates after each resolution) ───
-
-  const contestedPendingCount = useMemo(() => {
-    let count = 0
-    for (const e of causalEdges) {
-      const vm = (e.data as EdgeData | undefined)?.validation
-      if (vm?.status === 'contested' && vm.user_action === 'pending') count++
-    }
-    return count
-  }, [causalEdges])
-
-  // ── Contested edge resolution ─────────────────────────────────────────────
-  //
-  // ROADMAP 2.121 slice 1 — THE ONE HANDLER THAT DELIBERATELY STAYS A RAW WRITE,
-  // stated here rather than quietly excepted in the guard spec.
-  //
-  // Slice 1 moved every Model-tab edit onto the sanctioned mutation setters.
-  // This one cannot go with them, for two independent reasons:
-  //
-  //   1. No sanctioned setter writes edge `validation`. It is not in
-  //      `EDGE_SETTER_FIELDS` — it is UI-domain metadata carried by passthrough,
-  //      not a contract-declared edge field — and the overlay below (user_action,
-  //      resolved_by, resolved_value) is the whole point of the action.
-  //   2. `useEdgeMutations().setStrength` hard-codes `weightSource: 'user'`. The
-  //      `accepted_pass2` branch commits the PRODUCER's pass-2 estimate, whose
-  //      honest marker is 'cee'. Routing it through setStrength would stamp a
-  //      producer number as a user number — provenance laundering, the exact
-  //      class the F11 guard exists to prevent. A wrong marker here is worse
-  //      than a raw write.
-  //
-  // So it stays, rowed as an honest deviation rather than forced through a third
-  // write path. Making it sanctioned needs a setter that writes validation and
-  // takes the provenance marker as an argument — a change to the shared arc, not
-  // a slice-1 rerouting. The guard spec's scope is named accordingly.
-  const handleResolveContested = useCallback((
-    edgeId: string,
-    action: UserAction,
-    customMean?: number,
-    // ROADMAP 2.263 — the provenance of the SIGN in `customMean`, supplied by
-    // the control the user actually touched. `undefined` keeps the historical
-    // behaviour ('user'); `null` means nothing states a direction, so we must
-    // not derive one from the number.
-    directionSource?: EdgeValueSource | null,
-  ) => {
-    const edge = edges.find(e => e.id === edgeId)
-    if (!edge?.data) return
-
-    const edgeData = edge.data as EdgeData
-    const vm = edgeData.validation
-    if (!vm) return
-
-    // P4 transport (schemas 0.34.0) — the verdict REACHES THE WIRE. Runs
-    // AFTER the local apply (the canvas must move regardless of the network),
-    // best-effort: a failed send never reverts a resolution the user already
-    // made locally, and an absent conversation context (e.g. isolated render)
-    // must not break resolution at all. CEE persists the event as a typed
-    // turn fact and writes no graph. The per-verdict value: an override
-    // carries the user's own number; an accepted verdict carries the accepted
-    // pass's mean, informatively, so the persisted fact is self-contained.
-    const emitAdjudication = (mean?: number) => {
-      if (!sendSystemEvent) return
-      const event = buildEdgeAdjudicationEvent(edge, action, mean)
-      if (event === null) return
-      void Promise.resolve(sendSystemEvent(event)).catch(() => {
-        // Background judgement receipt — the local resolution stands; the
-        // user can re-adjudicate to re-emit. Mirrors the silent handling of
-        // other best-effort background sends.
-      })
-    }
-
-    // Spread preserves all ValidationMetadata fields; overlay user_action + resolved_by
-    const updatedValidation: ValidationMetadata = { ...vm, user_action: action, resolved_by: 'user' }
-
-    // updateEdge merges { ...e.data, ...updates.data }, so we only provide changed fields.
-    // Casting the partial patch to EdgeData is safe: the store merge fills in the rest.
-    type DataPatch = Partial<EdgeData>
-
-    if (action === 'accepted_pass2') {
-      const mean = vm.pass2.strength_mean
-      const patch: DataPatch = {
-        weight: Math.abs(mean),
-        direction: mean >= 0 ? 'positive' : 'negative',
-        // The accepted value is the producer's pass-2 strength, so the edge
-        // now carries a real estimate rather than the UI default. The pass-2
-        // mean is PRODUCER-SIGNED, so its sign is the producer's own stated
-        // direction — stamping 'cee' here is reading it, not inferring it
-        // (ROADMAP 2.263; see `directionFromProducerSignedMean`).
-        weightSource: 'cee',
-        directionSource: 'cee',
-        validation: updatedValidation,
-      }
-      updateEdge(edgeId, { data: patch as EdgeData })
-      emitAdjudication(mean)
-      return
-    }
-
-    if (action === 'overridden' && customMean !== undefined) {
-      // ROADMAP 2.263 — the MAGNITUDE is always the user's; the DIRECTION is
-      // only theirs if they actually stated it. The signed slider does
-      // ('user'); the band quick-set pills do not — their sign rides in from
-      // the edge's stated direction or the producer's pass-2 mean, and is
-      // stamped with THAT source. `null` means nothing states one, so both the
-      // direction and its stamp are omitted and the edge keeps reading "not
-      // stated" rather than being handed a sign taken off a magnitude.
-      const patch: DataPatch = {
-        weight: Math.abs(customMean),
-        weightSource: 'user',
-        ...(directionSource === null
-          ? {}
-          : {
-              direction: customMean >= 0 ? 'positive' : 'negative',
-              directionSource: directionSource ?? 'user',
-            }),
-        validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
-      }
-      updateEdge(edgeId, { data: patch as EdgeData })
-      emitAdjudication(customMean)
-      return
-    }
-
-    // accepted_pass1 or dismissed — mark user_action only, no edge data change
-    const patch: DataPatch = { validation: updatedValidation }
-    updateEdge(edgeId, { data: patch as EdgeData })
-    // accepted_pass1 keeps the CURRENT (pass1) value; a dismissal asserts none
-    // (the builder drops the value for `dismissed` by contract).
-    emitAdjudication(action === 'accepted_pass1' ? vm.pass1.strength_mean : undefined)
-  }, [edges, updateEdge, sendSystemEvent])
 
   const handleCopyText = useCallback(() => {
     const lines: string[] = []
@@ -910,12 +808,26 @@ export const ModelTabBody = memo(function ModelTabBody({
           canonical transaction exists. ADDITIVE: the v1 sections below are
           unchanged — §7's removals await Paul's KEEP/CUT verdict. */}
       <ModelTabV2Panel
+        openGroupRequest={openGroupRequest}
         nodes={nodes}
         edges={edges}
         goalThreshold={goalThreshold}
         fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
+        currentScenarioId={currentScenarioId}
+        lastServerGraphHash={lastServerGraphHash}
+        expertMode={expertMode ?? false}
+        onToggleExpert={onToggleExpert}
+        onRenameRow={updateNodeLabel}
       />
+
+      {/* ── The model's constraints, READ-ONLY ───────────────────────────────
+          Answers "where can the user view the constraints?" with a surface that
+          STAYS OPEN. The two other live constraint displays are the goal node's
+          transient hover pills and the Inspector's GoalPanel — and the Inspector
+          is mutually exclusive with this dock, so opening this tab closes it.
+          Renders nothing when the model has no constraints. */}
+      <GoalConstraintsSection constraints={goalConstraints} nodes={nodes} />
 
       {/* Unique scientific transparency from the legacy stack, rehomed rather
           than discarded. These are disclosures/audit facts, not a second
@@ -927,143 +839,36 @@ export const ModelTabBody = memo(function ModelTabBody({
             adjustments={modelAdjustments}
             repairActions={modelRepairActions}
           />
+          {/* The Model card. Its own `testId="model-health-section"`
+              (`model-tab/ModelHealthSection.tsx:217`) is the deep-link target —
+              see `MODEL_SECTION_TARGET` above for why no extra wrapper is
+              interposed. */}
+          {/* ⚠ THE HAND-OFF, NOT THE BARE SENDER. This passed `onSendMessage`, so
+              the card's one clickable affordance posted a real turn into a tab that
+              is `hidden` + `aria-hidden` whenever Model is active
+              (`OutputsDock.tsx:3735-3737`): the user clicked and the screen did not
+              change. It is the defect `olumiHandOff.ts`'s header closed on the v2
+              outline and MISSED here, because this mount sat OUTSIDE the
+              `LEGACY_DETAILED_EDITOR_MOUNTED` gate while the five sibling v1
+              discuss buttons sat inside it — `groupActions.ts:186-207` records that
+              survival and draws the opposite conclusion from it. The gate and those
+              five siblings were deleted on 2026-09-11; this mount is now the only
+              discuss affordance in the file, which is why the hand-off matters.
+              `olumiHandOff` is null when no conversation can receive the turn, which
+              is what keeps the button off screen in that case rather than dropping
+              the send. */}
           <ModelHealthSection
             ceeQuality={ceeQuality}
             auditTrail={auditTrail}
             factorCount={grouped.factor.length}
             edgeCount={causalEdges.length}
             factorsToVerify={factorsToVerify}
-            onSendMessage={onSendMessage}
+            onHandOffToOlumi={olumiHandOff ?? undefined}
             {...makeSectionProps('modelcard')}
           />
         </div>
       </DetailToggleContext.Provider>
 
-      {/* B5: retained source, deliberately NOT mounted. The v2 outline above
-          is the sole visible/editable Model route. */}
-      {LEGACY_DETAILED_EDITOR_MOUNTED && (
-      <section data-testid="model-tab-v1-stack" className="border-t border-panel-border pt-3">
-        <button
-          type="button"
-          data-testid="model-tab-v1-disclosure"
-          aria-expanded={v1Expanded}
-          aria-controls={V1_STACK_CONTENT_ID}
-          onClick={() => setV1Expanded(v => !v)}
-          className="w-full flex items-baseline gap-2 text-left py-1"
-        >
-          <span aria-hidden="true" className="text-text-light">{v1Expanded ? '▾' : '▸'}</span>
-          <span className={`${typography.panelHeader} text-text-header`}>Detailed editing</span>
-          <span className={`${typography.panelMeta} text-text-light`}>
-            Goal target, option interventions, relationship strengths, risks and the model card
-          </span>
-        </button>
-
-        {/* ⚠ MOUNTED WHEN COLLAPSED. `hidden` is an attribute, not a branch:
-            the sections stay in the DOM so the `model-{section}-section`
-            deep-link `querySelector` above keeps resolving. Do not convert this
-            to `{v1Expanded && (...)}` — that silently breaks assistant-driven
-            section navigation with no error anywhere. */}
-        <div id={V1_STACK_CONTENT_ID} data-testid={V1_STACK_CONTENT_ID} hidden={!v1Expanded}>
-
-      {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}
-      {/* No sort label post-analysis. The list is ordered by influence, and we
-          do not assert that its order encodes value — the previous
-          'ranked by EVPI' label named a quantity our own compute layer
-          contradicts, and it was a VISIBLE claim, not just an internal sort. */}
-      <ModelTabHeader
-        factorCount={grouped.factor.length}
-        edgeCount={causalEdges.length}
-        fragileCount={fragileEdgeCount > 0 ? fragileEdgeCount : undefined}
-        contestedCount={contestedPendingCount > 0 ? contestedPendingCount : undefined}
-        sortNote={hasRobustnessData ? undefined : 'alphabetical'}
-        showDetail={expertMode ?? false}
-      >
-        {/* ── Status bar ─────────────────────────────────────────────── */}
-        {/* No `recommendationStability` prop: the "{N}% stability" segment was
-            removed in 2.1273 (PLoT withholds the field; a legacy hydrated
-            payload still carries it). See `model-tab/StatusBar.tsx`. */}
-        <StatusBar
-          factorsToVerify={factorsToVerify}
-          fragileEdgeCount={fragileEdgeCount}
-          contestedCount={contestedPendingCount}
-          hasAnalysisData={hasRobustnessData}
-        />
-
-        {/* ── Entity composition bar ─────────────────────────────────── */}
-        <EntityBar grouped={grouped} totalCount={nodes.length} />
-
-        {/* ── Sections ───────────────────────────────────────────────── */}
-        <div className="space-y-4">
-          <GoalSection goalNode={grouped.goal[0]} onSendMessage={onSendMessage} goalFitRows={goalFitRows} />
-
-          <OptionsSection
-            optionNodes={grouped.option}
-            allNodes={nodes}
-            conditionalWinners={conditionalWinners}
-            hasAnalysisData={hasRobustnessData}
-            onSendMessage={onSendMessage}
-            {...makeSectionProps('options')}
-          />
-
-          <FactorsSection
-            factorNodes={grouped.factor}
-            factorInfluence={factorInfluence}
-            synthesisedPriorMap={synthesisedPriorMap}
-            selectedNodeIds={selectionNodeIds}
-            attributionStabilityMap={attributionStabilityMap}
-            elasticityMap={elasticityMap}
-            rankFlipRateMap={rankFlipRateMap}
-            factorConfidenceMap={factorConfidenceMap}
-            hasAnalysisData={hasRobustnessData}
-            onSendMessage={onSendMessage}
-            {...makeSectionProps('factors')}
-          />
-
-          <RelationshipsSection
-            edges={causalEdges}
-            nodes={nodes}
-            fragileEdgeIds={fragileEdgeIds}
-            fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
-            selectedEdgeIds={selectionEdgeIds}
-            hasRobustnessData={hasRobustnessData}
-            onResolveContested={handleResolveContested}
-            edgeEValueMap={edgeEValueMap}
-            edgeRepairsMap={edgeRepairsMap}
-            onSendMessage={onSendMessage}
-            {...makeSectionProps('relationships')}
-          />
-
-          <RisksSection
-            riskNodes={grouped.risk}
-            allNodes={nodes}
-            edges={edges}
-            hasFragileEdges={fragileEdgeIds.size > 0}
-            onSendMessage={onSendMessage}
-            {...makeSectionProps('risks')}
-          />
-
-          {/* CEE structural repairs — shown whenever CEE returned model_adjustments.
-              Moved here from PreAnalysisPanel per Signal Registry v3: truth.structural_repairs
-              belongs on the Model tab. */}
-          <ModelAdjustments
-            adjustments={modelAdjustments}
-            repairActions={modelRepairActions}
-          />
-
-          <ModelHealthSection
-            ceeQuality={ceeQuality}
-            auditTrail={auditTrail}
-            factorCount={grouped.factor.length}
-            edgeCount={causalEdges.length}
-            factorsToVerify={factorsToVerify}
-            onSendMessage={onSendMessage}
-            {...makeSectionProps('modelcard')}
-          />
-        </div>
-      </ModelTabHeader>
-        </div>
-      </section>
-      )}
 
       {/* ── Streaming diagnostics (Shift+D) ───────────────────────────────── */}
       <StreamingDiagnostics

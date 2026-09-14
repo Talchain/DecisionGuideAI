@@ -277,13 +277,14 @@ describe('OptionPanel — Impact group has fallback when results are complete bu
 // ─── Regression: intervention display_value is canonical default-mode text ──
 
 describe('OptionPanel — intervention with display_value does not expose raw numeric text in default mode', () => {
-  it('shows display_value and hides the "Currently: X →" numeric editor when techMode=false', () => {
+  it('shows display_value and hides the "Recorded: X →" numeric editor when techMode=false', () => {
     setOptionStoreWithDisplayValue()
     const { container } = render(<OptionPanel {...optionProps} />)
     // display_value must be visible
     expect(screen.getByText('Increase by 20%')).toBeTruthy()
-    // Raw "Currently:" label must NOT appear in default mode
-    expect(container.textContent).not.toMatch(/Currently:/)
+    // Raw "Recorded:" label must NOT appear in default mode.
+    // ⚠ the label moved from "Currently" to "Recorded" — the old word asserted a present state the record does not establish; see InterventionRow.honestReference.spec.tsx
+    expect(container.textContent).not.toMatch(/Recorded:/)
     // No editable number input surfaced
     const numericInputs = container.querySelectorAll('input[type="text"]')
     expect(numericInputs.length).toBe(0)
@@ -294,7 +295,7 @@ describe('OptionPanel — intervention with display_value does not expose raw nu
     const techProps = { ...optionProps, techMode: true }
     const { container } = render(<OptionPanel {...techProps} />)
     expect(screen.getByText('Increase by 20%')).toBeTruthy()
-    expect(container.textContent).toMatch(/Currently:/)
+    expect(container.textContent).toMatch(/Recorded:/)
   })
 })
 

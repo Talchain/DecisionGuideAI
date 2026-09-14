@@ -92,6 +92,10 @@ function makeChip(overrides: Partial<ActionChip> = {}): ActionChip {
 }
 
 function setNodes(nodes: ReturnType<typeof node>[]) {
+  // The hold is now released only by a recorded server ACKNOWLEDGEMENT, so a
+  // starter-stamped graph holds by default and this fixture needs no posture
+  // flag. That is the fail-closed property, expressed as a test that does not
+  // have to remember anything.
   useCanvasStore.setState({ nodes: nodes as any })
 }
 
@@ -306,7 +310,7 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
     setReady('ready')
     setNodes(STARTER_NODES)
 
-    const heldOn = analysisHeldOn(STARTER_NODES)
+    const heldOn = analysisHeldOn(unregistered(STARTER_NODES))
     expect(heldOn).toBe('starter') // precondition PINNED in-test (trap 13b)
 
     // ⚠ THE FIRST DRAFT OF THIS CASE WAS VACUOUS, and the way it was vacuous is
@@ -434,3 +438,15 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
     expect(fired).toHaveLength(1)
   })
 })
+
+/**
+ * The hold's input for a graph CEE has NOT acknowledged holding — the state
+ * every case in this file describes. `analysisHeldOn` takes the canvas STATE
+ * rather than the nodes, because the registration posture is not derivable from
+ * them; wrapping here keeps each case reading as it did while making the
+ * posture it assumes explicit rather than implied.
+ */
+function unregistered(nodes: unknown): never {
+  return { nodes, importPendingServerRegistration: true } as never
+}
+

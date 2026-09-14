@@ -42,3 +42,16 @@ export {
 } from './decisionRecordStore'
 export { buildMeasureSentence, DIRECTION_OPTIONS, UNIT_OPTIONS } from './measureSentence'
 export { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
+/**
+ * ⭐ The one definition of "is there an analysed option set to record against?"
+ * Exported because the Analysis panel's ACT section gates its door on the
+ * capture modal's own predicate rather than restating it — see
+ * `analysedOptions.ts` for why that mattered.
+ */
+export {
+  hasAnalysedOptions,
+  selectAnalysedOptionNodes,
+  selectAnalysedOptions,
+  type AnalysedOption,
+  type OptionCandidateNode,
+} from './analysedOptions'

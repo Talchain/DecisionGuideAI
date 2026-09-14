@@ -120,6 +120,29 @@ export type ScenarioGraphResult =
        */
       notModelled: NotModelledManifest | null
       identity: ScenarioGraphIdentity | null
+      /**
+       * ⭐⭐ THE WRITE PRECONDITION FOR THESE EXACT BYTES — the base a manual
+       * edit must send back, or `null` when CEE did not answer with one.
+       *
+       * A manual edit is a compare-and-set: the server refuses unless
+       * `computeAnalysisAffectingGraphHash(persistedGraph)` equals the base the
+       * client sent. That base used to arrive ONLY on a turn response, so a
+       * RELOAD left the client without one and every FIRST edit was refused —
+       * witnessed natively on a restored scenario whose editor opened and whose
+       * Save honestly sent nothing.
+       *
+       * ⚠⚠ IT IS NOT `identity`. identity.v1 answers "is this the same graph
+       * object?" over a different projection and is 64 hex; this answers "may a
+       * write be applied to the graph as the analysis sees it?". On an UNCHANGED
+       * graph the wrong one still matches, so substituting them would fail only
+       * once someone actually edited.
+       *
+       * ⚠ `null` MEANS CEE DID NOT ANSWER — an older build, or an absent graph.
+       * It is not "no base exists", and the only correct response to it is the
+       * one that was already there: refuse the edit and say so. Never a guess,
+       * never a locally recomputed value.
+       */
+      graphHash: string | null
       /** MEASURED by CEE on the returned bytes. `false` for every real graph today. */
       layoutPresent: boolean
       /**
@@ -301,6 +324,14 @@ function parseOk(body: unknown): ScenarioGraphResult {
     briefText: typeof b.brief_text === 'string' ? b.brief_text : null,
     notModelled: parseNotModelled(b.not_modelled),
     identity: readIdentityEnvelope(b.graph_identity_hash),
+    // ⚠ NON-EMPTY STRING OR NULL, and nothing in between. A blank would be a
+    // base that matches nothing, which the server would refuse as stale and the
+    // user would read as "your edit conflicted" — so it is treated exactly as an
+    // absent answer. The value is OPAQUE here: it is carried, never parsed,
+    // compared or recomputed, because the server that issued it is the only
+    // authority on what it means.
+    graphHash:
+      typeof b.graph_hash === 'string' && b.graph_hash.length > 0 ? b.graph_hash : null,
     layoutPresent: b.layout_present === true,
     // ROADMAP 2.1271 — PARSED, NOT TRUSTED, and by the SAME `.strict()`
     // discriminated-union schema `v5/applyV5State.ts` uses on the turn path. A

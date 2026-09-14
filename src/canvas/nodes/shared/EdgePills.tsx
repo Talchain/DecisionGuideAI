@@ -25,6 +25,7 @@ import { NodeShapeIndicator } from '../NodeShapeIndicator'
 import { computeSignedMean } from '../../domain/edges'
 import { isEdgeValueSet } from '../../domain/edgeValueProvenance'
 import type { NodeType } from '../../domain/nodes'
+import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
 
 interface EdgePillsProps {
   nodeId: string
@@ -98,12 +99,33 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           {p.direction !== null && (
             <span className="sr-only">{p.direction === 'up' ? 'Raises' : 'Lowers'}</span>
           )}
-          <NodeShapeIndicator nodeKind={p.kind} size={9} />
+          {/* ⚠ ALL THREE GLYPHS CARRY THE CANVAS COUNTER-SCALE. The pill's TEXT
+              already did — `typography.edgeLabel` is one of the three canvas
+              tokens — so the number beside these marks rendered at its declared
+              10px while the marks themselves rendered at **7.0px** (measured on
+              the deployed board), because a `size` prop is not a token and the
+              counter-scale reaches text and only text. A row where the digits
+              are right and the shape and arrow are half-size is the same defect
+              as an unreadable label; it is just harder to notice.
+
+              `NodeShapeIndicator` takes a `className`, so it is counter-scaled
+              from HERE — its own file is untouched. These are decorative
+              (`aria-hidden`, and the direction is announced by the `sr-only`
+              span above), so they owe legibility, not a 24px target. */}
+          <NodeShapeIndicator nodeKind={p.kind} size={9} className={CANVAS_GLYPH_SIZE_CLASSES[9]} />
           {p.direction === 'up' && (
-            <ArrowUp size={9} className="text-success shrink-0" aria-hidden="true" />
+            <ArrowUp
+              size={9}
+              className={`text-success shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`}
+              aria-hidden="true"
+            />
           )}
           {p.direction === 'down' && (
-            <ArrowDown size={9} className="text-danger shrink-0" aria-hidden="true" />
+            <ArrowDown
+              size={9}
+              className={`text-danger shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`}
+              aria-hidden="true"
+            />
           )}
           {/* Audit §8 P0-4: this percentage is link STRENGTH (edge weight),
               not confidence — labelled so it can't be read as the same number

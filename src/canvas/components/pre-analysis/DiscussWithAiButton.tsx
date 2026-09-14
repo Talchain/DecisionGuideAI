@@ -20,6 +20,7 @@ import Tooltip from '@/components/Tooltip'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import { requestAsk } from '@/canvas/ui/inspector-v2/askSemantic'
 import { buildAiDiscussPrompt, type AiDiscussElement } from './buildAiDiscussPrompt'
+import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../shared/biasSignalTitles'
 
 interface DiscussWithAiButtonProps {
   element: AiDiscussElement
@@ -121,7 +122,14 @@ function buildDefaultAriaLabel(el: AiDiscussElement): string {
     case 'factor': return `Discuss ${el.label} with AI`
     case 'edge':   return `Discuss the relationship between ${el.from} and ${el.to} with AI`
     case 'option': return `Discuss ${el.label} with AI`
-    case 'bias':   return `Discuss ${el.biasType} with AI`
+    // ⛔ AT-FACING, AND IT NAMED A BIAS THAT WAS NEVER IDENTIFIED. This is the
+    // default ARIA label, so an uncategorised signal announced "Discuss
+    // Reasoning check with AI" to a screen-reader user as if that were a bias.
+    // Same cause as the coaching line: I changed the fallback constant and did
+    // not sweep its interpolations.
+    case 'bias':   return el.biasType === UNRECOGNISED_BIAS_SIGNAL_TITLE
+      ? 'Discuss this reasoning check with AI'
+      : `Discuss ${el.biasType} with AI`
     case 'goal':   return `Discuss the goal ${el.label} with AI`
     case 'missing': return `Tell AI about something missing from the model`
   }

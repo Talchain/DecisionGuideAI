@@ -17,6 +17,18 @@
  * defect the estate forbids; the closed `move` vocabulary is the only thing
  * this file decides, and it decides only which word labels the card.
  *
+ * ⭐ THE ONE THING IT DOES SAY IN ITS OWN VOICE IS A DISCLOSURE ABOUT THE MARK
+ * — never a finding about the model. The staleness notice below is the existing
+ * instance of that, and `attention.caveat` is the general form: a sentence about
+ * what the highlight the UI just drew does and does not claim. It is a SEPARATE
+ * FIELD from `note` on purpose, so a UI-authored line can never be read as the
+ * producer's coaching, and it renders in the same quiet warning register.
+ *
+ * ⚠ A CAVEAT ALONE IS ENOUGH TO RENDER. If the card required a `note`, a
+ * highlight that carries only a caveat would draw the mark and drop the
+ * admission — which is the exact defect the caveat exists to close, reproduced
+ * one layer down.
+ *
  * ⚠ AND IT SAYS WHEN IT HAS GONE STALE rather than quietly lying. Attention
  * carries the model version it was computed against (PR #747's objection: the
  * canvas is one global slot). If the model has moved since, the card says so
@@ -38,6 +50,13 @@ const MOVE_LABEL: Record<string, string> = {
   calibrate: 'Check',
   reframe: 'Reframe',
 }
+
+/**
+ * The label a caveat-only card wears. Deliberately NOT one of the four moves:
+ * this is the UI disclosing something about its own mark, not Olumi making a
+ * reasoning intervention, and the two must not share a word.
+ */
+const CAVEAT_LABEL = 'About this highlight'
 
 export const OLUMI_ATTENTION_CARD_TESTID = 'olumi-attention-card'
 
@@ -75,7 +94,7 @@ export function OlumiAttentionCard() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isHeld])
 
-  if (!attention || !attention.note) return null
+  if (!attention || (!attention.note && !attention.caveat)) return null
   const anchorId = attention.nodeIds[0]
   if (!anchorId) return null
   const anchor = nodes.find((n) => n.id === anchorId)
@@ -88,6 +107,7 @@ export function OlumiAttentionCard() {
   const top = anchor.position.y * zoom + ty
 
   const note = attention.note
+  const caveat = attention.caveat
   const isStale =
     attention.modelVersion !== null &&
     typeof layoutVersion === 'number' &&
@@ -97,7 +117,7 @@ export function OlumiAttentionCard() {
     <div
       data-testid={OLUMI_ATTENTION_CARD_TESTID}
       data-anchor-id={anchorId}
-      data-move={note.move}
+      {...(note ? { 'data-move': note.move } : {})}
       style={{ position: 'absolute', left, top, width: 268, zIndex: 95 }}
       className="pointer-events-auto rounded-lg border border-info/40 bg-panel shadow-panel p-3"
       role="complementary"
@@ -106,11 +126,13 @@ export function OlumiAttentionCard() {
       <div className="flex items-start gap-2">
         <span className="min-w-0 flex-1">
           <span className={`${typography.panelMeta} text-info block`}>
-            {MOVE_LABEL[note.move] ?? MOVE_LABEL.challenge}
+            {note ? (MOVE_LABEL[note.move] ?? MOVE_LABEL.challenge) : CAVEAT_LABEL}
           </span>
-          <span className={`${typography.panelHeader} text-text-header block mt-0.5`}>
-            {note.title}
-          </span>
+          {note ? (
+            <span className={`${typography.panelHeader} text-text-header block mt-0.5`}>
+              {note.title}
+            </span>
+          ) : null}
         </span>
         <button
           type="button"
@@ -122,7 +144,28 @@ export function OlumiAttentionCard() {
         </button>
       </div>
 
-      <p className={`${typography.panelBody} text-text-body mt-1.5 mb-0`}>{note.body}</p>
+      {note ? (
+        <p className={`${typography.panelBody} text-text-body mt-1.5 mb-0`}>{note.body}</p>
+      ) : null}
+
+      {caveat ? (
+        <>
+          <p
+            className={`${typography.panelBody} text-warning mt-1.5 mb-0`}
+            data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat`}
+          >
+            {caveat.text}
+          </p>
+          {caveat.sourceLine ? (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+              data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-caveat-reason`}
+            >
+              {caveat.sourceLine}
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
       {isStale ? (
         <p
@@ -133,7 +176,7 @@ export function OlumiAttentionCard() {
         </p>
       ) : null}
 
-      {note.actions && note.actions.length > 0 ? (
+      {note && note.actions && note.actions.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {note.actions.map((a) => (
             <button
@@ -171,7 +214,7 @@ export function OlumiAttentionCard() {
         </div>
       ) : null}
 
-      {note.sourceLine ? (
+      {note && note.sourceLine ? (
         <p className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}>{note.sourceLine}</p>
       ) : null}
     </div>

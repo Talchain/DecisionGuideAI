@@ -235,13 +235,13 @@ describe('the subtitle counts in English', () => {
   }
 
   it.each([
-    ['n = 1, all present', { total: 1, inModel: 1 }, 'The figure you mentioned is in the model'],
-    ['n > 1, all present', { total: 3, inModel: 3 }, 'All 3 figures you mentioned are in the model'],
-    ['n = 1, shortfall', { total: 1, inModel: 0, absent: 1 }, "The figure you mentioned isn't in the model yet"],
-    ['one of many missing', { total: 4, inModel: 3, absent: 1 }, "1 of 4 figures you mentioned isn't in the model yet"],
-    ['several missing', { total: 4, inModel: 2, absent: 2 }, "2 of 4 figures you mentioned aren't in the model yet"],
-    ['unreconciled, some in the model', { total: 5, inModel: 3 }, '3 of 5 figures you mentioned are in the model'],
-    ['unreconciled, none in the model, n = 1', { total: 1, inModel: 0 }, 'None of the 1 figure you mentioned is in the model'],
+    ['n = 1, all present', { total: 1, inModel: 1 }, 'The figure I found in your brief is in the model'],
+    ['n > 1, all present', { total: 3, inModel: 3 }, 'All 3 figures I found in your brief are in the model'],
+    ['n = 1, shortfall', { total: 1, inModel: 0, absent: 1 }, "The figure I found in your brief isn't in the model yet"],
+    ['one of many missing', { total: 4, inModel: 3, absent: 1 }, "1 of 4 figures I found in your brief isn't in the model yet"],
+    ['several missing', { total: 4, inModel: 2, absent: 2 }, "2 of 4 figures I found in your brief aren't in the model yet"],
+    ['unreconciled, some in the model', { total: 5, inModel: 3 }, '3 of 5 figures I found in your brief are in the model'],
+    ['unreconciled, none in the model, n = 1', { total: 1, inModel: 0 }, 'None of the 1 figure I found in your brief is in the model'],
   ])('renders the derived sentence VERBATIM: %s', (_name, q, expected) => {
     seedQuantities(q)
     expect(subtitle()).toBe(expected)
@@ -384,7 +384,7 @@ describe('what I used — the verdicts, bound by identity', () => {
     seedFrom(b1Fixture as never)
     render(<WhatIWasGivenSection />)
     const summary = screen.getByTestId('what-i-was-given-summary')
-    expect(summary.textContent).toMatch(/\d+ of \d+ figures you mentioned aren't in the model yet/)
+    expect(summary.textContent).toMatch(/\d+ of \d+ figures I found in your brief aren't in the model yet/)
   })
 })
 
@@ -418,7 +418,7 @@ describe("the model's own declared exclusions — the sharpest loss class", () =
     // brief, so the empty considered-list cannot read as a clean draft.
     expect(screen.getByTestId('what-i-was-given-notyet')).toBeInTheDocument()
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toMatch(
-      /2[0-9] of 28 figures you mentioned aren't in the model yet/,
+      /2[0-9] of 28 figures I found in your brief aren't in the model yet/,
     )
   })
 })
@@ -681,7 +681,7 @@ describe('counts come from the manifest, not from the rendered rows', () => {
     render(<WhatIWasGivenSection />)
     // 35 absent + 5 prose-only = 40, NOT the 1 row actually rendered.
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      "40 of 50 figures you mentioned aren't in the model yet",
+      "40 of 50 figures I found in your brief aren't in the model yet",
     )
   })
 })
@@ -859,9 +859,15 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     const summary = screen.getByTestId('what-i-was-given-summary').textContent ?? ''
 
     // ⚠ THE DISTINCTION IS WHAT THIS PROTECTS, NOT THE STRING. This zero means
-    // "we looked and your brief had no figures", and it must stay separable
-    // from the zeros above that mean "we could not look". That is asserted
-    // directly: it must NOT be the cannot-show sentence.
+    // "we looked and FOUND no figures", and it must stay separable from the
+    // zeros above that mean "we could not look". That is asserted directly: it
+    // must NOT be the cannot-show sentence.
+    //
+    // ⚠ THE MEANING WAS RESTATED 11 Sep 2026 (ROADMAP 2.1000) AND THE EDIT IS
+    // THE POINT. This comment read "we looked and your brief had no figures",
+    // which is the same overclaim as the all-clear one arm across: the
+    // extractor's silence is evidence about the extractor, not about the brief.
+    // The sentence now says what was found; so does this.
     expect(summary).not.toBe("I can't show this yet")
 
     // ⚠⚠ AND IT MAY NOT REPORT A SHORTFALL THAT DOES NOT EXIST. The original

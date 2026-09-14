@@ -17,20 +17,18 @@
  * The rule is the founder's and it is unchanged: *"a new factor arrives as an
  * explicit unknown, never a fabricated number. Don't 'helpfully' seed one."*
  *
- * ⚠⚠ WHAT WAS ACTUALLY WRONG, AND THE PRIOR RECORD OF IT WAS TOO BROAD.
- * `addNodeWithEdge` seeded `data: { label, kind, category: 'external' }`, and
- * `FactorNode.tsx` renders "Uncertainty here affects {N} outcome{s}." whenever
- * `nodeCategory === 'external' && outcomesAffected > 0`. The scope block
- * recorded that an edge-creating add GUARANTEES that condition. **It does
- * not** — `outcomesAffected` counts edges whose SOURCE is this node
- * (`FactorNode.tsx`'s `edges.filter(e => e.source === props.id)`), so the digit
- * renders only when the new node is the edge's source. Derived at
- * `contextMenu/actions.ts`: `getEdgeDirectionForKind` returns `'to-target'`
- * for every kind EXCEPT decision and option, and `'to-target'` puts the NEW
- * node in the source position. So the fabrication fired on "Add connected
- * factor" invoked on a factor, outcome, risk or GOAL — and not on the same
- * item invoked on a decision or an option, nor on the option/outcome/risk
- * items, which all pass `'from-target'` explicitly.
+ * The original defect seeded `data: { label, kind, category: 'external' }`.
+ * The external-factor count now reads "Linked to {N} outcome{s}." and counts
+ * distinct existing outcome targets of outgoing edges. An outgoing edge to a
+ * risk alone no longer exercises that branch. This fixture therefore invokes
+ * "Add connected factor" on an outcome: `getEdgeDirectionForKind('outcome')`
+ * returns `'to-target'`, putting the new factor at the edge's source. Adding
+ * `category: 'external'` back must expose the linked-outcome count, while the
+ * real uncategorised seed must still render no digit with badges suppressed.
+ * Historically the counter included every outgoing edge: that defect applied
+ * to adds invoked on factor, outcome, risk and goal targets, but not decision
+ * or option targets whose edge direction differs. The new outcome-only filter
+ * narrows the positive-control fixture; it does not erase that earlier scope.
  *
  * ⚠ AND IT IS NOT THE ONLY PATH: `insertFactorBetweenAction` splits an edge and
  * lands the new factor in the SOURCE position BY CONSTRUCTION — no direction
@@ -126,11 +124,11 @@ import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 const ANY_NUMBER = /\d/
 
 /** The clicked node the user invokes "Add connected factor" on. */
-const RISK_TARGET: Node = {
+const OUTCOME_TARGET: Node = {
   id: '1',
-  type: 'risk',
+  type: 'outcome',
   position: { x: 0, y: 0 },
-  data: { label: 'Supply shock', kind: 'risk' },
+  data: { label: 'Supply continuity', kind: 'outcome' },
 } as Node
 
 /** A genuine, user-stated ZERO. The erasure direction's fixture. */
@@ -154,7 +152,7 @@ function performConnectedFactorAdd(): { nodeId: string; data: Record<string, unk
     pendingStructuralAdds: [],
     structuralAddLifecycle: [],
     _externalMutationActive: 0,
-    nodes: [RISK_TARGET] as unknown as Node[],
+    nodes: [OUTCOME_TARGET] as unknown as Node[],
     edges: [],
     history: { past: [], future: [] },
     engineLimits: null,
@@ -162,14 +160,13 @@ function performConnectedFactorAdd(): { nodeId: string; data: Record<string, unk
     ceeAnalysisReady: null,
   } as never)
 
-  // `'to-target'` is what `getEdgeDirectionForKind('risk')` returns, and it is
-  // the direction that puts the NEW node in the SOURCE position — the only
-  // arrangement in which `outcomesAffected` can exceed zero. Named here rather
-  // than passed blind, because the whole discrimination rests on it.
+  // `getEdgeDirectionForKind('outcome')` returns `'to-target'`, so the new
+  // factor has an outgoing edge to an existing outcome. Both the direction
+  // and target kind are required for the positive control to expose a count.
   const nodeId = useCanvasStore.getState().addNodeWithEdge(
     { x: 150, y: 0 },
     'factor',
-    RISK_TARGET.id,
+    OUTCOME_TARGET.id,
     'to-target',
   )
   expect(typeof nodeId).toBe('string')
@@ -219,16 +216,17 @@ beforeEach(() => {
 // LAYER 0 — the PRECONDITION, pinned in-test
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('LAYER 0 — the topology this file asserts against really is the fabricating one', () => {
-  it('⭐ the created node is the EDGE SOURCE, so `outcomesAffected` is non-zero', () => {
+describe('LAYER 0 — the topology enables the linked-outcome count', () => {
+  it('⭐ the created factor is the source of an edge to an existing outcome', () => {
     // ⚠ WITHOUT THIS, EVERY "NO DIGIT" RESULT BELOW COULD BE THE FIXTURE
     // FAILING TO TRIGGER RATHER THAN THE CODE BEHAVING (CLAUDE.md trap 13b).
-    // `FactorNode` computes `outcomesAffected` as
-    // `edges.filter(e => e.source === props.id).length`; this asserts the store
-    // produced exactly that arrangement.
+    // Assert both prerequisites of the live count, not just edge direction.
     const { nodeId } = performConnectedFactorAdd()
-    const edges = useCanvasStore.getState().edges
-    expect(edges.filter((e) => e.source === nodeId)).toHaveLength(1)
+    const { nodes, edges } = useCanvasStore.getState()
+    expect(nodes.find((node) => node.id === OUTCOME_TARGET.id)?.type).toBe('outcome')
+    expect(edges.filter((edge) => edge.source === nodeId)).toEqual([
+      expect.objectContaining({ source: nodeId, target: OUTCOME_TARGET.id }),
+    ])
   })
 
   it('⭐⭐ POSITIVE CONTROL — with `category: "external"` PUT BACK, the digit DOES render', () => {
@@ -238,8 +236,41 @@ describe('LAYER 0 — the topology this file asserts against really is the fabri
     // the "no digit" tests below prove nothing.
     const { nodeId, data } = performConnectedFactorAdd()
     const { container } = renderFactor(nodeId, { ...data, category: 'external' })
-    expect(container.textContent ?? '').toMatch(/Uncertainty here affects 1 outcome/)
+    expect(container.textContent ?? '').toContain('Linked to 1 outcome.')
     expect(container.textContent ?? '').toMatch(ANY_NUMBER)
+  })
+
+  it('counts distinct outcome targets, excluding duplicate edges and other node kinds', () => {
+    const { nodeId, data } = performConnectedFactorAdd()
+    const { nodes, edges } = useCanvasStore.getState()
+    const connectedEdge = edges.find((edge) => edge.source === nodeId)
+    expect(connectedEdge).toBeDefined()
+    useCanvasStore.setState({
+      nodes: [
+        ...nodes,
+        {
+          id: 'another-outcome',
+          type: 'outcome',
+          position: { x: 0, y: 150 },
+          data: { label: 'Customer retention', kind: 'outcome' },
+        },
+        {
+          id: 'risk-target',
+          type: 'risk',
+          position: { x: 0, y: 300 },
+          data: { label: 'Supply shock', kind: 'risk' },
+        },
+      ],
+      edges: [
+        ...edges,
+        { ...connectedEdge!, id: 'duplicate-outcome-edge' },
+        { ...connectedEdge!, id: 'another-outcome-edge', target: 'another-outcome' },
+        { ...connectedEdge!, id: 'risk-edge', target: 'risk-target' },
+      ],
+    })
+
+    const { container } = renderFactor(nodeId, { ...data, category: 'external' })
+    expect(container.textContent ?? '').toContain('Linked to 2 outcomes.')
   })
 })
 

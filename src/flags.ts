@@ -378,6 +378,32 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_REASONING_DISCLOSURE',
     storageKey: 'feature.reasoningDisclosure',
   },
+  // Compact coaching lines: the turn's coaching/review cards render as ONE
+  // producer-titled line each, expandable to the full card, instead of a stack
+  // of bordered panels. Default ON — this is the primary panel presentation.
+  //
+  // ⚠ WHY DEFAULT ON WITH A KILL SWITCH RATHER THAN DEFAULT OFF. The change is
+  // presentational and reversible in one keystroke, and a default-OFF flag
+  // cannot be judged on staging without a deploy — which is the whole point of
+  // shipping it. Same posture as `aiPanelV2` above. To revert without a
+  // deploy: localStorage.setItem('feature.compactCoachingLines', 'false').
+  //
+  // ⚠ The line is the producer's own `title`, VERBATIM. A block with a blank
+  // title, or one carrying no usable label at all, renders expanded, and
+  // PINNED_BLOCK_TYPES (consent affordances, the analysis answer) never
+  // collapse at all — see InlineBlocks' `isCollapsibleCardBlock`.
+  //
+  // ⭐ `v5_evidence` DOES collapse, and carries no `title` field. It resolves
+  // through `evidenceBlockTitle` — the card's own contract-§1.3 answer, so the
+  // line and the card cannot print two names for one block. `v5_exercise`
+  // still has no label of any kind and so still renders expanded. (This
+  // paragraph previously named v5_evidence as an always-expanded block; that
+  // stopped being true the moment the line learned to ask the card.)
+  compactCoachingLines: {
+    envKey: 'VITE_FEATURE_COMPACT_COACHING_LINES',
+    storageKey: 'feature.compactCoachingLines',
+    defaultValue: true,
+  },
   // Login 3.4 UI half: when ON, no guest user is minted (lib/poc.ts
   // isGuestAuth) and unauthenticated visitors land on LoginPage via the
   // already-mounted AuthGuard. Default OFF — the live flip is Paul-gated
@@ -522,6 +548,7 @@ const flags = {
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
   reasoningDisclosure: makeFlag(FLAGS_CONFIG.reasoningDisclosure),
+  compactCoachingLines: makeFlag(FLAGS_CONFIG.compactCoachingLines),
   requireLogin: makeFlag(FLAGS_CONFIG.requireLogin),
   decisionOverview: makeFlag(FLAGS_CONFIG.decisionOverview),
   strengthenPanel: makeFlag(FLAGS_CONFIG.strengthenPanel),
@@ -592,6 +619,7 @@ export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
 export const diagnoseV5CanonicalAnalysis = () =>
   diagnoseFlagState(FLAGS_CONFIG.v5CanonicalAnalysis)
 export const isReasoningDisclosureEnabled = flags.reasoningDisclosure
+export const isCompactCoachingLinesEnabled = flags.compactCoachingLines
 export const isRequireLoginEnabled = flags.requireLogin
 export const isDecisionOverviewEnabled = flags.decisionOverview
 export const isStrengthenPanelEnabled = flags.strengthenPanel

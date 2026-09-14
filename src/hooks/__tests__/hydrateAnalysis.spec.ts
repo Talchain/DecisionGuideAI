@@ -283,3 +283,47 @@ describe('extractM1CoachingFromV2', () => {
     expect(result!.evidence_gaps).toEqual([gap])
   })
 })
+
+/**
+ * ⛔⛔ THE CROSS-SCENARIO LEAK GUARD — found in review, and it is a worse harm
+ * than the one the feature it guards was written to prevent.
+ *
+ * `resultsHydrateFromSupabase` merges this function's `runMeta` into the store by
+ * SPREAD, and the scenario-switch reset clears `results` but never `runMeta`. So
+ * any key this payload does NOT mention SURVIVES a scenario switch.
+ *
+ * `m1Coaching` has always been safe because it is written unconditionally, `??
+ * null`. `evidenceAssessment` — written by the LIVE turn path and read in
+ * PREFERENCE to `m1Coaching` — was omitted. The consequence: analyse scenario A
+ * on a live turn, switch to a scenario B that has a persisted analysis, and B's
+ * Reasoning tab names A's factors as B's evidence gaps.
+ *
+ * ⚠ THESE ASSERT THE PAYLOAD CARRIES THE EVICTION, not that some code path
+ * clears it somewhere. The payload is what the spread consumes; a clear that
+ * happens elsewhere would not survive a refactor of the merge.
+ */
+describe('the restore payload cannot carry a previous scenario’s answers', () => {
+  it('EVICTS evidenceAssessment — the key is present and null, never omitted', () => {
+    const hydrated = hydrateAnalysisFromV2Response(makeMinimalV2Response(), null)
+    // Precondition, so this cannot pass by the fixture failing to hydrate.
+    expect(hydrated, 'fixture did not hydrate; the assertions below would be vacuous').not.toBeNull()
+    const runMeta = hydrated!.runMeta as Record<string, unknown>
+    expect(
+      Object.prototype.hasOwnProperty.call(runMeta, 'evidenceAssessment'),
+      'evidenceAssessment is OMITTED, so a previous scenario’s assessment survives the spread',
+    ).toBe(true)
+    expect(runMeta.evidenceAssessment).toBeNull()
+  })
+
+  /**
+   * The twin, and it is what makes the case above about the LEAK CLASS rather
+   * than about one field: the sibling the consumer falls back to is evicted the
+   * same way, so neither route can carry a stale answer across a switch.
+   */
+  it('evicts m1Coaching the same way, so neither route survives a switch', () => {
+    const hydrated = hydrateAnalysisFromV2Response(makeMinimalV2Response(), null)
+    const runMeta = hydrated!.runMeta as Record<string, unknown>
+    expect(Object.prototype.hasOwnProperty.call(runMeta, 'm1Coaching')).toBe(true)
+    expect(runMeta.m1Coaching).toBeNull()
+  })
+})

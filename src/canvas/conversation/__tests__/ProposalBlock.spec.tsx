@@ -22,6 +22,12 @@ vi.mock('../../../flags', () => ({
   isDeterministicCeeEnabled: vi.fn(() => true),
   isPreAnalysisEnrichedEnabled: vi.fn(() => false),
   isOrchestratorRenderingV2Enabled: vi.fn(() => false),
+  // InlineBlocks consumes this to decide whether a card renders as a compact
+  // line. Set to the PRODUCTION default (on) rather than off, so this file
+  // keeps exercising the shape users actually get. Proposals are pinned and
+  // never collapse either way — which is itself pinned in
+  // coachingLinesCompact.spec.tsx.
+  isCompactCoachingLinesEnabled: vi.fn(() => true),
 }))
 
 vi.mock('../../../lib/posthog', () => ({

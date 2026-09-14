@@ -13,6 +13,15 @@
  * `FactorsSection.tsx:745`, `RelationshipsSection.tsx:827`,
  * `RisksSection.tsx:143`, `ModelHealthSection.tsx:328`). A `title` is not an
  * accessible name a screen reader announces reliably and is invisible on touch.
+ *
+ * ⚠ ONE OF THOSE SIX CITATIONS IS NOW OUT OF DATE, AND IT IS THE ONLY ONE THAT
+ * WAS EVER REACHABLE (10 Sep 2026). The five `*Section.tsx` originals are inside
+ * `ModelTabBody`'s `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate and are dark.
+ * `ModelHealthSection`'s is NOT — it mounts in `model-scientific-transparency`,
+ * outside that gate — so it stayed clickable with a `title` as its only name AND
+ * with no fronting on its send. It now carries `MODELCARD_DISCUSS_LABEL` as a
+ * real `aria-label` and routes through `createOlumiHandOff`. The five dark ones
+ * are untouched and still read as described above.
  * The label is the same DS idiom the v1 STRUCTURAL CTAs already use, so this is
  * conformance to the existing visual language rather than a new one — no new
  * token, no new size, no new colour.

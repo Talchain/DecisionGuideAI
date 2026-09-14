@@ -44,9 +44,38 @@ const vmWith = (extra: Record<string, unknown>) => readDecisionBriefViewModel(br
 }))
 
 describe('robustness_caveat reaches the view model', () => {
-  it('carries the producer text and its basis token verbatim', () => {
+  /**
+   * ⚠⚠ THIS TEST PINNED THE LEAK, AND IS INVERTED RATHER THAN DELETED.
+   *
+   * It asserted `basis: 'is_robust'` reaches the view model verbatim — the REAL
+   * producer value, certified as correct. Nothing rendered `basis` when it was
+   * written, so "verbatim" cost nothing. Then the Reasoning tab mounted the
+   * field and the served build `475ee1c7` printed `Tested against: is_robust` to
+   * a user, with this test green underneath it.
+   *
+   * ⭐ THE PAIR IS WHAT MADE IT INVISIBLE. This file pinned the real enum as
+   * passing the parser, while `robustnessCaveatReachesTheTab.spec.tsx` proved a
+   * legitimate basis renders using `2,000 simulated futures` — an invented
+   * phrase the producer has never been observed to send. Between them no test
+   * ever put the real value on a screen. A fixture you wrote yourself is not
+   * evidence about the wire (trap 16-inverse).
+   *
+   * Now asserted in the honest direction: the SENTENCE is carried verbatim, and
+   * a wire-enum basis is nulled so the label is omitted rather than shown.
+   */
+  it('carries the producer sentence verbatim and nulls a wire-enum basis', () => {
     expect(vmWith({ robustness_caveat: caveat() })?.robustnessCaveat)
-      .toEqual({ text: HELD, basis: 'is_robust' })
+      .toEqual({ text: HELD, basis: null })
+  })
+
+  /**
+   * ⚠ THE OPPOSITE DIRECTION, so the case above cannot be satisfied by a parser
+   * that nulls every basis it is ever given.
+   */
+  it('carries a DISPLAY-TEXT basis through verbatim', () => {
+    const withPhrase = { text: HELD, basis: '2,000 simulated futures' }
+    expect(vmWith({ robustness_caveat: withPhrase })?.robustnessCaveat)
+      .toEqual({ text: HELD, basis: '2,000 simulated futures' })
   })
 
   it('is null when the producer withheld it (the withheld-turn signal)', () => {

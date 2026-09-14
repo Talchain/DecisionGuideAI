@@ -149,6 +149,27 @@ const baseEdgeProps = {
   selected: false,
   data: {
     weight: 0.6,
+    // ⚠ PROVENANCE MARKER, AND ITS ABSENCE IS WHY TWO TESTS BELOW WENT RED.
+    //
+    // Without `weightSource`, `edgeValueSource(data, 'weight')` returns null
+    // (`edgeValueProvenance.ts:149-155`), so `resolveEdgeSignedStrengthDisplay`
+    // reports `{show:false, reason:'not_set'}` and the stroke width falls to
+    // `UNSET_EDGE_STROKE_WIDTH` (`StyledEdge.tsx:489-493`).
+    //
+    // ⛔ SO THE CAUSAL-THICKNESS ASSERTIONS WERE ALREADY VACUOUS. They read
+    // `> 1` as a proxy for "not structural" and were passing on the unset
+    // floor of 1.5 — never on the `weightMagnitudeToStrokeWidth` mock they
+    // name, which the provenance gate short-circuits before it can fire. This
+    // PR moves that floor 1.5 → 1, which collides with structural's hardcoded
+    // `1` (`StyledEdge.tsx:1189`) and exposes the vacuity as a failure.
+    //
+    // The production change is correct; the fixture was never exercising
+    // causal thickness. Marking provenance makes the gate open so the mock
+    // actually fires and the assertion finally tests what it claims.
+    //
+    // ⛔ Do NOT "fix" this by relaxing to `toBeGreaterThanOrEqual(1)` — that
+    // makes the width assertion permanently vacuous against structural's 1.
+    weightSource: 'user' as const,
     direction: 'positive' as const,
     beliefExists: 0.8,
   },
@@ -221,7 +242,11 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     const style = (baseEdge as unknown as HTMLElement).style
     // Causal: not the structural grey
     expect(style.stroke.toLowerCase()).not.toBe(STRUCTURAL_GREY)
-    // Causal stroke width is > 1 (the importanceToStrokeWidth mock returns 2)
+    // Causal stroke width is > 1 (the `weightMagnitudeToStrokeWidth` mock
+    // returns 2). ⚠ This comment named `importanceToStrokeWidth` until 9 Sep
+    // 2026 — a function `StyledEdge.tsx` never calls (0 hits; contrast:
+    // `weightMagnitudeToStrokeWidth` 4). It named a mock that could not fire
+    // for an assertion that was not firing, which is how the vacuity survived.
     const widthNum = parseFloat(style.strokeWidth)
     expect(widthNum).toBeGreaterThan(1)
 

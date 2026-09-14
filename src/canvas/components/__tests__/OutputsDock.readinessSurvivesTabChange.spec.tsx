@@ -124,6 +124,7 @@ import { actionableBlockers } from '../../utils/canRunAnalysis'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
 import { WORKSPACE_SURFACES, presentedSurfaces } from '../workspaceShell/shellContract'
 import { isAiPanelV2Enabled, isPreAnalysisV3Enabled } from '../../../flags'
+import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -348,6 +349,12 @@ beforeEach(() => {
   try {
     sessionStorage.removeItem(OUTPUTS_DOCK_STORAGE_KEY)
     sessionStorage.clear()
+    // ⚠ THE TAB THIS SPEC HAS ALWAYS MEASURED, NOW STATED (default-tab ruling,
+    // 9 Sep 2026). Every Analysis-surface testid queried below used to be
+    // reached for free because the dock OPENED on Analysis; it now opens on
+    // Reasoning. Fixture only — no assertion here is relaxed. Must follow the
+    // clear above. See the helper's header.
+    seedDockOnAnalysisTab()
   } catch { /* jsdom quirk */ }
   // ⭐ THE URL IS A SINGLETON TOO, AND IT IS THE ONE THAT ACTUALLY LEAKED.
   // `handleTabClick` syncs the selection into a `?tab=` deep link

@@ -32,17 +32,72 @@
  * The ONE detail tier. See design §4.3.
  *
  * ⚠ THIS IS A CONTENT SWITCH, NEVER A LAYOUT SWITCH — the whole point of the
- * v2 tier. Today's `expertMode` drives both the scientific detail AND the
- * accordion mode (`ModelTabBody.tsx:116-122` vs `:761`), so a non-scientist who
- * merely wants two sections open at once has to turn on the scientist view.
- * A tier value must never decide how many groups are open, how rows are
- * ordered, or which rows are selected.
+ * v2 tier. A tier value must never decide how many groups are open, how rows
+ * are ordered, or which rows are selected.
+ *
+ * ⚠⚠ THE SECOND HALF OF THIS COMMENT WAS A STANDING ARGUMENT FOR KEEPING TWO
+ * SWITCHES, AND ITS PREMISE IS DEAD. It read:
+ *
+ *     "Today's `expertMode` drives both the scientific detail AND the accordion
+ *      mode (`ModelTabBody.tsx:116-122` vs `:761`), so a non-scientist who
+ *      merely wants two sections open at once has to turn on the scientist view."
+ *
+ * Derived at `3b2df4ce`, at the line numbers rather than from the claim:
+ * `isExpert` has exactly ONE consumer in `ModelTabBody` — `makeSectionProps`
+ * (:194-201), which switches the accordion between single-open and multi-open.
+ * That helper has six call sites (:968, :1036, :1050, :1064, :1073, :1091), and
+ * FIVE of them sit inside `{LEGACY_DETAILED_EDITOR_MOUNTED && (` — :975-:1097,
+ * with the constant hardcoded `false`. The live accordion group therefore has
+ * exactly ONE member, and over a group of one, single-open and multi-open are
+ * the same layout.
+ *
+ * So `expertMode` cannot change layout on this tab: it is already the pure
+ * content switch this type was minted to be. `DetailTier` is now DERIVED from
+ * it (`ModelTabV2Panel`'s `expertMode` prop) rather than held beside it — the
+ * type stays, because naming the two content levels is still useful; what is
+ * gone is the second piece of STATE.
+ *
+ * ⭐ The reason this paragraph is rewritten rather than deleted: a justification
+ * for a design outlives the fact that justified it, and the next reader would
+ * have re-derived the split from a sentence that stopped being true.
  */
 export type DetailTier = 'plain' | 'advanced'
 
 /**
- * The seven groups of the outline, in render order. Total by construction:
- * a `Record<ModelGroupId, …>` cannot silently omit one.
+ * The groups of the outline, in render order. Total by construction: a
+ * `Record<ModelGroupId, …>` cannot silently omit one.
+ *
+ * ⭐⭐ WAS SEVEN. `assumptions-provenance` and `evidence-review` WERE REMOVED
+ * (9 Sep 2026) BECAUSE NO PRODUCER COULD EVER FILL THEM — measured on deployed
+ * `fa95cf65` / `9748b336`, driven as a guest: both rendered a count of `0` and
+ * "Nothing in this group yet", and would have done so forever.
+ *
+ * The mechanism, derived at the bytes rather than inferred from the empty
+ * screen: `KIND_GROUP` (`adapters.ts:233`) is `Record<ModelElementKind,
+ * ModelGroupId>` — TOTAL over all seven kinds — and its VALUE set has only FIVE
+ * members. `toModelRows` sets `group` from `KIND_GROUP[kind]` at every node site
+ * and hardcodes `'relationships'` for edges. So there was no code path, and no
+ * data state, that could put a row in either. They were not empty; they were
+ * unfillable.
+ *
+ * ⚠ AND LEAVING THEM HERE WHILE MERELY NOT RENDERING THEM WOULD HAVE BEEN
+ * WORSE THAN THE DEFECT. `outlineLayout` uses this array as the KNOWN set when
+ * deciding a row's group is rogue: an id that is known-but-unrendered lets a row
+ * be swallowed with no entry in `unknownGroupRowIds` — a silent drop in the one
+ * place built to report drops. One list, one meaning.
+ *
+ * ⚠ NOTHING WAS LOST WITH THEM. `evidence-review`'s only affordance was
+ * `DISCUSS_RELIABILITY`, whose message is BYTE-IDENTICAL to the live
+ * `modelcard-discuss` button still mounted in `ModelHealthSection` — see
+ * `groupActions.ts`. `assumptions-provenance` had none at all, and per-row
+ * provenance is rendered by `ValueProvenanceMark` in the row itself, not by a
+ * group.
+ *
+ * ⚠ DO NOT RE-ADD A GROUP HERE WITHOUT A PRODUCER. That is enforced, not
+ * requested: `__tests__/everyOutlineGroupCanBePopulated.spec.tsx` derives the
+ * fillable set by running the real `toModelRows` over a corpus covering every
+ * `ModelElementKind`, and REDs on any id in this array the projection cannot
+ * reach. Teach the producer first and the guard goes quiet on its own.
  */
 export const MODEL_GROUP_IDS = [
   'goal',
@@ -50,8 +105,6 @@ export const MODEL_GROUP_IDS = [
   'factors',
   'outcomes-risks',
   'relationships',
-  'assumptions-provenance',
-  'evidence-review',
 ] as const
 
 export type ModelGroupId = (typeof MODEL_GROUP_IDS)[number]
@@ -87,12 +140,12 @@ export type EditCommitState =
   /** No edit in progress; the row shows the model's value. */
   | { phase: 'idle' }
   /** The user is typing. Nothing has been stated yet. */
-  | { phase: 'editing'; draft: string }
+  | { phase: 'editing'; draft: string; unit?: string }
   /**
    * The user has stated an intent. THE MODEL IS UNCHANGED and the previous
    * value stays visible beside the proposed one until it is confirmed.
    */
-  | { phase: 'proposed'; from: string; to: string }
+  | { phase: 'proposed'; from: string; to: string; notice?: string }
   /** Dispatched to the write authority. Not re-editable until it settles. */
   | { phase: 'inflight'; from: string; to: string }
   /**
@@ -108,6 +161,24 @@ export type EditCommitState =
   | { phase: 'applied'; value: string; provenanceSource: string }
   /** The authority declined. `reason` is user-facing prose, not a code. */
   | { phase: 'refused'; from: string; attempted: string; reason: string }
+  /**
+   * ⭐⭐ A CONFIRMATION DID NOT LAND. A SEPARATE PHASE, NOT `refused` REUSED.
+   *
+   * `refused` carries `from` and `attempted` because a value edit PROPOSED A
+   * DIFFERENT NUMBER and the row must show what was reverted to. A confirmation
+   * proposes NO new value — the whole act is "the number you already have is
+   * right" — so `from` and `attempted` would be the same string and the cell
+   * would read `0.4 → 0.4`, inventing a change the user never made. Two acts,
+   * two vocabularies; collapsing them is this estate's trap 21.
+   *
+   * ⛔ AND THERE IS DELIBERATELY NO `confirmed` TWIN. CEE owns edge provenance;
+   * the canvas learns that the agreement was recorded from the response, or
+   * does not claim it. A phase meaning "your agreement is on file" would be an
+   * optimistic write wearing a receipt — literally so here, since the thing
+   * being asserted IS a confirmation. Only the ways the act FAILED are
+   * renderable from this seam.
+   */
+  | { phase: 'confirm_unsettled'; reason: string }
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
 
@@ -217,6 +288,26 @@ export interface ModelRow {
    */
   attention: readonly AttentionReason[]
   /**
+   * ⭐⭐ TRUE WHEN THIS FACTOR RECORDS NO RANGE AT ALL. A FACT ABOUT THE NODE,
+   * NEVER A VERDICT ABOUT AN EDIT.
+   *
+   * ⚠⚠ NOTHING MAY REFUSE ON THIS, AND NO BOUND MAY BE SYNTHESISED FROM IT. Its
+   * only consumer prints one sentence beside the editor. The producer
+   * (`factorDeclaresNoRange`) fails OPEN into silence, so `false`/absent means
+   * "no claim", never "a range exists".
+   *
+   * ⚠ IT IS THE SIBLING OF `valueAdmission`, NOT ITS NEGATION (trap 21). That
+   * field answers *"does this prior's support admit the typed number?"*; this one
+   * answers *"has anyone recorded a range?"* An inverted declaration and a
+   * magnitude-scaled factor carrying both ends are `true` for one question and
+   * `false` for the other, so the two must stay separately named even once both
+   * are on this contract. Folding them would print a falsehood on those rows.
+   *
+   * ⚠ A BOOLEAN, DELIBERATELY. It carries no numbers because there are none to
+   * carry: the whole content of the fact is that the node records nothing.
+   */
+  declaresNoRange?: boolean
+  /**
    * Present when a human has explicitly chosen to leave this row unresolved.
    *
    * ⚠ THIS SITS BESIDE `attention`, IT NEVER CLEARS IT. The two answer different
@@ -225,6 +316,31 @@ export interface ModelRow {
    * hiding it, which is the dismiss button this design cut.
    */
   deferred?: DeferralRecord
+  /**
+   * ⭐⭐ WHAT THIS ROW'S OWN PRIOR ADMITS — present only on a factor that declares
+   * a usable range, absent on every other row and on every factor that does not.
+   *
+   * ⚠ ABSENT MEANS "NO DECLARED BOUND", AND THAT MUST NEVER BECOME A REFUSAL. A
+   * row with no admission is judged exactly as it was before this field existed.
+   * The producer (`resolveFactorValueAdmission`) fails OPEN on every shape it
+   * cannot read, so absence is the default rather than an error state.
+   *
+   * ⚠⚠ THE NUMBERS INSIDE ARE MODEL SCALE AND ARE NOT DISPLAY-READY — which is
+   * why this is the ONE field on this contract that is not already resolved for
+   * rendering. Nothing may print them: the only consumer is
+   * `factorValueAdmissionRefusal`, which owns both the comparison and the
+   * sentence. Structurally identical to `FactorValueAdmission`
+   * (`conversation/factorValueEdit.ts`) and declared rather than imported,
+   * because this module deliberately imports nothing (see the file header); the
+   * assignment site in `adapters.ts` is where TypeScript fails loud if the two
+   * ever diverge.
+   */
+  valueAdmission?: {
+    priorMin: number
+    priorMax: number
+    cap: number | null
+    inUserUnits: boolean
+  }
   /** False for rows that are genuinely read-only (e.g. an audit figure). */
   editable: boolean
 }
@@ -317,8 +433,76 @@ export interface OptionInterventionField {
  */
 export interface ModelRowDetail {
   rowId: string
+  /**
+   * ⭐ THE FACTOR'S STATED CLASSIFICATION — `Controllable` / `Observable` /
+   * `External`, or `null`.
+   *
+   * It is the distinction between what this team can ACT ON and what it must
+   * PLAN AROUND, and it reached no screen on this tab: measured on deployed
+   * `14276d5b` the words appear nowhere in the rendered DOM, while the store
+   * carried four `controllable` factors and one `external`. The INSPECTOR reads
+   * and edits it; the surface built for reading your model did not show it.
+   * One fact, two surfaces, one of them silent — the shape #1329 fixed for
+   * producer findings.
+   *
+   * ⚠⚠ `null` MEANS NOBODY STATED ONE, AND THE SURFACE THEN SAYS NOTHING. Not
+   * "Controllable", not "Unclassified", not a dash. A factor created locally
+   * carries no category at all (`autoFix.addFactorNode` seeds none), so a
+   * default here would report a classification nobody made — on the exact field
+   * whose editor already does that (`factorCategoryLabel`'s note).
+   *
+   * ⚠⚠ AND ABSENCE IS NOT THE ONLY UNSTATED CASE — THIS HEADER SAID
+   * *"HOW CEE CLASSIFIED THIS FACTOR"* AND *"`null` MEANS THE PRODUCER DID NOT
+   * SAY"*, AND BOTH WERE FALSE. `adapters/cee/client.ts`
+   * `inferMissingCategories` runs on every draft/graph ingestion path: when CEE
+   * omits `category` it writes `controllable` or `observable` from edge shape,
+   * into the SAME key. So a factor the producer never classified arrives with
+   * the field populated, and a reader checking only for absence printed the
+   * UI's own guess in the producer's voice. `statedFactorCategoryLabel` reads
+   * the `categoryInferredByUi` marker that inference now writes beside its
+   * guess, and returns `null` for it.
+   *
+   * ⚠ WHAT THIS FIELD DOES **NOT** CLAIM. A non-null value means *nothing in
+   * this UI invented it* — not that CEE stamped it. A category a human set in
+   * the inspector renders here, and should: humans are the authors of this
+   * model, and a stated classification is stated whoever stated it. The line
+   * carries no provenance text on screen, so it asserts no source.
+   *
+   * ⚠ NON-FACTOR ROWS ARE ALWAYS `null`. `category` is a factor stamp; an
+   * option or a risk carrying one would be data this surface should not
+   * interpret.
+   */
+  classification: string | null
   /** §4.4.1 "What this is". */
   description: string | null
+  /**
+   * ⭐⭐ THE PRODUCER LOOKED AT THIS AND DECLINED TO GUESS — `true` only when
+   * that is what happened.
+   *
+   * ⚠⚠ A DIFFERENT FACT FROM "no value yet", AND THIS TAB CONFLATES THEM. Both
+   * render as `primaryValue: null` and both are counted under one heading
+   * sentence. But they are opposite in the only way that matters to a reader
+   * deciding what to do next:
+   *
+   *   nothing here at all  — nobody has looked. YOU are the gap.
+   *   unquantified prior   — CEE READ THE BRIEF, FOUND NO NUMBER, AND REFUSED
+   *                          TO INVENT ONE. The gap is KNOWN and recorded.
+   *
+   * CEE PR #1223 stopped substituting a placeholder `0.5`; such a factor now
+   * arrives as `uniform(0,1)` carrying `prior_is_unquantified` — *"the one
+   * range over the unit interval that asserts nothing"* (`domain/nodes.ts`).
+   *
+   * ⚠ A RANGE IS NOT SELF-DESCRIBING. `{range_min: 0, range_max: 1}` from a
+   * genuine external prior and the same pair from ignorance are BYTE-IDENTICAL
+   * and mean opposite things. Only the flag separates them — never the range.
+   *
+   * ⚠ THE PREDICATE IS THE CANVAS NODE'S, NOT A SECOND ONE. `FactorNode.tsx`
+   * already answers this exact question as `isUnquantifiedPrior(prior) &&
+   * !hasAnyStatedValue(data)`: a factor that LATER GAINED a value is no longer
+   * describable this way, whatever its prior still says. Two answers to one
+   * question is the drift this estate keeps paying for (trap 12).
+   */
+  priorIsExplicitlyUnquantified: boolean
   /** §4.4.2 "Its value" — secondary values that are STILL PLAIN (baseline, direction…). */
   secondaryValues: readonly DetailField[]
   /** §4.4.3 "Where it came from" — the basis sentence, in the user's language. */

@@ -41,7 +41,7 @@
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { factorIsConfirmable } from '../../../canvas/domain/valueProvenance'
 import { nodeValueSource } from '../driverValueProvenance'
-import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
 
 /**
  * Above this many nodes a row shows the first `MARK_CAP` marks and says plainly
@@ -94,13 +94,42 @@ export interface StripNode {
    * value (CLAUDE.md trap 12), which is the exact defect a detail claiming to
    * show "the data behind this" must not have.
    *
-   * `null` is MEANINGFUL and is a different state from "we could not establish
-   * the source": it says the factor carries no value at all.
+   * ⛔ `null` DOES NOT MEAN "THE FACTOR CARRIES NO VALUE" — corrected 8 Sep 2026
+   * after a review found `noValueTotal` counting this field. It means THERE IS NO
+   * TEXT TO DISPLAY, which is a different question. `factorDisplayText` returns
+   * `null` for factors that DO carry a value: a non-binary numeric `value` with
+   * no usable unit (`formatFactorDisplayValue.ts:412`) and a `value`-only binary
+   * with an unset `factor_type` and no matching heuristic arm (`:401`). Counting
+   * those as "no value yet" tells the user something false about their own model.
+   *
+   * Use `hasValue` for the value question. Two questions, two fields, deliberately
+   * not sharing one (CLAUDE.md trap 21).
    *
    * ⚠ FACTORS ONLY. `factorDisplayText` reads an `observedState` that options,
    * risks and outcomes do not carry in this shape.
    */
   valueText: string | null
+  /**
+   * Does this factor CARRY a value — regardless of whether we can render text
+   * for it?
+   *
+   * ⭐ THIS EXISTS BECAUSE `valueText === null` WAS ANSWERING THE WRONG QUESTION.
+   * The review on #1291 found `noValueTotal` derived from the display text, so a
+   * factor with a real `observed_state.value` that `factorDisplayText`
+   * deliberately declines to render was counted as having no value. The strip
+   * would then offer a worklist of factors to fill in that are already filled in.
+   *
+   * ⚠ READ FROM THE RAW FIELDS, and from the SAME ones `stripNodeValueSignature`
+   * reads — so a producer change that moves the value cannot make the count and
+   * the change-detection disagree. Deriving this from a second field list is the
+   * hand-maintained mirror this file already warns about twice.
+   *
+   * ⚠ FACTORS ONLY, like `valueText`: options, risks and outcomes do not carry
+   * `observed_state` in this shape, so `false` for them would be a claim about a
+   * question they were never asked. Non-factors are excluded from the count at
+   * the reducer, not encoded here.
+   */
+  hasValue: boolean
   /**
    * The node's `observed_state.source` literal, VERBATIM — never a class.
    *
@@ -159,6 +188,39 @@ export interface ModelStrip {
    * different number for the same model.
    */
   needsCheckTotal: number
+  /**
+   * How many FACTORS carry no value at all — `valueText === null`.
+   *
+   * ⭐⭐ THE STATE `needsCheckTotal` CANNOT SEE, AND THE STRIP WAS SILENT ON IT.
+   * `needsCheck` is `factorIsConfirmable`, i.e. `factorNeedsVerification &&
+   * factorHasConfirmableValue`, so **a factor with no value cannot be "to
+   * verify"** — there is nothing to ratify. The worklist therefore renders
+   * nothing on exactly the models with the least in them, which is the inverse
+   * of what a review signal is for. Measured on the deployed build
+   * `80ccf768` (guest, seeded "Customer Data Platform Selection"): the Model
+   * tab's own outline heading read **"2 with no value yet"** while the
+   * Reasoning strip offered no review affordance at all.
+   *
+   * ⚠ THIS IS NOT A WIDENING OF `factorIsConfirmable`, AND MUST NEVER BECOME
+   * ONE. That narrowing was itself a fix — `utils.ts` records it as "narrowed
+   * 19 Aug", and `FactorsSection.tsx` records what it fixed: "an enabled
+   * Confirm that silently did nothing". Two questions, named apart (trap 21):
+   * *is there a value to RATIFY?* and *is there a value AT ALL?* This is a
+   * SECOND count beside the first, never a replacement for it.
+   *
+   * ⚠ READ FROM `valueText`, WHICH IS `factorDisplayText` — the estate's shared
+   * entry point, the same one `FactorNode` and the inspector-v2 panels call. So
+   * a factor Olumi has estimated is NOT counted here (its `display_value`
+   * yields text), which is the same line `ModelOutline.unsetSummary` draws when
+   * it separates "with no value yet" from "estimated by Olumi". No second
+   * predicate over the same question (trap 12).
+   *
+   * ⚠ FACTORS ONLY, AND THE SCOPING IS LOAD-BEARING RATHER THAN TIDY.
+   * `valueText` is `null` for every non-factor BY CONSTRUCTION (see the field),
+   * so a count that forgot to scope would return every option, risk and
+   * outcome in the model and read as a catastrophe.
+   */
+  noValueTotal: number
 }
 
 const ROW_ORDER: ReadonlyArray<{ kind: StripRow['kind']; label: string }> = [
@@ -205,6 +267,47 @@ function labelOf(node: { id: string; data?: unknown }): string {
  * ⚠ AND IT DELIBERATELY IGNORES POSITION, which is the whole reason the
  * signature exists. A drag changes `x`/`y` and nothing here.
  */
+/**
+ * Does this node carry a stated value at all?
+ *
+ * ⚠⚠ THE PARITY CLAIM THAT WAS HERE WAS FALSE, and a reviewer measured it.
+ * It read: *"THE FIELD LIST IS THE SIGNATURE'S, ON PURPOSE. `stripNodeValueSignature`
+ * reads exactly these fields"*. It does not — that function reads SIX
+ * (`value`, `raw_value`, `unit`, `cap`, `source`, `display_value`) and this
+ * predicate reads three. The divergence is DELIBERATE and the comment was simply
+ * wrong to describe it as parity: `unit`, `cap` and `source` DESCRIBE a value
+ * rather than being one, so a factor carrying only a unit has stated nothing.
+ * The two functions answer different questions and are now documented as doing so.
+ *
+ * ⚠ AND THE FALSE CLAIM HID A REAL BUG. Reading only `observed_state.display_value`
+ * missed the TOP-LEVEL `data.display_value` — the documented CEE wire shape, and
+ * how an Olumi ESTIMATE arrives (`display_value: '0.25 to 0.75'` with no
+ * observed state at all). Such a factor was counted as "no value yet" while the
+ * Model tab called it "estimated by Olumi": the two surfaces contradicting each
+ * other about one factor, which is the defect this whole change exists to close.
+ *
+ * `readFactorDisplayValue` is the estate's shared entry point for that
+ * top-level→observedState precedence, so the rule is IMPORTED rather than
+ * re-derived here — a second copy is exactly how the two spellings drifted apart.
+ */
+export function factorCarriesValue(node: { data?: unknown } | undefined): boolean {
+  const n = node as Record<string, unknown> | undefined
+  const inner = n?.data as Record<string, unknown> | undefined
+  // Olumi's estimate, and the CEE wire shape, both live here.
+  if (readFactorDisplayValue(inner) !== undefined) return true
+  const obs = (n?.observedState ??
+    n?.observed_state ??
+    inner?.observedState ??
+    inner?.observed_state) as Record<string, unknown> | undefined
+  if (!obs) return false
+  for (const v of [obs.value, obs.raw_value, obs.display_value]) {
+    if (v === undefined || v === null) continue
+    if (typeof v === 'string' && v.trim() === '') continue
+    return true
+  }
+  return false
+}
+
 export function stripNodeValueSignature(node: { data?: unknown } | undefined): string {
   const n = node as Record<string, unknown> | undefined
   const inner = n?.data as Record<string, unknown> | undefined
@@ -212,10 +315,36 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
     n?.observed_state ??
     inner?.observedState ??
     inner?.observed_state) as Record<string, unknown> | undefined
-  if (!obs) return ''
+  /**
+   * ⭐⭐ READ FIRST, AND UNCONDITIONALLY. The `if (!obs) return ''` that stood
+   * here was the defect, and it is the exact shape of the one this change was
+   * opened to fix — one level down.
+   *
+   * `factorCarriesValue` was taught to see a TOP-LEVEL `data.display_value`
+   * (how an Olumi estimate arrives: `'0.25 to 0.75'` with no observed state at
+   * all). This signature was not. So the pure builder returned the new count
+   * and the MOUNTED strip kept the old one: `display_value` arriving on a
+   * factor that has no observed state changed nothing in the signature, the
+   * memo never recomputed, and the toggle went on offering a population that
+   * had already been answered. A reviewer measured it — pure 1, mounted 2.
+   *
+   * ⚠ THE PREDICATE AND THE SIGNATURE ANSWER DIFFERENT QUESTIONS AND STILL
+   * MUST SHARE THIS READ. `factorCarriesValue` asks "is there a value"; this
+   * asks "did anything the strip renders change". They legitimately diverge on
+   * `unit`/`cap`/`source` (those DESCRIBE a value rather than being one). They
+   * may never diverge on WHERE a value can live — a field the predicate reads
+   * and the signature does not is a mounted surface that cannot see its own
+   * answer change. Both now go through `readFactorDisplayValue`, the estate's
+   * one entry point for the top-level→observedState precedence, so the
+   * locations cannot drift apart again (CLAUDE.md trap 12).
+   *
+   * Cheap enough for the hot path: two field reads and a `typeof`, no
+   * formatting — the same constraint the rest of this function is written to.
+   */
+  const parts: unknown[] = [readFactorDisplayValue(inner)]
   // `display_value` is included because `factorDisplayText` prefers it, so a
   // producer changing only that would otherwise be invisible here.
-  const parts = [obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value]
+  if (obs) parts.push(obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value)
   return parts.map((v) => (v === undefined || v === null ? '' : String(v))).join(',')
 }
 
@@ -315,6 +444,7 @@ export function buildModelStrip(
       valueText: isFactor
         ? factorDisplayText(node.data as Record<string, unknown> | null | undefined)
         : null,
+      hasValue: isFactor && factorCarriesValue(node),
       valueSource: isFactor ? nodeValueSource(node) : undefined,
     }
     if (bucket) bucket.push(entry)
@@ -341,6 +471,18 @@ export function buildModelStrip(
     total: rows.reduce((n, r) => n + r.nodes.length, 0),
     needsCheckTotal: rows.reduce(
       (n, r) => n + r.nodes.filter((x) => x.needsCheck).length,
+      0,
+    ),
+    // ⚠ `r.kind === 'factor'` is not tidiness — `valueText` is null for every
+    // non-factor by construction, so an unscoped count returns the whole model.
+    // ⚠ `hasValue`, NOT `valueText === null` — see `StripNode.hasValue`. The
+    // display text answers "is there something to render"; this count is a claim
+    // to the user about THEIR MODEL, so it must ask whether a value exists.
+    // `r.kind === 'factor'` still scopes it: non-factors carry no `observed_state`
+    // in this shape, so an unscoped count would return the whole model.
+    noValueTotal: rows.reduce(
+      (n, r) =>
+        n + (r.kind === 'factor' ? r.nodes.filter((x) => !x.hasValue).length : 0),
       0,
     ),
   }

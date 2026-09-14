@@ -21,6 +21,7 @@ import { useState, useRef, useEffect, useCallback, type ComponentType } from 're
 import { Sparkles } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
+import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
 
 interface ScienceIconProps {
   icon: ComponentType<{ size?: number; className?: string }>
@@ -75,15 +76,37 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
     <div ref={wrapRef} className="relative inline-flex">
       <button
         type="button"
-        className={`nodrag nopan p-0 border-0 bg-transparent cursor-pointer ${colour}`}
+        /* ⚠ THE BOX IS EXPLICIT NOW, AND COUNTER-SCALED. This button had no size
+           of its own — `p-0` on a 12px glyph made the glyph the box — so it was
+           measured at **9.3px on the deployed board** and 6px at the 0.50 settle
+           zoom. The class pins the DS's 12px and carries
+           `--canvas-label-scale`, so 12px declared is 12px delivered.
+
+           ⛔ AND WHAT IS DELIBERATELY *NOT* HERE: a `::before` hit slop taking
+           this to WCAG 2.2 AA 2.5.8's 24px. The icons render into
+           `<span className="inline-flex items-center gap-1">` in FactorNode,
+           RiskNode, GoalNode, OptionNode and OutcomeNode — a **4px** gap. The
+           separation invariant is `gap > 2 x slop`, so 4px admits at most a 1px
+           expansion (a 14px target, not 24); a 6px expansion per side would
+           overlap its neighbour by 8px and a near miss would open the WRONG
+           bias popover. That is the same mis-target defect `NodeQuickActions`'
+           own spec exists to prevent, and buying size with it would be a net
+           loss. Reaching 24 needs the container gap, which lives in five node
+           files this change does not own — pinned as a known shortfall in
+           `__tests__/canvasGlyphTargetScale.spec.tsx` rather than left silent. */
+        className={`nodrag nopan p-0 border-0 bg-transparent cursor-pointer inline-flex items-center justify-center ${CANVAS_GLYPH_SIZE_CLASSES[12]} ${colour}`}
         onMouseEnter={() => setShowTip(true)}
         onMouseLeave={() => setShowTip(false)}
         onClick={handleClick}
         onPointerDown={(e) => e.stopPropagation()}
         aria-label={tooltip}
         aria-expanded={open}
+        /* Identity for the known-shortfall pin in
+           `__tests__/canvasGlyphTargetScale.spec.tsx`. The pin must not bind to
+           `aria-label`, which is fixture-supplied prose. */
+        data-testid="science-icon-trigger"
       >
-        <Icon size={12} />
+        <Icon size={12} className={CANVAS_GLYPH_SIZE_CLASSES[12]} />
       </button>
 
       {/* Glance tooltip on hover — suppressed while the popover is open. */}
@@ -114,7 +137,7 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
               onPointerDown={(e) => e.stopPropagation()}
               data-testid="science-icon-discuss"
             >
-              <Sparkles size={11} aria-hidden="true" className="flex-none" />
+              <Sparkles size={11} aria-hidden="true" className={`flex-none ${CANVAS_GLYPH_SIZE_CLASSES[11]}`} />
               Discuss with AI
             </button>
           )}
