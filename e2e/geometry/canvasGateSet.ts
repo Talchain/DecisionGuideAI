@@ -470,6 +470,19 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
    * instrument broke.
    */
   {
+    what: 'dockContent.measure.ts (1 cell) — a photograph and a census of the dock at its ruled width',
+    why:
+      'Same claim-type test: it emits one `DOCKCONTENT {...}` line and a photograph, and asserts ' +
+      'nothing about either. ⭐ IT EXISTS BECAUSE THE GUARD BESIDE IT SAYS IT IS BLIND. ' +
+      '`shell-conformance.spec.ts` pins that the panel content budget tracks the width authority ' +
+      'and states plainly that it CANNOT SEE FORMATTING — and #719 was reverted precisely because ' +
+      'tab formatting broke at a similar cut, not because the arithmetic was wrong. So a green ' +
+      'suite is not evidence about this change and something had to LOOK. It counts the rows the ' +
+      'tab strip wraps onto and any element overflowing its own box, which is the failure shape ' +
+      'that reverted #719. ⚠ Its finding at the 300px ruling is a REAL COST and is recorded rather ' +
+      'than smoothed over: the four tabs wrap onto TWO rows, where 416px fitted them on one.',
+  },
+  {
     what: 'cardAnatomy.measure.ts (6 cells) — the per-kind slot census of a real card',
     why:
       'Same claim-type test: `grep -c \'expect(\' ` returns 0. It walks every visible leaf of ' +
