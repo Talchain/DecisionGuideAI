@@ -47,7 +47,7 @@ describe('only C1 reads as caused by the person', () => {
       render(<WhatsChanged view={view({ attribution_case: c })} />)
       expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toHaveAttribute('data-attributable', 'false')
       expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`).textContent)
-        .toMatch(/cannot be put down to your change/i)
+        .toMatch(/cannot be put down to a change in the model/i)
     })
 })
 
@@ -116,5 +116,36 @@ describe('an absent id is never named', () => {
   it('an unchanged top option renders no line at all', () => {
     render(<WhatsChanged view={view()} />)
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-highest-scoring`)).toBeNull()
+  })
+})
+
+describe('⛔ the heading is never the only thing on screen', () => {
+  /**
+   * "What's changed" as a heading reads as an assertion if nothing beneath it
+   * resolves the question. On `C0_identical` the honest answer is "nothing", and
+   * on an unmatched pair it is "we cannot say" — so the comparability line must
+   * ALWAYS render, in every case, or the title is making the claim alone.
+   */
+  const ALL = ['C0_identical', 'C1_attributable', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift'] as const
+
+  it.each(ALL)('%s renders a comparability line beneath the heading', (c) => {
+    render(<WhatsChanged view={view({ attribution_case: c })} />)
+    const line = screen.getByTestId(`${WHATS_CHANGED_TESTID}-comparability`)
+    expect(line.textContent?.trim().length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('C0 says plainly that nothing differed — the heading is not left to imply change', () => {
+    render(<WhatsChanged view={view({
+      attribution_case: 'C0_identical',
+      pair_provenance: { seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true },
+    })} />)
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-comparability`).textContent)
+      .toMatch(/nothing about the model/i)
+  })
+
+  it('an unmatched pair renders the comparability line AND the no-pairs line', () => {
+    render(<WhatsChanged view={view({ win_probabilities: [] })} />)
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-comparability`)).toBeTruthy()
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-no-pairs`)).toBeTruthy()
   })
 })

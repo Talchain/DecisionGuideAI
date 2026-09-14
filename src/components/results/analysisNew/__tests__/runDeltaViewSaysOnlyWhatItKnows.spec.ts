@@ -72,7 +72,7 @@ describe('only C1_attributable licenses a causal reading', () => {
   it.each(cases)('%s is not attributable and carries the limit', (c) => {
     const v = buildRunDeltaView(delta({ attribution_case: c }), labelFor)
     expect(v.attributable).toBe(false)
-    expect(v.attributionLimit).toMatch(/cannot be put down to your change/i)
+    expect(v.attributionLimit).toMatch(/cannot be put down to a change in the model/i)
   })
 
   it('C1_attributable is attributable and carries NO limit rider', () => {
@@ -193,5 +193,34 @@ describe('the copy clears the estate vocabulary guard', () => {
         expect(s.toLowerCase(), `"${s}" contains banned term "${term}"`).not.toContain(term.toLowerCase())
       }
     }
+  })
+})
+
+describe('⛔ no sentence attributes AUTHORSHIP the producer never sent', () => {
+  /**
+   * `C1_attributable` is `seed_equal && !hash_equal && builds_equal='equal' &&
+   * n_equal`. That establishes THE MODEL CHANGED. It carries nothing about WHO
+   * changed it — and Olumi's own graph_patch path moves the same hash — so a
+   * sentence saying "your change" is entitled by the pair's comparability and
+   * unentitled by what the product knows.
+   *
+   * This is the guard for the defect one level up in the prose: the data
+   * separation can be perfect and the SENTENCE still over-claim.
+   */
+  const AUTHORSHIP = /\byour change\b|\byou changed\b|\bbecause of you\b|\bcaused by your\b|\byou made\b|\byour edit\b/i
+
+  const ALL: Array<RunDelta['attribution_case']> = [
+    'C0_identical', 'C1_attributable', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift',
+  ]
+
+  it.each(ALL)('%s claims no authorship', (c) => {
+    const v = buildRunDeltaView(delta({ attribution_case: c }), labelFor)
+    expect(v.comparability).not.toMatch(AUTHORSHIP)
+    expect(v.attributionLimit ?? '').not.toMatch(AUTHORSHIP)
+  })
+
+  it('the guard can SEE authorship when it is present (positive control)', () => {
+    expect('Your change is the only difference.').toMatch(AUTHORSHIP)
+    expect('The only difference is a change to the model.').not.toMatch(AUTHORSHIP)
   })
 })

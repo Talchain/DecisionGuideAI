@@ -109,10 +109,19 @@ export interface RunDeltaView {
  * ⚠ Every arm talks about the PAIR. Not one of them says whether a number moved.
  */
 const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
+  // ⛔ "A CHANGE TO THE MODEL", NEVER "YOUR CHANGE" — and the distinction is not
+  // pedantry. C1 is `seed_equal && !hash_equal && builds_equal='equal' &&
+  // n_equal`: it establishes that THE MODEL CHANGED and that nothing else did.
+  // It carries nothing whatever about WHO changed it, and Olumi's own graph_patch
+  // path moves that same hash. Saying "your change" would attribute authorship the
+  // producer never sent — entitled by the pair's comparability and unentitled by
+  // what the product actually knows. That is the defect this file's header
+  // describes, one level up in the prose, and `edit_list`'s absence makes it worse:
+  // we cannot even name WHAT changed, let alone who did it.
   C1_attributable:
-    'Your change is the only difference between this analysis and the previous one.',
+    'The only difference between this analysis and the previous one is a change to the model.',
   C0_identical:
-    'Nothing about your model, or the way it was worked out, differed between this analysis and the previous one.',
+    'Nothing about the model, or the way it was worked out, differed between this analysis and the previous one.',
   C2_unpaired:
     'This analysis and the previous one were not worked out on a comparable basis.',
   C3_engine_drift:
@@ -127,7 +136,7 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
  * agree exactly on what the reader may not conclude.
  */
 const ATTRIBUTION_LIMIT =
-  'Any difference below cannot be put down to your change.'
+  'Any difference below cannot be put down to a change in the model.'
 
 function directionOf(prior: number, current: number): MovementDirection {
   if (current > prior) return 'up'
