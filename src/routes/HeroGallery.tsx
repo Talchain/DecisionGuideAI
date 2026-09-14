@@ -14,7 +14,7 @@
  * Fidelity: each panel is rendered inside a fixed-width column that matches
  * the REAL right-hand OutputsDock content area, so the review shows the hero
  * exactly as narrow as it appears in product — not stretched to full page
- * width. Dock default is 26rem (416px, src/index.css --dock-right-expanded)
+ * width. Dock default is 18.75rem (300px, src/index.css --dock-right-expanded)
  * with px-3 (24px) body padding → DOCK_CONTENT_WIDTH inner content width.
  */
 import { Navigate } from 'react-router-dom'

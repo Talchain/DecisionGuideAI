@@ -7,6 +7,32 @@
  * carried their own bounds. They agreed on the day they were written and
  * nothing would have gone red when they stopped. The rules now live here once.
  *
+ * ⭐⭐ NARROWED TO 300px BY FOUNDER RULING, 14 Sep 2026 — AND THE 17 Aug RECORD
+ * BELOW IS KEPT RATHER THAN DELETED, because it is the strongest argument
+ * against this change and the next reader is entitled to it.
+ *
+ * ⚠ WHAT THE 17 Aug REVERT PROVED, AND WHAT IT DID NOT. It proved that
+ * narrowing does not lower the CLAMP: the post-draft fit parks at the 0.50
+ * `LABEL_LEGIBLE_ZOOM` floor at 416px, at 333px and at 280px alike. That is
+ * true, it is re-confirmed by measurement today, and nothing here disputes it.
+ *
+ * ⛔ BUT IT MEASURED THE WRONG OUTCOME. "Does the fit zoom improve?" is not the
+ * question a reader of the canvas has; "how much of my model can I see at the
+ * zoom the product picks?" is. Measured at 1600x1000 on the five committed
+ * starters: the graph is offered 1080px of pane against a 3080-unit layout on
+ * three of them, so at the 0.50 floor roughly 70% of the model's width is
+ * visible and the rest needs panning. At 300px the pane offers 1208px and that
+ * becomes ~78%. The legibility claim the old experiment made was never
+ * deliverable at any width; the VISIBILITY gain is real and was never measured.
+ * (CLAUDE.md trap 23 — a fix judged against the symptom's metric rather than
+ * the outcome's.)
+ *
+ * ⚠ AND THE COST THE 17 Aug NOTE RECORDS IS REAL AND UNCHANGED: the panel's
+ * content budget goes from roughly 390px to roughly 274px after borders and
+ * `px-3`, and it was tab FORMATTING that broke last time, not the width itself.
+ * That is a live risk on this change, it is not addressed here, and it should
+ * be looked at on a real screen rather than assumed.
+ *
  * ⚠⚠ THE NARROWING THIS MODULE ORIGINALLY SHIPPED IS REVERTED (17 Aug 2026).
  * The ratio was set to 0.26 to buy graph legibility back from the dock: at
  * 1280x800 the fit box went 760px → 843px, and a later pre-analysis clamp
@@ -45,29 +71,56 @@
 export const DOCK_MIN_WIDTH = 280
 
 /**
- * Ceiling for the RESPONSIVE default: the dock's last known usable width, and
- * still the declared default in `src/index.css:517`
- * (`--dock-right-expanded: 26rem`). Every viewport wide enough to reach it
+ * Ceiling for the RESPONSIVE default. Every viewport wide enough to reach it
  * gets it.
+ *
+ * ⭐ 300 BY FOUNDER RULING (14 Sep 2026), down from 416. See the header for what
+ * the measurement does and does not support.
+ *
+ * ⚠ 20px ABOVE `DOCK_MIN_WIDTH`, WHICH MAKES THE TAPER BAND NEARLY VESTIGIAL —
+ * stated rather than discovered later. The responsive band is the range where
+ * the proportional value sits strictly between floor and ceiling, and with only
+ * 20px between them that band is now about 1195..1280px wide. Practically every
+ * viewport gets exactly 300, and small ones get exactly 280. The taper is still
+ * real and still tested; it is simply no longer where most people live.
+ *
+ * ⛔ DO NOT GO BELOW `DOCK_MIN_WIDTH`. That floor is not a preference — below it
+ * the panel content wraps unusably, which is the failure the 17 Aug revert was
+ * actually about.
+ *
+ * ⚠ MIRRORED IN CSS, DELIBERATELY AND UNAVOIDABLY: `src/index.css`
+ * (`--dock-right-expanded`) must carry the same number as a pre-hydration
+ * fallback, because the custom property has to have a value before this module
+ * runs. `dockCssFallbackAgrees.spec.ts` REDs if the two disagree.
  */
-export const DOCK_RESPONSIVE_MAX_WIDTH = 416
+export const DOCK_RESPONSIVE_MAX_WIDTH = 300
+
+/**
+ * The reference viewport the ceiling is sized against — the laptop every
+ * measurement in this module was taken at.
+ */
+export const DOCK_REFERENCE_VIEWPORT = 1280
 
 /**
  * Share of the viewport the dock takes before the ceiling bites.
  *
- * DERIVED, not chosen: `416 / 1280 = 0.325` exactly, so a 1280px laptop — the
- * viewport every measurement in this file was taken at — lands on the ceiling
- * rather than under it, and every wider screen is capped there too. Below
- * 1280 the dock tapers proportionally to the 280px floor, which is the one
- * part of the 0.26 experiment worth keeping: a fixed 416 on a 900px window is
- * 46% of the screen.
+ * ⭐⭐ NOW GENUINELY DERIVED, WHICH ITS OWN COMMENT ALREADY CLAIMED IT WAS.
  *
- * ⚠ CHANGING THIS CHANGES THE DEFAULT AT EVERY VIEWPORT ≤ 416/ratio. The
- * containment pins in `dockWidth.spec.ts` and the MOUNTED pins in
- * `OutputsDock.dockWidth.dom.spec.tsx` bind 1280 / 1920 / 3840 by name so a
- * future ratio edit reds instead of drifting.
+ * This read `= 0.325` beside a comment saying *"DERIVED, not chosen:
+ * 416 / 1280 = 0.325 exactly"*. That was true on the day it was written and
+ * became false the moment the ceiling moved — a hand-maintained mirror with the
+ * word "derived" written on it, which is the estate's dominant defect wearing
+ * the label of its own remedy (CLAUDE.md trap 12).
+ *
+ * It is now the division itself, so the invariant the module is designed around
+ * — *the reference laptop lands exactly ON the ceiling, and only narrower
+ * viewports taper* — holds for any future ceiling without anyone remembering.
+ *
+ * ⚠ CHANGING THE CEILING NOW CHANGES THIS. That is the point, and it is why
+ * `dockWidth.spec.ts` pins the invariant (`responsiveDockWidth(1280) ===
+ * DOCK_RESPONSIVE_MAX_WIDTH`) rather than either number.
  */
-export const DOCK_VIEWPORT_RATIO = 0.325
+export const DOCK_VIEWPORT_RATIO = DOCK_RESPONSIVE_MAX_WIDTH / DOCK_REFERENCE_VIEWPORT
 
 /** Hard bounds a user drag may reach — the pre-existing rule, now stated once. */
 export function dockWidthBounds(viewportWidth: number): { min: number; max: number } {

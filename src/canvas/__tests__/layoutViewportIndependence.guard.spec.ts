@@ -556,12 +556,39 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * and the figure was stale within the same session (CLAUDE.md trap 12 — a
    * hand-maintained mirror inside the comment that records a measurement).
    */
+  /**
+   * ⭐⭐ RE-RECORDED 14 Sep 2026 — risks joined the outcome tier by founder
+   * ruling, and the new shape was VERIFIED BEFORE these digests were written
+   * down rather than copied out of the failure output. That is this block's own
+   * standing rule from 12 Sep and it is the only thing that separates a
+   * re-record from a rubber stamp.
+   *
+   * What was measured on the new tree, per starter, before any digest moved:
+   *
+   *     starter                rows      riskY === outcomeY   nodes
+   *     vendor-selection       6 -> 5    1185 = 1185  ✅       19 (unchanged)
+   *     market-entry           6 -> 5    1195 = 1195  ✅       18 (unchanged)
+   *     build-vs-buy           6 -> 5    1753 = 1753  ✅       19 (unchanged)
+   *     headcount-allocation   6 -> 5    1053 = 1053  ✅       16 (unchanged)
+   *     pricing-model          6 -> 5    1084 = 1084  ✅       15 (unchanged)
+   *
+   * Every risk and every outcome resolves to ONE shared Y per starter — not
+   * merely close, identical — and the node count is untouched everywhere, so
+   * the shape moved for exactly the reason intended and nothing was dropped.
+   * Only then were these five values taken.
+   *
+   * ⛔ A DIGEST CANNOT SAY WHICH SHAPE IT IS. It says only "the same as last
+   * time", so a re-record is the one moment its evidence is at its weakest —
+   * which is why the property itself is now asserted separately below, and will
+   * go red on a future change that happens to produce a different hash for the
+   * WRONG reason.
+   */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '17c90f9897b1b054', nodes: 19 },
-    'market-entry': { digest: '68465e602f15a13f', nodes: 18 },
-    'build-vs-buy': { digest: '513e90db8833eed8', nodes: 19 },
-    'headcount-allocation': { digest: '0860f3f449568e6a', nodes: 16 },
-    'pricing-model': { digest: '75d1c7dd98e975c3', nodes: 15 },
+    'vendor-selection': { digest: '578898013a37bf63', nodes: 19 },
+    'market-entry': { digest: 'bc34500b9e43c1c6', nodes: 18 },
+    'build-vs-buy': { digest: 'e1bbab396252034f', nodes: 19 },
+    'headcount-allocation': { digest: '4146ea99dfb8d5c4', nodes: 16 },
+    'pricing-model': { digest: 'eb393e29cd2fe7be', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(
@@ -572,6 +599,47 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
       const got = await positionSignature(nodes, edges)
       expect(got.count).toBe(CANONICAL_SHAPE[id].nodes)
       expect(got.digest, `${id}: the canonical shape moved`).toBe(CANONICAL_SHAPE[id].digest)
+    },
+  )
+
+  /**
+   * ⭐⭐ THE PROPERTY, ASSERTED SEPARATELY FROM THE HASH.
+   *
+   * A digest is a perfect tripwire and a useless witness: it detects that the
+   * shape moved and can never say what the shape IS. So on the one occasion a
+   * digest is deliberately re-recorded, the thing the change was made FOR has
+   * no guard at all — the new hash agrees with itself by construction.
+   *
+   * This states the ruling as a readable claim about the layout: every risk and
+   * every outcome resolves to ONE shared Y, in every shipped starter. If a
+   * future change separates them again, or splits either kind across sub-rows,
+   * this REDs by name and says which starter — where the digest would only say
+   * that sixteen hex characters differ.
+   */
+  it.each(Object.keys(STARTERS) as StarterId[])(
+    '%s: every risk and every outcome sits on ONE shared consequence row',
+    async (id) => {
+      presentViewport(1280)
+      const { nodes, edges } = buildGraph(id)
+      const out = await layoutGraph(nodes, edges, {})
+      const kindOf = new Map(nodes.map((n) => [n.id, (n.data as { kind?: string })?.kind]))
+      const ysOf = (kind: string) =>
+        [...new Set(out.nodes.filter((n) => kindOf.get(n.id) === kind).map((n) => Math.round(n.position.y)))]
+
+      const riskYs = ysOf('risk')
+      const outcomeYs = ysOf('outcome')
+
+      // Non-vacuity: a starter with no risks or no outcomes would satisfy every
+      // assertion below by having nothing to compare (CLAUDE.md trap 13).
+      expect(riskYs.length, `${id}: no risks laid out — this guard asserts nothing here`).toBeGreaterThan(0)
+      expect(outcomeYs.length, `${id}: no outcomes laid out — this guard asserts nothing here`).toBeGreaterThan(0)
+
+      // One row each…
+      expect(riskYs, `${id}: risks are split across rows`).toHaveLength(1)
+      expect(outcomeYs, `${id}: outcomes are split across rows`).toHaveLength(1)
+      // …and it is the SAME row. Exact equality, never a tolerance: a near-miss
+      // is a sub-row split, which is a different layout and not this one.
+      expect(riskYs[0], `${id}: risks and outcomes are on different rows`).toBe(outcomeYs[0])
     },
   )
 })

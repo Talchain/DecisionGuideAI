@@ -157,7 +157,9 @@ describe('the WIDTH half is withdrawn — the dock has no analysis-state input a
     // `resolveDockWidth` is the whole rule now. Its signature admits no
     // analysis input, and at the founder-facing viewport it returns the
     // restored default rather than the drag floor.
-    expect(resolveDockWidth(VIEWPORT, null)).toBe(416)
+    // 300 since the 14 Sep dock ruling; the claim is that the width is a
+    // function of viewport and stored value ONLY, which is unchanged.
+    expect(resolveDockWidth(VIEWPORT, null)).toBe(300)
     expect(resolveDockWidth(VIEWPORT, null)).toBeGreaterThan(DOCK_MIN_WIDTH)
     expect(resolveDockWidth.length).toBe(2)
   })

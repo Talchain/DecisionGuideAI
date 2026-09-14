@@ -393,17 +393,51 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
     const siblings = siblingsOf(nodes, tier.siblingType)
     if (siblings.length === 0) continue
 
-    const maxX = Math.max(...siblings.map((n) => n.position?.x ?? 0))
-    const anchor = siblings.find((n) => (n.position?.x ?? 0) === maxX)
-    const measuredW =
-      (anchor as { measured?: { width?: number }; width?: number } | undefined)?.measured?.width ??
-      (anchor as { width?: number } | undefined)?.width ??
+    // ⭐⭐ THE DOOR STANDS AT THE END OF ITS ROW, NOT AT THE END OF ITS KIND.
+    //
+    // This took the rightmost sibling OF THE SAME TYPE and placed the ghost to
+    // its right. That was correct only while every kind owned a row to itself.
+    // When risks joined the outcome tier (14 Sep 2026, founder ruling — see
+    // `TIER_BY_KIND`), the rightmost RISK stopped being the rightmost node in
+    // the risk row, and the "What else could go wrong?" door was painted ON TOP
+    // OF an outcome card.
+    //
+    // MEASURED on `pricing-model` at 1600x1000 before the fix:
+    //   `__ghost-risk__` at (886, 782) 94x44  over  `out_nrr` at (884, 782) 168x110
+    // — two pixels apart, the door's whole box inside the card's.
+    //
+    // ⛔ FOUND BY LOOKING AT A SCREENSHOT, NOT BY A GUARD. The tier change kept
+    // 493 spec files green and its own comment had already named the intra-row
+    // hazard — and then missed it, because the hazard was reasoned about as an
+    // EDGE and arrived as a GHOST. Naming a risk is not the same as enumerating
+    // the things that can realise it.
+    //
+    // The anchor is now the rightmost occupant of the row this tier sits on,
+    // whatever its kind. That is the general rule the old one was a special case
+    // of, so it needs no knowledge of which kinds now share a tier.
+    const anchorY = Math.round(
+      siblings.reduce<number>((acc, n) => Math.max(acc, n.position?.y ?? 0), Number.NEGATIVE_INFINITY),
+    )
+    const widthOf = (n: unknown): number =>
+      (n as { measured?: { width?: number }; width?: number } | undefined)?.measured?.width ??
+      (n as { width?: number } | undefined)?.width ??
       200
+
+    // ⚠ ALREADY-PLACED GHOSTS COUNT AS OCCUPANTS. Two doors now share the
+    // consequence row ("What else could go wrong?" and "Where else could this
+    // lead?"), and anchoring both to the same rightmost card would stack them on
+    // each other — trading a collision with a card for a collision with a door.
+    const rowOccupants = [...nodes, ...ghosts].filter(
+      (n) => Math.round(n.position?.y ?? 0) === anchorY,
+    )
+    const rowMaxX = Math.max(...rowOccupants.map((n) => n.position?.x ?? 0))
+    const rowAnchor = rowOccupants.find((n) => (n.position?.x ?? 0) === rowMaxX)
+    const measuredW = widthOf(rowAnchor)
 
     ghosts.push({
       id: tier.id,
       type: 'ghost-tier',
-      position: { x: maxX + measuredW + 60, y: anchor?.position?.y ?? 0 },
+      position: { x: rowMaxX + measuredW + 60, y: anchorY },
       data: {
         label: tier.label,
         // Composed HERE, where the siblings are already in hand, rather than in

@@ -58,18 +58,30 @@ describe('dockWidthBounds — the HARD bounds a user drag may reach', () => {
 
 describe('responsiveDockWidth — the width when the user has NEVER dragged', () => {
   it('is proportional to the viewport below the historic ceiling', () => {
-    // ⚠ RE-PINNED 17 Aug 2026. This asserted `responsiveDockWidth(1280) === 333`
-    // — correct for the 0.26 ratio, and the pin is kept rather than deleted so
-    // the geometry still cannot drift silently; only the number moves, with the
-    // ratio restored to 416/1280. The proportional BAND is now viewports below
-    // 1280, so 1024 is where the formula is still observable.
-    expect(responsiveDockWidth(1024)).toBe(SAFE_MIN(Math.round(1024 * DOCK_VIEWPORT_RATIO)))
-    expect(responsiveDockWidth(1024)).toBe(333)
-    // …and the band is real, not a formula nobody reaches: 1024 sits strictly
-    // between the floor and the ceiling, so a mutant collapsing the taper to
-    // either bound is visible here.
-    expect(responsiveDockWidth(1024)).toBeGreaterThan(DOCK_MIN_WIDTH)
-    expect(responsiveDockWidth(1024)).toBeLessThan(DOCK_RESPONSIVE_MAX_WIDTH)
+    // ⚠ RE-PINNED TWICE, AND THE OBSERVATION POINT MOVED BOTH TIMES.
+    //
+    // 17 Aug 2026: asserted `responsiveDockWidth(1280) === 333` for the 0.26
+    // ratio; re-pinned at 1024 when the ratio was restored to 416/1280.
+    //
+    // 14 Sep 2026: the founder ruled the ceiling to 300, so the TAPER BAND
+    // MOVED and 1024 stopped being inside it. With a 280 floor and a 300
+    // ceiling the band — where the proportional value sits strictly between
+    // them — is roughly 1195..1280px. At 1024 the formula now yields 240 and
+    // the FLOOR answers, so the two "strictly between" assertions below would
+    // have passed vacuously against a bound rather than against the taper.
+    //
+    // ⛔ THE PIN IS MOVED, NOT WEAKENED. 1240 is inside the new band and the
+    // same four assertions hold there, so a mutant collapsing the taper to
+    // either bound is still visible. Deleting the band case — the tempting fix
+    // once the ceiling is close to the floor — would have left the taper
+    // untested for the first time since the module was written.
+    expect(responsiveDockWidth(1240)).toBe(SAFE_MIN(Math.round(1240 * DOCK_VIEWPORT_RATIO)))
+    expect(responsiveDockWidth(1240)).toBe(291)
+    expect(responsiveDockWidth(1240)).toBeGreaterThan(DOCK_MIN_WIDTH)
+    expect(responsiveDockWidth(1240)).toBeLessThan(DOCK_RESPONSIVE_MAX_WIDTH)
+    // …and the point that USED to be in the band is now on the floor, which is
+    // itself a claim worth pinning: the band narrowed, it did not vanish.
+    expect(responsiveDockWidth(1024)).toBe(DOCK_MIN_WIDTH)
   })
 
   it('never exceeds the historic fixed width, so wide screens are unchanged', () => {
@@ -108,7 +120,7 @@ describe('responsiveDockWidth — the width when the user has NEVER dragged', ()
 describe('resolveDockWidth — explicit user width wins, re-clamped to bounds', () => {
   it('falls back to the responsive default when there is no stored width', () => {
     expect(resolveDockWidth(1280, null)).toBe(responsiveDockWidth(1280))
-    expect(resolveDockWidth(1280, null)).toBe(416)
+    expect(resolveDockWidth(1280, null)).toBe(300)
   })
 
   it('honours an explicit width that is inside the bounds', () => {
@@ -182,29 +194,48 @@ describe('parseStoredDockWidth — localStorage string to number | null', () => 
     // instead of null (the defect the null-signal exists to prevent) is
     // visible here as a width of 280 rather than the responsive default.
     expect(resolveDockWidth(900, parseStoredDockWidth('480'))).toBe(360)
-    expect(resolveDockWidth(1280, parseStoredDockWidth(null))).toBe(416)
-    expect(resolveDockWidth(1280, parseStoredDockWidth('garbage'))).toBe(416)
+    expect(resolveDockWidth(1280, parseStoredDockWidth(null))).toBe(300)
+    expect(resolveDockWidth(1280, parseStoredDockWidth('garbage'))).toBe(300)
   })
 })
 
-describe('the restored 416px default — containment pins (17 Aug 2026)', () => {
-  // 416 is the dock's last known usable width: the fixed `--dock-right-expanded:
-  // 26rem` this module replaced, and still the declared default in
-  // `src/index.css:517`. The ratio narrowing traded content budget for graph
-  // legibility that was never delivered — the post-draft fit clamps at the 0.5
-  // floor at 416px, 333px AND 280px alike (computeFitPadding.spec.ts).
+describe('the 300px default — containment pins (ruled 14 Sep 2026)', () => {
+  // ⭐ RULED TO 300 ON 14 Sep 2026, and the 17 Aug record is KEPT rather than
+  // deleted because it is the strongest argument against this width.
   //
-  // 254px of content budget after borders and `px-3` padding is what 280 buys;
-  // 390px is what 416 buys. −35% is not a layout tweak.
+  // What 17 Aug proved: narrowing does NOT lower the clamp — the post-draft fit
+  // parks at the 0.5 floor at 416px, 333px AND 280px alike
+  // (`computeFitPadding.spec.ts`). Re-confirmed by measurement; not disputed.
+  //
+  // What it did not measure: how much of the model is VISIBLE at that floor.
+  // Measured at 1600x1000 on the five committed starters, the pane offers
+  // 1080px against a 3080-unit layout on three of them — about 70% of the
+  // width, the rest reached by panning. At 300px the pane offers 1208px, so
+  // ~78%. That gain is real and the old experiment never looked for it.
+  //
+  // ⚠ AND THE COST IS UNCHANGED AND LIVE: ~390px of content budget at 416
+  // becomes ~274px at 300, after borders and `px-3`. It was tab FORMATTING
+  // that broke last time, not the width. That risk is not addressed by this
+  // spec and must be looked at on a real screen.
 
-  it('gives a 1280px laptop the full 416px', () => {
+  it('gives a 1280px laptop exactly the ceiling, and the ceiling is 300', () => {
     // The founder-facing viewport, bound by name so a ratio change reds HERE
     // rather than drifting silently through a proportional formula.
-    expect(responsiveDockWidth(1280)).toBe(416)
+    //
+    // ⭐ THE FIRST ASSERTION IS THE MODULE'S DESIGN INVARIANT and it is now
+    // structural rather than coincidental: `DOCK_VIEWPORT_RATIO` is DERIVED as
+    // `DOCK_RESPONSIVE_MAX_WIDTH / DOCK_REFERENCE_VIEWPORT`, so the reference
+    // laptop landing exactly on the ceiling holds for any future ceiling. It
+    // used to hold only because 0.325 x 1280 happened to equal 416.
+    //
+    // ⚠ THE SECOND IS THE RULED NUMBER, deliberately a literal. Both are needed:
+    // the invariant alone would pass at ANY ceiling, so it cannot see a width
+    // nobody asked for.
     expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
+    expect(responsiveDockWidth(1280)).toBe(300)
   })
 
-  it('gives 416px at 1280, 1920 and 3840 — screen size may widen the dock, never narrow it', () => {
+  it('gives the ceiling at 1280, 1920 and 3840 — screen size may widen the dock, never narrow it', () => {
     // The three viewports named because #741's clamp was `Math.min(full, min)`
     // against an UNCONDITIONAL 280 constant, so all three answered 280. A
     // per-input probe returning the same answer for every input is evidence

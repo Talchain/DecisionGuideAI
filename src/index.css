@@ -532,7 +532,12 @@
   /* Canvas dock layout */
   --dock-left-expanded: 20rem;
   --dock-left-collapsed: 2.5rem;
-  --dock-right-expanded: 26rem;  /* Widened from 24rem for better content layout */
+  /* 300px. ⛔ MIRRORS `DOCK_RESPONSIVE_MAX_WIDTH` in
+     src/canvas/components/dockWidth.ts, and the mirror is UNAVOIDABLE: this
+     custom property must have a value before that module runs, so it is the
+     pre-hydration fallback. `dockCssFallbackAgrees.spec.ts` REDs if the two
+     ever disagree — do not change one without the other. */
+  --dock-right-expanded: 18.75rem;
   --dock-right-collapsed: 2.5rem;
   /* Effective offsets used by the canvas container; updated by dock components. */
   --dock-left-offset: 0rem;

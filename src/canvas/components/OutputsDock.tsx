@@ -2796,7 +2796,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // effectiveIsOpen is defined once near isFirstUse (above) and reused here.
 
   // ⚠ THESE FALLBACKS ARE NOT FREE NUMBERS — they must equal the `:root`
-  // declarations in `src/index.css` (`--dock-right-expanded: 26rem`,
+  // declarations in `src/index.css` (`--dock-right-expanded: 18.75rem`,
   // `--dock-right-collapsed: 2.5rem`), which in turn must equal
   // `DOCK_RESPONSIVE_MAX_WIDTH` in `dockWidth.ts`. `--dock-right-expanded`
   // said `24rem` here for as long as the declaration said 26rem: the default
@@ -2813,7 +2813,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
     width: effectiveIsOpen
-      ? 'var(--dock-right-expanded, 26rem)'
+      ? 'var(--dock-right-expanded, 18.75rem)'
       : 'var(--dock-right-collapsed, 2.5rem)',
     right: 12,
     top: 12,
