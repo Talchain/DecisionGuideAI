@@ -1693,6 +1693,49 @@ export function AnalysisNewTabBody({
             for) — so a heading never appears without something under it. */}
         <WhatWeChecked checks={vm.checks} />
 
+        {/* ⭐⭐ §4 — ONE PLACE FOR WHAT THE RUN COULD NOT SETTLE.
+            Measured on a reconstruction of the run Paul screenshotted: EIGHT
+            "could not establish" statements, and only two of them anything
+            like duplicates. They are NOT redundant — which is why this is a
+            re-composition and not a cull. What made them a drain is that one
+            category of information lived in SIX places: both warning strips,
+            the glance ribbon, this readout, the section below, and the value-
+            of-information line eleven sections further down.
+
+            ⚠ THE TOP STRIPS DO NOT MOVE. `mounts the warning strip ABOVE the
+            glance, not below the sections` pins them there and it is right:
+            an engine critique qualifies the whole run, so a reader must meet
+            it before the reading it qualifies. This joins the two that were
+            merely far apart, and leaves the ruled positions alone.
+
+            ⚠ ORDER CONSTRAINTS CHECKED, NOT ASSUMED: Strengthen still
+            precedes both (`keeps the coaching above every detail section`),
+            and `analysis-new-sensitivity` still precedes uncertainty. */}
+        {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
+        <AnalysisNewSection
+          title={COPY.sections.uncertainty}
+          subtitle={COPY.sectionSubtitles.uncertainty}
+          findings={vm.uncertainty.findings}
+          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
+          // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
+          // "Nothing was flagged" is licensed ONLY when the producer actually
+          // assessed evidence on this run; otherwise the honest sentence is
+          // that it was not assessed. An empty list cannot tell them apart —
+          // `evidenceGapsAssessed` can.
+          emptyMessage={
+            vm.status.isPreRun
+              ? null
+              : vm.uncertainty.evidenceAssessed
+                ? COPY.empty.uncertaintyAssessed
+                : COPY.empty.uncertaintyUnassessed
+          }
+          onFocusTarget={focusTarget}
+          onReviewTarget={onReviewTarget}
+          onRunIntervention={runIntervention}
+          icon={AlertTriangle}
+          testId="analysis-new-uncertainty"
+        />
+
         {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
             ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
             NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
@@ -1833,30 +1876,6 @@ export function AnalysisNewTabBody({
           }
         />
 
-        {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
-        <AnalysisNewSection
-          title={COPY.sections.uncertainty}
-          subtitle={COPY.sectionSubtitles.uncertainty}
-          findings={vm.uncertainty.findings}
-          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
-          // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
-          // "Nothing was flagged" is licensed ONLY when the producer actually
-          // assessed evidence on this run; otherwise the honest sentence is
-          // that it was not assessed. An empty list cannot tell them apart —
-          // `evidenceGapsAssessed` can.
-          emptyMessage={
-            vm.status.isPreRun
-              ? null
-              : vm.uncertainty.evidenceAssessed
-                ? COPY.empty.uncertaintyAssessed
-                : COPY.empty.uncertaintyUnassessed
-          }
-          onFocusTarget={focusTarget}
-          onReviewTarget={onReviewTarget}
-          onRunIntervention={runIntervention}
-          icon={AlertTriangle}
-          testId="analysis-new-uncertainty"
-        />
 
         {/* Whole-decision value of information — a VERDICT, never the number.
             'not_computed' renders nothing: it is a distinct state from a
