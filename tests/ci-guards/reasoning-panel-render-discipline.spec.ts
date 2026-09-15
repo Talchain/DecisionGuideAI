@@ -115,7 +115,25 @@ function panelFiles(dir: string = PANEL_DIR): string[] {
     if (statSync(p).isDirectory()) {
       if (entry === '__tests__') continue
       out.push(...panelFiles(p))
-    } else if (entry.endsWith('.tsx')) {
+    } else if (entry.endsWith('.tsx') || entry.endsWith('.ts')) {
+      /* ⛔⛔ `.ts` TOO — AND ITS ABSENCE WAS A COLLECTION GAP IN THE GUARD ABOUT
+         TOKENS. This collected only `.tsx`, so `panelSurfaces.ts` — the module
+         that DEFINES every action tier and surface tone on this panel — was
+         invisible to the render-discipline rules. The most token-dense file on
+         the surface, unscanned by the token guard.
+
+         ⭐ MEASURED BEFORE WIDENING, not after: `.ts` files carry ZERO raw
+         font-size classes and one `typography.*` reference
+         (`analysisNewCopy.ts` → `panelHeader`, a declared token), so this
+         widening is green on arrival and pins a correct state rather than
+         importing a backlog.
+
+         ⚠ THIS IS THE THIRD COLLECTION GAP IN ONE NIGHT, and they are the
+         class that keeps getting through: the contrast register blind to
+         `border-*`/`ring-*`; the query ban catching one plural alias of three;
+         and now this. Every one was in what a rule was ALLOWED TO SEE rather
+         than in what it asserted — and assertions are the part that gets
+         reviewed. Audit the collection before tuning the assertion. */
       out.push(p)
     }
   }
@@ -154,6 +172,37 @@ const restState = (cls: string): string =>
 const SHAPE_SIGNALS = /\b(?:underline|border(?![-\s]*none)|bg-|rounded-full|px-|py-|p-[0-9])/
 
 describe('Reasoning panel — RULE A: only the declared panel sizes are rendered', () => {
+  /**
+   * ⭐⭐ POSITIVE CONTROL ON THE COLLECTION ITSELF, not on the rule.
+   *
+   * A guard's green IS an absence claim about defects, so it inherits every
+   * discipline an absence claim has — including a control proving the probe can
+   * SEE. A short collection returns a confident green: no error, no anomaly,
+   * indistinguishable from a clean run. That is why five collection gaps got
+   * through this estate in one night while rule defects were caught.
+   *
+   * ⛔ THIS FILE HAD ONE. It collected only `.tsx`, so `panelSurfaces.ts` — the
+   * module DEFINING every action tier and surface tone, and the file where both
+   * of this lane's worst errors lived — was invisible to the token guard. The
+   * guard could not see the place the defects were.
+   *
+   * So the widening is asserted by NAME rather than trusted: the `.ts` files
+   * that must be in scope are checked for individually.
+   */
+  it('POSITIVE CONTROL: the collection actually reaches the .ts token modules', () => {
+    const collected = panelFiles().map((f) => rel(f))
+    expect(
+      collected.some((f) => f.endsWith('panelSurfaces.ts')),
+      'the module defining every tier and tone must be scanned — it was not, and that was the gap',
+    ).toBe(true)
+    expect(
+      collected.some((f) => f.endsWith('.tsx')),
+      'and .tsx must still be collected — a widening that swapped one for the other would read green',
+    ).toBe(true)
+    // ⚠ Both extensions present, so neither arm can be satisfied by the other.
+    expect(new Set(collected.map((f) => f.slice(f.lastIndexOf('.')))).size).toBeGreaterThan(1)
+  })
+
   it('PRECONDITION: the sweep actually reads files', () => {
     const files = panelFiles()
     expect(files.length, 'the panel directory must yield rendering files').toBeGreaterThan(10)

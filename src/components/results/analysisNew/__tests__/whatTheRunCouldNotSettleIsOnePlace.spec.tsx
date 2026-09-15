@@ -83,18 +83,70 @@ describe('the run-could-not-settle block is contiguous', () => {
     const uncertainty = screen.getByTestId('analysis-new-uncertainty')
     expect(precedes(checks, uncertainty), 'checks must still come first').toBe(true)
 
-    // Every top-level panel section, in document order.
-    const sections = [...container.querySelectorAll<HTMLElement>('[data-testid^="analysis-new-"]')]
-      .filter((el) => /^analysis-new-(checks|uncertainty|key-insights|drivers|options|sensitivity|strengthen|glance)$/.test(el.getAttribute('data-testid') ?? ''))
-    const order = sections.map((el) => el.getAttribute('data-testid'))
-    const i = order.indexOf('analysis-new-checks')
-    const j = order.indexOf('analysis-new-uncertainty')
-    expect(i, 'PRECONDITION: checks must be in the ordered set').toBeGreaterThan(-1)
-    expect(j, 'PRECONDITION: uncertainty must be in the ordered set').toBeGreaterThan(-1)
+    /* ⛔⛔ DERIVED, NOT HAND-LISTED — AND THE HAND-LIST HAD A HOLE.
+       This filtered against a typed set of eight section ids. It omitted
+       `analysis-new-decision-voi-section`, which is a real top-level section
+       AND a member of the very "what this run could not settle" family this
+       file exists to keep contiguous. So the value-of-information block could
+       render BETWEEN checks and uncertainty and the adjacency assertion would
+       not see it — the guard passing while the property it guards had gone.
+
+       ⚠ A hand-maintained mirror of the surface's sections (trap 12), inside a
+       guard about the surface's structure. Third collection gap found tonight
+       by auditing what a rule COLLECTS rather than what it asserts.
+
+       ⭐ NOW DERIVED FROM THE RENDER: every `analysis-new-*` element that is
+       not nested inside another one is a top-level block, whatever it is
+       called. A section added tomorrow is covered without anyone remembering
+       to list it — and if one is added BETWEEN these two, this REDs. */
+    /* ⚠ THE CONTAINER IS EXCLUDED FIRST, and my own PRECONDITION below caught
+       its absence: `analysis-new-tab-body` is itself an `analysis-new-*`
+       element, so a bare "not nested in another match" filter collapses the
+       whole surface to the wrapper and returns ONE section. The same wrapper
+       swallowed an earlier measurement on this panel — a container that
+       matches the pattern it contains. */
+    const body = container.querySelector<HTMLElement>('[data-testid="analysis-new-tab-body"]')
+    expect(body, 'PRECONDITION: the tab body must render').not.toBeNull()
+    const all = [...body!.querySelectorAll<HTMLElement>('[data-testid^="analysis-new-"]')]
     expect(
-      order.slice(i + 1, j),
+      all.length,
+      'PRECONDITION: the derivation must yield several elements, not the wrapper alone',
+    ).toBeGreaterThan(3)
+
+    /* ⛔⛔ DOCUMENT ORDER, NOT A TOP-LEVEL SET — AND THE TOP-LEVEL SET BROKE.
+       This derived "every `analysis-new-*` element not nested inside another
+       one", then looked for the two targets IN that set. `analysis-new-checks`
+       is no longer top-level: the tab's restructure nested it, so `indexOf`
+       returned -1 and the guard died on its own PRECONDITION rather than on the
+       property — which is the right failure, and is why the precondition is
+       asserted at all.
+
+       ⚠ THE FIX IS NOT TO RE-LIST ANYTHING. Nesting is a layout decision and
+       this file's claim is about ADJACENCY, which document order answers
+       whatever the tree looks like. A derivation that assumes a flat surface is
+       a hand-maintained mirror of the surface's SHAPE — the same defect class
+       one level up from the hand-listed ids it replaced.
+
+       ⛔ ANCESTORS AND DESCENDANTS ARE NOT "BETWEEN", and excluding them is
+       load-bearing rather than tidy: a wrapper CONTAINING one target precedes it
+       in document order without rendering between the two, and a child of either
+       is inside it, not after it. Counting either would make this assert a
+       falsehood the moment anything is wrapped. */
+    const between = all.filter(
+      (el) =>
+        el !== checks &&
+        el !== uncertainty &&
+        !el.contains(checks) &&
+        !el.contains(uncertainty) &&
+        !checks.contains(el) &&
+        !uncertainty.contains(el) &&
+        precedes(checks, el) &&
+        precedes(el, uncertainty),
+    )
+    expect(
+      between.map((el) => el.getAttribute('data-testid')),
       'the two halves of "what this run could not settle" must be contiguous — ' +
-        `found between them: ${order.slice(i + 1, j).join(', ') || '(nothing)'}`,
+        `found between them: ${between.map((el) => el.getAttribute('data-testid')).join(', ') || '(nothing)'}`,
     ).toEqual([])
   })
 

@@ -63,7 +63,27 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { genuineDecision, highUncertainty, manyFragileEdges, openStrategicChallenge } from './analysisNewFixtures'
 
 /** Any element whose own class carries the status hue. */
-const AMBER = /(^|\s)(?:text-warning|bg-warning|border-warning)/
+/**
+ * ⛔ `ring-warning` WAS MISSING AND THAT WAS A COLLECTION GAP. This collected
+ * three channels and the panel colours four: `ModelStrip` carries amber on a
+ * RING for its pressed worklist state (2 uses). A budget blind to a channel the
+ * surface actually uses under-counts by construction — and this file's whole
+ * claim is a count.
+ *
+ * ⚠ Found by auditing what the guard COLLECTS rather than what it asserts,
+ * after the same class got through twice elsewhere tonight (the contrast
+ * register blind to `border-*`/`ring-*`; a query ban catching one plural alias
+ * of three). Assertions get reviewed; collections do not.
+ */
+/* ⚠ THE TRAILING BOUNDARY IS LOAD-BEARING AND WAS MISSING — caught by the
+   discriminating arm of the control below, not by reading. Without
+   `(?![-\w])` this matches `text-warning-light`, which is a DIFFERENT token
+   (`--warning-light-rgb` is declared in brand.css), so the census would count
+   a non-amber colour as amber and over-report the very budget it enforces.
+   `/30` must still match, so the boundary rejects `-` and word characters but
+   not `/`. A collection can be WRONG BY OVER-REACHING as well as by missing —
+   and an over-count is the direction that quietly loosens a budget. */
+const AMBER = /(^|\s)(?:text-warning|bg-warning|border-warning|ring-warning)(?![-\w])/
 
 /**
  * ⚠ `isStale: true` ON EVERY ARM, DELIBERATELY. Staleness is the single
@@ -100,6 +120,35 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('amber is rationed', () => {
+  /**
+   * ⭐⭐ POSITIVE CONTROL PER CHANNEL, not per rule.
+   *
+   * This census's whole claim is a COUNT, so a channel it cannot see makes it
+   * under-count with no error and no anomaly — a confident green. That is
+   * exactly how `ring-warning` was missing: three channels collected, four
+   * coloured on the surface.
+   *
+   * ⚠ ASSERTING THE REGEX WOULD BE A TAUTOLOGY — it would test the constant
+   * against itself. So each channel is proven against a SYNTHETIC ELEMENT
+   * carrying it: if the matcher stops seeing a channel, this REDs, whatever
+   * the regex says it covers.
+   */
+  it('POSITIVE CONTROL: the matcher sees every channel it claims to cover', () => {
+    const el = (cls: string) => {
+      const d = document.createElement('div')
+      d.setAttribute('class', cls)
+      return AMBER.test(d.getAttribute('class') ?? '')
+    }
+    for (const channel of ['text-warning', 'bg-warning/10', 'border-warning/30', 'ring-1 ring-warning']) {
+      expect(el(channel), `the census must see amber carried on "${channel}"`).toBe(true)
+    }
+    /* ⚠ THE DISCRIMINATING HALF. Without it a matcher of `/warning/` would pass
+       every arm above and also count things that are not amber at all. */
+    for (const notAmber of ['text-info', 'bg-success/10', 'border-panel-border', 'text-warning-adjacent-name']) {
+      expect(el(notAmber), `"${notAmber}" is not amber and must not be counted`).toBe(false)
+    }
+  })
+
   it('PRECONDITION: the census can see amber at all', () => {
     // ⚠ A census that counts zero everywhere would pass a pin of zero and
     // prove nothing (trap 13). This asserts the instrument before the rule.
