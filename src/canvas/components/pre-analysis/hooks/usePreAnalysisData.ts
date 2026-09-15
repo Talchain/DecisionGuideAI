@@ -1628,11 +1628,24 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (allFactors.size > 0) {
         const intersection = [...allFactors].filter(f => factorSets.every(s => s.has(f)))
         const overlapRatio = intersection.length / allFactors.size
-        if (overlapRatio > 0.8) {
+        /**
+         * ⭐ `=== 1` IS A FACT. `> 0.8` WAS A CUTOFF THIS FILE INVENTED.
+         *
+         * Founder's rule, 15 Sep: the UI renders the data; it does not decide
+         * what it means. "80% overlap means these may not be different
+         * strategies" is a strategic judgement about the user's options,
+         * authored here, from a number chosen here. "Every option changes
+         * exactly the same factors" is an observation about the graph — true or
+         * false, checkable, and not a verdict on their thinking.
+         *
+         * The consequence clause went with it: whether results "may cluster"
+         * is a claim about the engine's behaviour that this file cannot make.
+         */
+        if (overlapRatio === 1) {
           checks.push({
             id: 'same_levers',
-            message: 'Options affect the same factors: may not represent different strategies',
-            detail: 'When options change the same drivers, results may cluster together; consider whether your options represent genuinely different approaches',
+            message: 'Every option changes the same factors',
+            detail: 'Each option adjusts an identical set of drivers. Worth checking this is what you intended.',
             cta: 'Review options',
             ctaAction: 'review_options',
             pill: 'verify',
@@ -1860,8 +1873,14 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // CEE coachingSummary or the ready-state confirmation; otherwise the
     // T1 card speaks for itself.
     if (!isReady && blockerCount > 0) return null
+    /**
+     * ⚠ THE VERDICT WENT; THE OBSERVATION STAYS. "Model looks ready" is a
+     * judgement inferred from having found nothing — an absence rendered as an
+     * endorsement. Finding no issues is not the same as the model being sound,
+     * and the two read identically to a reader who is trusting us.
+     */
     if (isReady && totalImprovements === 0) {
-      return 'Model looks ready; no issues detected.'
+      return 'No issues detected in these checks.'
     }
     return null
   }, [isLoading, isReady, blockerCount, ceeAnalysisReady?.coaching_summary, tiers, qualityChecks, totalImprovements])

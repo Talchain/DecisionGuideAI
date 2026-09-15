@@ -96,11 +96,24 @@ function offendingComparison(node) {
   if (EQUALITY.includes(op)) {
     // Identity against a STRING is the allowed form — the producer named it.
     // Identity against a NUMBER is the UI deciding what that number means.
-    const numeric = [node.left, node.right].some(
-      s => ts.isNumericLiteral(s) ||
-           (ts.isPrefixUnaryExpression(s) && ts.isNumericLiteral(s.operand)),
-    )
-    if (numeric) return `numeric identity (${node.operatorToken.getText()})`
+    /**
+     * ⭐ 0 AND 1 ARE BOUNDARIES, NOT THRESHOLDS — and the rule was too broad
+     * without this. `overlapRatio === 1` says *every* option changes the same
+     * factors; `count === 0` says *none* were found. Those are facts about a
+     * set, checkable and falsifiable. A THRESHOLD is a value someone CHOSE
+     * between the extremes — `0.8`, `70`, `0.39` — and it is the choosing that
+     * the UI is not entitled to do.
+     *
+     * Found by fixing two sites honestly and watching the count not move: the
+     * scanner could not tell a rewritten fact from the cutoff it replaced.
+     */
+    const chosenThreshold = [node.left, node.right].some(s => {
+      const lit = ts.isPrefixUnaryExpression(s) ? s.operand : s
+      if (!ts.isNumericLiteral(lit)) return false
+      const n = Number(lit.text)
+      return n !== 0 && n !== 1
+    })
+    if (chosenThreshold) return `chosen threshold (${node.operatorToken.getText()})`
   }
   return null
 }
