@@ -36,6 +36,7 @@ import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
+import { decisionLabelIsUnwritten } from '../domain/vocabulary'
 
 /**
  * EVERY static string the resting state can render or send.
@@ -756,7 +757,38 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // one project and REDs the gate under the other.
   const restingLabelValue = (data as { label?: unknown } | undefined)?.label
   const restingLabel = typeof restingLabelValue === 'string' ? restingLabelValue.trim() : ''
-  const isUnnamed = restingLabel.length === 0
+  /**
+   * ⭐⭐ "UNWRITTEN" IS TWO STATES, AND THIS READ ONLY ONE OF THEM.
+   *
+   * An empty label is unwritten. So is the type's own default name — a node
+   * still reading `Question` (`DECISION_NODE_LABEL`, whose own doc argues it
+   * "invites the user to write theirs"). Only the first has zero length, so
+   * `restingLabel.length === 0` saw the empty case and missed the default.
+   *
+   * ⛔ THE CONSEQUENCE IS TWO AUTHORITIES DISAGREEING ABOUT ONE NODE, and it
+   * was witnessed on the deployed build `079d080b`: a fresh draft from a typed
+   * brief put a Question card on the canvas reading the word **"Question"**,
+   * with no unwritten line and no CTA — while the Model tab, reading the SAME
+   * node through `projectModelQuestion` → `labelIsTypeDefault`, correctly
+   * reported the question as `unwritten`. Each surface was internally
+   * consistent; nothing could tell the reader which to believe (trap 21).
+   *
+   * ⭐ SO THE FIX IS THE SHARED PREDICATE, NOT A SECOND COMPARISON HERE.
+   * `decisionLabelIsUnwritten` lives beside the constant in
+   * `domain/vocabulary.ts` and the Model tab's `labelIsTypeDefault` now
+   * delegates to it — one definition, two consumers. Re-typing
+   * `=== 'Question'` on this card is exactly the mirror that file exists to
+   * abolish, and the product word has already moved once (Paul retired
+   * "Decision" on 31 Aug).
+   *
+   * ⭐ AND THE ARM IT UNLOCKS IS A REAL MOVE, WHICH IS WHY THIS IS SAFE TO
+   * WIDEN. `unnamedAsk` goes through `requestAsk` — three live product call
+   * sites, gated on `canAsk`, and it never auto-sends: it prefills an editable
+   * draft the user presses Send on. Marking a state the reader cannot act on
+   * would be the defect one level along; here the affordance already works and
+   * simply was not being reached.
+   */
+  const isUnnamed = restingLabel.length === 0 || decisionLabelIsUnwritten(restingLabel)
   const restingNodeId = id as string
 
   // ⚠ ORDER MATTERS, AND THE SECOND ARM IS A CORRECTION. This previously read
