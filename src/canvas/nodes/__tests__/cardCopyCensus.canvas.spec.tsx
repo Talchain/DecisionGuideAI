@@ -432,9 +432,15 @@ const BUCKETS: Array<
  *   RESIDUAL adjudicated, kept, and named so it is not mistaken for settled.
  */
 const EXPECTED_CENSUS: Record<string, string[]> = {
-  // Nothing. The differentiator sentence is the only line every option card
-  // carries here, and its subject is a factor label, so it varies.
-  'option · pre · standard': [],
+  'option · pre · standard': [
+    // CONTROL — ⭐ ADDED 15 Sep 2026, AND THIS CENSUS IS WHAT PROVED THE CASE.
+    // The row below shows the same chip has been on the EXPERT card all along;
+    // Standard showed nothing, so which reader got the question depended on a
+    // view toggle. Measured on deployed `79866c44`: 4 of 4 option cards asked
+    // nothing on their face. The chip, label and message are unchanged — only
+    // the surface moved, out of a hover popover. See `theOptionQuestionIsOnTheCard`.
+    'What could go wrong?',
+  ],
   'option · pre · expert': [
     'What could go wrong?', // CONTROL
   ],

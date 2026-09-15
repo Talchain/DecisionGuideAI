@@ -1274,16 +1274,53 @@ export const OptionNode = memo((props: NodeProps) => {
       }
       return null
     }
-    // Pre-analysis: only non-baseline gets a chip
-    if (!isBaselineOption) {
-      return (
-        <div className="flex gap-1 flex-wrap mt-1.5">
-          <NodeChip chipId="option_what_could_go_wrong" actionType={null} label="What could go wrong?" message={`What could go wrong if we choose ${optionLabel}?`} />
-        </div>
-      )
-    }
+    /* ⭐ PRE-ANALYSIS: THE ONE QUESTION MOVED TO THE CARD FACE, so this arm is
+       now empty by design rather than by omission. It returned a single chip —
+       `option_what_could_go_wrong` — which lived in the Standard popover and
+       was therefore reachable only by hovering. Measured on deployed
+       `79866c44`: 4 of 4 option cards asked nothing on their face.
+
+       ⛔ IT IS RETURNED FROM ONE PLACE, NOT TWO. #1591 rendered the factor's
+       question on the card while the popover still rendered the same chip on
+       the same card, and CI caught it with `getMultipleElementsFoundError`.
+       "Exactly once" is structural here for the same reason: `cardQuestion`
+       below is the only render site, and this arm renders nothing. */
     return null
   }, [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
+
+  /**
+   * ⭐⭐ THE QUESTION THE CARD ASKS ON ITS OWN FACE.
+   *
+   * Every other kind on this canvas carries one at rest — Risk asks *"What
+   * would we see first?"*, Outcome *"What would falsify this?"*, Goal *"Is this
+   * the real goal?"*, and Factor gained one in #1591. **Option did not**,
+   * measured on deployed `79866c44`: 4 of 4 option cards asked nothing.
+   *
+   * ⚠ NOT NEW COACHING. This is the chip that already existed
+   * (`option_what_could_go_wrong`), with its existing label and its existing
+   * message, moved out of a hover popover onto the surface. Codex ruled
+   * per-node coaching EXPANSION lower priority; relocating a built affordance
+   * so a reader who never hovers can reach it is not expansion.
+   *
+   * ⚠ PRE-ANALYSIS ONLY, AND DELIBERATELY NARROWER THAN FACTOR'S. Post-analysis
+   * this card carries win rates, goal-fit, deltas and up to three chips; the
+   * popover is the right home for that cluster and the card is dense. Before a
+   * run the card is sparse and the reader is AUTHORING — which is when a
+   * question is worth most and when nothing was being asked at all.
+   *
+   * ⛔ THE BASELINE STILL GETS NOTHING, unchanged. "What could go wrong if we
+   * choose staying as we are" is a question about a choice nobody is proposing
+   * to make; the baseline's own coaching is its status-quo ScienceIcon.
+   */
+  const cardQuestion = useMemo(() => {
+    if (isPostAnalysis || isBaselineOption) return null
+    const optionLabel = (props.data?.label as string) ?? 'this option'
+    return {
+      id: 'option_what_could_go_wrong',
+      label: 'What could go wrong?',
+      message: `What could go wrong if we choose ${optionLabel}?`,
+    }
+  }, [isPostAnalysis, isBaselineOption, props.data])
 
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
@@ -2106,9 +2143,28 @@ export const OptionNode = memo((props: NodeProps) => {
             popover carries the "discuss with AI" turn the retired node-level
             BiasIcon twin used to provide. No second bias surface is mounted. */}
 
-        {/* Coaching chips moved into popover (Standard) / Detailed inline
-            layer-2. See `optionChips` useMemo above and the popover branches
-            at the bottom of this file. */}
+        {/* ⭐ THE ONE QUESTION, ON THE FACE OF THE CARD — the same treatment
+            Risk, Outcome, Goal and (since #1591) Factor already get. The
+            richer post-analysis cluster stays in the popover; this is the one
+            that must be reachable without hovering.
+
+            ⚠ It renders in BOTH views. The Detailed view's layer-2 carries the
+            post-analysis chips, and `cardQuestion` is null there, so nothing
+            doubles. */}
+        {cardQuestion && (
+          <div className="flex gap-1 flex-wrap mt-1.5" data-testid="option-card-question">
+            <NodeChip
+              chipId={cardQuestion.id}
+              actionType={null}
+              label={cardQuestion.label}
+              message={cardQuestion.message}
+            />
+          </div>
+        )}
+
+        {/* Post-analysis coaching chips live in the popover (Standard) /
+            Detailed inline layer-2. See `optionChips` useMemo above and the
+            popover branches at the bottom of this file. */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
         {showLayer2Inline && !isPostAnalysis && !isBaselineOption && (
