@@ -3671,6 +3671,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ...(typeof fe.switch_probability === 'number' && Number.isFinite(fe.switch_probability)
           ? { switchProbability: fe.switch_probability }
           : {}),
+        /**
+         * ⭐ WHICH OPTION THIS ROW POINTS AT — BY IDENTITY, and the id is the
+         * point (trap 19). The label is already inside the producer's sentence,
+         * but two options can carry the same label and `stripEncodingNotation`
+         * can collapse two distinct unusable ones onto the same fallback
+         * string, so "do these rows agree?" is a question only ids can answer.
+         *
+         * ⚠ The LABEL rides alongside for rendering only. A consumer that
+         * compared labels would be asking a different question and getting the
+         * right answer most of the time, which is the worst kind.
+         *
+         * ⛔ Both omitted when the producer named no alternative: the section
+         * can then say nothing about where these rows point, which is correct.
+         * `alternativeWinnerLabel` above falls back to 'another option' for the
+         * SENTENCE, and that fallback must not become an identity here.
+         */
+        ...(altWinnerId
+          ? { alternativeWinnerId: altWinnerId, alternativeWinnerLabel }
+          : {}),
         factorConfidence,
         eValue: rawEValue,
         threshold: fe.threshold ? {

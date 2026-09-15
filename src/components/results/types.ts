@@ -930,6 +930,14 @@ export interface UncertaintyItem {
    * measurement. Branch on presence; never coalesce.
    */
   switchProbability?: number
+  /**
+   * ⭐ The option this fragile edge points at, BY IDENTITY. Present only when
+   * the producer named one — never the 'another option' sentence fallback,
+   * which is a rendering convenience and not an identity.
+   */
+  alternativeWinnerId?: string
+  /** Its label, for rendering only. Never compared — ids answer identity. */
+  alternativeWinnerLabel?: string
   /** ISL E-value: how many times wrong the assumption must be to flip the recommendation */
   eValue?: number
   /** For sensitivity thresholds (when small changes flip the recommendation) */

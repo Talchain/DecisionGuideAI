@@ -589,6 +589,17 @@ export const ANALYSIS_NEW_COPY = {
      * happened.
      */
     flipLabel: 'How often this changed the answer',
+    /**
+     * ⭐ NAMES THE AGREEMENT, ASSERTS NOTHING NEW. Every row below already
+     * names this option in the producer's own sentence — this says once what
+     * the section says three times, so the rows can be read as variations.
+     *
+     * ⚠ "point the same way" is deliberately not "agree that X is better".
+     * The rows are conditionals — *if* this assumption is wrong — and the line
+     * must stay one, or it becomes a recommendation the run did not make.
+     */
+    convergence: (label: string) =>
+      `If any of these is wrong, they all point the same way: towards ${label}.`,
     expand: 'Show more',
     collapse: 'Show less',
     inspect: 'Inspect',
