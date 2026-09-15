@@ -201,7 +201,7 @@ test('WITNESS run_delta after a deliberate change', async ({ page }) => {
     tried.push(`${c.label} (${tag}): ALL THREE BEATS`)
   }
   if (rowId === null) {
-    stop(`no row completed the three-beat edit. Tried ${n}: ${tried.join(' | ')}`)
+    stop(`no row completed the three-beat edit. Tried ${tried.length}: ${tried.join(' | ')}`)
   }
   mark('edit applied (all three beats)')
 
