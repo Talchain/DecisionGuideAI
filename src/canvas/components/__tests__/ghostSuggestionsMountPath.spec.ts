@@ -195,7 +195,13 @@ describe('the ghost mount carries no visibility gate', () => {
     // an empty or mis-located string. Binds by the identity of what the block
     // composes, not by a length predicate any region could satisfy.
     const body = ghostMemoBody()
-    expect(body).toContain('withGhostTiers')
+    // ⚠ MARKER CHANGED 15 Sep 2026. This bound to `withGhostTiers`, which the
+    // memo no longer calls — the tier doors moved onto the card (`BaseNode` +
+    // `tierInvitations`) because measurement showed 14 of 20 fell outside the
+    // frame and there is nowhere inside it to stand. The block still composes
+    // the OPTION door, which measured inside the frame on 5 of 5 starters, so
+    // that is what identifies it now.
+    expect(body).toContain('ghostOptionPrompt')
     expect(body).toContain('GHOST_OPTION_NODE_ID')
   })
 
@@ -229,13 +235,24 @@ describe('the ghost mount carries no visibility gate', () => {
     expect(gateAxesIn(ghostMemoBody())).toEqual([])
   })
 
-  it('the mount still calls withGhostTiers', () => {
-    expect(source()).toMatch(/withGhostTiers\s*\(/)
+  /**
+   * ⛔ INVERTED 15 Sep 2026, deliberately. It asserted the mount CALLS
+   * `withGhostTiers`; the tier doors now render on the card instead, so the
+   * mount must NOT place them — on either of its two return paths. The second
+   * path (a model with no options) kept placing them in my first cut and was
+   * caught by a test, not by inspection.
+   */
+  it('the mount places no tier doors — they render on the card instead', () => {
+    expect(source()).not.toMatch(/withGhostTiers\s*\(/)
+    expect(source()).toContain('return [...nodes, ghostNode]')
+    expect(source()).toContain('if (optionNodes.length === 0) return nodes')
   })
 
   it('POSITIVE CONTROL: the same probe finds a symbol that is genuinely absent', () => {
     expect(source()).not.toMatch(/withGhostTiersV99Fabricated\s*\(/)
-    expect(source()).toMatch(/withGhostTiers\s*\(/)
+    // The probe can see a symbol that IS there, so the absence above is a
+    // measurement rather than a blind read.
+    expect(source()).toMatch(/ghostOptionPrompt\s*\(/)
   })
 })
 
