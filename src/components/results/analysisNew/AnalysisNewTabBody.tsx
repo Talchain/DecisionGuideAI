@@ -1888,7 +1888,23 @@ export function AnalysisNewTabBody({
             icon={<GraduationCap className="w-4 h-4 text-text-light" />}
             title={COPY.sections.coachingAndMethod}
             subtitle={COPY.sectionSubtitles.coachingAndMethod}
-            defaultExpanded={false}
+            /**
+             * ⭐⭐ OPEN WHEN THERE IS REAL GROUNDING, AND ONLY THEN.
+             * `bias_findings[]` is the most method-bearing payload the producer
+             * sends — a mechanism, a literature citation and a costed
+             * micro-intervention per finding. It is the closest this panel gets
+             * to "science-grounded coaching", and it sat TWELFTH, below four
+             * caveat boxes, behind a chevron.
+             *
+             * ⚠ BOUND TO `biasGroundingItems`, NOT TO `coachingHasContent`. The
+             * group RENDERS whenever any child would, including on an honest
+             * empty message; it OPENS only when the producer actually grounded
+             * something. Opening onto "no insight is grounded well enough to
+             * lead with yet" would spend the reader's attention on an absence —
+             * the dumping-ground complaint this restructure exists to answer,
+             * re-created by over-eager promotion.
+             */
+            defaultExpanded={biasGroundingItems.length > 0}
             testId="analysis-new-coaching-and-method"
           >
           {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
