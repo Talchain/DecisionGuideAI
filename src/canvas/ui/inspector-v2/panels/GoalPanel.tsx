@@ -520,10 +520,15 @@ export const GoalPanel = memo(function GoalPanel({
                       />
                       {prob !== null && (
                         <div className="mt-1">
+                          {/* ⛔ Explicit colour — see GoalConstraintsSection for the
+                              full argument. `DataBar` grades an uncoloured value
+                              >= 70 green / >= 40 amber / else RED, and those cutoffs
+                              are not the producer's. */}
                           <DataBar
                             value={prob}
                             label={constraintText}
                             size="standard"
+                            colour="info"
                           />
                         </div>
                       )}

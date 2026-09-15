@@ -263,7 +263,18 @@ export function GoalConstraintsSection({
 
               {probability !== null && (
                 <div className="mt-1">
-                  <DataBar value={probability} label={constraintText} size="standard" />
+{/* ⛔⛔ THE COLOUR IS EXPLICIT, AND THAT IS NOT A STYLE CHOICE.
+                      `DataBar` falls back to `evaluativeToken` when no colour is
+                      given: >= 70 green, >= 40 amber, else RED. Nobody gave us
+                      those cutoffs. The producer supplies a probability that a
+                      constraint is SATISFIED; this bar would have told the
+                      reader that 39% is danger and 41% merely a warning, and
+                      for a ceiling like "keep churn under 4%" a 70% chance of
+                      holding may be alarming rather than green.
+                      The identical bands were removed from the goal card's
+                      constraint badges on 15 Sep; this is the sibling surface
+                      that removal did not sweep. The figure is unchanged. */}
+                  <DataBar value={probability} label={constraintText} size="standard" colour="info" />
                 </div>
               )}
 
