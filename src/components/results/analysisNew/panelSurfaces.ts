@@ -131,3 +131,145 @@ export function surface(tone: SurfaceTone): string {
 export function inset(tone: SurfaceTone): string {
   return `${PANEL_INSET} ${SURFACE_TONE[tone]}`
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ ACTION TIERS — the same grammar, for the things a reader can PRESS.
+// ────────────────────────────────────────────────────────────────────────────
+/**
+ * ⛔ WHY THIS EXISTS, MEASURED RATHER THAN ASSERTED. Swept over every `<button>`
+ * and `<a>` under `analysisNew/`:
+ *
+ *     48 controls · 30 DISTINCT visual signatures · 23 used exactly ONCE
+ *
+ * The tiers were always there — the sweep finds the same six clusters over and
+ * over (an info link ×10, an info pill ×5, a primary fill ×2, and three quieter
+ * variants ×2 each). What was missing is a NAME for them, so every new control
+ * re-derived a tier from scratch and landed a 31st spelling. That is the direct
+ * cause of the two things Paul reported off a screenshot: "nothing reads as
+ * primary", and "two of three card actions don't look clickable".
+ *
+ * ⚠ THIS IS THE SIBLING OF `SURFACE_TONE`, DELIBERATELY. That constant exists
+ * because two spellings of one container tone drifted apart inside a single
+ * component; this is the identical defect one layer out, on the pressable
+ * objects rather than the boxes. Same fix, same shape, same file — a caller
+ * naming a tier cannot invent a new one, and a reviewer can see the whole
+ * vocabulary in ten lines instead of inferring it from 48 call sites.
+ *
+ * ── THE RULE THE TIERS ENCODE ──────────────────────────────────────────────
+ * Emphasis is carried by SHAPE AND FILL, never by colour alone. A control
+ * distinguished from its surroundings only by hue fails WCAG SC 1.4.1, and on
+ * touch — where `hover:` never fires — it reads as coloured text. That is not
+ * theoretical: six controls on this panel were exactly that until this week.
+ *
+ * ⛔ AND THE OBVIOUS REMEDY IS BANNED HERE, WHICH IS WHY `inline` UNDERLINES
+ * RATHER THAN TINTS. On this panel's ground `bg-info/10` drops `text-info` to
+ * 4.05:1 and `bg-info/20` to 3.56:1 — both failing SC 1.4.3 — and the ratio
+ * falls monotonically in alpha, so a smaller tint cannot rescue it. Two tinted
+ * controls are already pinned as KNOWN_UNREPAIRED at 3.56:1 in
+ * `reasoning-model-text-contrast-per-site.spec.ts`. An underline costs NO
+ * contrast, so it is the one remedy that satisfies 1.4.1 without breaching
+ * 1.4.3. `secondary` keeps its tint because it is a PILL: its shape already
+ * carries the affordance, and its contrast debt is the pre-existing pinned one
+ * rather than a new one this module introduces.
+ */
+export const ACTION_TIER = {
+  /**
+   * THE ONE ACT. A filled control, and the panel should carry at most one of
+   * them in view — an emphasis every control shares is an emphasis none of
+   * them has.
+   */
+  primary: 'px-2 py-0.5 rounded bg-primary text-text-on-color',
+  /**
+   * A NAMED ACT beside the reading it belongs to. An OUTLINED pill: the shape
+   * is the affordance, so the hue is doing no load-bearing work.
+   *
+   * ⛔⛔ OUTLINED, NOT TINTED, AND THE FIRST DRAFT OF THIS TIER GOT IT WRONG.
+   * It shipped as `bg-info/10 … text-info` — copied from the seven existing
+   * pills — and `reasoning-model-text-contrast-per-site` REDded on it by name
+   * within one run: that pairing measures **4.05:1** against SC 1.4.3's 4.5:1,
+   * and it is the exact figure documented three hours earlier in this same
+   * module's `inline` note. A system built to end an inconsistency had
+   * reproduced the inconsistency's worst instance, in one place, where every
+   * future control would inherit it.
+   *
+   * ⭐ A BORDER COSTS NO TEXT CONTRAST. `text-info` on the untinted panel
+   * ground is 4.78:1 and legal; the tint is what breaks it, and the ratio falls
+   * monotonically in alpha so a lighter tint cannot rescue it.
+   *
+   * ⛔⛔ AND THE ALPHA IS MEASURED, BECAUSE MY FIRST VERSION ASSERTED IT AND WAS
+   * WRONG. This shipped as `border-info/40` with a docblock claiming it met SC
+   * 1.4.11's 3:1 non-text floor. **It is 1.74:1.** Caught by an independent
+   * reviewer with the repo's own helper, and re-derived here:
+   *
+   *     border-info/40   --bg-panel 1.74:1   --bg-panel-hover 1.72:1   ⛔
+   *     border-info/60   --bg-panel 2.37:1   --bg-panel-hover 2.33:1   ⛔
+   *     border-info/70   --bg-panel 2.79:1   --bg-panel-hover 2.75:1   ⛔
+   *     border-info/80   --bg-panel 3.35:1   --bg-panel-hover 3.27:1   ✅ first clearing both
+   *
+   * ⚠ THE SECOND COLUMN WAS LABELLED `canvas` AND IS `--bg-panel-hover`. The
+   * NUMBERS were right — these are the two grounds the contrast register
+   * declares (`PANEL_GROUNDS = ['--bg-panel', '--bg-panel-hover']`, and hover
+   * is in scope because text must survive it) — but the HEADING named a
+   * different surface. `--bg-canvas` is the ground BEHIND the panel and is not
+   * a panel ground at all, so a reader checking this table against it would
+   * find figures that do not reconcile and could not tell which half was wrong.
+   *
+   * ⛔ A mislabelled column in the table added to stop figures being asserted
+   * rather than measured. Fourth error in this one file, and the third of them
+   * inside something written to prevent its own class.
+   *
+   * ⚠ IT WAS NEVER A REGRESSION — the fill it replaced measures 1.14:1, so the
+   * control improved either way. That is exactly why it was dangerous: a FALSE
+   * FIGURE attached to a REAL improvement, in a token every future control
+   * inherits, with nothing guarding it (the contrast scanner collects text and
+   * icon utilities, not borders).
+   *
+   * ⭐ THE SAME SHAPE AS THE DEFECT THIS MODULE ALREADY CAUGHT IN ITSELF: a
+   * documented figure the system then reproduces. First the 4.05:1 fill copied
+   * in from the pills; then a 3:1 claim asserted rather than measured. Twice in
+   * one file, and neither found by reading it.
+   *
+   * ⚠ SIX OF THE SEVEN TINTED PILLS ARE NOW CONVERTED; ONE IS NOT. They are
+   * already pinned as KNOWN_UNREPAIRED at 3.56:1/4.05:1, and moving them is a
+   * VISIBLE change rather than the class-identical de-duplication the other
+   * conversions were. Converting them repairs five real failures and should be
+   * done — as a deliberate visual change, banked by deleting their lines from
+   * that pin, not smuggled in under a refactor.
+   */
+  secondary: 'px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info',
+  /**
+   * AN ACT INSIDE PROSE. Underlined AT REST, never on hover alone — see the
+   * contrast note above.
+   */
+  inline: 'rounded text-info underline',
+  /**
+   * A TERTIARY ACT — present, reachable, and not competing. Also underlined at
+   * rest: "quiet" is a claim about emphasis, never a licence to drop the
+   * affordance.
+   */
+  quiet: 'rounded text-text-light underline',
+  /**
+   * A NON-DIRECTIVE ACT — an outlined pill for something the panel offers
+   * without recommending, e.g. recording a decision. Carries a border rather
+   * than a fill so it reads as available, not urged.
+   */
+  neutral: 'px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
+} as const
+
+export type ActionTier = keyof typeof ACTION_TIER
+
+/**
+ * The focus treatment every control gets, baked in rather than left to callers.
+ *
+ * ⚠ NOT A CALLER'S CHOICE, for the same reason `PANEL_INSET_ACTION` owns its
+ * hover: a control whose focus ring a caller supplies is a control that will
+ * eventually ship without one. Measured on the pre-existing sweep — the focus
+ * ring was the ONE thing all 48 controls already agreed on, which is what a
+ * shared token is supposed to look like.
+ */
+export const ACTION_FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
+
+/** `action('inline')` → the complete className for a pressable control. */
+export function action(tier: ActionTier): string {
+  return `${ACTION_TIER[tier]} ${ACTION_FOCUS}`
+}

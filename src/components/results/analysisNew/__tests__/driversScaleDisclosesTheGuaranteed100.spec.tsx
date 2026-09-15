@@ -61,10 +61,77 @@
  * Ship both.
  *
  * ── AND THE INVARIANT IS WRITTEN AGAINST THE SPEC, NOT THE SYMPTOM ─────────
- * The anchor case below asserts the FACT the sentence claims (the top row's
- * fraction is exactly 1), not merely that the sentence is present. If someone
- * later rescales the bars to a share of a sum, the sentence becomes false and
- * this file REDs on the anchor rather than passing on the string (trap 13d).
+ * The anchor case below asserts the FACT the sentence claims, not merely that
+ * the sentence is present. If someone later rescales the bars to a share of a
+ * sum, the sentence becomes false and this file REDs on the anchor rather than
+ * passing on the string (trap 13d).
+ *
+ * ── ⛔⛔ CORRECTED 14 SEP 2026 — THIS FILE ANCHORED ON THE WRONG QUANTITY ────
+ * The anchor above was `influenceRows[0].fraction === 1`. That is the BAR, and
+ * it is 1 for the leader BY CONSTRUCTION — `magnitude / strongest` over the
+ * surviving rows — so it can never fail, whatever the panel says. The sentence
+ * is about the FIGURE, `pct(displayInfluence)`, which is the PRODUCER's value
+ * and is deliberately never rescaled here. Two quantities, one guard, and the
+ * guard was pointed at the one that cannot be wrong.
+ *
+ * ⛔ WHAT IT CERTIFIED. Both fixtures it asserted the 100% promise on measure
+ * a top FIGURE of 60 (`openStrategicChallenge`) and NO FIGURE AT ALL
+ * (`highUncertainty`). It has been passing on runs that render the promise
+ * beside a number contradicting it.
+ *
+ * ⛔ AND THE DEFECT REACHED A USER. Witnessed by Paul on the deployed Reasoning
+ * tab: a FULL-WIDTH TOP BAR, LABELLED 67%, under "The top driver always shows
+ * 100%" — with the cause already disclosed one clause earlier ("2 factors are
+ * not ranked here: controlled by your options"). Reproduced at the builder with
+ * one suppressed row at 1.0 and survivors at 0.67 / 0.33.
+ *
+ * ⭐ THE PRODUCER IS NOT AT FAULT, re-derived over every JSON under `src/`:
+ * 21 of 22 files carrying `influence_score` max at exactly 1.0. The invariant
+ * is real upstream; `buildDrivers` breaks it downstream by dropping rows AFTER
+ * normalisation, so the surviving top row is no longer the producer's max.
+ *
+ * ── ⭐⭐ AND THE REPLACEMENT IS NOT ITSELF A TAUTOLOGY — PROVEN BOTH WAYS ────
+ * The class this file exists to close is "a guard that is always true, is
+ * well-typed, and reads exactly like a safety check". Replacing one tautology
+ * with another is the obvious way to fail, so the discriminating pair was RUN,
+ * not reasoned about, in an isolated worktree with isolation asserted by
+ * writing a sentinel:
+ *
+ *   RED   diverge bar from figure — restore the unconditional promise        (2 failed)
+ *   RED   derive the figure from the bar (the tempting rescale)              (2 failed)
+ *   RED   drop the exclusion filter so nothing is ever suppressed            (2 failed)
+ *   GREEN change an UNRELATED quantity — the bar's 0.04 minimum floor -> 0.09 (7 passed)
+ *
+ * The GREEN arm is the half that matters and the half a careless repair omits:
+ * without it, a guard that REDs on everything would score four out of four and
+ * still be worthless. Leading and trailing controls agreed at 7/7 with `src/`
+ * clean at both ends.
+ *
+ * ── ⛔⛔ AND THAT GREEN ARM WAS VACUOUS. CORRECTED, NOT DEFENDED. ───────────
+ * An independent reviewer showed it proves nothing: every assertion in this
+ * file binds to `row[0]`, whose fraction is **1** by construction, so a
+ * MINIMUM floor of 0.09 can never touch it. **Any floor ≤ 1 is invisible
+ * here** — the arm would have stayed green for a change that could not have
+ * affected it whatever the guard did. Demonstrated by the reviewer: a floor of
+ * **1.5** REDs three cases, which is the first value large enough to reach
+ * `row[0]` at all.
+ *
+ * ⭐ I INVITED THAT HIT AND IT LANDED, WHICH IS THE POINT. I had written that
+ * "a single green arm proves less than two" and then supplied one green arm —
+ * chosen, without noticing, from the quantities I already believed were safe.
+ * That is the self-authored-corpus problem one level up: a control picked by
+ * the same head that wrote the guard tests what that head already expects.
+ *
+ * ⭐ THE REPLACEMENT ARM BELOW IS THE REVIEWER'S and it rescues the conclusion:
+ * it changes a quantity the guard genuinely READS and shows it stays green,
+ * so "sensitive to the named thing, not to everything" is now supported rather
+ * than asserted.
+ *
+ * ⭐ THE SHAPE OF THE REPAIR: the anchor now asserts BOTH quantities and names
+ * them apart, and the clause is gated on the figure a reader actually sees. A
+ * corpus that shares the code's blind spot cannot see the code's defect
+ * (CLAUDE.md trap 13d), so the defect state gets its OWN fixture below rather
+ * than being reasoned about.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -77,7 +144,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { highUncertainty, openStrategicChallenge } from './analysisNewFixtures'
+import { highUncertainty, makeData, makeDriver, openStrategicChallenge } from './analysisNewFixtures'
 
 /**
  * The two sentences, TYPED. Changing the constant without changing these REDs
@@ -85,6 +152,55 @@ import { highUncertainty, openStrategicChallenge } from './analysisNewFixtures'
  */
 const SCALE_IS_RELATIVE = 'Influence is relative to the strongest factor in this run, not a share of the outcome.'
 const HUNDRED_IS_GUARANTEED = 'The top driver always shows 100%.'
+/**
+ * The clause that replaces it when the figure is not 100. Typed here for the
+ * same reason as its twin: a `toContain(COPY...)` assertion moves with the
+ * constant and would pass on any rewording, including one that puts the false
+ * promise back.
+ */
+const BAR_IS_STRONGEST_SHOWN =
+  'The top bar is full width because it is the strongest factor shown, not because it reached 100%.'
+
+/**
+ * ⭐ A PRODUCER-SHAPED SET — max exactly 1.0, which is what 21 of 22 captures
+ * in this repo actually look like. The shared fixtures all default to 0.6, so
+ * none of them could ever have exercised the sentence's true state.
+ */
+const producerNormalisedRun = () =>
+  makeData({
+    drivers: {
+      driversStatus: 'computed',
+      totalCount: 2,
+      drivers: [
+        makeDriver({ factorKey: 'top', factorLabel: 'Churn Risk', displayInfluence: 1.0, rank: 1 }),
+        makeDriver({ factorKey: 'second', factorLabel: 'Elasticity', displayInfluence: 0.4, rank: 2 }),
+      ],
+    } as never,
+  })
+
+/**
+ * ⭐⭐ THE DEFECT STATE, AS A FIXTURE RATHER THAN AS AN ARGUMENT. The producer's
+ * strongest row is suppressed, so the surviving top reads 67% while its bar is
+ * still full width. These are the exact magnitudes Paul's deployed run showed.
+ */
+const strongestRowSuppressed = () =>
+  makeData({
+    drivers: {
+      driversStatus: 'computed',
+      totalCount: 3,
+      drivers: [
+        makeDriver({
+          factorKey: 'sup',
+          factorLabel: 'Pro Plan Monthly Price',
+          displayInfluence: 1.0,
+          rank: 1,
+          zeroReason: 'intervention_override',
+        } as never),
+        makeDriver({ factorKey: 'a', factorLabel: 'Price-Driven Churn Risk', displayInfluence: 0.67, rank: 2 }),
+        makeDriver({ factorKey: 'b', factorLabel: 'Price Elasticity', displayInfluence: 0.33, rank: 3 }),
+      ],
+    } as never,
+  })
 
 const SECTION = 'analysis-new-drivers'
 
@@ -133,24 +249,46 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
    * rather than off the copy. This is what makes the string assertions below
    * a claim about the product instead of a claim about a constant.
    */
-  it('ANCHOR: the top influence row is exactly 1.0 by construction, on BOTH bases', () => {
-    for (const [name, data] of [
-      ['producer basis', openStrategicChallenge()],
-      ['fallback basis', highUncertainty()],
-    ] as const) {
-      const rows = buildAnalysisNewViewModel({
+  it('ANCHOR: bar and figure are DIFFERENT quantities, and only the bar is 1 by construction', () => {
+    const drivers = (data: ReturnType<typeof openStrategicChallenge>) =>
+      buildAnalysisNewViewModel({
         data,
         recommendations: [],
         isPreRun: false,
         isRunning: false,
         isStale: false,
-      }).drivers.influenceRows
+      }).drivers
+
+    // ── The BAR: 1 for the leader on every basis, whatever its strength. ──
+    for (const [name, data] of [
+      ['producer basis', openStrategicChallenge()],
+      ['fallback basis', highUncertainty()],
+      ['strongest row suppressed', strongestRowSuppressed()],
+    ] as const) {
+      const rows = drivers(data).influenceRows
       expect(rows.length, `PRECONDITION: ${name} must produce influence rows`).toBeGreaterThan(0)
       expect(
         rows[0]!.fraction,
-        `${name}: the leader is max-normalised, so its fraction is 1 whatever its strength`,
+        `${name}: the leader is max-normalised over SURVIVORS, so its fraction is 1 whatever its figure`,
       ).toBe(1)
     }
+
+    /* ── ⭐⭐ THE DISCRIMINATING PAIR. The figure is the producer's and is NOT
+       rescaled, so it tracks what was filtered out while the bar cannot. If
+       these two ever agree on the suppressed run, someone has rescaled the
+       figure — which is the fabrication the caveat's first clause denies. */
+    expect(
+      drivers(producerNormalisedRun()).topRowFigurePercent,
+      'a producer-normalised set survives intact: the figure IS 100',
+    ).toBe(100)
+    expect(
+      drivers(strongestRowSuppressed()).topRowFigurePercent,
+      'the producer max was dropped: the surviving figure is 67 while its bar is still 1',
+    ).toBe(67)
+    expect(
+      drivers(highUncertainty()).topRowFigurePercent,
+      'a non-`influence_score` basis renders a rank claim and no figure at all',
+    ).toBeNull()
   })
 
   /**
@@ -167,24 +305,100 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
     expect(bars[0]!).toHaveAttribute('data-fraction', '100')
   })
 
-  it('the caveat discloses the guaranteed 100%, on the producer basis', () => {
-    const caveat = caveatNode(openStrategicChallenge())
+  it('the caveat discloses the guaranteed 100% WHERE THE 100% IS ACTUALLY SHOWN', () => {
+    const caveat = caveatNode(producerNormalisedRun())
     // POSITIVE CONTROL: a caveat that rendered empty would satisfy nothing
     // below by accident, and an absent one throws above (trap 13).
     expect(caveat.textContent ?? '', 'the caveat rendered empty').not.toBe('')
     expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
     expect(caveat).toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    // ⭐ BOUND TO THE NUMBER THE SENTENCE IS ABOUT. Without this the case
+    // passes on any run at all, which is how the false promise survived.
+    expect(
+      screen.getByTestId(`${SECTION}-region`).textContent ?? '',
+      'the promise must sit beside a row that actually reads 100%',
+    ).toContain('Relative influence 100%')
   })
 
-  it('the caveat discloses it on the fallback basis too, because the scale is the same', () => {
-    /* #1228's ruling, and it is why this sentence may be unconditional:
-       `buildDrivers` divides every magnitude by `strongest` WHATEVER stamped
-       it. A disclosure withheld on one basis would go missing on exactly the
-       runs that need it. */
+  /**
+   * ⭐⭐ THE DEFECT CASE. RED before the fix: the caveat promised 100% while the
+   * top row read 67%. The scale clause stays — it is unconditionally true — and
+   * only the guarantee is withdrawn, replaced by the one thing the reader
+   * cannot otherwise account for: a full-width bar on a row that is not 100%.
+   */
+  it('the guarantee is WITHHELD when the producer\'s strongest row was filtered out', () => {
+    const caveat = caveatNode(strongestRowSuppressed())
+    expect(caveat.textContent ?? '', 'the caveat rendered empty').not.toBe('')
+    expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
+    expect(caveat, 'the false promise must not render').not.toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    expect(caveat).toHaveTextContent(BAR_IS_STRONGEST_SHOWN)
+
+    /* ⚠ PIN THE PRECONDITION IN-TEST (trap 13b): assert the payload really
+       does render the contradicting number, so a green result is the code's
+       doing and not the fixture quietly failing to reproduce the state. */
+    const region = screen.getByTestId(`${SECTION}-region`).textContent ?? ''
+    expect(region, 'PRECONDITION: the top row must render 67%').toContain('Relative influence 67%')
+    expect(region, 'PRECONDITION: the exclusion must be disclosed').toContain('not ranked here')
+    expect(screen.getAllByTestId('analysis-new-driver-chart-bar')[0]!).toHaveAttribute(
+      'data-fraction',
+      '100',
+    )
+  })
+
+  /**
+   * ⚠ NO FIGURE, NO CLAUSE ABOUT A FIGURE. On a basis other than
+   * `influence_score` the rows carry a rank claim and no percentage, so BOTH
+   * arms of the second clause would describe a number that never appears.
+   * #1228's ruling that the SCALE sentence is basis-independent is untouched.
+   */
+  /**
+   * ⭐⭐ THE GREEN ARM, EXECUTABLE AND NON-VACUOUS.
+   *
+   * The original green arm changed the bar's MINIMUM floor, which `row[0]`
+   * (fraction 1 by construction) can never reach — so it proved nothing. This
+   * changes a quantity the guard genuinely reads on the row it binds to: a
+   * NON-LEADING row's influence. The caveat is a claim about the TOP row, so
+   * moving a lower one must leave every assertion alone.
+   *
+   * ⚠ IN-TEST PRECONDITION: the moved row must actually be present and must
+   * NOT be the leader, or this is vacuous in a second, quieter way.
+   */
+  it('GREEN ARM: moving a NON-LEADING row leaves every assertion alone', () => {
+    const shifted = makeData({
+      drivers: {
+        driversStatus: 'computed',
+        totalCount: 2,
+        drivers: [
+          makeDriver({ factorKey: 'top', factorLabel: 'Churn Risk', displayInfluence: 1.0, rank: 1 }),
+          makeDriver({ factorKey: 'second', factorLabel: 'Elasticity', displayInfluence: 0.25, rank: 2 }),
+        ],
+      } as never,
+    })
+    const vm = buildAnalysisNewViewModel({
+      data: shifted, recommendations: [], isPreRun: false, isRunning: false, isStale: false,
+    }).drivers
+    expect(vm.influenceRows.length, 'PRECONDITION: two rows, so a non-leader exists').toBe(2)
+    expect(vm.influenceRows[1]!.id, 'PRECONDITION: the moved row must not be the leader').toBe('second')
+    expect(
+      vm.topRowFigurePercent,
+      'the caveat is a claim about the TOP row — moving a lower one must not change it',
+    ).toBe(100)
+
+    const caveat = caveatNode(shifted)
+    expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
+    expect(caveat, 'and the guarantee still renders, unmoved').toHaveTextContent(HUNDRED_IS_GUARANTEED)
+  })
+
+  it('says nothing about 100% on a basis that renders no figure', () => {
     const caveat = caveatNode(highUncertainty())
     expect(caveat.textContent ?? '', 'the caveat rendered empty').not.toBe('')
     expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
-    expect(caveat).toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    expect(caveat).not.toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    expect(caveat).not.toHaveTextContent(BAR_IS_STRONGEST_SHOWN)
+    expect(
+      screen.getByTestId(`${SECTION}-region`).textContent ?? '',
+      'PRECONDITION: this basis renders a rank claim, not a percentage',
+    ).toContain('Among the strongest influences in this run')
   })
 
   /**

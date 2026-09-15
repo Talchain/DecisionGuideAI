@@ -1721,7 +1721,60 @@ export const ANALYSIS_NEW_COPY = {
      * than arrive as an unexplained assertion.
      */
     setRelativeInfluence:
-      'Influence is relative to the strongest factor in this run, not a share of the outcome. The top driver always shows 100%.',
+      'Influence is relative to the strongest factor in this run, not a share of the outcome.',
+    /**
+     * ⭐⭐ THE SECOND CLAUSE IS CONDITIONAL, BECAUSE IT WAS FALSE ON A REAL RUN.
+     *
+     * "The top driver always shows 100%" is a claim about the FIGURE each row
+     * renders (`pct(displayInfluence)` — the producer's value, never rescaled
+     * here). The BAR is a different quantity: `magnitude / strongest` over the
+     * rows that SURVIVED filtering, so the leader's bar is full width whatever
+     * its figure says.
+     *
+     * ⭐ THE PRODUCER'S INVARIANT IS REAL AND IS NOT THE DEFECT. Re-derived
+     * over every JSON in `src/`: 21 of 22 files carrying `influence_score` max
+     * at exactly 1.0. What breaks it is `buildDrivers` dropping rows
+     * (`zeroReason != null`) AFTER the producer normalised — so the surviving
+     * top row is no longer the producer's max, and the sentence promises an
+     * invariant over a set the reader is not being shown.
+     *
+     * ⛔ WITNESSED BY PAUL on the deployed Reasoning tab, and reproduced at the
+     * builder: with one suppressed row at 1.0 and survivors at 0.67 / 0.33 the
+     * panel rendered a FULL-WIDTH TOP BAR, LABELLED 67%, under a sentence
+     * promising 100%. Three statements about one row, no two agreeing — while
+     * the same caveat had already disclosed the cause one clause earlier:
+     * "2 factors are not ranked here: controlled by your options."
+     *
+     * ⚠⚠ AND NO GUARD COULD SEE IT. `driversScaleDisclosesTheGuaranteed100`
+     * anchors on `influenceRows[0].fraction === 1` — the quantity that is 1 by
+     * construction and can therefore never fail — and asserts the 100% promise
+     * on two fixtures whose top rows measure 60 and NO FIGURE AT ALL. An
+     * invariant written with the same asymmetry as the code it tests is a guard
+     * agreeing with itself, and a corpus sharing the code's blind spot cannot
+     * see the code's defect (CLAUDE.md trap 13d).
+     *
+     * ⛔ THE FIX IS NOT TO RESCALE THE FIGURE. Re-normalising `displayInfluence`
+     * over the surviving rows would make the top read 100% and turn every
+     * figure into a share of the DISPLAYED set — the exact reading the first
+     * clause exists to deny, and what `analysisMetricPercent` means by "without
+     * rescaling its value". The number is the producer's and stays; the
+     * SENTENCE stops promising what the display does not hold.
+     *
+     * ⚠ THE ELSE-ARM ASSERTS ONLY WHAT IS DERIVABLE. A non-100 figure has more
+     * than one possible cause and the client cannot tell them apart, so the
+     * clause explains the BAR — the thing on screen that puzzles — and names no
+     * cause it has not measured.
+     *
+     * ⚠ AND IT SAYS NOTHING WHEN THERE IS NO FIGURE. On a basis other than
+     * `influence_score` the rows carry a rank claim and no percentage, so a
+     * clause about "100%" would describe a number that never appears.
+     */
+    guaranteedHundredClause: (topFigurePercent: number | null): string | null =>
+      topFigurePercent === null
+        ? null
+        : topFigurePercent === 100
+          ? 'The top driver always shows 100%.'
+          : 'The top bar is full width because it is the strongest factor shown, not because it reached 100%.',
     /**
      * ⛔⛔ THIS SENTENCE REACHES NO SCREEN, DELIBERATELY, AND THE SUITE PINS
      * THAT — `theBasisLineHasNoReferentWithoutBars` in

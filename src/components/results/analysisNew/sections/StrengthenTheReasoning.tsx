@@ -76,6 +76,7 @@ import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
 import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
+import { action } from '../panelSurfaces'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -765,7 +766,7 @@ export function StrengthenTheReasoning({
               restoreDismissed(recordKey(undoable.scenarioId, undoable.id))
               clearUndo()
             }}
-            className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            className={action('inline')}
             data-testid={`${testId}-dismissed-undo`}
           >
             {STRENGTHEN_COPY.undo}
@@ -821,7 +822,7 @@ export function StrengthenTheReasoning({
                   intent: 'challenge_assumption',
                 })
               }
-              className={`${typography.panelMeta} mt-2 inline-flex items-center gap-1 rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              className={`${typography.panelMeta} mt-2 inline-flex items-center gap-1 ${action('inline')}`}
               data-testid={`${testId}-completed-challenge`}
             >
               {STRENGTHEN_COPY.completedChallenge}
@@ -1013,7 +1014,7 @@ export function StrengthenTheReasoning({
                             attentionNote: attentionNoteForRecommendation(rec),
                           })
                         }
-                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
                         data-testid={`${testId}-method`}
                         data-method-id={method.id}
                         title={method.description}
@@ -1230,7 +1231,7 @@ export function StrengthenTheReasoning({
                       <button
                         type="button"
                         onClick={() => commitDispute(rec)}
-                        className={`${typography.panelMeta} rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} ${action('inline')}`}
                         data-testid={`${testId}-disagree-save`}
                       >
                         {COPY.dissent.save}
@@ -1334,7 +1335,7 @@ export function StrengthenTheReasoning({
           // DeeperAnalysis) — this control was the departure from the house
           // convention, not the convention itself.
           aria-controls={`${testId}-list`}
-          className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-2`}
+          className={`${typography.panelMeta} ${action('inline')} mt-2`}
           data-testid={`${testId}-show-more`}
         >
           {expanded ? COPY.disclosure.collapse : COPY.disclosure.moreStrengthen(hidden)}
@@ -1409,7 +1410,7 @@ export function StrengthenTheReasoning({
                       <button
                         type="button"
                         onClick={() => restoreDismissed(recordKey(record.scenarioId, record.id))}
-                        className={`${typography.panelMeta} flex-none text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} flex-none ${action('inline')}`}
                         data-testid={`${testId}-history-restore`}
                       >
                         {STRENGTHEN_COPY.undo}

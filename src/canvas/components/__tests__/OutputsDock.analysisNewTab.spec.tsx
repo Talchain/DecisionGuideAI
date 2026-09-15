@@ -428,9 +428,32 @@ describe('C · THE SECTION STRUCTURE', () => {
       // census could not see that; see the scope note on the case below.
       ANALYSIS_NEW_COPY.sections.strengthen,
       ANALYSIS_NEW_COPY.sections.checks,
+      /**
+       * ⭐ UNCERTAINTY MOVED UP TO SIT WITH CHECKS — deliberate, and this
+       * census going RED on it is the positive proof the move landed.
+       *
+       * Both sections answer "what this run could NOT settle", and they were
+       * SIX SECTIONS APART: the checks readout twelfth, uncertainty eighteenth,
+       * with the value-of-information line nineteenth. Measured on a
+       * reconstruction of the run Paul screenshotted, one category of
+       * information was spread over six places, so a reader met the same kind
+       * of statement six times in six registers and never knew they had seen
+       * the set.
+       *
+       * ⚠ THE HEDGES WERE NOT DEDUPLICATED, AND THAT WAS MEASURED BEFORE THE
+       * MOVE: eight distinct "could not establish" statements on that run, only
+       * two anything like duplicates. So this is a re-composition and nothing
+       * was deleted — several of those sentences were written to close a
+       * specific fabrication.
+       *
+       * Adjacency (rather than mere precedence) is pinned by
+       * `whatTheRunCouldNotSettleIsOnePlace.spec.tsx`; "uncertainty follows
+       * checks" was already true when they were six sections apart, so it is
+       * the assertion that would have passed throughout the defect.
+       */
+      ANALYSIS_NEW_COPY.sections.uncertainty,
       ANALYSIS_NEW_COPY.sections.keyInsights,
       ANALYSIS_NEW_COPY.sections.drivers,
-      ANALYSIS_NEW_COPY.sections.uncertainty,
     ])
   })
 

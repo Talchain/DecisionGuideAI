@@ -91,6 +91,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../../../../canvas/mutations/mutationAuthority'
+import { action } from '../panelSurfaces'
 
 /**
  * ⭐ THE KEY THAT NAMES THIS SURFACE'S OPERATION, read exactly as
@@ -379,7 +380,7 @@ export function SuccessTargetLine({
           <button
             type="button"
             onClick={commit}
-            className={`${typography.panelMeta} rounded px-2 py-0.5 bg-primary text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            className={`${typography.panelMeta} ${action('primary')}`}
             data-testid={`${testId}-save`}
           >
             {COPY.modelStrip.saveValue}

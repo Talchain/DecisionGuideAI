@@ -249,6 +249,25 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     expect(p2!.targetId).toBeNull() // empty target_refs → no focus affordance
   })
 
+  /**
+   * ⚠⚠ THE `.sort()` THESE CASES USED TO CALL ON THE RESULT IS GONE, AND THAT
+   * IS THE POINT. Each of them makes an ORDERING claim and then sorted the
+   * subject by the very field under test before asserting — supplying the step
+   * the CONSUMER was missing. They proved the priority NUMBERS were right and
+   * were structurally blind to whether the returned ORDER was
+   * (CLAUDE.md trap 13d).
+   *
+   * That blindness was load-bearing: `ADAPTIVE_MATCH_BOOST` subtracted 10,000
+   * from the matching rec and it still came back at index 1, because nothing
+   * sorted. The Analysis tab hid it (its store sorts on the way in); the
+   * Reasoning tab renders the return value directly and takes
+   * `interventions[0]` as the one act it promotes.
+   *
+   * `buildRecommendations` now sorts, so these sorts were no-ops — which is
+   * exactly why they had to go rather than stay as harmless belt-and-braces:
+   * a redundant sort here means removing the source's sort leaves every one of
+   * these cases GREEN.
+   */
   it('priority: success-measure outranks everything; phase-3 follows priority_rank; flip precedes voi', () => {
     const input: StrengthenInputs = {
       ...base,
@@ -257,7 +276,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() }],
       phase3Items: [{ id: 'b1', title: 'T', targetIds: [], priorityRank: 1 }],
     }
-    const recs = buildRecommendations(input).sort((a, b) => a.priority - b.priority)
+    const recs = buildRecommendations(input)
     const order = recs.map((r) => r.id)
     expect(order[0]).toBe('strengthen:success-measure')
     expect(order.indexOf('strengthen:phase3:b1')).toBeLessThan(order.indexOf('strengthen:flip:e1'))
@@ -453,17 +472,13 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       goalThreshold: null, // clarify rec (priority 0)
       fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }], // evaluate rec
     }
-    const ladder = buildRecommendations(input).sort((a, b) => a.priority - b.priority)
+    const ladder = buildRecommendations(input)
     expect(ladder[0].id).toBe('strengthen:success-measure')
 
-    const boosted = buildRecommendations({ ...input, adaptivePriority: 'evaluate' }).sort(
-      (a, b) => a.priority - b.priority,
-    )
+    const boosted = buildRecommendations({ ...input, adaptivePriority: 'evaluate' })
     expect(boosted[0].id).toBe('strengthen:flip:e1') // evaluate floats above clarify
     // Fail-closed: explicit null behaves like absent.
-    const nulled = buildRecommendations({ ...input, adaptivePriority: null }).sort(
-      (a, b) => a.priority - b.priority,
-    )
+    const nulled = buildRecommendations({ ...input, adaptivePriority: null })
     expect(nulled[0].id).toBe('strengthen:success-measure')
   })
 
