@@ -38,6 +38,7 @@ import type { NodeType } from '../domain/nodes'
 // bytes, ROADMAP 2.954) — removed rather than left as an invitation to wire a
 // fourth raw-signed channel (#629's `getStrengthDescription` precedent).
 import { unwrapInterventionValue } from '../utils/labelUtils'
+import { useGuidanceStore } from '../stores/guidanceStore'
 
 export interface ScienceIconDef {
   id: string
@@ -55,9 +56,34 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
   const edges = useCanvasStore(s => s.edges)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const displayMetadata = useNodeDisplayMetadata(nodeId, nodeType)
+  /**
+   * ⭐⭐ ONE VOICE PER NODE — the producer's, when it has one.
+   *
+   * Two coaching systems were marking the same cards. `NodeCoachingMarker`
+   * (BaseNode.tsx:1290) renders the producer's own `guidance_items`, which
+   * arrive on the turn envelope carrying a DSK claim id and a protocol — real,
+   * attributable decision science. This hook derives its signals from the shape
+   * of the graph in the browser: options clustered near a value, a factor with
+   * no evidence, few risks modelled.
+   *
+   * Both are useful. Both on one node is the product talking over itself, and
+   * when they disagree the reader has no way to tell which one to believe — two
+   * internally-consistent authorities, the defect this estate keeps paying for.
+   *
+   * So the producer wins by precedence, decided here rather than at five call
+   * sites. ⛔ NOT by deleting this hook: when the producer says nothing about a
+   * node — and it says nothing about most of them — these observations are the
+   * only thing the reader gets, and they are true. It degrades correctly in
+   * both directions, which is why this does not depend on settling how often
+   * the guidance channel actually fires.
+   */
+  const producerNamesThisNode = useGuidanceStore((s) =>
+    s.guidanceItems.some((i) => i.target_object?.id === nodeId),
+  )
 
   return useMemo(() => {
     const icons: ScienceIconDef[] = []
+    if (producerNamesThisNode) return icons
     const nodeData = nodes.find(n => n.id === nodeId)?.data as Record<string, unknown> | undefined
     if (!nodeData) return icons
 
@@ -187,11 +213,16 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         // the icon can no longer drift from the title it sits beside
         // (review-folds C15; /simplify item 3). Rendered output is
         // byte-identical to the old literals.
+        // ⚠ `is_baseline` is the producer's field and naming it is fair. Calling
+        // the reader BIASED is not: the tooltip read "Status quo bias is
+        // modelled as doing nothing", which diagnoses a person from a flag on
+        // an option. The icon and the registry entry stay; the sentence states
+        // the fact instead.
         const statusQuo = biasSignal('status_quo_bias')
         icons.push({
           id: 'status-quo-bias',
           icon: statusQuo.icon,
-          tooltip: `${statusQuo.title} is modelled as doing nothing.`,
+          tooltip: 'The baseline option — modelled as doing nothing.',
           action: 'What could go wrong with staying on the baseline?',
           colour: 'text-warning',
           priority: 6,
@@ -202,5 +233,5 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
     // Sort by priority, take max 2
     icons.sort((a, b) => a.priority - b.priority)
     return icons.slice(0, MAX_ICONS)
-  }, [nodeId, nodeType, nodes, edges, ceeAnalysisReady, displayMetadata.sensitivityRank])
+  }, [nodeId, nodeType, nodes, edges, ceeAnalysisReady, displayMetadata.sensitivityRank, producerNamesThisNode])
 }
