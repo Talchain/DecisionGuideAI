@@ -1540,34 +1540,6 @@ export function AnalysisNewTabBody({
           testId="analysis-new-held-up"
         />
 
-        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
-            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
-            above reads the model. This is the one place the team writes down
-            what they will DO, and the one place a later session reads it back.
-
-            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
-            component header. `ModelHeldUp` above renders on almost no runs by
-            design; the read-back here renders on all of them, because the
-            quality of a result has no bearing on whether a team may record, or
-            re-read, the choice they made from it. A fragile or stale run is
-            when the reasoning is most worth keeping.
-
-            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
-            first version gated on `!isPreRun` alone and offered a door onto a
-            modal that opens disabled during any rerun — see `canCapture`.
-
-            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
-            `useDecisionRecordForScenario` resolves `currentScenarioId` through
-            `resolveScenarioKey`, so it survives re-runs and returns to the same
-            scenario — which is the capability — and cannot distinguish the run
-            it was captured against. The section's copy is scoped accordingly. */}
-        <DecisionRecorded
-          isPreRun={vm.status.isPreRun}
-          canCapture={canCaptureDecision}
-          record={decisionRecord}
-          onRecord={openDecisionRecord}
-          testId="analysis-new-decision-record"
-        />
 
         {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
             ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
@@ -1773,6 +1745,44 @@ export function AnalysisNewTabBody({
           defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
           argueTheOpposite={vm.atAGlance.condition}
           icon={Wrench}
+        />
+
+        {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
+            On a real run this rendered between the trust line and "What would
+            change your mind", asking the reader to RECORD A DECISION before
+            they had met the thing that would change it. The prompt is honest
+            and the placement was not: it belongs after the act, where a reader
+            who has finished reading can use it.
+
+            ⚠ No new block — the same one, later. The panel stays at its
+            ratcheted count. */}
+        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
+            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
+            above reads the model. This is the one place the team writes down
+            what they will DO, and the one place a later session reads it back.
+
+            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
+            component header. `ModelHeldUp` above renders on almost no runs by
+            design; the read-back here renders on all of them, because the
+            quality of a result has no bearing on whether a team may record, or
+            re-read, the choice they made from it. A fragile or stale run is
+            when the reasoning is most worth keeping.
+
+            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
+            first version gated on `!isPreRun` alone and offered a door onto a
+            modal that opens disabled during any rerun — see `canCapture`.
+
+            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
+            `useDecisionRecordForScenario` resolves `currentScenarioId` through
+            `resolveScenarioKey`, so it survives re-runs and returns to the same
+            scenario — which is the capability — and cannot distinguish the run
+            it was captured against. The section's copy is scoped accordingly. */}
+        <DecisionRecorded
+          isPreRun={vm.status.isPreRun}
+          canCapture={canCaptureDecision}
+          record={decisionRecord}
+          onRecord={openDecisionRecord}
+          testId="analysis-new-decision-record"
         />
 
         {/* ⛔⛔ TWO RULINGS COLLIDED HERE AND GROUPING IS WHAT MADE THEM
