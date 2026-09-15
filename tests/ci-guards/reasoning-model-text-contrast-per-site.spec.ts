@@ -93,6 +93,48 @@ import {
 } from '../helpers/wcagContrast'
 
 /**
+ * ── ⚠⚠ THE CHANNELS THIS REGISTER CANNOT SEE — MEASURED 15 Sep 2026 ────────
+ * The name says "text and icon contrast" and that is exactly what it collects:
+ * `scanSites` builds precisely TWO patterns, `text-*` and `bg-*`
+ * (`semanticTextContrastScan.ts:337-338`), and `Role` is `'icon' | 'text'`.
+ *
+ * ⛔ SO A COLOURED BORDER IS OUTSIDE THE REGISTER ENTIRELY, and that is not
+ * theoretical — it is how a FALSE 3:1 CLAIM shipped in `panelSurfaces.ts`. The
+ * `secondary` action tier was documented as meeting SC 1.4.11's non-text floor
+ * at `border-info/40`; it measures **1.74:1**. Nothing here could have caught
+ * it, because nothing here looks at borders. It was not a guard that failed —
+ * it was a channel with no guard.
+ *
+ * MEASURED over `analysisNew/` + `model-tab-v2/`, comments stripped:
+ *
+ *     text-*    288 uses / 31 files   ✅ scanned
+ *     bg-*       27 uses /  6 files   ✅ scanned
+ *     border-*   64 uses / 19 files   ⛔ NOT scanned
+ *     ring-*     43 uses / 16 files   ⛔ NOT scanned
+ *
+ * Of the state-bearing borders specifically, **14 uses across 5 utilities
+ * measure below 3:1** — including `border-warning/30` (1.21:1),
+ * `border-success/30` (1.22:1) and `border-info/30` (1.50:1), which are
+ * `SURFACE_TONE` itself and therefore reach every `surface()` / `inset()` call.
+ *
+ * ⚠⚠ THOSE 14 ARE NOT ASSERTED TO BE VIOLATIONS, AND THE DISTINCTION MATTERS.
+ * SC 1.4.11 governs visuals REQUIRED to identify a component or state. On this
+ * panel a tone border is paired with a tint, an icon and text, so the border is
+ * usually not the sole identifier — which is a PER-SITE judgement nobody has
+ * made. What IS established, and needs no judgement, is that **the register
+ * cannot see any of them either way.**
+ *
+ * ⭐ WIDENING IT IS A REAL PIECE OF WORK, NOT A REGEX: borders answer to
+ * 1.4.11's 3:1 against ADJACENT COLOURS rather than 1.4.3's 4.5:1 against a
+ * ground, so the collection needs a different comparison, and the pin would
+ * grow by the sites it then legitimately finds. Recorded rather than half-done.
+ *
+ * ⚠ AND THE GENERAL LESSON, which is why this note sits above the scope and not
+ * in a commit message: a register is only as good as its COLLECTION, and the
+ * collection is the part nobody adversarially tests. Every finding against this
+ * estate's guards tonight was in a RULE; this one was in what the rule was
+ * allowed to look at.
+ *
  * THE SCOPE. Explicit, and the only thing that widens this guard.
  *
  * Adding a directory here is the intended way to extend coverage; the pinned set
