@@ -42,7 +42,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { decisionWithLeaderWithheld, genuineDecision, makeData, makeOption } from './analysisNewFixtures'
+import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
 
 const renderBody = (data: ResultsSectionDataReturn) =>
   render(

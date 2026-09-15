@@ -43,7 +43,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch } from 'lucide-react'
+import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch, ClipboardCheck, GraduationCap, Activity } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -1551,48 +1551,6 @@ export function AnalysisNewTabBody({
             property of THIS file, so it is pinned in this file's own spec
             (`AnalysisNewTabBody.spec.tsx`, "the coaching sits directly under
             the reading it responds to"); no per-section spec can see it. */}
-        {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
-            ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
-            THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
-            you mentioned aren't in the model yet". A driven comparison of both
-            tabs on one completed run found it absent here (accordions opened,
-            positive control firing at 6151 chars), and this is the mount.
-
-            ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
-            enforces its own identity gate (it once rendered a PREVIOUS
-            decision's brief verbatim), so re-implementing it for this tab would
-            fork both the gate and the manifest vocabulary — the twin defect
-            this estate keeps paying for. One component, two mounts.
-
-            ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
-            a WORKLIST — every row is something to validate or add, and its
-            "Add this" starts the conversation to include a figure. That makes
-            it kin to the coaching below it, not to the census above it. Putting
-            it under the strip would have pushed the answer below the fold, and
-            the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
-            ABOUT IT → THE DETAIL. */}
-        {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
-            the PARKED Analysis tab mounts the same component and keeps its
-            existing rendering — see the prop's declaration for why the default
-            may not move. */}
-        {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
-            "what I estimated". The register stated "The numbers behind these
-            are mine, not yours. If you have better ones, tell me and I'll use
-            them." over a list with no way to tell it — an invitation with no
-            means of accepting it. The control is the proven factor-value edit
-            (`useFactorValueCommit`), bound to each row by the `node_id` CEE
-            itself supplies. It is opt-in so the PARKED Analysis tab does not
-            acquire a writer — see the prop's declaration. */}
-        <WhatIWasGivenSection
-          ref={whatIWasGivenRef}
-          onSendMessage={onSendMessage}
-          useSurfaceGrammar={true}
-          /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
-             `true`. Two literals for one opt-in would let the refusal's act
-             believe this register offers an edit on a build where it does not
-             (CLAUDE.md trap 12). */
-          offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
-        />
 
         {/* ⚠ THE PROMOTED RECOMMENDATION IS NOT EXCLUDED, AND THAT IS A KNOWN
             DUPLICATION rather than an oversight — recorded here because the
@@ -1742,12 +1700,60 @@ export function AnalysisNewTabBody({
             it — the machinery for this existed before the tab did. Nothing new
             was built here. */}
         <Accordion
+          icon={<ClipboardCheck className="w-4 h-4 text-text-light" />}
           title={COPY.sections.howWorkedOut}
           subtitle={COPY.sectionSubtitles.howWorkedOut}
           isExpanded={methodOpen}
           onExpandChange={setMethodOpen}
           testId="analysis-new-how-worked-out"
         >
+
+        {/* ⭐ THE SEVENTH TRUST SECTION, JOINING ITS SIX SIBLINGS. "What you
+            gave me, and what I did with it" answers the same question as the
+            checks and the gaps — how far can I trust this? — and it was the last
+            one still standing at top level, between the act and the reader. */}
+        {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
+            ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
+            THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
+            you mentioned aren't in the model yet". A driven comparison of both
+            tabs on one completed run found it absent here (accordions opened,
+            positive control firing at 6151 chars), and this is the mount.
+
+            ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
+            enforces its own identity gate (it once rendered a PREVIOUS
+            decision's brief verbatim), so re-implementing it for this tab would
+            fork both the gate and the manifest vocabulary — the twin defect
+            this estate keeps paying for. One component, two mounts.
+
+            ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
+            a WORKLIST — every row is something to validate or add, and its
+            "Add this" starts the conversation to include a figure. That makes
+            it kin to the coaching below it, not to the census above it. Putting
+            it under the strip would have pushed the answer below the fold, and
+            the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
+            ABOUT IT → THE DETAIL. */}
+        {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
+            the PARKED Analysis tab mounts the same component and keeps its
+            existing rendering — see the prop's declaration for why the default
+            may not move. */}
+        {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
+            "what I estimated". The register stated "The numbers behind these
+            are mine, not yours. If you have better ones, tell me and I'll use
+            them." over a list with no way to tell it — an invitation with no
+            means of accepting it. The control is the proven factor-value edit
+            (`useFactorValueCommit`), bound to each row by the `node_id` CEE
+            itself supplies. It is opt-in so the PARKED Analysis tab does not
+            acquire a writer — see the prop's declaration. */}
+        <WhatIWasGivenSection
+          ref={whatIWasGivenRef}
+          onSendMessage={onSendMessage}
+          useSurfaceGrammar={true}
+          /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
+             `true`. Two literals for one opt-in would let the refusal's act
+             believe this register offers an edit on a build where it does not
+             (CLAUDE.md trap 12). */
+          offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
+        />
         {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
             #1082 landed this component, its adapter and 54 tests but left it
             UNMOUNTED, because this file belongs to another lane. This is the
@@ -1823,6 +1829,7 @@ export function AnalysisNewTabBody({
             the panel under a heading that says what is inside; before, it was
             twelve blocks down under a heading that did not. */}
         <Accordion
+          icon={<GraduationCap className="w-4 h-4 text-text-light" />}
           title={COPY.sections.coachingAndMethod}
           subtitle={COPY.sectionSubtitles.coachingAndMethod}
           defaultExpanded={false}
@@ -1920,6 +1927,7 @@ export function AnalysisNewTabBody({
             to say unprompted, and stacked open they were most of the length
             Paul was scrolling through. */}
         <Accordion
+          icon={<Activity className="w-4 h-4 text-text-light" />}
           title={COPY.sections.whatMovesTheOutcome}
           subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
           defaultExpanded={false}
