@@ -49,6 +49,7 @@ import {
   needsClaimDisclosure,
   truncateAtWord,
 } from '../nameOrClaim'
+import { action } from '../panelSurfaces'
 
 export interface DriverInfluenceChartProps {
   rows: DriverInfluenceRow[]
@@ -287,7 +288,7 @@ export function DriverInfluenceChart({
                      `aria-controls` would reference nothing. */
                   aria-controls={claimOpen ? `${claimRegionId}-${row.id}` : undefined}
                   aria-label={claimOpen ? undefined : NAME_OR_CLAIM_COPY.showFullClaimFor(row.label)}
-                  className={`${typography.panelMeta} ${CLAIM_TOGGLE_TOUCH_TARGET} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} ${CLAIM_TOGGLE_TOUCH_TARGET} ${action('inline')}`}
                   data-testid={`${testId}-claim-toggle`}
                 >
                   {claimOpen ? NAME_OR_CLAIM_COPY.hideFullClaim : NAME_OR_CLAIM_COPY.showFullClaim}

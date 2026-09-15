@@ -766,7 +766,7 @@ export function StrengthenTheReasoning({
               restoreDismissed(recordKey(undoable.scenarioId, undoable.id))
               clearUndo()
             }}
-            className="rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            className={action('inline')}
             data-testid={`${testId}-dismissed-undo`}
           >
             {STRENGTHEN_COPY.undo}
@@ -822,7 +822,7 @@ export function StrengthenTheReasoning({
                   intent: 'challenge_assumption',
                 })
               }
-              className={`${typography.panelMeta} mt-2 inline-flex items-center gap-1 rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              className={`${typography.panelMeta} mt-2 inline-flex items-center gap-1 ${action('inline')}`}
               data-testid={`${testId}-completed-challenge`}
             >
               {STRENGTHEN_COPY.completedChallenge}
@@ -1410,7 +1410,7 @@ export function StrengthenTheReasoning({
                       <button
                         type="button"
                         onClick={() => restoreDismissed(recordKey(record.scenarioId, record.id))}
-                        className={`${typography.panelMeta} flex-none text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} flex-none ${action('inline')}`}
                         data-testid={`${testId}-history-restore`}
                       >
                         {STRENGTHEN_COPY.undo}

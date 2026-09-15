@@ -32,6 +32,8 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { readdirSync, readFileSync } from 'node:fs'
+import { resolve as resolvePath, join as joinPath } from 'node:path'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -140,6 +142,76 @@ describe('the figures rise only when the glance said nothing', () => {
       ).toHaveLength(1)
       cleanup()
     }
+  })
+
+  /**
+   * ⭐⭐ THE QUERY DISCIPLINE THE EXCLUSIVITY CASE SILENTLY DEPENDS ON.
+   *
+   * ⛔ WHY THIS EXISTS: the case above is only meaningful because every OTHER
+   * spec on this surface reads the section id with `getByTestId` /
+   * `queryByTestId`, both of which THROW on a duplicate. That makes the whole
+   * suite the guard — and it is held BY CONVENTION, with nothing asserting it.
+   *
+   * `getAllByTestId` silently takes the FIRST match. So one spec switching to
+   * it would make a duplicated section pass quietly across the entire surface,
+   * while the exclusivity case above went on claiming otherwise — a guard
+   * agreeing with itself after the property it guards has gone. The failure
+   * arrives the day someone changes a QUERY, not the day someone duplicates the
+   * ELEMENT, which is why no amount of care at the render site prevents it.
+   *
+   * ⚠ DERIVED FROM THE SPEC FILES, NEVER HAND-LISTED (trap 12). A fixed list of
+   * "specs allowed to do this" stops covering the file somebody adds tomorrow,
+   * and the drift reads as green.
+   *
+   * ⚠ `-options-row` IS EXEMPT AND MUST BE: those rows are genuinely repeated,
+   * one per option, so `getAllByTestId` is the correct query there. The rule is
+   * about the SECTION id, which must be unique.
+   */
+  it('no spec reads the SECTION id with a query that tolerates duplicates', () => {
+    const dir = resolvePath(__dirname)
+    const offenders: string[] = []
+    for (const file of readdirSync(dir).filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))) {
+      const src = readFileSync(joinPath(dir, file), 'utf8')
+      for (const m of src.matchAll(/getAllByTestId\(\s*['"`]([^'"`]+)['"`]/g)) {
+        const id = m[1]!
+        // Exempt genuinely repeated elements — anything with a suffix past the
+        // section id itself.
+        if (id !== 'analysis-new-options') continue
+        /* ⭐ EXEMPT BY THE SHAPE OF THE ASSERTION, NEVER BY FILENAME. A
+           `getAllByTestId` whose very next assertion is `toHaveLength` is
+           COUNTING — it exists to prove uniqueness and is the safe use. One
+           that reads content takes the first match silently and is the hazard.
+           Keying on a filename would be the hand-maintained exemption this
+           rule exists to avoid; keying on the assertion means a case that
+           stops counting loses its exemption automatically. */
+        const window = src.slice(m.index, m.index + 220)
+        if (/toHaveLength\(/.test(window)) continue
+        offenders.push(`${file}: getAllByTestId('${id}') not followed by a length assertion`)
+      }
+    }
+    expect(
+      offenders,
+      'A tolerant query on the SECTION id makes a duplicated section pass silently\n' +
+        'across the whole surface. Use getByTestId, which throws.\n' +
+        offenders.join('\n'),
+    ).toEqual([])
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATOR. The rule above passes trivially if the scanner reads
+   * nothing, and it must not ban the LEGITIMATE use on repeated rows.
+   */
+  it('DISCRIMINATOR: the scanner reads real files and permits the repeated-row query', () => {
+    const dir = resolvePath(__dirname)
+    const files = readdirSync(dir).filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))
+    expect(files.length, 'PRECONDITION: the spec directory must be readable').toBeGreaterThan(10)
+    const anyGetAll = files.some((f) =>
+      /getAllByTestId\(/.test(readFileSync(joinPath(dir, f), 'utf8')),
+    )
+    expect(
+      anyGetAll,
+      'PRECONDITION: some spec must use getAllByTestId, or the rule above is vacuous',
+    ).toBe(true)
   })
 
   /**
