@@ -24,6 +24,7 @@
  * defect this pass exists to remove rather than add to.
  */
 import { memo, useMemo } from 'react'
+import { typography } from '../../styles/typography'
 import { ViewportPortal, type Node } from '@xyflow/react'
 import { deriveTierLanes } from '../utils/tierLanes'
 
@@ -60,12 +61,21 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
           >
             <span
               data-testid={`tier-lane-${lane.tier}-title`}
-              className="absolute text-text-light"
+              /**
+               * ⛔ WAS AN INLINE `fontSize: calc(13px * var(--canvas-label-scale))`.
+               * Counter-scaled and therefore correct on screen — and invisible
+               * to `canvasTextCounterScale.census.spec.ts`, which classifies an
+               * inline fontSize it cannot resolve to a literal as an ERROR
+               * rather than as a hit. A size that no census can see is exactly
+               * how a surface drifts off the scale without anything going red.
+               * `typography.nodeLabel` is the same idea as a TOKEN the census
+               * resolves, and 12px is the canvas's own label size — 13 was a
+               * number I chose, which is the smaller half of the same defect.
+               */
+              className={`absolute text-text-light ${typography.nodeLabel}`}
               style={{
                 left: 16,
                 top: 12,
-                // Matches the canvas's own counter-scaled type (see the header).
-                fontSize: 'calc(13px * var(--canvas-label-scale, 1))',
                 lineHeight: 1.2,
                 letterSpacing: '0.01em',
                 whiteSpace: 'nowrap',
