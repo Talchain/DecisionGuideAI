@@ -87,7 +87,13 @@ const FIRST_PERSON_JUDGEMENT = /\b(?:mine|my|me)\b|\bI\b/
 const ORACLE_REQUEST_ANYWHERE = /\b(?:tell|show|give)\s+me\b/i
 
 /** The asks that are NOT yet holding the property. Exact, and pinned as exact. */
-const KNOWN_NO_JUDGEMENT_CLAUSE = ['factor-external'] as const
+/**
+ * ⭐ THE GAP IS CLOSED — the set is now EMPTY, and it stays here rather than
+ * being deleted. An empty exception set asserted in both directions is a
+ * standing tripwire: add a template without the clause and the suite REDs
+ * naming it, and nobody can re-open the gap by quietly appending a key.
+ */
+const KNOWN_NO_JUDGEMENT_CLAUSE: readonly string[] = []
 
 /** Derived, never hand-listed: the placeholders an ask for `key` must carry. */
 function requiredPlaceholders(key: string): string[] {
