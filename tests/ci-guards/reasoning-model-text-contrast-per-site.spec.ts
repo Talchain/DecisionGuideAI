@@ -124,10 +124,30 @@ import {
  * made. What IS established, and needs no judgement, is that **the register
  * cannot see any of them either way.**
  *
- * ⭐ WIDENING IT IS A REAL PIECE OF WORK, NOT A REGEX: borders answer to
- * 1.4.11's 3:1 against ADJACENT COLOURS rather than 1.4.3's 4.5:1 against a
- * ground, so the collection needs a different comparison, and the pin would
- * grow by the sites it then legitimately finds. Recorded rather than half-done.
+ * ⛔⛔ WIDENING IT IS A REAL PIECE OF WORK, AND THE OBVIOUS ATTEMPT IS WRONG IN
+ * A WAY THAT LOOKS LIKE PROGRESS. Do NOT add `border-*` to the existing
+ * collection and reuse the ground comparison. SC 1.4.11 measures a non-text
+ * visual against the colours ADJACENT TO IT — 3:1 — not against a background —
+ * 4.5:1. A border has TWO adjacents (inside and outside) and they are often
+ * different colours. Bolting borders onto a ground-relative scanner would emit
+ * confident numbers for all 64 uses and a fraction of them would be false.
+ * **The reason this is hard is the part that stops it being done badly.**
+ *
+ * ⚠⚠ AND THE FIGURES ABOVE ARE GROUND-RELATIVE, WHICH IS THAT SAME SHORTCUT —
+ * SO TREAT THEM AS AN ORDER OF MAGNITUDE, NOT AS RATIOS. They were computed as
+ * border-over-panel, which is correct only where BOTH adjacents are the panel.
+ * It is wrong for precisely the three that matter most: `SURFACE_TONE` pairs
+ * `border-warning/30` with `bg-warning/[0.05]`, `border-success/30` with
+ * `bg-success/[0.05]` and `border-info/30` with `bg-info/10` — so the INSIDE
+ * adjacent is the tint, not the ground, and the true inside ratio is lower
+ * still while the outside ratio is the one quoted.
+ *
+ * ⭐ Caught by a reviewer reframing the difficulty as a warning rather than an
+ * explanation — which is the whole reason the sentence above is phrased as a
+ * prohibition. The author of this note made the exact mistake it now forbids,
+ * in the act of documenting it. Recorded rather than half-done, and the numbers
+ * stay only because "far below 3:1" survives the correction even though the
+ * decimals do not.
  *
  * ⚠ AND THE GENERAL LESSON, which is why this note sits above the scope and not
  * in a commit message: a register is only as good as its COLLECTION, and the
