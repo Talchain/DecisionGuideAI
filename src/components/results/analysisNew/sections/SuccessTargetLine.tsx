@@ -483,13 +483,42 @@ export function SuccessTargetLine({
               // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
               setEditScenarioId(authority.captureScenarioId())
             }}
-            /* ⚠ `ml-auto` IS THE INTEGRATION, not decoration. Left-packed, the
-               control sat immediately after the value and read as a third
-               fragment of the same sentence — "Target · None set · Set a
-               target". Pushed to the row's right edge it reads as the row's
-               control, which is the shape every other row on this surface
-               already has. */
-            className={`${typography.panelMeta} ml-auto shrink-0 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+            /**
+             * ⭐⭐ THE ONE ACT CARRIES THE ONE PRIMARY — and until now nothing on
+             * this panel did. Census of every control on the DEPLOYED build
+             * (`6f90588f`, real run, guest, read off the DOM at rest):
+             *
+             *     25 controls · ZERO `ACTION_TIER.primary`
+             *     the act ("Set a target") — an 11px underlined text link
+             *     "Strengthen the reasoning" — aria-expanded="false"
+             *
+             * `ACTION_TIER.primary`'s own docblock reads *"THE ONE ACT. A filled
+             * control, and the panel should carry at most one of them in view"*.
+             * It had no consumer that renders. Paul's reading of the same
+             * surface: *"nothing reads as primary"*.
+             *
+             * ⛔ SCOPED TO THE UNSET STATE, WHICH IS THE WHOLE DISCIPLINE. The
+             * tier is worth nothing if every row claims it, so it applies ONLY
+             * where the target is absent — the state in which this is the
+             * panel's highest-value move and the producer's own top
+             * recommendation. Once a target exists, "Change" is an ordinary
+             * affordance and drops back to `inline`.
+             *
+             * ⚠ AND THE CLASSES WERE A HAND-COPY OF `inline`, spelled out
+             * rather than named — the 31st spelling of a tier that already has
+             * a name, which is the drift `ACTION_TIER` exists to end. Both
+             * branches now name their tier.
+             *
+             * ⚠ `ml-auto` IS THE INTEGRATION, not decoration. Left-packed, the
+             * control sat immediately after the value and read as a third
+             * fragment of the same sentence — "Target · None set · Set a
+             * target". Pushed to the row's right edge it reads as the row's
+             * control, which is the shape every other row on this surface
+             * already has.
+             */
+            className={`${typography.panelMeta} ml-auto shrink-0 ${
+              shownText !== null ? action('inline') : action('primary')
+            }`}
             data-testid={`${testId}-edit`}
           >
             {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
