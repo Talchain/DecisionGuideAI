@@ -456,33 +456,6 @@ export const FactorNode = memo((props: NodeProps) => {
     return null
   }, [needsInput, nodeCategory, isInferred, cleanedLabel])
 
-  /**
-   * ⭐ THE POPOVER CLUSTER IS THE SAME ONE CHIP — so it reads `cardQuestion`
-   * rather than rebuilding it.
-   *
-   * `factorChips` was an if / else-if / else-if that could only ever push ONE
-   * chip, with the same three conditions and the same copy as `cardQuestion`
-   * above. Two hand-maintained copies of one question is the mirror this estate
-   * keeps paying for (trap 12): a later edit to the wording would have moved the
-   * card and left the popover saying something else about the same factor.
-   *
-   * ⚠ IT KEEPS ITS PRE-ANALYSIS GATE. Post-analysis the card carries the
-   * question and the popover is dense with ConnRows and bars, so repeating it
-   * there would be the duplicate messaging Graph v1.1 Task 3 removed.
-   */
-  const factorChips = useMemo(() => {
-    if (isPostAnalysis || !cardQuestion) return null
-    return (
-      <div className="flex gap-1 flex-wrap mt-1.5">
-        <NodeChip
-          chipId={cardQuestion.id}
-          actionType={null}
-          label={cardQuestion.label}
-          message={cardQuestion.message}
-        />
-      </div>
-    )
-  }, [isPostAnalysis, cardQuestion])
 
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
 
@@ -624,7 +597,6 @@ export const FactorNode = memo((props: NodeProps) => {
           high-priority Standard popover and in the Detailed inline render
           (which uses preAnalysisLayer2 too). For low-priority needsInput
           standalone, see the dedicated needsInput popover branch below. */}
-      {factorChips}
       {/* Detailed pre-analysis: uncertainty drivers */}
       {isDetailed && observedState?.uncertainty_drivers && observedState.uncertainty_drivers.length > 0 && (
         <>
@@ -878,9 +850,14 @@ export const FactorNode = memo((props: NodeProps) => {
           <EdgePills nodeId={props.id} />
         )}
 
-        {/* Coaching chips ("Help me estimate this", "What if this changes?",
-            "What evidence supports this?") moved to popovers — see
-            `factorChips` useMemo above and the popover branches below. */}
+        {/* ⛔ THE POPOVER COPY OF THIS CHIP IS DELETED, NOT MOVED.
+            `factorChips` was an if / else-if / else-if that could only ever
+            push ONE chip, with the same three conditions and the same copy as
+            `cardQuestion`. Once the card carries the question in both phases,
+            the popover copy renders the SAME chip on the SAME card — and
+            `FactorNode.spec` caught it immediately, with
+            `getMultipleElementsFoundError` on "Help me estimate this".
+            One question, one place. The popover keeps its other content. */}
 
         {/* Post-analysis: synthesised coaching line (Graph v1.1 Task 3).
             Standard view only, top-ranked factors only. Detailed view keeps
@@ -1055,7 +1032,6 @@ export const FactorNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {renderOptionValuesBlock(false)}
-          {factorChips}
         </NodePopover>
       )}
 
@@ -1065,17 +1041,6 @@ export const FactorNode = memo((props: NodeProps) => {
           Without this branch the body would be the only home for the chip
           on these low-priority cases — but the brief is explicit that AI
           chips live in popovers, never in the body. */}
-      {!isDetailed && isLowPriority && !hasOptionValues && factorChips && (
-        <NodePopover
-          visible={showPopover}
-          width={240}
-          onMouseEnter={popoverHandlers.onMouseEnter}
-          onMouseLeave={popoverHandlers.onMouseLeave}
-          anchorRef={nodeElRef}
-        >
-          {factorChips}
-        </NodePopover>
-      )}
     </div>
   )
 })
