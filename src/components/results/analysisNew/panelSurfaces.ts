@@ -201,10 +201,22 @@ export const ACTION_TIER = {
    * 1.4.11's 3:1 non-text floor. **It is 1.74:1.** Caught by an independent
    * reviewer with the repo's own helper, and re-derived here:
    *
-   *     border-info/40   panel 1.74:1   canvas 1.72:1   ⛔
-   *     border-info/60   panel 2.37:1   canvas 2.33:1   ⛔
-   *     border-info/70   panel 2.79:1   canvas 2.75:1   ⛔
-   *     border-info/80   panel 3.35:1   canvas 3.27:1   ✅ first alpha clearing both
+   *     border-info/40   --bg-panel 1.74:1   --bg-panel-hover 1.72:1   ⛔
+   *     border-info/60   --bg-panel 2.37:1   --bg-panel-hover 2.33:1   ⛔
+   *     border-info/70   --bg-panel 2.79:1   --bg-panel-hover 2.75:1   ⛔
+   *     border-info/80   --bg-panel 3.35:1   --bg-panel-hover 3.27:1   ✅ first clearing both
+   *
+   * ⚠ THE SECOND COLUMN WAS LABELLED `canvas` AND IS `--bg-panel-hover`. The
+   * NUMBERS were right — these are the two grounds the contrast register
+   * declares (`PANEL_GROUNDS = ['--bg-panel', '--bg-panel-hover']`, and hover
+   * is in scope because text must survive it) — but the HEADING named a
+   * different surface. `--bg-canvas` is the ground BEHIND the panel and is not
+   * a panel ground at all, so a reader checking this table against it would
+   * find figures that do not reconcile and could not tell which half was wrong.
+   *
+   * ⛔ A mislabelled column in the table added to stop figures being asserted
+   * rather than measured. Fourth error in this one file, and the third of them
+   * inside something written to prevent its own class.
    *
    * ⚠ IT WAS NEVER A REGRESSION — the fill it replaced measures 1.14:1, so the
    * control improved either way. That is exactly why it was dangerous: a FALSE

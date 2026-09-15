@@ -180,7 +180,14 @@ describe('the figures rise only when the glance said nothing', () => {
     const offenders: string[] = []
     for (const file of readdirSync(dir).filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))) {
       const src = readFileSync(joinPath(dir, file), 'utf8')
-      for (const m of src.matchAll(/getAllByTestId\(\s*['"`]([^'"`]+)['"`]/g)) {
+      /* ⛔⛔ ALL THREE PLURAL QUERIES, NOT JUST ONE — and the gap was found by a
+         reviewer, not by me. `queryAllByTestId` and `findAllByTestId` carry the
+         IDENTICAL hazard: each returns an array and silently yields the first
+         match. A ban covering one of three aliases is a COLLECTION gap, which
+         is the same defect as the contrast register being blind to `border-*`
+         — one level down, in the guard I wrote hours after documenting that
+         exact class. The rule is only as good as what it is allowed to see. */
+      for (const m of src.matchAll(/(?:get|query|find)AllByTestId\(\s*['"`]([^'"`]+)['"`]/g)) {
         /* ⛔⛔ A FLAT BAN, AFTER TWO BROKEN ATTEMPTS AT AN EXEMPTION.
            v1 exempted a `toHaveLength` within 220 characters. Proven broken in
            BOTH directions: a hazardous query borrowed a neighbouring
