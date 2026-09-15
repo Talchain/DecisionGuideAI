@@ -84,7 +84,7 @@ import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
-import { GHOST_TIERS, withGhostTiers, ghostOptionPrompt } from './utils/ghostTiers'
+import { ghostOptionPrompt } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -812,9 +812,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * The OPTIONS ghost still needs an option node — its position is derived
      * from the rightmost one — so that part of the gate stays, scoped to itself.
      */
-    const tierGhosts = GHOST_TIERS.filter((t) => t.siblingType !== 'option')
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    if (optionNodes.length === 0) return withGhostTiers(nodes, tierGhosts)
+    // ⛔ THE SECOND RETURN, AND IT IS THE ONE I MISSED FIRST. A model with no
+    // options took this path and would have kept placing tier doors off-screen
+    // while every other model got them on the card — the same affordance in two
+    // places depending on a condition unrelated to it. Caught by the mount test,
+    // not by inspection.
+    if (optionNodes.length === 0) return nodes
 
     // Find rightmost option position, accounting for node width
     const maxX = Math.max(...optionNodes.map(n => n.position?.x ?? 0))
@@ -860,7 +864,39 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * excluded from the fit and from every model count by the shared `__ghost-`
      * prefix, so they cannot inflate what the graph appears to contain.
      */
-    return withGhostTiers([...nodes, ghostNode], tierGhosts)
+    /**
+     * ⛔⛔ THE TIER DOORS ARE NO LONGER PLACED IN GRAPH SPACE — 15 Sep 2026.
+     *
+     * MEASURED on all five starters (captures, zoom 0.50, the ruled camera
+     * floor): **14 of 20 doors fell outside the framed window.** Repositioning
+     * was the obvious refinement and it is arithmetically impossible —
+     *
+     *   · clear space to the RIGHT of the model, best case **128** graph units,
+     *     for a door that is **187** wide;
+     *   · a BELOW-placement would need a canvas pane of **1065–1266px**, and the
+     *     whole browser window is **1012px**.
+     *
+     * Three of the five starters are 3080 units wide against a 2160 window, so
+     * their REAL cards are off-screen too — the camera floor, already ruled on,
+     * which no placement changes. There is nowhere inside the frame to stand.
+     *
+     * ⇒ The anchor changed instead of the offset: `BaseNode` renders the
+     * invitation ON the card the door used to stand beside, resolved by
+     * `tierInvitations`, which shares its anchor resolver with the placement
+     * below so the two cannot pick different cards.
+     *
+     * ⚠ `withGhostTiers` IS DELIBERATELY NOT DELETED OR WEAKENED. Its placement
+     * arithmetic keeps its own tests (row-anchoring, the risk/outcome shared
+     * row, the door-on-door collision) — evidence that would be lost if the
+     * camera floor ever moves and this decision has to be re-taken.
+     *
+     * ⚠ THE OPTION DOOR (`ghostNode`) STAYS. `__ghost-option__` measured INSIDE
+     * the frame on 5 of 5 starters, so it is not part of this defect, and
+     * `GhostOptionNode` carries a WCAG 1.4.11 outline verified at the pixel.
+     * Moving a door that works, to fix doors that do not, would re-open a
+     * contrast question a lane already answered.
+     */
+    return [...nodes, ghostNode]
   }, [nodes])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see

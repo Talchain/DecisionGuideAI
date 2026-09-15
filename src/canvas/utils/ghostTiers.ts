@@ -385,6 +385,103 @@ function contextFor(siblings: readonly Node[], subject: ModelSubject | null): Gh
   }
 }
 
+/**
+ * ⭐⭐ THE INVITATION MOVES ONTO THE CARD, BECAUSE THERE IS NOWHERE ELSE TO PUT IT.
+ *
+ * ## Measured, 15 Sep 2026, on all five starters
+ *
+ * A tier door is **187 × 121** graph units. At the ruled camera floor (0.50) the
+ * framed window is 2160 × ~2000 graph units, and the clear space beside the
+ * model is:
+ *
+ *   - to the RIGHT — best case **128 units**, for a 187-unit card;
+ *   - BELOW — a below-placement would need a canvas pane of **1065–1266px**,
+ *     and the whole browser window is **1012px**.
+ *
+ * Three of the five starters are 3080 units wide against a 2160 window, so their
+ * REAL nodes are off-screen too — that is the camera floor, already ruled on,
+ * and no placement changes it. **14 of 20 doors were outside the frame.**
+ *
+ * ⇒ There is no position in graph space for this affordance. Repositioning was
+ * the obvious refinement and it is arithmetically impossible, so the anchor
+ * changes instead of the offset: the invitation is rendered ON the card it used
+ * to stand beside.
+ *
+ * ⚠ THE OPTION DOOR IS DELIBERATELY UNTOUCHED. `__ghost-option__` measured
+ * INSIDE the frame on 5 of 5 starters, so it is not part of this defect, and
+ * `GhostOptionNode` carries a WCAG 1.4.11 outline verified at the pixel. Moving
+ * a door that is not broken, to fix doors that are, would re-open a contrast
+ * question a lane already answered.
+ *
+ * ⚠ SAME ANCHOR RULE, SPELLED ONCE. This shares {@link rowAnchorFor} with the
+ * graph-space placement it replaces — the card that receives the invitation is
+ * exactly the card the door used to stand beside. Two derivations of "which card
+ * ends this row" is how the door's sentence and the door's position came to
+ * describe different sets of nodes once already.
+ */
+export interface TierInvitation {
+  /** The card that ends this tier's row — where the invitation renders. */
+  readonly anchorNodeId: string
+  /** The question, verbatim from `GHOST_TIERS`. Also the accessible name. */
+  readonly label: string
+  /** What clicking asks Olumi. Composed from the model, never sent for the user. */
+  readonly prompt: string
+  /** Which tier this invites into. */
+  readonly tier: string
+}
+
+/**
+ * Every tier's invitation, keyed by the card that carries it.
+ *
+ * ⚠ A CARD CAN END ONLY ONE ROW, but two tiers can share a row (risks joined the
+ * outcome tier, 14 Sep). The map is keyed by node id, so the second tier to
+ * resolve the same anchor would overwrite the first — it is therefore keyed to a
+ * LIST, and the card renders both. Dropping one silently is the filtering defect
+ * this file's own `contextFor` doc was written about.
+ */
+export function tierInvitations(
+  nodes: Node[],
+  enabledTiers: readonly GhostTier[] = GHOST_TIERS,
+): ReadonlyMap<string, readonly TierInvitation[]> {
+  const out = new Map<string, TierInvitation[]>()
+  const subject = readSubject(nodes)
+  for (const tier of enabledTiers) {
+    const siblings = siblingsOf(nodes, tier.siblingType)
+    // Same refusal as the graph-space door: no members, no invitation. A door on
+    // an empty tier asserts the tier OUGHT to have members, which is a judgement.
+    if (siblings.length === 0) continue
+    const anchor = rowAnchorFor(nodes, [], siblings)
+    if (!anchor) continue
+    const entry: TierInvitation = {
+      anchorNodeId: anchor.id,
+      label: tier.label,
+      prompt: tier.prompt(contextFor(siblings, subject)),
+      tier: tier.siblingType,
+    }
+    const existing = out.get(anchor.id)
+    if (existing) existing.push(entry)
+    else out.set(anchor.id, [entry])
+  }
+  return out
+}
+
+/**
+ * The rightmost occupant of the row this tier sits on, whatever its kind.
+ * Lifted out of `withGhostTiers` unchanged so the on-card invitation and the
+ * graph-space door cannot pick different cards.
+ */
+function rowAnchorFor(nodes: Node[], ghosts: Node[], siblings: Node[]): Node | undefined {
+  const anchorY = Math.round(
+    siblings.reduce<number>((acc, n) => Math.max(acc, n.position?.y ?? 0), Number.NEGATIVE_INFINITY),
+  )
+  const rowOccupants = [...nodes, ...ghosts].filter(
+    (n) => Math.round(n.position?.y ?? 0) === anchorY,
+  )
+  if (rowOccupants.length === 0) return undefined
+  const rowMaxX = Math.max(...rowOccupants.map((n) => n.position?.x ?? 0))
+  return rowOccupants.find((n) => (n.position?.x ?? 0) === rowMaxX)
+}
+
 export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[] = GHOST_TIERS): Node[] {
   const ghosts: Node[] = []
   const subject = readSubject(nodes)
@@ -427,11 +524,10 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
     // consequence row ("What else could go wrong?" and "Where else could this
     // lead?"), and anchoring both to the same rightmost card would stack them on
     // each other — trading a collision with a card for a collision with a door.
-    const rowOccupants = [...nodes, ...ghosts].filter(
-      (n) => Math.round(n.position?.y ?? 0) === anchorY,
-    )
-    const rowMaxX = Math.max(...rowOccupants.map((n) => n.position?.x ?? 0))
-    const rowAnchor = rowOccupants.find((n) => (n.position?.x ?? 0) === rowMaxX)
+    // Shared with `tierInvitations` so the card that ends this row cannot be
+    // resolved two different ways by the two affordances.
+    const rowAnchor = rowAnchorFor(nodes, ghosts, siblings)
+    const rowMaxX = rowAnchor?.position?.x ?? 0
     const measuredW = widthOf(rowAnchor)
 
     ghosts.push({
