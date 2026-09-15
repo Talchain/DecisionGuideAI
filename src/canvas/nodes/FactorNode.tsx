@@ -716,18 +716,20 @@ export const FactorNode = memo((props: NodeProps) => {
           <ConnRowsOverflow total={outboundConnections.length} shown={3} />
         </>
       )}
-      {/* BiasNote (max 1) — suppressed when a synthesised coaching line is
-          already shown on the node body (Graph v1.1 Task 3: no duplicate
-          messaging within a single node). Detailed view keeps the BiasNote
-          inline since the synthesised line is Standard-only. */}
-      {!synthesisedCoaching && displayMetadata.sensitivityRank != null && displayMetadata.sensitivityRank <= 2 && isInferred && (
-        <>
-          <Sep />
-          <div className="flex items-center gap-1 py-0.5 px-1.5 bg-warning/10 rounded">
-            <span className={`${typography.edgeLabel} text-text-body`}>Key assumption unvalidated. Your result depends on this.</span>
-          </div>
-        </>
-      )}
+      {/* ⭐⭐ THE "KEY ASSUMPTION UNVALIDATED" NOTE IS DELETED, AND IT WAS THE
+          WORST CLAIM LEFT ON A CARD.
+
+          It read *"Key assumption unvalidated. Your result depends on this."*
+          and fired on `sensitivityRank <= 2 && isInferred` — so the UI picked
+          the cutoff for *key*, and then asserted a DEPENDENCY the producer
+          never stated. Rank #2 of three factors and rank #2 of forty are not
+          the same fact, and neither licenses "your result depends on this".
+
+          ⛔ Its two true ingredients are both already rendered, so nothing is
+          lost: provenance rides the evidence badge, and the rank is stated
+          plainly by the inspector panels ("Ranked #N by sensitivity in this
+          run"). What is gone is the verdict the card composed out of them —
+          and one element off a factor body that carried ten. */}
     </>
   ) : null
 

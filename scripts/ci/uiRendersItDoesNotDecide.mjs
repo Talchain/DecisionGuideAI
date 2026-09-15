@@ -51,6 +51,9 @@ function isProse(text) {
   // Developer output is not a claim to the reader.
   if (/^\[/.test(t) || /^(Failed|Error|Warning|DEBUG)\b/.test(t)) return false
   if (/^</.test(t) || /^https?:/.test(t)) return false  // markup and URLs are not claims
+  // CSS values read as prose to a word-counter — `drop-shadow(0 0 2px var(…))`
+  // has four "words" and a lower-case letter. They are style, not sentences.
+  if (/\b(var\(--|drop-shadow\(|rgba?\(|translate|calc\()/.test(t)) return false
   if (t.length < 12) return false
   const words = t.split(/\s+/)
   if (words.length < 3) return false
@@ -79,6 +82,18 @@ function isSelfObservation(expr) {
   return /\.(length|size)\b/.test(t) || /count\b/i.test(t) || /\.filter\(|\.map\(/.test(t)
 }
 
+/** 0 and 1 are the extremes of a set or a normalised scale — facts, not
+ *  cutoffs. A literal anywhere else between or beyond them was CHOSEN. */
+function comparesOnlyToBoundary(node) {
+  const literalValue = (s) => {
+    const lit = ts.isPrefixUnaryExpression(s) ? s.operand : s
+    return ts.isNumericLiteral(lit) ? Number(lit.text) : null
+  }
+  const vals = [literalValue(node.left), literalValue(node.right)].filter(v => v !== null)
+  if (vals.length === 0) return false
+  return vals.every(n => n === 0 || n === 1)
+}
+
 /** A comparison the UI is NOT entitled to turn into words. */
 function offendingComparison(node) {
   if (!ts.isBinaryExpression(node)) return null
@@ -92,7 +107,24 @@ function offendingComparison(node) {
     ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
     ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken,
   ]
-  if (RELATIONAL.includes(op)) return `relational (${node.operatorToken.getText()})`
+  /**
+   * ⭐ THE BOUNDARY RULE APPLIES TO `>` AND `<` TOO — it was written for `===`
+   * only, and that asymmetry was arbitrary.
+   *
+   * `contribution > 0` asks *is there any contribution at all* — the same
+   * none/some fact as `count === 0`, spelled with a different operator. It is
+   * checkable and falsifiable and the UI did not choose the 0. Whereas
+   * `sensitivityRank <= 2` and `Math.abs(delta) > 0.05` name a cutoff someone
+   * picked, which is the thing the UI is not entitled to do.
+   *
+   * Without this, five boundary checks arrived alongside the real sites and the
+   * list stopped being readable — which is how a scanner quietly becomes a
+   * number nobody acts on.
+   */
+  if (RELATIONAL.includes(op)) {
+    if (comparesOnlyToBoundary(node)) return null
+    return `relational (${node.operatorToken.getText()})`
+  }
   if (EQUALITY.includes(op)) {
     // Identity against a STRING is the allowed form — the producer named it.
     // Identity against a NUMBER is the UI deciding what that number means.
@@ -130,9 +162,28 @@ function findComparison(expr) {
   return hit
 }
 
+/**
+ * ⭐⭐⭐ JSX TEXT IS WHERE THE CANVAS KEEPS ITS SENTENCES — and for two whole
+ * iterations this function did not look at it.
+ *
+ * `<span>Key assumption unvalidated.</span>` is a `ts.JsxText` node, not a
+ * string literal, so every sentence rendered as a CHILD — which is very nearly
+ * all of them — was invisible. The scanner was reading aria-labels and template
+ * strings and reporting on the canvas.
+ *
+ * ⛔ THIS IS THE SAME DEFECT AS THE `&&` GAP, ONE LEVEL DOWN: the guard was
+ * blind to the ordinary form of the thing it guards, and a low number read as
+ * coverage. Both were found by reading a node body, not by running the scanner.
+ */
 function proseIn(expr) {
   const found = []
   const walk = (n) => {
+    if (ts.isJsxText(n)) {
+      // JSX collapses whitespace; a child spanning lines arrives with newlines
+      // and indentation that would defeat the word count.
+      const flat = n.text.replace(/\s+/g, ' ').trim()
+      if (isProse(flat)) found.push(flat.slice(0, 80))
+    }
     if ((ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && isProse(n.text)) {
       found.push(n.text.trim().slice(0, 80))
     }
@@ -157,13 +208,41 @@ function scanFile(file) {
     const { line } = src.getLineAndCharacterOfPosition(node.getStart())
     out.push({ file, line: line + 1, why: cmp.why, test: cmp.text, prose: prose.slice(0, 2) })
   }
+  /**
+   * ⭐⭐ THE THIRD SHAPE, AND IT IS THE ONE THIS CANVAS ACTUALLY USES.
+   *
+   * The first two cuts of this scanner walked ternaries and `if` statements
+   * only — so `34 → 13` was a claim about two SYNTACTIC FORMS, not about the
+   * render surface. `{cond && <p>…</p>}` is the dominant conditional in React
+   * and it was invisible. It was hiding a live one: `FactorNode.tsx` gated
+   * *"Key assumption unvalidated. Your result depends on this."* on
+   * `sensitivityRank <= 2` and the scanner read the file clean.
+   *
+   * ⛔ A GUARD BLIND TO THE COMMONEST FORM OF THE THING IT GUARDS IS A GUARD
+   * AGREEING WITH ITSELF. Found by reading a node body rather than by running
+   * the scanner — which is the tell, and the reason this comment exists.
+   *
+   * Only the `&&` form is added, and only when the RIGHT side carries prose:
+   * `a && b` where `b` is a boolean is not a render decision.
+   */
   const walk = (n) => {
     if (ts.isConditionalExpression(n)) record(n.condition, [n.whenTrue, n.whenFalse], n)
     if (ts.isIfStatement(n)) record(n.expression, [n.thenStatement, n.elseStatement].filter(Boolean), n)
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      record(n.left, [n.right], n)
+    }
     ts.forEachChild(n, walk)
   }
   walk(src)
-  return out
+  // One physical line reports once: an `&&` chain nests, so `a && b && <JSX>`
+  // would otherwise record the same guard twice from two AST nodes.
+  const seen = new Set()
+  return out.filter(v => {
+    const k = `${v.file}:${v.line}`
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
 }
 
 function files(dir) {
