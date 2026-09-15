@@ -38,6 +38,7 @@ import { typography } from '@/styles/typography'
 import Accordion from '../../Accordion'
 import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../../InferenceWarningStrip'
+import { surface } from '../panelSurfaces'
 import { AtAGlance } from '../sections/AtAGlance'
 import { BiasGrounding } from '../sections/BiasGrounding'
 import { ModelImplication } from '../sections/ModelImplication'
@@ -101,7 +102,7 @@ export function ReasoningPanelV3({ vm, biasItems = [] }: ReasoningPanelV3Props) 
 
       {/* ── 2. HOW FAR TO TRUST IT — one line, seven sections behind it ──── */}
       <div
-        className="rounded-lg border border-panel-border px-3 py-2"
+        className={surface('neutral')}
         data-testid="reasoning-v3-trust-line"
         role="status"
       >

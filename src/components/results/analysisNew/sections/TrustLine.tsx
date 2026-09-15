@@ -30,7 +30,11 @@ import { action, surface } from '../panelSurfaces'
 import type { GlanceVerdict } from '../analysisNewTypes'
 
 export interface TrustLineProps {
-  /** The producer's verdict, already mapped by the glance. `null` ⇒ none sent. */
+  /**
+   * The producer's verdict, already mapped by the glance. `null` ⇒ none sent.
+   * ⚠ Only `.label` and `.tone` are rendered — `.reason` belongs to `AtAGlance`
+   * and restating it puts one claim on the surface twice.
+   */
   verdict: GlanceVerdict | null
   /** How many checks the run actually ran — a count of rendered rows. */
   checksRan: number
@@ -90,14 +94,17 @@ export function TrustLine({
             >
               {verdict !== null ? verdict.label : COPY.trustLine.noBasis}
             </span>
-            {verdict?.reason != null && (
-              <span
-                className={`${typography.panelMeta} text-text-light`}
-                data-testid={`${testId}-reason`}
-              >
-                {verdict.reason}
-              </span>
-            )}
+            {/* ⛔ THE REASON IS NOT RESTATED HERE, AND `firstViewportCensus`
+                CAUGHT ME DOING IT. `AtAGlance` already renders
+                `robustness.display_verdict_reason` — "the ordering held across
+                the simulated range." appeared TWICE on one surface the moment
+                this line shipped with it.
+
+                That is the same duplication `RobustnessCaveat` refuses via
+                `duplicatesVerdictReason`, and the same rule: a claim stated
+                twice reads as two findings. This line's job is the SUMMARY and
+                the ROUTE — the word, the counts, and the way to the detail.
+                The sentence stays where it already lives. */}
           </div>
           <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
             <span data-testid={`${testId}-counts`}>
