@@ -62,7 +62,12 @@ const stop = (what: string): never => {
 }
 
 test('WITNESS run_delta after a deliberate change', async ({ page }) => {
-  test.setTimeout(1_500_000)
+  /**
+   * ⚠ NOT GENEROUS. A 25-minute ceiling let a single unsettleable click consume
+   * the entire run in silence; every long wait below is now bounded at its own
+   * step, so the ceiling only has to cover two real analyses.
+   */
+  test.setTimeout(1_200_000)
 
   /** ⚠ BODIES, NOT JUST URLS — the harness records neither body nor payload. */
   await page.addInitScript(() => {
@@ -126,36 +131,59 @@ test('WITNESS run_delta after a deliberate change', async ({ page }) => {
   const n = await editable.count()
   if (n === 0) stop('no editable value control on the Model tab after the first run')
 
+  /**
+   * ⛔⛔ THE LOOP NOW SPANS ALL THREE BEATS, NOT JUST THE FIRST. Stopping the
+   * search at "an input opened" picked the QUESTION node — its editor opens and
+   * then offers no `Review change`, so the probe sat on a click that could
+   * never settle, burning the whole test timeout on a row that was never the
+   * arm to drive. Opening an editor is NOT evidence the row supports the edit.
+   *
+   * ⭐ THE GENERAL RULE, and it is the fourth face of the same mistake in this
+   * file: A ROW THAT ANSWERS THE FIRST BEAT IS NOT THEREFORE THE RIGHT ROW.
+   * Qualify a candidate against the WHOLE journey it has to complete, and move
+   * on the moment it fails — cheaply, with a short timeout, reporting why.
+   *
+   * ⚠ SHORT WAITS INSIDE THE SEARCH, DELIBERATELY. A generous timeout here is
+   * not patience, it is a probe that cannot change its mind.
+   */
   const tried: string[] = []
   let rowId: string | null = null
   for (let i = 0; i < n && rowId === null; i += 1) {
     const btn = editable.nth(i)
     const label = (await btn.getAttribute('aria-label')) ?? `row ${i}`
     const testid = (await btn.getAttribute('data-testid')) ?? ''
-    await btn.click()
+    const base = testid.replace(/-value$/, '')
+    await btn.click().catch(() => undefined)
+
     const input = page.locator(`[data-testid="${testid}-input"]`)
-    if (await input.isVisible().catch(() => false)) {
-      await input.fill('42')
-      rowId = testid.replace(/-value$/, '')
-      tried.push(`${label} -> OPENED`)
-    } else {
-      tried.push(`${label} -> no free-value input`)
-      await page.keyboard.press('Escape')
+    if (!(await input.isVisible().catch(() => false))) {
+      tried.push(`${label}: no free-value input`)
+      await page.keyboard.press('Escape').catch(() => undefined)
+      continue
     }
+    await input.fill('42').catch(() => undefined)
+
+    const review = page.locator(`[data-testid="${base}-review"]`)
+    if (!(await review.isVisible({ timeout: 8_000 }).catch(() => false))) {
+      tried.push(`${label}: input opened but NO review step`)
+      await page.keyboard.press('Escape').catch(() => undefined)
+      continue
+    }
+    await review.click().catch(() => undefined)
+
+    const confirm = page.locator(`[data-testid="${base}-confirm"]`)
+    if (!(await confirm.isVisible({ timeout: 8_000 }).catch(() => false))) {
+      tried.push(`${label}: review taken but NO confirm step`)
+      await page.keyboard.press('Escape').catch(() => undefined)
+      continue
+    }
+    await confirm.click().catch(() => undefined)
+    rowId = base
+    tried.push(`${label}: ALL THREE BEATS`)
   }
-  if (rowId === null) stop(`no row offered a free-value editor. Tried ${n}: ${tried.join(' | ')}`)
-  mark(`editor open on ${rowId} (beat 1/3) — ${tried.join(' | ')}`)
-
-  const review = page.locator(`[data-testid="${rowId}-review"]`)
-  await review
-    .waitFor({ timeout: 20_000 })
-    .catch(() => stop(`no "Review change" on ${rowId} (beat 2/3) — where all six earlier probes died`))
-  await review.click()
-  mark('review taken (beat 2/3)')
-
-  const confirm = page.locator(`[data-testid="${rowId}-confirm"]`)
-  await confirm.waitFor({ timeout: 20_000 }).catch(() => stop(`no confirm on ${rowId} (beat 3/3)`))
-  await confirm.click()
+  if (rowId === null) {
+    stop(`no row completed the three-beat edit. Tried ${n}: ${tried.join(' | ')}`)
+  }
   mark('edit applied (all three beats)')
 
   // ── RE-RUN ───────────────────────────────────────────────────────────────
