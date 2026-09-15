@@ -155,13 +155,22 @@ export function DisclosureRow({
               the section differs by its LABEL, never by its ruler. */}
           {finding.flipReadout !== undefined && finding.flipFraction !== undefined ? (
             <span className="block mt-1.5">
-              <span className="flex items-baseline gap-2">
-                <span
-                  className={`${typography.panelMeta} text-text-light min-w-0 flex-1`}
-                  data-testid={`${testIdPrefix}-flip-label`}
-                >
-                  {COPY.disclosure.flipLabel}
-                </span>
+              {/* ⭐⭐ THE NUMBER ALONE, BECAUSE THE CAPTION IS THE SECTION'S.
+                  Witnessed on the deployed build `92b5e60e`: three rows, three
+                  bars, and "How often this changed the answer" printed THREE
+                  TIMES — a label repeated once per row is furniture by the
+                  second row and noise by the third. It is one fact about the
+                  whole column, so it is said once above the column, in
+                  `AnalysisNewSection`'s existing `caveat` slot, which exists
+                  for exactly this ("a caveat the user must read to interpret
+                  it correctly").
+
+                  ⚠ THE NUMBER IS NOT LEFT BARE. What makes a lone percentage
+                  ambiguous is a SECOND number beside it meaning something else
+                  — the reason the option rows name both of theirs. There is one
+                  figure per row here, under a caption that names it, so the
+                  ambiguity that rule guards against does not arise. */}
+              <span className="flex items-baseline justify-end">
                 <span
                   className={`${typography.panelMeta} text-text-light shrink-0 tabular-nums`}
                   data-testid={`${testIdPrefix}-flip`}

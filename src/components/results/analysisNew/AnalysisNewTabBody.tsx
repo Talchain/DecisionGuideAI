@@ -1606,6 +1606,16 @@ export function AnalysisNewTabBody({
               </p>
             ) : null
           }
+          /* ⭐ THE COLUMN'S CAPTION, SAID ONCE — and gated on there BEING a
+             column. A caption describing bars renders only where at least one
+             row drew one; on a run whose rows carry no measurement it would be
+             furniture describing nothing, which is the same defect as the
+             per-row label it replaces, one level up. */
+          caveat={
+            vm.sensitivity.findings.some((f) => f.flipFraction !== undefined)
+              ? COPY.disclosure.flipCaption
+              : null
+          }
           preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
           emptyMessage={null}
           onFocusTarget={focusTarget}

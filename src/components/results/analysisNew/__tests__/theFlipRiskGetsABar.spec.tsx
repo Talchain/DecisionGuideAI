@@ -100,7 +100,14 @@ describe('the flip risk gets a bar', () => {
     renderBody(withFlips([0.72, 0.54, 0.38]))
     expect(readouts()).toEqual(['72%', '54%', '38%'])
     expect(widths()).toEqual(['72%', '54%', '38%'])
-    expect(screen.getAllByTestId(`${S}-flip-label`)).toHaveLength(3)
+    /**
+     * ⚠ ONE CAPTION, NOT THREE LABELS — and witnessing the build is what
+     * changed this assertion. On `92b5e60e` the per-row label printed three
+     * times in a three-row section; it states one fact about every bar, so it
+     * moved to the section's `caveat` slot and is asserted there.
+     */
+    expect(screen.queryAllByTestId(`${S}-flip-label`), 'the per-row label is gone').toHaveLength(0)
+    expect(screen.getByTestId(`${S}-caveat`).textContent).toContain('how often each assumption changed the answer')
   })
 
   it('⭐ RANKED by the measured risk — the producer sends these ascending', () => {
@@ -118,7 +125,10 @@ describe('the flip risk gets a bar', () => {
       screen.queryAllByTestId(`${S}-flip-bar`),
       'an empty track would read as a measured "this changes nothing"',
     ).toHaveLength(0)
-    expect(screen.queryAllByTestId(`${S}-flip-label`)).toHaveLength(0)
+    expect(
+      screen.queryByTestId(`${S}-caveat`),
+      'a caption describing bars must not render where no row drew one',
+    ).toBeNull()
   })
 
   it('⛔ THE DISCRIMINATING TWIN — a MEASURED zero draws, an absent one does not', () => {
