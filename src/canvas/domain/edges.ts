@@ -763,20 +763,33 @@ export function computeSignedMean(
   return sign * magnitude
 }
 
-/**
- * Convert a signed edge coefficient into a qualitative influence label.
- * Used on Outcome and Risk nodes to avoid exposing raw β coefficients.
+/*
+ * ⛔ `describeEdgeInfluence` WAS DELETED HERE, 15 Sep 2026, and the widened
+ * scanner is what made it visible.
+ *
+ * It banded a producer's edge coefficient into SEVEN sentences at cutoffs this
+ * UI chose — "Strong positive influence on goal" at >= 0.5, "Moderate" at
+ * >= 0.2, "Minimal" below 0.05 — the founder's ruling's central case, sitting
+ * one hop from the render surfaces and therefore invisible to the scanner until
+ * the hop was added.
+ *
+ * ⭐ AND IT WAS DEAD. Swept repo-wide with `rg -uu` (native zsh — `rg` is a
+ * shell function here and a `bash -c` sweep returns a clean zero for
+ * everything): THREE files mention it — its own definition, its spec, and a
+ * comment in `ui/shared/InfluenceIndicator.tsx` stating that component
+ * "supersedes describeEdgeInfluence() old thresholds". Contrast controls in the
+ * same sweep: `NodeChip` 22 files, `BaseNode` 105. The zero is a measurement.
+ *
+ * So the honest response to five of the inherited baseline entries was not to
+ * record them. Deleting it removes the claims AND shortens the baseline, which
+ * is the direction that file should move in.
+ *
+ * ⚠ REPORTED, NOT DELETED: `InfluenceIndicator` itself has ONE file mentioning
+ * it — its own. A component built to be the canonical replacement "across all
+ * canvas and inspector sites", never mounted. That is this estate's chronic
+ * build-more-than-we-plug-in defect, and the right response is to surface it,
+ * not to destroy someone's intended work.
  */
-export function describeEdgeInfluence(strength: number): string {
-  const magnitude = Math.abs(strength)
-  if (magnitude < 0.05) return 'Minimal influence on goal'
-  if (strength >= 0.5) return 'Strong positive influence on goal'
-  if (strength >= 0.2) return 'Moderate positive influence on goal'
-  if (strength > 0) return 'Weak positive influence on goal'
-  if (strength <= -0.5) return 'Strong negative influence on goal'
-  if (strength <= -0.2) return 'Moderate negative influence on goal'
-  return 'Weak negative influence on goal'
-}
 
 /**
  * Determine if an edge label should be shown and how it should be styled

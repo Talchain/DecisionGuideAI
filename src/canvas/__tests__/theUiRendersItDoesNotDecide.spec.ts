@@ -99,20 +99,29 @@ describe('the UI renders the data; it does not decide what it means', () => {
 
   it('⛔ CONTRAST: it does NOT report a range check between two runtime values', () => {
     const sites = [...new Set(currentSites())]
-    // `params.curvature < constraints.curvature.min` → "Curvature must be
+    // `params.curvature < constraints.curvature.min` -> "Curvature must be
     // between … and …". Input validation echoing a declared range: the UI chose
-    // no number. `canvas/domain/edges.ts` carries about a dozen of these, and
-    // reporting them would bury the five real influence bands in the SAME FILE.
+    // no number. `canvas/domain/edges.ts` carries about a dozen of these.
     const edgeValidation = sites.filter(s => /^src\/canvas\/domain\/edges\.ts:1[0-9]{3}$/.test(s))
     expect(
       edgeValidation,
       'range checks are being reported as verdicts — the report becomes a number nobody acts on',
     ).toEqual([])
-    // ⛔ …and the same FILE must still be reported for its real bands, or this
-    // contrast would be satisfied by excluding the file wholesale.
+
+    /**
+     * ⛔ …AND A REAL HELPER-AUTHORED BAND MUST STILL BE REPORTED, or this
+     * contrast would be satisfied by a scanner that had simply stopped looking.
+     *
+     * ⚠ THIS HALF USED TO NAME `edges.ts`'s own influence bands, which sat in
+     * the same file as the validation noise and made the pair especially
+     * sharp. Those bands were DELETED in this change — they were dead code —
+     * so the assertion moved to `lib/stability.ts`, which bands a producer's
+     * stability figure at 0.85 / 0.70 / 0.40 and is live. A contrast whose
+     * subject is removed must be re-pointed, not quietly dropped.
+     */
     expect(
-      sites.some(s => /^src\/canvas\/domain\/edges\.ts:7[0-9]{2}$/.test(s)),
-      'the influence bands went missing with the validation noise',
+      sites.some(s => s.startsWith('src/lib/stability.ts:')),
+      'no helper-authored band is reported — the hop has stopped discriminating',
     ).toBe(true)
   })
 

@@ -2,41 +2,43 @@
 # Lines starting with # are comments; the ratchet strips them, and a test
 # pins that the parser drops every comment and keeps every site.
 #
-# ── ADJUDICATED. Each argued for individually; see
+# -- ADJUDICATED. Each argued for individually; see
 #    src/canvas/__tests__/theUiRendersItDoesNotDecide.spec.ts.
 src/canvas/components/DraftLoadingAnimation.tsx:383
 src/canvas/components/InsightsPanel.tsx:126
 src/canvas/components/ModelQualityScore.tsx:264
 #
-# ⭐ NO LONGER NEEDED, and that is the good kind of change: the rule got
-#    more precise on 15 Sep (a comparison between two RUNTIME values is a
-#    range check, not a chosen cutoff), so these hand-argued exceptions
-#    stopped being exceptions:
-#      · src/canvas/components/SnapshotManager.tsx:57
-#      · src/canvas/components/pre-analysis/ModelSnapshot.tsx:215
+# NO LONGER NEEDED, and that is the good kind of change: the rule got more
+#    precise on 15 Sep (a comparison between two RUNTIME values is a range
+#    check, not a chosen cutoff), so these hand-argued exceptions stopped
+#    being exceptions:
+#      - src/canvas/components/SnapshotManager.tsx:57
+#      - src/canvas/components/pre-analysis/ModelSnapshot.tsx:215
 #
-# ── INHERITED, AND NEWLY VISIBLE ON 15 Sep 2026, when the scanner was
+# -- INHERITED, AND NEWLY VISIBLE ON 15 Sep 2026, when the scanner was
 #    widened ONE HOP to the helper modules a render surface imports.
-#    ⛔ NOT ENDORSED. This is the measured starting point, so that no NEW
-#    one can be added while these are worked through. Recording an
-#    inherited set honestly beats a clean file that cannot see them: a
-#    scanner that cannot reach a location returns the same output as one
-#    that looked and found nothing.
-#    ⭐ The sharpest of them, and why the hop exists at all:
-#      · src/types/constraints.ts         "Meets all targets" at >= 0.40
-#      · src/lib/stability.ts x3          three bands, one carrying ADVICE
-#                                         ("Review key inputs")
-#      · src/canvas/domain/edges.ts x5    five influence bands on edge strength
-#      · adapters/plot/v2/responseMapper  "shows the strongest expected
-#                                         outcome" at winProb > 0.6
+#    NOT ENDORSED. This is the measured starting point, so that no NEW one
+#    can be added while these are worked through. Recording an inherited
+#    set honestly beats a clean file that cannot see them: a scanner that
+#    cannot reach a location returns the same output as one that looked
+#    and found nothing.
+#
+#    FIVE OF THEM WERE ANSWERED BY DELETION RATHER THAN BY RECORDING.
+#    `domain/edges.ts` banded an edge coefficient into seven sentences and
+#    had NO production consumer (rg -uu: 3 files, all of them itself, its
+#    spec, and the comment superseding it; contrast controls NodeChip 22 /
+#    BaseNode 105). Deleting it shortened this file, which is the
+#    direction it should move in.
+#
+#    The sharpest of what remains:
+#      - src/types/constraints.ts        "Meets all targets" at >= 0.40
+#      - src/lib/stability.ts x3         three bands, one carrying ADVICE
+#                                        ("Review key inputs")
+#      - adapters/plot/v2/responseMapper "shows the strongest expected
+#                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
 src/canvas/contextMenu/actions.ts:903
-src/canvas/domain/edges.ts:772
-src/canvas/domain/edges.ts:773
-src/canvas/domain/edges.ts:774
-src/canvas/domain/edges.ts:776
-src/canvas/domain/edges.ts:777
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
