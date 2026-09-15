@@ -661,13 +661,28 @@ export const OptionPanel = memo(function OptionPanel({
                 // same silent-omission convention.
                 if (verdict.hasLeadingOption === false) return null
                 if (!modelLicensesComparativeClaim) return null
-                if (gap <= 5) {
-                  return <p className={`${typography.panelBody} text-text-body mt-1`}>Within {gap}pp of the most-supported option. Small model changes could shift this.</p>
+                /**
+                 * ⭐⭐ TWO INVENTED CUTOFFS WITH A SILENT DEAD BAND BETWEEN THEM.
+                 *
+                 * `gap <= 5` and `gap > 10` are numbers this panel chose, and
+                 * an option **6 to 10pp behind the leader fell through both and
+                 * was told nothing at all** — not "we are unsure", literally no
+                 * sentence. An absence read as a non-fact, on the surface where
+                 * the reader is comparing their options.
+                 *
+                 * ⛔ AND THE 5pp ARM MADE A CLAIM IT CANNOT SUPPORT: *"Small
+                 * model changes could shift this"* is a ROBUSTNESS statement,
+                 * and robustness is computed — by the producer, from the
+                 * samples. A 5-point gap is not evidence about stability.
+                 *
+                 * `gap` is arithmetic on two figures already on screen, so
+                 * stating it is representation, not interpretation. Every
+                 * option now gets the same true sentence.
+                 */
+                if (gap === 0) {
+                  return <p className={`${typography.panelBody} text-text-body mt-1`}>Level with {leader.label} on support.</p>
                 }
-                if (gap > 10) {
-                  return <p className={`${typography.panelBody} text-text-light mt-1`}>{gap}pp less support than {leader.label}.</p>
-                }
-                return null
+                return <p className={`${typography.panelBody} text-text-light mt-1`}>{gap}pp less support than {leader.label}.</p>
               })()}
 
               {/* Story headline */}

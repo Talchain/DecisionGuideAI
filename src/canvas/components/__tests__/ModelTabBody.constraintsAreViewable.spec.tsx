@@ -182,16 +182,64 @@ describe("the Model tab answers 'what constraints are on this model?'", () => {
     // Bound by identity — a value predicate ("the row saying 4%") could be
     // satisfied by a different constraint entirely (trap 19).
     const row = screen.getByTestId(GOAL_CONSTRAINT_ROW_TESTID(ATTACHED_ID))
-    // ASCII '<=' must reach the user as '≤', and '%' as a bare suffix.
-    expect(row.textContent).toContain('Monthly churn ≤ 4%')
+    /**
+     * ⭐⭐ ON A PERCENT CONSTRAINT THE ROW IS THE READER'S VERBATIM WORDS, NOT
+     * A RECONSTRUCTION — changed 15 Sep 2026, and the reason is measured.
+     *
+     * The producer's `value` on a percent unit may be a RATIO or PERCENTAGE
+     * POINTS and nothing on the wire says which. Both conventions are live:
+     * this fixture is `value: 4, unit: '%'` meaning four percent, while the
+     * shipped `pricing-model` starter sends `value: 1.1, unit: '%'` for a brief
+     * that says "net revenue retention above 110%". The old reconstruction
+     * rendered that second one as "≥ 1.1%" — a hundred times under — on the
+     * canvas, beside a goal card reading "Target: 110%" off the same quantity.
+     *
+     * The goal path escapes this only because the producer sends it TWICE
+     * (`goal_threshold: 1.1` + `goal_threshold_raw: 110`). A constraint has no
+     * raw twin, so `${value}%` is a scale the UI is asserting and cannot know.
+     *
+     * ⛔ THE ASCII→GLYPH CLAIM THIS TEST WAS WRITTEN FOR IS NOT LOST — it moves
+     * to the currency case below, where the value is unambiguous and the
+     * reconstruction still runs.
+     */
+    expect(row.textContent).toContain('keep monthly churn under 4%')
+    expect(row.textContent).not.toContain('≤ 4%')
   })
 
-  it("shows the user's OWN WORDS under the constraint — the answer to Paul's question", () => {
+  it('CONTRAST: a CURRENCY constraint still reconstructs, ASCII rendered as a glyph', () => {
+    // No scale ambiguity on a currency unit — 49 is £49 — so the compact form
+    // wins and the quote stays on its own provenance line. This is the half of
+    // the original assertion that still holds, kept rather than dropped.
+    mockGraph.goalConstraints = [constraintFixture({
+      label: 'Monthly price', operator: '<=', value: 49, unit: '£',
+      source_quote: 'Keep the monthly price at or below £49',
+    })]
+    mount()
+    const row = screen.getByTestId(GOAL_CONSTRAINT_ROW_TESTID(ATTACHED_ID))
+    expect(row.textContent).toContain('Monthly price ≤ £49')
+    expect(row.textContent).not.toContain('<=')
+  })
+
+  it("shows the user's OWN WORDS — on its own line where the limit does not already carry them", () => {
+    // ⚠ A CURRENCY constraint, deliberately. On a percent one the limit
+    // sentence IS the quote (see above), so repeating it underneath would
+    // print one sentence twice — `goalConstraintTextUsesQuote` is shared by the
+    // formatter and this line so they cannot disagree about which carries it.
+    mockGraph.goalConstraints = [constraintFixture({
+      label: 'Monthly price', operator: '<=', value: 49, unit: '£',
+    })]
     mount()
     const provenance = screen.getByTestId(GOAL_CONSTRAINT_PROVENANCE_TESTID(ATTACHED_ID))
     expect(provenance.textContent).toContain('You said')
     // Verbatim. A tidied or truncated quote is no longer evidence of anything.
     expect(provenance.textContent).toContain(CHURN_QUOTE)
+  })
+
+  it('⛔ and it STANDS DOWN when the limit already is the quote — no sentence twice', () => {
+    mount() // the default fixture is the PERCENT one
+    expect(
+      screen.queryByTestId(GOAL_CONSTRAINT_PROVENANCE_TESTID(ATTACHED_ID)),
+    ).toBeNull()
   })
 
   it('renders NO provenance line for a constraint Olumi inferred — never fabricates "You said"', () => {

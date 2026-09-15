@@ -1,6 +1,22 @@
 /**
  * D.2 / D.3: Coaching text for edge inspector sliders and influence context.
  * Pure functions — no React imports.
+ *
+ * ⭐⭐ THESE LABEL THE VALUE YOU ARE SETTING. THEY DO NOT DESCRIBE THE MODEL.
+ *
+ * Founder's rule, 15 Sep 2026: the UI renders the data; it does not decide what
+ * the data means. The band NAMES survive — "Strong effect" is a scale label for
+ * the number under your own hand, and that is legitimate calibration.
+ *
+ * ⛔ WHAT WAS CUT, AND WHY, because it was the same defect in nine places:
+ *   · claims about the WORLD  — "few real-world factors have this much influence"
+ *   · claims about the ENGINE — "analysis will rely heavily on this link"
+ *   · judgements              — "a reasonable starting point"
+ * None was producer-backed. Each was authored by a threshold this file chose,
+ * and each read to the user as a finding rather than a ruler marking.
+ *
+ * ⚠ Advice about YOUR OWN ACTION stays ("consider lowering slightly") — that is
+ * about the gesture, not a claim about the model.
  */
 
 export interface CoachingNudge {
@@ -15,30 +31,30 @@ export interface CoachingNudge {
 export function getConfidenceCoaching(belief: number): CoachingNudge {
   if (belief <= 0.15) {
     return {
-      text: 'Very low — this link will be mostly ignored in analysis.',
+      text: 'Very low.',
       colorClass: 'text-danger',
     }
   }
   if (belief <= 0.39) {
     return {
-      text: 'Low confidence — analysis will treat this link as uncertain.',
+      text: 'Low confidence.',
       colorClass: 'text-warning',
     }
   }
   if (belief <= 0.69) {
     return {
-      text: 'Moderate confidence — a reasonable starting point.',
+      text: 'Moderate confidence.',
       colorClass: 'text-text-light',
     }
   }
   if (belief <= 0.89) {
     return {
-      text: 'High confidence — analysis will rely heavily on this link.',
+      text: 'High confidence.',
       colorClass: 'text-text-light',
     }
   }
   return {
-    text: "Very high — if you're not fully sure, consider lowering slightly. Most real-world links carry some uncertainty.",
+    text: "Very high — if you're not fully sure, consider lowering slightly.",
     colorClass: 'text-warning',
   }
 }
@@ -49,7 +65,7 @@ export function getConfidenceCoaching(belief: number): CoachingNudge {
 export function getEffectSizeCoaching(absValue: number): CoachingNudge {
   if (absValue <= 0.1) {
     return {
-      text: 'Negligible effect — this link barely influences the target.',
+      text: 'Negligible effect.',
       colorClass: 'text-text-light',
     }
   }
@@ -61,18 +77,18 @@ export function getEffectSizeCoaching(absValue: number): CoachingNudge {
   }
   if (absValue <= 0.7) {
     return {
-      text: 'Strong effect — changes here will significantly shift results.',
+      text: 'Strong effect.',
       colorClass: 'text-text-light',
     }
   }
   if (absValue <= 0.9) {
     return {
-      text: 'Very strong — few real-world factors have this much influence.',
+      text: 'Very strong.',
       colorClass: 'text-warning',
     }
   }
   return {
-    text: 'Near-total effect. This implies the target is almost entirely determined by this factor.',
+    text: 'Near-total effect.',
     colorClass: 'text-warning',
   }
 }

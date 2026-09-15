@@ -439,12 +439,21 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   if (!nodeId || !node) return null
 
   // Contextual guidance sentence based on sensitivity rank
+  /**
+   * ⭐ THE RANK IS THE PRODUCER'S. THE BANDS WERE OURS.
+   *
+   * This read `sensitivityRank <= 2` → "one of the most influential factors in
+   * your model. Changes here noticeably affect the result." Two thresholds
+   * chosen here, a superlative, and a PREDICTION about what changing it would
+   * do — none of it producer-backed. Founder's rule, 15 Sep: the UI renders the
+   * data; it does not decide what the data means.
+   *
+   * Stating the rank is shorter, strictly more informative (a reader gets #2
+   * rather than a band), and cannot be wrong. `null` when the producer did not
+   * rank it — absence is a state, not a "low influence" verdict.
+   */
   const sensitivityGuidance = isResultsMode && displayMetadata.sensitivityRank != null
-    ? displayMetadata.sensitivityRank <= 2
-      ? 'This is one of the most influential factors in your model. Changes here noticeably affect the result.'
-      : displayMetadata.sensitivityRank <= 5
-      ? 'This factor has moderate influence on the results.'
-      : null
+    ? `Ranked #${displayMetadata.sensitivityRank} by sensitivity in this run.`
     : null
 
   return (

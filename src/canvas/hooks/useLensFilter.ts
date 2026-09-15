@@ -285,8 +285,31 @@ export function useLensFilter(): void {
         }
       }
 
+      /**
+       * ⭐⭐ THE EVIDENCE LENS NOW SETS ASIDE WHAT IS ALREADY GROUNDED.
+       *
+       * It computed a class per node and then dimmed NOTHING, so all nineteen
+       * cards stayed at full detail — the reader asked "which of these numbers
+       * do we actually know?" and got a tinted wall. Every piece of machinery to
+       * answer it already existed and was simply not connected: dimming, and the
+       * `quiet`-rung body reduction that rides on it.
+       *
+       * `grounded` means the value came from the brief, the user, a document or
+       * a metric — the cases that need no attention. Those are the ones to set
+       * aside, so `assumed` and `none` keep their full cards and stand out by
+       * CONTRAST rather than by colour alone.
+       *
+       * ⛔ `na` IS NOT DIMMED. "We were not told" is not "this is fine", and
+       * quietly folding the unknown in with the known-good is the exact inversion
+       * this lens exists to prevent — unknown evidence must never read as solid.
+       */
+      const groundedNodeIds = new Set<string>()
+      evidenceNodeClass.forEach((cls, id) => {
+        if (cls === 'grounded') groundedNodeIds.add(id)
+      })
+
       return {
-        dimmedNodeIds: EMPTY_SET, dimmedEdgeIds: EMPTY_SET,
+        dimmedNodeIds: groundedNodeIds, dimmedEdgeIds: EMPTY_SET,
         sensitivityWeights: EMPTY_MAP, sensitivityQuartiles: null, fragileEdgeIds: EMPTY_SET,
         evidenceNodeClass, evidenceEdgeClass,
       }

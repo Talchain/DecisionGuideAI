@@ -18,6 +18,8 @@ import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
+import { useNodeConstraints } from './shared/useNodeConstraints'
+import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { selectLodBodyHidden, selectLensDetailActive } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
@@ -134,6 +136,23 @@ interface BaseNodeProps extends NodeProps {
  */
 export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
+  /**
+   * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
+   * actually carry constraints are not the one this started on.
+   *
+   * Of the constraints in the shipped starter models, NOT ONE targets a
+   * factor: `headcount-allocation` constrains a GOAL, `pricing-model`
+   * constrains an OUTCOME (*"net revenue retention above 110%"*, explicit, from
+   * the brief). A constraint surface built on `FactorNode` would have been dark
+   * on exactly the two models that have constraints.
+   *
+   * ⛔ THE GOAL IS EXCLUDED, DELIBERATELY AND NOT AS A TIDY-UP. `GoalNode`
+   * already renders its constraints through the same formatter AND pairs each
+   * with the satisfaction probability the run computed — a strictly richer
+   * surface. A second line here would say less, twice.
+   */
+  const { lines: constraintLines } = useNodeConstraints(id, label)
+  const showConstraintLines = nodeType !== 'goal' && constraintLines.length > 0
   const description = typeof data?.description === 'string' ? data.description : undefined
 
   // Phase 3: Get node colours from new system
@@ -1494,6 +1513,38 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           </span>
         )}
 
+        {/*
+          ⭐⭐ THE EVIDENCE LENS SAID IT IN COLOUR ALONE.
+          `evidenceBgStyle` paints the card `--success-light` / `--warning-light`
+          / `--danger-light` by `evidenceClass`, and that fill was the ONLY
+          carrier of the claim. A reader with a colour-vision deficiency saw
+          three tinted cards and was told nothing — on the one lens whose entire
+          purpose is "which of these numbers do we actually know?".
+
+          ⚠ THIS REPO MEASURES THAT PROBLEM AND SHIPPED IT ANYWAY. The border
+          vocabulary carries CIEDE2000 dichromat measurements (goal-vs-amber
+          ΔE 5.5 under deuteranopia) precisely because colour alone is not a
+          channel. The lens was added later and did not inherit the lesson.
+
+          ⭐ A WORD RATHER THAN A SECOND GLYPH: the classes are already computed
+          (`useLensFilter` → `_evidenceNodeClass`), mutually exclusive and few.
+          Three short producer-derived words cost one line on a card this lens
+          has already stripped to label-plus-pill, and they are the actual
+          answer the reader came for.
+
+          ⛔ THE WORDS RESTATE THE CLASS, THEY DO NOT GRADE IT. "Assumed" is what
+          `evidenceClass` says — not a judgement about whether assuming was
+          reasonable. `na` renders nothing: absence is a state, not a verdict.
+        */}
+        {isEvidenceLens && evidenceClass && evidenceClass !== 'na' && (
+          <span
+            className={`${typography.edgeLabel} shrink-0 ml-auto text-text-body`}
+            data-testid="evidence-lens-class"
+          >
+            {evidenceClass === 'grounded' ? 'From your data' : evidenceClass === 'assumed' ? 'Assumed' : 'No data'}
+          </span>
+        )}
+
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right
             of the title row. Action icons remain in the footer (ActionIcons). */}
         {headerSlot && !isCausalLens && !isEvidenceLens && (
@@ -1550,9 +1601,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           canvas, and it was the one card that could not be given a line. The
           wrapper contributes no height and the line is absolutely positioned,
           so admitting it with no children changes no geometry. */}
-      {!isCausalLens && !isEvidenceLens && (children || lodBodyLine) ? (
+      {!isCausalLens && !isEvidenceLens && (children || lodBodyLine || showConstraintLines) ? (
         <div className="relative text-left" style={lodBodyBlanked ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodBodyBlanked || undefined}>
           {children as ReactNode}
+          {/* ⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.
+              A constraint is a boundary the reader chose, so it is true before
+              the analysis runs and after it — no phase gate, and no "detailed
+              view" gate either, because a limit you have to go looking for is a
+              limit you will forget you set.
+              The target glyph is the one the constraint badge uses, so the two
+              surfaces read as one idea rather than two. */}
+          {showConstraintLines && (
+            <div className="mt-1.5 space-y-0.5" data-testid="factor-constraint-lines">
+              {constraintLines.map((text, i) => (
+                <div key={i} className="flex items-start gap-1">
+                  <Target size={9} className="text-info shrink-0 mt-[2px]" aria-hidden="true" />
+                  <span className={`${typography.edgeLabel} text-text-body`}>
+                    {/* "Limit" names what the number IS. The formatter supplies
+                        the operator, the unit and any "· Inferred limit"
+                        provenance; nothing here re-derives them. */}
+                    Limit {text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {/* The reduced line (see `lodBodyLine` above for what it is and why
               the scope is what it is).
 

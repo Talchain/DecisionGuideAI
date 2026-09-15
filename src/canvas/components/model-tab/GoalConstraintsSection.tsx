@@ -91,7 +91,7 @@
  * stated limit — so that one is rendered, through the existing encodings.
  */
 
-import { goalConstraintText } from '../../utils/goalConstraintText'
+import { goalConstraintText, goalConstraintTextUsesQuote } from '../../utils/goalConstraintText'
 import { GoalConstraintProvenance } from '../../ui/inspector-v2/shared/GoalConstraintProvenance'
 import { DataBar } from '../../ui/shared/DataBar'
 import { constraintConfidenceColour } from '../../../types/constraints'
@@ -244,10 +244,22 @@ export function GoalConstraintsSection({
 
               {/* The user's own words, verbatim, under the constraint they
                   produced. Renders nothing for an Olumi-inferred constraint. */}
-              <GoalConstraintProvenance
-                constraintId={identity}
-                sourceQuote={constraint.source_quote}
-              />
+              {/* ⚠ STANDS DOWN WHEN THE LIMIT SENTENCE IS ALREADY THE QUOTE.
+                  On a PERCENT constraint the producer's `value` may be a ratio
+                  (1.1 meaning 110%) or percentage points (4 meaning 4%) and
+                  nothing on the wire says which — the goal gets a
+                  `goal_threshold_raw` twin for exactly this and a constraint
+                  does not. So `goalConstraintText` states the reader's verbatim
+                  words there instead of asserting a scale, and repeating them
+                  underneath would print one sentence twice. The predicate is
+                  shared with that formatter so the two cannot disagree about
+                  which surface is carrying the quote. */}
+              {!goalConstraintTextUsesQuote(constraint) && (
+                <GoalConstraintProvenance
+                  constraintId={identity}
+                  sourceQuote={constraint.source_quote}
+                />
+              )}
 
               {probability !== null && (
                 <div className="mt-1">

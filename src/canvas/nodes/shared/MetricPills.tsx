@@ -23,6 +23,7 @@
  * of one number on one card is the inconsistency the migration existed to end.
  */
 import { typography } from '../../../styles/typography'
+import { DataBar } from '../../ui/shared/DataBar'
 
 interface MetricPillsProps {
   /**
@@ -61,7 +62,7 @@ export function MetricPills({
   return (
     <div className="flex gap-[3px] mt-1.5 items-center flex-wrap">
       <span
-        className={`${typography.edgeLabel} px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body inline-flex items-center gap-0.5`}
+        className="inline-flex items-center gap-1"
         // Disclosure travels WITH the number, in the same element, so the
         // figure cannot be rendered bare. Same vocabulary the Drivers panel
         // ships ("Default estimate — not yet validated with evidence" /
@@ -71,7 +72,29 @@ export function MetricPills({
         aria-label={confidenceAria}
         data-testid="metric-pill-confidence"
       >
-        Confidence {confidencePct}%
+        {/* ⭐ SHOWN, NOT TOLD — this was the words "Confidence 72%" in a
+            bordered pill, on a card already dense with prose. A bar reads at a
+            glance, at any zoom, without parsing; the number stays beside it so
+            nothing is lost and the figure is still quotable.
+            ⛔ THE COLOUR IS EXPLICIT, AND THAT IS NOT A STYLE CHOICE. `DataBar`
+            applies evaluative thresholds when `colour` is omitted — it would
+            decide whether 72% is good and say so in red or green. That is the
+            UI issuing a verdict from a number. It carries the factor hue and
+            states magnitude only.
+            ⭐ THE DETAILED VIEW ALREADY DID THIS (`FactorNode.confidenceRow`);
+            the STANDARD view — the one a reader looks at — got the sentence.
+            ⚠ THE WORD "Confidence" STAYS. A first cut dropped it for a bare
+            "45%" beside the bar, and the existing spec caught it: a lone
+            percentage next to an unlabelled bar does not say what it measures.
+            What went is the PILL CHROME — the border and the rounded capsule —
+            not the label. */}
+        <DataBar
+          value={(confidencePct ?? 0) / 100}
+          label={confidenceAria}
+          colourVar="var(--factor)"
+          size="compact"
+        />
+        <span className={`${typography.edgeLabel} text-text-body`}>Confidence {confidencePct}%</span>
         {confidenceIsDefaulted && (
           <span aria-hidden="true" data-testid="metric-pill-confidence-default-estimate">
             *

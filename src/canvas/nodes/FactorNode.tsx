@@ -4,6 +4,8 @@ import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
 import type { EvidenceGapEscalation } from './EvidenceGapBadge'
 import { ConstraintBadge } from './ConstraintBadge'
+import { goalConstraintText } from '../utils/goalConstraintText'
+import { useNodeConstraints } from './shared/useNodeConstraints'
 import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
@@ -16,7 +18,7 @@ import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
+import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { influenceExplanation, influenceBarAriaLabel } from '../../components/results/influenceScaleCopy'
 import { CoachingCard } from '../components/CoachingCard'
@@ -271,46 +273,25 @@ export const FactorNode = memo((props: NodeProps) => {
     return 'none'
   }, [displayMetadata.isResultsMode, displayMetadata.valueOfInformation, displayMetadata.voiRank])
 
-  const goalConstraints = useCanvasStore(state => state.goalConstraints)
+  /**
+   * ⚠ THE MATCHING MOVED TO `useNodeConstraints`, AND THAT IS THE FIX, NOT A
+   * TIDY-UP. The identity-binding rules below used to live here, so only this
+   * one card could use them — while the constraints in the shipped starters
+   * target a GOAL and an OUTCOME. One predicate, every kind.
+   */
+  // Only the badge tooltip is built here; BaseNode renders the visible lines.
+  const { matching: matchingConstraints } = useNodeConstraints(props.id, cleanedLabel)
+  const allNodes = useCanvasStore(state => state.nodes)
+
   const constraintTooltip = useMemo(() => {
-    if (!isGraphBadgesEnabled() || !goalConstraints?.length) return null
-    // ⭐ BIND BY IDENTITY, NOT BY LABEL STRING (CLAUDE.md trap 19).
-    //
-    // `node_id` is the field the producer writes and the field PLoT's preflight
-    // resolves against `graph.nodes` (a label there is CONSTRAINT_TARGET_NOT_FOUND).
-    // `label` is OPTIONAL on the wire and "genuinely absent in practice"
-    // (adapters/cee/types.ts) — matching on it meant a constraint carrying a
-    // perfectly good `node_id` and no label produced NO BADGE, and the user's
-    // own stated limit never appeared on the graph.
-    //
-    // ⚠ THE LABEL LEG IS A FALLBACK, NOT A SECOND CHANNEL. Two opposite harms
-    // sit under this predicate and cannot share one window: a constraint that
-    // DOES reference this factor showing nothing, and a constraint that does
-    // NOT showing a limit the user never set on it. A constraint carrying a
-    // `node_id` has already answered the question — its label is not consulted,
-    // or a label collision between two factors badges the wrong one. Label
-    // matching survives only for constraints with no `node_id` at all: legacy
-    // persisted graphs minted before GoalPanel captured node ids. GoalPanel
-    // keeps the identical fallback for the identical reason
-    // (`constrainedTargets`, panels/GoalPanel.tsx:229-237).
-    const target = cleanedLabel.toLowerCase().trim()
-    const matching = goalConstraints.filter(c => {
-      if (c.node_id) return c.node_id === props.id
-      // `label` is optional on the wire — guard before comparing, or a valid
-      // unlabelled constraint throws here and takes the node render with it.
-      // The empty case is excluded explicitly: `'' === ''` would otherwise
-      // badge every unnamed factor from every unlabelled legacy constraint.
-      const l = c.label?.toLowerCase().trim()
-      return !!l && !!target && l === target
-    })
-    if (matching.length === 0) return null
-    // An unlabelled constraint has no name of its own; the factor it binds to
-    // is the honest one to print. `${c.label}` alone rendered "undefined" here
-    // the moment such a constraint could match at all.
-    return matching
-      .map(c => `Constrained: ${c.label ?? cleanedLabel} ${c.operator} ${c.value ?? '-'}`)
+    if (!isGraphBadgesEnabled() || matchingConstraints.length === 0) return null
+    return matchingConstraints
+      .map(c => {
+        const name = (typeof c.label === 'string' && c.label.trim()) || cleanedLabel
+        return `${name} ${goalConstraintText(c, allNodes, { omitLabel: true })}`
+      })
       .join('; ')
-  }, [goalConstraints, cleanedLabel, props.id])
+  }, [matchingConstraints, allNodes, cleanedLabel])
 
   // A wider-range invitation needs a stated reference, never a placeholder.
   const anchoringMessage = useMemo(() => {
@@ -365,9 +346,14 @@ export const FactorNode = memo((props: NodeProps) => {
   const synthesisedCoaching = useMemo<{ prefix: string } | null>(() => {
     if (!isPostAnalysis || !isHighPriority) return null
     if (influencePct == null || confidencePct == null) return null
-    if (influencePct >= 70 && confidencePct <= 40) return { prefix: 'High influence, low confidence.' }
-    if (influencePct >= 70 && confidencePct > 40 && isInferred) return { prefix: 'Key driver.' }
-    if (influencePct < 70 && confidencePct <= 40) return { prefix: 'Low confidence.' }
+    /**
+     * ⛔ DELETED 15 Sep 2026 — three prefixes chosen by thresholds this file
+     * invented (70 / 40), restating two numbers the card already displays.
+     * "High influence, low confidence" is not a producer finding; it is this
+     * component deciding what 70 and 40 mean. Founder's rule: render the data,
+     * do not decide what it means. The numbers stay; the verdict goes — and the
+     * card gets shorter, which is the other thing that was wrong with it.
+     */
     return null
   }, [isPostAnalysis, isHighPriority, influencePct, confidencePct, isInferred])
 
@@ -711,18 +697,20 @@ export const FactorNode = memo((props: NodeProps) => {
           <ConnRowsOverflow total={outboundConnections.length} shown={3} />
         </>
       )}
-      {/* BiasNote (max 1) — suppressed when a synthesised coaching line is
-          already shown on the node body (Graph v1.1 Task 3: no duplicate
-          messaging within a single node). Detailed view keeps the BiasNote
-          inline since the synthesised line is Standard-only. */}
-      {!synthesisedCoaching && displayMetadata.sensitivityRank != null && displayMetadata.sensitivityRank <= 2 && isInferred && (
-        <>
-          <Sep />
-          <div className="flex items-center gap-1 py-0.5 px-1.5 bg-warning/10 rounded">
-            <span className={`${typography.edgeLabel} text-text-body`}>Key assumption unvalidated. Your result depends on this.</span>
-          </div>
-        </>
-      )}
+      {/* ⭐⭐ THE "KEY ASSUMPTION UNVALIDATED" NOTE IS DELETED, AND IT WAS THE
+          WORST CLAIM LEFT ON A CARD.
+
+          It read *"Key assumption unvalidated. Your result depends on this."*
+          and fired on `sensitivityRank <= 2 && isInferred` — so the UI picked
+          the cutoff for *key*, and then asserted a DEPENDENCY the producer
+          never stated. Rank #2 of three factors and rank #2 of forty are not
+          the same fact, and neither licenses "your result depends on this".
+
+          ⛔ Its two true ingredients are both already rendered, so nothing is
+          lost: provenance rides the evidence badge, and the rank is stated
+          plainly by the inspector panels ("Ranked #N by sensitivity in this
+          run"). What is gone is the verdict the card composed out of them —
+          and one element off a factor body that carried ten. */}
     </>
   ) : null
 

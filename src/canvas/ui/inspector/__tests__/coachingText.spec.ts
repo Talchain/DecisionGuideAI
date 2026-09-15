@@ -1,3 +1,17 @@
+/**
+ * ⚠ UPDATED 15 Sep 2026 — these pinned the CLAIMS, and the claims were the defect.
+ *
+ * Every expectation below used to assert a sentence this file's subject had no
+ * right to say: "few real-world factors have this much influence" (a claim about
+ * the world), "analysis will rely heavily on this link" (a claim about the
+ * engine), "a reasonable starting point" (a judgement) — each selected by a
+ * threshold `coachingText.ts` invented.
+ *
+ * The BAND LABEL survives and is what these now assert. It labels the value under
+ * the user's own hand, which is legitimate calibration; the claims attached to it
+ * were not. Founder's rule, 15 Sep: the UI renders the data, it does not decide
+ * what the data means.
+ */
 import { describe, it, expect } from 'vitest'
 import {
   getConfidenceCoaching,
@@ -12,7 +26,7 @@ describe('getConfidenceCoaching', () => {
   it('returns danger for 0% (very low)', () => {
     const r = getConfidenceCoaching(0)
     expect(r.colorClass).toBe('text-danger')
-    expect(r.text).toContain('mostly ignored')
+    expect(r.text).toContain('Very low')
   })
 
   it('returns danger for exactly 15%', () => {
@@ -22,7 +36,7 @@ describe('getConfidenceCoaching', () => {
   it('returns warning for 16% (low)', () => {
     const r = getConfidenceCoaching(0.16)
     expect(r.colorClass).toBe('text-warning')
-    expect(r.text).toContain('uncertain')
+    expect(r.text).toContain('Low confidence')
   })
 
   it('returns warning for exactly 39%', () => {
@@ -32,7 +46,7 @@ describe('getConfidenceCoaching', () => {
   it('returns muted for 40% (moderate)', () => {
     const r = getConfidenceCoaching(0.40)
     expect(r.colorClass).toBe('text-text-light')
-    expect(r.text).toContain('reasonable starting point')
+    expect(r.text).toContain('Moderate confidence')
   })
 
   it('returns muted for 50%', () => {
@@ -46,7 +60,7 @@ describe('getConfidenceCoaching', () => {
   it('returns muted for 70% (high)', () => {
     const r = getConfidenceCoaching(0.70)
     expect(r.colorClass).toBe('text-text-light')
-    expect(r.text).toContain('rely heavily')
+    expect(r.text).toContain('High confidence')
   })
 
   it('returns muted for 80%', () => {
@@ -100,18 +114,18 @@ describe('getEffectSizeCoaching', () => {
 
   it('returns strong for 0.41', () => {
     const r = getEffectSizeCoaching(0.41)
-    expect(r.text).toContain('significantly shift')
+    expect(r.text).toContain('Strong effect')
     expect(r.colorClass).toBe('text-text-light')
   })
 
   it('returns strong for exactly 0.7', () => {
-    expect(getEffectSizeCoaching(0.7).text).toContain('significantly shift')
+    expect(getEffectSizeCoaching(0.7).text).toContain('Strong effect')
   })
 
   it('returns very strong (warning) for 0.71', () => {
     const r = getEffectSizeCoaching(0.71)
     expect(r.colorClass).toBe('text-warning')
-    expect(r.text).toContain('few real-world')
+    expect(r.text).toContain('Very strong')
   })
 
   it('returns very strong for 0.8', () => {
@@ -119,7 +133,7 @@ describe('getEffectSizeCoaching', () => {
   })
 
   it('returns very strong for exactly 0.9', () => {
-    expect(getEffectSizeCoaching(0.9).text).toContain('few real-world')
+    expect(getEffectSizeCoaching(0.9).text).toContain('Very strong')
   })
 
   it('returns near-total (warning) for 0.91', () => {

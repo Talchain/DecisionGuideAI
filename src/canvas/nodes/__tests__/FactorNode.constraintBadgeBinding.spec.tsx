@@ -197,7 +197,19 @@ describe('FactorNode constraint badge binds by node_id', () => {
     const title = badgeTitle(container)
     expect(title).not.toBeNull()
     expect(title).not.toContain('undefined')
-    expect(title).toBe('Constrained: Marketing budget <= 200000')
+    /* ⚠ THE STRING MOVED ON PURPOSE, 15 Sep 2026 — the BINDING did not.
+       This surface had its own hand-rolled formatter:
+       `Constrained: {label} {operator} {value}`. `GoalAdvancedEditor` had
+       already collapsed that exact shape into `goalConstraintText` and recorded
+       four reasons — the wire's ASCII `<=` shown to a reader, an unformatted
+       number, a placeholder where a value is missing, and no PROVENANCE, so an
+       Olumi-INFERRED limit read identically to one the founder stated. This
+       node now uses that formatter, so `<=` becomes `\u2264` and `200000`
+       becomes `200,000`.
+       \u26d4 WHAT THIS TEST IS FOR IS UNCHANGED AND STILL BITES: the tooltip
+       must name the FACTOR when the constraint carries no label of its own.
+       The expectation is updated with its reason, never silently. */
+    expect(title).toBe('Marketing budget \u2264 200,000')
   })
 
   it('the LABELLED constraint carrying this node_id still renders its own label', () => {
@@ -217,7 +229,9 @@ describe('FactorNode constraint badge binds by node_id', () => {
       observedState: { value: 150000 },
     })
     expect(badgeTitle(container)).toBe(
-      'Constrained: Keep budget at or below £200,000 <= 200000'
+      /* Same deliberate vocabulary move as above; the claim here is that the
+         constraint's OWN label survives, and it does. */
+      'Keep budget at or below £200,000 \u2264 200,000'
     )
   })
 

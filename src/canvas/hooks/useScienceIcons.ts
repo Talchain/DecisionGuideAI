@@ -1,4 +1,24 @@
 /**
+ * ⚠ THESE TOOLTIPS STATE WHAT WAS OBSERVED. THEY DO NOT PREDICT OR ADVISE.
+ *
+ * Founder's rule, 15 Sep 2026: the UI renders the data; it does not decide what
+ * the data means. Four of these said more than this hook can know, and the
+ * strings were authored here from local rules — there is no producer stamp
+ * behind any of them.
+ *
+ *   "Analysis will use defaults"              → a claim about the ENGINE
+ *   "Better decisions come from more alternatives" → a claim about DECISIONS IN GENERAL
+ *   "inaction risks often underestimated"     → a claim about PEOPLE in general
+ *   "High-leverage assumption"                → leverage is a computed judgement
+ *
+ * Each is now the observation that prompted it, and nothing more.
+ *
+ * ⭐ THE `action` STRINGS ARE UNTOUCHED, AND THEY ARE THE VALUABLE HALF.
+ * "What evidence supports X?" hands the question back to the reader and reaches
+ * a real AI turn through `ScienceIcon`'s discuss button. That is the
+ * science-grounded move; the tooltip was only ever the label on the door.
+ */
+/**
  * useScienceIcons — returns up to 2 applicable science guidance icons for a node.
  *
  * Implements spec Section 4.1 (8 PoC-ready triggers).
@@ -12,12 +32,14 @@ import {
   FileQuestion, Unlink, Frame, ShieldAlert, Anchor, Gauge,
 } from 'lucide-react'
 import { biasSignal } from '../shared/biasSignalTitles'
+import { BASELINE_OPTION_LABEL } from '../utils/baselineDetection'
 import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
 // `computeSignedMean` was imported here with ZERO call sites (verified at the
 // bytes, ROADMAP 2.954) — removed rather than left as an invitation to wire a
 // fourth raw-signed channel (#629's `getStrengthDescription` precedent).
 import { unwrapInterventionValue } from '../utils/labelUtils'
+import { useGuidanceStore } from '../stores/guidanceStore'
 
 export interface ScienceIconDef {
   id: string
@@ -35,9 +57,34 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
   const edges = useCanvasStore(s => s.edges)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const displayMetadata = useNodeDisplayMetadata(nodeId, nodeType)
+  /**
+   * ⭐⭐ ONE VOICE PER NODE — the producer's, when it has one.
+   *
+   * Two coaching systems were marking the same cards. `NodeCoachingMarker`
+   * (BaseNode.tsx:1290) renders the producer's own `guidance_items`, which
+   * arrive on the turn envelope carrying a DSK claim id and a protocol — real,
+   * attributable decision science. This hook derives its signals from the shape
+   * of the graph in the browser: options clustered near a value, a factor with
+   * no evidence, few risks modelled.
+   *
+   * Both are useful. Both on one node is the product talking over itself, and
+   * when they disagree the reader has no way to tell which one to believe — two
+   * internally-consistent authorities, the defect this estate keeps paying for.
+   *
+   * So the producer wins by precedence, decided here rather than at five call
+   * sites. ⛔ NOT by deleting this hook: when the producer says nothing about a
+   * node — and it says nothing about most of them — these observations are the
+   * only thing the reader gets, and they are true. It degrades correctly in
+   * both directions, which is why this does not depend on settling how often
+   * the guidance channel actually fires.
+   */
+  const producerNamesThisNode = useGuidanceStore((s) =>
+    s.guidanceItems.some((i) => i.target_object?.id === nodeId),
+  )
 
   return useMemo(() => {
     const icons: ScienceIconDef[] = []
+    if (producerNamesThisNode) return icons
     const nodeData = nodes.find(n => n.id === nodeId)?.data as Record<string, unknown> | undefined
     if (!nodeData) return icons
 
@@ -56,7 +103,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'evidence-gap',
           icon: FileQuestion,
-          tooltip: 'No evidence for this factor. Analysis will use defaults.',
+          tooltip: 'No observed data for this factor.',
           action: `Help me estimate ${label}`,
           colour: 'text-warning',
           priority: 1,
@@ -97,7 +144,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'overconfidence',
           icon: Gauge,
-          tooltip: 'High-leverage assumption with no supporting evidence.',
+          tooltip: 'No supporting evidence recorded for this assumption.',
           action: `What evidence supports ${label}?`,
           colour: 'text-warning',
           priority: 4,
@@ -137,7 +184,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'narrow-framing',
           icon: Frame,
-          tooltip: 'Few options considered. Better decisions come from more alternatives.',
+          tooltip: 'Few options modelled.',
           action: 'Suggest more options for this decision',
           colour: 'text-warning',
           priority: 2,
@@ -167,11 +214,20 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         // the icon can no longer drift from the title it sits beside
         // (review-folds C15; /simplify item 3). Rendered output is
         // byte-identical to the old literals.
+        // ⚠ `is_baseline` is the producer's field and naming it is fair. Calling
+        // the reader BIASED is not: the tooltip read "Status quo bias is
+        // modelled as doing nothing", which diagnoses a person from a flag on
+        // an option. The icon and the registry entry stay; the sentence states
+        // the fact instead.
         const statusQuo = biasSignal('status_quo_bias')
         icons.push({
           id: 'status-quo-bias',
           icon: statusQuo.icon,
-          tooltip: `${statusQuo.title}: inaction risks often underestimated.`,
+          // ⚠ THE WORD IS "Baseline", FROM THE ONE CONSTANT (Paul, 18 Aug 2026),
+          // and "doing nothing" is a banned prose form of the option's name —
+          // `baselineVocabulary.canvas.spec` caught my first wording on both
+          // counts. It is the guard doing its job, not an obstacle.
+          tooltip: `${BASELINE_OPTION_LABEL} — modelled as no change from today.`,
           action: 'What could go wrong with staying on the baseline?',
           colour: 'text-warning',
           priority: 6,
@@ -182,5 +238,5 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
     // Sort by priority, take max 2
     icons.sort((a, b) => a.priority - b.priority)
     return icons.slice(0, MAX_ICONS)
-  }, [nodeId, nodeType, nodes, edges, ceeAnalysisReady, displayMetadata.sensitivityRank])
+  }, [nodeId, nodeType, nodes, edges, ceeAnalysisReady, displayMetadata.sensitivityRank, producerNamesThisNode])
 }
