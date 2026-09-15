@@ -83,11 +83,28 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
    * unreachable on every fresh draft. Changing this list changes which true
    * thing a user is not told — and, above, what they can no longer do.
    */
+  /**
+   * ⚠ REORDERED 15 Sep 2026, ON A WITNESS — and the comment above is what kept
+   * the change honest, so it stays exactly as written.
+   *
+   * Measured on deployed staging `be63bb53`: an option lens reduced 5 of 19
+   * cards as designed and the notice explaining it NEVER APPEARED, because
+   * `starter-provenance-banner` held this cell. Dismissing the banner made it
+   * appear with byte-identical store state, and the banner's dismissal does not
+   * survive a reload — so the suppression was permanent on a starter graph.
+   *
+   * ⛔ MY FIRST ATTEMPT PUT `canvas-lod-notice` AT THE FRONT, above
+   * `model-extent-notice`, and the rule above forbids exactly that: suppressing
+   * the extent notice costs a CAPABILITY, suppressing a disclosure costs a
+   * sentence. So the order is now **capability → live transformation → standing
+   * fact**, which also lifts `model-extent-notice` above the starter banner —
+   * the same rule applied consistently rather than to one pair.
+   */
   const EXPECTED_BOTTOM_CENTRE = [
-    'starter-provenance-banner',
     'model-extent-notice',
-    'first-model-notice',
     'canvas-lod-notice',
+    'starter-provenance-banner',
+    'first-model-notice',
     'assistant-focus-chip',
     'focus-mode-chip',
   ]
@@ -308,5 +325,61 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
       </CanvasOverlayBandProvider>,
     )
     expect(container.querySelector(OVERLAY_BAND_SELECTOR)).not.toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ THE DECLUTTERING MUST EXPLAIN ITSELF — witnessed, not reasoned.
+ *
+ * On deployed staging `be63bb53` an option lens reduced 5 of 19 cards exactly
+ * as designed, and the notice saying so never appeared: `canvas-lod-notice` sat
+ * BELOW `starter-provenance-banner` in this cell. Dismissing the banner made
+ * the notice appear with byte-identical store state — and the banner's
+ * dismissal does not survive a reload, so the suppression was permanent on a
+ * starter graph.
+ *
+ * ⛔ A blank card is indistinguishable from a broken render. This pins the
+ * ordering property rather than the list, so a future insertion cannot quietly
+ * push the explanation back under a standing fact.
+ */
+describe('a live view transformation is explained before a standing fact is restated', () => {
+  const cell = OVERLAY_PRIORITY['bottom-centre']
+  const at = (id: string) => cell.indexOf(id)
+
+  it('⭐ the level-of-detail notice outranks the starter provenance banner', () => {
+    // Precondition pinned in-test: both are registered for THIS cell, so the
+    // comparison is about order and not about one of them having moved away.
+    expect(at('canvas-lod-notice'), 'lod notice left bottom-centre').toBeGreaterThanOrEqual(0)
+    expect(at('starter-provenance-banner'), 'starter banner left bottom-centre').toBeGreaterThanOrEqual(0)
+    expect(at('canvas-lod-notice')).toBeLessThan(at('starter-provenance-banner'))
+  })
+
+  /**
+   * ⛔ `model-extent-notice` IS DELIBERATELY ABSENT FROM THIS LIST, and my first
+   * version of this test wrongly included it. It is not a standing fact — it
+   * carries the only "Show whole model" affordance, so it outranks the
+   * explanation on the capability-over-disclosure rule this file already
+   * states. The test caught my own misclassification before the reorder shipped.
+   */
+  it('⭐ and outranks the other STANDING-FACT notices in the cell', () => {
+    for (const standing of ['starter-provenance-banner', 'first-model-notice'] as const) {
+      expect(at(standing), `${standing} left bottom-centre`).toBeGreaterThanOrEqual(0)
+      expect(at('canvas-lod-notice'), `${standing} now outranks the explanation`).toBeLessThan(at(standing))
+    }
+  })
+
+  it('⛔ but the CAPABILITY still outranks the explanation — the rule this file already states', () => {
+    expect(at('model-extent-notice'), 'the extent notice left bottom-centre').toBeGreaterThanOrEqual(0)
+    expect(at('model-extent-notice')).toBeLessThan(at('canvas-lod-notice'))
+  })
+
+  /**
+   * ⛔ CONTRAST. Without it, moving `canvas-lod-notice` to the front and
+   * deleting everything else would pass the rows above — and the cell is
+   * supposed to arbitrate, not be emptied.
+   */
+  it('⛔ CONTRAST: the cell still arbitrates between all six occupants', () => {
+    expect(cell).toHaveLength(6)
+    expect(new Set(cell).size, 'a duplicate id would make the order ambiguous').toBe(6)
   })
 })
