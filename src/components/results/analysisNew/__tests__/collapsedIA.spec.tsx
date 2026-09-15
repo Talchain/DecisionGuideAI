@@ -28,6 +28,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { genuineDecision, manyFragileEdges, openStrategicChallenge } from './analysisNewFixtures'
+import { openGroups } from './openNamedGroups'
 
 const SECTIONS = [
   // ⚠ THIS LIST IS A HAND-MAINTAINED MIRROR (CLAUDE.md trap 12) — a section
@@ -66,6 +67,7 @@ afterEach(() => cleanup())
 describe('the surface below the glance is a list of collapsed rows', () => {
   it('mounts every section CLOSED, with its content unmounted rather than hidden', () => {
     renderBody(manyFragileEdges())
+    openGroups()
     const present = SECTIONS.filter((id) => screen.queryByTestId(id))
     // POSITIVE CONTROL: a run rendering no sections would satisfy the loop
     // below vacuously — this is the census's own lesson (trap 13).
@@ -110,6 +112,7 @@ describe('the surface below the glance is a list of collapsed rows', () => {
 
   it('opens on click, and only the section clicked', () => {
     renderBody(manyFragileEdges())
+    openGroups()
     fireEvent.click(screen.getByTestId('analysis-new-uncertainty-toggle'))
 
     expect(screen.getByTestId('analysis-new-uncertainty')).toHaveAttribute('data-section-open', 'true')
@@ -121,6 +124,7 @@ describe('the surface below the glance is a list of collapsed rows', () => {
 
   it('states the count on the CLOSED row, so the row promises what is behind it', () => {
     renderBody(manyFragileEdges())
+    openGroups()
     const count = screen.getByTestId('analysis-new-uncertainty-count')
     expect(count).toBeInTheDocument()
     // Bound to the SECTION, not to whichever element carries a number.
@@ -155,6 +159,10 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     // A row reading "0" invites a click on nothing. The section still opens to
     // its honest empty sentence, which is a claim about the run.
     renderBody(genuineDecision())
+    // ⚠ BEFORE THE NULL ASSERTION, NOT AFTER. With the group closed the count
+    // is null because the section is UNMOUNTED, which would satisfy the line
+    // below for a reason that has nothing to do with the rule it states.
+    openGroups()
     expect(screen.queryByTestId('analysis-new-key-insights-count')).toBeNull()
     fireEvent.click(screen.getByTestId('analysis-new-key-insights-toggle'))
     expect(screen.getByTestId('analysis-new-key-insights-empty')).toBeInTheDocument()

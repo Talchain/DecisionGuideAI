@@ -19,6 +19,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { openGroups } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
@@ -100,12 +101,40 @@ const openSection = (testId: string) => {
  * ⚠ SCOPED TO SECTION TOGGLES. Finding ROWS carry `-row-toggle` since the
  * collision fix, so this cannot accidentally expand every row on the panel.
  */
+/**
+ * Opens EVERY disclosure on the surface, to a fixed point.
+ *
+ * ⛔⛔ A SINGLE PASS STOPPED WORKING THE MOMENT SECTIONS WERE NESTED, AND IT
+ * FAILED SILENTLY. The detail now sits inside named groups; `SectionShell`
+ * UNMOUNTS a closed region, so the inner sections DO NOT EXIST in the DOM until
+ * their group is open. One pass therefore opened the groups, and the sections it
+ * was written to open were never on screen to be clicked — every query beneath
+ * it then failed with "unable to find", which at least is loud. The quieter
+ * failure is the one to fear: a test that queried something optional would have
+ * read an absence as a product fact.
+ *
+ * ⚠ FIXED POINT, NOT A FIXED NUMBER OF PASSES. Two passes happens to be enough
+ * for today's two levels, which is exactly the hand-maintained constant that
+ * goes stale when a third arrives (trap 12). The loop asks the DOM instead.
+ *
+ * ⚠ AND IT ASSERTS IT CONVERGED. A disclosure that re-closes itself, or a
+ * toggle whose `aria-expanded` never updates, would otherwise spin to the cap
+ * and leave the caller measuring a half-open panel.
+ */
 const openAllSections = () => {
-  for (const toggle of Array.from(
-    document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"]'),
-  )) {
-    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  const closed = () =>
+    Array.from(document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"]')).filter(
+      (t) => t.getAttribute('aria-expanded') === 'false',
+    )
+  let passes = 0
+  while (closed().length > 0 && passes < 8) {
+    for (const toggle of closed()) fireEvent.click(toggle)
+    passes += 1
   }
+  expect(
+    closed(),
+    'openAllSections did not converge — a disclosure is re-closing itself or never reports open',
+  ).toHaveLength(0)
 }
 
 beforeEach(() => {
@@ -155,6 +184,7 @@ describe('F · the three scenario classes (§24F)', () => {
     // carries the tense in an eyebrow it can reframe. The claim under test is
     // unchanged: the leader is named here, and not restated below.
     renderBody(genuineDecision())
+    openGroups()
     expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
     expect(screen.getByTestId('analysis-new-key-insights').textContent).not.toContain(
       'currently scores higher',
@@ -312,6 +342,7 @@ describe('staleness contextualises without dominating (§20)', () => {
 describe('progressive disclosure on the real surface (§24E)', () => {
   it('holds grounding and inspect behind two levels, and reveals them on request', () => {
     renderBody(openStrategicChallenge())
+    openGroups()
     openSection('analysis-new-drivers')
     expect(screen.queryByTestId('analysis-new-drivers-grounding')).toBeNull()
 
@@ -334,6 +365,7 @@ describe('progressive disclosure on the real surface (§24E)', () => {
 
   it('keeps deeper technical material out of the first screen', () => {
     renderBody(genuineDecision())
+    openGroups()
     // Unconditional: the run-identity group always exists when a hash is
     // supplied, so a `if (deeper)` wrapper here would only ever hide a
     // regression that removed the section entirely.
@@ -391,6 +423,7 @@ describe('the empty state never contradicts the surface above it', () => {
     // would satisfy the case above and lose a truthful message. Here the ladder
     // finds nothing at all, so "none grounded yet" is exactly true.
     renderBody(genuineDecision())
+    openGroups()
     openSection('analysis-new-key-insights')
     expect(screen.getByTestId('analysis-new-key-insights-empty')).toHaveTextContent(
       'No insight is grounded well enough to lead with yet.',
@@ -952,6 +985,7 @@ describe('the coaching sits directly under the reading it responds to', () => {
     // render, so a stale entry fails loudly rather than dropping out — which
     // is the property that makes adding to it safe and never adding the drift.
     renderBody(genuineDecision())
+    openGroups()
     const strengthen = screen.getByTestId('analysis-new-strengthen')
     // ⚠ `analysis-new-options` LEFT THIS LIST ON PURPOSE — it is the ANSWER,
     // not detail, and the case above pins it ABOVE the coaching. Removing it
