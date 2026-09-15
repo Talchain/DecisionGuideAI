@@ -1402,12 +1402,24 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   // branch (`useResultCompleteness.ts:222-225`), so this is what keeps a
   // withheld field from being named as a missing one.
   // Pinned in both directions by `missingResultsNamedInWords.spec.tsx`.
-  const missingResultPhrases = data.completeness.missing
+  /**
+   * ⛔ GUARDED, TO MATCH `:2778` — TWO READS OF ONE FIELD DISAGREED ABOUT
+   * WHETHER IT CAN BE ABSENT. `ResultsSectionDataReturn` declares `completeness`
+   * REQUIRED, so an unguarded read looks correct; three shared fixtures omitted
+   * it anyway, each hiding the omission behind a BASELINED TypeScript error, and
+   * the first route to render from them threw and took the whole tab down.
+   *
+   * The fixtures now carry it, so the contract is real again. This guard stays
+   * because the SIBLING read already had one: a builder whose two reads of one
+   * field disagree about its optionality will be repaired in the wrong direction
+   * by whoever meets the other one first. Absent ⇒ no phrases, never a crash.
+   */
+  const missingResultPhrases = (data.completeness?.missing ?? [])
     .map((k) => COPY.status.missingResultLabels[k])
     .filter((label): label is string => Boolean(label))
 
   const coverage = rows(
-    row('Result completeness', plainStatus(data.completeness.status)),
+    row('Result completeness', plainStatus(data.completeness?.status)),
     row(
       'Not included in this result',
       /* ⚠ BOTH HALVES OF TWO SEPARATE FIXES, KEPT. The mapping above is the

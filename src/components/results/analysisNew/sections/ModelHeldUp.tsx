@@ -37,6 +37,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { surface } from '../panelSurfaces'
+import { mayClaimHeldUp, useRobustnessCaveatOnScreen } from '../robustnessStanding'
 
 export interface ModelHeldUpProps {
   /** The producer's robustness tone. */
@@ -45,6 +46,18 @@ export interface ModelHeldUpProps {
   evidenceAssessed: boolean
   /** How many gaps it found. */
   gapCount: number
+  /**
+   * The producer's robustness caveat, when on screen, names a condition under
+   * which the ordering reverses. "Held up" is not the honest word beside it,
+   * so this section consults the SAME derivation `RobustnessCaveat` acts on.
+   */
+  /**
+   * Passed through to the shared caveat derivation: a caveat the surface may
+   * not show is not on screen and must not silence this section.
+   */
+  leaderClaimPermitted?: boolean
+  /** The verdict sentence already on screen, so a duplicate caveat is ignored. */
+  verdictReason?: string | null
   /** A stale report cannot certify the model it may no longer describe. */
   isStale: boolean
   /** Pre-run there is nothing to have held up. */
@@ -87,6 +100,13 @@ export interface ModelHeldUpProps {
  * component makes the four-way conjunction reachable only through a render,
  * which is how one of its limbs quietly stops mattering.
  */
+/**
+ * ⭐⭐ DELEGATES TO THE ONE AUTHORITY (`robustnessStanding.ts`). This function
+ * used to hold the predicate, and `RobustnessCaveat` held a different one
+ * about the same run — measured contradicting each other in
+ * `theTrustClaimsCannotContradict.spec.tsx`. Kept as a named export because
+ * several specs bind to it; it adds nothing of its own.
+ */
 export function modelHeldUp(p: {
   verdictTone: 'stable' | 'mixed' | 'sensitive' | null
   evidenceAssessed: boolean
@@ -94,25 +114,10 @@ export function modelHeldUp(p: {
   isStale: boolean
   isPreRun: boolean
   isProvisional: boolean
+  /** Default FALSE keeps every existing caller's meaning exactly as it was. */
+  caveatOnScreen?: boolean
 }): boolean {
-  /**
-   * ⚠⚠ `isProvisional` IS THE SAME ARGUMENT AS `evidenceAssessed`, ONE LEVEL UP.
-   * `robustnessVerdict` is read from `robustness.display_verdict` and is
-   * entirely independent of `win_probability` / `expected_outcome`
-   * completeness — so a run missing either of those still yields a `stable`
-   * tone, passes all four original limbs, and renders "Your model held up"
-   * DIRECTLY BENEATH an `AtAGlance` that is simultaneously naming the results
-   * which did not come back. The surface would contradict itself in adjacent
-   * elements, with the confident sentence second.
-   *
-   * A `robust` verdict on a run whose required results did not all arrive is a
-   * verdict about a FRAGMENT, presented as a verdict about the model.
-   */
-  if (p.isPreRun || p.isStale || p.isProvisional) return false
-  if (p.verdictTone !== 'stable') return false
-  // ⚠ ORDER IS NOT LOAD-BEARING HERE, BUT BOTH LIMBS ARE. `gapCount === 0`
-  // alone is satisfied by a run that never looked.
-  return p.evidenceAssessed && p.gapCount === 0
+  return mayClaimHeldUp({ ...p, caveatOnScreen: p.caveatOnScreen ?? false })
 }
 
 export function ModelHeldUp({
@@ -122,10 +127,28 @@ export function ModelHeldUp({
   isStale,
   isPreRun,
   isProvisional,
+  leaderClaimPermitted = true,
+  verdictReason = null,
   testId,
 }: ModelHeldUpProps) {
+  /**
+   * ⭐ THE SAME ANSWER `RobustnessCaveat` ACTS ON, from the same derivation —
+   * not a second predicate that happens to agree today.
+   */
+  const { onScreen: caveatOnScreen } = useRobustnessCaveatOnScreen(
+    leaderClaimPermitted,
+    verdictReason,
+  )
   if (
-    !modelHeldUp({ verdictTone, evidenceAssessed, gapCount, isStale, isPreRun, isProvisional })
+    !modelHeldUp({
+      verdictTone,
+      evidenceAssessed,
+      gapCount,
+      isStale,
+      isPreRun,
+      isProvisional,
+      caveatOnScreen,
+    })
   )
     return null
 

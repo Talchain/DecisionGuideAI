@@ -1101,3 +1101,28 @@ export const WhatIWasGivenSection = forwardRef<
     </section>
   )
 })
+
+
+/**
+ * ⭐⭐ WILL THIS SECTION RENDER ANYTHING? ONE DERIVATION, TWO READERS.
+ *
+ * The Reasoning tab groups this section under a collapsible heading, and
+ * `Accordion` renders its header whatever its children decide — so the tab has
+ * to know, BEFORE rendering, whether this section will produce anything. It
+ * cannot: the answer lives in two stores this component reads for itself.
+ *
+ * ⛔ THE ALTERNATIVE WAS A SECOND PREDICATE IN THE TAB THAT HAPPENS TO AGREE,
+ * which is CLAUDE.md trap 12 and the exact defect this panel has already paid
+ * for twice today. This hook is the same three conditions the render uses,
+ * in one place, so a change to either moves both.
+ */
+export function useWhatIWasGivenWillRender(): boolean {
+  const briefText = useContextIntegrityStore((s) => s.briefText)
+  const manifest = useContextIntegrityStore((s) => s.manifest)
+  const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const scenarioMatches =
+    typeof recordedScenarioId === 'string' && recordedScenarioId === currentScenarioId
+  if (!scenarioMatches) return false
+  return briefText !== null || manifest !== null
+}

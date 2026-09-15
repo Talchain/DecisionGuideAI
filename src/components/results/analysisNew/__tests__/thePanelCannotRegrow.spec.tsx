@@ -1,0 +1,129 @@
+/**
+ * ⭐⭐⭐ THE PANEL REACHED TWENTY TOP-LEVEL BLOCKS ONE BLOCK AT A TIME.
+ *
+ * Every one of them was justified on its own. Nobody added a dump; the dump is
+ * what twenty individually-reasonable additions look like from the reader's
+ * chair, and Paul's report — "as you go down the panel it just becomes a big
+ * unwieldy dump of text that no user can wade through" — is the only place the
+ * cumulative cost was ever visible.
+ *
+ * The restructure is worth nothing without this. A ratchet is the ONLY thing
+ * that survives the next well-argued section, because the argument for that
+ * section will be good and the cost will again be invisible to whoever makes
+ * it.
+ *
+ * ⚠ A CEILING, NOT A TARGET. It ratchets DOWN and never up: a fall is recorded
+ * by tightening the number in this file, a rise is a RED that must be argued
+ * in a PR rather than absorbed. Adding a section is not forbidden — it is made
+ * VISIBLE, which is the thing that was missing.
+ *
+ * ⚠ COUNTS WHAT THE READER MEETS, NOT WHAT THE FILE CONTAINS. The measurement
+ * is direct children of the rendered root that actually produced DOM, so a
+ * section returning null on this run costs nothing — which is the honest unit,
+ * because a reader never pays for a block that does not render.
+ */
+import '@testing-library/jest-dom/vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+
+vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
+vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
+vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
+
+import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { genuineDecision, highUncertainty, openStrategicChallenge } from './analysisNewFixtures'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
+
+/**
+ * ⛔ THE CEILING, PER STATE. Measured 15 Sep 2026 after the restructure.
+ * Lower these when the count falls; raising one is a reviewer conversation.
+ */
+const CEILING: Record<string, number> = {
+  genuineDecision: 8,
+  highUncertainty: 8,
+  openStrategicChallenge: 6,
+}
+
+const FIXTURES: ReadonlyArray<[string, () => ResultsSectionDataReturn]> = [
+  ['genuineDecision', genuineDecision],
+  ['highUncertainty', highUncertainty],
+  ['openStrategicChallenge', openStrategicChallenge],
+]
+
+const renderBody = (data: ResultsSectionDataReturn) =>
+  render(
+    <AnalysisNewTabBody
+      resultsSectionData={data}
+      isPreRun={false}
+      isRunning={false}
+      isStale={false}
+      responseHash="regrowth-ratchet"
+    />,
+  )
+
+/**
+ * Direct children of the tab's CONTENT column that produced DOM on this run.
+ *
+ * ⚠ NOT the element carrying `analysis-new-tab-body`. That is the scroll
+ * container and it has exactly ONE child — so a counter pointed at it reads 1
+ * for every panel that has ever existed, passes every ceiling, and measures
+ * nothing. The positive control below caught exactly that on the first run.
+ */
+function topLevelBlocks(): number {
+  const root = screen.getByTestId('analysis-new-tab-body')
+  const column = root.firstElementChild
+  if (column === null) throw new Error('tab body rendered no content column')
+  return Array.from(column.children).filter((el) => el.textContent !== '').length
+}
+
+afterEach(() => cleanup())
+
+describe('the panel cannot regrow', () => {
+  /**
+   * ⭐ THE POSITIVE CONTROL, AND IT IS NOT OPTIONAL HERE. A counter that
+   * returned 0 for everything would satisfy every ceiling in this file while
+   * measuring nothing — the vacuous-green shape this suite has been bitten by
+   * before. A panel that renders SOMETHING must count more than one block.
+   */
+  it('CONTROL: the counter can see blocks at all', () => {
+    renderBody(genuineDecision())
+    expect(
+      topLevelBlocks(),
+      'the counter read ~0 blocks on a rich run — it is measuring the wrong element',
+    ).toBeGreaterThan(3)
+  })
+
+  it.each(FIXTURES)('%s stays at or below its ceiling', (name, make) => {
+    renderBody(make())
+    const count = topLevelBlocks()
+    expect(
+      count,
+      `${name}: ${count} top-level blocks vs a ceiling of ${CEILING[name]}. ` +
+        'If this is a deliberate addition, argue it in the PR and raise the ceiling there. ' +
+        'If the count FELL, lower the ceiling in this file so the gain is kept.',
+    ).toBeLessThanOrEqual(CEILING[name])
+  })
+
+  /**
+   * ⭐ THE OTHER HALF OF A RATCHET, AND THE HALF THAT USUALLY ROTS. A ceiling
+   * nobody tightens drifts into a number with no relationship to the panel. A
+   * fall is REPORTED, never failed — failing on improvement is how a ratchet
+   * teaches people to stop improving.
+   */
+  it('reports any ceiling that is now slack', () => {
+    const slack: Array<[string, number, number]> = []
+    for (const [name, make] of FIXTURES) {
+      renderBody(make())
+      const count = topLevelBlocks()
+      if (count < CEILING[name]) slack.push([name, count, CEILING[name]])
+      cleanup()
+    }
+    if (slack.length > 0) {
+      console.warn(
+        'CEILING NOW SLACK — tighten these in thePanelCannotRegrow.spec.tsx:\n' +
+          slack.map(([n, c, ceil]) => `  ${n}: ${c} (ceiling ${ceil})`).join('\n'),
+      )
+    }
+    expect(true).toBe(true)
+  })
+})

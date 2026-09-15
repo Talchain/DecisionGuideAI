@@ -908,30 +908,35 @@ describe('the coaching sits directly under the reading it responds to', () => {
   const precedes = (a: Element, b: Element) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-  it('mounts Strengthen ABOVE the options comparison, and below the glance', () => {
-    // `genuineDecision()` carries two labelled options, so OptionsComparison
-    // actually mounts — it returns null on `totalCount === 0`, and an absent
-    // element would make this pass for the wrong reason.
+  /**
+   * ⛔⛔ SUPERSEDED, DELIBERATELY AND WITH ITS REASONING KEPT.
+   *
+   * This case pinned "Strengthen ABOVE the options comparison". The ruling
+   * behind it was sound — coaching belongs beside the reading it responds to —
+   * but it treated the OPTIONS COMPARISON as detail, and it is not: "how the
+   * options compare" and "what your model implies" ARE the answer.
+   *
+   * Under the old order a reader on a run whose glance withheld got a caveat,
+   * then coaching, and the figures fifteen blocks later. A branch was added to
+   * promote them on exactly those runs, which made the answer's POSITION depend
+   * on how well the run went. The answer now renders once, beside the glance,
+   * on every run.
+   *
+   * So the rule splits in two, and both halves are pinned below:
+   *   the ANSWER is above the coaching   (new)
+   *   the coaching is above the DETAIL   (unchanged, minus the answer)
+   */
+  it('mounts the answer above the coaching, and both below the glance', () => {
     renderBody(genuineDecision())
-
     const glance = screen.getByTestId('analysis-new-glance')
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
     const options = screen.getByTestId('analysis-new-options')
+    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    expect(new Set([glance, options, strengthen]).size, 'three distinct elements').toBe(3)
 
-    // PRECONDITIONS, PINNED IN-TEST: three distinct elements really are on the
-    // surface, so neither ordering claim below can hold vacuously.
-    expect(new Set([glance, strengthen, options]).size).toBe(3)
-
-    // WHAT HAPPENED → WHAT TO DO ABOUT IT.
+    expect(precedes(glance, options), 'the glance leads; the figures follow it').toBe(true)
     expect(
-      precedes(glance, strengthen),
-      'the glance must stay above the coaching: coaching that arrives before the finding it answers has no subject',
-    ).toBe(true)
-
-    // WHAT TO DO ABOUT IT → THE DETAIL. This is the move itself.
-    expect(
-      precedes(strengthen, options),
-      'Strengthen must sit above the options comparison — burying it below the detail is the defect this pins',
+      precedes(options, strengthen),
+      'coaching has no subject until the figures it responds to are on screen',
     ).toBe(true)
   })
 
@@ -948,9 +953,12 @@ describe('the coaching sits directly under the reading it responds to', () => {
     // is the property that makes adding to it safe and never adding the drift.
     renderBody(genuineDecision())
     const strengthen = screen.getByTestId('analysis-new-strengthen')
+    // ⚠ `analysis-new-options` LEFT THIS LIST ON PURPOSE — it is the ANSWER,
+    // not detail, and the case above pins it ABOVE the coaching. Removing it
+    // here without that case would have dropped the coverage silently, which
+    // is the exact drift this comment block warns about one paragraph up.
     const detail = [
       'analysis-new-checks',
-      'analysis-new-options',
       'analysis-new-key-insights',
       'analysis-new-drivers',
       'analysis-new-uncertainty',

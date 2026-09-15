@@ -42,7 +42,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { decisionWithLeaderWithheld, genuineDecision, makeData, makeOption } from './analysisNewFixtures'
+import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
 
 const renderBody = (data: ResultsSectionDataReturn) =>
   render(
@@ -80,33 +80,34 @@ describe('the figures rise only when the glance said nothing', () => {
     expect(glanceOf(decisionWithLeaderWithheld()).headline, 'the withheld run must name none').toBeNull()
   })
 
-  it('THE EXISTING RULING HOLDS: when the glance answered, coaching stays above the detail', () => {
-    renderBody(genuineDecision())
+  /**
+   * ⭐⭐ THE RULE IS NOW UNCONDITIONAL, AND THAT RETIRES TWO CASES.
+   *
+   * This file used to pin a CONDITIONAL placement: the comparison rose above
+   * the coaching on a run whose glance withheld, and stayed below it otherwise.
+   * The diagnosis was right — Paul's screenshot had the figures eleven sections
+   * down — but the remedy answered it with a branch where a move was wanted,
+   * and a branch means the answer's position depends on how well the run went.
+   *
+   * `answerBlock` now renders ONCE, beside the glance, on every run. So the
+   * property worth pinning is the simpler one, and it holds in BOTH states:
+   * the answer is above the coaching, always. The two fixtures stay because
+   * checking it in both states is exactly what stops the branch coming back.
+   */
+  it.each([
+    ['a glance that answered', genuineDecision],
+    ['a glance that withheld', decisionWithLeaderWithheld],
+  ])('the answer is above the coaching — %s', (_name, make) => {
+    renderBody(make())
     const glance = screen.getByTestId('analysis-new-glance')
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
-    const options = screen.getByTestId('analysis-new-options')
-    expect(new Set([glance, strengthen, options]).size, 'three distinct elements').toBe(3)
-
-    expect(precedes(glance, strengthen), 'glance above coaching').toBe(true)
-    expect(
-      precedes(strengthen, options),
-      'the ordering ruling is untouched on a run whose glance answered',
-    ).toBe(true)
-  })
-
-  it('THE NEW CASE: when the glance withheld, the figures rise above the coaching', () => {
-    renderBody(decisionWithLeaderWithheld())
-    const glance = screen.getByTestId('analysis-new-glance')
     const options = screen.getByTestId('analysis-new-options')
     const strengthen = screen.getByTestId('analysis-new-strengthen')
+    expect(new Set([glance, options, strengthen]).size, 'three distinct elements').toBe(3)
 
-    expect(
-      precedes(glance, options),
-      'the figures fill the gap the glance left, so they sit where the reading would have been',
-    ).toBe(true)
+    expect(precedes(glance, options), 'the glance leads, the figures follow it').toBe(true)
     expect(
       precedes(options, strengthen),
-      'with no reading above it, coaching has no subject until the figures are on screen',
+      'coaching has no subject until the figures it is about are on screen',
     ).toBe(true)
   })
 
@@ -267,48 +268,15 @@ describe('the figures rise only when the glance said nothing', () => {
    * So: a withheld glance WITH figures promotes (pinned above); a withheld
    * glance WITHOUT figures must promote NOTHING. Both arms render.
    */
-  it('a withheld glance with NO figures promotes nothing', () => {
-    const noFigures = makeData({
-      recommendation: {
-        recommendedOption: null,
-        goalLabel: 'Reach the target',
-        // Options with no win readout: analysed nowhere, so nothing to promote.
-        allOptions: [
-          makeOption({ id: 'o1', label: 'Option one' }),
-          makeOption({ id: 'o2', label: 'Option two' }),
-        ],
-      },
-    })
-    const vm = buildAnalysisNewViewModel({
-      data: noFigures, recommendations: [], isPreRun: false, isRunning: false, isStale: false,
-    })
-
-    /* ⚠ BOTH PRECONDITIONS PINNED IN-TEST. Without them this passes for the
-       wrong reason on any fixture that simply renders no options at all. */
-    expect(vm.atAGlance.headline, 'PRECONDITION: the glance must be withholding').toBeNull()
-    expect(
-      vm.optionsComparison.rows.some((r) => r.kind === 'analysed' && r.winReadout !== null),
-      'PRECONDITION: this fixture must carry NO figures, or the conjunct is untested',
-    ).toBe(false)
-
-    renderBody(noFigures)
-    const options = screen.queryByTestId('analysis-new-options')
-
-    /* ⚠ THE DISCRIMINATING POSITION IS STRENGTHEN, NOT THE GLANCE — and my
-       first version of this assertion got that wrong and the test caught it.
-       BOTH slots render below the glance; what the promotion changes is
-       whether the comparison sits ABOVE the coaching (promoted) or eleven
-       sections BELOW it (in place). Comparing against the glance therefore
-       cannot tell the two states apart at all.
-
-       The section may also legitimately not mount here — it returns null on an
-       empty comparison — so the claim is conditional on it existing. */
-    if (options !== null) {
-      const strengthen = screen.getByTestId('analysis-new-strengthen')
-      expect(
-        precedes(strengthen, options),
-        'with no figures to show, the comparison must stay in its in-place slot BELOW the coaching',
-      ).toBe(true)
-    }
-  })
+  /**
+   * ⛔ RETIRED WITH THE BRANCH. This case pinned the negative arm: a withheld
+   * glance with NO figures must NOT promote an empty section. There is no
+   * promotion left to suppress — the answer renders in one place regardless —
+   * and `AnalysisNewSection`/`OptionsComparison` already refuse to render a
+   * heading over nothing, which is where that protection actually lives.
+   *
+   * ⚠ Deliberately NOT rewritten into a same-shaped assertion about the new
+   * layout. A case kept alive past its premise is the vacuous-green defect
+   * this file's own comments warn about twice.
+   */
 })
