@@ -163,7 +163,30 @@ describe('the condition line needs a reading to condition', () => {
     expect(g.leaderLabel).toBeNull()
     expect(g.winShare).toBeNull()
     draw({ ...g, inputProvenance: 'undetermined' })
-    expect(screen.queryByTestId('analysis-new-glance-verdict-line')).toBeInTheDocument()
+    /**
+     * ⚠ THIS PRECONDITION WAS `verdict-line` IS IN THE DOCUMENT, AND IT MOVED
+     * WITH A LATER FIX — TIGHTENED, NOT WEAKENED.
+     *
+     * On this route the view model deletes the verdict's reason
+     * (`mayExplainByRanking` is false once the ranking is withheld) and the
+     * leader gate nulls the share and the bar, so the reading block could only
+     * ever hold the pill — a second printing of the word `TrustLine` already
+     * carries. `theGlanceDoesNotRepeatTheTrustWord.spec.tsx` suppresses it.
+     *
+     * The precondition this test needs is "there is no reading here for the
+     * qualifier to attach to". An ABSENT reading block asserts that more
+     * strongly than a pill-with-nothing-beside-it did, and it still fails loud
+     * if a change starts putting a reading on this route — which is the only
+     * way the assertion below could go vacuous.
+     *
+     * ⚠ The FIRST case above is untouched and still asserts the pill: its
+     * fixture is an open strategic challenge, where no ranking was ever
+     * withheld, so the reason survives and the block genuinely renders.
+     */
+    expect(
+      screen.queryByTestId('analysis-new-glance-reading'),
+      'precondition: no reading of any kind on this route, so the qualifier has nothing to attach to',
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByTestId(PROVENANCE),
       'the qualifier must not render on the route the defect was witnessed on',

@@ -603,6 +603,45 @@ export function AtAGlance({
    * This gate then states what THIS component renders rather than depending on
    * an upstream coupling it cannot see and nothing here pins.
    */
+  /**
+   * ⭐⭐ THE PILL RENDERS ONLY WHERE THIS BLOCK CARRIES SOMETHING THE TRUST LINE
+   * DOES NOT — otherwise the panel prints one producer word twice on one screen.
+   *
+   * ⚠ THE SPLIT IS ALREADY THE DESIGN. `TrustLine` takes `.label` and `.tone`;
+   * its own docblock says the reason "belongs to `AtAGlance` and restating it
+   * puts one claim on the surface twice", and a comment in its render records
+   * `firstViewportCensus` catching precisely that when the reason once shipped
+   * on both. The word is the trust line's; the sentence is this section's.
+   *
+   * ⛔ THE CASE NOBODY LOOKED AT IS THIS SECTION'S HALF BEING EMPTY, and it is
+   * not an edge case — it is DERIVED and GUARANTEED for a whole class of runs:
+   *
+   *   · `winShare` / `winFraction` are null on a leader-withheld run (the chain
+   *     through `headline` documented above).
+   *   · `verdict.reason` is deleted on the SAME runs by
+   *     `mayExplainByRanking = !rankingWasWithheld(rec)` in the view model — a
+   *     sentence explaining the verdict by reference to a ranking is unlicensed
+   *     once the ranking is withheld. That rule is right and is untouched.
+   *
+   * So on every withheld run this block could only ever hold the pill, and the
+   * trust line prints that same word again below it, with its counts and its
+   * route to the detail. Witnessed on the deployed build `bb27081a`, guest,
+   * completed run: `-verdict` held exactly ONE child, and `-trust-line-verdict`
+   * read the same word 200px lower.
+   *
+   * ⚠ TWO CORRECT RULINGS PRODUCING ONE DEFECT BETWEEN THEM (trap 21). Neither
+   * side is wrong alone, which is exactly why neither side's tests could see it.
+   *
+   * ⭐ AND THE AMBER IS NOT SPENT FOR NOTHING. The pill is the tone carrier
+   * here; `TrustLine` deliberately refuses colour and carries tone by SHAPE
+   * (three shield glyphs) with the producer's word beside it, so suppressing a
+   * pill that adds no words costs the reader nothing and returns a unit of the
+   * rationed amber budget to the sections that earn it.
+   */
+  const verdictCarriesItsOwnReading = Boolean(
+    glance.verdict && (glance.winShare || glance.verdict.reason || glance.winFraction !== null),
+  )
+
   const readingOnScreen = showAnswer || Boolean(glance.verdict && glance.winShare)
 
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
@@ -927,9 +966,9 @@ export function AtAGlance({
       {/* ⭐ ONE UNIT: THE READING, AND WHAT IT RESTS ON. Grouped so the
           section's `space-y-3` spaces the PAIR from its neighbours rather than
           spacing the qualifier away from the claim it qualifies. */}
-      {glance.verdict || showInputProvenance ? (
+      {verdictCarriesItsOwnReading || showInputProvenance ? (
         <div data-testid={`${testId}-reading`}>
-          {glance.verdict ? (
+          {verdictCarriesItsOwnReading && glance.verdict ? (
             <div data-testid={`${testId}-verdict`} data-verdict-tone={glance.verdict.tone}>
               <div className="flex items-start gap-2">
                 {glance.winShare ? (
