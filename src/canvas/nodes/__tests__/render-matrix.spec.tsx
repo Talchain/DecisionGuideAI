@@ -214,8 +214,15 @@ describe('Render matrix — FactorNode × view × phase', () => {
       category: 'controllable',
       observedState: { value: 0.5, extractionType: 'inferred', unit: 'scale' },
     })
-    // Synthesised coaching line ("High influence, low confidence.") fires.
-    expect(screen.getByText(/High influence, low confidence/i)).toBeDefined()
+    /**
+     * ⛔ THE SYNTHESISED COACHING LINE IS GONE, DELIBERATELY (15 Sep 2026).
+     * "High influence, low confidence." was chosen by two thresholds FactorNode
+     * invented (70 / 40) and restated two numbers the card already displays.
+     * Founder's rule: the UI renders the data, it does not decide what it means.
+     * The assertion is inverted rather than deleted, so a silent reintroduction
+     * REDs here instead of slipping back onto the card.
+     */
+    expect(screen.queryByText(/High influence, low confidence/i)).toBeNull()
   })
 
   it('Detailed pre: top inferred factor shows pre-analysis layer 2 coaching ONLY when high-priority', () => {
