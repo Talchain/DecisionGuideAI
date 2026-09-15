@@ -31,10 +31,50 @@ function formatLimitMagnitude(value: number, unit: string | null | undefined): s
  * One predicate, both readers, so they cannot drift into disagreeing about
  * which surface is carrying the quote.
  */
+/**
+ * ⭐⭐ UNITS WHOSE VALUE HAS ALREADY BEEN REWRITTEN OUT OF THE READER'S SCALE.
+ *
+ * Witnessed on deployed `79866c44` (fresh draft, guest, settled at the
+ * product's own terminal beat). The brief said *"keeping monthly churn under
+ * 4%"*. The card printed:
+ *
+ *     Limit ≤ 0.04 fraction
+ *
+ * The producer's own constraint LABEL on the same row reads *"Keep monthly
+ * churn at or below 4%"*, and its `source_quote` reads *"while keeping monthly
+ * churn under 4%"* — both correct, both present, and the card showed neither,
+ * because `omitLabel` drops the label (the card's title already names the
+ * factor) and the reconstruction path then formats the machine value.
+ *
+ * ⛔ THE FIX IS NOT TO MULTIPLY BY 100. Converting `0.04` to `4%` would be this
+ * surface deciding what scale a number is in — the exact mechanism behind the
+ * 100× defect found this morning, where `1.1` was rendered `1.1%` against a
+ * brief saying 110%. **Never infer scale from magnitude.**
+ *
+ * ⚠ WHY THESE UNITS AND NOT "ANYTHING NON-PERCENT". A currency limit
+ * reconstructs EXACTLY — `49` + `£` is `£49`, the reader's own figure — which
+ * is why `factorGoalContent.spec` caught an earlier over-wide version of this
+ * preference. These four are different in kind: each NAMES a rewrite. A unit
+ * of `fraction` is a statement that the value is no longer in whatever scale
+ * the reader used, and nothing on the wire says what that was. Where the stated
+ * magnitude cannot be recovered, the reader's own sentence is the only honest
+ * rendering available.
+ *
+ * ⚠ HAND-MAINTAINED, AND SAID OUT LOUD. There is no wire field declaring
+ * "this value was rewritten" — that is `provenance_unit_normalised`, which the
+ * producer does not populate (measured; the request is open). When it arrives,
+ * rung 1 supersedes this and this set should shrink, not grow.
+ */
+const REWRITTEN_SCALE_UNITS: ReadonlySet<string> = new Set([
+  'fraction', 'ratio', 'proportion', 'unit_interval',
+])
+
 export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): boolean {
   const q = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
   if (!q) return false
-  return classifyUnit(constraint.unit ?? null).kind === 'percent'
+  if (classifyUnit(constraint.unit ?? null).kind === 'percent') return true
+  const unit = typeof constraint.unit === 'string' ? constraint.unit.trim().toLowerCase() : ''
+  return REWRITTEN_SCALE_UNITS.has(unit)
 }
 
 /**
