@@ -137,4 +137,49 @@ describe('the panel cannot reassure and caveat the same run', () => {
     render(<ModelHeldUp {...heldUpInputs} leaderClaimPermitted={false} testId="held-up" />)
     expect(screen.getByTestId('held-up')).toBeInTheDocument()
   })
+
+  /**
+   * ⛔⛔ THE MOUNT, NOT THE COMPONENT — and the first version of this case was
+   * VACUOUS, which is worth recording because it is the more instructive half.
+   *
+   * Self-review found the product mount passing NEITHER `leaderClaimPermitted`
+   * NOR `verdictReason` to `ModelHeldUp`, so it fell back to
+   * `leaderClaimPermitted = true` on every run. Every case above passes them
+   * explicitly and was green while the product was wrong: a guard that supplies
+   * what the mount omits is testing the component, not the product.
+   *
+   * ⛔ MY FIRST FIX WAS A RENDERED CASE THROUGH `AnalysisNewTabBody`, AND
+   * DELETING BOTH PROPS LEFT IT GREEN. On a withheld run the caveat is absent
+   * either way, and no shipped fixture is simultaneously withheld AND
+   * held-up-qualifying, so the DOM cannot discriminate. Rather than build an
+   * artificial fixture to make a rendered assertion technically bite, the honest
+   * guard is the one that states the actual requirement: THIS MOUNT MUST THREAD
+   * THESE TWO PROPS. It is a source assertion because the obligation is a source
+   * obligation.
+   *
+   * ⚠ Reads the file from disk rather than a snapshot, so it cannot drift.
+   */
+  it('THE MOUNT threads both caveat inputs into ModelHeldUp', async () => {
+    // ⚠ `import.meta.url` is NOT a file: URL under vitest's transform, so
+    // `fileURLToPath` throws. Resolved from the repo root instead, which is
+    // stable for every runner.
+    const { readFileSync } = await import('node:fs')
+    const source = readFileSync(
+      'src/components/results/analysisNew/AnalysisNewTabBody.tsx',
+      'utf8',
+    )
+
+    const open = source.indexOf('<ModelHeldUp')
+    expect(open, 'ModelHeldUp is not mounted in the tab body at all').toBeGreaterThan(-1)
+    const mount = source.slice(open, source.indexOf('/>', open))
+
+    for (const prop of ['leaderClaimPermitted=', 'verdictReason=']) {
+      expect(
+        mount.includes(prop),
+        `<ModelHeldUp> does not pass ${prop} — it consults the shared caveat derivation and ` +
+          'without this input it assumes the caveat is on screen, so a WITHHELD run loses BOTH ' +
+          'the caveat (correctly refused) and the reassurance (wrongly silenced).',
+      ).toBe(true)
+    }
+  })
 })

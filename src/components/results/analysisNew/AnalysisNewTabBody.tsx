@@ -1495,6 +1495,28 @@ export function AnalysisNewTabBody({
             goes quiet at exactly the moment the team should be handed their
             decision. Placed after the reading it concludes, never before it. */}
         <ModelHeldUp
+          /**
+           * ⛔⛔ THESE TWO WERE MISSING AND THE DEFAULTS WERE DOING REAL WORK.
+           * `ModelHeldUp` consults `useRobustnessCaveatOnScreen` so the two
+           * trust surfaces cannot contradict each other. That hook needs the
+           * SAME two inputs `RobustnessCaveat` is given four lines up — and this
+           * mount passed neither, so it fell back to `leaderClaimPermitted =
+           * true` on every run.
+           *
+           * The consequence was the exact failure the fix exists to prevent,
+           * inverted: on a WITHHELD run the caveat correctly renders nothing,
+           * while this section believed one was on screen and silenced itself —
+           * so the reader got NEITHER statement. My spec passed
+           * `leaderClaimPermitted={false}` explicitly and was green; the product
+           * used the default. A guard that supplies what the mount omits tests
+           * the component and not the product (CLAUDE.md trap 3b's shape).
+           *
+           * ⚠ QUOTED FROM THE SAME TWO EXPRESSIONS `RobustnessCaveat` reads, not
+           * recomputed — two spellings of one question is how this pair came to
+           * disagree in the first place.
+           */
+          leaderClaimPermitted={vm.leaderClaimPermitted}
+          verdictReason={vm.atAGlance.verdict?.reason ?? null}
           verdictTone={vm.atAGlance.verdict?.tone ?? null}
           /* ⚠⚠ BOTH LIMBS, AND THE FIRST IS WHAT KEEPS THIS HONEST. "Assessed,
              none found" and "never assessed" both produce an empty array, and

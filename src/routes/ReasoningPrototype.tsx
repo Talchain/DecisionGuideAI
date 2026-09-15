@@ -16,7 +16,7 @@
  * ⚠ FIXTURE DATA, NEVER ANALYSIS OUTPUT. Every scenario below is a typed
  * fixture already used by the suite; none of it came off a wire.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { typography } from '@/styles/typography'
 import { isDevRoutesEnabled } from '@/flags'
@@ -26,6 +26,7 @@ import { buildAnalysisNewViewModel } from '../components/results/analysisNew/bui
 import { buildStrengthenInputsForAnalysisNew } from '../components/results/analysisNew/buildStrengthenInputsForAnalysisNew'
 import { buildRecommendations } from '../components/results/strengthen/buildRecommendations'
 import { buildBiasGrounding } from '../components/results/analysisNew/biasGrounding'
+import { useCanvasStore } from '../canvas/store'
 import { richFixture } from '../__fixtures__/resultsPanelV7.rich.hook'
 import { sensitiveFixture } from '../__fixtures__/resultsPanelV7.sensitive.hook'
 import { normalisedFixture } from '../__fixtures__/resultsPanelV7.normalised.hook'
@@ -178,6 +179,19 @@ function ReasoningPrototypeBody() {
   )
 
   const biasItems = useMemo(() => buildBiasGrounding(FIXTURE_BIAS_FINDINGS), [])
+
+  /**
+   * ⭐ SEEDED SO THE LEFT COLUMN SHOWS THE REAL TAB'S COACHING STATE. The live
+   * tab reads `ceeAnalysisReady.bias_findings` off the canvas store, so without
+   * this the restructured tab renders its coaching group closed over an empty
+   * message — which is the one state NOT worth reviewing. Same fixture the
+   * right column uses, through the same parser.
+   */
+  useEffect(() => {
+    useCanvasStore.setState({
+      ceeAnalysisReady: { bias_findings: FIXTURE_BIAS_FINDINGS },
+    } as never)
+  }, [])
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6" data-testid="reasoning-prototype">
