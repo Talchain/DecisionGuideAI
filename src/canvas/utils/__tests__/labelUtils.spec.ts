@@ -21,7 +21,6 @@ import {
   unwrapInterventionValue,
   formatWinProbability,
 } from '../labelUtils'
-import { describeEdgeInfluence } from '../../domain/edges'
 
 // ---------------------------------------------------------------------------
 // cleanFactorLabel (T2)
@@ -751,29 +750,19 @@ describe('observed value formatting (no raw data)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// describeEdgeInfluence (Fix 2 — brief test requirement)
+// ⛔ `describeEdgeInfluence` WAS DELETED, 15 Sep 2026, and its five tests went
+// with it. It banded a producer's edge coefficient into seven sentences at
+// cutoffs this UI chose — the founder's ruling's central case — and it had NO
+// production consumer: swept repo-wide with `rg -uu`, three files mentioned it
+// (its definition, this spec, and the comment in `InfluenceIndicator.tsx`
+// superseding it), against contrast controls NodeChip 22 and BaseNode 105.
+//
+// ⭐ THE TESTS ARE THE PART WORTH NOTING. Five green tests over dead code are
+// the most convincing possible evidence of a live path, and they are exactly
+// why `git grep` on a symbol is not a reachability answer: the hits look like
+// use. Deleting the function without them would have left a suite asserting the
+// behaviour of nothing.
 // ---------------------------------------------------------------------------
-describe('describeEdgeInfluence', () => {
-  it('returns "Strong positive influence on goal" for strength 0.5', () => {
-    expect(describeEdgeInfluence(0.5)).toBe('Strong positive influence on goal')
-  })
-
-  it('returns "Moderate negative influence on goal" for strength -0.3', () => {
-    expect(describeEdgeInfluence(-0.3)).toBe('Moderate negative influence on goal')
-  })
-
-  it('returns "Weak positive influence on goal" for strength 0.1', () => {
-    expect(describeEdgeInfluence(0.1)).toBe('Weak positive influence on goal')
-  })
-
-  it('returns "Minimal influence on goal" for near-zero strength', () => {
-    expect(describeEdgeInfluence(0.02)).toBe('Minimal influence on goal')
-  })
-
-  it('returns "Strong negative influence on goal" for strength -0.5', () => {
-    expect(describeEdgeInfluence(-0.5)).toBe('Strong negative influence on goal')
-  })
-})
 
 // ---------------------------------------------------------------------------
 // P1.6: isCurrencyUnit — multi-char currency symbol detection
