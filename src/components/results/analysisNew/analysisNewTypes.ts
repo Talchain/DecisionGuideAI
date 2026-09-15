@@ -544,6 +544,51 @@ export type ComparisonOption =
        */
       winFraction: number | null
       /**
+       * ⭐⭐ THE OTHER QUESTION — "does this reach the target I set?" — and it
+       * is NOT a re-cut of the win share.
+       *
+       * `winReadout` is comparative: the share of simulated futures in which
+       * this option out-ranked the others. Those shares PARTITION the runs and
+       * sum to 1. This one is absolute and per-option: the probability THIS
+       * option reaches the user's own target, computed independently for each,
+       * so they do not sum to anything and an option can be behind on one and
+       * ahead on the other. `WinGauge`'s header states the same distinction
+       * from the other side and is why it refuses to stack these.
+       *
+       * Resolved by `selectGoalProbability` — the estate's registered owner of
+       * `goal_probability` / `probability_of_goal` / `probability_of_joint_goal`
+       * — at `useResultsSectionData`, and read here, never re-derived.
+       * Formatted by `formatProbabilityWithResolution`, the same authority as
+       * `winReadout`, so one run cannot print two roundings of one quantity.
+       *
+       * `null` under any of four conditions, each a real state:
+       *   · the user set no target (UI-SEM-071 — without one the engine
+       *     synthesises a target and the figure describes something nobody
+       *     asked for);
+       *   · the producer withheld or omitted this option's figure;
+       *   · the figure is a SUBSTITUTED JOINT one (`goalFitIsSubstitutedJoint`)
+       *     — the possessive name "Hits target" is then false and this surface
+       *     has no other name for it, so it says nothing rather than print an
+       *     unnamed number;
+       *   · ⭐ any ANALYSED option lacks one. The complete-field rule, taken
+       *     verbatim from `buildGoalFitRows`: a partial set is a ranking over a
+       *     subset presented as a ranking over the options.
+       */
+      goalReadout: string | null
+      /**
+       * The same value, 0-1, FOR BAR GEOMETRY ONLY — `null` in lockstep with
+       * `goalReadout`, exactly as `winFraction` tracks `winReadout`.
+       */
+      goalFraction: number | null
+      /**
+       * `goalFitIsModelledBasis` — the producer's own flag, read not derived.
+       * The figure is scored from a modelled forward-propagated outcome
+       * distribution rather than a directly-elicited base, and the estate's
+       * display-honesty rule (ROADMAP 1.6b / PLoT #204) is that the caveat
+       * renders ADJACENT to the number it qualifies, never separately.
+       */
+      goalBasisIsModelled: boolean
+      /**
        * ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION —
        * `recommendation.storyHeadlines[option.id]`, sanitised at the data layer
        * and rendered VERBATIM. Never composed, never templated, never inferred
