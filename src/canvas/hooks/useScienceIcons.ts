@@ -1,4 +1,24 @@
 /**
+ * ⚠ THESE TOOLTIPS STATE WHAT WAS OBSERVED. THEY DO NOT PREDICT OR ADVISE.
+ *
+ * Founder's rule, 15 Sep 2026: the UI renders the data; it does not decide what
+ * the data means. Four of these said more than this hook can know, and the
+ * strings were authored here from local rules — there is no producer stamp
+ * behind any of them.
+ *
+ *   "Analysis will use defaults"              → a claim about the ENGINE
+ *   "Better decisions come from more alternatives" → a claim about DECISIONS IN GENERAL
+ *   "inaction risks often underestimated"     → a claim about PEOPLE in general
+ *   "High-leverage assumption"                → leverage is a computed judgement
+ *
+ * Each is now the observation that prompted it, and nothing more.
+ *
+ * ⭐ THE `action` STRINGS ARE UNTOUCHED, AND THEY ARE THE VALUABLE HALF.
+ * "What evidence supports X?" hands the question back to the reader and reaches
+ * a real AI turn through `ScienceIcon`'s discuss button. That is the
+ * science-grounded move; the tooltip was only ever the label on the door.
+ */
+/**
  * useScienceIcons — returns up to 2 applicable science guidance icons for a node.
  *
  * Implements spec Section 4.1 (8 PoC-ready triggers).
@@ -56,7 +76,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'evidence-gap',
           icon: FileQuestion,
-          tooltip: 'No evidence for this factor. Analysis will use defaults.',
+          tooltip: 'No observed data for this factor.',
           action: `Help me estimate ${label}`,
           colour: 'text-warning',
           priority: 1,
@@ -97,7 +117,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'overconfidence',
           icon: Gauge,
-          tooltip: 'High-leverage assumption with no supporting evidence.',
+          tooltip: 'No supporting evidence recorded for this assumption.',
           action: `What evidence supports ${label}?`,
           colour: 'text-warning',
           priority: 4,
@@ -137,7 +157,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'narrow-framing',
           icon: Frame,
-          tooltip: 'Few options considered. Better decisions come from more alternatives.',
+          tooltip: 'Few options modelled.',
           action: 'Suggest more options for this decision',
           colour: 'text-warning',
           priority: 2,
@@ -171,7 +191,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'status-quo-bias',
           icon: statusQuo.icon,
-          tooltip: `${statusQuo.title}: inaction risks often underestimated.`,
+          tooltip: `${statusQuo.title} is modelled as doing nothing.`,
           action: 'What could go wrong with staying on the baseline?',
           colour: 'text-warning',
           priority: 6,
