@@ -226,7 +226,7 @@ describe('the sentence is the one the outcome earned', () => {
     nodes.length = 0
     nodes.push(
       ...CANVAS.map((n) =>
-        n.data?.kind === 'goal' || n.type === 'goal'
+        n.type === 'goal'
           ? { ...n, data: { ...n.data, goal_threshold_unit: undefined, unit: undefined } }
           : n,
       ),
