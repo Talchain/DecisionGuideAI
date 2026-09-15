@@ -48,6 +48,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { genuineDecision, openStrategicChallenge } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -96,12 +97,8 @@ const renderBody = (data: ResultsSectionDataReturn) =>
     />,
   )
 
-const openAllSections = () => {
-  for (const toggle of Array.from(
-    document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"]'),
-  )) {
-    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  }
+const openAll = () => {
+  openAllSections()
   const more = screen.queryByTestId('analysis-new-strengthen-show-more')
   if (more) fireEvent.click(more)
 }
@@ -135,7 +132,7 @@ describe.each([
 ])('the promoted card does not reprint its row (%s)', (_name, fixture) => {
   it('names the item and leaves the finding to the row', () => {
     renderBody(fixture())
-    openAllSections()
+    openAll()
 
     const glance = screen.getByTestId('analysis-new-glance-primary-intervention')
     const promotedId = glance.getAttribute('data-recommendation-id')
@@ -228,7 +225,7 @@ describe.each([
     // The product thesis rendered: the human is the author, not the recipient.
     // Whatever the promoted card drops, these must stay reachable.
     renderBody(fixture())
-    openAllSections()
+    openAll()
     const promotedId = screen
       .getByTestId('analysis-new-glance-primary-intervention')
       .getAttribute('data-recommendation-id')

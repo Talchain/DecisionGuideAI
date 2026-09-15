@@ -398,6 +398,23 @@ describe('the control reaches the surface the deployed flags mount', () => {
         responseHash="run_abc123"
       />,
     )
+    /**
+     * ⚠ THE REGISTER NOW SITS INSIDE A NAMED GROUP, and `SectionShell` UNMOUNTS
+     * a closed region — so this mount check would read an ABSENCE rather than
+     * the section it exists to prove reachable. Opening the GROUP only; the
+     * register keeps its own default, and the click below is still the step
+     * under test.
+     *
+     * ⛔ THE GROUP IS ASSERTED CLOSED FIRST. Without that this helper would
+     * pass silently on a panel where the group had been opened by something
+     * else, and the case's claim is about reachability from a RESTING panel.
+     */
+    const group = screen.getByTestId('analysis-new-how-worked-out-toggle')
+    expect(group, 'the method group must be a collapsed row at rest').toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    fireEvent.click(group)
     const section = screen.getByTestId('what-i-was-given-section')
     fireEvent.click(screen.getByTestId('what-i-was-given-toggle'))
     const trigger = controlFor(`${TID}-value-edit`, TARGET_NODE_ID)

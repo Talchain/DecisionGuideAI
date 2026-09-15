@@ -140,6 +140,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { openGroupsIfPresent } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
@@ -204,8 +205,8 @@ const strongestRowSuppressed = () =>
 
 const SECTION = 'analysis-new-drivers'
 
-const renderBody = (data: ResultsSectionDataReturn) =>
-  render(
+const renderBody = (data: ResultsSectionDataReturn) => {
+  const result = render(
     <AnalysisNewTabBody
       resultsSectionData={data}
       isPreRun={false}
@@ -214,6 +215,12 @@ const renderBody = (data: ResultsSectionDataReturn) =>
       responseHash="run_2_1376_scale"
     />,
   )
+  // ⚠ THE SECTIONS THIS SPEC QUERIES SIT INSIDE NAMED GROUPS, and `SectionShell`
+  // UNMOUNTS a closed region — without this every query below reads an absence
+  // rather than the thing it was written to check. Only the GROUP is opened.
+  openGroupsIfPresent()
+  return result
+}
 
 /**
  * ⚠ OPEN IT ONLY IF IT IS CLOSED — `AnalysisNewSection` passes

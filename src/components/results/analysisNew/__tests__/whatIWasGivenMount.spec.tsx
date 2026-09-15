@@ -17,6 +17,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { openGroups } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { genuineDecision } from './analysisNewFixtures'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -70,6 +71,7 @@ const draw = (over = {}) =>
 describe('the input register reaches the reasoning tab', () => {
   it('is mounted on a completed run', () => {
     draw()
+    openGroups()
     expect(screen.getByTestId('what-i-was-given-section')).toBeInTheDocument()
   })
 
@@ -95,6 +97,7 @@ describe('the input register reaches the reasoning tab', () => {
    */
   it('is not at the top with the census, and lives in the named method group', () => {
     const { container } = draw()
+    openGroups()
     const order = Array.from(
       container.querySelectorAll(
         '[data-testid="what-i-was-given-section"],[data-testid="analysis-new-glance"]',
@@ -121,6 +124,7 @@ describe('the input register reaches the reasoning tab', () => {
    */
   it('renders with no sender, and offers no add affordance', () => {
     draw({ onSendMessage: undefined })
+    openGroups()
     expect(screen.getByTestId('what-i-was-given-section')).toBeInTheDocument()
   })
 })

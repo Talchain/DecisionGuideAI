@@ -81,10 +81,10 @@ import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
+import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
-import Accordion from '../Accordion'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
@@ -1868,12 +1868,13 @@ export function AnalysisNewTabBody({
             it — the machinery for this existed before the tab did. Nothing new
             was built here. */}
         {methodHasContent ? (
-          <Accordion
-            icon={<ClipboardCheck className="w-4 h-4 text-text-light" />}
+          <SectionShell
+            icon={ClipboardCheck}
             title={COPY.sections.howWorkedOut}
             subtitle={COPY.sectionSubtitles.howWorkedOut}
-            isExpanded={methodOpen}
-            onExpandChange={setMethodOpen}
+            count={vm.checks.items.length}
+            open={methodOpen}
+            onOpenChange={setMethodOpen}
             testId="analysis-new-how-worked-out"
           >
 
@@ -1984,7 +1985,7 @@ export function AnalysisNewTabBody({
             icon={AlertTriangle}
             testId="analysis-new-uncertainty"
           />
-          </Accordion>
+          </SectionShell>
         ) : null}
 
 
@@ -2000,10 +2001,11 @@ export function AnalysisNewTabBody({
             the panel under a heading that says what is inside; before, it was
             twelve blocks down under a heading that did not. */}
         {coachingHasContent ? (
-          <Accordion
-            icon={<GraduationCap className="w-4 h-4 text-text-light" />}
+          <SectionShell
+            icon={GraduationCap}
             title={COPY.sections.coachingAndMethod}
             subtitle={COPY.sectionSubtitles.coachingAndMethod}
+            count={biasGroundingItems.length + vm.keyInsights.insights.length}
             /**
              * ⭐⭐ OPEN WHEN THERE IS REAL GROUNDING, AND ONLY THEN.
              * `bias_findings[]` is the most method-bearing payload the producer
@@ -2020,7 +2022,7 @@ export function AnalysisNewTabBody({
              * the dumping-ground complaint this restructure exists to answer,
              * re-created by over-eager promotion.
              */
-            defaultExpanded={biasGroundingItems.length > 0}
+            defaultOpen={biasGroundingItems.length > 0}
             testId="analysis-new-coaching-and-method"
           >
           {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
@@ -2104,7 +2106,7 @@ export function AnalysisNewTabBody({
             icon={Star}
             testId="analysis-new-key-insights"
           />
-          </Accordion>
+          </SectionShell>
         ) : null}
 
         {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
@@ -2114,11 +2116,11 @@ export function AnalysisNewTabBody({
             to say unprompted, and stacked open they were most of the length
             Paul was scrolling through. */}
         {whatMovesHasContent ? (
-          <Accordion
-            icon={<Activity className="w-4 h-4 text-text-light" />}
+          <SectionShell
+            icon={Activity}
             title={COPY.sections.whatMovesTheOutcome}
             subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
-            defaultExpanded={false}
+            count={vm.drivers.findings.length + vm.drivers.influenceRows.length}
             testId="analysis-new-what-moves-the-outcome"
           >
           {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
@@ -2230,7 +2232,7 @@ export function AnalysisNewTabBody({
 
           {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
           <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
-          </Accordion>
+          </SectionShell>
         ) : null}
       </div>
     </div>
