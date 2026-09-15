@@ -63,19 +63,25 @@ export function TrustLine({
   testId = 'analysis-new-trust-line',
 }: TrustLineProps) {
   const Icon = verdict === null ? ShieldQuestion : VERDICT_ICON[verdict.tone]
-  const tone =
-    verdict === null
-      ? 'text-text-light'
-      : verdict.tone === 'stable'
-        ? 'text-success'
-        : verdict.tone === 'sensitive'
-          ? 'text-warning'
-          : 'text-text-light'
-
+  /**
+   * ⛔ THE ICON CARRIES SHAPE, NOT COLOUR — and that is a ruling, not a taste.
+   *
+   * The first version tinted this amber on `sensitive` and green on `stable`.
+   * `amberIsRationed.spec.tsx` REDed it immediately: amber went 4 -> 5 on one
+   * state and 5 -> 6 on another. Paul's rule, and the ratchet that enforces it:
+   * "if you use it too much, it loses its value." A SUMMARY line is the worst
+   * place to spend the budget, because every section it summarises already
+   * carries the colour where the colour is earned.
+   *
+   * ⚠ NOTHING IS LOST. `ShieldCheck` / `ShieldQuestion` / `ShieldAlert` are
+   * three different shapes, and the producer's own WORD sits beside them in
+   * every state — so the tone is carried twice over without colour (SC 1.4.1),
+   * which was already the requirement before the budget came into it.
+   */
   return (
     <section className={surface('neutral')} data-testid={testId} role="status">
       <div className="flex items-start gap-2">
-        <Icon className={`w-4 h-4 mt-[2px] shrink-0 ${tone}`} aria-hidden="true" />
+        <Icon className="w-4 h-4 mt-[2px] shrink-0 text-text-light" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span
