@@ -700,6 +700,15 @@ export const GoalNode = memo((props: NodeProps) => {
       onMouseLeave={nodeHandlers.onMouseLeave}
     >
       <BaseNode
+        /* ⭐ THIS CARD IS ALONE ON ITS ROW, SO IT MAY USE THE WIDTH ELK GAVE IT.
+           `BaseNode` otherwise renders every card at one global
+           `layoutNodeWidth`, which is why widening the layout box alone changed
+           nothing on screen. React Flow hands each node its own assigned width;
+           passing it through `maxWidth` — which `BaseNode` already honours
+           first — is what makes the extra room reach the reader.
+           See `layout.ts`'s `tierOccupancy` note for why this is free: a lone
+           card bounded by the widest row cannot widen the board. */
+        maxWidth={typeof props.width === 'number' && props.width > 0 ? props.width : undefined}
         {...props}
         nodeType="goal"
         lodMetric={lodMetric}

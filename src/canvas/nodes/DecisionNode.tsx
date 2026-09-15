@@ -265,7 +265,7 @@ export function composeReadinessSummary(readiness: ModelReadiness): string | nul
 }
 
 
-export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNodeData>) => {
+export const DecisionNode = memo(({ id, data, selected, width }: NodeProps<DecisionNodeData>) => {
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
@@ -934,6 +934,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       onMouseLeave={nodeHandlers.onMouseLeave}
     >
       <BaseNode
+        /* ⭐ THIS CARD IS ALONE ON ITS ROW, SO IT MAY USE THE WIDTH ELK GAVE IT.
+           `BaseNode` otherwise renders every card at one global
+           `layoutNodeWidth`, which is why widening the layout box alone changed
+           nothing on screen. React Flow hands each node its own assigned width;
+           passing it through `maxWidth` — which `BaseNode` already honours
+           first — is what makes the extra room reach the reader.
+           See `layout.ts`'s `tierOccupancy` note for why this is free: a lone
+           card bounded by the widest row cannot widen the board. */
+        maxWidth={typeof width === 'number' && width > 0 ? width : undefined}
         nodeType="decision"
         lodMetric={lodMetric}
         icon={Crosshair}

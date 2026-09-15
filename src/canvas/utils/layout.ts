@@ -252,6 +252,38 @@ export async function layoutGraph(
   for (const n of unlocked) unlockedIds.add(n.id)
 
   const maxTierCount = maxTierCountOf(unlocked)
+  /**
+   * ⭐⭐ A ROW WITH ONE CARD IN IT MAY USE THE WIDTH THE BOARD ALREADY HAS.
+   *
+   * Paul, 15 Sep: *"the question or initial node and the nodes can be a lot
+   * wider, so we can fit more content in."* He is right, and the measurement
+   * agrees — median characters per card, on the pricing-model starter:
+   *
+   *     option 250 · factor 141 · decision 122 · goal 102 · risk 86 · outcome 73
+   *
+   * An option carries 3.4x an outcome's content in an identical box.
+   *
+   * ⚠ THE GENERAL FIX — a width per KIND — IS NOT THIS CHANGE, DELIBERATELY.
+   * `elkBoxW` is uniform BY DESIGN (see the numbered note above), and both the
+   * row-packing arithmetic and `centreRowsOnSpine` read that single number.
+   * Making it per-kind changes row packing and spine centring together, on the
+   * part of this canvas that has already been repaired twice. It needs its own
+   * pass, not the tail of a long one.
+   *
+   * ⭐ WHAT IS FREE, AND IS DONE HERE: a tier with exactly ONE occupant has no
+   * neighbour to collide with and contributes nothing to row packing — the
+   * board is already as wide as its widest row. So a lone card may grow up to
+   * that width at ZERO cost in board width, which is provable rather than
+   * hoped: the bound below is derived from the widest row, never chosen.
+   *
+   * On every shipped starter that is exactly the Question and the Goal — the
+   * two cards Paul named.
+   */
+  const tierOccupancy = new Map<number, number>()
+  for (const n of unlocked) {
+    const t = tierOf(n)
+    tierOccupancy.set(t, (tierOccupancy.get(t) ?? 0) + 1)
+  }
 
   const availableWidth = CANONICAL_LAYOUT_WIDTH
   const isDownLayout = direction === 'DOWN'
@@ -285,7 +317,33 @@ export async function layoutGraph(
       ?? measured?.height ?? node.height ?? defaultSize.height
     const height = Math.max(40, Math.round(rawHeight) + LAYOUT_PADDING_Y)
 
-    return { width: elkBoxW, height }
+    // The widest row the board must already accommodate. A lone card bounded by
+    // this cannot widen the board — there is nothing wider to become.
+    const widestRowW = maxTierCount * elkBoxW + Math.max(0, maxTierCount - 1) * gap
+    const isOnlyOccupant = (tierOccupancy.get(tierOf(node)) ?? 0) === 1
+    const width = isOnlyOccupant ? Math.max(elkBoxW, Math.min(widestRowW, elkBoxW * 2)) : elkBoxW
+    /**
+     * ⛔⛔ HALF A CHANGE, AND SAYING SO RATHER THAN LETTING IT READ AS DONE.
+     *
+     * This widens the box ELK PLACES the card in. It does NOT widen the card:
+     * `BaseNode` renders at `maxWidth ?? layoutNodeWidth ?? NODE_CARD_MAX_W`,
+     * and `layoutNodeWidth` is ONE GLOBAL for every card
+     * (`BaseNode.tsx:310`). Measured after this change, on the pricing-model
+     * starter at the fit zoom: decision 327, goal 336, option 336 — unchanged.
+     *
+     * ⇒ THE MISSING LINK: the per-node width computed here is never written
+     * back onto the node, so React Flow's `props.width` is undefined and the
+     * pass-through added to `DecisionNode`/`GoalNode` resolves to `undefined`.
+     * Closing it means changing what the layout RETURNS, which is the most
+     * fragile seam on this canvas (repaired twice) and needs its own pass with
+     * the overlap guards, not the tail of a long one.
+     *
+     * Left in place rather than reverted because the allocation is correct and
+     * guarded (83 layout tests green); it is simply not yet plugged in — which
+     * is this estate's chronic failure, so it is named here rather than
+     * discovered later.
+     */
+    return { width, height }
   }
 
   const ELK = (await import('elkjs/lib/elk.bundled.js')).default
