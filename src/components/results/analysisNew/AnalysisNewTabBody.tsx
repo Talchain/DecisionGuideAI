@@ -596,6 +596,8 @@ export function AnalysisNewTabBody({
    * control was disabled by the very condition that offered it.
    */
   const [methodOpen, setMethodOpen] = useState(false)
+
+
   const reanalyseBlocked = !canRunAnalysis && !isRunning
   /**
    * ⭐⭐ THE COMPOSED RUN AUTHORITY, RESOLVED ONCE AND READ TWICE — never two
@@ -895,6 +897,57 @@ export function AnalysisNewTabBody({
    */
   const biasFindings = useCanvasStore((state) => state.ceeAnalysisReady?.bias_findings)
   const biasGroundingItems = useMemo(() => buildBiasGrounding(biasFindings), [biasFindings])
+
+  /**
+   * ⛔⛔ A GROUP HEADING IS A CLAIM THAT THERE IS SOMETHING UNDER IT — the rule
+   * `AnalysisNewSection`, `WhatWeChecked` and `BiasGrounding` each enforce for
+   * themselves, and GROUPING THEM BROKE IT. Every child returns null when it has
+   * nothing to say; `Accordion` renders its header regardless. Pre-run, three
+   * named headings would have opened onto nothing at all.
+   *
+   * ⚠ DERIVED FROM THE CHILDREN, NEVER FROM `isPreRun`. Pre-run is only the
+   * loudest case: a completed run whose producer sent no bias findings and no
+   * key insights is the same emptiness and would have shipped the same bare
+   * heading. Binding to the actual contents means the gate cannot drift from
+   * what the children decide (CLAUDE.md trap 12).
+   */
+  /**
+   * ⭐ HOISTED SO THE GATE AND THE SECTION CANNOT DISAGREE. The first version of
+   * `coachingHasContent` asked `insights.length > 0` and suppressed the group on
+   * a completed run that produced none — hiding the section's HONEST EMPTY
+   * MESSAGE, which is content: "we looked and found none" is a different
+   * statement from silence, and this tab exists to keep them apart.
+   *
+   * ⚠ ONE EXPRESSION, TWO READERS — never two that happen to agree (trap 12).
+   * The gate is literally "would any child render", derived from the same values
+   * the children are handed.
+   */
+  const keyInsightsEmptyMessage =
+    vm.status.isPreRun || vm.keyInsights.candidateCount > 0 ? null : COPY.empty.keyInsights
+  const driversEmpty = driversEmptyMessage(vm)
+
+  const coachingHasContent =
+    biasGroundingItems.length > 0 ||
+    vm.keyInsights.insights.length > 0 ||
+    keyInsightsEmptyMessage !== null
+  const whatMovesHasContent =
+    vm.drivers.findings.length > 0 ||
+    vm.drivers.influenceRows.length > 0 ||
+    driversEmpty !== null ||
+    vm.uncertainty.decisionVoi !== 'not_computed' ||
+    vm.deeper.groups.length > 0
+  /**
+   * ⚠ `WhatIWasGiven` READS ITS OWN STORE AND RENDERS PRE-RUN BY DESIGN — it is
+   * about the brief, not the run — so this group is never empty in practice. The
+   * gate is still derived rather than hardcoded `true`, because "in practice" is
+   * how the other two would have been justified too.
+   */
+  const methodHasContent =
+    vm.checks.items.length > 0 ||
+    vm.uncertainty.findings.length > 0 ||
+    vm.deeper.critiques.length > 0 ||
+    vm.deeper.caveats.length > 0 ||
+    !vm.status.isPreRun
   /**
    * ⚠⚠ THE DOOR'S GATE IS THE CAPTURE MODAL'S OWN PREDICATE, DERIVED — NOT
    * RESTATED. `hasAnalysedOptions` is the function `DecisionRecordModal`
@@ -1699,123 +1752,125 @@ export function AnalysisNewTabBody({
             (`components/results/Accordion.tsx`) and this tab had never called
             it — the machinery for this existed before the tab did. Nothing new
             was built here. */}
-        <Accordion
-          icon={<ClipboardCheck className="w-4 h-4 text-text-light" />}
-          title={COPY.sections.howWorkedOut}
-          subtitle={COPY.sectionSubtitles.howWorkedOut}
-          isExpanded={methodOpen}
-          onExpandChange={setMethodOpen}
-          testId="analysis-new-how-worked-out"
-        >
+        {methodHasContent ? (
+          <Accordion
+            icon={<ClipboardCheck className="w-4 h-4 text-text-light" />}
+            title={COPY.sections.howWorkedOut}
+            subtitle={COPY.sectionSubtitles.howWorkedOut}
+            isExpanded={methodOpen}
+            onExpandChange={setMethodOpen}
+            testId="analysis-new-how-worked-out"
+          >
 
-        {/* ⭐ THE SEVENTH TRUST SECTION, JOINING ITS SIX SIBLINGS. "What you
-            gave me, and what I did with it" answers the same question as the
-            checks and the gaps — how far can I trust this? — and it was the last
-            one still standing at top level, between the act and the reader. */}
-        {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
-            ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
-            THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
-            you mentioned aren't in the model yet". A driven comparison of both
-            tabs on one completed run found it absent here (accordions opened,
-            positive control firing at 6151 chars), and this is the mount.
+          {/* ⭐ THE SEVENTH TRUST SECTION, JOINING ITS SIX SIBLINGS. "What you
+              gave me, and what I did with it" answers the same question as the
+              checks and the gaps — how far can I trust this? — and it was the last
+              one still standing at top level, between the act and the reader. */}
+          {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
+              ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
+              THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
+              you mentioned aren't in the model yet". A driven comparison of both
+              tabs on one completed run found it absent here (accordions opened,
+              positive control firing at 6151 chars), and this is the mount.
 
-            ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
-            enforces its own identity gate (it once rendered a PREVIOUS
-            decision's brief verbatim), so re-implementing it for this tab would
-            fork both the gate and the manifest vocabulary — the twin defect
-            this estate keeps paying for. One component, two mounts.
+              ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
+              enforces its own identity gate (it once rendered a PREVIOUS
+              decision's brief verbatim), so re-implementing it for this tab would
+              fork both the gate and the manifest vocabulary — the twin defect
+              this estate keeps paying for. One component, two mounts.
 
-            ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
-            a WORKLIST — every row is something to validate or add, and its
-            "Add this" starts the conversation to include a figure. That makes
-            it kin to the coaching below it, not to the census above it. Putting
-            it under the strip would have pushed the answer below the fold, and
-            the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
-            ABOUT IT → THE DETAIL. */}
-        {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
-            the PARKED Analysis tab mounts the same component and keeps its
-            existing rendering — see the prop's declaration for why the default
-            may not move. */}
-        {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
-            "what I estimated". The register stated "The numbers behind these
-            are mine, not yours. If you have better ones, tell me and I'll use
-            them." over a list with no way to tell it — an invitation with no
-            means of accepting it. The control is the proven factor-value edit
-            (`useFactorValueCommit`), bound to each row by the `node_id` CEE
-            itself supplies. It is opt-in so the PARKED Analysis tab does not
-            acquire a writer — see the prop's declaration. */}
-        <WhatIWasGivenSection
-          ref={whatIWasGivenRef}
-          onSendMessage={onSendMessage}
-          useSurfaceGrammar={true}
-          /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
-             `true`. Two literals for one opt-in would let the refusal's act
-             believe this register offers an edit on a build where it does not
-             (CLAUDE.md trap 12). */
-          offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
-        />
-        {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
-            #1082 landed this component, its adapter and 54 tests but left it
-            UNMOUNTED, because this file belongs to another lane. This is the
-            mount — the delta that PR verified in a throwaway worktree, at the
-            anchor it named: directly under the answer it qualifies, before
-            `OptionsComparison`.
+              ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
+              a WORKLIST — every row is something to validate or add, and its
+              "Add this" starts the conversation to include a figure. That makes
+              it kin to the coaching below it, not to the census above it. Putting
+              it under the strip would have pushed the answer below the fold, and
+              the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
+              ABOUT IT → THE DETAIL. */}
+          {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
+              the PARKED Analysis tab mounts the same component and keeps its
+              existing rendering — see the prop's declaration for why the default
+              may not move. */}
+          {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
+              "what I estimated". The register stated "The numbers behind these
+              are mine, not yours. If you have better ones, tell me and I'll use
+              them." over a list with no way to tell it — an invitation with no
+              means of accepting it. The control is the proven factor-value edit
+              (`useFactorValueCommit`), bound to each row by the `node_id` CEE
+              itself supplies. It is opt-in so the PARKED Analysis tab does not
+              acquire a writer — see the prop's declaration. */}
+          <WhatIWasGivenSection
+            ref={whatIWasGivenRef}
+            onSendMessage={onSendMessage}
+            useSurfaceGrammar={true}
+            /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
+               `true`. Two literals for one opt-in would let the refusal's act
+               believe this register offers an edit on a build where it does not
+               (CLAUDE.md trap 12). */
+            offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
+          />
+          {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
+              #1082 landed this component, its adapter and 54 tests but left it
+              UNMOUNTED, because this file belongs to another lane. This is the
+              mount — the delta that PR verified in a throwaway worktree, at the
+              anchor it named: directly under the answer it qualifies, before
+              `OptionsComparison`.
 
-            It answers a DIFFERENT question from the glance — what the run
-            CHECKED, not what it FOUND — so the two are named apart rather than
-            reconciled (trap 21). It is the only surface on this tab that
-            speaks for a check that was NOT made, where silence otherwise reads
-            as "fine": a reader could not tell "we looked and found nothing"
-            from "we did not look", and only one of those is reassurance.
+              It answers a DIFFERENT question from the glance — what the run
+              CHECKED, not what it FOUND — so the two are named apart rather than
+              reconciled (trap 21). It is the only surface on this tab that
+              speaks for a check that was NOT made, where silence otherwise reads
+              as "fine": a reader could not tell "we looked and found nothing"
+              from "we did not look", and only one of those is reassurance.
 
-            Costs one wrapped line at rest and renders NOTHING pre-run
-            (`vm.checks` is `{ items: [] }`, which the component returns null
-            for) — so a heading never appears without something under it. */}
-        <WhatWeChecked checks={vm.checks} />
+              Costs one wrapped line at rest and renders NOTHING pre-run
+              (`vm.checks` is `{ items: [] }`, which the component returns null
+              for) — so a heading never appears without something under it. */}
+          <WhatWeChecked checks={vm.checks} />
 
-        {/* ⭐⭐ §4 — ONE PLACE FOR WHAT THE RUN COULD NOT SETTLE.
-            Measured on a reconstruction of the run Paul screenshotted: EIGHT
-            "could not establish" statements, and only two of them anything
-            like duplicates. They are NOT redundant — which is why this is a
-            re-composition and not a cull. What made them a drain is that one
-            category of information lived in SIX places: both warning strips,
-            the glance ribbon, this readout, the section below, and the value-
-            of-information line eleven sections further down.
+          {/* ⭐⭐ §4 — ONE PLACE FOR WHAT THE RUN COULD NOT SETTLE.
+              Measured on a reconstruction of the run Paul screenshotted: EIGHT
+              "could not establish" statements, and only two of them anything
+              like duplicates. They are NOT redundant — which is why this is a
+              re-composition and not a cull. What made them a drain is that one
+              category of information lived in SIX places: both warning strips,
+              the glance ribbon, this readout, the section below, and the value-
+              of-information line eleven sections further down.
 
-            ⚠ THE TOP STRIPS DO NOT MOVE. `mounts the warning strip ABOVE the
-            glance, not below the sections` pins them there and it is right:
-            an engine critique qualifies the whole run, so a reader must meet
-            it before the reading it qualifies. This joins the two that were
-            merely far apart, and leaves the ruled positions alone.
+              ⚠ THE TOP STRIPS DO NOT MOVE. `mounts the warning strip ABOVE the
+              glance, not below the sections` pins them there and it is right:
+              an engine critique qualifies the whole run, so a reader must meet
+              it before the reading it qualifies. This joins the two that were
+              merely far apart, and leaves the ruled positions alone.
 
-            ⚠ ORDER CONSTRAINTS CHECKED, NOT ASSUMED: Strengthen still
-            precedes both (`keeps the coaching above every detail section`),
-            and `analysis-new-sensitivity` still precedes uncertainty. */}
-        {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
-        <AnalysisNewSection
-          title={COPY.sections.uncertainty}
-          subtitle={COPY.sectionSubtitles.uncertainty}
-          findings={vm.uncertainty.findings}
-          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
-          // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
-          // "Nothing was flagged" is licensed ONLY when the producer actually
-          // assessed evidence on this run; otherwise the honest sentence is
-          // that it was not assessed. An empty list cannot tell them apart —
-          // `evidenceGapsAssessed` can.
-          emptyMessage={
-            vm.status.isPreRun
-              ? null
-              : vm.uncertainty.evidenceAssessed
-                ? COPY.empty.uncertaintyAssessed
-                : COPY.empty.uncertaintyUnassessed
-          }
-          onFocusTarget={focusTarget}
-          onReviewTarget={onReviewTarget}
-          onRunIntervention={runIntervention}
-          icon={AlertTriangle}
-          testId="analysis-new-uncertainty"
-        />
-        </Accordion>
+              ⚠ ORDER CONSTRAINTS CHECKED, NOT ASSUMED: Strengthen still
+              precedes both (`keeps the coaching above every detail section`),
+              and `analysis-new-sensitivity` still precedes uncertainty. */}
+          {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
+          <AnalysisNewSection
+            title={COPY.sections.uncertainty}
+            subtitle={COPY.sectionSubtitles.uncertainty}
+            findings={vm.uncertainty.findings}
+            preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
+            // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
+            // "Nothing was flagged" is licensed ONLY when the producer actually
+            // assessed evidence on this run; otherwise the honest sentence is
+            // that it was not assessed. An empty list cannot tell them apart —
+            // `evidenceGapsAssessed` can.
+            emptyMessage={
+              vm.status.isPreRun
+                ? null
+                : vm.uncertainty.evidenceAssessed
+                  ? COPY.empty.uncertaintyAssessed
+                  : COPY.empty.uncertaintyUnassessed
+            }
+            onFocusTarget={focusTarget}
+            onReviewTarget={onReviewTarget}
+            onRunIntervention={runIntervention}
+            icon={AlertTriangle}
+            testId="analysis-new-uncertainty"
+          />
+          </Accordion>
+        ) : null}
 
         {/* ── COACHING AND METHOD ───────────────────────────────────────────
             ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
@@ -1828,97 +1883,97 @@ export function AnalysisNewTabBody({
             ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
             the panel under a heading that says what is inside; before, it was
             twelve blocks down under a heading that did not. */}
-        <Accordion
-          icon={<GraduationCap className="w-4 h-4 text-text-light" />}
-          title={COPY.sections.coachingAndMethod}
-          subtitle={COPY.sectionSubtitles.coachingAndMethod}
-          defaultExpanded={false}
-          testId="analysis-new-coaching-and-method"
-        >
-        {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
-            ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
-            NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
-            `mechanism`, a `citation` and a costed `micro_intervention`; derived
-            at `08a3724d` with contrast controls, `mechanism` had zero product
-            renderers, `citation` had zero readers of any kind, and
-            `estimated_minutes` had none either. The transport drops nothing:
-            `client.ts:302` assigns `analysis_ready` wholesale with no zod and
-            no key allowlist, `bias_findings` is absent from the pinned contract
-            entirely, and `store.ts:6095` stores the object as it arrived.
+        {coachingHasContent ? (
+          <Accordion
+            icon={<GraduationCap className="w-4 h-4 text-text-light" />}
+            title={COPY.sections.coachingAndMethod}
+            subtitle={COPY.sectionSubtitles.coachingAndMethod}
+            defaultExpanded={false}
+            testId="analysis-new-coaching-and-method"
+          >
+          {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
+              ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
+              NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
+              `mechanism`, a `citation` and a costed `micro_intervention`; derived
+              at `08a3724d` with contrast controls, `mechanism` had zero product
+              renderers, `citation` had zero readers of any kind, and
+              `estimated_minutes` had none either. The transport drops nothing:
+              `client.ts:302` assigns `analysis_ready` wholesale with no zod and
+              no key allowlist, `bias_findings` is absent from the pinned contract
+              entirely, and `store.ts:6095` stores the object as it arrived.
 
-            ⚠ IT SITS DIRECTLY UNDER "WHAT WE CHECKED" BECAUSE IT ANSWERS THE
-            NEXT QUESTION. That section says what the run looked at; this says
-            what the looking rests on, and the pairing is the reason a reader
-            can check the science instead of trusting it.
+              ⚠ IT SITS DIRECTLY UNDER "WHAT WE CHECKED" BECAUSE IT ANSWERS THE
+              NEXT QUESTION. That section says what the run looked at; this says
+              what the looking rests on, and the pairing is the reason a reader
+              can check the science instead of trusting it.
 
-            ⛔ IT NEVER NAMES A BIAS. The producer's `code` is read for nothing:
-            the mechanism, the technique and the paper are the product, and a
-            classification handed back to the reader is a diagnosis of them
-            (#1438's register, which this matches).
+              ⛔ IT NEVER NAMES A BIAS. The producer's `code` is read for nothing:
+              the mechanism, the technique and the paper are the product, and a
+              classification handed back to the reader is a diagnosis of them
+              (#1438's register, which this matches).
 
-            Renders NOTHING when the producer sent no grounding — pre-run,
-            on a run with no findings, and on findings that carried none of the
-            three fields. Absence produces silence, never a placeholder. */}
-        <BiasGrounding items={biasGroundingItems} />
+              Renders NOTHING when the producer sent no grounding — pre-run,
+              on a run with no findings, and on findings that carried none of the
+              three fields. Absence produces silence, never a placeholder. */}
+          <BiasGrounding items={biasGroundingItems} />
 
-        {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
-            ⭐ THE GLANCE'S OWN MISSING HALF. On a real completed run with four
-            options this surface showed the leader and one percentage and
-            nothing at all about the other three; the reader could not tell a
-            runaway leader from a coin flip, and could not see that an option
-            they cared about took no part in the comparison.
-            ⚠ It previously sat directly under the glance; the coaching now
-            takes that slot (see above), and this sentence is corrected rather
-            than left describing a placement that no longer holds.
+          {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
+              ⭐ THE GLANCE'S OWN MISSING HALF. On a real completed run with four
+              options this surface showed the leader and one percentage and
+              nothing at all about the other three; the reader could not tell a
+              runaway leader from a coin flip, and could not see that an option
+              they cared about took no part in the comparison.
+              ⚠ It previously sat directly under the glance; the coaching now
+              takes that slot (see above), and this sentence is corrected rather
+              than left describing a placement that no longer holds.
 
-            It costs ONE collapsed row at rest — the same idiom as every
-            section below it — so closing the largest content gap on the
-            surface does not spend the first viewport. */}
-        {/* ── WHAT YOUR MODEL IMPLIES ─────────────────────────────────────
-            ⭐ MOUNTED 5 Sep 2026. This block was written, typed, gated, built
-            onto the view model and covered by two spec files — and had ZERO
-            production importers, which the estate had already noticed and
-            written down (`heroWithholdsOnTheSameCells.spec.ts:30`). So the
-            design pack's centrepiece, and every sentence in
-            `analysisNewCopy.ts:108-178`, reached no screen: the panel showed
-            the option ROWS and never the sentence saying what they mean.
+              It costs ONE collapsed row at rest — the same idiom as every
+              section below it — so closing the largest content gap on the
+              surface does not spend the first viewport. */}
+          {/* ── WHAT YOUR MODEL IMPLIES ─────────────────────────────────────
+              ⭐ MOUNTED 5 Sep 2026. This block was written, typed, gated, built
+              onto the view model and covered by two spec files — and had ZERO
+              production importers, which the estate had already noticed and
+              written down (`heroWithholdsOnTheSameCells.spec.ts:30`). So the
+              design pack's centrepiece, and every sentence in
+              `analysisNewCopy.ts:108-178`, reached no screen: the panel showed
+              the option ROWS and never the sentence saying what they mean.
 
-            It leads the rows rather than following them, because when the two
-            readings DISAGREE that is the most decision-relevant thing the run
-            produced — the component's own header argues it at length, and the
-            prototype draws it the same way.
+              It leads the rows rather than following them, because when the two
+              readings DISAGREE that is the most decision-relevant thing the run
+              produced — the component's own header argues it at length, and the
+              prototype draws it the same way.
 
-            ⚠ IT ADDS NO CLAIM. Every sentence arrives pre-composed and already
-            gated: `{kind:'none'}` for pre-run, for a single option, and on any
-            run whose verdict withholds the leader claim — in which case this
-            renders nothing at all. Mounting a component is exactly the change
-            that could put a withheld claim on screen, so that is pinned. */}
-        {/* Moved up beside the glance — see `answerBlock` above. */}
+              ⚠ IT ADDS NO CLAIM. Every sentence arrives pre-composed and already
+              gated: `{kind:'none'}` for pre-run, for a single option, and on any
+              run whose verdict withholds the leader claim — in which case this
+              renders nothing at all. Mounting a component is exactly the change
+              that could put a withheld claim on screen, so that is pinned. */}
+          {/* Moved up beside the glance — see `answerBlock` above. */}
 
 
 
-        {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
-        <AnalysisNewSection
-          title={COPY.sections.keyInsights}
-          findings={vm.keyInsights.insights}
-          preview={ANALYSIS_NEW_LIMITS.KEY_INSIGHT_PREVIEW}
-          // ⚠ "No insight is grounded well enough to lead with yet" is FALSE
-          // when the run DID produce insights and the glance is simply stating
-          // them — witnessed on a real run, where the glance carried all three
-          // and this line then contradicted the surface directly above it. An
-          // empty list with a non-zero candidate count means "shown above", so
-          // the section renders nothing at all rather than a claim that is not
-          // true. The honest empty state survives for a run that genuinely
-          // produced none.
-          emptyMessage={
-            vm.status.isPreRun || vm.keyInsights.candidateCount > 0 ? null : COPY.empty.keyInsights
-          }
-          onFocusTarget={focusTarget}
-          onRunIntervention={runIntervention}
-          icon={Star}
-          testId="analysis-new-key-insights"
-        />
-        </Accordion>
+          {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
+          <AnalysisNewSection
+            title={COPY.sections.keyInsights}
+            findings={vm.keyInsights.insights}
+            preview={ANALYSIS_NEW_LIMITS.KEY_INSIGHT_PREVIEW}
+            // ⚠ "No insight is grounded well enough to lead with yet" is FALSE
+            // when the run DID produce insights and the glance is simply stating
+            // them — witnessed on a real run, where the glance carried all three
+            // and this line then contradicted the surface directly above it. An
+            // empty list with a non-zero candidate count means "shown above", so
+            // the section renders nothing at all rather than a claim that is not
+            // true. The honest empty state survives for a run that genuinely
+            // produced none.
+            emptyMessage={keyInsightsEmptyMessage}
+            onFocusTarget={focusTarget}
+            onRunIntervention={runIntervention}
+            icon={Star}
+            testId="analysis-new-key-insights"
+          />
+          </Accordion>
+        ) : null}
 
         {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
             The last group: what the answer turns on, what is worth resolving
@@ -1926,123 +1981,125 @@ export function AnalysisNewTabBody({
             reader goes looking for — none of them is something the panel needs
             to say unprompted, and stacked open they were most of the length
             Paul was scrolling through. */}
-        <Accordion
-          icon={<Activity className="w-4 h-4 text-text-light" />}
-          title={COPY.sections.whatMovesTheOutcome}
-          subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
-          defaultExpanded={false}
-          testId="analysis-new-what-moves-the-outcome"
-        >
-        {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
-        <AnalysisNewSection
-          title={COPY.sections.drivers}
-          subtitle={COPY.sectionSubtitles.drivers}
-          findings={vm.drivers.findings}
-          preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
-          // ⚠ The caveat is a function of the PRODUCER's provenance token, not
-          // of taste: a set-relative influence is "largest in this set", never
-          // a causal share of the outcome.
-          caveat={driversCaveat(vm)}
-          // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
-          // A LIVE FALSEHOOD. A run whose factors all came back with a producer
-          // `zero_reason` DID return influence and measured it at zero, and was
-          // told the run returned nothing — in the same words as a run that
-          // genuinely returned nothing. The two were indistinguishable.
-          //
-          // ⚠ THE ORDER IS LOAD-BEARING AND `driversStatus` IS NOT THE FIRST
-          // TEST. `useResultsSectionData.ts:3235` defaults `drivers_status` to
-          // 'computed' when absent on the V5 path, so 'computed' does NOT imply
-          // rows were returned; keying the zero claim on it would manufacture
-          // the MIRROR falsehood on a rows-empty run. `suppressedZeroCount` is
-          // the sufficient one — it is non-zero only because the producer sent a
-          // row it had scored at zero.
-          emptyMessage={driversEmptyMessage(vm)}
-          onFocusTarget={focusTarget}
-          onRunIntervention={runIntervention}
-          icon={TrendingUp}
-          testId="analysis-new-drivers"
-          /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
-             WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
-             The consolidation that took this panel from fourteen elements to
-             six is the reason: a chart and the prose about the same drivers are
-             one subject, and splitting them would re-open the restatement the
-             consolidation closed. */
-          header={
-            <DriverInfluenceChart
-              rows={vm.drivers.influenceRows}
-              onFocusTarget={focusTarget}
-              /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
-                 reports which of them happened and this surface owns the
-                 words — the same vocabulary the model strip's editor uses,
-                 because it is the same write through the same authority. */
-              onCommitOutcome={(outcome) =>
-                showToast(
-                  outcome === 'dispatched'
-                    ? COPY.modelStrip.valueDispatched
-                    : outcome === 'local_only'
-                      ? COPY.modelStrip.valueLocalOnly
-                      : COPY.modelStrip.valueNotEncodable,
-                )
-              }
-              testId="analysis-new-driver-chart"
-            />
-          }
-        />
-
-
-        {/* Whole-decision value of information — a VERDICT, never the number.
-            'not_computed' renders nothing: it is a distinct state from a
-            measured zero and must not be collapsed into one.
-
-            ⭐⭐ THE LABEL IS THE FIX, AND IT IS A TOPIC RATHER THAN A CLAIM.
-            This shipped as a bare `<p>` at the body's TOP LEVEL, between two
-            accordions, with no heading — so the sentence's subject was never
-            named. "This run did not come back at zero" leaves a reader asking
-            *what* did not come back at zero, and the answer was nowhere on
-            screen. Witnessed on staging `e685dafa`.
-
-            ⚠ THE SENTENCE ITSELF IS UNCHANGED, DELIBERATELY. It answers to
-            `UNLICENSED_SIGNIFICANCE_CLAIMS` — `decision_evpi` arrives with no
-            noise floor, no CI and no `n_samples`, so a small positive is not
-            distinguishable from estimator noise and NOTHING here may say the
-            value MEANS anything. The label names the measure, which is the
-            owner's own vocabulary (`RESOLVE_NEXT_COPY.note` — "value of
-            information"), and it is checked against the same imported ceiling
-            by `analysisNewCopyCeiling.spec.ts`.
-
-            ⚠ AND IT TAKES `WhatWeChecked`'S SHELL RATHER THAN A NEW ONE. A
-            third micro-section shape on a panel already criticised for
-            inconsistency would be the defect, not the fix. */}
-        {vm.uncertainty.decisionVoi !== 'not_computed' ? (
-          <section
-            className="border-t border-panel-border pt-3"
-            data-testid="analysis-new-decision-voi-section"
-            aria-labelledby="analysis-new-decision-voi-heading"
+        {whatMovesHasContent ? (
+          <Accordion
+            icon={<Activity className="w-4 h-4 text-text-light" />}
+            title={COPY.sections.whatMovesTheOutcome}
+            subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
+            defaultExpanded={false}
+            testId="analysis-new-what-moves-the-outcome"
           >
-            <h3
-              id="analysis-new-decision-voi-heading"
-              // `panelHeader` — a section title, for the same reason as
-              // `WhatWeChecked`. These two were the only section headings on
-              // this tab not rendering at 14px/600.
-              className={`${typography.panelHeader} text-text-header mb-1`}
-              data-testid="analysis-new-decision-voi-heading"
-            >
-              {COPY.decisionVoi.label}
-            </h3>
-            <p
-              className={`${typography.panelMeta} text-text-light m-0`}
-              data-testid="analysis-new-decision-voi"
-            >
-              {vm.uncertainty.decisionVoi === 'measured_non_zero'
-                ? COPY.decisionVoi.measuredNonZero
-                : COPY.decisionVoi.measuredZero}
-            </p>
-          </section>
-        ) : null}
+          {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
+          <AnalysisNewSection
+            title={COPY.sections.drivers}
+            subtitle={COPY.sectionSubtitles.drivers}
+            findings={vm.drivers.findings}
+            preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
+            // ⚠ The caveat is a function of the PRODUCER's provenance token, not
+            // of taste: a set-relative influence is "largest in this set", never
+            // a causal share of the outcome.
+            caveat={driversCaveat(vm)}
+            // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
+            // A LIVE FALSEHOOD. A run whose factors all came back with a producer
+            // `zero_reason` DID return influence and measured it at zero, and was
+            // told the run returned nothing — in the same words as a run that
+            // genuinely returned nothing. The two were indistinguishable.
+            //
+            // ⚠ THE ORDER IS LOAD-BEARING AND `driversStatus` IS NOT THE FIRST
+            // TEST. `useResultsSectionData.ts:3235` defaults `drivers_status` to
+            // 'computed' when absent on the V5 path, so 'computed' does NOT imply
+            // rows were returned; keying the zero claim on it would manufacture
+            // the MIRROR falsehood on a rows-empty run. `suppressedZeroCount` is
+            // the sufficient one — it is non-zero only because the producer sent a
+            // row it had scored at zero.
+            emptyMessage={driversEmpty}
+            onFocusTarget={focusTarget}
+            onRunIntervention={runIntervention}
+            icon={TrendingUp}
+            testId="analysis-new-drivers"
+            /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
+               WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
+               The consolidation that took this panel from fourteen elements to
+               six is the reason: a chart and the prose about the same drivers are
+               one subject, and splitting them would re-open the restatement the
+               consolidation closed. */
+            header={
+              <DriverInfluenceChart
+                rows={vm.drivers.influenceRows}
+                onFocusTarget={focusTarget}
+                /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
+                   reports which of them happened and this surface owns the
+                   words — the same vocabulary the model strip's editor uses,
+                   because it is the same write through the same authority. */
+                onCommitOutcome={(outcome) =>
+                  showToast(
+                    outcome === 'dispatched'
+                      ? COPY.modelStrip.valueDispatched
+                      : outcome === 'local_only'
+                        ? COPY.modelStrip.valueLocalOnly
+                        : COPY.modelStrip.valueNotEncodable,
+                  )
+                }
+                testId="analysis-new-driver-chart"
+              />
+            }
+          />
 
-        {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
-        <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
-        </Accordion>
+
+          {/* Whole-decision value of information — a VERDICT, never the number.
+              'not_computed' renders nothing: it is a distinct state from a
+              measured zero and must not be collapsed into one.
+
+              ⭐⭐ THE LABEL IS THE FIX, AND IT IS A TOPIC RATHER THAN A CLAIM.
+              This shipped as a bare `<p>` at the body's TOP LEVEL, between two
+              accordions, with no heading — so the sentence's subject was never
+              named. "This run did not come back at zero" leaves a reader asking
+              *what* did not come back at zero, and the answer was nowhere on
+              screen. Witnessed on staging `e685dafa`.
+
+              ⚠ THE SENTENCE ITSELF IS UNCHANGED, DELIBERATELY. It answers to
+              `UNLICENSED_SIGNIFICANCE_CLAIMS` — `decision_evpi` arrives with no
+              noise floor, no CI and no `n_samples`, so a small positive is not
+              distinguishable from estimator noise and NOTHING here may say the
+              value MEANS anything. The label names the measure, which is the
+              owner's own vocabulary (`RESOLVE_NEXT_COPY.note` — "value of
+              information"), and it is checked against the same imported ceiling
+              by `analysisNewCopyCeiling.spec.ts`.
+
+              ⚠ AND IT TAKES `WhatWeChecked`'S SHELL RATHER THAN A NEW ONE. A
+              third micro-section shape on a panel already criticised for
+              inconsistency would be the defect, not the fix. */}
+          {vm.uncertainty.decisionVoi !== 'not_computed' ? (
+            <section
+              className="border-t border-panel-border pt-3"
+              data-testid="analysis-new-decision-voi-section"
+              aria-labelledby="analysis-new-decision-voi-heading"
+            >
+              <h3
+                id="analysis-new-decision-voi-heading"
+                // `panelHeader` — a section title, for the same reason as
+                // `WhatWeChecked`. These two were the only section headings on
+                // this tab not rendering at 14px/600.
+                className={`${typography.panelHeader} text-text-header mb-1`}
+                data-testid="analysis-new-decision-voi-heading"
+              >
+                {COPY.decisionVoi.label}
+              </h3>
+              <p
+                className={`${typography.panelMeta} text-text-light m-0`}
+                data-testid="analysis-new-decision-voi"
+              >
+                {vm.uncertainty.decisionVoi === 'measured_non_zero'
+                  ? COPY.decisionVoi.measuredNonZero
+                  : COPY.decisionVoi.measuredZero}
+              </p>
+            </section>
+          ) : null}
+
+          {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
+          <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
+          </Accordion>
+        ) : null}
       </div>
     </div>
   )
