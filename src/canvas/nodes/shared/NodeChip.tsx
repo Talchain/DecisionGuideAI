@@ -194,7 +194,30 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
       // ⚠ CSS px at zoom 1. Under ReactFlow's viewport transform this scales with
       // the canvas like everything else; the guideline is defined at zoom 1 and
       // that is what this satisfies.
-      className={`${typography.edgeLabel} font-medium inline-flex items-center px-2 py-0.5 rounded-md border border-info/30 text-text-body bg-panel cursor-pointer hover:bg-info/5 transition-colors nodrag nopan relative before:absolute before:content-[''] before:-inset-y-[3px] before:left-0 before:right-0`}
+      //
+      // ⭐⭐ THE CHROME RECEDES AT REST; THE TEXT DOES NOT.
+      //
+      // Measured on the fresh draft: **14 of 20 cards carry one of these**, and
+      // that is the DESIGN — the comment on `FactorNode`'s cardQuestion says it
+      // outright: *"this is the one that must be reachable without hovering."*
+      // Each chip was right on its own card. The aggregate was not: twenty
+      // bordered boxes, identical in weight, competing with the content they
+      // sit under. Paul, 15 Sep: *"it looks an absolute mess."*
+      //
+      // So nothing is removed and nothing moves. The BORDER and the FILL are
+      // dropped at rest and returned when the card has the reader's attention —
+      // `group-hover` and `group-focus-within` off the card root's existing
+      // `group` (`BaseNode.tsx:838`), plus the chip's own hover.
+      //
+      // ⚠ CONTRAST IS DELIBERATELY UNTOUCHED. `text-text-body` stays at rest,
+      // so the sentence is exactly as legible as before and no WCAG 1.4.3
+      // question is reopened — the quietening is chrome only. Dimming the TEXT
+      // would have been the obvious move and would have traded a design
+      // complaint for an accessibility one.
+      //
+      // ⚠ The 24px target below is unaffected: `before:` sizing and `py-0.5`
+      // are unchanged, so the painted size and the hit area both stand.
+      className={`${typography.edgeLabel} font-medium inline-flex items-center px-2 py-0.5 rounded-md border border-transparent bg-transparent text-text-body group-hover:border-info/30 group-hover:bg-panel group-focus-within:border-info/30 group-focus-within:bg-panel cursor-pointer hover:bg-info/5 transition-colors nodrag nopan relative before:absolute before:content-[''] before:-inset-y-[3px] before:left-0 before:right-0`}
       onClick={handleClick}
       onPointerDown={(e) => e.stopPropagation()}
       // `title` and not a styled tooltip, deliberately: this is the SAME
