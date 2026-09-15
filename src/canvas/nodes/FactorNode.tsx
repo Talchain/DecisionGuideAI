@@ -396,43 +396,93 @@ export const FactorNode = memo((props: NodeProps) => {
   // read ZERO in the resting state because a closed `NodePopover` returns null.
   // A rule two nodes obey and four break is the hand-maintained mirror (trap
   // 12), and the mirror is what does the damage, not the rule.
-  const factorChips = useMemo(() => {
-    if (isPostAnalysis) return null
-    const chips: React.ReactNode[] = []
+  /**
+   * ⭐⭐⭐ ONE QUESTION ON THE FACE OF THE FACTOR CARD — the kind that was left
+   * behind when every other kind got one.
+   *
+   * `DecisionNode` broke the "AI chips live in popovers" rule on purpose and
+   * said why: **THE INVITATIONS BELONG ON THE CARD, NOT BEHIND A HOVER**. A
+   * later change put one question on the face of the Risk, Outcome, Action and
+   * Goal cards for the same reason, measured on deployed `9748b336`, where
+   * every coaching chip on the canvas read ZERO in the resting state because a
+   * closed `NodePopover` returns null. FACTOR was the one kind not done, and
+   * its chips have been in that zero state ever since — reachable only by
+   * hovering, which has no touch equivalent.
+   *
+   * ⛔ AND IT WAS DELETED AFTER A RUN (`factorChips` returns null when
+   * `isPostAnalysis`), which is exactly backwards. The moment the model tells
+   * you a factor drives the result is the moment "what evidence supports this?"
+   * is worth asking. Risk and Outcome render theirs in BOTH phases; this now
+   * matches them.
+   *
+   * ⚠ THE CONDITIONS ARE PRODUCER FIELDS COMPARED BY IDENTITY — `needsInput`,
+   * `category === 'external'`, `extractionType === 'inferred'`. No threshold is
+   * chosen and no number is interpreted: the card asks a different question
+   * depending on WHAT KIND OF THING the producer says this value is, which is
+   * the permitted form.
+   *
+   * A factor with an observed, owned value gets no question, deliberately —
+   * there is no assumption to interrogate, and a chip on every card is wallpaper.
+   */
+  const cardQuestion = useMemo(() => {
     if (needsInput) {
-      chips.push(
-        <NodeChip
-          key="estimate"
-          chipId="factor_help_estimate"
-          actionType={null}
-          label="Help me estimate this"
-          message={`Help me estimate a reasonable value for ${cleanedLabel}`}
-        />
-      )
-    } else if (nodeCategory === 'external') {
-      chips.push(
-        <NodeChip
-          key="external-change"
-          chipId="factor_what_if_changes"
-          actionType={null}
-          label="What if this changes?"
-          message={`What if ${cleanedLabel} changes? How should I plan for that?`}
-        />
-      )
-    } else if (isInferred) {
-      chips.push(
-        <NodeChip
-          key="evidence"
-          chipId="factor_evidence_supports"
-          actionType={null}
-          label="What evidence supports this?"
-          message={`What evidence supports my assumption about ${cleanedLabel}?`}
-        />
-      )
+      return {
+        id: 'factor_help_estimate',
+        label: 'Help me estimate this',
+        message: `Help me estimate a reasonable value for ${cleanedLabel}`,
+      }
     }
-    if (chips.length === 0) return null
-    return <div className="flex gap-1 flex-wrap mt-1.5">{chips}</div>
-  }, [isPostAnalysis, needsInput, nodeCategory, isInferred, cleanedLabel])
+    if (nodeCategory === 'external') {
+      return {
+        id: 'factor_what_if_changes',
+        label: 'What if this changes?',
+        message: `What if ${cleanedLabel} changes? How should I plan for that?`,
+      }
+    }
+    if (isInferred) {
+      return {
+        id: 'factor_evidence_supports',
+        // ⚠ THE LABEL IS SHORTER THAN THE QUESTION IT ASKS, DELIBERATELY.
+        // "What evidence supports this?" measured 156px inside a 168px card —
+        // the longest chip label on the canvas by four characters, where the
+        // house range is 21-24 ("What would falsify this?", "What would we see
+        // first?", "What if this changes?"). The chip is the affordance; the
+        // MESSAGE is the ask, and it is unchanged, so Olumi receives the same
+        // question it always did.
+        label: 'What’s the evidence?',
+        message: `What evidence supports my assumption about ${cleanedLabel}?`,
+      }
+    }
+    return null
+  }, [needsInput, nodeCategory, isInferred, cleanedLabel])
+
+  /**
+   * ⭐ THE POPOVER CLUSTER IS THE SAME ONE CHIP — so it reads `cardQuestion`
+   * rather than rebuilding it.
+   *
+   * `factorChips` was an if / else-if / else-if that could only ever push ONE
+   * chip, with the same three conditions and the same copy as `cardQuestion`
+   * above. Two hand-maintained copies of one question is the mirror this estate
+   * keeps paying for (trap 12): a later edit to the wording would have moved the
+   * card and left the popover saying something else about the same factor.
+   *
+   * ⚠ IT KEEPS ITS PRE-ANALYSIS GATE. Post-analysis the card carries the
+   * question and the popover is dense with ConnRows and bars, so repeating it
+   * there would be the duplicate messaging Graph v1.1 Task 3 removed.
+   */
+  const factorChips = useMemo(() => {
+    if (isPostAnalysis || !cardQuestion) return null
+    return (
+      <div className="flex gap-1 flex-wrap mt-1.5">
+        <NodeChip
+          chipId={cardQuestion.id}
+          actionType={null}
+          label={cardQuestion.label}
+          message={cardQuestion.message}
+        />
+      </div>
+    )
+  }, [isPostAnalysis, cardQuestion])
 
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
 
@@ -926,6 +976,21 @@ export const FactorNode = memo((props: NodeProps) => {
             confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
             confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
           />
+        )}
+
+        {/* ⭐ The one question, on the face of the card, in BOTH phases — the
+            same treatment Risk, Outcome, Action and Goal already get. The
+            fuller pre-analysis cluster stays in the popover; this is the one
+            that must be reachable without hovering. */}
+        {cardQuestion && (
+          <div className="flex gap-1 flex-wrap mt-1.5" data-testid="factor-card-question">
+            <NodeChip
+              chipId={cardQuestion.id}
+              actionType={null}
+              label={cardQuestion.label}
+              message={cardQuestion.message}
+            />
+          </div>
         )}
 
         {/* ===== LAYER 2: Detailed inline ===== */}
