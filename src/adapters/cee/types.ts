@@ -312,6 +312,36 @@ export interface CEEGoalConstraint {
   unit?: string
   /** Verbatim span from the brief that produced this constraint. */
   source_quote?: string
+  /**
+   * ⭐⭐ THE AUDIT TRAIL FOR CEE'S PERCENT→FRACTION REWRITE — the field that
+   * makes this layer thin instead of guessing.
+   *
+   * Declared in `@talchain/schemas@0.55.0` (`boundary/blocks.d.ts`) with exactly
+   * this purpose: *"Audit trail for the percent->fraction rewrite. Declared
+   * (rather than left to passthrough) so the value is typed for consumers and
+   * cannot be silently dropped by a future stricter pin."*
+   *
+   * ⛔ WHY IT MATTERS HERE. A percent constraint's `value` may be a RATIO or
+   * PERCENTAGE POINTS and nothing else on the wire discriminates: the shipped
+   * `pricing-model` starter sends `value: 1.1, unit: '%'` for a brief that says
+   * *"net revenue retention above 110%"*, while another sends `value: 4` meaning
+   * four percent. The goal escapes it only because the producer sends a
+   * `goal_threshold_raw` twin; a constraint has none. So without this field the
+   * UI must either guess a scale — which it must not do — or fall back to
+   * quoting the brief.
+   *
+   * ⚠ IT WAS UNDECLARED HERE, so it could not be read even if sent. Swept at
+   * 0.55.0: zero occurrences anywhere in this repo, against a contrast control
+   * of 28 files for `source_quote`. Requested from CEE 15 Sep 2026.
+   */
+  provenance_unit_normalised?: {
+    /** CEE's own name for the rewrite it applied. */
+    rule: string
+    /** The figure as the reader stated it — 110, not 1.1. */
+    original_value: number
+    /** The unit that figure was stated in. */
+    original_unit: string
+  }
   /** Extraction confidence (0-1). Regex path: 0.85 explicit / 0.6 inferred. */
   confidence?: number
   /** How the constraint was obtained — drives UI provenance display. */
