@@ -1545,8 +1545,24 @@ describe('FactorNode — intervention hover', () => {
   // Polish 4 review: regression test against popover-only chip drift. The
   // chip audit table allows max 2 chips per node in Standard view; the body
   // and the popover must not duplicate the same chip text.
+  //
+  // ⚠ THE LABEL MOVED, 15 Sep 2026 — THE CLAIM DID NOT, AND THIS GUARD IS WHY
+  // THE CHANGE IS CORRECT RATHER THAN JUST GREEN.
+  //
+  // The factor's one question moved onto the FACE of the card, in both phases,
+  // the treatment Risk, Outcome, Action and Goal already had. The first cut left
+  // the popover copy in place and this file caught it at once, with
+  // `getMultipleElementsFoundError` on "Help me estimate this" — the same chip
+  // rendered twice on one card. The popover copy is now deleted, so the
+  // EXACTLY-ONCE property this guard exists for still holds, and is now
+  // structural rather than maintained: there is one render site, not two.
+  //
+  // The text changed for a separate, measured reason: "What evidence supports
+  // this?" rendered 156px inside a 168px card — the longest chip label on the
+  // canvas by four characters, against a house range of 21-24 — and cost 23%
+  // card height instead of 12%. The MESSAGE Olumi receives is unchanged.
   describe('chip audit drift guard', () => {
-    it('top inferred factor renders "What evidence supports this?" exactly once across body + popover', () => {
+    it('top inferred factor renders its evidence question exactly once across body + popover', () => {
       vi.mocked(useScienceIcons).mockReturnValue([])
       vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
         selector({
@@ -1574,7 +1590,7 @@ describe('FactorNode — intervention hover', () => {
         observedState: { value: 0.5, extractionType: 'inferred' },
       })
       // Body chip is canonical; popover does not duplicate it.
-      const matches = screen.getAllByText('What evidence supports this?')
+      const matches = screen.getAllByText('What’s the evidence?')
       expect(matches.length).toBe(1)
     })
   })

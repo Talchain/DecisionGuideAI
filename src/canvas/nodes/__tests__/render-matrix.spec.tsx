@@ -180,7 +180,7 @@ describe('Render matrix — FactorNode × view × phase', () => {
     ],
   })
 
-  it('Standard pre: top inferred factor shows "What evidence supports this?" body chip and no popover-only duplicate', () => {
+  it('Standard pre: top inferred factor shows the evidence chip ONCE on the card, no popover duplicate', () => {
     applyStore(topInferredTopology('standard', 'pre'))
     renderFactor({
       label: 'Marketing Expertise Available',
@@ -188,9 +188,19 @@ describe('Render matrix — FactorNode × view × phase', () => {
       category: 'controllable',
       observedState: { value: 0.5, extractionType: 'inferred', unit: 'scale' },
     })
-    // Body chip canonical, popover doesn't duplicate it.
-    const chips = screen.getAllByText('What evidence supports this?')
+    // ⭐ THE CLAIM IS UNCHANGED — EXACTLY ONE, ON THE CARD. Only the LITERAL
+    // moved, and with a measured reason: 'What evidence supports this?' was
+    // 156px inside a 168px card (the longest chip on the canvas, against a
+    // house range of 21-24 characters), so the label shortened to
+    // 'What’s the evidence?' while the MESSAGE Olumi receives is unchanged.
+    // See FactorNode.tsx's `cardQuestion`. ⚠ The single render site is now
+    // structural: `factorChips` was deleted, so "exactly once" is a property
+    // of the component rather than two surfaces that must agree.
+    const chips = screen.getAllByText('What’s the evidence?')
     expect(chips).toHaveLength(1)
+    // ⛔ The discriminating half: the retired literal must be GONE, not merely
+    // outnumbered — a card rendering both would satisfy the count above.
+    expect(screen.queryByText('What evidence supports this?')).toBeNull()
     // Value suppression: scale-no-raw fractional value is hidden.
     expect(screen.queryByText(/0\.5/)).toBeNull()
     expect(screen.queryByText(/scale/i)).toBeNull()
