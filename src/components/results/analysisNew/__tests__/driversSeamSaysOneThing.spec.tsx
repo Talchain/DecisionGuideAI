@@ -88,6 +88,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
+import { openGroups } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
@@ -100,8 +101,8 @@ import { highUncertainty, makeDriver, openStrategicChallenge } from './analysisN
 
 const CHART_TID = 'driver-chart'
 
-const renderBody = (data: ResultsSectionDataReturn) =>
-  render(
+const renderBody = (data: ResultsSectionDataReturn) => {
+  const result = render(
     <AnalysisNewTabBody
       resultsSectionData={data}
       isPreRun={false}
@@ -110,6 +111,13 @@ const renderBody = (data: ResultsSectionDataReturn) =>
       responseHash="run_drivers_seam"
     />,
   )
+  // ⚠ THE DRIVERS SECTION NOW LIVES INSIDE A NAMED GROUP, and `SectionShell`
+  // UNMOUNTS a closed region — so without this every query below reads an
+  // absence rather than the section. Opening the GROUP only; the section
+  // inside keeps its own default, which the helper below still respects.
+  openGroups()
+  return result
+}
 
 /**
  * ⚠ OPEN IT ONLY IF IT IS CLOSED. `AnalysisNewSection` passes

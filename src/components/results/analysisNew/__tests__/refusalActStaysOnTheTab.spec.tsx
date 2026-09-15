@@ -80,6 +80,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({
   focusModelTarget: vi.fn(() => true),
 }))
 
+import { openGroupsIfPresent } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { decisionWithLeaderWithheld } from './analysisNewFixtures'
@@ -186,8 +187,8 @@ const seedManifest = () => {
  * 3b — this estate has twice shipped a feature dark by proving it against a
  * component the deployment does not render).
  */
-const renderTab = (onReviewEstimates?: () => void) =>
-  render(
+const renderTab = (onReviewEstimates?: () => void) => {
+  const result = render(
     <AnalysisNewTabBody
       resultsSectionData={withheld()}
       isPreRun={false}
@@ -199,6 +200,12 @@ const renderTab = (onReviewEstimates?: () => void) =>
       onReviewEstimates={onReviewEstimates}
     />,
   )
+  // ⚠ THE REGISTER NOW SITS INSIDE A NAMED GROUP, and `SectionShell` UNMOUNTS
+  // a closed region — so without this every query below reads an absence
+  // rather than the section. Only the GROUP is opened.
+  openGroupsIfPresent()
+  return result
+}
 
 const registerIsOpen = (): boolean =>
   screen.getByTestId(TOGGLE).getAttribute('aria-expanded') === 'true'

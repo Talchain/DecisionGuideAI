@@ -37,6 +37,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
+import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
@@ -62,12 +63,6 @@ const renderBody = (data: ResultsSectionDataReturn) =>
       onSendMessage={() => {}}
     />,
   )
-
-const openAllSections = () => {
-  for (const t of Array.from(document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"]'))) {
-    if (t.getAttribute('aria-expanded') !== 'true') fireEvent.click(t)
-  }
-}
 
 const vmOf = (data: ResultsSectionDataReturn) =>
   buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })

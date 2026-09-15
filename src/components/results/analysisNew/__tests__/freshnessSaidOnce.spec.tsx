@@ -44,6 +44,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { openGroupsIfPresent } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { AtAGlance } from '../sections/AtAGlance'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -159,8 +160,8 @@ const openEverySection = () => {
 const renderPanel = (
   data: ResultsSectionDataReturn,
   over: Partial<Parameters<typeof AnalysisNewTabBody>[0]>,
-) =>
-  render(
+) => {
+  const result = render(
     <AnalysisNewTabBody
       resultsSectionData={data}
       isPreRun={false}
@@ -170,6 +171,13 @@ const renderPanel = (
       {...over}
     />,
   )
+  // ⚠ THE SECTIONS THIS SPEC QUERIES NOW SIT INSIDE NAMED GROUPS, and
+  // `SectionShell` UNMOUNTS a closed region — so without this every query below
+  // reads an absence rather than the thing it was written to check. Only the
+  // GROUP is opened; each section keeps its own default.
+  openGroupsIfPresent()
+  return result
+}
 
 beforeEach(() => {
   useStrengthenStore.setState({ records: {} })

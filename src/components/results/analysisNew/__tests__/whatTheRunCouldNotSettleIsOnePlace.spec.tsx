@@ -38,6 +38,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { openGroups } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { manyFragileEdges } from './analysisNewFixtures'
@@ -58,6 +59,7 @@ describe('the run-could-not-settle block is contiguous', () => {
         isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
       />,
     )
+    openGroups()
     expect(screen.getByTestId('analysis-new-checks')).toBeInTheDocument()
     expect(screen.getByTestId('analysis-new-uncertainty')).toBeInTheDocument()
   })
@@ -76,6 +78,7 @@ describe('the run-could-not-settle block is contiguous', () => {
         isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
       />,
     )
+    openGroups()
     const checks = screen.getByTestId('analysis-new-checks')
     const uncertainty = screen.getByTestId('analysis-new-uncertainty')
     expect(precedes(checks, uncertainty), 'checks must still come first').toBe(true)
@@ -108,6 +111,7 @@ describe('the run-could-not-settle block is contiguous', () => {
         isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
       />,
     )
+    openGroups()
     const strengthen = screen.getByTestId('analysis-new-strengthen')
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
     const checks = screen.getByTestId('analysis-new-checks')
@@ -130,6 +134,7 @@ describe('the run-could-not-settle block is contiguous', () => {
         isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
       />,
     )
+    openGroups()
     expect(screen.getAllByTestId('analysis-new-checks')).toHaveLength(1)
     expect(screen.getAllByTestId('analysis-new-uncertainty')).toHaveLength(1)
     expect(

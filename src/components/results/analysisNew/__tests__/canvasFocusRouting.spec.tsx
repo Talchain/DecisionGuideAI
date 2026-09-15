@@ -62,6 +62,7 @@ vi.mock('../../../../canvas/ToastContext', async (importOriginal) => ({
 }))
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 
+import { openGroupsIfPresent } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { focusExistingTarget, registerFocusHelpers } from '../../../../canvas/utils/focusHelpers'
@@ -198,8 +199,8 @@ const dockFocusHandler = vi.fn((nodeId: string) => {
   focusExistingTarget(nodeId, 'node')
 })
 
-const renderBody = (data: ResultsSectionDataReturn, onFocusNode?: (id: string) => void) =>
-  render(
+const renderBody = (data: ResultsSectionDataReturn, onFocusNode?: (id: string) => void) => {
+  const result = render(
     <AnalysisNewTabBody
       resultsSectionData={data}
       isPreRun={false}
@@ -209,6 +210,12 @@ const renderBody = (data: ResultsSectionDataReturn, onFocusNode?: (id: string) =
       onFocusNode={onFocusNode ?? dockFocusHandler}
     />,
   )
+  // ⚠ THE SECTIONS THIS SPEC QUERIES SIT INSIDE NAMED GROUPS, and `SectionShell`
+  // UNMOUNTS a closed region — without this every query below reads an absence
+  // rather than the thing it was written to check. Only the GROUP is opened.
+  openGroupsIfPresent()
+  return result
+}
 
 describe('"Show on canvas" resolves EDGE targets, not only node targets', () => {
   it('routes a canvas EDGE id to the edge primitive — the button that could never work', () => {

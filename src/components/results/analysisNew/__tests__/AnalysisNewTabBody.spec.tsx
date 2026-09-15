@@ -19,7 +19,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
-import { openGroups } from './openNamedGroups'
+import { openGroups, openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
@@ -101,41 +101,6 @@ const openSection = (testId: string) => {
  * ⚠ SCOPED TO SECTION TOGGLES. Finding ROWS carry `-row-toggle` since the
  * collision fix, so this cannot accidentally expand every row on the panel.
  */
-/**
- * Opens EVERY disclosure on the surface, to a fixed point.
- *
- * ⛔⛔ A SINGLE PASS STOPPED WORKING THE MOMENT SECTIONS WERE NESTED, AND IT
- * FAILED SILENTLY. The detail now sits inside named groups; `SectionShell`
- * UNMOUNTS a closed region, so the inner sections DO NOT EXIST in the DOM until
- * their group is open. One pass therefore opened the groups, and the sections it
- * was written to open were never on screen to be clicked — every query beneath
- * it then failed with "unable to find", which at least is loud. The quieter
- * failure is the one to fear: a test that queried something optional would have
- * read an absence as a product fact.
- *
- * ⚠ FIXED POINT, NOT A FIXED NUMBER OF PASSES. Two passes happens to be enough
- * for today's two levels, which is exactly the hand-maintained constant that
- * goes stale when a third arrives (trap 12). The loop asks the DOM instead.
- *
- * ⚠ AND IT ASSERTS IT CONVERGED. A disclosure that re-closes itself, or a
- * toggle whose `aria-expanded` never updates, would otherwise spin to the cap
- * and leave the caller measuring a half-open panel.
- */
-const openAllSections = () => {
-  const closed = () =>
-    Array.from(document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"]')).filter(
-      (t) => t.getAttribute('aria-expanded') === 'false',
-    )
-  let passes = 0
-  while (closed().length > 0 && passes < 8) {
-    for (const toggle of closed()) fireEvent.click(toggle)
-    passes += 1
-  }
-  expect(
-    closed(),
-    'openAllSections did not converge — a disclosure is re-closing itself or never reports open',
-  ).toHaveLength(0)
-}
 
 beforeEach(() => {
   useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never)

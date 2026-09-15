@@ -39,6 +39,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { openGroupsIfPresent } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -100,8 +101,8 @@ afterEach(() => {
   useCanvasStore.setState({ nodes: previous.nodes } as never)
 })
 
-const renderPanel = () =>
-  render(
+const renderPanel = () => {
+  const result = render(
     <AnalysisNewTabBody
       resultsSectionData={fourDrivers()}
       isPreRun={false}
@@ -110,6 +111,12 @@ const renderPanel = () =>
       responseHash="run_four_drivers"
     />,
   )
+  // ⚠ THE FINDING SECTIONS SIT INSIDE NAMED GROUPS, and `SectionShell` UNMOUNTS
+  // a closed region — without this the strip's reach is measured against
+  // sections that are not on screen.
+  openGroupsIfPresent()
+  return result
+}
 
 /** Post-run the strip mounts CLOSED and its marks are unmounted with it. */
 const openStrip = () => {

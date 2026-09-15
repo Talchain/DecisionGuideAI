@@ -94,6 +94,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({
 
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { DeeperAnalysis } from '../sections/DeeperAnalysis'
+import { openGroupsIfPresent } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { makeData } from './analysisNewFixtures'
 import { useCanvasStore } from '@/canvas/store'
@@ -397,6 +398,10 @@ describe('the mount path', () => {
         responseHash="run_gap"
       />,
     )
+    // ⚠ THE DEEPER SECTION SITS INSIDE A NAMED GROUP, and `SectionShell`
+    // UNMOUNTS a closed region — so the mount check below would read an absence
+    // rather than the section it is written to prove reachable.
+    openGroupsIfPresent()
     const section = screen.getByTestId(TID)
     fireEvent.click(screen.getByTestId(`${TID}-toggle`))
     const trigger = controlFor(`${TID}-value-edit`, TARGET_NODE_ID)
