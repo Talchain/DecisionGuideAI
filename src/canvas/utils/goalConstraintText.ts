@@ -5,6 +5,21 @@ import { resolveElementLabel } from '../domain/elementLabel'
 
 /** State the recorded boundary and its origin, independently of probability or evidence quality. */
 /**
+ * ⭐⭐ DOES THE LIMIT SENTENCE ITSELF CARRY THE READER'S VERBATIM WORDS?
+ *
+ * Exported so the separate `You said: "…"` provenance line can STAND DOWN in
+ * exactly the case where the limit already is that quote — otherwise the Model
+ * tab prints one sentence twice, once as the limit and once as its own source.
+ * One predicate, both readers, so they cannot drift into disagreeing about
+ * which surface is carrying the quote.
+ */
+export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): boolean {
+  const q = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
+  if (!q) return false
+  return classifyUnit(constraint.unit ?? null).kind === 'percent'
+}
+
+/**
  * ⭐ `omitLabel` EXISTS SO THERE IS STILL EXACTLY ONE FORMATTER.
  *
  * On the constrained factor's own card the target's name is the card's title,
@@ -66,7 +81,7 @@ export function goalConstraintText(
    * close, and it is stated here rather than hidden.
    */
   const quote = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
-  if (quote && classifyUnit(constraint.unit ?? null).kind === 'percent') {
+  if (goalConstraintTextUsesQuote(constraint)) {
     return options.omitLabel ? `\u201c${quote}\u201d${origin}` : `${label} \u00b7 \u201c${quote}\u201d${origin}`
   }
 
