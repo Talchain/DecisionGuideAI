@@ -921,6 +921,15 @@ export interface UncertaintyItem {
   severity?: CritiqueSeverity
   /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */
   factorConfidence?: number | null
+  /**
+   * ⭐ The producer's MEASURED `switch_probability` — *"P(flipping this edge
+   * switches the recommended option)"*. Higher means more fragile; the producer
+   * derives `severity` from this same number (>0.7 critical, >0.5 error).
+   *
+   * ⛔ ABSENT MEANS NOT COMPUTED, never 0 and never 1. `0` is a genuine
+   * measurement. Branch on presence; never coalesce.
+   */
+  switchProbability?: number
   /** ISL E-value: how many times wrong the assumption must be to flip the recommendation */
   eValue?: number
   /** For sensitivity thresholds (when small changes flip the recommendation) */

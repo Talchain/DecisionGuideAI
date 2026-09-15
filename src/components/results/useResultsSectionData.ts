@@ -3644,6 +3644,33 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ...(fromId ? { edgeFromId: fromId } : {}),
         ...(toId ? { edgeToId: toId } : {}),
         severity,
+        /**
+         * ⭐⭐ THE MEASURED FLIP RISK, CARRIED TO THE ROW THAT RENDERS IT.
+         *
+         * `switch_probability` is the contract's *"P(flipping this edge
+         * switches the recommended option)"*, and it is the quantity "What
+         * would change your mind" is about. It was already read in this hook
+         * — twenty lines up, into `fragileEdgesMap`, for the FACTOR rows —
+         * and never reached the fragile-edge row itself, so the section named
+         * for the question rendered "changes significantly" while the number
+         * sat one map away.
+         *
+         * ⛔ PRESENCE BRANCH, NEVER A COALESCE, and the contract is explicit
+         * about why: absence means NOT COMPUTED, `0` is a genuine measurement
+         * ("flipping this edge changes nothing"), and a consumer reading
+         * absence as `0` fabricates the safest possible verdict while one
+         * reading it as `1` fabricates the most alarming. `?? 0` / `|| 0` /
+         * `?? 1` are all banned here by the schema's own words.
+         *
+         * ⚠ `marginal_switch_probability` IS NOT A FALLBACK. It is a different
+         * Monte Carlo, and coalescing the two is a measured past defect (#543):
+         * it fed a marginal value to the hero under switch-probability wording.
+         * Same rule as the map above, stated here because this is a second
+         * reader and a rule that lives in only one of two readers is not a rule.
+         */
+        ...(typeof fe.switch_probability === 'number' && Number.isFinite(fe.switch_probability)
+          ? { switchProbability: fe.switch_probability }
+          : {}),
         factorConfidence,
         eValue: rawEValue,
         threshold: fe.threshold ? {

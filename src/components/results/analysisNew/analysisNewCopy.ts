@@ -580,6 +580,15 @@ export const ANALYSIS_NEW_COPY = {
 
   /** Progressive-disclosure affordances. */
   disclosure: {
+    /**
+     * ⭐ NAMES THE QUANTITY, ASSERTS NOTHING ABOUT IT. "How often this changed
+     * the answer" is what `switch_probability` measures — the share of
+     * simulated runs in which flipping this assumption switched which option
+     * came out ahead. It does not say "risk", which would be a verdict, and it
+     * does not say "would", which would be a forecast: the runs already
+     * happened.
+     */
+    flipLabel: 'How often this changed the answer',
     expand: 'Show more',
     collapse: 'Show less',
     inspect: 'Inspect',
