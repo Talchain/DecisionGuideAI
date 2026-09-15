@@ -28,6 +28,21 @@ import { PANEL_INSET_ACTION } from '../panelSurfaces'
 import { PANEL_GROUNDS, tokenHex } from '../../../../../tests/helpers/semanticTextContrastScan'
 import { WCAG_NON_TEXT_MIN, compositeOver, contrast } from '../../../../../tests/helpers/wcagContrast'
 
+/**
+ * Resolve a token, ASSERTING it exists.
+ *
+ * ⚠ `tokenHex` returns `string | null`, and an unresolved token is not a
+ * nuisance to cast away — it is the one input that would make every ratio below
+ * meaningless while the spec stayed green. The assertion is the guard's own
+ * precondition, so a renamed or deleted token REDs here by name rather than
+ * silently computing against `null`.
+ */
+function ink(token: string): string {
+  const hex = tokenHex(token)
+  expect(hex, `${token} did not resolve — every ratio below would be computed against nothing`).not.toBeNull()
+  return hex as string
+}
+
 /** `border-info/80` -> `{ token: '--info', alpha: 0.8 }`. Null when absent. */
 function borderFromToken(cls: string): { token: string; alpha: number } | null {
   const m = /(?:^|\s)border-([a-z-]+)\/(\d{1,3})(?:\s|$)/.exec(cls)
@@ -47,10 +62,10 @@ describe('the promoted act is visible without colour vision', () => {
   it('clears SC 1.4.11 on BOTH panel grounds, computed from the token itself', () => {
     const border = borderFromToken(PANEL_INSET_ACTION)
     expect(border).not.toBeNull()
-    const ink = tokenHex(border!.token)
+    const borderInk = ink(border!.token)
     for (const ground of PANEL_GROUNDS) {
-      const bg = tokenHex(ground)
-      const ratio = contrast(compositeOver(ink, bg, border!.alpha), bg)
+      const bg = ink(ground)
+      const ratio = contrast(compositeOver(borderInk, bg, border!.alpha), bg)
       expect(
         ratio,
         `${border!.token}/${border!.alpha * 100} over ${ground} is ${ratio.toFixed(2)}:1`,
@@ -65,10 +80,10 @@ describe('the promoted act is visible without colour vision', () => {
    * invisible is WHY the border has to carry the affordance.
    */
   it('is still a fill no reader can rely on — which is what the border is for', () => {
-    const panel = tokenHex('--bg-panel')
+    const panel = ink('--bg-panel')
     const m = /bg-([a-z-]+)\/\[?([\d.]+)\]?/.exec(PANEL_INSET_ACTION)
     expect(m, 'the token must still carry its fill — the border adds to it, never replaces it').not.toBeNull()
-    const fill = contrast(compositeOver(tokenHex(`--${m![1]}`), panel, Number(m![2])), panel)
+    const fill = contrast(compositeOver(ink(`--${m![1]}`), panel, Number(m![2])), panel)
     expect(fill).toBeLessThan(1.5)
   })
 })
