@@ -107,7 +107,7 @@ export function ReasoningPanelV3({ vm, biasItems = [] }: ReasoningPanelV3Props) 
         role="status"
       >
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className={`${typography.panelBody} text-text-header font-medium`}>
+          <span className={`${typography.panelHeader} text-text-header`}>
             {verdict != null ? verdict.label : 'Basis not established'}
           </span>
           {verdict?.reason != null && (

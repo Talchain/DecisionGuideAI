@@ -202,6 +202,15 @@ export const richFixture: ResultsSectionDataReturn = {
    * ⚠ 'full' with NO missing keys and NO reasons is the honest value for a
    * fixture that hand-builds every result it claims to have.
    */
+  /**
+   * ⛔ ALSO REQUIRED AND ALSO ABSENT. Adding `completeness` moved this
+   * file's baselined error from one TS code to another rather than
+   * clearing it — the count-based ratchet passed, and only the gate's
+   * IDENTITY baseline noticed (its `::notice::`, never its tick).
+   * Two fields, one fix: the fixture now satisfies its declared type.
+   */
+  autoNoiseProvenance: null,
+  sensitivityReference: null,
   completeness: { status: 'full', missing: [], reasons: [] },
   isLoading: false,
   isError: false,

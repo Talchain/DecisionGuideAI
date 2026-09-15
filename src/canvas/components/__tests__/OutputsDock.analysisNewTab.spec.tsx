@@ -416,9 +416,16 @@ describe('C · THE SECTION STRUCTURE', () => {
     // the title element keeps this an exact claim about WHICH sections appear
     // and in WHAT order (CLAUDE.md trap 19).
     const body = screen.getByTestId('analysis-new-tab-body')
-    const headings = Array.from(body.querySelectorAll('h3')).map(
+    const GROUP_TITLES: readonly string[] = [
+      ANALYSIS_NEW_COPY.sections.howWorkedOut,
+      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
+      ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
+    ]
+    const allHeadings = Array.from(body.querySelectorAll('h3')).map(
       (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
     )
+    const groupHeadings = allHeadings.filter((t) => t !== null && GROUP_TITLES.includes(t))
+    const headings = allHeadings.filter((t) => t === null || !GROUP_TITLES.includes(t))
     expect(headings).toEqual([
       // ⭐ #1082's trust readout, mounted in the same commit that added this
       // line. Its appearance HERE is the positive control that the mount is
@@ -454,6 +461,27 @@ describe('C · THE SECTION STRUCTURE', () => {
       ANALYSIS_NEW_COPY.sections.uncertainty,
       ANALYSIS_NEW_COPY.sections.keyInsights,
       ANALYSIS_NEW_COPY.sections.drivers,
+    ])
+    /**
+     * ⭐⭐ AND THE GROUPS THEY NOW SIT IN. The tab renders THREE named
+     * `Accordion` headings — the structure Paul's "unwieldy dump" report
+     * produced, where twelve top-level headings became six and seven sections
+     * that all answered "how far can I trust this?" went behind one.
+     *
+     * ⚠ ASSERTED SEPARATELY, ON PURPOSE. Folding them into the census above
+     * would make one list carry two different claims — which sections exist and
+     * in what order (the census's job) and which GROUPS contain them (the
+     * restructure's). Two questions under one assertion is how a census stops
+     * discriminating (CLAUDE.md trap 21); keeping them apart means a regression
+     * in either is legible as itself.
+     */
+    expect(
+      groupHeadings,
+      'the three disclosure groups must render, in reading order',
+    ).toEqual([
+      ANALYSIS_NEW_COPY.sections.howWorkedOut,
+      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
+      ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
     ])
   })
 
@@ -499,9 +527,18 @@ describe('C · THE SECTION STRUCTURE', () => {
     // Same tightened binding as the case above — the heading row now carries a
     // count alongside the title, and the placement claim is about the TITLE.
     const body = screen.getByTestId('analysis-new-tab-body')
-    const headings = Array.from(body.querySelectorAll('h3')).map(
+    const GROUP_TITLES: readonly string[] = [
+      ANALYSIS_NEW_COPY.sections.howWorkedOut,
+      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
+      ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
+    ]
+    const allHeadings = Array.from(body.querySelectorAll('h3')).map(
       (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
     )
+    // ⚠ The GROUP headings are filtered out here too, so this case keeps
+    // asking only about section order. They are asserted by name in the census
+    // above; re-asserting them here would spread one claim over two cases.
+    const headings = allHeadings.filter((t) => t === null || !GROUP_TITLES.includes(t))
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBe(0)
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
       headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),
