@@ -56,6 +56,7 @@ import { ShieldQuestion } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { readDecisionBriefViewModel } from '../../decision-brief/decisionBriefViewModel'
+import { robustnessCaveatOnScreen } from '../robustnessStanding'
 import { typography } from '../../../../styles/typography'
 import { surface } from '../panelSurfaces'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -74,11 +75,12 @@ export interface RobustnessCaveatProps {
   testId?: string
 }
 
-/** Same text, ignoring case and surrounding space — not a similarity guess. */
-function duplicatesVerdictReason(text: string, verdictReason: string | null): boolean {
-  if (verdictReason === null) return false
-  return text.trim().toLowerCase() === verdictReason.trim().toLowerCase()
-}
+/**
+ * ⭐ `duplicatesVerdictReason` AND THE THREE-CONDITION GATE NOW LIVE IN
+ * `robustnessStanding.ts`, because `ModelHeldUp` has to consult the same
+ * answer. They were inline here, which is exactly why the two surfaces could
+ * contradict — see that module's header.
+ */
 
 export function RobustnessCaveat({
   leaderClaimPermitted,
@@ -112,10 +114,11 @@ export function RobustnessCaveat({
   ))
   const brief = useMemo(() => readDecisionBriefViewModel(rawBrief), [rawBrief])
 
-  if (!leaderClaimPermitted) return null
   const caveat = brief?.robustnessCaveat ?? null
+  if (!robustnessCaveatOnScreen(caveat?.text ?? null, leaderClaimPermitted, verdictReason)) {
+    return null
+  }
   if (caveat === null) return null
-  if (duplicatesVerdictReason(caveat.text, verdictReason)) return null
 
   return (
     <section
