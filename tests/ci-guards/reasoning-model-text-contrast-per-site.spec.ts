@@ -146,7 +146,7 @@ const SCOPE = [
  */
 const KNOWN_UNREPAIRED: Record<string, number> = {
   /**
-   * ⭐⭐ SIX SITES REPAIRED 15 Sep 2026 — banked here, as this file's own failure
+   * ⭐⭐ SIX OF SEVEN SITES REPAIRED 15 Sep 2026 — banked here, as this file's own failure
    * message asks ("IF A COUNT WENT DOWN, you repaired a site — thank you").
    *
    * `AtAGlance text-info text: 1` and `ModelStrip text-info text: 4` are GONE,
@@ -159,6 +159,13 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
    * A border costs no text contrast, so `text-info` sits on the untinted panel
    * ground at 4.78:1 and is legal; the pill shape moves to SC 1.4.11's 3:1
    * non-text floor where it belongs.
+   *
+   * ⚠ SIX OF SEVEN, NOT SIX — corrected after review. There were SEVEN tinted
+   * pills, not six; the survivor is `StrengthenTheReasoning`'s `panelBody` /
+   * `rounded-md` variant, a different shape owed its own judgement rather than
+   * a blind sweep. It is still pinned above at 1. Saying "six controls" without
+   * the denominator reads as completion, which is the drift this estate keeps
+   * paying for — a count is not a coverage claim.
    *
    * ⚠ THIS IS A VISIBLE CHANGE, deliberately, and not smuggled in under a
    * refactor. The other tier conversions in that commit were proven

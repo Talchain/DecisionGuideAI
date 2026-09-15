@@ -42,7 +42,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
+import { decisionWithLeaderWithheld, genuineDecision, makeData, makeOption } from './analysisNewFixtures'
 
 const renderBody = (data: ResultsSectionDataReturn) =>
   render(
@@ -240,18 +240,68 @@ describe('the figures rise only when the glance said nothing', () => {
    * putting a heading over nothing. This asserts the promotion is keyed on
    * there being something to promote.
    */
-  it('DISCRIMINATOR: a withheld glance with NO figures promotes nothing', () => {
-    const empty = decisionWithLeaderWithheld()
-    const vm = buildAnalysisNewViewModel({
-      data: empty, recommendations: [], isPreRun: false, isRunning: false, isStale: false,
+  /**
+   * ⭐⭐ THE SECOND CONJUNCT, PINNED BY RENDERING — corrected after review.
+   *
+   * ⛔ THE CASE THAT STOOD HERE WAS NAMED `DISCRIMINATOR` AND DISCRIMINATED
+   * NOTHING. It asserted only the PRECONDITION (that the fixture carries
+   * figures) and **never rendered**, so it could not observe whether the
+   * conjunct did any work. An independent reviewer proved it: deleting
+   * `&& rows.some(winReadout !== null)` from `glanceWithheldFigures` left
+   * **1801 tests green**. The conjunct was completely unpinned while a case
+   * with DISCRIMINATOR in its name sat above it implying otherwise — which is
+   * worse than no test, because the name is what a later reader trusts.
+   *
+   * ⭐ THE PROPERTY IT MUST HOLD: `headline === null` alone would promote the
+   * section on a run that produced no figures either — a heading over nothing,
+   * which is exactly what `AnalysisNewSection` refuses to do everywhere else.
+   * "Absence is not zero" is the estate's rule and this is its instance.
+   *
+   * So: a withheld glance WITH figures promotes (pinned above); a withheld
+   * glance WITHOUT figures must promote NOTHING. Both arms render.
+   */
+  it('a withheld glance with NO figures promotes nothing', () => {
+    const noFigures = makeData({
+      recommendation: {
+        recommendedOption: null,
+        goalLabel: 'Reach the target',
+        // Options with no win readout: analysed nowhere, so nothing to promote.
+        allOptions: [
+          makeOption({ id: 'o1', label: 'Option one' }),
+          makeOption({ id: 'o2', label: 'Option two' }),
+        ],
+      },
     })
-    const hasFigures = vm.optionsComparison.rows.some(
-      (r) => r.kind === 'analysed' && r.winReadout !== null,
-    )
+    const vm = buildAnalysisNewViewModel({
+      data: noFigures, recommendations: [], isPreRun: false, isRunning: false, isStale: false,
+    })
+
+    /* ⚠ BOTH PRECONDITIONS PINNED IN-TEST. Without them this passes for the
+       wrong reason on any fixture that simply renders no options at all. */
+    expect(vm.atAGlance.headline, 'PRECONDITION: the glance must be withholding').toBeNull()
     expect(
-      hasFigures,
-      'PRECONDITION: this fixture DOES carry figures — the promotion above is therefore licensed, ' +
-        'and the conjunct is what keeps a figure-less withheld run from promoting an empty section',
-    ).toBe(true)
+      vm.optionsComparison.rows.some((r) => r.kind === 'analysed' && r.winReadout !== null),
+      'PRECONDITION: this fixture must carry NO figures, or the conjunct is untested',
+    ).toBe(false)
+
+    renderBody(noFigures)
+    const options = screen.queryByTestId('analysis-new-options')
+
+    /* ⚠ THE DISCRIMINATING POSITION IS STRENGTHEN, NOT THE GLANCE — and my
+       first version of this assertion got that wrong and the test caught it.
+       BOTH slots render below the glance; what the promotion changes is
+       whether the comparison sits ABOVE the coaching (promoted) or eleven
+       sections BELOW it (in place). Comparing against the glance therefore
+       cannot tell the two states apart at all.
+
+       The section may also legitimately not mount here — it returns null on an
+       empty comparison — so the claim is conditional on it existing. */
+    if (options !== null) {
+      const strengthen = screen.getByTestId('analysis-new-strengthen')
+      expect(
+        precedes(strengthen, options),
+        'with no figures to show, the comparison must stay in its in-place slot BELOW the coaching',
+      ).toBe(true)
+    }
   })
 })

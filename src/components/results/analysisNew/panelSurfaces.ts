@@ -184,7 +184,7 @@ export const ACTION_TIER = {
    * is the affordance, so the hue is doing no load-bearing work.
    *
    * ⛔⛔ OUTLINED, NOT TINTED, AND THE FIRST DRAFT OF THIS TIER GOT IT WRONG.
-   * It shipped as `bg-info/10 … text-info` — copied from the five existing
+   * It shipped as `bg-info/10 … text-info` — copied from the seven existing
    * pills — and `reasoning-model-text-contrast-per-site` REDded on it by name
    * within one run: that pairing measures **4.05:1** against SC 1.4.3's 4.5:1,
    * and it is the exact figure documented three hours earlier in this same
@@ -217,7 +217,7 @@ export const ACTION_TIER = {
    * in from the pills; then a 3:1 claim asserted rather than measured. Twice in
    * one file, and neither found by reading it.
    *
-   * ⚠ THE FIVE EXISTING TINTED PILLS ARE NOT CONVERTED TO THIS YET. They are
+   * ⚠ SIX OF THE SEVEN TINTED PILLS ARE NOW CONVERTED; ONE IS NOT. They are
    * already pinned as KNOWN_UNREPAIRED at 3.56:1/4.05:1, and moving them is a
    * VISIBLE change rather than the class-identical de-duplication the other
    * conversions were. Converting them repairs five real failures and should be

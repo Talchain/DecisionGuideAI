@@ -107,6 +107,26 @@
  * still be worthless. Leading and trailing controls agreed at 7/7 with `src/`
  * clean at both ends.
  *
+ * ── ⛔⛔ AND THAT GREEN ARM WAS VACUOUS. CORRECTED, NOT DEFENDED. ───────────
+ * An independent reviewer showed it proves nothing: every assertion in this
+ * file binds to `row[0]`, whose fraction is **1** by construction, so a
+ * MINIMUM floor of 0.09 can never touch it. **Any floor ≤ 1 is invisible
+ * here** — the arm would have stayed green for a change that could not have
+ * affected it whatever the guard did. Demonstrated by the reviewer: a floor of
+ * **1.5** REDs three cases, which is the first value large enough to reach
+ * `row[0]` at all.
+ *
+ * ⭐ I INVITED THAT HIT AND IT LANDED, WHICH IS THE POINT. I had written that
+ * "a single green arm proves less than two" and then supplied one green arm —
+ * chosen, without noticing, from the quantities I already believed were safe.
+ * That is the self-authored-corpus problem one level up: a control picked by
+ * the same head that wrote the guard tests what that head already expects.
+ *
+ * ⭐ THE REPLACEMENT ARM BELOW IS THE REVIEWER'S and it rescues the conclusion:
+ * it changes a quantity the guard genuinely READS and shows it stays green,
+ * so "sensitive to the named thing, not to everything" is now supported rather
+ * than asserted.
+ *
  * ⭐ THE SHAPE OF THE REPAIR: the anchor now asserts BOTH quantities and names
  * them apart, and the clause is gated on the figure a reader actually sees. A
  * corpus that shares the code's blind spot cannot see the code's defect
@@ -331,6 +351,44 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
    * arms of the second clause would describe a number that never appears.
    * #1228's ruling that the SCALE sentence is basis-independent is untouched.
    */
+  /**
+   * ⭐⭐ THE GREEN ARM, EXECUTABLE AND NON-VACUOUS.
+   *
+   * The original green arm changed the bar's MINIMUM floor, which `row[0]`
+   * (fraction 1 by construction) can never reach — so it proved nothing. This
+   * changes a quantity the guard genuinely reads on the row it binds to: a
+   * NON-LEADING row's influence. The caveat is a claim about the TOP row, so
+   * moving a lower one must leave every assertion alone.
+   *
+   * ⚠ IN-TEST PRECONDITION: the moved row must actually be present and must
+   * NOT be the leader, or this is vacuous in a second, quieter way.
+   */
+  it('GREEN ARM: moving a NON-LEADING row leaves every assertion alone', () => {
+    const shifted = makeData({
+      drivers: {
+        driversStatus: 'computed',
+        totalCount: 2,
+        drivers: [
+          makeDriver({ factorKey: 'top', factorLabel: 'Churn Risk', displayInfluence: 1.0, rank: 1 }),
+          makeDriver({ factorKey: 'second', factorLabel: 'Elasticity', displayInfluence: 0.25, rank: 2 }),
+        ],
+      } as never,
+    })
+    const vm = buildAnalysisNewViewModel({
+      data: shifted, recommendations: [], isPreRun: false, isRunning: false, isStale: false,
+    }).drivers
+    expect(vm.influenceRows.length, 'PRECONDITION: two rows, so a non-leader exists').toBe(2)
+    expect(vm.influenceRows[1]!.id, 'PRECONDITION: the moved row must not be the leader').toBe('second')
+    expect(
+      vm.topRowFigurePercent,
+      'the caveat is a claim about the TOP row — moving a lower one must not change it',
+    ).toBe(100)
+
+    const caveat = caveatNode(shifted)
+    expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
+    expect(caveat, 'and the guarantee still renders, unmoved').toHaveTextContent(HUNDRED_IS_GUARANTEED)
+  })
+
   it('says nothing about 100% on a basis that renders no figure', () => {
     const caveat = caveatNode(highUncertainty())
     expect(caveat.textContent ?? '', 'the caveat rendered empty').not.toBe('')
