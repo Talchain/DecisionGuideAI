@@ -194,8 +194,28 @@ export const ACTION_TIER = {
    *
    * ⭐ A BORDER COSTS NO TEXT CONTRAST. `text-info` on the untinted panel
    * ground is 4.78:1 and legal; the tint is what breaks it, and the ratio falls
-   * monotonically in alpha so a lighter tint cannot rescue it. The border
-   * carries the pill shape at SC 1.4.11's 3:1 non-text floor instead.
+   * monotonically in alpha so a lighter tint cannot rescue it.
+   *
+   * ⛔⛔ AND THE ALPHA IS MEASURED, BECAUSE MY FIRST VERSION ASSERTED IT AND WAS
+   * WRONG. This shipped as `border-info/40` with a docblock claiming it met SC
+   * 1.4.11's 3:1 non-text floor. **It is 1.74:1.** Caught by an independent
+   * reviewer with the repo's own helper, and re-derived here:
+   *
+   *     border-info/40   panel 1.74:1   canvas 1.72:1   ⛔
+   *     border-info/60   panel 2.37:1   canvas 2.33:1   ⛔
+   *     border-info/70   panel 2.79:1   canvas 2.75:1   ⛔
+   *     border-info/80   panel 3.35:1   canvas 3.27:1   ✅ first alpha clearing both
+   *
+   * ⚠ IT WAS NEVER A REGRESSION — the fill it replaced measures 1.14:1, so the
+   * control improved either way. That is exactly why it was dangerous: a FALSE
+   * FIGURE attached to a REAL improvement, in a token every future control
+   * inherits, with nothing guarding it (the contrast scanner collects text and
+   * icon utilities, not borders).
+   *
+   * ⭐ THE SAME SHAPE AS THE DEFECT THIS MODULE ALREADY CAUGHT IN ITSELF: a
+   * documented figure the system then reproduces. First the 4.05:1 fill copied
+   * in from the pills; then a 3:1 claim asserted rather than measured. Twice in
+   * one file, and neither found by reading it.
    *
    * ⚠ THE FIVE EXISTING TINTED PILLS ARE NOT CONVERTED TO THIS YET. They are
    * already pinned as KNOWN_UNREPAIRED at 3.56:1/4.05:1, and moving them is a
@@ -204,7 +224,7 @@ export const ACTION_TIER = {
    * done — as a deliberate visual change, banked by deleting their lines from
    * that pin, not smuggled in under a refactor.
    */
-  secondary: 'px-2 py-0.5 rounded-full border border-info/40 hover:border-info text-info',
+  secondary: 'px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info',
   /**
    * AN ACT INSIDE PROSE. Underlined AT REST, never on hover alone — see the
    * contrast note above.

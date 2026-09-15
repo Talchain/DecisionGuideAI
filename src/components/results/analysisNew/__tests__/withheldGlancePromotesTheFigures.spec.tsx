@@ -136,10 +136,15 @@ describe('the figures rise only when the glance said nothing', () => {
       ['withheld', decisionWithLeaderWithheld()],
     ] as const) {
       renderBody(data)
+      /* ⭐ `getByTestId` IS the exclusivity assertion: it throws on ZERO and on
+         TWO OR MORE, so a passing call means exactly one. Using it here rather
+         than counting with a tolerant query is what lets the rule below be a
+         FLAT BAN with no exemption — and an exemption was the whole source of
+         the cliff that broke the first two versions of that rule. */
       expect(
-        screen.getAllByTestId('analysis-new-options'),
-        `${name}: the two slots must be mutually exclusive`,
-      ).toHaveLength(1)
+        () => screen.getByTestId('analysis-new-options'),
+        `${name}: exactly one options section must render — getByTestId throws on 0 and on 2+`,
+      ).not.toThrow()
       cleanup()
     }
   })
@@ -168,25 +173,40 @@ describe('the figures rise only when the glance said nothing', () => {
    * about the SECTION id, which must be unique.
    */
   it('no spec reads the SECTION id with a query that tolerates duplicates', () => {
+    /* Assembled, never written whole: a literal here would be matched by the
+       scan below exactly as the failure message was. */
+    const SECTION_ID = ['analysis', 'new', 'options'].join('-')
     const dir = resolvePath(__dirname)
     const offenders: string[] = []
     for (const file of readdirSync(dir).filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))) {
       const src = readFileSync(joinPath(dir, file), 'utf8')
       for (const m of src.matchAll(/getAllByTestId\(\s*['"`]([^'"`]+)['"`]/g)) {
-        const id = m[1]!
-        // Exempt genuinely repeated elements — anything with a suffix past the
-        // section id itself.
-        if (id !== 'analysis-new-options') continue
-        /* ⭐ EXEMPT BY THE SHAPE OF THE ASSERTION, NEVER BY FILENAME. A
-           `getAllByTestId` whose very next assertion is `toHaveLength` is
-           COUNTING — it exists to prove uniqueness and is the safe use. One
-           that reads content takes the first match silently and is the hazard.
-           Keying on a filename would be the hand-maintained exemption this
-           rule exists to avoid; keying on the assertion means a case that
-           stops counting loses its exemption automatically. */
-        const window = src.slice(m.index, m.index + 220)
-        if (/toHaveLength\(/.test(window)) continue
-        offenders.push(`${file}: getAllByTestId('${id}') not followed by a length assertion`)
+        /* ⛔⛔ A FLAT BAN, AFTER TWO BROKEN ATTEMPTS AT AN EXEMPTION.
+           v1 exempted a `toHaveLength` within 220 characters. Proven broken in
+           BOTH directions: a hazardous query borrowed a neighbouring
+           assertion's exemption, and a safe counting case was falsely flagged
+           when a comment pushed its assertion past the cliff. That is a
+           character-budget discriminator with hard cliffs either side — the
+           shape this estate has ruled unwinnable (trap 22f).
+           v2 tried to bind the assertion structurally to the same expression
+           and still missed the multi-line `expect(\n  query,\n  msg,\n)` form.
+
+           ⭐ THE FIX WAS TO REMOVE THE NEED FOR AN EXEMPTION, not to write a
+           better one. The only legitimate use was this file's own exclusivity
+           count — and `getByTestId` already asserts exclusivity by throwing on
+           0 and on 2+. With that case converted, NOTHING needs to read the
+           section id tolerantly, so the rule is a flat ban: no window, no
+           exemption, no cliff, nothing to tune. */
+        /* ⚠ THE MESSAGE MUST NOT SPELL THE PATTERN. The first flat-ban version
+           reported `...getAllByTestId('<the id>')...` in its own failure text
+           and then MATCHED ITSELF on the next run — this scanner reads every
+           spec in the directory including this one. Same self-read trap as a
+           guard matching its own explanatory comment; here it is a STRING
+           LITERAL, which `stripComments` cannot remove. The id is compared, not
+           printed. */
+        if (m[1] === SECTION_ID) {
+          offenders.push(`${file}: a tolerant query on the section id — use getByTestId, which throws on a duplicate`)
+        }
       }
     }
     expect(
