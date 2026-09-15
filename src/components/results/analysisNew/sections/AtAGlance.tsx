@@ -44,7 +44,7 @@ import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
-import { inset, PANEL_INSET_ACTION } from '../panelSurfaces'
+import { inset, PANEL_INSET_ACTION, action } from '../panelSurfaces'
 
 /**
  * How many parameter names fit before the line stops being readable. Four is a
@@ -1267,7 +1267,7 @@ export function AtAGlance({
               )
               return method ? (
                 <span
-                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info mt-1`}
+                  className={`${typography.panelMeta} inline-flex items-center ${action('secondary')} mt-1`}
                   data-testid={`${testId}-primary-method`}
                   data-method-id={method.id}
                 >

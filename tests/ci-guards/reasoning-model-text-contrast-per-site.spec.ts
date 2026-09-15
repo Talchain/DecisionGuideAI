@@ -145,6 +145,26 @@ const SCOPE = [
  * changes. A guard that cries wolf gets relaxed.
  */
 const KNOWN_UNREPAIRED: Record<string, number> = {
+  /**
+   * ⭐⭐ SIX SITES REPAIRED 15 Sep 2026 — banked here, as this file's own failure
+   * message asks ("IF A COUNT WENT DOWN, you repaired a site — thank you").
+   *
+   * `AtAGlance text-info text: 1` and `ModelStrip text-info text: 4` are GONE,
+   * and `StrengthenTheReasoning` fell 2 -> 1. All six were the same control: a
+   * tinted info pill, `bg-info/10 … text-info`, measuring 4.05:1 against SC
+   * 1.4.3's 4.5:1.
+   *
+   * They were repaired by the `secondary` action tier
+   * (`analysisNew/panelSurfaces.ts`), which carries a BORDER instead of a fill.
+   * A border costs no text contrast, so `text-info` sits on the untinted panel
+   * ground at 4.78:1 and is legal; the pill shape moves to SC 1.4.11's 3:1
+   * non-text floor where it belongs.
+   *
+   * ⚠ THIS IS A VISIBLE CHANGE, deliberately, and not smuggled in under a
+   * refactor. The other tier conversions in that commit were proven
+   * class-identical before landing; this one changes how six controls look,
+   * because the old look was the defect.
+   */
   // ⚠ TEN ENTRIES REMOVED BY THE v1 MODEL-TAB REMOVAL — five files, all DELETED:
   //    FactorsSection · GoalSection · ModelTabHeader · OptionsSection ·
   //    RelationshipsSection. This pin REDs on SHRINK by design, and that is
@@ -170,14 +190,15 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
   'src/canvas/model-tab-v2/ModelDetailRegion.tsx text-danger text': 1,
   'src/canvas/model-tab-v2/ModelRowView.tsx text-danger text': 1,
   'src/canvas/model-tab-v2/ModelRowView.tsx text-warning text': 1,
-  'src/components/results/analysisNew/sections/AtAGlance.tsx text-info text': 1,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-success text': 1,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-warning icon': 2,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-warning text': 3,
   'src/components/results/analysisNew/sections/ModelHeldUp.tsx text-success icon': 1,
-  'src/components/results/analysisNew/sections/ModelStrip.tsx text-info text': 4,
   'src/components/results/analysisNew/sections/ModelStrip.tsx text-warning text': 6,
-  'src/components/results/analysisNew/sections/StrengthenTheReasoning.tsx text-info text': 2,
+  /* ⭐ 2 -> 1: the tinted pill repaired; the survivor is the `panelBody`
+     `rounded-md` variant, which is a different shape and is owed its own
+     judgement rather than a blind sweep. */
+  'src/components/results/analysisNew/sections/StrengthenTheReasoning.tsx text-info text': 1,
   'src/components/results/analysisNew/sections/WhatWeChecked.tsx text-danger text': 1,
   'src/components/results/analysisNew/sections/WhatWeChecked.tsx text-success text': 1,
   'src/components/results/analysisNew/sections/WhyNoAnalysisYet.tsx text-warning icon': 1,

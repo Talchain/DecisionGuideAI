@@ -200,6 +200,7 @@ import {
   type StripRow,
 } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
+import { action } from '../panelSurfaces'
 
 /**
  * The subject line when the model names neither a goal nor a decision.
@@ -1294,7 +1295,7 @@ export function ModelStrip({
             <button
               type="button"
               onClick={() => focusOrSay(active.id)}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
               data-testid={`${testId}-detail-focus`}
               data-node-id={active.id}
             >
@@ -1370,7 +1371,7 @@ export function ModelStrip({
                     <button
                       type="button"
                       onClick={commitValue}
-                      className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      className={`${typography.panelMeta} inline-flex items-center ${action('secondary')}`}
                       data-testid={`${testId}-detail-value-save`}
                     >
                       {COPY.modelStrip.saveValue}
@@ -1399,7 +1400,7 @@ export function ModelStrip({
                       setDraft('')
                       setEditingFor(active.id)
                     }}
-                    className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
                     data-testid={`${testId}-detail-value-edit`}
                     data-node-id={active.id}
                   >
@@ -1462,7 +1463,7 @@ export function ModelStrip({
                         targetId: active.id,
                       })
                     }
-                    className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
                     data-testid={`${testId}-detail-method`}
                     data-method-id={method.id}
                     title={method.description}

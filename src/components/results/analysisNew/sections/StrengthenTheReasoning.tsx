@@ -1014,7 +1014,7 @@ export function StrengthenTheReasoning({
                             attentionNote: attentionNoteForRecommendation(rec),
                           })
                         }
-                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
                         data-testid={`${testId}-method`}
                         data-method-id={method.id}
                         title={method.description}
