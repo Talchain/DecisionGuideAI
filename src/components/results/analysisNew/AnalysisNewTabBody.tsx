@@ -81,6 +81,7 @@ import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
+import { ActionsMenu } from '../decision-overview/ActionsMenu'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import Accordion from '../Accordion'
@@ -1723,6 +1724,13 @@ export function AnalysisNewTabBody({
             every glance field), so the act cannot appear before there is a run
             to be about. That is the correct gate and it is inherited rather
             than restated here. */}
+        {/* ⚠ ONE BLOCK, NOT TWO — AND THE RATCHET IS WHY I LOOKED FOR ONE.
+            Mounted loose, the menu took the panel from 8 top-level blocks to 9
+            and `thePanelCannotRegrow` REDded by name. The ceiling was the right
+            question to be asked: the acts belong TOGETHER, so the answer was a
+            shared wrapper rather than a raised ceiling. What the run suggests
+            and what you can ask for regardless are one zone. */}
+        <div data-testid="analysis-new-acts">
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
@@ -1746,7 +1754,48 @@ export function AnalysisNewTabBody({
           argueTheOpposite={vm.atAGlance.condition}
           icon={Wrench}
         />
+        <div data-testid="analysis-new-methods" className="mt-1">
+          <ActionsMenu />
+        </div>
+        </div>
 
+        {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
+            ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
+            USER-INVOKED. Derived at the mapping (`recommendationMethod.ts`),
+            with a contrast control:
+
+              pre_mortem        reachable — only on PRE_MORTEM / overconfidence
+              review_bias       reachable — only on COGNITIVE_BIAS
+              outside_view      reachable — only on an anchoring finding
+              different_option  reachable — only on LOW_OPTION_COUNT
+              consider_opposite reachable — only when a flip condition exists
+              reframe_problem   ⛔ NOT REACHABLE FROM THIS TAB
+              explore_tradeoffs ⛔ NOT REACHABLE FROM THIS TAB
+
+            Every one of the first five is gated on the PRODUCER emitting a
+            particular signal. Not one was available because the PERSON wanted
+            it — and a tool for critical and creative thinking has to let the
+            thinker choose the move. The two needing no signal at all are the
+            two most generative: "is the question too narrow?" and "what does
+            each option gain and give up?".
+
+            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE. `ActionsMenu`
+            renders the WHOLE `METHOD_CATALOGUE` and its own header says it owns
+            "user-invoked science-grounded methods". Its only mount is inside
+            `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
+            ruling parks. This estate's chronic failure #1, verbatim: we build
+            more than we plug in.
+
+            ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
+            routes every ask through `openAskOlumi` — the same drawer this file
+            already opens at :1163 — with an EDITABLE prefilled draft rather
+            than a hidden dispatch. Nothing here decides what the method says.
+
+            ⚠ PLACED AFTER THE PRODUCER'S OWN SUGGESTIONS, DELIBERATELY. What
+            the run raised comes first; this is the shelf for when it raised
+            nothing, or nothing you wanted. Ahead of the decision record,
+            because a method is a move you make BEFORE you write down what you
+            decided. */}
         {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
             On a real run this rendered between the trust line and "What would
             change your mind", asking the reader to RECORD A DECISION before
