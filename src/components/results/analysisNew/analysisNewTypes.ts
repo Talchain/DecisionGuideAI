@@ -886,6 +886,19 @@ export type ModelImplication =
  * render nothing rather than to author a reassurance the data cannot support.
  */
 export interface SensitivitySection {
+  /**
+   * ⭐⭐ WHERE EVERY ROW POINTS, WHEN THEY ALL POINT THE SAME WAY — so three
+   * rows read as three variations on one answer rather than three answers.
+   *
+   * ⛔ A DE-DUPLICATION, NOT A NEW CLAIM. Every row already names this option
+   * in the producer's own sentence; saying it once above them is strictly less
+   * assertion than the section already makes.
+   *
+   * `null` when the rows disagree, when any row's alternative is unnamed
+   * (absence is not assent), or when there are fewer than two rows (one row's
+   * own sentence already says where it points).
+   */
+  convergence: { label: string } | null
   findings: AnalysisNewFinding[]
 }
 

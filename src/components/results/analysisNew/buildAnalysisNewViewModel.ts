@@ -913,7 +913,10 @@ function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): Analysi
 function buildUncertainty(
   data: ResultsSectionDataReturn,
   recommendations: Recommendation[],
-): AnalysisNewViewModel['uncertainty'] & { sensitivityFindings: AnalysisNewFinding[] } {
+): AnalysisNewViewModel['uncertainty'] & {
+  sensitivityFindings: AnalysisNewFinding[]
+  sensitivityConvergence: { label: string } | null
+} {
   const conf = data.confidence
   const findings: AnalysisNewFinding[] = []
   /**
@@ -923,6 +926,8 @@ function buildUncertainty(
    * section rather than being copied into a second one.
    */
   const sensitivityFindings: AnalysisNewFinding[] = []
+  /** One entry per sensitivity row, in push order. `null` = the producer named none. */
+  const sensitivityAlternatives: Array<{ id: string; label: string } | null> = []
 
   // 0. What is most worth resolving, FIRST — because it is the only row in this
   //    section that says what to DO about the uncertainty, and with
@@ -1224,6 +1229,19 @@ function buildUncertainty(
     const flip = u.switchProbability
     const hasFlip = typeof flip === 'number' && Number.isFinite(flip)
 
+    /**
+     * ⭐ WHERE THIS ROW POINTS — collected BY ID so the section can ask whether
+     * the rows agree. Only sensitivity rows are counted; the other uncertainty
+     * codes are not about a fragile edge and have no alternative to name.
+     */
+    if (bucket === sensitivityFindings) {
+      sensitivityAlternatives.push(
+        u.alternativeWinnerId && u.alternativeWinnerLabel
+          ? { id: u.alternativeWinnerId, label: u.alternativeWinnerLabel }
+          : null,
+      )
+    }
+
     bucket.push({
       id: uncertaintyKey(u, i),
       ...(hasFlip
@@ -1392,6 +1410,47 @@ function buildUncertainty(
      * sorting them as if absence were zero is the fabrication the contract
      * names. A stable sort keeps their relative order the producer chose.
      */
+    /**
+     * ⭐⭐ DO THESE ROWS AGREE? — said once, so three rows read as three
+     * variations on one answer rather than three answers.
+     *
+     * The witnessed shape: three rows whose sentences all end *"…'Hold Price at
+     * Current Level' could become the better choice"*, so two-thirds of the
+     * visible text is identical and the reader has to diff three paragraphs to
+     * find what differs. Stating the shared conclusion at the top is what makes
+     * the repetition legible instead of exhausting.
+     *
+     * ⛔ IT IS A DE-DUPLICATION, NOT A NEW CLAIM — and that is the whole
+     * entitlement argument. Every one of these rows ALREADY names this option,
+     * in the producer's own sentence, on screen. Saying it once above them is
+     * strictly LESS assertion than the section already makes, so it needs no
+     * permission the rows do not already have. It would be a new claim only if
+     * it named an option no row named, which by construction it cannot.
+     *
+     * ⛔ AGREEMENT IS DECIDED BY ID, NEVER BY LABEL (trap 19). Two options can
+     * carry the same label, and `stripEncodingNotation` can collapse two
+     * distinct unusable ones onto one fallback string — so a label comparison
+     * would answer a different question and be right most of the time, which is
+     * the worst kind of wrong. The label is carried only to render.
+     *
+     * ⛔ SILENT UNLESS EVERY ROW AGREES, AND SILENT IF ANY ROW IS UNNAMED. One
+     * row the producer gave no alternative for means the rows cannot be shown
+     * to agree — absence is not assent. And fewer than two rows is nothing to
+     * converge: a single row's own sentence already says where it points, so a
+     * line above it would be the same claim twice.
+     *
+     * ⚠ DISAGREEMENT RENDERS NOTHING, deliberately. "These point at different
+     * options" is a different, useful claim and it deserves its own argument
+     * and its own test rather than arriving as the else-arm of this one.
+     */
+    sensitivityConvergence: (() => {
+      if (sensitivityAlternatives.length < 2) return null
+      const first = sensitivityAlternatives[0]
+      if (first === null) return null
+      return sensitivityAlternatives.every((a) => a !== null && a.id === first.id)
+        ? { label: first.label }
+        : null
+    })(),
     sensitivityFindings: [...sensitivityFindings].sort((a, b) => {
       const av = a.flipFraction
       const bv = b.flipFraction
@@ -3310,7 +3369,12 @@ export function buildAnalysisNewViewModel(
     uncertainty: preRun
       ? { findings: [], evidenceAssessed: false, decisionVoi: 'not_computed' as const }
       : { findings: uncertaintyBuild!.findings, evidenceAssessed: uncertaintyBuild!.evidenceAssessed, decisionVoi: uncertaintyBuild!.decisionVoi },
-    sensitivity: preRun ? { findings: [] } : { findings: uncertaintyBuild!.sensitivityFindings },
+    sensitivity: preRun
+      ? { findings: [], convergence: null }
+      : {
+          findings: uncertaintyBuild!.sensitivityFindings,
+          convergence: uncertaintyBuild!.sensitivityConvergence,
+        },
     deeper: buildDeeper(inputs),
     // ⚠ PRE-RUN THERE ARE NO CHECKS TO REPORT — and this section must be
     // gated HARDER than the others, not more softly. Its whole content is

@@ -1581,6 +1581,31 @@ export function AnalysisNewTabBody({
         <AnalysisNewSection
           title={COPY.sections.sensitivity}
           findings={vm.sensitivity.findings}
+          /* ⭐⭐ THE SHARED CONCLUSION, SAID ONCE, ABOVE THE ROWS THAT SAY IT
+             THREE TIMES.
+
+             ⛔ A DE-DUPLICATION, NOT A NEW CLAIM, and that is the entitlement
+             argument in full: every row below already names this option inside
+             the producer's own sentence, so stating it once above them is
+             strictly LESS assertion than the section already makes. The view
+             model decides WHETHER it may be said (all rows agree, by id, and
+             none unnamed); this slot only renders it.
+
+             ⚠ THE EXISTING `header` SLOT, not a new prop. `AnalysisNewSection`
+             is shared by four sections, and a `convergence` prop on the shared
+             component would be a field three of them can never fill — the
+             shape that invites a fourth caller to fill it with something
+             else. */
+          header={
+            vm.sensitivity.convergence ? (
+              <p
+                className={`${typography.panelBody} text-text-body`}
+                data-testid="analysis-new-sensitivity-convergence"
+              >
+                {COPY.disclosure.convergence(vm.sensitivity.convergence.label)}
+              </p>
+            ) : null
+          }
           preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
           emptyMessage={null}
           onFocusTarget={focusTarget}
