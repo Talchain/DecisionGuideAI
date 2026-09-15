@@ -206,9 +206,21 @@ export function ReasoningPanelV3({ vm, biasItems = [] }: ReasoningPanelV3Props) 
       {rest.length > 0 && (
         <>
           <Kicker testId="reasoning-v3-kicker-also">Also worth doing</Kicker>
+          {/**
+            * ⛔ CLOSED, AND THE MEASUREMENT IS WHY. Open, this column rendered
+            * 1200px against the live tab's 801px — a 50% TALLER panel, sold as
+            * the fix for "a big unwieldy dump of text". The prototype's own
+            * shape is one OPEN act and the rest as COMPACT ROWS; rendering the
+            * rest as expanded cards is not that shape, it is the dump with a
+            * kicker over it.
+            *
+            * ⚠ THE ACT IS STILL IN VIEW. That was the defect — `Strengthen the
+            * reasoning` sat closed and the one move a reader could make was
+            * behind a chevron. `FocusNow` above answers it; this row carries
+            * what is left, and a closed row here costs nothing a reader wanted.
+            */}
           <StrengthenTheReasoning
             interventions={rest}
-            defaultOpen
             icon={Compass}
             testId="reasoning-v3-also"
           />
