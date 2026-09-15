@@ -74,17 +74,41 @@ export interface ReasoningPanelV3Props {
 }
 
 /**
- * A ZONE LABEL. The prototype's kicker: it names a group of blocks, so it must
- * not look like a block itself — no border, no fill, no radius.
+ * A ZONE LABEL. It names a group of blocks, so it must not look like a block
+ * itself — no border, no fill, no radius.
  *
- * ⚠ `panelMeta` AND `text-text-light`, NOT A NEW SIZE. The prototype's type
- * rule is three sizes and no arbitrary values; a kicker at its own size is the
- * fourth. Uppercase and tracking do the work that a size change would have.
+ * ⛔⛔ NOT ALL-CAPS, AND THE APPROVED PROTOTYPE IS WRONG ABOUT THIS. Its
+ * kickers are all-caps with letter-spacing, and I copied that. The DS v5
+ * compliance ratchet REJECTED it by name — its all-caps class stood at 57
+ * against a baseline of 77, i.e. twenty removed and none allowed back, and a
+ * net-new one blocks under `--enforce`. DS v5 §2 requires sentence case.
+ *
+ * A mockup is allowed to assume its type rules; the SHIPPED system is the
+ * authority, and it had already ruled. Paul's question was whether I was
+ * following the design system — here the prototype was not, and copying it
+ * faithfully would have been the wrong kind of faithfulness.
+ *
+ * ⚠ THE ARBITRARY TRACKING WENT WITH IT (`tracking-[0.08em]`) — which the
+ * prototype's OWN type rule bans ("three type sizes, no arbitrary values").
+ * The mockup broke its own rule and I inherited both halves.
+ *
+ * ⚠⚠ AND THE GUARD IS A TEXT SCANNER, SO ITS OWN RULE NAME CANNOT BE WRITTEN
+ * HERE. `check-ds-compliance.mjs:64` is `/\buppercase\b/g` over the raw
+ * source — COMMENTS INCLUDED. My first draft of this note quoted the violation
+ * class verbatim and the guard flagged the docblock explaining the fix, which
+ * is why the class is described rather than named. A rule whose documentation
+ * trips the rule is not a nuisance to route around silently: it is worth
+ * recording, because the next author will hit it and read a failure that names
+ * a file with no styling defect in it.
+ *
+ * ⚠ `panelMeta` AND `text-text-light`, NOT A NEW SIZE. A kicker at its own size
+ * would be a fourth size. Position and colour carry the hierarchy — which is
+ * what a label on a group should rest on anyway.
  */
 function Kicker({ children, testId }: { children: string; testId: string }) {
   return (
     <p
-      className={`${typography.panelMeta} text-text-light uppercase tracking-[0.08em] mt-4 mb-1.5 first:mt-0`}
+      className={`${typography.panelMeta} text-text-light mt-4 mb-1.5 first:mt-0`}
       data-testid={testId}
     >
       {children}
