@@ -30,8 +30,10 @@ import { richFixture } from '../__fixtures__/resultsPanelV7.rich.hook'
 import { sensitiveFixture } from '../__fixtures__/resultsPanelV7.sensitive.hook'
 import { normalisedFixture } from '../__fixtures__/resultsPanelV7.normalised.hook'
 import type { ResultsSectionDataReturn } from '../components/results/useResultsSectionData'
-import type { ResultCompleteness } from '../components/results/useResultCompleteness'
 import type { Recommendation } from '../components/results/strengthen/strengthenTypes'
+
+/** Real OutputsDock content width: 416px default dock − 24px body padding. */
+const DOCK_CONTENT_WIDTH = 392
 
 /**
  * ⚠ FIXTURE INTERVENTIONS. `buildRecommendations` is the real engine and this
@@ -69,25 +71,13 @@ const FIXTURE_INTERVENTIONS: Recommendation[] = [
 ]
 
 /**
- * ⛔ A REAL FINDING, NOT A PROTOTYPE WORKAROUND. `ResultsSectionDataReturn`
- * declares `completeness` as REQUIRED, and none of the three shared fixtures
- * sets it — each carries a baselined TypeScript error that hides exactly this
- * (`scripts/ci/typecheck-baseline.txt`). `buildAnalysisNewViewModel` then reads
- * `data.completeness.missing` UNGUARDED at :1405 while guarding the same field
- * at :2778, so the omission is a runtime throw rather than a degraded render.
- * The prototype supplies the field so the surface can be reviewed; repairing
- * the fixtures (and the inconsistent guard) is its own small change.
+ * ⭐ THE WORKAROUND THAT WAS HERE IS GONE, AND THAT IS THE POINT OF A PROTOTYPE
+ * BOUND TO THE PRODUCT. This route used to patch `completeness` onto each
+ * fixture because all three omitted a field `ResultsSectionDataReturn` declares
+ * REQUIRED — hidden by a baselined TypeScript error, and a runtime throw rather
+ * than a degraded render. The fixtures now carry it and the builder's two reads
+ * of that field agree, so there is nothing left to patch.
  */
-const COMPLETE: ResultCompleteness = { status: 'full', missing: [], reasons: [] }
-
-const withCompleteness = (d: ResultsSectionDataReturn): ResultsSectionDataReturn => ({
-  ...d,
-  completeness: d.completeness ?? COMPLETE,
-})
-
-/** Real OutputsDock content width: 416px default dock − 24px body padding. */
-const DOCK_CONTENT_WIDTH = 392
-
 /**
  * ⚠ FIXTURE BIAS FINDINGS. The live tab reads `ceeAnalysisReady.bias_findings`
  * off the canvas store, which no route-level prototype has. These are shaped
@@ -122,9 +112,9 @@ const FIXTURE_BIAS_FINDINGS: readonly unknown[] = [
 ]
 
 const SCENARIOS: ReadonlyArray<{ id: string; label: string; data: ResultsSectionDataReturn }> = [
-  { id: 'rich', label: 'Rich run', data: withCompleteness(richFixture) },
-  { id: 'sensitive', label: 'Sensitive run', data: withCompleteness(sensitiveFixture) },
-  { id: 'normalised', label: 'Normalised run', data: withCompleteness(normalisedFixture) },
+  { id: 'rich', label: 'Rich run', data: richFixture },
+  { id: 'sensitive', label: 'Sensitive run', data: sensitiveFixture },
+  { id: 'normalised', label: 'Normalised run', data: normalisedFixture },
   /**
    * ⭐ THE TRUST LINE IN ITS ORDINARY STATE. The three shared fixtures carry no
    * `robustnessVerdict`, so the glance correctly has no verdict and the line
@@ -135,7 +125,7 @@ const SCENARIOS: ReadonlyArray<{ id: string; label: string; data: ResultsSection
   {
     id: 'verdict',
     label: 'Run with a robustness verdict',
-    data: withCompleteness({
+    data: ({
       ...richFixture,
       recommendation: {
         ...richFixture.recommendation,

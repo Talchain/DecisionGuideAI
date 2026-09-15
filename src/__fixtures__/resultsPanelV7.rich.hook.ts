@@ -189,6 +189,20 @@ export const richFixture: ResultsSectionDataReturn = {
     count: 3,
     hasHighPriority: true,
   },
+  /**
+   * ⛔ WAS MISSING, AND `ResultsSectionDataReturn` DECLARES IT REQUIRED.
+   * The omission was invisible because this file carried a BASELINED
+   * TypeScript error (`scripts/ci/typecheck-baseline.txt`), so the
+   * contract was not enforced on the one artefact every consumer test
+   * builds on. `buildAnalysisNewViewModel` reads `completeness.missing`
+   * and `.status` UNGUARDED, so the absence was a RUNTIME THROW rather
+   * than a degraded render — it took the whole tab down the first time a
+   * route rendered from these fixtures.
+   *
+   * ⚠ 'full' with NO missing keys and NO reasons is the honest value for a
+   * fixture that hand-builds every result it claims to have.
+   */
+  completeness: { status: 'full', missing: [], reasons: [] },
   isLoading: false,
   isError: false,
   goalLabel: 'Annual recurring revenue',
