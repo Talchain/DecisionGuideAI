@@ -57,6 +57,32 @@
  * colour alone. The rule targets BARE INLINE controls only, which is the class
  * that actually fails 1.4.1.
  *
+ * ── ⚠⚠ THE SCOPE OF THIS RULE, STATED SO IT IS NEVER READ AS THE HEADING ───
+ * The heading says "affordance is never carried by colour alone". **What is
+ * actually enforced is narrower: no `text-info` control relies on colour
+ * alone.** Those are different claims and the gap is reachable — naming the
+ * artefact searched rather than the generalisation (CLAUDE.md trap 20).
+ *
+ * ⭐ WHY IT IS SCOPED TO ONE TOKEN, AND WHY WIDENING IT WAS TRIED AND REJECTED.
+ * `text-info` is THIS PANEL'S LINK COLOUR, so a `text-info` control with no
+ * rest-state shape is unambiguously leaning on the link convention. Widening
+ * the scan to every text colour was MEASURED: it returns six interactive
+ * controls, and it cannot discriminate them.
+ *   · Two carry no colour at all — the scan was matching `text-left`, an
+ *     ALIGNMENT utility, as though it were a hue.
+ *   · Two are whole-row disclosure buttons whose affordance is a CHEVRON CHILD.
+ *     A className scan reads the control's own attributes and cannot see an
+ *     icon inside it, so it calls them bare when they are not.
+ * A rule that fires on four cases of which it can justify none is worse than a
+ * narrow rule that is right: it trains the next reader to wave the guard
+ * through.
+ *
+ * ⚠ SO THE RESIDUE IS REAL AND IS RECORDED, NOT CLOSED. Controls in other hues
+ * (`text-text-light` at `DeeperAnalysis:90`, `StrengthenTheReasoning:1239` and
+ * `:1351`; `text-text-body` at `AtAGlance:1205`) are NOT covered here. Closing
+ * that needs a scan that can see child elements — a rendered-DOM check rather
+ * than a source scan, which is a different guard from this one.
+ *
  * CONTROLS (every CI pass, never once by hand — CLAUDE.md trap 13):
  *   · POSITIVE  a synthetic bare `text-info` control and a synthetic
  *               `text-[13px]` MUST both be flagged, proving the scanner sees.
@@ -166,7 +192,7 @@ describe('Reasoning panel — RULE A: only the declared panel sizes are rendered
   })
 })
 
-describe('Reasoning panel — RULE B: affordance is never carried by colour alone', () => {
+describe('Reasoning panel — RULE B: no text-info control relies on colour alone', () => {
   /**
    * ⭐ PINNED AS AN EXACT SET, NOT A CEILING. A count REDs only upward, so a
    * ceiling ratifies today's violations forever; an exact set REDs when the
