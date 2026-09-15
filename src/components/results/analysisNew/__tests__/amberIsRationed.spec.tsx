@@ -17,13 +17,23 @@
  * tree with seven that all fire together is the defect. Only a render can tell
  * them apart, so this reads the DOM.
  *
- * ── WHY AN EXACT SET AND NOT A CEILING ─────────────────────────────────────
- * ⭐ A ceiling REDs only upward, so it ratifies today's count forever and the
- * next four additions are free until they cross it. Pinned EXACTLY, this REDs
- * when the count GROWS (amber spreads) **and** when it SHRINKS (a reduction
- * lands and the record is not updated) — the same discipline
- * `reasoning-model-text-contrast-per-site` uses on its unrepaired set, and for
- * the same reason: a one-directional baseline becomes permanent (trap 12).
+ * ── ⛔ CORRECTED: A DECREASING RATCHET, NOT AN EXACT PIN ────────────────────
+ * This file first asserted the counts EXACTLY, reasoning that a ceiling
+ * ratifies today's count forever. Core refuted it, and the refutation is right:
+ * an exact pin **REDs when someone FIXES amber**. A guard asserting "no more
+ * than six meanings" punishes the person who gets it to one, and the next lane
+ * reads that red as breakage and reverts the repair.
+ *
+ * ⭐ THAT IS THE DEFECT THIS FILE'S OWN AUTHOR NAMED ONE COMMIT EARLIER —
+ * "a guard that ratifies a defect reads like progress" — committed inside the
+ * guard written to prevent it.
+ *
+ * So: a RATCHET THAT ONLY TIGHTENS. It REDs when a count RISES (amber spreads,
+ * which is the harm) and passes when one FALLS, with the fall reported so the
+ * pin can be lowered deliberately rather than drifting. The numbers below are a
+ * RECORD OF A KNOWN DEFECT, not a target, and the removal condition is written
+ * in-test: when every count reaches its floor, amber carries one meaning and
+ * this file is replaced by an equality pin.
  *
  * ── ⛔ WHAT THIS FILE DELIBERATELY DOES NOT DO ─────────────────────────────
  * It does NOT move the worklist counts to an attention colour, which is the
@@ -107,15 +117,29 @@ describe('amber is rationed', () => {
       measured[name] = census(make())
       cleanup()
     }
+    const grew = Object.entries(measured).filter(([k, v]) => v > (PINNED[k] ?? 0))
+    const shrank = Object.entries(measured).filter(([k, v]) => v < (PINNED[k] ?? 0))
+
     expect(
-      measured,
-      'Amber spread (or shrank) on the Reasoning tab.\n' +
-        'GREW  — a status colour works by being scarce; adding one more makes every\n' +
-        '        existing one weaker. Carry the new signal with an icon, a rule or\n' +
-        '        position, or take an existing amber off something that is not a\n' +
-        '        health state.\n' +
-        'SHRANK — good; update the pin in the same commit and say what you removed.',
-    ).toEqual(PINNED)
+      grew,
+      'AMBER SPREAD. A status colour works by being scarce: adding one more makes\n' +
+        'every existing one weaker. Carry the new signal with an icon, a rule or\n' +
+        'position — or take an existing amber off something that is not a health\n' +
+        'state.\n' +
+        grew.map(([k, v]) => `  ${k}: ${PINNED[k]} -> ${v}`).join('\n'),
+    ).toEqual([])
+
+    /* ⭐ A FALL IS REPORTED, NEVER FAILED. This is the half an exact pin got
+       wrong: the guard must not punish the repair. It is surfaced so the pin
+       comes down deliberately in the same commit rather than drifting upward
+       again unnoticed. */
+    if (shrank.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        'AMBER FELL — lower the pin in this commit:\n' +
+          shrank.map(([k, v]) => `  ${k}: ${PINNED[k]} -> ${v}`).join('\n'),
+      )
+    }
   })
 
   /**

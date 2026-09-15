@@ -210,6 +210,73 @@ describe('Reasoning panel — RULE B: affordance is never carried by colour alon
   })
 })
 
+/**
+ * ⭐⭐ RULE C — THE TIER REGISTER IS INJECTIVE.
+ *
+ * Canvas's property, adopted verbatim because it is the right one: **two
+ * meanings must not share a channel.** That is what makes a register a SYSTEM
+ * rather than a list — without it, `primary` and `secondary` can drift into the
+ * same pixels and the vocabulary silently collapses to four tiers, then three,
+ * and the 30-spellings defect regrows from the inside.
+ *
+ * ⚠ THE TWO REGISTERS ARE NAMED APART, DELIBERATELY (CLAUDE.md trap 21), and
+ * this note is the record so nobody later "reconciles" them:
+ *   · THIS one answers *"what interaction affordance is this control, and how
+ *     loud should it be?"* — a PRESENTATION question about things you press.
+ *   · Canvas's answers *"what kind of claim is this visual making about the
+ *     model?"* — an EPISTEMIC question about meaning a reader must not misread.
+ *
+ * Canvas's test for the boundary, which is sharper than mine: *"If getting it
+ * wrong makes the UI ugly, it is Panel's. If getting it wrong makes the product
+ * say something false, it is Canvas's."* `border-dashed` is Canvas's — it means
+ * "outside your control" and shipped a false claim once. A button at the wrong
+ * loudness is this file's.
+ */
+describe('Reasoning panel — RULE C: the action-tier register is injective', () => {
+  it('no two tiers resolve to the same visual channel', () => {
+    const src = readFileSync(resolvePath(PANEL_DIR, 'panelSurfaces.ts'), 'utf8')
+    const block = src.slice(src.indexOf('export const ACTION_TIER'))
+    const tiers = [...block.matchAll(/^\s{2}(\w+):\s*'([^']+)'/gm)].map((m) => [m[1]!, m[2]!] as const)
+
+    expect(tiers.length, 'PRECONDITION: the register must be readable').toBeGreaterThanOrEqual(4)
+
+    const seen = new Map<string, string>()
+    const collisions: string[] = []
+    for (const [name, cls] of tiers) {
+      // Order-insensitive: two tiers spelling the same classes differently are
+      // still the same channel.
+      const key = [...new Set(cls.split(/\s+/).filter(Boolean))].sort().join(' ')
+      const prior = seen.get(key)
+      if (prior !== undefined) collisions.push(`${prior} and ${name} share a channel`)
+      else seen.set(key, name)
+    }
+    expect(
+      collisions,
+      'Two tiers resolving to the same pixels is a vocabulary that has silently\n' +
+        'collapsed. Either they are one tier and one name should go, or they are\n' +
+        'two and one needs a channel of its own.',
+    ).toEqual([])
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATOR. Injectivity passes trivially on a register of one, so
+   * this pins that the vocabulary is actually plural and that the check is
+   * reading real content rather than an empty match.
+   */
+  it('DISCRIMINATOR: the register is plural and every tier carries a shape signal', () => {
+    const src = readFileSync(resolvePath(PANEL_DIR, 'panelSurfaces.ts'), 'utf8')
+    const block = src.slice(src.indexOf('export const ACTION_TIER'))
+    const tiers = [...block.matchAll(/^\s{2}(\w+):\s*'([^']+)'/gm)].map((m) => [m[1]!, m[2]!] as const)
+    expect(tiers.length, 'a register of one tier is not a register').toBeGreaterThan(1)
+    for (const [name, cls] of tiers) {
+      expect(
+        SHAPE_SIGNALS.test(restState(cls)),
+        `tier "${name}" carries no rest-state shape signal — its affordance would be colour alone (SC 1.4.1)`,
+      ).toBe(true)
+    }
+  })
+})
+
 describe('CONTROLS — the scanner can see, discriminates, and ignores comments', () => {
   const scanSizes = (src: string) => [...stripComments(src, 'x.tsx').matchAll(RAW_SIZE)].map((m) => m[0])
   const colourOnly = (cls: string) => !SHAPE_SIGNALS.test(restState(cls))

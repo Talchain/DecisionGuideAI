@@ -22,6 +22,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type { AnalysisNewFinding } from './analysisNewTypes'
+import { action } from './panelSurfaces'
 
 const MARKER_LABEL: Record<NonNullable<AnalysisNewFinding['marker']>, string> = {
   provisional: COPY.markers.provisional,
@@ -159,7 +160,7 @@ export function DisclosureRow({
               <button
                 type="button"
                 onClick={() => onFocusTarget((finding.focusTargetId ?? finding.targetId)!)}
-                className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} ${action('inline')}`}
                 data-testid={`${testIdPrefix}-focus`}
               >
                 Show on canvas
@@ -179,7 +180,7 @@ export function DisclosureRow({
               <button
                 type="button"
                 onClick={() => onReviewTarget(finding.reviewTargetId!)}
-                className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} ${action('inline')}`}
                 data-testid={`${testIdPrefix}-review`}
               >
                 {COPY.disclosure.reviewTarget}
@@ -194,7 +195,7 @@ export function DisclosureRow({
               <button
                 type="button"
                 onClick={() => onRunIntervention(finding.intervention!.recommendationId)}
-                className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} ${action('inline')}`}
                 data-testid={`${testIdPrefix}-intervention`}
                 data-recommendation-id={finding.intervention.recommendationId}
               >

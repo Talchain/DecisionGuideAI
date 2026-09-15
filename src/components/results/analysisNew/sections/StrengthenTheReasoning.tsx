@@ -76,6 +76,7 @@ import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
 import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
+import { action } from '../panelSurfaces'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -1230,7 +1231,7 @@ export function StrengthenTheReasoning({
                       <button
                         type="button"
                         onClick={() => commitDispute(rec)}
-                        className={`${typography.panelMeta} rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} ${action('inline')}`}
                         data-testid={`${testId}-disagree-save`}
                       >
                         {COPY.dissent.save}
@@ -1334,7 +1335,7 @@ export function StrengthenTheReasoning({
           // DeeperAnalysis) — this control was the departure from the house
           // convention, not the convention itself.
           aria-controls={`${testId}-list`}
-          className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-2`}
+          className={`${typography.panelMeta} ${action('inline')} mt-2`}
           data-testid={`${testId}-show-more`}
         >
           {expanded ? COPY.disclosure.collapse : COPY.disclosure.moreStrengthen(hidden)}

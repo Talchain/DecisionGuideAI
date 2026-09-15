@@ -21,6 +21,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { DisclosureRow } from '../DisclosureRow'
 import { SectionShell } from './SectionShell'
 import type { AnalysisNewFinding } from '../analysisNewTypes'
+import { action } from '../panelSurfaces'
 
 /**
  * ⭐⭐ A ROW BADGE MAY CARRY A CLAIM ABOUT ITS OWN ROW. IT MAY NOT RESTATE A
@@ -203,7 +204,7 @@ export function AnalysisNewSection({
               // nothing ahead of them. One fix here covers every section that
               // uses this shared pattern.
               aria-controls={`${testId}-list`}
-              className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-1`}
+              className={`${typography.panelMeta} ${action('inline')} mt-1`}
               data-testid={`${testId}-show-more`}
             >
               {expanded ? COPY.disclosure.collapse : COPY.disclosure.moreDrivers(hidden)}
