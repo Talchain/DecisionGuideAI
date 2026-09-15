@@ -127,59 +127,78 @@ test('WITNESS run_delta after a deliberate change', async ({ page }) => {
    * the clock for an input that row never renders. It also REPORTS what it
    * tried, so a reader can tell a missing affordance from a badly-chosen one.
    */
-  const editable = page.locator('button[data-testid$="-value"][aria-label^="Change "]')
-  const n = await editable.count()
-  if (n === 0) stop('no editable value control on the Model tab after the first run')
-
   /**
-   * ⛔⛔ THE LOOP NOW SPANS ALL THREE BEATS, NOT JUST THE FIRST. Stopping the
-   * search at "an input opened" picked the QUESTION node — its editor opens and
-   * then offers no `Review change`, so the probe sat on a click that could
-   * never settle, burning the whole test timeout on a row that was never the
-   * arm to drive. Opening an editor is NOT evidence the row supports the edit.
+   * ⛔⛔ STOP #6 WAS THE CLOCK, NOT THE PRODUCT. The qualification loop ate the
+   * whole 20-minute ceiling and the run died mid-`getAttribute` with "target
+   * closed" — which reads exactly like a browser crash. Cause: every `click()`
+   * in the loop carried Playwright's DEFAULT 30s actionability retry, so a
+   * dozen unclickable rows cost six minutes before any deliberate wait.
    *
-   * ⭐ THE GENERAL RULE, and it is the fourth face of the same mistake in this
-   * file: A ROW THAT ANSWERS THE FIRST BEAT IS NOT THEREFORE THE RIGHT ROW.
-   * Qualify a candidate against the WHOLE journey it has to complete, and move
-   * on the moment it fails — cheaply, with a short timeout, reporting why.
+   * ⭐ A SEARCH MUST BE CHEAP PER CANDIDATE OR IT IS NOT A SEARCH. Every action
+   * inside the loop is bounded to seconds and the list is capped — an
+   * exhaustive probe that cannot finish tells you nothing an unrun one doesn't.
    *
-   * ⚠ SHORT WAITS INSIDE THE SEARCH, DELIBERATELY. A generous timeout here is
-   * not patience, it is a probe that cannot change its mind.
+   * ⭐ AND FACTORS FIRST, WHICH IS WHAT THE PLAN SAID ALL ALONG. The factor arm
+   * carries the full three-beat flow; the goal and question rows were only ever
+   * ahead of it in DOM order. Ordering candidates by the group they sit in
+   * turns a dozen failed attempts into one that succeeds first.
    */
+  const FAST = { timeout: 5_000 } as const
+  const MAX_ROWS = 10
+
+  const allEditable = await page
+    .locator('button[data-testid$="-value"][aria-label^="Change "]')
+    .all()
+  if (allEditable.length === 0) stop('no editable value control on the Model tab after the first run')
+
+  const factorIds = await page
+    .locator('[data-testid^="model-group-v2-factor"] button[data-testid$="-value"]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid') ?? ''))
+
+  const candidates: Array<{ testid: string; label: string; isFactor: boolean }> = []
+  for (const btn of allEditable) {
+    const testid = (await btn.getAttribute('data-testid')) ?? ''
+    candidates.push({
+      testid,
+      label: (await btn.getAttribute('aria-label')) ?? testid,
+      isFactor: factorIds.includes(testid),
+    })
+  }
+  candidates.sort((a, b) => Number(b.isFactor) - Number(a.isFactor))
+
   const tried: string[] = []
   let rowId: string | null = null
-  for (let i = 0; i < n && rowId === null; i += 1) {
-    const btn = editable.nth(i)
-    const label = (await btn.getAttribute('aria-label')) ?? `row ${i}`
-    const testid = (await btn.getAttribute('data-testid')) ?? ''
-    const base = testid.replace(/-value$/, '')
-    await btn.click().catch(() => undefined)
+  for (const c of candidates.slice(0, MAX_ROWS)) {
+    if (rowId !== null) break
+    const base = c.testid.replace(/-value$/, '')
+    const tag = c.isFactor ? 'factor' : 'other'
+    await page.locator(`[data-testid="${c.testid}"]`).click(FAST).catch(() => undefined)
 
-    const input = page.locator(`[data-testid="${testid}-input"]`)
-    if (!(await input.isVisible().catch(() => false))) {
-      tried.push(`${label}: no free-value input`)
+    const input = page.locator(`[data-testid="${c.testid}-input"]`)
+    if (!(await input.isVisible(FAST).catch(() => false))) {
+      tried.push(`${c.label} (${tag}): no free-value input`)
       await page.keyboard.press('Escape').catch(() => undefined)
       continue
     }
-    await input.fill('42').catch(() => undefined)
+    await input.fill('42', FAST).catch(() => undefined)
 
     const review = page.locator(`[data-testid="${base}-review"]`)
-    if (!(await review.isVisible({ timeout: 8_000 }).catch(() => false))) {
-      tried.push(`${label}: input opened but NO review step`)
+    if (!(await review.isVisible(FAST).catch(() => false))) {
+      tried.push(`${c.label} (${tag}): input, NO review step`)
       await page.keyboard.press('Escape').catch(() => undefined)
       continue
     }
-    await review.click().catch(() => undefined)
+    await review.click(FAST).catch(() => undefined)
 
     const confirm = page.locator(`[data-testid="${base}-confirm"]`)
-    if (!(await confirm.isVisible({ timeout: 8_000 }).catch(() => false))) {
-      tried.push(`${label}: review taken but NO confirm step`)
+    if (!(await confirm.isVisible(FAST).catch(() => false))) {
+      tried.push(`${c.label} (${tag}): review, NO confirm step`)
       await page.keyboard.press('Escape').catch(() => undefined)
       continue
     }
-    await confirm.click().catch(() => undefined)
+    await confirm.click(FAST).catch(() => undefined)
     rowId = base
-    tried.push(`${label}: ALL THREE BEATS`)
+    tried.push(`${c.label} (${tag}): ALL THREE BEATS`)
   }
   if (rowId === null) {
     stop(`no row completed the three-beat edit. Tried ${n}: ${tried.join(' | ')}`)
