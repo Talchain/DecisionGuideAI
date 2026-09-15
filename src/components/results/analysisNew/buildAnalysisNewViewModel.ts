@@ -1200,8 +1200,38 @@ function buildUncertainty(
      */
     const focusTarget = rowEdgeId ?? undefined
     const reviewTarget = rowEdgeId && rowEdgeId !== assumed?.edgeId ? rowEdgeId : undefined
+    /**
+     * ⭐⭐ THE MEASURED FLIP RISK — the quantity this section is about, and the
+     * one it has never shown.
+     *
+     * ⛔ PRESENCE, NEVER A COALESCE. The contract states it in its own words:
+     * absence means NOT COMPUTED, `0` is a genuine measurement ("flipping this
+     * edge changes nothing"), and reading absence as `0` fabricates the safest
+     * possible verdict while reading it as `1` fabricates the most alarming.
+     * So both fields are set together or neither is, and a row without a
+     * measurement renders no number and no bar — the same rule `winReadout`
+     * and `winFraction` already follow one section up.
+     *
+     * ⚠ CLAMPED FOR GEOMETRY ONLY, exactly as the option bars are: a bar cannot
+     * draw outside its track, and the READOUT is never clamped, so a value the
+     * producer sent out of range still prints the producer's own number.
+     *
+     * ⚠ ONE FORMATTER, AT THE ONE PLACE THE NUMBER IS BORN. `switch_probability`
+     * is a probability over simulated runs, so it takes the same
+     * resolution-aware authority the option shares take rather than a local
+     * `Math.round` — a measured-but-tiny risk must read "<0.01%", never "0%".
+     */
+    const flip = u.switchProbability
+    const hasFlip = typeof flip === 'number' && Number.isFinite(flip)
+
     bucket.push({
       id: uncertaintyKey(u, i),
+      ...(hasFlip
+        ? {
+            flipFraction: Math.max(0, Math.min(1, flip)),
+            flipReadout: formatProbabilityWithResolution(flip, undefined),
+          }
+        : {}),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
       // BE SAID TWICE.
       //
@@ -1349,7 +1379,27 @@ function buildUncertainty(
 
   return {
     findings,
-    sensitivityFindings,
+    /**
+     * ⭐⭐ RANKED BY THE MEASURED RISK, AND ONLY WHERE THERE IS ONE.
+     *
+     * The producer derives `severity` from this same `switch_probability`
+     * (>0.7 critical, >0.5 error), so ordering by the number and ordering by
+     * the producer's class cannot disagree — this is not a second opinion, it
+     * is the same one with more resolution.
+     *
+     * ⛔ ROWS WITHOUT A MEASUREMENT KEEP THEIR PRODUCER ORDER AND SIT AFTER THE
+     * MEASURED ONES. They are not "least risky": they are unmeasured, and
+     * sorting them as if absence were zero is the fabrication the contract
+     * names. A stable sort keeps their relative order the producer chose.
+     */
+    sensitivityFindings: [...sensitivityFindings].sort((a, b) => {
+      const av = a.flipFraction
+      const bv = b.flipFraction
+      if (av === undefined && bv === undefined) return 0
+      if (av === undefined) return 1
+      if (bv === undefined) return -1
+      return bv - av
+    }),
     // Rule 4 — the load-bearing distinction for this section's empty state.
     evidenceAssessed: conf.evidenceGapsAssessed === true,
     decisionVoi: data.decisionVoi,

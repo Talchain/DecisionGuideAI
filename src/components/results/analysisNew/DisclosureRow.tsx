@@ -137,6 +137,53 @@ export function DisclosureRow({
               {finding.implication}
             </span>
           ) : null}
+
+          {/* ⭐⭐ THE MEASURED RISK, AT L1 — visible without opening the row.
+              This is the quantity the row is ABOUT: the producer's
+              `switch_probability`, "P(flipping this edge switches the
+              recommended option)". Behind disclosure it would be a number a
+              reader has to go looking for, and the reason to look is the number.
+
+              ⛔ BOTH FIELDS OR NEITHER. The builder sets them together and an
+              absent measurement means NOT COMPUTED — never zero. A track with
+              no fill would read as a measured "this changes nothing", which is
+              the fabrication the contract names by name.
+
+              ⚠ THE OPTION ROW'S GEOMETRY EXACTLY — same 8px track, same radius,
+              same `bg-info` fill, same positive-only 2px floor. A probability
+              drawn two ways on one panel is two scales the reader must learn;
+              the section differs by its LABEL, never by its ruler. */}
+          {finding.flipReadout !== undefined && finding.flipFraction !== undefined ? (
+            <span className="block mt-1.5">
+              <span className="flex items-baseline gap-2">
+                <span
+                  className={`${typography.panelMeta} text-text-light min-w-0 flex-1`}
+                  data-testid={`${testIdPrefix}-flip-label`}
+                >
+                  {COPY.disclosure.flipLabel}
+                </span>
+                <span
+                  className={`${typography.panelMeta} text-text-light shrink-0 tabular-nums`}
+                  data-testid={`${testIdPrefix}-flip`}
+                >
+                  {finding.flipReadout}
+                </span>
+              </span>
+              <span
+                className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
+                aria-hidden="true"
+                data-testid={`${testIdPrefix}-flip-bar`}
+              >
+                <span
+                  className="block h-full rounded-full bg-info"
+                  style={{
+                    width: `${finding.flipFraction * 100}%`,
+                    ...(finding.flipFraction > 0 ? { minWidth: '2px' } : {}),
+                  }}
+                />
+              </span>
+            </span>
+          ) : null}
         </span>
       </button>
 

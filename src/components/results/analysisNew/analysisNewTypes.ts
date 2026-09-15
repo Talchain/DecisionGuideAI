@@ -141,6 +141,27 @@ export interface AnalysisNewFinding {
    * read by `buildNodeInsights` into a node-keyed map; an edge id there is a
    * key no node lookup can hit. One field cannot answer both questions.
    */
+  /**
+   * ⭐⭐ HOW OFTEN THIS ACTUALLY FLIPPED THE ANSWER — the producer's measured
+   * `switch_probability`, 0-1, FOR BAR GEOMETRY ONLY.
+   *
+   * It is a PROBABILITY, so it carries no unit and no scale question: the same
+   * 0-1 track the option rows use is the correct picture of it without any
+   * conversion. That is why this figure could ship while the tipping-point
+   * threshold (in the source factor's own units) waits on the unit work.
+   *
+   * ⛔ `undefined` MEANS NOT COMPUTED — never 0. The contract is explicit:
+   * `0` is a genuine measurement ("flipping this edge changes nothing") and a
+   * consumer reading absence as `0` fabricates the safest possible verdict.
+   * A row without it renders NO number and NO bar.
+   */
+  flipFraction?: number
+  /**
+   * The same value formatted, and the ONLY rendered spelling of it — never
+   * `Math.round` at a render site, which is how one quantity ends up on screen
+   * with two roundings. `undefined` in lockstep with `flipFraction`.
+   */
+  flipReadout?: string
   focusTargetId?: string
   reviewTargetId?: string
   /** Level 3 — inspect. Empty array renders no inspect affordance. */
