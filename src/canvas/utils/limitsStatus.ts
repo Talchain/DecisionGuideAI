@@ -74,3 +74,37 @@ export function deriveLimitsStatus(
     },
   }
 }
+
+/**
+ * ⭐⭐ THE PRODUCER'S OWN MAXIMUM — the one limits fact the UI is entitled to act on.
+ *
+ * `/v1/limits` states `nodes.max` and `edges.max` and nothing else. A count that
+ * EXCEEDS one of those is a fact about a set the producer defined; the UI picks
+ * neither side of the comparison, so this is a range check, not a threshold.
+ *
+ * ⚠ NAMED APART FROM `zone` ON PURPOSE (trap 21). `zone === 'at_limit'` answers
+ * *"are you near the ceiling?"* — a UI band at 90% — and its honest remedy is
+ * *nothing, carry on*. This answers *"have you gone past what the engine stated
+ * it will take?"*, whose remedy is *you must remove something*. They were one
+ * predicate, and the run gate read the wrong one: it refused analysis at 90% of
+ * capacity and told the user the ENGINE had refused it.
+ *
+ * `max` means the largest permitted, so equality passes.
+ */
+export function exceedsEngineLimit(status: LimitsStatusResult): boolean {
+  return status.nodes.current > status.nodes.max || status.edges.current > status.edges.max
+}
+
+/** The axes that are over, with the producer's figure for each. Empty when the
+ *  graph is within what the engine stated. Used to say what is true rather than
+ *  to grade. */
+export function engineLimitOverage(
+  status: LimitsStatusResult,
+): ReadonlyArray<{ axis: 'nodes' | 'edges'; current: number; max: number; over: number }> {
+  const out: Array<{ axis: 'nodes' | 'edges'; current: number; max: number; over: number }> = []
+  for (const axis of ['nodes', 'edges'] as const) {
+    const { current, max } = status[axis]
+    if (current > max) out.push({ axis, current, max, over: current - max })
+  }
+  return out
+}
