@@ -95,6 +95,7 @@ const DebugPanel = lazy(() => import('../components/DebugPanel'))
 const ScenarioListPage = lazyWithStallBound(() => import('../pages/ScenarioListPage'), 'Your scenarios')
 // Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
 const HeroGallery = lazyWithStallBound(() => import('../routes/HeroGallery'), 'The hero gallery')
+const ReasoningPrototype = lazyWithStallBound(() => import('../routes/ReasoningPrototype'), 'The reasoning prototype')
 const SharedBriefPage = lazyWithStallBound(() => import('../pages/SharedBriefPage'), 'The shared brief')
 const ParticipantPacketPage = lazyWithStallBound(() => import('../pages/ParticipantPacketPage'), 'The participant packet')
 const PanelSetupPage = lazyWithStallBound(() => import('../pages/PanelSetupPage'), 'Panel setup')
@@ -990,6 +991,7 @@ export default function AppPoC() {
                       panel); ALSO self-gated on `heroFixtureGallery`
                       (staging-on/prod-off) inside the component, and unlinked. */}
                   <Route path="/dev/hero-gallery" element={<HeroGallery />} />
+                  <Route path="/dev/reasoning-prototype" element={<ReasoningPrototype />} />
                   <Route path="/plot" element={<PlotWorkspace />} />
                   <Route path="/plot-legacy" element={<PlotShowcase />} />
                   <Route path="/plc" element={<PlcLab />} />
