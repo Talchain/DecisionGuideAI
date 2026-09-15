@@ -119,10 +119,62 @@ export type OverlayCell = 'bottom-left' | 'bottom-centre' | 'bottom-right'
 export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
   'bottom-left': ['lens-info-panel'],
   'bottom-centre': [
-    'starter-provenance-banner',
+    /**
+     * ⭐⭐ THE LIVE TRANSFORMATION OUTRANKS THE STANDING FACT — and this order
+     * was measured wrong on the deployed build, not reasoned wrong.
+     *
+     * WITNESSED on staging `be63bb53`, guest, rAF 121: activating an option
+     * lens at the parked zoom reduced **5 of 19 cards** exactly as designed —
+     * and the notice explaining it **never appeared**, because
+     * `starter-provenance-banner` holds this cell. Proven rather than inferred:
+     * dismissing the banner made the notice appear with **byte-identical store
+     * state**, which is also the positive control that the probe was not blind.
+     * ⛔ And the banner's dismissal does not survive a reload, so the
+     * suppression is PERMANENT on a starter graph rather than transient.
+     *
+     * ⇒ Cards silently lost their bodies with nothing on screen saying why.
+     * A blank card is indistinguishable from a broken render — the founder's
+     * own words about the zoom case, 30 Aug — and here we had built the
+     * sentence that prevents it and then hidden it.
+     *
+     * ## ⛔ AND THE RULE THIS OBEYS, WHICH I FIRST BROKE
+     *
+     * My first attempt put `canvas-lod-notice` at the FRONT — above
+     * `model-extent-notice`. This file's own spec already forbids that, from a
+     * lane that learned it the expensive way: *"`model-extent-notice` carries
+     * the only 'Show whole model' affordance, so suppressing it costs a
+     * CAPABILITY, whereas suppressing a disclosure costs a sentence… An earlier
+     * 'honesty first' ordering put the disclosures on top and made the button
+     * unreachable on every fresh draft."*
+     *
+     * So the order is **capability → live transformation → standing fact**, and
+     * the only move made here is the middle one rising above the last.
+     * ⚠ That also lifts `model-extent-notice` above `starter-provenance-banner`,
+     * which the previous order had inverted — the same capability-over-
+     * disclosure rule, applied consistently rather than to one pair.
+     *
+     * ## Why this is the ORDER's job and not a condition's
+     *
+     * The band answers "who gets this cell when several components each have
+     * something true to say?" — its own stated job. Both sentences are true; the
+     * question is which the reader needs FIRST. `canvas-lod-notice` describes a
+     * transformation of what is on screen **at this moment**;
+     * `starter-provenance-banner` states a standing fact about where the model
+     * came from, which remains true, remains discoverable, and is not
+     * time-critical. When both hold, the transient-and-alarming one wins and the
+     * standing one returns the instant the transformation ends.
+     *
+     * ⚠ IT IS SELF-LIMITING, WHICH IS WHY THIS DOES NOT STARVE THE BANNER.
+     * `canvas-lod-notice` only wants the cell when cards are actually reduced —
+     * below the legibility floor, or a lens has set cards aside at `quiet`. On
+     * an ordinary starter load neither holds, so the banner shows exactly as it
+     * does today. The cell is yielded only in the situation where silence is
+     * the harm.
+     */
     'model-extent-notice',
-    'first-model-notice',
     'canvas-lod-notice',
+    'starter-provenance-banner',
+    'first-model-notice',
     'assistant-focus-chip',
     'focus-mode-chip',
   ],
