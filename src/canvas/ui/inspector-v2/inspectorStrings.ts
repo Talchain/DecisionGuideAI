@@ -563,12 +563,54 @@ export const DESCRIPTION_PLACEHOLDERS = {
 } as const
 
 // ─── "Ask about this" question templates (Task 2) ────────────────────
+/**
+ * ⭐ THE ASK REGISTER — and every entry now ends where `option` already did.
+ *
+ * SEVEN OF THESE NINE ASKED THE PRODUCT TO EXPLAIN OR TO DECIDE. "Tell me about
+ * the chances of achieving {label}", "Explain the relationship between…" ask it
+ * to narrate; "What drives {label} the most?", "How important is {label} to the
+ * outcome?", "What are the key trade-offs in {label}?" ask it to rank and to
+ * conclude. Both shapes put the model in the author's chair. `option` alone was
+ * fixed, and its comment below states the principle it was fixed to:
+ * *the ask ends by handing judgement back to the user rather than substituting
+ * for it. Humans remain the authors.* A principle applied to one of nine keys is
+ * a principle the next edit re-opens — so it is applied to all of them here.
+ *
+ * ⭐ THE SHAPE EACH ASK NOW HAS, and it is the same three beats every time:
+ *   1. NAME WHAT THE MODEL HOLDS — what it assumes, weighed, expects, knows.
+ *   2. EXPOSE WHAT THAT RESTS ON — evidence, uncertainty, sensitivity, strength.
+ *   3. HAND JUDGEMENT BACK — which of it is the user's to settle.
+ * Beat 3 is the load-bearing one and the one that keeps being dropped: without
+ * it, beats 1 and 2 are just a better-informed oracle.
+ *
+ * ⚠ THESE ARE QUESTIONS THE USER ASKS, NOT ANSWERS WE PROMISE. They land as an
+ * EDITABLE DRAFT via `ASK_SEMANTIC` and never dispatch. Nothing here should be
+ * reworded into a claim about what Olumi will return.
+ *
+ * ⚠ APOSTROPHES ARE STRAIGHT, matching this whole file (measured: zero U+2019 in
+ * `inspectorStrings.ts`; `DESCRIPTION_PLACEHOLDERS.decision` and the guest-mode
+ * constraint notice both use `'`). A value carrying one is double-quoted, which
+ * is the convention already in use here. Do not "tidy" these to typographic
+ * quotes in isolation — that is a file-wide decision, not a per-string one.
+ *
+ * ⛔ ONE KNOWN SHORTFALL, PINNED IN THE SUITE RATHER THAN HIDDEN.
+ * ⚠ `factor-external` ONCE carried beats 1 and 2 and not beat 3 — it named what
+ * the model assumed and what it rested on, then stopped, leaving the reader
+ * nothing to judge. The guard below caught it in the copy I was handed, and
+ * the closing clause was added rather than the guard loosened. Recorded
+ * because a gap closed silently is a gap that reopens.
+ */
 export const ASK_TEMPLATES: Record<string, string> = {
-  goal:                  'Tell me about the chances of achieving {label}',
-  'factor-controllable': 'How important is {label} to the outcome?',
-  'factor-observable':   'What would happen if {label} changed?',
-  'factor-external':     'How sensitive are the results to {label}?',
-  edge:                  'Explain the relationship between {sourceLabel} and {targetLabel}',
+  goal:
+    "What does this model assume has to be true for {label} to be reached, and which of those assumptions are mine rather than the model's?",
+  'factor-controllable':
+    'If I moved {label}, what does this model expect to change, how sure is it, and what would I need to know to act on that?',
+  'factor-observable':
+    'What is {label} standing in for in this model, how well is it evidenced, and where would my own knowledge of it change the picture?',
+  'factor-external':
+    "What has this model assumed about {label}, how much would the results move if that assumption is wrong, and is that assumption mine to overrule?",
+  edge:
+    'What is the claim that {sourceLabel} affects {targetLabel} based on, how strong is the evidence, and is the direction mine to confirm?',
   /**
    * ⛔ NOT "how does this compare to the other options?", which is what shipped
    * until now. That sentence asks the product to rank one option against the
@@ -582,9 +624,12 @@ export const ASK_TEMPLATES: Record<string, string> = {
    */
   option:
     'For {label}, what outcome does this model currently expect, how wide is the uncertainty, and what would have to change for that expectation to move? Say which of those assumptions are mine to judge.',
-  outcome:               'What drives {label} the most?',
-  risk:                  'How can we reduce {label}?',
-  decision:              'What are the key trade-offs in {label}?',
+  outcome:
+    "What is this model's expectation for {label} resting on, and which parts of that rest on my judgement rather than on evidence?",
+  risk:
+    'What does this model actually know about {label} as opposed to assume, and what would I have to decide in order to act on it?',
+  decision:
+    'For {label}, what has this model actually weighed, and what has it left to me to weigh?',
 }
 
 /**

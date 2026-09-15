@@ -269,7 +269,8 @@ export const RiskNode = memo((props: NodeProps) => {
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {/* Wireframe v4: max 3 ConnRows in both views; remainder disclosed
+          {/* Wireframe v4: max 3 ConnRows in both PHASE views (pre-/post-analysis —
+              NOT standard/detailed; this block is detailed-view only, see FactorNode.tsx:688); remainder disclosed
               via "+N more in inspector" (audit §8 P0-5). */}
           {inboundConnections.slice(0, 3).map(conn => (
             <ConnRow

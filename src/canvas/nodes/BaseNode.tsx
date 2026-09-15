@@ -19,7 +19,7 @@ import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useCanvasStore } from '../store'
-import { selectLodBodyHidden } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   NODE_CARD_MAX_W,
@@ -202,6 +202,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * would come to disagree (trap 21).
    */
   const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
+  /**
+   * ⭐⭐⭐ THE LENS, NOT THE CAMERA, DECIDES DETAIL AT `quiet`.
+   *
+   * `lodBodyHidden` stays exactly what it was — "is the canvas at the `line`
+   * rung?" — and every other reader below still consumes it, because the kind
+   * tint, the quick actions and the title boost are all answers to THAT
+   * question. ⛔ Collapsing this into it would be trap 21 a third time in one
+   * file.
+   *
+   * THIS is the narrower question "should this PARTICULAR card show less?", and
+   * it is true in two unrelated situations: the whole canvas is below the
+   * legibility floor, or **the reader has chosen a lens and this card is one the
+   * lens set aside**. The second is new, and it is what finally spends the
+   * `quiet` rung — see `lensDetailSpentAt`'s header for the measured chain.
+   *
+   * ⚠ The replacement-line rule below governs BOTH. A set-aside card blanks its
+   * body only where a reduced line exists to take its place; otherwise it keeps
+   * what it had. A lens is a question, not a reason to show someone an empty box.
+   */
+  const lensDetailActive = useCanvasStore(selectLensDetailActive)
   const lodKeepsTitle = nodeType === 'goal' || nodeType === 'decision' || lodKeepLabel
 
   /**
@@ -247,6 +267,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const isLensDimmed = useCanvasStore(s =>
     isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
   )
+
+  /**
+   * "Should THIS card show less?" — the canvas is below the legibility floor,
+   * OR the reader's chosen lens has set this card aside while we are at `quiet`.
+   * Bound here, once, so the three readers below cannot drift apart.
+   */
+  const bodyReduced = lodBodyHidden || (lensDetailActive && isLensDimmed)
 
   // Expanded lenses: hidden (causal), evidence classification, active mode
   // Defensive ?.has/?.get — test mocks may not include expanded lens fields
@@ -309,17 +336,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * it as `lodMetric` below.
    */
   const lodFacts = useMemo(() => {
-    if (!lodBodyHidden || nodeType !== 'option') return undefined
+    if (!bodyReduced || nodeType !== 'option') return undefined
     return resolveLodMetricFacts({
       nodeType,
       nodeId: id,
       data: data as Record<string, unknown> | undefined,
       ceeOptions: ceeAnalysisReady?.options,
     })
-  }, [lodBodyHidden, nodeType, id, ceeAnalysisReady, data])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data])
 
   const lodBodyLine = useMemo<string | null>(() => {
-    if (!lodBodyHidden) return null
+    if (!bodyReduced) return null
     /**
      * ⛔ THE OWNER'S OWN LINE WINS, AND AS OF 1 SEP 2026 THAT IS A SETTLED
      * OWNERSHIP SPLIT RATHER THAN A FALLBACK ORDER (see the map in
@@ -346,7 +373,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       displayMetadata,
       facts: lodFacts,
     })
-  }, [lodBodyHidden, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
+  }, [bodyReduced, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
 
   /**
    * ⛔ A CARD'S CONTENT IS NEVER REMOVED WITHOUT SOMETHING PUT IN ITS PLACE.
@@ -376,7 +403,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * any factor that is not `external`, and an option whose intervention count is
    * unknown.
    */
-  const lodBodyBlanked = lodBodyHidden && lodBodyLine !== null
+  const lodBodyBlanked = bodyReduced && lodBodyLine !== null
 
   const isIncomplete = (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate

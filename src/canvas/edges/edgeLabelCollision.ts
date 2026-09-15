@@ -138,8 +138,52 @@ const LABEL_DECLARED_FONT_PX = CANVAS_TYPE_PX.edgeLabel
  */
 const LABEL_BASE_HALF_WIDTH = 80
 const LABEL_BASE_FONT_PX = 10
-export const LABEL_HALF_WIDTH = Math.ceil(
+
+/**
+ * The half-width the chip is capped at IN DECLARED px — the unit the font is
+ * declared in, before `--canvas-label-scale` is applied.
+ *
+ * This is what the RENDERED cap must be expressed against, because the text
+ * inside it is `calc(11px * var(--canvas-label-scale))`. A cap written in raw
+ * graph units cannot follow a text that scales.
+ */
+export const LABEL_DECLARED_HALF_WIDTH = Math.ceil(
   LABEL_BASE_HALF_WIDTH * (LABEL_DECLARED_FONT_PX / LABEL_BASE_FONT_PX),
+)
+
+/**
+ * ⭐⭐ THE WIDTH NOW COUNTS THE COUNTER-SCALE, WHICH THE HEIGHT BESIDE IT HAS
+ * COUNTED ALL ALONG. THAT ASYMMETRY IS WHY "Moder… est." SURVIVED ITS OWN FIX.
+ *
+ * Look at `LABEL_BOX_HEIGHT` below: it multiplies by `MAX_LABEL_COUNTER_SCALE`,
+ * with a docblock explaining that the counter-scale is largest at
+ * `LABEL_LEGIBLE_ZOOM` — *exactly where the product's auto-fit parks a freshly
+ * drafted model* — so the maximum is the case that matters. Every word of that
+ * is true of the WIDTH too, and the width did not do it.
+ *
+ * The consequence, and it is a factor of two: at the parked zoom the text
+ * renders at `11 × 2 = 22px` inside a box of `88 × 2 = 176` graph units, so the
+ * chip holds HALF the characters it was sized for. #1560 moved this constant
+ * 80 → 88 when the font went 10 → 11 and closed the 10% gap; it did not touch
+ * the 100% gap sitting underneath it, because the hand-copied font size was the
+ * defect in front of it. ⛔ A FIX AIMED AT THE SYMPTOM'S OWN ARITHMETIC
+ * (CLAUDE.md trap 23): the number it corrected was genuinely wrong, and
+ * correcting it could not reach the cause.
+ *
+ * Measured on the founder's build `ab6ae8a6` AFTER #1560 shipped: edge chips
+ * still paint `Moderat… est.` and `△Sens… · 32%`. The second is the worse loss
+ * — that is the fragility signal, *"Sensitive assumption: 32% chance the result
+ * flips if this relationship changes"*, cut to four characters and a number.
+ *
+ * ⚠ TWO QUANTITIES, NAMED APART, BECAUSE THEY ANSWER DIFFERENT QUESTIONS
+ * (trap 21). `LABEL_DECLARED_HALF_WIDTH` is what the CHIP is capped at and it
+ * is multiplied by the LIVE scale in the DOM. This one is what the RESOLVER
+ * clears, and the resolver runs in layout with no zoom to read — so it must
+ * clear the WORST case or it under-clears at exactly the zoom the user is
+ * parked at. Collapsing them re-opens one of the two defects.
+ */
+export const LABEL_HALF_WIDTH = Math.ceil(
+  LABEL_DECLARED_HALF_WIDTH * MAX_LABEL_COUNTER_SCALE,
 )
 
 // HEIGHT is content-driven and therefore DOES move with zoom, which is the

@@ -16,7 +16,6 @@
  *     returned 280px at 1280, at 1920 and at 3840 alike — a per-input rule
  *     returning the same answer for every input (CLAUDE.md trap 20) while the
  *     panel's content budget fell 390px → 254px, a 35% cut, at all of them.
- *     ⚠ At the 300px ceiling ruled on 14 Sep 2026 that budget is 274px.
  *  3. **Its input did not persist**, so every page reload re-narrowed the dock
  *     for a user who had run analyses all day.
  *
@@ -40,7 +39,6 @@ import {
   DOCK_VIEWPORT_RATIO,
   resolveDockWidth,
   responsiveDockWidth,
-  DOCK_REFERENCE_VIEWPORT,
 } from '../dockWidth'
 
 /**
@@ -58,18 +56,10 @@ describe('G1 — the analysis-state clamp cannot return', () => {
       expect(resolveDockWidth(vw, null), `viewport ${vw}`).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
       expect(responsiveDockWidth(vw), `viewport ${vw} (responsive)`).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
     }
-    // PIN THE PRECONDITION (trap 13b): the ceiling and the floor must be
-    // DIFFERENT numbers, or the sweep above would be satisfied by the very
-    // clamp it exists to forbid.
-    //
-    // ⚠ AND THAT PRECONDITION GOT WEAKER ON 14 Sep 2026, WHICH IS WORTH SAYING
-    // OUT LOUD. The founder ruled the ceiling 416 -> 300 and the floor is
-    // unchanged at 280, so these two numbers are now 20px apart rather than
-    // 136px. The guard still discriminates — 300 is not 280 — but the margin it
-    // discriminates by is much smaller, so a future change that lowers the
-    // ceiling any further should treat this arm as close to vacuous.
+    // PIN THE PRECONDITION (trap 13b): 416 and 280 must be DIFFERENT numbers, or
+    // the sweep above would be satisfied by the clamp it exists to forbid.
     expect(DOCK_RESPONSIVE_MAX_WIDTH).not.toBe(DOCK_MIN_WIDTH)
-    expect(DOCK_RESPONSIVE_MAX_WIDTH).toBe(300)
+    expect(DOCK_RESPONSIVE_MAX_WIDTH).toBe(416)
     expect(DOCK_MIN_WIDTH).toBe(280)
   })
 
@@ -120,26 +110,9 @@ describe('G1 — the analysis-state clamp cannot return', () => {
   })
 
   it('the ratio still lands 1280 exactly ON the ceiling — the derivation, not a coincidence', () => {
-    // ⭐⭐ THE DERIVATION IS NOW STRUCTURAL, AND THIS ARM IS WHAT NOTICED.
-    //
-    // This asserted `DOCK_VIEWPORT_RATIO === 0.325` beside a comment saying
-    // "416 / 1280 = 0.325 exactly". Both were true and NEITHER WAS DERIVED — the
-    // ratio was a hand-typed number that happened to equal the division, so when
-    // the founder ruled the ceiling to 300 the relationship broke silently and
-    // only this literal went red.
-    //
-    // `DOCK_VIEWPORT_RATIO` is now literally
-    // `DOCK_RESPONSIVE_MAX_WIDTH / DOCK_REFERENCE_VIEWPORT`, so the first
-    // assertion below can never fail and is deliberately DROPPED rather than
-    // re-pinned at 0.234375 — a tautology dressed as a guard is worse than no
-    // guard, because it reads as coverage.
-    //
-    // What survives is the CLAIM the block is actually about: the reference
-    // laptop lands exactly on the ceiling. That still holds for any future
-    // ceiling, and it still REDs if someone reintroduces a hand-set ratio.
-    expect(Math.round(DOCK_REFERENCE_VIEWPORT * DOCK_VIEWPORT_RATIO)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
-    // …and the reference viewport is the one the module documents, not any
-    // number that happens to satisfy the division.
-    expect(DOCK_REFERENCE_VIEWPORT).toBe(1280)
+    // 416 / 1280 = 0.325 exactly. If the ratio moves, the 1280 default silently
+    // stops being 416 and the sweep above starts asserting a different rule.
+    expect(DOCK_VIEWPORT_RATIO).toBe(0.325)
+    expect(Math.round(1280 * DOCK_VIEWPORT_RATIO)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
   })
 })

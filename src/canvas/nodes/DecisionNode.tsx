@@ -26,6 +26,7 @@ import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
+import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
@@ -339,6 +340,27 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
   const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
+
+  /**
+   * ⭐ WHY NO OPTION WAS PUT FORWARD — the producer's own reason, on the canvas.
+   *
+   * Measured on founder export `44e349fa`: the run computed 0.72 / 0.16 / 0.09 /
+   * 0.02 over four options and named no leader, because
+   * `CONSTRAINT_TARGET_UNRELIABLE` withheld goal-fit. The reason, and the fix,
+   * were already humanised and already in `report.inference_warnings` — and
+   * reached only the Analysis tab, which the founder's scope ruling says to
+   * ignore. This is the existing sentence reaching the surface he uses.
+   *
+   * ⚠ NODE LABELS ARE NOT PASSED. `CONSTRAINT_TARGET_UNRELIABLE` arrives with
+   * no `field` and no `affected_nodes` (measured), so a label map would change
+   * nothing today, and building one per node render to achieve nothing is cost
+   * with no claim behind it. When the producer starts carrying the identity,
+   * pass `nodeLabels` here — the selector already takes it.
+   */
+  const withheldLeader = useMemo(
+    () => (isPostAnalysis ? selectWithheldLeaderDisclosure(report as never) : null),
+    [isPostAnalysis, report],
+  )
 
   const readiness = useModelReadiness(id)
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
@@ -1072,6 +1094,29 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               >
                 On the data so far, this run produced no {METRIC_NOUN.support.toLowerCase()} percentages
                 for the options. Compare them on what each one changes.
+              </div>
+            )}
+            {/* ⭐ THE RUN WITHHELD A RECOMMENDATION — SAY SO, AND SAY THE MOVE.
+                Independent of `showSupportShareAbsent` ON PURPOSE, and that is
+                the whole finding: on founder export `44e349fa` the shares were
+                all PRESENT (0.72 / 0.16 / 0.09 / 0.02, every option `computed`)
+                and the leader was still withheld. Gating this on the absence
+                would have rendered nothing on the exact run that produced the
+                complaint. Two questions — "are there percentages?" and "why is
+                nothing recommended?" — kept apart (trap 21). */}
+            {withheldLeader && (
+              <div
+                className={`${typography.edgeLabel} mt-1`}
+                data-testid="decision-leader-withheld"
+                data-withheld-code={withheldLeader.code}
+              >
+                <span className="text-text-body">{withheldLeader.title}</span>
+                {withheldLeader.suggestion.length > 0 && (
+                  <>
+                    {' '}
+                    <span className="text-text-light">{withheldLeader.suggestion}.</span>
+                  </>
+                )}
               </div>
             )}
             {showStabilityLine && robustnessVerdict && (

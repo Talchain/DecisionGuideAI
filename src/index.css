@@ -532,12 +532,12 @@
   /* Canvas dock layout */
   --dock-left-expanded: 20rem;
   --dock-left-collapsed: 2.5rem;
-  /* 300px. ⛔ MIRRORS `DOCK_RESPONSIVE_MAX_WIDTH` in
+  /* 416px. ⛔ MIRRORS `DOCK_RESPONSIVE_MAX_WIDTH` in
      src/canvas/components/dockWidth.ts, and the mirror is UNAVOIDABLE: this
      custom property must have a value before that module runs, so it is the
      pre-hydration fallback. `dockCssFallbackAgrees.spec.ts` REDs if the two
      ever disagree — do not change one without the other. */
-  --dock-right-expanded: 18.75rem;
+  --dock-right-expanded: 26rem;
   --dock-right-collapsed: 2.5rem;
   /* Effective offsets used by the canvas container; updated by dock components. */
   --dock-left-offset: 0rem;
@@ -839,17 +839,31 @@
 }
 
 /* Canvas interaction mode cursors — specificity must beat @xyflow's
-   .react-flow__pane.draggable and .react-flow__node.draggable rules */
+   draggable/selectable rules even when its stylesheet loads later. */
 .canvas-mode-select .react-flow__pane,
 .canvas-mode-select .react-flow__pane.draggable {
   cursor: default;
 }
 .canvas-mode-hand .react-flow__node,
+.canvas-mode-hand .react-flow__node.selectable,
 .canvas-mode-hand .react-flow__node.draggable {
   cursor: grab;
 }
 .canvas-mode-hand .react-flow__node:active {
   cursor: grabbing;
+}
+
+/* A marquee selection sits inside React Flow's nopan container. In Hand
+   mode, let the pointer reach the canvas without clearing that selection.
+   Select mode keeps the overlay's normal group-drag hit target. */
+.canvas-mode-hand .react-flow__nodesselection-rect {
+  pointer-events: none;
+}
+
+/* The exposed card must inherit the node's grab/grabbing cursor instead of
+   resetting it to default. Nested controls keep their own cursor styles. */
+.canvas-mode-hand .react-flow__node .group.cursor-default {
+  cursor: inherit;
 }
 
 /* Olumi attention — a HELD mark, not the 2s applied-edit acknowledgement.

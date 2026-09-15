@@ -282,3 +282,56 @@ describe('T1 dominance nudge — no dominance claim without a margin', () => {
     expect(screen.getByText(/Dominant factor/i)).toBeInTheDocument()
   })
 })
+
+/**
+ * ⭐⭐ THE NOTE IS A CLAIM ABOUT THE ROWS ON SCREEN.
+ *
+ * The panel renders `visibleDrivers.slice(0, TOP_DRIVERS_COUNT)` but the tie
+ * note used to range over the WHOLE filtered set. The two can disagree, and the
+ * disagreement is invisible in every existing case here because they all tie
+ * across the full set — which is exactly why this pair is needed. The blocking
+ * review finding on #1283 named it; these are the cases that prove it closed.
+ */
+describe('the equal-influence note ranges over what is rendered', () => {
+  it('⭐ a TIED top three inside an UNTIED larger set still says so', () => {
+    render(
+      <DriversSection
+        data={makeData(
+          [
+            makeDriver({ factorKey: 't1', semanticLabel: 'strong', influenceScore: 1, normalisedInfluence: 1 }),
+            makeDriver({ factorKey: 't2', semanticLabel: 'strong', influenceScore: 1, normalisedInfluence: 1 }),
+            makeDriver({ factorKey: 't3', semanticLabel: 'strong', influenceScore: 1, normalisedInfluence: 1 }),
+            // Off-screen, and it must not decide what the visible rows say.
+            makeDriver({ factorKey: 't4', semanticLabel: 'minor', influenceScore: 0.2, normalisedInfluence: 0.2 }),
+          ],
+          4,
+        )}
+        goalLabel="test"
+      />,
+    )
+    // Positive control first: the panel mounted and rendered the tied rows.
+    expect(screen.getByText(/similar influence on the outcome/i)).toBeInTheDocument()
+  })
+
+  /**
+   * ⛔ THE DISCRIMINATING TWIN. Without it, a note that printed unconditionally
+   * passes the row above — and an unconditional "these are similar" is the
+   * original witnessed defect, not a fix for it.
+   */
+  it('⛔ CONTRAST: an UNTIED top three stays silent', () => {
+    render(
+      <DriversSection
+        data={makeData(
+          [
+            makeDriver({ factorKey: 'u1', semanticLabel: 'strong', influenceScore: 1, normalisedInfluence: 1 }),
+            makeDriver({ factorKey: 'u2', semanticLabel: 'moderate', influenceScore: 0.5, normalisedInfluence: 0.5 }),
+            makeDriver({ factorKey: 'u3', semanticLabel: 'minor', influenceScore: 0.1, normalisedInfluence: 0.1 }),
+          ],
+          3,
+        )}
+        goalLabel="test"
+      />,
+    )
+    expect(screen.queryByText(/similar influence on the outcome/i)).not.toBeInTheDocument()
+  })
+})

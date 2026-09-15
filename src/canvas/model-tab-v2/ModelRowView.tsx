@@ -78,6 +78,7 @@ import { statedTargetNumber } from '../domain/goalTarget'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 import { splitEffectLabel } from './effectDirection'
 import { directionToneClass } from '../components/model-tab/utils'
+import type { ConstraintType } from '../../v5/chipParameters'
 
 export interface ModelRowViewProps {
   row: ModelRow
@@ -111,7 +112,7 @@ export interface ModelRowViewProps {
    */
   editConnected?: boolean
   /** Live-edit callbacks (the three-beat). Absent ⇒ the static renders below. */
-  onDraftChange?: (id: string, draft: string, unit?: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
   /** Commit intent: editing → proposed. */
   onProposeEdit?: (id: string) => void
   /** Abandon the edit from either the input (Escape) or the proposal chip. */
@@ -1334,6 +1335,29 @@ export function ModelRowView({
         <RelationshipBandLine row={row} commit={commit} onDraftChange={onDraftChange} />
       )}
 
+      {/* ⭐⭐ THE GOAL'S BOUND AND UNIT — OUT OF THE 80px TRACK, for the same
+          measured reason as the band line directly above. These two fields
+          lived inside the value cell's wrapper, where they were two block
+          boxes in an 80px track and therefore STACKED: `Canvas Browser Gate`
+          measured the goal form at 167.75px against a 138.5px budget at a
+          416px dock, and at 167.75px against 158px at 280px — IDENTICAL row
+          heights at two different dock widths, which is what proves it was a
+          fixed stack and not a wrap. Attribution, in the browser: the added
+          `Limit` label column measured 38.13px and the wrapper it sits in
+          computes to `display: block`, so its two flex labels could only
+          stack. Same three-callback condition as the band line and the action
+          line — fields for an editor that is not mounted would be an
+          affordance that does nothing. */}
+      {row.kind === 'goal' && commit?.phase === 'editing' && onDraftChange && onProposeEdit && onDiscardEdit && (
+        <GoalTargetFieldsLine
+          row={row}
+          commit={commit}
+          onDraftChange={onDraftChange}
+          onProposeEdit={onProposeEdit}
+          onDiscardEdit={onDiscardEdit}
+        />
+      )}
+
       {/* ── EDITOR ACTION LINE · THE ROUTE FORWARD, ON A LINE THAT IS NOT 48px WIDE.
           ⭐⭐ MEASURED IN A REAL BROWSER, and this element's POSITION is the whole
           fix. These controls first shipped INSIDE the value cell — i.e. inside
@@ -1434,7 +1458,7 @@ function EditorActionLine({
   onDiscardEdit,
 }: {
   row: ModelRow
-  commit: { phase: 'editing'; draft: string; unit?: string }
+  commit: { phase: 'editing'; draft: string; unit?: string; direction?: ConstraintType }
   onProposeEdit: (id: string) => void
   onDiscardEdit: (id: string) => void
 }) {
@@ -1743,8 +1767,8 @@ function RelationshipBandLine({
   onDraftChange,
 }: {
   row: ModelRow
-  commit: { phase: 'editing'; draft: string; unit?: string }
-  onDraftChange: (id: string, draft: string, unit?: string) => void
+  commit: { phase: 'editing'; draft: string; unit?: string; direction?: ConstraintType }
+  onDraftChange: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
 }) {
   const testid = `model-row-v2-${row.id}-value`
 
@@ -1936,6 +1960,102 @@ function RelationshipBandLine({
   )
 }
 
+/**
+ * THE GOAL TARGET'S BOUND AND UNIT, ON THE ROW'S OWN FULL-WIDTH LINE.
+ *
+ * ⭐⭐ THIS IS THE SAME REMEDY AS `RelationshipBandLine` ABOVE, FOR THE SAME
+ * MEASURED REASON, and that file's history is the argument for it: extra edit
+ * controls parked inside the value cell's wrapper are parked inside grid
+ * track 3, which is 80px wide at a 280px dock. Two `flex flex-col` labels in
+ * there are two BLOCK boxes, so they stack — and the stack, not any wrap, is
+ * what a height budget sees.
+ *
+ * ⚠ `col-span-4` IS LOAD-BEARING AND MUST STAY ON A DIRECT CHILD OF THE ROW.
+ * The row is `grid grid-cols-subgrid col-span-4`; a subgrid row grants tracks
+ * only to its own children, so nesting this line inside anything else silently
+ * returns it to the 80px track and the stack comes back with it. That exact
+ * mistake is recorded at the band line's call site — it was the first fix
+ * there, it was insufficient, and jsdom could not see it.
+ *
+ * ⚠ THE TWO FIELDS SIT SIDE BY SIDE BECAUSE THE LINE IS 220px, NOT 80px.
+ * `flex-wrap` is kept as a FLOOR rather than as the layout, exactly as on the
+ * band line: 96 + 8 + 96 = 200px against a measured 220px of row content at
+ * the narrowest gated dock, so a longer future vocabulary wraps instead of
+ * escaping the panel.
+ */
+function GoalTargetFieldsLine({
+  row,
+  commit,
+  onDraftChange,
+  onProposeEdit,
+  onDiscardEdit,
+}: {
+  row: ModelRow
+  commit: { phase: 'editing'; draft: string; unit?: string; direction?: ConstraintType }
+  onDraftChange: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
+  onProposeEdit: (id: string) => void
+  onDiscardEdit: (id: string) => void
+}) {
+  return (
+    <span
+      data-testid={`model-row-v2-${row.id}-goal-target-fields`}
+      className={`${typography.panelMeta} text-text-light col-span-4 flex flex-wrap items-end gap-2 min-w-0`}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* THE BOUND — the founder could not say "under 4%".
+          This surface sent `'at_least'` unconditionally beneath a review line
+          reading "At least …", so the two agreed and both were wrong for a
+          ceiling. Both values are first-class at CEE: `AddConstraintTypeSchema`
+          is `z.enum(['at_least','at_most'])` and the operator comes from a MAP
+          — measured by execution against the real `add_constraint` handler,
+          with `'exactly'` refused as a negative control
+          (`manualGoalTarget.ts:56-67`).
+
+          ⚠ THE TWO BOUNDS DIVERGE DOWNSTREAM, DELIBERATELY. `at_least` also
+          stamps the goal's success threshold, because ISL computes
+          `P(samples >= threshold)`; `at_most` lands a constraint row and no
+          threshold. That asymmetry is recorded at `manualGoalTarget.ts:70-81`
+          as correct and NOT to be "fixed" here. The copy claims only what is
+          true of both: a recorded limit. */}
+      <label className="flex flex-col gap-0.5">
+        Limit
+        <select
+          aria-label={`Target bound for ${row.label}`}
+          value={commit.direction ?? 'at_least'}
+          onClick={e => e.stopPropagation()}
+          onChange={e =>
+            onDraftChange(row.id, commit.draft, commit.unit, e.target.value as ConstraintType)
+          }
+          className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+        >
+          <option value="at_least">at least</option>
+          <option value="at_most">at most</option>
+        </select>
+      </label>
+      {/* ⚠ `w-24` IS A FLOOR THE GATE ENFORCES, NOT AN INHERITED DEFAULT. The
+          measure asserts every `input` in this row is >= 90px wide, so the
+          `w-16` (64px) this field briefly carried was a SECOND breach — one the
+          height assertion above it was concealing, since a failing expect stops
+          the test before the width loop runs. */}
+      <label className="flex flex-col gap-0.5">
+        Unit
+        <input
+          aria-label={`Target unit for ${row.label}`}
+          value={commit.unit ?? ''}
+          placeholder="£, %, points"
+          onClick={e => e.stopPropagation()}
+          onChange={e => onDraftChange(row.id, commit.draft, e.target.value, commit.direction)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
+            if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
+          }}
+          className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+        />
+      </label>
+    </span>
+  )
+}
+
 function ValueCell({
   row,
   commit,
@@ -1950,7 +2070,7 @@ function ValueCell({
   commit?: EditCommitState
   editorAvailable: boolean
   onBeginEdit?: (id: string) => void
-  onDraftChange?: (id: string, draft: string, unit?: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
   onProposeEdit?: (id: string) => void
   onDiscardEdit?: (id: string) => void
   onConfirmEdit?: (id: string) => void
@@ -2006,28 +2126,6 @@ function ValueCell({
                 className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
               />
             </span>
-              {row.kind === 'goal' && (
-                <span className={`${typography.panelMeta} text-text-light`}>
-                  {/* Two fields need a second line, not paragraphs wrapped in
-                      the narrow value column. The review phase states the
-                      minimum/absolute-level meaning before Confirm can send. */}
-                  <label className="flex flex-col gap-0.5">
-                    Unit
-                    <input
-                      aria-label={`Target unit for ${row.label}`}
-                      value={commit.unit ?? ''}
-                      placeholder="£, %, points"
-                      onClick={e => e.stopPropagation()}
-                      onChange={e => onDraftChange(row.id, commit.draft, e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
-                        if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
-                      }}
-                      className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
-                    />
-                  </label>
-                </span>
-              )}
 
             </span>
           )

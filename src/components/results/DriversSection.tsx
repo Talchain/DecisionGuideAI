@@ -30,7 +30,7 @@ import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpe
 import { EMPTY_STATES } from './emptyStates'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel } from './utils/cleanFactorLabel'
-import { INFLUENCE_TIE_EPSILON } from './driverDisplayModel'
+import { INFLUENCE_TIE_EPSILON, type DriverDisplayProvenance } from './driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
@@ -43,6 +43,9 @@ import {
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
   ZERO_REASON_BADGE_LABELS,
+  influenceQuantityRunDisclosureForRun,
+  influenceStabilityDisclosureForRun,
+  influenceLeverDisclosureForRun,
 } from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
@@ -900,10 +903,24 @@ export function DriversSection({
   // recorded on that constant's docblock in `influenceScaleCopy.ts`). The rename
   // is a tidy-up deferred out of this diff, not a cross-lane constraint. Read
   // them as quantity labels.
-  const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
+  //
+  // ⭐ THE STAMP IS DERIVED ONCE AND TWO QUESTIONS ARE ASKED OF IT. This used to
+  // be two `drivers.some(...)` scans inline in the ternary below; the quantity
+  // disclosure added 7 Sep 2026 needs the SAME answer, and a second scan beside
+  // the first is the hand-maintained mirror (CLAUDE.md trap 12) in miniature —
+  // two expressions that agree today and drift the first time either moves.
+  // Reading the provenance itself, rather than the misnamed variant, also means
+  // the quantity question never has to translate back out of 'absolute'.
+  const stampedProvenance: DriverDisplayProvenance | null =
     drivers.some(d => d.displayProvenance === 'normalised_elasticity')
-      ? 'relative'
+      ? 'normalised_elasticity'
       : drivers.some(d => d.displayProvenance === 'influence_score')
+        ? 'influence_score'
+        : null
+  const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
+    stampedProvenance === 'normalised_elasticity'
+      ? 'relative'
+      : stampedProvenance === 'influence_score'
         ? 'absolute'
         : 'unknown'
   // Q3 · HAS THE CLAIM ANYTHING TO POINT AT? Never say "the top driver always
@@ -941,6 +958,88 @@ export function DriversSection({
   // follow it. Q1 keeps its own gate below: the two normalisations still differ,
   // and collapsing them would trade a false claim for a vague one.
   const influenceScaleIsSetRelative = influenceBasis !== 'unknown'
+  // Q1b · WHICH QUANTITY ARE THESE FIGURES? A DIFFERENT QUESTION FROM Q2, AND
+  // THE ONE NO MOUNTED SURFACE HAS EVER ANSWERED IN VISIBLE COPY.
+  //
+  // Q2 above asks what SCALE the number is on and answers "set-relative" on
+  // both bases, correctly. It says nothing about WHICH quantity was scaled, and
+  // the two differ materially: measured over every JSON under `src/`,
+  // `influence_score` diverges from the magnitude chain's `elasticity` on 41 of
+  // 123 factor rows, and the producer's own `importance_rank` and
+  // `influence_rank` disagree on 55 of 95. The sweep is derived in
+  // `influenceQuantityVocabulary.spec.ts`.
+  //
+  // ⚠⚠ AND THE BASIS IS DECIDED PER RUN, ALL OR NOTHING.
+  // `selectDriverDisplayModel` adopts the producer score only when EVERY ranked
+  // factor carries a finite one, so a single missing score drops the whole run
+  // onto the fallback. The top row prints 100% by construction on BOTH bases.
+  // So without this line the same "100%" beside the same factor means "most
+  // strongly wired to the goal" on one run and "moves the outcome most" on the
+  // next, and nothing on screen distinguishes them.
+  //
+  // ⚠ GATED ON `influenceBasis`, NOT ON `stampedProvenance`, so it inherits the
+  // whole fail-closed resolution above: no stamp, no visible rows, or a
+  // collapsed fallback basis all yield null and render nothing. A disclosure
+  // naming a quantity over zero rows would be the same over-reach as a scale
+  // caption over zero rows, which Q3 exists to prevent.
+  //
+  // ⭐ AND SINCE 7 Sep 2026 IT IS GATED ON THE PRODUCER'S OWN STAMP, which is a
+  // THIRD question again: not "what scale" (Q2) and not "which quantity did
+  // THIS APP pick" (Q1b), but "what does the PRODUCER say its importance figure
+  // is". The word "structural" in the `influence_score` arm rests on
+  // `importance_basis: "graph_structural"`, and until now that evidence was a
+  // sentence in a docblock rather than a branch in the code — so a run stamping
+  // a different basis would have kept the noun on screen with its justification
+  // silently withdrawn. `influenceQuantityRunDisclosureForRun` withholds the
+  // sentence in that state. Absent stamps are NOT that state and still render
+  // (56 of 123 corpus rows carry none); see the three-state rule in
+  // `influenceScaleCopy.ts`.
+  const influenceQuantityDisclosure = influenceQuantityRunDisclosureForRun(
+    influenceBasis === 'unknown' ? null : stampedProvenance,
+    drivers.map(d => d.importanceBasis),
+  )
+  // Q1c · DOES THIS FIGURE MOVE WHEN THE USER RE-RUNS? THE FOUNDING QUESTION,
+  // AND THE FOURTH DISTINCT QUESTION THIS PANEL NOW ANSWERS.
+  //
+  // Q2 says what SCALE the figures are on, Q1b says WHICH QUANTITY was scaled,
+  // and both are silent on whether the number responds to running the analysis
+  // again. On the structural basis it does not: a re-run moves the option
+  // shares and leaves every factor figure standing still. Factors are the bulk
+  // of a model, so the panel read as unresponsive, and on the factor half it
+  // genuinely was.
+  //
+  // ⚠⚠ GATED HARDER THAN Q1b, ON PURPOSE, AND THE DIFFERENCE IS NOT A DETAIL.
+  // `influenceQuantityRunDisclosureForRun` renders on an UNSTAMPED run because
+  // the fallback noun is a claim about what THIS APP computed. Invariance is a
+  // claim about WHICH PRODUCER built the response, and only `importance_basis`
+  // says that — on the producer's other arm `influence_score` is Monte-Carlo
+  // output, which does move. So this one needs `confirmed`, not merely
+  // "not unrecognised". Collapsing the two gates would ship a false sentence on
+  // a run this codebase can already receive (CLAUDE.md trap 21), and
+  // `DriversSection.influenceStabilityAndLever.spec.tsx` pins both sides of the
+  // difference in a single render so the collapse cannot happen quietly.
+  const influenceStabilityDisclosure = influenceStabilityDisclosureForRun(
+    influenceBasis === 'unknown' ? null : stampedProvenance,
+    drivers.map(d => d.importanceBasis),
+  )
+  // Q1d · IS THIS ROW A LEVER OR AN UNCERTAINTY? THEY BOTH REACH THE TOP, FOR
+  // OPPOSITE REASONS.
+  //
+  // An option-controlled factor has its sensitivity deliberately suppressed by
+  // the producer and stamped `intervention_override`, so it can rank at the top
+  // of THIS panel and be correctly absent from what is worth resolving. Both
+  // are right. Without a sentence the only available reading is that the
+  // product contradicts itself.
+  //
+  // ⚠ RANGES OVER `visibleDrivers`, NOT `drivers`. The sentence describes rows
+  // the reader can see, and the >= 0.01 filter above removes levers on the
+  // fallback basis (a demoted lever carries a near-zero magnitude). Deriving it
+  // from the full feed would put a sentence on screen about a row that is not.
+  const influenceLeverDisclosure = influenceLeverDisclosureForRun(
+    influenceBasis === 'unknown' ? null : stampedProvenance,
+    drivers.map(d => d.importanceBasis),
+    visibleDrivers.map(d => d.zeroReason),
+  )
   // The producer's own `importance_basis` stamp for the ranked set. The
   // display model resolves ONE basis for the whole panel, so a single stamped
   // row describes it — the same belt-and-braces read as influenceBasisStamped
@@ -1011,6 +1110,48 @@ export function DriversSection({
         </p>
       )}
 
+      {/* Per-run QUANTITY disclosure. Separate element from the scale caption
+          above, deliberately: they answer different questions (trap 21) and a
+          run can owe the reader both. Same `role="note"` / panelMeta idiom, so
+          it reads as one more caption rather than a new kind of thing. */}
+      {influenceQuantityDisclosure != null && (
+        <p
+          role="note"
+          data-testid="influence-quantity-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {influenceQuantityDisclosure}
+        </p>
+      )}
+
+      {/* Per-run STABILITY disclosure — the answer to "does this move when I
+          re-run?". A separate element again, and gated harder than the quantity
+          caption above (confirmed stamp only): they are three different
+          questions and a run can owe the reader all of them. */}
+      {influenceStabilityDisclosure != null && (
+        <p
+          role="note"
+          data-testid="influence-stability-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {influenceStabilityDisclosure}
+        </p>
+      )}
+
+      {/* Per-run LEVER disclosure — the answer to "why is a top-ranked factor
+          missing from what is worth resolving?". Renders only when a VISIBLE
+          row is actually option-controlled, so it never explains a badge the
+          reader cannot see. */}
+      {influenceLeverDisclosure != null && (
+        <p
+          role="note"
+          data-testid="influence-lever-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {influenceLeverDisclosure}
+        </p>
+      )}
+
       {/* Brief 5 Task 2: headers + rows share one wrapper so column positions
           are structural, not visual-approximation. Headers mirror the row grid
           exactly (gap-2 items-center px-3), and pb-3 gives the brief-required
@@ -1073,8 +1214,18 @@ export function DriversSection({
             differ. Count-free copy cannot contradict any heading beside it.
             The tie width is the shared `INFLUENCE_TIE_EPSILON`, so this note
             and the rank badges can no longer disagree about what a tie is. */}
-        {visibleDrivers.length >= 2 && (() => {
-          const scores = visibleDrivers.map(d => d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0)
+        {/* ⛔ RANGES OVER `displayDrivers` — THE ROWS ACTUALLY ON SCREEN.
+            It used to range over `visibleDrivers`, which is the full filtered
+            set, while the list beside it renders `visibleDrivers.slice(0, 3)`.
+            "These factors" is a claim about the factors the reader can SEE, so
+            a set they cannot see must not decide whether it appears: with ten
+            tied drivers and three rendered the note was true by luck, and with
+            a tied top three inside an untied ten it was silently ABSENT.
+            When `showAll` is on the two sets are identical, so nothing changes
+            there — this only closes the truncated case. (Blocking review
+            finding on #1283, carried through the rebase.) */}
+        {displayDrivers.length >= 2 && (() => {
+          const scores = displayDrivers.map(d => d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0)
           const max = Math.max(...scores)
           const min = Math.min(...scores)
           return (max - min) <= INFLUENCE_TIE_EPSILON ? (

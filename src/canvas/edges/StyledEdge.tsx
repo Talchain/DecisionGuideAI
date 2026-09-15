@@ -43,7 +43,7 @@ import {
 } from './edgePresentation'
 import {
   resolvePersistentLabelPlacements,
-  LABEL_HALF_WIDTH,
+  LABEL_DECLARED_HALF_WIDTH,
   type PlacementEdge,
   type LabelRowCount,
   LABEL_ROW_GAP_PX,
@@ -1026,7 +1026,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * `labelCarriesDirection` answers that about the STRING. At the whole-model
    * zoom the string is not what a reader sees: the chip is capped at
    * `LABEL_HALF_WIDTH * 2` GRAPH units while the font counter-scales UP for
-   * legibility, so the text ellipsises. Measured on deployed `e5a62322`:
+   * legibility, so the text ellipsises. ⭐ THAT CAUSE IS CLOSED (14 Sep 2026 —
+   * the cap now carries the counter-scale), and this measurement STAYS: it asks
+   * the PAINT rather than the arithmetic, which is the only thing that can
+   * catch the next way a label outgrows its box. Measured on deployed `e5a62322`:
    * `Moderate boost` needs 151px and gets 103px, `Moderate drag` needs 141px —
    * and BOTH paint `Moderat…`. `distinctPainted` across three chips was exactly
    * ONE string. Two opposite causal claims, identical on screen.
@@ -1671,12 +1674,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               pointerEvents: 'all',
               padding: '3px 8px',
               borderRadius: '4px',
-              // Derived, not mirrored: the resolver clears a box of exactly
-              // this width around the anchor, so the cap and the cleared box
-              // are one quantity with two readers, not two numbers kept in
-              // step by hand. The spec pins the resolved value against an
-              // independently-written literal so the number stays observable.
-              maxWidth: `${LABEL_HALF_WIDTH * 2}px`,
+              /* ⭐⭐ THE CAP CARRIES THE SAME COUNTER-SCALE AS ITS TEXT.
+                 Without the `calc`, the box is in fixed graph units while the
+                 text inside is `calc(11px * var(--canvas-label-scale))` — so at
+                 the zoom the product's auto-fit parks at, the font doubles and
+                 the box does not, and the chip holds half the characters it was
+                 sized for. That is the founder's "Moder… est." and the far worse
+                 "△Sens… · 32%", both still painting on `ab6ae8a6`, AFTER #1560.
+
+                 ⚠ THE RESOLVER'S BOX AND THIS ONE ARE NOW DIFFERENT QUANTITIES,
+                 deliberately (trap 21). This cap follows the LIVE scale, because
+                 it is in the DOM and can read it. `LABEL_HALF_WIDTH` — what the
+                 resolver clears — is the WORST case, because layout runs with no
+                 zoom to read and must never under-clear. They agree exactly at
+                 the parked zoom, which is the case that matters. */
+              maxWidth: `calc(${LABEL_DECLARED_HALF_WIDTH * 2}px * var(--canvas-label-scale, 1))`,
               overflow: 'hidden',
               // ⭐ A COLUMN OF UP TO TWO ROWS — the strength row and the
               // fragility row. The chip is a CONTAINER, not a fourth signal:
@@ -1918,9 +1930,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                     sighting, of the placement defect, on an unestablished edge
                     — do not read the two as one reading.) The row
                     is `nowrap` inside a container
-                    whose `maxWidth` is fixed at `LABEL_HALF_WIDTH * 2` while
-                    this text COUNTER-SCALES, so the pressure is real and grows
-                    the further the user zooms out.
+                    whose `maxWidth` WAS fixed at `LABEL_HALF_WIDTH * 2` while
+                    this text COUNTER-SCALES — so the pressure grew the further
+                    the user zoomed out, and was at its worst exactly where the
+                    auto-fit parks. ⭐ FIXED 14 Sep 2026: the cap now carries the
+                    same `--canvas-label-scale` as the text. Measured in
+                    Chromium at scale 2, `Sensitive assumption · 32%` needed
+                    288px and was given 160; it now gets all 288. The
+                    truncation RULE below stays — a longer sentence, a narrower
+                    viewport or a future type ramp can still apply pressure, and
+                    when it does the word must yield before the number.
 
                     Now the word is the truncating half and the number is
                     `PROTECTED_VALUE_STYLE`: under pressure "Sensitive" becomes
