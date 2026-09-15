@@ -1214,8 +1214,18 @@ export function DriversSection({
             differ. Count-free copy cannot contradict any heading beside it.
             The tie width is the shared `INFLUENCE_TIE_EPSILON`, so this note
             and the rank badges can no longer disagree about what a tie is. */}
-        {visibleDrivers.length >= 2 && (() => {
-          const scores = visibleDrivers.map(d => d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0)
+        {/* ⛔ RANGES OVER `displayDrivers` — THE ROWS ACTUALLY ON SCREEN.
+            It used to range over `visibleDrivers`, which is the full filtered
+            set, while the list beside it renders `visibleDrivers.slice(0, 3)`.
+            "These factors" is a claim about the factors the reader can SEE, so
+            a set they cannot see must not decide whether it appears: with ten
+            tied drivers and three rendered the note was true by luck, and with
+            a tied top three inside an untied ten it was silently ABSENT.
+            When `showAll` is on the two sets are identical, so nothing changes
+            there — this only closes the truncated case. (Blocking review
+            finding on #1283, carried through the rebase.) */}
+        {displayDrivers.length >= 2 && (() => {
+          const scores = displayDrivers.map(d => d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0)
           const max = Math.max(...scores)
           const min = Math.min(...scores)
           return (max - min) <= INFLUENCE_TIE_EPSILON ? (
