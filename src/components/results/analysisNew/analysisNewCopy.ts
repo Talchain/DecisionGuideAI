@@ -225,6 +225,19 @@ export const ANALYSIS_NEW_COPY = {
    * panel as the drawer a reader opens for method and receipts; the sections
    * above are content, not a drawer, and a subtitle there would be decoration.
    */
+  /**
+   * ⭐ COUNTS, NOT A SCORE. Each number is the length of a list already
+   * rendered below; they are never combined, because a combined figure would
+   * be a claim about the model that no producer field supports.
+   */
+  trustLine: {
+    /** No producer verdict. NOT "looks fine" — the basis was never established. */
+    noBasis: 'How far this holds was not established',
+    counts: (checks: number, open: number): string =>
+      `${checks} ${checks === 1 ? 'check' : 'checks'} ran · ` +
+      `${open} ${open === 1 ? 'open question' : 'open questions'}`,
+  },
+
   sectionSubtitles: {
     howWorkedOut: 'Checks the run ran, and what it could not settle',
     coachingAndMethod: 'Where this reasoning comes from',

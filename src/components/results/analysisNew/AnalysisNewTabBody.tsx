@@ -42,7 +42,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
@@ -75,6 +75,7 @@ import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
 import { WhatWeChecked } from './sections/WhatWeChecked'
+import { TrustLine } from './sections/TrustLine'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
@@ -588,6 +589,13 @@ export function AnalysisNewTabBody({
    * composed `isBusy` would test a different run than the one that produced
    * the verdict.
    */
+  /**
+   * ⭐ THE METHOD GROUP IS CONTROLLED so the trust line's own link can open it.
+   * A link that names a section and cannot reach it is navigation that lies —
+   * the defect this panel has shipped before in the form of an act whose only
+   * control was disabled by the very condition that offered it.
+   */
+  const [methodOpen, setMethodOpen] = useState(false)
   const reanalyseBlocked = !canRunAnalysis && !isRunning
   /**
    * ⭐⭐ THE COMPOSED RUN AUTHORITY, RESOLVED ONCE AND READ TWICE — never two
@@ -1391,6 +1399,19 @@ export function AnalysisNewTabBody({
             before. Moving the fragment moves both. */}
         {answerBlock}
 
+        {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
+            One line where seven sections answered one question. It states the
+            producer's verdict and routes to the method; it combines nothing and
+            scores nothing. See `TrustLine` for why a single "trust score" is
+            the one thing this must never render. */}
+        <TrustLine
+          verdict={vm.atAGlance.verdict}
+          checksRan={vm.checks.items.length}
+          openQuestions={vm.uncertainty.findings.length}
+          methodOpen={methodOpen}
+          onOpenMethod={() => setMethodOpen(true)}
+        />
+
         <WhatsChanged view={vm.whatsChanged} />
 
         <RobustnessCaveat
@@ -1686,7 +1707,19 @@ export function AnalysisNewTabBody({
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
-          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
+          /**
+           * ⭐⭐ THE ACT IS VISIBLE, NOT ANNOUNCED. A collapsed "Strengthen the
+           * reasoning ›" tells a reader a category exists; it does not tell them
+           * what to do, which is the only thing this section is for. Open
+           * wherever there is something to show — `preview` already caps it at
+           * `STRENGTHEN_PREVIEW`, so this shows the producer's top moves, not
+           * the whole list.
+           *
+           * ⚠ NOT `true`. With no interventions the section renders its own
+           * empty state, and opening onto that is a heading over nothing — the
+           * rule `AnalysisNewSection` enforces everywhere else on this tab.
+           */
+          defaultOpen={vm.strengthen.interventions.length > 0}
           argueTheOpposite={vm.atAGlance.condition}
           icon={Wrench}
         />
@@ -1711,7 +1744,8 @@ export function AnalysisNewTabBody({
         <Accordion
           title={COPY.sections.howWorkedOut}
           subtitle={COPY.sectionSubtitles.howWorkedOut}
-          defaultExpanded={false}
+          isExpanded={methodOpen}
+          onExpandChange={setMethodOpen}
           testId="analysis-new-how-worked-out"
         >
         {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
