@@ -69,6 +69,43 @@ const REWRITTEN_SCALE_UNITS: ReadonlySet<string> = new Set([
   'fraction', 'ratio', 'proportion', 'unit_interval',
 ])
 
+/**
+ * ⭐⭐⭐ PROVENANCE DESCRIBES A VALUE. CHANGE THE VALUE AND IT STOPS BEING TRUE.
+ *
+ * ⛔ FOUND BY AN INDEPENDENT POST-MERGE REVIEW OF #1592 AND REPRODUCED AT THE
+ * FORMATTER: an audited churn ceiling `{value: 0.04, original_value: 4,
+ * original_unit: '%'}` renders `≤ 4%`; apply the Goal panel's ACTUAL edit
+ * (`{...pc, value: parsed}`) to set the value to 5, and it STILL renders
+ * `≤ 4%`. The reader edits their own limit and the card shows the old one.
+ *
+ * ⭐ THE FORMATTER CANNOT FIX THIS AND SHOULD NOT TRY. It is handed two facts
+ * and no way to know whether they still agree — and a formatter that checked
+ * the arithmetic would be deciding what a producer's rule means. **The WRITER
+ * knows the value changed.** So invalidation belongs at the edit site: the one
+ * place in the product with both the old constraint and the new number.
+ *
+ * ⚠ THE QUOTE GOES WITH IT, and that is not tidying. `source_quote` is the
+ * reader's sentence about the OLD figure; after an edit it is a quotation
+ * attached to a number the reader never said. #1597 widens the quote's
+ * authority to rewritten-scale units, so leaving it behind would widen this
+ * defect at the same time.
+ *
+ * ⚠ THIS IS NOT "clear provenance on every write". Only on a value change —
+ * `parsed === c.value` already returns early at the call site, and a change to
+ * some other field leaves both fields alone, because they are still true.
+ */
+export function constraintWithEditedValue(
+  constraint: CEEGoalConstraint,
+  value: number,
+): CEEGoalConstraint {
+  const {
+    provenance_unit_normalised: _audit,
+    source_quote: _quote,
+    ...rest
+  } = constraint as CEEGoalConstraint & { provenance_unit_normalised?: unknown; source_quote?: unknown }
+  return { ...rest, value } as CEEGoalConstraint
+}
+
 export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): boolean {
   const q = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
   if (!q) return false
