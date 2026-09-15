@@ -134,7 +134,13 @@ export interface SuccessTargetLineProps {
    * these is how a control reports an acceptance it never observed - the exact
    * defect this file's header records.
    */
-  onCommitOutcome: (outcome: 'dispatched' | 'local_only' | 'not_encodable') => void
+  /**
+   * ⭐ `no_unit` IS A FOURTH OUTCOME BECAUSE IT IS A DIFFERENT SENTENCE. The
+   * other three say what happened to the target; this one says why nothing
+   * could. Collapsing it into `not_encodable` is what left a reader looking at
+   * "could not be applied" with no cause and no move — see `commit`.
+   */
+  onCommitOutcome: (outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit') => void
   testId: string
 }
 
@@ -297,6 +303,38 @@ export function SuccessTargetLine({
        * the reader's side one state, nothing written anywhere, so the editor
        * STAYS OPEN exactly as the factor editor does.
        */
+    /**
+       * ⛔⛔ THE CAUSE IS KNOWN HERE AND WAS BEING THROWN AWAY.
+       *
+       * Witnessed on the deployed build (4ad71f6c, 15 Sep): the panel's own top
+       * recommendation is "Set a target"; a reader sets one; the control answers
+       * "That target could not be applied, so nothing changed." — no cause, no
+       * move — and `Re-analyse` is disabled the whole time. The goal carried
+       * `unit: null`.
+       *
+       * `buildManualGoalTarget` refuses an empty unit outright, so this is
+       * decidable BEFORE the dispatch, from a value already in scope.
+       *
+       * ⛔ SCOPED TO THE DISPATCH BRANCH, AND THE SUITE TAUGHT ME THAT. My first
+       * version sat above `if (canDispatch)` and blocked the LOCAL write too —
+       * which needs no unit and would have succeeded. I had written the guard
+       * against the failure mode I had just watched instead of against the
+       * condition that actually requires a unit (CLAUDE.md trap 13d, in the fix
+       * for a different instance of the same disease). It was
+       * being folded into `not_encodable`, which also covers a target at or below
+       * zero and a scenario that moved — three causes, one sentence, and the only
+       * one a reader can act on is this one.
+       *
+       * ⚠ THE MODEL TAB ALREADY NAMES IT. `unproposableDraftReason` blocks the
+       * same draft with "Add a unit" (`ModelRowView.tsx:1477`), and this file's
+       * own header says so. One refusal, two surfaces, and only one of them told
+       * the reader why — the estate's remedy-scoped-to-the-instance pattern, with
+       * the sibling sitting in this file's comments the whole time.
+       */
+      if (unit.trim() === '') {
+        onCommitOutcome('no_unit')
+        return
+      }
       const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction)
       onCommitOutcome(outcome)
       if (outcome === 'not_encodable') return

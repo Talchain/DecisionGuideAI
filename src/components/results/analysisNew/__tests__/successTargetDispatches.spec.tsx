@@ -203,6 +203,58 @@ describe('the sentence is the one the outcome earned', () => {
    * scenario moved under the editor - and from the reader's side those are one
    * state: nothing was written anywhere.
    */
+  /**
+   * ⛔⛔ THE CAUSE A READER CAN ACT ON, SPLIT OUT OF THE THREE.
+   *
+   * Witnessed on the deployed build (4ad71f6c, 15 Sep), driving the real panel:
+   * the panel's own top recommendation is "Set a target"; the reader sets one;
+   * the answer was "That target could not be applied, so nothing changed." with
+   * no cause and no move, while `Re-analyse` stayed disabled. The goal carried
+   * `unit: null`.
+   *
+   * ⭐ AND THE SIBLING WAS IN THE SAME FILE'S COMMENTS. The Model tab refuses
+   * the identical draft with "Add a unit" (`unproposableDraftReason`), and
+   * `SuccessTargetLine`'s own header says so. One refusal, two surfaces, one
+   * vocabulary — the divergence is what made this findable only by driving it.
+   *
+   * ⚠ DECIDED BEFORE THE DISPATCH, so `proposeGoalTarget` is asserted NOT
+   * CALLED: there is nothing to ask a shared model about when the parameter it
+   * requires is absent, and a round trip here would report a refusal the
+   * producer never made.
+   */
+  it('a goal with no unit names the cause and never dispatches', () => {
+    nodes.length = 0
+    nodes.push(
+      ...CANVAS.map((n) =>
+        n.type === 'goal'
+          ? { ...n, data: { ...n.data, goal_threshold_unit: undefined, unit: undefined } }
+          : n,
+      ),
+    )
+    typeTarget('125')
+
+    expect(showToast).toHaveBeenCalledWith(COPY.successTarget.noUnit)
+    expect(
+      proposeGoalTarget,
+      'nothing to ask the shared model when the parameter it requires is absent',
+    ).not.toHaveBeenCalled()
+    expect(
+      screen.getByTestId(`${TARGET}-input`),
+      'the editor stays open, as it does for every refusal',
+    ).toBeInTheDocument()
+  })
+
+  /**
+   * ⭐ THE CONTRAST CONTROL. Without it the case above passes on a component
+   * that refuses EVERY target — and the suite would applaud a control that
+   * never works. Same fixture family, unit present, dispatch happens.
+   */
+  it('CONTROL: with a unit present the same draft dispatches', () => {
+    typeTarget('125')
+    expect(proposeGoalTarget).toHaveBeenCalled()
+    expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.noUnit)
+  })
+
   it('a refused target says nothing changed, and leaves the editor open', () => {
     proposeGoalTarget.mockReturnValue('not_encodable')
     typeTarget('125')
