@@ -48,7 +48,7 @@ const FIXTURE_INTERVENTIONS: Recommendation[] = [
     id: 'fx-define-success',
     helpType: 'clarify',
     title: 'Say what a good outcome would be',
-    signal: 'No success target is set on the goal',
+    signal: 'No success target is set on the goal.',
     whyNow:
       'Without a target the run can rank the options but cannot say whether any of them is good enough.',
     tryThis: 'Set the revenue figure you would need to see for this to have been worth doing.',
@@ -61,7 +61,7 @@ const FIXTURE_INTERVENTIONS: Recommendation[] = [
     id: 'fx-challenge-hinge',
     helpType: 'challenge',
     title: 'Test the assumption the answer turns on',
-    signal: 'One factor accounts for most of the movement between options',
+    signal: 'One factor accounts for most of the movement between options.',
     whyNow: 'If that estimate is wrong, the ranking changes; nothing else in the model does.',
     tryThis: 'Ask what evidence would move it, and who disagrees with the current figure.',
     sourceLine: 'Tech lead hired is the hinge',
