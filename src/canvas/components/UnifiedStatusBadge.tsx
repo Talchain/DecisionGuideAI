@@ -30,7 +30,9 @@ interface UnifiedStatusBadgeProps {
   className?: string
 }
 
-type StatusVariant = 'success' | 'warning' | 'error'
+/** ⭐ `neutral` added 15 Sep: "we have not been told" is a real state and needs
+ *  a look that is neither a pass nor a failure. */
+type StatusVariant = 'success' | 'warning' | 'error' | 'neutral'
 
 interface UnifiedStatus {
   icon: typeof CheckCircle2
@@ -91,7 +93,28 @@ function getUnifiedStatus(
   }
 
   // Ready to Review: high quality AND high confidence
-  if (qualityScore >= 0.7 && confTier === 'high') {
+  /**
+   * ⭐⭐ THE VERDICT IS THE PRODUCER'S, NOT A THRESHOLD THIS FILE CHOSE.
+   *
+   * It read `qualityScore >= 0.7` / `>= 0.5` — two numbers invented here — and
+   * told the user whether their model was "Ready to Review". Founder's rule,
+   * 15 Sep: the UI renders the data; it does not decide what it means. A
+   * readiness verdict is exactly the kind of claim the producer already makes.
+   *
+   * `readiness.blockers` and `readiness.warnings` ARE that statement, and they
+   * were already being read two lines above to fill `details` — the label just
+   * wasn't using them. Identity on a producer field, not arithmetic on a score.
+   *
+   * ⚠ `confTier` STAYS, and my first cut wrongly removed it. It is a PRODUCER
+   * field compared by IDENTITY (`=== 'high'`), which is the permitted form —
+   * the rule forbids computing words from numbers, not reading a producer's own
+   * verdict. Dropping it made a low-confidence model read "Ready to Review",
+   * and the existing spec caught it.
+   */
+  const hasBlockers = (readiness?.blockers?.length ?? 0) > 0
+  const hasWarnings = (readiness?.warnings?.length ?? 0) > 0
+
+  if (readiness && !hasBlockers && !hasWarnings && confTier === 'high') {
     return {
       icon: CheckCircle2,
       label: 'Ready to Review',
@@ -102,7 +125,7 @@ function getUnifiedStatus(
   }
 
   // Ready with Caveats: moderate quality OR medium+ confidence
-  if (qualityScore >= 0.5 || confTier !== 'low') {
+  if (readiness && !hasBlockers && confTier !== 'low') {
     return {
       icon: AlertTriangle,
       label: 'Ready with Caveats',
@@ -113,6 +136,23 @@ function getUnifiedStatus(
   }
 
   // Needs Improvement: below thresholds
+  /**
+   * ⛔ ABSENCE IS A STATE, NOT A VERDICT. With no `readiness` from the producer
+   * this used to fall through to "Needs Improvement" — a negative judgement
+   * about the user's model, issued because we had been told NOTHING. That is
+   * the same defect as the thresholds above, one step further along: an
+   * unanswered question rendered as an answer.
+   */
+  if (!readiness) {
+    return {
+      icon: AlertTriangle,
+      label: 'Not yet checked',
+      variant: 'neutral',
+      confidence: 'Not assessed',
+      details: details.length > 0 ? details : ['Run the analysis to see how this model holds up'],
+    }
+  }
+
   return {
     icon: XCircle,
     label: 'Needs Improvement',
@@ -123,6 +163,11 @@ function getUnifiedStatus(
 }
 
 const VARIANT_STYLES: Record<StatusVariant, { container: string; text: string; icon: string }> = {
+  neutral: {
+    container: 'bg-panel-hover border-panel-border',
+    text: 'text-text-light',
+    icon: 'text-text-light',
+  },
   success: {
     container: 'border-sand-200 bg-paper-50',
     text: 'text-success',

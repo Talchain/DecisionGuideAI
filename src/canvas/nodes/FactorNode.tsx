@@ -365,9 +365,14 @@ export const FactorNode = memo((props: NodeProps) => {
   const synthesisedCoaching = useMemo<{ prefix: string } | null>(() => {
     if (!isPostAnalysis || !isHighPriority) return null
     if (influencePct == null || confidencePct == null) return null
-    if (influencePct >= 70 && confidencePct <= 40) return { prefix: 'High influence, low confidence.' }
-    if (influencePct >= 70 && confidencePct > 40 && isInferred) return { prefix: 'Key driver.' }
-    if (influencePct < 70 && confidencePct <= 40) return { prefix: 'Low confidence.' }
+    /**
+     * ⛔ DELETED 15 Sep 2026 — three prefixes chosen by thresholds this file
+     * invented (70 / 40), restating two numbers the card already displays.
+     * "High influence, low confidence" is not a producer finding; it is this
+     * component deciding what 70 and 40 mean. Founder's rule: render the data,
+     * do not decide what it means. The numbers stay; the verdict goes — and the
+     * card gets shorter, which is the other thing that was wrong with it.
+     */
     return null
   }, [isPostAnalysis, isHighPriority, influencePct, confidencePct, isInferred])
 
