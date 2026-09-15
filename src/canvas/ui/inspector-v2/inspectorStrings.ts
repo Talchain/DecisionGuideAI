@@ -594,12 +594,11 @@ export const DESCRIPTION_PLACEHOLDERS = {
  * quotes in isolation — that is a file-wide decision, not a per-string one.
  *
  * ⛔ ONE KNOWN SHORTFALL, PINNED IN THE SUITE RATHER THAN HIDDEN.
- * `factor-external` carries beats 1 and 2 and NOT beat 3 — it names the
- * assumption and the sensitivity, and hands nothing back. It is recorded as an
- * exact known-gap set in `__tests__/askTemplatesHandJudgementBack.spec.ts`, so
- * the suite REDs if a second ask joins it AND if the gap is closed and the pin
- * left to rot. A gap recorded in the suite is honest; a gap invisible to it is
- * how this one survived the `option` fix.
+ * ⚠ `factor-external` ONCE carried beats 1 and 2 and not beat 3 — it named what
+ * the model assumed and what it rested on, then stopped, leaving the reader
+ * nothing to judge. The guard below caught it in the copy I was handed, and
+ * the closing clause was added rather than the guard loosened. Recorded
+ * because a gap closed silently is a gap that reopens.
  */
 export const ASK_TEMPLATES: Record<string, string> = {
   goal:
@@ -609,7 +608,7 @@ export const ASK_TEMPLATES: Record<string, string> = {
   'factor-observable':
     'What is {label} standing in for in this model, how well is it evidenced, and where would my own knowledge of it change the picture?',
   'factor-external':
-    'What has this model assumed about {label}, and how much would the results move if that assumption is wrong?',
+    "What has this model assumed about {label}, how much would the results move if that assumption is wrong, and is that assumption mine to overrule?",
   edge:
     'What is the claim that {sourceLabel} affects {targetLabel} based on, how strong is the evidence, and is the direction mine to confirm?',
   /**
