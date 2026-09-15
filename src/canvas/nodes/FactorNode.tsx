@@ -4,6 +4,7 @@ import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
 import type { EvidenceGapEscalation } from './EvidenceGapBadge'
 import { ConstraintBadge } from './ConstraintBadge'
+import { goalConstraintText } from '../utils/goalConstraintText'
 import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
@@ -16,7 +17,7 @@ import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
+import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { influenceExplanation, influenceBarAriaLabel } from '../../components/results/influenceScaleCopy'
 import { CoachingCard } from '../components/CoachingCard'
@@ -272,8 +273,23 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.valueOfInformation, displayMetadata.voiRank])
 
   const goalConstraints = useCanvasStore(state => state.goalConstraints)
-  const constraintTooltip = useMemo(() => {
-    if (!isGraphBadgesEnabled() || !goalConstraints?.length) return null
+  const allNodes = useCanvasStore(state => state.nodes)
+  /**
+   * ⭐⭐ THE USER'S OWN STATED LIMIT WAS A SEVEN-PIXEL DOT BEHIND A FEATURE FLAG.
+   *
+   * *"…while keeping monthly churn under 4%"* is a boundary the reader chose,
+   * and on the canvas it was a 12px circle holding a 7px target icon, its
+   * number reachable only by hovering, the whole thing gated on
+   * `VITE_FEATURE_GRAPH_BADGES` — which has no entry in `netlify.toml` and sits
+   * commented out in `.env.example`. Hover has no touch equivalent either.
+   *
+   * ⛔ THE GATE IS NOW SPLIT, AND THE SPLIT IS THE POINT. The BADGE is
+   * decoration and stays flagged. The LIMIT is the reader's own data and is
+   * not a feature. One matching predicate still serves both, so the careful
+   * identity binding below cannot fork.
+   */
+  const matchingConstraints = useMemo(() => {
+    if (!goalConstraints?.length) return []
     // ⭐ BIND BY IDENTITY, NOT BY LABEL STRING (CLAUDE.md trap 19).
     //
     // `node_id` is the field the producer writes and the field PLoT's preflight
@@ -303,14 +319,51 @@ export const FactorNode = memo((props: NodeProps) => {
       const l = c.label?.toLowerCase().trim()
       return !!l && !!target && l === target
     })
-    if (matching.length === 0) return null
-    // An unlabelled constraint has no name of its own; the factor it binds to
-    // is the honest one to print. `${c.label}` alone rendered "undefined" here
-    // the moment such a constraint could match at all.
     return matching
-      .map(c => `Constrained: ${c.label ?? cleanedLabel} ${c.operator} ${c.value ?? '-'}`)
-      .join('; ')
   }, [goalConstraints, cleanedLabel, props.id])
+
+  /**
+   * ⛔⛔ THIS WAS A SECOND FORMATTER, AND IT REPEATED THREE DEFECTS THE ESTATE
+   * HAD ALREADY RULED ON.
+   *
+   * It built `Constrained: ${c.label ?? cleanedLabel} ${c.operator} ${c.value
+   * ?? '-'}` by hand. `GoalAdvancedEditor` collapsed exactly that shape into
+   * `goalConstraintText` and wrote down why: echoing the wire's ASCII `<=` at
+   * the reader, printing a placeholder where a number is missing, and — the
+   * costly one — carrying NO PROVENANCE, so a limit Olumi INFERRED read
+   * identically to one the founder stated. That is the same class as the badge
+   * that printed "AI estimate" over a founder's own £49.
+   *
+   * The ruled formatter renders `≤`, carries the unit, appends "· Inferred
+   * limit", and says "limit not captured" rather than inventing a direction.
+   */
+  const constraintLines = useMemo(
+    () => matchingConstraints.map(c => goalConstraintText(c, allNodes, { omitLabel: true })),
+    [matchingConstraints, allNodes],
+  )
+
+  /**
+   * ⚠ THE BADGE NAMES THE CONSTRAINT, NOT ALWAYS THE FACTOR — and a first cut of
+   * this change lost that. `FactorNode.constraintBadgeBinding.spec` pins both
+   * halves: an UNLABELLED constraint is named after the factor it binds to (or
+   * the tooltip reads "undefined"), and a LABELLED one keeps its own name. The
+   * spec caught the regression; it is kept rather than relaxed.
+   *
+   * The shared formatter is not given `nodes` for the name here because the
+   * factor's own resolved label is already in hand and is the better fallback
+   * on this surface — everything the four rulings are actually about (the `≤`,
+   * the unit, the provenance suffix, the refusal to invent a direction) comes
+   * from the formatter.
+   */
+  const constraintTooltip = useMemo(() => {
+    if (!isGraphBadgesEnabled() || matchingConstraints.length === 0) return null
+    return matchingConstraints
+      .map(c => {
+        const name = (typeof c.label === 'string' && c.label.trim()) || cleanedLabel
+        return `${name} ${goalConstraintText(c, allNodes, { omitLabel: true })}`
+      })
+      .join('; ')
+  }, [matchingConstraints, allNodes, cleanedLabel])
 
   // A wider-range invitation needs a stated reference, never a placeholder.
   const anchoringMessage = useMemo(() => {
@@ -945,6 +998,29 @@ export const FactorNode = memo((props: NodeProps) => {
             confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
             confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
           />
+        )}
+
+        {/* ⭐⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.
+            A constraint is a boundary the reader chose, so it is true before
+            the analysis runs and after it — no `isPostAnalysis` gate, and no
+            `isDetailed` gate either, because a limit you have to go looking for
+            is a limit you will forget you set.
+            The target icon is the same glyph the badge uses, so the two
+            surfaces read as one idea rather than two. */}
+        {constraintLines.length > 0 && (
+          <div className="mt-1.5 space-y-0.5" data-testid="factor-constraint-lines">
+            {constraintLines.map((text, i) => (
+              <div key={i} className="flex items-start gap-1">
+                <Target size={9} className="text-info shrink-0 mt-[2px]" aria-hidden="true" />
+                <span className={`${typography.edgeLabel} text-text-body`}>
+                  {/* "Limit" names what the number IS. The formatter supplies
+                      the operator, the unit and any "· Inferred limit"
+                      provenance; nothing here re-derives them. */}
+                  Limit {text}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
 
         {/* ===== LAYER 2: Detailed inline ===== */}
