@@ -364,6 +364,47 @@ export interface DriversSection {
   suppressedZeroReasons: NonNullable<ZeroReasonCode>[]
 }
 
+/**
+ * ⭐⭐ WHAT HAS TO HOLD — ISL's per-constraint satisfaction, which reaches the
+ * hook this tab reads (`useResultsSectionData:2264`) and had ZERO consumers
+ * anywhere under `analysisNew/`. Derived, never authored: every field below is
+ * the producer's, and the section renders them.
+ *
+ * ⚠ LEADER-SCOPED, SO IT CARRIES THE LEADER'S ENTITLEMENT. The analysis is
+ * PER OPTION, so showing "the constraints" means showing ONE option's — which
+ * is a claim about which option is being talked about. On a run whose verdict
+ * withholds the leader designation, that claim is not ours to make and the
+ * builder emits no rows at all (CLAUDE.md trap 21: the same fact under two
+ * entitlements is two facts).
+ */
+export interface ConstraintRow {
+  /** Producer label, e.g. "Churn rate". Never composed here. */
+  label: string
+  /** ASCII from the producer; the surface renders the unicode form. */
+  operator: string
+  /** Threshold in the user's own units. */
+  threshold: number
+  /** 0-1. The bar and the figure are both this, never a re-derivation. */
+  probSatisfied: number
+  /** The producer's tightest constraint — the one most likely to fail. */
+  binding: boolean
+  /**
+   * Fraction of scenarios that miss by a SMALL margin. Renders only where the
+   * producer sent it, and says "nearly" rather than a second percentage: two
+   * probabilities on one row read as a comparison neither of them makes.
+   */
+  nearMissFraction: number | null
+}
+
+export interface ConstraintsSection {
+  /** Empty ⇒ the section does not render. Absence is never a zero. */
+  rows: ConstraintRow[]
+  /** Producer's probability that ALL constraints hold together. */
+  jointProbability: number | null
+  /** The option these constraints belong to, for the section's own sentence. */
+  optionLabel: string | null
+}
+
 export interface UncertaintySection {
   findings: AnalysisNewFinding[]
   /**
@@ -862,6 +903,8 @@ export interface AnalysisNewViewModel {
   strengthen: StrengthenSection
   drivers: DriversSection
   uncertainty: UncertaintySection
+  /** ISL per-constraint satisfaction for the leading option. */
+  constraints: ConstraintsSection
   /**
    * ⭐⭐ WHAT WOULD CHANGE YOUR MIND — split OUT of `uncertainty`, not copied.
    *

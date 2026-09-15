@@ -150,6 +150,12 @@ export const ANALYSIS_NEW_COPY = {
     coachingAndMethod: 'Coaching and method',
     /** Drivers, what is worth resolving, and the method receipts. */
     whatMovesTheOutcome: 'What moves the outcome',
+    /**
+     * ⚠ NAMES THE SECTION, ASSERTS NOTHING. Not "Will it hold?" — that invites
+     * a yes/no the producer never gives — and not "Constraints", which is the
+     * producer's category rather than the reader's question.
+     */
+    whatHasToHold: 'What has to hold',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
     /**
@@ -236,6 +242,20 @@ export const ANALYSIS_NEW_COPY = {
     counts: (checks: number, open: number): string =>
       `${checks} ${checks === 1 ? 'check' : 'checks'} ran · ` +
       `${open} ${open === 1 ? 'open question' : 'open questions'}`,
+  },
+
+  /**
+   * ⚠ EVERY NUMBER IN THIS SECTION IS THE PRODUCER'S. These strings place them
+   * and never qualify them: no "only", no "just", no "still" — a probability
+   * with an adverb in front of it is a judgement the surface is not entitled to
+   * make, and `nameOrClaim.ts` records the last time one shipped.
+   */
+  constraints: {
+    scope: (optionLabel: string): string => `If you go with ${optionLabel}`,
+    /** ISL's own designation of the tightest constraint, not ours. */
+    binding: 'the tightest of these',
+    nearMiss: (share: string): string => `${share} of the misses are narrow`,
+    joint: (share: string): string => `All of them together: ${share}`,
   },
 
   sectionSubtitles: {

@@ -3049,6 +3049,65 @@ const CHECK_STATE: Record<ChecksCode, ChecksState> = {
   evidence_not_assessed: 'not_assessed',
 }
 
+/**
+ * ⭐⭐ WHAT HAS TO HOLD — the producer's per-constraint satisfaction, rendered
+ * and never re-derived. ISL computes it on every run with goal constraints; it
+ * reaches `useResultsSectionData:2264` and, until now, no consumer under
+ * `analysisNew/` read it at all.
+ *
+ * ⛔ GATED ON THE LEADER ENTITLEMENT, AND THAT IS NOT DEFENSIVENESS. The
+ * analysis is PER OPTION, so rendering "the constraints" is rendering ONE
+ * option's — which asserts WHICH option is being discussed. On a run whose
+ * verdict withholds the leader designation, the surface may not make that
+ * assertion, and the honest output is no rows rather than the leader's rows
+ * under a neutral heading (CLAUDE.md trap 21).
+ *
+ * ⚠ EVERY FIELD IS THE PRODUCER'S. No threshold is reformatted, no probability
+ * is re-scaled, and `binding` is ISL's own designation of the tightest
+ * constraint — this builder never decides which one that is.
+ */
+function buildConstraints(
+  data: ResultsSectionDataReturn,
+  preRun: boolean,
+): AnalysisNewViewModel['constraints'] {
+  const EMPTY = { rows: [], jointProbability: null, optionLabel: null }
+  if (preRun) return EMPTY
+  const rec = data.recommendation
+  if (leaderDesignationPermitted(rec) !== true) return EMPTY
+  const leader = rec.recommendedOption
+  const analysis = leader?.constraintAnalysis
+  if (analysis == null) return EMPTY
+
+  const rows = (analysis.constraints ?? [])
+    .filter((c) => typeof c.prob_satisfied === 'number' && Number.isFinite(c.prob_satisfied))
+    .map((c) => ({
+      label: c.label,
+      operator: c.operator,
+      threshold: c.threshold,
+      probSatisfied: c.prob_satisfied,
+      binding: c.binding === true,
+      /**
+       * ⚠ ABSENCE IS NOT ZERO. A producer that sent no near-miss fraction is
+       * not saying "none of the misses were near" — the row simply says
+       * nothing about it.
+       */
+      nearMissFraction:
+        typeof c.near_miss_fraction === 'number' && Number.isFinite(c.near_miss_fraction)
+          ? c.near_miss_fraction
+          : null,
+    }))
+
+  if (rows.length === 0) return EMPTY
+  return {
+    rows,
+    jointProbability:
+      typeof analysis.joint_probability === 'number' && Number.isFinite(analysis.joint_probability)
+        ? analysis.joint_probability
+        : null,
+    optionLabel: leader?.label ?? null,
+  }
+}
+
 export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
@@ -3174,6 +3233,7 @@ export function buildAnalysisNewViewModel(
       ? { findings: [], evidenceAssessed: false, decisionVoi: 'not_computed' as const }
       : { findings: uncertaintyBuild!.findings, evidenceAssessed: uncertaintyBuild!.evidenceAssessed, decisionVoi: uncertaintyBuild!.decisionVoi },
     sensitivity: preRun ? { findings: [] } : { findings: uncertaintyBuild!.sensitivityFindings },
+    constraints: buildConstraints(data, preRun),
     deeper: buildDeeper(inputs),
     // ⚠ PRE-RUN THERE ARE NO CHECKS TO REPORT — and this section must be
     // gated HARDER than the others, not more softly. Its whole content is

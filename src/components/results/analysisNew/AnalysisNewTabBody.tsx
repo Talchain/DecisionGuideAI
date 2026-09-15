@@ -77,6 +77,7 @@ import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { TrustLine } from './sections/TrustLine'
+import { WhatHasToHold } from './sections/WhatHasToHold'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
@@ -932,6 +933,7 @@ export function AnalysisNewTabBody({
     vm.keyInsights.insights.length > 0 ||
     keyInsightsEmptyMessage !== null
   const whatMovesHasContent =
+    vm.constraints.rows.length > 0 ||
     vm.drivers.findings.length > 0 ||
     vm.drivers.influenceRows.length > 0 ||
     driversEmpty !== null ||
@@ -2062,6 +2064,18 @@ export function AnalysisNewTabBody({
             defaultExpanded={false}
             testId="analysis-new-what-moves-the-outcome"
           >
+          {/* ⭐⭐ WHAT HAS TO HOLD — INSIDE THIS GROUP, NOT A NINTH TOP-LEVEL
+              BLOCK. `thePanelCannotRegrow.spec.tsx` caps the panel at eight,
+              and that cap exists precisely to force this decision rather than
+              let a well-argued section become the twenty-first. Constraints
+              are what the answer turns on, which is what this group is named
+              for.
+
+              It leads the group because it is the most CONCRETE thing in it: a
+              named threshold with a probability against it, rather than a
+              ranking or a receipt. */}
+          <WhatHasToHold constraints={vm.constraints} />
+
           {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
           <AnalysisNewSection
             title={COPY.sections.drivers}
