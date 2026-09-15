@@ -5,6 +5,24 @@ import { resolveElementLabel } from '../domain/elementLabel'
 
 /** State the recorded boundary and its origin, independently of probability or evidence quality. */
 /**
+ * Magnitude + unit, in the one place both paths read.
+ *
+ * ⚠ EXTRACTED RATHER THAN COPIED. The audit-trail path and the reconstruction
+ * path format the same kind of thing, and two copies of currency/percent/ISO
+ * handling is precisely the mirror that let `<=` reach a reader and a unit go
+ * missing before `goalConstraintText` existed.
+ */
+function formatLimitMagnitude(value: number, unit: string | null | undefined): string {
+  const { kind, canonical } = classifyUnit(unit ?? null)
+  let out = formatStatedLimitValue(value, unit ?? undefined)
+  if (kind === 'iso') out = `${canonical} ${value.toLocaleString('en-GB')}`
+  else if (kind === 'symbol') out = `${canonical}${value.toLocaleString('en-GB')}`
+  else if (kind === 'percent') out = `${value}%`
+  else if (kind === 'other' && canonical.toLowerCase() !== 'count') out += ` ${canonical}`
+  return out
+}
+
+/**
  * ⭐⭐ DOES THE LIMIT SENTENCE ITSELF CARRY THE READER'S VERBATIM WORDS?
  *
  * Exported so the separate `You said: "…"` provenance line can STAND DOWN in
@@ -80,6 +98,38 @@ export function goalConstraintText(
    * still runs and is still 100× out; that is a producer gap this layer cannot
    * close, and it is stated here rather than hidden.
    */
+  /**
+   * ⭐⭐⭐ THE READER'S OWN FIGURE, WHEN THE PRODUCER HANDS IT TO US.
+   *
+   * `provenance_unit_normalised` is the contract's audit trail for CEE's
+   * percent→fraction rewrite, and `original_value` is the number the reader
+   * actually stated — 110, not 1.1. When it is present there is nothing left to
+   * guess and nothing to work around: we render their figure, in their unit.
+   *
+   * ⭐ THIS OUTRANKS THE QUOTE DELIBERATELY. Quoting the brief is true, and it
+   * is what we fall back to, but it is a SENTENCE where this is a NUMBER — it
+   * cannot be compared against the other limits on the card, it does not format
+   * with them, and it costs a line of height. A figure is the thinner
+   * representation.
+   *
+   * ⚠ NOTHING IN THIS ESTATE POPULATES IT YET (swept at 0.55.0: zero
+   * occurrences, contrast control `source_quote` 28 files). It is requested
+   * from CEE, and this is the read path waiting for it — built now so the value
+   * appears the moment it is sent, rather than arriving and being silently
+   * ignored the way the field itself was until today.
+   */
+  const audit = constraint.provenance_unit_normalised
+  if (
+    audit &&
+    typeof audit.original_value === 'number' &&
+    Number.isFinite(audit.original_value) &&
+    constraint.operator
+  ) {
+    const stated = formatLimitMagnitude(audit.original_value, audit.original_unit)
+    const op = renderLimitOperator(constraint.operator)
+    return options.omitLabel ? `${op} ${stated}${origin}` : `${label} ${op} ${stated}${origin}`
+  }
+
   const quote = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
   if (goalConstraintTextUsesQuote(constraint)) {
     return options.omitLabel ? `\u201c${quote}\u201d${origin}` : `${label} \u00b7 \u201c${quote}\u201d${origin}`
@@ -90,11 +140,6 @@ export function goalConstraintText(
     // the label omitted the separator goes too, or it opens with a stray "·".
     return options.omitLabel ? `Limit not captured${origin}` : `${label} · limit not captured${origin}`
   }
-  const { kind, canonical } = classifyUnit(constraint.unit ?? null)
-  let value = formatStatedLimitValue(constraint.value, constraint.unit)
-  if (kind === 'iso') value = `${canonical} ${constraint.value.toLocaleString('en-GB')}`
-  else if (kind === 'symbol') value = `${canonical}${constraint.value.toLocaleString('en-GB')}`
-  else if (kind === 'percent') value = `${constraint.value}%`
-  else if (kind === 'other' && canonical.toLowerCase() !== 'count') value += ` ${canonical}`
+  const value = formatLimitMagnitude(constraint.value, constraint.unit)
   return `${prefix}${renderLimitOperator(constraint.operator)} ${value}${origin}`
 }
