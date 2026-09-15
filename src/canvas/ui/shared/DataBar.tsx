@@ -63,8 +63,13 @@ const evaluativeColour = evaluativeToken as (value: number) => DataBarColour
  * // Compact canvas node sensitivity bar with entity colour override:
  * <DataBar value={0.72} label="Sensitivity" colour="info" trailingLabel="High" />
  *
- * // Standard panel stability bar with auto evaluative colour:
- * <DataBar value={0.85} label="Stability" size="standard" trailingLabel="85%" />
+ * // Standard panel bar. ⛔ STATE THE COLOUR. Omitting it takes
+ * // `evaluativeToken` — >= 70 green, >= 40 amber, else RED — which is the UI
+ * // grading a producer's number against cutoffs nobody gave us.
+ * // `aBarStatesMagnitudeNotAVerdict.spec` REDs on an uncoloured bar.
+ * // The evaluative palette is still available; it just has to be ASKED for,
+ * // so the claim is visible in the diff.
+ * <DataBar value={0.85} label="Stability" size="standard" trailingLabel="85%" colour="info" />
  */
 export function DataBar({ value, label, colour, colourVar, size = 'compact', trailingLabel, showPercent }: DataBarProps) {
   const clampedValue = Math.max(0, Math.min(1, value))
