@@ -165,6 +165,23 @@ describe('⛔ THE TWIN — a valued card still makes the value claim on screen',
     expect(el!.getAttribute('aria-label')).toBe(VALUE_PROVENANCE_LABEL.ai)
   })
 
+  /**
+   * ⚠ ASSERTION SHARPENED, INTENT UNCHANGED — and recorded rather than quietly
+   * edited, because this is a deliberate pin.
+   *
+   * It read `VALUE_PROVENANCE_LABEL.human` ("Set by you") when the badge
+   * answered from NODE AUTHORSHIP (`provenance: 'user_set'`). A value claim now
+   * answers from the VALUE's own provenance, and this fixture's
+   * `source: 'user_override'` classifies as `edited` ("User edited") — which is
+   * what `user_override` literally means.
+   *
+   * ⭐ The property this test protects is untouched: both labels live in
+   * `VALUE_PROVENANCE_LABEL` and both are human-owned, so a valued human factor
+   * still "says so in the value vocabulary". Only the precision moved — from
+   * "a person set this" to "a person edited this". Its sibling above, which
+   * pairs `ai_inferred` authorship with `cee_inference` value, is UNCHANGED and
+   * still reads "AI estimate": the contrast that keeps this pair discriminating.
+   */
   it('and a human-owned valued factor says so in the value vocabulary', () => {
     renderNode(FactorNode, 'factor', 'fac_human', {
       label: 'Hiring rate',
@@ -173,7 +190,7 @@ describe('⛔ THE TWIN — a valued card still makes the value claim on screen',
       provenance: 'user_set',
       observedState: { value: 0.7, source: 'user_override' },
     })
-    expect(mark()!.getAttribute('aria-label')).toBe(VALUE_PROVENANCE_LABEL.human)
+    expect(mark()!.getAttribute('aria-label')).toBe(VALUE_PROVENANCE_LABEL.edited)
   })
 })
 
