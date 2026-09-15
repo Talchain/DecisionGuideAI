@@ -90,6 +90,23 @@
  * is real upstream; `buildDrivers` breaks it downstream by dropping rows AFTER
  * normalisation, so the surviving top row is no longer the producer's max.
  *
+ * ── ⭐⭐ AND THE REPLACEMENT IS NOT ITSELF A TAUTOLOGY — PROVEN BOTH WAYS ────
+ * The class this file exists to close is "a guard that is always true, is
+ * well-typed, and reads exactly like a safety check". Replacing one tautology
+ * with another is the obvious way to fail, so the discriminating pair was RUN,
+ * not reasoned about, in an isolated worktree with isolation asserted by
+ * writing a sentinel:
+ *
+ *   RED   diverge bar from figure — restore the unconditional promise        (2 failed)
+ *   RED   derive the figure from the bar (the tempting rescale)              (2 failed)
+ *   RED   drop the exclusion filter so nothing is ever suppressed            (2 failed)
+ *   GREEN change an UNRELATED quantity — the bar's 0.04 minimum floor -> 0.09 (7 passed)
+ *
+ * The GREEN arm is the half that matters and the half a careless repair omits:
+ * without it, a guard that REDs on everything would score four out of four and
+ * still be worthless. Leading and trailing controls agreed at 7/7 with `src/`
+ * clean at both ends.
+ *
  * ⭐ THE SHAPE OF THE REPAIR: the anchor now asserts BOTH quantities and names
  * them apart, and the clause is gated on the figure a reader actually sees. A
  * corpus that shares the code's blind spot cannot see the code's defect

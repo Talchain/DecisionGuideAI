@@ -115,6 +115,19 @@ describe('the figures rise only when the glance said nothing', () => {
    * breaks every `getByTestId` on this surface, including the cases above,
    * which would then fail for a reason that hides this one.
    */
+  /**
+   * ⭐ AND THE WHOLE SUITE IS ALREADY THE GUARD, which is stronger than this
+   * case alone. Swept every spec reading `analysis-new-options`: all of them
+   * use `getByTestId` or `queryByTestId`, and BOTH THROW on a duplicate. The
+   * only `getAllByTestId` uses are for `analysis-new-options-row` — a genuinely
+   * repeated element — and the assertion below.
+   *
+   * ⚠ THAT SWEEP IS THE POINT, not a reassurance. `getAllByTestId` silently
+   * takes the first match, so a single spec using it on the SECTION id would
+   * have made a duplicated testid pass quietly across the surface while this
+   * case went on claiming exclusivity. The property is only safe because
+   * nothing does.
+   */
   it('EXCLUSIVITY: exactly one options section renders, in either state', () => {
     for (const [name, data] of [
       ['permitted', genuineDecision()],
