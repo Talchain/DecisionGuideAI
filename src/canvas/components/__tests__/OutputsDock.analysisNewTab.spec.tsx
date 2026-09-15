@@ -128,6 +128,33 @@ function renderDock() {
 }
 
 /**
+ * The named groups the Reasoning tab's detail now sits behind.
+ *
+ * ⛔ WHY THE STRUCTURE CASES NEEDED THIS. `SectionShell` UNMOUNTS a closed
+ * region (unlike `Accordion`, which these groups used to be and which kept its
+ * children mounted). So a census of the tab's sections that does not open the
+ * groups is reading content the reader CANNOT SEE — and section C's ordering
+ * assertions were doing exactly that, comparing one visible heading against a
+ * list of five.
+ *
+ * ⚠ OPENS ONLY THE OUTER LEVEL. Every section inside keeps its own default, so
+ * the collapsed-IA claim these cases rest on is unchanged.
+ */
+const REASONING_GROUPS = [
+  'analysis-new-how-worked-out',
+  'analysis-new-coaching-and-method',
+  'analysis-new-what-moves-the-outcome',
+]
+function openReasoningGroups(): void {
+  for (const id of REASONING_GROUPS) {
+    const toggle = screen.queryByTestId(`${id}-toggle`)
+    if (toggle !== null && toggle.getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(toggle)
+    }
+  }
+}
+
+/**
  * ⚠ FRONT THE ANALYSIS TAB, BECAUSE IT IS NO LONGER WHAT THE DOCK OPENS ON.
  *
  * Until 9 Sep 2026 the dock's default WAS `results`, so every "the Analysis
@@ -407,6 +434,7 @@ describe('C · THE SECTION STRUCTURE', () => {
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
+    openReasoningGroups()
 
     // ⚠ THE ORDER CLAIM IS UNCHANGED; ONLY THE BINDING IS TIGHTER. Each section
     // header is now a collapsed disclosure row, so the `h3` legitimately
@@ -524,6 +552,7 @@ describe('C · THE SECTION STRUCTURE', () => {
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
+    openReasoningGroups()
     // Same tightened binding as the case above — the heading row now carries a
     // count alongside the title, and the placement claim is about the TITLE.
     const body = screen.getByTestId('analysis-new-tab-body')
@@ -549,6 +578,7 @@ describe('C · THE SECTION STRUCTURE', () => {
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
+    openReasoningGroups()
     for (const testId of [
       'analysis-new-key-insights',
       'analysis-new-strengthen',
