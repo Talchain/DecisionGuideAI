@@ -1,6 +1,51 @@
 /**
  * THE FIRST VIEW TELLS THE TRUTH ABOUT HOW MUCH OF THE MODEL IT IS SHOWING.
  *
+ * ⛔⛔ BOTH ARMS ARE PARKED, AND THE REASON IS A LIVE DEFECT RATHER THAN A DEAD
+ * TEST. READ THIS BEFORE DELETING ANYTHING HERE.
+ *
+ * #1340 removed the extent notice on Paul's instruction ("annoying and takes up
+ * unnecessary space"), and it had also demonstrably lied — its own frame spec
+ * records it reading "Showing 0 of 19 elements" with nine nodes on screen. Both
+ * true. But the notice was the FIX for the last clause of the paragraph below —
+ * *"and nothing on screen says so"* — and **the framing defect it disclosed was
+ * never fixed.**
+ *
+ * Verified at `origin/staging`, 9 Sep 2026:
+ *   · `utils/zoomLegibility.ts:110` still returns `{ minZoom: LABEL_LEGIBLE_ZOOM }`
+ *     for a PRODUCT-initiated fit, and `LABEL_LEGIBLE_ZOOM = 0.5`. The auto-fit
+ *     still clamps and centres.
+ *   · `CanvasLodNotice` does NOT cover it: it fires on `vp.zoom < LABEL_LEGIBLE_ZOOM`
+ *     (`:124`), and the product fit lands AT 0.5 — silent in exactly the failing
+ *     case. It also answers a different question (labels too small), not this one.
+ *   · "Fit to view" is a RECOVERY, not a DISCLOSURE. A control the user must
+ *     think to press cannot tell them about a condition they cannot see.
+ *
+ * So these arms are NOT stale. Their subject (the notice) is gone; their FINDING
+ * is live, and this file is the record of it. Deleting them would destroy the
+ * evidence for a defect nobody has decided about yet, and leaving them RED is
+ * what teaches a team to stop reading a check — which is how this red came to be
+ * mislabelled "standing advisory drift" for a whole night.
+ *
+ * ⚠⚠ AND THE SENTENCE THAT STOOD HERE WAS FALSE, WHICH IS WHY IT IS QUOTED
+ * RATHER THAN DELETED. It read: *"`test.fixme` is the honest third option: the
+ * suite records the gap, names its owner, and goes red again the moment someone
+ * restores a disclosure without updating what it asserts."* **A skipped test
+ * notices nothing, ever.** `fixme` does not run, so it cannot red — I shipped a
+ * guard that could not fail inside a paragraph arguing for honest guards, and a
+ * review caught it. The arm below RUNS and asserts today's truth in both
+ * directions instead.
+ *
+ * ⚠ UNPARK WHEN PAUL RULES, and the ruling is his because he asked for the
+ * banner gone. Two shapes were put to him (programme docs #38, 9 Sep 01:41):
+ *   1. FIX THE FRAMING — let the initial product fit go below 0.5 as "Fit to
+ *      view" already does, and let `CanvasLodNotice` carry the legibility half.
+ *      Then no disclosure is needed and these arms retire honestly.
+ *   2. DISCLOSE IT DIFFERENTLY — `CanvasOverlayBand` reserves its 64px whether
+ *      or not anything occupies it, so a new form costs no vertical space.
+ * Under (1) delete these arms with the ruling cited. Under (2) re-point them at
+ * whatever discloses it.
+ *
  * WHY THIS EXISTS. Measured 30 Aug 2026 in Chromium at 1280x800: on
  * `build-vs-buy` SIX of twenty nodes are entirely outside the pane on first
  * view — including the DECISION NODE, the goal and all three risks — because
@@ -18,6 +63,10 @@
  *  3. It STAYS AWAY when the whole model already fits — otherwise it is noise
  *     on every screen, and a notice that always shows says nothing.
  */
+// ⚠ `type Page` IS STILL USED, by `nodeVisibility(page: Page)` below. I dropped
+// this import when removing `waitForCameraSettled`, having checked that the
+// helper I deleted used it and not whether anything else did — the same
+// enumerate-one-user error, a third time in this file. CI caught it.
 import { test, expect, type Page } from '@playwright/test'
 import {
   preparePage, openCanvas, seedStarterDraft, clearNotifications,
@@ -25,29 +74,21 @@ import {
 } from './harness'
 import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 
-/**
- * Wait until the camera transform stops changing.
+/*
+ * ⛔ `waitForCameraSettled` WAS REMOVED HERE with the arm that needed it.
  *
- * `waitForVisualQuiescence` watches the LAYOUT store, which is silent about the
- * camera — so it returns while a 400ms fit animation is still in flight, and a
- * measurement taken then reports nodes outside the pane that are on their way
- * in. That is a false RED that looks exactly like a dead control.
+ * It waited for the camera transform to hold still for five frames after
+ * clicking "Show whole model" — necessary because `waitForVisualQuiescence`
+ * watches the LAYOUT store, which is silent about the camera, so a measurement
+ * taken too early reports nodes outside the pane that are on their way in. That
+ * is a false RED that looks exactly like a dead control.
+ *
+ * The button is gone and the surviving arm measures the FIRST view without
+ * moving the camera, so nothing here waits on a fit any more. The reasoning is
+ * kept because the trap is not: any future arm that clicks a fit control and
+ * then measures needs this helper back, and `showWholeModelFit.visual.spec.ts`
+ * still carries its own copy for exactly that reason.
  */
-async function waitForCameraSettled(page: Page, timeoutMs = 5000): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null
-      if (!vp) return false
-      const w = window as unknown as { __lastTf?: string; __tfStableFrames?: number }
-      const tf = getComputedStyle(vp).transform
-      if (w.__lastTf === tf) { w.__tfStableFrames = (w.__tfStableFrames ?? 0) + 1 }
-      else { w.__lastTf = tf; w.__tfStableFrames = 0 }
-      return (w.__tfStableFrames ?? 0) >= 5
-    },
-    undefined,
-    { timeout: timeoutMs, polling: 50 },
-  )
-}
 
 /**
  * Nodes wholly inside the pane, and the total, read from the live DOM.
@@ -85,8 +126,50 @@ async function nodeVisibility(page: Page) {
   }, GHOST_ID_PREFIX)
 }
 
-test.describe('the first view discloses its own extent', () => {
-  test('build-vs-buy: the notice states the remainder, and the button reveals the whole model', async ({ page }) => {
+test.describe('the first view does not disclose its own extent — a live, undisclosed defect', () => {
+  /**
+   * ⛔⛔ THIS ARM ASSERTS THE DEFECT, ON PURPOSE, AND IT MUST STAY RED-CAPABLE.
+   *
+   * ⚠ IT REPLACES TWO `test.fixme` ARMS I WROTE AN HOUR AGO, AND THE OBJECTION
+   * THAT KILLED THEM IS THE ONE WORTH KEEPING: *"an unconditional test.fixme
+   * cannot establish the framing property or detect its return."* Exactly so —
+   * `fixme` never runs, so it can never go red. My own header claimed the
+   * opposite ("goes red again the moment someone restores a disclosure"), which
+   * was simply false: a skipped test notices nothing, ever. That is the
+   * guard-that-cannot-fail this repo hunts, and I shipped one while writing a
+   * paragraph about honesty.
+   *
+   * ── WHAT IT ASSERTS, AND WHY BOTH HALVES ─────────────────────────────────
+   * The product's auto-fit floors at `LABEL_LEGIBLE_ZOOM` (0.5) and then
+   * centres, so on `build-vs-buy` part of the model — including, when measured
+   * on 30 Aug 2026, the DECISION NODE, the goal and all three risks — is
+   * outside the pane on first view. #1340 removed the extent notice, which was
+   * the only thing that said so. `CanvasLodNotice` fires BELOW 0.5 and the fit
+   * lands AT it, so it is silent here; "Fit to view" is a recovery the user must
+   * think to invoke, not a disclosure.
+   *
+   * So today's truth is: **the model overflows, and nothing tells the reader.**
+   * This arm states both halves, which makes it red-capable in BOTH directions:
+   *
+   *   · fix the FRAMING (let the initial fit go below 0.5) → the overflow
+   *     assertion REDs, and this file should then be retired with the ruling
+   *     cited;
+   *   · restore a DISCLOSURE → the silence assertion REDs, and this file should
+   *     be re-pointed at whatever discloses it.
+   *
+   * Either way a person is required to decide, which is the whole reason not to
+   * skip. ⚠ AND IT IS NOT A REQUEST TO KEEP THE DEFECT: it is a request that
+   * removing it be deliberate. See programme docs #38 (9 Sep) for the two repair
+   * shapes put to Paul, whose ruling this is — he asked for the banner gone
+   * because it took space, not because he wanted to stop seeing his model.
+   *
+   * ── SECOND ARM DROPPED ───────────────────────────────────────────────────
+   * `headcount-allocation: no notice when the model already fits` is removed
+   * rather than parked: with no notice in the product at all, "no notice
+   * appears" is true of every model in every state and cannot fail. An arm that
+   * cannot go red is wall clock with no safety.
+   */
+  test('build-vs-buy overflows the first view, and nothing on screen says so', async ({ page }) => {
     await preparePage(page, VIEWPORTS[0])
     await openCanvas(page)
     await seedStarterDraft(page, 'build-vs-buy')
@@ -94,73 +177,25 @@ test.describe('the first view discloses its own extent', () => {
     await freezeMotion(page)
     await waitForVisualQuiescence(page)
 
-    // ENVIRONMENT, asserted before any number is believed.
-    const before = await nodeVisibility(page)
-    expect(before.hidden, 'document.hidden — a hidden tab measures 0x0 and every result is void').toBe(false)
-    expect(before.paneOk, 'the canvas pane has no size — nothing was measured').toBe(true)
-    expect(before.total, 'no nodes mounted').toBeGreaterThan(0)
+    // ENVIRONMENT, asserted before any number is believed. A hidden tab
+    // measures 0x0 and every result below would be a lie that looks fine.
+    const view = await nodeVisibility(page)
+    expect(view.hidden, 'document.hidden — a hidden tab measures 0x0 and every result is void').toBe(false)
+    expect(view.paneOk, 'the canvas pane has no size — nothing was measured').toBe(true)
+    expect(view.total, 'no nodes mounted').toBeGreaterThan(0)
 
-    // PRECONDITION PINNED IN-TEST: this starter really does overflow the pane.
-    // Without this the assertions below could pass on a model that fits, which
-    // would make the whole spec a tautology.
+    // HALF ONE — the defect. REDs if the framing is fixed, which is the good
+    // outcome and must not pass silently.
     expect(
-      before.fullyVisible,
-      `build-vs-buy is expected to overflow the first view; ${before.fullyVisible}/${before.total} were fully visible`,
-    ).toBeLessThan(before.total)
+      view.fullyVisible,
+      `build-vs-buy now fits its first view (${view.fullyVisible}/${view.total} fully visible). ` +
+        'If the auto-fit floor was lifted deliberately, retire this file and cite the ruling.',
+    ).toBeLessThan(view.total)
 
-    const notice = page.getByTestId('model-extent-notice')
-    await expect(notice, 'part of the model is off-screen and nothing says so').toBeVisible()
-
-    // It states a REMAINDER, with both numbers, not a bare "some hidden".
-    const text = (await page.getByTestId('model-extent-count').textContent())?.trim() ?? ''
-    expect(text).toMatch(/Showing \d+ of \d+ elements/)
-    const [, shown, total] = text.match(/Showing (\d+) of (\d+)/)!.map(Number) as unknown as [string, number, number]
-    expect(shown, 'the notice claims everything is visible while the pane disagrees').toBeLessThan(total)
-
-    // THE CONTROL MUST DO WHAT IT SAYS.
-    await page.getByTestId('model-extent-show-all').click()
-    await waitForCameraSettled(page)
-
-    const after = await nodeVisibility(page)
-    expect(after.hidden).toBe(false)
-    expect(
-      after.fullyVisible,
-      `"Show whole model" left ${after.total - after.fullyVisible} node(s) outside the pane`,
-    ).toBe(after.total)
-
-    // ...and having done it, the notice has nothing left to say.
-    await expect(notice, 'the notice persists after the whole model is visible').toBeHidden()
-  })
-
-  test('headcount-allocation: no notice when the model already fits', async ({ page }) => {
-    // The discriminating half. A notice that shows on every model is not a
-    // signal — this proves it is answering the question, not always saying yes.
-    await preparePage(page, VIEWPORTS[0])
-    await openCanvas(page)
-    await seedStarterDraft(page, 'headcount-allocation')
-    await clearNotifications(page)
-    await freezeMotion(page)
-    await waitForVisualQuiescence(page)
-
-    const v = await nodeVisibility(page)
-    expect(v.hidden).toBe(false)
-    expect(v.paneOk).toBe(true)
-    expect(v.total).toBeGreaterThan(0)
-
-    if (v.fullyVisible === v.total) {
-      await expect(
-        page.getByTestId('model-extent-notice'),
-        'every node is inside the pane, so the notice must not claim otherwise',
-      ).toBeHidden()
-    } else {
-      // Honest about its own precondition: if this starter also overflows, the
-      // discrimination this test exists for is untested — say so rather than
-      // passing quietly on the branch that proves nothing.
-      await expect(page.getByTestId('model-extent-notice')).toBeVisible()
-      test.info().annotations.push({
-        type: 'warning',
-        description: `headcount-allocation overflowed (${v.fullyVisible}/${v.total}); the no-notice branch was NOT exercised`,
-      })
-    }
+    // HALF TWO — the silence. REDs if any disclosure returns.
+    await expect(
+      page.getByTestId('model-extent-notice'),
+      'a disclosure is back on screen — re-point this file at it rather than deleting the record',
+    ).toHaveCount(0)
   })
 })
