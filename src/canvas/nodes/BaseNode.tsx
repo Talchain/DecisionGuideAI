@@ -1494,6 +1494,38 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           </span>
         )}
 
+        {/*
+          ⭐⭐ THE EVIDENCE LENS SAID IT IN COLOUR ALONE.
+          `evidenceBgStyle` paints the card `--success-light` / `--warning-light`
+          / `--danger-light` by `evidenceClass`, and that fill was the ONLY
+          carrier of the claim. A reader with a colour-vision deficiency saw
+          three tinted cards and was told nothing — on the one lens whose entire
+          purpose is "which of these numbers do we actually know?".
+
+          ⚠ THIS REPO MEASURES THAT PROBLEM AND SHIPPED IT ANYWAY. The border
+          vocabulary carries CIEDE2000 dichromat measurements (goal-vs-amber
+          ΔE 5.5 under deuteranopia) precisely because colour alone is not a
+          channel. The lens was added later and did not inherit the lesson.
+
+          ⭐ A WORD RATHER THAN A SECOND GLYPH: the classes are already computed
+          (`useLensFilter` → `_evidenceNodeClass`), mutually exclusive and few.
+          Three short producer-derived words cost one line on a card this lens
+          has already stripped to label-plus-pill, and they are the actual
+          answer the reader came for.
+
+          ⛔ THE WORDS RESTATE THE CLASS, THEY DO NOT GRADE IT. "Assumed" is what
+          `evidenceClass` says — not a judgement about whether assuming was
+          reasonable. `na` renders nothing: absence is a state, not a verdict.
+        */}
+        {isEvidenceLens && evidenceClass && evidenceClass !== 'na' && (
+          <span
+            className={`${typography.edgeLabel} shrink-0 ml-auto text-text-body`}
+            data-testid="evidence-lens-class"
+          >
+            {evidenceClass === 'grounded' ? 'From your data' : evidenceClass === 'assumed' ? 'Assumed' : 'No data'}
+          </span>
+        )}
+
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right
             of the title row. Action icons remain in the footer (ActionIcons). */}
         {headerSlot && !isCausalLens && !isEvidenceLens && (
