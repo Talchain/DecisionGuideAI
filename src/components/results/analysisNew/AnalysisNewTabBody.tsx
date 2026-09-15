@@ -68,6 +68,7 @@ import {
   useEstimatedValueActIsAvailable,
 } from '../contextIntegrity/WhatIWasGivenSection'
 import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGivenSection'
+import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChanged } from './sections/WhatsChanged'
 import { AtAGlance } from './sections/AtAGlance'
@@ -942,12 +943,27 @@ export function AnalysisNewTabBody({
    * gate is still derived rather than hardcoded `true`, because "in practice" is
    * how the other two would have been justified too.
    */
+  /**
+   * ⛔⛔ `!isPreRun` WAS A BUG AND I CAUGHT IT IN SELF-REVIEW, NOT IN A TEST.
+   * `WhatIWasGiven` renders PRE-RUN by design — it is about the brief, not the
+   * run — so a gate that suppressed this group pre-run would have DELETED the
+   * one section a reader has before any analysis exists. The convenient term
+   * was the wrong one, and no case I had written could see it because they all
+   * drove emptiness through run-derived data.
+   *
+   * ⚠ ITS CONDITION IS NOT VISIBLE FROM HERE — it lives in two stores that
+   * component reads for itself. `useWhatIWasGivenWillRender` is that same
+   * derivation exported, so the gate and the render cannot disagree; a second
+   * predicate here that happened to agree is trap 12 and this panel has already
+   * paid for it twice today.
+   */
+  const whatIWasGivenWillRender = useWhatIWasGivenWillRender()
   const methodHasContent =
     vm.checks.items.length > 0 ||
     vm.uncertainty.findings.length > 0 ||
     vm.deeper.critiques.length > 0 ||
     vm.deeper.caveats.length > 0 ||
-    !vm.status.isPreRun
+    whatIWasGivenWillRender
   /**
    * ⚠⚠ THE DOOR'S GATE IS THE CAPTURE MODAL'S OWN PREDICATE, DERIVED — NOT
    * RESTATED. `hasAnalysedOptions` is the function `DecisionRecordModal`

@@ -24,6 +24,8 @@ vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { useContextIntegrityStore } from '../../../../canvas/stores/contextIntegrityStore'
+import { useCanvasStore } from '../../../../canvas/store'
 import { genuineDecision, makeData } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
@@ -44,7 +46,10 @@ const renderBody = (data: ResultsSectionDataReturn, isPreRun = false) =>
     />,
   )
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  useContextIntegrityStore.setState({ briefText: null, manifest: null, scenarioId: null } as never)
+})
 
 describe('a group heading claims something is under it', () => {
   /**
@@ -106,5 +111,33 @@ describe('a group heading claims something is under it', () => {
     // already covered by `AnalysisNewTabBody.spec.tsx`'s "KEEPS the honest empty
     // message", which opens the section first. Binding it here would have made
     // this case fail for a reason that has nothing to do with the gate.
+  })
+
+  /**
+   * ⛔⛔ THE REGRESSION I ALMOST SHIPPED, PINNED. The method gate's first
+   * version ended in `|| !vm.status.isPreRun` — convenient, and wrong:
+   * `WhatIWasGiven` renders PRE-RUN by design, because it is about the BRIEF
+   * and not the run. That term would have deleted the one section a reader has
+   * before any analysis exists.
+   *
+   * ⚠ NOTHING I HAD WRITTEN COULD SEE IT. Every other case drives emptiness
+   * through RUN-DERIVED data, and this section is the one child that does not
+   * depend on a run — so the whole battery agreed with the bug. It needed a
+   * case built the other way round: pre-run, with a brief present.
+   */
+  it('keeps the method group PRE-RUN when there is a brief to show', () => {
+    const scenarioId = 'scn-pre-run-brief'
+    useCanvasStore.setState({ currentScenarioId: scenarioId } as never)
+    useContextIntegrityStore.setState({
+      scenarioId,
+      briefText: 'We need to decide whether to build the integration in-house.',
+      manifest: null,
+    } as never)
+
+    renderBody(makeData(), true)
+    expect(
+      screen.queryByTestId('analysis-new-how-worked-out'),
+      'pre-run with a brief, the method group is the only thing the reader has — it must not be gated away',
+    ).not.toBeNull()
   })
 })

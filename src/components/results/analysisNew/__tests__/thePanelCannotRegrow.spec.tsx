@@ -119,7 +119,6 @@ describe('the panel cannot regrow', () => {
       cleanup()
     }
     if (slack.length > 0) {
-      // eslint-disable-next-line no-console
       console.warn(
         'CEILING NOW SLACK — tighten these in thePanelCannotRegrow.spec.tsx:\n' +
           slack.map(([n, c, ceil]) => `  ${n}: ${c} (ceiling ${ceil})`).join('\n'),
