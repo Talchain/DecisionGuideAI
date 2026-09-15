@@ -282,9 +282,29 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
     why: 'a science/provenance badge (useScienceIcons) on a FACTOR node — the anchoring badge, after #1277 deleted the olumi-estimate one',
   },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
+  /*
+   * ⚠ RE-POINTED A THIRD TIME, 15 Sep 2026 — SAME DOOR, NEW INSTANCE NAME.
+   *
+   * `name` is matched with `startsWith` against the element's ACCESSIBLE NAME,
+   * which for a `ScienceIcon` is its tooltip. That tooltip read "Status quo
+   * bias is modelled as doing nothing." and now reads "Baseline — modelled as
+   * no change from today.", so the old prefix cannot match and this row REDed.
+   *
+   * ⭐ THE TRIPWIRE DID EXACTLY ITS JOB. Two rulings moved the copy and neither
+   * was about this test: `is_baseline` is the producer's field so naming it is
+   * fair, but calling the READER biased is a diagnosis of a person from a flag
+   * on an option; and Paul ruled (18 Aug 2026) the do-nothing option is named
+   * "Baseline", from one exported constant. Had this row not REDed, the drive
+   * would have silently stopped covering the baseline-option door while
+   * reporting the same number of paths.
+   *
+   * The DOOR is unchanged — same `useScienceIcons`, same option-only
+   * `is_baseline === true` branch, same render path. Only the instance's name
+   * moved, so only `name` moves.
+   */
   {
     kind: 'science-icon-trigger',
-    name: 'Status quo bias',
+    name: 'Baseline',
     starter: 'vendor-selection',
     why: 'the same ScienceIcon path on the BASELINE OPTION node — NOT NodeCoachingMarker, see above',
   },
