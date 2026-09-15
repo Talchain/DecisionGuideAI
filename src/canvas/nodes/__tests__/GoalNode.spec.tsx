@@ -583,15 +583,38 @@ describe('GoalNode', () => {
     expect(badge).not.toBeNull()
   })
 
-  // B10: Constraint badges post-analysis — colour-coded by probability
-  it('B10: constraint badge ≥0.7 probability uses success colour', () => {
+  /**
+   * ⛔⛔ B10 IS INVERTED, 15 Sep 2026 — IT USED TO PIN THE DEFECT.
+   *
+   * Three tests asserted the constraint badge turned GREEN at `prob >= 0.7`,
+   * AMBER at `>= 0.4` and RED below. Nobody gave us those numbers. The producer
+   * supplies a probability that a constraint is satisfied; 0.7 and 0.4 were
+   * cutoffs this card chose, and it then told the reader 39% is danger while
+   * 41% is a warning. For a ceiling like "keep churn under 4%", a 70% chance of
+   * holding it may be alarming rather than green. A verdict in colour is the
+   * same defect as a verdict in words, and harder to notice.
+   *
+   * ⚠ AND THE OLD AMBER TEST PASSED AFTER THE COLOUR WAS REMOVED. It queried a
+   * bare `.border-warning\/40`, which some other element on the card carries —
+   * a test binding by a predicate another object satisfies (trap 19), green for
+   * a reason unrelated to its name. The replacement binds to the badge by its
+   * accessible name.
+   *
+   * The FIGURE is untouched and still sits beside the sentence. What is gone is
+   * the grading of it.
+   */
+  it.each([
+    ['high', 0.75],
+    ['middling', 0.55],
+    ['low', 0.25],
+  ])('B10: a %s probability gets the SAME neutral treatment — the card does not grade it', (_name, probability) => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: {
           status: 'complete',
           report: {
             goal_constraints: [
-              { id: 'c1', label: '4 months', operator: '≤', probability: 0.75 },
+              { id: 'c1', label: '4 months', operator: '≤', probability },
             ],
           },
         },
@@ -599,47 +622,16 @@ describe('GoalNode', () => {
       }) as any)
     )
     const { container } = renderGoal()
-    expect(screen.getByText(/4 months/)).toBeDefined()
-    const badge = container.querySelector('.border-success\\/40')
-    expect(badge).not.toBeNull()
-  })
-
-  it('B10: constraint badge 0.4-0.69 probability uses warning colour', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          report: {
-            goal_constraints: [
-              { id: 'c1', label: 'constraint', operator: '≤', probability: 0.55 },
-            ],
-          },
-        },
-        goalConstraints: [],
-      }) as any)
-    )
-    const { container } = renderGoal()
-    const badge = container.querySelector('.border-warning\\/40')
-    expect(badge).not.toBeNull()
-  })
-
-  it('B10: constraint badge <0.4 probability uses danger colour', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          report: {
-            goal_constraints: [
-              { id: 'c1', label: 'constraint', operator: '≤', probability: 0.25 },
-            ],
-          },
-        },
-        goalConstraints: [],
-      }) as any)
-    )
-    const { container } = renderGoal()
-    const badge = container.querySelector('.border-danger\\/40')
-    expect(badge).not.toBeNull()
+    // Bind to the badge by its accessible name, never by a colour class another
+    // element could carry.
+    const badge = container.querySelector('[aria-label*="4 months"]')
+    expect(badge, 'the constraint badge did not render').not.toBeNull()
+    expect(badge!.className).toContain('border-info/30')
+    expect(badge!.className).not.toMatch(/border-(success|warning|danger)/)
+    // ⭐ The number is still there. This is a removal of interpretation, not of
+    // information — without this line the test would also pass on a card that
+    // had dropped the probability altogether.
+    expect(badge!.textContent).toContain(`${Math.round(probability * 100)}%`)
   })
 
   // B11: Multiple constraints — all render without overflow

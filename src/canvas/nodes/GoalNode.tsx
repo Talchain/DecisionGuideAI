@@ -562,10 +562,28 @@ export const GoalNode = memo((props: NodeProps) => {
         <div className="flex flex-col gap-0.5">
           {activeConstraints.map((c, i) => {
             const prob = typeof c.probability === 'number' ? c.probability : null
-            const colourClass = prob === null ? 'border-info/30 text-text-body'
-              : prob >= 0.7 ? 'border-success/40 text-success'
-              : prob >= 0.4 ? 'border-warning/40 text-warning'
-              : 'border-danger/40 text-danger'
+            /**
+             * ⛔⛔ THE TRAFFIC LIGHT IS GONE — the UI was issuing a verdict in
+             * colour, which is the same defect as issuing one in words and
+             * harder to see.
+             *
+             * It read `prob >= 0.7` green, `>= 0.4` amber, else RED. Nobody
+             * gave us those numbers. The producer supplies a probability that
+             * a constraint is satisfied; 0.7 and 0.4 are cutoffs this card
+             * chose, and it then told the reader that 39% is danger while 41%
+             * is merely a warning. For a ceiling like "keep churn under 4%", a
+             * 70% chance of holding it may be alarming rather than green.
+             *
+             * ⚠ THE SCANNER CANNOT SEE THIS ONE and that is worth recording:
+             * `uiRendersItDoesNotDecide` looks for a threshold selecting PROSE,
+             * and these branches select TAILWIND CLASSES, which `isProse`
+             * correctly rejects. Found by reading the card, not by running the
+             * guard.
+             *
+             * The figure itself is unchanged and still sits beside the
+             * sentence, so nothing is hidden — what is gone is the grading.
+             */
+            const colourClass = 'border-info/30 text-text-body'
             const constraintText = goalConstraintText(c, nodes)
             const badgeAriaLabel = `${constraintText}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
             return (
