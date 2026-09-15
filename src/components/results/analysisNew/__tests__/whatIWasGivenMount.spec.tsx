@@ -74,24 +74,43 @@ describe('the input register reaches the reasoning tab', () => {
   })
 
   /**
-   * ⚠ THE ANCHOR IS THE CLAIM, NOT THE PRESENCE. The placement argument is that
-   * this is a WORKLIST and therefore belongs with the coaching, above it — not
-   * with the census at the top, which would push the answer below the fold.
-   * Asserting only presence would pass on a mount anywhere, including the one
-   * the argument rejects, so the ORDER is what is pinned.
+   * ⚠ THE ANCHOR IS THE CLAIM, NOT THE PRESENCE — and the claim is now stated
+   * as what it always protected.
+   *
+   * ⛔ THIS CASE USED TO PIN AN ORDER: glance -> what-I-was-given -> Strengthen.
+   * Its stated argument was that this is a WORKLIST and must not sit with the
+   * census at the top (pushing the answer below the fold), nor be buried below
+   * the detail. The section now lives inside the "How this was worked out"
+   * group with its six trust siblings, which the trust line routes into — and a
+   * group can only be above OR below the act, while `AnalysisNewTabBody.spec`
+   * and `whatTheRunCouldNotSettleIsOnePlace` both pin the coaching above every
+   * detail section. Two rulings, one position; grouping made them collide
+   * (CLAUDE.md trap 21).
+   *
+   * ⭐ SO THE PROTECTION IS PINNED, NOT THE POSITION. Both halves of the
+   * original argument still hold and are asserted: it is NOT at the top with
+   * the census, and it IS reachable from a named group rather than buried in a
+   * flat tail. Asserting only presence would pass on a mount anywhere — these
+   * two assertions are what the order was standing in for.
    */
-  it('sits above the coaching it is kin to, and below the reading it follows', () => {
+  it('is not at the top with the census, and lives in the named method group', () => {
     const { container } = draw()
-    const all = Array.from(
+    const order = Array.from(
       container.querySelectorAll(
-        '[data-testid="what-i-was-given-section"],[data-testid="analysis-new-strengthen"],[data-testid="analysis-new-glance"]',
+        '[data-testid="what-i-was-given-section"],[data-testid="analysis-new-glance"]',
       ),
     ).map((el) => el.getAttribute('data-testid'))
-    expect(all).toEqual([
+    expect(order, 'the reading still comes first — this is not a census item').toEqual([
       'analysis-new-glance',
       'what-i-was-given-section',
-      'analysis-new-strengthen',
     ])
+
+    const group = container.querySelector('[data-testid="analysis-new-how-worked-out"]')
+    expect(group, 'the method group must render for this section to be reachable').not.toBeNull()
+    expect(
+      group?.contains(container.querySelector('[data-testid="what-i-was-given-section"]')),
+      'it must sit INSIDE the named group, not loose in the tail where it can be scrolled past',
+    ).toBe(true)
   })
 
   /**
