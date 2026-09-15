@@ -2,9 +2,7 @@ src/canvas/components/DraftChat.tsx:1041
 src/canvas/components/DraftChat.tsx:1046
 src/canvas/components/DraftLoadingAnimation.tsx:383
 src/canvas/components/InsightsPanel.tsx:126
-src/canvas/components/RangeDisplay.tsx:85
-src/canvas/components/RangeDisplay.tsx:93
-src/canvas/components/RangeDisplay.tsx:96
+src/canvas/components/RangeDisplay.tsx:103
 src/canvas/components/SnapshotManager.tsx:57
 src/canvas/components/pre-analysis-v3/constants.ts:406
 src/canvas/components/pre-analysis/AllImprovements.tsx:353

@@ -76,6 +76,24 @@ function formatValueCompact(value: number | null, units: Units, unitSymbol?: str
   return `${Math.round(displayValue)}%`
 }
 
+/**
+ * ⭐ THE RANGE IS THE FACT. THE BANDS WERE OURS.
+ *
+ * This turned p10/p50/p90 into one of four sentences using cutoffs chosen here
+ * (0.5, 1.5), and the widest one added ADVICE — "treat with extra caution".
+ * Founder's rule, 15 Sep: the UI renders the data; it does not decide what the
+ * data means. How wide is too wide depends on the decision, and the reader is
+ * the one holding it.
+ *
+ * What replaces it is the same quantity stated rather than graded: the p10–p90
+ * span as a proportion of the central value, which is exactly what the bands
+ * were computed from. A reader who wants "wide" can see it is 180%; a reader
+ * whose domain makes 180% ordinary is no longer told to be cautious.
+ *
+ * ⛔ `span <= 0` SURVIVES AS A FACT, NOT A BAND. Zero spread means every run
+ * landed on one value — an observation about the data, not a cutoff between
+ * extremes. Boundaries are facts; thresholds are choices.
+ */
 function getRangeWidthLabel(p10: number | null, p50: number | null, p90: number | null): string | null {
   if (p10 === null || p90 === null || Number.isNaN(p10) || Number.isNaN(p90)) {
     return null
@@ -83,20 +101,14 @@ function getRangeWidthLabel(p10: number | null, p50: number | null, p90: number 
 
   const span = p90 - p10
   if (span <= 0) {
-    return 'Outcomes are tightly clustered around a single value.'
+    return 'Every outcome landed on the same value.'
   }
 
   const center = p50 !== null && !Number.isNaN(p50) ? p50 : (p10 + p90) / 2
   const denom = Math.max(Math.abs(center), 1)
   const relSpan = span / denom
 
-  if (relSpan < 0.5) {
-    return 'Most outcomes cluster close to the most likely value.'
-  }
-  if (relSpan < 1.5) {
-    return 'Outcomes vary within a moderate band.'
-  }
-  return 'Outcomes could vary widely; treat with extra caution.'
+  return `The middle 80% of outcomes span ${Math.round(relSpan * 100)}% of the central value.`
 }
 
 function getBaselineMessage(
