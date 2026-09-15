@@ -1119,6 +1119,25 @@ export const ANALYSIS_NEW_COPY = {
     changedLocally:
       'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
     notEncodable: 'That target could not be applied, so nothing changed.',
+    /**
+     * ⭐⭐ NAMES THE CAUSE AND THE MOVE, because this is the one refusal a
+     * reader can act on. `notEncodable` above covers three causes at once — no
+     * unit, a target at or below zero, a scenario that moved — and a reader met
+     * with it has nothing to do next. Witnessed on the deployed build: the
+     * panel recommends "Set a target", the reader sets one, and this was the
+     * whole of the answer.
+     *
+     * ⚠ SAYS WHAT IS MISSING, NOT WHOSE FAULT IT IS. The goal arrived without a
+     * unit; that is a gap in the model, not an error the reader made, and the
+     * sentence is built so it reads the same either way.
+     *
+     * ⚠ THE MODEL TAB'S WORDS, DELIBERATELY. `unproposableDraftReason` blocks
+     * the same draft with "Add a unit". Two surfaces refusing one thing should
+     * refuse it in one vocabulary — the divergence is what made this findable
+     * only by driving the product.
+     */
+    noUnit:
+      'This goal has no unit yet, so a target cannot be set against it. Add a unit to the goal first.',
   },
   /**
    * ⭐ TWO UI-AUTHORED STRINGS, AND BOTH ARE HERE — a heading, and the label that

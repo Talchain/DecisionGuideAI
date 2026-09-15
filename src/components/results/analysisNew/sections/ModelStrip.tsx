@@ -841,13 +841,22 @@ export function ModelStrip({
            things happened - exactly as the factor editor twenty lines above
            already does. Collapsing any two of these is the estate's signature
            defect, an affordance reporting an outcome it never observed. */
+        /* ⚠⚠ FOUR OUTCOMES NOW, AND THE FOURTH IS THE ONLY ONE A READER CAN
+           ACT ON. `no_unit` used to fall through to `notEncodable` — "That
+           target could not be applied, so nothing changed." — which is true and
+           useless: it names one of three causes' shared shape and no move.
+           Collapsing any two of these is the estate's signature defect, an
+           affordance reporting an outcome it never observed; collapsing a
+           CAUSE is the same defect wearing a different coat. */
         onCommitOutcome={(outcome) =>
           showToast(
             outcome === 'dispatched'
               ? COPY.successTarget.dispatched
               : outcome === 'local_only'
                 ? COPY.successTarget.changedLocally
-                : COPY.successTarget.notEncodable,
+                : outcome === 'no_unit'
+                  ? COPY.successTarget.noUnit
+                  : COPY.successTarget.notEncodable,
           )
         }
         testId={`${testId}-target`}
