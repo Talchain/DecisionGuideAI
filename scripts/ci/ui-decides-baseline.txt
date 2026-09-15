@@ -1,5 +1,63 @@
+# Every place this scanner finds the UI turning a NUMBER into WORDS.
+# Lines starting with # are comments; the ratchet strips them, and a test
+# pins that the parser drops every comment and keeps every site.
+#
+# ── ADJUDICATED. Each argued for individually; see
+#    src/canvas/__tests__/theUiRendersItDoesNotDecide.spec.ts.
 src/canvas/components/DraftLoadingAnimation.tsx:383
 src/canvas/components/InsightsPanel.tsx:126
 src/canvas/components/ModelQualityScore.tsx:264
-src/canvas/components/SnapshotManager.tsx:57
-src/canvas/components/pre-analysis/ModelSnapshot.tsx:215
+#
+# ⭐ NO LONGER NEEDED, and that is the good kind of change: the rule got
+#    more precise on 15 Sep (a comparison between two RUNTIME values is a
+#    range check, not a chosen cutoff), so these hand-argued exceptions
+#    stopped being exceptions:
+#      · src/canvas/components/SnapshotManager.tsx:57
+#      · src/canvas/components/pre-analysis/ModelSnapshot.tsx:215
+#
+# ── INHERITED, AND NEWLY VISIBLE ON 15 Sep 2026, when the scanner was
+#    widened ONE HOP to the helper modules a render surface imports.
+#    ⛔ NOT ENDORSED. This is the measured starting point, so that no NEW
+#    one can be added while these are worked through. Recording an
+#    inherited set honestly beats a clean file that cannot see them: a
+#    scanner that cannot reach a location returns the same output as one
+#    that looked and found nothing.
+#    ⭐ The sharpest of them, and why the hop exists at all:
+#      · src/types/constraints.ts         "Meets all targets" at >= 0.40
+#      · src/lib/stability.ts x3          three bands, one carrying ADVICE
+#                                         ("Review key inputs")
+#      · src/canvas/domain/edges.ts x5    five influence bands on edge strength
+#      · adapters/plot/v2/responseMapper  "shows the strongest expected
+#                                         outcome" at winProb > 0.6
+src/adapters/cee/client.ts:735
+src/adapters/plot/v2/responseMapper.ts:1576
+src/canvas/contextMenu/actions.ts:903
+src/canvas/domain/edges.ts:772
+src/canvas/domain/edges.ts:773
+src/canvas/domain/edges.ts:774
+src/canvas/domain/edges.ts:776
+src/canvas/domain/edges.ts:777
+src/canvas/hooks/useModelHealth.ts:148
+src/canvas/hooks/useRiskProfile.ts:358
+src/canvas/hooks/useRiskProfile.ts:362
+src/canvas/hooks/useScienceIcons.ts:128
+src/canvas/hooks/useScienceIcons.ts:143
+src/canvas/store.ts:7695
+src/canvas/stores/readinessStore.ts:744
+src/canvas/stores/readinessStore.ts:840
+src/canvas/utils/briefValidation.ts:43
+src/canvas/utils/ceeAnalysisReadyValidation.ts:159
+src/canvas/utils/ceeDataAdapter.ts:328
+src/canvas/utils/ceeDataAdapter.ts:331
+src/canvas/utils/formatCEEError.ts:84
+src/canvas/utils/graphHealthStrings.ts:22
+src/canvas/utils/graphHealthStrings.ts:26
+src/canvas/utils/limitsStatus.ts:47
+src/canvas/utils/limitsStatus.ts:51
+src/components/results/TornadoChart.tsx:670
+src/components/results/TornadoChart.tsx:687
+src/hooks/useCEEDraft.ts:101
+src/lib/stability.ts:110
+src/lib/stability.ts:123
+src/lib/stability.ts:136
+src/types/constraints.ts:78
