@@ -1,4 +1,4 @@
-import { classifyNodeProvenance } from '../../domain/valueProvenance'
+import { classifyNodeProvenance, classifyValueProvenance } from '../../domain/valueProvenance'
 import { nodeProvenanceClaim, provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
 import type { NodeType } from '../../domain/nodes'
 import {
@@ -155,7 +155,60 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
   // or undefined all fall through to its `return null`. It stays because it
   // makes the contract legible at the call site (`data.provenance` is unknown).
   const raw = typeof provenance === 'string' ? provenance : null
-  const cls = classifyNodeProvenance(raw)
+  const nodeAuthorship = classifyNodeProvenance(raw)
+
+  /**
+   * ⭐⭐⭐ WHEN THE CLAIM IS ABOUT A NUMBER, THE NUMBER'S OWN PROVENANCE ANSWERS IT.
+   *
+   * ## The defect, settled at a captured wire body (build `1690c1f`)
+   *
+   * Factor `6d9a37f3` "Pro Plan Monthly Price" carried
+   * `provenance: "ai_inferred"` **and** `observed_state: { baseline 49,
+   * source "brief_extraction", extractionType "explicit" }`, and the card
+   * rendered **"AI estimate"** over the user's own £49.
+   *
+   * Both facts are true and they answer DIFFERENT QUESTIONS. CEE's
+   * `projectNodeProvenance` decides `provenance` on
+   * `provenance_class === "stated" && brief_binding === "verified"` — **who
+   * authored the NODE.** "Pro Plan Monthly Price" is the model's label; the user
+   * wrote "increase the Pro plan price from £49 to £59" and never coined that
+   * name. So `ai_inferred` is CORRECT about the node and FALSE about the number
+   * beside it — and this component was relabelling it as a VALUE claim purely
+   * because the node happens to carry a number
+   * (`nodeProvenanceClaim` → `'value'` → `VALUE_PROVENANCE_LABEL`).
+   *
+   * ⛔ ONE FIELD, TWO QUESTIONS, SPANNING TWO SERVICES — CEE writes the answer to
+   * one and the UI reads it as the answer to the other, with the field name
+   * identical at both ends (`adapters/cee/types.ts:700` says so outright). The
+   * next person at either end will make the same read, which is why this is
+   * written down rather than just fixed.
+   *
+   * ## Why this OVERRIDES rather than REPLACES
+   *
+   * `classifyValueProvenance` returns `null` for an absent or unrecognised
+   * `source`. Reading it *instead of* node authorship would therefore blank the
+   * badge on every node whose value source we cannot classify — and for those,
+   * "AI estimate" is frequently TRUE. The identical regression stopped the
+   * CEE-side attempt earlier: removing its default fixed this case and turned
+   * 20 assertions' worth of genuinely honest disclosures into silence.
+   *
+   * ⛔ SILENCE IS THE SAFE ANSWER ONLY WHERE THE ALTERNATIVE WOULD BE A LIE.
+   * Here the alternative may be the truth, so saying nothing would LOSE
+   * information this component currently supplies correctly.
+   *
+   * So the value answer wins ONLY when it positively exists. Absent ⇒ today's
+   * behaviour, byte for byte. This can only ever fix the case where the two
+   * disagree; it cannot silence anything.
+   */
+  const valueProvenance =
+    claim === 'value'
+      ? classifyValueProvenance(
+          ((data as { observedState?: { source?: unknown } } | null | undefined)
+            ?.observedState?.source) as string | null | undefined,
+        )
+      : null
+
+  const cls = valueProvenance ?? nodeAuthorship
   if (!cls) return null
 
   const label = provenanceClaimLabel(claim, cls.kind)
