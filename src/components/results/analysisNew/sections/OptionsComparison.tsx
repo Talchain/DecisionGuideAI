@@ -308,7 +308,43 @@ export function OptionsComparison({
    * widening it to cover them would delete licensed material, which is the
    * opposite harm and cannot share this parameter (CLAUDE.md trap 22b).
    */
-  const mayDrawMagnitude = options.comparativeClaim === 'value'
+  /**
+   * ⭐⭐ THE BARS DRAW ON EVERY RUN THAT HAS SHARES TO DRAW — PAUL'S RULING,
+   * 15 Sep 2026, made deliberately against the rule it replaces.
+   *
+   * ── WHAT THIS OVERTURNS, STATED FAIRLY ────────────────────────────────────
+   * `#1483` gated the bars on `comparativeClaim === 'value'`, reasoning that a
+   * flip threshold or an ordering verdict *"licenses a SENTENCE and never a
+   * magnitude"*. That is a coherent position and it was ratified with specs.
+   * It is not being called a defect here; it is being changed, by the person
+   * entitled to change it, on the evidence below.
+   *
+   * ── THE EVIDENCE ──────────────────────────────────────────────────────────
+   * Witnessed on the deployed build `079d080b`, a real guest run, read off the
+   * DOM: three option rows carrying **48% · 4% · 48%** and **ZERO bars**. Two
+   * options tied at 48%, and the reader had to notice that by comparing
+   * numerals. Paul, on being shown it: *"I think these are powerful."*
+   *
+   * ── WHY THIS DOES NOT MAKE A CLAIM THE RUN REFUSED ───────────────────────
+   * ⚠ THE SECTION IS ALREADY PRINTING THESE NUMBERS. `winFraction` and
+   * `winReadout` are set together from one `hasWin` in the view model, so a row
+   * that draws is exactly a row that already prints. Nothing becomes visible
+   * that was not on screen in text; what changes is whether a reader can see a
+   * tie, or a dominant option, without arithmetic.
+   *
+   * ⚠ AND THE QUALIFIER STAYS. `ComparisonScopeNote` still renders, and still
+   * takes `detail` only where the claim licenses it — so a partial comparison
+   * is still qualified in words beneath the figures it qualifies. The bars did
+   * not inherit the sentence's entitlement; the sentence keeps its own.
+   *
+   * ⛔ WHAT IS NOT TOUCHED, DELIBERATELY: no ordinal is printed, no leader is
+   * marked, and the withheld-leader rules are unchanged. Drawing a magnitude
+   * the run measured is a different act from NAMING the option that won, and
+   * this estate has been burned twice on exactly that distinction (#709/#737).
+   * A run that withholds its leader still withholds it — it just draws the
+   * numbers it already prints.
+   */
+  const mayDrawMagnitude = true
 
   return (
     <SectionShell

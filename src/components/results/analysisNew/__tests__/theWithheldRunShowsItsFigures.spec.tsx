@@ -219,10 +219,20 @@ describe('the withheld run is the state this opens for', () => {
 
     renderBody(decisionWithLeaderWithheld())
 
-    // No bar: a drawn comparative magnitude is gated on `comparativeClaim`,
-    // and `'order'` licenses an ordering, never a magnitude.
-    expect(screen.queryAllByTestId(`${T}-bar`)).toHaveLength(0)
-    // No marker element, and no marker glyph, on either row.
+    // ⭐ THE BARS NOW DRAW (Paul's ruling, 15 Sep 2026) — and THAT IS NOT WHAT
+    // THIS CASE IS ABOUT. It bundled two claims: "no drawn magnitude" and "no
+    // NAMED leader". Only the first changed. A run that withholds its leader
+    // still withholds it; it draws the numbers it was already printing.
+    //
+    // ⚠ PINNED AS A POSITIVE, NOT DELETED. Asserting the bars are gone would
+    // now pass on a section that rendered nothing at all, and this case's whole
+    // value is that the row IS alive while the LEADER stays unnamed.
+    expect(
+      screen.queryAllByTestId(`${T}-bar`).length,
+      'a withheld run still draws the shares it prints — the withholding is about NAMING',
+    ).toBeGreaterThan(0)
+    // No marker element, and no marker glyph, on either row — UNCHANGED, and
+    // the half of this case that carries the entitlement.
     for (const id of ['opt_a', 'opt_b']) {
       const r = row(id)
       expect(within(r).queryByTestId(`${T}-leader`)).toBeNull()
@@ -254,7 +264,14 @@ describe('the withheld run is the state this opens for', () => {
 
     // Open on mount — the state this test is about.
     expect(section).toHaveAttribute('data-section-open', 'true')
-    expect(screen.queryAllByTestId(`${T}-bar`), 'no bar while open').toHaveLength(0)
+    // ⭐ THE BAR COUNT IS NOW AN INVARIANT ACROSS THE TOGGLE, not a zero.
+    // Paul's ruling draws the shares on every state; what this case guards is
+    // that OPENING THE SECTION MOVES NOTHING — the near-miss in its header was
+    // a change that flipped `'order'` -> `'value'`, and that flip is still the
+    // harm. Pinning a count that must not CHANGE catches it; pinning zero no
+    // longer would, because zero is no longer the licensed answer.
+    const barsWhileOpen = screen.queryAllByTestId(`${T}-bar`).length
+    expect(barsWhileOpen, 'the withheld run still draws the shares it prints').toBeGreaterThan(0)
 
     // Close it, and open it again through the TOGGLE — the other route to the
     // same state, so the assertion covers both ways in.
@@ -266,7 +283,10 @@ describe('the withheld run is the state this opens for', () => {
     // The authority is where it was. Re-derived from the SAME data, so a
     // mutation that made disclosure feed back into the view model would show.
     expect(vmFor(data).optionsComparison.comparativeClaim).toBe(before)
-    expect(screen.queryAllByTestId(`${T}-bar`), 'still no bar after toggling').toHaveLength(0)
+    expect(
+      screen.queryAllByTestId(`${T}-bar`).length,
+      'toggling the section changed the drawn magnitudes — opening must move nothing',
+    ).toBe(barsWhileOpen)
 
     // ⭐ THE DISCRIMINATING HALF. A run that DOES license a value draws bars —
     // so "no bars" above is the licence talking, not a section that never
