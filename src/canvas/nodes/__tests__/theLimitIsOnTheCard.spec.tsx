@@ -101,6 +101,28 @@ describe('the reader\u2019s own limit reaches the card', () => {
    * constraint in the store would pass all of the above \u2014 and would print a
    * limit the reader never set on this factor.
    */
+  it('\u2b50 a PERCENT limit prefers the reader\u2019s verbatim words over our reconstruction', () => {
+    renderWith([{ node_id: ID, operator: '>=', value: 1.1, unit: '%',
+      source_quote: 'net revenue retention above 110%' }])
+    expect(line()).toHaveTextContent('net revenue retention above 110%')
+    // \u26d4 The discriminating half. The producer sends 1.1 on a percent unit
+    // and there is no raw twin to reconstruct 110 from, so the old form
+    // rendered "1.1%" \u2014 a hundred times under the brief, while the goal card
+    // on the same screen said "Target: 110%". Measured in the running app.
+    expect(line().textContent ?? '').not.toContain('1.1%')
+  })
+
+  it('\u26d4 CONTRAST: a CURRENCY limit keeps the compact reconstruction', () => {
+    // No scale ambiguity on a currency unit \u2014 49 is \u00a349 \u2014 so the tidier form
+    // wins and the quote is not preferred. Without this, "prefer the quote"
+    // would silently widen to every unit, which `factorGoalContent.spec`
+    // caught once already.
+    renderWith([{ node_id: ID, operator: '<=', value: 49, unit: '\u00a3',
+      source_quote: 'Keep the monthly price at or below \u00a349' }])
+    expect(line()).toHaveTextContent('\u2264 \u00a349')
+    expect(line().textContent ?? '').not.toContain('Keep the monthly price')
+  })
+
   it('\u26d4 CONTRAST: a constraint naming a DIFFERENT node never appears here', () => {
     renderWith([{ node_id: 'fac_somewhere_else', operator: '<=', value: 4, unit: '%' }])
     expect(screen.queryByTestId('factor-constraint-lines')).toBeNull()

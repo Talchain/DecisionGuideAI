@@ -18,8 +18,12 @@ import { goalConstraintText } from '../../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 
 export interface NodeConstraints {
-  /** The constraints binding to this node, producer order preserved. */
-  readonly matching: ReadonlyArray<CEEGoalConstraint & { probability?: number }>
+  /** The constraints binding to this node, producer order preserved.
+   *  ⚠ NO `probability` IN THIS TYPE. Only the POST-analysis slice carries one,
+   *  and this hook produces TEXT — the satisfaction figure is `GoalNode`'s
+   *  business and it makes its own selection. Widening here would promise a
+   *  field that is absent on every pre-analysis constraint. */
+  readonly matching: readonly CEEGoalConstraint[]
   /** One ruled sentence per constraint, target name omitted — the card names it. */
   readonly lines: readonly string[]
 }
@@ -38,15 +42,14 @@ export function useNodeConstraints(nodeId: string, nodeLabel: string): NodeConst
    * this way and this is the same expression, so the two cannot disagree about
    * which set is live.
    */
-  const source = useMemo(() => {
-    const post = Array.isArray(postAnalysis)
-      ? (postAnalysis as Array<CEEGoalConstraint & { probability?: number }>)
-      : null
-    return resultsStatus === 'complete' ? (post ?? preAnalysis) : preAnalysis
+  const source = useMemo((): readonly CEEGoalConstraint[] => {
+    const post = Array.isArray(postAnalysis) ? (postAnalysis as CEEGoalConstraint[]) : null
+    const pre: readonly CEEGoalConstraint[] = preAnalysis ?? []
+    return resultsStatus === 'complete' ? (post ?? pre) : pre
   }, [resultsStatus, postAnalysis, preAnalysis])
 
   const matching = useMemo(() => {
-    if (!source?.length) return []
+    if (!source.length) return []
     /**
      * ⭐ BIND BY IDENTITY, NOT BY LABEL STRING (CLAUDE.md trap 19).
      *

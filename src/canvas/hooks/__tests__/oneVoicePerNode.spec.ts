@@ -93,7 +93,7 @@ describe('the baseline option is a fact, not a diagnosis of the reader', () => {
     const { result } = renderHook(() => useScienceIcons('opt_stay', 'option'))
     const sq = result.current.find(i => i.id === 'status-quo-bias')
     expect(sq).toBeDefined()
-    expect(sq!.tooltip).toBe('The baseline option — modelled as doing nothing.')
+    expect(sq!.tooltip).toBe('Baseline — modelled as no change from today.')
     // The icon and the registry entry stay — only the sentence changed.
     expect(sq!.tooltip).not.toMatch(/bias/i)
   })

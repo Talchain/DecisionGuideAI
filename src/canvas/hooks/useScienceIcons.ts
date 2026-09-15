@@ -32,6 +32,7 @@ import {
   FileQuestion, Unlink, Frame, ShieldAlert, Anchor, Gauge,
 } from 'lucide-react'
 import { biasSignal } from '../shared/biasSignalTitles'
+import { BASELINE_OPTION_LABEL } from '../utils/baselineDetection'
 import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
 // `computeSignedMean` was imported here with ZERO call sites (verified at the
@@ -222,7 +223,11 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'status-quo-bias',
           icon: statusQuo.icon,
-          tooltip: 'The baseline option — modelled as doing nothing.',
+          // ⚠ THE WORD IS "Baseline", FROM THE ONE CONSTANT (Paul, 18 Aug 2026),
+          // and "doing nothing" is a banned prose form of the option's name —
+          // `baselineVocabulary.canvas.spec` caught my first wording on both
+          // counts. It is the guard doing its job, not an obstacle.
+          tooltip: `${BASELINE_OPTION_LABEL} — modelled as no change from today.`,
           action: 'What could go wrong with staying on the baseline?',
           colour: 'text-warning',
           priority: 6,

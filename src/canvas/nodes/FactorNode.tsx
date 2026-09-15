@@ -279,7 +279,8 @@ export const FactorNode = memo((props: NodeProps) => {
    * one card could use them — while the constraints in the shipped starters
    * target a GOAL and an OUTCOME. One predicate, every kind.
    */
-  const { matching: matchingConstraints, lines: constraintLines } = useNodeConstraints(props.id, cleanedLabel)
+  // Only the badge tooltip is built here; BaseNode renders the visible lines.
+  const { matching: matchingConstraints } = useNodeConstraints(props.id, cleanedLabel)
   const allNodes = useCanvasStore(state => state.nodes)
 
   const constraintTooltip = useMemo(() => {
