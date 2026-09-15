@@ -23,6 +23,8 @@ import { BaseNode } from './BaseNode'
 import { Crosshair } from 'lucide-react'
 import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
+import { useModelReadiness } from '../hooks/useModelReadiness'
+import type { ModelReadiness } from '../hooks/useModelReadiness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
@@ -32,7 +34,6 @@ import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
-import { biasSignal } from '../shared/biasSignalTitles'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 
@@ -213,15 +214,13 @@ function truncateAtWord(text: string, maxLength: number): string {
 
 // ---- Model readiness helpers ----
 
-export interface ModelReadiness {
-  // breakdown consumed by the pre-analysis popover, the triage line and the
-  // card's own readiness summary
-  explicitCount: number
-  inferredCount: number
-  missingCount: number
-  externalCount: number
-  biasTriggers: string[]
-}
+// ⭐ `ModelReadiness` and `useModelReadiness` MOVED to
+// `../hooks/useModelReadiness`, and re-exported here because this file is their
+// historic home and other modules import the type from it. The move is not a
+// tidy-up: the GOAL card offers the same "Run analysis" action on a DIFFERENT
+// predicate, so the two cards disagreed about whether the model was ready. One
+// authority, two consumers — see the hook's own header for the measurement.
+export type { ModelReadiness } from '../hooks/useModelReadiness'
 
 /**
  * ⭐ THE READINESS FACTS AS ONE CARD LINE — "4 factors \u00b7 2 estimated \u00b7 1 missing".
@@ -265,68 +264,6 @@ export function composeReadinessSummary(readiness: ModelReadiness): string | nul
   return parts.join(READINESS_SEPARATOR)
 }
 
-function useModelReadiness(decisionId: string): ModelReadiness {
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
-
-  return useMemo(() => {
-    const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    const riskNodes = nodes.filter(n => n.type === 'risk' || n.data?.type === 'risk')
-
-    let explicitCount = 0
-    let inferredCount = 0
-    let missingCount = 0
-    let externalCount = 0
-
-    for (const node of factorNodes) {
-      const data = node.data as Record<string, unknown> | undefined
-      if (!data) continue
-      const category = data.category as string | undefined
-      const observedState = data.observedState as Record<string, unknown> | undefined
-      const prior = data.prior as { range_min?: number; range_max?: number } | undefined
-      const value = observedState?.value as number | undefined
-      const extractionType = observedState?.extractionType as string | undefined
-
-      if (category === 'external') {
-        externalCount++
-        continue
-      }
-
-      if (value == null && !(prior?.range_min != null && prior?.range_max != null)) {
-        missingCount++
-      } else if (extractionType === 'inferred') {
-        inferredCount++
-      } else {
-        explicitCount++
-      }
-    }
-
-    // Bias triggers - bias NAMES composed from the one registry
-    // (review-folds C15; rendered output byte-identical to the old
-    // literals). 'Missing risks' is a graph-signal label, not a registry
-    // bias code, so it stays local.
-    const biasTriggers: string[] = []
-    if (optionNodes.length < 3) biasTriggers.push(`${biasSignal('narrow_framing').title}: < 3 options`)
-    if (riskNodes.length <= 1) biasTriggers.push('Missing risks: \u2264 1 risk identified')
-    const hasBaseline = optionNodes.some(n => (n.data as Record<string, unknown> | undefined)?.is_baseline === true)
-    if (hasBaseline) biasTriggers.push(`${biasSignal('status_quo_bias').title}: baseline present`)
-    // Overconfidence: any factor is inferred (unvalidated estimate)
-    const hasInferredFactor = factorNodes.some(n => {
-      const os = (n.data as Record<string, unknown> | undefined)?.observedState as Record<string, unknown> | undefined
-      return os?.extractionType === 'inferred'
-    })
-    if (hasInferredFactor) biasTriggers.push(`${biasSignal('overconfidence').title}: top factor unvalidated`)
-
-    return {
-      explicitCount,
-      inferredCount,
-      missingCount,
-      externalCount,
-      biasTriggers,
-    }
-  }, [nodes, edges, decisionId])
-}
 
 export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNodeData>) => {
   const edges = useCanvasStore(state => state.edges)
@@ -362,7 +299,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     [isPostAnalysis, report],
   )
 
-  const readiness = useModelReadiness(id)
+  const readiness = useModelReadiness()
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
   // Audit §8 P1: result-derived decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift, chips stay interactive).

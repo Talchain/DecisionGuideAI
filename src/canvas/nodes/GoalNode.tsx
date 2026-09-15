@@ -281,6 +281,35 @@ export const GoalNode = memo((props: NodeProps) => {
   const canCaptureTarget = canCaptureGoalTarget(props.data as GoalTargetSource)
   const hasThreshold = !canCaptureTarget
 
+  // ⛔⛔ A READINESS GATE ON THIS CHIP WAS WRITTEN AND WITHDRAWN, 14 Sep 2026.
+  //
+  // THE DEFECT IS REAL AND STILL OPEN. This card and the decision card both
+  // offer an identical `actionType="run_analysis"` chip — same label, same
+  // message, confirmed as exactly two by a whole-tree sweep and measured on a
+  // real render of `pricing-model` at 1600x1000. Their gates differ:
+  //
+  //     decision   allFactorsPresent && goalDefined
+  //     goal       hasThreshold && !isPostAnalysis
+  //
+  // So on a model with a target and a factor still missing its value, the
+  // decision card withholds the action and names the gap while this card offers
+  // it. Two surfaces, one question, opposite answers.
+  //
+  // ⛔ WHY THE OBVIOUS FIX WAS WRONG. I gated this chip on the decision card's
+  // predicate. An independent review refuted it: a bare missing-count is a
+  // THIRD predicate, not the authority. `utils/canRunAnalysis.ts` is the
+  // authority — 13 consumers — and it weighs graph health, `analysisReadiness`,
+  // the producer's own `mayRun`, blockers and held states, several of which
+  // admit a run that a bare missing-count refuses. Gating here on the narrower
+  // predicate would trade a false YES for a false NO, which is the harm the
+  // spec for that change warned about in its own header.
+  //
+  // ⭐ SO THE HONEST STATE IS: NEITHER CARD CONSUMES THE AUTHORITY. The decision
+  // card's predicate is as home-made as the one withdrawn here. Making both read
+  // `canRunAnalysis` is the actual repair, and it is a consequence-class change
+  // across two components and 13 existing consumers — not a line in this file.
+  // Recorded here rather than left as a silent asymmetry.
+
   const stabilityClassification = useMemo(() =>
     getStabilityClassification(robustnessData?.stability),
     [robustnessData?.stability]
