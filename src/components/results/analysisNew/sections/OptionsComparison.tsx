@@ -139,6 +139,7 @@ import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { action } from '../panelSurfaces'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
@@ -430,12 +431,32 @@ export function OptionsComparison({
                   Olumi's own estimate. The name leads; the share qualifies it. */}
               {o.kind === 'analysed' ? (
                 o.winReadout !== null ? (
-                  <span
-                    className={`${typography.panelMeta} text-text-light shrink-0 tabular-nums`}
-                    data-testid={`${testId}-win`}
-                  >
-                    {o.winReadout}
-                  </span>
+                  <>
+                    {/* ⭐⭐ NAMED ONLY WHEN A SECOND NUMBER SHARES THE ROW, and
+                        the condition is the whole argument. Alone, a bare
+                        percentage under "How the options compare" is
+                        unambiguous enough to live unlabelled — which is what
+                        shipped. Beside a goal figure it is not: two bare
+                        percentages on one row are two numbers with no way to
+                        tell which question either answers, which is worse than
+                        one. So the label appears exactly when the ambiguity
+                        does, and a run with no target renders byte-identically
+                        to what it rendered before. */}
+                    {o.goalReadout !== null ? (
+                      <span
+                        className={`${typography.panelMeta} text-text-light shrink-0`}
+                        data-testid={`${testId}-win-label`}
+                      >
+                        {COPY.optionFigures.winLabel}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`${typography.panelMeta} text-text-light shrink-0 tabular-nums`}
+                      data-testid={`${testId}-win`}
+                    >
+                      {o.winReadout}
+                    </span>
+                  </>
                 ) : null
               ) : (
                 /* ⚠ THE BADGE NAMES WHICH NUMBERLESS STATE THIS IS, and the two
@@ -548,6 +569,96 @@ export function OptionsComparison({
                   }}
                 />
               </span>
+            ) : null}
+
+            {/* ⭐⭐ THE OTHER QUESTION — "does this reach the target I set?"
+                — AND IT IS NOT A RE-CUT OF THE SHARE ABOVE.
+
+                The bar above is comparative: the share of simulated futures in
+                which this option out-ranked the others. Those shares partition
+                the runs and sum to 1. This one is absolute and per-option — the
+                probability THIS option reaches the user's own target, computed
+                independently for each — so they do not sum to anything and an
+                option can be behind on one and ahead on the other. That is the
+                whole reason it is worth drawing: it is the question the person
+                actually asked, and the panel has had the number all along and
+                spent it only on choosing a sentence.
+
+                ⛔ NOT STACKED, AND NOT A SEGMENT OF THE BAR ABOVE. `WinGauge`'s
+                header states the same rule from the other side: a stacked bar
+                is an honest picture of a distribution that partitions, and a
+                dishonest one of independent per-option probabilities. Separate
+                track, separate row, same width scale.
+
+                ⚠ EVERY GATE IS THE VIEW MODEL'S. Absent here means one of four
+                real states — no user target (UI-SEM-071), the producer withheld
+                or omitted this option's figure, the figure is a substituted
+                joint one, or any analysed option lacks one (the complete-field
+                rule). This component asks only whether there is a figure.
+
+                ⚠ AND IT IS NOT GATED ON `mayDrawMagnitude`. That licence is
+                about putting a COMPARATIVE magnitude on screen — the thing a
+                withheld leader claim withholds. A per-option probability of
+                reaching the user's own target ranks nothing against anything,
+                so the licence it would need is a different one, and the run
+                that withholds a ranking has not withheld this. */}
+            {o.kind === 'analysed' && o.goalReadout !== null && o.goalFraction !== null ? (
+              <div className="mt-2">
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={`${typography.panelMeta} text-text-light min-w-0 flex-1`}
+                    data-testid={`${testId}-goal-label`}
+                  >
+                    {COPY.optionFigures.goalLabel}
+                  </span>
+                  <span
+                    className={`${typography.panelMeta} text-text-light shrink-0 tabular-nums`}
+                    data-testid={`${testId}-goal`}
+                  >
+                    {o.goalReadout}
+                  </span>
+                </div>
+                <span
+                  /* The sibling's geometry exactly — same height, same track,
+                     same radius. Two figures of the same weight read as two
+                     answers to two questions; a different treatment would read
+                     as one of them mattering more, which is a claim neither the
+                     producer nor this panel makes. */
+                  className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
+                  aria-hidden="true"
+                  data-testid={`${testId}-goal-bar`}
+                >
+                  <span
+                    className="block h-full rounded-full bg-info"
+                    /* The floor rule the sibling derives, applied for the same
+                       reason: `formatGoalProbability` floors the READOUT so a
+                       measured tiny probability never prints as "0%", and
+                       rounding the WIDTH would re-open that falsehood in the
+                       channel the eye reads first. Applied only when the
+                       fraction is strictly positive — a measured zero must draw
+                       an empty track, because that is true. */
+                    style={{
+                      width: `${o.goalFraction * 100}%`,
+                      ...(o.goalFraction > 0 ? { minWidth: '2px' } : {}),
+                    }}
+                  />
+                </span>
+                {/* Display-honesty (ROADMAP 1.6b / PLoT #204): the figure is
+                    scored from a modelled forward-propagated outcome
+                    distribution rather than a directly-set starting value, and
+                    the estate's rule is that the caveat renders ADJACENT to the
+                    number it qualifies, never separately. The shared constant,
+                    never a re-wording of it — `OptionCards`, the analysis-hero
+                    detail line and the canvas goal badge all import this one. */}
+                {o.goalBasisIsModelled ? (
+                  <p
+                    className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                    data-testid={`${testId}-goal-basis-caveat`}
+                  >
+                    {GOAL_FIT_BASIS_CAVEAT_COPY}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
             {/* ⭐⭐ WHOSE IDEA THIS OPTION WAS — ON EVERY ROW, NOT JUST THE

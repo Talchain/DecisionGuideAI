@@ -2623,6 +2623,21 @@ function buildOptionsComparison(
   }
   const storyHeadlines = data.recommendation.storyHeadlines
 
+  /**
+   * ⭐⭐ UI-SEM-071 — WITHOUT A USER TARGET THERE IS NO GOAL FIGURE TO SHOW.
+   *
+   * With no threshold from the user, PLoT/ISL synthesise one and the selector
+   * still adopts `probability_of_joint_goal` — a number describing a target
+   * nobody set. `buildAtAGlance` already suppresses at source on exactly this
+   * predicate, and it is the same one here rather than a second reading of it.
+   *
+   * ⭐ AND IT IS WHY "Set a target" EARNS THE PANEL'S ONE PRIMARY. Setting a
+   * target is not a settings chore: it is the gesture that puts a second,
+   * different figure on every option row. The act and what the act unlocks are
+   * the same fact.
+   */
+  const goalOnScreen = data.recommendation.goalThreshold != null
+
   const rows: ComparisonOption[] = []
   for (const o of allOptions) {
     const label = usableOptionLabel(o)
@@ -2717,6 +2732,31 @@ function buildOptionsComparison(
     const rawWhy = storyHeadlines?.[o.id]
     const why = typeof rawWhy === 'string' && rawWhy.trim().length > 0 ? rawWhy.trim() : null
 
+    /**
+     * ⚠ READ, NEVER RE-DERIVED — and never re-chosen. `selectGoalProbability`
+     * is the estate's registered owner of which goal quantity may be shown and
+     * with what provenance; `useResultsSectionData` already put its decision on
+     * the option. Re-reading the raw producer fields here would be a second
+     * chooser, which is the exact defect #496 closed.
+     *
+     * ⛔ A SUBSTITUTED JOINT FIGURE IS SUPPRESSED, NOT RELABELLED. The only
+     * name this surface has for the number is the possessive one, and that
+     * names the user's OWN target — which a joint substitution does not answer.
+     * `OptionCards` carries a second caption for that case; this surface does
+     * not, so it says nothing rather than print an unnamed percentage.
+     * (Measured today: the flag is always false — the substitution is withheld
+     * at source — so this arm is a guard against a producer change, not a live
+     * branch. It is written because the day it becomes live it is silent by
+     * default rather than wrong by default.)
+     */
+    const rawGoal = o.goalProbability
+    const goalValue =
+      o.goalFitIsSubstitutedJoint !== true &&
+      typeof rawGoal === 'number' &&
+      Number.isFinite(rawGoal)
+        ? rawGoal
+        : null
+
     rows.push({
       kind: 'analysed',
       id: o.id,
@@ -2731,8 +2771,55 @@ function buildOptionsComparison(
       // the READOUT above is never clamped, so a value the producer sent out of
       // range still shows the producer's own number.
       winFraction: hasWin ? Math.max(0, Math.min(1, raw)) : null,
+      /**
+       * Provisional — the complete-field rule below may null every one of
+       * these. Written here so the per-option conditions and the set-wide one
+       * stay separate: this line answers "does THIS option have an admissible
+       * figure?", the pass below answers "may the SET show any at all?".
+       */
+      /**
+       * ⚠ THE GOAL REGISTER'S FORMATTER, NOT THE COMPARATIVE ONE — and the
+       * difference is not cosmetic. `ModelImplication` already prints ONE goal
+       * figure (the crown's) through `formatGoalProbability`; using
+       * `formatProbabilityWithResolution` here would put two roundings of one
+       * quantity on one screen the moment a count is missing, which is exactly
+       * the defect `formatPercent.ts`'s own header documents. With a count the
+       * two are identical — `formatGoalProbability` delegates — so this costs
+       * nothing and closes the case where they diverge (the goal register
+       * floors an exact zero to match the option card beside it; the
+       * comparative register deliberately prints "0%").
+       */
+      goalReadout: goalOnScreen && goalValue !== null
+        ? formatGoalProbability(goalValue, o.nValidSamples)
+        : null,
+      goalFraction: goalOnScreen && goalValue !== null ? Math.max(0, Math.min(1, goalValue)) : null,
+      goalBasisIsModelled: o.goalFitIsModelledBasis === true,
       why,
     })
+  }
+
+  /**
+   * ⭐⭐ THE COMPLETE-FIELD RULE, TAKEN VERBATIM FROM `buildGoalFitRows` — a
+   * partial set is a ranking over a SUBSET presented as a ranking over the
+   * options.
+   *
+   * ⚠ APPLIED HERE RATHER THAN IN THE LOOP, AND THAT IS THE POINT. The loop
+   * cannot know whether a LATER option will turn out to have no figure, so a
+   * per-row decision is structurally incapable of enforcing a set-wide rule.
+   *
+   * ⚠ AND IT COUNTS THE ROWS THE LOOP ACTUALLY PRODUCED, never a predicate
+   * re-expressed over `allOptions`. The fork above is three-way — not analysed,
+   * analysed-but-not-computed, analysed — and restating it here would be a
+   * second copy of someone else's rule, drifting the first time either moves
+   * (trap 12). `not_computed` and `not_analysed` rows carry no share either and
+   * are correctly outside this population.
+   */
+  const analysed = rows.filter((r) => r.kind === 'analysed')
+  if (analysed.some((r) => r.goalReadout === null)) {
+    for (const r of analysed) {
+      r.goalReadout = null
+      r.goalFraction = null
+    }
   }
 
   return { rows, totalCount: allOptions.length }

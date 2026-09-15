@@ -1153,6 +1153,30 @@ export const ANALYSIS_NEW_COPY = {
     title: 'How far this held',
     basisPrefix: 'Tested against: ',
   },
+  /**
+   * ⭐⭐ THE SECOND FIGURE ON AN OPTION ROW, AND ITS LABEL IS LOAD-BEARING.
+   *
+   * The row already carries a bare percentage — the comparative share. A second
+   * bare percentage beside it would be two numbers with no way to tell which
+   * question either answers, which is worse than one. So the goal figure is
+   * NAMED and the comparative one is named beside it, and neither ships alone.
+   *
+   * ⚠ "Reaches your target" IS POSSESSIVE ON PURPOSE. It names the target the
+   * USER set, which is the only case this surface renders (a substituted joint
+   * figure is suppressed upstream rather than relabelled — see the view model).
+   * The estate's shipped string for the same claim is `OptionCards`' "Hits
+   * target"; this register uses the reader's words rather than the card's
+   * compact stat-row label, and the possessive is the same commitment.
+   *
+   * ⚠ "Ahead of the others" NAMES THE COMPARATIVE QUANTITY WITHOUT RANKING IT.
+   * It does not say "wins", "best" or "most likely" — `winner` is on the banned
+   * list, and the section title already refuses to assert an ordering because
+   * the run may withhold one.
+   */
+  optionFigures: {
+    goalLabel: 'Reaches your target',
+    winLabel: 'Ahead of the others',
+  },
   modelStrip: {
     /**
      * The affordance, stated once above the marks. It describes the CONTROL,
