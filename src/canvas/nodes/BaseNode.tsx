@@ -835,7 +835,18 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       // `__tests__/nodeCopyIsNeverCentred.spec.tsx`.
       className={`
         text-left
-        group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
+        group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} ${
+          /* ⭐⭐ THE GOAL IS THE TERMINUS, AND IT RENDERED AS THE PALEST CARD.
+             Every edge on the board converges on it and it carried the same
+             elevation as a factor five rows above it — so the thing the whole
+             argument is FOR was, visually, the least of it.
+             ⚠ ELEVATION, NOT BORDER WIDTH, AND THAT IS THE WHOLE CONSTRAINT.
+             A border change alters the card's measured box, which moves ELK's
+             placement and every edge anchor with it — the geometry this lane
+             has already repaired twice. A shadow paints outside the box and
+             changes nothing measurable. */
+          nodeType === 'goal' ? 'shadow-3' : 'shadow-1'
+        }
         ${borderColourClass}
         ${lodKindFillClass}
         transition-all duration-200

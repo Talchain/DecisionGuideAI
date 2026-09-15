@@ -150,6 +150,7 @@ import {
 import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 import { goalTargetBoundPhrase } from '../conversation/manualGoalTarget'
+import { formatValueWithUnit } from '../components/model-tab/utils'
 import type { ConstraintType } from '../../v5/chipParameters'
 import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
 import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspectorMutations'
@@ -771,7 +772,27 @@ export function ModelTabV2Panel({
             // through `goalTargetBoundPhrase`, sibling of the map CEE's
             // operator comes from, so the words and the wire cannot part.
             to: edit.unit !== undefined
-              ? `${capitaliseFirst(goalTargetBoundPhrase(edit.direction ?? 'at_least'))} ${edit.draft} ${edit.unit} (absolute level)`
+              // ⭐⭐ ONE NUMBER, ONE RENDERING — measured in a single edit flow,
+              // 15 Sep: the review line said `At least 25000 £`, the committed
+              // row said `£25,000`, and the Constraints section said
+              // `≥ £25,000`. Three spellings of one figure, inside one gesture,
+              // and the first is the one the reader confirms AGAINST.
+              //
+              // `formatValueWithUnit` is the model-tab suite's own formatter —
+              // the same one `adapters.ts` composes the committed value with —
+              // so the sentence the reader approves and the value that lands are
+              // the same string by construction rather than by agreement.
+              //
+              // ⚠ IT TAKES A NUMBER; `edit.draft` is the raw input text. A
+              // non-numeric draft cannot reach here (the Review control is
+              // disabled until the draft parses — `value-blocked` says so), but
+              // the fallback keeps the old concatenation rather than printing
+              // `NaN` at the one moment the reader is being asked to confirm.
+              ? `${capitaliseFirst(goalTargetBoundPhrase(edit.direction ?? 'at_least'))} ${
+                  Number.isFinite(Number(edit.draft))
+                    ? formatValueWithUnit(Number(edit.draft), edit.unit ?? '')
+                    : `${edit.draft} ${edit.unit}`
+                } (absolute level)`
               : edit.draft }
     return new Map<string, EditCommitState>([[edit.rowId, state]])
   }, [edit, confirmNotice])
@@ -1039,8 +1060,28 @@ export function ModelTabV2Panel({
       // optimistic value (and the dispatcher owns refusal-revert); on
       // `not_encodable` nothing was written anywhere — fail closed, and the
       // row honestly shows the unchanged model.
-      authority.proposeFactorValue(num)
-      setEdit(null)
+      /**
+       * ⛔⛔ THE OUTCOME IS HONOURED, AND UNTIL NOW IT WAS DISCARDED.
+       *
+       * MEASURED on a real board, 15 Sep: typing a factor value, pressing
+       * `Review change` and then `Confirm` left the row reading `Not set` again,
+       * with **no message and zero network calls**. The reader confirms an edit
+       * and it evaporates.
+       *
+       * `proposeFactorValue` answers THREE things — `dispatched`, `local_only`,
+       * `not_encodable` — and this call site threw all three away, so a refusal
+       * was indistinguishable from a save. The goal branch a few lines above has
+       * always checked `=== 'dispatched'` before clearing; this one did not.
+       *
+       * ⚠ AND THE CODEBASE ALREADY RULED ON THIS. `useFactorValueCommit`'s
+       * header reads *"THE OUTCOME IS NEVER FLATTENED TO 'SAVED'"*, and four
+       * specs pin the three outcomes apart for the Analysis-tab writer. This
+       * surface was the one place that flattened it — to nothing at all.
+       *
+       * Clearing only on `dispatched` keeps a refused edit ON SCREEN, still
+       * editable, which is the same fail-visible behaviour the goal path gives.
+       */
+      if (authority.proposeFactorValue(num) === 'dispatched') setEdit(null)
     },
     [edit, authority, editingRelationshipId, edges],
   )
