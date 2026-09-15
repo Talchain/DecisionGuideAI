@@ -1,55 +1,71 @@
 /**
- * ReasoningPanelV3 — the PROPOSED information architecture for the Reasoning
- * tab, composed from the sections that already ship.
+ * ReasoningPanelV3 — the Reasoning tab rebuilt to the APPROVED PROTOTYPE's
+ * grammar (`Reasoning Panel v2`), using the components and tokens this
+ * directory already ships.
  *
- * ⭐ WHAT THIS CHANGES, AND IT IS ONLY ONE THING: the ORDER AND THE WEIGHT.
- * Every section below is the component the live tab already renders, taking
- * the same slice of the same `AnalysisNewViewModel`. Nothing new computes
- * anything; nothing here derives a claim about the model that the live tab
- * does not already derive. If this reads better, it reads better for
- * structural reasons alone — which is the point of showing it this way.
+ * ⛔⛔ WHAT THE PREVIOUS DRAFT OF THIS FILE GOT WRONG, AND IT IS THE WHOLE
+ * REASON FOR THIS REWRITE. It changed ORDER AND WEIGHT ONLY, and left the
+ * visual language exactly as it was — so the panel stayed a flat stack of
+ * equal-weight bordered cards, reordered, with the ACT hidden behind a closed
+ * chevron. Measured on the live composition at the rich fixture, in a browser:
  *
- * THE DEFECT IT ADDRESSES. The live tab renders TWENTY top-level blocks in a
- * flat stack, every one at the same visual weight, and SEVEN of them answer a
- * single question — *how far can I trust this?* (`RobustnessCaveat`,
- * `WhatWeChecked`, uncertainty, `CritiqueWarningStrip`, `InferenceWarningStrip`,
- * `ModelHeldUp`, `WhatIWasGiven`). A reader who wants that answer must
- * assemble it from seven headings spread down a page. That is not a copy
- * problem and no amount of rewriting fixes it.
+ *     17 controls in view · ZERO of them `ACTION_TIER.primary`
+ *     `Strengthen the reasoning`  aria-expanded="false"   ← the one act, closed
+ *     two disclosure treatments on one surface (`Accordion` + `SectionShell`)
  *
- * THE SHAPE. Four blocks are always open, in the order a reader asks for them:
+ * ⭐ AND THE TOKENS FOR ALL OF IT WERE ALREADY HERE. `ACTION_TIER.primary`
+ * carries the docblock *"THE ONE ACT. A filled control, and the panel should
+ * carry at most one of them in view"* — written FROM the prototype's own rule,
+ * in the same module this file was already importing `surface()` from. The
+ * system existed; the composition did not use it.
  *
- *     what does this say  ->  how far do I trust it  ->  what do I do
+ * ── WHAT THIS COMPOSITION TAKES FROM THE PROTOTYPE ─────────────────────────
+ *  1. ZONE KICKERS. Four named zones, not eight peer cards. The kicker is a
+ *     label on a group, so it carries no border and no fill of its own.
+ *  2. FOCUS NOW IS A HERO, OPEN, WITH ONE PRIMARY. The highest-priority move
+ *     the producer sent, rendered in full and pressable without a disclosure.
+ *  3. ONE DISCLOSURE TREATMENT. `SectionShell` everywhere — it is the ratified
+ *     grammar of this surface. `Accordion` is a `ResultsBody` component and
+ *     mixing the two is the "jumbly" defect at the level of the chrome.
+ *  4. DEPTH COLLAPSES INTO A FEW ROWS. The prototype's own rule, and the one
+ *     thing its scorecard marks KEPT.
  *
- * Everything else sits behind four `Accordion`s, closed. `Accordion` is the
- * Results panel's own disclosure primitive (`components/results/Accordion.tsx`)
- * and the Reasoning tab has never called it — the machinery for this existed
- * before the tab did.
+ * ── WHAT IT DELIBERATELY DOES NOT TAKE, AND WHY ────────────────────────────
+ * ⛔ THE QUESTION-AS-HEADING. The prototype's rule is *"the largest type is a
+ * question"*. `Recommendation` carries `title`, `signal`, `whyNow`, `tryThis`,
+ * `sourceLine`, `action` — and NO question field (derived at
+ * `strengthen/strengthenTypes.ts:42-73`). A question composed here would be the
+ * render layer authoring a claim the producer did not send: the FOURTH instance
+ * of the defect the prototype's own document already records three times (short
+ * names, per-value provenance, the inputs ratio). The heading is therefore
+ * `rec.title`, verbatim, and the question is a CEE ask.
  *
- * ⛔ THE TRUST LINE INVENTS NO VERDICT. It renders `atAGlance.verdict.label`
- * and `verdict.reason`, both producer-owned — the reason is
- * `robustness.display_verdict_reason` VERBATIM — plus two COUNTS of things
- * already on screen. A count of rendered rows is not a claim about the model.
- * Where the producer sent no verdict the line says the basis was not
- * established and offers the detail; it never fills the gap.
+ * ⛔ NO NEW NUMBER, NO NEW TONE, NO NEW GEOMETRY. Every box is `surface()`,
+ * every control is `action()`, every size is `typography`. The only thing this
+ * file authors is the ORDER, the ZONE NAMES, and which block is open.
  */
-import { useId, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Activity, GraduationCap, ClipboardCheck, Compass } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import Accordion from '../../Accordion'
-import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
-import { InferenceWarningStrip } from '../../InferenceWarningStrip'
-import { surface } from '../panelSurfaces'
+import { surface, action } from '../panelSurfaces'
 import { AtAGlance } from '../sections/AtAGlance'
 import { BiasGrounding } from '../sections/BiasGrounding'
 import { ModelImplication } from '../sections/ModelImplication'
 import { OptionsComparison } from '../sections/OptionsComparison'
 import { StrengthenTheReasoning } from '../sections/StrengthenTheReasoning'
+import { TrustLine } from '../sections/TrustLine'
 import { WhatWeChecked } from '../sections/WhatWeChecked'
+import { SectionShell } from '../sections/SectionShell'
 import { AnalysisNewSection } from '../sections/AnalysisNewSection'
 import { DriverInfluenceChart } from '../sections/DriverInfluenceChart'
-import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
+import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
+import { InferenceWarningStrip } from '../../InferenceWarningStrip'
+import { methodForRecommendation } from '../recommendationMethod'
+import { ANALYSIS_NEW_COPY, strengthenWhyLine } from '../analysisNewCopy'
+import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { AnalysisNewViewModel } from '../analysisNewTypes'
 import type { BiasGroundingItem } from '../biasGrounding'
+import type { Recommendation } from '../../strengthen/strengthenTypes'
 
 export interface ReasoningPanelV3Props {
   vm: AnalysisNewViewModel
@@ -58,159 +74,211 @@ export interface ReasoningPanelV3Props {
 }
 
 /**
- * ⚠ COUNTS OF RENDERED ROWS, NEVER A SCORE. Each number below is the length of
- * a list this panel already shows; none is a judgement and none is combined
- * with another into one. A single "trust score" would be exactly the derived
- * claim this surface must not make.
+ * A ZONE LABEL. The prototype's kicker: it names a group of blocks, so it must
+ * not look like a block itself — no border, no fill, no radius.
+ *
+ * ⚠ `panelMeta` AND `text-text-light`, NOT A NEW SIZE. The prototype's type
+ * rule is three sizes and no arbitrary values; a kicker at its own size is the
+ * fourth. Uppercase and tracking do the work that a size change would have.
  */
-function trustCounts(vm: AnalysisNewViewModel): { checks: number; open: number } {
-  return {
-    checks: vm.checks.items.length,
-    open: vm.uncertainty.findings.length,
-  }
+function Kicker({ children, testId }: { children: string; testId: string }) {
+  return (
+    <p
+      className={`${typography.panelMeta} text-text-light uppercase tracking-[0.08em] mt-4 mb-1.5 first:mt-0`}
+      data-testid={testId}
+    >
+      {children}
+    </p>
+  )
+}
+
+/**
+ * FOCUS NOW — the producer's highest-priority move, open, with the panel's
+ * ONE primary control.
+ *
+ * ⛔ IT RENDERS THE PRODUCER'S FIELDS AND COMPOSES NOTHING. `title` is the
+ * heading verbatim; the body is `strengthenWhyLine(signal, whyNow)` — the same
+ * helper the shipped section uses, so the two can never word it differently;
+ * the button is `action.label`. The method pill appears ONLY when
+ * `methodForRecommendation` maps the producer's own code to a real technique,
+ * which is the rule that stops a fabricated scientific label.
+ *
+ * ⚠ `surface('info')`, NOT `'warning'`. The prototype's card is amber, but on
+ * this surface amber is already spoken for — it carries staleness, sensitivity
+ * and severity. A fifth meaning on the one tone that is already overloaded is
+ * the "colour semantics" regression the prototype's scorecard marks LOST, and
+ * reproducing it while fixing the panel would be the same defect one level up.
+ * `info` is the estate's "worth stopping on, nothing went wrong" tone.
+ */
+function FocusNow({
+  rec,
+  onAct,
+  testId,
+}: {
+  rec: Recommendation
+  onAct: () => void
+  testId: string
+}) {
+  const method = methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)
+  return (
+    <div className={surface('info')} data-testid={testId}>
+      {method !== null && (
+        <span
+          className={`${typography.panelMeta} inline-flex items-center ${action('secondary')} mb-1`}
+          data-testid={`${testId}-method`}
+        >
+          {method.title}
+        </span>
+      )}
+      <p className={`${typography.panelHeader} text-text-header mt-0 mb-0`} data-testid={`${testId}-title`}>
+        {rec.title}
+      </p>
+      <p className={`${typography.panelBody} text-text-body mt-1 mb-0`} data-testid={`${testId}-why`}>
+        {strengthenWhyLine(rec.signal, rec.whyNow)}
+      </p>
+      {rec.tryThis !== null && (
+        <p className={`${typography.panelBody} text-text-light mt-1 mb-0`} data-testid={`${testId}-try`}>
+          <span className="text-text-header">{STRENGTHEN_COPY.tryThisLead}</span> {rec.tryThis}
+        </p>
+      )}
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={onAct}
+          className={`${typography.panelMeta} ${action('primary')}`}
+          data-testid={`${testId}-action`}
+        >
+          {rec.action.label}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export function ReasoningPanelV3({ vm, biasItems = [] }: ReasoningPanelV3Props) {
-  const panelId = useId()
-  const [openMethod, setOpenMethod] = useState(false)
-  const verdict = vm.atAGlance.verdict
-  const counts = trustCounts(vm)
+  const [methodOpen, setMethodOpen] = useState(false)
 
   /**
-   * ⭐ THE ONE ACT. `strengthen.interventions` arrives in PRIORITY order (the
-   * builder sorts it), so the first row is the producer's own highest-priority
-   * move rather than whichever happened to be built first. The rest stay
-   * reachable one accordion down — nothing is removed, one thing is promoted.
+   * ⭐ PRIORITY ORDER IS THE PRODUCER'S. `buildRecommendations` sorts, so the
+   * first row is its own highest-priority move rather than whichever happened
+   * to be built first. Nothing is removed; one thing is promoted.
    */
-  const oneAct = vm.strengthen.interventions.slice(0, 1)
-  const remainingActs = vm.strengthen.interventions.slice(1)
+  const [focus, ...rest] = vm.strengthen.interventions
+  const counts = useMemo(
+    () => ({ checks: vm.checks.items.length, open: vm.uncertainty.findings.length }),
+    [vm.checks.items.length, vm.uncertainty.findings.length],
+  )
 
   return (
-    <div className="space-y-3" data-testid="reasoning-v3">
-      {/* ── 1. WHAT THIS SAYS ────────────────────────────────────────────── */}
-      <AtAGlance
-        glance={vm.atAGlance}
-        isStale={false}
-        isRunning={false}
-        reanalyseBlocked={false}
-        reanalyseBlockedReason={null}
-      />
-
-      <ModelImplication implication={vm.modelImplication} />
-
-      <OptionsComparison options={vm.optionsComparison} defaultOpen />
-
-      {/* ── 2. HOW FAR TO TRUST IT — one line, seven sections behind it ──── */}
-      <div
-        className={surface('neutral')}
-        data-testid="reasoning-v3-trust-line"
-        role="status"
-      >
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className={`${typography.panelHeader} text-text-header`}>
-            {verdict != null ? verdict.label : 'Basis not established'}
-          </span>
-          {verdict?.reason != null && (
-            <span className={`${typography.panelMeta} text-text-light`}>{verdict.reason}</span>
-          )}
-        </div>
-        <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-          {counts.checks} {counts.checks === 1 ? 'check' : 'checks'} ran ·{' '}
-          {counts.open} {counts.open === 1 ? 'open question' : 'open questions'}
-          {' · '}
-          <button
-            type="button"
-            className="rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-            aria-expanded={openMethod}
-            aria-controls={`${panelId}-method`}
-            onClick={() => setOpenMethod((v) => !v)}
-            data-testid="reasoning-v3-how-worked-out"
-          >
-            How this was worked out
-          </button>
-        </div>
+    <div data-testid="reasoning-v3">
+      {/* ── WHAT THIS SAYS ──────────────────────────────────────────────── */}
+      <Kicker testId="reasoning-v3-kicker-answer">
+        {ANALYSIS_NEW_COPY.sections.atAGlance}
+      </Kicker>
+      <div className="space-y-2">
+        <AtAGlance
+          glance={vm.atAGlance}
+          isStale={false}
+          isRunning={false}
+          reanalyseBlocked={false}
+          reanalyseBlockedReason={null}
+        />
+        <ModelImplication implication={vm.modelImplication} />
+        <OptionsComparison options={vm.optionsComparison} defaultOpen />
+        <TrustLine
+          verdict={vm.atAGlance.verdict}
+          checksRan={counts.checks}
+          openQuestions={counts.open}
+          methodOpen={methodOpen}
+          onOpenMethod={() => setMethodOpen((v) => !v)}
+          testId="reasoning-v3-trust-line"
+        />
       </div>
 
-      {/* ── 3. WHAT TO DO — one act ──────────────────────────────────────── */}
-      {oneAct.length > 0 && (
-        <StrengthenTheReasoning
-          interventions={oneAct}
-          defaultOpen
-          testId="reasoning-v3-one-act"
-        />
+      {/* ── WHAT TO DO — one act, open, one primary ─────────────────────── */}
+      {focus !== undefined && (
+        <>
+          <Kicker testId="reasoning-v3-kicker-focus">Focus now</Kicker>
+          <FocusNow rec={focus} onAct={() => {}} testId="reasoning-v3-focus" />
+        </>
       )}
 
-      {/* ── ON DEMAND ────────────────────────────────────────────────────── */}
+      {rest.length > 0 && (
+        <>
+          <Kicker testId="reasoning-v3-kicker-also">Also worth doing</Kicker>
+          <StrengthenTheReasoning
+            interventions={rest}
+            defaultOpen
+            icon={Compass}
+            testId="reasoning-v3-also"
+          />
+        </>
+      )}
 
-      <Accordion
-        title="Coaching and method"
-        subtitle="Where this reasoning comes from"
-        badgeCount={biasItems.length + vm.keyInsights.insights.length}
-        defaultExpanded={false}
-      >
-        <BiasGrounding items={[...biasItems]} />
-        <AnalysisNewSection
-          title={ANALYSIS_NEW_COPY.sections.keyInsights}
-          findings={vm.keyInsights.insights}
-          testId="reasoning-v3-key-insights"
-        />
-      </Accordion>
-
-      <Accordion
-        title="What would change this"
-        subtitle="The assumptions the answer turns on"
-        badgeCount={vm.sensitivity.findings.length + vm.drivers.findings.length}
-        defaultExpanded={false}
-      >
-        <AnalysisNewSection
-          title={ANALYSIS_NEW_COPY.sections.sensitivity}
-          findings={vm.sensitivity.findings}
-          testId="reasoning-v3-sensitivity"
-        />
-        <AnalysisNewSection
-          title={ANALYSIS_NEW_COPY.sections.drivers}
+      {/* ── DEPTH — one disclosure treatment, closed ────────────────────── */}
+      <Kicker testId="reasoning-v3-kicker-depth">If you want to go further</Kicker>
+      <div className="space-y-1">
+        <SectionShell
+          title={ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome}
           subtitle={ANALYSIS_NEW_COPY.sectionSubtitles.drivers}
-          findings={vm.drivers.findings}
+          icon={Activity}
+          count={vm.drivers.findings.length + vm.drivers.influenceRows.length}
           testId="reasoning-v3-drivers"
-        />
-        <DriverInfluenceChart
-          rows={vm.drivers.influenceRows}
-          onCommitOutcome={() => {}}
-          testId="reasoning-v3-driver-chart"
-        />
-      </Accordion>
+        >
+          <AnalysisNewSection
+            title={ANALYSIS_NEW_COPY.sections.drivers}
+            findings={vm.drivers.findings}
+            testId="reasoning-v3-drivers-findings"
+          />
+          <DriverInfluenceChart
+            rows={vm.drivers.influenceRows}
+            onCommitOutcome={() => {}}
+            testId="reasoning-v3-driver-chart"
+          />
+        </SectionShell>
 
-      <Accordion
-        title="How this was worked out"
-        subtitle="Checks, gaps and what the model was given"
-        badgeCount={counts.checks + counts.open}
-        defaultExpanded={openMethod}
-      >
-        <div id={`${panelId}-method`}>
+        <SectionShell
+          title={ANALYSIS_NEW_COPY.sections.uncertainty}
+          subtitle={ANALYSIS_NEW_COPY.sectionSubtitles.uncertainty}
+          icon={ClipboardCheck}
+          count={counts.open}
+          testId="reasoning-v3-uncertainty"
+        >
+          <AnalysisNewSection
+            title={ANALYSIS_NEW_COPY.sections.uncertainty}
+            findings={vm.uncertainty.findings}
+            testId="reasoning-v3-uncertainty-findings"
+          />
+        </SectionShell>
+
+        <SectionShell
+          title={ANALYSIS_NEW_COPY.sections.coachingAndMethod}
+          subtitle={ANALYSIS_NEW_COPY.sectionSubtitles.coachingAndMethod}
+          icon={GraduationCap}
+          count={biasItems.length + vm.keyInsights.insights.length}
+          testId="reasoning-v3-coaching"
+        >
+          <BiasGrounding items={biasItems} />
+          <AnalysisNewSection
+            title={ANALYSIS_NEW_COPY.sections.keyInsights}
+            findings={vm.keyInsights.insights}
+            testId="reasoning-v3-key-insights"
+          />
+        </SectionShell>
+
+        <SectionShell
+          title={ANALYSIS_NEW_COPY.sections.howWorkedOut}
+          subtitle={ANALYSIS_NEW_COPY.sectionSubtitles.howWorkedOut}
+          count={counts.checks}
+          open={methodOpen}
+          onOpenChange={setMethodOpen}
+          testId="reasoning-v3-method"
+        >
           <CritiqueWarningStrip critiques={vm.deeper.critiques} className="mb-2" />
           <InferenceWarningStrip warnings={vm.deeper.caveats} className="mb-2" />
           <WhatWeChecked checks={vm.checks} />
-          <AnalysisNewSection
-            title={ANALYSIS_NEW_COPY.sections.uncertainty}
-            subtitle={ANALYSIS_NEW_COPY.sectionSubtitles.uncertainty}
-            findings={vm.uncertainty.findings}
-            testId="reasoning-v3-uncertainty"
-          />
-        </div>
-      </Accordion>
-
-      {remainingActs.length > 0 && (
-        <Accordion
-          title="Other ways to strengthen this"
-          badgeCount={remainingActs.length}
-          defaultExpanded={false}
-        >
-          <StrengthenTheReasoning
-            interventions={remainingActs}
-            testId="reasoning-v3-other-acts"
-          />
-        </Accordion>
-      )}
+        </SectionShell>
+      </div>
     </div>
   )
 }

@@ -120,7 +120,45 @@ export type SurfaceTone = keyof typeof SURFACE_TONE
  * whose hover a caller supplies is a pressable surface that will eventually
  * ship without one.
  */
-export const PANEL_INSET_ACTION = 'rounded px-2 py-1.5 bg-info/[0.06] hover:bg-info/10'
+/**
+ * ⛔⛔ THE FILL THIS TOKEN RESTED ITS WHOLE ARGUMENT ON MEASURES 1.08:1.
+ *
+ * The docblock above says the card keeps its FILL and its LACK OF A BORDER
+ * because *"a filled, borderless card among outlined ones reads as the thing to
+ * press"*. Measured with the repo's own helper against the deployed tokens
+ * (`tests/helpers/wcagContrast`, `--bg-panel` #FEFEFE, `--info` #277A9D):
+ *
+ *     bg-info/[0.06]   vs --bg-panel   1.08:1      ← the whole distinction
+ *     bg-info/10       vs --bg-panel   1.14:1      ← its hover
+ *     border-info/80   vs --bg-panel   3.35:1   vs --bg-panel-hover  3.22:1
+ *
+ * ⭐ THIS DIRECTORY HAS ALREADY CONDEMNED THIS EXACT NUMBER ONCE.
+ * `SectionShell`'s header records dropping a 1px rule for `bg-panel-hover/40`
+ * at **1.015:1** — *"the reader lost a divider they could see and gained one
+ * they could not"* — and restored the rule. The promoted card was carrying the
+ * identical defect, one level in, and the argument for it was written as though
+ * the fill were visible. It is 6% of a mid-blue on near-white.
+ *
+ * ⚠ WHAT IS UNCHANGED AND WHY. The fill STAYS — it is the thing that groups the
+ * card once you are looking at it, and removing it would be answering a
+ * salience problem by deleting something. What is ADDED is the shape, which is
+ * how `secondary` already carries its own affordance, and a border costs NO
+ * text contrast. So the card is now distinguished by an outline a reader can
+ * see at 3.35:1 AND a fill that reads once they are on it, rather than by a
+ * fill alone at a ratio below every threshold in the standard.
+ *
+ * ⚠ `border-info/80` IS THE FIRST ALPHA CLEARING SC 1.4.11's 3:1 ON BOTH PANEL
+ * GROUNDS, derived, not chosen: /40 is 1.74:1, /60 is 2.37:1, /80 is 3.35:1.
+ * The figures reproduce this module's own table below to two decimal places,
+ * which is the cross-check that the table was measured rather than asserted.
+ *
+ * ⛔ IT IS STILL THE ONE SUCH OBJECT. An emphasis every control shares is an
+ * emphasis none of them has, and this token has exactly one consumer
+ * (`AtAGlance`'s promoted act). That constraint is what makes the outline mean
+ * something; it is not a licence to outline the next card too.
+ */
+export const PANEL_INSET_ACTION =
+  'rounded border border-info/80 px-2 py-1.5 bg-info/[0.06] hover:bg-info/10'
 
 /** `surface('success')` → the complete className for a top-level box. */
 export function surface(tone: SurfaceTone): string {

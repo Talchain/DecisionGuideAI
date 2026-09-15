@@ -78,6 +78,24 @@ export interface SectionShellProps {
    * tried and reverted (it discards unsaved composer text).
    */
   defaultOpen?: boolean
+  /**
+   * CONTROLLED OPEN STATE, optional. When supplied, the caller owns the state
+   * and `defaultOpen` is ignored.
+   *
+   * ⭐ WHY THIS EXISTS AND WHY IT IS NOT A SECOND AUTHORITY. `defaultOpen` is
+   * read exactly once (see above), so a section something ELSE can open — the
+   * trust line's "How this was worked out" link — cannot be expressed with it:
+   * the second click would do nothing, silently. The alternative was to keep
+   * that one section on `Accordion`, which would leave TWO disclosure
+   * treatments on one surface, and the mixed chrome is the "jumbly" defect this
+   * directory's grammar exists to end.
+   *
+   * ⚠ THE INTERNAL STATE IS STILL TRACKED WHILE CONTROLLED, so a caller that
+   * stops controlling does not snap the row shut under the reader.
+   */
+  open?: boolean
+  /** Fires on every toggle, controlled or not. */
+  onOpenChange?: (open: boolean) => void
   children: ReactNode
   testId: string
 }
@@ -88,10 +106,18 @@ export function SectionShell({
   count,
   subtitle,
   defaultOpen = false,
+  open: controlledOpen,
+  onOpenChange,
   children,
   testId,
 }: SectionShellProps) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen)
+  const open = controlledOpen ?? uncontrolledOpen
+  const toggle = () => {
+    const next = !open
+    setUncontrolledOpen(next)
+    onOpenChange?.(next)
+  }
   const regionId = useId()
 
   return (
@@ -144,7 +170,7 @@ export function SectionShell({
       <h3 id={`${testId}-heading`} className="m-0">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         // ⚠ Points at the region ONLY while it exists. A collapsed region is
         // UNMOUNTED rather than CSS-hidden (the rule `DisclosureRow` already
