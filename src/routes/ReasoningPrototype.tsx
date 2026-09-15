@@ -220,9 +220,9 @@ function ReasoningPrototypeBody() {
 
       <div className="flex flex-wrap gap-6">
         <section className="space-y-2" data-testid="proto-now">
-          <h2 className={`${typography.panelBody} text-text-header`}>Now — 20 blocks, flat</h2>
+          <h2 className={`${typography.panelBody} text-text-header`}>Reasoning tab — restructured (live code)</h2>
           <p className={`${typography.panelMeta} text-text-light`}>
-            Seven of them answer one question: how far can I trust this?
+            The real AnalysisNewTabBody. Answer first, then three named groups, closed.
           </p>
           <div
             className="rounded-lg bg-panel-hover/40 p-3 max-h-[75vh] overflow-y-auto"
@@ -239,10 +239,10 @@ function ReasoningPrototypeBody() {
 
         <section className="space-y-2" data-testid="proto-next">
           <h2 className={`${typography.panelBody} text-text-header`}>
-            Proposed — 4 open, 4 on demand
+            V3 reference composition
           </h2>
           <p className={`${typography.panelMeta} text-text-light`}>
-            Answer, then one trust line, then one act. Everything else is one click away.
+            The trust line and one-act ideas, not yet ported into the tab.
           </p>
           <div
             className="rounded-lg bg-panel-hover/40 p-3 max-h-[75vh] overflow-y-auto"

@@ -144,6 +144,12 @@ export const ANALYSIS_NEW_COPY = {
      */
     implications: 'What your model implies',
     keyInsights: 'Key insights',
+    /** The method half of "how far can I trust this?", grouped under one heading. */
+    howWorkedOut: 'How this was worked out',
+    /** The science-grounded half: where this reasoning comes from. */
+    coachingAndMethod: 'Coaching and method',
+    /** Drivers, what is worth resolving, and the method receipts. */
+    whatMovesTheOutcome: 'What moves the outcome',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
     /**
@@ -220,6 +226,9 @@ export const ANALYSIS_NEW_COPY = {
    * above are content, not a drawer, and a subtitle there would be decoration.
    */
   sectionSubtitles: {
+    howWorkedOut: 'Checks the run ran, and what it could not settle',
+    coachingAndMethod: 'Where this reasoning comes from',
+    whatMovesTheOutcome: 'Drivers, what is worth resolving, and the receipts',
     drivers: 'What moves the outcome, and through what',
     uncertainty: 'What this run could not settle',
     deeper: 'Method, provenance and receipts',

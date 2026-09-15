@@ -81,6 +81,7 @@ import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
+import Accordion from '../Accordion'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
@@ -978,9 +979,13 @@ export function AnalysisNewTabBody({
    * ⚠ NOT `comparativeClaim`. That answers "may a MAGNITUDE be drawn" and is
    * gated separately inside the section. Two shares, named apart (trap 21).
    */
-  const glanceWithheldFigures =
-    vm.atAGlance.headline === null &&
-    vm.optionsComparison.rows.some((r) => r.kind === 'analysed' && r.winReadout !== null)
+  /**
+   * ⛔ RETIRED. This decided WHICH OF TWO PLACES `answerBlock` rendered in. The
+   * answer now renders in ONE place, beside the glance, on every run — so the
+   * question it answered no longer exists. Its reasoning is kept above because
+   * the DIAGNOSIS was right (the figures were eleven sections down) even though
+   * the remedy was a conditional where a move was wanted.
+   */
 
   /**
    * ⭐⭐ THE ANSWER AND ITS CAPTION ARE ONE BLOCK, DEFINED ONCE.
@@ -1372,7 +1377,19 @@ export function AnalysisNewTabBody({
 
             It renders on re-runs only: the producer emits no delta on a first
             run, and absence renders nothing at all. */}
-        {glanceWithheldFigures ? answerBlock : null}
+        {/* ⭐⭐ THE ANSWER, ALWAYS HERE. This used to render in one of TWO places
+            depending on whether the glance withheld its figures — promoted to
+            the top on a withheld run, and fifteen blocks down otherwise. The
+            conditional was solving the right problem in the wrong direction:
+            "how the options compare" and "what your model implies" ARE the
+            answer, so they belong beside the glance on every run, not only on
+            the runs where the glance had nothing to say.
+
+            ⚠ THE PAIR STAYS BOUND. `answerBlock` carries `ModelImplication`
+            and `OptionsComparison` together because the claim moves with its
+            entitlement; splitting them is what put a withheld claim on screen
+            before. Moving the fragment moves both. */}
+        {answerBlock}
 
         <WhatsChanged view={vm.whatsChanged} />
 
@@ -1674,6 +1691,29 @@ export function AnalysisNewTabBody({
           icon={Wrench}
         />
 
+        {/* ── HOW THIS WAS WORKED OUT ──────────────────────────────────────
+            ⭐⭐⭐ SEVEN SECTIONS ANSWERED ONE QUESTION. `RobustnessCaveat`,
+            `WhatWeChecked`, uncertainty, `CritiqueWarningStrip`,
+            `InferenceWarningStrip`, `ModelHeldUp` and `WhatIWasGiven` all
+            answer "how far can I trust this?", each under its own heading, each
+            at full weight, spread down the page. A reader had to assemble the
+            answer themselves — which is not a copy problem and no rewrite fixes
+            it.
+
+            These two are the METHOD half and they group cleanly. Closed by
+            default: the reader who wants the method opens it; the reader who
+            does not is no longer reading past it to reach anything.
+
+            ⚠ `Accordion` IS THE RESULTS PANEL'S OWN DISCLOSURE PRIMITIVE
+            (`components/results/Accordion.tsx`) and this tab had never called
+            it — the machinery for this existed before the tab did. Nothing new
+            was built here. */}
+        <Accordion
+          title={COPY.sections.howWorkedOut}
+          subtitle={COPY.sectionSubtitles.howWorkedOut}
+          defaultExpanded={false}
+          testId="analysis-new-how-worked-out"
+        >
         {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
             #1082 landed this component, its adapter and 54 tests but left it
             UNMOUNTED, because this file belongs to another lane. This is the
@@ -1735,7 +1775,25 @@ export function AnalysisNewTabBody({
           icon={AlertTriangle}
           testId="analysis-new-uncertainty"
         />
+        </Accordion>
 
+        {/* ── COACHING AND METHOD ───────────────────────────────────────────
+            ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
+            the most method-bearing payload the producer sends — a mechanism, a
+            citation and a costed micro-intervention per finding — and it was
+            sitting TWELFTH, below four caveat boxes. Grouping it with key
+            insights gives it a named home a reader can go to, instead of a
+            position in a stack they were scrolling past.
+
+            ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
+            the panel under a heading that says what is inside; before, it was
+            twelve blocks down under a heading that did not. */}
+        <Accordion
+          title={COPY.sections.coachingAndMethod}
+          subtitle={COPY.sectionSubtitles.coachingAndMethod}
+          defaultExpanded={false}
+          testId="analysis-new-coaching-and-method"
+        >
         {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
             ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
             NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
@@ -1794,7 +1852,7 @@ export function AnalysisNewTabBody({
             run whose verdict withholds the leader claim — in which case this
             renders nothing at all. Mounting a component is exactly the change
             that could put a withheld claim on screen, so that is pinned. */}
-        {glanceWithheldFigures ? null : answerBlock}
+        {/* Moved up beside the glance — see `answerBlock` above. */}
 
 
 
@@ -1819,7 +1877,20 @@ export function AnalysisNewTabBody({
           icon={Star}
           testId="analysis-new-key-insights"
         />
+        </Accordion>
 
+        {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
+            The last group: what the answer turns on, what is worth resolving
+            before committing, and the method receipts. All three are DETAIL a
+            reader goes looking for — none of them is something the panel needs
+            to say unprompted, and stacked open they were most of the length
+            Paul was scrolling through. */}
+        <Accordion
+          title={COPY.sections.whatMovesTheOutcome}
+          subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
+          defaultExpanded={false}
+          testId="analysis-new-what-moves-the-outcome"
+        >
         {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.drivers}
@@ -1929,6 +2000,7 @@ export function AnalysisNewTabBody({
 
         {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
         <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
+        </Accordion>
       </div>
     </div>
   )
