@@ -80,9 +80,36 @@ describe('the run-could-not-settle block is contiguous', () => {
     const uncertainty = screen.getByTestId('analysis-new-uncertainty')
     expect(precedes(checks, uncertainty), 'checks must still come first').toBe(true)
 
-    // Every top-level panel section, in document order.
-    const sections = [...container.querySelectorAll<HTMLElement>('[data-testid^="analysis-new-"]')]
-      .filter((el) => /^analysis-new-(checks|uncertainty|key-insights|drivers|options|sensitivity|strengthen|glance)$/.test(el.getAttribute('data-testid') ?? ''))
+    /* ⛔⛔ DERIVED, NOT HAND-LISTED — AND THE HAND-LIST HAD A HOLE.
+       This filtered against a typed set of eight section ids. It omitted
+       `analysis-new-decision-voi-section`, which is a real top-level section
+       AND a member of the very "what this run could not settle" family this
+       file exists to keep contiguous. So the value-of-information block could
+       render BETWEEN checks and uncertainty and the adjacency assertion would
+       not see it — the guard passing while the property it guards had gone.
+
+       ⚠ A hand-maintained mirror of the surface's sections (trap 12), inside a
+       guard about the surface's structure. Third collection gap found tonight
+       by auditing what a rule COLLECTS rather than what it asserts.
+
+       ⭐ NOW DERIVED FROM THE RENDER: every `analysis-new-*` element that is
+       not nested inside another one is a top-level block, whatever it is
+       called. A section added tomorrow is covered without anyone remembering
+       to list it — and if one is added BETWEEN these two, this REDs. */
+    /* ⚠ THE CONTAINER IS EXCLUDED FIRST, and my own PRECONDITION below caught
+       its absence: `analysis-new-tab-body` is itself an `analysis-new-*`
+       element, so a bare "not nested in another match" filter collapses the
+       whole surface to the wrapper and returns ONE section. The same wrapper
+       swallowed an earlier measurement on this panel — a container that
+       matches the pattern it contains. */
+    const body = container.querySelector<HTMLElement>('[data-testid="analysis-new-tab-body"]')
+    expect(body, 'PRECONDITION: the tab body must render').not.toBeNull()
+    const all = [...body!.querySelectorAll<HTMLElement>('[data-testid^="analysis-new-"]')]
+    const sections = all.filter((el) => !all.some((o) => o !== el && o.contains(el)))
+    expect(
+      sections.length,
+      'PRECONDITION: the derivation must yield several sections, not the wrapper alone',
+    ).toBeGreaterThan(3)
     const order = sections.map((el) => el.getAttribute('data-testid'))
     const i = order.indexOf('analysis-new-checks')
     const j = order.indexOf('analysis-new-uncertainty')
