@@ -13,7 +13,3 @@ src/canvas/components/pre-analysis/AllImprovements.tsx:462
 src/canvas/components/pre-analysis/mapImprovementToTriageCard.ts:90
 src/canvas/components/pre-analysis/utils/applyStrengthenOverlay.ts:81
 src/canvas/edges/StyledEdge.tsx:1447
-src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx:443
-src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx:445
-src/canvas/ui/inspector-v2/panels/FactorObservablePanel.tsx:149
-src/canvas/ui/inspector-v2/panels/FactorObservablePanel.tsx:151
