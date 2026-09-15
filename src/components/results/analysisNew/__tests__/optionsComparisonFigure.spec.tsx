@@ -374,7 +374,7 @@ describe("'value' — the run licenses a magnitude, so the figure is a figure", 
 
 // ═══════════════════════════════════════════════════════════════════════════
 describe("'order' — an ordering is licensed, a magnitude is not", () => {
-  it('draws NO bar, on a run whose rows DO have shares to draw', () => {
+  it('draws a bar for every row with a share — the figure follows the DATA, not the sentence entitlement', () => {
     const { vm } = renderRun(ORDER_RUN())
     expect(vm.optionsComparison.comparativeClaim, 'precondition').toBe('order')
 
@@ -386,7 +386,20 @@ describe("'order' — an ordering is licensed, a magnitude is not", () => {
       'no shares in the data — the suppression below would be vacuous',
     ).toBeGreaterThan(1)
 
-    expect(bars()).toHaveLength(0)
+    // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
+    // 15 Sep 2026, and this case now PINS that independence rather than the
+    // suppression it replaced.
+    //
+    // What it used to assert: `'order'` licenses an ordering and never a
+    // magnitude, so the bars stay withheld. Coherent, ratified, and changed on
+    // evidence — the deployed build showed 48% / 4% / 48% with nothing drawn
+    // and two options tied, which a reader had to spot by comparing numerals.
+    //
+    // ⚠ THE PRECONDITIONS ABOVE ARE UNTOUCHED AND ARE WHY THIS IS STILL A
+    // DISCRIMINATION: the claim state is pinned, and the data is pinned to
+    // carry shares. The assertion is now that the bars follow THE DATA and not
+    // the sentence entitlement.
+    expect(bars()).toHaveLength(rowsWithAShare(vm))
 
     // CONTRAST CONTROL, same render: the section is alive and rendering rows,
     // so this is a discrimination and not a blank mount.
@@ -442,7 +455,7 @@ describe("'order' — an ordering is licensed, a magnitude is not", () => {
  * real counterfactual and not a rhetorical one.
  */
 describe("'condition' — a flip threshold licenses a sentence, never a magnitude", () => {
-  it('draws NO bar, on a run whose rows DO have shares to draw', () => {
+  it('draws a bar for every row with a share — the figure follows the DATA, not the sentence entitlement', () => {
     const { vm } = renderRun(CONDITION_RUN())
 
     // ⭐ PIN THE PRECONDITION. Without this the test could silently be another
@@ -462,7 +475,20 @@ describe("'condition' — a flip threshold licenses a sentence, never a magnitud
       'no shares in the data — the suppression below would be vacuous',
     ).toBeGreaterThan(1)
 
-    expect(bars()).toHaveLength(0)
+    // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
+    // 15 Sep 2026, and this case now PINS that independence rather than the
+    // suppression it replaced.
+    //
+    // What it used to assert: `'order'` licenses an ordering and never a
+    // magnitude, so the bars stay withheld. Coherent, ratified, and changed on
+    // evidence — the deployed build showed 48% / 4% / 48% with nothing drawn
+    // and two options tied, which a reader had to spot by comparing numerals.
+    //
+    // ⚠ THE PRECONDITIONS ABOVE ARE UNTOUCHED AND ARE WHY THIS IS STILL A
+    // DISCRIMINATION: the claim state is pinned, and the data is pinned to
+    // carry shares. The assertion is now that the bars follow THE DATA and not
+    // the sentence entitlement.
+    expect(bars()).toHaveLength(rowsWithAShare(vm))
 
     // CONTRAST CONTROL, same render: the section mounted and is naming rows, so
     // this is a discrimination rather than a blank tree.
@@ -533,7 +559,7 @@ describe("'condition' — a flip threshold licenses a sentence, never a magnitud
 
 // ═══════════════════════════════════════════════════════════════════════════
 describe("'none' — nothing comparative is drawn, and the withholding survives", () => {
-  it('draws NO bar, on a run whose rows DO have shares to draw', () => {
+  it('draws a bar for every row with a share — the figure follows the DATA, not the sentence entitlement', () => {
     const { vm } = renderRun(NONE_RUN())
     expect(vm.optionsComparison.comparativeClaim, 'precondition').toBe('none')
     expect(
@@ -541,7 +567,20 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
       'no shares in the data — the suppression below would be vacuous',
     ).toBeGreaterThan(1)
 
-    expect(bars()).toHaveLength(0)
+    // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
+    // 15 Sep 2026, and this case now PINS that independence rather than the
+    // suppression it replaced.
+    //
+    // What it used to assert: `'order'` licenses an ordering and never a
+    // magnitude, so the bars stay withheld. Coherent, ratified, and changed on
+    // evidence — the deployed build showed 48% / 4% / 48% with nothing drawn
+    // and two options tied, which a reader had to spot by comparing numerals.
+    //
+    // ⚠ THE PRECONDITIONS ABOVE ARE UNTOUCHED AND ARE WHY THIS IS STILL A
+    // DISCRIMINATION: the claim state is pinned, and the data is pinned to
+    // carry shares. The assertion is now that the bars follow THE DATA and not
+    // the sentence entitlement.
+    expect(bars()).toHaveLength(rowsWithAShare(vm))
 
     // CONTRAST CONTROL: rows are present, so the section mounted.
     expect(screen.getAllByTestId(`${TESTID}-row`)).toHaveLength(4)
@@ -593,7 +632,20 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
       'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.',
     )
 
-    expect(bars()).toHaveLength(0)
+    // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
+    // 15 Sep 2026, and this case now PINS that independence rather than the
+    // suppression it replaced.
+    //
+    // What it used to assert: `'order'` licenses an ordering and never a
+    // magnitude, so the bars stay withheld. Coherent, ratified, and changed on
+    // evidence — the deployed build showed 48% / 4% / 48% with nothing drawn
+    // and two options tied, which a reader had to spot by comparing numerals.
+    //
+    // ⚠ THE PRECONDITIONS ABOVE ARE UNTOUCHED AND ARE WHY THIS IS STILL A
+    // DISCRIMINATION: the claim state is pinned, and the data is pinned to
+    // carry shares. The assertion is now that the bars follow THE DATA and not
+    // the sentence entitlement.
+    expect(bars()).toHaveLength(rowsWithAShare(vm))
     // The rows are still named — the section did not go silent, it went honest.
     expect(screen.getAllByTestId(`${TESTID}-row`)).toHaveLength(3)
   })
