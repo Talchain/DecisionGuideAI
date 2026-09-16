@@ -285,20 +285,47 @@ export function deriveResultCompleteness(
     missing.add('top_drivers')
   } else {
     /**
-     * ⛔ ONE PREDICATE, AND THE RATCHET CAUGHT ME SHIPPING TWO.
+     * ⛔ TWO ARMS, TWO QUESTIONS — AND BOTH WRONG ANSWERS WERE SHIPPED HERE.
      *
-     * The correction above first added a SECOND spelling of the alias set — the
-     * producer-row check read `Number.isFinite`, the driver check read
-     * `typeof === 'number'` — and `claim-ownership.drift.spec.ts` red on it:
+     * FIRST MISTAKE, a second spelling. The correction above added the
+     * producer-row check as `Number.isFinite` and left the driver check as
+     * `typeof === 'number'`, and `claim-ownership.drift.spec.ts` went red:
      * "MORE reads of one field than the baseline allows ... elasticity:
      * baseline 1 -> current 2". Two spellings of one question in one file is
-     * the mirror this whole change set exists to remove (trap 12), and I
-     * committed it inside the fix for it.
+     * the mirror this change set exists to remove (trap 12), and I committed
+     * it inside the fix for it.
      *
-     * Both arms now call `rowCarriesSensitivityMagnitude`. `Number.isFinite`
-     * is the stricter of the two and is the one that survives: it rejects
+     * SECOND MISTAKE, the opposite one, and it is why there are two functions
+     * rather than the single `rowCarriesSensitivityMagnitude` this comment used
+     * to name. Collapsing both arms into ONE predicate silenced the ratchet by
+     * MOVING THE BOUNDARY: that predicate accepted `contribution`, so a RAW
+     * `factor_sensitivity` row carrying only `contribution` satisfied
+     * availability. `contribution` is written solely by the DRIVER projections
+     * (`mapV5AnalysisToReport:910` renames the magnitude to it,
+     * `responseMapper:1098` normalises it), so such a row is one
+     * `normaliseFactorEntry` itself would DROP — and admitting it suppresses a
+     * true `sensitivity_missing`, the false absence this file was changed to
+     * remove, sign flipped (trap 22b).
+     *
+     * ⭐ SO THE TWO QUESTIONS ARE NAMED APART (trap 21) RATHER THAN RECONCILED:
+     *   `producerRowCarriesMagnitude`  asks "does this RAW row carry a
+     *     magnitude the mapper would keep?" — the four aliases
+     *     `normaliseFactorEntry` accepts, and nothing else.
+     *   `projectedRowCarriesMagnitude` asks "does this DRIVER row carry one?" —
+     *     the same four, plus the name the projection gives it.
+     *
+     * ⭐ DELEGATION IS WHAT KEEPS THE RATCHET GREEN, AND IT IS NOT A STYLE
+     * CHOICE. The projected check CALLS the producer check instead of
+     * restating the four names, so each alias is still read EXACTLY ONCE in
+     * this file and the drift spec sees the baseline's per-field counts.
+     * Restating them reds it again; widening the producer predicate to admit
+     * `contribution` keeps it green and reopens the false absence. Only
+     * delegation satisfies both — THE FIX FOR A MIRROR IS DELEGATION, NOT A
+     * WIDER PREDICATE.
+     *
+     * ⚠ `Number.isFinite` is the surviving spelling in both arms: it rejects
      * `NaN`, `Infinity` and a numeric string, and it ADMITS a measured zero,
-     * which `typeof` also did.
+     * which is a producer statement rather than an absence.
      */
     const anySensitivity =
       // Producer rows: the four aliases the mapper accepts, and nothing else.
