@@ -3531,7 +3531,69 @@ export function buildAnalysisNewViewModel(
     sensitivity: preRun
       ? { findings: [], convergence: null, tippingPoints: [] }
       : {
-          findings: uncertaintyBuild!.sensitivityFindings,
+          /**
+           * ⭐⭐ THE ROWS STOP REPRINTING THE CONCLUSION THE HEADER JUST MADE.
+           *
+           * Witnessed on the deployed panel: three consecutive rows whose
+           * sentences all end *"…'Two Developers' could become the better
+           * choice"*, sitting directly under a convergence line that has
+           * ALREADY said *"they all point the same way: towards Two
+           * Developers."* The option is named FOUR times on one screen, and a
+           * reader has to diff three near-identical paragraphs to find the
+           * only part that differs — which is the row's own title.
+           *
+           * ⛔ THIS IS AN OMISSION, NEVER A REWORDING, and the distinction is
+           * load-bearing. The implication is composed by
+           * `useResultsSectionData` from one template, and on a
+           * producer-authored `description` it is the producer's own sentence.
+           * Editing the string here would be a hand-maintained mirror of a
+           * template another file owns (trap 12) and, worse, a rewrite of
+           * producer prose. So the row drops the line whole, using `''` — the
+           * value this builder already uses for "this row has no implication".
+           *
+           * ⭐ NOTHING IS LOST, AND THE PRECONDITION IS PROVEN RATHER THAN
+           * ASSUMED. `sensitivityConvergence` is non-null ONLY when every
+           * entry of `sensitivityAlternatives` is non-null and shares one
+           * `id`, over two or more rows — agreement BY IDENTITY, never by
+           * label (trap 19) — and that array is pushed from exactly the
+           * `sensitivityFindings` bucket being mapped here. So the header's
+           * claim provably covers every row it now speaks for; one set, not
+           * two under one name (trap 21).
+           *
+           * ⚠ AND IT IS STRICTLY LESS ASSERTION, which is the same entitlement
+           * argument the convergence line itself was built on: each row
+           * already names this option on screen, so saying it once above them
+           * and not three times below needs no permission the section does not
+           * already have.
+           *
+           * Where there is no convergence the rows are untouched — the
+           * sentence is the only thing naming where that row points.
+           */
+          findings: (() => {
+            const conv = uncertaintyBuild!.sensitivityConvergence
+            if (conv === null) return uncertaintyBuild!.sensitivityFindings
+            /**
+             * ⛔⛔ ONLY WHERE THE ROW ACTUALLY REPRINTS THE NAMED CONCLUSION.
+             *
+             * My first version of this dropped the line on convergence alone,
+             * and it was WRONG — caught by the disagree-arm control before it
+             * could ship. Convergence says the rows point one way; it does NOT
+             * say each row's sentence NAMES that option. `manyFragileEdges`
+             * is the counterexample the product really emits: its rows read
+             * *"the comparison could land differently"*, which the header
+             * never said, so suppressing them would have deleted information
+             * rather than de-duplicated it.
+             *
+             * The label test is deliberately CONSERVATIVE in the safe
+             * direction: a row that does not name the converged option keeps
+             * its sentence. "Is a substring of" is not "was copied from", so
+             * the only tolerable error here is keeping a line we could have
+             * dropped — never dropping one that said something else.
+             */
+            return uncertaintyBuild!.sensitivityFindings.map((f) =>
+              f.implication.includes(conv.label) ? { ...f, implication: '' } : f,
+            )
+          })(),
           convergence: uncertaintyBuild!.sensitivityConvergence,
           /**
            * ⭐ READ FROM THE NORMALISED PRODUCER ROWS, NOT RE-DERIVED.
