@@ -15,8 +15,22 @@
 import { FocusNowPanel } from './FocusNowPanel'
 import { useFocusNow } from './useFocusNow'
 
-export function FocusNowContainer({ className }: { className?: string }) {
-  const props = useFocusNow()
+export function FocusNowContainer({
+  className,
+  applicableStaticIds,
+}: {
+  className?: string
+  /**
+   * ⚠ OPTIONAL, AND ABSENCE MEANS "NO OPINION". Omitted — as ResultsBody omits
+   * it — the six generic hygiene rows render exactly as before, so the
+   * Analysis-tab mount is unchanged by this prop existing. The Reasoning tab
+   * supplies the narrowed set because a generic nudge there would sit where the
+   * prototype puts the panel's ONE primary action, and would assert a gap the
+   * surface never measured (`analysisNew/focusNowApplicability.ts`).
+   */
+  applicableStaticIds?: readonly string[]
+}) {
+  const props = useFocusNow(applicableStaticIds)
   // The Analysis tab already renders AnalysisFreshnessNotice as the freshness
   // surface, so the panel suppresses its OWN stale banner here to avoid a
   // duplicate stale notice (different wording) on the same trust surface.

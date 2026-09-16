@@ -44,7 +44,15 @@ import type {
  */
 const CERTIFY_SUMMARY = false
 
-export function useFocusNow(): FocusNowProps {
+/**
+ * ⚠ THE PARAMETER IS OPTIONAL AND ITS ABSENCE MEANS "NO OPINION", NOT "NONE".
+ * Omitted, `buildFocusRows` emits all six generic hygiene rows exactly as it has
+ * since they shipped — so the Analysis tab's mount is untouched by this
+ * addition. A caller that can DEMONSTRATE which rows are true of the model
+ * passes them; see `analysisNew/focusNowApplicability.ts` for why the Reasoning
+ * tab must, and why guessing would be a fabrication rather than a nudge.
+ */
+export function useFocusNow(applicableStaticIds?: readonly string[]): FocusNowProps {
   const rawSummary = useCanvasStore((s) => s.ceeAnalysisReady?.coaching_summary ?? null)
   // Reliably-registered send wire (real conversation sendMessage). Subscribe to its
   // presence so the controls hide when no chat can receive the message — never dead.
@@ -53,7 +61,19 @@ export function useFocusNow(): FocusNowProps {
   // Uncertified prose is gated OFF; the data path stays visible for the mount PR.
   const coachingSummary = CERTIFY_SUMMARY ? rawSummary : null
 
-  const vm = useMemo(() => buildFocusRows({ coachingSummary }), [coachingSummary])
+  // ⚠ The dependency is the JOINED ids, not the array identity: a caller that
+  // rebuilds an equal array every render would otherwise recompute forever.
+  const applicableKey = applicableStaticIds === undefined ? null : applicableStaticIds.join('\u0000')
+  const vm = useMemo(
+    () =>
+      buildFocusRows(
+        applicableStaticIds === undefined
+          ? { coachingSummary }
+          : { coachingSummary, applicableStaticIds },
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- applicableKey is the value-identity of applicableStaticIds
+    [coachingSummary, applicableKey],
+  )
   // Wave F-B (brief §5.3): NO second stale banner inside Strengthen your
   // model — the Analysis freshness strip is the sole owner. The panel keeps
   // its rows; staleness context lives one card above.

@@ -56,7 +56,9 @@ import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
-import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
+import { buildModelStrip, stripHasContent, stripRendersTargetAffordance } from './buildModelStrip'
+import { FocusNowContainer } from '../../../canvas/components/coaching-panel/focus-now'
+import { applicableStaticFocusIds } from './focusNowApplicability'
 import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
@@ -1006,10 +1008,43 @@ export function AnalysisNewTabBody({
    * collapsed section. `stripRendersTargetAffordance` asks both halves in one
    * place so no caller can ask half the question.
    */
+  // ⚠ ONE STRIP, TWO CONSUMERS. `stripOffersTarget` built its own; Focus Now
+  // needs the same object, and two `buildModelStrip` calls over one node list
+  // would be two authorities on what the model contains (trap 12).
+  const modelStrip = useMemo(() => buildModelStrip(nodes ?? []), [nodes])
   const stripOffersTarget = useMemo(
-    () => stripRendersTargetAffordance(buildModelStrip(nodes ?? [])),
-    [nodes],
+    () => stripRendersTargetAffordance(modelStrip),
+    [modelStrip],
   )
+  /**
+   * ⭐ WHICH OF FOCUS NOW'S GENERIC NUDGES ARE TRUE OF THIS MODEL.
+   *
+   * ⚠ COUNTS COME FROM THE STRIP, NOT FROM `nodes` DIRECTLY, so this can never
+   * disagree with what the strip shows the reader two lines above. An absent
+   * row IS zero — `buildModelStrip` skips a kind with no nodes.
+   *
+   * ⚠ AND `stripHasContent` GATES THE WHOLE THING, because "no row" and "no
+   * model" are indistinguishable from the rows alone. On an empty or unloaded
+   * canvas every kind is absent, and without this guard the panel would
+   * announce that the model needs an outcome and a risk before the person has
+   * built anything. Unknown yields `null`, which earns no row.
+   */
+  const focusApplicableIds = useMemo(() => {
+    const known = stripHasContent(modelStrip)
+    const countOf = (kind: 'risk' | 'outcome'): number | null =>
+      known ? (modelStrip.rows.find((r) => r.kind === kind)?.nodes.length ?? 0) : null
+    return applicableStaticFocusIds({
+      // ⚠ `known` GATES THIS ONE TOO, and its absence was a real defect: the
+      // real `useResultsSectionData` returns `hasGoalTarget: false` on an empty
+      // canvas — a measured `false`, not an unknown — so without this gate the
+      // panel asked a person to define success before they had built anything.
+      // The reading is the same as the counts': no model means no fact, and no
+      // fact earns no row.
+      hasGoalTarget: known ? (resultsSectionData.recommendation.hasGoalTarget ?? null) : null,
+      outcomeCount: countOf('outcome'),
+      riskCount: countOf('risk'),
+    })
+  }, [modelStrip, resultsSectionData.recommendation.hasGoalTarget])
   const glancePrimary = useMemo(() => {
     const interventions = vm.strengthen.interventions
     if (!stripOffersTarget) return interventions[0] ?? null
@@ -1380,6 +1415,44 @@ export function AnalysisNewTabBody({
             while still routing to the node on canvas. Nothing on that detail is
             authored by this surface; see `nodeInsights.ts`. */}
         <ModelStrip isPreRun={vm.status.isPreRun} insights={nodeInsights} />
+
+        {/* ── FOCUS NOW ──────────────────────────────────────────────────────
+            ⭐ THE PROTOTYPE'S PRIMARY ACTION, AND IT WAS BUILT ON THE WRONG TAB.
+            `reasoningpanelv3` puts FOCUS NOW immediately under the model strip —
+            one thing to do next, with the reason it applies to you. Every part
+            of it already exists: `FocusNowContainer` has been the Analysis tab's
+            second panel since it shipped, and Paul's scope ruling excludes that
+            tab. So the panel he does use had no primary action at all; the slot
+            was held by "Strengthen the reasoning", which renders EMPTY whenever
+            the producer sends no phase-3 coaching.
+
+            ⛔ MOUNTED NARROWED, AND IT WOULD HAVE BEEN A REGRESSION OTHERWISE.
+            `useFocusNow` passes only `coachingSummary`, and that is gated off
+            (`CERTIFY_SUMMARY=false`), so the container renders six UNCONDITIONAL
+            hygiene nudges. Dropped here unchanged they would tell a person with
+            a goal, three options and two outcomes to "define what success looks
+            like" — the surface asserting a gap it never measured, in the one
+            slot a reader trusts most. `focusApplicableIds` narrows them to the
+            rows this model demonstrably lacks, and an empty list renders
+            nothing at all. */}
+        {/* ⛔ RENDERS ONLY WHEN IT HAS SOMETHING TO SAY, AND THE RATCHET IS WHY.
+            `thePanelCannotRegrow.spec.tsx` caught this mount at 9 blocks against
+            a ceiling of 8 on all three fixtures. Its header names the exact
+            failure: "the dump is what twenty individually-reasonable additions
+            look like from the reader's chair" — and this addition is a good one,
+            which is precisely the case the ratchet exists to stop.
+
+            The breach was not the nudges: those fixtures set no canvas nodes, so
+            `stripHasContent` is false, every fact is unknown and NO row is
+            earned. It was the SHELL — `FocusNowPanel` renders its own empty
+            state, so the block cost a reader a heading over nothing. That is the
+            rule this tab already enforces on every sibling
+            (`aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx`).
+            So the gate is here, and the ceiling is UNCHANGED at 8/8/6 rather
+            than argued upward. */}
+        {focusApplicableIds.length > 0 && (
+          <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+        )}
 
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
         {/* ⛔ `driverTotal` NO LONGER PASSED. It let the glance declare its cap
