@@ -462,7 +462,6 @@ describe('C · THE SECTION STRUCTURE', () => {
       // MOUNTS — below the ranked options and below Key insights — and this
       // census could not see that; see the scope note on the case below.
       ANALYSIS_NEW_COPY.sections.strengthen,
-      ANALYSIS_NEW_COPY.sections.checks,
       /**
        * ⭐ UNCERTAINTY MOVED UP TO SIT WITH CHECKS — deliberate, and this
        * census going RED on it is the positive proof the move landed.
@@ -486,9 +485,34 @@ describe('C · THE SECTION STRUCTURE', () => {
        * checks" was already true when they were six sections apart, so it is
        * the assertion that would have passed throughout the defect.
        */
-      ANALYSIS_NEW_COPY.sections.uncertainty,
       ANALYSIS_NEW_COPY.sections.keyInsights,
       ANALYSIS_NEW_COPY.sections.drivers,
+      /**
+       * ⭐⭐ CHECKS AND UNCERTAINTY MOVED TO THE END — and the ADJACENCY the
+       * note above pins is untouched: they moved together, as one group.
+       *
+       * Measured in the deployed DOM on `232b2d31`, expanded: the top section
+       * is 268px and the machinery below it totals 1741px, with "How this was
+       * worked out" alone at 713px — 2.7x the options comparison — sitting
+       * FOURTH of ten. The approved prototype `reasoningpanelv3` orders the
+       * panel model state -> Focus now -> What your model implies -> Drivers
+       * and dynamics -> Uncertainty and gaps -> RUN DETAILS LAST.
+       *
+       * ⚠ THE GROUPING FIX WAS ALREADY MADE AND WAS NOT ENOUGH. The note below
+       * records twelve top-level headings becoming six groups in answer to
+       * Paul's "unwieldy dump" report. He reported the same complaint again on
+       * 16 Sep against the grouped build, so grouping was necessary and not
+       * sufficient: what remained was that the run's MACHINERY sat in the
+       * middle, at the largest size on the surface.
+       *
+       * ⚠ THIS CENSUS GOING RED IS THE INTENDED SIGNAL, not collateral — the
+       * header above says so ("this census going RED on it is the positive
+       * proof the move landed"). It was also the ONLY thing that caught this
+       * move: it lives in `canvas/components/__tests__/`, and a 158-file run of
+       * `analysisNew/__tests__/` was green. CI was the authority.
+       */
+      ANALYSIS_NEW_COPY.sections.checks,
+      ANALYSIS_NEW_COPY.sections.uncertainty,
     ])
     /**
      * ⭐⭐ AND THE GROUPS THEY NOW SIT IN. The tab renders THREE named
@@ -507,9 +531,12 @@ describe('C · THE SECTION STRUCTURE', () => {
       groupHeadings,
       'the three disclosure groups must render, in reading order',
     ).toEqual([
-      ANALYSIS_NEW_COPY.sections.howWorkedOut,
+      // ⚠ RUN DETAILS LAST, per the prototype — see the census note above. The
+      // group order is asserted separately from the section census on purpose,
+      // so a regression in either stays legible as itself (trap 21).
       ANALYSIS_NEW_COPY.sections.coachingAndMethod,
       ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
+      ANALYSIS_NEW_COPY.sections.howWorkedOut,
     ])
   })
 
