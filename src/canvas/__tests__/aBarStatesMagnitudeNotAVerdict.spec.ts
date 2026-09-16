@@ -103,9 +103,44 @@ function dataBarTags(rawSrc: string): Array<{ line: number; tag: string }> {
  *
  * So the helper set is DERIVED rather than listed: any function that both
  * compares against a number and returns an evaluative colour token is a grading
- * helper, wherever it lives. A hand-written list of names is the mirror this
- * estate keeps paying for, and it would have had to be updated by the same
- * person who did not notice the call in the first place.
+ * helper. A hand-written list of names is the mirror this estate keeps paying
+ * for, and it would have had to be updated by the same person who did not notice
+ * the call in the first place.
+ *
+ * ⛔⛔ BUT IT IS NOT "WHEREVER IT LIVES", AND THAT SENTENCE STOOD HERE UNTIL
+ * 16 Sep 2026. An independent review MEASURED the derivation's actual reach and
+ * the claim is false in two ways at once:
+ *
+ *   · SCOPE — `HELPER_SCOPE` is FIVE of the 34 directories under `src/`, and at
+ *     this tip the derived set resolves to EXACTLY TWO helpers
+ *     (`constraintConfidenceColour`, `getThresholdColour`).
+ *   · SHAPE — the matcher needs a bare string-literal return, a body under
+ *     1200 chars and no JSX. **A classifier that returns an OBJECT is invisible
+ *     to it**, whatever directory it sits in.
+ *
+ * ⛔ A LIVE COUNTEREXAMPLE INSIDE THE SWEPT DIRECTORIES:
+ * `src/lib/stability.ts`'s `getStabilityClassification()` bands a raw number at
+ * `>= 0.85 / 0.70 / 0.40` and returns `text-success` / `text-warning` /
+ * `text-danger`; `GoalNode.tsx:314` turns it into `stabilityBarColour`, which
+ * reaches `<DataBar colour={...}>` at **`GoalNode.tsx:585`**. `robustnessData.level`
+ * is nullable, so when the producer sends no level **the UI's own band decides
+ * the colour** — the exact defect class this file exists to prevent.
+ *
+ * ⚠ AND WIDENING THE SCOPE DOES NOT CATCH IT — measured, not assumed. Adding
+ * `src/lib` and `src/adapters` to `HELPER_SCOPE` left this sweep GREEN, because
+ * the blindness is the SHAPE test, not the directory list.
+ *
+ * ⭐ WHY THIS SENTENCE MATTERED MORE THAN THE CODE. The production change here
+ * is sound and was verified by mutation. What was dangerous was the claim: the
+ * next session reads "wherever it lives", believes the class is closed, and
+ * stops looking. An overclaim about our own verification is the most expensive
+ * kind this estate produces, and it is corrected here rather than quietly.
+ *
+ * KNOWN UNCOVERED, recorded rather than implied:
+ *   `getStabilityClassification` (`src/lib/stability.ts`) → `GoalNode.tsx:585`.
+ *   ⚠ Its reachability ON THE WIRE is NOT established — the code path is live
+ *   and `level` is nullable, but the producer's output domain was not derived,
+ *   so this is "uncovered by the guard", not "confirmed firing for a user".
  */
 const EVALUATIVE_TOKEN = /(text|bg|border)-(success|warning|danger)/
 const COMPARISON = /[<>]=?[^=]/
