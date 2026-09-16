@@ -1,0 +1,109 @@
+/**
+ * ⛔ CORRECTING MY OWN MERGED #1618. The cause sentence it shipped asserted
+ * more than the producer's token means, and the producer had written the rule
+ * down.
+ *
+ * ## What #1618 shipped
+ *
+ * `constraint_verdict_withheld` → *"One limit on your model could not be
+ * checked, which is why no option is named here."*
+ *
+ * That sentence was taken from CEE's own prose summary on run `1dd2133d`. It
+ * was true OF THAT RUN. It is not what the token means.
+ *
+ * ## What the token actually means, read at CEE `staging`
+ *
+ * `orchestrator-v5/compose/analysis-state-v1.ts:773` —
+ *
+ * ```ts
+ * claim.withheld_reason = !entitled ? WITHHELD_CONSTRAINT_VERDICT : …
+ * ```
+ *
+ * so the token is emitted for **any** `mayNameLeadingOption !== true`. And
+ * `orchestrator/context/constraint-feasibility.ts:341-349` maps THREE distinct
+ * states to `false`:
+ *
+ * | state | what actually happened |
+ * |---|---|
+ * | `evaluated_infeasible` | the producer scored the constraints and **the leading option breaks one** |
+ * | `unevaluated` | a ratified constraint **was not checked** |
+ * | `identity_unresolved` | the constraint ids could not be matched |
+ *
+ * The producer's own comment on `unevaluated` is explicit: *"'Your condition was
+ * not checked' is assertable HERE AND NOWHERE ELSE."* #1618 asserted it for all
+ * three — so a correctly evaluated over-budget result was told its limit could
+ * not be checked. The producer wrote the rule and the consumer broke it.
+ *
+ * This is trap 13c: a mutant kit validates SENSITIVITY, never CORRECTNESS. All
+ * four of #1618's mutants bit. The oracle was wrong, and a full kill rate
+ * against a wrong oracle is a perfect score on the wrong exam.
+ *
+ * ## What is true across all three, and is what ships
+ *
+ * The constraint verdict did not support naming one — with no claim about
+ * whether the check ran. The precise state is NOT on the wire: `analysis_state`
+ * carries `run_state`, `readiness`, `leader_claim`, `robustness`, the three
+ * usability flags, `requires_rerun`, `blocked_unusable` and `contradictions`,
+ * and no constraint-verdict state. So a precise cause needs CEE to emit one;
+ * it cannot be derived here, and guessing is what this corrects.
+ *
+ * ## The second finding, also the producer's own documented guard
+ *
+ * The lookup was a bare index read. `analysis-state-v1.ts:255-270` documents
+ * exactly this hazard for exactly this kind of map and states the remedy —
+ * `Object.prototype.hasOwnProperty.call` — adding that *"new code diverging
+ * from it is how one subsystem ends up with two answers to one question"*.
+ * `withheld_reason` is free-form `z.string()` at the contract, so a producer
+ * token of `'toString'` is admissible and returned a prototype member through
+ * a `?? null` that never fired.
+ */
+
+import { describe, it, expect } from 'vitest'
+
+import { leaderWithholdCause } from '../analysisNewCopy'
+
+describe('leaderWithholdCause — the cause may not outrun the producer', () => {
+  it('states a cause for the one token this estate has evidenced', () => {
+    expect(leaderWithholdCause('constraint_verdict_withheld')).not.toBeNull()
+  })
+
+  it('does not claim the limit went unchecked, which is true of only one of the three states', () => {
+    const sentence = leaderWithholdCause('constraint_verdict_withheld') ?? ''
+    expect(sentence).not.toMatch(/could not be checked/i)
+    expect(sentence).not.toMatch(/was not checked/i)
+    expect(sentence).not.toMatch(/unchecked/i)
+  })
+
+  it('does not assert the opposite either, that a limit was broken', () => {
+    // `unevaluated` and `identity_unresolved` also carry this token, and on
+    // those nothing was scored. A sentence naming a breach would be the same
+    // defect with the sign flipped (trap 22b).
+    const sentence = leaderWithholdCause('constraint_verdict_withheld') ?? ''
+    expect(sentence).not.toMatch(/breaks?\b/i)
+    expect(sentence).not.toMatch(/exceeds?\b/i)
+    expect(sentence).not.toMatch(/violat/i)
+  })
+
+  it('names the limits as the reason, so the clause is about something', () => {
+    const sentence = leaderWithholdCause('constraint_verdict_withheld') ?? ''
+    expect(sentence).toMatch(/limit/i)
+  })
+
+  it('returns null for an inherited key, not a prototype member', () => {
+    // `withheld_reason` is `z.string().optional()` at the contract — free form —
+    // so these are admissible producer tokens, not hypotheticals.
+    expect(leaderWithholdCause('constructor')).toBeNull()
+    expect(leaderWithholdCause('toString')).toBeNull()
+    expect(leaderWithholdCause('__proto__')).toBeNull()
+    expect(leaderWithholdCause('hasOwnProperty')).toBeNull()
+    expect(leaderWithholdCause('valueOf')).toBeNull()
+  })
+
+  it('still returns null for an ordinary unminted token, and for absence', () => {
+    expect(leaderWithholdCause('separation_unavailable')).toBeNull()
+    expect(leaderWithholdCause('options_do_not_separate')).toBeNull()
+    expect(leaderWithholdCause('')).toBeNull()
+    expect(leaderWithholdCause(null)).toBeNull()
+    expect(leaderWithholdCause(undefined)).toBeNull()
+  })
+})
