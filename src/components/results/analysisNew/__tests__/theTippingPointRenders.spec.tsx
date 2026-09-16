@@ -103,6 +103,27 @@ describe('the tipping point reaches the screen', () => {
     expect(line).not.toHaveTextContent('does not record what that scale measures')
   })
 
+  it('survives a run with no sensitivity findings, which used to discard it', () => {
+    // Found by independent review. `AnalysisNewSection` returned null on
+    // `findings.length === 0 && !emptyMessage`, and this section passes
+    // `emptyMessage={null}` — so a real producer tipping point was deleted by a
+    // guard asking about a different field.
+    const data = withFlipThresholds(REAL_ROWS)
+    const stripped = {
+      ...data,
+      confidence: {
+        ...data.confidence,
+        uncertainties: (data.confidence.uncertainties ?? []).filter(
+          (u: { code?: string }) => u.code !== 'SENSITIVE_ASSUMPTION',
+        ),
+      },
+    } as ResultsSectionDataReturn
+    renderBody(stripped)
+    const lines = screen.getAllByTestId('analysis-new-sensitivity-tipping-point')
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toHaveTextContent('Tech Lead Presence')
+  })
+
   it('renders nothing when no row was found, on the SAME fixture', () => {
     // The discriminating half. Without it, a pass above could be the section
     // rendering something unconditionally; this proves the line is the
