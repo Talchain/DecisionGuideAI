@@ -1214,6 +1214,17 @@ export const ANALYSIS_NEW_COPY = {
   optionFigures: {
     goalLabel: 'Reaches your target',
     winLabel: 'Ahead of the others',
+    /**
+     * ⭐ SAYS WHAT THE PICTURE IS, AND NOTHING ELSE. It states that the segments
+     * account for every simulated scenario, which is the one fact three
+     * separate bars cannot carry. It does not rank, does not name an option and
+     * does not say the split is close or wide — the widths say that.
+     *
+     * ⚠ PAST TENSE: the runs already happened. And no contest vocabulary —
+     * `noWinnerVocabulary.spec.ts` redded an earlier caption of mine for
+     * exactly that.
+     */
+    partitionCaption: 'Every simulated scenario is accounted for above.',
   },
   modelStrip: {
     /**

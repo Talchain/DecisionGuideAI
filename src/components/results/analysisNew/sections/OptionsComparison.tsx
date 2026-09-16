@@ -345,6 +345,35 @@ export function OptionsComparison({
    * A run that withholds its leader still withholds it — it just draws the
    * numbers it already prints.
    */
+  /**
+   * ⭐ THE PARTITION, OR `null` — derived from the rows this list DREW, never
+   * from a predicate re-expressed over the producer's option array. The fork
+   * that produces those rows is three-way (not analysed / not computed /
+   * analysed) and restating it here would be a second copy of someone else's
+   * rule, drifting the first time either moves (trap 12).
+   *
+   * ⛔ THREE CONDITIONS, ALL REQUIRED. At least two analysed rows (one share is
+   * not a partition); every analysed row carries a share (a missing one makes
+   * the picture assert a completeness the run lacks); and the shares sum to one
+   * within a tolerance that admits ordinary rounding and nothing more.
+   *
+   * ⚠ THE TOLERANCE IS DELIBERATELY TIGHT. It exists for float error in a set
+   * the producer already normalised, not to wave through a set that genuinely
+   * does not add up — a 0.9 sum drawn as a full track would be a tenth of the
+   * runs silently unaccounted for.
+   */
+  const PARTITION_TOLERANCE = 0.01
+  const partition = (() => {
+    const analysed = options.rows.filter(
+      (r): r is Extract<typeof r, { kind: 'analysed' }> => r.kind === 'analysed',
+    )
+    if (analysed.length < 2) return null
+    if (analysed.some((r) => r.winFraction === null)) return null
+    const fractions = analysed.map((r) => ({ id: r.id, fraction: r.winFraction as number }))
+    const sum = fractions.reduce((acc, f) => acc + f.fraction, 0)
+    return Math.abs(sum - 1) <= PARTITION_TOLERANCE ? fractions : null
+  })()
+
   const mayDrawMagnitude = true
 
   return (
@@ -370,6 +399,53 @@ export function OptionsComparison({
         >
           {COPY.checks.leader_not_assessed.meaning}
         </p>
+      ) : null}
+
+      {/* ⭐⭐ THE SHARES ARE ONE WHOLE, AND THREE SEPARATE BARS CANNOT SAY SO.
+          Comparative shares PARTITION the simulated runs: they are the fraction
+          of runs in which each option out-ranked the others, and they sum to 1.
+          A row of individual bars shows each share's size and loses the fact
+          that together they account for every run — and it makes a TIE
+          something the reader has to compare across rows rather than see. On
+          the run witnessed tonight two options sat at 48% and 48%; side by side
+          in one track that reads instantly.
+
+          ⛔ IT RENDERS ONLY WHERE THE SHARES ACTUALLY PARTITION. If any
+          analysed option carries no share, or the shares do not sum to one
+          within tolerance, this picture would assert a completeness the run does
+          not have — the same complete-field rule the goal figures follow, and
+          the reason it is computed over the rows the list actually drew rather
+          than over a predicate re-expressed here.
+
+          ⛔ ONE COLOUR, DIVIDED BY GAPS — NEVER A GRADED FILL. A graded or
+          alternating fill reads as a ranking, and #1593 is the ruling that a bar
+          states magnitude and does not grade the number. The widths carry the
+          information; the gaps only say how many there are.
+
+          ⚠ AND IT IS GATED ON THE SAME MAGNITUDE LICENCE AS THE ROW BARS
+          (`mayDrawMagnitude`), because unlike the goal figure this IS a
+          comparative magnitude — the thing a withheld leader claim withholds. */}
+      {mayDrawMagnitude && partition !== null ? (
+        <div className="mb-3" data-testid={`${testId}-partition`}>
+          <span
+            className="flex h-2 w-full gap-[2px] rounded-full overflow-hidden bg-panel-hover"
+            aria-hidden="true"
+          >
+            {partition.map((p) => (
+              <span
+                key={p.id}
+                className="block h-full bg-info first:rounded-l-full last:rounded-r-full"
+                style={{ width: `${p.fraction * 100}%`, ...(p.fraction > 0 ? { minWidth: '2px' } : {}) }}
+              />
+            ))}
+          </span>
+          <p
+            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+            data-testid={`${testId}-partition-caption`}
+          >
+            {COPY.optionFigures.partitionCaption}
+          </p>
+        </div>
       ) : null}
 
       <ul className="list-none p-0 m-0 space-y-2.5">
