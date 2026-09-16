@@ -68,6 +68,36 @@ export interface DriverInfluenceChartProps {
  */
 const HALF = 'w-1/2 flex items-center'
 
+/**
+ * ⭐⭐ ONE INK FOR BOTH BARS — BECAUSE DIRECTION IS NOT A VERDICT.
+ *
+ * These bars read `bg-warning` when a driver lowers the outcome and
+ * `bg-success` when it raises it. That paints the STATUS palette onto a
+ * DIRECTION, and the status palette means something specific everywhere else
+ * on this panel: amber is "this needs your attention" (`to verify`, the
+ * unconfirmed-estimate pill, a severity), green is "this is holding up"
+ * (a passed check, a stable verdict). A driver that lowers the outcome is
+ * none of those things. It is information, and on a risk-framed outcome
+ * "lowers" may be exactly what the reader wants.
+ *
+ * ⛔ SO THE HUES WERE ASSERTING A GOOD/BAD VALENCE THE PRODUCER NEVER
+ * SUPPLIED. `row.direction` is `'positive' | 'negative' | null` — a side, not
+ * a judgement. The same defect class as every fabricated metric this panel
+ * has removed, arriving through colour instead of through a number.
+ *
+ * ⭐ AND NOTHING IS LOST, BECAUSE DIRECTION IS ALREADY CARRIED TWICE: the bar
+ * sits on its own side of the zero line (which is what a diverging chart IS —
+ * the axis carries the sign), and the row states the direction in words below.
+ * Colour was the third encoding and the only one that added a claim.
+ *
+ * ⚠ INK, NOT A STATUS TOKEN, and deliberately not `bg-primary` either — that
+ * is `ACTION_TIER.primary`, the panel's one act, and a chart bar is not an
+ * affordance. `text-header` is the panel's strongest ink and carries no state;
+ * at 80% it stays clearly distinct from the zero line's `bg-text-light/70`,
+ * which the bars must never be confused with.
+ */
+const BAR_INK = 'bg-text-header/80'
+
 export function DriverInfluenceChart({
   rows,
   onFocusTarget,
@@ -229,7 +259,7 @@ export function DriverInfluenceChart({
                   <span className={`${HALF} justify-end`}>
                     {row.direction === 'negative' ? (
                       <span
-                        className="h-full rounded-l-sm bg-warning"
+                        className={`h-full rounded-l-sm ${BAR_INK}`}
                         style={{ width }}
                         data-testid={`${testId}-bar-lowers`}
                       />
@@ -247,7 +277,7 @@ export function DriverInfluenceChart({
                   <span className={HALF}>
                     {row.direction === 'positive' ? (
                       <span
-                        className="h-full rounded-r-sm bg-success"
+                        className={`h-full rounded-r-sm ${BAR_INK}`}
                         style={{ width }}
                         data-testid={`${testId}-bar-raises`}
                       />
