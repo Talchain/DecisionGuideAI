@@ -23,7 +23,12 @@
  */
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import { humaniseInferenceWarningTitle, isStripEntry } from './utils/humaniseInferenceWarning'
+import {
+  humaniseInferenceWarningTitle,
+  heldBackStripCount,
+  isStripEntry,
+  selectRestingStripEntries,
+} from './utils/humaniseInferenceWarning'
 import type { InferenceWarning } from './types'
 
 export interface InferenceWarningStripProps {
@@ -48,8 +53,21 @@ export function selectWarningSeverityEntries(
   return (warnings ?? []).filter(isStripEntry)
 }
 
+/**
+ * ⭐ WHAT THE READER MEETS AT REST — capped, with the remainder disclosed.
+ * `selectRestingStripEntries` and `selectHumanisedInferenceWarningsOutsideStrip`
+ * are defined against the SAME pass, so the held-back entries render in the
+ * detail row rather than nowhere.
+ */
+export function selectRestingEntries(
+  warnings: InferenceWarning[] | undefined,
+): InferenceWarning[] {
+  return selectRestingStripEntries(warnings)
+}
+
 export function InferenceWarningStrip({ warnings, className = '' }: InferenceWarningStripProps) {
-  const visible = selectWarningSeverityEntries(warnings)
+  const visible = selectRestingEntries(warnings)
+  const heldBack = heldBackStripCount(warnings)
   if (visible.length === 0) return null
 
   return (
@@ -71,6 +89,22 @@ export function InferenceWarningStrip({ warnings, className = '' }: InferenceWar
           <span className={`${typography.panelBody} text-text-body`}>{humaniseInferenceWarningTitle(w)}</span>
         </div>
       ))}
+      {/* ⚠ THE CAP IS A DISCLOSURE, NEVER A SILENT TRUNCATION. The held-back
+          entries render in "How this was worked out", in producer order, and
+          this line says how many and where — so a reader is told what is behind
+          the tap rather than discovering it. Naming the destination by the
+          heading it carries is the estate's existing rule for a section that
+          points at another one. */}
+      {heldBack > 0 ? (
+        <p
+          data-testid="inference-warning-strip-held-back"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {heldBack === 1
+            ? 'One more limitation is listed under How this was worked out.'
+            : `${heldBack} more limitations are listed under How this was worked out.`}
+        </p>
+      ) : null}
     </div>
   )
 }
