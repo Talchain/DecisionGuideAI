@@ -318,6 +318,53 @@ export function solveLayoutCardWidths(
  * reason long before this defect. Repairing width by rewriting position would
  * trade a bounded overlap for silently discarding a user's own arrangement.
  */
+/**
+ * ⛔⛔ TWO CARDS SHARE A ROW WHEN THEIR Y VALUES ARE CLOSE, NOT WHEN THEY ARE
+ * EQUAL — and the first version of this file got that wrong.
+ *
+ * Found by independent review (Codex, 16 Sep 2026) on the first cut of
+ * `solveRestoredCardWidths`, which grouped rows by `Math.round(y)`. Its words,
+ * and they are the right summary: **"exact-y absence is not non-overlap."**
+ * Cards at y 300 / 301 / 302 fell into three single-member rows, no stride was
+ * measurable, the bound lifted, and the board overlapped by 48px — including a
+ * genuinely locked middle card, which is the one that cannot move out of the way.
+ *
+ * ⛔ AND THE CODEBASE ALREADY SAID SO, IN THIS FILE. `normaliseTierRows` speaks
+ * of *"preserving ELK's incidental intra-tier Y variation (caused by measured
+ * node-height differences)"* — i.e. same-row cards are expected NOT to share an
+ * exact y. An exact-equality grouping was refuted by a comment a few hundred
+ * lines below it.
+ *
+ * ⭐ THE TOLERANCE IS DERIVED, AND IT ERRS IN THE SAFE DIRECTION ON PURPOSE.
+ * A genuine sub-row is placed a whole card height plus `subRowSpacing` away, and
+ * `subRowSpacing` is `round(effectiveLayerSpacing * 0.6)` with
+ * `effectiveLayerSpacing >= LAYOUT_LAYER_GAP`. So the smallest separation two
+ * DIFFERENT rows can have is bounded below by that, while incidental variation
+ * within one row is a few pixels.
+ *
+ * The two mistakes are not symmetric, which is what decides the direction:
+ * treating two rows as one TIGHTENS the cap (cards draw narrower than they could
+ * — no overlap), while treating one row as two LIFTS it (the defect above). So
+ * the predicate is deliberately generous about what counts as a row.
+ */
+function shareARow(a: Node, b: Node): boolean {
+  const ay = a.position?.y ?? 0
+  const by = b.position?.y ?? 0
+  // ⭐ FIRST, THE DIRECT EVIDENCE: do the two cards actually overlap vertically?
+  // Where heights are known this answers the question outright and needs no
+  // tolerance at all — and it closes the gap the tolerance alone leaves, which
+  // is two same-row cards whose heights differ by more than `rowEps`.
+  const ah = (a as { measured?: { height?: number } }).measured?.height
+  const bh = (b as { measured?: { height?: number } }).measured?.height
+  if (typeof ah === 'number' && ah > 0 && typeof bh === 'number' && bh > 0) {
+    if (ay < by + bh && by < ay + ah) return true
+  }
+  // Then the tolerance, for restored nodes that carry no measurement — which is
+  // the common case on the path this function exists for.
+  const rowEps = Math.round(LAYOUT_LAYER_GAP * 0.6)
+  return Math.abs(ay - by) < rowEps
+}
+
 export function solveRestoredCardWidths(
   nodes: Node[],
   options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
@@ -333,25 +380,24 @@ export function solveRestoredCardWidths(
   // card is still a same-row neighbour to collide with, so excluding it here
   // would measure a stride the board does not actually have.
   const strideByTier = new Map<number, number>()
-  const rows = new Map<string, Node[]>()
+  const byTier = new Map<number, Node[]>()
   for (const n of nodes) {
-    const y = Math.round(n.position?.y ?? 0)
-    const key = `${tierOf(n)}:${y}`
-    const row = rows.get(key)
-    if (row === undefined) rows.set(key, [n])
-    else row.push(n)
+    const tier = tierOf(n)
+    const group = byTier.get(tier)
+    if (group === undefined) byTier.set(tier, [n])
+    else group.push(n)
   }
-  for (const [key, row] of rows) {
-    if (row.length < 2) continue
-    const tier = Number(key.split(':')[0])
-    const xs = row.map((n) => n.position?.x ?? 0).sort((a, b) => a - b)
-    for (let i = 1; i < xs.length; i++) {
-      const stride = xs[i] - xs[i - 1]
-      // A non-positive stride is two cards at the same x — already degenerate,
-      // and not evidence about how much width the row can afford.
-      if (stride <= 0) continue
-      const seen = strideByTier.get(tier)
-      if (seen === undefined || stride < seen) strideByTier.set(tier, stride)
+  for (const [tier, group] of byTier) {
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        if (!shareARow(group[i], group[j])) continue
+        const stride = Math.abs((group[i].position?.x ?? 0) - (group[j].position?.x ?? 0))
+        // A zero stride is two cards at the same x — already degenerate, and not
+        // evidence about how much width the row can afford.
+        if (stride <= 0) continue
+        const seen = strideByTier.get(tier)
+        if (seen === undefined || stride < seen) strideByTier.set(tier, stride)
+      }
     }
   }
   if (strideByTier.size === 0) return fresh

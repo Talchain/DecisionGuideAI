@@ -100,6 +100,59 @@ describe('a restored board keeps its own stride', () => {
     expect(worstGap(nodes, 'option', bounded.option)).toBeGreaterThanOrEqual(0)
   })
 
+  /**
+   * ⛔⛔ THE SECOND DEFECT, AND IT WAS FOUND IN THE FIRST VERSION OF THE FIX.
+   *
+   * Codex, re-reviewing `a1d120612`: **"exact-y absence is not non-overlap."**
+   * The first cut grouped rows by `Math.round(y)`. Real boards do not have an
+   * exact shared y — this file's own `normaliseTierRows` speaks of *"preserving
+   * ELK's incidental intra-tier Y variation (caused by measured node-height
+   * differences)"*. At y 300 / 301 / 302 the three options fell into three
+   * single-member rows, no stride was measurable, the bound lifted, and the
+   * board overlapped by 48px — **including a genuinely locked middle card**,
+   * which is precisely the one that cannot move out of the way.
+   *
+   * ⚠ NOTE WHAT THE FIRST FIXTURE COULD NOT SEE. Every card in it sat at an
+   * exactly equal y, so the grouping bug was invisible to a suite that already
+   * had five passing cases — including one specifically about locked cards. A
+   * corpus that shares the code's assumption cannot observe the code's defect.
+   */
+  it('⛔ STAGGERED Y: a row whose cards differ by a pixel is still a row', () => {
+    const nodes = savedBoard().map((n) => {
+      if (n.type !== 'option') return n
+      const idx = Number(n.id.slice(1))
+      const staggered = { ...n, position: { x: n.position.x, y: 300 + idx } }
+      return idx === 1 ? { ...staggered, data: { ...(staggered.data as object), locked: true } } : staggered
+    }) as Node[]
+    // Precondition pinned: the ys must genuinely differ, or this is the old case.
+    const ys = nodes.filter((n) => n.type === 'option').map((n) => n.position.y)
+    expect(new Set(ys).size, 'the fixture no longer staggers y — it cannot reproduce the defect').toBe(3)
+    const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
+    expect(worstGap(nodes, 'option', bounded.option), 'staggered rows lifted the bound and the cards overlap').toBeGreaterThanOrEqual(0)
+  })
+
+  /**
+   * ⛔ THE GAP THE TOLERANCE ALONE LEAVES, closed before a reviewer had to find
+   * it. Two cards genuinely on one row can differ in y by MORE than `rowEps` if
+   * their heights differ enough — a tall card and a short one, top-aligned
+   * differently. The tolerance would then read them as separate rows and lift
+   * the bound, which is the same failure as the exact-y one wearing different
+   * numbers. Where heights are known, vertical EXTENT OVERLAP answers it
+   * outright and needs no tolerance.
+   */
+  it('⛔ TALL AND SHORT: cards that overlap vertically are one row even beyond the tolerance', () => {
+    const nodes = savedBoard().map((n) => {
+      if (n.type !== 'option') return n
+      const idx = Number(n.id.slice(1))
+      // 60px apart — beyond rowEps (43) — but 300px tall, so plainly one row.
+      return { ...n, position: { x: n.position.x, y: 300 + idx * 60 }, measured: { width: 336, height: 300 } }
+    }) as Node[]
+    const ys = nodes.filter((n) => n.type === 'option').map((n) => n.position.y)
+    expect(Math.max(...ys) - Math.min(...ys), 'the fixture no longer exceeds the tolerance — it cannot reproduce the gap').toBeGreaterThan(Math.round(72 * 0.6))
+    const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
+    expect(worstGap(nodes, 'option', bounded.option), 'height-staggered cards lifted the bound and overlap').toBeGreaterThanOrEqual(0)
+  })
+
   it('⛔ LOCKED AND MANUAL POSITIONS: the solver returns widths only, and moves nothing', () => {
     const nodes = savedBoard().map((n) => (n.id === 'o1' ? { ...n, data: { ...(n.data as object), locked: true } } : n)) as Node[]
     const before = JSON.stringify(nodes.map((n) => n.position))
