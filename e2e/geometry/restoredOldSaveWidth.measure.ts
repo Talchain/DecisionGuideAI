@@ -67,6 +67,7 @@ const SNAP = () => {
   return { lv: st.layoutVersion, pairs, nodes: nodes.length, worst: worst.slice(0, 5), widthByType, nodeList: nodes }
 }
 
+test.describe('a restored board keeps its own stride', () => {
 test(`ROS ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ page }) => {
   await preparePage(page, VP)
   await openCanvas(page)
@@ -171,4 +172,5 @@ test(`ROS ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ pag
     after.pairs,
     `a board saved at the OLD uniform width overlaps after reopening: ${JSON.stringify(after.worst)}. The restore path widened cards past the stride their own saved positions leave.`,
   ).toBe(0)
+})
 })
