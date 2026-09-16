@@ -114,7 +114,26 @@ describe('InferenceWarningStrip', () => {
     expect(absent.firstChild).toBeNull()
   })
 
-  it('shows every warning-severity entry when several arrive (no silent cap)', () => {
+  /**
+   * ⭐⭐ SUPERSEDES "shows every warning-severity entry when several arrive (no
+   * silent cap)" — 16 Sep 2026, and the original concern is KEPT, not dropped.
+   *
+   * That test's name is the argument: a cap the reader cannot see is a silent
+   * truncation, and it would be worse than the crowding. So the rule is not
+   * "show everything"; it is "show one, and say what is behind the tap". Both
+   * halves are asserted below, and the held-back entries are proven reachable
+   * in the detail row by `oneLimitationAtRest.spec.ts`, which measures the
+   * complement on Paul's real 7-warning payload.
+   *
+   * Why the property changed: three independent readings of the deployed panel
+   * said the same thing on 16 Sep — Paul's ("a big dump of mess below the top
+   * sections"), the review note's ("repeatedly describe overlapping
+   * limitations ... one prominent, specific next action"), and the panel
+   * prototype's own rule that detail lives "out of the resting experience, one
+   * tap away". On his run `1dd2133d` the strip carried three sentences about
+   * ONE cause, with three more repeating it in the detail row.
+   */
+  it('shows ONE at rest and discloses the rest, rather than capping silently', () => {
     const second: InferenceWarning = {
       code: 'CONSTRAINT_TARGET_UNRELIABLE',
       affected_nodes: [],
@@ -126,6 +145,17 @@ describe('InferenceWarningStrip', () => {
         warnings={[INFO_EDGE_SENSITIVITY, WARNING_CONSTRAINT_TARGET, second]}
       />,
     )
-    expect(screen.getAllByTestId('inference-warning-strip-entry')).toHaveLength(2)
+    expect(screen.getAllByTestId('inference-warning-strip-entry')).toHaveLength(1)
+    const heldBack = screen.getByTestId('inference-warning-strip-held-back')
+    expect(heldBack).toHaveTextContent('One more limitation')
+    expect(heldBack).toHaveTextContent('How this was worked out')
+  })
+
+  it('says nothing about a remainder when there is none', () => {
+    // The discriminating twin: without it the disclosure could be unconditional
+    // furniture, naming a remainder that does not exist.
+    render(<InferenceWarningStrip warnings={[INFO_EDGE_SENSITIVITY, WARNING_CONSTRAINT_TARGET]} />)
+    expect(screen.getAllByTestId('inference-warning-strip-entry')).toHaveLength(1)
+    expect(screen.queryByTestId('inference-warning-strip-held-back')).toBeNull()
   })
 })
