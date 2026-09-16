@@ -82,6 +82,27 @@ describe('the tipping point reaches the screen', () => {
     )
   })
 
+  it('names the missing scale when the producer states no unit', () => {
+    // Reviewed 16 Sep: a bare 0.6 -> 0.96 is precise and unreadable. Where the
+    // producer supplies no unit the line must acknowledge the missing
+    // interpretation rather than present the numbers as if they carried one.
+    renderBody(withFlipThresholds(REAL_ROWS))
+    expect(screen.getAllByTestId('analysis-new-sensitivity-tipping-point')[0]).toHaveTextContent(
+      'The model does not record what that scale measures',
+    )
+  })
+
+  it('adds nothing when the producer DOES state a unit', () => {
+    // The discriminating twin. Without it the clause could be unconditional,
+    // which would name a gap that is not there on a run that has the scale.
+    renderBody(
+      withFlipThresholds([{ ...REAL_ROWS[0], unit: '£', current_value: 60, flip_value: 96 }]),
+    )
+    const line = screen.getAllByTestId('analysis-new-sensitivity-tipping-point')[0]
+    expect(line).toHaveTextContent('from £60 to £96')
+    expect(line).not.toHaveTextContent('does not record what that scale measures')
+  })
+
   it('renders nothing when no row was found, on the SAME fixture', () => {
     // The discriminating half. Without it, a pass above could be the section
     // rendering something unconditionally; this proves the line is the

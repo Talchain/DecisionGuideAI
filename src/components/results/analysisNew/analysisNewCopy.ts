@@ -703,7 +703,27 @@ export const ANALYSIS_NEW_COPY = {
       const n = (v: number) =>
         `${unit}${v.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
       const verb = flipValue > currentValue ? 'rise' : 'fall'
-      return `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} comes out ahead.`
+      const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} comes out ahead.`
+      /**
+       * ⛔⛔ A BARE PAIR OF NUMBERS IS NOT AN INTERPRETATION, AND SAYING SO IS
+       * PART OF THE FEATURE RATHER THAN A HEDGE ON IT.
+       *
+       * Reviewed 16 Sep: "0.6 to 0.96 is numerically PRECISE but has no
+       * understandable scale ... state what the scale means only when the model
+       * supplies it; otherwise acknowledge the missing interpretation. No
+       * fabricated conversion of 0.96 to headcount, time or probability."
+       *
+       * The first version of this line printed the pair unqualified — which
+       * makes an unreadable number MORE prominent and reads as precision the
+       * reader cannot act on. Where the producer states a unit the figures
+       * carry their own meaning and nothing is added. Where it does not, the
+       * missing scale is named, and it is named as a gap in the MODEL rather
+       * than as a doubt about the threshold: the threshold is the producer's
+       * and it is not in question.
+       */
+      return unit === ''
+        ? `${claim} The model does not record what that scale measures, so read the change rather than the numbers.`
+        : claim
     },
     /**
      * ⭐ NAMES THE AGREEMENT, ASSERTS NOTHING NEW. Every row below already
