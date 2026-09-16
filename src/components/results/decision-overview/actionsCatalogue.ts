@@ -110,8 +110,17 @@ export const METHOD_CATALOGUE: MethodEntry[] = [
   {
     id: 'consider_opposite',
     title: 'Consider the opposite',
-    description: 'Build the strongest case against the option that scored highest.',
-    prompt: 'Build the strongest honest case AGAINST the option that scored highest. What evidence or reasoning would change my mind?',
+    description: 'Build the strongest case against the current result.',
+    prompt: 'Build the strongest honest case AGAINST the current result. What evidence or reasoning would change my mind?',
+    // ⛔ "the option that scored highest" WAS HERE, TWICE, AND IS BANNED.
+    // `METHOD_CATALOGUE` is a module constant and `ActionsMenu()` takes no
+    // props, so every string here renders on every run — including one whose
+    // producer declined to name an option. The estate already banned this exact
+    // sentence in `strengthen/` (`ownedLeaderClaim.strengthen.spec.tsx:268`,
+    // `buildRecommendations.ts:715-726`: the unnamed arm "addresses the RESULT,
+    // never the RANKING"); the remedy was scoped there and this sibling kept it.
+    // Pinned by `theCatalogueNamesNoLeader.spec.ts`.
+    //
     // "What would change my mind?" is an assumption challenge, and it is the
     // same intent the engine's own `strengthen:robustness` trigger sends.
     intent: 'challenge_assumption',
@@ -156,7 +165,7 @@ export const METHOD_CATALOGUE: MethodEntry[] = [
     id: 'explore_tradeoffs',
     title: 'Explore trade-offs',
     description: 'Make gains and sacrifices explicit.',
-    prompt: 'Walk me through the real trade-offs between the leading options: what each gains, gives up and depends on.',
+    prompt: 'Walk me through the real trade-offs between the options on the canvas: what each gains, gives up and depends on.',
   },
   {
     id: 'review_bias',
