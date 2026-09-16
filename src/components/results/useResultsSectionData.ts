@@ -3690,6 +3690,36 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ...(altWinnerId
           ? { alternativeWinnerId: altWinnerId, alternativeWinnerLabel }
           : {}),
+        /**
+         * ⭐⭐ THE RELATIONSHIP THIS ROW IS ABOUT, FROM THE DECLARED FIELDS.
+         *
+         * `from_label` / `to_label` are on `EnrichmentRobustnessEdgeSchema` —
+         * ten declared fields, and these are two of them. The row already
+         * composes them into the producer's SENTENCE; carrying them separately
+         * lets the panel give each row a short NAME, which is what makes three
+         * rows distinguishable at a glance when their sentences differ only in
+         * the middle.
+         *
+         * ⛔ `labelsResolved` IS THE GATE, and it is the estate's own existing
+         * idiom (`topFragileEdge.labelsResolved`, same question, same answer
+         * shape). `sourceName`/`targetName` fall through to 'Unknown factor' /
+         * 'Unknown target' when nothing names the ends, and a headline reading
+         * "How strongly Unknown factor affects Unknown target" is worse than no
+         * headline. Computed HERE, where the fallback chain is visible, rather
+         * than by a consumer comparing against the fallback literal — that
+         * comparison would be a hand-maintained mirror of a string this file
+         * owns (trap 12).
+         */
+        edgeFromLabel: sourceName,
+        edgeToLabel: targetName,
+        edgeLabelsResolved:
+          nonEmptyLabel(fe.from_label) !== undefined ||
+          nonEmptyLabel(fe.fromLabel) !== undefined ||
+          getNodeLabel(fromId) !== undefined
+            ? nonEmptyLabel(fe.to_label) !== undefined ||
+              nonEmptyLabel(fe.toLabel) !== undefined ||
+              getNodeLabel(toId) !== undefined
+            : false,
         factorConfidence,
         eValue: rawEValue,
         threshold: fe.threshold ? {

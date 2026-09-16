@@ -938,6 +938,16 @@ export interface UncertaintyItem {
   alternativeWinnerId?: string
   /** Its label, for rendering only. Never compared — ids answer identity. */
   alternativeWinnerLabel?: string
+  /** The relationship's ends, from the producer's declared `from_label`/`to_label`. */
+  edgeFromLabel?: string
+  edgeToLabel?: string
+  /**
+   * ⛔ Whether BOTH ends were really named, or fell through to 'Unknown …'.
+   * Same question and same answer shape as `topFragileEdge.labelsResolved`.
+   * A consumer must gate any rendered NAME on this; the sentence keeps its
+   * fallbacks because a sentence with an unnamed end still reads.
+   */
+  edgeLabelsResolved?: boolean
   /** ISL E-value: how many times wrong the assumption must be to flip the recommendation */
   eValue?: number
   /** For sensitivity thresholds (when small changes flip the recommendation) */
