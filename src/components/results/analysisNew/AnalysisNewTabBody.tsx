@@ -1034,7 +1034,13 @@ export function AnalysisNewTabBody({
     const countOf = (kind: 'risk' | 'outcome'): number | null =>
       known ? (modelStrip.rows.find((r) => r.kind === kind)?.nodes.length ?? 0) : null
     return applicableStaticFocusIds({
-      hasGoalTarget: resultsSectionData.recommendation.hasGoalTarget ?? null,
+      // ⚠ `known` GATES THIS ONE TOO, and its absence was a real defect: the
+      // real `useResultsSectionData` returns `hasGoalTarget: false` on an empty
+      // canvas — a measured `false`, not an unknown — so without this gate the
+      // panel asked a person to define success before they had built anything.
+      // The reading is the same as the counts': no model means no fact, and no
+      // fact earns no row.
+      hasGoalTarget: known ? (resultsSectionData.recommendation.hasGoalTarget ?? null) : null,
       outcomeCount: countOf('outcome'),
       riskCount: countOf('risk'),
     })

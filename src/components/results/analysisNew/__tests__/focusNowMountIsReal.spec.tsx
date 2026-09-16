@@ -83,4 +83,53 @@ describe('Focus Now on the Reasoning tab', () => {
     expect(screen.queryByText(ADD_RISK)).toBeNull()
     expect(screen.queryByText(DEFINE_SUCCESS)).toBeNull()
   })
+
+  /**
+   * ⛔⛔ THE PAIR THE CASE ABOVE COULD NOT MAKE — and its absence hid a real
+   * defect through a whole review.
+   *
+   * That case feeds `genuineDecision()`, which already carries a goal target,
+   * so DEFINE_SUCCESS was absent because the FIXTURE said a target existed —
+   * never because the guard held. The fixture was answering the question.
+   *
+   * ⭐ WHAT THE REAL HOOK EMITS, derived at `useResultsSectionData.ts:1676`:
+   * `hasStatedGoalTarget` is a plain `boolean` with no unknown branch. On an
+   * empty canvas — no goal node, no threshold, no readiness — every arm is
+   * false and it returns `false`. A MEASURED false, indistinguishable at the
+   * consumer from "this model was built and has no target".
+   *
+   * So the mount's `?? null` was catching `undefined`, which the real hook
+   * NEVER emits, while the `false` it always emits flowed straight through.
+   * The guard caught the case that cannot happen and missed the one that does.
+   *
+   * These two bind the gate to the model fact rather than to the fixture, and
+   * they must disagree with each other — same `hasGoalTarget: false`, opposite
+   * outcomes, decided only by whether a model exists.
+   */
+  const noStatedTarget = (): ResultsSectionDataReturn => {
+    const base = genuineDecision()
+    return {
+      ...base,
+      recommendation: { ...base.recommendation, hasGoalTarget: false },
+    } as ResultsSectionDataReturn
+  }
+
+  it('⛔ an empty canvas earns no DEFINE SUCCESS even when the hook reports hasGoalTarget FALSE', () => {
+    renderWith([], noStatedTarget())
+    expect(screen.queryByText(DEFINE_SUCCESS)).toBeNull()
+  })
+
+  it('but a REAL model with no target DOES earn it — the gate must not swallow the signal', () => {
+    renderWith(
+      [
+        node('o1', 'option'),
+        node('o2', 'option'),
+        node('f1', 'factor'),
+        node('out1', 'outcome'),
+        node('r1', 'risk'),
+      ],
+      noStatedTarget(),
+    )
+    expect(screen.getByText(DEFINE_SUCCESS)).toBeInTheDocument()
+  })
 })
