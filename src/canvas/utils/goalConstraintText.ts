@@ -65,8 +65,35 @@ function formatLimitMagnitude(value: number, unit: string | null | undefined): s
  * producer does not populate (measured; the request is open). When it arrives,
  * rung 1 supersedes this and this set should shrink, not grow.
  */
+/**
+ * ⛔⛔ NARROWED TO THE WITNESSED MEMBER — 16 Sep 2026, on an independent review.
+ *
+ * This set held `fraction`, `ratio`, `proportion` and `unit_interval`. Measured
+ * in-repo with contrast controls that FIRE, three of the four have no witness:
+ *
+ *     fraction      22 hits          contrast: count                23
+ *     ratio          2 hits — and BOTH are `goal_threshold_unit`,
+ *                    a DIFFERENT FIELD from `constraint.unit`
+ *     proportion     0 hits          contrast: percent              15
+ *     unit_interval  0 hits          contrast: goal_threshold_unit 114
+ *
+ * ⛔ AND EVERY MEMBER COSTS SOMETHING. Membership SUPPRESSES a reconstructable
+ * number in favour of a sentence — the header above says so itself: *"it cannot
+ * be compared against the other limits"*. A genuine ratio limit ("keep the
+ * ratio under 3") reconstructs EXACTLY and would lose its comparable numeric
+ * form for nothing. That is the same over-reach this file already records being
+ * caught once, on currency.
+ *
+ * ⭐ The rule was already written three paragraphs up — *"this set should
+ * shrink, not grow"* — and three members were added past it on a semantic
+ * argument with no wire witness. Knowing the rule is not the same as applying
+ * it, so the set now contains only what has been observed.
+ *
+ * TO ADD A MEMBER: produce a wire witness of that unit on `constraint.unit`,
+ * not an argument that it belongs by kind.
+ */
 const REWRITTEN_SCALE_UNITS: ReadonlySet<string> = new Set([
-  'fraction', 'ratio', 'proportion', 'unit_interval',
+  'fraction',
 ])
 
 /**

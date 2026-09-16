@@ -63,9 +63,32 @@ describe('a rewritten scale prints the reader’s words', () => {
     expect(text).not.toContain('fraction')
   })
 
-  it('the sibling units a producer uses for the same rewrite are covered', () => {
-    for (const unit of ['fraction', 'ratio', 'proportion', 'unit_interval', 'FRACTION', ' Ratio ']) {
+  /**
+   * ⛔⛔ NARROWED 16 Sep 2026. This asserted that `ratio`, `proportion` and
+   * `unit_interval` were "covered" — i.e. it PINNED the over-wide set as the
+   * contract. Measured in-repo with contrast controls that fire: `ratio` has 2
+   * hits and BOTH are `goal_threshold_unit`, a different field; `proportion` and
+   * `unit_interval` have ZERO. Membership is not free — it suppresses a
+   * reconstructable number in favour of a sentence — so a set member with no
+   * wire witness is a cost paid for nothing.
+   *
+   * The test now pins CASE AND WHITESPACE HANDLING on the witnessed unit, which
+   * is the property this test was really protecting.
+   */
+  it('the witnessed rewrite unit is matched regardless of case or padding', () => {
+    for (const unit of ['fraction', 'FRACTION', ' Fraction ']) {
       expect(goalConstraintTextUsesQuote(constraint({ unit })), unit).toBe(true)
+    }
+  })
+
+  /**
+   * ⛔ THE DISCRIMINATING TWIN FOR THE NARROWING ITSELF. Without it, re-adding
+   * an unwitnessed unit would go unnoticed — and the file's own rule is that
+   * this set "should shrink, not grow".
+   */
+  it('⛔ CONTRAST: an UNWITNESSED sibling unit does NOT take the quote', () => {
+    for (const unit of ['ratio', 'proportion', 'unit_interval']) {
+      expect(goalConstraintTextUsesQuote(constraint({ unit })), unit).toBe(false)
     }
   })
 
