@@ -100,6 +100,7 @@ import {
   type AssumedStrengthDecision,
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
+import { deriveRobustnessStatus } from './robustnessStatus'
 
 // =============================================================================
 // Winner Selection Helper
@@ -3797,16 +3798,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // P2 Fix: These fields are set by responseMapper from V2 response
     const analysisStatus = report?.analysis_state === 'partial' ? 'partial' : 'computed'
     const driversStatus = report?.drivers_status ?? 'computed'
-    // Check for robustness data: fragile_edges or robust_edges indicates computed
-    // P0 Fix: Use safeArray to handle truncated wrapper format { __truncated: true, items: [...] }
-    const robustness = report?.robustness
-    const hasRobustnessData = robustness && (
-      safeArray(robustness.fragile_edges).length > 0 ||
-      safeArray(robustness.robust_edges).length > 0 ||
-      robustness.recommendation_stability !== undefined ||
-      robustness.ranking_stability !== undefined
-    )
-    const robustnessStatus = hasRobustnessData ? 'computed' : 'unavailable'
+    /**
+     * ⭐ ONE OWNER, AND IT ANSWERS THE QUESTION THE CONSUMERS ASK.
+     *
+     * This read the EDGE LISTS — "did any robustness data arrive?" — while
+     * every consumer reads the field as "did the robustness check produce a
+     * verdict?" (`StressTestSection.tsx:444` maps it to "didn't-run vs clean"
+     * in those words). Measured on Paul's run `f51850fc`: robustness carried
+     * `near_tie` + 3 robust edges + 4 fragile edges and NO verdict field, so the
+     * tab printed "Robustness status: Computed" beside four surfaces correctly
+     * saying the verdict did not come back. See `robustnessStatus.ts` for the
+     * full argument, the consumer enumeration, and the third state that is
+     * rowed rather than invented here.
+     */
+    const robustnessStatus = deriveRobustnessStatus(report)
 
     // Build filtered disclosure when items were excluded
     // Task 2: Use scenario-tested language, avoid "flip risk"
