@@ -100,21 +100,67 @@ describe('SharedBriefPage', () => {
     expect(screen.getByText(/1337/)).toBeTruthy()
   })
 
-  it('renders raw JSON fallback when no known fields', async () => {
+  it('⛔ NEVER renders the raw payload — an unrecognised shape gets an honest state', async () => {
+    // ⚠⚠ THIS TEST WAS `renders raw JSON fallback when no known fields` AND IT
+    // PINNED THE DEFECT AS BEHAVIOUR. This page is the ONLY surface a person
+    // outside the team sees, reached anonymously by slug, and its fallback for an
+    // unrecognised payload printed `JSON.stringify(brief, null, 2)` at the reader.
+    //
+    // ⚠ AND THAT BRANCH IS THE UNWITNESSED ONE. Swept at 6497a251: there is NO
+    // captured `shared_briefs` row anywhere in this repo — every fixture proving
+    // this page is hand-written, in this very file. Contrast control from the same
+    // sweep: 91 captured JSON fixtures exist under src/, including live staging
+    // captures, so the repo captures payloads readily and has never captured one
+    // of these. The tenancy spec records the table at 0 rows and the live
+    // `create_shared_brief` as "the CEE variant". Nobody knows what this page
+    // receives, and the branch taken when it does not recognise the shape was the
+    // one that dumped the record.
+    //
+    // Privacy, not tidiness: the design record for this table specifies
+    // "allowlist, no ids/PII" for the public brief. A verbatim dump renders
+    // whatever the row holds, at an anonymous URL.
     mockGetSharedBriefBySlug.mockResolvedValue({
-      brief: { custom_field: 'custom value' },
-      graph_hash: 'abc',
-      seed_used: 1,
-      response_hash: 'resp',
+      brief: { custom_field: 'custom value', internal_node_id: 'fac_abc123' },
+      graph_hash: 'abc123def456',
+      seed_used: 42,
+      response_hash: 'resp123hash456',
       created_at: '2026-01-15T12:00:00Z',
       expires_at: null,
     })
-
     renderPage()
-
     await waitFor(() => {
-      expect(screen.getByText(/custom_field/)).toBeTruthy()
+      expect(screen.getByTestId('shared-brief-unrenderable')).toBeInTheDocument()
     })
+    // The reader is told what happened and what to do.
+    expect(screen.getByText(/could not be displayed/i)).toBeInTheDocument()
+    expect(screen.getByText(/ask the person who shared it/i)).toBeInTheDocument()
+    // ⛔ And NOTHING from the payload reaches the page. Bound to the values by
+    // identity, not to the absence of a <pre> tag, which a restyle could satisfy
+    // while still rendering the record.
+    expect(document.body.textContent).not.toContain('custom value')
+    expect(document.body.textContent).not.toContain('internal_node_id')
+    expect(document.body.textContent).not.toContain('fac_abc123')
+  })
+
+  it('a non-string recommendation is withheld, not dumped inline', async () => {
+    // The same defect one field narrower: a non-string value used to render its
+    // raw JSON inside a sentence. Withholding the field is honest; dumping is not.
+    mockGetSharedBriefBySlug.mockResolvedValue({
+      brief: { title: 'A real brief', recommendation: { option_id: 'opt_secret', p: 0.63 } },
+      graph_hash: 'abc123def456',
+      seed_used: 42,
+      response_hash: 'resp123hash456',
+      created_at: '2026-01-15T12:00:00Z',
+      expires_at: null,
+    })
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByText('A real brief')).toBeInTheDocument()
+    })
+    expect(document.body.textContent).not.toContain('opt_secret')
+    expect(document.body.textContent).not.toContain('0.63')
+    // NON-VACUITY: the section still appears and says something.
+    expect(screen.getByText(/not in a format this page can show/i)).toBeInTheDocument()
   })
 
   it('works without authentication (anon access)', async () => {

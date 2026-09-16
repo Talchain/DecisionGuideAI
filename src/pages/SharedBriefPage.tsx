@@ -44,9 +44,13 @@ function BriefContent({ brief }: { brief: unknown }) {
             Result
           </h3>
           <p className="text-text-body leading-relaxed">
+            {/* ⛔ WAS `JSON.stringify(data.recommendation)`. Same defect as the
+                whole-payload fallback below, one field narrower: a non-string
+                value rendered its raw JSON inline, at an anonymous URL, inside a
+                sentence. Withholding the one field is honest; dumping it is not. */}
             {typeof data.recommendation === 'string'
               ? data.recommendation
-              : JSON.stringify(data.recommendation)}
+              : 'This section is not in a format this page can show.'}
           </p>
         </section>
       )}
@@ -58,9 +62,13 @@ function BriefContent({ brief }: { brief: unknown }) {
             Summary
           </h3>
           <p className="text-text-body leading-relaxed">
+            {/* ⛔ WAS `JSON.stringify(data.summary)`. Same defect as the
+                whole-payload fallback below, one field narrower: a non-string
+                value rendered its raw JSON inline, at an anonymous URL, inside a
+                sentence. Withholding the one field is honest; dumping it is not. */}
             {typeof data.summary === 'string'
               ? data.summary
-              : JSON.stringify(data.summary)}
+              : 'This section is not in a format this page can show.'}
           </p>
         </section>
       )}
@@ -110,18 +118,60 @@ function BriefContent({ brief }: { brief: unknown }) {
             Robustness assessment
           </h3>
           <p className="text-text-body leading-relaxed">
+            {/* ⛔ WAS `JSON.stringify(data.robustness)`. Same defect as the
+                whole-payload fallback below, one field narrower: a non-string
+                value rendered its raw JSON inline, at an anonymous URL, inside a
+                sentence. Withholding the one field is honest; dumping it is not. */}
             {typeof data.robustness === 'string'
               ? data.robustness
-              : JSON.stringify(data.robustness)}
+              : 'This section is not in a format this page can show.'}
           </p>
         </section>
       )}
 
-      {/* Fallback: show raw JSON for any fields not explicitly rendered */}
+      {/* ⛔⛔ THIS RENDERED `JSON.stringify(brief, null, 2)` INTO THE PAGE.
+          This is the ONLY surface a person outside the team ever sees, reached
+          anonymously by slug, and its fallback for an unrecognised payload was a
+          raw dump of the stored JSONB.
+
+          ⚠ AND THE FALLBACK IS NOT HYPOTHETICAL — IT IS THE UNWITNESSED CASE.
+          Swept at `6497a251`: there is NO captured `shared_briefs` row anywhere
+          in this repo. Every fixture proving this page is hand-written in its own
+          spec (`{ title, summary }`, `{ custom_field }`). Contrast control in the
+          same sweep: 91 captured JSON fixtures exist under `src/`, including live
+          staging captures — so the repo captures payloads readily and has simply
+          never captured one of these. `docs/specs/tenancy-collab-migration-spec-v1_7-draft.md`
+          records `shared_briefs` at **0 rows** and notes the live
+          `create_shared_brief` is "the CEE variant". **So nobody knows what this
+          page receives, and the branch taken when it does not recognise the shape
+          was the one that printed the raw record at the reader.**
+
+          Three reasons the dump is the wrong answer, in order of seriousness:
+            1. PRIVACY. The design record for this table
+               (`docs/designs/collab-multiuser-design-recommendations-v1.md:270`)
+               specifies "allowlist, no ids/PII" for the public brief. A verbatim
+               dump renders whatever the row happens to hold, which is the exact
+               thing the allowlist exists to prevent — at an anonymous URL.
+            2. IT IS NOT A BRIEF. A colleague opening a shared decision receives a
+               wall of JSON. That is not a degraded view of the document; it is a
+               different artefact, and it reads as broken.
+            3. IT HIDES THE FAILURE. A dump looks like content, so nobody reports
+               it and nobody fixes the shape it failed to recognise.
+
+          The honest state says what happened, keeps the provenance footer (which
+          renders outside this component, so the reader can still see the brief is
+          real and dated), and points back to the person who sent it — the only
+          route that actually resolves it. */}
       {!data.title && !data.headline && !data.recommendation && !data.summary && (
-        <pre className="text-xs text-text-light bg-gray-50 rounded-lg p-4 overflow-auto max-h-96">
-          {JSON.stringify(brief, null, 2)}
-        </pre>
+        <div data-testid="shared-brief-unrenderable">
+          <h2 className="text-xl font-semibold text-text-header">
+            This brief could not be displayed
+          </h2>
+          <p className="mt-2 text-text-body leading-relaxed">
+            The decision is saved and the record below is genuine, but it is not in a
+            format this page can show. Ask the person who shared it to send it again.
+          </p>
+        </div>
       )}
     </div>
   )
