@@ -83,7 +83,20 @@ const LONG_SENTENCE =
   'If "Operational Overhead Burden → Operational Overhead Exceeds Team Capacity" changes significantly, "RudderStack" could become the better choice'
 
 describe('an uncertainty row never says its own sentence twice', () => {
-  it('⭐ the long non-threshold row carries NO label, and the FULL sentence survives', () => {
+  /**
+   * ⚠ AMENDED 16 Sep — THIS CLAIM IS NARROWER THAN ITS ORIGINAL TITLE SAID.
+   *
+   * A long non-threshold row carries no label WHEN ITS ENDS ARE NOT NAMED, which
+   * is the case this fixture builds: no `edgeFromLabel`/`edgeToLabel`, no
+   * `edgeLabelsResolved`. Where the producer's declared ends ARE resolved, and
+   * every such row in the section can be named, the row now carries the
+   * relationship's name — a producer-supplied label that is not a prefix of the
+   * body, i.e. the shape the threshold branch below already establishes as
+   * legitimate. That rule and its opposite arm are pinned in
+   * `theRowNamesItsRelationship.spec.ts`; what stays true here, and is what this
+   * file exists for, is that the label is NEVER a cut prefix of the sentence.
+   */
+  it('⭐ a long non-threshold row with UNNAMED ends carries NO label, and the FULL sentence survives', () => {
     const rows = uncertaintyRows(
       withUncertainties([
         {

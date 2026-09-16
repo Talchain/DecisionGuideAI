@@ -1083,6 +1083,100 @@ function buildUncertainty(
   }
 
   const uncertaintyRows = conf.uncertainties ?? []
+  /**
+   * ⭐⭐ THE RELATIONSHIP'S DECLARED NAME — THE ONE THING THAT MAKES THREE ROWS
+   * DISTINGUISHABLE WITHOUT READING TO THE MIDDLE OF EACH SENTENCE.
+   *
+   * The block inside the loop establishes the rule and its three rejected
+   * alternatives: a cut prefix of the body is not a label, a constant category
+   * label is furniture, and the whole sentence promoted into header type trades
+   * truthfulness for the density problem this surface exists to solve. It also
+   * names the one shape that IS allowed — a PRODUCER-SUPPLIED name that is not a
+   * prefix of the body, which is why the threshold row keeps both slots.
+   *
+   * `from_label` and `to_label` are exactly that: two of the TEN fields
+   * `EnrichmentRobustnessEdgeSchema` declares, carried onto the row by
+   * `useResultsSectionData` alongside the answer to "were both ends really
+   * named?".
+   *
+   * ⛔ `edgeLabelsResolved` IS THE GATE, AND IT IS NOT A COMPARISON AGAINST THE
+   * FALLBACK LITERAL. `edgeFromLabel`/`edgeToLabel` fall through to
+   * 'Unknown factor' / 'Unknown target' and, one rung earlier, to
+   * `formatUnattributedId`, which yields a plausible-looking string naming
+   * nothing. The hook answers the question where that chain is visible; a check
+   * here against 'Unknown factor' would be a hand-maintained mirror of a string
+   * another file owns (trap 12) AND would read the unattributed-id rung as a
+   * name.
+   *
+   * ⛔ AND IT MUST FIT THE LABEL BUDGET THIS FILE ALREADY USES. Two long node
+   * labels compose into a name longer than the sentence it labels, and
+   * truncating it would reintroduce the cut prefix the rule bans. Same 80
+   * through the same helper, so there is one budget on this surface, not two.
+   */
+  const edgeNames = (u: UncertaintyItem): { full: string; source: string } | null => {
+    if (u.edgeLabelsResolved !== true) return null
+    if (!u.edgeFromLabel || !u.edgeToLabel) return null
+    return { full: `${u.edgeFromLabel} \u2192 ${u.edgeToLabel}`, source: u.edgeFromLabel }
+  }
+  const fitsTheLabelSlot = (name: string): boolean =>
+    name !== '' && truncateAtWordBoundary(name, 80) === name
+  /**
+   * ⛔⛔ ONE CONVENTION FOR THE WHOLE SECTION, CHOSEN BY DEGRADING — NOT BY
+   * GIVING UP. THIS IS THE SECOND THING I GOT WRONG HERE.
+   *
+   * Draft one named each row it could. On the measured fixture that titles ONE
+   * of three, because one node label is itself a 95-character sentence — and one
+   * titled row above two untitled ones is EXACTLY the defect the block below was
+   * written about: *"one section, two title conventions — Paul's 'such a lack of
+   * consistency in the design', made concrete"*.
+   *
+   * Draft two therefore silenced the whole set whenever one name was too long.
+   * ⛔ CODEX REFUSED THAT, RIGHTLY (CX-20260916-63): *"don't treat all-or-none
+   * naming as automatically correct merely because another section uses it: it
+   * must preserve useful identity for the long-label case, not just make the
+   * titles uniformly absent."* The appeal to the convergence line was an appeal
+   * to PRECEDENT, and precedent is not an argument that a rule is right HERE.
+   * All-or-none traded away two perfectly good titles to punish a third.
+   *
+   * So the section picks ONE RUNG and every row uses it:
+   *   1. the whole relationship, `from \u2192 to` — the row's full identity;
+   *   2. failing that, the SOURCE alone — the factor being varied. Not a
+   *      truncation of rung 1: a complete, producer-supplied name, and the same
+   *      shape as the driver rows' own `headline: factorLabel`. The body still
+   *      carries the whole relationship, so nothing is lost, only deferred;
+   *   3. failing that, no title — today's behaviour.
+   *
+   * ⛔ AND EVERY RUNG REQUIRES DISTINCT TITLES ACROSS THE SET. Two rows under
+   * the same title are not identified, they are confused — furniture with a
+   * name, which is worse than the honest blank rung 3 gives. It bites hardest at
+   * rung 2, where two edges out of one factor collapse onto one source name.
+   *
+   * ⚠ SCOPED TO THE `''` BRANCH ONLY. A threshold row already carries a producer
+   * name and a short sentence already is its own label; both are correct today
+   * and neither is judged here. The candidate set is precisely the rows that
+   * would otherwise render with NO label — the measured defect, and nothing else.
+   */
+  const sectionTitleRung: 'full' | 'source' | null = (() => {
+    const unlabelled = uncertaintyRows.filter((u) => {
+      if (u.code !== 'SENSITIVE_ASSUMPTION' || u.threshold) return false
+      const t = humanised(u)
+      return t !== '' && truncateAtWordBoundary(t, 80) !== t
+    })
+    if (unlabelled.length === 0) return null
+    const named = unlabelled.map(edgeNames)
+    if (named.some((n) => n === null)) return null
+    const usable = named as Array<{ full: string; source: string }>
+    for (const rung of ['full', 'source'] as const) {
+      const titles = usable.map((n) => n[rung])
+      if (titles.every(fitsTheLabelSlot) && new Set(titles).size === titles.length) return rung
+    }
+    return null
+  })()
+  const rowTitle = (u: UncertaintyItem): string => {
+    if (sectionTitleRung === null) return ''
+    const names = edgeNames(u)
+    return names ? names[sectionTitleRung] : ''
+  }
   for (let i = 0; i < uncertaintyRows.length; i++) {
     const u = uncertaintyRows[i]
     const text = humanised(u)
@@ -1139,7 +1233,7 @@ function buildUncertainty(
       ? `${u.threshold.variable} could change the answer`
       : labelLength === text
         ? text
-        : ''
+        : rowTitle(u)
     /**
      * ⚠ THE PRODUCER'S OWN CLASS DECIDES, AND IT IS READ HERE BECAUSE THIS IS
      * THE LAST HOP WHERE `u.code` EXISTS — `AnalysisNewFinding` deliberately
@@ -1279,7 +1373,42 @@ function buildUncertainty(
       // threshold), or label-plus-body (threshold, where the label is the
       // producer's own variable and not a prefix of the body).
       headline: headlineText,
-      implication: headlineText === text ? '' : text,
+      /**
+       * ⭐⭐ A TITLED ROW DOES NOT QUOTE ITS OWN TITLE BACK — AND THIS IS WHAT
+       * PAYS FOR THE TITLE.
+       *
+       * MEASURED ON THE DEPLOYED BUILD (`521189fe`, the real 277px body width,
+       * the three live fragile-edge rows): titling the rows alone takes the
+       * section 382px → 498px, **+30% on the surface whose whole complaint is
+       * density**. Dropping the body's verbatim repeat of the title brings it to
+       * 401px, **+5%**. The title is nearly free; the repetition is the cost. A
+       * first draft of this change shipped the +30% version, and only driving
+       * the deployed build found it.
+       *
+       * ⛔ THE SHORT FORM IS THE PRODUCER-SIDE HOOK'S, NOT A SUBSTITUTION MADE
+       * HERE. `useResultsSectionData` composes both from one template and offers
+       * the short one only where the body's quoted subject is exactly the name
+       * this row is titled with. Editing the long string here would be a
+       * hand-maintained mirror of a template another file owns (trap 12), and on
+       * a producer-authored `description` it would be a rewording.
+       *
+       * ⚠ AND IT IS GATED ON THE ROW ACTUALLY BEING TITLED. With no title,
+       * "If this changes significantly…" names nothing at all — strictly worse
+       * than the sentence it replaced. Absent short form, or absent title, the
+       * row renders exactly what it renders today.
+       *
+       * ⛔⛔ AND ON RUNG `full` SPECIFICALLY. At rung `source` the title is only
+       * the FACTOR, while the body's quoted subject is the whole relationship —
+       * so dropping the subject there would delete the target end, which nothing
+       * on screen would then name. The short body is licensed by the title
+       * carrying the SAME string, never merely by a title existing.
+       */
+      implication:
+        headlineText === text
+          ? ''
+          : sectionTitleRung === 'full' && headlineText !== '' && !u.threshold && u.messageWithSubjectNamedAbove
+            ? u.messageWithSubjectNamedAbove
+            : text,
       // ⚠⚠ THIS COMMENT USED TO SAY "the generic constant is DROPPED rather
       // than promoted". THAT WAS FALSE — there is no generic-suggestion
       // detection here and never was. The only predicate is
