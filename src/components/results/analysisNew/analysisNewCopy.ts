@@ -173,10 +173,45 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
  * apart" is close enough to "the options are level" — which the sentence beside
  * it explicitly denies — that it must not ship on documentary evidence alone.
  * The map grows when a capture earns the entry.
+ *
+ * ⛔⛔ THE CLAUSE IS DELIBERATELY BROAD, AND MY FIRST VERSION WAS NOT — CORRECTED
+ * 16 Sep after an independent review, and the producer had written the rule down.
+ *
+ * #1618 shipped *"One limit on your model could not be checked"*, lifted from
+ * CEE's PROSE SUMMARY on run `1dd2133d`. True of that run; not what the token
+ * means. `composeLeaderClaim` (`orchestrator-v5/compose/analysis-state-v1.ts:773`)
+ * emits it for ANY `mayNameLeadingOption !== true`, and
+ * `MAY_NAME_LEADING_OPTION` (`orchestrator/context/constraint-feasibility.ts:341`)
+ * maps THREE states to `false`:
+ *
+ *   · `evaluated_infeasible` — the constraints WERE scored and the leading
+ *     option breaks one;
+ *   · `unevaluated` — a ratified constraint was not checked;
+ *   · `identity_unresolved` — the constraint ids could not be matched.
+ *
+ * The producer's own comment on `unevaluated` reads: *"'Your condition was not
+ * checked' is assertable HERE AND NOWHERE ELSE."* So a correctly evaluated
+ * over-budget result was being told its limit could not be checked.
+ *
+ * ⚠ AND THE OPPOSITE IS EQUALLY BANNED. A sentence naming a BREACH would be the
+ * same defect with the sign flipped, false on the other two states (trap 22b).
+ * The clause therefore states what the verdict did, and nothing about what was
+ * or was not measured.
+ *
+ * ⚠ THE PRECISE CAUSE CANNOT BE DERIVED HERE. `analysis_state` carries
+ * `run_state`, `readiness`, `leader_claim`, `robustness`, the three usability
+ * flags, `requires_rerun`, `blocked_unusable` and `contradictions` — and no
+ * constraint-verdict state. Naming which of the three applies needs CEE to emit
+ * it; inferring it is what this corrects.
+ *
+ * ⭐ A MUTANT KIT COULD NOT HAVE CAUGHT THIS. All four of #1618's mutants bit.
+ * They measure whether the test can DETECT a change, never whether the
+ * EXPECTATION is right (trap 13c) — and the expectation had been written from
+ * one run's prose instead of from the producer's semantics.
  */
 const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   constraint_verdict_withheld:
-    'One limit on your model could not be checked, which is why no option is named here.',
+    'The check against the limits you set does not support putting one option forward.',
 }
 
 /**
@@ -192,7 +227,21 @@ export function leaderWithholdCause(producerReason: string | null | undefined): 
   if (typeof producerReason !== 'string') return null
   const trimmed = producerReason.trim()
   if (trimmed === '') return null
-  return LEADER_WITHHOLD_CAUSE[trimmed] ?? null
+  /**
+   * ⚠ `hasOwnProperty.call`, NOT a bare index read — and the producer already
+   * documented this exact hazard for this exact kind of map
+   * (`orchestrator-v5/compose/analysis-state-v1.ts:255-270`, whose own remedy is
+   * this call, adding that "new code diverging from it is how one subsystem ends
+   * up with two answers to one question"). `withheld_reason` is
+   * `z.string().optional()` at the contract, so `'toString'` is an ADMISSIBLE
+   * producer token: a bare read returned a prototype Function, which is truthy,
+   * so the `?? null` never fired and the surface would have rendered it.
+   * Measured, not hypothesised — the pre-fix spec failed with
+   * `expected [Function Object] to be null`.
+   */
+  return Object.prototype.hasOwnProperty.call(LEADER_WITHHOLD_CAUSE, trimmed)
+    ? (LEADER_WITHHOLD_CAUSE[trimmed] as string)
+    : null
 }
 
 export const ANALYSIS_NEW_COPY = {
