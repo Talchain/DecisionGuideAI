@@ -360,6 +360,32 @@ export const CANVAS_LABEL_SCALE_MARKER_TESTID = 'canvas-label-scale-sync'
 export const CANVAS_LABEL_SCALE_MARKER_SELECTOR = `[data-testid="${CANVAS_LABEL_SCALE_MARKER_TESTID}"]`
 
 /**
+ * ⭐⭐ THE MARK ON A CARD BODY THAT IS COLLAPSED BY LEVEL-OF-DETAIL — named here
+ * for the same reason the label-scale marker is: it has a WRITER and a READER in
+ * different modules, and a literal in each is a hand-maintained mirror (trap 12).
+ *
+ * WRITER: `BaseNode` puts it on the body wrapper whenever `lodBodyBlanked`, i.e.
+ * at the `line` rung with a reduced line to stand in for the body. It is paired
+ * with `LOD_BLANKED_BODY_STYLE`, whose `height` is ONE LINE rather than the
+ * body's own — the card is genuinely short at that rung, not merely invisible.
+ *
+ * READER: `measureNodeHeightsAtLabelBound` must UNDO that collapse for the
+ * duration of its read. Its contract is "the height this card has AT THE LABEL
+ * BOUND", and the bound is the scale at `LABEL_LEGIBLE_ZOOM` — a zoom at which
+ * the body is VISIBLE and at full height. Measuring a collapsed body and calling
+ * the answer "the height at the bound" is not an approximation of that contract,
+ * it is a different number.
+ *
+ * ⚠ THE ATTRIBUTE IS THE CONTRACT, NOT ITS VALUE. Several specs assert the
+ * rendered value `"true"`; the selector below matches on PRESENCE, so a future
+ * value change cannot silently unbind the reader.
+ */
+export const LOD_BLANKED_BODY_ATTR = 'data-lod-hidden'
+
+/** The selector that finds a collapsed card body. Derived, never restated. */
+export const LOD_BLANKED_BODY_SELECTOR = `[${LOD_BLANKED_BODY_ATTR}]`
+
+/**
  * ⭐⭐ THE CEILING THE AUTO-FIT MUST NOT CROSS — the other end of the band.
  *
  * `LABEL_LEGIBLE_ZOOM` stops the product parking the camera somewhere too small

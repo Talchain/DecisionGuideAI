@@ -52,6 +52,7 @@ import {
   CANONICAL_LAYOUT_WIDTH,
   CANVAS_MARGIN,
   TIER_BY_KIND,
+  cardWidthCapForTier,
   LAYOUT_NODE_GAP,
   LAYOUT_LAYER_GAP,
 } from './nodeLayoutConstants'
@@ -182,6 +183,247 @@ export function solveLayoutNodeWidth(
   return planLayoutBox(maxTierCountOf(unlocked), direction === 'DOWN').elkBoxW - LAYOUT_PADDING_X
 }
 
+function tierOccupancyOf(unlocked: Node[]): Map<number, number> {
+  const occ = new Map<number, number>()
+  for (const n of unlocked) {
+    const t = tierOf(n)
+    occ.set(t, (occ.get(t) ?? 0) + 1)
+  }
+  return occ
+}
+
+/**
+ * ⭐⭐ THE ELK BOX WIDTH FOR ONE TIER — the single authority, called by BOTH
+ * `layoutGraph` (which places on it) and {@link solveLayoutCardWidths} (which
+ * tells the card what to draw at). Two copies of this arithmetic is exactly the
+ * hand-maintained mirror that made the previous attempt render at one width and
+ * lay out at another.
+ *
+ * The bound is `widestRowW`: the board is already as wide as its widest tier's
+ * row, so a tier with fewer cards has slack against that width BY CONSTRUCTION
+ * and spending it cannot make the board wider. The widest tier is at the bound
+ * and keeps today's width exactly.
+ */
+function tierBoxWidth(
+  tier: number,
+  occupancy: Map<number, number>,
+  elkBoxW: number,
+  splits: boolean,
+  gap: number,
+  maxTierCount: number,
+): number {
+  // The row-packing regime already clamped the box to `NODE_LAYOUT_MIN_W`
+  // because the tier does not fit on one row. Widening a card whose tier is
+  // being wrapped makes the wrap worse, so the rule is off here entirely.
+  if (splits) return elkBoxW
+  const widestRowW = maxTierCount * elkBoxW + Math.max(0, maxTierCount - 1) * gap
+  const count = Math.max(1, occupancy.get(tier) ?? 1)
+  const shareOfWidestRow = count > 1
+    ? Math.floor((widestRowW - (count - 1) * gap) / count)
+    : widestRowW
+  const cap = cardWidthCapForTier(tier) + LAYOUT_PADDING_X
+  // ⛔ NEVER NARROWER THAN TODAY. The three character budgets that cut text
+  // inside these cards were derived against `NODE_CARD_MAX_W`; a narrower box
+  // would silently re-open the truncation they exist to close.
+  return Math.max(elkBoxW, Math.min(cap, shareOfWidestRow))
+}
+
+/**
+ * ⭐⭐ THE WIDTH EACH KIND OF CARD MUST DRAW AT for this graph's positions to be
+ * right — the per-kind sibling of {@link solveLayoutNodeWidth}, and derived for
+ * the same reason it is: the width is NOT independent information.
+ *
+ * It is a pure function of the tier occupancies, the direction, `preserveLocked`
+ * and the node spacing — every one of which already survives a reload (the
+ * nodes in the autosave; `direction`, `respectLocked` and `nodeSpacing` in the
+ * layout store's persisted options). So it is ALREADY persisted, implicitly and
+ * exactly, and storing a copy beside its own inputs would be the mirror this
+ * estate keeps paying for (trap 12). Deriving also repairs every model saved
+ * before this change, with no migration.
+ *
+ * ⚠ IT RETURNS CARD WIDTHS, NOT BOX WIDTHS — `LAYOUT_PADDING_X` is already
+ * subtracted, so the value is directly what `BaseNode` renders at. Getting that
+ * wrong by one padding is how a card ends up flush against its neighbour.
+ */
+export function solveLayoutCardWidths(
+  nodes: Node[],
+  options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
+): Record<string, number> {
+  const { direction = 'DOWN', preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
+  if (unlocked.length === 0) return {}
+  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
+  const maxTierCount = maxTierCountOf(unlocked)
+  const { elkBoxW, splits } = planLayoutBox(maxTierCount, direction === 'DOWN')
+  const occupancy = tierOccupancyOf(unlocked)
+  const widths: Record<string, number> = {}
+  for (const kind of Object.keys(TIER_BY_KIND)) {
+    widths[kind] =
+      tierBoxWidth(TIER_BY_KIND[kind], occupancy, elkBoxW, splits, gap, maxTierCount) -
+      LAYOUT_PADDING_X
+  }
+  return widths
+}
+
+/**
+ * ⭐⭐ THE WIDTHS A RESTORED BOARD CAN ACTUALLY AFFORD — bounded by the stride
+ * its own SAVED POSITIONS leave, not by the row a fresh layout would build.
+ *
+ * ⛔⛔ THE DEFECT THIS CLOSES, AND IT WAS FOUND BY AN INDEPENDENT REVIEW (Codex,
+ * 16 Sep 2026) AFTER I HAD ALREADY SHIPPED THE FIX IT BREAKS.
+ *
+ * `useRestoredLayoutWidth` exists to NARROW a restored card to match the stride
+ * beneath it: cards laid out at 230px came back at the 320px maximum and
+ * overlapped. Per-tier widths inverted that direction — `solveLayoutCardWidths`
+ * can return a width WIDER than the uniform one a saved board was laid out at,
+ * so the very hook that repaired overlap began to cause it.
+ *
+ * Executed contrast, old `layoutGraph` composed with the candidate solver —
+ * 3 options / 5 factors, old uniform width **336**, options at x **416 / 808 /
+ * 1200**:
+ *
+ *     saved gap        56px
+ *     restored at 440  gap becomes  -48px      ← a 48px overlap, on reopen
+ *
+ * ⭐ AND THE HOOK'S OWN HEADER STATES THIS FAILURE ONE CASE EARLIER. Explaining
+ * why a layout that has run must win, it says a derived width against unmoved
+ * positions *"would cause the very overlap it exists to remove"*. The per-kind
+ * limb was added four lines below that paragraph without applying its reasoning
+ * to itself — the remedy scoped to the instance while its sibling sat in the
+ * same function, under a header that had already named the mechanism.
+ *
+ * ⭐ THE RULE IS THE ONE THE FRESH PATH ALREADY USES, POINTED AT THE RIGHT BOARD.
+ * `tierBoxWidth` lets a tier spend only its share of the widest row the board
+ * ALREADY has. Here the board that already exists is the SAVED one, so the bound
+ * is measured from the saved positions: per tier, the smallest centre-to-centre
+ * distance between adjacent cards sharing a row, minus the gap the layout
+ * guarantees. Reusing the rule rather than inventing a second one is deliberate —
+ * two rules for one question is how the two authorities in this hook disagreed.
+ *
+ * ⚠ A TIER WITH NO TWO CARDS IN ONE ROW IS NOT BOUNDED, AND THAT IS THE POINT,
+ * NOT AN OVERSIGHT. Stride is only measurable where there is a same-row
+ * neighbour — and a card with no same-row neighbour cannot overlap one. So the
+ * decision and goal tiers (one card each on every shipped starter) keep their
+ * full widened width, which is where most of the visible gain was. The bound
+ * bites exactly where overlap is possible and nowhere else.
+ *
+ * ⚠ AND IT IS A BOUND, NOT A REVERT. A board saved AFTER the per-tier change
+ * carries the wider stride in its own positions, so the measurement returns the
+ * wider cap and the widths land unchanged. An old board keeps its old width
+ * until something lays it out again.
+ *
+ * ⛔ NOTHING MOVES. This returns widths only. The hook's standing promise — *"it
+ * changes how wide a card DRAWS; it never moves a node"* — is why locked and
+ * manually-placed nodes are safe, and re-laying out on load was rejected for that
+ * reason long before this defect. Repairing width by rewriting position would
+ * trade a bounded overlap for silently discarding a user's own arrangement.
+ */
+/**
+ * ⛔⛔ TWO CARDS SHARE A ROW WHEN THEIR Y VALUES ARE CLOSE, NOT WHEN THEY ARE
+ * EQUAL — and the first version of this file got that wrong.
+ *
+ * Found by independent review (Codex, 16 Sep 2026) on the first cut of
+ * `solveRestoredCardWidths`, which grouped rows by `Math.round(y)`. Its words,
+ * and they are the right summary: **"exact-y absence is not non-overlap."**
+ * Cards at y 300 / 301 / 302 fell into three single-member rows, no stride was
+ * measurable, the bound lifted, and the board overlapped by 48px — including a
+ * genuinely locked middle card, which is the one that cannot move out of the way.
+ *
+ * ⛔ AND THE CODEBASE ALREADY SAID SO, IN THIS FILE. `normaliseTierRows` speaks
+ * of *"preserving ELK's incidental intra-tier Y variation (caused by measured
+ * node-height differences)"* — i.e. same-row cards are expected NOT to share an
+ * exact y. An exact-equality grouping was refuted by a comment a few hundred
+ * lines below it.
+ *
+ * ⭐ THE TOLERANCE IS DERIVED, AND IT ERRS IN THE SAFE DIRECTION ON PURPOSE.
+ * A genuine sub-row is placed a whole card height plus `subRowSpacing` away, and
+ * `subRowSpacing` is `round(effectiveLayerSpacing * 0.6)` with
+ * `effectiveLayerSpacing >= LAYOUT_LAYER_GAP`. So the smallest separation two
+ * DIFFERENT rows can have is bounded below by that, while incidental variation
+ * within one row is a few pixels.
+ *
+ * The two mistakes are not symmetric, which is what decides the direction:
+ * treating two rows as one TIGHTENS the cap (cards draw narrower than they could
+ * — no overlap), while treating one row as two LIFTS it (the defect above). So
+ * the predicate is deliberately generous about what counts as a row.
+ */
+function shareARow(a: Node, b: Node): boolean {
+  const ay = a.position?.y ?? 0
+  const by = b.position?.y ?? 0
+  // ⭐ FIRST, THE DIRECT EVIDENCE: do the two cards actually overlap vertically?
+  // Where heights are known this answers the question outright and needs no
+  // tolerance at all — and it closes the gap the tolerance alone leaves, which
+  // is two same-row cards whose heights differ by more than `rowEps`.
+  const ah = (a as { measured?: { height?: number } }).measured?.height
+  const bh = (b as { measured?: { height?: number } }).measured?.height
+  if (typeof ah === 'number' && ah > 0 && typeof bh === 'number' && bh > 0) {
+    if (ay < by + bh && by < ay + ah) return true
+  }
+  // Then the tolerance, for restored nodes that carry no measurement — which is
+  // the common case on the path this function exists for.
+  const rowEps = Math.round(LAYOUT_LAYER_GAP * 0.6)
+  return Math.abs(ay - by) < rowEps
+}
+
+export function solveRestoredCardWidths(
+  nodes: Node[],
+  options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
+): Record<string, number> {
+  const fresh = solveLayoutCardWidths(nodes, options)
+  // ⚠ `preserveLocked` is deliberately NOT read here, only forwarded above. The
+  // stride is measured over EVERY node (see below), so destructuring it would be
+  // an unused binding — and the typecheck gate says so, which is how the first
+  // draft of this function was caught.
+  const { spacing = LAYOUT_NODE_GAP } = options
+  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
+  // ⚠ The bound is measured over EVERY node, including locked ones. A locked
+  // card is still a same-row neighbour to collide with, so excluding it here
+  // would measure a stride the board does not actually have.
+  const strideByTier = new Map<number, number>()
+  const byTier = new Map<number, Node[]>()
+  for (const n of nodes) {
+    const tier = tierOf(n)
+    const group = byTier.get(tier)
+    if (group === undefined) byTier.set(tier, [n])
+    else group.push(n)
+  }
+  for (const [tier, group] of byTier) {
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        if (!shareARow(group[i], group[j])) continue
+        const stride = Math.abs((group[i].position?.x ?? 0) - (group[j].position?.x ?? 0))
+        // A zero stride is two cards at the same x — already degenerate, and not
+        // evidence about how much width the row can afford.
+        if (stride <= 0) continue
+        const seen = strideByTier.get(tier)
+        if (seen === undefined || stride < seen) strideByTier.set(tier, stride)
+      }
+    }
+  }
+  if (strideByTier.size === 0) return fresh
+  const bounded: Record<string, number> = {}
+  for (const kind of Object.keys(fresh)) {
+    const stride = strideByTier.get(TIER_BY_KIND[kind])
+    if (stride === undefined) {
+      bounded[kind] = fresh[kind]
+      continue
+    }
+    // Never widen a card past what its own saved row leaves it.
+    //
+    // ⚠ The invariant that makes this safe is `cap <= stride`, which holds for
+    // ANY non-negative gap — so a saved board laid out at a different spacing
+    // than the one persisted today is still bounded, merely less tightly.
+    //
+    // ⚠ A non-positive cap is not a width, it is an unusable measurement (two
+    // cards closer together than the gap). Fall through to the fresh answer and
+    // leave that board to the single-width limb, rather than returning a zero
+    // that every consumer would have to special-case.
+    const cap = stride - gap
+    bounded[kind] = cap > 0 ? Math.min(fresh[kind], cap) : fresh[kind]
+  }
+  return bounded
+}
+
 /**
  * Lay out a decision graph using ELK + the deterministic semantic pipeline.
  *
@@ -201,7 +443,14 @@ export async function layoutGraph(
   nodes: Node[],
   edges: Edge[],
   options: LayoutOptions = {}
-): Promise<{ nodes: Node[]; edges: Edge[]; layoutNodeWidth: number }> {
+): Promise<{
+  nodes: Node[]
+  edges: Edge[]
+  layoutNodeWidth: number
+  /** Card width per node KIND — what `BaseNode` must draw at. See
+   *  {@link solveLayoutCardWidths}; `{}` means "no better information". */
+  layoutCardWidths: Record<string, number>
+}> {
   const {
     direction = 'DOWN',
     // ⭐⭐ DEFAULT HORIZONTAL NODE-NODE SPACING — 15 → 32 (12 Sep 2026).
@@ -244,7 +493,7 @@ export async function layoutGraph(
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
 
   if (unlocked.length === 0) {
-    return { nodes, edges, layoutNodeWidth: NODE_CARD_MAX_W }
+    return { nodes, edges, layoutNodeWidth: NODE_CARD_MAX_W, layoutCardWidths: {} }
   }
 
   // I.3 perf: O(E) edge filtering via Set instead of O(E*V) double `.some` scan.
@@ -252,6 +501,33 @@ export async function layoutGraph(
   for (const n of unlocked) unlockedIds.add(n.id)
 
   const maxTierCount = maxTierCountOf(unlocked)
+  /**
+   * ⭐⭐ A TIER MAY USE WIDTH THE BOARD IS ALREADY PAYING FOR.
+   *
+   * Paul, 15 Sep: *"They don't all have to be the same width. There are always
+   * less options, and there's more in it, so making them wider would make
+   * sense. I also think the question or initial node and the nodes can be a lot
+   * wider."* The measurement agrees — median characters per card, on the
+   * `pricing-model` starter:
+   *
+   *     option 250 · factor 141 · decision 122 · goal 102 · risk 86 · outcome 73
+   *
+   * An option carried 3.4x an outcome's content in an identical 336px box.
+   *
+   * ⭐ THE BOUND IS DERIVED, NOT CHOSEN, AND THAT IS THE WHOLE ARGUMENT. The
+   * board is already as wide as its WIDEST row. A tier with fewer cards in it
+   * has slack against that width by construction, so letting it spend the slack
+   * costs the board nothing — there is nothing wider for it to become. A tier
+   * already AT the bound (the widest one, by definition) keeps exactly today's
+   * width, so no graph gets wider and none of the existing row arithmetic moves.
+   *
+   * ⚠ AND IT IS OFF ENTIRELY IN THE ROW-PACKING REGIME (`splits`). There the
+   * box is already clamped to `NODE_LAYOUT_MIN_W` because the tier does not fit
+   * on one row; widening a card whose tier is being wrapped would make the wrap
+   * worse. `splits` is read, never re-derived from the width — see
+   * `planLayoutBox`.
+   */
+  const tierOccupancy = tierOccupancyOf(unlocked)
 
   const availableWidth = CANONICAL_LAYOUT_WIDTH
   const isDownLayout = direction === 'DOWN'
@@ -266,6 +542,9 @@ export async function layoutGraph(
     : null
 
   const nodeW = elkBoxW - LAYOUT_PADDING_X
+
+  const tierBoxW = (tier: number): number =>
+    tierBoxWidth(tier, tierOccupancy, elkBoxW, splits, gap, maxTierCount)
 
   const getNodeDimensions = (node: Node): { width: number; height: number } => {
     const measured = (node as unknown as { measured?: { width?: number; height?: number } }).measured
@@ -285,7 +564,8 @@ export async function layoutGraph(
       ?? measured?.height ?? node.height ?? defaultSize.height
     const height = Math.max(40, Math.round(rawHeight) + LAYOUT_PADDING_Y)
 
-    return { width: elkBoxW, height }
+    const width = tierBoxW(tierOf(node))
+    return { width, height }
   }
 
   const ELK = (await import('elkjs/lib/elk.bundled.js')).default
@@ -415,7 +695,15 @@ export async function layoutGraph(
     )
   }
 
-  return { nodes: updatedNodes, edges, layoutNodeWidth: nodeW }
+  // ⭐ ONE derivation, not two. The render width comes from the SAME
+  // `tierBoxWidth` the ELK children were built with, so the card cannot draw at
+  // a width the placement did not allow for.
+  const layoutCardWidths: Record<string, number> = {}
+  for (const kind of Object.keys(TIER_BY_KIND)) {
+    layoutCardWidths[kind] = tierBoxW(TIER_BY_KIND[kind]) - LAYOUT_PADDING_X
+  }
+
+  return { nodes: updatedNodes, edges, layoutNodeWidth: nodeW, layoutCardWidths }
 }
 
 // ---------------------------------------------------------------------------
@@ -626,18 +914,28 @@ function centreRowsOnSpine(
       : 0
   }
 
-  const stride = elkBoxW + gap
   const allIds = [...positionMap.keys()]
   const rows = groupByYRow(allIds, positionMap)
 
+  /**
+   * ⚠ THE STRIDE IS THE ROW'S OWN WIDTHS, NOT ONE GLOBAL BOX. This read
+   * `rowIds.length * elkBoxW` and advanced by a constant `elkBoxW + gap`, which
+   * is correct only while every card on the board is identically wide. Tiers
+   * now carry different widths (see `tierBoxWidth`), so a uniform stride would
+   * leave a wide row's cards overlapping and a narrow row's gapped. Summing the
+   * actual widths reduces EXACTLY to the old arithmetic when they are uniform,
+   * which is why the 83 existing geometry pins still hold.
+   */
   for (const rowIds of rows.values()) {
     if (rowIds.length === 0) continue
-    const rowWidth = rowIds.length * elkBoxW + (rowIds.length - 1) * gap
-    const startX = graphSpineX - rowWidth / 2
-    for (let i = 0; i < rowIds.length; i++) {
-      const p = positionMap.get(rowIds[i])
+    let rowWidth = (rowIds.length - 1) * gap
+    for (const id of rowIds) rowWidth += widthOf(id)
+    let x = graphSpineX - rowWidth / 2
+    for (const id of rowIds) {
+      const p = positionMap.get(id)
       if (!p) continue
-      positionMap.set(rowIds[i], { x: startX + i * stride, y: p.y })
+      positionMap.set(id, { x, y: p.y })
+      x += widthOf(id) + gap
     }
   }
 }

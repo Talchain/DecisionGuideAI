@@ -17,6 +17,8 @@ import { measureNodeHeightsAtLabelBound } from '../utils/measureNodeHeightsAtLab
 import {
   CANVAS_LABEL_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_TESTID,
+  LOD_BLANKED_BODY_ATTR,
+  LOD_BLANKED_BODY_SELECTOR,
   MAX_LABEL_COUNTER_SCALE,
 } from '../utils/zoomLegibility'
 
@@ -45,6 +47,10 @@ function mountCanvas(
     // Reading offsetHeight is what forces layout in a real browser; here it is
     // the hook that lets the spec observe WHAT SCALE WAS IN FORCE at read time.
     Object.defineProperty(el, 'offsetHeight', {
+      // `configurable` so a test that needs to observe something OTHER than the
+      // scale at read time (the LOD body cases below observe the inline height)
+      // can re-point this hook rather than duplicating the whole mount.
+      configurable: true,
       get() {
         scaleSeen.push(root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR))
         return heights[id] ?? 0
@@ -143,5 +149,97 @@ describe('measureNodeHeightsAtLabelBound', () => {
     stray.dataset.testid = CANVAS_LABEL_SCALE_MARKER_TESTID
     document.body.appendChild(stray)
     expect(measureNodeHeightsAtLabelBound().size).toBe(0)
+  })
+
+  // ── THE LOD BODY COLLAPSE, RELEASED FOR THE READ (16 Sep 2026) ────────────
+  //
+  // `LOD_BLANKED_BODY_STYLE` collapses a blanked card body to ONE LINE. Below
+  // `LABEL_LEGIBLE_ZOOM` that is what the DOM holds — and it is the DEFAULT on
+  // three of the five shipped starters, whose fit zoom is 0.4935/~0.35. This
+  // module's contract is the height AT THE BOUND, where the body is visible and
+  // full height, so it must release that collapse while it reads or it reserves
+  // a stride the card overflows the moment the reader zooms in. Measured in
+  // Chromium before this was closed: worst per-card delta 430px against 45px of
+  // sub-row slack (`e2e/geometry/heightVsZoom.measure.ts`).
+  //
+  // ⚠ jsdom performs no layout, so these pin the PROTOCOL — what is in force at
+  // read time, and what is left behind — exactly as the scale tests above do.
+  // The NUMBER is a browser question and is measured in the geometry harness.
+
+  /** Give a node a blanked body wrapper carrying the marker the measurer reads. */
+  function blankBody(root: HTMLElement, id: string, inlineHeight = 'calc(16px * var(--canvas-label-scale, 1))'): HTMLElement {
+    const node = root.querySelector(`.react-flow__node[data-id="${id}"]`) as HTMLElement
+    const body = document.createElement('div')
+    body.setAttribute(LOD_BLANKED_BODY_ATTR, 'true')
+    if (inlineHeight !== '') body.style.height = inlineHeight
+    node.appendChild(body)
+    return body
+  }
+
+  it('RELEASES the blanked body height while it reads', () => {
+    const seen: string[] = []
+    const root = mountCanvas(['a'], { a: 300 }, [])
+    const body = blankBody(root, 'a')
+    // Observe the inline height IN FORCE at the moment of the read, the same
+    // way the scale tests observe the custom property.
+    const node = root.querySelector('.react-flow__node') as HTMLElement
+    Object.defineProperty(node, 'offsetHeight', { get() { seen.push(body.style.height); return 300 } })
+
+    measureNodeHeightsAtLabelBound()
+
+    expect(seen, 'the collapsed body was still collapsed at read time — the map is the SHORT height, which is the defect this closes').toEqual(['auto'])
+  })
+
+  it('restores the blanked body height to its own value afterwards', () => {
+    const root = mountCanvas(['a'], { a: 300 }, [])
+    const body = blankBody(root, 'a')
+    measureNodeHeightsAtLabelBound()
+    // React owns this inline style and will not rewrite it until the rung
+    // flips, so a value left behind un-collapses the card silently.
+    expect(body.style.height).toBe('calc(16px * var(--canvas-label-scale, 1))')
+  })
+
+  it('restores an ABSENT body height to absent, not to a literal', () => {
+    const root = mountCanvas(['a'], { a: 300 }, [])
+    const body = blankBody(root, 'a', '')
+    measureNodeHeightsAtLabelBound()
+    expect(body.style.height).toBe('')
+    expect(body.getAttribute('style') ?? '').not.toContain('height')
+  })
+
+  it('touches ONLY marked bodies — an unmarked element keeps its height throughout', () => {
+    // ⭐ THE CONTRAST CONTROL whose expected answer DIFFERS (CLAUDE.md trap 13e).
+    // "Every height became auto" and "the marked height became auto" are
+    // different claims, and a measurer that blanket-cleared inline heights
+    // across the card would satisfy the first test above while corrupting every
+    // other element on the node. Only a probe that expects a NON-`auto` answer
+    // somewhere can tell them apart.
+    const seen: string[] = []
+    const root = mountCanvas(['a'], { a: 300 }, [])
+    const marked = blankBody(root, 'a')
+    const unmarked = document.createElement('div')
+    unmarked.style.height = '42px'
+    ;(root.querySelector('.react-flow__node') as HTMLElement).appendChild(unmarked)
+    const node = root.querySelector('.react-flow__node') as HTMLElement
+    Object.defineProperty(node, 'offsetHeight', {
+      get() { seen.push(`${marked.style.height}|${unmarked.style.height}`); return 300 },
+    })
+
+    measureNodeHeightsAtLabelBound()
+
+    expect(seen, 'the measurer reached past its own marker — an unmarked height was cleared').toEqual(['auto|42px'])
+    expect(unmarked.style.height).toBe('42px')
+  })
+
+  it('finds the body by the SHARED constant, which is what BaseNode writes', () => {
+    // ⚠ The writer and the reader live in different modules. If they ever stop
+    // agreeing on the attribute, the measurer simply finds nothing and silently
+    // returns to reserving the short height — with every test above still green,
+    // because they all mount the marker from this same constant. Binding to the
+    // rendered product is what makes the pair fail loud, and
+    // `BaseNode.lodQuietIsNoOp.spec.tsx` is where the card is actually rendered
+    // at the `line` rung; this asserts the constant those specs' literal means.
+    expect(LOD_BLANKED_BODY_ATTR).toBe('data-lod-hidden')
+    expect(LOD_BLANKED_BODY_SELECTOR).toBe(`[${LOD_BLANKED_BODY_ATTR}]`)
   })
 })

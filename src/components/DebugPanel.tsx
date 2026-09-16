@@ -444,9 +444,15 @@ export function DebugPanel() {
           title="Open Debug Panel"
           // The visible label read "Test", which named nothing this button
           // does — it expands DebugPanelV2. On staging the pill sits directly
-          // above the zoom controls (see `bottom: 200` above), so it reads as
-          // a product affordance. Label and accessible name now match the
-          // tooltip this button already carried.
+          // above the zoom controls (the `bottom` offset on the shell above),
+          // so it reads as a product affordance. Label and accessible name now
+          // match the tooltip this button already carried.
+          //
+          // ⚠ THIS SENTENCE NAMED `bottom: 200` AND THE CODE ABOVE SAYS 338 —
+          // stale by 138px, inside the file whose own docblock records that the
+          // offset had ALREADY gone stale once. Two numbers for one fact in one
+          // file is the hand-maintained mirror; the offset is named by SYMBOL
+          // here so a third drift cannot happen through this comment.
           aria-label="Open Debug Panel"
         >
           <span>Debug</span>

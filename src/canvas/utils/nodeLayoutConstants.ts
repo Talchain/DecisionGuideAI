@@ -733,3 +733,55 @@ export const TIER_BY_KIND: Record<string, number> = {
   risk:       3,
   goal:       5,
 }
+
+/**
+ * ⭐⭐ A CARD'S WIDTH CAP, BY TIER — because the tiers do not carry equal content.
+ *
+ * Paul, 15 Sep 2026: *"They don't all have to be the same width. There are
+ * always less options, and there's more in it, so making them wider would make
+ * sense. I also think the question or initial node and the nodes can be a lot
+ * wider, so we can fit more content in."*
+ *
+ * ## The measurement, not an impression
+ *
+ * Median characters per card, counted on the `pricing-model` starter:
+ *
+ *     option 250 · factor 141 · decision 122 · goal 102 · risk 86 · outcome 73
+ *
+ * An option carries **3.4x an outcome's content** and both were drawn in the
+ * same 336px box. That is the defect: one number was serving six populations.
+ *
+ * ## ⭐ WHY WIDENING THESE COSTS THE BOARD NOTHING — the bound is DERIVED
+ *
+ * These are CAPS, not widths. `layoutGraph` clamps each tier to the widest row
+ * the board ALREADY has (`maxTierCount * elkBoxW + gaps`), so a tier may only
+ * grow into width the board is already paying for. On `pricing-model` that
+ * resolves to Question 560, options ~431, factors 336, outcomes 336, goal 480 —
+ * and the board's overall width does not move by a single pixel. A tier that is
+ * crowded enough to be at the bound keeps exactly today's width.
+ *
+ * ⛔ NOTHING HERE IS BELOW {@link NODE_CARD_MAX_W}, DELIBERATELY. Three places
+ * on this canvas cut text by CHARACTER COUNT inside a box sized in PIXELS (see
+ * `MAX_CHARS_PER_FACTOR_ROW` above). Those budgets were derived against 336; a
+ * cap *below* 336 would silently re-open the truncation they exist to close.
+ * Widening is safe in that direction — a character budget derived for a
+ * narrower box merely under-uses a wider one.
+ *
+ * ⚠ KEYED BY TIER, NOT BY KIND, AND THAT IS LOAD-BEARING. Cards in one row must
+ * share a width or the row's stride arithmetic has no single answer, and a row
+ * IS a tier (`TIER_BY_KIND`). `factor`/`action`/`constraint` share tier 2 and
+ * `outcome`/`risk` share tier 3, so they necessarily share a cap.
+ */
+export const CARD_W_CAP_BY_TIER: Readonly<Record<number, number>> = {
+  0: 560, // decision — the Question. Paul: "a lot wider". Always alone in its row.
+  1: 440, // option — the heaviest content of any populated tier (median 250 chars).
+  2: 380, // factor / action / constraint — median 141, and it carries a value row.
+  3: NODE_CARD_MAX_W, // outcome / risk — median 86/73. Widening these buys nothing.
+  5: 480, // goal — alone in its row, and it carries the target sentence.
+}
+
+/** The cap for a tier, defaulting to today's single width for any tier absent
+ *  from the map — "no better information", never zero. */
+export function cardWidthCapForTier(tier: number): number {
+  return CARD_W_CAP_BY_TIER[tier] ?? NODE_CARD_MAX_W
+}

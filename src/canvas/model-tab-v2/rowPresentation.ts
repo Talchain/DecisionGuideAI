@@ -43,7 +43,7 @@ import type {
   ModelGroupId,
   RepairQueue,
 } from './types'
-import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL, decisionLabelIsUnwritten } from '../domain/vocabulary'
+import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL, MODEL_GROUP_TITLE, decisionLabelIsUnwritten } from '../domain/vocabulary'
 import { AlertTriangle, CircleDashed, HelpCircle, Split, Target } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -129,11 +129,11 @@ export const REPAIR_QUEUE: Record<RepairQueue['id'], RepairQueue> = {
  * replaced the one affordance that lived there.
  */
 export const GROUP_TITLE: Record<ModelGroupId, string> = {
-  goal: 'Goal',
-  options: 'Options',
-  factors: 'Factors',
-  'outcomes-risks': 'Outcomes & risks',
-  relationships: 'Relationships',
+  goal: MODEL_GROUP_TITLE.goal,
+  options: MODEL_GROUP_TITLE.options,
+  factors: MODEL_GROUP_TITLE.factors,
+  'outcomes-risks': MODEL_GROUP_TITLE.outcomesRisks,
+  relationships: MODEL_GROUP_TITLE.relationships,
 }
 
 /**

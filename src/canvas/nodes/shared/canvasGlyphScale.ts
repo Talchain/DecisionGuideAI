@@ -125,6 +125,51 @@ export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Ob
 })
 
 /**
+ * The bottom-LEFT mirror of {@link CANVAS_CORNER_OFFSET_CLASSES}, and it exists
+ * because `ConstraintBadge` was never migrated when `EvidenceGapBadge` was.
+ *
+ * ⛔ WHAT THAT COST, in numbers rather than in principle. It was written
+ * `-bottom-1.5 -left-1.5 w-3 h-3` around a `size={7}` glyph — all four raw CSS
+ * px inside a transformed viewport. At the settle zoom (0.5) the user got a
+ * **6px circle holding a 3.5px glyph**, under this file's own 10px legibility
+ * floor, and a **10px hit target** against the 24px WCAG 2.2 AA minimum this
+ * file exports as `MIN_TARGET_RENDERED_PX`. Not a judgement call — a constant
+ * that already lives here, unapplied to one badge.
+ *
+ * ⚠ SEPARATE LITERALS, NOT AN ASSEMBLED STRING. Tailwind scans source text; a
+ * class built at runtime from a side and a number emits no CSS at all, which
+ * is why this is a second frozen map rather than a `side` parameter.
+ */
+/**
+ * ⭐⭐ THE TOP-RIGHT CORNER STACK'S OWN ANCHOR — exported so the component and
+ * the three specs that pin it read ONE string instead of four copies.
+ *
+ * ⛔ IT WAS `-top-2 -right-2`, AND THE `-top-2` HALF WAS A DEFECT NOBODY COULD
+ * SEE ABOVE ZOOM 1. Eight unscaled px anchoring content that carries
+ * `--canvas-label-scale`: at the settle zoom the `Needs input` pill grows to
+ * ~34px against a fixed −8px offset and its lower third lands on the card
+ * header's provenance mark. Paul's 15 Sep manual test caught it on four cards.
+ *
+ * `bottom-full` anchors to the element's OWN height, so the band sits above the
+ * card at every scale and the collision cannot recur — derived, rather than a
+ * second hand-set number to keep in step with the first.
+ *
+ * ⚠ THREE SPECS PINNED THE OLD LITERAL (`BaseNode.cornerStack`, `FactorNode`,
+ * `OptionNode.leadingPillCornerStack`). Each was asserting the MEASURING STICK,
+ * not the property it names in its own title — that the stack owns the corner
+ * and its children carry no positioning of their own. They now read this
+ * constant, so the next legitimate move of this anchor is a one-line change
+ * and the invariant they actually exist for keeps biting.
+ */
+export const CANVAS_CORNER_STACK_CLASSES =
+  'absolute bottom-full right-[-8px] mb-[2px] z-10 flex items-center gap-1'
+
+export const CANVAS_CORNER_OFFSET_CLASSES_LEFT: Readonly<Record<6 | 12, string>> = Object.freeze({
+  6: 'bottom-[calc(-6px*var(--canvas-label-scale,1))] left-[calc(-6px*var(--canvas-label-scale,1))]',
+  12: 'bottom-[calc(-12px*var(--canvas-label-scale,1))] left-[calc(-12px*var(--canvas-label-scale,1))]',
+})
+
+/**
  * Positive `bottom`/`right` insets for a control pinned inside a card corner.
  *
  * ⚠ THESE DO **NOT** CARRY THE COUNTER-SCALE, AND THAT ASYMMETRY IS THE POINT.

@@ -4579,7 +4579,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       // No canvas/viewport argument, deliberately: the canonical layout has no
       // runtime input (founder ruling R1). See `utils/layout.ts`'s header.
-      const { nodes: layoutedNodes, layoutNodeWidth } = await layoutGraph(
+      const { nodes: layoutedNodes, layoutNodeWidth, layoutCardWidths } = await layoutGraph(
         nodes,
         edges,
         {
@@ -4606,6 +4606,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       if (!isCurrentGen()) return { laidOut: false }
 
       layoutOptions.setLayoutNodeWidth(layoutNodeWidth)
+      layoutOptions.setLayoutCardWidths(layoutCardWidths)
       set({
         nodes: layoutedNodes,
         layoutVersion: get().layoutVersion + 1,

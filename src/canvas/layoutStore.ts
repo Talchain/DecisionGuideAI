@@ -21,6 +21,20 @@ interface LayoutOptions {
    * null = no layout has run yet; BaseNode uses its own default.
    */
   layoutNodeWidth: number | null
+  /**
+   * ⭐ Card width per node KIND, from the most recent layout pass (or derived
+   * on restore). `BaseNode` prefers this over {@link layoutNodeWidth}, which is
+   * ONE number for every card and so cannot express Paul's 15 Sep ruling that
+   * the tiers do not all need the same width.
+   *
+   * `null` = no layout has run and nothing has been derived; a kind ABSENT from
+   * the record means "no better information" and falls through to the single
+   * width. Session-only, exactly like `layoutNodeWidth`, and for the same
+   * reason: it is a pure function of inputs that already persist
+   * (`solveLayoutCardWidths`), so persisting it would be a mirror of its own
+   * inputs — and would repair nothing already saved.
+   */
+  layoutCardWidths: Readonly<Record<string, number>> | null
   setDirection: (dir: Direction) => void
   setNodeSpacing: (spacing: number) => void
   setLayerSpacing: (spacing: number) => void
@@ -28,6 +42,7 @@ interface LayoutOptions {
   setDensity: (preset: LayoutDensity) => void
   setRespectLocked: (respect: boolean) => void
   setLayoutNodeWidth: (width: number) => void
+  setLayoutCardWidths: (widths: Readonly<Record<string, number>>) => void
 }
 
 // v6: nodeSpacing reduced 20 → 15 (intended). The rendered gap stays at 20 px
@@ -154,6 +169,7 @@ function persist(state: Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layer
 export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   ...loadPersistedOptions(),
   layoutNodeWidth: null,
+  layoutCardWidths: null,
 
   setDirection: (dir) => {
     set({ direction: dir })
@@ -178,5 +194,8 @@ export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   },
   setLayoutNodeWidth: (width) => {
     set({ layoutNodeWidth: width })
+  },
+  setLayoutCardWidths: (widths) => {
+    set({ layoutCardWidths: widths })
   },
 }))

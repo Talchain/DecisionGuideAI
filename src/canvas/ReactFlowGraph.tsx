@@ -85,6 +85,7 @@ import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
 import { ghostOptionPrompt } from './utils/ghostTiers'
+import { TierLanes } from './nodes/TierLanes'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -2749,6 +2750,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             maxZoom={4}
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+            {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN — immediately after the ground and
+                before every node, so the bands sit BEHIND the cards they hold.
+                Fed `memoizedNodes`, the same array React Flow is rendering, so a
+                lane cannot describe a board the user is not looking at. */}
+            <TierLanes nodes={memoizedNodes} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
             {/* ⛔ TWO ARROWHEAD MARKERS STOOD HERE AND NOTHING EVER REFERENCED

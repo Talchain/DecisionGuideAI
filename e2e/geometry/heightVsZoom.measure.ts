@@ -8,32 +8,53 @@
  *
  * CONTROLS (a probe with no control proves nothing — CLAUDE.md trap 13).
  *
- * ASSERTED — these RED the run:
- *  · BOTH LOD ARMS POPULATED (`:336`, `:337`) — a settled sample on each side
- *    of the legibility threshold, or the direction check has nothing to compare.
- *  · NON-VACUITY (`:351`) — at least one card must CHANGE height across the
- *    threshold; a comparison that discriminates nothing cannot report that
- *    nothing grew.
- *  · COMPLETENESS (`:387`-`:388`) — every requested zoom visited, and cards
- *    measured at all.
+ * ⚠ LINE NUMBERS ARE DELIBERATELY NOT CITED BELOW. An earlier version of this
+ * list carried five of them; every one was stale within a day of the next edit,
+ * and a precise-looking wrong citation is worse than none (CLAUDE.md trap 12 —
+ * a hand-maintained mirror, inside the header that documents the guards). Each
+ * assertion carries its own reason at its own site; grep the named claim.
  *
- * NEVER ASSERTED — the POSITIVE control (`labelScale` `:179` AND `titleFont`
- * `:171`) and the CONTRAST control (`outsideFont` `:182`). All three are
- * emitted into `HZJSON` for a human to read; no `expect` requires any of them
- * to move, so the probe can stop exercising the mechanism and stay green.
- * Promoting them is real work, not a rename: it needs a settled-sample guard,
- * since an unsettled camera moves nothing.
+ * ASSERTED — these RED the run:
+ *  · BOTH LOD ARMS POPULATED — a settled sample on each side of the legibility
+ *    threshold, or the direction check has nothing to compare.
+ *  · NON-VACUITY — at least one card must CHANGE height across the threshold; a
+ *    comparison that discriminates nothing cannot report that nothing grew.
+ *  · NO CARD GREW across the threshold (`grew`).
+ *  · ⭐ THE RESERVATION IS STABLE ACROSS THE SWEEP (`worstBoundSpread` against
+ *    `SUB_ROW_SLACK`) — added 16 Sep 2026, and it is the assertion that catches
+ *    the LOD-collapse defect. It replaced `worstShrink < SUB_ROW_SLACK`, which
+ *    measured the LIVE delta: a PROXY that was sound only while the bound
+ *    measurer shared the live reading's LOD sensitivity, and which REDs on the
+ *    fix once it does not. Same constant, same bar, corrected subject — the
+ *    mutation check measured 430px with the measurer's release removed and 38px
+ *    with it present.
+ *  · NO CARD EXCEEDS ITS OWN RESERVATION (`reservedShortfall`) — a DIFFERENT
+ *    question, and it reads 0 on the defect too; see its own site.
+ *  · BOUND MAP POPULATED and LIVE HEIGHTS MOVED — the non-vacuity floor without
+ *    which the two assertions above are satisfied by an empty map.
+ *  · COMPLETENESS — every requested zoom visited, and cards measured at all.
+ *
+ * REPORTED, NOT ASSERTED — `worstShrink` (the live LOD delta, 430px at this
+ * tip) and `distinctBoundAnswers` (2, not 1: the measurer pins the label scale
+ * and releases the CSS body collapse, but cannot pin the React-gated LOD rung).
+ *
+ * NEVER ASSERTED — the POSITIVE control (`labelScale` AND `titleFont`) and the
+ * CONTRAST control (`outsideFont`). All three are emitted into `HZJSON` for a
+ * human to read; no `expect` requires any of them to move, so the probe can
+ * stop exercising the mechanism and stay green. Promoting them is real work,
+ * not a rename: it needs a settled-sample guard, since an unsettled camera
+ * moves nothing.
  *
  * ⚠ THREE DRAFTS OF THIS BLOCK WERE WRONG, AND THE THIRD WAS WRONG BECAUSE IT
  * WAS ELABORATE. It split the unasserted controls into "read" and "captured
  * and never read" and put `outsideFont` in the second. There is no such state
- * in this file: `sample()` spreads the capture at `:159`, `as Sample` strips
- * nothing at runtime, and `JSON.stringify` at `:391` reads EVERY own field —
- * so everything captured is emitted, and `titleFont`, which no draft named at
- * all, is in exactly the same state as the other two. ASSERTED vs NOT is the
- * whole distinction. Each round added more precise-sounding prose and each
- * round had a false limb (CLAUDE.md trap 22f: when revisions oscillate, the
- * approach is wrong, not the wording).
+ * in this file: `sample()` spreads the capture, `as Sample` strips nothing at
+ * runtime, and `JSON.stringify` reads EVERY own field — so everything captured
+ * is emitted, and `titleFont`, which no draft named at all, is in exactly the
+ * same state as the other two. ASSERTED vs NOT is the whole distinction. Each
+ * round added more precise-sounding prose and each round had a false limb
+ * (CLAUDE.md trap 22f: when revisions oscillate, the approach is wrong, not the
+ * wording).
  *
  * ⭐ AND THE SECOND HALF, WHICH IS THE ONE THE FIX ACTUALLY RESTS ON (review
  * note 1). "The layout ignores zoom" and "the number we feed the layout ignores
@@ -51,6 +72,15 @@
  * `line`. Worst single card
  * 16 px, against 45–64 px of designed row slack. Named and bounded, not
  * invariant; see the measurer's header.
+ *
+ * ⚠ RE-MEASURED 16 SEP 2026 ON `canvas/the-board-reads-as-one-argument`, because
+ * the paragraph above is a RECORDED NUMBER from another tip and this branch
+ * moved it. `LOD_BLANKED_BODY_STYLE` collapses the blanked body to one line, so
+ * the measurer's second answer went from 16 px to **430 px** on the worst card —
+ * past the 45 px sub-row slack, i.e. an overlap rather than a rounding.
+ * `measureNodeHeightsAtLabelBound` now RELEASES that collapse while it reads and
+ * the worst reservation spread is back to **38 px**. Both numbers are from the
+ * mutation check (release removed / release present), same tip, same starter.
  *
  * ⚠ AND THE FIRST VERSION OF THIS PROBE COULD NOT HAVE TOLD YOU THAT. It set the
  * camera and assumed it stayed: a run recorded `1.2 1 0.5 0.5 0.7 …` for a
@@ -348,6 +378,130 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ page
       else if (h < off) moved.push(id)
     }
   }
+
+  // Bounded against the TIGHTEST slack the layout ever leaves — the SUB-ROW gap,
+  // derived from the same two values `normaliseTierRows` uses, never restated.
+  const SUB_ROW_SLACK = Math.round(LAYOUT_DENSITY_PRESETS.comfortable.layerSpacing * 0.6) + LAYOUT_PADDING_Y
+
+  // The LIVE LOD delta — how much shorter a card DRAWS below the legibility
+  // floor. Reported, and deliberately NOT asserted; see the block below.
+  const worstShrink = Math.max(0, ...lodOn.flatMap((s) =>
+    Object.entries(s.heights).map(([id, h]) => (worstOff[id] === undefined ? 0 : worstOff[id] - h)),
+  ))
+
+  /**
+   * ⭐⭐ THE NUMBER THAT DECIDES OVERLAP IS THE ONE THE LAYOUT CONSUMES — and
+   * until 16 Sep 2026 this file asserted a PROXY for it instead.
+   *
+   * A card overlaps the row beneath it iff the stride the layout RESERVED for it
+   * is smaller than the height it DRAWS. `getNodeDimensions` reserves
+   * `heightAtLabelBound.get(id)` — PREFERRED over `measured.height` — so the
+   * reservation is `boundHeights`, which this probe already captures per sample
+   * and, until now, only printed.
+   *
+   * What was asserted instead was `worstShrink < SUB_ROW_SLACK`: the LIVE delta
+   * across the LOD threshold. That is a proxy, and it was a sound one while the
+   * bound measurer shared the live reading's LOD sensitivity — then "the card
+   * shrank by X" and "the reservation was X short" were the same number.
+   *
+   * ⛔ THEY ARE NO LONGER THE SAME NUMBER, AND THE PROXY NOW FAILS IN THE WRONG
+   * DIRECTION — it REDs on the fix. MEASURED at this branch's tip:
+   *
+   *     worstShrink (live delta)          430px   — the deliberate product change
+   *     worstBoundSpread                   38px   — how far the reservation moves,
+   *                                                against 45px of sub-row slack
+   *     worstReservedShortfall            <= 0    — no card exceeds its reservation
+   *
+   * ⚠ THAT MIDDLE ROW SAID `distinctBoundAnswers 1 — the reservation does NOT
+   * move` UNTIL 16 SEP 2026, AND IT WAS A FIRST DRAFT'S NUMBER LEFT STANDING.
+   * The reservation moves: two answers, 38px apart, because the measurer pins
+   * the label scale and releases the CSS collapse but cannot pin the
+   * React-gated LOD rung. The assertion below was corrected to a BOUND for
+   * exactly that reason — and this table, which is what a reader checks it
+   * against, kept the superseded claim three paragraphs away from its own
+   * correction. A precise-looking stale number inside the block that documents
+   * the fix is this estate's most-repeated defect (CLAUDE.md trap 12), and it
+   * is recorded here rather than quietly overwritten.
+   *
+   * The 430px is `LOD_BLANKED_BODY_STYLE` collapsing the blanked body to one
+   * line, which the founder asked for (cards were drawing ~370px tall carrying
+   * two lines of text). A card drawing SHORTER than its reserved row leaves
+   * WHITESPACE; it cannot overlap anything. The harm the old assertion named —
+   * "a layout computed while LOD is ON reserves the shorter height" — is now
+   * prevented at source: `measureNodeHeightsAtLabelBound` releases the collapse
+   * while it reads, so the reservation is the LOD-OFF height whatever the zoom.
+   *
+   * ⭐ SO THIS IS NOT A RELAXED TOLERANCE. The threshold is not widened, it is
+   * replaced by the property it was standing in for, asserted directly and at
+   * zero tolerance: no card may ever draw taller than what the layout reserved
+   * for it. That is strictly tighter than `< 45px` — it admits no shortfall at
+   * all — and it is measured on the map `getNodeDimensions` actually reads.
+   */
+  const reservedShortfall: string[] = []
+  for (const s of usable) {
+    for (const [id, live] of Object.entries(s.heights)) {
+      const reserved = s.boundHeights?.[id]
+      if (reserved === undefined) continue
+      if (live > reserved) reservedShortfall.push(`${id}: reserved ${reserved} < drew ${live} (+${live - reserved}) at zoom ${s.settled}`)
+    }
+  }
+  const worstReservedShortfall = Math.max(0, ...usable.flatMap((s) =>
+    Object.entries(s.heights).map(([id, live]) => {
+      const reserved = s.boundHeights?.[id]
+      return reserved === undefined ? 0 : live - reserved
+    }),
+  ))
+
+  /**
+   * ⭐ HOW FAR THE RESERVATION ITSELF MOVES ACROSS THE SWEEP — the ORIGINAL
+   * assertion of this block, re-pointed at the map the layout actually reads.
+   *
+   * ⚠ AND IT IS `< SUB_ROW_SLACK`, NOT `=== 1 distinct answer`. A first draft
+   * asserted perfect invariance and was WRONG — measured 2, and the module never
+   * claimed otherwise: `measureNodeHeightsAtLabelBound`'s header says outright
+   * that it pins the label SCALE but cannot pin the LOD RUNG, because the rung is
+   * read by React components and no re-render is available inside a synchronous
+   * measurement. What it CAN release is the CSS limb (the collapsed body); the
+   * residue is genuinely React-gated content and is the ±16px the header names.
+   *
+   * So the honest property is the one that header states and only stated — the
+   * residue is BOUNDED, and bounded by the tightest slack the layout leaves.
+   * That is asserted here rather than left in prose, against the SAME constant
+   * and the SAME threshold the live-delta assertion used before it. The subject
+   * moved from `heights` to `boundHeights`; the bar did not.
+   *
+   * MEASURED at this branch's tip: 430px before the measurer released the
+   * collapse, against 45px of slack — i.e. this REDs on the defect.
+   */
+  const boundSpread: Record<string, { min: number, max: number }> = {}
+  for (const s of usable) {
+    for (const [id, h] of Object.entries(s.boundHeights ?? {})) {
+      const seen = boundSpread[id]
+      if (seen === undefined) boundSpread[id] = { min: h, max: h }
+      else { seen.min = Math.min(seen.min, h); seen.max = Math.max(seen.max, h) }
+    }
+  }
+  const worstBoundSpread = Math.max(0, ...Object.values(boundSpread).map((b) => b.max - b.min))
+
+  const lod = {
+    lodOffSamples: lodOff.length, lodOnSamples: lodOn.length,
+    cardsThatMoved: [...new Set(moved)].length, cardsThatGrew: grew.length,
+    worstShrink, subRowSlack: SUB_ROW_SLACK,
+    worstReservedShortfall, reservedShortfallCount: reservedShortfall.length,
+    worstBoundSpread,
+  }
+
+  /**
+   * ⭐ LOGGED BEFORE THE ASSERTIONS, DELIBERATELY. Every assertion below throws,
+   * and a probe whose diagnostics sit AFTER them prints nothing on precisely the
+   * runs someone needs the numbers for — the attribution is then a whole cycle
+   * away. `modelRowEditReflow.measure.ts` logs before asserting for this exact
+   * reason and says so. (This cost a cycle on 16 Sep: the first red printed the
+   * failing threshold and none of the series behind it.)
+   */
+  // eslint-disable-next-line no-console
+  console.log('HZJSON ' + JSON.stringify({ starter: STARTER, vp: `${VP.width}x${VP.height}`, invariant, lod, series }))
+
   expect(
     [...new Set(moved)].length,
     'NO card changed height across the LOD threshold — the comparison is not discriminating, so "nothing grew" says nothing',
@@ -357,27 +511,52 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ page
     'a card is TALLER with LOD on than the tallest it reaches with LOD off. The layout reserves the LOD-off height, so this card now overflows its row band below the legibility floor — the defect this PR closes, arriving through the LOD door.',
   ).toEqual([])
 
-  // ⭐ THE OTHER DIRECTION, WHICH THE ASSERTION ABOVE DOES NOT COVER.
-  //
-  // `grew` catches a layout computed with LOD OFF meeting a taller LOD-on card.
-  // The mirror case is a layout computed while LOD is ON — it reserves the
-  // SHORTER height, and every card then GROWS by its LOD delta when the user
-  // zooms back in past the legibility floor. That direction rested only on a
-  // stated margin ("16px against 45px") in a comment. It is arithmetic the probe
-  // already holds both sides of, so it is asserted rather than stated.
-  //
-  // Bounded against the TIGHTEST slack the layout ever leaves — the SUB-ROW gap,
-  // derived from the same two values `normaliseTierRows` uses, never restated.
-  const SUB_ROW_SLACK = Math.round(LAYOUT_DENSITY_PRESETS.comfortable.layerSpacing * 0.6) + LAYOUT_PADDING_Y
-  const worstShrink = Math.max(0, ...lodOn.flatMap((s) =>
-    Object.entries(s.heights).map(([id, h]) => (worstOff[id] === undefined ? 0 : worstOff[id] - h)),
-  ))
+  /**
+   * ⭐ THE NON-VACUITY FLOOR FOR THE ASSERTION BELOW, and it has to come first.
+   *
+   * "No card drew taller than its reservation" is satisfied PERFECTLY by a
+   * measurer that returned an empty map, or by one whose ids do not match the
+   * live ones — in both cases every `reserved === undefined` and the loop
+   * compares nothing (CLAUDE.md trap 13). So the probe must first prove it made
+   * the comparison at all: the bound map is populated, it is SINGLE-VALUED
+   * across the sweep (which is the property the fix delivers), and the live
+   * heights beside it DID move over the same samples.
+   */
+  expect(invariant.boundEntryCount, 'the bound map is empty — the shortfall check below would compare nothing and pass vacuously').toBeGreaterThan(0)
   expect(
-    worstShrink,
-    `a card's LOD delta (${worstShrink}px) has reached the tightest row slack the layout leaves (${SUB_ROW_SLACK}px). A layout computed while LOD is ON reserves the shorter height, so zooming back in past the legibility floor would now push a card into the row beneath it.`,
+    invariant.distinctLiveAnswers,
+    'the LIVE heights did not move across the sweep — the bound being constant is then no discrimination, it is a sweep that visited one state',
+  ).toBeGreaterThan(1)
+  expect(
+    worstBoundSpread,
+    `the height the layout RESERVES for a card moves ${worstBoundSpread}px across the zoom sweep, against the ${SUB_ROW_SLACK}px of sub-row slack that has to absorb it. A layout run at one zoom then reserves a stride that is wrong at every other — the overlap defect \`measureNodeHeightsAtLabelBound\` exists to close. The LOD body collapse is the usual way this regresses: check that the measurer still RELEASES it (\`LOD_BLANKED_BODY_SELECTOR\`) while it reads.`,
   ).toBeLessThan(SUB_ROW_SLACK)
 
-  const lod = { lodOffSamples: lodOff.length, lodOnSamples: lodOn.length, cardsThatMoved: [...new Set(moved)].length, cardsThatGrew: grew.length, worstShrink, subRowSlack: SUB_ROW_SLACK }
+  /**
+   * ⭐ THE SAME-INSTANT CHECK: no card may draw taller than its own reservation.
+   *
+   * ⚠ AND IT IS NOT THE GUARD THAT CATCHES THE LOD DEFECT — stated plainly,
+   * because a reader scanning for "the assertion that would have caught it"
+   * must not stop here. MEASURED in both arms of the mutation check on 16 Sep:
+   *
+   *     release removed (the defect)   worstBoundSpread 430   reservedShortfall 0
+   *     release present (the fix)      worstBoundSpread  38   reservedShortfall 0
+   *
+   * It reads ZERO in both, because this probe captures `boundHeights` at the
+   * SAME zoom as the live heights — so on a defective build a collapsed live
+   * height is compared against an equally collapsed reservation and the two
+   * agree. The cross-zoom harm is invisible to it BY CONSTRUCTION, and
+   * `worstBoundSpread` above is what discriminates.
+   *
+   * It stays because it answers a DIFFERENT question (trap 21): a card that
+   * exceeds its reservation at the instant both are measured is a distinct
+   * defect — one this file would otherwise have no assertion for — and it costs
+   * nothing to keep watching for it at zero tolerance.
+   */
+  expect(
+    reservedShortfall,
+    `a card DRAWS taller than the height the layout reserved for it (worst +${worstReservedShortfall}px). \`getNodeDimensions\` sizes the row band from \`heightAtLabelBound\`, so a card exceeding that entry overflows its band and overlaps the row beneath.`,
+  ).toEqual([])
 
   // ── COMPLETENESS, ASSERTED IN THE PROBE ITSELF ────────────────────────────
   // ⚠ A cell that produces no data is an INSTRUMENT failure, and it must be the
@@ -386,8 +565,5 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ page
   // check disappeared with it, and 11 of 12 cells went silently missing.
   expect(series.length, 'the sweep did not visit every requested zoom').toBe(ZOOMS.length)
   expect(invariant.boundEntryCount + Object.keys(series[0].heights).length, 'the probe measured no cards at all').toBeGreaterThan(0)
-
-  // eslint-disable-next-line no-console
-  console.log('HZJSON ' + JSON.stringify({ starter: STARTER, vp: `${VP.width}x${VP.height}`, invariant, lod, series }))
 })
 })

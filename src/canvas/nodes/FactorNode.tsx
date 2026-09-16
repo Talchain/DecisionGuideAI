@@ -261,8 +261,27 @@ export const FactorNode = memo((props: NodeProps) => {
     nodeCategory === 'external'
     && props.data?.prior != null
     && !isUnquantifiedPrior(props.data.prior)
+  /**
+   * ⛔ THE SAME FACT WAS BEING STATED TWICE, IN TWO CORNERS, WITH TWO GLYPHS.
+   *
+   * `useScienceIcons` already mints an `evidence-gap` FileQuestion into the
+   * card HEADER — a "?" in `text-warning`, tooltipped *"No observed data for
+   * this factor."* — on a near-identical condition, and `KEEP_LOW_PRIORITY`
+   * below keeps it even on a low-priority factor. The bottom-right badge then
+   * says it again, in a circle that straddles the card corner and so reads as
+   * unattached to anything. That is the "chucked on willy-nilly" Paul named on
+   * 15 Sep, and it is the same class this file already closed once when
+   * `olumi-estimate` was the THIRD statement of "Olumi estimated this".
+   *
+   * ⭐ THE ESCALATION CHANNEL IS KEPT. The badge is suppressed only where the
+   * header is ALREADY carrying the icon; when the header is not, the badge is
+   * the only statement and still renders, with its VoI tiers intact
+   * (`gapEscalation` below). So this removes a duplicate, never a signal.
+   */
+  const headerCarriesEvidenceGap = scienceIcons.some(si => si.id === 'evidence-gap')
   const showEvidenceGapBadge =
     isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
+    && !headerCarriesEvidenceGap
 
   const gapEscalation: EvidenceGapEscalation = useMemo(() => {
     if (!displayMetadata.isResultsMode) return 'none'

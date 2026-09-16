@@ -583,12 +583,62 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * go red on a future change that happens to produce a different hash for the
    * WRONG reason.
    */
+  /**
+   * ⭐⭐ RE-RECORDED 15 Sep 2026 — the tiers no longer all draw at one width, and
+   * the new shape was MEASURED BEFORE these digests were written down. That is
+   * this block's own standing rule and it is the only thing separating a
+   * re-record from a rubber stamp.
+   *
+   * ## What changed, and what deliberately did not
+   *
+   * Paul, after a manual test: *"They don't all have to be the same width …
+   * making them wider would make sense."* Cards now take a cap per TIER
+   * (`CARD_W_CAP_BY_TIER`), bounded by that tier's share of the widest row — so
+   * a tier may only spend width the board ALREADY has.
+   *
+   *     starter                decision  option  factor/outcome/risk  goal  board
+   *     vendor-selection         560      440           336           480   3080 (unchanged)
+   *     market-entry             560      440           336           480   3080 (unchanged)
+   *     build-vs-buy             560      440           336           480   3080 (unchanged)
+   *     headcount-allocation     560      434           336           480   1904 (unchanged)
+   *     pricing-model            560      434           336           480   1904 (unchanged)
+   *
+   * ⭐ THE BOARD WIDTH DID NOT MOVE ON ANY STARTER. Not luck — the widest tier
+   * is at the bound by construction, so it keeps exactly today's width and the
+   * board's extent is exactly what it was.
+   *
+   * ## The properties measured on the new tree, before any digest moved
+   *
+   *     starter                nodes  rows  riskY = outcomeY   same-row overlaps
+   *     vendor-selection        19     5      1185 = 1185  ✅         0
+   *     market-entry            18     5      1195 = 1195  ✅         0
+   *     build-vs-buy            19     5      1753 = 1753  ✅         0
+   *     headcount-allocation    16     5      1053 = 1053  ✅         0
+   *     pricing-model           15     5      1084 = 1084  ✅         0
+   *
+   * ⭐ EVERY Y IS BYTE-IDENTICAL TO THE 14 Sep RECORD ABOVE, and every node
+   * count and row count with it. **Only X moved** — rows re-centre on the spine
+   * at their new widths — which is precisely the change and nothing else. A
+   * digest that moved for any other reason would have shown up as a moved Y.
+   *
+   * ⛔ THE OVERLAP COLUMN IS THE ONE THAT HAD TO BE NEW. Wider cards are exactly
+   * the change that can make same-row neighbours collide, and the digest cannot
+   * see a collision — it only says "different from last time". So the overlap
+   * count was measured AT THE PER-KIND WIDTHS THE CARDS ACTUALLY DRAW AT, not
+   * at the box widths ELK was handed; those two differing is the defect the
+   * previous attempt shipped. `theTiersDoNotAllNeedTheSameWidth.spec.ts` pins
+   * the agreement between them so it cannot silently re-open.
+   *
+   * ⚠ Each digest below was rebound by its OLD value, not by its position in
+   * this literal — five same-shaped strings in one object is exactly where a
+   * transcription puts the right hash on the wrong starter.
+   */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '578898013a37bf63', nodes: 19 },
-    'market-entry': { digest: 'bc34500b9e43c1c6', nodes: 18 },
-    'build-vs-buy': { digest: 'e1bbab396252034f', nodes: 19 },
-    'headcount-allocation': { digest: '4146ea99dfb8d5c4', nodes: 16 },
-    'pricing-model': { digest: 'eb393e29cd2fe7be', nodes: 15 },
+    'vendor-selection': { digest: '3c2e3ad2c525b607', nodes: 19 },
+    'market-entry': { digest: '899d3f0d5a81fa0e', nodes: 18 },
+    'build-vs-buy': { digest: 'c8ecbb11c30ac473', nodes: 19 },
+    'headcount-allocation': { digest: '5c99476037d50074', nodes: 16 },
+    'pricing-model': { digest: '87272681d95fac2e', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

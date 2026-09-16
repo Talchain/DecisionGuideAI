@@ -394,6 +394,31 @@ export const GATED_TESTS: readonly GatedTest[] = [
   })) as GatedTest[]),
 
   {
+    file: 'restoredOldSaveWidth.measure.ts',
+    suite: 'a restored board keeps its own stride',
+    title: 'ROS build-vs-buy @1280x800',
+    catches:
+      'A BOARD SAVED BEFORE PER-TIER CARD WIDTHS OVERLAPPING BY 48px THE FIRST TIME IT IS ' +
+      'REOPENED. `useRestoredLayoutWidth` derives card widths on restore; deriving the width a ' +
+      'FRESH layout would use returns a WIDER card than the uniform one an old board was laid ' +
+      'out at, so the hook that exists to REPAIR overlap causes it. Measured: 3 options at a ' +
+      'saved uniform 336 with a 56px gap render at 440 and overlap by 48px. It shipped twice — ' +
+      'once as an unbounded derivation, then again because the bound grouped rows by EXACT y ' +
+      'while real boards carry ELK\'s incidental intra-tier Y variation, so y 300/301/302 read ' +
+      'as three single-member rows and the bound silently lifted. ' +
+      'NOTHING IN CI WATCHED RESTORE GEOMETRY AT ALL, which is how both reached review: ' +
+      '`restoreHeightDelta.measure.ts` is excluded from this gate, and it reloads a board laid ' +
+      'out by THIS build, so its saved positions already carry the per-tier stride and it cannot ' +
+      'reach the old-save class even when it runs. ' +
+      'ITS POSITIVE CONTROL IS PINNED IN-TEST, because "zero overlaps after reload" is satisfied ' +
+      'perfectly by a fixture that never overlapped: the rolled-back board is asserted to ' +
+      'ACTUALLY overlap first (3 pairs, 48px). Also pinned: the roll-back moved a card, the ' +
+      'autosave flush reported success, the restored canvas rendered cards (a zero-node canvas ' +
+      'reports zero overlaps, which reads exactly like success), and `layoutVersion === 0` — a ' +
+      'board that has been re-laid-out is not on the restore path at all.',
+  },
+
+  {
     file: 'heightVsZoom.measure.ts',
     suite: 'card height vs camera zoom',
     title: 'HZ build-vs-buy @1280x800',
