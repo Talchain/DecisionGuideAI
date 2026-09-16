@@ -1083,6 +1083,72 @@ function buildUncertainty(
   }
 
   const uncertaintyRows = conf.uncertainties ?? []
+  /**
+   * ⭐⭐ THE RELATIONSHIP'S DECLARED NAME — THE ONE THING THAT MAKES THREE ROWS
+   * DISTINGUISHABLE WITHOUT READING TO THE MIDDLE OF EACH SENTENCE.
+   *
+   * The block inside the loop establishes the rule and its three rejected
+   * alternatives: a cut prefix of the body is not a label, a constant category
+   * label is furniture, and the whole sentence promoted into header type trades
+   * truthfulness for the density problem this surface exists to solve. It also
+   * names the one shape that IS allowed — a PRODUCER-SUPPLIED name that is not a
+   * prefix of the body, which is why the threshold row keeps both slots.
+   *
+   * `from_label` and `to_label` are exactly that: two of the TEN fields
+   * `EnrichmentRobustnessEdgeSchema` declares, carried onto the row by
+   * `useResultsSectionData` alongside the answer to "were both ends really
+   * named?".
+   *
+   * ⛔ `edgeLabelsResolved` IS THE GATE, AND IT IS NOT A COMPARISON AGAINST THE
+   * FALLBACK LITERAL. `edgeFromLabel`/`edgeToLabel` fall through to
+   * 'Unknown factor' / 'Unknown target' and, one rung earlier, to
+   * `formatUnattributedId`, which yields a plausible-looking string naming
+   * nothing. The hook answers the question where that chain is visible; a check
+   * here against 'Unknown factor' would be a hand-maintained mirror of a string
+   * another file owns (trap 12) AND would read the unattributed-id rung as a
+   * name.
+   *
+   * ⛔ AND IT MUST FIT THE LABEL BUDGET THIS FILE ALREADY USES. Two long node
+   * labels compose into a name longer than the sentence it labels, and
+   * truncating it would reintroduce the cut prefix the rule bans. Same 80
+   * through the same helper, so there is one budget on this surface, not two.
+   */
+  const relationshipLabel = (u: UncertaintyItem): string => {
+    if (u.edgeLabelsResolved !== true) return ''
+    if (!u.edgeFromLabel || !u.edgeToLabel) return ''
+    const name = `${u.edgeFromLabel} \u2192 ${u.edgeToLabel}`
+    return truncateAtWordBoundary(name, 80) === name ? name : ''
+  }
+  /**
+   * ⛔⛔ ALL OF THEM OR NONE OF THEM — AND THIS IS THE HALF I GOT WRONG FIRST.
+   *
+   * The first draft named each row it could. On the measured fixture that names
+   * ONE of three, because one node label is itself a 95-character sentence, and
+   * a section showing one titled row above two untitled ones is EXACTLY the
+   * defect the block below was written about: *"one section, two title
+   * conventions — Paul's 'such a lack of consistency in the design', made
+   * concrete"*. A remedy that reproduces the complaint it answers is not a
+   * remedy.
+   *
+   * So the set decides, which is this estate's own ratified idiom for the same
+   * shape: the convergence line is absent when ANY row names no option, and the
+   * goal-probability bars stay silent when ONE option is short. Uniformity
+   * within the branch is the product requirement; per-row optimism is not.
+   *
+   * ⚠ SCOPED TO THE `''` BRANCH ONLY. A threshold row already carries a producer
+   * name and a short sentence already is its own label; both are correct today
+   * and neither is judged here. The candidate set is precisely the rows that
+   * would otherwise render with NO label — the measured defect, and nothing
+   * else.
+   */
+  const sensitivityRowsCanAllBeNamed = (() => {
+    const unlabelled = uncertaintyRows.filter((u) => {
+      if (u.code !== 'SENSITIVE_ASSUMPTION' || u.threshold) return false
+      const t = humanised(u)
+      return t !== '' && truncateAtWordBoundary(t, 80) !== t
+    })
+    return unlabelled.length > 0 && unlabelled.every((u) => relationshipLabel(u) !== '')
+  })()
   for (let i = 0; i < uncertaintyRows.length; i++) {
     const u = uncertaintyRows[i]
     const text = humanised(u)
@@ -1139,7 +1205,9 @@ function buildUncertainty(
       ? `${u.threshold.variable} could change the answer`
       : labelLength === text
         ? text
-        : ''
+        : sensitivityRowsCanAllBeNamed
+          ? relationshipLabel(u)
+          : ''
     /**
      * ⚠ THE PRODUCER'S OWN CLASS DECIDES, AND IT IS READ HERE BECAUSE THIS IS
      * THE LAST HOP WHERE `u.code` EXISTS — `AnalysisNewFinding` deliberately

@@ -318,6 +318,20 @@ export function manyFragileEdges(): ResultsSectionDataReturn {
     code: 'SENSITIVE_ASSUMPTION',
     message: `If "${from} → ${to}" changes significantly, the comparison could land differently.`,
     displayText: `If "${from} → ${to}" changes significantly, the comparison could land differently.`,
+    // ⚠ MODELLED, NOT DECORATIVE. `useResultsSectionData` sets these on EVERY
+    // fragile-edge row it builds — `edgeFromLabel`/`edgeToLabel` from the
+    // producer's declared `from_label`/`to_label`, and `edgeLabelsResolved`
+    // from whether both ends were really named. A fixture that omitted them
+    // would keep measuring a row shape the product no longer emits, and the
+    // headline branch that reads them would be exercised by nothing.
+    //
+    // ⭐ AND THIS FIXTURE IS THE NEGATIVE ARM, BY ACCIDENT OF ITS OWN REALISM:
+    // the first and third targets are 95-character labels, so their composed
+    // names exceed the label budget and the set-level rule names NO row here.
+    // That is the measured deployed shape, and it must stay unnamed.
+    edgeFromLabel: from,
+    edgeToLabel: to,
+    edgeLabelsResolved: true,
     // ⚠ THE CONSTANT. The producer sends this same remedy on every row, so
     // `implication` never carries the sentence — which is what makes a headline
     // cut unrecoverable anywhere on the page.
