@@ -100,6 +100,45 @@ describe('one limitation at rest', () => {
     expect(heldBackStripCount(one)).toBe(0)
   })
 
+  /**
+   * ⭐⭐ THE TWO SIDES SEE DIFFERENT INPUTS, AND THEY MUST STILL PICK THE SAME
+   * ENTRY — found by self-review after the cap shipped, not by a failure.
+   *
+   * `AnalysisNewTabBody:1337` hands the strip `vm.deeper.caveats`, which
+   * `buildAnalysisNewViewModel:1754` has ALREADY filtered to `isStripEntry`.
+   * The detail row calls `selectHumanisedInferenceWarningsOutsideStrip` on the
+   * FULL producer array. So the cap is computed twice, over a 3-entry list and
+   * over a 7-entry one.
+   *
+   * They agree today because both take "the first `isStripEntry` in producer
+   * order" and filtering preserves order. That agreement is INCIDENTAL, not
+   * structural: it would break the day anything re-ordered or partially
+   * filtered either input, and the failure would be silent in both directions —
+   * one warning on screen twice, or one in neither place.
+   *
+   * ⚠ This PINS the agreement rather than removing the duplication. Removing it
+   * means changing what the view model hands the strip, which is a change to a
+   * shared contract and belongs in its own increment. Recorded as such rather
+   * than left as an unstated assumption.
+   */
+  it('picks the SAME entry whether it sees the full array or the pre-filtered one', () => {
+    const preFiltered = REAL.filter(isStripEntry)
+    expect(preFiltered.length, 'precondition: the two inputs really do differ').toBeLessThan(
+      REAL.length,
+    )
+
+    const fromFull = selectRestingStripEntries(REAL)
+    const fromFiltered = selectRestingStripEntries(preFiltered)
+
+    expect(fromFull).toHaveLength(1)
+    expect(fromFiltered).toHaveLength(1)
+    // By identity, not by code: two entries can share a code.
+    expect(fromFiltered[0]).toBe(fromFull[0])
+
+    // And the counts a reader is shown must match too.
+    expect(heldBackStripCount(preFiltered)).toBe(heldBackStripCount(REAL))
+  })
+
   it('is empty and silent when the producer sent none', () => {
     expect(selectRestingStripEntries([])).toEqual([])
     expect(heldBackStripCount(undefined)).toBe(0)
