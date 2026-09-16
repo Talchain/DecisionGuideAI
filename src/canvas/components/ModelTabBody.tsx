@@ -44,6 +44,7 @@ import { trackGuidance } from '../../telemetry/guidanceEvents'
 import { GoalConstraintsSection } from './model-tab/GoalConstraintsSection'
 import type { EdgeData } from '../domain/edges'
 import { ModelHealthSection, type AuditTrailData } from './model-tab/ModelHealthSection'
+import { StructuralIssuesSection } from './model-tab/StructuralIssuesSection'
 import { normalizeAutoNoiseProvenance } from '../../components/results/types'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DetailToggleContext } from './model-tab/DetailToggleContext'
@@ -857,6 +858,18 @@ export const ModelTabBody = memo(function ModelTabBody({
               `olumiHandOff` is null when no conversation can receive the turn, which
               is what keeps the button off screen in that case rather than dropping
               the send. */}
+          {/* ⭐ The model's own structural blockers, on a MOUNTED surface.
+              `useModelHealth` has computed these all along — including a per-option BFS
+              reachability test — and no user could see any of it: its only consumer
+              (`components/ModelHealthSection.tsx`) had ZERO importers, while the
+              IDENTICALLY-NAMED twin in this directory occupied the name mounted below.
+              Measured cost, deployed `7573bb0e`: three options with no path to the goal,
+              re-analyse correctly disabled, and the only route to the reason was the chat.
+              ⛔ Structural facts only — "excluded from this calculation" is CEE's decision,
+              never this surface's. Pinned in
+              `model-tab/__tests__/theStructuralCheckReachesTheReader.spec.tsx`. */}
+          <StructuralIssuesSection />
+
           <ModelHealthSection
             ceeQuality={ceeQuality}
             auditTrail={auditTrail}
