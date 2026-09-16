@@ -3596,8 +3596,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       // Enhanced message format per spec
       const edgeLabel = fe.label || `${sourceName} → ${targetName}`
-      const friendlyMessage = fe.description ||
-        `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
+      /**
+       * ⭐⭐ ONE TEMPLATE, TWO SUBJECTS — SO THE PAIR CANNOT DRIFT.
+       *
+       * The panel now titles these rows with the relationship's declared name
+       * (`buildAnalysisNewViewModel`, set-level rule). A titled row whose body
+       * then QUOTES THAT SAME NAME BACK pays for the title twice, and the cost
+       * is not theoretical: MEASURED ON THE DEPLOYED BUILD at the real 277px
+       * body width, the three-row section goes 382px → 498px (+30%) with the
+       * title alone, and 382px → 401px (+5%) once the body stops repeating the
+       * name. The title is nearly free; the repetition is what costs.
+       *
+       * So the sentence is composed ONCE and the SUBJECT is the parameter. A
+       * consumer that has the name on screen already asks for the short subject;
+       * one that has not asks for the long one. Neither is a rewording of the
+       * other, because there is only one sentence here.
+       */
+      const fragileEdgeSentence = (subject: string) =>
+        `If ${subject} changes significantly, "${alternativeWinnerLabel}" could become the better choice`
+      const friendlyMessage = fe.description || fragileEdgeSentence(`"${edgeLabel}"`)
 
       // UI-SEM-012: PLoT-classified severity (B1+), carried VERBATIM or
       // omitted. Contract (schemas 0.30.0, EnrichmentRobustnessEdgeSchema):
@@ -3629,6 +3646,31 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const saDisplayText = CRITIQUE_INTERNAL_PATTERN.test(friendlyMessage)
         ? 'Check and update this factor\u2019s inputs for more reliable results.'
         : friendlyMessage
+
+      /**
+       * ⛔ THE SAME SENTENCE WITH THE SUBJECT ON SCREEN ALREADY — OFFERED ONLY
+       * WHERE ALL THREE PRECONDITIONS HOLD, AND ABSENT OTHERWISE.
+       *
+       *  · `!fe.description` — the producer did not write this sentence. Its
+       *    prose is its own; substituting into it would be a rewording, and a
+       *    description shaped 'The relationship "X" is fragile because…' would
+       *    come out ungrammatical.
+       *  · `!fe.label` — the body's quoted subject is then EXACTLY
+       *    `${sourceName} → ${targetName}`, which is exactly what the panel
+       *    titles the row with. Where `fe.label` exists the two differ, and
+       *    dropping the subject would drop information the title does not carry.
+       *  · the sanitiser did not fire — otherwise `displayText` is a canned
+       *    sentence naming no edge, and there is nothing to shorten.
+       *
+       * ⚠ FAIL-CLOSED: absent means the consumer renders the full sentence,
+       * which is today's behaviour and always correct. A consumer must never
+       * derive this by pattern-matching the long form — that would be a
+       * hand-maintained mirror of a template this file owns (trap 12).
+       */
+      const messageWithSubjectNamedAbove =
+        !fe.description && !fe.label && saDisplayText === friendlyMessage
+          ? fragileEdgeSentence('this')
+          : undefined
 
       // E-value: from fragile edge entry directly, or from separate edge_e_values array
       const rawEValue = typeof fe.e_value === 'number' ? fe.e_value : edgeId ? eValueMap.get(edgeId) : undefined
@@ -3712,6 +3754,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
          */
         edgeFromLabel: sourceName,
         edgeToLabel: targetName,
+        ...(messageWithSubjectNamedAbove
+          ? { messageWithSubjectNamedAbove }
+          : {}),
         edgeLabelsResolved:
           nonEmptyLabel(fe.from_label) !== undefined ||
           nonEmptyLabel(fe.fromLabel) !== undefined ||

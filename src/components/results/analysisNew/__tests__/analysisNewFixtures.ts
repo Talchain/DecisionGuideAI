@@ -332,6 +332,14 @@ export function manyFragileEdges(): ResultsSectionDataReturn {
     edgeFromLabel: from,
     edgeToLabel: to,
     edgeLabelsResolved: true,
+    // ⛔ PRESENT AND DELIBERATELY UNUSED — the sharpest arm this fixture has.
+    // The hook offers the short form on every row it composes, titled or not.
+    // Here the set is not nameable, so no row is titled, and a consumer that
+    // rendered this anyway would print "If this changes significantly…" with
+    // NOTHING above it naming `this` — strictly worse than the sentence it
+    // replaced. It must stay unused.
+    messageWithSubjectNamedAbove:
+      'If this changes significantly, the comparison could land differently.',
     // ⚠ THE CONSTANT. The producer sends this same remedy on every row, so
     // `implication` never carries the sentence — which is what makes a headline
     // cut unrecoverable anywhere on the page.

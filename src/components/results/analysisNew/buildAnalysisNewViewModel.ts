@@ -1347,7 +1347,36 @@ function buildUncertainty(
       // threshold), or label-plus-body (threshold, where the label is the
       // producer's own variable and not a prefix of the body).
       headline: headlineText,
-      implication: headlineText === text ? '' : text,
+      /**
+       * ⭐⭐ A TITLED ROW DOES NOT QUOTE ITS OWN TITLE BACK — AND THIS IS WHAT
+       * PAYS FOR THE TITLE.
+       *
+       * MEASURED ON THE DEPLOYED BUILD (`521189fe`, the real 277px body width,
+       * the three live fragile-edge rows): titling the rows alone takes the
+       * section 382px → 498px, **+30% on the surface whose whole complaint is
+       * density**. Dropping the body's verbatim repeat of the title brings it to
+       * 401px, **+5%**. The title is nearly free; the repetition is the cost. A
+       * first draft of this change shipped the +30% version, and only driving
+       * the deployed build found it.
+       *
+       * ⛔ THE SHORT FORM IS THE PRODUCER-SIDE HOOK'S, NOT A SUBSTITUTION MADE
+       * HERE. `useResultsSectionData` composes both from one template and offers
+       * the short one only where the body's quoted subject is exactly the name
+       * this row is titled with. Editing the long string here would be a
+       * hand-maintained mirror of a template another file owns (trap 12), and on
+       * a producer-authored `description` it would be a rewording.
+       *
+       * ⚠ AND IT IS GATED ON THE ROW ACTUALLY BEING TITLED. With no title,
+       * "If this changes significantly…" names nothing at all — strictly worse
+       * than the sentence it replaced. Absent short form, or absent title, the
+       * row renders exactly what it renders today.
+       */
+      implication:
+        headlineText === text
+          ? ''
+          : headlineText !== '' && !u.threshold && u.messageWithSubjectNamedAbove
+            ? u.messageWithSubjectNamedAbove
+            : text,
       // ⚠⚠ THIS COMMENT USED TO SAY "the generic constant is DROPPED rather
       // than promoted". THAT WAS FALSE — there is no generic-suggestion
       // detection here and never was. The only predicate is

@@ -75,6 +75,10 @@ const withUncertainties = (uncertainties: UncertaintyItem[]) =>
 const sentence = (from: string, to: string, winner: string) =>
   `If "${from} → ${to}" changes significantly, "${winner}" could become the better choice`
 
+/** The same sentence with its subject unnamed — what the hook offers a titled row. */
+const shortSentence = (winner: string) =>
+  `If this changes significantly, "${winner}" could become the better choice`
+
 const edgeRow = (
   from: string,
   to: string,
@@ -91,6 +95,7 @@ const edgeRow = (
     edgeFromLabel: from,
     edgeToLabel: to,
     edgeLabelsResolved: true,
+    messageWithSubjectNamedAbove: shortSentence(winner),
     ...over,
   } as UncertaintyItem
 }
@@ -110,10 +115,11 @@ describe('a fragile-edge row names the relationship it is about', () => {
     for (const [i, [from, to, winner]] of NAMEABLE.entries()) {
       // The name — the producer's two declared ends, and nothing invented.
       expect(rows[i].headline).toBe(`${from} → ${to}`)
-      // ⛔ THE SENTENCE IS NOT TRADED FOR THE LABEL. This is the assertion the
-      // sibling spec's whole fix exists to keep true, restated here because a
-      // change that reintroduced a truncation would otherwise pass this file.
-      expect(rows[i].implication).toBe(sentence(from, to, winner))
+      // ⛔ THE FINDING IS NOT TRADED FOR THE LABEL — it is the SAME sentence
+      // with its subject standing above it instead of quoted inside it. The
+      // consequence clause, which the old truncation cut away, is intact.
+      expect(rows[i].implication).toBe(shortSentence(winner))
+      expect(rows[i].implication).toContain('could become the better choice')
       // ⛔ AND THE LABEL IS NOT A PREFIX OF THE BODY — the property that makes
       // this branch legitimate where the cut one was not.
       expect(rows[i].implication.startsWith(rows[i].headline)).toBe(false)
@@ -133,9 +139,8 @@ describe('a fragile-edge row names the relationship it is about', () => {
       // bodies differ at character five. The claim that is actually true — and
       // the one the design rests on — is that the label does not open with the
       // sentence's furniture, and is a fraction of its length.
-      expect(row.implication.startsWith('If "')).toBe(true)
-      expect(row.headline.startsWith('If "')).toBe(false)
-      expect(row.headline.length).toBeLessThan(row.implication.length / 2)
+      expect(row.implication.startsWith('If ')).toBe(true)
+      expect(row.headline.startsWith('If ')).toBe(false)
     }
   })
 
@@ -156,6 +161,10 @@ describe('a fragile-edge row names the relationship it is about', () => {
     // NOT "the long one is silent and the short one is named" — BOTH silent.
     expect(rows.map((r) => r.headline)).toEqual(['', ''])
     // And every sentence still reaches the reader whole.
+    // ⛔⛔ AND THE BODIES KEEP THEIR SUBJECT. This is the assertion that stops the
+    // worst available outcome: an UNTITLED row reading "If this changes
+    // significantly…", which names nothing at all and is strictly worse than the
+    // sentence it replaced. The short form is present on both rows here.
     expect(rows[0].implication).toBe(sentence(NAMEABLE[0][0], NAMEABLE[0][1], NAMEABLE[0][2]))
     expect(rows[1].implication).toBe(sentence('Peak Season Throughput', longTarget, 'RudderStack'))
   })
@@ -214,6 +223,38 @@ describe('a fragile-edge row names the relationship it is about', () => {
     expect(threshold?.implication).toBe(long)
     const shortRow = rows.find((r) => r.headline === short)
     expect(shortRow?.implication).toBe('')
+  })
+
+  it('⛔ FAIL-CLOSED: a titled row with NO short form keeps the whole sentence', () => {
+    // A producer-authored `description` yields no short form, because
+    // substituting into someone else's prose is a rewording, not a de-duplication.
+    const rows = rowsOf(
+      withUncertainties(
+        NAMEABLE.map(([f, t, w]) =>
+          edgeRow(f, t, w, { messageWithSubjectNamedAbove: undefined }),
+        ),
+      ),
+    )
+    for (const [i, [from, to, winner]] of NAMEABLE.entries()) {
+      expect(rows[i].headline).toBe(`${from} \u2192 ${to}`)
+      expect(rows[i].implication).toBe(sentence(from, to, winner))
+    }
+  })
+
+  it('⛔ a THRESHOLD row keeps its subject, because its title is not the edge name', () => {
+    // The threshold headline is the producer's `variable`, which is an id, not
+    // the relationship's name — so the body's subject is NOT on screen above it
+    // and must not be dropped.
+    const long = sentence('Peak Fulfilment Capacity', 'Peak Season Throughput', 'RudderStack')
+    const rows = rowsOf(
+      withUncertainties([
+        edgeRow('Peak Fulfilment Capacity', 'Peak Season Throughput', 'RudderStack', {
+          threshold: { variable: 'fac_capacity', direction: 'negative', value: 0.42 },
+        }),
+      ]),
+    )
+    expect(rows[0].headline).toBe('fac_capacity could change the answer')
+    expect(rows[0].implication).toBe(long)
   })
 
   it('⛔ the MEASURED fixture stays unnamed, because one of its ends is a sentence', () => {

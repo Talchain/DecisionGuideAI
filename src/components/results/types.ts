@@ -948,6 +948,19 @@ export interface UncertaintyItem {
    * fallbacks because a sentence with an unnamed end still reads.
    */
   edgeLabelsResolved?: boolean
+  /**
+   * ⛔ THE SAME SENTENCE, FOR A CONSUMER THAT HAS ALREADY NAMED THE SUBJECT.
+   *
+   * Present only where the UI composed the sentence itself, the body's quoted
+   * subject is exactly `edgeFromLabel \u2192 edgeToLabel`, and the sanitiser did
+   * not replace it. A consumer that titles the row with that name renders THIS
+   * as the body; one that does not renders `displayText`. Both come from one
+   * template in `useResultsSectionData`, so they cannot drift.
+   *
+   * ⚠ ABSENT IS NOT A DEFECT — it means "render the full sentence", which is
+   * always correct. Never derive it by pattern-matching the long form.
+   */
+  messageWithSubjectNamedAbove?: string
   /** ISL E-value: how many times wrong the assumption must be to flip the recommendation */
   eValue?: number
   /** For sensitivity thresholds (when small changes flip the recommendation) */
