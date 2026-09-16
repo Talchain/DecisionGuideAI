@@ -1598,13 +1598,38 @@ export function AnalysisNewTabBody({
              shape that invites a fourth caller to fill it with something
              else. */
           header={
-            vm.sensitivity.convergence ? (
-              <p
-                className={`${typography.panelBody} text-text-body`}
-                data-testid="analysis-new-sensitivity-convergence"
-              >
-                {COPY.disclosure.convergence(vm.sensitivity.convergence.label)}
-              </p>
+            vm.sensitivity.convergence || vm.sensitivity.tippingPoints.length > 0 ? (
+              <>
+                {vm.sensitivity.convergence ? (
+                  <p
+                    className={`${typography.panelBody} text-text-body`}
+                    data-testid="analysis-new-sensitivity-convergence"
+                  >
+                    {COPY.disclosure.convergence(vm.sensitivity.convergence.label)}
+                  </p>
+                ) : null}
+                {/* ⭐ THE THRESHOLD THE RUN FOUND, STATED. This array reached the
+                    store already and this surface read it only through
+                    `attestsNoFactorFlip` — the NEGATIVE attestation — so a row
+                    the producer marked `found` rendered nowhere. Every number
+                    and both names are the producer's; see `tippingPoints.ts`
+                    for why the gate is `flip_reason` and not a non-null value. */}
+                {vm.sensitivity.tippingPoints.map((t) => (
+                  <p
+                    key={`${t.factorLabel}:${t.flipValue}`}
+                    className={`${typography.panelBody} text-text-body`}
+                    data-testid="analysis-new-sensitivity-tipping-point"
+                  >
+                    {COPY.disclosure.tippingPoint(
+                      t.factorLabel,
+                      t.currentValue,
+                      t.flipValue,
+                      t.alternativeLabel,
+                      t.unit,
+                    )}
+                  </p>
+                ))}
+              </>
             ) : null
           }
           /* ⭐ THE COLUMN'S CAPTION, SAID ONCE — and gated on there BEING a

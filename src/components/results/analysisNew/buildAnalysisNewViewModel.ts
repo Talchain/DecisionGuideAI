@@ -121,6 +121,7 @@ import type {
 // is explicit that an empty list returns `false` on purpose, because "no gaps"
 // is a different question — see `buildChecks`.
 import { everyEvidenceGapAddressed } from '../utils/evidenceGapConfidenceDisplay'
+import { buildTippingPoints, type FlipThresholdLike } from './tippingPoints'
 
 /**
  * ⭐⭐ THE ADMISSION CAUSES WHOSE SENTENCE NAMES AN ESTIMATE AS THE REMEDY.
@@ -3528,10 +3529,22 @@ export function buildAnalysisNewViewModel(
       ? { findings: [], evidenceAssessed: false, decisionVoi: 'not_computed' as const }
       : { findings: uncertaintyBuild!.findings, evidenceAssessed: uncertaintyBuild!.evidenceAssessed, decisionVoi: uncertaintyBuild!.decisionVoi },
     sensitivity: preRun
-      ? { findings: [], convergence: null }
+      ? { findings: [], convergence: null, tippingPoints: [] }
       : {
           findings: uncertaintyBuild!.sensitivityFindings,
           convergence: uncertaintyBuild!.sensitivityConvergence,
+          /**
+           * ⭐ READ FROM THE NORMALISED PRODUCER ROWS, NOT RE-DERIVED.
+           * `useResultsSectionData.ts:2548` already normalises
+           * `flip_thresholds[]` onto `recommendation.flipThresholds`; this
+           * surface's ONLY previous reader of that array was
+           * `attestsNoFactorFlip`, the negative attestation, so a row that
+           * actually found a threshold rendered nowhere.
+           */
+          tippingPoints: buildTippingPoints(
+            (data.recommendation as { flipThresholds?: FlipThresholdLike[] } | undefined)
+              ?.flipThresholds,
+          ),
         },
     deeper: buildDeeper(inputs),
     // ⚠ PRE-RUN THERE ARE NO CHECKS TO REPORT — and this section must be
