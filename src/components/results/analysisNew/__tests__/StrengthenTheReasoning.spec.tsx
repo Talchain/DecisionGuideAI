@@ -181,7 +181,7 @@ describe('the empty state (§19)', () => {
   it('states what was not found, and makes no claim that the reasoning is sound', () => {
     renderOpen(<StrengthenTheReasoning interventions={[]} />)
     const empty = screen.getByTestId('analysis-new-strengthen-empty')
-    expect(empty).toHaveTextContent('No high-priority reasoning intervention identified yet.')
+    expect(empty).toHaveTextContent('Nothing stands out yet as the first thing to strengthen.')
     expect(empty.textContent).not.toMatch(/solid|healthy|good|no issues|looks fine/i)
   })
 })

@@ -372,9 +372,16 @@ export const ANALYSIS_NEW_COPY = {
 
   /**
    * Empty states. Each one states what was NOT established, never a reassuring
-   * positive. "No high-priority reasoning intervention identified yet" is a
+   * positive. "Nothing stands out yet as the first thing to strengthen" is a
    * fact about this run; "Your reasoning looks solid" would be a claim nobody
    * measured.
+   *
+   * ⚠ The earlier wording named an "intervention" — an INTERNAL term, banned by
+   * ANALYSIS_HERO_BANNED_TERMS, and it was reaching users: witnessed rendering
+   * in the Strengthen section on deployed 7573bb0e, 16 Sep. Nothing swept this
+   * module against that list, which is why one instance survived a guard that
+   * already existed. `theCopyClearsTheGlossary.spec.ts` now sweeps every string
+   * this object can emit, so the class is closed rather than the instance.
    */
   /**
    * ⭐ WHAT YOUR MODEL IMPLIES — the two readings.
@@ -474,7 +481,7 @@ export const ANALYSIS_NEW_COPY = {
 
   empty: {
     keyInsights: 'No insight is grounded well enough to lead with yet.',
-    strengthen: 'No high-priority reasoning intervention identified yet.',
+    strengthen: 'Nothing stands out yet as the first thing to strengthen.',
     /**
      * ⚠⚠ THE DRIVERS EMPTY STATE SPLITS THREE WAYS, AND COLLAPSING IT WAS A
      * LIVE FALSEHOOD. This sentence used to be the ONLY one, so a run whose
