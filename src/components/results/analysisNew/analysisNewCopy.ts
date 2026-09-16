@@ -380,8 +380,16 @@ export const ANALYSIS_NEW_COPY = {
    * ANALYSIS_HERO_BANNED_TERMS, and it was reaching users: witnessed rendering
    * in the Strengthen section on deployed 7573bb0e, 16 Sep. Nothing swept this
    * module against that list, which is why one instance survived a guard that
-   * already existed. `theCopyClearsTheGlossary.spec.ts` now sweeps every string
-   * this object can emit, so the class is closed rather than the instance.
+   * already existed. `analysisNew/__tests__/copyHygiene.spec.ts` now walks this
+   * object and scans its STATIC STRING leaves, so the class is closed FOR THOSE
+   * — not, as this comment first claimed, for every string the object can emit.
+   *
+   * ⚠ AND THE EXCLUSION IS NAMED RATHER THAN LEFT IMPLIED. Function members
+   * compose their sentences from arguments and the scan does NOT invoke them,
+   * so their templates are unscanned and a banned term introduced inside one is
+   * still reachable. That spec pins the 29 function-valued paths as an EXACT
+   * set precisely so the gap is recorded rather than silent: adding a function
+   * member REDs it and forces a deliberate decision about the new template.
    */
   /**
    * ⭐ WHAT YOUR MODEL IMPLIES — the two readings.
