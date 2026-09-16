@@ -31,10 +31,114 @@ function formatLimitMagnitude(value: number, unit: string | null | undefined): s
  * One predicate, both readers, so they cannot drift into disagreeing about
  * which surface is carrying the quote.
  */
+/**
+ * ⭐⭐ UNITS WHOSE VALUE HAS ALREADY BEEN REWRITTEN OUT OF THE READER'S SCALE.
+ *
+ * Witnessed on deployed `79866c44` (fresh draft, guest, settled at the
+ * product's own terminal beat). The brief said *"keeping monthly churn under
+ * 4%"*. The card printed:
+ *
+ *     Limit ≤ 0.04 fraction
+ *
+ * The producer's own constraint LABEL on the same row reads *"Keep monthly
+ * churn at or below 4%"*, and its `source_quote` reads *"while keeping monthly
+ * churn under 4%"* — both correct, both present, and the card showed neither,
+ * because `omitLabel` drops the label (the card's title already names the
+ * factor) and the reconstruction path then formats the machine value.
+ *
+ * ⛔ THE FIX IS NOT TO MULTIPLY BY 100. Converting `0.04` to `4%` would be this
+ * surface deciding what scale a number is in — the exact mechanism behind the
+ * 100× defect found this morning, where `1.1` was rendered `1.1%` against a
+ * brief saying 110%. **Never infer scale from magnitude.**
+ *
+ * ⚠ WHY THESE UNITS AND NOT "ANYTHING NON-PERCENT". A currency limit
+ * reconstructs EXACTLY — `49` + `£` is `£49`, the reader's own figure — which
+ * is why `factorGoalContent.spec` caught an earlier over-wide version of this
+ * preference. These four are different in kind: each NAMES a rewrite. A unit
+ * of `fraction` is a statement that the value is no longer in whatever scale
+ * the reader used, and nothing on the wire says what that was. Where the stated
+ * magnitude cannot be recovered, the reader's own sentence is the only honest
+ * rendering available.
+ *
+ * ⚠ HAND-MAINTAINED, AND SAID OUT LOUD. There is no wire field declaring
+ * "this value was rewritten" — that is `provenance_unit_normalised`, which the
+ * producer does not populate (measured; the request is open). When it arrives,
+ * rung 1 supersedes this and this set should shrink, not grow.
+ */
+/**
+ * ⛔⛔ NARROWED TO THE WITNESSED MEMBER — 16 Sep 2026, on an independent review.
+ *
+ * This set held `fraction`, `ratio`, `proportion` and `unit_interval`. Measured
+ * in-repo with contrast controls that FIRE, three of the four have no witness:
+ *
+ *     fraction      22 hits          contrast: count                23
+ *     ratio          2 hits — and BOTH are `goal_threshold_unit`,
+ *                    a DIFFERENT FIELD from `constraint.unit`
+ *     proportion     0 hits          contrast: percent              15
+ *     unit_interval  0 hits          contrast: goal_threshold_unit 114
+ *
+ * ⛔ AND EVERY MEMBER COSTS SOMETHING. Membership SUPPRESSES a reconstructable
+ * number in favour of a sentence — the header above says so itself: *"it cannot
+ * be compared against the other limits"*. A genuine ratio limit ("keep the
+ * ratio under 3") reconstructs EXACTLY and would lose its comparable numeric
+ * form for nothing. That is the same over-reach this file already records being
+ * caught once, on currency.
+ *
+ * ⭐ The rule was already written three paragraphs up — *"this set should
+ * shrink, not grow"* — and three members were added past it on a semantic
+ * argument with no wire witness. Knowing the rule is not the same as applying
+ * it, so the set now contains only what has been observed.
+ *
+ * TO ADD A MEMBER: produce a wire witness of that unit on `constraint.unit`,
+ * not an argument that it belongs by kind.
+ */
+const REWRITTEN_SCALE_UNITS: ReadonlySet<string> = new Set([
+  'fraction',
+])
+
+/**
+ * ⭐⭐⭐ PROVENANCE DESCRIBES A VALUE. CHANGE THE VALUE AND IT STOPS BEING TRUE.
+ *
+ * ⛔ FOUND BY AN INDEPENDENT POST-MERGE REVIEW OF #1592 AND REPRODUCED AT THE
+ * FORMATTER: an audited churn ceiling `{value: 0.04, original_value: 4,
+ * original_unit: '%'}` renders `≤ 4%`; apply the Goal panel's ACTUAL edit
+ * (`{...pc, value: parsed}`) to set the value to 5, and it STILL renders
+ * `≤ 4%`. The reader edits their own limit and the card shows the old one.
+ *
+ * ⭐ THE FORMATTER CANNOT FIX THIS AND SHOULD NOT TRY. It is handed two facts
+ * and no way to know whether they still agree — and a formatter that checked
+ * the arithmetic would be deciding what a producer's rule means. **The WRITER
+ * knows the value changed.** So invalidation belongs at the edit site: the one
+ * place in the product with both the old constraint and the new number.
+ *
+ * ⚠ THE QUOTE GOES WITH IT, and that is not tidying. `source_quote` is the
+ * reader's sentence about the OLD figure; after an edit it is a quotation
+ * attached to a number the reader never said. #1597 widens the quote's
+ * authority to rewritten-scale units, so leaving it behind would widen this
+ * defect at the same time.
+ *
+ * ⚠ THIS IS NOT "clear provenance on every write". Only on a value change —
+ * `parsed === c.value` already returns early at the call site, and a change to
+ * some other field leaves both fields alone, because they are still true.
+ */
+export function constraintWithEditedValue(
+  constraint: CEEGoalConstraint,
+  value: number,
+): CEEGoalConstraint {
+  const {
+    provenance_unit_normalised: _audit,
+    source_quote: _quote,
+    ...rest
+  } = constraint as CEEGoalConstraint & { provenance_unit_normalised?: unknown; source_quote?: unknown }
+  return { ...rest, value } as CEEGoalConstraint
+}
+
 export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): boolean {
   const q = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
   if (!q) return false
-  return classifyUnit(constraint.unit ?? null).kind === 'percent'
+  if (classifyUnit(constraint.unit ?? null).kind === 'percent') return true
+  const unit = typeof constraint.unit === 'string' ? constraint.unit.trim().toLowerCase() : ''
+  return REWRITTEN_SCALE_UNITS.has(unit)
 }
 
 /**
