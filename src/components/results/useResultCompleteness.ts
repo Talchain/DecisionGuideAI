@@ -243,12 +243,35 @@ export function deriveResultCompleteness(
     }
   }
 
-  // Field 4 — drivers / sensitivity. The trace identified
-  // `useResultsSectionData.getRawElasticity` falling through to null
-  // when sensitivity_score, elasticity, AND importance_score are all
-  // absent. We check the same source: report.drivers AND
-  // driversPayload.drivers; presence of any sensitivity-bearing
-  // value across all factors means full coverage.
+  // Field 4 — drivers / sensitivity. TWO QUESTIONS, DELIBERATELY NAMED APART.
+  //
+  //   `top_drivers` — did a ranked driver list arrive to render?
+  //   `sensitivity` — did this run carry sensitivity MAGNITUDES at all?
+  //
+  // ⚠ THEY WERE FUSED, AND THE FUSION SHIPPED A FALSE ABSENCE (trap 21).
+  // This check used to ask whether any DRIVER carried `sensitivity_score`,
+  // `elasticity` or `importance_score`. `mapV5AnalysisToReport:910` builds
+  // `drivers` FROM `factor_sensitivity` and renames the magnitude to
+  // `contribution` on the way past; `ReportV1['drivers']` does not declare any
+  // of the three names (`adapters/plot/types.ts:65-75`). So the predicate was
+  // unsatisfiable on the V5 path by construction, and the completeness banner
+  // read "Not included in this result: the sensitivity check" one line above a
+  // populated sensitivity section. Measured on Paul's run `1dd2133d`: six
+  // `factor_sensitivity` rows each carrying `sensitivity_score` AND
+  // `elasticity`, and no `drivers`/`drivers_payload` anywhere on the wire.
+  //
+  // The repair asks the question of the authority that answers it rather than
+  // lengthening a list of field names — the name list IS the hand-maintained
+  // mirror that produced this (trap 12). `normaliseFactorEntry` is the mapper's
+  // single owner of "is there a usable magnitude here": it DROPS every entry
+  // without one and writes the survivors to `report.factor_sensitivity`. So a
+  // non-empty `factor_sensitivity` is the producer's own statement that
+  // sensitivity was computed, and no alias set has to be kept in step with it.
+  //
+  // The driver-side check stays for the paths that have no `factor_sensitivity`
+  // (`drivers_payload.drivers[].sensitivity_score`, PLoT v1), and gains
+  // `contribution` — named as a magnitude by the estate's existing fallback
+  // chain, `test/fixtures/golden-expectations.ts:230`.
   const driversFromReport = readDrivers(inputs.report)
   const driversFromPayload = inputs.driversPayload?.drivers ?? []
   const allDrivers = [...driversFromReport, ...driversFromPayload]
@@ -261,18 +284,24 @@ export function deriveResultCompleteness(
     // signal.
     missing.add('top_drivers')
   } else {
-    const anySensitivity = allDrivers.some((d) => {
-      const s = d as {
-        sensitivity_score?: unknown
-        elasticity?: unknown
-        importance_score?: unknown
-      }
-      return (
-        typeof s.sensitivity_score === 'number' ||
-        typeof s.elasticity === 'number' ||
-        typeof s.importance_score === 'number'
-      )
-    })
+    const anySensitivity =
+      readFactorSensitivity(inputs.report).length > 0 ||
+      allDrivers.some((d) => {
+        const s = d as {
+          sensitivity_score?: unknown
+          sensitivity?: unknown
+          elasticity?: unknown
+          importance_score?: unknown
+          contribution?: unknown
+        }
+        return (
+          typeof s.sensitivity_score === 'number' ||
+          typeof s.sensitivity === 'number' ||
+          typeof s.elasticity === 'number' ||
+          typeof s.importance_score === 'number' ||
+          typeof s.contribution === 'number'
+        )
+      })
     if (!anySensitivity) {
       missing.add('sensitivity')
       reasons.add('sensitivity_missing')
@@ -346,5 +375,29 @@ export function deriveResultCompleteness(
 function readDrivers(report: ReportV1): ReadonlyArray<unknown> {
   const direct = (report as { drivers?: unknown }).drivers
   if (Array.isArray(direct)) return direct as ReadonlyArray<unknown>
+  return []
+}
+
+/**
+ * The producer's normalised sensitivity rows, as the mapper wrote them.
+ *
+ * `factor_sensitivity` is NOT declared on `ReportV1` — it is one of the
+ * auxiliary fields `mapV5AnalysisToReport` writes onto the same record through
+ * a widening cast (`mapV5AnalysisToReport.ts:1558-1560`), and which the Results
+ * panel and inspector read through their own widened index signatures. The read
+ * is cast for the same reason every other consumer of it is
+ * (`OptionNode.tsx:87`, `assembleAnalysisInputsSummary.ts:65`).
+ *
+ * ⚠ THE LENGTH IS THE CLAIM, not any field on a row. `normaliseFactorEntry`
+ * returns null for an entry with no usable magnitude, so every row present has
+ * one — which is why this function reads no field names and cannot drift from
+ * the alias set the mapper accepts.
+ */
+function readFactorSensitivity(
+  report: ReportV1 | null | undefined,
+): ReadonlyArray<unknown> {
+  const rows = (report as { factor_sensitivity?: unknown } | null | undefined)
+    ?.factor_sensitivity
+  if (Array.isArray(rows)) return rows as ReadonlyArray<unknown>
   return []
 }
