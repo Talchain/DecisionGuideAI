@@ -90,24 +90,57 @@ function formatValueCompact(value: number | null, units: Units, unitSymbol?: str
  * were computed from. A reader who wants "wide" can see it is 180%; a reader
  * whose domain makes 180% ordinary is no longer told to be cautious.
  *
- * ⛔ `span <= 0` SURVIVES AS A FACT, NOT A BAND. Zero spread means every run
- * landed on one value — an observation about the data, not a cutoff between
- * extremes. Boundaries are facts; thresholds are choices.
+ * ⛔ `span <= 0` SURVIVES AS A FACT, NOT A BAND — but it says LESS than it used
+ * to claim. `p10 === p90` establishes that the MIDDLE 80% collapsed onto one
+ * value; the tails below p10 and above p90 may still differ, so "every outcome
+ * landed on the same value" was a claim about runs this function never sees.
+ * Boundaries are facts; thresholds are choices; and a fact still has to be
+ * stated at the width the data supports.
+ *
+ * ⭐⭐ AND THE DENOMINATOR WAS INHERITED FROM A LOOKUP THAT NO LONGER EXISTS.
+ * `Math.max(Math.abs(center), 1)` guarded the OLD banded version against a
+ * near-zero centre — harmless there, because a clamp only nudged which of four
+ * sentences was chosen. **Printing the quotient made it a false precise
+ * figure.** Found by an independent post-merge review of #1585, executed:
+ * `p10=.2, p50=.4, p90=.6` rendered *"span 40% of the central value"* when the
+ * true proportion is **100%**; the equivalent `20/40/60` rendered 100%
+ * correctly, because there the clamp is inert.
+ *
+ * ⚠ This is the same mistake as grading a bar, one step along: I replaced a
+ * graded claim with a stated number and carried the old arithmetic across
+ * without asking whether it was still true for the new use. **A value that was
+ * adequate as an input to a band is not automatically adequate as a published
+ * figure.**
+ *
+ * ⛔ SO THE CLAMP GOES, AND THE UNDEFINED CASE IS REFUSED RATHER THAN FUDGED. A
+ * proportion OF ZERO has no value, so at a zero centre this states the span
+ * itself — a fact — instead of inventing a percentage. `center === 0` is a
+ * BOUNDARY (division is undefined there), not a threshold someone chose.
  */
-function getRangeWidthLabel(p10: number | null, p50: number | null, p90: number | null): string | null {
+function getRangeWidthLabel(
+  p10: number | null,
+  p50: number | null,
+  p90: number | null,
+  units: Units = 'count',
+  unitSymbol?: string,
+): string | null {
   if (p10 === null || p90 === null || Number.isNaN(p10) || Number.isNaN(p90)) {
     return null
   }
 
   const span = p90 - p10
   if (span <= 0) {
-    return 'Every outcome landed on the same value.'
+    // Exactly what equal percentiles establish, and no more.
+    return 'The middle 80% of outcomes all landed on the same value.'
   }
 
   const center = p50 !== null && !Number.isNaN(p50) ? p50 : (p10 + p90) / 2
-  const denom = Math.max(Math.abs(center), 1)
-  const relSpan = span / denom
+  if (center === 0) {
+    // A proportion OF ZERO has no value. State the span, which is a fact.
+    return `The middle 80% of outcomes span ${formatValue(span, units, unitSymbol)}.`
+  }
 
+  const relSpan = span / Math.abs(center)
   return `The middle 80% of outcomes span ${Math.round(relSpan * 100)}% of the central value.`
 }
 
@@ -159,7 +192,9 @@ export function RangeDisplay({
   }
 
   const safeUnits: Units = units || 'percent'
-  const rangeWidthMessage = getRangeWidthLabel(p10, p50, p90)
+  // Units reach the width label so the zero-centre case can state a SPAN rather
+  // than a proportion of nothing.
+  const rangeWidthMessage = getRangeWidthLabel(p10, p50, p90, safeUnits, unitSymbol)
   const baselineMessage = getBaselineMessage(p50, baseline ?? null, goalDirection)
 
   // Calculate p50 position on the bar (as percentage from p10 to p90)
