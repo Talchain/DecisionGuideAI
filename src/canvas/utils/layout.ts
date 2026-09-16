@@ -366,11 +366,30 @@ function shareARow(a: Node, b: Node): boolean {
   const ah = (a as { measured?: { height?: number } }).measured?.height
   const bh = (b as { measured?: { height?: number } }).measured?.height
   if (typeof ah === 'number' && ah > 0 && typeof bh === 'number' && bh > 0) {
-    if (ay < by + bh && by < ay + ah) return true
+    /**
+     * ⛔⛔ RETURN THE ANSWER, DO NOT FALL THROUGH — corrected 16 Sep 2026 on
+     * Codex's P2 against #1617, which was my own fix for its P2 against #1608.
+     *
+     * The first cut read `if (overlap) return true` and then fell through to the
+     * no-evidence `return true` below. So where heights were KNOWN and PROVED no
+     * overlap, the answer was still "same row": genuinely separate sub-rows were
+     * merged and their cards shrank for nothing. Measured by the reviewer —
+     * 100px cards at y 300 / 1000 / 1700 shared a row and went 440 -> 336.
+     *
+     * ⭐ When both heights are known there IS evidence, so the honest answer is
+     * the measurement, in both directions. The conservative `true` below is for
+     * ABSENCE of evidence — it was never meant to override evidence that exists.
+     *
+     * ⚠ AND MY OWN SUITE COULD NOT SEE IT, for the third time in this family:
+     * every fixture either carried no heights, or carried heights that DID
+     * overlap. "Known heights, genuinely separate" was the one case I never
+     * wrote, and it is exactly the case the fall-through broke.
+     */
+    return ay < by + bh && by < ay + ah
   }
   /**
-   * ⛔ WITHOUT HEIGHTS, TREAT THEM AS ONE ROW — do not fall back to a tolerance
-   * that can UNDER-group.
+   * ⛔ WITHOUT HEIGHTS — and ONLY without them — TREAT THEM AS ONE ROW, rather
+   * than falling back to a tolerance that can UNDER-group.
    *
    * Codex's P2 on #1608: a hand-dragged row staggered further than the tolerance
    * reads as separate rows, the bound lifts, and the cards overlap. The tolerance

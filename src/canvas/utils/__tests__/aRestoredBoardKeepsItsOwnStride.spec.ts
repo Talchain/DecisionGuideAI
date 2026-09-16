@@ -181,6 +181,46 @@ describe('a restored board keeps its own stride', () => {
     expect(worstGap(nodes, 'option', bounded.option), 'a manual stagger with no heights lifted the bound and the cards overlap').toBeGreaterThanOrEqual(0)
   })
 
+  /**
+   * ⛔⛔ THE CONTRAST CODEX ASKED FOR, AND THE CASE MY SUITE NEVER HAD.
+   *
+   * Every earlier fixture either carried NO heights, or carried heights that DID
+   * overlap. "Known heights, genuinely separate rows" is the one combination I
+   * never wrote — and it is exactly what the fall-through broke: `shareARow`
+   * returned true even when the measurements PROVED no overlap, so real sub-rows
+   * merged and their cards shrank for nothing (measured 440 -> 336 at y 300 /
+   * 1000 / 1700 with 100px cards).
+   *
+   * ⭐ Evidence wins in BOTH directions. The conservative "same row" answer is
+   * for the ABSENCE of evidence; it must never override evidence that exists.
+   */
+  it('⭐ MEASURED AND SEPARATE: known heights that prove no overlap are NOT one row', () => {
+    const nodes = savedBoard().map((n) => {
+      if (n.type !== 'option') return n
+      const idx = Number(n.id.slice(1))
+      // ⚠ X MUST STILL DIFFER. A first version put all three at one x; the stride
+      // is then 0, `solveRestoredCardWidths` skips the pair outright, and the
+      // whole test passed WITHOUT EVER CALLING `shareARow`. The mutant survived
+      // and the survival was the finding — a fixture satisfied by a path that
+      // does not involve the code under test.
+      return { ...n, position: { x: n.position.x, y: 300 + idx * 700 }, measured: { width: 336, height: 100 } }
+    }) as Node[]
+    // Preconditions, pinned: heights present, rows genuinely separated, AND a
+    // measurable stride, or the assertion below is vacuous.
+    const opts = nodes.filter((n) => n.type === 'option')
+    expect(opts.every((n) => (n as { measured?: { height?: number } }).measured?.height === 100),
+      'the fixture lost its heights — it would be testing the no-evidence branch').toBe(true)
+    const ys = opts.map((n) => n.position.y).sort((a, b) => a - b)
+    expect(ys[1] - ys[0], 'the rows are not separated by more than a card height — cannot reproduce').toBeGreaterThan(100)
+    const xs = [...new Set(opts.map((n) => n.position.x))]
+    expect(xs.length, 'every option sits at the same x, so no stride is measurable and this asserts nothing').toBeGreaterThan(1)
+
+    const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
+    const fresh = solveLayoutCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
+    expect(bounded.option,
+      'measured-separate rows were merged, so the option cards were needlessly narrowed').toBe(fresh.option)
+  })
+
   it('⛔ LOCKED AND MANUAL POSITIONS: the solver returns widths only, and moves nothing', () => {
     const nodes = savedBoard().map((n) => (n.id === 'o1' ? { ...n, data: { ...(n.data as object), locked: true } } : n)) as Node[]
     const before = JSON.stringify(nodes.map((n) => n.position))
