@@ -104,9 +104,47 @@ describe('robustnessStatus answers the verdict question', () => {
     expect(b.robustness?.display_verdict).toBe('fragile')
   })
 
-  it('accepts level as the verdict, matching useAnalysisMetadata’s documented fallback', () => {
-    const levelOnly = { ...NO_VERDICT, level: 'low' }
-    expect(deriveRobustnessStatus(reportWith(levelOnly))).toBe('computed')
+  // ── THE NEGATIVE CONTRASTS THE INDEPENDENT REVIEW EXECUTED ───────────────
+  //
+  // Each of these returned `computed` on my first cut. `not_assessed` is a
+  // MINTED display-safe token meaning "this run may claim nothing", so reading
+  // it as a verdict is the exact inversion this module exists to fix.
+
+  it('is not computed on not_assessed, the token that says no verdict', () => {
+    expect(
+      deriveRobustnessStatus(reportWith({ ...NO_VERDICT, display_verdict: 'not_assessed' })),
+    ).toBe('unavailable')
+  })
+
+  it('is not computed on not_assessed even when a level sits beside it', () => {
+    // The `level` fallback is gone. My commit message called it
+    // "useAnalysisMetadata's own documented fallback"; read at this tip, that
+    // hook has no level fallback at all. The premise was asserted, not read.
+    expect(
+      deriveRobustnessStatus(
+        reportWith({ ...NO_VERDICT, display_verdict: 'not_assessed', level: 'high' }),
+      ),
+    ).toBe('unavailable')
+  })
+
+  it('is not computed on an unrecognised token', () => {
+    expect(
+      deriveRobustnessStatus(reportWith({ ...NO_VERDICT, display_verdict: 'probably_fine' })),
+    ).toBe('unavailable')
+  })
+
+  it('is not computed on level alone, with no verdict', () => {
+    expect(deriveRobustnessStatus(reportWith({ ...NO_VERDICT, level: 'low' }))).toBe('unavailable')
+  })
+
+  it('accepts each of the three tokens that DO make a claim, and only those', () => {
+    // The positive half of the discrimination: without it a module that
+    // returned 'unavailable' for everything would pass every test above.
+    for (const v of ['robust', 'moderate', 'fragile']) {
+      expect(deriveRobustnessStatus(reportWith({ ...NO_VERDICT, display_verdict: v }))).toBe(
+        'computed',
+      )
+    }
   })
 
   it('is not computed when no robustness block arrived at all', () => {

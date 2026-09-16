@@ -53,24 +53,43 @@
  */
 
 /** Two values, because that is what every consumer of this field reads. */
+import { statedARobustnessVerdict } from './robustnessDisplayVerdict'
+
 export type RobustnessStatus = 'computed' | 'unavailable'
 
-const nonEmptyString = (v: unknown): boolean =>
-  typeof v === 'string' && v.trim().length > 0
-
 /**
- * `'computed'` only when the producer stated a robustness verdict on this run.
+ * `'computed'` only when the producer STATED a robustness verdict on this run.
  *
- * Fail-closed: an absent block, a non-string verdict, or a blank one cannot
- * support a positive claim that the check produced an answer.
+ * ⛔⛔ TWO CORRECTIONS FROM INDEPENDENT REVIEW, BOTH MINE, BOTH CONSEQUENTIAL.
+ *
+ * (1) The first cut accepted ANY non-empty string. `not_assessed` is a MINTED,
+ *     display-safe token meaning "this run may claim nothing" — so the verdict
+ *     that says no verdict was being read as `computed`, which is the exact
+ *     inversion this module exists to fix. Executed contrasts in review:
+ *     `not_assessed -> computed`, `not_assessed + level:'high' -> computed`,
+ *     unrecognised token `-> computed`.
+ *
+ * (2) It also carried a `level` fallback, justified in my own commit message as
+ *     "`useAnalysisMetadata`'s own documented fallback". THAT WAS FALSE. Read at
+ *     this tip, that hook validates against a closed four-token set and has NO
+ *     level fallback at all. I asserted a premise about another module without
+ *     reading it — the failure this estate names most often — and the review
+ *     read it. The fallback is gone; the two real payloads still resolve
+ *     correctly without it (`1dd2133d` carries `display_verdict: 'fragile'`,
+ *     `f51850fc` carries none).
+ *
+ * The rule is now IMPORTED from the one owner rather than respelled, so the two
+ * surfaces cannot drift again.
+ *
+ * Fail-closed: an absent block, a non-string verdict, an unrecognised token or
+ * `not_assessed` cannot support a positive claim that the check produced an
+ * answer.
  */
 export function deriveRobustnessStatus(
   report: unknown,
 ): RobustnessStatus {
   const robustness = (report as { robustness?: unknown } | null | undefined)?.robustness
   if (robustness === null || typeof robustness !== 'object') return 'unavailable'
-  const r = robustness as { display_verdict?: unknown; level?: unknown }
-  return nonEmptyString(r.display_verdict) || nonEmptyString(r.level)
-    ? 'computed'
-    : 'unavailable'
+  const r = robustness as { display_verdict?: unknown }
+  return statedARobustnessVerdict(r.display_verdict) ? 'computed' : 'unavailable'
 }
