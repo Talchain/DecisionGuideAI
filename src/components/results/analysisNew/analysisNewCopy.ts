@@ -119,6 +119,15 @@ const clauseCase = (s: string): string =>
  */
 const PROVISIONAL_UNNAMED = 'This analysis is partial. Some results are missing.'
 
+/**
+ * ⭐ THE UNIT EXAMPLES, ONCE. The success-target editor's placeholder and the
+ * refusal that names it read this same constant, so a sentence can never
+ * describe a box showing something else. The three are the Model tab's own
+ * (`ModelRowView`'s unit input), because two surfaces collecting one thing
+ * should offer it in one vocabulary.
+ */
+const GOAL_UNIT_EXAMPLES = '£, %, points'
+
 export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
 export const ANALYSIS_NEW_COPY = {
@@ -1090,6 +1099,24 @@ export const ANALYSIS_NEW_COPY = {
     change: 'Change',
     inputLabel: 'Success target for this goal',
     /**
+     * ⭐⭐ THE UNIT, COLLECTED HERE RATHER THAN REFUSED. `proposeGoalTarget`
+     * has always taken the unit as an argument and this control has always
+     * passed it; it was passing `''` and reporting a refusal instead. The
+     * visible word is the Model tab's own field label, so the estate refuses
+     * and collects a unit in ONE vocabulary.
+     *
+     * ⛔ THE BOX IS OFFERED ONLY WHERE THE GOAL DECLARES NO UNIT. Beside a
+     * producer-supplied one it would be a second writer able to contradict
+     * CEE silently, which is worse than the refusal it replaces.
+     */
+    unitInputLabel: 'Unit for this success target',
+    /**
+     * ⚠ ONE CONSTANT, TWO READERS — the placeholder the reader SEES and the
+     * refusal that names it. Split them and the sentence starts describing a
+     * box that shows something else.
+     */
+    unitPlaceholder: GOAL_UNIT_EXAMPLES,
+    /**
      * ⭐⭐⭐ WHICH WAY THE TARGET IS READ — THE THING THIS CONTROL RECORDED AND
      * NEVER SAID.
      *
@@ -1173,9 +1200,30 @@ export const ANALYSIS_NEW_COPY = {
      * the same draft with "Add a unit". Two surfaces refusing one thing should
      * refuse it in one vocabulary — the divergence is what made this findable
      * only by driving the product.
+     *
+     * ⛔⛔ REWRITTEN, BECAUSE THE OLD SENTENCE NAMED A PLACE THE READER COULD
+     * NOT REACH. It said *"Add a unit to the goal first"*. The only unit
+     * writer in the product is the Model tab's goal-target editor, and its
+     * `Unit` field mounts only once THAT row's editor is open (`ModelRowView`:
+     * `row.kind === 'goal' && commit?.phase === 'editing'`) — so a reader who
+     * followed the instruction found nothing, which is how this surfaced as a
+     * dead end on a witnessed journey. The control now collects the unit
+     * itself, so the sentence names the box that is on screen.
+     *
+     * ⚠ AND THE REFUSAL IS NOW RARER THAN IT LOOKS. It used to fire on a goal
+     * that HAD a unit, because the unit was read through `resolveGoalTarget`,
+     * which answers a different question (see `SuccessTargetLine`). It fires
+     * only where the goal declares none AND the reader left the box blank.
+     *
+     * ⛔⛔ AND IT NAMES ONLY WHAT IS ON SCREEN. My first rewrite said *"Type one
+     * in the **Unit** box"* — borrowing the Model tab's visible `Unit` label for
+     * a field that carries NO visible label here, only a placeholder. That is
+     * the same defect one level down: a refusal naming something the reader
+     * cannot identify. The examples are interpolated from `GOAL_UNIT_EXAMPLES`,
+     * which is the placeholder the empty box is showing while the reader reads
+     * this, so the sentence cannot drift from the control.
      */
-    noUnit:
-      'This goal has no unit yet, so a target cannot be set against it. Add a unit to the goal first.',
+    noUnit: `A target needs a unit. Type one in the box beside the number, such as ${GOAL_UNIT_EXAMPLES}.`,
   },
   /**
    * ⭐ TWO UI-AUTHORED STRINGS, AND BOTH ARE HERE — a heading, and the label that

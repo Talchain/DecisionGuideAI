@@ -273,7 +273,16 @@ describe('the sentence is the one the outcome earned', () => {
     goalTargetDispatchAvailable = false
     typeTarget('125')
     expect(proposeGoalTarget).not.toHaveBeenCalled()
-    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('g1', 125)
+    /**
+     * ⚠ THIS ASSERTION USED TO READ `('g1', 125)` — TWO ARGUMENTS — AND THE
+     * VERDICT CHANGED DELIBERATELY. The store action has always accepted
+     * `{ unit }` and this path was omitting it, so on the ONE route where
+     * nothing downstream can recover the reader's unit it was discarded. The
+     * fixture's goal declares `'%'`, and the local write now records it.
+     * Strengthened, not relaxed: the old form passes on a call that drops the
+     * unit, this one does not.
+     */
+    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('g1', 125, { unit: '%' })
     expect(showToast).toHaveBeenCalledWith(COPY.successTarget.changedLocally)
     expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.dispatched)
   })

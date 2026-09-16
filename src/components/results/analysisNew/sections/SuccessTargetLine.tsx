@@ -81,6 +81,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
 import {
   resolveGoalTarget,
+  declaredGoalUnit,
   statedTargetNumber,
   type GoalTargetSource,
 } from '../../../../canvas/domain/goalTarget'
@@ -183,6 +184,8 @@ export function SuccessTargetLine({
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  /** The reader's unit, offered only where the goal declares none. See `unit` below. */
+  const [unitDraft, setUnitDraft] = useState('')
   /**
    * ⭐⭐⭐ WHICH WAY THE NUMBER IS READ — STATE, BESIDE THE NUMBER IT QUALIFIES,
    * BECAUSE IT IS HALF OF WHAT THE READER IS SAYING.
@@ -238,13 +241,33 @@ export function SuccessTargetLine({
   const unexpressible = shownText === null && threshold != null && representation !== 'raw'
 
   /**
-   * ⭐ THE UNIT THE DISPATCH REQUIRES, FROM THE ONE RESOLVER THIS FILE ALREADY
-   * READS. `buildManualGoalTarget` refuses an empty unit outright, so a goal
-   * CEE sent no `goal_threshold_unit` for cannot be dispatched and the control
-   * says so rather than reporting a send. That refusal is the Model tab's too:
-   * `unproposableDraftReason` blocks the same draft with "Add a unit".
+   * ⭐⭐⭐ THE UNIT BELONGS TO THE GOAL, AND IS READ OFF THE GOAL.
+   *
+   * ⛔⛔ THIS LINE WAS `fromNode?.unit ?? ''`, AND THAT IS TRAP 21 IN ONE
+   * EXPRESSION. `resolveGoalTarget` answers *"what TARGET is set?"* and
+   * returns `null` when none is — it reads `goal_threshold_unit` on the way
+   * past and then throws it away with everything else (`goalTarget.ts`). So on
+   * the ONE journey this control exists for, a reader with no target clicking
+   * "Set a target", the unit resolved to `''` and the panel refused with
+   * *"this goal has no unit"* about a goal that HAD one. The docblock that
+   * stood here called it "THE UNIT THE DISPATCH REQUIRES, FROM THE ONE
+   * RESOLVER THIS FILE ALREADY READS" — one resolver, two questions, and the
+   * borrowed one cannot answer this one.
+   *
+   * The node's own field answers it, whether or not a target exists.
    */
-  const unit = fromNode?.unit ?? ''
+  const declaredUnit = declaredGoalUnit(goalData as GoalTargetSource | null)
+  /**
+   * ⭐ COLLECTED WHERE THE GOAL DECLARES NONE. `buildManualGoalTarget` refuses
+   * an empty unit outright, so without one there is no send to report — and
+   * the old remedy ("add a unit to the goal first") named a field that lives
+   * inside the Model tab's goal-row editor and is unreachable from here.
+   *
+   * ⛔ THE DECLARED UNIT WINS AND IS NEVER OVERWRITTEN. Where CEE sent one the
+   * box is not offered at all, so this surface cannot silently contradict the
+   * producer — a worse defect than the refusal it replaces.
+   */
+  const unit = declaredUnit.trim() !== '' ? declaredUnit : unitDraft.trim()
 
   /**
    * ⚠ A CONJUNCTION, AND IT IS `ModelTabV2Panel.tsx:558`'s OWN. The policy key
@@ -340,6 +363,7 @@ export function SuccessTargetLine({
       if (outcome === 'not_encodable') return
       setEditing(false)
       setDraft('')
+      setUnitDraft('')
       return
     }
 
@@ -349,10 +373,19 @@ export function SuccessTargetLine({
      * read it within the session. What must not happen is the old sentence: the
      * copy on this path states plainly that Olumi has not been told.
      */
-    setGoalThresholdAndUpdateNode(goalNodeId, parsed)
+    /**
+     * ⚠ AND IT CARRIES THE UNIT. The store action has always accepted
+     * `{ unit }` (`store.ts`: it stamps `goal_threshold_unit` when one is
+     * given and leaves any existing one untouched when none is), and this call
+     * was omitting it — so on the one path where nothing downstream could
+     * recover the reader's unit, it was discarded.
+     */
+    if (unit !== '') setGoalThresholdAndUpdateNode(goalNodeId, parsed, { unit })
+    else setGoalThresholdAndUpdateNode(goalNodeId, parsed)
     onCommitOutcome('local_only')
     setEditing(false)
     setDraft('')
+    setUnitDraft('')
   }
 
   return (
@@ -415,6 +448,33 @@ export function SuccessTargetLine({
             className={`${typography.panelMeta} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-input`}
           />
+          {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
+              has always taken it and this control has always passed it; it was
+              passing `''` and reporting a refusal whose remedy lived on another
+              tab, inside a row editor the reader had no reason to open.
+
+              ⛔ NOT RENDERED BESIDE A PRODUCER-SUPPLIED UNIT. `declaredUnit`,
+              never the resolved target's — a goal can declare a unit and carry
+              no target, and reading the unit off the target is the defect this
+              change exists to fix. A box here beside CEE's own unit would be a
+              second writer able to contradict it silently.
+
+              ⚠ ITS WIDTH IS A FLOOR, not a preference: the Model tab's own unit
+              field carries `w-24` because the row gate asserts every input in
+              that row is at least 90px, and a narrower twin here would read as
+              a different control for the same fact. */}
+          {declaredUnit.trim() === '' ? (
+            <input
+              type="text"
+              value={unitDraft}
+              onChange={(e) => setUnitDraft(e.target.value)}
+              onKeyDown={onEditorKeyDown}
+              aria-label={COPY.successTarget.unitInputLabel}
+              placeholder={COPY.successTarget.unitPlaceholder}
+              className={`${typography.panelMeta} w-24 shrink-0 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-unit`}
+            />
+          ) : null}
           <button
             type="button"
             onClick={commit}
