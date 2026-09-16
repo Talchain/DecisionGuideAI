@@ -4,7 +4,7 @@
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
-import { goalConstraintText } from '../../../utils/goalConstraintText'
+import { goalConstraintText, constraintWithEditedValue } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -634,6 +634,15 @@ export const GoalPanel = memo(function GoalPanel({
                           <span className={`${typography.panelMeta} text-text-light shrink-0`}>{c.operator}</span>
                           <input
                             type="number"
+                            /* ⚠ BOUND BY IDENTITY, BECAUSE A VALUE PREDICATE
+                               PICKED THE WRONG BOX. This panel renders TWO
+                               number inputs — the goal threshold and this
+                               constraint value — and a test selecting "the
+                               first number input" drove the threshold while its
+                               own positive control (an input exists) passed.
+                               Trap 19, caught only by a discriminating
+                               assertion. */
+                            data-testid={`goal-constraint-${c.constraint_id ?? c.id ?? i}-value-input`}
                             defaultValue={c.value}
                             onBlur={e => {
                               const parsed = parseFloat(e.target.value)
@@ -648,7 +657,15 @@ export const GoalPanel = memo(function GoalPanel({
                                 (identity !== undefined
                                   ? (pc.constraint_id ?? pc.id) === identity
                                   : idx === i)
-                                  ? { ...pc, value: parsed }
+                                  // ⛔ NOT `{ ...pc, value: parsed }`. That spread
+                                  // preserved `provenance_unit_normalised` and
+                                  // `source_quote` — both statements ABOUT THE OLD
+                                  // VALUE — so an audited 4% ceiling edited to 5
+                                  // still rendered "≤ 4%". Found by an independent
+                                  // post-merge review of #1592 and reproduced at
+                                  // the formatter. The writer is the only place
+                                  // that knows the value changed.
+                                  ? constraintWithEditedValue(pc, parsed)
                                   : pc
                               )
                               setGoalConstraints(updated)

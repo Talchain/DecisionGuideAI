@@ -37,10 +37,14 @@
  *     which is deliberate and load-bearing — putting "You said" over an
  *     Olumi-inferred constraint would launder a machine guess as a human
  *     statement.
- *   · `DataBar` and `constraintConfidenceColour` — the existing probability
- *     encodings. `constraintConfidenceColour` is used instead of re-typing
- *     `0.7`/`0.4` so this surface cannot drift from the thresholds
- *     `types/constraints.ts` owns.
+ *   · `DataBar`, given an EXPLICIT `colour="info"`. ⛔ This paragraph used to
+ *     recommend `constraintConfidenceColour` here, on the reasoning that
+ *     borrowing the shared helper beat re-typing `0.7`/`0.4` — which is a good
+ *     argument about DRIFT and the wrong question entirely. Both spellings
+ *     produce the same thing: a green/blue/orange VERDICT computed by the UI
+ *     from a probability. Sharing the constant does not make the judgement
+ *     ours to make. Neither the bar nor the number beside it is graded now, and
+ *     the guard below bites on the BEHAVIOUR rather than on either spelling.
  *
  * ## ⛔ READ-ONLY, AND THAT IS NOT A SHORTCUT
  *
@@ -94,7 +98,6 @@
 import { goalConstraintText, goalConstraintTextUsesQuote } from '../../utils/goalConstraintText'
 import { GoalConstraintProvenance } from '../../ui/inspector-v2/shared/GoalConstraintProvenance'
 import { DataBar } from '../../ui/shared/DataBar'
-import { constraintConfidenceColour } from '../../../types/constraints'
 import { typography } from '../../../styles/typography'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 
@@ -234,9 +237,23 @@ export function GoalConstraintsSection({
                   {constraintText}
                 </span>
                 {probability !== null && (
-                  <span
-                    className={`${typography.panelMeta} shrink-0 ${constraintConfidenceColour(probability)}`}
-                  >
+                  /* ⛔ THE NUMBER BESIDE THE BAR WAS STILL GRADED, FOUR LINES
+                     FROM THE BAR #1593 DE-GRADED. `constraintConfidenceColour`
+                     returns `text-success` at >= 0.70, `text-info` at >= 0.40
+                     and `text-danger` below — the identical 0.7/0.4 verdict,
+                     one channel over, on the same row.
+
+                     ⚠ AND MY OWN GUARD COULD NOT SEE IT. It looks for a
+                     `<DataBar` with no colour, so it guards THE CARRIER rather
+                     than THE BEHAVIOUR: colouring by a band computed from the
+                     value. That is why the guard is widened in the same
+                     change — fixing this line alone would leave the next
+                     sibling just as invisible.
+
+                     The percentage still renders, in the body colour. The
+                     magnitude is the fact; how good 43% is, is a judgement this
+                     surface is not entitled to make. */
+                  <span className={`${typography.panelMeta} shrink-0 text-text-body`}>
                     {Math.round(probability * 100)}%
                   </span>
                 )}
