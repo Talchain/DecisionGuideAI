@@ -1113,42 +1113,70 @@ function buildUncertainty(
    * truncating it would reintroduce the cut prefix the rule bans. Same 80
    * through the same helper, so there is one budget on this surface, not two.
    */
-  const relationshipLabel = (u: UncertaintyItem): string => {
-    if (u.edgeLabelsResolved !== true) return ''
-    if (!u.edgeFromLabel || !u.edgeToLabel) return ''
-    const name = `${u.edgeFromLabel} \u2192 ${u.edgeToLabel}`
-    return truncateAtWordBoundary(name, 80) === name ? name : ''
+  const edgeNames = (u: UncertaintyItem): { full: string; source: string } | null => {
+    if (u.edgeLabelsResolved !== true) return null
+    if (!u.edgeFromLabel || !u.edgeToLabel) return null
+    return { full: `${u.edgeFromLabel} \u2192 ${u.edgeToLabel}`, source: u.edgeFromLabel }
   }
+  const fitsTheLabelSlot = (name: string): boolean =>
+    name !== '' && truncateAtWordBoundary(name, 80) === name
   /**
-   * ⛔⛔ ALL OF THEM OR NONE OF THEM — AND THIS IS THE HALF I GOT WRONG FIRST.
+   * ⛔⛔ ONE CONVENTION FOR THE WHOLE SECTION, CHOSEN BY DEGRADING — NOT BY
+   * GIVING UP. THIS IS THE SECOND THING I GOT WRONG HERE.
    *
-   * The first draft named each row it could. On the measured fixture that names
-   * ONE of three, because one node label is itself a 95-character sentence, and
-   * a section showing one titled row above two untitled ones is EXACTLY the
-   * defect the block below was written about: *"one section, two title
-   * conventions — Paul's 'such a lack of consistency in the design', made
-   * concrete"*. A remedy that reproduces the complaint it answers is not a
-   * remedy.
+   * Draft one named each row it could. On the measured fixture that titles ONE
+   * of three, because one node label is itself a 95-character sentence — and one
+   * titled row above two untitled ones is EXACTLY the defect the block below was
+   * written about: *"one section, two title conventions — Paul's 'such a lack of
+   * consistency in the design', made concrete"*.
    *
-   * So the set decides, which is this estate's own ratified idiom for the same
-   * shape: the convergence line is absent when ANY row names no option, and the
-   * goal-probability bars stay silent when ONE option is short. Uniformity
-   * within the branch is the product requirement; per-row optimism is not.
+   * Draft two therefore silenced the whole set whenever one name was too long.
+   * ⛔ CODEX REFUSED THAT, RIGHTLY (CX-20260916-63): *"don't treat all-or-none
+   * naming as automatically correct merely because another section uses it: it
+   * must preserve useful identity for the long-label case, not just make the
+   * titles uniformly absent."* The appeal to the convergence line was an appeal
+   * to PRECEDENT, and precedent is not an argument that a rule is right HERE.
+   * All-or-none traded away two perfectly good titles to punish a third.
+   *
+   * So the section picks ONE RUNG and every row uses it:
+   *   1. the whole relationship, `from \u2192 to` — the row's full identity;
+   *   2. failing that, the SOURCE alone — the factor being varied. Not a
+   *      truncation of rung 1: a complete, producer-supplied name, and the same
+   *      shape as the driver rows' own `headline: factorLabel`. The body still
+   *      carries the whole relationship, so nothing is lost, only deferred;
+   *   3. failing that, no title — today's behaviour.
+   *
+   * ⛔ AND EVERY RUNG REQUIRES DISTINCT TITLES ACROSS THE SET. Two rows under
+   * the same title are not identified, they are confused — furniture with a
+   * name, which is worse than the honest blank rung 3 gives. It bites hardest at
+   * rung 2, where two edges out of one factor collapse onto one source name.
    *
    * ⚠ SCOPED TO THE `''` BRANCH ONLY. A threshold row already carries a producer
    * name and a short sentence already is its own label; both are correct today
    * and neither is judged here. The candidate set is precisely the rows that
-   * would otherwise render with NO label — the measured defect, and nothing
-   * else.
+   * would otherwise render with NO label — the measured defect, and nothing else.
    */
-  const sensitivityRowsCanAllBeNamed = (() => {
+  const sectionTitleRung: 'full' | 'source' | null = (() => {
     const unlabelled = uncertaintyRows.filter((u) => {
       if (u.code !== 'SENSITIVE_ASSUMPTION' || u.threshold) return false
       const t = humanised(u)
       return t !== '' && truncateAtWordBoundary(t, 80) !== t
     })
-    return unlabelled.length > 0 && unlabelled.every((u) => relationshipLabel(u) !== '')
+    if (unlabelled.length === 0) return null
+    const named = unlabelled.map(edgeNames)
+    if (named.some((n) => n === null)) return null
+    const usable = named as Array<{ full: string; source: string }>
+    for (const rung of ['full', 'source'] as const) {
+      const titles = usable.map((n) => n[rung])
+      if (titles.every(fitsTheLabelSlot) && new Set(titles).size === titles.length) return rung
+    }
+    return null
   })()
+  const rowTitle = (u: UncertaintyItem): string => {
+    if (sectionTitleRung === null) return ''
+    const names = edgeNames(u)
+    return names ? names[sectionTitleRung] : ''
+  }
   for (let i = 0; i < uncertaintyRows.length; i++) {
     const u = uncertaintyRows[i]
     const text = humanised(u)
@@ -1205,9 +1233,7 @@ function buildUncertainty(
       ? `${u.threshold.variable} could change the answer`
       : labelLength === text
         ? text
-        : sensitivityRowsCanAllBeNamed
-          ? relationshipLabel(u)
-          : ''
+        : rowTitle(u)
     /**
      * ⚠ THE PRODUCER'S OWN CLASS DECIDES, AND IT IS READ HERE BECAUSE THIS IS
      * THE LAST HOP WHERE `u.code` EXISTS — `AnalysisNewFinding` deliberately
@@ -1370,11 +1396,17 @@ function buildUncertainty(
        * "If this changes significantly…" names nothing at all — strictly worse
        * than the sentence it replaced. Absent short form, or absent title, the
        * row renders exactly what it renders today.
+       *
+       * ⛔⛔ AND ON RUNG `full` SPECIFICALLY. At rung `source` the title is only
+       * the FACTOR, while the body's quoted subject is the whole relationship —
+       * so dropping the subject there would delete the target end, which nothing
+       * on screen would then name. The short body is licensed by the title
+       * carrying the SAME string, never merely by a title existing.
        */
       implication:
         headlineText === text
           ? ''
-          : headlineText !== '' && !u.threshold && u.messageWithSubjectNamedAbove
+          : sectionTitleRung === 'full' && headlineText !== '' && !u.threshold && u.messageWithSubjectNamedAbove
             ? u.messageWithSubjectNamedAbove
             : text,
       // ⚠⚠ THIS COMMENT USED TO SAY "the generic constant is DROPPED rather

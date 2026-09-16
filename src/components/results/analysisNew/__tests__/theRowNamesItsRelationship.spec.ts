@@ -144,10 +144,11 @@ describe('a fragile-edge row names the relationship it is about', () => {
     }
   })
 
-  it('⛔ THE OPPOSITE ARM: one un-nameable row silences the names on ALL of them', () => {
-    // A 95-character target label — the shape on the measured fixture. Its
-    // composed name exceeds the label budget, so naming it would mean cutting
-    // it, and a cut name is the defect this design refuses.
+  it('⛔ ONE OVERLONG NAME DEGRADES THE WHOLE SET TO THE SOURCE \u2014 it does not silence it', () => {
+    // A 95-character target label, the shape on the measured fixture. Its full
+    // relationship name exceeds the label budget, and truncating it would be the
+    // cut prefix the sibling spec bans. So the SECTION drops to rung 2 — the
+    // source factor, a complete producer-supplied name — and EVERY row uses it.
     const longTarget =
       'getting through peak season without dropping below our 95 percent accuracy commitment, at lower cost'
     const rows = rowsOf(
@@ -158,15 +159,37 @@ describe('a fragile-edge row names the relationship it is about', () => {
     )
 
     expect(rows).toHaveLength(2)
-    // NOT "the long one is silent and the short one is named" — BOTH silent.
-    expect(rows.map((r) => r.headline)).toEqual(['', ''])
-    // And every sentence still reaches the reader whole.
-    // ⛔⛔ AND THE BODIES KEEP THEIR SUBJECT. This is the assertion that stops the
-    // worst available outcome: an UNTITLED row reading "If this changes
-    // significantly…", which names nothing at all and is strictly worse than the
-    // sentence it replaced. The short form is present on both rows here.
+    // ⛔ NOT ['', ''] — that was draft two, and Codex refused it (CX-20260916-63):
+    // all-or-none traded two good titles away to punish a third.
+    expect(rows.map((r) => r.headline)).toEqual([
+      NAMEABLE[0][0],
+      'Peak Season Throughput',
+    ])
+    // ⛔⛔ AND THE BODIES KEEP THEIR SUBJECT AT THIS RUNG. The title is only the
+    // FACTOR; the body's quoted subject is the whole relationship. Dropping it
+    // would delete the target end, which nothing on screen would then name.
     expect(rows[0].implication).toBe(sentence(NAMEABLE[0][0], NAMEABLE[0][1], NAMEABLE[0][2]))
     expect(rows[1].implication).toBe(sentence('Peak Season Throughput', longTarget, 'RudderStack'))
+  })
+
+  it('⛔ TWO ROWS THAT WOULD SHARE A TITLE GET NONE \u2014 a repeated title is furniture', () => {
+    // Both edges leave the same factor, and the targets are too long for rung 1.
+    // Rung 2 would title both rows 'Peak Season Throughput', which does not
+    // identify them, it confuses them. The honest blank is better.
+    const longA =
+      'getting through peak season without dropping below our 95 percent accuracy commitment, at lower cost'
+    const longB =
+      'holding unit economics steady while the fulfilment network absorbs the additional seasonal volume'
+    const rows = rowsOf(
+      withUncertainties([
+        edgeRow('Peak Season Throughput', longA, 'RudderStack'),
+        edgeRow('Peak Season Throughput', longB, 'RudderStack'),
+      ]),
+    )
+
+    expect(rows).toHaveLength(2)
+    expect(rows.map((r) => r.headline)).toEqual(['', ''])
+    expect(rows[0].implication).toBe(sentence('Peak Season Throughput', longA, 'RudderStack'))
   })
 
   it('⛔ THE GATE IS THE PRODUCER’S ANSWER, NOT THE LOOK OF THE STRING', () => {
@@ -257,13 +280,23 @@ describe('a fragile-edge row names the relationship it is about', () => {
     expect(rows[0].implication).toBe(long)
   })
 
-  it('⛔ the MEASURED fixture stays unnamed, because one of its ends is a sentence', () => {
-    // `manyFragileEdges` reproduces the deployed shape and now models the fields
-    // the hook really sets. Two of its three targets are 95-character labels, so
-    // the set is not nameable and the rows keep the behaviour Paul saw. This is
-    // the arm that would flip if the all-or-none rule were dropped.
+  it('⛔ the MEASURED fixture degrades to rung 2, and every row uses it', () => {
+    // `manyFragileEdges` reproduces the deployed shape and models the fields the
+    // hook really sets. Two of its three targets are 95-character labels, so
+    // rung 1 is unreachable — and its three SOURCES are distinct, so rung 2 is.
+    // ⚠ THIS TEST PREVIOUSLY ASSERTED THE ROWS STAY UNNAMED. That was draft
+    // two's all-or-none rule, and it is withdrawn; the verdict moved, so the
+    // claim moved with it rather than being left to read as still true.
     const rows = rowsOf(manyFragileEdges()).filter((r) => r.implication.startsWith('If "'))
     expect(rows.length).toBeGreaterThanOrEqual(3)
-    expect(rows.every((r) => r.headline === '')).toBe(true)
+
+    const titles = rows.map((r) => r.headline)
+    // Every row titled, by the SAME convention, and no two alike.
+    expect(titles.every((t) => t !== '')).toBe(true)
+    expect(new Set(titles).size).toBe(titles.length)
+    expect(titles.every((t) => !t.includes('\u2192'))).toBe(true)
+    // And no title is a cut — nothing carries the truncation marker.
+    expect(titles.every((t) => !t.endsWith('\u2026'))).toBe(true)
   })
+
 })
