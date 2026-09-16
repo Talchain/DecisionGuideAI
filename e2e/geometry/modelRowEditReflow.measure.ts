@@ -37,6 +37,7 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { GATE_TAG } from './canvasGateSet'
+import { formatValueWithUnit } from '../../src/canvas/components/model-tab/utils'
 import {
   openCanvas, preparePage, seedStarterDraft, clearNotifications,
   minimiseFloatingOlumiPanel, freezeMotion, waitForVisualQuiescence,
@@ -927,7 +928,65 @@ for (const width of WIDTHS) {
     await unitInput.fill('£')
     await unitInput.press('Enter')
     const proposed = page.getByTestId(`model-row-v2-${goalId}-value-to`)
-    await expect(proposed).toHaveText('At least 120000 £ (absolute level)')
+
+    /**
+     * ⭐⭐ THE VALUE'S RENDERING IS DERIVED FROM THE FORMATTER, NOT RETYPED.
+     *
+     * This pinned `At least 120000 £ (absolute level)` and went RED at
+     * `7c80f0052` — but NOT because the product regressed. `bf6ab888b` (R5, "one
+     * number has one rendering") deliberately routed this review line through
+     * `formatValueWithUnit`, the SAME formatter `adapters.ts` composes the
+     * COMMITTED value with, because the three spellings of one figure inside a
+     * single edit gesture — `At least 25000 £` (review) -> `£25,000` (committed)
+     * -> `≥ £25,000` (constraints) — made the reader confirm against a sentence
+     * that did not match what landed. `120000 £` IS the defect R5 removed;
+     * `£120,000` is the fix. `manualGoalTarget.spec.tsx` was corrected in that
+     * same commit and this measure was missed, so the gate was holding the old
+     * rendering in place from outside the suite that had already moved.
+     *
+     * So the expectation now COMPOSES through the formatter rather than
+     * restating its output. A second hand-written copy of the format is exactly
+     * how the review line and the committed value drifted apart in the first
+     * place (CLAUDE.md trap 12), and re-typing `£120,000` here would rebuild
+     * that mirror one layer out.
+     *
+     * ⚠ THE SENTENCE AROUND IT IS STILL PINNED BY HAND, DELIBERATELY. Deriving
+     * the WHOLE string from the product's own expression would make this assert
+     * nothing: any rendering the panel chose would agree with itself. What is
+     * derived is the one thing R5 is ABOUT — the value's spelling; the bound
+     * phrase and the `(absolute level)` qualifier are this test's own claim
+     * about the sentence and stay literal.
+     */
+    const renderedValue = formatValueWithUnit(120000, '£')
+
+    /**
+     * ⭐ THE ANTI-TAUTOLOGY GUARD, because the line above is a DERIVATION and a
+     * derivation can quietly degenerate into agreement with itself. If
+     * `formatValueWithUnit` ever stopped separating a currency from the raw
+     * concatenation — returning `120000 £` — then `renderedValue` would BECOME
+     * the defect string, the assertion below would pass against a product that
+     * had regressed to exactly what R5 removed, and nothing would be red.
+     * Pinning the precondition in-test is what stops that (trap 13b).
+     */
+    expect(renderedValue, 'formatValueWithUnit no longer distinguishes a currency from a bare unit — the derivation below would assert the very rendering R5 removed').not.toBe('120000 £')
+
+    /**
+     * ⚠ A DIFFERENT QUESTION UNDER A SIMILAR SHAPE, SO IT IS NAMED APART RATHER
+     * THAN FOLDED INTO THE LINE ABOVE (CLAUDE.md trap 21).
+     *
+     * `formatSmartNumber` groups through `toLocaleString('en-GB')`. THIS FILE
+     * EVALUATES THAT IN NODE; the product evaluates it in CHROMIUM. The two
+     * agree today, and if a runner ever ships an ICU build where they do not,
+     * the derived expectation would go red against a perfectly correct product
+     * and read as a UI regression. This literal is the tell that distinguishes
+     * those two cases: if it fails, the DERIVATION's runtime moved, not the
+     * panel. It is not a second copy of the format for its own sake — the
+     * format's own authority is `manualGoalTarget.spec.tsx`, which pins it in
+     * jsdom beside the committed value it must match.
+     */
+    expect(renderedValue, "the Node-side formatter no longer yields '£120,000' — suspect this runner's ICU/locale data before suspecting the panel").toBe('£120,000')
+
+    await expect(proposed).toHaveText(`At least ${renderedValue} (absolute level)`)
     await expect(page.getByTestId(`model-row-v2-${goalId}-confirm`)).toBeVisible()
     const proposalFits = await proposed.evaluate(el => {
       const box = el.getBoundingClientRect()

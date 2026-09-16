@@ -21,7 +21,7 @@ import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { selectLodBodyHidden, selectLensDetailActive } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   NODE_CARD_MAX_W,
@@ -1712,14 +1712,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           tuning reaches 0.5 from 0.35, so the blanked state has to be right
           rather than merely temporary.
 
-          ⭐ WHY COLLAPSING COSTS THE LAYOUT NOTHING — the rungs do not overlap.
-          The body blanks only at rung `'line'`, i.e. `zoom < 0.5`
-          (`zoomLegibility.lodBodyHiddenAt`). The height ELK reserved is the
-          height at the label bound, and that bound is needed at zoom **0.5 and
-          above**, where the body is VISIBLE and reclaims every pixel. Below it
-          the reservation is unused by construction, so releasing it cannot
-          overlap anything — a card only ever shrinks inside a row whose stride
-          already fits it. */}
+          ⛔⛔ AND THE FIRST VERSION OF THIS PARAGRAPH ARGUED THE COLLAPSE WAS
+          FREE TO THE LAYOUT. IT IS NOT, AND THE REFUTATION WAS TWO SENTENCES
+          ABOVE IT. It read: *"the rungs do not overlap … below
+          `LABEL_LEGIBLE_ZOOM` the reservation is unused by construction, so
+          releasing it cannot overlap anything — a card only ever shrinks inside
+          a row whose stride already fits it."*
+
+          That holds only if the LAYOUT RAN at a zoom where the body was
+          visible. **The paragraph directly above says the default is that it did
+          not**: the fit zoom on three of five starters is 0.4935 / ~0.35, both
+          BELOW 0.5, so a layout on a freshly-opened board measures COLLAPSED
+          cards and reserves the short height. The reader then zooms in past the
+          legibility floor and every card grows back into the row beneath it.
+          MEASURED by `heightVsZoom.measure.ts` at this branch's tip: the worst
+          per-card LOD delta went **16px -> 430px**, against **45px** of sub-row
+          slack — i.e. an overlap, not a rounding.
+
+          ⭐ THE COLLAPSE STAYS; WHAT CHANGED IS WHAT THE LAYOUT MEASURES.
+          `measureNodeHeightsAtLabelBound` now RELEASES this wrapper's height for
+          the duration of its read (it finds it by `LOD_BLANKED_BODY_ATTR`, the
+          marker below), so the height ELK reserves is the height at the label
+          bound in fact and not merely by intention. The blanked children stay
+          mounted — `visibility: hidden` hides, it does not unmount — so the read
+          is synchronous and costs no re-render. `heightVsZoom.measure.ts` is
+          what REDs if this pairing is broken. */}
       {/* ⚠ `children || lodBodyLine`, AND THE SECOND HALF IS LOAD-BEARING. This
           wrapper hosts the reduced line, so gating it on `children` alone made
           the line unrenderable on precisely the cards that needed it most: one
@@ -1727,8 +1744,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           canvas, and it was the one card that could not be given a line. The
           wrapper contributes no height and the line is absolutely positioned,
           so admitting it with no children changes no geometry. */}
+      {/* ⚠ THE MARKER BELOW IS SPREAD FROM `LOD_BLANKED_BODY_ATTR`, NOT TYPED AS
+          A LITERAL. `measureNodeHeightsAtLabelBound` finds this element by that
+          same constant in order to release the collapse while it reads; a
+          literal at each end is the hand-maintained mirror CLAUDE.md trap 12
+          names, and the drift would be SILENT — the measurer would simply stop
+          finding anything and go back to reserving the short height, with every
+          unit test still green. The rendered value stays `"true"`, which several
+          specs assert. */}
       {!isCausalLens && !isEvidenceLens && (children || lodBodyLine || showConstraintLines) ? (
-        <div className="relative text-left" style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : undefined} data-lod-hidden={lodBodyBlanked || undefined}>
+        <div
+          className="relative text-left"
+          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : undefined}
+          {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
+        >
           {children as ReactNode}
           {/* ⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.
               A constraint is a boundary the reader chose, so it is true before
