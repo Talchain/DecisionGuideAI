@@ -282,6 +282,61 @@ describe('deriveResultCompleteness — the sensitivity check ran on this run', (
     expect(c.missing).not.toContain('sensitivity')
   })
 
+  // ── THE PRODUCER/PROJECTION BOUNDARY (CX237) ─────────────────────────────
+  //
+  // `normaliseFactorEntry` accepts exactly four aliases. `contribution` is
+  // written ONLY by the driver projections. A previous cut collapsed both
+  // checks into one predicate and let a RAW row satisfy availability on
+  // `contribution` — a row the mapper itself would drop — hiding a true
+  // disclosure. The pair below is what discriminates; neither case alone does.
+
+  const REPORT_BASE = {
+    schema: 'report.v1',
+    meta: { seed: 1, response_id: 'r', elapsed_ms: 1 },
+    model_card: { response_hash: 'h', response_hash_algo: 'sha256', normalized: true },
+    results: { conservative: 0.3, likely: 0.5, optimistic: 0.7 },
+    confidence: { level: 'high', why: 'y' },
+  }
+
+  it('REJECTS a raw factor_sensitivity row whose only magnitude is `contribution`', () => {
+    const report = {
+      ...REPORT_BASE,
+      drivers: [{ label: 'A factor', polarity: 'neutral', strength: 'low' }],
+      factor_sensitivity: [{ factor_id: '17456e58', contribution: 0.5 }],
+    } as unknown as ReportV1
+    const c = completenessOf(report)
+    expect(c.missing).toContain('sensitivity')
+    expect(c.reasons).toContain('sensitivity_missing')
+  })
+
+  it('ACCEPTS a projected driver row whose only magnitude is `contribution`', () => {
+    // The twin. Without it the rejection above could be satisfied by a
+    // predicate that refused `contribution` everywhere, which would break the
+    // V5 path this file was changed to fix (trap 19 — the pair, not one arm).
+    const report = {
+      ...REPORT_BASE,
+      drivers: [
+        { label: 'Team Leadership Coverage', polarity: 'up', strength: 'high', contribution: 0.5 },
+      ],
+    } as unknown as ReportV1
+    expect(completenessOf(report).missing).not.toContain('sensitivity')
+  })
+
+  it('retains a genuine zero on BOTH sides of the boundary', () => {
+    const rawZero = {
+      ...REPORT_BASE,
+      drivers: [{ label: 'A factor', polarity: 'neutral', strength: 'low' }],
+      factor_sensitivity: [{ factor_id: '17456e58', sensitivity_score: 0 }],
+    } as unknown as ReportV1
+    expect(completenessOf(rawZero).missing).not.toContain('sensitivity')
+
+    const projectedZero = {
+      ...REPORT_BASE,
+      drivers: [{ label: 'A factor', polarity: 'neutral', strength: 'low', contribution: 0 }],
+    } as unknown as ReportV1
+    expect(completenessOf(projectedZero).missing).not.toContain('sensitivity')
+  })
+
   it('leaves the top-drivers disclosure exactly where it was when nothing ranked', () => {
     const report = reportFromEnrichment({})
     const c = completenessOf(report)

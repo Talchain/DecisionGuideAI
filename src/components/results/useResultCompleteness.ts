@@ -301,8 +301,10 @@ export function deriveResultCompleteness(
      * which `typeof` also did.
      */
     const anySensitivity =
-      readFactorSensitivity(inputs.report).some(rowCarriesSensitivityMagnitude) ||
-      allDrivers.some(rowCarriesSensitivityMagnitude)
+      // Producer rows: the four aliases the mapper accepts, and nothing else.
+      readFactorSensitivity(inputs.report).some(producerRowCarriesMagnitude) ||
+      // Driver rows: the same four, plus the name the projection gives it.
+      allDrivers.some(projectedRowCarriesMagnitude)
     if (!anySensitivity) {
       missing.add('sensitivity')
       reasons.add('sensitivity_missing')
@@ -425,20 +427,45 @@ function readFactorSensitivity(
  * `normaliseFactorEntry` itself accepts, so this predicate cannot admit a row
  * that mapper would drop.
  */
-function rowCarriesSensitivityMagnitude(row: unknown): boolean {
+function producerRowCarriesMagnitude(row: unknown): boolean {
   if (row === null || typeof row !== 'object') return false
   const r = row as {
     sensitivity_score?: unknown
     sensitivity?: unknown
     elasticity?: unknown
     importance_score?: unknown
-    contribution?: unknown
   }
   return (
     Number.isFinite(r.sensitivity_score) ||
     Number.isFinite(r.sensitivity) ||
     Number.isFinite(r.elasticity) ||
-    Number.isFinite(r.importance_score) ||
-    Number.isFinite(r.contribution)
+    Number.isFinite(r.importance_score)
   )
+}
+
+/**
+ * ⛔⛔ `contribution` IS THE PROJECTION'S NAME, NEVER THE PRODUCER'S — and a
+ * previous cut of this file let it satisfy availability on a RAW row.
+ *
+ * Collapsing the producer check and the driver check into ONE predicate was
+ * right about the mirror (two spellings of one alias set in one file) and wrong
+ * about the BOUNDARY. `normaliseFactorEntry` accepts exactly four aliases
+ * (`sensitivity_score`, `sensitivity`, `elasticity`, `importance_score`);
+ * `contribution` is written only by the DRIVER projections
+ * (`mapV5AnalysisToReport:910` renames the magnitude to it,
+ * `responseMapper:1098` normalises it). So a raw `factor_sensitivity` row
+ * carrying only `contribution` is a row the mapper itself would drop, and
+ * admitting it hides a true `sensitivity_missing` — the same false-absence
+ * defect this file was changed to remove, sign flipped (trap 22b).
+ *
+ * ⚠ TWO BOUNDARIES, ONE ALIAS SET, AND THE NAMES ARE STILL READ ONCE EACH.
+ * The projected check DELEGATES to the producer one rather than restating the
+ * four names, so `claim-ownership.drift.spec.ts` still sees exactly one literal
+ * read per field — which is what went red when the two checks were spelled out
+ * separately. The fix for a mirror is delegation, not a wider predicate.
+ */
+function projectedRowCarriesMagnitude(row: unknown): boolean {
+  if (producerRowCarriesMagnitude(row)) return true
+  if (row === null || typeof row !== 'object') return false
+  return Number.isFinite((row as { contribution?: unknown }).contribution)
 }
