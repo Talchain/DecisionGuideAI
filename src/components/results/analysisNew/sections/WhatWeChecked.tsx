@@ -192,13 +192,13 @@ export function WhatWeChecked({
             A sentence explaining an absence belongs under the rule that says an
             absence is what is being reported.
           */}
-          {disclosures.some((i) => meaningFor(i)) ? (
+          {disclosures.some((i) => meaningFor(i, checks.leaderWithholdCause)) ? (
             <ul
               className="mt-2 space-y-1 list-none p-0"
               data-testid={`${testId}-meanings`}
             >
               {disclosures.map((item) => {
-                const meaning = meaningFor(item)
+                const meaning = meaningFor(item, checks.leaderWithholdCause)
                 if (!meaning) return null
                 return (
                   <li
@@ -227,9 +227,20 @@ export function WhatWeChecked({
  * one is the producer stating it did not assess, the other is an older build
  * saying nothing at all. Keying on `state` would collapse them.
  */
-function meaningFor(item: ChecksItem): string | undefined {
+function meaningFor(item: ChecksItem, leaderWithholdCause: string | null): string | undefined {
   const entry = COPY.checks[item.code]
-  return 'meaning' in entry ? entry.meaning : undefined
+  const base = 'meaning' in entry ? entry.meaning : undefined
+  if (base === undefined) return undefined
+  /**
+   * ⭐ THE PRODUCER'S CAUSE, APPENDED — never substituted. The base sentence
+   * carries "It is not a finding that the options are level", which stays true
+   * whatever the cause. Gated on the CAUSE being present rather than on the
+   * code, because the view model has already decided the cause belongs only to
+   * a withheld leader.
+   */
+  return leaderWithholdCause !== null && item.id === 'leader'
+    ? `${base} ${leaderWithholdCause}`
+    : base
 }
 
 function ChecksChip({ item, testId }: { item: ChecksItem; testId: string }) {

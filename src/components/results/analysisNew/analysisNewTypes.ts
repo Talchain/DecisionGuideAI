@@ -1098,6 +1098,21 @@ export interface ChecksSection {
    * it is their STATE that varies.
    */
   items: readonly ChecksItem[]
+  /**
+   * ⭐ THE PRODUCER'S CAUSE FOR WITHHOLDING THE LEADING OPTION, as a sentence,
+   * or `null` where it named none this surface can state.
+   *
+   * ⛔ COMPOSED ONCE, READ BY TWO SURFACES. `OptionsComparison` and
+   * `WhatWeChecked` both render `checks.leader_not_assessed.meaning`, under an
+   * explicit rule at `OptionsComparison.tsx` — *"one wording covers one fact and
+   * the two cannot drift"*. The cause obeys the same rule: it lives here, beside
+   * the state it qualifies, rather than being composed at each call site.
+   *
+   * ⚠ A CLAUSE, NOT A REPLACEMENT. It is appended to that sentence, which
+   * carries "It is not a finding that the options are level" — true whatever the
+   * cause, and load-bearing against reading a figure-less list as a tie.
+   */
+  leaderWithholdCause: string | null
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -104,6 +104,32 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
 
   /**
+   * ⭐⭐ THE PRODUCER'S REASON FOR WITHHOLDING THE LEADING OPTION, read straight
+   * off the verdict it arrived on.
+   *
+   * ⛔ WHY IT IS READ HERE AND NOT THROUGH THE REPORT. The store DOES stamp a
+   * withholding onto the report (`resultsWithholdLeaderClaim` →
+   * `producer_leader_permission: { permitted, withheld_reason }`) but the value
+   * it stamps is the UI's OWN two-value enum
+   * (`'leader_claim_withheld' | 'analysis_unusable'`,
+   * `canvas/hydrate/applyScenarioAnalysisRead.ts`), which answers "on whose
+   * account" and NOT "why". The producer's cause is discarded at that boundary,
+   * which is the whole reason this panel could only say "could not confirm".
+   * `analysisStateV1` is the verdict as it arrived, so the cause survives there.
+   *
+   * ⚠ NOT A SECOND WITHHOLD AUTHORITY. Whether the leader IS withheld stays
+   * `buildChecks`' own `leaderCode`, derived exactly as before. This supplies a
+   * REASON and never a verdict, so the two cannot disagree about whether a
+   * refusal happened.
+   *
+   * Subscribed as a primitive string so the panel cannot re-render on every
+   * verdict identity change.
+   */
+  const producerLeaderWithholdReason = useCanvasStore(
+    (s) => s.analysisStateV1?.leader_claim?.withheld_reason ?? null,
+  )
+
+  /**
    * ⭐ THE RUN-OVER-RUN CONSEQUENCE, GATED ON BEING ABOUT *THIS* ANALYSIS.
    *
    * `responseHash` is `results?.hash` — the same value `resultsComplete` records
@@ -164,6 +190,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
     () =>
       buildAnalysisNewViewModel({
         data,
+        producerLeaderWithholdReason,
         recommendations,
         isPreRun,
         isRunning,

@@ -130,6 +130,71 @@ const GOAL_UNIT_EXAMPLES = '£, %, points'
 
 export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
+/**
+ * ⭐⭐⭐ A WITHHELD CLAIM IS NOT A MISSING ONE, AND THE PANEL COULD NOT TELL THEM
+ * APART BECAUSE IT ONLY READ THE BOOLEAN.
+ *
+ * ⛔ THE DEFECT, MEASURED ON A REAL RUN (Paul's debug export
+ * `olumi-debug-1dd2133d-20260916.json`, 16 Sep 2026). CEE returned a COMPLETE,
+ * USABLE run — `run_state: "complete_current"`, `readiness: { status: "ready",
+ * blockers: [] }`, `requires_rerun: false`, `usable_for_prose: true`, options
+ * SEPARATED with a 0.51 gap — and withheld exactly one claim, with its cause
+ * named:
+ *
+ *     "leader_claim": { "permitted": false,
+ *                       "withheld_reason": "constraint_verdict_withheld" }
+ *
+ * The reader was told only *"Olumi could not confirm which option is most likely
+ * on this run"*. True, and reason-free — so it reads as "something did not come
+ * back", which is the one thing it was not. The producer's own summary on that
+ * run names the cause outright: *"One limit on your model could not be checked:
+ * 'Total hiring spend this year must not exceed £200,000'."*
+ *
+ * ⭐ WHY THE READER NEVER SAW IT. The UI collapses the producer's reason into a
+ * two-value local enum (`LeaderClaimWithholdingReason =
+ * 'leader_claim_withheld' | 'analysis_unusable'`,
+ * `canvas/hydrate/applyScenarioAnalysisRead.ts`) whose values mean only "on
+ * whose account". The producer's string is discarded at that boundary, and
+ * `leaderDesignationPermitted` / `rankingWasWithheld` read the BOOLEAN. With a
+ * boolean you cannot distinguish a principled refusal from missing data, so
+ * every downstream sentence falls back to absence language.
+ *
+ * ⛔⛔ THE TOKEN IS NEVER RENDERED, AND UNKNOWN REASONS CHANGE NOTHING. The
+ * contract declares `withheld_reason` as `z.string().optional()` — FREE FORM,
+ * not an enum (`@talchain/schemas` `AnalysisLeaderClaimSchema`). So this maps
+ * only reasons this estate has EVIDENCED, and anything else returns `null`,
+ * which leaves today's sentence exactly as it is. A map that guessed at unseen
+ * tokens would be the fabrication this whole panel exists to avoid.
+ *
+ * ⚠ ONLY ONE ENTRY TODAY, DELIBERATELY. `constraint_verdict_withheld` is the
+ * one reason observed on a real run. `separation_unavailable` appears in this
+ * estate's own fixtures and store comments but has NOT been seen on a live
+ * wire, so it is not mapped: a sentence about options that "could not be told
+ * apart" is close enough to "the options are level" — which the sentence beside
+ * it explicitly denies — that it must not ship on documentary evidence alone.
+ * The map grows when a capture earns the entry.
+ */
+const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
+  constraint_verdict_withheld:
+    'One limit on your model could not be checked, which is why no option is named here.',
+}
+
+/**
+ * The producer's cause for withholding the leading option, as a sentence, or
+ * `null` where it supplied none this surface can state.
+ *
+ * ⚠ RETURNS A CLAUSE THE CALLER APPENDS — it does not replace the existing
+ * sentence. That sentence carries "It is not a finding that the options are
+ * level", which stays true whatever the cause, and dropping it would let a
+ * silent list read as a tie.
+ */
+export function leaderWithholdCause(producerReason: string | null | undefined): string | null {
+  if (typeof producerReason !== 'string') return null
+  const trimmed = producerReason.trim()
+  if (trimmed === '') return null
+  return LEADER_WITHHOLD_CAUSE[trimmed] ?? null
+}
+
 export const ANALYSIS_NEW_COPY = {
   /** The tab's own one-line frame. Names it as an experiment, not a product. */
   tabIntro:

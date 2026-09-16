@@ -92,6 +92,7 @@ import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
+  leaderWithholdCause,
 } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -192,6 +193,22 @@ const GLANCE_DRIVER_COUNT = 3
 
 export interface AnalysisNewViewModelInputs {
   data: ResultsSectionDataReturn
+  /**
+   * ⭐ THE PRODUCER'S OWN REASON for withholding the leading option, VERBATIM
+   * (`analysis_state.leader_claim.withheld_reason`), or absent where it gave
+   * none.
+   *
+   * ⛔ OPTIONAL, AND IT MUST STAY OPTIONAL. Six fixtures across the results
+   * suites construct this input shape for unrelated questions; making it
+   * required turns every one into a TS2739 that the count-based typecheck
+   * ratchet nets to zero against unrelated churn. Absent means "the producer
+   * named no cause", which is exactly today's behaviour.
+   *
+   * ⚠ CARRIED RAW, INTERPRETED ONCE. The contract types it as a free-form
+   * `string`, so `leaderWithholdCause` is the single place that decides whether
+   * this surface can state it. Never rendered directly.
+   */
+  producerLeaderWithholdReason?: string | null
   /** Engine output, already lifecycle-filtered by the hook. */
   recommendations: Recommendation[]
   isPreRun: boolean
@@ -3217,7 +3234,10 @@ function dedupeAgainstGlance(
  * severity — a "worst first" order would be a judgement across three
  * incommensurable checks that no producer field supports.
  */
-function buildChecks(data: ResultsSectionDataReturn): AnalysisNewViewModel['checks'] {
+function buildChecks(
+  data: ResultsSectionDataReturn,
+  producerWithholdReason: string | null | undefined,
+): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
 
@@ -3340,6 +3360,15 @@ function buildChecks(data: ResultsSectionDataReturn): AnalysisNewViewModel['chec
       { id: 'robustness', code: robustnessCode, state: CHECK_STATE[robustnessCode] },
       { id: 'evidence', code: evidenceCode, state: CHECK_STATE[evidenceCode] },
     ],
+    /**
+     * ⛔ ONLY WHERE THE LEADER IS ACTUALLY WITHHELD. A cause rendered beside
+     * `leader_present` would explain a refusal that did not happen — and the
+     * producer can carry a stale `withheld_reason` on a run it then permitted,
+     * so the gate is this surface's OWN leader code, never the reason's
+     * presence.
+     */
+    leaderWithholdCause:
+      leaderCode === 'leader_not_assessed' ? leaderWithholdCause(producerWithholdReason) : null,
   }
 }
 
@@ -3512,7 +3541,9 @@ export function buildAnalysisNewViewModel(
     // started — which reads as a run that came back empty. Same rule
     // `buildDeeper` states; the failure mode here is worse because the
     // unassessed states are exactly what this section is FOR.
-    checks: preRun ? { items: [] } : buildChecks(data),
+    checks: preRun
+      ? { items: [], leaderWithholdCause: null }
+      : buildChecks(data, inputs.producerLeaderWithholdReason),
   }
 }
 

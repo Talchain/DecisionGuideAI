@@ -144,6 +144,12 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
   /**
+   * ⭐ COMPOSED ONCE IN THE VIEW MODEL (`checks.leaderWithholdCause`), passed to
+   * BOTH readers. This file's own rule for the sentence it qualifies — "one
+   * wording covers one fact and the two cannot drift" — applies to its cause.
+   */
+  leaderWithholdCause?: string | null
+  /**
    * Send a message as the user, on the surface's EXISTING writer.
    *
    * ⚠ OPTIONAL, AND ITS ABSENCE IS THE GATE, not a detail. A host with no
@@ -185,6 +191,7 @@ export interface OptionsComparisonProps {
 
 export function OptionsComparison({
   options,
+  leaderWithholdCause = null,
   onSendMessage,
   defaultOpen = false,
   testId = 'analysis-new-options',
@@ -398,6 +405,11 @@ export function OptionsComparison({
           data-testid={`${testId}-no-figures`}
         >
           {COPY.checks.leader_not_assessed.meaning}
+          {/* ⭐ THE PRODUCER'S CAUSE, where it named one this surface can state.
+              A withheld claim is not a missing one, and without the cause the
+              sentence above reads as "something did not come back" — which on
+              the run that produced this fix was the one thing it was not. */}
+          {leaderWithholdCause !== null ? ` ${leaderWithholdCause}` : null}
         </p>
       ) : null}
 
