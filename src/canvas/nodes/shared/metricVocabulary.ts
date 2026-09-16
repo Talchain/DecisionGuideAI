@@ -48,7 +48,7 @@
  * by eye; a reader who saw `Ahead` and `Leads` had no way to know they could.
  */
 import { COMPARATIVE_COPY } from '../../../components/results/utils/goalAnchorCopy'
-import { INFLUENCE_EXPLANATION_GENERIC } from '../../../components/results/influenceScaleCopy'
+import { INFLUENCE_EXPLANATION_RELATIVE } from '../../../components/results/influenceScaleCopy'
 
 /**
  * The four nouns the canvas may caption a number with.
@@ -383,11 +383,26 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   },
   {
     noun: METRIC_NOUN.influence,
-    // Derived from the results-surface authority rather than re-worded. That
-    // constant is itself `'Influence: how much this factor affects the
-    // outcome'`, so the noun is stripped back off to keep this list's shape
-    // uniform — the row renders "<noun>: <gloss>" like every other.
-    gloss: INFLUENCE_EXPLANATION_GENERIC.replace(/^Influence:\s*/, ''),
+    // Derived from the results-surface authority rather than re-worded, and the
+    // noun is stripped back off to keep this list's shape uniform — the row
+    // renders "<noun>: <gloss>" like every other.
+    //
+    // ⛔⛔ WAS `INFLUENCE_EXPLANATION_GENERIC`, AND THAT IS THE ONE FALSEHOOD
+    // THIS LEGEND EXISTED TO PREVENT. The generic constant reads *"how much this
+    // factor affects the outcome"* — an ABSOLUTE claim about a figure PLoT
+    // max-normalises (`factor-influence.ts:556`, `Math.abs(influence) /
+    // maxAbsInfluence`), so the top factor reads 100% on every board BY
+    // CONSTRUCTION. The correct constant sat one line away in the same module
+    // and was never selected.
+    //
+    // ⭐ AND THE LEGEND IS THE LOAD-BEARING SURFACE HERE, not a nicety: it is
+    // the ONLY explanation of Influence that survives a shared link, because
+    // every other channel is a <Tooltip>, a `title` or an aria-label — and on a
+    // shared board nobody hovers, and on touch there is no hover at all.
+    // Shipping the card's basis-aware noun ("Relative influence", see
+    // `influenceBasisNoun`) WITHOUT this would leave a card whose own key
+    // contradicts it.
+    gloss: INFLUENCE_EXPLANATION_RELATIVE.replace(/^Influence:\s*/, ''),
   },
   {
     noun: METRIC_NOUN.strength,

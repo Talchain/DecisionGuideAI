@@ -12,7 +12,6 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
@@ -20,7 +19,7 @@ import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionS
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
-import { influenceExplanation, influenceBarAriaLabel } from '../../components/results/influenceScaleCopy'
+import { influenceExplanation, influenceBarAriaLabel, influenceBasisNoun } from '../../components/results/influenceScaleCopy'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -680,11 +679,11 @@ export const FactorNode = memo((props: NodeProps) => {
               <div
                 className="flex items-center gap-1.5"
                 role="group"
-                aria-label={METRIC_NOUN.influence}
+                aria-label={influenceBasisNoun(displayMetadata.influenceProvenance)}
                 tabIndex={0}
                 data-node-tooltip
               >
-                <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>{METRIC_NOUN.influence}</span>
+                <span className={`${typography.edgeLabel} text-text-light min-w-[3.5rem] shrink-0`}>{influenceBasisNoun(displayMetadata.influenceProvenance)}</span>
                 <div className="flex-1 min-w-0">
                   <DataBar
                     value={influencePct / 100}
@@ -951,7 +950,7 @@ export const FactorNode = memo((props: NodeProps) => {
             hierarchy; two rows is a list. */}
         {isPostAnalysis && !isDetailed && influencePct != null && displayMetadata.influenceProvenance != null && (
           <NodeMetricRow
-            label={METRIC_NOUN.influence}
+            label={influenceBasisNoun(displayMetadata.influenceProvenance)}
             value={influencePct / 100}
             formatted={`${influencePct}%`}
             fillClass="bg-info"

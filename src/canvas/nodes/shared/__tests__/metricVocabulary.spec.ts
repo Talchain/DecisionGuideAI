@@ -41,7 +41,7 @@ import {
   ORDINAL_MINT_CLAUSE,
 } from '../metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
-import { INFLUENCE_EXPLANATION_GENERIC } from '../../../../components/results/influenceScaleCopy'
+import { INFLUENCE_EXPLANATION_RELATIVE } from '../../../../components/results/influenceScaleCopy'
 
 describe('METRIC_NOUN', () => {
   it('agrees with COMPARATIVE_COPY.anchor by VALUE', () => {
@@ -135,7 +135,24 @@ describe('METRIC_LEGEND_ROWS', () => {
     const row = METRIC_LEGEND_ROWS.find((r) => r.noun === METRIC_NOUN.influence)!
     // Pins the derivation itself: the rendered row must reconstruct the
     // results-surface sentence exactly. A hand-written replacement REDs.
-    expect(`Influence: ${row.gloss}`).toBe(INFLUENCE_EXPLANATION_GENERIC)
+    //
+    // ⚠⚠ THE CONSTANT CHANGED, THE RULE DID NOT. This asserted
+    // `INFLUENCE_EXPLANATION_GENERIC` — *"how much this factor affects the
+    // outcome"* — which is an ABSOLUTE claim about a figure PLoT max-normalises
+    // (`plot-lite-service/src/lib/factor-influence.ts:556`,
+    // `Math.abs(influence) / maxAbsInfluence`), so the top factor reads 100% on
+    // every board BY CONSTRUCTION. Measured on staging `6497a251`: a card read
+    // "Influence 100%" on a factor the same run scored `sensitivity_score: 0`.
+    //
+    // The test was doing its job — it pinned the derivation, and the derivation
+    // was pointed at the wrong sibling constant. `INFLUENCE_EXPLANATION_RELATIVE`
+    // sat one line away in the same module for exactly this.
+    //
+    // ⭐ AND THE LEGEND IS WHY IT MATTERS RATHER THAN BEING TIDY: every other
+    // channel for this basis is a <Tooltip>, a `title` or an aria-label, so the
+    // legend is the ONLY explanation that survives a shared link — nobody hovers
+    // on someone else's board, and on touch there is no hover at all.
+    expect(`Influence: ${row.gloss}`).toBe(INFLUENCE_EXPLANATION_RELATIVE)
   })
 
   it('ONE escape hatch, ONE word for it — "details", matching EstimateMarker', () => {
