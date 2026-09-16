@@ -112,9 +112,41 @@ describe('humaniseCritique', () => {
       expect(result.title).not.toContain('constraint_fac_churn_max')
     })
 
-    it('CONSTRAINT_TARGET_UNRELIABLE falls back to "This factor" without a resolved label (no fabricated name)', () => {
+    // ⚠⚠ THIS TEST WAS REVERSED, DELIBERATELY, AND THE OLD RULING IS QUOTED
+    // RATHER THAN DELETED. It read:
+    //
+    //   it('CONSTRAINT_TARGET_UNRELIABLE falls back to "This factor" without a
+    //       resolved label (no fabricated name)', () => {
+    //     expect(result.title).toContain('This factor')
+    //   })
+    //
+    // Its intent — DO NOT INVENT A NAME — is right and is kept. Its remedy was
+    // not: `This factor` is `FALLBACK_LABEL`, an internal sentinel, and printing
+    // it fabricates a KIND instead of a name.
+    //
+    // Measured on `olumi-debug-1dd2133d-20260916.json` (staging, UI `6497a251`),
+    // the deployed Question card rendered it to a user, twice in one sentence,
+    // once as a possessive subject:
+    //
+    //   "This factor's success target can't be evaluated reliably
+    //    Set a value or range for This factor."
+    //
+    // and the target in that run was a RISK node, so "factor" was wrong as well
+    // as unresolved. The third option — name nothing, assert no kind, keep the
+    // remedy — satisfies the original intent strictly better than the sentinel
+    // did. Full reasoning and mutant evidence: `anUnresolvedLabelIsNotAName.spec.ts`.
+    it('CONSTRAINT_TARGET_UNRELIABLE names nothing and asserts no kind without a resolved label', () => {
       const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: undefined }))
-      expect(result.title).toContain('This factor')
+      // The original intent, unchanged: no invented name.
+      expect(result.title).not.toContain('Customer churn')
+      // The sentinel is not a name either, and it must not be printed.
+      expect(result.title).not.toContain('This factor')
+      expect(result.suggestion).not.toContain('This factor')
+      // Nor a fabricated kind — the measured target was a risk.
+      expect(result.title.toLowerCase()).not.toContain('factor')
+      // Non-vacuity: the template still produced a sentence and a route out.
+      expect(result.title.length).toBeGreaterThan(0)
+      expect(String(result.suggestion).toLowerCase()).toContain('set a current value or range')
     })
 
     // 1.52 follow-up — CONSTRAINT_DIRECTION_SUSPECT/ASSUMED are new PLoT

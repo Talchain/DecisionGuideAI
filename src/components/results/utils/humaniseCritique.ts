@@ -191,10 +191,50 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // emit a meaningless number. Doctrine rule 6 (defaulted-value disclosure):
   // names the concrete, actionable fix — set a value/range — never quotes
   // the withheld number itself.
-  CONSTRAINT_TARGET_UNRELIABLE: (label) => ({
-    title: `${label}'s success target can't be evaluated reliably`,
+  // ⛔⛔ THIS TEMPLATE BROKE THIS FILE'S OWN RULE, AND IT REACHED A USER.
+  //
+  // Measured on `olumi-debug-1dd2133d-20260916.json` (staging, UI `6497a251`),
+  // the deployed Question card rendered, verbatim:
+  //
+  //     "This factor's success target can't be evaluated reliably
+  //      Set a value or range for This factor."
+  //
+  // `This factor` is `FALLBACK_LABEL` — `resolveFactorLabel`'s unresolved
+  // sentinel — printed at the user twice, once as a possessive subject. The
+  // rule against exactly this is stated twice above (the 2.300 goal templates
+  // at :244-246, and the whole-vocabulary statement at :457-463: *"EVERY
+  // TEMPLATE IGNORES THE RESOLVED LABEL, DELIBERATELY … Interpolating a label
+  // here would print that string at the user"*). The rule was right; it simply
+  // never reached this entry. That is the estate's named failure mode — the
+  // remedy scoped to the instance while nothing swept its siblings — so the
+  // companion spec pins the REMAINING unguarded templates as an explicit,
+  // exact set rather than leaving the class unobserved.
+  //
+  // ⚠ WHY A LABEL MAP IS NOT THE FIX, settled at the bytes rather than assumed.
+  // In that export the warning arrives as `{code, message, severity}` and
+  // NOTHING else — no `affected_nodes`, no `field` — so there is no id to
+  // resolve and `DecisionNode`'s own comment (*"a label map would change
+  // nothing today"*) is correct. The producer's `message` DOES name the node
+  // ("Budget Overrun Risk"), and it stays unread: parsing identity out of
+  // message prose is the V14.3 rule `withheldLeaderDisclosure.ts` exists to
+  // uphold.
+  //
+  // ⚠ AND THE ANONYMOUS FORM ASSERTS NO KIND. The target in that run was a
+  // RISK node, so "factor" was not merely unresolved, it was wrong. The
+  // anonymous copy says "the part of your model this target applies to",
+  // matching the sentence CEE already uses for the same situation.
+  //
+  // The `genuine` branch is the pattern `GOAL_ANCESTOR_DATA_GAP` and
+  // `ROOT_NODE_DEFAULT_VALUE` already use; this adopts it rather than minting
+  // a second mechanism.
+  CONSTRAINT_TARGET_UNRELIABLE: (label, genuine) => ({
+    title: genuine
+      ? `${label}'s success target can't be evaluated reliably`
+      : "A success target on your model can't be evaluated reliably",
     description: 'The value needed to assess this target is missing or unscaled, so the probability of reaching it was withheld for this run rather than shown as a meaningless number.',
-    suggestion: `Set a value or range for ${label}`,
+    suggestion: genuine
+      ? `Set a value or range for ${label}`
+      : 'Set a current value or range on the part of your model this target applies to',
   }),
   // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
   // direction detection) distinct from CONSTRAINT_TARGET_UNRELIABLE: there
@@ -853,6 +893,38 @@ function resolveFactorLabel(
  * @param nodeLabels — Map of nodeId → display label (from graph nodes)
  * @returns Humanised title, description, suggestion, and optional factorId
  */
+/**
+ * ⭐ DERIVED, NEVER LISTED — which templates still print the unresolved label?
+ *
+ * `resolveFactorLabel` returns {@link FALLBACK_LABEL} when a critique carries no
+ * resolvable node identity, and this file's standing rule (stated at :244-246
+ * and :457-463) is that a template must not interpolate it. The rule lived only
+ * in prose, so `CONSTRAINT_TARGET_UNRELIABLE` broke it and shipped
+ * *"This factor's success target can't be evaluated reliably"* to a user.
+ *
+ * This runs every template through the unresolved path and reports which ones
+ * still emit the sentinel. It is a DERIVATION over `CODE_TEMPLATES`, so a
+ * template added later is covered with no edit here — the hand-maintained-mirror
+ * defect this estate keeps paying for cannot occur.
+ *
+ * ⚠ A DERIVED GUARD PROVES AGREEMENT AND CANNOT PROVE THE REMAINING SET IS
+ * ACCEPTABLE. Its companion spec pins the returned set EXACTLY, so the suite
+ * REDs when the set GROWS (a new template breaks the rule) **and** when it
+ * SHRINKS (one is fixed without the record being updated). The remaining
+ * members are a recorded, visible gap rather than an unobserved one.
+ */
+export function codesRenderingUnresolvedLabel(): readonly string[] {
+  const offenders: string[] = []
+  for (const [code, template] of Object.entries(CODE_TEMPLATES)) {
+    const rendered = template(FALLBACK_LABEL, false)
+    const surfaces = [rendered.title, rendered.description, rendered.suggestion]
+    if (surfaces.some(text => typeof text === 'string' && text.includes(FALLBACK_LABEL))) {
+      offenders.push(code)
+    }
+  }
+  return offenders.sort()
+}
+
 export function humaniseCritique(
   item: UncertaintyItem,
   nodeLabels?: ReadonlyMap<string, string>,

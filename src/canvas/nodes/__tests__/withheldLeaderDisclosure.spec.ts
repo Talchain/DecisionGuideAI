@@ -49,8 +49,26 @@ describe('selectWithheldLeaderDisclosure — why no option was put forward', () 
     expect(got!.code).toBe('CONSTRAINT_TARGET_UNRELIABLE')
     // Template-owned substrings — the object here is the template, so these
     // bind to it rather than to a full string another template could match.
-    expect(got!.title).toContain("success target can't be evaluated reliably")
-    expect(got!.suggestion).toContain('Set a value or range for')
+    // ⚠ NARROWED from "success target can't be evaluated reliably". The
+    // anonymous form reads "A success target ON YOUR MODEL can't be evaluated
+    // reliably", so the old contiguous substring cannot match it — the words it
+    // spans are interrupted by the very clause that removes the fabricated kind.
+    // This fragment is present in BOTH the named and the anonymous form, so the
+    // assertion binds to the template rather than to one of its two branches.
+    expect(got!.title).toContain("can't be evaluated reliably")
+    expect(got!.title).toContain('success target')
+    // ⚠ THIS ASSERTION USED TO READ `toContain('Set a value or range for')` — the
+    // NAMED form's exact prefix. `REAL_WARNINGS` carries no `affected_nodes` and
+    // no resolvable id (measured: the producer sends `{code, message, severity}`),
+    // so this payload takes the ANONYMOUS branch, whose suggestion is worded for
+    // a sentence with no subject. Binding to the named prefix bound this test to
+    // a string the fixture could never produce once the anonymous form existed.
+    // It now binds to what the test is actually for: a concrete route out
+    // survives when the label does not. See `anUnresolvedLabelIsNotAName.spec.ts`.
+    expect(got!.suggestion.toLowerCase()).toContain('set a current value or range')
+    // And the sentinel never reaches this surface — the defect that occasioned
+    // the change was this exact selector rendering it on the Question card.
+    expect(`${got!.title} ${got!.suggestion}`).not.toContain('This factor')
   })
 
   it('⛔ NEVER ECHOES THE PRODUCER MESSAGE — the V14.3 no-raw-message rule', () => {
