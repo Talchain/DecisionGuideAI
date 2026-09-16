@@ -85,6 +85,37 @@ export function resolveGoalTarget(
 }
 
 /**
+ * ⭐⭐⭐ THE GOAL'S DECLARED UNIT — *what scale is this goal measured on?*
+ *
+ * ⛔⛔ A THIRD QUESTION, AND IT HAD NO OWNER, SO TWO SURFACES BORROWED
+ * `resolveGoalTarget` FOR IT AND BOTH WERE WRONG. That resolver answers *"what
+ * TARGET is set?"*: it reads `goal_threshold_unit` on the way past and then
+ * returns `null` when no raw value survives, discarding the unit with
+ * everything else. A goal can perfectly well declare a unit and carry no
+ * target — that is the state a reader is in when they set their first one —
+ * and in that state both callers read `''`:
+ *
+ *   · `SuccessTargetLine` refused with *"This goal has no unit yet"* about a
+ *     goal that had one, on the ONE journey the control exists for;
+ *   · `ModelTabV2Panel.beginEdit` seeded the Unit box EMPTY, so the Model
+ *     tab's own refusal (*"Add a unit — £, % or points"*) fired on the same
+ *     goal.
+ *
+ * One expression each, CLAUDE.md trap 21, and the second was found only by
+ * sweeping the first's siblings.
+ *
+ * ⚠ IT IS NOT A FALLBACK FOR `resolveGoalTarget().unit`, and must not be read
+ * as one. Wherever a target exists the two are the SAME field, so this is
+ * equivalent there and strictly better where one does not. A surface DISPLAYING
+ * a target still asks the resolver — the unit it prints belongs to the figure
+ * beside it, and printing a scale for a target that does not exist is a
+ * different defect.
+ */
+export function declaredGoalUnit(data: GoalTargetSource | null | undefined): string {
+  return typeof data?.goal_threshold_unit === 'string' ? data.goal_threshold_unit : ''
+}
+
+/**
  * ⭐⭐ TWO QUESTIONS THAT WORE ONE NAME: *does a target EXIST* and *what NUMBER
  * is it*. They are not the same question and they cannot share a predicate.
  *

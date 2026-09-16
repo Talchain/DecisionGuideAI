@@ -126,7 +126,7 @@ import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
-import { resolveGoalTarget } from '../domain/goalTarget'
+import { resolveGoalTarget, declaredGoalUnit } from '../domain/goalTarget'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -856,7 +856,30 @@ export function ModelTabV2Panel({
       if (row.kind === 'goal') {
         const target = resolveGoalTarget(node.data)
         setEdit({ rowId, phase: 'editing', draft: target ? String(target.raw) : '',
-          unit: target?.unit ?? '',
+          /**
+           * ⛔⛔ THE UNIT IS THE GOAL'S, NOT THE TARGET'S — and this line read
+           * `target?.unit ?? ''`. `resolveGoalTarget` answers *"what TARGET is
+           * set?"* and returns `null` when none is, discarding the
+           * `goal_threshold_unit` it read on the way past
+           * (`domain/goalTarget.ts`). So opening this editor on a goal that
+           * DECLARES a unit but carries no target seeded the Unit box EMPTY,
+           * and a reader who left it alone was refused by
+           * `unproposableDraftReason` with *"Add a unit — £, % or points"* —
+           * about a goal that has one.
+           *
+           * ⚠ FOUND BY SWEEPING THE SIBLINGS of the same defect in
+           * `SuccessTargetLine`, not by hitting it: this estate's recorded
+           * failure is a remedy scoped to the instance it was found in. The
+           * other three `resolveGoalTarget` consumers are correct — two read
+           * `.raw` to ask whether a target exists, and the outline reads
+           * `.unit` to DISPLAY a target, which is the question the resolver
+           * does answer.
+           *
+           * Reading the field directly is equivalent wherever a target exists
+           * (the resolver takes `.unit` from this same field) and strictly
+           * better where one does not.
+           */
+          unit: declaredGoalUnit(node.data as Parameters<typeof declaredGoalUnit>[0]),
           // Seeded, not defaulted. `at_least` is the bound this surface has
           // always recorded, so opening the editor changes nothing until the
           // reader says otherwise; what changes is that they can now SEE which
