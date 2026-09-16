@@ -28,6 +28,18 @@ export interface BuildFocusRowsInput {
   signals?: readonly CoachingSignal[]
   /** Escape hatch for a context that suppresses the generic nudges. Default false. */
   suppressStatic?: boolean
+  /**
+   * When supplied, the static hygiene rows are narrowed to these ids — the ones
+   * a caller can DEMONSTRATE are true of this model.
+   *
+   * ⚠ OMITTING IT IS NOT "SHOW NONE", IT IS "SHOW ALL", and that asymmetry is
+   * deliberate: the Analysis tab has mounted these six unconditionally since
+   * they shipped, and a silent narrowing there would be a behaviour change
+   * smuggled in under a new consumer's requirement. A caller that wants the
+   * narrowing asks for it. See `analysisNew/focusNowApplicability.ts` for why
+   * the Reasoning tab must.
+   */
+  applicableStaticIds?: readonly string[]
 }
 
 export interface FocusViewModel {
@@ -83,7 +95,11 @@ export function buildFocusRows(input: BuildFocusRowsInput = {}): FocusViewModel 
     .map(mapSignalToFocusRow)
     .filter((r): r is FocusRow => r != null)
 
-  const staticRows = input.suppressStatic ? [] : STATIC_HYGIENE_ROWS
+  const staticRows = input.suppressStatic
+    ? []
+    : input.applicableStaticIds === undefined
+      ? STATIC_HYGIENE_ROWS
+      : STATIC_HYGIENE_ROWS.filter((r) => input.applicableStaticIds!.includes(r.id))
 
   // Fixed structural order — positional composition, NOT meaning-based ranking.
   const combined = dropGatedRows([...serverRows, ...staticRows]).filter(
