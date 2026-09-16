@@ -284,24 +284,25 @@ export function deriveResultCompleteness(
     // signal.
     missing.add('top_drivers')
   } else {
+    /**
+     * ⛔ ONE PREDICATE, AND THE RATCHET CAUGHT ME SHIPPING TWO.
+     *
+     * The correction above first added a SECOND spelling of the alias set — the
+     * producer-row check read `Number.isFinite`, the driver check read
+     * `typeof === 'number'` — and `claim-ownership.drift.spec.ts` red on it:
+     * "MORE reads of one field than the baseline allows ... elasticity:
+     * baseline 1 -> current 2". Two spellings of one question in one file is
+     * the mirror this whole change set exists to remove (trap 12), and I
+     * committed it inside the fix for it.
+     *
+     * Both arms now call `rowCarriesSensitivityMagnitude`. `Number.isFinite`
+     * is the stricter of the two and is the one that survives: it rejects
+     * `NaN`, `Infinity` and a numeric string, and it ADMITS a measured zero,
+     * which `typeof` also did.
+     */
     const anySensitivity =
       readFactorSensitivity(inputs.report).some(rowCarriesSensitivityMagnitude) ||
-      allDrivers.some((d) => {
-        const s = d as {
-          sensitivity_score?: unknown
-          sensitivity?: unknown
-          elasticity?: unknown
-          importance_score?: unknown
-          contribution?: unknown
-        }
-        return (
-          typeof s.sensitivity_score === 'number' ||
-          typeof s.sensitivity === 'number' ||
-          typeof s.elasticity === 'number' ||
-          typeof s.importance_score === 'number' ||
-          typeof s.contribution === 'number'
-        )
-      })
+      allDrivers.some(rowCarriesSensitivityMagnitude)
     if (!anySensitivity) {
       missing.add('sensitivity')
       reasons.add('sensitivity_missing')
@@ -431,11 +432,13 @@ function rowCarriesSensitivityMagnitude(row: unknown): boolean {
     sensitivity?: unknown
     elasticity?: unknown
     importance_score?: unknown
+    contribution?: unknown
   }
   return (
     Number.isFinite(r.sensitivity_score) ||
     Number.isFinite(r.sensitivity) ||
     Number.isFinite(r.elasticity) ||
-    Number.isFinite(r.importance_score)
+    Number.isFinite(r.importance_score) ||
+    Number.isFinite(r.contribution)
   )
 }
