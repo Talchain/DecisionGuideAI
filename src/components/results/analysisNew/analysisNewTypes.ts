@@ -27,6 +27,7 @@ import type { ComparisonScope } from '../utils/goalAnchorCopy'
 import type { NotAnalysedReason } from '../utils/notAnalysedOptions'
 import type { NamedMaterialParameter } from './materialParametersAwaitingUser'
 import type { OptionOrigin } from './optionOriginDisclosure'
+import type { TippingPoint } from './tippingPoints'
 
 /**
  * How confident the SURFACE is entitled to sound — never an "AI confidence".
@@ -899,6 +900,13 @@ export interface SensitivitySection {
    * own sentence already says where it points).
    */
   convergence: { label: string } | null
+  /**
+   * ⭐ THE THRESHOLDS THE PRODUCER SAYS IT FOUND — live data this tab used only
+   * to say NOTHING flips. See `tippingPoints.ts`: every field is the producer's,
+   * nothing is computed, and a row the producer did not mark `found` with both
+   * endpoints and a named alternative is dropped rather than completed.
+   */
+  tippingPoints: TippingPoint[]
   findings: AnalysisNewFinding[]
 }
 
