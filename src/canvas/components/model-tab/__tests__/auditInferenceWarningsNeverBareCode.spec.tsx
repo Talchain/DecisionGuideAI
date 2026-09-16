@@ -357,11 +357,32 @@ describe('Model card audit trail — the property, over a CAPTURED corpus and be
     }
   })
 
-  it('CONSTRAINT_TARGET_UNRELIABLE specifically renders the generic sentence, not a placeholder', () => {
-    // The named case, bound by identity. Its template is label-interpolating,
-    // so with no factor context it produced "This factor's success target…" on
-    // an audit trail that names no factor.
-    expect(describeAuditInferenceWarningCode('CONSTRAINT_TARGET_UNRELIABLE')).toBe(GENERIC)
+  it('CONSTRAINT_TARGET_UNRELIABLE now renders its OWN sentence — the placeholder it was suppressed for is gone', () => {
+    // ⚠⚠ THIS EXPECTATION WAS `toBe(GENERIC)` AND THE CHANGE IS AN IMPROVEMENT,
+    // not a relaxation. The reason it was suppressed is recorded in this
+    // module's own header: the template was LABEL-INTERPOLATING, so with no
+    // factor context it produced "This factor's success target can't be
+    // evaluated reliably" — a sentence built around a factor the surface cannot
+    // identify. The rule was "withhold rather than render a placeholder", and it
+    // was right.
+    //
+    // ⭐ THE PLACEHOLDER IS NOW GONE AT SOURCE. `humaniseCritique`'s
+    // CONSTRAINT_TARGET_UNRELIABLE template takes a `genuine` branch and its
+    // anonymous form names nothing and asserts no kind. So
+    // `dependsOnAFactorLabel` — a DERIVED probe, not a hand-list — now reads
+    // false for this code and the module returns the real title. Nothing in the
+    // module changed: the derivation adapted, which is exactly what it was
+    // built to do.
+    //
+    // The audit trail therefore gains a sentence that says what happened,
+    // instead of "Part of this analysis was limited".
+    const rendered = describeAuditInferenceWarningCode('CONSTRAINT_TARGET_UNRELIABLE')
+    expect(rendered).not.toBe(GENERIC)
+    // The rule this test exists for still binds: no placeholder, no bare code.
+    expect(rendered).not.toContain('This factor')
+    expect(rendered).not.toBe('CONSTRAINT_TARGET_UNRELIABLE')
+    // Non-vacuity: it is a real sentence, not an empty string.
+    expect(rendered.length).toBeGreaterThan(20)
   })
 
   it('still gives a LABEL-FREE mapped code its specific copy (the fix withholds narrowly)', () => {
