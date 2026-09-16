@@ -266,6 +266,119 @@ export function solveLayoutCardWidths(
 }
 
 /**
+ * ⭐⭐ THE WIDTHS A RESTORED BOARD CAN ACTUALLY AFFORD — bounded by the stride
+ * its own SAVED POSITIONS leave, not by the row a fresh layout would build.
+ *
+ * ⛔⛔ THE DEFECT THIS CLOSES, AND IT WAS FOUND BY AN INDEPENDENT REVIEW (Codex,
+ * 16 Sep 2026) AFTER I HAD ALREADY SHIPPED THE FIX IT BREAKS.
+ *
+ * `useRestoredLayoutWidth` exists to NARROW a restored card to match the stride
+ * beneath it: cards laid out at 230px came back at the 320px maximum and
+ * overlapped. Per-tier widths inverted that direction — `solveLayoutCardWidths`
+ * can return a width WIDER than the uniform one a saved board was laid out at,
+ * so the very hook that repaired overlap began to cause it.
+ *
+ * Executed contrast, old `layoutGraph` composed with the candidate solver —
+ * 3 options / 5 factors, old uniform width **336**, options at x **416 / 808 /
+ * 1200**:
+ *
+ *     saved gap        56px
+ *     restored at 440  gap becomes  -48px      ← a 48px overlap, on reopen
+ *
+ * ⭐ AND THE HOOK'S OWN HEADER STATES THIS FAILURE ONE CASE EARLIER. Explaining
+ * why a layout that has run must win, it says a derived width against unmoved
+ * positions *"would cause the very overlap it exists to remove"*. The per-kind
+ * limb was added four lines below that paragraph without applying its reasoning
+ * to itself — the remedy scoped to the instance while its sibling sat in the
+ * same function, under a header that had already named the mechanism.
+ *
+ * ⭐ THE RULE IS THE ONE THE FRESH PATH ALREADY USES, POINTED AT THE RIGHT BOARD.
+ * `tierBoxWidth` lets a tier spend only its share of the widest row the board
+ * ALREADY has. Here the board that already exists is the SAVED one, so the bound
+ * is measured from the saved positions: per tier, the smallest centre-to-centre
+ * distance between adjacent cards sharing a row, minus the gap the layout
+ * guarantees. Reusing the rule rather than inventing a second one is deliberate —
+ * two rules for one question is how the two authorities in this hook disagreed.
+ *
+ * ⚠ A TIER WITH NO TWO CARDS IN ONE ROW IS NOT BOUNDED, AND THAT IS THE POINT,
+ * NOT AN OVERSIGHT. Stride is only measurable where there is a same-row
+ * neighbour — and a card with no same-row neighbour cannot overlap one. So the
+ * decision and goal tiers (one card each on every shipped starter) keep their
+ * full widened width, which is where most of the visible gain was. The bound
+ * bites exactly where overlap is possible and nowhere else.
+ *
+ * ⚠ AND IT IS A BOUND, NOT A REVERT. A board saved AFTER the per-tier change
+ * carries the wider stride in its own positions, so the measurement returns the
+ * wider cap and the widths land unchanged. An old board keeps its old width
+ * until something lays it out again.
+ *
+ * ⛔ NOTHING MOVES. This returns widths only. The hook's standing promise — *"it
+ * changes how wide a card DRAWS; it never moves a node"* — is why locked and
+ * manually-placed nodes are safe, and re-laying out on load was rejected for that
+ * reason long before this defect. Repairing width by rewriting position would
+ * trade a bounded overlap for silently discarding a user's own arrangement.
+ */
+export function solveRestoredCardWidths(
+  nodes: Node[],
+  options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
+): Record<string, number> {
+  const fresh = solveLayoutCardWidths(nodes, options)
+  // ⚠ `preserveLocked` is deliberately NOT read here, only forwarded above. The
+  // stride is measured over EVERY node (see below), so destructuring it would be
+  // an unused binding — and the typecheck gate says so, which is how the first
+  // draft of this function was caught.
+  const { spacing = LAYOUT_NODE_GAP } = options
+  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
+  // ⚠ The bound is measured over EVERY node, including locked ones. A locked
+  // card is still a same-row neighbour to collide with, so excluding it here
+  // would measure a stride the board does not actually have.
+  const strideByTier = new Map<number, number>()
+  const rows = new Map<string, Node[]>()
+  for (const n of nodes) {
+    const y = Math.round(n.position?.y ?? 0)
+    const key = `${tierOf(n)}:${y}`
+    const row = rows.get(key)
+    if (row === undefined) rows.set(key, [n])
+    else row.push(n)
+  }
+  for (const [key, row] of rows) {
+    if (row.length < 2) continue
+    const tier = Number(key.split(':')[0])
+    const xs = row.map((n) => n.position?.x ?? 0).sort((a, b) => a - b)
+    for (let i = 1; i < xs.length; i++) {
+      const stride = xs[i] - xs[i - 1]
+      // A non-positive stride is two cards at the same x — already degenerate,
+      // and not evidence about how much width the row can afford.
+      if (stride <= 0) continue
+      const seen = strideByTier.get(tier)
+      if (seen === undefined || stride < seen) strideByTier.set(tier, stride)
+    }
+  }
+  if (strideByTier.size === 0) return fresh
+  const bounded: Record<string, number> = {}
+  for (const kind of Object.keys(fresh)) {
+    const stride = strideByTier.get(TIER_BY_KIND[kind])
+    if (stride === undefined) {
+      bounded[kind] = fresh[kind]
+      continue
+    }
+    // Never widen a card past what its own saved row leaves it.
+    //
+    // ⚠ The invariant that makes this safe is `cap <= stride`, which holds for
+    // ANY non-negative gap — so a saved board laid out at a different spacing
+    // than the one persisted today is still bounded, merely less tightly.
+    //
+    // ⚠ A non-positive cap is not a width, it is an unusable measurement (two
+    // cards closer together than the gap). Fall through to the fresh answer and
+    // leave that board to the single-width limb, rather than returning a zero
+    // that every consumer would have to special-case.
+    const cap = stride - gap
+    bounded[kind] = cap > 0 ? Math.min(fresh[kind], cap) : fresh[kind]
+  }
+  return bounded
+}
+
+/**
  * Lay out a decision graph using ELK + the deterministic semantic pipeline.
  *
  * Pipeline (DOWN layouts):

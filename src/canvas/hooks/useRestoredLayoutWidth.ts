@@ -70,7 +70,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
-import { solveLayoutNodeWidth, solveLayoutCardWidths } from '../utils/layout'
+import { solveLayoutNodeWidth, solveRestoredCardWidths } from '../utils/layout'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
 
@@ -136,7 +136,23 @@ export function useRestoredLayoutWidth(): void {
      * reload. So they are already persisted, implicitly and exactly, and this
      * repairs every board saved before the change with no migration.
      */
-    const derivedPerKind = solveLayoutCardWidths(nodes, {
+    /**
+     * ⛔⛔ BOUNDED BY THE SAVED POSITIONS — `solveRestoredCardWidths`, NOT
+     * `solveLayoutCardWidths`. Found by independent review (Codex, 16 Sep 2026).
+     *
+     * The unbounded solver answers *"how wide would a FRESH layout draw this
+     * tier"*. On this path the positions on screen came from an OLD layout, and
+     * a per-tier width can be WIDER than the uniform one that board was laid out
+     * at — so this hook, which exists to repair overlap by NARROWING a card to
+     * its stride, began causing it. Executed contrast: 3 options at a saved
+     * uniform 336 with a 56px gap, restored at 440, **gap -48**.
+     *
+     * ⭐ The header above already argued this, for the single-width limb, four
+     * lines up: a width derived against unmoved positions *"would cause the very
+     * overlap it exists to remove"*. That reasoning applies to BOTH limbs and was
+     * applied to one — the sibling this estate keeps failing to sweep.
+     */
+    const derivedPerKind = solveRestoredCardWidths(nodes, {
       direction,
       preserveLocked: respectLocked,
       spacing: nodeSpacing,
