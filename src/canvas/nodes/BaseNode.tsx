@@ -21,6 +21,8 @@ import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import { tierInvitations } from '../utils/ghostTiers'
+import { TierInvitationRow } from './shared/TierInvitation'
 import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
@@ -187,6 +189,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
+  /**
+   * ⭐ THE REASONING FRONTIER, ON THE CARD THE DOOR USED TO STAND BESIDE.
+   *
+   * Resolved from the graph rather than passed in, because the anchor is a
+   * property of the whole row (which card ends it), not of this node — and
+   * `tierInvitations` shares its anchor resolver with the graph-space placement
+   * it replaces, so the two cannot pick different cards.
+   */
+  const allNodes = useCanvasStore(s => s.nodes)
+  const myInvitations = useMemo(
+    // ⚠ GUARDED, AND NOT ONLY FOR TESTS. Every card reads this, so an absent or
+    // not-yet-populated `nodes` slice would crash the whole canvas rather than
+    // omit one affordance. Sixteen specs that mock the store caught it; a user
+    // hitting the same state would have seen a blank board.
+    () => (Array.isArray(allNodes) ? tierInvitations(allNodes as never).get(id) ?? [] : []),
+    [allNodes, id],
+  )
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
   /**
    * Olumi attention — held while the AI is explaining THIS element, unlike the
@@ -1806,6 +1825,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           )}
         </div>
       ) : null}
+
+      {/* ⚠ OUTSIDE the body wrapper above ON PURPOSE. That wrapper is what the
+          LOD rung blanks by `visibility`, and an invitation that disappears at
+          the zoom the auto-fit parks at is the defect this change exists to
+          remove, one level along. */}
+      <TierInvitationRow invitations={myInvitations} nodeId={id} />
 
       <Handle
         type="source"

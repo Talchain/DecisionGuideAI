@@ -43,7 +43,7 @@ import type {
   ModelGroupId,
   RepairQueue,
 } from './types'
-import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL, MODEL_GROUP_TITLE } from '../domain/vocabulary'
+import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL, MODEL_GROUP_TITLE, decisionLabelIsUnwritten } from '../domain/vocabulary'
 import { AlertTriangle, CircleDashed, HelpCircle, Split, Target } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -205,7 +205,14 @@ export const KIND_LABEL: Record<ModelElementKind, string> = {
  * fallback for the same reason: a producer default is not a name a user typed.
  */
 export function labelIsTypeDefault(row: { kind: ModelElementKind; label: string }): boolean {
-  return row.kind === 'decision' && row.label.trim() === DECISION_NODE_LABEL
+  // ⭐ THE COMPARISON MOVED TO `domain/vocabulary.ts`, BESIDE THE CONSTANT, AND
+  // THIS DELEGATES TO IT. The canvas's Question card needs the same judgement
+  // and `model-tab-v2/` is sealed — so the choice was a second copy of the
+  // comparison or one definition in the shared vocabulary. This row's own
+  // signature is unchanged, so its three call sites here did not move: the
+  // kind check stays local, because only this surface is handed rows of mixed
+  // kinds.
+  return row.kind === 'decision' && decisionLabelIsUnwritten(row.label)
 }
 
 /**

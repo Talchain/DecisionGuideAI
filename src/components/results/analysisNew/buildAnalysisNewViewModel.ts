@@ -913,7 +913,10 @@ function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): Analysi
 function buildUncertainty(
   data: ResultsSectionDataReturn,
   recommendations: Recommendation[],
-): AnalysisNewViewModel['uncertainty'] & { sensitivityFindings: AnalysisNewFinding[] } {
+): AnalysisNewViewModel['uncertainty'] & {
+  sensitivityFindings: AnalysisNewFinding[]
+  sensitivityConvergence: { label: string } | null
+} {
   const conf = data.confidence
   const findings: AnalysisNewFinding[] = []
   /**
@@ -923,6 +926,8 @@ function buildUncertainty(
    * section rather than being copied into a second one.
    */
   const sensitivityFindings: AnalysisNewFinding[] = []
+  /** One entry per sensitivity row, in push order. `null` = the producer named none. */
+  const sensitivityAlternatives: Array<{ id: string; label: string } | null> = []
 
   // 0. What is most worth resolving, FIRST — because it is the only row in this
   //    section that says what to DO about the uncertainty, and with
@@ -1078,6 +1083,100 @@ function buildUncertainty(
   }
 
   const uncertaintyRows = conf.uncertainties ?? []
+  /**
+   * ⭐⭐ THE RELATIONSHIP'S DECLARED NAME — THE ONE THING THAT MAKES THREE ROWS
+   * DISTINGUISHABLE WITHOUT READING TO THE MIDDLE OF EACH SENTENCE.
+   *
+   * The block inside the loop establishes the rule and its three rejected
+   * alternatives: a cut prefix of the body is not a label, a constant category
+   * label is furniture, and the whole sentence promoted into header type trades
+   * truthfulness for the density problem this surface exists to solve. It also
+   * names the one shape that IS allowed — a PRODUCER-SUPPLIED name that is not a
+   * prefix of the body, which is why the threshold row keeps both slots.
+   *
+   * `from_label` and `to_label` are exactly that: two of the TEN fields
+   * `EnrichmentRobustnessEdgeSchema` declares, carried onto the row by
+   * `useResultsSectionData` alongside the answer to "were both ends really
+   * named?".
+   *
+   * ⛔ `edgeLabelsResolved` IS THE GATE, AND IT IS NOT A COMPARISON AGAINST THE
+   * FALLBACK LITERAL. `edgeFromLabel`/`edgeToLabel` fall through to
+   * 'Unknown factor' / 'Unknown target' and, one rung earlier, to
+   * `formatUnattributedId`, which yields a plausible-looking string naming
+   * nothing. The hook answers the question where that chain is visible; a check
+   * here against 'Unknown factor' would be a hand-maintained mirror of a string
+   * another file owns (trap 12) AND would read the unattributed-id rung as a
+   * name.
+   *
+   * ⛔ AND IT MUST FIT THE LABEL BUDGET THIS FILE ALREADY USES. Two long node
+   * labels compose into a name longer than the sentence it labels, and
+   * truncating it would reintroduce the cut prefix the rule bans. Same 80
+   * through the same helper, so there is one budget on this surface, not two.
+   */
+  const edgeNames = (u: UncertaintyItem): { full: string; source: string } | null => {
+    if (u.edgeLabelsResolved !== true) return null
+    if (!u.edgeFromLabel || !u.edgeToLabel) return null
+    return { full: `${u.edgeFromLabel} \u2192 ${u.edgeToLabel}`, source: u.edgeFromLabel }
+  }
+  const fitsTheLabelSlot = (name: string): boolean =>
+    name !== '' && truncateAtWordBoundary(name, 80) === name
+  /**
+   * ⛔⛔ ONE CONVENTION FOR THE WHOLE SECTION, CHOSEN BY DEGRADING — NOT BY
+   * GIVING UP. THIS IS THE SECOND THING I GOT WRONG HERE.
+   *
+   * Draft one named each row it could. On the measured fixture that titles ONE
+   * of three, because one node label is itself a 95-character sentence — and one
+   * titled row above two untitled ones is EXACTLY the defect the block below was
+   * written about: *"one section, two title conventions — Paul's 'such a lack of
+   * consistency in the design', made concrete"*.
+   *
+   * Draft two therefore silenced the whole set whenever one name was too long.
+   * ⛔ CODEX REFUSED THAT, RIGHTLY (CX-20260916-63): *"don't treat all-or-none
+   * naming as automatically correct merely because another section uses it: it
+   * must preserve useful identity for the long-label case, not just make the
+   * titles uniformly absent."* The appeal to the convergence line was an appeal
+   * to PRECEDENT, and precedent is not an argument that a rule is right HERE.
+   * All-or-none traded away two perfectly good titles to punish a third.
+   *
+   * So the section picks ONE RUNG and every row uses it:
+   *   1. the whole relationship, `from \u2192 to` — the row's full identity;
+   *   2. failing that, the SOURCE alone — the factor being varied. Not a
+   *      truncation of rung 1: a complete, producer-supplied name, and the same
+   *      shape as the driver rows' own `headline: factorLabel`. The body still
+   *      carries the whole relationship, so nothing is lost, only deferred;
+   *   3. failing that, no title — today's behaviour.
+   *
+   * ⛔ AND EVERY RUNG REQUIRES DISTINCT TITLES ACROSS THE SET. Two rows under
+   * the same title are not identified, they are confused — furniture with a
+   * name, which is worse than the honest blank rung 3 gives. It bites hardest at
+   * rung 2, where two edges out of one factor collapse onto one source name.
+   *
+   * ⚠ SCOPED TO THE `''` BRANCH ONLY. A threshold row already carries a producer
+   * name and a short sentence already is its own label; both are correct today
+   * and neither is judged here. The candidate set is precisely the rows that
+   * would otherwise render with NO label — the measured defect, and nothing else.
+   */
+  const sectionTitleRung: 'full' | 'source' | null = (() => {
+    const unlabelled = uncertaintyRows.filter((u) => {
+      if (u.code !== 'SENSITIVE_ASSUMPTION' || u.threshold) return false
+      const t = humanised(u)
+      return t !== '' && truncateAtWordBoundary(t, 80) !== t
+    })
+    if (unlabelled.length === 0) return null
+    const named = unlabelled.map(edgeNames)
+    if (named.some((n) => n === null)) return null
+    const usable = named as Array<{ full: string; source: string }>
+    for (const rung of ['full', 'source'] as const) {
+      const titles = usable.map((n) => n[rung])
+      if (titles.every(fitsTheLabelSlot) && new Set(titles).size === titles.length) return rung
+    }
+    return null
+  })()
+  const rowTitle = (u: UncertaintyItem): string => {
+    if (sectionTitleRung === null) return ''
+    const names = edgeNames(u)
+    return names ? names[sectionTitleRung] : ''
+  }
   for (let i = 0; i < uncertaintyRows.length; i++) {
     const u = uncertaintyRows[i]
     const text = humanised(u)
@@ -1134,7 +1233,7 @@ function buildUncertainty(
       ? `${u.threshold.variable} could change the answer`
       : labelLength === text
         ? text
-        : ''
+        : rowTitle(u)
     /**
      * ⚠ THE PRODUCER'S OWN CLASS DECIDES, AND IT IS READ HERE BECAUSE THIS IS
      * THE LAST HOP WHERE `u.code` EXISTS — `AnalysisNewFinding` deliberately
@@ -1200,8 +1299,51 @@ function buildUncertainty(
      */
     const focusTarget = rowEdgeId ?? undefined
     const reviewTarget = rowEdgeId && rowEdgeId !== assumed?.edgeId ? rowEdgeId : undefined
+    /**
+     * ⭐⭐ THE MEASURED FLIP RISK — the quantity this section is about, and the
+     * one it has never shown.
+     *
+     * ⛔ PRESENCE, NEVER A COALESCE. The contract states it in its own words:
+     * absence means NOT COMPUTED, `0` is a genuine measurement ("flipping this
+     * edge changes nothing"), and reading absence as `0` fabricates the safest
+     * possible verdict while reading it as `1` fabricates the most alarming.
+     * So both fields are set together or neither is, and a row without a
+     * measurement renders no number and no bar — the same rule `winReadout`
+     * and `winFraction` already follow one section up.
+     *
+     * ⚠ CLAMPED FOR GEOMETRY ONLY, exactly as the option bars are: a bar cannot
+     * draw outside its track, and the READOUT is never clamped, so a value the
+     * producer sent out of range still prints the producer's own number.
+     *
+     * ⚠ ONE FORMATTER, AT THE ONE PLACE THE NUMBER IS BORN. `switch_probability`
+     * is a probability over simulated runs, so it takes the same
+     * resolution-aware authority the option shares take rather than a local
+     * `Math.round` — a measured-but-tiny risk must read "<0.01%", never "0%".
+     */
+    const flip = u.switchProbability
+    const hasFlip = typeof flip === 'number' && Number.isFinite(flip)
+
+    /**
+     * ⭐ WHERE THIS ROW POINTS — collected BY ID so the section can ask whether
+     * the rows agree. Only sensitivity rows are counted; the other uncertainty
+     * codes are not about a fragile edge and have no alternative to name.
+     */
+    if (bucket === sensitivityFindings) {
+      sensitivityAlternatives.push(
+        u.alternativeWinnerId && u.alternativeWinnerLabel
+          ? { id: u.alternativeWinnerId, label: u.alternativeWinnerLabel }
+          : null,
+      )
+    }
+
     bucket.push({
       id: uncertaintyKey(u, i),
+      ...(hasFlip
+        ? {
+            flipFraction: Math.max(0, Math.min(1, flip)),
+            flipReadout: formatProbabilityWithResolution(flip, undefined),
+          }
+        : {}),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
       // BE SAID TWICE.
       //
@@ -1231,7 +1373,42 @@ function buildUncertainty(
       // threshold), or label-plus-body (threshold, where the label is the
       // producer's own variable and not a prefix of the body).
       headline: headlineText,
-      implication: headlineText === text ? '' : text,
+      /**
+       * ⭐⭐ A TITLED ROW DOES NOT QUOTE ITS OWN TITLE BACK — AND THIS IS WHAT
+       * PAYS FOR THE TITLE.
+       *
+       * MEASURED ON THE DEPLOYED BUILD (`521189fe`, the real 277px body width,
+       * the three live fragile-edge rows): titling the rows alone takes the
+       * section 382px → 498px, **+30% on the surface whose whole complaint is
+       * density**. Dropping the body's verbatim repeat of the title brings it to
+       * 401px, **+5%**. The title is nearly free; the repetition is the cost. A
+       * first draft of this change shipped the +30% version, and only driving
+       * the deployed build found it.
+       *
+       * ⛔ THE SHORT FORM IS THE PRODUCER-SIDE HOOK'S, NOT A SUBSTITUTION MADE
+       * HERE. `useResultsSectionData` composes both from one template and offers
+       * the short one only where the body's quoted subject is exactly the name
+       * this row is titled with. Editing the long string here would be a
+       * hand-maintained mirror of a template another file owns (trap 12), and on
+       * a producer-authored `description` it would be a rewording.
+       *
+       * ⚠ AND IT IS GATED ON THE ROW ACTUALLY BEING TITLED. With no title,
+       * "If this changes significantly…" names nothing at all — strictly worse
+       * than the sentence it replaced. Absent short form, or absent title, the
+       * row renders exactly what it renders today.
+       *
+       * ⛔⛔ AND ON RUNG `full` SPECIFICALLY. At rung `source` the title is only
+       * the FACTOR, while the body's quoted subject is the whole relationship —
+       * so dropping the subject there would delete the target end, which nothing
+       * on screen would then name. The short body is licensed by the title
+       * carrying the SAME string, never merely by a title existing.
+       */
+      implication:
+        headlineText === text
+          ? ''
+          : sectionTitleRung === 'full' && headlineText !== '' && !u.threshold && u.messageWithSubjectNamedAbove
+            ? u.messageWithSubjectNamedAbove
+            : text,
       // ⚠⚠ THIS COMMENT USED TO SAY "the generic constant is DROPPED rather
       // than promoted". THAT WAS FALSE — there is no generic-suggestion
       // detection here and never was. The only predicate is
@@ -1349,7 +1526,68 @@ function buildUncertainty(
 
   return {
     findings,
-    sensitivityFindings,
+    /**
+     * ⭐⭐ RANKED BY THE MEASURED RISK, AND ONLY WHERE THERE IS ONE.
+     *
+     * The producer derives `severity` from this same `switch_probability`
+     * (>0.7 critical, >0.5 error), so ordering by the number and ordering by
+     * the producer's class cannot disagree — this is not a second opinion, it
+     * is the same one with more resolution.
+     *
+     * ⛔ ROWS WITHOUT A MEASUREMENT KEEP THEIR PRODUCER ORDER AND SIT AFTER THE
+     * MEASURED ONES. They are not "least risky": they are unmeasured, and
+     * sorting them as if absence were zero is the fabrication the contract
+     * names. A stable sort keeps their relative order the producer chose.
+     */
+    /**
+     * ⭐⭐ DO THESE ROWS AGREE? — said once, so three rows read as three
+     * variations on one answer rather than three answers.
+     *
+     * The witnessed shape: three rows whose sentences all end *"…'Hold Price at
+     * Current Level' could become the better choice"*, so two-thirds of the
+     * visible text is identical and the reader has to diff three paragraphs to
+     * find what differs. Stating the shared conclusion at the top is what makes
+     * the repetition legible instead of exhausting.
+     *
+     * ⛔ IT IS A DE-DUPLICATION, NOT A NEW CLAIM — and that is the whole
+     * entitlement argument. Every one of these rows ALREADY names this option,
+     * in the producer's own sentence, on screen. Saying it once above them is
+     * strictly LESS assertion than the section already makes, so it needs no
+     * permission the rows do not already have. It would be a new claim only if
+     * it named an option no row named, which by construction it cannot.
+     *
+     * ⛔ AGREEMENT IS DECIDED BY ID, NEVER BY LABEL (trap 19). Two options can
+     * carry the same label, and `stripEncodingNotation` can collapse two
+     * distinct unusable ones onto one fallback string — so a label comparison
+     * would answer a different question and be right most of the time, which is
+     * the worst kind of wrong. The label is carried only to render.
+     *
+     * ⛔ SILENT UNLESS EVERY ROW AGREES, AND SILENT IF ANY ROW IS UNNAMED. One
+     * row the producer gave no alternative for means the rows cannot be shown
+     * to agree — absence is not assent. And fewer than two rows is nothing to
+     * converge: a single row's own sentence already says where it points, so a
+     * line above it would be the same claim twice.
+     *
+     * ⚠ DISAGREEMENT RENDERS NOTHING, deliberately. "These point at different
+     * options" is a different, useful claim and it deserves its own argument
+     * and its own test rather than arriving as the else-arm of this one.
+     */
+    sensitivityConvergence: (() => {
+      if (sensitivityAlternatives.length < 2) return null
+      const first = sensitivityAlternatives[0]
+      if (first === null) return null
+      return sensitivityAlternatives.every((a) => a !== null && a.id === first.id)
+        ? { label: first.label }
+        : null
+    })(),
+    sensitivityFindings: [...sensitivityFindings].sort((a, b) => {
+      const av = a.flipFraction
+      const bv = b.flipFraction
+      if (av === undefined && bv === undefined) return 0
+      if (av === undefined) return 1
+      if (bv === undefined) return -1
+      return bv - av
+    }),
     // Rule 4 — the load-bearing distinction for this section's empty state.
     evidenceAssessed: conf.evidenceGapsAssessed === true,
     decisionVoi: data.decisionVoi,
@@ -3260,7 +3498,12 @@ export function buildAnalysisNewViewModel(
     uncertainty: preRun
       ? { findings: [], evidenceAssessed: false, decisionVoi: 'not_computed' as const }
       : { findings: uncertaintyBuild!.findings, evidenceAssessed: uncertaintyBuild!.evidenceAssessed, decisionVoi: uncertaintyBuild!.decisionVoi },
-    sensitivity: preRun ? { findings: [] } : { findings: uncertaintyBuild!.sensitivityFindings },
+    sensitivity: preRun
+      ? { findings: [], convergence: null }
+      : {
+          findings: uncertaintyBuild!.sensitivityFindings,
+          convergence: uncertaintyBuild!.sensitivityConvergence,
+        },
     deeper: buildDeeper(inputs),
     // ⚠ PRE-RUN THERE ARE NO CHECKS TO REPORT — and this section must be
     // gated HARDER than the others, not more softly. Its whole content is

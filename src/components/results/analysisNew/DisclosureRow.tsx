@@ -137,6 +137,62 @@ export function DisclosureRow({
               {finding.implication}
             </span>
           ) : null}
+
+          {/* ⭐⭐ THE MEASURED RISK, AT L1 — visible without opening the row.
+              This is the quantity the row is ABOUT: the producer's
+              `switch_probability`, "P(flipping this edge switches the
+              recommended option)". Behind disclosure it would be a number a
+              reader has to go looking for, and the reason to look is the number.
+
+              ⛔ BOTH FIELDS OR NEITHER. The builder sets them together and an
+              absent measurement means NOT COMPUTED — never zero. A track with
+              no fill would read as a measured "this changes nothing", which is
+              the fabrication the contract names by name.
+
+              ⚠ THE OPTION ROW'S GEOMETRY EXACTLY — same 8px track, same radius,
+              same `bg-info` fill, same positive-only 2px floor. A probability
+              drawn two ways on one panel is two scales the reader must learn;
+              the section differs by its LABEL, never by its ruler. */}
+          {finding.flipReadout !== undefined && finding.flipFraction !== undefined ? (
+            <span className="block mt-1.5">
+              {/* ⭐⭐ THE NUMBER ALONE, BECAUSE THE CAPTION IS THE SECTION'S.
+                  Witnessed on the deployed build `92b5e60e`: three rows, three
+                  bars, and "How often this changed the answer" printed THREE
+                  TIMES — a label repeated once per row is furniture by the
+                  second row and noise by the third. It is one fact about the
+                  whole column, so it is said once above the column, in
+                  `AnalysisNewSection`'s existing `caveat` slot, which exists
+                  for exactly this ("a caveat the user must read to interpret
+                  it correctly").
+
+                  ⚠ THE NUMBER IS NOT LEFT BARE. What makes a lone percentage
+                  ambiguous is a SECOND number beside it meaning something else
+                  — the reason the option rows name both of theirs. There is one
+                  figure per row here, under a caption that names it, so the
+                  ambiguity that rule guards against does not arise. */}
+              <span className="flex items-baseline justify-end">
+                <span
+                  className={`${typography.panelMeta} text-text-light shrink-0 tabular-nums`}
+                  data-testid={`${testIdPrefix}-flip`}
+                >
+                  {finding.flipReadout}
+                </span>
+              </span>
+              <span
+                className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
+                aria-hidden="true"
+                data-testid={`${testIdPrefix}-flip-bar`}
+              >
+                <span
+                  className="block h-full rounded-full bg-info"
+                  style={{
+                    width: `${finding.flipFraction * 100}%`,
+                    ...(finding.flipFraction > 0 ? { minWidth: '2px' } : {}),
+                  }}
+                />
+              </span>
+            </span>
+          ) : null}
         </span>
       </button>
 
@@ -211,7 +267,32 @@ export function DisclosureRow({
                 onClick={() => setInspectOpen((v) => !v)}
                 aria-expanded={inspectOpen}
                 aria-controls={inspectOpen ? inspectId : undefined}
-                className={`${typography.panelMeta} text-text-light underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                /**
+                 * ⭐⭐ THE TIER HAS A NAME AND THIS ROW WAS SPELLING IT OUT —
+                 * WRONGLY, IN THE ONE CHARACTER THAT MATTERS.
+                 *
+                 * Its three siblings in this same flex row — focus, review and
+                 * intervention — all use `action('inline')`. This one
+                 * hand-copied the shape and substituted `text-text-light` for
+                 * the action colour, so on the deployed build "Inspect" reads
+                 * GREY-underlined beside "Show on canvas" reading
+                 * INFO-underlined: four controls in one row, two colours, no
+                 * rule distinguishing them. Paul, on that screenshot: the
+                 * affordances contradict each other.
+                 *
+                 * ⚠ AND THE HAND-COPY IS THE DEFECT, NOT JUST ITS COLOUR. A
+                 * spelled-out tier drifts the first time the tier moves, which
+                 * is exactly what happened here — `ACTION_TIER.inline` is
+                 * `'rounded text-info underline'` and this string agreed with
+                 * it on two of three tokens. #1594 fixed the same shape in
+                 * `SuccessTargetLine`; naming the tier is what stops the next
+                 * one.
+                 *
+                 * ⚠ THE FOCUS RING IS NOT LOST. `action()` composes the
+                 * estate's focus treatment, so the visible-focus behaviour is
+                 * the tier's rather than this call site's opinion of it.
+                 */
+                className={`${typography.panelMeta} ${action('inline')}`}
                 data-testid={`${testIdPrefix}-inspect-toggle`}
               >
                 {COPY.disclosure.inspect}

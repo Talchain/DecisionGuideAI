@@ -19,7 +19,7 @@
 // ============================================================================
 
 import type { GraphHealth } from '../validation/types'
-import type { LimitsStatusResult } from './limitsStatus'
+import { engineLimitOverage, type LimitsStatusResult } from './limitsStatus'
 
 export type RunBlockReason = 'ok' | 'empty' | 'validation' | 'health' | 'limits' | 'unknown'
 
@@ -84,12 +84,25 @@ export function deriveRunEligibility(options: RunEligibilityOptions): RunEligibi
     }
   }
 
-  // Engine limits (too big / at recommended maximum)
-  if (limitsStatus && limitsStatus.zone === 'at_limit') {
+  // ⭐⭐ THE ENGINE'S LIMIT, NOT A BAND THE UI CHOSE.
+  //
+  // This read `limitsStatus.zone === 'at_limit'`, which is a UI band at 90% of
+  // the producer's maximum (`limitsStatus.ts`). `/v1/limits` states `nodes.max`
+  // and `edges.max` and nothing else, so at 90% the graph IS within the
+  // engine's limits — and the refusal said the engine had refused it. With the
+  // shipped fallback (`{ nodes: 50, edges: 100 }`) that withheld analysis from
+  // a 90-edge model while the engine had ten to spare.
+  //
+  // `exceedsEngineLimit` compares a live count with a figure the producer
+  // stated; the UI picks neither side of it. See its docblock for why the two
+  // questions are named apart rather than reconciled.
+  const overage = limitsStatus ? engineLimitOverage(limitsStatus) : []
+  if (overage.length > 0) {
+    const parts = overage.map(o => `${o.current} ${o.axis} and the engine will take ${o.max}`)
     return {
       canRun: false,
       reason: 'limits',
-      message: 'Simplify this graph to stay within the engine\'s limits before running.'
+      message: `This graph has ${parts.join(', and ')}. Remove ${overage.map(o => `${o.over} ${o.axis}`).join(' and ')} to run.`
     }
   }
 

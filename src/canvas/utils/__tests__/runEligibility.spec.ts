@@ -71,12 +71,30 @@ describe('deriveRunEligibility', () => {
     expect(result.message).toMatch(/resolve 2 graph errors?/i)
   })
 
-  it('blocks when limits zone is at_limit', () => {
-    const limits = makeLimits('at_limit')
+  /**
+   * ⛔ REWRITTEN 15 Sep 2026, AND THE OLD VERSION IS WHY THE DEFECT SHIPPED.
+   *
+   * It read `makeLimits('at_limit')` — a fixture that sets the zone STRING
+   * directly while leaving `nodes: { current: 10, max: 100, percent: 10 }`.
+   * That is a state `deriveLimitsStatus` cannot produce, and the test therefore
+   * asserted that **a graph using a tenth of the engine's capacity is correctly
+   * refused**. It passed, on a fixture outside the producer's domain, while the
+   * product withheld analysis from models the engine could take.
+   *
+   * The gate now reads the producer's own `max`, so the fixture is built from
+   * counts that genuinely exceed it. `makeLimits` is kept for the tests that are
+   * about the OTHER block reasons, where the limits object is incidental.
+   */
+  it('blocks when the graph exceeds the engine’s stated maximum', () => {
+    const limits: LimitsStatusResult = {
+      ...makeLimits('at_limit'),
+      // 120 of 100 edges — over what the producer said it will take.
+      edges: { current: 120, max: 100, percent: 120 }
+    }
 
     const result = deriveRunEligibility({
       nodeCount: 10,
-      edgeCount: 5,
+      edgeCount: 120,
       hasValidationErrors: false,
       graphHealth: null,
       limitsStatus: limits
@@ -84,7 +102,9 @@ describe('deriveRunEligibility', () => {
 
     expect(result.canRun).toBe(false)
     expect(result.reason).toBe('limits')
-    expect(result.message).toMatch(/simplify this graph/i)
+    // The refusal states the producer's figure rather than re-asserting a band.
+    expect(result.message).toContain('120')
+    expect(result.message).toContain('100')
   })
 
   it('allows runs when graph is non-empty, healthy, and within limits', () => {

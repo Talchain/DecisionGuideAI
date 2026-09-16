@@ -921,6 +921,46 @@ export interface UncertaintyItem {
   severity?: CritiqueSeverity
   /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */
   factorConfidence?: number | null
+  /**
+   * ⭐ The producer's MEASURED `switch_probability` — *"P(flipping this edge
+   * switches the recommended option)"*. Higher means more fragile; the producer
+   * derives `severity` from this same number (>0.7 critical, >0.5 error).
+   *
+   * ⛔ ABSENT MEANS NOT COMPUTED, never 0 and never 1. `0` is a genuine
+   * measurement. Branch on presence; never coalesce.
+   */
+  switchProbability?: number
+  /**
+   * ⭐ The option this fragile edge points at, BY IDENTITY. Present only when
+   * the producer named one — never the 'another option' sentence fallback,
+   * which is a rendering convenience and not an identity.
+   */
+  alternativeWinnerId?: string
+  /** Its label, for rendering only. Never compared — ids answer identity. */
+  alternativeWinnerLabel?: string
+  /** The relationship's ends, from the producer's declared `from_label`/`to_label`. */
+  edgeFromLabel?: string
+  edgeToLabel?: string
+  /**
+   * ⛔ Whether BOTH ends were really named, or fell through to 'Unknown …'.
+   * Same question and same answer shape as `topFragileEdge.labelsResolved`.
+   * A consumer must gate any rendered NAME on this; the sentence keeps its
+   * fallbacks because a sentence with an unnamed end still reads.
+   */
+  edgeLabelsResolved?: boolean
+  /**
+   * ⛔ THE SAME SENTENCE, FOR A CONSUMER THAT HAS ALREADY NAMED THE SUBJECT.
+   *
+   * Present only where the UI composed the sentence itself, the body's quoted
+   * subject is exactly `edgeFromLabel \u2192 edgeToLabel`, and the sanitiser did
+   * not replace it. A consumer that titles the row with that name renders THIS
+   * as the body; one that does not renders `displayText`. Both come from one
+   * template in `useResultsSectionData`, so they cannot drift.
+   *
+   * ⚠ ABSENT IS NOT A DEFECT — it means "render the full sentence", which is
+   * always correct. Never derive it by pattern-matching the long form.
+   */
+  messageWithSubjectNamedAbove?: string
   /** ISL E-value: how many times wrong the assumption must be to flip the recommendation */
   eValue?: number
   /** For sensitivity thresholds (when small changes flip the recommendation) */

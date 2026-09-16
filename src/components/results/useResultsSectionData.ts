@@ -3596,8 +3596,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       // Enhanced message format per spec
       const edgeLabel = fe.label || `${sourceName} → ${targetName}`
-      const friendlyMessage = fe.description ||
-        `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
+      /**
+       * ⭐⭐ ONE TEMPLATE, TWO SUBJECTS — SO THE PAIR CANNOT DRIFT.
+       *
+       * The panel now titles these rows with the relationship's declared name
+       * (`buildAnalysisNewViewModel`, set-level rule). A titled row whose body
+       * then QUOTES THAT SAME NAME BACK pays for the title twice, and the cost
+       * is not theoretical: MEASURED ON THE DEPLOYED BUILD at the real 277px
+       * body width, the three-row section goes 382px → 498px (+30%) with the
+       * title alone, and 382px → 401px (+5%) once the body stops repeating the
+       * name. The title is nearly free; the repetition is what costs.
+       *
+       * So the sentence is composed ONCE and the SUBJECT is the parameter. A
+       * consumer that has the name on screen already asks for the short subject;
+       * one that has not asks for the long one. Neither is a rewording of the
+       * other, because there is only one sentence here.
+       */
+      const fragileEdgeSentence = (subject: string) =>
+        `If ${subject} changes significantly, "${alternativeWinnerLabel}" could become the better choice`
+      const friendlyMessage = fe.description || fragileEdgeSentence(`"${edgeLabel}"`)
 
       // UI-SEM-012: PLoT-classified severity (B1+), carried VERBATIM or
       // omitted. Contract (schemas 0.30.0, EnrichmentRobustnessEdgeSchema):
@@ -3630,6 +3647,31 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ? 'Check and update this factor\u2019s inputs for more reliable results.'
         : friendlyMessage
 
+      /**
+       * ⛔ THE SAME SENTENCE WITH THE SUBJECT ON SCREEN ALREADY — OFFERED ONLY
+       * WHERE ALL THREE PRECONDITIONS HOLD, AND ABSENT OTHERWISE.
+       *
+       *  · `!fe.description` — the producer did not write this sentence. Its
+       *    prose is its own; substituting into it would be a rewording, and a
+       *    description shaped 'The relationship "X" is fragile because…' would
+       *    come out ungrammatical.
+       *  · `!fe.label` — the body's quoted subject is then EXACTLY
+       *    `${sourceName} → ${targetName}`, which is exactly what the panel
+       *    titles the row with. Where `fe.label` exists the two differ, and
+       *    dropping the subject would drop information the title does not carry.
+       *  · the sanitiser did not fire — otherwise `displayText` is a canned
+       *    sentence naming no edge, and there is nothing to shorten.
+       *
+       * ⚠ FAIL-CLOSED: absent means the consumer renders the full sentence,
+       * which is today's behaviour and always correct. A consumer must never
+       * derive this by pattern-matching the long form — that would be a
+       * hand-maintained mirror of a template this file owns (trap 12).
+       */
+      const messageWithSubjectNamedAbove =
+        !fe.description && !fe.label && saDisplayText === friendlyMessage
+          ? fragileEdgeSentence('this')
+          : undefined
+
       // E-value: from fragile edge entry directly, or from separate edge_e_values array
       const rawEValue = typeof fe.e_value === 'number' ? fe.e_value : edgeId ? eValueMap.get(edgeId) : undefined
 
@@ -3644,6 +3686,85 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ...(fromId ? { edgeFromId: fromId } : {}),
         ...(toId ? { edgeToId: toId } : {}),
         severity,
+        /**
+         * ⭐⭐ THE MEASURED FLIP RISK, CARRIED TO THE ROW THAT RENDERS IT.
+         *
+         * `switch_probability` is the contract's *"P(flipping this edge
+         * switches the recommended option)"*, and it is the quantity "What
+         * would change your mind" is about. It was already read in this hook
+         * — twenty lines up, into `fragileEdgesMap`, for the FACTOR rows —
+         * and never reached the fragile-edge row itself, so the section named
+         * for the question rendered "changes significantly" while the number
+         * sat one map away.
+         *
+         * ⛔ PRESENCE BRANCH, NEVER A COALESCE, and the contract is explicit
+         * about why: absence means NOT COMPUTED, `0` is a genuine measurement
+         * ("flipping this edge changes nothing"), and a consumer reading
+         * absence as `0` fabricates the safest possible verdict while one
+         * reading it as `1` fabricates the most alarming. `?? 0` / `|| 0` /
+         * `?? 1` are all banned here by the schema's own words.
+         *
+         * ⚠ `marginal_switch_probability` IS NOT A FALLBACK. It is a different
+         * Monte Carlo, and coalescing the two is a measured past defect (#543):
+         * it fed a marginal value to the hero under switch-probability wording.
+         * Same rule as the map above, stated here because this is a second
+         * reader and a rule that lives in only one of two readers is not a rule.
+         */
+        ...(typeof fe.switch_probability === 'number' && Number.isFinite(fe.switch_probability)
+          ? { switchProbability: fe.switch_probability }
+          : {}),
+        /**
+         * ⭐ WHICH OPTION THIS ROW POINTS AT — BY IDENTITY, and the id is the
+         * point (trap 19). The label is already inside the producer's sentence,
+         * but two options can carry the same label and `stripEncodingNotation`
+         * can collapse two distinct unusable ones onto the same fallback
+         * string, so "do these rows agree?" is a question only ids can answer.
+         *
+         * ⚠ The LABEL rides alongside for rendering only. A consumer that
+         * compared labels would be asking a different question and getting the
+         * right answer most of the time, which is the worst kind.
+         *
+         * ⛔ Both omitted when the producer named no alternative: the section
+         * can then say nothing about where these rows point, which is correct.
+         * `alternativeWinnerLabel` above falls back to 'another option' for the
+         * SENTENCE, and that fallback must not become an identity here.
+         */
+        ...(altWinnerId
+          ? { alternativeWinnerId: altWinnerId, alternativeWinnerLabel }
+          : {}),
+        /**
+         * ⭐⭐ THE RELATIONSHIP THIS ROW IS ABOUT, FROM THE DECLARED FIELDS.
+         *
+         * `from_label` / `to_label` are on `EnrichmentRobustnessEdgeSchema` —
+         * ten declared fields, and these are two of them. The row already
+         * composes them into the producer's SENTENCE; carrying them separately
+         * lets the panel give each row a short NAME, which is what makes three
+         * rows distinguishable at a glance when their sentences differ only in
+         * the middle.
+         *
+         * ⛔ `labelsResolved` IS THE GATE, and it is the estate's own existing
+         * idiom (`topFragileEdge.labelsResolved`, same question, same answer
+         * shape). `sourceName`/`targetName` fall through to 'Unknown factor' /
+         * 'Unknown target' when nothing names the ends, and a headline reading
+         * "How strongly Unknown factor affects Unknown target" is worse than no
+         * headline. Computed HERE, where the fallback chain is visible, rather
+         * than by a consumer comparing against the fallback literal — that
+         * comparison would be a hand-maintained mirror of a string this file
+         * owns (trap 12).
+         */
+        edgeFromLabel: sourceName,
+        edgeToLabel: targetName,
+        ...(messageWithSubjectNamedAbove
+          ? { messageWithSubjectNamedAbove }
+          : {}),
+        edgeLabelsResolved:
+          nonEmptyLabel(fe.from_label) !== undefined ||
+          nonEmptyLabel(fe.fromLabel) !== undefined ||
+          getNodeLabel(fromId) !== undefined
+            ? nonEmptyLabel(fe.to_label) !== undefined ||
+              nonEmptyLabel(fe.toLabel) !== undefined ||
+              getNodeLabel(toId) !== undefined
+            : false,
         factorConfidence,
         eValue: rawEValue,
         threshold: fe.threshold ? {

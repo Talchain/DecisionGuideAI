@@ -40,6 +40,33 @@
  */
 export const DECISION_NODE_LABEL = 'Question'
 
+/**
+ * Is a decision node still carrying the TYPE'S DEFAULT NAME rather than one a
+ * person wrote?
+ *
+ * ⭐ THIS LIVES HERE, BESIDE THE CONSTANT IT COMPARES AGAINST, FOR THE REASON
+ * `factorIsConfirmable` DOES (1 Sep 2026, documented below): two surfaces need
+ * the same product-word judgement, and `model-tab-v2/` is a SEALED namespace
+ * whose boundary guard permits exactly one outside reference. Reaching through
+ * that door, or keeping a second copy of the comparison on the canvas, are both
+ * wrong; this file exists for precisely that case.
+ *
+ * ⚠ COMPARED BY VALUE AGAINST THE CONSTANT, NEVER BY KIND. Treating every
+ * decision node as unwritten would erase every question a user HAS written —
+ * a failure mode worse than the defect. The estate's precedent is
+ * `utils/ghostTiers.ts`, which refuses a label equal to the unnamed fallback
+ * for the same reason: a producer default is not a name a user typed.
+ *
+ * ⚠ AND IT IS NOT THE SAME QUESTION AS "IS THE LABEL EMPTY". An empty label and
+ * the word "Question" are both *unwritten*, but only one of them has zero
+ * length — which is how the canvas card and the Model tab came to disagree
+ * about the same node: the card asked `label.length === 0` and the Model tab
+ * asked this. Two internally-consistent authorities, one fact (trap 21).
+ */
+export function decisionLabelIsUnwritten(label: string): boolean {
+  return label.trim() === DECISION_NODE_LABEL
+}
+
 /** One-line gloss, for legends and vocabulary surfaces. */
 export const DECISION_NODE_DEFINITION =
   'What you are working out — the options below are the answers you are weighing.'
