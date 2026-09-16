@@ -588,7 +588,25 @@ export const ANALYSIS_NEW_COPY = {
      * does not say "would", which would be a forecast: the runs already
      * happened.
      */
-    flipLabel: 'How often this changed the answer',
+    /**
+     * ⭐ ONE CAPTION FOR THE WHOLE COLUMN, not a label per row.
+     *
+     * Witnessed on `92b5e60e`: the per-row label printed three times in a
+     * three-row section. It states one fact about every bar, so it belongs
+     * above them once.
+     *
+     * ⚠ PAST TENSE, DELIBERATELY. The runs already happened: this is a count
+     * over simulated scenarios, not a forecast. "would change" would make it a
+     * prediction the producer did not make.
+     */
+    /**
+     * ⛔ "came out ahead" WAS THE FIRST DRAFT AND `noWinnerVocabulary.spec.ts`
+     * REDDED IT, correctly: that is contest framing, and the 8 Sep ruling is
+     * "say 'scored highest in N% of runs' — never a placing". The wording here
+     * names the EFFECT (the answer changed) rather than a placing, which is
+     * also what the section's own heading already says.
+     */
+    flipCaption: 'Bars show how often each assumption changed the answer.',
     /**
      * ⭐ NAMES THE AGREEMENT, ASSERTS NOTHING NEW. Every row below already
      * names this option in the producer's own sentence — this says once what
