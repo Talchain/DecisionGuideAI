@@ -80,7 +80,18 @@ describe('InferenceWarningStrip', () => {
     // entry (humaniseCritique.ts) — a meaningful, code-keyed title, NOT the
     // raw producer message verbatim and NOT the generic unmapped-code
     // fallback (superseded by the fix; was "Review this factor's inputs").
-    expect(entry).toHaveTextContent("success target can't be evaluated reliably")
+    // ⚠ NARROWED from the contiguous "success target can't be evaluated
+    // reliably". This fixture carries no `affected_nodes`, so it takes the
+    // template's ANONYMOUS branch — "A success target ON YOUR MODEL can't be
+    // evaluated reliably" — and the old substring is interrupted by the very
+    // clause that removes the fabricated "This factor". These two fragments are
+    // present in BOTH branches, so the assertion binds to the template rather
+    // than to one of its arms.
+    expect(entry).toHaveTextContent('success target')
+    expect(entry).toHaveTextContent("can't be evaluated reliably")
+    // And the sentinel must never reach this strip — the defect that occasioned
+    // the change was this exact copy rendering it.
+    expect(entry).not.toHaveTextContent('This factor')
     expect(entry).not.toHaveTextContent(WARNING_CONSTRAINT_TARGET.message as string)
   })
 
