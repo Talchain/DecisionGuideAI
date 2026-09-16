@@ -1,89 +1,108 @@
 /**
- * StructuralIssuesSection — the model's own structural blockers, on a mounted surface.
+ * StructuralIssuesSection — an OBSERVATION about the connectors drawn on the canvas.
  *
- * ⭐⭐ WHY THIS FILE EXISTS: THE CHECK WAS ALREADY WRITTEN AND NO USER COULD SEE IT.
+ * ⭐ WHY THIS EXISTS: a real model on deployed staging `7573bb0e` (2026-09-16) had three options,
+ * none of them joined to the goal by connectors. The canvas showed nothing, and the only route to
+ * that fact was typing a question into the chat. `useModelHealth` had been computing the
+ * reachability all along and no user could see it: its only consumer
+ * (`canvas/components/ModelHealthSection.tsx`) had ZERO importers, while an IDENTICALLY-NAMED twin
+ * in this directory occupied the name `ModelTabBody` mounts.
  *
- * `useModelHealth` (`canvas/hooks/useModelHealth.ts`) computes real structural health —
- * including, at `:103-120`, a per-option BFS reachability test that produces
- * *"X has no path to the goal. Its interventions can't influence the outcome."*
- * It is tested (`useModelHealth.spec.ts`, 10 `renderHook` cases). It was also DARK:
+ * ⛔⛔ THE NARROWING THAT MADE THIS HONEST (Codex, CX292 + the #1639 block). The first version of
+ * this file rendered `issue.description` VERBATIM — *"Its interventions can't influence the
+ * outcome."* — and its `severity: 'blocker'`. Both are CALCULATION CLAIMS, and the reachability
+ * behind them **starts at `option.id` and follows CONNECTORS ONLY**. An option can legitimately act
+ * through canonical pins / interventions with NO connector drawn, so that version called a VALID
+ * status-quo model failed. **A false claim about a correct model is worse than the silence it
+ * replaced.**
  *
- *   src/canvas/components/ModelHealthSection.tsx            calls useModelHealth   importers: 0
- *   src/canvas/components/model-tab/ModelHealthSection.tsx  props only             MOUNTED by ModelTabBody
+ * So this surface now states ONLY what it can see: **no connector path is shown**. It says nothing
+ * about influence, about interventions, about whether the model can be analysed, and nothing about
+ * severity. The copy is authored HERE rather than inherited from the hook, precisely so the hook's
+ * calculation vocabulary cannot leak onto a screen.
  *
- * Two components share one name, and the identically-named twin occupies the mounted one — so
- * "is ModelHealthSection mounted?" answers YES about the other file. Measured with contrast
- * controls (target 0; `useNodeDisplayMetadata` importers 450; `model-tab/ModelHealthSection`
- * imported at `ModelTabBody.tsx:46`).
+ * ⛔ AND THE GUARD FAILURE WORTH RECORDING, because I got it wrong twice. My first boundary test
+ * asserted a list of forbidden phrases I invented myself ('excluded from', 'withheld', …). The
+ * sentence that actually breached the boundary was not in my list — a guard agreeing with itself.
+ * The spec beside this now pins the OPTION-WITH-PINS-BUT-NO-CONNECTOR case, which is the case that
+ * can only pass if the copy is genuinely neutral.
  *
- * The cost was measured on the deployed build, 2026-09-16, staging `7573bb0e`: a real model with
- * three options, NONE of which had a path to the goal. Re-analyse was correctly disabled, and the
- * ONLY way to learn why was to type a question into the chat. This surface is the canvas answering
- * for itself.
+ * ⛔ NO AMBER: `text-warning` (#FFA656) on `--bg-panel-hover` is 1.85:1 against SC 1.4.3's 4.5:1,
+ * and the per-site contrast guard caught it. Of the 21 `--*-rgb` tokens exactly three clear 4.5:1
+ * on both panel grounds (`--text-header`, `--text-light`, `--info`); NOT ONE semantic colour clears
+ * even 3:1, and a tinted pill makes it WORSE. Do not repaint this to look more urgent.
  *
- * ⛔ THE BOUNDARY THIS MUST NOT CROSS — "not connected" and "excluded from this calculation" are
- * DIFFERENT FACTS. The first is a property of the graph, derivable from its edges. The second is a
- * DECISION only CEE may make. Everything rendered here is the first: derived from the CURRENT
- * `nodes`/`edges` in the canvas store, recomputed on every mutation. Nothing here may claim an
- * analysis verdict, or the canvas and CEE become two authorities on one question.
- *
- * ⚠ THAT LIVENESS IS ALSO WHY THIS IS NOT `composeBlockedReason`'s job. That module deliberately
- * falls back to a NON-CLAIMING sentence ("Olumi needs something more from this model…") because its
- * rungs render a VERDICT, and a verdict goes stale the moment the user edits the graph — its header
- * records that "a confident false claim in exactly this position" is the defect it exists to fix.
- * A fact derived from the live graph cannot go stale that way, so it belongs here and not there.
- *
- * ⛔ NO AMBER HERE, AND THAT IS DELIBERATE — this heading shipped `text-warning` and the
- * per-site contrast guard caught it: #FFA656 on `--bg-panel-hover` is **1.85:1** against the
- * 4.5:1 SC 1.4.3 needs. Of the 21 `--*-rgb` tokens, exactly three clear 4.5:1 on both panel
- * grounds (`--text-header`, `--text-light`, `--info`) and NOT ONE semantic colour clears even
- * 3:1, so there is no darker amber to reach for and a tinted pill makes it WORSE (it moves the
- * ground towards the text). The caution is carried by the WORDS and the triangle's shape
- * instead. Do not repaint this amber to make it look more urgent.
- *
- * ⚠ jsdom cannot prove visibility (CLAUDE.md trap 3). The spec beside this asserts MOUNTING and
- * TEXT. It does not claim the user can see it; that needs a browser.
+ * ⚠ jsdom cannot prove visibility (CLAUDE.md trap 3). The specs assert MOUNTING and TEXT only.
  */
-import { AlertTriangle } from 'lucide-react'
+import { useCallback } from 'react'
 import { useModelHealth } from '../../hooks/useModelHealth'
+import { useCanvasStore } from '../../store'
+import { focusNodeById } from '../../utils/focusHelpers'
 import { typography } from '../../../styles/typography'
 
-/**
- * Blockers only, deliberately.
- *
- * `useModelHealth` also emits `warning`-severity issues (extreme edge weights, duplicate edges).
- * Those are judgements about a model that still runs; a `blocker` is a statement that the graph
- * cannot answer the question as drawn. Only the second is worth interrupting the reader for, and
- * widening this later is a decision with its own evidence rather than a default.
- */
+/** The one check this surface reports. Narrow by construction, not by filtering later. */
+const CONNECTOR_ISSUE_PREFIX = 'disconnected-option-'
+
 export function StructuralIssuesSection() {
   const issues = useModelHealth()
-  const blockers = issues.filter(i => i.severity === 'blocker')
+  const nodes = useCanvasStore(s => s.nodes)
 
-  if (blockers.length === 0) return null
+  // ⛔ ONE check, never "all blockers". Mounting every existing blocker claim unchanged is exactly
+  // what CX292 refused, and the other checks carry their own vocabulary that has not been read.
+  const connectorGaps = issues.filter(i => i.key.startsWith(CONNECTOR_ISSUE_PREFIX))
+
+  const labelFor = useCallback(
+    (nodeId: string): string => {
+      const node = (nodes ?? []).find(n => n.id === nodeId)
+      const label = (node?.data as Record<string, unknown> | undefined)?.label
+      return typeof label === 'string' && label.trim().length > 0 ? label : nodeId
+    },
+    [nodes],
+  )
+
+  if (connectorGaps.length === 0) return null
 
   return (
     <section
       data-testid="structural-issues-section"
-      aria-label="Structural problems with this model"
+      aria-label="Options with no connector path shown to the goal"
       className="rounded-lg border border-panel-border bg-panel px-3 py-2.5"
     >
-      <h3 className={`${typography.nodeLabel} mb-1.5 flex items-center gap-1.5 text-text-header`}>
-        <AlertTriangle size={14} aria-hidden="true" />
-        {blockers.length === 1
-          ? 'One thing stops this model answering'
-          : `${blockers.length} things stop this model answering`}
+      <h3 className={`${typography.nodeLabel} mb-1 text-text-header`}>
+        {connectorGaps.length === 1
+          ? 'One option has no connector path shown to your goal'
+          : `${connectorGaps.length} options have no connector path shown to your goal`}
       </h3>
+      {/* ⛔ VISIBLE, not an aria-label. This canvas's honesty layer is almost entirely invisible to
+          a sighted reader, and the whole point of this surface is that it must not be mistaken for
+          an analysis verdict. */}
+      <p className={`${typography.nodeLabel} mb-2 text-text-light`}>
+        This describes the connectors drawn on your canvas. It is not an analysis result.
+      </p>
       <ul className="flex flex-col gap-1.5">
-        {blockers.map(issue => (
-          <li
-            key={issue.key}
-            data-testid={`structural-issue-${issue.key}`}
-            className={`${typography.nodeLabel} text-secondary`}
-          >
-            {issue.description}
-          </li>
-        ))}
+        {connectorGaps.map(issue => {
+          const nodeId = issue.affectedIds[0]
+          return (
+            <li
+              key={issue.key}
+              data-testid={`structural-issue-${issue.key}`}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className={`${typography.nodeLabel} text-text-light`}>{labelFor(nodeId)}</span>
+              {/* The mounted action CX292 asked for: a route to the node, not another warning.
+                  `focusNodeById` selects and centres it — the same helper ContestedEdgeCard uses
+                  from this directory — and mutates no graph structure. */}
+              <button
+                type="button"
+                data-testid={`structural-issue-show-${nodeId}`}
+                onClick={() => focusNodeById(nodeId)}
+                className={`${typography.nodeLabel} shrink-0 rounded border border-panel-border px-2 py-0.5 text-text-header hover:bg-panel-hover`}
+              >
+                Show on canvas
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )

@@ -127,8 +127,12 @@ describe('the structural check is MOUNTED on the Model tab, not dark', () => {
   it('names the stranded option and NOT the wired one — the discriminating pair', () => {
     renderModelTab()
 
-    expect(screen.getByText(/Raise price to 55.*no path to the goal/)).toBeTruthy()
+    expect(screen.getByText('Raise price to 55')).toBeTruthy()
     expect(screen.queryByTestId('structural-issue-disconnected-option-opt_wired')).toBeNull()
+    expect(screen.queryByText('Hold price steady')).toBeNull()
+    // ⛔ The narrowed boundary reaches the MOUNTED surface too, not just the component in
+    // isolation: no calculation claim may appear on the Model tab.
+    expect(document.body.textContent).not.toContain("can't influence the outcome")
   })
 
   it('a model whose options all reach the goal mounts the tab and NO structural section', () => {
