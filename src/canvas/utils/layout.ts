@@ -335,17 +335,26 @@ export function solveLayoutCardWidths(
  * exact y. An exact-equality grouping was refuted by a comment a few hundred
  * lines below it.
  *
- * ⭐ THE TOLERANCE IS DERIVED, AND IT ERRS IN THE SAFE DIRECTION ON PURPOSE.
- * A genuine sub-row is placed a whole card height plus `subRowSpacing` away, and
- * `subRowSpacing` is `round(effectiveLayerSpacing * 0.6)` with
- * `effectiveLayerSpacing >= LAYOUT_LAYER_GAP`. So the smallest separation two
- * DIFFERENT rows can have is bounded below by that, while incidental variation
- * within one row is a few pixels.
+ * ⛔⛔ AND THE TOLERANCE THAT USED TO SIT HERE IS GONE — 16 Sep 2026, on Codex's
+ * P2 against #1608. It read `|Δy| < round(LAYOUT_LAYER_GAP * 0.6)` = 43px, argued
+ * from the smallest separation two genuine sub-rows can have.
  *
- * The two mistakes are not symmetric, which is what decides the direction:
- * treating two rows as one TIGHTENS the cap (cards draw narrower than they could
- * — no overlap), while treating one row as two LIFTS it (the defect above). So
- * the predicate is deliberately generous about what counts as a row.
+ * **That argument only covers INCIDENTAL variation** — a few pixels from differing
+ * card heights. It does not cover a MANUAL stagger, which has no bound at all: a
+ * reader who drags a card 60px down within its row makes it read as a row of its
+ * own, the bound lifts, and the cards overlap. Same 48px, arrived at a third way.
+ *
+ * ⭐ SO THE ANSWER WITH NO HEIGHT EVIDENCE IS THE SAFE ONE, NOT THE PLAUSIBLE ONE:
+ * same tier, same row. The two mistakes are not symmetric, and that decides it —
+ * treating two rows as one TIGHTENS the cap (cards draw narrower, nothing
+ * overlaps); treating one row as two LIFTS it, which is the defect this function
+ * exists to close.
+ *
+ * ⚠ The cost is real: a tier genuinely split across sub-rows, with no heights, is
+ * capped by its closest horizontal neighbour across those rows. Narrower cards on
+ * a board that would otherwise overlap. `useRestoredLayoutWidth` now also waits
+ * for at least one measured height before using this at all, so the no-height
+ * path is the residue rather than the norm.
  */
 function shareARow(a: Node, b: Node): boolean {
   const ay = a.position?.y ?? 0
@@ -359,10 +368,29 @@ function shareARow(a: Node, b: Node): boolean {
   if (typeof ah === 'number' && ah > 0 && typeof bh === 'number' && bh > 0) {
     if (ay < by + bh && by < ay + ah) return true
   }
-  // Then the tolerance, for restored nodes that carry no measurement — which is
-  // the common case on the path this function exists for.
-  const rowEps = Math.round(LAYOUT_LAYER_GAP * 0.6)
-  return Math.abs(ay - by) < rowEps
+  /**
+   * ⛔ WITHOUT HEIGHTS, TREAT THEM AS ONE ROW — do not fall back to a tolerance
+   * that can UNDER-group.
+   *
+   * Codex's P2 on #1608: a hand-dragged row staggered further than the tolerance
+   * reads as separate rows, the bound lifts, and the cards overlap. The tolerance
+   * was the right answer for INCIDENTAL variation (a few pixels from differing
+   * card heights); it is the wrong answer for a MANUAL stagger, which has no
+   * bound at all.
+   *
+   * ⭐ The two mistakes are not symmetric, and that decides this. Treating two
+   * rows as one TIGHTENS the cap — cards draw narrower, nothing overlaps.
+   * Treating one row as two LIFTS it — the defect. With no height evidence there
+   * is nothing to discriminate on, so the answer is the safe one, not the
+   * plausible one.
+   *
+   * ⚠ The cost is real and bounded: a tier genuinely split across sub-rows, with
+   * no heights, is capped by its closest horizontal neighbour across those rows.
+   * That draws narrower cards on a board that would otherwise overlap. The caller
+   * also now waits for measurement before using this at all
+   * (`useRestoredLayoutWidth`), so this path is the residue rather than the norm.
+   */
+  return true
 }
 
 export function solveRestoredCardWidths(

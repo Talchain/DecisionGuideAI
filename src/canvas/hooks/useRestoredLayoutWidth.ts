@@ -93,6 +93,21 @@ export function useRestoredLayoutWidth(): void {
   const nodeSpacing = useLayoutStore((s) => s.nodeSpacing)
 
   const derivedForRef = useRef<string | null>(null)
+  /**
+   * ⭐⭐ A SECOND LATCH, BECAUSE THE TWO DERIVATIONS HAVE DIFFERENT PRECONDITIONS.
+   *
+   * The single width is a pure function of the node set and needs no measurement.
+   * The PER-KIND bound is measured against the saved positions and is only as good
+   * as the height information available when it runs — and `shareARow` falls back
+   * to a tolerance when heights are absent.
+   *
+   * Sharing one latch meant the per-kind bound could be computed in a pre-measure
+   * pass and then NEVER recomputed, because `derivedForRef` was already set. That
+   * is Codex's P2 on #1608, and it is permanent for the session rather than
+   * transient. Latching separately lets the single width land immediately while
+   * the bound waits for the evidence it actually needs.
+   */
+  const perKindDerivedForRef = useRef<string | null>(null)
 
   useEffect(() => {
     // A layout has run: its published width is the authority. See the header.
@@ -107,15 +122,16 @@ export function useRestoredLayoutWidth(): void {
     if (graphNeedsInitialLayout(nodes)) return
 
     const key = restoreIdentityKey(scenarioId)
-    if (derivedForRef.current === key) return
-    derivedForRef.current = key
 
     // The FULL node array, exactly as `applyLayout` passes it to `layoutGraph`
     // (`store.ts:3304`) — a filtered set here would answer about a different
     // graph than the one whose positions are on screen.
-    const derived = solveLayoutNodeWidth(nodes, { direction, preserveLocked: respectLocked })
-    if (derived !== useLayoutStore.getState().layoutNodeWidth) {
-      useLayoutStore.getState().setLayoutNodeWidth(derived)
+    if (derivedForRef.current !== key) {
+      derivedForRef.current = key
+      const derived = solveLayoutNodeWidth(nodes, { direction, preserveLocked: respectLocked })
+      if (derived !== useLayoutStore.getState().layoutNodeWidth) {
+        useLayoutStore.getState().setLayoutNodeWidth(derived)
+      }
     }
 
     /**
@@ -152,6 +168,36 @@ export function useRestoredLayoutWidth(): void {
      * overlap it exists to remove"*. That reasoning applies to BOTH limbs and was
      * applied to one — the sibling this estate keeps failing to sweep.
      */
+    /**
+     * ⛔⛔ THE BOUND WAITS FOR THE EVIDENCE IT IS MEASURED AGAINST.
+     *
+     * Codex's P2 on #1608: absent height metadata plus a larger manual stagger can
+     * still overlap at restore. `shareARow` asks the direct question — do the two
+     * cards overlap vertically — only where heights are KNOWN, and falls back to a
+     * tolerance otherwise. A hand-dragged row staggered past that tolerance then
+     * reads as separate rows and the bound lifts.
+     *
+     * ⚠ AND IT WAS PERMANENT, NOT TRANSIENT, WHICH IS THE PART THAT MADE IT WORTH
+     * FIXING. React Flow populates `measured` after a render pass; this effect is
+     * keyed on `nodes` and so can fire before that. With ONE latch it would compute
+     * the bound from the tolerance and set the latch, and the later pass carrying
+     * real heights would return at the guard. One pre-measure pass decided the
+     * widths for the whole session.
+     *
+     * So the per-kind bound latches only once at least one card can be measured.
+     * ⭐ If heights never arrive — jsdom, SSR, comparison mode — this simply never
+     * runs, and the card falls back to the single width, which is the behaviour
+     * that predates per-kind widths and cannot overlap. Absence degrades to the
+     * old safe answer rather than to a guess.
+     */
+    const anyMeasuredHeight = nodes.some((n) => {
+      const h = (n as unknown as { measured?: { height?: number } }).measured?.height
+      return typeof h === 'number' && h > 0
+    })
+    if (!anyMeasuredHeight) return
+    if (perKindDerivedForRef.current === key) return
+    perKindDerivedForRef.current = key
+
     const derivedPerKind = solveRestoredCardWidths(nodes, {
       direction,
       preserveLocked: respectLocked,

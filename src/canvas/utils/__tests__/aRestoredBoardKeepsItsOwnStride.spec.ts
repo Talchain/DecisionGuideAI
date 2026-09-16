@@ -153,6 +153,34 @@ describe('a restored board keeps its own stride', () => {
     expect(worstGap(nodes, 'option', bounded.option), 'height-staggered cards lifted the bound and overlap').toBeGreaterThanOrEqual(0)
   })
 
+  /**
+   * ⛔⛔ CODEX'S P2 ON #1608, CLOSED HERE. Its words: absent height metadata plus a
+   * larger manual stagger can still overlap at restore.
+   *
+   * The old fallback was a 43px tolerance derived from the smallest separation two
+   * genuine SUB-ROWS can have. That argument covers incidental variation — a few
+   * pixels of differing card height — and says nothing about a reader DRAGGING a
+   * card, which has no bound. At 70px of stagger with no heights, the row read as
+   * three rows, the bound lifted, and the cards overlapped by the same 48px.
+   *
+   * ⭐ With no height evidence there is nothing to discriminate on, so the answer
+   * is the safe one: same tier, same row.
+   */
+  it('⛔ NO HEIGHTS + a MANUAL stagger beyond the old tolerance: still one row', () => {
+    const nodes = savedBoard().map((n) => {
+      if (n.type !== 'option') return n
+      const idx = Number(n.id.slice(1))
+      // 70px apart — well beyond the retired 43px tolerance — and NO `measured`.
+      return { ...n, position: { x: n.position.x, y: 300 + idx * 70 } }
+    }) as Node[]
+    const ys = nodes.filter((n) => n.type === 'option').map((n) => n.position.y)
+    expect(Math.max(...ys) - Math.min(...ys), 'the stagger no longer exceeds the retired tolerance — cannot reproduce').toBeGreaterThan(Math.round(72 * 0.6))
+    expect(nodes.filter((n) => n.type === 'option').every((n) => (n as { measured?: unknown }).measured === undefined),
+      'the fixture carries measured heights, so it is testing the OTHER branch').toBe(true)
+    const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
+    expect(worstGap(nodes, 'option', bounded.option), 'a manual stagger with no heights lifted the bound and the cards overlap').toBeGreaterThanOrEqual(0)
+  })
+
   it('⛔ LOCKED AND MANUAL POSITIONS: the solver returns widths only, and moves nothing', () => {
     const nodes = savedBoard().map((n) => (n.id === 'o1' ? { ...n, data: { ...(n.data as object), locked: true } } : n)) as Node[]
     const before = JSON.stringify(nodes.map((n) => n.position))
