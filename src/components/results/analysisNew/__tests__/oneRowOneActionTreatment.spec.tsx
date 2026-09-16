@@ -52,7 +52,21 @@ describe('one row, one action treatment', () => {
     expect(INLINE).toContain('text-info')
   })
 
-  it('⭐ every control in the row carries the SAME named tier', () => {
+  /**
+   * ⭐⭐ THE RULE IS NOW *TREATMENT FOLLOWS KIND*, AND THAT IS STRONGER THAN
+   * WHAT THIS FILE ASSERTED BEFORE.
+   *
+   * It used to demand that all four controls carry one text tier. The acts are
+   * now icon buttons and the disclosure keeps its word, so a naive reading is
+   * that the rule was relaxed. It was not. The defect Paul witnessed was four
+   * controls differing FOR NO STATED REASON. Two kinds differing for a reason —
+   * three acts on the model, one reveal of content — is the rule being kept.
+   *
+   * What is still guarded, unchanged: the disclosure's tier is read from
+   * `ACTION_TIER`, never spelled out here, because a hand-copied tier is the
+   * original defect and a test that hardcoded it would be a second copy.
+   */
+  it('⭐ every ACT shares one treatment, and none of them keeps the text tier', () => {
     render(
       <DisclosureRow
         finding={finding}
@@ -69,18 +83,72 @@ describe('one row, one action treatment', () => {
      */
     fireEvent.click(screen.getByTestId('row-row-toggle'))
 
-    const controls = ['row-focus', 'row-review', 'row-inspect-toggle']
-    const found = controls.filter((t) => screen.queryByTestId(t) !== null)
-    expect(found.length, 'precondition: the controls this asserts about are on screen').toBeGreaterThanOrEqual(2)
+    const acts = ['row-focus', 'row-review'].filter((t) => screen.queryByTestId(t) !== null)
+    expect(acts.length, 'precondition: the acts this asserts about are on screen').toBeGreaterThanOrEqual(2)
 
-    for (const testId of found) {
+    const shapeOf = (el: HTMLElement) =>
+      el.className.split(/\s+/).filter((c) => ['w-7', 'h-7', 'rounded-full'].includes(c)).sort().join(' ')
+
+    for (const testId of acts) {
       const el = screen.getByTestId(testId)
-      for (const token of INLINE) {
-        expect(
-          el.className.split(' '),
-          `${testId} must carry the tier's ${token}: four controls in one row with two colours is what shipped`,
-        ).toContain(token)
-      }
+      // One treatment: the icon-button shape, identical across every act.
+      expect(shapeOf(el), `${testId} must carry the icon-button shape`).toBe('h-7 rounded-full w-7')
+      // And NOT the text tier — mixing the two is the defect this file exists for.
+      expect(el.className.split(' '), `${testId} must not also wear the text tier`).not.toContain('underline')
+    }
+  })
+
+  /**
+   * ⛔⛔ THE RISK THIS CHANGE INTRODUCES, AND THE ONLY ONE THAT MATTERS.
+   *
+   * An icon carries no words, so its `aria-label` IS the control's entire
+   * name. Ship one without a name and the act becomes unreachable to anyone
+   * not looking at it — a regression the shape assertions above would applaud,
+   * because an unnamed button is exactly as round as a named one.
+   */
+  it('⛔ every act has a non-empty accessible name — an icon with no name is unreachable', () => {
+    render(
+      <DisclosureRow
+        finding={finding}
+        testIdPrefix="row"
+        onFocusTarget={vi.fn()}
+        onReviewTarget={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
+
+    const acts = ['row-focus', 'row-review'].filter((t) => screen.queryByTestId(t) !== null)
+    expect(acts.length).toBeGreaterThanOrEqual(2)
+
+    for (const testId of acts) {
+      const name = screen.getByTestId(testId).getAttribute('aria-label') ?? ''
+      expect(name.trim().length, `${testId} has no accessible name`).toBeGreaterThan(0)
+    }
+    // Contrast in the same run: the names are DISTINCT, so a single label
+    // copy-pasted onto every act cannot pass the assertion above.
+    const names = acts.map((t) => screen.getByTestId(t).getAttribute('aria-label'))
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  /**
+   * ⚠ THE DISCLOSURE KEEPS ITS NAMED TIER. This is the original guard, intact:
+   * the toggle must carry `ACTION_TIER.inline`'s own tokens rather than a
+   * hand-copy that agrees with it on two of three.
+   */
+  it('⭐ the disclosure toggle still carries the tier, read from the constant', () => {
+    render(
+      <DisclosureRow
+        finding={finding}
+        testIdPrefix="row"
+        onFocusTarget={vi.fn()}
+        onReviewTarget={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
+    const toggle = screen.queryByTestId('row-inspect-toggle')
+    if (!toggle) return // this finding has no L3 rows; the acts above still assert
+    for (const token of INLINE) {
+      expect(toggle.className.split(' '), `inspect must carry the tier's ${token}`).toContain(token)
     }
   })
 })

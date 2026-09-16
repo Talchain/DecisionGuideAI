@@ -35,6 +35,28 @@ interface IconBtnProps {
   ariaLabel?: string
   /** Additional class names */
   className?: string
+  /**
+   * ⭐ FOR A DISCLOSURE TOGGLE. An icon button that opens something must say so
+   * to assistive tech: without `aria-expanded` the glyph is the ONLY signal
+   * that anything opened, and a glyph is exactly what a screen reader cannot
+   * see. Optional, so every existing one-shot consumer is untouched.
+   */
+  ariaExpanded?: boolean
+  /** The region this toggle controls, when it is open. Pairs with `ariaExpanded`. */
+  ariaControls?: string
+  /**
+   * ⚠ ON THE BUTTON, NEVER ON A WRAPPER. A test that finds a wrapper and
+   * clicks it does not reach the button's handler, so a testid placed one
+   * element out turns every click assertion into a silent no-op.
+   */
+  testId?: string
+  /**
+   * Extra `data-*` attributes for the button. Identity joins live here — a row
+   * that must be findable by the recommendation it acts on carries that id on
+   * the control itself, so a test binds by IDENTITY rather than by position
+   * (CLAUDE.md trap 19).
+   */
+  dataAttrs?: Readonly<Record<string, string>>
 }
 
 const variantStyles: Record<IconBtnVariant, { enabled: string; disabled: string }> = {
@@ -72,6 +94,10 @@ export function IconBtn({
   disabled = false,
   ariaLabel,
   className = '',
+  ariaExpanded,
+  ariaControls,
+  testId,
+  dataAttrs,
 }: IconBtnProps) {
   const styles = variantStyles[variant]
   const buttonStyle = disabled ? styles.disabled : styles.enabled
@@ -115,6 +141,10 @@ export function IconBtn({
         type="button"
         onClick={handleClick}
         aria-label={ariaLabel ?? tooltip}
+        {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
+        {...(ariaControls ? { 'aria-controls': ariaControls } : {})}
+        {...(testId ? { 'data-testid': testId } : {})}
+        {...(dataAttrs ?? {})}
         className={`
           ${touchTarget} w-7 h-7 flex items-center justify-center rounded-full transition-colors
           ${buttonStyle}

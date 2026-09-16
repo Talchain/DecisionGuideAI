@@ -18,7 +18,8 @@
  */
 
 import { useId, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Pencil, Sparkles } from 'lucide-react'
+import { IconBtn } from '../../../canvas/components/pre-analysis/primitives/IconBtn'
 import { typography } from '../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type { AnalysisNewFinding } from './analysisNewTypes'
@@ -207,20 +208,32 @@ export function DisclosureRow({
             {COPY.disclosure.groundedIn} {finding.groundedIn}.
           </p>
 
-          <div className="flex flex-wrap gap-3">
+          {/* ⭐⭐ THE ACTS ARE ICONS; THE DISCLOSURE BELOW KEEPS ITS WORD.
+              Four text links stacked here and wrapped on a 428px dock, so an
+              expanded row spent two to four LINES on its controls — the single
+              biggest block of text on a panel whose complaint is that it is a
+              wall of text. Each act is a verb on an object the row has already
+              named, which is exactly what an icon with a tooltip carries well.
+
+              ⛔ INSPECT IS DELIBERATELY NOT ONE OF THEM. It reveals CONTENT
+              rather than acting on the model, and an icon would strip the one
+              control here that a reader needs a word for. The rule this row
+              now follows is that TREATMENT FOLLOWS KIND — three acts in one
+              treatment, one disclosure in another — rather than four controls
+              differing for no stated reason, which is the defect Paul saw. */}
+          <div className="flex flex-wrap items-center gap-1" data-testid={`${testIdPrefix}-acts`}>
             {/* The camera frames the EDGE when one resolved, else the node.
                 `targetId` stays the node-identity join `buildNodeInsights`
                 reads — see `focusTargetId`'s declaration for why these are two
                 fields and not one. */}
             {(finding.focusTargetId ?? finding.targetId) && onFocusTarget ? (
-              <button
-                type="button"
+              <IconBtn
+                icon={Crosshair}
+                tooltip={COPY.disclosure.focusTarget}
+                ariaLabel={COPY.disclosure.focusTarget}
                 onClick={() => onFocusTarget((finding.focusTargetId ?? finding.targetId)!)}
-                className={`${typography.panelMeta} ${action('inline')}`}
-                data-testid={`${testIdPrefix}-focus`}
-              >
-                Show on canvas
-              </button>
+                testId={`${testIdPrefix}-focus`}
+              />
             ) : null}
 
             {/* ⭐ THE ACT THE ROW'S OWN SENTENCE ASKS FOR. Rendered only where
@@ -233,14 +246,13 @@ export function DisclosureRow({
                 do I change it — and a reader who wants to see the relationship
                 before touching it is the ordinary case, not an edge one. */}
             {finding.reviewTargetId && onReviewTarget ? (
-              <button
-                type="button"
+              <IconBtn
+                icon={Pencil}
+                tooltip={COPY.disclosure.reviewTarget}
+                ariaLabel={COPY.disclosure.reviewTarget}
                 onClick={() => onReviewTarget(finding.reviewTargetId!)}
-                className={`${typography.panelMeta} ${action('inline')}`}
-                data-testid={`${testIdPrefix}-review`}
-              >
-                {COPY.disclosure.reviewTarget}
-              </button>
+                testId={`${testIdPrefix}-review`}
+              />
             ) : null}
 
             {/* ⚠ CONTEXTUAL INTERVENTION — stays visibly attached to the finding
@@ -248,15 +260,15 @@ export function DisclosureRow({
                 only because the strengthen ENGINE emitted a recommendation for
                 THIS row's target id. */}
             {finding.intervention && onRunIntervention ? (
-              <button
-                type="button"
+              <IconBtn
+                icon={Sparkles}
+                tooltip={finding.intervention.label}
+                ariaLabel={finding.intervention.label}
+                variant="primary"
                 onClick={() => onRunIntervention(finding.intervention!.recommendationId)}
-                className={`${typography.panelMeta} ${action('inline')}`}
-                data-testid={`${testIdPrefix}-intervention`}
-                data-recommendation-id={finding.intervention.recommendationId}
-              >
-                {finding.intervention.label} →
-              </button>
+                testId={`${testIdPrefix}-intervention`}
+                dataAttrs={{ 'data-recommendation-id': finding.intervention.recommendationId }}
+              />
             ) : null}
           </div>
 
@@ -295,6 +307,11 @@ export function DisclosureRow({
                 className={`${typography.panelMeta} ${action('inline')}`}
                 data-testid={`${testIdPrefix}-inspect-toggle`}
               >
+                {inspectOpen ? (
+                  <ChevronDown className="w-3 h-3 inline-block mr-0.5 -mt-px" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="w-3 h-3 inline-block mr-0.5 -mt-px" aria-hidden="true" />
+                )}
                 {COPY.disclosure.inspect}
               </button>
               {inspectOpen ? (

@@ -803,6 +803,13 @@ export const ANALYSIS_NEW_COPY = {
     expand: 'Show more',
     collapse: 'Show less',
     inspect: 'Inspect',
+    /**
+     * ⭐ THE ACCESSIBLE NAME OF THE CAMERA ICON, and it lives here for the same
+     * reason every other label does: an icon carries no words, so its
+     * `aria-label` IS the control's only name. A literal at the call site
+     * would be the one piece of user-facing copy this module cannot see.
+     */
+    focusTarget: 'Show on canvas',
     /** Level-2 grounding prefix. Always followed by the producer signal name. */
     groundedIn: 'Grounded in',
     /**
