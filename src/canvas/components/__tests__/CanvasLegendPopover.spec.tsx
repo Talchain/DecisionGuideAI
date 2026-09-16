@@ -673,7 +673,17 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
   }> = [
     { noun: METRIC_NOUN.support, files: ['OptionNode.tsx', 'DecisionNode.tsx'], pattern: /METRIC_NOUN\.support/ },
     { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
-    { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /METRIC_NOUN\.influence/ },
+    // ⚠ PATTERN RE-DERIVED, CLAIM UNCHANGED. FactorNode no longer reaches the
+    // influence caption through `METRIC_NOUN.influence`: it calls
+    // `influenceBasisNoun(provenance)`, which returns 'Relative influence' for
+    // both stamped bases and fail-closes to the plain noun. The figure is
+    // max-normalised at the producer, so the bare noun invited an absolute
+    // reading — and the basis was disclosed only through <Tooltip>/title, which
+    // a shared-link reader never opens and a touch reader cannot.
+    // This probe asks "does a card still render this marking"; it binds to the
+    // new producer by identity, exactly as the header requires. The noun in the
+    // manifest stays METRIC_NOUN.influence because that is the LEGEND's row.
+    { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /influenceBasisNoun\(/ },
     { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.strength/ },
     // The rank badge prints the numeral itself — there is no noun constant.
     { noun: '#1, #2, #3', files: ['BaseNode.tsx'], pattern: /#\{displayMetadata\.sensitivityRank\}/ },

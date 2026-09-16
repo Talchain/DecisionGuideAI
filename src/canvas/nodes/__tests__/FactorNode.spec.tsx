@@ -323,7 +323,15 @@ describe('FactorNode', () => {
     })
     renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     // In Detailed mode, Layer 2 is inline so bars appear
-    expect(screen.getByText('Influence')).toBeDefined()
+    /* ⚠ 'Influence' -> 'Relative influence'. The card's VISIBLE noun is now
+       `influenceBasisNoun(provenance)`, which returns 'Relative influence' for both
+       stamped bases. Measured on staging `6497a251`: the board read "Influence 100%"
+       on a factor whose figure PLoT max-normalises (`factor-influence.ts:556`,
+       `Math.abs(influence) / maxAbsInfluence`), so exactly one factor reads 100% on
+       every board BY CONSTRUCTION. The basis was disclosed only via <Tooltip>/title,
+       which `NodeMetricRow`'s own header forbids: "THE CAPTION IS VISIBLE TEXT, NEVER
+       A `title` ... absent on touch". See theInfluenceBasisIsVisible.spec.tsx. */
+    expect(screen.getByText('Relative influence')).toBeDefined()
     expect(screen.getByText('80%')).toBeDefined()
     expect(screen.getByText('Confidence')).toBeDefined()
     expect(screen.getByText('45%')).toBeDefined()
@@ -332,6 +340,10 @@ describe('FactorNode', () => {
   it('hides Influence/Confidence bars outside results mode', () => {
     renderFactor({ label: 'Salary', type: 'factor' })
     expect(screen.queryByText('Influence')).toBeNull()
+    // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
+    // the card no longer renders the bare noun under a stamped basis, so a
+    // query for it would pass whether the row is absent or merely renamed.
+    expect(screen.queryByText('Relative influence')).toBeNull()
     expect(screen.queryByText('Confidence')).toBeNull()
   })
 
@@ -380,6 +392,10 @@ describe('FactorNode', () => {
     })
     renderFactor({ label: 'X', type: 'factor' })
     expect(screen.queryByText('Influence')).toBeNull()
+    // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
+    // the card no longer renders the bare noun under a stamped basis, so a
+    // query for it would pass whether the row is absent or merely renamed.
+    expect(screen.queryByText('Relative influence')).toBeNull()
     expect(screen.queryByText('Confidence')).toBeNull()
   })
 
@@ -399,6 +415,10 @@ describe('FactorNode', () => {
     })
     renderFactor({ label: 'X', type: 'factor' })
     expect(screen.queryByText('Influence')).toBeNull()
+    // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
+    // the card no longer renders the bare noun under a stamped basis, so a
+    // query for it would pass whether the row is absent or merely renamed.
+    expect(screen.queryByText('Relative influence')).toBeNull()
   })
 
   it('omits category label when category is an unrecognised string', () => {
@@ -719,7 +739,7 @@ describe('FactorNode', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
       'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
-    expect(row.textContent).toContain('Influence')
+    expect(row.textContent).toContain('Relative influence')
     expect(row.textContent).toContain('100%')
     // ⚠ THE **BAR** PHRASE, NOT THE PILL'S — and that is a deliberate upgrade,
     // not a relaxation. `influenceScaleCopy` carries both spellings and the row
@@ -729,7 +749,14 @@ describe('FactorNode', () => {
     // one number on one card. Both still come from that one module, so neither
     // can drift; they now also agree with each other.
     expect(row).toHaveAccessibleName(
-      'Influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
+      // ⚠ 'Influence:' -> 'Relative influence:'. The accessible name is built as
+      // `${label}: ${formatted}. ${phrase}` (NodeMetricRow), and the label is now the
+      // basis-aware visible noun. The result reads slightly redundantly for a screen
+      // reader ("Relative influence: 100%. Influence, relative to the strongest...") and
+      // that is the RIGHT trade: the pointer and the assistive channels now state the
+      // SAME basis, where before only the assistive one did. Pinned verbatim so a change
+      // to either channel has to come back here and be argued.
+      'Relative influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
     )
   })
 
@@ -774,7 +801,7 @@ describe('FactorNode', () => {
       // purpose: a second row would add a line to the densest view and put two
       // numbers at equal weight, which says neither is the headline.
       const row = screen.getByTestId('factor-influence-row')
-      expect(row.textContent).toContain('Influence')
+      expect(row.textContent).toContain('Relative influence')
       expect(row.textContent).toContain('80%')
       // The pill form of INFLUENCE is gone — asserted by its single-text-node
       // spelling, which the row never produces (the row renders the label and
@@ -789,7 +816,15 @@ describe('FactorNode', () => {
       expect(screen.queryByText('Relative influence 80%')).toBeNull()
       expect(screen.queryByText('Confidence 45%')).toBeNull()
       // …while the Layer-2 bars still carry the numbers (label + value separate).
-      expect(screen.getByText('Influence')).toBeDefined()
+      /* ⚠ 'Influence' -> 'Relative influence'. The card's VISIBLE noun is now
+       `influenceBasisNoun(provenance)`, which returns 'Relative influence' for both
+       stamped bases. Measured on staging `6497a251`: the board read "Influence 100%"
+       on a factor whose figure PLoT max-normalises (`factor-influence.ts:556`,
+       `Math.abs(influence) / maxAbsInfluence`), so exactly one factor reads 100% on
+       every board BY CONSTRUCTION. The basis was disclosed only via <Tooltip>/title,
+       which `NodeMetricRow`'s own header forbids: "THE CAPTION IS VISIBLE TEXT, NEVER
+       A `title` ... absent on touch". See theInfluenceBasisIsVisible.spec.tsx. */
+    expect(screen.getByText('Relative influence')).toBeDefined()
       expect(screen.getByText('Confidence')).toBeDefined()
       expect(screen.getByText('80%')).toBeDefined()
       expect(screen.getByText('45%')).toBeDefined()
@@ -848,7 +883,7 @@ describe('FactorNode', () => {
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('100')
       // Pointer users get the same disclosure on the row.
-      const row = screen.getByText('Influence').closest('div')
+      const row = screen.getByText('Relative influence').closest('div')
       expect(row).not.toBeNull()
       fireEvent.mouseEnter(row!)
       expect(await screen.findByRole('tooltip')).toHaveTextContent(
@@ -862,7 +897,7 @@ describe('FactorNode', () => {
         name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
-      const row = screen.getByText('Influence').closest('div')
+      const row = screen.getByText('Relative influence').closest('div')
       expect(row).not.toBeNull()
       fireEvent.mouseEnter(row!)
       expect(await screen.findByRole('tooltip')).toHaveTextContent(
@@ -879,6 +914,10 @@ describe('FactorNode', () => {
       renderDetailedWithProvenance(null, 0.6)
       expect(screen.queryByRole('progressbar', { name: /Influence/ })).toBeNull()
       expect(screen.queryByText('Influence')).toBeNull()
+    // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
+    // the card no longer renders the bare noun under a stamped basis, so a
+    // query for it would pass whether the row is absent or merely renamed.
+    expect(screen.queryByText('Relative influence')).toBeNull()
       expect(screen.queryByText('60%')).toBeNull()
     })
   })
