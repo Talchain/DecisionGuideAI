@@ -1172,6 +1172,35 @@ export function AnalysisNewTabBody({
       draft: rec.action.prompt ?? rec.tryThis ?? rec.title,
       label: rec.action.label,
       ...(rec.targetId ? { targetId: rec.targetId } : {}),
+      /**
+       * ⭐⭐ THE ONLY THING ON THE WIRE THAT SAYS *WHICH FINDING* — and this
+       * route was the one of five that dropped it.
+       *
+       * `buildRecommendations.ts:501` puts the producer's finding id on the
+       * recommendation as `action.parameters = { block_id: item.id }`, and
+       * `AskOlumiDrawer.handleSend` forwards `parameters` verbatim on the
+       * dispatched turn. The finding's own paragraph rides `context`, which the
+       * drawer renders read-only and never sends — so with `parameters` dropped
+       * the coaching turn arrived carrying the action prompt and NOTHING that
+       * identifies what it is about.
+       *
+       * This is wired to five mount points on this tab, so it is the surface's
+       * primary "Work through with Olumi" route, not an edge.
+       *
+       * ⛔ THIRD ROUND OF THE SAME CLASS ON THIS SURFACE.
+       * `askRoutesCarryTheFinding.spec.tsx` was written because an earlier fix
+       * "closed one instance of the class and stopped", and it states the
+       * enumeration in words — *"every `openAskOlumi` call that HOLDS a
+       * recommendation"* — then pins three of them BY HAND, so a fourth route in
+       * a different file was invisible to it. The enumeration is now DERIVED
+       * from the source (`everyAskCarriesItsBlockId.spec.ts`): a new
+       * rec-holding ask route fails the day it is written, wherever it lives.
+       *
+       * ⚠ THE GUARD WATCHES THE CARRIER, NOT THE BEHAVIOUR. It proves this call
+       * site passes the id; it proves nothing about whether CEE can resolve it.
+       * That is a question for Core and is not evidenced here.
+       */
+      ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
       // The FOURTH rec-bearing ask route, and the one an earlier pass of this
       // change missed while claiming the class was closed. Same reason as the
       // other three: `rec.targetId` makes the drawer's "Focus on canvas" button
