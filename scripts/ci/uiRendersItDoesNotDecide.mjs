@@ -30,7 +30,7 @@
  */
 import ts from 'typescript'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, dirname, resolve } from 'node:path'
 
 const ROOTS = process.argv.slice(2).filter(a => !a.startsWith('--'))
 const JSON_OUT = process.argv.includes('--json')
@@ -44,6 +44,58 @@ const JSON_OUT = process.argv.includes('--json')
  * convenience: a helper that checks arithmetic is entitled to say so.
  */
 if (ROOTS.length === 0) ROOTS.push('src/canvas/nodes', 'src/canvas/ui', 'src/canvas/components', 'src/canvas/edges')
+
+/**
+ * ⭐⭐⭐ ...AND ONE HOP OUT, BECAUSE A VERDICT AUTHORED IN A HELPER IS STILL A
+ * VERDICT.
+ *
+ * ⛔ MEASURED, 15 Sep 2026. `src/types/constraints.ts` exports
+ * `jointProbabilityLabel`, which returns the WORDS "Meets all targets" /
+ * "May miss targets" from `probability >= 0.40`, and `OptionCards.tsx:1046`
+ * renders it. **A threshold this UI chose, turned into a claim about the
+ * user's model, invisible to every root above** — because the prose is
+ * authored in a types module and only the CALL appears on the render surface.
+ * The same day, the same module's `constraintConfidenceColour` was found doing
+ * it in colour.
+ *
+ * ⚠ THE SCOPING ARGUMENT ABOVE STILL HOLDS, AND THIS DOES NOT WEAKEN IT. That
+ * argument is *a helper that checks arithmetic is entitled to say so* — about
+ * INPUT VALIDATION, not about where a file sits. What is added here is not "all
+ * of src": it is exactly the modules a render surface IMPORTS, derived from the
+ * import graph rather than listed, so it cannot drift and nobody has to
+ * remember to extend it.
+ *
+ * ⚠ ONE HOP, AND THAT IS A JUDGEMENT RATHER THAN A PRINCIPLE. Two hops reaches
+ * most of `src/` and re-creates the 127-hit run that made earlier cuts useless.
+ * One hop is where the estate's actual defects have been found; a claim
+ * computed three functions away is still outside this instrument, which the
+ * spec says out loud.
+ */
+function oneHopHelpers(renderFiles) {
+  const out = new Set()
+  for (const f of renderFiles) {
+    let src
+    try { src = readFileSync(f, 'utf8') } catch { continue }
+    for (const m of src.matchAll(/from '(\.[^']+)'/g)) {
+      const base = resolve(dirname(f), m[1])
+      for (const ext of ['.ts', '.tsx', '/index.ts', '/index.tsx']) {
+        const cand = base + ext
+        try {
+          if (!statSync(cand).isFile()) continue
+        } catch { continue }
+        const rel = relative(process.cwd(), cand)
+        // Inside src, outside the render roots, and not a test or a type-only
+        // declaration — those carry no rendered prose.
+        if (rel.startsWith('src/') && !ROOTS.some(r => rel.startsWith(r)) &&
+            !/__tests__|__fixtures__|\.spec\.|\.d\.ts$/.test(rel)) {
+          out.add(rel)
+        }
+        break
+      }
+    }
+  }
+  return [...out].sort()
+}
 
 /** Prose = something a reader reads, not a class name or an enum token. */
 function isProse(text) {
@@ -94,6 +146,42 @@ function comparesOnlyToBoundary(node) {
   return vals.every(n => n === 0 || n === 1)
 }
 
+/**
+ * ⭐⭐ A COMPARISON BETWEEN TWO RUNTIME VALUES IS A RANGE CHECK — THE UI CHOSE
+ * NOTHING.
+ *
+ * ⛔ WITHOUT THIS, WIDENING TO THE HELPER HOP DROWNS THE SIGNAL. One file,
+ * `canvas/domain/edges.ts`, contributes a dozen hits of the form
+ * `params.curvature < constraints.curvature.min` → *"Curvature must be between
+ * … and …"*. That is INPUT VALIDATION echoing a declared range — the exact case
+ * this scanner's scoping comment already says is entitled to speak — and it
+ * would have made the report a number nobody acts on, which is how the two
+ * earlier 305- and 127-hit cuts died.
+ *
+ * ⚠ THE DISCRIMINATOR IS NOT "no literal". `probability >=
+ * CONSTRAINT_CONFIDENCE_THRESHOLDS.LOW` has no literal on either side and IS a
+ * violation — it is the UI's own declared cutoff. The difference is WHO OWNS
+ * THE NUMBER: a SCREAMING_SNAKE constant is a cutoff this codebase declared; a
+ * lowercase property chain is a value that arrived at runtime.
+ *
+ * ⚠ SO THIS IS A NAMING CONVENTION DOING SEMANTIC WORK, AND THAT IS STATED
+ * RATHER THAN HIDDEN. It is right for this estate today and it is not a proof.
+ * A cutoff stored in a lowercase field would slip past; a runtime value read
+ * through a SCREAMING_SNAKE alias would be reported. Both are argued with in
+ * the spec's contrast cases rather than assumed away.
+ */
+function comparesTwoRuntimeValues(node) {
+  const isChosenNumber = (n) => {
+    const e = ts.isPrefixUnaryExpression(n) ? n.operand : n
+    if (ts.isNumericLiteral(e)) return true
+    // A declared cutoff: FOO, FOO.BAR, FOO_BAR.BAZ — any SCREAMING_SNAKE root.
+    let root = e
+    while (ts.isPropertyAccessExpression(root)) root = root.expression
+    return ts.isIdentifier(root) && /^[A-Z][A-Z0-9_]*$/.test(root.text)
+  }
+  return !isChosenNumber(node.left) && !isChosenNumber(node.right)
+}
+
 /** A comparison the UI is NOT entitled to turn into words. */
 function offendingComparison(node) {
   if (!ts.isBinaryExpression(node)) return null
@@ -123,6 +211,7 @@ function offendingComparison(node) {
    */
   if (RELATIONAL.includes(op)) {
     if (comparesOnlyToBoundary(node)) return null
+    if (comparesTwoRuntimeValues(node)) return null
     return `relational (${node.operatorToken.getText()})`
   }
   if (EQUALITY.includes(op)) {
@@ -257,7 +346,10 @@ function files(dir) {
   return acc
 }
 
-const violations = ROOTS.flatMap(r => files(r)).flatMap(scanFile)
+const renderFiles = ROOTS.flatMap(r => files(r))
+// Helpers are scanned only when a render surface imports them — derived, never listed.
+const scanSet = [...renderFiles, ...oneHopHelpers(renderFiles)]
+const violations = scanSet.flatMap(scanFile)
 
 if (JSON_OUT) {
   console.log(JSON.stringify(violations, null, 2))
