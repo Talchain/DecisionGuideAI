@@ -33,8 +33,8 @@
  * is worse than the crowding it was meant to fix. Both are asserted here.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
 
+import { INFERENCE_WARNINGS_1DD2133D } from '../__fixtures__/inferenceWarnings.1dd2133d'
 import {
   heldBackStripCount,
   isStripEntry,
@@ -44,13 +44,16 @@ import {
 
 type W = { code: string; message?: string; severity?: string; field?: string }
 
-/** The real array, read from Paul's export rather than retyped. */
-const REAL: W[] = (() => {
-  const raw = JSON.parse(
-    readFileSync('/Users/paulslee/Downloads/olumi-debug-1dd2133d-20260916.json', 'utf8'),
-  ) as { payloads: { cee_response: { blocks: Array<{ enrichment: { inference_warnings: W[] } }> } } }
-  return raw.payloads.cee_response.blocks[0]!.enrichment.inference_warnings
-})()
+/**
+ * The real array — a COMMITTED capture, not a retyped approximation and not a
+ * read off the author's disk.
+ *
+ * ⛔ THE FIRST VERSION DID `readFileSync('/Users/paulslee/Downloads/…json')` AT
+ * MODULE LOAD. It passed here and could not even COLLECT on a clean checkout:
+ * hosted CI failed `ENOENT` and took a whole shard with it. A fixture that
+ * resolves only on one machine is evidence about that machine.
+ */
+const REAL = INFERENCE_WARNINGS_1DD2133D as unknown as W[]
 
 describe('one limitation at rest', () => {
   it('pins the corpus: seven producer warnings, three of them warning-severity', () => {
