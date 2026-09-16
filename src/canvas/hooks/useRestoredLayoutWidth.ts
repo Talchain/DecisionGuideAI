@@ -70,7 +70,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
-import { solveLayoutNodeWidth } from '../utils/layout'
+import { solveLayoutNodeWidth, solveLayoutCardWidths } from '../utils/layout'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
 
@@ -85,6 +85,12 @@ export function useRestoredLayoutWidth(): void {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const direction = useLayoutStore((s) => s.direction)
   const respectLocked = useLayoutStore((s) => s.respectLocked)
+  // ⚠ NEEDED BY THE PER-KIND DERIVATION AND NOT BY THE SINGLE ONE. A tier's
+  // width is bounded by its share of the WIDEST ROW, and a row's width counts
+  // the gaps between its cards — so unlike `solveLayoutNodeWidth`, the per-kind
+  // solver is a function of node spacing too. It persists with the rest of the
+  // layout options, so it still survives a reload.
+  const nodeSpacing = useLayoutStore((s) => s.nodeSpacing)
 
   const derivedForRef = useRef<string | null>(null)
 
@@ -111,5 +117,37 @@ export function useRestoredLayoutWidth(): void {
     if (derived !== useLayoutStore.getState().layoutNodeWidth) {
       useLayoutStore.getState().setLayoutNodeWidth(derived)
     }
-  }, [nodes, layoutVersion, pendingLayout, layoutInProgress, scenarioId, direction, respectLocked])
+
+    /**
+     * ⛔⛔ THE PER-KIND WIDTHS TOO — AND LEAVING THIS OUT WAS THE SAME DEFECT
+     * THIS HOOK EXISTS TO REPAIR, ONE LEVEL UP.
+     *
+     * `layoutGraph` publishes `layoutCardWidths`; that handshake is session-only
+     * for exactly the reason the header describes, so on a RESTORED board the
+     * record read `null` and every card fell back to the single width. Measured
+     * in the browser at `localhost:5178` before this line existed: decision
+     * **327**, goal **336** — the widened Question card was on the wire, in the
+     * store's type, in the render expression, and still not on screen, because
+     * the one path a returning user actually takes never wrote it.
+     *
+     * ⭐ IT DERIVES RATHER THAN PERSISTS, for the header's reason unchanged: the
+     * widths are a pure function of the tier occupancies, the direction,
+     * `respectLocked` and the spacing — all four of which already survive a
+     * reload. So they are already persisted, implicitly and exactly, and this
+     * repairs every board saved before the change with no migration.
+     */
+    const derivedPerKind = solveLayoutCardWidths(nodes, {
+      direction,
+      preserveLocked: respectLocked,
+      spacing: nodeSpacing,
+    })
+    const current = useLayoutStore.getState().layoutCardWidths
+    const changed =
+      current === null ||
+      Object.keys(derivedPerKind).some((k) => current[k] !== derivedPerKind[k]) ||
+      Object.keys(current).length !== Object.keys(derivedPerKind).length
+    if (changed) {
+      useLayoutStore.getState().setLayoutCardWidths(derivedPerKind)
+    }
+  }, [nodes, layoutVersion, pendingLayout, layoutInProgress, scenarioId, direction, respectLocked, nodeSpacing])
 }

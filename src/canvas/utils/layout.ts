@@ -52,6 +52,7 @@ import {
   CANONICAL_LAYOUT_WIDTH,
   CANVAS_MARGIN,
   TIER_BY_KIND,
+  cardWidthCapForTier,
   LAYOUT_NODE_GAP,
   LAYOUT_LAYER_GAP,
 } from './nodeLayoutConstants'
@@ -182,6 +183,88 @@ export function solveLayoutNodeWidth(
   return planLayoutBox(maxTierCountOf(unlocked), direction === 'DOWN').elkBoxW - LAYOUT_PADDING_X
 }
 
+function tierOccupancyOf(unlocked: Node[]): Map<number, number> {
+  const occ = new Map<number, number>()
+  for (const n of unlocked) {
+    const t = tierOf(n)
+    occ.set(t, (occ.get(t) ?? 0) + 1)
+  }
+  return occ
+}
+
+/**
+ * ⭐⭐ THE ELK BOX WIDTH FOR ONE TIER — the single authority, called by BOTH
+ * `layoutGraph` (which places on it) and {@link solveLayoutCardWidths} (which
+ * tells the card what to draw at). Two copies of this arithmetic is exactly the
+ * hand-maintained mirror that made the previous attempt render at one width and
+ * lay out at another.
+ *
+ * The bound is `widestRowW`: the board is already as wide as its widest tier's
+ * row, so a tier with fewer cards has slack against that width BY CONSTRUCTION
+ * and spending it cannot make the board wider. The widest tier is at the bound
+ * and keeps today's width exactly.
+ */
+function tierBoxWidth(
+  tier: number,
+  occupancy: Map<number, number>,
+  elkBoxW: number,
+  splits: boolean,
+  gap: number,
+  maxTierCount: number,
+): number {
+  // The row-packing regime already clamped the box to `NODE_LAYOUT_MIN_W`
+  // because the tier does not fit on one row. Widening a card whose tier is
+  // being wrapped makes the wrap worse, so the rule is off here entirely.
+  if (splits) return elkBoxW
+  const widestRowW = maxTierCount * elkBoxW + Math.max(0, maxTierCount - 1) * gap
+  const count = Math.max(1, occupancy.get(tier) ?? 1)
+  const shareOfWidestRow = count > 1
+    ? Math.floor((widestRowW - (count - 1) * gap) / count)
+    : widestRowW
+  const cap = cardWidthCapForTier(tier) + LAYOUT_PADDING_X
+  // ⛔ NEVER NARROWER THAN TODAY. The three character budgets that cut text
+  // inside these cards were derived against `NODE_CARD_MAX_W`; a narrower box
+  // would silently re-open the truncation they exist to close.
+  return Math.max(elkBoxW, Math.min(cap, shareOfWidestRow))
+}
+
+/**
+ * ⭐⭐ THE WIDTH EACH KIND OF CARD MUST DRAW AT for this graph's positions to be
+ * right — the per-kind sibling of {@link solveLayoutNodeWidth}, and derived for
+ * the same reason it is: the width is NOT independent information.
+ *
+ * It is a pure function of the tier occupancies, the direction, `preserveLocked`
+ * and the node spacing — every one of which already survives a reload (the
+ * nodes in the autosave; `direction`, `respectLocked` and `nodeSpacing` in the
+ * layout store's persisted options). So it is ALREADY persisted, implicitly and
+ * exactly, and storing a copy beside its own inputs would be the mirror this
+ * estate keeps paying for (trap 12). Deriving also repairs every model saved
+ * before this change, with no migration.
+ *
+ * ⚠ IT RETURNS CARD WIDTHS, NOT BOX WIDTHS — `LAYOUT_PADDING_X` is already
+ * subtracted, so the value is directly what `BaseNode` renders at. Getting that
+ * wrong by one padding is how a card ends up flush against its neighbour.
+ */
+export function solveLayoutCardWidths(
+  nodes: Node[],
+  options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
+): Record<string, number> {
+  const { direction = 'DOWN', preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
+  if (unlocked.length === 0) return {}
+  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
+  const maxTierCount = maxTierCountOf(unlocked)
+  const { elkBoxW, splits } = planLayoutBox(maxTierCount, direction === 'DOWN')
+  const occupancy = tierOccupancyOf(unlocked)
+  const widths: Record<string, number> = {}
+  for (const kind of Object.keys(TIER_BY_KIND)) {
+    widths[kind] =
+      tierBoxWidth(TIER_BY_KIND[kind], occupancy, elkBoxW, splits, gap, maxTierCount) -
+      LAYOUT_PADDING_X
+  }
+  return widths
+}
+
 /**
  * Lay out a decision graph using ELK + the deterministic semantic pipeline.
  *
@@ -201,7 +284,14 @@ export async function layoutGraph(
   nodes: Node[],
   edges: Edge[],
   options: LayoutOptions = {}
-): Promise<{ nodes: Node[]; edges: Edge[]; layoutNodeWidth: number }> {
+): Promise<{
+  nodes: Node[]
+  edges: Edge[]
+  layoutNodeWidth: number
+  /** Card width per node KIND — what `BaseNode` must draw at. See
+   *  {@link solveLayoutCardWidths}; `{}` means "no better information". */
+  layoutCardWidths: Record<string, number>
+}> {
   const {
     direction = 'DOWN',
     // ⭐⭐ DEFAULT HORIZONTAL NODE-NODE SPACING — 15 → 32 (12 Sep 2026).
@@ -244,7 +334,7 @@ export async function layoutGraph(
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
 
   if (unlocked.length === 0) {
-    return { nodes, edges, layoutNodeWidth: NODE_CARD_MAX_W }
+    return { nodes, edges, layoutNodeWidth: NODE_CARD_MAX_W, layoutCardWidths: {} }
   }
 
   // I.3 perf: O(E) edge filtering via Set instead of O(E*V) double `.some` scan.
@@ -252,6 +342,33 @@ export async function layoutGraph(
   for (const n of unlocked) unlockedIds.add(n.id)
 
   const maxTierCount = maxTierCountOf(unlocked)
+  /**
+   * ⭐⭐ A TIER MAY USE WIDTH THE BOARD IS ALREADY PAYING FOR.
+   *
+   * Paul, 15 Sep: *"They don't all have to be the same width. There are always
+   * less options, and there's more in it, so making them wider would make
+   * sense. I also think the question or initial node and the nodes can be a lot
+   * wider."* The measurement agrees — median characters per card, on the
+   * `pricing-model` starter:
+   *
+   *     option 250 · factor 141 · decision 122 · goal 102 · risk 86 · outcome 73
+   *
+   * An option carried 3.4x an outcome's content in an identical 336px box.
+   *
+   * ⭐ THE BOUND IS DERIVED, NOT CHOSEN, AND THAT IS THE WHOLE ARGUMENT. The
+   * board is already as wide as its WIDEST row. A tier with fewer cards in it
+   * has slack against that width by construction, so letting it spend the slack
+   * costs the board nothing — there is nothing wider for it to become. A tier
+   * already AT the bound (the widest one, by definition) keeps exactly today's
+   * width, so no graph gets wider and none of the existing row arithmetic moves.
+   *
+   * ⚠ AND IT IS OFF ENTIRELY IN THE ROW-PACKING REGIME (`splits`). There the
+   * box is already clamped to `NODE_LAYOUT_MIN_W` because the tier does not fit
+   * on one row; widening a card whose tier is being wrapped would make the wrap
+   * worse. `splits` is read, never re-derived from the width — see
+   * `planLayoutBox`.
+   */
+  const tierOccupancy = tierOccupancyOf(unlocked)
 
   const availableWidth = CANONICAL_LAYOUT_WIDTH
   const isDownLayout = direction === 'DOWN'
@@ -266,6 +383,9 @@ export async function layoutGraph(
     : null
 
   const nodeW = elkBoxW - LAYOUT_PADDING_X
+
+  const tierBoxW = (tier: number): number =>
+    tierBoxWidth(tier, tierOccupancy, elkBoxW, splits, gap, maxTierCount)
 
   const getNodeDimensions = (node: Node): { width: number; height: number } => {
     const measured = (node as unknown as { measured?: { width?: number; height?: number } }).measured
@@ -285,7 +405,8 @@ export async function layoutGraph(
       ?? measured?.height ?? node.height ?? defaultSize.height
     const height = Math.max(40, Math.round(rawHeight) + LAYOUT_PADDING_Y)
 
-    return { width: elkBoxW, height }
+    const width = tierBoxW(tierOf(node))
+    return { width, height }
   }
 
   const ELK = (await import('elkjs/lib/elk.bundled.js')).default
@@ -415,7 +536,15 @@ export async function layoutGraph(
     )
   }
 
-  return { nodes: updatedNodes, edges, layoutNodeWidth: nodeW }
+  // ⭐ ONE derivation, not two. The render width comes from the SAME
+  // `tierBoxWidth` the ELK children were built with, so the card cannot draw at
+  // a width the placement did not allow for.
+  const layoutCardWidths: Record<string, number> = {}
+  for (const kind of Object.keys(TIER_BY_KIND)) {
+    layoutCardWidths[kind] = tierBoxW(TIER_BY_KIND[kind]) - LAYOUT_PADDING_X
+  }
+
+  return { nodes: updatedNodes, edges, layoutNodeWidth: nodeW, layoutCardWidths }
 }
 
 // ---------------------------------------------------------------------------
@@ -626,18 +755,28 @@ function centreRowsOnSpine(
       : 0
   }
 
-  const stride = elkBoxW + gap
   const allIds = [...positionMap.keys()]
   const rows = groupByYRow(allIds, positionMap)
 
+  /**
+   * ⚠ THE STRIDE IS THE ROW'S OWN WIDTHS, NOT ONE GLOBAL BOX. This read
+   * `rowIds.length * elkBoxW` and advanced by a constant `elkBoxW + gap`, which
+   * is correct only while every card on the board is identically wide. Tiers
+   * now carry different widths (see `tierBoxWidth`), so a uniform stride would
+   * leave a wide row's cards overlapping and a narrow row's gapped. Summing the
+   * actual widths reduces EXACTLY to the old arithmetic when they are uniform,
+   * which is why the 83 existing geometry pins still hold.
+   */
   for (const rowIds of rows.values()) {
     if (rowIds.length === 0) continue
-    const rowWidth = rowIds.length * elkBoxW + (rowIds.length - 1) * gap
-    const startX = graphSpineX - rowWidth / 2
-    for (let i = 0; i < rowIds.length; i++) {
-      const p = positionMap.get(rowIds[i])
+    let rowWidth = (rowIds.length - 1) * gap
+    for (const id of rowIds) rowWidth += widthOf(id)
+    let x = graphSpineX - rowWidth / 2
+    for (const id of rowIds) {
+      const p = positionMap.get(id)
       if (!p) continue
-      positionMap.set(rowIds[i], { x: startX + i * stride, y: p.y })
+      positionMap.set(id, { x, y: p.y })
+      x += widthOf(id) + gap
     }
   }
 }

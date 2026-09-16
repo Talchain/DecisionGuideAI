@@ -72,19 +72,55 @@
  * ⚠ AND IT IS NOT PERFECTLY INVARIANT. THERE ARE TWO ANSWERS, NOT ONE, AND THE
  * SECOND IS WORTH NAMING RATHER THAN ROUNDING AWAY. Below `LABEL_LEGIBLE_ZOOM`
  * the store rung `lodRung` changes (`LodSync`), and this module pins the SCALE,
- * not that FLAG — it cannot, because the flag is read by React components and
- * a re-render is not available inside a synchronous measurement. So:
+ * not that FLAG — it cannot pin the flag itself, because it is read by React
+ * components and a re-render is not available inside a synchronous measurement.
+ * So:
  *
  *   zoom ≥ 0.5 (LOD off)  Σ 6211    zoom < 0.5 (LOD on)  Σ 6119
  *   difference: −92 px total (−1.48%), on 7 of 23 cards, worst −16 px
  *
- * ⭐ BOUNDED, AND IN THE SAFE DIRECTION — which is the whole of why it is left
- * alone. Every LOD difference is a SHRINK, and the worst single card is 16 px
- * against a designed row slack of `LAYOUT_PADDING_Y + effectiveLayerSpacing` =
- * 64 px (45 px for a sub-row). A layout computed with LOD on under-reserves by
- * at most 16 px where at least 45 px is available. The direction is pinned by
+ * ⭐ BOUNDED, AND IN THE SAFE DIRECTION — the worst single card was 16 px against
+ * a designed row slack of `LAYOUT_PADDING_Y + effectiveLayerSpacing` = 64 px
+ * (45 px for a sub-row). The direction is pinned by
  * `lodTitleBoostIsBounded.spec.ts`, which REDs if the boosted title ever grows
  * past the size the layout reserves.
+ *
+ * ⛔⛔ AND THAT MARGIN WAS SPENT ON 16 SEP 2026, WHICH IS WHY THIS MODULE NOW
+ * UNDOES ONE LIMB OF LOD RATHER THAN ONLY THE SCALE.
+ *
+ * `LOD_BLANKED_BODY_STYLE` made the blanked card body COLLAPSE to one line
+ * instead of keeping its full height under `visibility: hidden` — correctly, and
+ * at the founder's request: cards were rendering ~370px tall carrying two lines
+ * of text. But it turned the LOD term from a 16 px rounding into a **430 px**
+ * one, MEASURED by `heightVsZoom.measure.ts` at this branch's tip:
+ *
+ *   worst per-card LOD delta   16 px  ->  430 px      against 45 px of sub-row slack
+ *
+ * ⚠ AND THE "IT CANNOT OVERLAP ANYTHING" ARGUMENT FOR IT WAS FALSE, in the same
+ * paragraph that stated it: it read *"below `LABEL_LEGIBLE_ZOOM` the reservation
+ * is unused by construction, so releasing it cannot overlap anything"*, which
+ * holds ONLY if the layout ran at a zoom where the body was visible. **It is the
+ * DEFAULT that it did not** — three of the five shipped starters lay out 3080
+ * units wide and fit at 0.4935 closed / ~0.35 open, both BELOW 0.5, so a layout
+ * run on a freshly-opened board reserves the COLLAPSED height, and the first
+ * time the reader zooms in past the legibility floor every card grows by up to
+ * 430 px into the row beneath it. The paragraph carried its own refutation two
+ * sentences further down.
+ *
+ * ⭐ SO THE FIX IS NOT TO REVERT THE COLLAPSE AND NOT TO WIDEN A THRESHOLD. It is
+ * that this module's CONTRACT — "the height this card has at the label bound" —
+ * was never satisfied for that limb. The bound is the scale at
+ * `LABEL_LEGIBLE_ZOOM`, a zoom at which the body is VISIBLE AND FULL HEIGHT.
+ * Measuring a collapsed body and calling the answer "the height at the bound" is
+ * not an approximation of the contract; it is a different number.
+ *
+ * ⭐ AND IT IS NEUTRALISABLE FOR EXACTLY THE REASON THE SCALE IS. The collapse is
+ * a CSS effect on an element the writer MARKS (`LOD_BLANKED_BODY_ATTR`), and the
+ * blanked children stay MOUNTED — `visibility: hidden` hides them, it does not
+ * unmount them — so releasing the wrapper's height re-measures the real body
+ * synchronously, inside the same no-paint window as the scale pin. What stays
+ * un-neutralisable is only the genuinely React-gated LOD content, which is the
+ * ±16 px this module already named and which is what the 45 px slack is for.
  *
  * ⚠ WHY A DOM READ AND NOT ARITHMETIC. Height is not linear in the scale — only
  * the text runs scale, and how many LINES a title wraps to is a step function of
@@ -108,6 +144,7 @@
 import {
   CANVAS_LABEL_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_SELECTOR,
+  LOD_BLANKED_BODY_SELECTOR,
   MAX_LABEL_COUNTER_SCALE,
 } from './zoomLegibility'
 
@@ -154,19 +191,55 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   // quantised scale, so it will not re-write it unless the zoom moves — leaving
   // a value behind would silently mis-size every later render.
   const previous = root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR)
+
+  /**
+   * ⭐ THE SECOND THING PINNED TO THE BOUND: the LOD body collapse, RELEASED.
+   *
+   * At the label bound the body is visible and at full height (see the header),
+   * so the height this module owes its caller is the UNCOLLAPSED one. `auto`
+   * rather than a stored literal because the whole point is to let the mounted
+   * children state their own height — the collapsed value is a one-line
+   * constant and re-deriving it here would be a third copy of it.
+   *
+   * ⚠ RESTORED INDIVIDUALLY, INCLUDING "no inline height at all". React owns
+   * this inline style and will not re-write it unless `lodBodyBlanked` flips, so
+   * a value left behind would silently un-collapse a card until the next rung
+   * change — the same failure mode as leaving the scale property behind.
+   */
+  const blanked = root.querySelectorAll(LOD_BLANKED_BODY_SELECTOR)
+  const previousBodyHeights: string[] = []
+
   try {
     root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
+    for (const el of blanked) {
+      const e = el as HTMLElement
+      previousBodyHeights.push(e.style.height)
+      e.style.height = 'auto'
+    }
     for (const el of nodes) {
       const e = el as HTMLElement
       const id = e.dataset.id
       // `offsetHeight` forces synchronous layout, which is the point: it is what
-      // makes the value above take effect before the read.
+      // makes the values above take effect before the read.
       const h = e.offsetHeight
       if (id !== undefined && id !== '' && h > 0) out.set(id, h)
     }
   } finally {
     if (previous === '') root.style.removeProperty(CANVAS_LABEL_SCALE_VAR)
     else root.style.setProperty(CANVAS_LABEL_SCALE_VAR, previous)
+    // Index-paired with the NodeList above, which is static (`querySelectorAll`),
+    // so the pairing cannot be disturbed by anything the read did.
+    //
+    // ⚠ BOUNDED BY WHAT WAS RECORDED, NOT BY THE NODE LIST. If the loop above
+    // threw part-way, the elements past that point were never touched — and
+    // "restoring" one of those by removing its height would UN-COLLAPSE a card
+    // permanently, turning a failed measurement into a live rendering defect.
+    for (let i = 0; i < previousBodyHeights.length; i++) {
+      const e = blanked[i] as HTMLElement
+      const was = previousBodyHeights[i]
+      if (was === '') e.style.removeProperty('height')
+      else e.style.height = was
+    }
   }
 
   return out

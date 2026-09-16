@@ -88,6 +88,35 @@ export const UNCONFIRMED_ESTIMATE_LABEL = 'Estimate not yet confirmed'
 export const GOAL_NODE_LABEL = 'Goal'
 
 /**
+ * ⭐⭐ THE PRODUCT'S NAMES FOR THE GROUPS A MODEL IS MADE OF — ONE SOURCE, NOW
+ * THAT TWO SURFACES DRAW THEM.
+ *
+ * The Model outline has named these groups since design §4.1. The canvas places
+ * every node into exactly the same groups — `TIER_BY_KIND` is what decides a
+ * node's row — and drew them with **no names at all**, so the structure was
+ * asserted by the geometry and invisible to the reader.
+ *
+ * ⚠ THESE STRINGS MOVED HERE RATHER THAN BEING COPIED. `model-tab-v2` is a
+ * sealed namespace, so the canvas cannot import its `GROUP_TITLE`; the available
+ * alternatives were a second hand-kept copy of four words — this estate's
+ * dominant defect — or one source with two readers. `rowPresentation.GROUP_TITLE`
+ * now composes from these, which is the precedent set by
+ * {@link decisionLabelIsUnwritten}.
+ *
+ * ⚠ AND THE OUTLINE'S OWN DOC ALREADY ASKED FOR THIS: *"the outline and the
+ * canvas name the same kinds the same way"*. It was true of the glyphs and not
+ * of the groups.
+ */
+export const MODEL_GROUP_TITLE = {
+  goal: GOAL_NODE_LABEL,
+  options: 'Options',
+  factors: 'Factors',
+  outcomesRisks: 'Outcomes & risks',
+  relationships: 'Relationships',
+} as const
+
+
+/**
  * ⭐⭐ HOW A FACTOR'S CATEGORY READS — the ONE spelling, for the same reason
  * this file exists.
  *

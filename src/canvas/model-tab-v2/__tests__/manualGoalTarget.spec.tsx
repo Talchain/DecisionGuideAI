@@ -54,7 +54,24 @@ describe('manual goal target uses the existing canonical typed action', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(dispatchAction).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().nodes).toEqual(before)
-    expect(screen.getByTestId('model-row-v2-goal-revenue-value-to')).toHaveTextContent('At least 120000 £ (absolute level)')
+    /**
+     * ⭐ UPDATED 15 Sep 2026, AND THIS SPEC ENCODED THE DEFECT.
+     *
+     * It asserted the review line as `120000 £` while line ~129 below asserts
+     * the COMMITTED value as `£100,000` — the same figure, two spellings, both
+     * pinned as correct in one file. Watched live in a single edit flow:
+     * `At least 25000 £` → `£25,000` → `≥ £25,000`.
+     *
+     * The review line is the sentence the reader confirms AGAINST, so it is the
+     * one that must match what lands. It now composes through
+     * `formatValueWithUnit` — the same formatter `adapters.ts` uses for the
+     * committed value — so the two are one string by construction.
+     *
+     * ⚠ Only the CURRENCY case moves: `%` is neither a currency symbol, an ISO
+     * code nor a generic placeholder, so it still renders `80 %` (see the `%`
+     * expectation further down, deliberately unchanged).
+     */
+    expect(screen.getByTestId('model-row-v2-goal-revenue-value-to')).toHaveTextContent('At least £120,000 (absolute level)')
     fireEvent.click(screen.getByRole('button', { name: 'Confirm new value for Annual revenue' }))
     expect(dispatchAction).toHaveBeenCalledOnce()
     expect(dispatchAction.mock.calls[0][0]).toMatchObject({ action_type: 'add_constraint',

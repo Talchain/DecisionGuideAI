@@ -9,7 +9,7 @@
  * - Smooth transitions
  */
 
-import { memo, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
+import { memo, useState, useCallback, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
@@ -21,7 +21,7 @@ import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { selectLodBodyHidden, selectLensDetailActive } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   NODE_CARD_MAX_W,
@@ -45,7 +45,7 @@ import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
-import { NODE_QUICK_ACTION_BAND_PX } from './shared/canvasGlyphScale'
+import { NODE_QUICK_ACTION_BAND_PX, CANVAS_CORNER_STACK_CLASSES } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
 import { sensitivityRankBadgeAccessibleName } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -134,6 +134,27 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
+
+/**
+ * ⭐⭐ THE BLANKED BODY'S BOX — one line tall, not the body's full height.
+ *
+ * `visibility: hidden` keeps an element's dimensions; that was deliberate once
+ * (stable edge anchors) and it is what made every card at the default zoom a
+ * tall empty rectangle. The height here is exactly the reduced line the card
+ * still shows, and it carries `--canvas-label-scale` because the line it must
+ * hold does — an unscaled height would clip the line at the settle zoom, which
+ * is the counter-scale asymmetry that put the `Needs input` pill in the header.
+ *
+ * `overflow: hidden` is load-bearing beside the height: without it the hidden
+ * children still paint outside a zero-ish box in browsers that honour
+ * visibility per-element, and a hidden child can still be a scroll target.
+ */
+const LOD_BLANKED_BODY_STYLE: CSSProperties = {
+  visibility: 'hidden',
+  height: 'calc(16px * var(--canvas-label-scale, 1))',
+  overflow: 'hidden',
+}
+
 export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   /**
@@ -308,6 +329,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Layout-computed node width: when a layout has run, use its computed width
   // so the rendered node matches ELK's sizing assumptions.
   const layoutNodeWidth = useLayoutStore(s => s.layoutNodeWidth)
+  /**
+   * ⭐ THE PER-KIND WIDTH, PREFERRED OVER THE SINGLE ONE ABOVE.
+   *
+   * Paul, 15 Sep: *"They don't all have to be the same width."* He is right and
+   * the measurement agrees — median characters per card on `pricing-model`:
+   * option 250 · factor 141 · decision 122 · goal 102 · risk 86 · outcome 73.
+   * One 336px box was serving all six.
+   *
+   * ⛔ THIS IS THE LINE THE PREVIOUS ATTEMPT WAS MISSING, and its absence is why
+   * widening the ELK box changed nothing on screen: the layout allocated a wider
+   * box, `BaseNode` kept rendering at one global width, and the extra space went
+   * to the gap. Built, not plugged in — so the plug is here, reading the SAME
+   * `tierBoxWidth` derivation the placement used.
+   *
+   * A kind absent from the record falls through to the single width unchanged;
+   * absence is "no better information", never zero.
+   */
+  const layoutCardWidth = useLayoutStore(s =>
+    nodeType ? s.layoutCardWidths?.[nodeType] ?? null : null
+  )
 
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
@@ -637,7 +678,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // bounded by it. Without the bound, a caller passing a `maxWidth` narrower
   // than the floor would have the title's own min-width force the card wider
   // than the box ELK placed it in.
-  const renderedCardW = isExpanded ? NODE_CARD_MAX_W : (maxWidth ?? layoutNodeWidth ?? NODE_CARD_MAX_W)
+  const renderedCardW = isExpanded
+    ? Math.max(NODE_CARD_MAX_W, layoutCardWidth ?? 0)
+    : (maxWidth ?? layoutCardWidth ?? layoutNodeWidth ?? NODE_CARD_MAX_W)
   const titleMinMeasurePx = Math.max(
     0,
     Math.min(NODE_TITLE_MIN_MEASURE_PX, renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX),
@@ -835,7 +878,18 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       // `__tests__/nodeCopyIsNeverCentred.spec.tsx`.
       className={`
         text-left
-        group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
+        group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} ${
+          /* ⭐⭐ THE GOAL IS THE TERMINUS, AND IT RENDERED AS THE PALEST CARD.
+             Every edge on the board converges on it and it carried the same
+             elevation as a factor five rows above it — so the thing the whole
+             argument is FOR was, visually, the least of it.
+             ⚠ ELEVATION, NOT BORDER WIDTH, AND THAT IS THE WHOLE CONSTRAINT.
+             A border change alters the card's measured box, which moves ELK's
+             placement and every edge anchor with it — the geometry this lane
+             has already repaired twice. A shadow paints outside the box and
+             changes nothing measurable. */
+          nodeType === 'goal' ? 'shadow-3' : 'shadow-1'
+        }
         ${borderColourClass}
         ${lodKindFillClass}
         transition-all duration-200
@@ -940,6 +994,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         //  - Expanded: deliberately override both `maxWidth` and `layoutNodeWidth`
         //    with NODE_CARD_MAX_W. Expanded nodes show a description panel and need
         //    a readable width regardless of what a caller or layout computed.
+        /**
+         * ⭐⭐ `width`, NOT ONLY `maxWidth` — AND THIS IS THE LINE PAUL WAS
+         * ACTUALLY ASKING FOR.
+         *
+         * A max lets every card shrink to its own content, so one row of
+         * options measured **282 / 300 / 306** and the Question card **327**
+         * while the layout had reserved 336 for each. Two consequences, both
+         * visible in his 15 Sep manual test:
+         *
+         *   · *"There is a lack of consistency"* — neighbours in one row are
+         *     three different widths, for no reason a reader can see.
+         *   · *"You still haven't increased the width of the nodes"* — raising
+         *     a CAP cannot widen a card that was never reaching the cap. Every
+         *     widening upstream of here was invisible for that reason alone.
+         *
+         * ⭐ AND THE LAYOUT ALREADY ASSUMES IT. ELK was handed a box of exactly
+         * this width and the positions are on that stride, so a card drawing
+         * narrower is not saving anything — it is leaving a phantom gap inside
+         * a slot the board has already paid for. Filling the slot is the
+         * honest rendering of the geometry that exists.
+         *
+         * `maxWidth` is kept beside it so the expanded branch and any caller
+         * passing an explicit `maxWidth` still bound the card.
+         */
+        width: `${renderedCardW}px`,
         maxWidth: `${renderedCardW}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
@@ -1114,7 +1193,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           the new occupant in, never by adding another hand-written offset. */}
       <div
         data-testid={`node-corner-stack-${id}`}
-        className="absolute -top-2 -right-2 z-10 flex items-center gap-1"
+        /**
+         * ⛔⛔ ANCHORED BY ITS OWN HEIGHT, NOT BY A FIXED −8px — because the two
+         * halves of this corner scale DIFFERENTLY and only one of them knew it.
+         *
+         * `-top-2` is 8 CSS px, unscaled. Everything INSIDE the stack carries
+         * `--canvas-label-scale` (`typography.nodeLabel` is
+         * `calc(12px * var(--canvas-label-scale, 1))`). At the settle zoom that
+         * scale caps at 2, so the `Needs input` pill grows to ~34px tall while
+         * its anchor stays at −8 — and the bottom ~12px of it lands on the ✨
+         * provenance mark in the card header, which is `ml-auto` flush to the
+         * same right edge. Paul's 15 Sep manual test caught it on four cards at
+         * once. At zoom ≥ 1 it does not happen at all, which is why it survived.
+         *
+         * ⭐ `bottom-full` tracks the element's OWN box, so it is derived rather
+         * than a second hand-written offset to keep in step with the first —
+         * the stack now sits in a band above the card at every scale and can
+         * never reach the header. Precedent in the same tree:
+         * `FactorNode.tsx`'s hover-intervention annotation.
+         *
+         * ⚠ WHAT THIS DOES NOT ESTABLISH: that the band is clear of the card
+         * ABOVE. Tier separation is `LAYOUT_LAYER_GAP` (72) against a ~34px
+         * pill, so there is room by arithmetic — but arithmetic is not a
+         * measurement, and the measurement is in the browser, not here.
+         */
+        className={CANVAS_CORNER_STACK_CLASSES}
       >
         {/* Caller-supplied corner member — first in DOM order. Today it has
             exactly one caller: OptionNode's "Leading option" pill, which used
@@ -1591,9 +1694,49 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       )}
 
       {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens.
-          D2: at level-of-detail zoom the body hides via visibility (box keeps
-          its dimensions so ELK/edge anchors stay stable) — the node reads as
-          its coloured shape, PLUS the one reduced line below. */}
+          D2: at level-of-detail zoom the body hides — the node reads as its
+          coloured shape, PLUS the one reduced line below.
+
+          ⛔⛔ IT USED TO HIDE BY `visibility` ALONE, KEEPING ITS FULL HEIGHT, AND
+          THAT IS WHAT PAUL WAS LOOKING AT ON 15 SEP: *"it looks an absolute
+          mess … every design element on there looks just chucked on
+          willy-nilly."* Measured on his board: option cards **~370px tall
+          carrying two lines of text**, beside a baseline option at ~170px in
+          the same row. The body was rendering at full height and invisible.
+
+          ⚠ AND IT IS THE DEFAULT VIEW, NOT AN EDGE CASE. Three of the five
+          shipped starters lay out 3080 units wide; the canvas pane is ~1520
+          with the dock CLOSED and ~1080 with it open, so the fit zoom is
+          **0.4935 closed and ~0.35 open** against `LABEL_LEGIBLE_ZOOM` 0.5.
+          Every card body is blanked before the user touches anything. No width
+          tuning reaches 0.5 from 0.35, so the blanked state has to be right
+          rather than merely temporary.
+
+          ⛔⛔ AND THE FIRST VERSION OF THIS PARAGRAPH ARGUED THE COLLAPSE WAS
+          FREE TO THE LAYOUT. IT IS NOT, AND THE REFUTATION WAS TWO SENTENCES
+          ABOVE IT. It read: *"the rungs do not overlap … below
+          `LABEL_LEGIBLE_ZOOM` the reservation is unused by construction, so
+          releasing it cannot overlap anything — a card only ever shrinks inside
+          a row whose stride already fits it."*
+
+          That holds only if the LAYOUT RAN at a zoom where the body was
+          visible. **The paragraph directly above says the default is that it did
+          not**: the fit zoom on three of five starters is 0.4935 / ~0.35, both
+          BELOW 0.5, so a layout on a freshly-opened board measures COLLAPSED
+          cards and reserves the short height. The reader then zooms in past the
+          legibility floor and every card grows back into the row beneath it.
+          MEASURED by `heightVsZoom.measure.ts` at this branch's tip: the worst
+          per-card LOD delta went **16px -> 430px**, against **45px** of sub-row
+          slack — i.e. an overlap, not a rounding.
+
+          ⭐ THE COLLAPSE STAYS; WHAT CHANGED IS WHAT THE LAYOUT MEASURES.
+          `measureNodeHeightsAtLabelBound` now RELEASES this wrapper's height for
+          the duration of its read (it finds it by `LOD_BLANKED_BODY_ATTR`, the
+          marker below), so the height ELK reserves is the height at the label
+          bound in fact and not merely by intention. The blanked children stay
+          mounted — `visibility: hidden` hides, it does not unmount — so the read
+          is synchronous and costs no re-render. `heightVsZoom.measure.ts` is
+          what REDs if this pairing is broken. */}
       {/* ⚠ `children || lodBodyLine`, AND THE SECOND HALF IS LOAD-BEARING. This
           wrapper hosts the reduced line, so gating it on `children` alone made
           the line unrenderable on precisely the cards that needed it most: one
@@ -1601,8 +1744,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           canvas, and it was the one card that could not be given a line. The
           wrapper contributes no height and the line is absolutely positioned,
           so admitting it with no children changes no geometry. */}
+      {/* ⚠ THE MARKER BELOW IS SPREAD FROM `LOD_BLANKED_BODY_ATTR`, NOT TYPED AS
+          A LITERAL. `measureNodeHeightsAtLabelBound` finds this element by that
+          same constant in order to release the collapse while it reads; a
+          literal at each end is the hand-maintained mirror CLAUDE.md trap 12
+          names, and the drift would be SILENT — the measurer would simply stop
+          finding anything and go back to reserving the short height, with every
+          unit test still green. The rendered value stays `"true"`, which several
+          specs assert. */}
       {!isCausalLens && !isEvidenceLens && (children || lodBodyLine || showConstraintLines) ? (
-        <div className="relative text-left" style={lodBodyBlanked ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodBodyBlanked || undefined}>
+        <div
+          className="relative text-left"
+          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : undefined}
+          {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
+        >
           {children as ReactNode}
           {/* ⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.
               A constraint is a boundary the reader chose, so it is true before
@@ -1633,10 +1788,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               · `visibility: 'visible'` overrides the hidden ancestor — a
                 descendant may re-declare visibility, which is the whole reason
                 the body can stay hidden while one line of it comes back;
-              · absolutely positioned, so it contributes NO height. The card's
-                box is byte-for-byte what it was before this change, which is
-                what keeps ELK's placement and the edge anchors stable — the
-                same reason the body hides by visibility rather than display.
+              · absolutely positioned, so it contributes NO height of its own —
+                the wrapper's collapsed height is what gives it its one line
+                (see `LOD_BLANKED_BODY_STYLE`). Were it in the flow it would sit
+                BELOW the hidden body it is standing in for.
               `title` carries the untruncated string, the same sighted-hover
               treatment the node title gets when its clamp ellipsises it. */}
           {lodBodyLine !== null && (

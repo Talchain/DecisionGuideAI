@@ -13,6 +13,7 @@
 
 import { memo } from 'react'
 import { Target } from 'lucide-react'
+import { CANVAS_CORNER_OFFSET_CLASSES_LEFT, CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
 
 interface ConstraintBadgeProps {
   /** Tooltip describing the constraint(s) on this factor. */
@@ -28,21 +29,21 @@ export const ConstraintBadge = memo(function ConstraintBadge({ tooltip }: Constr
     <>
       {/* Visual badge — pointer-events-none for drag safety */}
       <div
-        className="absolute -bottom-1.5 -left-1.5 w-3 h-3 rounded-full border border-info/50 bg-panel
-          flex items-center justify-center pointer-events-none"
+        className={`absolute ${CANVAS_CORNER_OFFSET_CLASSES_LEFT[6]} ${CANVAS_GLYPH_SIZE_CLASSES[12]} rounded-full border border-info/50 bg-panel
+          flex items-center justify-center pointer-events-none`}
         style={{ zIndex: 1 }}
         aria-hidden="true"
         data-testid="constraint-badge"
       >
         <Target
-          size={7}
-          className="text-info"
+          size={9}
+          className={`text-info ${CANVAS_GLYPH_SIZE_CLASSES[9]}`}
           aria-hidden="true"
         />
       </div>
       {/* Transparent hover zone — carries tooltip and accessible label */}
       <div
-        className="absolute -bottom-2.5 -left-2.5 w-5 h-5 rounded-full"
+        className={`absolute ${CANVAS_CORNER_OFFSET_CLASSES_LEFT[12]} ${CANVAS_GLYPH_SIZE_CLASSES[24]} rounded-full`}
         style={{ zIndex: 2 }}
         title={tooltip}
         aria-label={tooltip}

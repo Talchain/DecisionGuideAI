@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutGraph, groupByYRow, applyCollisionGuard } from '../utils/layout'
+import { layoutGraph, groupByYRow, applyCollisionGuard, solveLayoutCardWidths } from '../utils/layout'
 import {
   NODE_LAYOUT_MIN_W,
   NODE_CARD_MAX_W,
@@ -468,10 +468,20 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('uses identical horizontal stride across tiers with different node counts', async () => {
+  it('uses an identical horizontal GAP across tiers with different node counts', async () => {
     // 3 options vs 5 factors. Adjacent-pair gaps must be equal both within
     // and across tiers — narrower tiers do not spread to fill the wider tier.
     // Tolerance allows for ELK's sub-pixel rounding.
+    //
+    // ⚠ RENAMED FROM "identical STRIDE" ON 15 Sep 2026, AND THE RENAME IS THE
+    // POINT. Stride is `width + gap`, and width is now per TIER
+    // (`CARD_W_CAP_BY_TIER` — options carry 3.4x an outcome's content and no
+    // longer draw in the same box). So an identical stride across tiers is no
+    // longer the property; an identical GAP is, and it is the one this test's
+    // own comment describes. The stride difference between two tiers must be
+    // EXACTLY their width difference and nothing else, which is asserted below
+    // — a strictly stronger claim than the one this replaced, because it pins
+    // where the difference is allowed to come from.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -493,13 +503,22 @@ describe('ELK Layout', () => {
         .sort((a, b) => a - b)
       return xs.slice(1).map((x, i) => x - xs[i])
     }
-    const optionGaps = gapsFor(['o1', 'o2', 'o3'])
-    const factorGaps = gapsFor(['f1', 'f2', 'f3', 'f4', 'f5'])
+    const widths = solveLayoutCardWidths(nodes)
+    // Stride minus that tier's own card width IS the gap.
+    const optionGaps = gapsFor(['o1', 'o2', 'o3']).map(g => g - widths.option)
+    const factorGaps = gapsFor(['f1', 'f2', 'f3', 'f4', 'f5']).map(g => g - widths.factor)
 
     const allGaps = [...optionGaps, ...factorGaps]
     const minGap = Math.min(...allGaps)
     const maxGap = Math.max(...allGaps)
     expect(maxGap - minGap).toBeLessThanOrEqual(2)
+
+    // ⛔ THE DISCRIMINATING HALF. Subtracting a per-tier width could make ANY
+    // two strides agree, so on its own the assertion above would have become a
+    // tautology the moment the widths became per-tier. This pins that the two
+    // tiers genuinely DO differ in width, so the subtraction is doing real work
+    // and the gap agreement is a measurement rather than an artefact.
+    expect(widths.option).toBeGreaterThan(widths.factor)
   })
 
   it('aligns tier centres on a shared global anchor', async () => {
@@ -522,14 +541,19 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {})
 
-    // ELK box width is uniform at NODE_CARD_MAX_W + LAYOUT_PADDING_X in this case
-    const elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
-    const tierMean = (ids: string[]): number => {
+    // ⚠ THE HALF-WIDTH IS PER KIND, NOT ONE CONSTANT. This read
+    // `NODE_CARD_MAX_W + LAYOUT_PADDING_X` for BOTH tiers; with options at 440
+    // and factors at 336 that measuring stick reports the option tier 52px
+    // off-centre — and 52 is exactly (440 − 336) / 2, i.e. entirely an artefact
+    // of the stick. The centring property itself never moved. Deriving the
+    // width per kind measures the property instead of the assumption.
+    const cardW = solveLayoutCardWidths(nodes)
+    const tierMean = (ids: string[], kind: string): number => {
       const xs = ids.map(id => laid.find(n => n.id === id)!.position.x)
-      return xs.reduce((a, b) => a + b, 0) / xs.length + elkBoxW / 2
+      return xs.reduce((a, b) => a + b, 0) / xs.length + (cardW[kind] ?? NODE_CARD_MAX_W) / 2
     }
-    const optionCentre = tierMean(['o1', 'o2', 'o3'])
-    const factorCentre = tierMean(['f1', 'f2', 'f3', 'f4', 'f5'])
+    const optionCentre = tierMean(['o1', 'o2', 'o3'], 'option')
+    const factorCentre = tierMean(['f1', 'f2', 'f3', 'f4', 'f5'], 'factor')
 
     // Tolerance: 1 px for sub-pixel rounding.
     expect(Math.abs(optionCentre - factorCentre)).toBeLessThanOrEqual(1)

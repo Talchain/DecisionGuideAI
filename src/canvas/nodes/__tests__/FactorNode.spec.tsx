@@ -7,6 +7,7 @@
  * T6: Sensitivity/Evidence tier labels (results mode)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { CANVAS_CORNER_STACK_CLASSES } from '../shared/canvasGlyphScale'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
@@ -434,9 +435,16 @@ describe('FactorNode', () => {
     // colliding in the same corner. The badge is a static flex child.
     const stack = badge.parentElement!
     expect(stack.getAttribute('data-testid')).toMatch(/^node-corner-stack-/)
+    // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
+    // `toContain('-top-2')` / `toContain('-right-2')` — the measuring stick,
+    // not the property in this test's title. The `-top-2` half was an UNSCALED
+    // 8px anchor holding counter-scaled content, which put the `Needs input`
+    // pill in the card header at the settle zoom and nowhere at zoom >= 1.
+    // Asserting the exported constant keeps the invariant that matters (the
+    // stack owns the corner; its children carry no positioning) while letting
+    // the anchor move in one place.
     expect(stack.className).toContain('absolute')
-    expect(stack.className).toContain('-top-2')
-    expect(stack.className).toContain('-right-2')
+    expect(stack.className).toBe(CANVAS_CORNER_STACK_CLASSES)
     expect(badge.className).not.toContain('absolute')
     // Category icons removed — science icons replace them
   })

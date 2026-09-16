@@ -277,6 +277,16 @@ const KNOWN_FIXED = [
  * caller, was deleted. NodeQuickActions is a new scoped caller, so the exact
  * derivation requires the entry again; this is not an un-portalled text gap.
  */
+/**
+ * ⭐ FILES THAT MOUNT INTO THE TRANSFORMED SUBTREE VIA `<ViewportPortal>`.
+ *
+ * React Flow's node/edge registries cannot see these, so the scope derivation
+ * cannot either — they are declared here and then REQUIRED to sit inside a
+ * censused directory, so the declaration is an entry in the census rather than
+ * an exemption from it.
+ */
+const VIEWPORT_PORTALLED = ['src/canvas/nodes/TierLanes.tsx'] as const
+
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
@@ -553,16 +563,38 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     }
   })
 
-  it('the two doors into <Viewport> that no registry declares are still SHUT', () => {
+  it('the doors into <Viewport> that no registry declares are DECLARED, and inside the censused scope', () => {
     // `<ViewportPortal>` and a custom `connectionLineComponent` mount straight
     // into the transformed subtree without passing through nodeTypes/edgeTypes,
-    // so the derivation above is blind to them. Asserted absent, with a contrast
-    // control proving the sweep can see a present symbol at all (trap 13e).
-    const sweep = walk(path.join(ROOT, 'src')).map(f => readFileSync(f, 'utf8'))
-    const count = (re: RegExp) => sweep.filter(s => re.test(s)).length
-    expect(count(/<ViewportPortal[\s/>]/), 'a <ViewportPortal> now renders inside the transform — census it').toBe(0)
-    expect(count(/connectionLineComponent\s*=/), 'a custom connection line now renders inside the transform — census it').toBe(0)
-    expect(count(/<EdgeLabelRenderer[\s/>]/), 'CONTRAST CONTROL: sweep cannot see a symbol that is present')
+    // so the derivation above is blind to them.
+    //
+    // ⭐ ONE DOOR IS NOW OPEN, AND "CENSUS IT" IS WHAT THIS ASSERTION SAID TO DO.
+    // `TierLanes` draws the board's tier bands and must live in graph space, so
+    // `<ViewportPortal>` is the right carrier and closing the door again is not
+    // available. The replacement obligation is stronger than the old `toBe(0)`,
+    // because a waiver that only names a file is a waiver: each declared door
+    // must ALSO sit inside a directory the census actually walks, asserted
+    // below — otherwise declaring it would buy exemption from the very sweep it
+    // is being declared to.
+    //
+    // ⚠ It caught a real defect the day it opened: `TierLanes` shipped an
+    // inline `fontSize: calc(13px * var(--canvas-label-scale, 1))` — correctly
+    // counter-scaled, and unresolvable to this census, so it landed in `errors`
+    // rather than in `hits`. Now `typography.nodeLabel`, which the census reads.
+    const files = walk(path.join(ROOT, 'src'))
+    const sweep = files.map(f => ({ rel: path.relative(ROOT, f), src: readFileSync(f, 'utf8') }))
+    const matching = (re: RegExp) => sweep.filter(e => re.test(e.src)).map(e => e.rel).sort()
+
+    expect(matching(/<ViewportPortal[\s/>]/), 'an UNDECLARED <ViewportPortal> now renders inside the transform — census it')
+      .toEqual([...VIEWPORT_PORTALLED].sort())
+    // ⛔ THE HALF THAT MAKES THE DECLARATION MEAN SOMETHING.
+    for (const rel of VIEWPORT_PORTALLED) {
+      expect(relDirs.some(d => rel.startsWith(d + '/')),
+        `${rel} portals into the transform but sits outside the censused scope (${relDirs.join(', ')})`).toBe(true)
+    }
+
+    expect(matching(/connectionLineComponent\s*=/).length, 'a custom connection line now renders inside the transform — census it').toBe(0)
+    expect(matching(/<EdgeLabelRenderer[\s/>]/).length, 'CONTRAST CONTROL: sweep cannot see a symbol that is present')
       .toBeGreaterThan(0)
   })
 
