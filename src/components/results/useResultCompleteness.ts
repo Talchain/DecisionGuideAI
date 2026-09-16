@@ -284,24 +284,25 @@ export function deriveResultCompleteness(
     // signal.
     missing.add('top_drivers')
   } else {
+    /**
+     * ⛔ ONE PREDICATE, AND THE RATCHET CAUGHT ME SHIPPING TWO.
+     *
+     * The correction above first added a SECOND spelling of the alias set — the
+     * producer-row check read `Number.isFinite`, the driver check read
+     * `typeof === 'number'` — and `claim-ownership.drift.spec.ts` red on it:
+     * "MORE reads of one field than the baseline allows ... elasticity:
+     * baseline 1 -> current 2". Two spellings of one question in one file is
+     * the mirror this whole change set exists to remove (trap 12), and I
+     * committed it inside the fix for it.
+     *
+     * Both arms now call `rowCarriesSensitivityMagnitude`. `Number.isFinite`
+     * is the stricter of the two and is the one that survives: it rejects
+     * `NaN`, `Infinity` and a numeric string, and it ADMITS a measured zero,
+     * which `typeof` also did.
+     */
     const anySensitivity =
-      readFactorSensitivity(inputs.report).length > 0 ||
-      allDrivers.some((d) => {
-        const s = d as {
-          sensitivity_score?: unknown
-          sensitivity?: unknown
-          elasticity?: unknown
-          importance_score?: unknown
-          contribution?: unknown
-        }
-        return (
-          typeof s.sensitivity_score === 'number' ||
-          typeof s.sensitivity === 'number' ||
-          typeof s.elasticity === 'number' ||
-          typeof s.importance_score === 'number' ||
-          typeof s.contribution === 'number'
-        )
-      })
+      readFactorSensitivity(inputs.report).some(rowCarriesSensitivityMagnitude) ||
+      allDrivers.some(rowCarriesSensitivityMagnitude)
     if (!anySensitivity) {
       missing.add('sensitivity')
       reasons.add('sensitivity_missing')
@@ -400,4 +401,44 @@ function readFactorSensitivity(
     ?.factor_sensitivity
   if (Array.isArray(rows)) return rows as ReadonlyArray<unknown>
   return []
+}
+
+/**
+ * ⛔⛔ A ROW IS NOT A MAGNITUDE — CORRECTED AFTER INDEPENDENT REVIEW (CX182).
+ *
+ * The first cut asked only whether `factor_sensitivity` was NON-EMPTY, and
+ * justified it from `mapV5AnalysisToReport.normaliseFactorEntry`, which drops
+ * any entry with no usable magnitude. That invariant is real AND IT IS THE V5
+ * MAPPER'S ALONE. `factor_sensitivity` also arrives from the V2 path and, on
+ * the hydrate path, from an untyped passthrough — neither of which is bound by
+ * it. So an identity-only or null-magnitude row would have satisfied the check
+ * and SUPPRESSED a true "the sensitivity check was not included" disclosure:
+ * the same false-absence defect this fix was written to remove, with the sign
+ * flipped (trap 22b).
+ *
+ * I generalised one mapper's guarantee to a field that has three writers. The
+ * review executed the contrast; I had not.
+ *
+ * ⚠ A GENUINE ZERO IS RETAINED. `Number.isFinite(0)` is true and a measured
+ * zero sensitivity is a real producer statement — excluding it would trade this
+ * defect for the opposite one. The alias set is the one
+ * `normaliseFactorEntry` itself accepts, so this predicate cannot admit a row
+ * that mapper would drop.
+ */
+function rowCarriesSensitivityMagnitude(row: unknown): boolean {
+  if (row === null || typeof row !== 'object') return false
+  const r = row as {
+    sensitivity_score?: unknown
+    sensitivity?: unknown
+    elasticity?: unknown
+    importance_score?: unknown
+    contribution?: unknown
+  }
+  return (
+    Number.isFinite(r.sensitivity_score) ||
+    Number.isFinite(r.sensitivity) ||
+    Number.isFinite(r.elasticity) ||
+    Number.isFinite(r.importance_score) ||
+    Number.isFinite(r.contribution)
+  )
 }

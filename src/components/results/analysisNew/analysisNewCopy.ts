@@ -731,6 +731,50 @@ export const ANALYSIS_NEW_COPY = {
      */
     flipCaption: 'Bars show how often each assumption changed the answer.',
     /**
+     * ⭐ THE TIPPING POINT, IN THE PRODUCER'S OWN NUMBERS.
+     *
+     * Every value is `flip_thresholds[]`'s. The only thing composed here is the
+     * verb, and it is chosen by comparing the producer's two numbers rather
+     * than by reading a direction field the normalised row does not carry.
+     *
+     * ⚠ NO PRECISION IS INVENTED and none is implied: `maximumFractionDigits`
+     * shortens the display of a value the producer sent, and the row is dropped
+     * upstream when either endpoint is missing, so a number on screen is always
+     * a number the producer stated.
+     */
+    tippingPoint: (
+      factorLabel: string,
+      currentValue: number,
+      flipValue: number,
+      alternativeLabel: string,
+      unit: string,
+    ): string => {
+      const n = (v: number) =>
+        `${unit}${v.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
+      const verb = flipValue > currentValue ? 'rise' : 'fall'
+      const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} comes out ahead.`
+      /**
+       * ⛔⛔ A BARE PAIR OF NUMBERS IS NOT AN INTERPRETATION, AND SAYING SO IS
+       * PART OF THE FEATURE RATHER THAN A HEDGE ON IT.
+       *
+       * Reviewed 16 Sep: "0.6 to 0.96 is numerically PRECISE but has no
+       * understandable scale ... state what the scale means only when the model
+       * supplies it; otherwise acknowledge the missing interpretation. No
+       * fabricated conversion of 0.96 to headcount, time or probability."
+       *
+       * The first version of this line printed the pair unqualified — which
+       * makes an unreadable number MORE prominent and reads as precision the
+       * reader cannot act on. Where the producer states a unit the figures
+       * carry their own meaning and nothing is added. Where it does not, the
+       * missing scale is named, and it is named as a gap in the MODEL rather
+       * than as a doubt about the threshold: the threshold is the producer's
+       * and it is not in question.
+       */
+      return unit === ''
+        ? `${claim} The model does not record what that scale measures, so read the change rather than the numbers.`
+        : claim
+    },
+    /**
      * ⭐ NAMES THE AGREEMENT, ASSERTS NOTHING NEW. Every row below already
      * names this option in the producer's own sentence — this says once what
      * the section says three times, so the rows can be read as variations.

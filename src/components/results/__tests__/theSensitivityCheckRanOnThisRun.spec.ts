@@ -237,6 +237,51 @@ describe('deriveResultCompleteness — the sensitivity check ran on this run', (
     expect(c.reasons).not.toContain('sensitivity_missing')
   })
 
+  // ── THE CONTRAST THE INDEPENDENT REVIEW EXECUTED (CX182) ─────────────────
+  //
+  // My first cut asked only whether `factor_sensitivity` was NON-EMPTY, on the
+  // strength of `normaliseFactorEntry` dropping magnitude-less rows. That
+  // invariant is the V5 MAPPER'S ALONE; the same field also arrives from the V2
+  // path and from an untyped passthrough. So an identity-only row suppressed a
+  // TRUE missing-sensitivity disclosure — the same false-absence defect this
+  // fix removes, with the sign flipped (trap 22b).
+
+  it('still discloses missing sensitivity when the rows carry identity and no magnitude', () => {
+    const report = {
+      schema: 'report.v1',
+      meta: { seed: 1, response_id: 'r', elapsed_ms: 1 },
+      model_card: { response_hash: 'h', response_hash_algo: 'sha256', normalized: true },
+      results: { conservative: 0.3, likely: 0.5, optimistic: 0.7 },
+      confidence: { level: 'high', why: 'y' },
+      drivers: [{ label: 'A factor', polarity: 'neutral', strength: 'low' }],
+      factor_sensitivity: [
+        { factor_id: '17456e58', factor_label: 'Team Leadership Coverage' },
+        { factor_id: '26f82e8c', factor_label: 'Delivery Capacity', sensitivity_score: null },
+        { factor_id: 'f91ee77c', factor_label: 'Hiring Speed', elasticity: 'high' },
+      ],
+    } as unknown as ReportV1
+    const c = completenessOf(report)
+    expect(c.missing).toContain('sensitivity')
+    expect(c.reasons).toContain('sensitivity_missing')
+  })
+
+  it('retains a genuine measured zero, which is a producer statement and not an absence', () => {
+    // The opposite harm, and it must not be traded for the one above.
+    // `Number.isFinite(0)` is true; a factor the producer measured at zero
+    // sensitivity has been assessed.
+    const report = {
+      schema: 'report.v1',
+      meta: { seed: 1, response_id: 'r', elapsed_ms: 1 },
+      model_card: { response_hash: 'h', response_hash_algo: 'sha256', normalized: true },
+      results: { conservative: 0.3, likely: 0.5, optimistic: 0.7 },
+      confidence: { level: 'high', why: 'y' },
+      drivers: [{ label: 'A factor', polarity: 'neutral', strength: 'low' }],
+      factor_sensitivity: [{ factor_id: '17456e58', sensitivity_score: 0 }],
+    } as unknown as ReportV1
+    const c = completenessOf(report)
+    expect(c.missing).not.toContain('sensitivity')
+  })
+
   it('leaves the top-drivers disclosure exactly where it was when nothing ranked', () => {
     const report = reportFromEnrichment({})
     const c = completenessOf(report)

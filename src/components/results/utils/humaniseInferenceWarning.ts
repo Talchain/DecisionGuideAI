@@ -127,6 +127,86 @@ export function isStripEntry(w: HumanisableInferenceWarning): boolean {
   return w.severity === 'warning' && typeof w.message === 'string' && w.message.trim().length > 0
 }
 
+/**
+ * ⭐⭐ HOW MANY LIMITATIONS A READER MEETS AT REST — one, and the rest one tap
+ * away. 16 Sep 2026, from Paul's screenshots and the prototype's own rule.
+ *
+ * ── WHAT WAS MEASURED, ON PAUL'S RUN `1dd2133d` ───────────────────────────
+ * Seven producer warnings. `isStripEntry` already holds four back on severity,
+ * so the strip showed THREE — and all three say one thing:
+ *
+ *   "This factor's success target can't be evaluated reliably"
+ *   "One of your success targets couldn't be compared with where its factor
+ *    stands today ... State that factor's current level."
+ *   "Which unknowns most affect each option's chance of hitting your goal
+ *    wasn't computed ... check each success target says whether it's a level
+ *    or a change."
+ *
+ * and three of the four in the detail row repeat it again ("Add its current
+ * value." three times). One cause, six sentences, at the top of a panel whose
+ * job is to make a next move obvious. The reviewer's words: they "repeatedly
+ * describe overlapping limitations" and "the person must reconstruct the
+ * important problem".
+ *
+ * ── WHY THIS CAPS RATHER THAN GROUPS ──────────────────────────────────────
+ * ⛔ GROUPING WAS THE OBVIOUS FIX AND THE PRODUCER CANNOT SUPPORT IT TODAY.
+ * Measured on the same payload: `affected_nodes` and `affected_labels` are
+ * UNDEFINED on all seven, and `field` is absent on the ONE warning that names a
+ * real factor in prose (`CONSTRAINT_TARGET_UNRELIABLE`, which says "Budget
+ * Overrun Risk"). So there is no structured key to group on, and grouping by
+ * `code` would be a hand-maintained map of which codes share a remedy — the
+ * mirror this module exists to avoid (trap 12). Reported to Core; not guessed
+ * here.
+ *
+ * ── THE ORDER IS THE PRODUCER'S, AND THAT IS STATED RATHER THAN DRESSED UP ──
+ * ⚠ Nothing establishes that the producer's array order is a PRIORITY order.
+ * It is simply the only ordering evidence that exists, so it is used and named,
+ * rather than a local ranking invented to look principled. On this run it
+ * happens to promote the one warning that names a real factor.
+ *
+ * ⚠ NOTHING IS DELETED. The held-back entries render in the detail row, in
+ * producer order, and the count is stated beside the one that shows — so a
+ * reader is told what is behind the tap rather than discovering it.
+ */
+export const RESTING_STRIP_LIMIT = 1
+
+/**
+ * The indices the strip shows. Computed ONCE per call so the complement below
+ * cannot disagree with it: the two sets are defined against the same pass, not
+ * against two spellings of one predicate.
+ */
+function stripIndices(warnings: ReadonlyArray<HumanisableInferenceWarning>): Set<number> {
+  const out = new Set<number>()
+  let taken = 0
+  warnings.forEach((w, i) => {
+    if (taken < RESTING_STRIP_LIMIT && isStripEntry(w)) {
+      out.add(i)
+      taken += 1
+    }
+  })
+  return out
+}
+
+/** The entries the strip shows at rest — producer order, capped. */
+export function selectRestingStripEntries<T extends HumanisableInferenceWarning>(
+  warnings: ReadonlyArray<T> | undefined,
+): T[] {
+  const list = warnings ?? []
+  const idx = stripIndices(list)
+  return list.filter((_, i) => idx.has(i))
+}
+
+/**
+ * Warning-severity entries held back from the strip. Stated to the reader, so
+ * the cap is a disclosure rather than a silent truncation.
+ */
+export function heldBackStripCount(
+  warnings: ReadonlyArray<HumanisableInferenceWarning> | undefined,
+): number {
+  const list = warnings ?? []
+  return list.filter(isStripEntry).length - stripIndices(list).size
+}
+
 /** Node-label map for humaniseCritique's factor-label resolution, built from
  *  the warning's already-resolved `affected_labels` (never parsed from
  *  `message`). Returns undefined when no labels are available — humaniseCritique
@@ -229,10 +309,21 @@ export function selectHumanisedInferenceWarningsOutsideStrip(
    *  which is the pre-existing contract and the fallback this relies on. */
   nodeLabels?: ReadonlyMap<string, string>,
 ): Array<{ code: string; title: string; valueNodeId?: string }> {
-  return (warnings ?? [])
-    .filter((w) => typeof w.message === 'string' && w.message.trim().length > 0)
-    .filter((w) => !isStripEntry(w))
-    .map((w) => ({
+  const list = warnings ?? []
+  /**
+   * ⚠ THE COMPLEMENT OF WHAT THE STRIP ACTUALLY SHOWS, NOT OF `isStripEntry`.
+   * The strip is now CAPPED, so a complement computed from the predicate would
+   * drop the held-back entries from BOTH surfaces — they would render nowhere,
+   * which is the silent-truncation defect the cap exists to avoid. Index
+   * membership is used because these are projected to `{code, title}` and two
+   * entries can share a code.
+   */
+  const shown = stripIndices(list)
+  return list
+    .map((w, i) => ({ w, i }))
+    .filter(({ w }) => typeof w.message === 'string' && w.message.trim().length > 0)
+    .filter(({ i }) => !shown.has(i))
+    .map(({ w }) => ({
       code: w.code,
       title: humaniseInferenceWarningTitle(w, nodeLabels),
       // ⚠ THE PROJECTION USED TO END AT `{code, title}`, and that is what made

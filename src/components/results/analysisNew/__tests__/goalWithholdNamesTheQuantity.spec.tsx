@@ -60,6 +60,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { genuineDecision } from './analysisNewFixtures'
 import type { ConfidenceSectionData } from '../../types'
+import { selectHumanisedInferenceWarningsOutsideStrip } from '../../utils/humaniseInferenceWarning'
 
 const GOAL_CODE = 'GOAL_THRESHOLD_NOT_CONVERTIBLE'
 /**
@@ -69,6 +70,12 @@ const GOAL_CODE = 'GOAL_THRESHOLD_NOT_CONVERTIBLE'
  * to "whatever the strip rendered first" (CLAUDE.md trap 19).
  */
 const OTHER_CODE = 'ROOT_NODE_DEFAULT_VALUE'
+
+/** The exact warnings the fixture feeds the panel, for the contrast below. */
+const warningsUnderTest = () => [
+  { code: GOAL_CODE, affected_nodes: [], severity: 'warning', message: 'goal threshold could not be resolved in the sample frame' },
+  { code: OTHER_CODE, affected_nodes: ['e4ec3415'], severity: 'warning', message: "No observed value provided for root node 'e4ec3415'; defaulted to 0.0." },
+]
 
 /**
  * ⛔ HISTORIC RECORD — THE SENTENCE `475ee1c7` ACTUALLY SERVED. Append-only
@@ -229,14 +236,28 @@ describe('the goal withhold names its quantity, so it cannot deny the ranking be
    * entry is on screen in the same render and satisfies neither predicate, so
    * a selector that had drifted to the wrong object would fail HERE.
    */
-  it('CONTRAST: the sibling warning in the same strip is a different object and is untouched', () => {
+  it('CONTRAST: the sibling warning is a different object and is untouched', () => {
+    /**
+     * ⚠ THE SIBLING IS READ FROM THE DETAIL PROJECTION, NOT FROM THE STRIP —
+     * and the discrimination is unchanged. The resting strip is now capped at
+     * one entry (`RESTING_STRIP_LIMIT`), so the sibling renders in "How this was
+     * worked out" instead of beside the goal entry. It is the SAME object on
+     * the SAME pass, humanised by the SAME function, so a selector that had
+     * drifted to the wrong object still fails here; what changed is which
+     * surface shows it, not which sentence it carries.
+     */
     renderPanel()
-    const other = document.querySelector(`[data-warning-code="${OTHER_CODE}"]`)
-    expect(other, 'the contrast entry must render, or this control is blind').not.toBeNull()
-    const otherText = (other as HTMLElement).textContent ?? ''
-    expect(otherText).not.toMatch(NAMES_THE_QUANTITY)
-    expect(otherText).not.toMatch(CLAIMS_RESULTS_WITHHELD)
-    // ...and the two really are distinct nodes, not one element matched twice.
-    expect(other).not.toBe(goalEntry())
+    const detail = selectHumanisedInferenceWarningsOutsideStrip(
+      warningsUnderTest(),
+    )
+    const other = detail.find((d) => d.code === OTHER_CODE)
+    expect(other, 'the contrast entry must exist, or this control is blind').toBeDefined()
+    expect(other!.title).not.toMatch(NAMES_THE_QUANTITY)
+    expect(other!.title).not.toMatch(CLAIMS_RESULTS_WITHHELD)
+    // ...and the two really are different objects, not one matched twice.
+    expect(other!.code).not.toBe(GOAL_CODE)
+    // The goal entry is the one on screen, which is what the cap promises.
+    expect(goalEntry()).not.toBeNull()
+    expect(document.querySelector(`[data-warning-code="${OTHER_CODE}"]`)).toBeNull()
   })
 })
