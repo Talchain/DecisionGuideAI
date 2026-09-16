@@ -33,6 +33,14 @@
  * records that "a confident false claim in exactly this position" is the defect it exists to fix.
  * A fact derived from the live graph cannot go stale that way, so it belongs here and not there.
  *
+ * ⛔ NO AMBER HERE, AND THAT IS DELIBERATE — this heading shipped `text-warning` and the
+ * per-site contrast guard caught it: #FFA656 on `--bg-panel-hover` is **1.85:1** against the
+ * 4.5:1 SC 1.4.3 needs. Of the 21 `--*-rgb` tokens, exactly three clear 4.5:1 on both panel
+ * grounds (`--text-header`, `--text-light`, `--info`) and NOT ONE semantic colour clears even
+ * 3:1, so there is no darker amber to reach for and a tinted pill makes it WORSE (it moves the
+ * ground towards the text). The caution is carried by the WORDS and the triangle's shape
+ * instead. Do not repaint this amber to make it look more urgent.
+ *
  * ⚠ jsdom cannot prove visibility (CLAUDE.md trap 3). The spec beside this asserts MOUNTING and
  * TEXT. It does not claim the user can see it; that needs a browser.
  */
@@ -60,7 +68,7 @@ export function StructuralIssuesSection() {
       aria-label="Structural problems with this model"
       className="rounded-lg border border-panel-border bg-panel px-3 py-2.5"
     >
-      <h3 className={`${typography.nodeLabel} mb-1.5 flex items-center gap-1.5 text-warning`}>
+      <h3 className={`${typography.nodeLabel} mb-1.5 flex items-center gap-1.5 text-text-header`}>
         <AlertTriangle size={14} aria-hidden="true" />
         {blockers.length === 1
           ? 'One thing stops this model answering'
