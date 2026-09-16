@@ -83,11 +83,17 @@ describe('panel composition usable-canvas contract', () => {
 
   it('derives the minimum usable width from the canonical model and label floor', () => {
     // ⚠ 641 -> 789 (12 Sep 2026), from `CANONICAL_LAYOUT_WIDTH` 1185 -> 1482.
+    // ⚠ 789 -> 781 (16 Sep 2026), from `CANONICAL_LAYOUT_WIDTH` 1482 -> 1466 —
+    // a re-centring forced by `LAYOUT_NODE_GAP` 32 -> 24 (see that constant's
+    // note: three of the five shipped starters were missing the legibility
+    // floor by 1.3%). The threshold gets 8px EASIER to satisfy, which is the
+    // harmless direction, and the band below shrinks with it.
     // The literal stays a literal ON PURPOSE. Deriving it from the same
     // expression the module uses would make this a guard agreeing with itself
     // (trap 13b) — and this pin is the ONLY thing in the suite that noticed the
-    // threshold had moved at all.
-    expect(MIN_USABLE_MODEL_VIEWPORT_WIDTH).toBe(789)
+    // threshold had moved at all. It noticed again on 16 Sep, which is the
+    // second time this one line has earned its keep.
+    expect(MIN_USABLE_MODEL_VIEWPORT_WIDTH).toBe(781)
   })
 
   it('⛔⛔ THE TRADE IS UNAVOIDABLE — NO BUDGET BOTH FIXES THE PORTRAIT LAYOUT AND KEEPS 1600', () => {
@@ -165,10 +171,19 @@ describe('panel composition usable-canvas contract', () => {
     const constrainedAt = (viewportWidth: number) =>
       needsSingleExpandedPanel({ viewportWidth, dockInset: 428, floatingPanelWidth: 400, dockExpanded: true })
 
-    expect(constrainedAt(1668), 'the top of the newly-affected band').toBe(true)
-    expect(constrainedAt(1669), 'immediately above it, unchanged from before').toBe(false)
+    /**
+     * ⚠ THE BAND'S TOP MOVED 1668 -> 1660 (16 Sep 2026) AND IT MOVED DOWNWARDS,
+     * which is this cost getting SMALLER rather than a new one appearing.
+     * `CANONICAL_LAYOUT_WIDTH` was re-centred 1482 -> 1466 when
+     * `LAYOUT_NODE_GAP` moved 32 -> 24, so `MIN_USABLE_MODEL_VIEWPORT_WIDTH`
+     * fell 789 -> 781 and eight pixels of viewport (1661-1668) stopped being
+     * forced into a single expanded panel. The band this test bounds is now
+     * 1512-1660 rather than 1512-1668.
+     */
+    expect(constrainedAt(1660), 'the top of the newly-affected band').toBe(true)
+    expect(constrainedAt(1661), 'immediately above it, unchanged from before').toBe(false)
     // …and the band really is NEW: at the previous threshold of 641 both were free.
-    expect(1668 - 428 - 400 - 36 - 16).toBeGreaterThanOrEqual(641)
+    expect(1660 - 428 - 400 - 36 - 16).toBeGreaterThanOrEqual(641)
   })
 
   it('lets the shell sequence a constrained floating reveal', () => {

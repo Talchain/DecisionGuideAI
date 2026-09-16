@@ -558,8 +558,33 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  * not the pane rect, not the fit box, not panel state, not zoom, not node count.
  * That is not a stylistic preference: it is the difference between a shared
  * model and a per-screen rendering of one.
+ *
+ * ⭐ 1482 → 1466 (16 Sep 2026) — A RE-CENTRING, NOT A RE-PACK, AND IT IS FORCED.
+ *
+ * `LAYOUT_NODE_GAP` moved 32 → 24 (see its own note: the shipped starters were
+ * missing `LABEL_LEGIBLE_ZOOM` by 1.3%). The band this budget must sit in has
+ * its upper cliff at `5 * LAYOUT_BOX_MIN_W + 4 * LAYOUT_NODE_GAP`, so the gap
+ * change moved the band [1417, 1548) → [1417, 1516). `layoutViewportIndepend-
+ * ence.guard.spec.ts` requires the budget to be the band's MIDPOINT, not merely
+ * inside it — a constant near a cliff is a defect waiting for a rounding change
+ * — and 1482 is the midpoint of the OLD band only. 1466 is the midpoint of the
+ * new one (49 above, 50 below).
+ *
+ * ⚠ NOTHING ABOUT PACKING CHANGES, and that is asserted rather than asserted-at.
+ * The guard sweeps every width in the band and requires the packing shape to be
+ * identical across all of it, so a within-band move is behaviour-neutral BY
+ * THAT TEST. Independently: all five shipped starters are single-row, and
+ * `planLayoutBox`'s single-row branch returns `NODE_CARD_MAX_W +
+ * LAYOUT_PADDING_X` without reading the budget at all — so no shipped starter's
+ * positions depend on this number. The 8/9 single-row boundary is unmoved
+ * (`floor((1466 - 105)/8) = 170 ≥ 164`; `floor((1466 - 120)/9) = 149 < 164`).
+ *
+ * ⚠ ONE DERIVED CONSUMER MOVES WITH IT: `panelComposition.ts`'s
+ * `MIN_USABLE_MODEL_VIEWPORT_WIDTH` is `ceil(budget * LABEL_LEGIBLE_ZOOM) + 2 *
+ * CANVAS_MARGIN`, so 789 → 781. That is the threshold getting 8px EASIER to
+ * satisfy, which is the harmless direction.
  */
-export const CANONICAL_LAYOUT_WIDTH = 1482
+export const CANONICAL_LAYOUT_WIDTH = 1466
 
 /** Horizontal padding added around the rendered card to form the ELK box. */
 /**
@@ -581,8 +606,84 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  * it still only fires when something has genuinely gone wrong, rather than
  * becoming a second spacing authority that competes with this one.
  */
-export const LAYOUT_NODE_GAP = 32
-export const LAYOUT_LAYER_GAP = 72
+/**
+ * ⭐⭐⭐ 32 → 24 AND 72 → 56 (16 Sep 2026), AND THE FIRST THING TO KNOW IS THAT
+ * NEITHER OF THESE NUMBERS HAS EVER BEEN THE GAP YOU SEE.
+ *
+ * MEASURED in Chromium at the settled camera, all five shipped starters, three
+ * identical runs (`e2e/geometry/boardFitFloor.measure.ts`): the separation
+ * between two adjacent cards on a row was **56 layout units**, and between two
+ * tiers **88** — not 32 and 72. The ELK box is `card + LAYOUT_PADDING_X`, the
+ * gap sits between BOXES, and the card does not occupy its box's padding, so
+ * what renders is `LAYOUT_PADDING_X + LAYOUT_NODE_GAP` and `LAYOUT_PADDING_Y +
+ * LAYOUT_LAYER_GAP`. `layout.sameRowGap.spec.ts` already derives exactly that
+ * (`EXPECTED_STRIDE_GAP = LAYOUT_PADDING_X + LAYOUT_NODE_GAP`); it was the
+ * COMMENT above — "32 is the first value at which two max-width cards read as
+ * separate objects rather than a seam" — that described a number the board does
+ * not draw. The judgement that approved the look was made about 56 and 88.
+ *
+ * ⚠ SO THIS IS NOT "restoring the intended 32". It is a real reduction of a
+ * real, approved separation: **56 → 48 horizontally (−14%) and 88 → 72
+ * vertically (−18%)**, which at the zoom the product itself parks at (0.50) is
+ * 28 → 24 CSS px and 44 → 36 CSS px. Both new values stay on the 8pt grid (6
+ * units and 9 units of RENDERED separation), and the vertical stays larger than
+ * the horizontal so the tier rhythm the 12 Sep change bought is preserved.
+ *
+ * ⭐ WHY IT IS WORTH PAYING. MEASURED at the pristine tip, the widest tier of
+ * three of the five shipped starters is 8 cards, giving a canonical board
+ * 3080 units wide against a 1520px pane (dock closed) — a whole-model fit of
+ * **0.4935, under `LABEL_LEGIBLE_ZOOM` (0.50), where `resolveLodRung` returns
+ * `'line'` and EVERY CARD BODY IS HIDDEN.** `build-vs-buy` additionally missed
+ * on HEIGHT (2195 units → 0.4920). The board is `(T-1)(NODE_CARD_MAX_W +
+ * LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + NODE_CARD_MAX_W`, so clearing the floor
+ * needs ≤ 3040 units, i.e. `LAYOUT_NODE_GAP ≤ 26`; and ≤ 2160 units of height,
+ * i.e. `LAYOUT_LAYER_GAP ≤ 63`. 24 and 56 clear both with margin and land on
+ * the grid. After: 3024 x {1796, 1865, 2131} — every starter ≥ 0.5026.
+ *
+ * ⛔⛔ AND THE LIMIT, WHICH IS THE HALF A READER MUST NOT INHERIT WITHOUT:
+ * **THAT 1520px PANE IS NOT THE FRAME THE PRODUCT FITS INTO, AND THIS CHANGE
+ * DOES NOT CLEAR THE ONE THAT IS.** Measured the same day by CALLING
+ * `computeFitPadding` in the page (`e2e/geometry/dockClosedSettledZoom.measure
+ * .ts`), on a 1600x1150 window: the fit frame is **1456 x 985 with the dock
+ * collapsed** and **1080 x 985 with it expanded** — the padding still reserves
+ * the collapsed dock rail, the tools rail, the top banner and the overlay band.
+ * Against 1456 x 985 the after-state reads vendor 0.4815 · market 0.4815 ·
+ * build-vs-buy 0.4622 · headcount 0.5296 · pricing 0.4840. Only one clears.
+ *
+ * Clearing the REAL frame would need `LAYOUT_NODE_GAP ≤ 8` (board ≤ 2912) and
+ * `LAYOUT_LAYER_GAP ≤ 15` (build-vs-buy ≤ 1970) — i.e. the abolition of canvas
+ * spacing, for zero margin. **So this change is a real improvement on every
+ * starter and it is NOT a fix for the underlying problem**, which is that an
+ * eight-wide tier of 336-unit cards cannot be shown whole and legibly in the
+ * frame this product leaves itself. R1 already rules the answer there is
+ * presentation — readable subset, an explicit "showing X of Y", obvious
+ * whole-model access — and this measurement is independent confirmation of that
+ * ruling rather than an argument against it. Do not read the 0.5026 above as
+ * "the starters now fit"; read it as "the board no longer fails on WIDTH at the
+ * pane, and the frame is a separate, larger problem."
+ *
+ * ⚠⚠ THE HORIZONTAL HALF IS DURABLE AND THE VERTICAL HALF IS NOT, and that
+ * asymmetry is the honest part. Board WIDTH is a pure function of the constants
+ * above — no content can move it, because the card width is capped. Board
+ * HEIGHT is 84% card content (`build-vs-buy`: 1843 of 2195 units is card, 352
+ * is whitespace), and this repo has already watched one shortened starter
+ * string recover 339 units of height. **No achievable spacing margin survives a
+ * content edit of that size**, so `build-vs-buy` can fall back under the floor
+ * without any constant changing. The width half is guarded in
+ * `layoutViewportIndependence.guard.spec.ts`; the height half cannot be guarded
+ * by a constant and is reported rather than pretended away.
+ *
+ * ⚠ `CANONICAL_LAYOUT_WIDTH` MOVED WITH THIS, and it had to. `BAND.upper` in
+ * that guard is `5 * LAYOUT_BOX_MIN_W + 4 * LAYOUT_NODE_GAP`, so lowering the
+ * gap lowers the band's top; the guard's standing rule that the budget be the
+ * band's MIDPOINT is satisfied by `LAYOUT_NODE_GAP = 32` and by no other value
+ * while the budget is 1482. The budget was re-centred, not re-purposed: the
+ * guard's own band sweep proves packing is constant across the whole band, and
+ * every shipped starter is single-row, where `planLayoutBox` ignores the budget
+ * entirely — so no starter position depends on the move.
+ */
+export const LAYOUT_NODE_GAP = 24
+export const LAYOUT_LAYER_GAP = 56
 
 export const LAYOUT_PADDING_X = 24
 

@@ -50,6 +50,7 @@ import {
   NODE_SINGLE_ROW_FAIR_SHARE_W,
   LAYOUT_NODE_GAP,
 } from '../utils/nodeLayoutConstants'
+import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 
 import capture from './__fixtures__/starter-node-heights.browser-capture-2026-08-18.json'
 import vendorSelection from '../starters/data/vendor-selection.draft.json'
@@ -583,12 +584,48 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * go red on a future change that happens to produce a different hash for the
    * WRONG reason.
    */
+  /**
+   * ⭐⭐ RE-RECORDED 16 Sep 2026 — `LAYOUT_NODE_GAP` 32 → 24 and
+   * `LAYOUT_LAYER_GAP` 72 → 56, and the new shape was VERIFIED BEFORE these
+   * digests were written down rather than copied out of the failure output.
+   * That is this block's standing rule and it is the only thing separating a
+   * re-record from a rubber stamp.
+   *
+   * WHY THE SHAPE MOVED. Measured in Chromium at the settled camera, three
+   * identical runs (`e2e/geometry/boardFitFloor.measure.ts`), the canonical
+   * board of the three 8-wide starters was 3080 units against a 1520px pane —
+   * a whole-model fit of 0.4935, UNDER `LABEL_LEGIBLE_ZOOM`, where every card
+   * body is hidden. The extent assertion below now pins that it cannot recur.
+   *
+   * WHAT WAS MEASURED ON THE NEW TREE, per starter, before any digest moved —
+   * all four checks this block's own rule names, plus the two the change could
+   * plausibly have broken:
+   *
+   *     starter               nodes  rows  riskY === outcomeY  overlaps  minGap  extentW
+   *     vendor-selection       19     5     1137 = 1137  ✅        0        48     3024
+   *     market-entry           18     5     1147 = 1147  ✅        0        48     3024
+   *     build-vs-buy           19     5     1705 = 1705  ✅        0        48     3024
+   *     headcount-allocation   16     5     1005 = 1005  ✅        0        48     1872
+   *     pricing-model          15     5     1036 = 1036  ✅        0        48     1872
+   *
+   * Node count and row count are UNCHANGED everywhere, every risk and outcome
+   * still resolves to ONE shared Y, no two same-row nodes overlap, and the
+   * minimum same-row gap is exactly `LAYOUT_PADDING_X + LAYOUT_NODE_GAP` = 48
+   * on every starter — i.e. the spacing moved by exactly the amount intended
+   * and nothing else did. Only then were these five values taken.
+   *
+   * ⛔ A DIGEST CANNOT SAY WHICH SHAPE IT IS — so the properties above are
+   * asserted in their own tests below, not merely written here.
+   */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '578898013a37bf63', nodes: 19 },
-    'market-entry': { digest: 'bc34500b9e43c1c6', nodes: 18 },
-    'build-vs-buy': { digest: 'e1bbab396252034f', nodes: 19 },
-    'headcount-allocation': { digest: '4146ea99dfb8d5c4', nodes: 16 },
-    'pricing-model': { digest: 'eb393e29cd2fe7be', nodes: 15 },
+    // Re-recorded 16 Sep 2026; each bound to the value it REPLACES, never to a
+    // position in this literal (CLAUDE.md — a re-record read off by row order
+    // is how two starters swap shapes silently).
+    'vendor-selection': { digest: 'b1cbf9e5977880f6', nodes: 19 }, // was 578898013a37bf63
+    'market-entry': { digest: '8b204fbd21a97aed', nodes: 18 }, // was bc34500b9e43c1c6
+    'build-vs-buy': { digest: '04552678bd584e6c', nodes: 19 }, // was e1bbab396252034f
+    'headcount-allocation': { digest: '9434cba31358750c', nodes: 16 }, // was 4146ea99dfb8d5c4
+    'pricing-model': { digest: 'ecf39f01a95264cf', nodes: 15 }, // was eb393e29cd2fe7be
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(
@@ -642,6 +679,134 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
       expect(riskYs[0], `${id}: risks and outcomes are on different rows`).toBe(outcomeYs[0])
     },
   )
+
+  /**
+   * ⭐⭐⭐ THE CANONICAL BOARD FITS THE PANE ABOVE THE LEGIBILITY FLOOR — the
+   * guard the 12 Sep re-record BLOCK ABOVE PROMISED AND NOBODY WROTE.
+   *
+   * That block says, verbatim: *"the extent test below measures every starter's
+   * box and pins that each still fits a 1280 pane above `LABEL_LEGIBLE_ZOOM`"*.
+   * There was no such test in this file. The promise was doing the work of the
+   * guard — which is worse than no guard, because its existence is what stops
+   * anyone writing a second one (CLAUDE.md: writing an alarm and not connecting
+   * it). Measured 16 Sep 2026 in Chromium: three of the five shipped starters
+   * laid out 3080 units wide and fitted a 1520px pane at **0.4935**, under the
+   * floor, so every card body rendered blank — exactly the class that sentence
+   * claimed was pinned. (The promised figure was unsatisfiable as written: at a
+   * 1280 pane the board has never fitted above the floor, before or after.)
+   *
+   * ⚠ WIDTH ONLY, AND THE SCOPE IS THE POINT rather than a shortcut. Board
+   * WIDTH is a pure function of the constants — `(T-1) * (NODE_CARD_MAX_W +
+   * LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + NODE_CARD_MAX_W` — because the card
+   * width is capped, so no content can move it and jsdom can assert it exactly.
+   * Board HEIGHT is 84% card content (`build-vs-buy`: 1843 of 2195 units), the
+   * heights here come from a browser capture dated 18 Aug 2026 which no longer
+   * matches what the product renders (measured the same day: 2163 here vs 2131
+   * live), and a single shortened starter string has already moved a real board
+   * by 339 units. **A height assertion from this fixture would be a guard about
+   * a board nobody loads.** The height risk is real and is reported in
+   * `LAYOUT_NODE_GAP`'s note rather than pretended away here.
+   */
+  /**
+   * THE REFERENCE PANE — a RECORDED MEASUREMENT, not a derivation, and it is
+   * the only recorded half of the assertion below (the floor is imported and
+   * the affordable width is derived from it — same split as `BAND`, for the
+   * same reason: a wholly-derived bound proves agreement and can never notice
+   * that the inputs are wrong, CLAUDE.md trap 12d).
+   *
+   * MEASURED 16 Sep 2026, Chromium, `e2e/geometry/boardFitFloor.measure.ts`, on
+   * a 1600x1150 window with the five shipped starters seeded: `.react-flow` is
+   * 1600 wide, the tools rail occupies its leftmost 60px, and the Outputs dock
+   * occupies 416px on the right when expanded. 1520 is the width left to the
+   * model with the dock COLLAPSED — the state in which a user can see a whole
+   * model at all.
+   *
+   * ⛔⛔ NECESSARY, NOT SUFFICIENT — AND SAYING SO IS THE POINT OF THIS BLOCK.
+   * The pane is not the frame. Measured the same day by CALLING the product's
+   * own `computeFitPadding` in the page
+   * (`e2e/geometry/dockClosedSettledZoom.measure.ts`), the frame the camera is
+   * actually fitted to is **1456 x 985 dock-collapsed** and **1080 x 985
+   * dock-expanded**: the padding still reserves the collapsed dock rail, the
+   * tools rail, the top banner and the overlay band. Against 1456 x 985 no
+   * starter but `headcount-allocation` clears the floor even after this change,
+   * and clearing it would need `LAYOUT_NODE_GAP ≤ 8` and `LAYOUT_LAYER_GAP ≤
+   * 15` — the abolition of canvas spacing, for zero margin.
+   *
+   * So this assertion is a RATCHET, not a guarantee of legibility: it stops the
+   * canonical board growing back past the pane, which is the durable half and
+   * the half a constant can own. Whether the model is legible in the FRAME is a
+   * presentation question R1 has already ruled on (readable subset + an
+   * explicit "showing X of Y" + obvious whole-model access), and it must not be
+   * answered by squeezing this file.
+   *
+   * ⚠ IT IS DELIBERATELY THE DOCK-CLOSED PANE, AND THE DOCK SHIPS OPEN. With
+   * the dock expanded the frame is 1080 wide and the same board needs 0.3571,
+   * which NO value of these constants can fix: eight cards at `NODE_CARD_MAX_W`
+   * are 2688 units before a single unit of gap or padding, and clearing the
+   * floor at 1080 requires 2160 — so `NODE_CARD_MAX_W` itself would have to
+   * fall to 270. This bound is the strongest one the constants can be held to,
+   * not the whole of the problem.
+   */
+  const REFERENCE_PANE_W = 1520
+
+  it.each(Object.keys(STARTERS) as StarterId[])(
+    '%s: the canonical board clears the legibility floor on WIDTH at the reference pane',
+    async (id) => {
+      presentViewport(1280)
+      const { nodes, edges } = buildGraph(id)
+      const out = await layoutGraph(nodes, edges, {})
+
+      const xs = out.nodes.map((n) => n.position.x)
+      const extentW = Math.max(...xs) + NODE_CARD_MAX_W - Math.min(...xs)
+
+      // Non-vacuity: a board one card wide clears any floor trivially, so the
+      // claim would be true and say nothing (CLAUDE.md trap 13).
+      const widestRow = Math.max(
+        ...[...new Set(out.nodes.map((n) => Math.round(n.position.y)))].map(
+          (y) => out.nodes.filter((n) => Math.round(n.position.y) === y).length,
+        ),
+      )
+      expect(widestRow, `${id}: widest row is 1 — this assertion is vacuous here`).toBeGreaterThan(1)
+
+      // The floor is IMPORTED and the affordable width DERIVED from it; only
+      // the pane is a recorded measurement (see below).
+      const affordable = REFERENCE_PANE_W / LABEL_LEGIBLE_ZOOM
+      expect(
+        extentW,
+        `${id}: the canonical board is ${extentW} units wide, which needs zoom ` +
+          `${(REFERENCE_PANE_W / extentW).toFixed(4)} to fit a ${REFERENCE_PANE_W}px pane — ` +
+          `below LABEL_LEGIBLE_ZOOM (${LABEL_LEGIBLE_ZOOM}), so every card body renders blank`,
+      ).toBeLessThanOrEqual(affordable)
+    },
+  )
+
+  it('⭐ THE EXTENT ASSERTION DISCRIMINATES — the gap this change replaced does NOT clear the floor', () => {
+    /**
+     * A bound that nothing can fail is not a guard. This proves the predicate
+     * bites by evaluating it against the SHIPPED-UNTIL-16-SEP geometry, which
+     * is a historical fact and not a synthetic one: at `LAYOUT_NODE_GAP = 32`
+     * an eight-wide tier laid out 3080 units and needed 0.4935.
+     *
+     * ⚠ The 32 is deliberately a LITERAL here and must stay one. Deriving it
+     * from the shipped constant would make this test agree with whatever the
+     * constant becomes — a guard agreeing with itself (CLAUDE.md trap 13b) —
+     * and it would stop recording the measurement that motivated the change.
+     */
+    const widthAtGap = (gap: number, tier: number) =>
+      (tier - 1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + gap) + NODE_CARD_MAX_W
+    const affordable = REFERENCE_PANE_W / LABEL_LEGIBLE_ZOOM
+
+    // The arithmetic agrees with the real layout at the SHIPPED gap, so the two
+    // are the same model and the historical arm is not measuring a fiction.
+    expect(widthAtGap(LAYOUT_NODE_GAP, 8)).toBe(3024)
+
+    // RED arm — the geometry this change replaced fails the bound…
+    expect(widthAtGap(32, 8)).toBe(3080)
+    expect(widthAtGap(32, 8)).toBeGreaterThan(affordable)
+    // …and the geometry it replaced it with passes, by 16 units.
+    expect(widthAtGap(LAYOUT_NODE_GAP, 8)).toBeLessThanOrEqual(affordable)
+    expect(affordable - widthAtGap(LAYOUT_NODE_GAP, 8)).toBe(16)
+  })
 })
 
 describe('the pinned budget sits inside its band, and both cliffs are named', () => {
@@ -678,14 +843,22 @@ describe('the pinned budget sits inside its band, and both cliffs are named', ()
   //     1232   split tiers reach 4 per row        (row-count family)
   //     1238   7-wide tier starts single-rowing   (single-row family)
   //     1417   8-wide tier starts single-rowing   <- BAND.lower
-  //     1548   split tiers reach 5 per row        <- BAND.upper
+  //     1516   split tiers reach 5 per row        <- BAND.upper
   //     1596   9-wide tier starts single-rowing
   //
-  // ⭐ `CANONICAL_LAYOUT_WIDTH` is the MIDPOINT of [1417, 1548) — 65 above, 66
+  // ⚠ `BAND.upper` MOVED 1548 → 1516 (16 Sep 2026) BECAUSE `LAYOUT_NODE_GAP`
+  // MOVED 32 → 24, and the upper cliff is a function of the gap
+  // (`5 * LAYOUT_BOX_MIN_W + 4 * LAYOUT_NODE_GAP`). `BAND.lower` does NOT move
+  // — it is a function of the fair share and `MIN_GAP`, neither of which
+  // changed — so the eight-wide single-row guarantee that the whole portrait
+  // argument rests on is untouched. It is the budget that had to follow the
+  // band, not the band that followed the budget: see `CANONICAL_LAYOUT_WIDTH`.
+  //
+  // ⭐ `CANONICAL_LAYOUT_WIDTH` is the MIDPOINT of [1417, 1516) — 49 above, 50
   // below. See its own derivation note for why the interval starts at 1417: an
   // eight-wide tier that splits produces a PORTRAIT model in a LANDSCAPE pane,
   // which is the measured cause of the graph using ~30% of the available width.
-  const BAND = { lower: 1417, upper: 1548 } as const
+  const BAND = { lower: 1417, upper: 1516 } as const
 
   it('CANONICAL_LAYOUT_WIDTH is strictly inside the band', () => {
     expect(CANONICAL_LAYOUT_WIDTH).toBeGreaterThan(BAND.lower)
