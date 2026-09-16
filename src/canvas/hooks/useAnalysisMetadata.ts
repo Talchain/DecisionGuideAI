@@ -7,6 +7,7 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
+import { readDisplayVerdict } from '../../components/results/robustnessDisplayVerdict'
 
 export type RunStatus = 'draft' | 'running' | 'complete' | 'error'
 export type StabilityStatus = 'stable' | 'fragile' | null
@@ -21,14 +22,12 @@ export type StabilityStatus = 'stable' | 'fragile' | null
  * count. An absent field (older PLoT build) or an unrecognised token yields no
  * verdict, and no verdict means no claim.
  */
-const DISPLAY_SAFE_VERDICTS = ['robust', 'moderate', 'fragile', 'not_assessed'] as const
-type RobustnessDisplayVerdict = (typeof DISPLAY_SAFE_VERDICTS)[number]
-
-function readDisplayVerdict(raw: unknown): RobustnessDisplayVerdict | null {
-  return (DISPLAY_SAFE_VERDICTS as readonly string[]).includes(raw as string)
-    ? (raw as RobustnessDisplayVerdict)
-    : null
-}
+/**
+ * ⚠ MOVED, NOT COPIED. The token set and its fail-closed reader now live in
+ * `components/results/robustnessDisplayVerdict.ts` so the results surfaces read
+ * `display_verdict` through THIS rule rather than a second one. The semantics
+ * here are unchanged; only the home moved.
+ */
 
 interface AnalysisMetadata {
   /** Run status for display */
