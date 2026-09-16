@@ -494,7 +494,7 @@ describe('WhatWeChecked renders the readout', () => {
   })
 
   it('renders nothing at all when there are no checks (pre-run)', () => {
-    const { container } = render(<WhatWeChecked checks={{ items: [] }} />)
+    const { container } = render(<WhatWeChecked checks={{ items: [], leaderWithholdCause: null }} />)
     expect(container).toBeEmptyDOMElement()
   })
 
