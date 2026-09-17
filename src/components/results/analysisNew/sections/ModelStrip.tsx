@@ -283,12 +283,32 @@ export interface ModelStripProps {
    * opened it themselves, which is recorded separately and wins.
    */
   isPreRun?: boolean
+  /**
+   * The panel reached a conclusion and `AtAGlance` is rendering it, so the
+   * subject line gives up the 18px slot and drops one step.
+   *
+   * ⭐ THE SLOT IS SHARED, AND ONE THING HOLDS IT AT A TIME. Paul's ruling,
+   * 17 Sep 2026: the largest type means "the most important thing on this panel
+   * right now — the conclusion when there is one, otherwise the question being
+   * worked on." Two leads is the same defect as none.
+   *
+   * ⚠ DEFAULT FALSE, WHICH IS THE FAIL-SAFE DIRECTION. A caller that forgets
+   * the prop leaves the subject leading — the pre-run and withheld shape, and
+   * the one that is correct whenever nothing else has spoken. The failure mode
+   * of the other default is a panel whose largest type is nothing at all.
+   *
+   * ⛔ IT STANDS DOWN, IT DOES NOT DISAPPEAR. A reader who loses the subject
+   * cannot tell which decision the conclusion belongs to; it drops to the size
+   * the panel's section titles use, second-loudest rather than quiet.
+   */
+  answerLeads?: boolean
 }
 
 export function ModelStrip({
   testId = 'analysis-new-model-strip',
   isPreRun = false,
   insights = NO_INSIGHTS,
+  answerLeads = false,
 }: ModelStripProps) {
   const showToast = useShowToastSafe()
   /**
@@ -789,7 +809,7 @@ export function ModelStrip({
             // element, not two. A second copy of the subject inside the region
             // would put the same sentence on screen twice, which is exactly
             // what the first-viewport census exists to stop.
-            className={`${typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
+            className={`${answerLeads ? typography.panelHeader : typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >

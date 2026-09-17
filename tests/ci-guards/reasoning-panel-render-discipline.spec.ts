@@ -114,8 +114,12 @@ const PANEL_DIR = resolvePath(ROOT, 'components/results/analysisNew')
  *
  * ⛔ IT IS NOT THE TOKEN THIS PANEL REJECTED TWICE. That one promoted a
  * FIGURE computed partly from values Olumi invented; `reasoningLead` carries WORDS
- * the user's model authored, and its only consumer is the model strip's
- * subject line. `typography.ts:228`'s ruling — "a panel that needs a bigger
+ * the user's model authored — the decision being considered, or the option the
+ * run concluded for. ⚠ AMENDED 17 Sep 2026: this said "its only consumer is the
+ * model strip's subject line", which stopped being true when the conclusion took
+ * the slot. Two consumers, ONE element at a time — pinned by
+ * `theLargestTypeIsTheAnswer.spec.tsx`, which counts them in both run states.
+ * `typography.ts:228`'s ruling — "a panel that needs a bigger
  * size than `panelHeader` is a panel promoting a number; say it in words
  * instead" — is answered, not waived.
  *

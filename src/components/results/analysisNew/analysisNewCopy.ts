@@ -1693,7 +1693,8 @@ export const ANALYSIS_NEW_COPY = {
      * ("As last analysed"), the stale-run variant of this line.
      *
      * It was written to put `headline` — "…currently scores higher" — into the
-     * past. `AtAGlance` renders `glance.leaderLabel ?? glance.headline`, and
+     * past. `AtAGlance` renders `conclusionLabel(glance)` (`panelLead.ts`,
+     * which is `leaderLabel ?? headline` and has one owner), and
      * the view model gives `leaderLabel` a value on exactly the runs where
      * `headline` has one, so the fallback never fires and the tensed sentence
      * never reaches the screen. It was re-tensing a sentence this surface does
