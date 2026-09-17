@@ -27,6 +27,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
+import type { NodeProps } from '@xyflow/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
 import { METRIC_UNSET } from '../shared/metricVocabulary'
@@ -104,7 +105,7 @@ const draw = (id: string, data: Record<string, unknown>, store: Record<string, u
   vi.mocked(useCanvasStore).mockImplementation(sel => sel(makeStoreState(store) as never))
   return render(
     <ReactFlowProvider>
-      <RiskNode {...(baseProps as never)} id={id} data={data} />
+      <RiskNode {...(baseProps as unknown as NodeProps)} id={id} data={data} />
     </ReactFlowProvider>,
   )
 }
