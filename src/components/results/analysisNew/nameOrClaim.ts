@@ -158,14 +158,12 @@ export const NAME_OR_CLAIM_COPY = {
   showFullClaimFor: (label: string) => `Show the full claim behind ${truncateAtWord(label, 30)}`,
 } as const
 
-/**
- * ⚠ WCAG 2.2 AA §2.5.8 — 24×24 CSS px MINIMUM, and this control had 15px of
- * height (`padding: 0 4px` at `panelMeta`, identical at every dock width). On a
- * PR whose entire premise is that TOUCH HAS NO HOVER, shipping a target below
- * the touch minimum defeats the fix for exactly the users it is for — and it
- * sits directly beneath a full-width row button that means something else, so
- * a mis-tap opens the value editor instead.
+/*
+ * ⚠ `CLAIM_TOGGLE_TOUCH_TARGET` WAS REMOVED — its geometry now belongs to
+ * `ACTION_TIER.inline` in `panelSurfaces.ts`, and its WCAG rationale moved
+ * there with it. It was applied at one of twelve `action('inline')` call
+ * sites, so eleven acts shipped below the touch minimum. A target size is
+ * geometry, and that module's own rule is that geometry is grammar and is
+ * fixed — it cannot be left to whoever remembers to import a constant.
  */
-export const CLAIM_TOGGLE_TOUCH_TARGET =
-  'inline-flex items-center min-h-[24px] px-2 py-1'
 

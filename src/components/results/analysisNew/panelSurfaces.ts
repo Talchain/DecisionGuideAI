@@ -278,8 +278,26 @@ export const ACTION_TIER = {
   /**
    * AN ACT INSIDE PROSE. Underlined AT REST, never on hover alone — see the
    * contrast note above.
+   *
+   * ⚠⚠ AND IT CARRIES ITS OWN TOUCH TARGET, WCAG 2.2 AA §2.5.8 (24×24 CSS px).
+   * This geometry used to live in `CLAIM_TOGGLE_TOUCH_TARGET`, applied at
+   * exactly ONE of twelve `action('inline')` call sites — so eleven acts
+   * shipped at 15px high, including the ONLY route out of a withheld verdict
+   * and the only route to how a run was worked out (both measured at 133×15
+   * and 131×15 on deployed `d135ff7e`). A per-call-site remedy is a
+   * hand-maintained mirror: every later call site misses it and nothing goes
+   * red. The rationale that constant carried is kept here, with its geometry.
+   *
+   * ⚠ `inline-flex` IS PART OF THE GUARANTEE, NOT DECORATION: `min-h` does
+   * nothing to a purely inline box, so declaring the minimum without the
+   * display mode would be a target that is stated and not reached.
+   *
+   * ⚠ MEASURED BEFORE SHIPPING, on the deployed build by injection: both
+   * live acts 15px → 24px, and the panel column grew 1288 → 1304 (+16px,
+   * +1.2%) at rest. The other ten sites are inside collapsed sections and
+   * cost nothing until opened.
    */
-  inline: 'rounded text-info underline',
+  inline: 'inline-flex items-center min-h-[24px] px-2 py-1 rounded text-info underline',
   /**
    * A TERTIARY ACT — present, reachable, and not competing. Also underlined at
    * rest: "quiet" is a claim about emphasis, never a licence to drop the

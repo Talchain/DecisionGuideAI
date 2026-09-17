@@ -44,7 +44,6 @@ import { useFactorValueCommit } from '../useFactorValueCommit'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
 import {
-  CLAIM_TOGGLE_TOUCH_TARGET,
   NAME_OR_CLAIM_COPY,
   needsClaimDisclosure,
   truncateAtWord,
@@ -422,7 +421,7 @@ export function DriverInfluenceChart({
                      `aria-controls` would reference nothing. */
                   aria-controls={claimOpen ? `${claimRegionId}-${row.id}` : undefined}
                   aria-label={claimOpen ? undefined : NAME_OR_CLAIM_COPY.showFullClaimFor(row.label)}
-                  className={`${typography.panelMeta} ${CLAIM_TOGGLE_TOUCH_TARGET} ${action('inline')}`}
+                  className={`${typography.panelMeta} ${action('inline')}`}
                   data-testid={`${testId}-claim-toggle`}
                 >
                   {claimOpen ? NAME_OR_CLAIM_COPY.hideFullClaim : NAME_OR_CLAIM_COPY.showFullClaim}
