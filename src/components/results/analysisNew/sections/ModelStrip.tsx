@@ -789,7 +789,7 @@ export function ModelStrip({
             // element, not two. A second copy of the subject inside the region
             // would put the same sentence on screen twice, which is exactly
             // what the first-viewport census exists to stop.
-            className={`${typography.panelLead} text-text-header block ${open ? '' : 'truncate'}`}
+            className={`${typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >

@@ -569,7 +569,14 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // ⚠ Raising this pin is ONLY ever right for a token DECLARATION in this
     // file. Anywhere else, and in this file for anything but a new token, the
     // fix is to remove the raw size, never to bank slack here.
-    'src/styles/typography.ts': 37,
+    // ⚠ 37 -> 39, 17 Sep 2026, AND IT IS THE ONE FILE WHERE A RISE IS NOT DEBT.
+    // This is the TOKEN DEFINITION file: raw classes are its content, and every
+    // token in it is by construction a raw size plus a raw weight. Adding
+    // `reasoningLead` ('text-lg font-semibold') therefore adds exactly two —
+    // the rise is the definition landing, not a panel component reaching past
+    // the tokens, which is what this ratchet exists to catch everywhere else.
+    // Any rise in ANY OTHER file in this map is still the real defect.
+    'src/styles/typography.ts': 39,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 2,
@@ -653,8 +660,18 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // with the v1 Model-stack removal, still carrying every occurrence. A fall
     // here means "the closure got smaller" at least as often as it means "we
     // fixed something", and the map's header comment is where that is recorded.
+    // ⚠ 17 Sep 2026: 96 -> 98 occurrences, FILE COUNT UNCHANGED AT 28. This is
+    // the same legitimate rise the 4 Sep note above describes and the only kind
+    // that is: `reasoningLead` was DECLARED in `src/styles/typography.ts`, the
+    // typography authority, where a token's own declaration is the one place a
+    // raw size belongs. It is +2 rather than +1 because the token carries a raw
+    // size AND a raw weight (`text-lg font-semibold`).
+    // ⭐ THE DISCRIMINATOR IS THE FILE COUNT, and it is unchanged — no new file
+    // entered the map, so no panel component reached past the tokens. A rise
+    // anywhere else, or a rise in this file for anything but a new token, is
+    // still the defect this pair exists to catch and must be refused.
     expect(files).toBe(28)
-    expect(total).toBe(96)
+    expect(total).toBe(98)
   })
 })
 

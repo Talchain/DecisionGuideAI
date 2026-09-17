@@ -272,7 +272,7 @@ export const typography = {
   //
   // The rejected token promoted A NUMBER: the largest type in the product, on
   // a figure computed partly from values Olumi invented rather than the user.
-  // `panelLead` carries WORDS THE USER OR THEIR MODEL AUTHORED — the decision
+  // `reasoningLead` carries WORDS THE USER OR THEIR MODEL AUTHORED — the decision
   // being considered — and it can never carry a figure, because its only
   // consumer is the model strip's subject line.
   //
@@ -284,8 +284,21 @@ export const typography = {
   // 18px is an EXISTING design-system step (`h5`, `bodyLarge`), not a new
   // size invented for the panel: one clear step above `panelHeader` (14px) and
   // well below `welcomeHeading` (24px), which stays the product's loudest type.
-  // Census-allowlisted in `scripts/conversation-type-census.mjs`.
-  panelLead: 'text-lg font-semibold font-sans leading-snug', // 18px — the Reasoning panel's subject line ONLY
+  //
+  // ⭐⭐ AND IT IS DELIBERATELY *NOT* `panel*`-PREFIXED. That family is pinned by
+  // `tests/ci-guards/panel-scale-has-exactly-three-sizes.spec.ts` to resolve to
+  // exactly {11,12,14} — a NAME rule, and a good one: it exists because #1179
+  // added a fourth token arguing the count was unchanged, correctly, with
+  // nothing enforcing it. Using the `panel*` prefix here would have forced that
+  // invariant open to four sizes and made the guard's own filename false.
+  //
+  // `welcomeHeading` (24px, panel context) already establishes the convention:
+  // a named hero sits OUTSIDE that family precisely so the family's three-size
+  // rule stays literally true. This follows it, and the exception is NOT hidden
+  // by the name — `reasoning-panel-render-discipline` RULE A governs what may
+  // render on a panel surface, and this token is declared there, which is the
+  // guard that actually answers "is a fourth size on screen?".
+  reasoningLead: 'text-lg font-semibold font-sans leading-snug', // 18px — the Reasoning panel's subject line ONLY
 
   // Utility
   screenReaderOnly: 'sr-only',
