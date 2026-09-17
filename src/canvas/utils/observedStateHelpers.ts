@@ -55,6 +55,80 @@ export function getObservedState(nodeData: unknown): ObservedStateData {
 }
 
 /**
+ * ⭐⭐ A PRODUCER PLACEHOLDER IS NOT EVIDENCE — AND TREATING IT AS EVIDENCE WAS
+ * SILENTLY WITHHOLDING A BIAS WARNING.
+ *
+ * THE DEFECT, MEASURED. CEE sends `uncertainty_drivers: ['Not provided']` on
+ * factors it has no evidence for. Across the four committed starter captures
+ * there are only NINE distinct driver strings in total, and `'Not provided'`
+ * accounts for **16 of the 24 occurrences** — every genuine driver appears
+ * exactly once. So two thirds of all the "evidence" this product holds about
+ * its factors is the literal word that there is none.
+ *
+ * ⛔ THE SERIOUS HALF IS NOT THE RENDERED TEXT. `PreAnalysisPanel` raises an
+ * OVERCONFIDENCE warning for an AI-sourced factor with no supporting evidence —
+ * *"X is among the highest-priority factors to review but has no supporting
+ * evidence. Validate it before relying on it."* Its test was
+ * `!drivers || drivers.length === 0`. A placeholder array has length ONE, so
+ * the test failed and **the warning was suppressed on exactly the factors that
+ * have no evidence** — the population it exists to catch. The product went
+ * quiet precisely where it had most to say, and it read as working.
+ *
+ * ⚠ WHY A LIST AT ALL, GIVEN TRAP 12. A hand-maintained list of placeholder
+ * spellings is a mirror and will drift. It is accepted here, narrowly and
+ * deliberately, because the alternative is leaving a live coaching defect open
+ * until a producer change lands in another service. Two constraints keep it
+ * honest: the set is DERIVED FROM MEASUREMENT (every string in it was observed
+ * in a committed capture, not imagined), and a spec pins the exact census —
+ * 16/24 — so the day the producer stops sending it, or starts sending a
+ * spelling this does not know, the test says so rather than the product going
+ * quiet again.
+ *
+ * ⛔ THE REAL FIX IS CEE'S: send `[]`, or omit the key, rather than a sentence
+ * saying there is nothing. Reported separately. This is the mitigation, and it
+ * is written to fail loud rather than to be forgotten.
+ *
+ * Matching is case-insensitive and trims, because a placeholder's capitalisation
+ * is not a meaningful distinction. It matches the WHOLE string only: a real
+ * driver that happens to contain the word "unknown" — and two of the nine
+ * genuine strings do, e.g. *"Onboarding complexity unknown"* — is real evidence
+ * and must survive. That is why this is not a substring test.
+ */
+export const PLACEHOLDER_EVIDENCE_STRINGS: ReadonlySet<string> = new Set([
+  // Measured, 16 occurrences across all four starter captures.
+  'not provided',
+  // Observed nowhere yet. Included because they are the SAME producer gesture
+  // and cost nothing to refuse; the spec records that they are unwitnessed, so
+  // nobody later mistakes this for a census.
+  'n/a',
+  'none',
+  'not specified',
+  'unknown',
+])
+
+/** Is this string the producer saying "I have nothing", rather than evidence? */
+export function isPlaceholderEvidence(value: unknown): boolean {
+  return typeof value === 'string'
+    && PLACEHOLDER_EVIDENCE_STRINGS.has(value.trim().toLowerCase())
+}
+
+/**
+ * The uncertainty drivers that are actually evidence.
+ *
+ * ⭐ ONE PREDICATE, BOTH CONSUMERS. The card that RENDERS drivers and the check
+ * that COUNTS them must not be able to disagree about what a driver is — that
+ * is two answers to one question (trap 21), and the disagreement would be
+ * invisible: a card showing a bullet while the coaching says there is no
+ * evidence. Both now call this.
+ */
+export function meaningfulUncertaintyDrivers(drivers: unknown): string[] {
+  if (!Array.isArray(drivers)) return []
+  return drivers.filter(
+    (d): d is string => typeof d === 'string' && d.trim() !== '' && !isPlaceholderEvidence(d),
+  )
+}
+
+/**
  * Check whether node data has any observed_state (either key).
  */
 export function hasObservedState(nodeData: unknown): boolean {

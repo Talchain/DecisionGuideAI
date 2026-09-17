@@ -10,7 +10,7 @@ import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domai
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
-import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
+import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
@@ -39,6 +39,9 @@ export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
   const currentValueOrigin = classifyValueProvenance(observedState?.source)
+  // Derived once: the drivers that are actually evidence. See
+  // `meaningfulUncertaintyDrivers` for why a placeholder is not one.
+  const meaningfulDrivers = meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)
   const CurrentValueOriginIcon = currentValueOrigin ? VALUE_PROVENANCE_ICON[currentValueOrigin.kind] : null
 
   const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
@@ -616,11 +619,17 @@ export const FactorNode = memo((props: NodeProps) => {
           (which uses preAnalysisLayer2 too). For low-priority needsInput
           standalone, see the dedicated needsInput popover branch below. */}
       {/* Detailed pre-analysis: uncertainty drivers */}
-      {isDetailed && observedState?.uncertainty_drivers && observedState.uncertainty_drivers.length > 0 && (
+      {/* ⭐ REAL EVIDENCE ONLY. CEE sends `['Not provided']` on factors it has
+          nothing for — 16 of the 24 driver strings across the four starter
+          captures. Rendered raw, that printed the producer's placeholder under
+          a heading promising evidence. `meaningfulUncertaintyDrivers` is the
+          SAME predicate the overconfidence check counts with, so this card and
+          that coaching cannot disagree about what a driver is. */}
+      {isDetailed && meaningfulDrivers.length > 0 && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Uncertainty drivers:</p>
-          {observedState.uncertainty_drivers.map((d, i) => (
+          {meaningfulDrivers.map((d, i) => (
             <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>{d}</p>
           ))}
         </>

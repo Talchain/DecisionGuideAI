@@ -35,7 +35,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../../mutations/mutationAuthority'
-import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
+import { normaliseRawFactorValue, withObservedStateUpdate, meaningfulUncertaintyDrivers } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import {
   biasSignal,
@@ -1580,9 +1580,20 @@ export function PreAnalysisPanel({
           const nd = topNode.data as Record<string, unknown>
           const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
           const source = os?.source as string | undefined
-          const rawDrivers = os?.uncertainty_drivers
-          const drivers = Array.isArray(rawDrivers) ? rawDrivers : undefined
-          if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
+          // ⛔ THIS TEST WAS SUPPRESSED BY A PLACEHOLDER, ON EXACTLY THE
+          // FACTORS IT EXISTS TO CATCH. CEE sends
+          // `uncertainty_drivers: ['Not provided']` when it has no evidence —
+          // 16 of the 24 driver strings across the four starter captures. The
+          // old test was `!drivers || drivers.length === 0`, and a placeholder
+          // array has length ONE, so this warning did not fire for any of
+          // them. The product went quiet precisely where it had most to say,
+          // and it read as working.
+          //
+          // `meaningfulUncertaintyDrivers` is the SAME predicate the factor
+          // card renders with, so the card cannot show a bullet while this
+          // says there is no evidence (trap 21).
+          const drivers = meaningfulUncertaintyDrivers(os?.uncertainty_drivers)
+          if (source && AI_SOURCES.has(source) && drivers.length === 0) {
             const label = (nd.label as string) ?? topFactorId
             pushDeterministic(
               { code: 'overconfidence' },
