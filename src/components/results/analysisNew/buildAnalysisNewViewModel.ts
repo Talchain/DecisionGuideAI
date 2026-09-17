@@ -934,6 +934,8 @@ function buildUncertainty(
 ): AnalysisNewViewModel['uncertainty'] & {
   sensitivityFindings: AnalysisNewFinding[]
   sensitivityConvergence: { label: string } | null
+  /** Ids whose implication is the UI's own template rather than producer prose. */
+  genericConclusionIds: ReadonlySet<string>
 } {
   const conf = data.confidence
   const findings: AnalysisNewFinding[] = []
@@ -946,6 +948,8 @@ function buildUncertainty(
   const sensitivityFindings: AnalysisNewFinding[] = []
   /** One entry per sensitivity row, in push order. `null` = the producer named none. */
   const sensitivityAlternatives: Array<{ id: string; label: string } | null> = []
+  /** Row ids whose implication is the UI's own template rather than producer prose. */
+  const genericConclusionIds = new Set<string>()
 
   // 0. What is most worth resolving, FIRST — because it is the only row in this
   //    section that says what to DO about the uncertainty, and with
@@ -1352,6 +1356,66 @@ function buildUncertainty(
           ? { id: u.alternativeWinnerId, label: u.alternativeWinnerLabel }
           : null,
       )
+      /**
+       * ⭐⭐ POSITIVE IDENTIFICATION OF THE GENERIC CONCLUSION, which is the
+       * only thing the convergence header is entitled to speak for.
+       *
+       * ⛔ MY FIRST TWO ATTEMPTS AT THIS WERE BOTH WRONG, and the second was
+       * refuted by a constructed counterexample I could not build myself:
+       *   "If team throughput falls below the required capacity, Two Developers
+       *    needs an additional onboarding month before the delivery commitment
+       *    is credible."
+       * That NAMES the converged option and carries a condition and a
+       * consequence the header never states, so a substring test on the label
+       * deletes authored analysis. A third substring exception would not
+       * establish equivalence either — it would be round three of a predicate
+       * that has already reversed twice.
+       *
+       * ⭐ SO THE TEST IS IDENTITY WITH A FIELD THAT CANNOT EXIST ON AUTHORED
+       * PROSE. `useResultsSectionData.ts:3671` populates
+       * `messageWithSubjectNamedAbove` ONLY when `!fe.description` — that is,
+       * only when the producer wrote no sentence and the UI composed one from
+       * its own template. Where it is present, the row's implication is
+       * provably generic; where the producer authored anything, the field is
+       * absent and the sentence is kept whole.
+       *
+       * ⚠ AND IT IS READ FROM THE SAME `u` THE IMPLICATION IS BUILT FROM, a
+       * few lines below, so the two cannot disagree about which sentence the
+       * row is carrying.
+       */
+      /**
+       * ⚠ `headlineText !== ''` MIRRORS THE IMPLICATION'S OWN CONDITION, and it
+       * is DEFENSIVE RATHER THAN LOAD-BEARING TODAY. I added it believing I had
+       * found a reachable defect in my own change; a mutant deleting it left
+       * every control GREEN, so I went and proved which it was rather than
+       * asserting equivalence.
+       *
+       * ⭐ IT IS UNREACHABLE, AND THE REASON IS WORTH KNOWING: the rung is a
+       * property of the SET and resolution is a property of the ROW, so they
+       * look independent — but `sectionTitleRung` returns null the moment ANY
+       * candidate row fails to resolve (`named.some(n => n === null)`), and the
+       * candidate set holds only rows too long to label themselves. A short row
+       * takes `headlineText = text`. So at rung 'full' every row has a title,
+       * and `headlineText === ''` cannot co-occur with it.
+       *
+       * The clause stays because the two conditions must not drift apart if
+       * either derivation changes; it is not claimed to fix anything today.
+       * `theRungIsAllOrNothing` pins the invariant that makes it unnecessary.
+       *
+       * ⚠ THE TWO CONDITIONS ARE DELIBERATELY SPELLED OUT TWICE RATHER THAN
+       * SHARED, because the implication's is a ternary arm in an expression and
+       * hoisting it would change what that expression reads as. The guard
+       * against them drifting is the control below, not proximity.
+       */
+      if (
+        sectionTitleRung === 'full' &&
+        headlineText !== '' &&
+        !u.threshold &&
+        typeof u.messageWithSubjectNamedAbove === 'string' &&
+        u.messageWithSubjectNamedAbove.length > 0
+      ) {
+        genericConclusionIds.add(uncertaintyKey(u, i))
+      }
     }
 
     bucket.push({
@@ -1590,6 +1654,7 @@ function buildUncertainty(
      * options" is a different, useful claim and it deserves its own argument
      * and its own test rather than arriving as the else-arm of this one.
      */
+    genericConclusionIds,
     sensitivityConvergence: (() => {
       if (sensitivityAlternatives.length < 2) return null
       const first = sensitivityAlternatives[0]
@@ -3531,7 +3596,71 @@ export function buildAnalysisNewViewModel(
     sensitivity: preRun
       ? { findings: [], convergence: null, tippingPoints: [] }
       : {
-          findings: uncertaintyBuild!.sensitivityFindings,
+          /**
+           * ⭐⭐ THE ROWS STOP REPRINTING THE CONCLUSION THE HEADER JUST MADE.
+           *
+           * Witnessed on the deployed panel: three consecutive rows whose
+           * sentences all end *"…'Two Developers' could become the better
+           * choice"*, sitting directly under a convergence line that has
+           * ALREADY said *"they all point the same way: towards Two
+           * Developers."* The option is named FOUR times on one screen, and a
+           * reader has to diff three near-identical paragraphs to find the
+           * only part that differs — which is the row's own title.
+           *
+           * ⛔ THIS IS AN OMISSION, NEVER A REWORDING, and the distinction is
+           * load-bearing. The implication is composed by
+           * `useResultsSectionData` from one template, and on a
+           * producer-authored `description` it is the producer's own sentence.
+           * Editing the string here would be a hand-maintained mirror of a
+           * template another file owns (trap 12) and, worse, a rewrite of
+           * producer prose. So the row drops the line whole, using `''` — the
+           * value this builder already uses for "this row has no implication".
+           *
+           * ⭐ NOTHING IS LOST, AND THE PRECONDITION IS PROVEN RATHER THAN
+           * ASSUMED. `sensitivityConvergence` is non-null ONLY when every
+           * entry of `sensitivityAlternatives` is non-null and shares one
+           * `id`, over two or more rows — agreement BY IDENTITY, never by
+           * label (trap 19) — and that array is pushed from exactly the
+           * `sensitivityFindings` bucket being mapped here. So the header's
+           * claim provably covers every row it now speaks for; one set, not
+           * two under one name (trap 21).
+           *
+           * ⚠ AND IT IS STRICTLY LESS ASSERTION, which is the same entitlement
+           * argument the convergence line itself was built on: each row
+           * already names this option on screen, so saying it once above them
+           * and not three times below needs no permission the section does not
+           * already have.
+           *
+           * Where there is no convergence the rows are untouched — the
+           * sentence is the only thing naming where that row points.
+           */
+          findings: (() => {
+            const conv = uncertaintyBuild!.sensitivityConvergence
+            if (conv === null) return uncertaintyBuild!.sensitivityFindings
+            /**
+             * ⛔⛔ ONLY WHERE THE SENTENCE IS THE PRODUCER-OWNED GENERIC ONE.
+             *
+             * My first version of this dropped the line on convergence alone,
+             * and it was WRONG — caught by the disagree-arm control before it
+             * could ship. Convergence says the rows point one way; it does NOT
+             * say each row's sentence NAMES that option. `manyFragileEdges`
+             * is the counterexample the product really emits: its rows read
+             * *"the comparison could land differently"*, which the header
+             * never said, so suppressing them would have deleted information
+             * rather than de-duplicated it.
+             *
+             * ⛔ THE SUBSTRING TEST THAT USED TO SIT HERE WAS REFUTED. A row can
+             * name the converged option AND carry a condition and consequence
+             * the header never states, and a label match deletes that. The
+             * membership test above is identity with a field that exists only
+             * when the producer authored nothing, so authored prose cannot be
+             * caught by it at all — the failure mode is now structurally
+             * impossible rather than argued to be unlikely.
+             */
+            return uncertaintyBuild!.sensitivityFindings.map((f) =>
+              uncertaintyBuild!.genericConclusionIds.has(f.id) ? { ...f, implication: '' } : f,
+            )
+          })(),
           convergence: uncertaintyBuild!.sensitivityConvergence,
           /**
            * ⭐ READ FROM THE NORMALISED PRODUCER ROWS, NOT RE-DERIVED.
