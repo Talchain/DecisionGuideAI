@@ -43,6 +43,7 @@ import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNew
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import { methodForRecommendation } from '../recommendationMethod'
+import { conclusionLabel, panelHasConclusion } from '../panelLead'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 import { inset, PANEL_INSET_ACTION, action } from '../panelSurfaces'
 
@@ -509,7 +510,14 @@ export function AtAGlance({
    */
   const reanalyseDisabled = isRunning || reanalyseBlocked
 
-  const showAnswer = Boolean(glance.leaderLabel ?? glance.headline)
+  /**
+   * ⭐ HOISTED TO `panelLead`, NOT REWRITTEN. `ModelStrip` now asks the same
+   * question — whether this panel has a conclusion to lead with — because the
+   * two components share one 18px slot between them. A second copy of this
+   * expression is how the estate's dominant defect starts: the copies drift,
+   * and the panel renders two leads or none, with a red nowhere.
+   */
+  const showAnswer = panelHasConclusion(glance)
 
   /**
    * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
@@ -763,11 +771,27 @@ export function AtAGlance({
       {showAnswer ? (
         <div>
           <Eyebrow>{COPY.glance.eyebrowLeading}</Eyebrow>
+          {/* ── ⭐⭐ THE PANEL'S LARGEST TYPE, AND IT IS THE ANSWER ──────────
+              Paul's ruling, 17 Sep 2026: the 18px slot means "the most
+              important thing on this panel right now — the conclusion when
+              there is one, otherwise the question being worked on."
+
+              ⛔ WHAT IT REPLACED, censused on served `a147cfbb` (a run with a
+              named leader): this line sat at `panelHeader`, tied for size with
+              "What your model implies", "How robust is this?" and "How far this
+              held" — FOUR strings at 14px/600 — while the panel's one 18px slot
+              carried the GOAL. A reader scanning for the answer found the
+              context.
+
+              ⚠ IT IS A LOAN, NOT A SECOND LEAD. `ModelStrip` gives the slot up
+              for exactly as long as this renders; `theLargestTypeIsTheAnswer`
+              counts the elements at this size in both run states and REDs on
+              two as loudly as on none. */}
           <p
-            className={`${typography.panelHeader} mt-1 mb-0 text-text-header text-balance`}
+            className={`${typography.reasoningLead} mt-1 mb-0 text-text-header text-balance`}
             data-testid={`${testId}-headline`}
           >
-            {glance.leaderLabel ?? glance.headline}
+            {conclusionLabel(glance)}
           </p>
           {/* ── ⭐⭐ WHOSE IDEA THIS WAS ────────────────────────────────────
               IMMEDIATELY BENEATH THE NAME, NOT IN A DISCLOSURE AND NOT AT THE

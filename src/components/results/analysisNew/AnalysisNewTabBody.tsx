@@ -74,6 +74,7 @@ import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSec
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChanged } from './sections/WhatsChanged'
 import { AtAGlance } from './sections/AtAGlance'
+import { panelHasConclusion } from './panelLead'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
@@ -1499,7 +1500,16 @@ export function AnalysisNewTabBody({
             practical instruction, and the technique the finding warrants —
             while still routing to the node on canvas. Nothing on that detail is
             authored by this surface; see `nodeInsights.ts`. */}
-        <ModelStrip isPreRun={vm.status.isPreRun} insights={nodeInsights} />
+        {/* ⭐ THE BODY DECIDES WHO LEADS, BECAUSE ONLY THE BODY SEES BOTH.
+            The strip has no access to the view model and must not grow one —
+            the same rule `insights` already follows. `panelHasConclusion` is the
+            single owner of the question; `AtAGlance` asks it too, and neither
+            re-types the expression. */}
+        <ModelStrip
+          isPreRun={vm.status.isPreRun}
+          insights={nodeInsights}
+          answerLeads={panelHasConclusion(vm.atAGlance)}
+        />
 
         {/* ── FOCUS NOW ──────────────────────────────────────────────────────
             ⭐ THE PROTOTYPE'S PRIMARY ACTION, AND IT WAS BUILT ON THE WRONG TAB.

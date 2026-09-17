@@ -272,9 +272,20 @@ export const typography = {
   //
   // The rejected token promoted A NUMBER: the largest type in the product, on
   // a figure computed partly from values Olumi invented rather than the user.
-  // `reasoningLead` carries WORDS THE USER OR THEIR MODEL AUTHORED — the decision
-  // being considered — and it can never carry a figure, because its only
-  // consumer is the model strip's subject line.
+  // `reasoningLead` carries WORDS THE USER OR THEIR MODEL AUTHORED — the
+  // decision being considered, or the option the run concluded for — and it can
+  // never carry a figure.
+  //
+  // ⚠⚠ AMENDED 17 Sep 2026, BECAUSE THIS SAID "its only consumer is the model
+  // strip's subject line" AND THAT IS NO LONGER TRUE. There are two consumers,
+  // and the rule is now a COUNT rather than a place: **exactly one element
+  // carries this token at a time** — the glance headline when the run reached a
+  // conclusion, the strip's subject line when it did not. Paul's ruling, same
+  // day: the slot means "the most important thing on this panel right now".
+  // `panelLead.ts` owns the predicate that decides, and
+  // `theLargestTypeIsTheAnswer.spec.tsx` REDs on two leads as loudly as on none.
+  // The "never a figure" ruling is untouched: a conclusion is an option's NAME,
+  // not its win share.
   //
   // WHY A STEP WAS NEEDED AT ALL, measured on deployed `d135ff7e`: the whole
   // Reasoning panel rendered at 14/12/11 with SIX different strings tied for
@@ -298,7 +309,7 @@ export const typography = {
   // by the name — `reasoning-panel-render-discipline` RULE A governs what may
   // render on a panel surface, and this token is declared there, which is the
   // guard that actually answers "is a fourth size on screen?".
-  reasoningLead: 'text-lg font-semibold font-sans leading-snug', // 18px — the Reasoning panel's subject line ONLY
+  reasoningLead: 'text-lg font-semibold font-sans leading-snug', // 18px — the Reasoning panel's ONE lead: its conclusion, else its subject
 
   // Utility
   screenReaderOnly: 'sr-only',
