@@ -167,6 +167,20 @@
   # `[build.environment]`. See src/flags.ts `heroFixtureGallery`.
   VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
 
+  # Internal dev routes — /#/dev/* (hero gallery, reasoning prototype).
+  # ⭐ STAGING ONLY, AND IT IS THE GATE THAT WAS ACTUALLY CLOSED. The hero
+  # gallery flag above is necessary but NOT sufficient: since tester-safe
+  # routing, every /dev/* path sits behind `devRoutes` at the ROUTE
+  # (src/poc/AppPoC.tsx) as well as behind its own flag inside the component.
+  # With this unset, /#/dev/reasoning-prototype REDIRECTS to "/" — which lands
+  # on the sign-in page and reads as "you must sign in", though the route needs
+  # no auth at all (measured 17 Sep: rendered with zero auth keys in storage).
+  # Setting it here replaces a localStorage incantation nobody should have to
+  # remember with a link that simply opens.
+  # ⛔ NEVER ADD TO `[build.environment]` — production and deploy previews must
+  # stay off, exactly as the hero gallery above.
+  VITE_ENABLE_DEV_ROUTES = "1"
+
   # ---------------------------------------------------------------------------
   # Dashboard-set flags recorded 2026-07-28 (ROADMAP 2.107).
   #
