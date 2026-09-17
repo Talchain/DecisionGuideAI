@@ -46,6 +46,7 @@ import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
+import { useReadinessStore, selectOptionExclusionMessage } from '../stores/readinessStore'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NODE_QUICK_ACTION_BAND_PX, CANVAS_CORNER_STACK_CLASSES } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
@@ -483,6 +484,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * unknown.
    */
   const lodBodyBlanked = bodyReduced && lodBodyLine !== null
+
+  /**
+   * ⭐ WILL THE RUN LEAVE THIS OPTION OUT? A DIFFERENT QUESTION FROM THE ONE
+   * BELOW, AND THE REASON IT IS ASKED SEPARATELY.
+   *
+   * `isIncomplete` asks *"has the user set values on this?"*. This asks *"is
+   * the analysis going to proceed without it?"*. They are related and they are
+   * NOT the same fact — an option can need input and still be included, and CEE
+   * can waive one for reasons this component cannot see. Deriving the second
+   * from the first is the two-questions-one-name defect (trap 21), so the
+   * answer is READ from the producer's stamp and never computed here.
+   *
+   * `null` = not excluded. A string = excluded, carrying CEE's own sentence
+   * (possibly empty). Tested against `null`, never truthiness, because an
+   * excluded option with no message is still excluded.
+   *
+   * The selector is memoised on `id` because it is a factory: a fresh closure
+   * each render makes zustand treat every render as a new subscription.
+   */
+  const exclusionSelector = useMemo(() => selectOptionExclusionMessage(id), [id])
+  const exclusionMessage = useReadinessStore(exclusionSelector)
+  // Only options carry this claim. The selector matches on `option_id`, so a
+  // factor whose id somehow collided would otherwise inherit an option's
+  // exclusion — bound to the node type here rather than trusting id spaces.
+  const isExcludedFromAnalysis = nodeType === 'option' && exclusionMessage !== null
 
   const isIncomplete = (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
@@ -1346,12 +1372,36 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             ONE of the two surfaces offers a route, and this pill states the fact
             alone — which is the honest thing for an inert destination, and is the
             whole reason it needs no action. */}
-        {isIncomplete && (
+        {/* ⭐ EXCLUSION OUTRANKS "NEEDS INPUT", AND IT REPLACES IT RATHER THAN
+            STACKING BESIDE IT. Two reasons, one of them structural:
+
+            · It states the CONSEQUENCE rather than the cause. "Needs input"
+              tells a user something is missing; "Not in this analysis" tells
+              them what that costs them, and carries the cause in its title —
+              CEE's OWN sentence, not one this component composed.
+            · The corner stack is pinned at three children by
+              `BaseNode.cornerStack.spec.tsx`. A fourth child is a breaking
+              change to a deliberate layout constraint, and this claim does not
+              need one: the two pills answer questions in the same family and
+              the stronger one subsumes the weaker.
+
+            ⚠ The title falls back only when CEE sent an EMPTY message. It is
+            never used to manufacture a reason — the pill states the exclusion,
+            which CEE stamped, and nothing about why beyond what CEE said. */}
+        {isExcludedFromAnalysis ? (
+          <StatusPill
+            testId="excluded-from-analysis-pill"
+            label="Not in this analysis"
+            title={exclusionMessage !== null && exclusionMessage !== ''
+              ? exclusionMessage
+              : 'The analysis will run without this option'}
+          />
+        ) : isIncomplete ? (
           <StatusPill
             label="Needs input"
             title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
           />
-        )}
+        ) : null}
 
         {/* Sensitivity rank badge — Results mode, top 3 factors. */}
         {typeof displayMetadata.sensitivityRank === 'number' && (
