@@ -85,10 +85,19 @@ const HALF = 'w-1/2 flex items-center'
  * a judgement. The same defect class as every fabricated metric this panel
  * has removed, arriving through colour instead of through a number.
  *
- * ⭐ AND NOTHING IS LOST, BECAUSE DIRECTION IS ALREADY CARRIED TWICE: the bar
- * sits on its own side of the zero line (which is what a diverging chart IS —
- * the axis carries the sign), and the row states the direction in words below.
- * Colour was the third encoding and the only one that added a claim.
+ * ⭐ AND NOTHING IS LOST, BUT MY FIRST DRAFT OF THIS CLAUSE WAS FALSE AND AN
+ * INDEPENDENT REVIEW CAUGHT IT. It said "direction is already carried twice …
+ * the row states the direction in words below". At that head it did not:
+ * `data-direction` carries no accessibility semantics, BOTH bars sit inside an
+ * `aria-hidden` span, and the only direction sentence is the `null` arm — the
+ * one arm this change does not touch. The real before was TWO VISUAL
+ * encodings, and zero for assistive tech either way.
+ *
+ * So the sentence is now true by construction rather than by assertion: a
+ * visually hidden span on the row carries the side, using the axis legend's own
+ * copy constants. Direction is carried twice for a sighted reader (the side of
+ * the zero line, which is what a diverging chart IS) and once for everyone
+ * else. Colour was the third encoding and the only one that added a claim.
  *
  * ⚠ INK, NOT A STATUS TOKEN, and deliberately not `bg-primary` either — that
  * is `ACTION_TIER.primary`, the panel's one act, and a chart bar is not an
@@ -255,6 +264,42 @@ export function DriverInfluenceChart({
                     The ordering half is true and is the whole justification.
                     Consequence, stated rather than hidden: AT gets the RANK of
                     each driver and never its MAGNITUDE. */}
+                {/* ⭐⭐ THE SIDE, FOR EVERYONE — and it was reaching NOBODY who
+                    cannot see the bar. Measured at this head by an independent
+                    reviewer: `data-direction` has no accessibility semantics,
+                    BOTH bars sit inside the `aria-hidden` span directly below,
+                    and the only direction sentence on this surface is the
+                    `direction === null` arm further down. So on a positive or
+                    negative row, assistive tech received the factor's name and
+                    its rank, and NEVER which way it pushes.
+
+                    ⛔ THIS IS ALSO WHAT MAKES THE HUE REMOVAL SAFE, and my own
+                    first version of that change asserted it was already true.
+                    It was not: the file's axis comment says "the side IS the
+                    word", which is exactly the point — the side was carried
+                    only by geometry, and geometry is what `aria-hidden` hides.
+                    With this span the direction is carried twice for a sighted
+                    reader and once for everyone else, so dropping the third
+                    encoding costs nothing BY MEASUREMENT rather than by claim.
+
+                    ⚠ DIRECTION ONLY, NEVER THE MAGNITUDE. This chart refuses a
+                    percentage axis because the bars are scaled to the strongest
+                    driver in this run, so a bare "33%" would assert a share of
+                    the outcome — the claim the builder declines to make. The
+                    AT-magnitude gap noted below is therefore still open, and
+                    deliberately: closing it needs a phrasing that is true of a
+                    relative scale, which is a separate piece of work.
+
+                    ⚠ AN ADDITION TO THE NAME, NOT A SUBSTITUTION. An
+                    `aria-label` here would REPLACE the visible label and break
+                    label-in-name (SC 2.5.3); a visually hidden span appends to
+                    it. Same copy constants the axis legend renders, so the two
+                    can never drift into two spellings of one fact. */}
+                {row.direction !== null ? (
+                  <span className="sr-only" data-testid={`${testId}-direction-sr`}>
+                    {row.direction === 'negative' ? COPY.driverChart.lowers : COPY.driverChart.raises}
+                  </span>
+                ) : null}
                 <span className="flex items-stretch h-2 mt-0.5" aria-hidden="true">
                   <span className={`${HALF} justify-end`}>
                     {row.direction === 'negative' ? (

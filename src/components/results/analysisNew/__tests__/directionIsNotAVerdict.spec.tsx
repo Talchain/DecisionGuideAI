@@ -94,6 +94,52 @@ describe('a driver bar states a side, not a verdict', () => {
   })
 
   /**
+   * ⭐⭐ THE SAFETY ARGUMENT, MADE TRUE BY MEASUREMENT INSTEAD OF BY CLAIM.
+   *
+   * Removing the hue is only harmless if the side is carried elsewhere. My
+   * first version of this change ASSERTED that in a comment and was wrong:
+   * both bars sit inside an `aria-hidden` span, `data-direction` carries no
+   * accessibility semantics, and the only direction sentence is the `null`
+   * arm this change does not touch. An independent reviewer measured it.
+   *
+   * These two cases are the measurement. They are a DISCRIMINATING PAIR: each
+   * row must carry its OWN side and not the other one, so a single constant
+   * appended to every row cannot pass them.
+   */
+  it('⭐ the LOWERS row states its side in the accessible name, and not the other side', () => {
+    draw([row({ id: 'cost', label: 'Unit cost', direction: 'negative' })])
+    const btn = screen.getByTestId(`${TID}-bar`)
+    const name = btn.textContent ?? ''
+    expect(name).toMatch(/lowers the goal/i)
+    expect(name).not.toMatch(/raises the goal/i)
+    // An ADDITION, not a substitution: the visible label must survive in the
+    // name, or this breaks label-in-name (SC 2.5.3) while looking correct.
+    expect(name).toMatch(/Unit cost/)
+  })
+
+  it('⭐ the RAISES row states the opposite side — one constant on every row cannot pass both', () => {
+    draw([row({ id: 'cap', label: 'Sales capacity', direction: 'positive' })])
+    const name = screen.getByTestId(`${TID}-bar`).textContent ?? ''
+    expect(name).toMatch(/raises the goal/i)
+    expect(name).not.toMatch(/lowers the goal/i)
+    expect(name).toMatch(/Sales capacity/)
+  })
+
+  /**
+   * ⛔ AND THE ARM THAT MUST STAY SILENT. A row the producer gave no direction
+   * already renders its own visible sentence, which assistive tech receives.
+   * Adding a side here would invent one the producer declined to assert.
+   */
+  it('⛔ a row with NO direction gets no side added — the producer declined to assert one', () => {
+    draw([row({ id: 'amb', label: 'Ambiguous factor', direction: null })])
+    const name = screen.getByTestId(`${TID}-bar`).textContent ?? ''
+    expect(name).not.toMatch(/lowers the goal/i)
+    expect(name).not.toMatch(/raises the goal/i)
+    // Contrast in the same run: the row IS rendered and DOES say something.
+    expect(name).toMatch(/Ambiguous factor/)
+  })
+
+  /**
    * ⚠ THE BAR MUST NOT BECOME THE ZERO LINE. The line is the reference the
    * whole chart depends on — a bar's side and length mean nothing without it —
    * so the ink chosen here has to stay distinguishable from it. This is the
