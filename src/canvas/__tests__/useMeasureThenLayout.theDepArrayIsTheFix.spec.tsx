@@ -53,12 +53,29 @@ const lookup = new Map<string, LookupEntry>()
 /** The live camera. `transform[2]` is the zoom, exactly as React Flow stores it. */
 const transform: [number, number, number] = [0, 0, 1]
 
+/**
+ * ⭐⭐ TWO HEIGHT AUTHORITIES, MODELLED SEPARATELY — WHICH IS THE ENTIRE POINT.
+ *
+ * `lookup` carries the LIVE height, which moves with the camera because the
+ * canvas type tokens multiply by `--canvas-label-scale`. `boundHeights` carries
+ * what `measureNodeHeightsAtLabelBound()` returns: the height at a CONSTANT
+ * scale, which is what `store.ts` passes to the layout and what
+ * `utils/layout.ts:609-612` prefers.
+ *
+ * ⛔ A FIXTURE WITH ONLY ONE OF THESE CANNOT EXPRESS THE DEFECT, and mine had
+ * only one. That is why two reviews had to find it instead of this file.
+ */
+const boundHeights = new Map<string, number>()
+
 vi.mock('@xyflow/react', () => ({
   useNodesInitialized: () => true,
   useStore: <T,>(selector: (s: RFState) => T) => selector({ nodeLookup: lookup, transform }),
 }))
 vi.mock('../layout/handleLayoutWithRecovery', () => ({
   handleLayoutWithRecovery: vi.fn(),
+}))
+vi.mock('../utils/measureNodeHeightsAtLabelBound', () => ({
+  measureNodeHeightsAtLabelBound: () => new Map(boundHeights),
 }))
 vi.mock('../../lib/logger', () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -81,6 +98,9 @@ describe('the dep-array entry is the fix, and removing it REDs here', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     lookup.clear()
+    boundHeights.clear()
+    boundHeights.set('opt', 160)
+    boundHeights.set('fac', 108)
     transform[2] = 1
     lookup.set('opt', { measured: { width: 336, height: 160 } })
     lookup.set('fac', { measured: { width: 336, height: 108 } })
@@ -156,52 +176,91 @@ describe('the dep-array entry is the fix, and removing it REDs here', () => {
    * whose fixture cannot express the failure mode is not a lenient guard; it is
    * a blind one.
    */
-  it('⛔ THE NEGATIVE CONTROL: a zoom-only height change lays out NOTHING', () => {
+  /**
+   * ⛔⛔ THE TWO SCHEDULES A RETURNED REVIEW EXECUTED AGAINST MY FIRST FIX.
+   *
+   * That fix filtered the live height by watching the label scale. It was wrong
+   * in BOTH directions, and neither could be seen by a fixture that changed
+   * transform and heights before one rerender — which is exactly what this file
+   * used to do. `CanvasLabelScaleSync` writes the CSS variable from an effect
+   * AFTER the transform state changes, and React Flow's ResizeObserver then
+   * updates node dimensions in a separate emission. They are not one
+   * notification.
+   *
+   * Reading the bound height makes the schedule irrelevant, which is why these
+   * two cases and the co-emitted growth case below can all hold at once.
+   */
+  it('⛔ SCHEDULE 1 — transform first, zoom-induced heights LATER: still lays out nothing', () => {
     const { rerender } = renderHook(() => useMeasureThenLayout())
-    expect(layoutCalls(), 'the hook must lay out on first render, or this proves nothing').toBeGreaterThan(0)
-    settleLayout()
-    rerender()
+    expect(layoutCalls()).toBeGreaterThan(0)
+    settleLayout(); rerender()
     const settled = layoutCalls()
 
-    // One real growth, so the correction arm is engaged and baselined. Without
-    // this the assertion below could pass because the arm never runs at all.
-    lookup.get('opt')!.measured!.height = 200
-    rerender()
-    const afterGrowth = layoutCalls()
-    expect(afterGrowth, 'precondition: the growth-correction arm is engaged').toBeGreaterThan(settled)
-    settleLayout()
-    rerender()
-    const beforeZoom = layoutCalls()
-
-    // NOW the camera moves, and every card's live height moves with it — which
-    // is exactly what a real zoom does. Nothing about the content changed.
+    // (a) the transform notification, with the old dimensions still in the store
     transform[2] = 0.5
-    lookup.get('opt')!.measured!.height = 410   // ×2.05, the measured band
+    rerender()
+    expect(layoutCalls(), 'the transform-only notification does not require a layout').toBe(settled)
+
+    // (b) the ResizeObserver emission that follows it — same content, same Map
+    lookup.get('opt')!.measured!.height = 328
+    lookup.get('fac')!.measured!.height = 221
+    rerender()
+    expect(
+      layoutCalls(),
+      'the zoom-induced heights arrived a tick later and were read as growth — this is the 2-calls-vs-1 case',
+    ).toBe(settled)
+  })
+
+  it('⛔ SCHEDULE 2 — content growth CO-EMITTED with a zoom is not absorbed', () => {
+    const { rerender } = renderHook(() => useMeasureThenLayout())
+    expect(layoutCalls()).toBeGreaterThan(0)
+    settleLayout(); rerender()
+    const settled = layoutCalls()
+
+    // Real content growth AND a zoom in one emission. The bound height moves
+    // because the CONTENT moved; the extra is the camera.
+    boundHeights.set('opt', 260)
+    transform[2] = 0.5
+    lookup.get('opt')!.measured!.height = 560
     lookup.get('fac')!.measured!.height = 221
     rerender()
 
     expect(
       layoutCalls(),
-      'a zoom re-laid out the model: the wake is bound to the live height, which is a function of ' +
-        'the camera, rather than to the height the layout actually reserves',
-    ).toBe(beforeZoom)
+      'a genuinely taller card was recorded as already laid out because a zoom rode along — ' +
+        'the correction is absorbed and no later emission can recover it',
+    ).toBeGreaterThan(settled)
   })
 
-  it('⭐ ITS POSITIVE TWIN: real growth at an UNCHANGED zoom still wakes the layout', () => {
-    // The pair is the point. The negative alone is satisfied by a hook that
-    // never lays out at all; this proves the gate suppresses zoom and nothing else.
+  it('⛔ ZOOM-ONLY, BATCHED IN ONE EMISSION: lays out nothing', () => {
     const { rerender } = renderHook(() => useMeasureThenLayout())
     expect(layoutCalls()).toBeGreaterThan(0)
-    settleLayout()
-    rerender()
+    settleLayout(); rerender()
     const settled = layoutCalls()
 
+    transform[2] = 0.5
+    lookup.get('opt')!.measured!.height = 328
+    lookup.get('fac')!.measured!.height = 221
+    rerender()
+
+    expect(layoutCalls(), 'a zoom re-laid out the model').toBe(settled)
+  })
+
+  it('⭐ THE POSITIVE TWIN: real growth at an UNCHANGED zoom still wakes the layout', () => {
+    // Without this the three negatives above are all satisfied by a hook that
+    // never lays out at all.
+    const { rerender } = renderHook(() => useMeasureThenLayout())
+    expect(layoutCalls()).toBeGreaterThan(0)
+    settleLayout(); rerender()
+    const settled = layoutCalls()
+
+    boundHeights.set('opt', 320)
     lookup.get('opt')!.measured!.height = 320
     rerender()
 
     expect(
       layoutCalls(),
-      'content grew at an unchanged zoom and nothing re-laid out — the gate is suppressing too much',
+      'content grew at an unchanged zoom and nothing re-laid out — the gate suppresses too much',
     ).toBeGreaterThan(settled)
   })
 
