@@ -239,10 +239,45 @@ const openDrivers = () => {
   )
 }
 
-const caveatNode = (data: ResultsSectionDataReturn): HTMLElement => {
+/**
+ * ⭐⭐ THE THREE PLACES A CLAUSE CAN NOW LIVE, AND THE ASSERTIONS NAME WHICH.
+ *
+ * Until 17 Sep 2026 these clauses were one string in one slot, so every case
+ * here read `${SECTION}-caveat` and asked "is the sentence in the blob". The
+ * approved prototype's Move 5 routes each clause ONTO the thing it qualifies —
+ * the scale denial under the chart's scale legend, the top-bar claim on the top
+ * row, and the exclusion alone in the section slot.
+ *
+ * ⛔ THIS IS A STRENGTHENING, NOT AN ACCOMMODATION, AND THE DISTINCTION IS THE
+ * WHOLE RISK OF THAT MOVE. The lazy rebinding is a UNION — "the sentence is
+ * somewhere in the open section" — which would pass if a clause landed on the
+ * wrong number, which is precisely the failure a relocation can cause. Each
+ * assertion below names the ONE node its clause must be on, so a clause that
+ * moved to the wrong home REDs rather than passing.
+ *
+ * `region` is retained for ABSENCE claims only: "this run says nothing about
+ * 100%" is a claim about the whole open section, not about one node.
+ */
+interface CaveatParts {
+  /** Under the chart's scale legend. Denies a reading of the SCALE. */
+  scale: HTMLElement | null
+  /** On row index 0. A claim about the FIRST row's figure. */
+  topRow: HTMLElement | null
+  /** The section slot above the chart. What is missing from the ranking. */
+  section: HTMLElement | null
+  /** The whole open section, for absence claims. */
+  region: HTMLElement
+}
+
+const caveatParts = (data: ResultsSectionDataReturn): CaveatParts => {
   renderBody(data)
   openDrivers()
-  return screen.getByTestId(`${SECTION}-caveat`)
+  return {
+    scale: screen.queryByTestId('analysis-new-driver-chart-scale-note'),
+    topRow: screen.queryByTestId('analysis-new-driver-chart-top-row-note'),
+    section: screen.queryByTestId(`${SECTION}-caveat`),
+    region: screen.getByTestId(`${SECTION}-region`),
+  }
 }
 
 beforeEach(() => {
@@ -313,16 +348,25 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
   })
 
   it('the caveat discloses the guaranteed 100% WHERE THE 100% IS ACTUALLY SHOWN', () => {
-    const caveat = caveatNode(producerNormalisedRun())
-    // POSITIVE CONTROL: a caveat that rendered empty would satisfy nothing
-    // below by accident, and an absent one throws above (trap 13).
-    expect(caveat.textContent ?? '', 'the caveat rendered empty').not.toBe('')
-    expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
-    expect(caveat).toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    const { scale, topRow, region } = caveatParts(producerNormalisedRun())
+    // POSITIVE CONTROL: a node that rendered empty would satisfy nothing below
+    // by accident, and an absent one fails here rather than silently (trap 13).
+    expect(scale, 'the scale denial must render').not.toBeNull()
+    expect(scale!.textContent ?? '', 'the scale note rendered empty').not.toBe('')
+    expect(scale!).toHaveTextContent(SCALE_IS_RELATIVE)
+    // ⭐ ON THE TOP ROW, NOT ANYWHERE IN THE SECTION. The clause is about ONE
+    // row's figure; a union assertion would pass with it on the wrong row.
+    expect(topRow, 'the guarantee must render on the top row').not.toBeNull()
+    expect(topRow!).toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    expect(
+      screen.getAllByTestId(`${SECTION}-row`)[0]!.contains(topRow!) ||
+        screen.getAllByTestId('analysis-new-driver-chart-row')[0]!.contains(topRow!),
+      'the clause must sit on the FIRST row, which is the row it is about',
+    ).toBe(true)
     // ⭐ BOUND TO THE NUMBER THE SENTENCE IS ABOUT. Without this the case
     // passes on any run at all, which is how the false promise survived.
     expect(
-      screen.getByTestId(`${SECTION}-region`).textContent ?? '',
+      region.textContent ?? '',
       'the promise must sit beside a row that actually reads 100%',
     ).toContain('Relative influence 100%')
   })
@@ -334,11 +378,19 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
    * cannot otherwise account for: a full-width bar on a row that is not 100%.
    */
   it('the guarantee is WITHHELD when the producer\'s strongest row was filtered out', () => {
-    const caveat = caveatNode(strongestRowSuppressed())
-    expect(caveat.textContent ?? '', 'the caveat rendered empty').not.toBe('')
-    expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
-    expect(caveat, 'the false promise must not render').not.toHaveTextContent(HUNDRED_IS_GUARANTEED)
-    expect(caveat).toHaveTextContent(BAR_IS_STRONGEST_SHOWN)
+    const { scale, topRow, region: reg } = caveatParts(strongestRowSuppressed())
+    expect(scale, 'the scale denial is unconditional and must still render').not.toBeNull()
+    expect(scale!).toHaveTextContent(SCALE_IS_RELATIVE)
+    expect(topRow, 'the top-row clause must still render, in its other form').not.toBeNull()
+    expect(topRow!, 'the false promise must not render').not.toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    expect(topRow!).toHaveTextContent(BAR_IS_STRONGEST_SHOWN)
+    // ⛔ AND NOWHERE ELSE EITHER. Binding the absence to one node would let the
+    // false promise survive by moving; this asserts it against the whole open
+    // section, which is the right scope for an absence.
+    expect(
+      reg.textContent ?? '',
+      'the false promise must not appear anywhere in the open section',
+    ).not.toContain(HUNDRED_IS_GUARANTEED)
 
     /* ⚠ PIN THE PRECONDITION IN-TEST (trap 13b): assert the payload really
        does render the contradicting number, so a green result is the code's
@@ -391,17 +443,24 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
       'the caveat is a claim about the TOP row — moving a lower one must not change it',
     ).toBe(100)
 
-    const caveat = caveatNode(shifted)
-    expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
-    expect(caveat, 'and the guarantee still renders, unmoved').toHaveTextContent(HUNDRED_IS_GUARANTEED)
+    const { scale, topRow } = caveatParts(shifted)
+    expect(scale!).toHaveTextContent(SCALE_IS_RELATIVE)
+    expect(topRow, 'and the guarantee still renders, unmoved').not.toBeNull()
+    expect(topRow!).toHaveTextContent(HUNDRED_IS_GUARANTEED)
   })
 
   it('says nothing about 100% on a basis that renders no figure', () => {
-    const caveat = caveatNode(highUncertainty())
-    expect(caveat.textContent ?? '', 'the caveat rendered empty').not.toBe('')
-    expect(caveat).toHaveTextContent(SCALE_IS_RELATIVE)
-    expect(caveat).not.toHaveTextContent(HUNDRED_IS_GUARANTEED)
-    expect(caveat).not.toHaveTextContent(BAR_IS_STRONGEST_SHOWN)
+    const { scale, topRow, region: reg } = caveatParts(highUncertainty())
+    expect(scale, 'the scale denial must still render').not.toBeNull()
+    expect(scale!.textContent ?? '', 'the scale note rendered empty').not.toBe('')
+    expect(scale!).toHaveTextContent(SCALE_IS_RELATIVE)
+    // ⭐ THE STRONGEST FORM THE SPLIT MAKES AVAILABLE: the top-row node is not
+    // merely silent, it does not exist. A clause with nothing to say renders no
+    // element, so there is no node for a later change to quietly fill.
+    expect(topRow, 'a basis with no figure earns no top-row clause at all').toBeNull()
+    const regText = reg.textContent ?? ''
+    expect(regText).not.toContain(HUNDRED_IS_GUARANTEED)
+    expect(regText).not.toContain(BAR_IS_STRONGEST_SHOWN)
     expect(
       screen.getByTestId(`${SECTION}-region`).textContent ?? '',
       'PRECONDITION: this basis renders a rank claim, not a percentage',
@@ -430,11 +489,28 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
     renderBody(openStrategicChallenge())
     openDrivers()
     const region = screen.getByTestId(`${SECTION}-region`)
-    const caveat = screen.getByTestId(`${SECTION}-caveat`)
     const rows = screen.getAllByTestId(`${SECTION}-row`)
+    /* ⭐ EVERY CLAUSE THAT RENDERS, NOT JUST THE ONE THAT USED TO. The move
+       created three homes, and the "same depth as the number" rule applies to
+       all three — a clause relocated behind a disclosure would be exactly the
+       regression this case exists to catch, and a check on one node would miss
+       it on the other two. */
+    const placed = [
+      ['scale note', screen.queryByTestId('analysis-new-driver-chart-scale-note')],
+      ['top-row note', screen.queryByTestId('analysis-new-driver-chart-top-row-note')],
+      ['section caveat', screen.queryByTestId(`${SECTION}-caveat`)],
+    ].filter((e): e is [string, HTMLElement] => e[1] !== null)
 
     expect(rows.length, 'PRECONDITION: the section must render rows').toBeGreaterThan(0)
-    expect(region.contains(caveat), 'the caveat must render inside the open section').toBe(true)
+    expect(placed.length, 'PRECONDITION: at least one clause must render').toBeGreaterThan(0)
+    for (const [name, node] of placed) {
+      expect(region.contains(node), `the ${name} must render inside the open section`).toBe(true)
+      expect(
+        node.closest(`[data-testid="${SECTION}-detail"]`),
+        `the ${name} must not be behind a row disclosure`,
+      ).toBeNull()
+    }
+    const caveat = placed[0]![1]
     expect(region.contains(rows[0]!), 'the rows must render inside the same region').toBe(true)
     // The opposite-direction twin: not tucked into a row's level-2 detail,
     // which is where the QUANTITY answer lives and where this one must not.
@@ -451,10 +527,50 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
    * driver always shows 100%" is true on both bases by construction; naming a
    * quantity here would not be.
    */
+  /**
+   * ⛔⛔ THE ONE DECISION IN MOVE 5 THAT NOTHING ELSE GUARDS.
+   *
+   * The scale note sits directly beneath the chart's scale LEGEND, and that
+   * legend is `aria-hidden` for a good reason: it labels the endpoints of a
+   * graphic assistive tech never receives. Copying that attribute onto the
+   * sentence below it is the obvious, plausible, silent mistake — and it would
+   * withhold the qualification from exactly the readers who cannot see the
+   * bars and therefore need it most.
+   *
+   * ⚠ NEITHER `toHaveTextContent` NOR ANY OTHER ASSERTION IN THIS FILE CAN SEE
+   * IT: the node still renders and still carries the words. Only an explicit
+   * check on the attribute, and on the ancestors that could hide it, can.
+   */
+  it('⛔ the scale denial is NOT hidden from assistive tech, unlike the legend above it', () => {
+    const { scale, region } = caveatParts(producerNormalisedRun())
+    expect(scale, 'PRECONDITION: the scale note must render').not.toBeNull()
+    expect(scale!.getAttribute('aria-hidden'), 'the sentence must not be hidden').toBeNull()
+    // ⚠ AND NOT HIDDEN BY AN ANCESTOR EITHER — an attribute on the node is not
+    // the whole question, because `aria-hidden` inherits down the tree.
+    let node: HTMLElement | null = scale!
+    while (node !== null && node !== region) {
+      expect(
+        node.getAttribute('aria-hidden'),
+        'an ancestor hides the scale sentence from assistive tech',
+      ).not.toBe('true')
+      node = node.parentElement
+    }
+    // CONTRAST IN THE SAME RUN: the legend directly above it IS hidden, so this
+    // is a discrimination between two adjacent nodes and not a probe that
+    // cannot find `aria-hidden` anywhere.
+    expect(
+      screen.getByTestId('analysis-new-driver-chart-scale').getAttribute('aria-hidden'),
+      'CONTRAST: the scale legend is hidden, which is what makes the above meaningful',
+    ).toBe('true')
+  })
+
   it('DISCRIMINATOR: the addition is a scale fact, not a quantity claim', () => {
     for (const data of [openStrategicChallenge(), highUncertainty()]) {
-      const text = caveatNode(data).textContent ?? ''
-      expect(text, 'PRECONDITION: the caveat must have rendered').not.toBe('')
+      const parts = caveatParts(data)
+      const text = [parts.scale, parts.topRow, parts.section]
+        .map((n) => n?.textContent ?? '')
+        .join(' ')
+      expect(text.trim(), 'PRECONDITION: at least one clause must have rendered').not.toBe('')
       expect(text).not.toContain("Olumi's structural influence score")
       expect(text).not.toContain('factor sensitivity')
       cleanup()

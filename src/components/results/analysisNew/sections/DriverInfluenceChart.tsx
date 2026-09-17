@@ -57,6 +57,32 @@ export interface DriverInfluenceChartProps {
   onFocusTarget?: (targetId: string) => void
   /** Report the outcome of a commit. The caller owns the toast vocabulary. */
   onCommitOutcome: (outcome: 'dispatched' | 'local_only' | 'not_encodable') => void
+  /**
+   * ⭐⭐ THE SCALE DENIAL, ATTACHED TO THE SCALE RATHER THAN STACKED ABOVE IT.
+   *
+   * It used to be the first clause of a 32-word paragraph above the chart —
+   * measured on the served build, 49px of prose over two bars. Every clause in
+   * that paragraph was true and was fought for, and read as a block none of
+   * them was read at all.
+   *
+   * ⛔ IT DOES NOT MOVE BEHIND A DISCLOSURE. A caveat that does not travel with
+   * its number stops being a caveat. It moves ONTO the thing it qualifies: this
+   * sentence denies a reading of the SCALE, so it belongs under the scale.
+   *
+   * ⚠ THE CALLER OWNS THE WORDS. This component never composes the sentence —
+   * it is `analysisNewCopy`'s, and `driversSeamSaysOneThing` bans a second
+   * spelling of it anywhere in the tree.
+   */
+  scaleNote?: string | null
+  /**
+   * ⭐ THE CLAUSE ABOUT THE TOP BAR'S FIGURE, ATTACHED TO THE TOP BAR.
+   *
+   * ⚠ AND IT IS A CLAIM ABOUT ONE ROW, WHICH IS WHY IT MOVED. Above the chart
+   * it read as a property of the chart; it is a property of the FIRST row, and
+   * it is the row a reader is most likely to over-read. Rendered on that row
+   * and nowhere else.
+   */
+  topRowNote?: string | null
   testId: string
 }
 
@@ -111,6 +137,8 @@ export function DriverInfluenceChart({
   rows,
   onFocusTarget,
   onCommitOutcome,
+  scaleNote,
+  topRowNote,
   testId,
 }: DriverInfluenceChartProps) {
   /**
@@ -200,8 +228,24 @@ export function DriverInfluenceChart({
         <span className="w-1/2 text-right">{COPY.driverChart.axisEdgeRaises}</span>
       </div>
 
+      {/* ⭐⭐ THE SCALE DENIAL, UNDER THE SCALE IT DENIES A READING OF.
+          ⛔ NOT `aria-hidden`, and that is the one difference from the row
+          above it. The scale legend is hidden because it labels the endpoints
+          of a graphic assistive tech never receives; this is a sentence in
+          words qualifying a claim everyone is making, so hiding it would
+          withhold the qualification from exactly the readers who cannot see
+          the bars at all. */}
+      {scaleNote !== null && scaleNote !== undefined && scaleNote !== '' ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mb-1.5 px-0.5`}
+          data-testid={`${testId}-scale-note`}
+        >
+          {scaleNote}
+        </p>
+      ) : null}
+
       <ul className="space-y-1">
-        {rows.map((row) => {
+        {rows.map((row, rowIndex) => {
           const isEditing = editingFor === row.id
           /* ⚠ A SEPARATE DISCLOSURE FROM `isEditing`, NOT A REUSE OF IT. The
              row's own expand gesture already means "edit this value"; reading
@@ -345,6 +389,21 @@ export function DriverInfluenceChart({
                   </span>
                 ) : null}
               </button>
+
+              {/* ⭐⭐ THE "FULL WIDTH" CLAUSE, ON THE ROW IT IS ABOUT.
+                  ⚠ BOUND BY POSITION, NOT BY A VALUE PREDICATE (trap 19). The
+                  claim is about whichever row is drawn FIRST — the one whose
+                  bar reaches the edge because the scale is relative to it — so
+                  it binds to index 0 and never to "the row whose fraction is
+                  100", which a second row could satisfy after a rescale. */}
+              {rowIndex === 0 && topRowNote !== null && topRowNote !== undefined && topRowNote !== '' ? (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-0.5`}
+                  data-testid={`${testId}-top-row-note`}
+                >
+                  {topRowNote}
+                </p>
+              ) : null}
 
               {/* ⭐ DESIGN PICK C2 — TRUNCATE AND DISCLOSE, NEVER REWRITE.
                   Outside the row `<button>` because a nested button is invalid
