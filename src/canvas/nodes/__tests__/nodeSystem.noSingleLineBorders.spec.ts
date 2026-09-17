@@ -91,7 +91,54 @@ function sourceFiles(dir: string): string[] {
  * A guard that reddens on its own rationale is a guard people delete.
  */
 function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  /*
+   * ⚠ A SCANNER, NOT A REGEX — AND IT TRACKS STRING LITERALS, WHICH IS THE PART
+   * MY FIRST TWO ATTEMPTS BOTH GOT WRONG.
+   *
+   * Attempt 1 was `src.replace(/\/\*[\s\S]*?\*\//g, '')`. A `/*` inside a
+   * string literal opens a comment as far as that regex is concerned, so
+   * everything to the next close is blanked — including any real `border-t` in
+   * between. A FALSE NEGATIVE: the guard goes quiet about a live violation and
+   * nothing about the run looks different. It also collapsed lines, so every
+   * reported line number was wrong.
+   *
+   * Attempt 2 was character-by-character and fixed the line numbers — and was
+   * EXACTLY AS BLIND to string literals, because I had diagnosed the regex as
+   * the problem when the problem was not tracking quotes. Its own control test
+   * caught it, which is the only reason this note is here rather than a third
+   * silent hole. *A fix aimed at the mechanism you happened to notice is not a
+   * fix for the defect.*
+   *
+   * This tracks `'`, `"` and backtick strings (with escapes) and blanks only
+   * genuine comment bodies, newline-for-newline so line numbers are the file's.
+   */
+  let out = ''
+  let i = 0
+  let mode: 'code' | 'block' | 'line' | 'str' = 'code'
+  let quote = ''
+  while (i < src.length) {
+    const ch = src[i]
+    if (mode === 'code') {
+      if (src.startsWith('/*', i)) { mode = 'block'; out += '  '; i += 2; continue }
+      if (src.startsWith('//', i)) { mode = 'line'; out += '  '; i += 2; continue }
+      if (ch === "'" || ch === '"' || ch === '`') { mode = 'str'; quote = ch }
+      out += ch; i += 1; continue
+    }
+    if (mode === 'str') {
+      // A backslash escapes the next character, including the closing quote.
+      if (ch === '\\') { out += src.slice(i, i + 2); i += 2; continue }
+      if (ch === quote) { mode = 'code'; quote = '' }
+      out += ch; i += 1; continue
+    }
+    if (mode === 'block') {
+      if (src.startsWith('*/', i)) { mode = 'code'; out += '  '; i += 2; continue }
+      out += ch === '\n' ? '\n' : ' '; i += 1; continue
+    }
+    // line comment
+    if (ch === '\n') { mode = 'code'; out += '\n'; i += 1; continue }
+    out += ' '; i += 1
+  }
+  return out
 }
 
 
@@ -170,6 +217,19 @@ describe('node design system — rule 1: borders enclose, nothing is a single li
     for (const c of compliant) {
       expect(c.match(SINGLE_EDGE), `matcher false-positived on: ${c}`).toBeNull()
     }
+  })
+
+  it('the comment stripper preserves line numbers and does not eat string literals', () => {
+    // Line counts must hold, or every reported line number is wrong — the exact
+    // defect that made the first version of the rule-5 sweep unusable.
+    for (const f of sourceFiles(NODES_DIR)) {
+      const raw = readFileSync(f, 'utf8')
+      expect(code(raw).split('\n').length, `line drift in ${f}`).toBe(raw.split('\n').length)
+    }
+    // And the false-negative the regex version allowed: a `/*` inside a string
+    // must NOT swallow the code after it.
+    const tricky = 'const a = "/*"\nconst b = <div className="border-t" />\nconst c = "*/"'
+    expect(code(tricky)).toContain('border-t')
   })
 
   it('reads a non-empty file set (the sweep can see)', () => {

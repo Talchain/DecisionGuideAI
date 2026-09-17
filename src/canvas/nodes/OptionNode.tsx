@@ -1783,12 +1783,27 @@ export const OptionNode = memo((props: NodeProps) => {
            the TARGET FACTOR'S unit — rendered far below it. A reader met the
            score before the thing the score is about.
 
-           ⚠ HEIGHT-NEUTRAL, AND THAT IS ASSERTED RATHER THAN ASSUMED. The same
-           two blocks render, with the same margins (`mt-1.5` on each); only
-           their order changes. No gate, no copy and no formatter moved. A
-           reordering that changed the card's height would be a density change
-           wearing a legibility change's clothes, which shipped from this lane on
-           16 Sep at +30%.
+           ⛔ I CLAIMED THIS WAS HEIGHT-NEUTRAL. IT IS NOT. MEASURED: **+2px.**
+           The claim was read off the class strings — both blocks carry `mt-1.5`,
+           so swapping them "obviously" cannot move anything — and a two-minute
+           browser probe refuted it. Before the swap the two blocks sat ~270
+           lines apart with other content between them; after it they are
+           ADJACENT, so a different pair of vertical margins collapses (`mb-1` on
+           the win readout now meets the next block instead of the deltas' own
+           `mt-1.5`). Margin collapse is a function of ADJACENCY, which is
+           exactly what a reorder changes.
+
+           ⚠ A GREEN SUITE CANNOT SEE A PIXEL, and neither can reading the
+           classes. This lane shipped a +30% density regression on 16 Sep from
+           precisely this reasoning, under a fully green suite. Two pixels is not
+           that — but "+2px, measured" and "height-neutral, asserted" are
+           different kinds of statement and only one of them is evidence.
+
+           ⚠ BOUNDED: the delta applies only to a card that renders BOTH blocks.
+           On the deployed board today that is **0 of 3 options** — every one
+           carries `interventions: {}`, so no structured deltas render and the
+           reorder is inert. It becomes live when the producer starts sending
+           interventions, which is a CEE-side gap already routed.
 
            ⚠ AND IT IS A REORDER, NOT A PROMOTION: `structuredDeltaChipsRender`
            keeps its own gate, so a card with no structured deltas renders

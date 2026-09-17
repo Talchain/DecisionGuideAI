@@ -134,19 +134,52 @@ function clearing(threshold: number): string[] {
 // ── source scan ─────────────────────────────────────────────────────────────
 /** Blank comment bodies IN PLACE, so reported line numbers are the file's own. */
 function blankComments(src: string): string {
-  let out = '', i = 0, mode: 'none' | 'block' | 'line' = 'none'
+  /*
+   * ⚠ A SCANNER, NOT A REGEX — AND IT TRACKS STRING LITERALS, WHICH IS THE PART
+   * MY FIRST TWO ATTEMPTS BOTH GOT WRONG.
+   *
+   * Attempt 1 was `src.replace(/\/\*[\s\S]*?\*\//g, '')`. A `/*` inside a
+   * string literal opens a comment as far as that regex is concerned, so
+   * everything to the next close is blanked — including any real `border-t` in
+   * between. A FALSE NEGATIVE: the guard goes quiet about a live violation and
+   * nothing about the run looks different. It also collapsed lines, so every
+   * reported line number was wrong.
+   *
+   * Attempt 2 was character-by-character and fixed the line numbers — and was
+   * EXACTLY AS BLIND to string literals, because I had diagnosed the regex as
+   * the problem when the problem was not tracking quotes. Its own control test
+   * caught it, which is the only reason this note is here rather than a third
+   * silent hole. *A fix aimed at the mechanism you happened to notice is not a
+   * fix for the defect.*
+   *
+   * This tracks `'`, `"` and backtick strings (with escapes) and blanks only
+   * genuine comment bodies, newline-for-newline so line numbers are the file's.
+   */
+  let out = ''
+  let i = 0
+  let mode: 'code' | 'block' | 'line' | 'str' = 'code'
+  let quote = ''
   while (i < src.length) {
-    if (mode === 'none') {
+    const ch = src[i]
+    if (mode === 'code') {
       if (src.startsWith('/*', i)) { mode = 'block'; out += '  '; i += 2; continue }
       if (src.startsWith('//', i)) { mode = 'line'; out += '  '; i += 2; continue }
-      out += src[i]; i += 1
-    } else if (mode === 'block') {
-      if (src.startsWith('*/', i)) { mode = 'none'; out += '  '; i += 2; continue }
-      out += src[i] === '\n' ? '\n' : ' '; i += 1
-    } else {
-      if (src[i] === '\n') { mode = 'none'; out += '\n'; i += 1; continue }
-      out += ' '; i += 1
+      if (ch === "'" || ch === '"' || ch === '`') { mode = 'str'; quote = ch }
+      out += ch; i += 1; continue
     }
+    if (mode === 'str') {
+      // A backslash escapes the next character, including the closing quote.
+      if (ch === '\\') { out += src.slice(i, i + 2); i += 2; continue }
+      if (ch === quote) { mode = 'code'; quote = '' }
+      out += ch; i += 1; continue
+    }
+    if (mode === 'block') {
+      if (src.startsWith('*/', i)) { mode = 'code'; out += '  '; i += 2; continue }
+      out += ch === '\n' ? '\n' : ' '; i += 1; continue
+    }
+    // line comment
+    if (ch === '\n') { mode = 'code'; out += '\n'; i += 1; continue }
+    out += ' '; i += 1
   }
   return out
 }
@@ -246,6 +279,15 @@ describe('node design system — rule 5, measured', () => {
     expect(clearing(TEXT_THRESHOLD)).toEqual(['info'])
     // And the rule's own 3:1 claim, tested rather than repeated:
     expect(clearing(GRAPHIC_THRESHOLD)).toEqual(['info'])
+  })
+
+  it('the comment scanner preserves line numbers and does not eat string literals', () => {
+    for (const f of tsxFiles(NODES_DIR)) {
+      const raw = readFileSync(f, 'utf8')
+      expect(blankComments(raw).split('\n').length, `line drift in ${f}`).toBe(raw.split('\n').length)
+    }
+    const tricky = 'const a = "/*"\nconst b = <div className="text-warning" />\nconst c = "*/"'
+    expect(blankComments(tricky)).toContain('text-warning')
   })
 
   it('no node component paints TEXT in a semantic colour that fails 4.5:1', () => {
