@@ -238,7 +238,11 @@ describe('F · the three scenario classes (§24F)', () => {
       'Two factors could not be sampled to the requested precision.',
     )
     // The set-relative caveat fires, so no absolute causal-share claim stands.
-    expect(screen.getByTestId('analysis-new-drivers-caveat')).toHaveTextContent(
+    /* ⭐ IT LIVES ON THE CHART'S SCALE NOTE SINCE 17 Sep 2026. Move 5 routes
+       each clause onto the thing it qualifies; this one denies a reading of the
+       SCALE, so it renders under the scale legend rather than in the section's
+       caveat slot, which now carries the exclusion clause alone. */
+    expect(screen.getByTestId('analysis-new-driver-chart-scale-note')).toHaveTextContent(
       COPY.coverage.setRelativeInfluence,
     )
   })

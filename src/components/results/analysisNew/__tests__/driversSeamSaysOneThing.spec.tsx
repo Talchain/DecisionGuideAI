@@ -382,9 +382,16 @@ describe('the drivers section states which basis its magnitudes are on', () => {
     (data.drivers.drivers ?? []).map((d) => d.displayProvenance)
 
   const caveatText = (data: ResultsSectionDataReturn) => {
+    /* ⭐ THE BASIS LINE MOVED, 17 Sep 2026 — it is the chart's SCALE NOTE now,
+       not the section's caveat slot. Move 5 routes each clause onto the thing
+       it qualifies, and this one denies a reading of the SCALE, so it renders
+       under the scale legend. The section slot still exists and still carries
+       the EXCLUSION clause, which is why the cases below about dropped rows
+       read it and these do not. Reading the wrong one would make this file
+       assert the basis against a node that can no longer carry it. */
     renderBody(data)
     openDrivers()
-    return screen.getByTestId('analysis-new-drivers-caveat').textContent ?? ''
+    return screen.getByTestId('analysis-new-driver-chart-scale-note').textContent ?? ''
   }
 
   const findingsOf = (data: ResultsSectionDataReturn) =>
@@ -478,9 +485,16 @@ describe('theCaveatHasOneSourceOfTruth', () => {
   }
 
   const caveatOf = (data: ResultsSectionDataReturn) => {
+    /* ⭐ THE BASIS LINE MOVED, 17 Sep 2026 — it is the chart's SCALE NOTE now,
+       not the section's caveat slot. Move 5 routes each clause onto the thing
+       it qualifies, and this one denies a reading of the SCALE, so it renders
+       under the scale legend. The section slot still exists and still carries
+       the EXCLUSION clause, which is why the cases below about dropped rows
+       read it and these do not. Reading the wrong one would make this file
+       assert the basis against a node that can no longer carry it. */
     renderBody(data)
     openDrivers()
-    return screen.queryByTestId('analysis-new-drivers-caveat')?.textContent ?? ''
+    return screen.queryByTestId('analysis-new-driver-chart-scale-note')?.textContent ?? ''
   }
 
   it('the basis line is the set-relative sentence where bars are drawn, and NOTHING where they are not', () => {
@@ -831,7 +845,14 @@ describe('theBasisLineHasNoReferentWithoutBars', () => {
     return screen.getByTestId('analysis-new-drivers')
   }
 
-  const caveatNode = () => screen.queryByTestId('analysis-new-drivers-caveat')
+    /* ⭐ THE BASIS LINE MOVED, 17 Sep 2026 — it is the chart's SCALE NOTE now,
+       not the section's caveat slot. Move 5 routes each clause onto the thing
+       it qualifies, and this one denies a reading of the SCALE, so it renders
+       under the scale legend. The section slot still exists and still carries
+       the EXCLUSION clause, which is why the cases below about dropped rows
+       read it and these do not. Reading the wrong one would make this file
+       assert the basis against a node that can no longer carry it. */
+  const caveatNode = () => screen.queryByTestId('analysis-new-driver-chart-scale-note')
 
   const vmOf = (data: ResultsSectionDataReturn) =>
     buildAnalysisNewViewModel({

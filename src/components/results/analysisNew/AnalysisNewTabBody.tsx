@@ -411,7 +411,39 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
  * appended as before. Where the gate DOES fire, every row was suppressed, and
  * `empty.noneRanked` names the count and the reasons in one sentence.
  */
-function driversCaveat(vm: AnalysisNewViewModel): string | null {
+/**
+ * ⭐⭐ THREE CLAUSES, THREE JOBS, THREE PLACES — the approved prototype's Move 5.
+ *
+ * Measured on the served build `315d7982`: this composed to ONE paragraph of
+ * 32 words and 49px, sitting above a chart with two bars —
+ *
+ *   "Influence is relative to the strongest factor in this run, not a share of
+ *    the outcome. The top driver always shows 100%. 1 factor is not ranked
+ *    here: controlled by your options."
+ *
+ * Every clause is true and every one was fought for. ⛔ READ AS A BLOCK, NONE
+ * OF THEM IS READ AT ALL.
+ *
+ * ⚠⚠ AND THEY ANSWER DIFFERENT QUESTIONS, WHICH IS WHY ONE STRING WAS WRONG
+ * (CLAUDE.md trap 21). "What scale are these on" · "why does the top bar reach
+ * the edge" · "what is missing from this ranking" are three questions with
+ * three different referents, fused by a `join(' ')` into a block whose only
+ * shared property is that it is above the chart.
+ *
+ * ⛔ NOTHING MOVES BEHIND A DISCLOSURE AND NO CLAIM IS DROPPED. A caveat that
+ * does not travel with its number stops being a caveat; each clause moves ONTO
+ * the thing it qualifies. Same constants, same surface, attached rather than
+ * stacked — `driversSeamSaysOneThing.theCaveatHasOneSourceOfTruth` still bans
+ * a second spelling, and this function still composes none.
+ */
+function driversCaveatParts(vm: AnalysisNewViewModel): {
+  /** Denies a reading of the SCALE. Renders under the chart's scale legend. */
+  scaleNote: string | null
+  /** A claim about the FIRST row's figure. Renders on that row. */
+  topRowNote: string | null
+  /** What is missing from the ranking. Stays above the chart, alone. */
+  sectionCaveat: string | null
+} {
   /**
    * ⚠⚠ EVERY ARM OF THE BASIS BRANCH IS A CLAIM ABOUT RANKED ROWS, SO IT MAY
    * ONLY BE SAID WHERE THE RANKING HAS MEMBERS. `AnalysisNewSection` renders
@@ -466,7 +498,9 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
    * gate does not fire and the clause is appended exactly as before. The gate
    * removes the clause only where `noneRanked` has already said it.
    */
-  if (vm.drivers.influenceRows.length === 0) return null
+  if (vm.drivers.influenceRows.length === 0) {
+    return { scaleNote: null, topRowNote: null, sectionCaveat: null }
+  }
 
   /**
    * ⚠⚠ THE TWO LOWER ARMS ARE UNREACHABLE FROM ANY RUN THE BUILDER CAN PRODUCE,
@@ -509,16 +543,22 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
    * (`analysisNewCopy`) and `driversSeamSaysOneThing.theCaveatHasOneSourceOfTruth`
    * bans a second spelling here.
    */
-  const basis = vm.drivers.influenceIsSetRelative
-    ? [
-        COPY.coverage.setRelativeInfluence,
-        COPY.coverage.guaranteedHundredClause(vm.drivers.topRowFigurePercent),
-      ]
-        .filter((c): c is string => c !== null)
-        .join(' ')
+  /* ⚠ THE SPLIT IS EXACTLY WHERE THE `join(' ')` WAS, AND NOWHERE ELSE. The
+     two arms below are the same two arms, reading the same constants, in the
+     same order; only the ROUTING changed. A rewrite here would be a copy
+     change wearing a layout change's clothes. */
+  const scaleNote = vm.drivers.influenceIsSetRelative
+    ? COPY.coverage.setRelativeInfluence
     : vm.drivers.referenceOptionLabel
       ? `${COPY.coverage.referencePrefix} ${vm.drivers.referenceOptionLabel}.`
       : COPY.coverage.structuralInfluence
+  /* ⚠ ONLY THE SET-RELATIVE ARM EVER CARRIED THIS CLAUSE, and it is still the
+     only one that does: the other two arms describe a basis that has no "top
+     bar" to be about. It stays nullable for its own reason — `buildDrivers`
+     can drop the producer's strongest row, and then the figure is not 100. */
+  const topRowNote = vm.drivers.influenceIsSetRelative
+    ? COPY.coverage.guaranteedHundredClause(vm.drivers.topRowFigurePercent)
+    : null
   /* ⚠ GATED ON THE REASONS, NOT ON THE COUNT. They move together by
      construction, but the count is what a sentence naming reasons cannot be
      written from: a non-empty count with an empty reason list would render
@@ -526,7 +566,7 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
      exists to make impossible. Reading the list the sentence actually consumes
      is the fail-closed order. */
   const reasons = vm.drivers.suppressedZeroReasons
-  if (reasons.length === 0) return basis
+  if (reasons.length === 0) return { scaleNote, topRowNote, sectionCaveat: null }
   const excluded = COPY.coverage.notRanked(
     vm.drivers.suppressedZeroCount,
     reasons.map((code) => ZERO_REASON_BADGE_LABELS[code]),
@@ -535,7 +575,11 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
      past the gate above, and the state where it once could — every row
      suppressed — is now carried in one sentence by `empty.noneRanked`. See the
      withdrawal note on the gate. */
-  return `${basis} ${excluded}`
+  /* ⚠ ALONE ABOVE THE CHART NOW, NOT APPENDED TO A BASIS SENTENCE. It was only
+     ever appended because there was one slot; it is the one clause with no
+     number of its own to attach to, so it keeps the slot and the other two
+     leave it. */
+  return { scaleNote, topRowNote, sectionCaveat: excluded }
 }
 
 function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
@@ -929,6 +973,7 @@ export function AnalysisNewTabBody({
   const keyInsightsEmptyMessage =
     vm.status.isPreRun || vm.keyInsights.candidateCount > 0 ? null : COPY.empty.keyInsights
   const driversEmpty = driversEmptyMessage(vm)
+  const driverCaveatParts = driversCaveatParts(vm)
 
   const coachingHasContent =
     biasGroundingItems.length > 0 ||
@@ -2243,7 +2288,7 @@ export function AnalysisNewTabBody({
             // ⚠ The caveat is a function of the PRODUCER's provenance token, not
             // of taste: a set-relative influence is "largest in this set", never
             // a causal share of the outcome.
-            caveat={driversCaveat(vm)}
+            caveat={driverCaveatParts.sectionCaveat}
             // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
             // A LIVE FALSEHOOD. A run whose factors all came back with a producer
             // `zero_reason` DID return influence and measured it at zero, and was
@@ -2272,6 +2317,8 @@ export function AnalysisNewTabBody({
               <DriverInfluenceChart
                 rows={vm.drivers.influenceRows}
                 onFocusTarget={focusTarget}
+                scaleNote={driverCaveatParts.scaleNote}
+                topRowNote={driverCaveatParts.topRowNote}
                 /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
                    reports which of them happened and this surface owns the
                    words — the same vocabulary the model strip's editor uses,
