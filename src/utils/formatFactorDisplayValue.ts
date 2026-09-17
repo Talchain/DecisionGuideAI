@@ -285,8 +285,59 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // 'other' | 'none' (unreachable here — unit is truthy)
       return `${formatNumber(numericRaw)} ${unitCanonical || unit}`
     }
-    // raw_value is a non-numeric string with unit
-    return `${raw_value} ${unit}`
+    // ⭐⭐ A UNIT MAY NOT BE BOLTED ONTO A STRING NOBODY COULD PARSE.
+    //
+    // THE DEFECT THIS REPLACES. This line was `return `${raw_value} ${unit}``.
+    // `Number('0.35 to 1')` is NaN, so a NORMALISED PRIOR RANGE arriving as a
+    // string rendered **"0.35 to 1 people"** — two model-scale endpoints in
+    // [0,1] presented to a reader as a count of people. Witnessed by Core in 3
+    // of 14 renderings across 30 staging captures; derived here at the bytes,
+    // and NOT reproducible from this repo's committed captures, which carry no
+    // string `raw_value` at all (0 of 3). So: code path derived, output
+    // witnessed by a peer, local fixture absent — stated rather than blurred.
+    //
+    // It is the `provenance_unit_normalised.original_value` defect one field
+    // over: a normalised number reaching a surface that labels it with the
+    // user's own unit, which is precisely what makes the result plausible
+    // rather than obviously broken.
+    //
+    // ⛔ AND THE SIBLING SURFACE ALREADY RULED ON THIS EXACT QUESTION.
+    // `factorPriorRange.ts` faced a real unit with no usable cap and refused:
+    // *"prefixing a normalised 0–1 endpoint with '£' fakes calibration exactly
+    // like a placeholder unit would"* — it renders the range UNITLESS. Two
+    // surfaces, one question; this one was answering it differently and
+    // louder.
+    //
+    // THE RULE: a unit suffix is a CLAIM that the number beside it is measured
+    // in that unit. If nothing here can establish a number, there is no claim
+    // to make, so the producer's own string is returned ALONE.
+    //
+    // ⚠ It is returned, not suppressed — "caveat, never hide", this module's
+    // standing ruling. The reader still sees exactly what the model said.
+    //
+    // ⚠ GROUPING SEPARATORS ARE PARSED FIRST, because "1,200" is NaN to
+    // `Number` and IS a number — without this, the fix would strip the unit
+    // from a legitimately formatted figure and trade one defect for another.
+    // Currency symbols are deliberately NOT stripped: a "£" inside `raw_value`
+    // is itself a unit claim, and reconciling two unit claims is a different
+    // question from this one. `'£49'` therefore returns `'£49'` rather than
+    // today's `'£49 £'`, which is an improvement by the same rule.
+    //
+    // ⚠ NARROWED EXPLICITLY. `raw_value` is `number | string`; the `isNaN`
+    // branch above proves it is not a usable number but does not narrow the
+    // TYPE, and a cast here would hide a real non-string arriving from a
+    // legacy shape. A `typeof` guard makes the impossible case explicit and
+    // returns the unit-free fallback rather than asserting.
+    if (typeof raw_value !== 'string') return null
+    const degrouped = Number(raw_value.replace(/[\s,]/g, ''))
+    if (raw_value.trim() !== '' && !isNaN(degrouped)) {
+      return unitKind === 'symbol'
+        ? `${unitCanonical}${formatNumber(degrouped)}`
+        : unitKind === 'iso'
+          ? `${unitCanonical} ${formatNumber(degrouped)}`
+          : `${formatNumber(degrouped)} ${unitCanonical || unit}`
+    }
+    return raw_value
   }
 
   // CEE-provided display_value: contextual override when Pattern 1 didn't
