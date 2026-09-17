@@ -96,7 +96,9 @@ const tokenVar = (className: string) => className.replace(/^text-/, '')
  */
 function tintsPaintedByTheCard(): string[] {
   const src = readFileSync(BASENODE, 'utf8')
-  const block = /const evidenceBgStyle = \(\(\) => \{[\s\S]*?\n  \}\)\(\)/.exec(src)
+  // `\n {2}\}` rather than two literal spaces: eslint's no-regex-spaces is right
+  // that a run of spaces in a pattern is unreadable and easy to miscount.
+  const block = /const evidenceBgStyle = \(\(\) => \{[\s\S]*?\n {2}\}\)\(\)/.exec(src)
   if (!block) throw new Error('evidenceBgStyle block not found in BaseNode.tsx — this guard is reading the wrong shape')
   const found = [...block[0].matchAll(/var\(--([a-z-]+)\)/g)].map(m => m[1])
   return [...new Set(found)]
