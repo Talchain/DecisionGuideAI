@@ -129,6 +129,51 @@ describe('the census that justifies the list', () => {
  * how this defect existed in the first place — one test, written for a shape
  * the producer does not send.
  */
+/**
+ * ⛔⛔ THERE ARE FIVE CONSUMERS, NOT TWO, AND SAYING "BOTH" IS WHAT LET THREE SHIP
+ * BROKEN.
+ *
+ * The first version of this fix wired the factor card and the pre-analysis
+ * overconfidence check and called that "one predicate, both consumers". A
+ * witness on the SERVED build then found "Not provided" still painted once, and
+ * a proper sweep found three more readers — including `useScienceIcons`, which
+ * carried the SAME `!drivers || length === 0` gate the placeholder defeats, so
+ * a second coaching signal was suppressed on exactly the factors it targets.
+ *
+ * This list is derived by NAME here so the next reader cannot repeat the
+ * mistake by counting from memory. If a sixth consumer appears it must be added
+ * — and the honest way to find one is `grep uncertainty_drivers`, not recall.
+ */
+const DRIVER_CONSUMERS: Array<[string, string]> = [
+  ['../../nodes/FactorNode.tsx', 'meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)'],
+  ['../../components/pre-analysis/PreAnalysisPanel.tsx', 'meaningfulUncertaintyDrivers(os?.uncertainty_drivers)'],
+  ['../../hooks/useScienceIcons.ts', 'meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)'],
+  ['../../ui/inspector-v2/panels/FactorControllablePanel.tsx', 'meaningfulUncertaintyDrivers('],
+  ['../../components/pre-analysis/AllImprovements.tsx', 'meaningfulUncertaintyDrivers(item.uncertaintyDrivers)'],
+]
+
+describe('every consumer asks the same question — all five', () => {
+  const readRaw = (rel: string) => readFileSync(resolve(__dirname, rel), 'utf8')
+
+  it.each(DRIVER_CONSUMERS)('%s routes through the shared predicate', (rel, needle) => {
+    expect(readRaw(rel)).toContain(needle)
+  })
+
+  /**
+   * ⭐ AND THE GATES SPECIFICALLY. Two surfaces do not render drivers, they
+   * COUNT them — and a length-zero test against a raw array is the exact defect
+   * the placeholder defeats. Neither may test the raw field again.
+   */
+  it.each([
+    ['../../components/pre-analysis/PreAnalysisPanel.tsx'],
+    ['../../hooks/useScienceIcons.ts'],
+  ])('%s no longer length-tests a raw drivers array', (rel) => {
+    const code = readRaw(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    expect(code).not.toMatch(/!\s*drivers\s*\|\|\s*drivers\.length === 0/)
+    expect(code).not.toMatch(/!\s*uncertaintyDrivers\s*\|\|\s*uncertaintyDrivers\.length === 0/)
+  })
+})
+
 describe('both consumers ask the same question', () => {
   /**
    * ⚠ COMMENTS ARE STRIPPED BEFORE THE NEGATIVE ASSERTIONS, AND THE FIRST

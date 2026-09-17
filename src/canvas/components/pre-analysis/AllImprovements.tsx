@@ -15,6 +15,7 @@
  */
 
 import { useState, useCallback } from 'react'
+import { meaningfulUncertaintyDrivers } from '../../utils/observedStateHelpers'
 import { Accordion, Pill, NodeLink, IconBtn, BiasIcon } from './primitives'
 import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
@@ -1008,9 +1009,12 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         </div>
 
         {/* Uncertainty drivers sub-line (Task 5a) */}
-        {item.uncertaintyDrivers && item.uncertaintyDrivers.length > 0 && (
+        {/* Through the shared predicate — a placeholder rendered here reads as
+            evidence beside an improvement suggestion, which is the worst place
+            for it. Missed by the first fix (see `meaningfulUncertaintyDrivers`). */}
+        {meaningfulUncertaintyDrivers(item.uncertaintyDrivers).length > 0 && (
           <p className={`${typography.panelMeta} text-text-light italic mt-0.5 ml-0.5`}>
-            ⤷ {item.uncertaintyDrivers.join(', ')}
+            ⤷ {meaningfulUncertaintyDrivers(item.uncertaintyDrivers).join(', ')}
           </p>
         )}
         {/* Verification hint (secondary to raw_value) */}
