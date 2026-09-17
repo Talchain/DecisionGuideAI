@@ -264,6 +264,29 @@ export const typography = {
   // (tracking-tight) felt off on this hero scale.
   welcomeHeading: 'text-[24px] font-semibold font-sans leading-snug', // 24px — AI Panel v2 hero only
 
+  // ── ⭐⭐ THE REASONING PANEL'S ONE LEAD STEP, AND THE RULING IT ANSWERS ─────
+  // The note above `panelHeader` says: "A panel that needs a bigger size than
+  // `panelHeader` is a panel promoting a number; say it in words instead."
+  // That ruling is RIGHT, and this token does not contradict it — it is the
+  // case the ruling was written to permit.
+  //
+  // The rejected token promoted A NUMBER: the largest type in the product, on
+  // a figure computed partly from values Olumi invented rather than the user.
+  // `panelLead` carries WORDS THE USER OR THEIR MODEL AUTHORED — the decision
+  // being considered — and it can never carry a figure, because its only
+  // consumer is the model strip's subject line.
+  //
+  // WHY A STEP WAS NEEDED AT ALL, measured on deployed `d135ff7e`: the whole
+  // Reasoning panel rendered at 14/12/11 with SIX different strings tied for
+  // largest at 14px, so nothing led and the panel never named its own subject.
+  // Hierarchy needs one step, not a new scale — this is the only one added.
+  //
+  // 18px is an EXISTING design-system step (`h5`, `bodyLarge`), not a new
+  // size invented for the panel: one clear step above `panelHeader` (14px) and
+  // well below `welcomeHeading` (24px), which stays the product's loudest type.
+  // Census-allowlisted in `scripts/conversation-type-census.mjs`.
+  panelLead: 'text-lg font-semibold font-sans leading-snug', // 18px — the Reasoning panel's subject line ONLY
+
   // Utility
   screenReaderOnly: 'sr-only',
 } as const

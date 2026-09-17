@@ -230,22 +230,34 @@ describe('⭐ the shared vocabulary, and the subject line', () => {
     expect(new Set(shapes).size).toBe(4)
   })
 
+  /**
+   * ⚠ RE-BOUND, NOT RELAXED. The subject line moved from `-goal` to `-lead`
+   * when the strip started naming the DECISION above the goal; every assertion
+   * below is the one this test already made, pointed at the same object under
+   * its new name. `REALISTIC` carries a goal and NO decision node, so the goal
+   * is itself the lead here — and the subtitle must be absent, which is the
+   * "exactly once" claim strengthened rather than weakened.
+   */
   it('the subject names the landmark, and is on screen exactly once in either state', () => {
     render(<ModelStrip isPreRun={false} />)
-    const subject = screen.getByTestId(`${TID}-goal`)
+    const subject = screen.getByTestId(`${TID}-lead`)
     expect(subject).toHaveTextContent('Replace the customer data platform within budget')
     // The landmark is announced as the decision it is about.
     expect(screen.getByTestId(TID)).toHaveAttribute('aria-labelledby', subject.id)
     expect(subject.id.length).toBeGreaterThan(0)
+    // No decision node here, so nothing is demoted beneath the lead — and the
+    // goal is therefore NOT repeated as a subtitle.
+    expect(screen.queryByTestId(`${TID}-goal`)).toBeNull()
 
     fireEvent.click(screen.getByTestId(`${TID}-toggle`))
     // One element, clamped when closed and full when open — never two copies.
-    expect(screen.getAllByTestId(`${TID}-goal`)).toHaveLength(1)
+    expect(screen.getAllByTestId(`${TID}-lead`)).toHaveLength(1)
+    expect(screen.queryByTestId(`${TID}-goal`)).toBeNull()
   })
 
   it('with no goal or decision node it uses the strip’s own name, never an invented subject', () => {
     setCanvas([node('o1', 'option', 'Adopt Segment')])
     render(<ModelStrip isPreRun={false} />)
-    expect(screen.getByTestId(`${TID}-goal`)).toHaveTextContent('Your model so far')
+    expect(screen.getByTestId(`${TID}-lead`)).toHaveTextContent('Your model so far')
   })
 })

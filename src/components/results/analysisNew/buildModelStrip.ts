@@ -169,6 +169,23 @@ export interface ModelStrip {
   /** The goal or decision node's label, when the model names one. */
   goalLabel: string | null
   /**
+   * The DECISION node's label, on its own, or null when the model names no
+   * decision.
+   *
+   * ⭐ WHY THIS IS SEPARATE FROM `goalLabel` RATHER THAN FOLDED INTO IT. The
+   * return below reads `goalLabel: goalLabel ?? decisionLabel`, so before this
+   * field existed the decision SURVIVED ONLY on models with no goal — a
+   * minority. Every other model computed it and threw it away, and the panel
+   * could not name the decision it was about. Measured on deployed `d135ff7e`:
+   * the panel's text carried the goal and not the decision.
+   *
+   * ⚠ `goalLabel` KEEPS ITS FALLBACK. Two consumers read it and both are the
+   * strip's own header; changing its meaning would be a second change wearing
+   * the first one's clothes. A reader that wants the decision alone asks for
+   * it here, and the header renders one of them, never both.
+   */
+  decisionLabel: string | null
+  /**
    * The goal node's id, so the target line can write to the RIGHT node.
    *
    * ⚠ NOT `outcomeNodeId`. The store's setter falls back to that when handed no
@@ -462,6 +479,7 @@ export function buildModelStrip(
     // The decision node names the question when no goal node does; both are
     // the thing the rows are about, so either serves as the header.
     goalLabel: goalLabel ?? decisionLabel,
+    decisionLabel,
     // ⚠ THE GOAL NODE ONLY, never the decision node's id as a fallback. The
     // header LABEL may come from either — both name the thing the rows are
     // about — but a success target belongs to a goal, and writing one onto a
