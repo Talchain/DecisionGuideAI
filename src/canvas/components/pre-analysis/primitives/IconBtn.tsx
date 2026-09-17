@@ -35,6 +35,28 @@ interface IconBtnProps {
   ariaLabel?: string
   /** Additional class names */
   className?: string
+  /**
+   * ⭐ FOR A DISCLOSURE TOGGLE. An icon button that opens something must say so
+   * to assistive tech: without `aria-expanded` the glyph is the ONLY signal
+   * that anything opened, and a glyph is exactly what a screen reader cannot
+   * see. Optional, so every existing one-shot consumer is untouched.
+   */
+  ariaExpanded?: boolean
+  /** The region this toggle controls, when it is open. Pairs with `ariaExpanded`. */
+  ariaControls?: string
+  /**
+   * ⚠ ON THE BUTTON, NEVER ON A WRAPPER. A test that finds a wrapper and
+   * clicks it does not reach the button's handler, so a testid placed one
+   * element out turns every click assertion into a silent no-op.
+   */
+  testId?: string
+  /**
+   * Extra `data-*` attributes for the button. Identity joins live here — a row
+   * that must be findable by the recommendation it acts on carries that id on
+   * the control itself, so a test binds by IDENTITY rather than by position
+   * (CLAUDE.md trap 19).
+   */
+  dataAttrs?: Readonly<Record<string, string>>
 }
 
 const variantStyles: Record<IconBtnVariant, { enabled: string; disabled: string }> = {
@@ -72,9 +94,29 @@ export function IconBtn({
   disabled = false,
   ariaLabel,
   className = '',
+  ariaExpanded,
+  ariaControls,
+  testId,
+  dataAttrs,
 }: IconBtnProps) {
   const styles = variantStyles[variant]
   const buttonStyle = disabled ? styles.disabled : styles.enabled
+
+  /**
+   * ⛔ `??` FALLS BACK ON null/undefined ONLY — AN EMPTY STRING IS A VALUE.
+   *
+   * Both name sites read `ariaLabel ?? tooltip`, so a consumer passing a label
+   * built from DATA shipped `aria-label=""` the moment that data was empty: a
+   * round, pressable, entirely unreachable control that every shape and style
+   * assertion applauds. Found by an independent reviewer on the Reasoning
+   * panel's intervention act, whose label is producer-supplied.
+   *
+   * ⚠ THIS HARDENS THE PRIMITIVE; IT DOES NOT ABSOLVE THE CALL SITE. Where a
+   * consumer passes the SAME empty value as both label and tooltip there is
+   * nothing here to fall back to, so an act that cannot be named must not be
+   * offered at all — see `DisclosureRow`.
+   */
+  const accessibleName = (ariaLabel ?? '').trim() || tooltip
 
   const handleClick = () => {
     if (!disabled) {
@@ -91,7 +133,7 @@ export function IconBtn({
   if (disabled) {
     return (
       <Tooltip content={tooltip}>
-        <span className="inline-flex" tabIndex={0} aria-label={ariaLabel ?? tooltip}>
+        <span className="inline-flex" tabIndex={0} aria-label={accessibleName}>
           <button
             type="button"
             disabled
@@ -114,7 +156,11 @@ export function IconBtn({
       <button
         type="button"
         onClick={handleClick}
-        aria-label={ariaLabel ?? tooltip}
+        aria-label={accessibleName}
+        {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
+        {...(ariaControls ? { 'aria-controls': ariaControls } : {})}
+        {...(testId ? { 'data-testid': testId } : {})}
+        {...(dataAttrs ?? {})}
         className={`
           ${touchTarget} w-7 h-7 flex items-center justify-center rounded-full transition-colors
           ${buttonStyle}

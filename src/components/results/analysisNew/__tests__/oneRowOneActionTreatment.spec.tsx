@@ -41,7 +41,26 @@ const finding: AnalysisNewFinding = {
   focusTargetId: 'n_price',
   reviewTargetId: 'n_price',
   inspect: [{ label: 'Switch probability', value: '72%' }],
+  /**
+   * ⭐⭐ THE ACT THIS FILE COULD NOT SEE, AND THE ONLY ONE THAT CAN FAIL IT.
+   *
+   * An independent reviewer found `row-intervention` asserted ZERO times here:
+   * the fixture carried no `intervention`, so the Sparkles button never
+   * mounted, and both loops below listed only focus and review.
+   *
+   * ⛔ WHY THAT WAS THE WHOLE POINT MISSED. `row-focus` and `row-review` take
+   * `COPY.disclosure.*` constants, which CANNOT be empty. This one takes
+   * `finding.intervention.label` — from DATA. `IconBtn` resolves its name as
+   * `ariaLabel ?? tooltip`, and `??` falls back on null/undefined ONLY, so a
+   * label of `''` ships `aria-label=""`. The assertion "an icon with no name is
+   * unreachable" was pointed at the two names that cannot be empty and away
+   * from the one that can: a guard agreeing with itself.
+   */
+  intervention: { recommendationId: 'strengthen:price', label: 'Work through with Olumi', targetId: 'n_price' },
 }
+
+/** Every act on the row. A hardcoded PAIR is what hid the third one. */
+const ACTS = ['row-focus', 'row-review', 'row-intervention'] as const
 
 afterEach(cleanup)
 
@@ -52,13 +71,28 @@ describe('one row, one action treatment', () => {
     expect(INLINE).toContain('text-info')
   })
 
-  it('⭐ every control in the row carries the SAME named tier', () => {
+  /**
+   * ⭐⭐ THE RULE IS NOW *TREATMENT FOLLOWS KIND*, AND THAT IS STRONGER THAN
+   * WHAT THIS FILE ASSERTED BEFORE.
+   *
+   * It used to demand that all four controls carry one text tier. The acts are
+   * now icon buttons and the disclosure keeps its word, so a naive reading is
+   * that the rule was relaxed. It was not. The defect Paul witnessed was four
+   * controls differing FOR NO STATED REASON. Two kinds differing for a reason —
+   * three acts on the model, one reveal of content — is the rule being kept.
+   *
+   * What is still guarded, unchanged: the disclosure's tier is read from
+   * `ACTION_TIER`, never spelled out here, because a hand-copied tier is the
+   * original defect and a test that hardcoded it would be a second copy.
+   */
+  it('⭐ every ACT shares one treatment, and none of them keeps the text tier', () => {
     render(
       <DisclosureRow
         finding={finding}
         testIdPrefix="row"
         onFocusTarget={vi.fn()}
         onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
       />,
     )
     /**
@@ -69,18 +103,116 @@ describe('one row, one action treatment', () => {
      */
     fireEvent.click(screen.getByTestId('row-row-toggle'))
 
-    const controls = ['row-focus', 'row-review', 'row-inspect-toggle']
-    const found = controls.filter((t) => screen.queryByTestId(t) !== null)
-    expect(found.length, 'precondition: the controls this asserts about are on screen').toBeGreaterThanOrEqual(2)
+    /**
+     * ⚠ EXACT, NEVER A FLOOR. `>= 2` passed on exactly the two-member list it
+     * was handed, so it could not notice a third act missing — which is how the
+     * only data-fed act went unasserted through a whole review.
+     */
+    const acts = ACTS.filter((t) => screen.queryByTestId(t) !== null)
+    expect(acts.length, 'precondition: every act is on screen').toBe(ACTS.length)
 
-    for (const testId of found) {
+    const shapeOf = (el: HTMLElement) =>
+      el.className.split(/\s+/).filter((c) => ['w-7', 'h-7', 'rounded-full'].includes(c)).sort().join(' ')
+
+    for (const testId of acts) {
       const el = screen.getByTestId(testId)
-      for (const token of INLINE) {
-        expect(
-          el.className.split(' '),
-          `${testId} must carry the tier's ${token}: four controls in one row with two colours is what shipped`,
-        ).toContain(token)
-      }
+      // One treatment: the icon-button shape, identical across every act.
+      expect(shapeOf(el), `${testId} must carry the icon-button shape`).toBe('h-7 rounded-full w-7')
+      // And NOT the text tier — mixing the two is the defect this file exists for.
+      expect(el.className.split(' '), `${testId} must not also wear the text tier`).not.toContain('underline')
     }
+  })
+
+  /**
+   * ⛔⛔ THE RISK THIS CHANGE INTRODUCES, AND THE ONLY ONE THAT MATTERS.
+   *
+   * An icon carries no words, so its `aria-label` IS the control's entire
+   * name. Ship one without a name and the act becomes unreachable to anyone
+   * not looking at it — a regression the shape assertions above would applaud,
+   * because an unnamed button is exactly as round as a named one.
+   */
+  it('⛔ every act has a non-empty accessible name — an icon with no name is unreachable', () => {
+    render(
+      <DisclosureRow
+        finding={finding}
+        testIdPrefix="row"
+        onFocusTarget={vi.fn()}
+        onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
+
+    const acts = ACTS.filter((t) => screen.queryByTestId(t) !== null)
+    expect(acts.length, 'precondition: every act is on screen').toBe(ACTS.length)
+
+    for (const testId of acts) {
+      const name = screen.getByTestId(testId).getAttribute('aria-label') ?? ''
+      expect(name.trim().length, `${testId} has no accessible name`).toBeGreaterThan(0)
+    }
+    // Contrast in the same run: the names are DISTINCT, so a single label
+    // copy-pasted onto every act cannot pass the assertion above.
+    const names = acts.map((t) => screen.getByTestId(t).getAttribute('aria-label'))
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  /**
+   * ⚠ THE DISCLOSURE KEEPS ITS NAMED TIER. This is the original guard, intact:
+   * the toggle must carry `ACTION_TIER.inline`'s own tokens rather than a
+   * hand-copy that agrees with it on two of three.
+   */
+  it('⭐ the disclosure toggle still carries the tier, read from the constant', () => {
+    render(
+      <DisclosureRow
+        finding={finding}
+        testIdPrefix="row"
+        onFocusTarget={vi.fn()}
+        onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
+    const toggle = screen.queryByTestId('row-inspect-toggle')
+    if (!toggle) return // this finding has no L3 rows; the acts above still assert
+    for (const token of INLINE) {
+      expect(toggle.className.split(' '), `inspect must carry the tier's ${token}`).toContain(token)
+    }
+  })
+
+  /**
+   * ⛔⛔ THE CASE THAT WOULD HAVE SHIPPED, and the reason the fixture above is
+   * not enough on its own.
+   *
+   * `finding.intervention.label` is producer data, so `''` is reachable.
+   * `IconBtn` resolved its name as `ariaLabel ?? tooltip`, and `??` falls back
+   * on null/undefined ONLY — an empty string is a value, so it passes straight
+   * through and the button ships `aria-label=""`. A round, pressable, entirely
+   * unreachable control, and every shape assertion in this file applauds it.
+   *
+   * This arm is why the name assertion is worth anything: it is the only one
+   * whose subject can actually be empty.
+   */
+  it('⛔ an act whose label arrives EMPTY still has a name — an empty string is a value, not an absence', () => {
+    render(
+      <DisclosureRow
+        finding={{ ...finding, intervention: { recommendationId: 'strengthen:price', label: '', targetId: 'n_price' } }}
+        testIdPrefix="row"
+        onFocusTarget={vi.fn()}
+        onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
+    const btn = screen.queryByTestId('row-intervention')
+    // ⭐ EITHER NAMED OR NOT OFFERED — never a nameless control. Asserting only
+    // "it has a name" would force the panel to invent one; asserting only "it
+    // is absent" would pass on a row that lost the act for any other reason.
+    if (btn !== null) {
+      expect((btn.getAttribute('aria-label') ?? '').trim().length, 'an icon with no name is unreachable').toBeGreaterThan(0)
+    }
+    // Contrast in the same run: the ROW rendered and its other acts are there,
+    // so this is a withheld act rather than a failed render.
+    expect(screen.queryByTestId('row-focus')).not.toBeNull()
+    expect(screen.queryByTestId('row-review')).not.toBeNull()
   })
 })
