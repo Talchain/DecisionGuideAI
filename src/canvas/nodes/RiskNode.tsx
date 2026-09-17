@@ -17,6 +17,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
+import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -27,6 +28,20 @@ export const RiskNode = memo((props: NodeProps) => {
   const probability = probabilityInput.success ? probabilityInput.data : undefined
   const impact = impactInput.success ? impactInput.data : undefined
   const severity = calculateRiskSeverity(probability, impact)
+
+  /**
+   * ⭐ THE RISK'S OWN SIZE, IN ITS OWN UNIT. The two lines above parse
+   * `probability` and `impact`; measured across the staging golden path, the CEE
+   * fixtures and the starter captures, **both are present on 0 of 23 risk
+   * nodes**. This is the datum 4 of those 23 actually carry — `12 months`,
+   * `4 months`, and two cost figures — and nothing read it.
+   * See `domain/nodeRecordedValue` for the coverage table and the contrast
+   * control that makes the zero readable.
+   */
+  const recordedValue = useMemo(
+    () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
+    [props.data],
+  )
   const severityColors = getRiskSeverityColors(severity)
 
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
@@ -152,13 +167,29 @@ export const RiskNode = memo((props: NodeProps) => {
    * before. Where nobody has, there is no figure to qualify.
    */
   const lodMetric = useMemo(() => {
-    if (!bridgeEdgeData) return null
+    if (!bridgeEdgeData) {
+      /* ⭐ STRICTLY ADDITIVE, AND THE ADDITIVENESS IS THE SAFETY ARGUMENT. This
+         branch returned `null`, which renders an EMPTY BOX below the legibility
+         floor — the defect `shared/lodMetricLine.ts` exists to close, still open
+         for any risk with no bridge edge. Every branch that spoke before speaks
+         identically now; only the silent one gained a voice. A fix for a blank
+         card must not be able to change a card that was already speaking
+         (CLAUDE.md trap 22b, the opposite-direction twin).
+
+         ⭐ AND IT OBEYS THAT MODULE'S OWN RULE: *ask for the datum the card is
+         already displaying at full zoom, not the one an analysis would produce.*
+         This is the string the body renders one zoom step up, read from the same
+         owner, so the two cannot disagree. It needs no run — which matters
+         because zooming out to grasp the whole model is something people do
+         BEFORE they analyse. */
+      return recordedValue ?? null
+    }
     const pct = bridgeEdgeData.bridgeStrengthPct
     if (pct != null) return `${METRIC_NOUN.strength} ${pct}%`
     // The connection exists and nobody has said how strong it is. Saying so is
     // the same true thing the full card says, in the width one line allows.
     return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
-  }, [bridgeEdgeData])
+  }, [bridgeEdgeData, recordedValue])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
@@ -395,6 +426,34 @@ export const RiskNode = memo((props: NodeProps) => {
             cannot reach this row at all. Canonical record —
             `shared/metricVocabulary.ts`.) The `est.`-beside-the-figure
             branch is gone; where nobody set the weight there is no figure. */}
+        {/* ⭐⭐ THE RISK'S OWN MAGNITUDE, ABOVE EVERY FIGURE THAT IS ABOUT
+            SOMETHING ELSE. The row beneath describes a CONNECTION's strength and
+            the block below it a severity derived from probability × impact —
+            neither of which is this risk's size. A risk labelled "Time to Reach
+            Customer Target" holds `12 months` in its own data and printed none
+            of it (`RiskNode` carried zero `observedState` references against a
+            contrast of twenty in `FactorNode`).
+
+            ⛔ NO BAR, AND THAT IS THE POINT RATHER THAN AN OMISSION. A
+            proportional bar is measurement grammar for a 0..1 share — what
+            `NodeMetricRow` requires and what the strength row beneath uses. A
+            recorded magnitude in months or pounds has no such scale, and drawing
+            one would put a native value on a normalised axis, which is the
+            confusion this row exists to end.
+
+            ⚠ ABSENT WHEN NOTHING IS RECORDED, with no placeholder. "Not set yet"
+            belongs to a connection strength somebody can settle; a risk nobody
+            has sized is a different fact, and pooling the two under one noun is
+            what the design review objected to. */}
+        {recordedValue && (
+          <p
+            className={`${typography.nodeLabel} text-text-body m-0`}
+            data-testid="risk-recorded-value"
+          >
+            {recordedValue}
+          </p>
+        )}
+
         {bridgeEdgeData && (
           /* ⭐ TWO ROWS, ONE CAPTION COLUMN — AND THE BAR IS THE THING THAT MOVES.
 

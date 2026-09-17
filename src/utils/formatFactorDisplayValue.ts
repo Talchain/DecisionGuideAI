@@ -260,7 +260,46 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     const numericRaw = typeof raw_value === 'number' ? raw_value : Number(raw_value)
     if (!isNaN(numericRaw)) {
       // Cost factor at zero → contextual
+      //
+      // ⛔⛔ THE PRODUCER'S OWN SENTENCE OUTRANKS THIS ONE. MEASURED, NOT
+      // REASONED: run against the real staging payload for the risk labelled
+      // "Budget Overrun" — `raw_value: 0, unit: '£', factor_type: 'cost',
+      // cap: 0`, with CEE's authored `display_value: "£400,000 budget cap"` —
+      // this branch returned **"No cost allocated"**. The card asserted that no
+      // cost was allocated over the producer's own statement that £400,000 was.
+      //
+      // ⚠ That is a FABRICATION, not a formatting choice. "No cost allocated"
+      // is a claim about the user's model, minted here, that no producer
+      // supplied — the same class as every invented metric this estate has
+      // removed, arriving through a fallback string instead of through a
+      // number. CLAUDE.md trap 13c: derive the expectation from the producer's
+      // declared semantics, never from this lane's reading of what a field
+      // ought to mean.
+      //
+      // ⚠ WHY DEFERRING HERE CANNOT REINTRODUCE STALENESS — the one objection
+      // that could sink it, settled at the bytes rather than assumed. Pattern 1
+      // outranks `display_value` for stale-value protection: a user edits
+      // `raw_value` to 26000 while CEE's old "£20,000" lingers. That cannot
+      // arise at this branch, because the commit path CLEARS the string:
+      // `useInspectorMutations.setObservedValue` writes `display_value:
+      // undefined` at BOTH locations on every commit, and says why — *"this
+      // string is the server's to author"*. So a zero sitting beside an
+      // authored sentence is one CEE wrote together with it, which is exactly
+      // the corpus shape. Stale-value protection is untouched: it guards
+      // non-zero fresh magnitudes, and this defers only at zero.
+      //
+      // ⚠ NARROW ON PURPOSE. Only the cost-at-zero branch defers. The other
+      // zero cases measured in the same run — `"No budget pressure currently"`
+      // rendering `£0`, `"No onboarding time"` rendering `0 months` — are left
+      // alone: there the card and the producer AGREE about the magnitude and
+      // differ only in register, and widening the deference to them would
+      // route a much larger class around `isDisplayValueContradicted` below.
+      // Reported rather than changed; see
+      // `output/node-system-20260917/MEASURED-WHAT-THE-CARDS-CAN-SAY.md`.
       if (numericRaw === 0 && factor_type?.toLowerCase() === 'cost') {
+        if (typeof display_value === 'string' && display_value.trim() !== '') {
+          return display_value
+        }
         return 'No cost allocated'
       }
       // Polish 4 review follow-up: classifyUnit handles symbol/ISO/%/other
