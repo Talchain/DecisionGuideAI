@@ -75,6 +75,35 @@ export function nodeRecordedValue(
   data: Record<string, unknown> | null | undefined,
 ): string | null {
   if (!data || typeof data !== 'object') return null
+
+  /**
+   * ⛔⛔ A ZERO MAGNITUDE IS NOT A RECORDED SIZE — AND IT IS WHERE THE KNOWN
+   * FABRICATIONS LIVE. Found by running this module against the four real risk
+   * payloads before shipping it, which is the only reason it was caught:
+   *
+   *   "Budget Overrun"       CEE: "£400,000 budget cap"          → "No cost allocated"
+   *   "Budget Overrun Risk"  CEE: "No budget pressure currently" → "£0"
+   *
+   * Both are minted by `formatFactorDisplayValue`'s zero branches: one is a
+   * sentence the UI authors over the producer's own, the other a currency figure
+   * asserting a measured zero. **Two of four.** Those risk cards render nothing
+   * today, so admitting them would make an existing fabrication NEWLY VISIBLE on
+   * a surface that did not have it — a regression in honesty dressed as a
+   * feature.
+   *
+   * ⚠ NOT A FORMATTER FIX. Repairing the zero branches needs a bounded
+   * display-freshness rule that tells a CAP mentioned in prose from the CURRENT
+   * amount, and an independent review already returned an attempt at that for
+   * reopening a stale-value defect. This module simply declines to ask the
+   * question at zero, which is honest on its own terms: nobody has recorded a
+   * size, so there is none to state. The remaining two payloads — "4 months",
+   * "12 months" — are unaffected and are the whole point.
+   */
+  const observed = (data as { observedState?: Record<string, unknown> }).observedState
+  const raw = observed?.raw_value
+  const numericRaw = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
+  if (numericRaw === 0) return null
+
   const text = factorDisplayText(data)
   if (typeof text !== 'string') return null
   const trimmed = text.trim()

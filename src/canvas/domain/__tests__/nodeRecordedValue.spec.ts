@@ -120,6 +120,34 @@ describe('nodeRecordedValue, against the payloads this repo has actually capture
     expect(factorsAnswered.length, 'contrast control dead: the reader resolves nothing anywhere, so the zeros above prove nothing').toBeGreaterThan(5)
   })
 
+  it('⛔ A ZERO MAGNITUDE IS DECLINED — it is where the formatter mints sentences nobody sent', () => {
+    // Found by running this module against the real payloads before shipping it.
+    // `formatFactorDisplayValue`'s zero branches produce "No cost allocated" over
+    // CEE's own "£400,000 budget cap", and "£0" over "No budget pressure
+    // currently". Those cards render nothing today, so admitting them would make
+    // an existing fabrication NEWLY VISIBLE on a surface that did not have it.
+    const costAtZero = {
+      label: 'Budget Overrun',
+      display_value: '£400,000 budget cap',
+      observedState: { raw_value: 0, unit: '£', value: 0, factor_type: 'cost', cap: 0 },
+    }
+    const bareZero = {
+      label: 'Budget Overrun Risk',
+      display_value: 'No budget pressure currently',
+      observedState: { raw_value: 0, unit: '£', value: 0, cap: 0 },
+    }
+    expect(nodeRecordedValue(costAtZero)).toBeNull()
+    expect(nodeRecordedValue(bareZero)).toBeNull()
+
+    // ⚠ THE CONTRAST, IN THE SAME RUN. Without it this passes on a module that
+    // returns null for everything, which is the failure mode it is guarding.
+    expect(nodeRecordedValue({
+      label: 'Time to Reach Customer Target',
+      display_value: '12 months',
+      observedState: { raw_value: 12, unit: 'months', value: 0.5, factor_type: 'time', cap: 24 },
+    })).toBe('12 months')
+  })
+
   it('returns null rather than a placeholder, so each caller owns what absence looks like', () => {
     expect(nodeRecordedValue(undefined)).toBeNull()
     expect(nodeRecordedValue(null)).toBeNull()
