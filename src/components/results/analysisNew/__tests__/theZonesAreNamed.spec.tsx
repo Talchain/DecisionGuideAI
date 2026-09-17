@@ -17,20 +17,46 @@
  * A fifth zone was removed for exactly that: "What would change your mind" sat
  * directly above a section of that name, and `firstViewportCensus` caught the
  * duplicate sentence.
+ *
+ * ⛔⛔ AND THE RULE THIS FILE EXISTS TO ENFORCE, BECAUSE ITS FIRST VERSION
+ * BROKE IT: A ZONE WITH NOTHING TO SAY RENDERS NO LABEL. The first cut listed
+ * only three zones here and left `focus` out — the one zone whose content is
+ * conditional, and therefore the only one the rule could catch. Measured on the
+ * shipped tree: "Focus now" rendered with ZERO characters beneath it on all
+ * SEVEN fixtures. A hardcoded list that omits the one member capable of failing
+ * is a guard agreeing with itself, and it is the same omission that cost the
+ * row-intervention act its assertion two PRs ago. So the list is exhaustive,
+ * and the emptiness rule is proved with a DISCRIMINATING PAIR in the same run:
+ * one canvas that earns the zone, one that does not.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
+vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { useCanvasStore } from '../../../../canvas/store'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { genuineDecision } from './analysisNewFixtures'
 
-const renderBody = (data: ResultsSectionDataReturn) =>
-  render(
+/**
+ * ⚠ EXHAUSTIVE BY CONSTRUCTION, NOT BY RECOLLECTION. Every zone the body can
+ * render is named here; a new zone added without a line in this list is the
+ * failure mode this file was written after committing.
+ */
+const ZONES = ['focus', 'answer', 'also', 'further'] as const
+
+/** A canvas with options, a factor and an outcome but NO risk: the model
+ *  demonstrably lacks one, so Focus Now earns exactly one row. */
+const node = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: { label: id } })
+const EARNS_A_NUDGE = [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor'), node('out1', 'outcome')]
+
+const renderBody = (data: ResultsSectionDataReturn, nodes: ReturnType<typeof node>[] = []) => {
+  useCanvasStore.setState({ nodes } as never)
+  return render(
     <AnalysisNewTabBody
       resultsSectionData={data}
       isPreRun={false}
@@ -39,28 +65,56 @@ const renderBody = (data: ResultsSectionDataReturn) =>
       responseHash="zones"
     />,
   )
+}
 
-const ZONES = ['answer', 'also', 'further'] as const
+const contentBeyondLabel = (zone: string): number => {
+  const group = screen.getByTestId(`analysis-new-zone-${zone}-group`)
+  const label = screen.getByTestId(`analysis-new-zone-${zone}`)
+  expect(group.contains(label), `${zone}: the label must sit inside its group`).toBe(true)
+  return (group.textContent ?? '').replace(label.textContent ?? '', '').trim().length
+}
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  useCanvasStore.setState({ nodes: [] } as never)
+})
 
 describe('the panel is grouped into named zones', () => {
   it('⭐ every zone that renders carries a label and wraps its own blocks', () => {
-    renderBody(genuineDecision())
+    renderBody(genuineDecision(), EARNS_A_NUDGE)
     const found = ZONES.filter((z) => screen.queryByTestId(`analysis-new-zone-${z}-group`) !== null)
-    expect(found.length, 'precondition: zones render at all on a rich run').toBe(ZONES.length)
+    expect(found.length, 'precondition: every zone renders on a rich run').toBe(ZONES.length)
 
     for (const z of found) {
-      const group = screen.getByTestId(`analysis-new-zone-${z}-group`)
-      const label = screen.getByTestId(`analysis-new-zone-${z}`)
-      // The label belongs to the group it names, not beside it.
-      expect(group.contains(label), `${z}: the label must sit inside its group`).toBe(true)
-      // And the group carries content beyond its own label.
       expect(
-        (group.textContent ?? '').replace(label.textContent ?? '', '').trim().length,
+        contentBeyondLabel(z),
         `${z}: a zone with only a label is furniture naming nothing`,
       ).toBeGreaterThan(0)
     }
+  })
+
+  /**
+   * ⛔⛔ THE DISCRIMINATING PAIR. Both arms run the same fixture and differ only
+   * in the canvas, so a label that appeared regardless — the state actually
+   * shipped in the first cut — fails the second arm while the first still
+   * passes. One arm alone proves nothing: the first shows the zone can render,
+   * the second shows it is the CONTENT that decides.
+   */
+  it('⛔ a zone with nothing to say renders no label at all', () => {
+    renderBody(genuineDecision(), EARNS_A_NUDGE)
+    expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 1: the model lacks a risk, so the zone is earned').not.toBeNull()
+    expect(contentBeyondLabel('focus')).toBeGreaterThan(0)
+
+    cleanup()
+    // An empty canvas earns no nudge — every fact is unknown, and unknown is
+    // not absent. The zone must go with its content, label included.
+    renderBody(genuineDecision(), [])
+    expect(screen.queryByTestId('analysis-new-zone-focus-group'), 'arm 2: no content, so no group').toBeNull()
+    expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 2: no content, so no heading over nothing').toBeNull()
+    // Contrast in the SAME arm: the unconditional zones are still there, so
+    // arm 2 is measuring the gate and not a failed render.
+    expect(screen.queryByTestId('analysis-new-zone-answer-group')).not.toBeNull()
+    expect(screen.queryByTestId('analysis-new-zone-further-group')).not.toBeNull()
   })
 
   /**
@@ -69,10 +123,12 @@ describe('the panel is grouped into named zones', () => {
    * card, which is the weight this grouping exists to remove.
    */
   it('⛔ a zone label is not a block — no border, no fill, no radius', () => {
-    renderBody(genuineDecision())
+    renderBody(genuineDecision(), EARNS_A_NUDGE)
+    let checked = 0
     for (const z of ZONES) {
       const label = screen.queryByTestId(`analysis-new-zone-${z}`)
       if (label === null) continue
+      checked += 1
       const cls = label.className
       expect(cls, `${z}: a label must not be bordered`).not.toMatch(/\bborder(-|\b)/)
       expect(cls, `${z}: a label must not be filled`).not.toMatch(/\bbg-(?!transparent)/)
@@ -81,6 +137,7 @@ describe('the panel is grouped into named zones', () => {
       // class string rather than assertions about an empty one.
       expect(cls.trim().length).toBeGreaterThan(0)
     }
+    expect(checked, 'precondition: this arm inspected every zone').toBe(ZONES.length)
   })
 
   /**
@@ -89,16 +146,19 @@ describe('the panel is grouped into named zones', () => {
    * person adding one.
    */
   it('⛔ no zone label repeats a heading from within its own group', () => {
-    renderBody(genuineDecision())
+    renderBody(genuineDecision(), EARNS_A_NUDGE)
+    let checked = 0
     for (const z of ZONES) {
       const group = screen.queryByTestId(`analysis-new-zone-${z}-group`)
       const label = screen.queryByTestId(`analysis-new-zone-${z}`)
       if (group === null || label === null) continue
+      checked += 1
       const name = (label.textContent ?? '').trim().toLowerCase()
       expect(name.length, 'precondition: the label says something').toBeGreaterThan(0)
       const headings = Array.from(group.querySelectorAll('h1,h2,h3,h4,h5,h6'))
         .map((h) => (h.textContent ?? '').trim().toLowerCase())
       expect(headings, `${z}: the zone label restates a heading inside it`).not.toContain(name)
     }
+    expect(checked, 'precondition: this arm inspected every zone').toBe(ZONES.length)
   })
 })

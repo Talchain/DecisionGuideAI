@@ -1457,21 +1457,30 @@ export function AnalysisNewTabBody({
             ratchet counts it as one child rather than several. A label added
             loose would have raised the count by five and the ceiling with it,
             which is the opposite of what the prototype asks for. */}
-        <div data-testid="analysis-new-zone-focus-group">
-        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
-            of blocks, so it carries no border, no fill and no radius of its
-            own: furniture that looked like a block would add the weight this
-            change exists to remove. Sized and coloured as `panelMeta`, the
-            quietest of the panel's three sizes. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-focus"
-        >
-          Focus now
-        </p>
-        {focusApplicableIds.length > 0 && (
-          <FocusNowContainer applicableStaticIds={focusApplicableIds} />
-        )}
+        {/* ⛔⛔ THE ZONE IS GATED ON ITS OWN CONTENT, AND THE COMMENT DIRECTLY
+            ABOVE SAYS WHY. The block above me was gated for exactly this reason
+            — "the block cost a reader a heading over nothing" — and my first cut
+            put a label above that gate rather than inside it, so "Focus now"
+            rendered alone on ALL SEVEN fixtures (measured: content beyond the
+            label = 0 characters, every one). A zone label is a heading like any
+            other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
+            it was breaking, and the fix is the gate, not a wider ceiling. */}
+        {focusApplicableIds.length > 0 ? (
+          <div data-testid="analysis-new-zone-focus-group">
+            {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
+                GROUP of blocks, so it carries no border, no fill and no radius
+                of its own: furniture that looked like a block would add the
+                weight this change exists to remove. Sized and coloured as
+                `panelMeta`, the quietest of the panel's three sizes. */}
+            <p
+              className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+              data-testid="analysis-new-zone-focus"
+            >
+              Focus now
+            </p>
+            <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+          </div>
+        ) : null}
 
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
         {/* ⛔ `driverTotal` NO LONGER PASSED. It let the glance declare its cap
@@ -1480,7 +1489,6 @@ export function AnalysisNewTabBody({
             ranking from the same fields, so there is no cap here to declare.
             `primaryIntervention` is the ENGINE's top recommendation, passed
             rather than re-derived: this surface never mints one. */}
-        </div>
         {/* ── ZONE: ANSWER ─────────────────────────────────────────────
             ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
             makes the zone grammar a REDUCTION: the panel goes from a flat stack
