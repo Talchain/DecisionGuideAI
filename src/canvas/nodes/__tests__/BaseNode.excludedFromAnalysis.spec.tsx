@@ -57,9 +57,10 @@ const CEE_MESSAGE = 'Set values for Launch Our Own Subscription Offering, or the
 
 type Issue = Record<string, unknown>
 
-function setReadiness(issues: Issue[] | undefined) {
+function setReadiness(issues: Issue[] | undefined, stale = false) {
   useReadinessStore.setState({
     readiness: (issues === undefined ? null : { readiness_issues: issues }) as never,
+    stale,
   })
 }
 
@@ -156,6 +157,27 @@ describe('⛔ it tracks the producer\'s stamp, and nothing else', () => {
 
   /** Bound to the node TYPE, not just the id space — a factor that collided on
    *  id must not inherit an option's exclusion. */
+  /**
+   * ⛔ A STALE VERDICT MAY NOT MARK A NODE — found by adversarial self-review
+   * before merge, not by a reviewer.
+   *
+   * `stale` means the model has moved on from the verdict on screen. The
+   * reachable harm is the user's own fix being ignored: they see the marker,
+   * set values on that option, and it keeps saying excluded until readiness
+   * refetches — the product telling them their correction did not count.
+   */
+  it('says nothing when the verdict is stale, however emphatic the stamp', () => {
+    setReadiness([{ message: CEE_MESSAGE, option_id: OPTION_ID, waived_by_exclusion: true }], true)
+    renderNode('option', OPTION_ID)
+    expect(pill()).toBeNull()
+  })
+
+  it('CONTRAST: the identical verdict marks once it is current again', () => {
+    setReadiness([{ message: CEE_MESSAGE, option_id: OPTION_ID, waived_by_exclusion: true }], false)
+    renderNode('option', OPTION_ID)
+    expect(pill()).toBeTruthy()
+  })
+
   it('never marks a factor, even on an id collision', () => {
     setReadiness([{ message: CEE_MESSAGE, option_id: OPTION_ID, waived_by_exclusion: true }])
     renderNode('factor', OPTION_ID)

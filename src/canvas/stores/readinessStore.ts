@@ -1398,6 +1398,23 @@ export const selectReadinessVerdictAtMs = (state: ReadinessStoreState) => state.
 export const selectOptionExclusionMessage =
   (optionId: string) =>
   (state: ReadinessStoreState): string | null => {
+    // ⛔ A STALE VERDICT MAY NOT MARK A NODE. Found by adversarial self-review
+    // before merge, not by a reviewer.
+    //
+    // `stale` means "the model has moved on from the verdict on screen"
+    // (ROADMAP 2.332). This pill is a claim about what the run WILL do, so a
+    // stale one asserts a future that is no longer predicted. The reachable
+    // harm is precise and it is the user's own fix being ignored: they see
+    // "Not in this analysis", set values on that option, and the marker keeps
+    // saying it is excluded until readiness refetches — the product telling
+    // them their correction did not count.
+    //
+    // ⚠ SILENCE RATHER THAN A CAVEAT, and the reason is the affordance. This
+    // module's standing ruling elsewhere is "caveat, never hide", but a PILL
+    // has no room to carry one and its presence IS the assertion. There is no
+    // wording of "Not in this analysis" that also says "and this may no longer
+    // be true". Absence is the only honest rendering available to it.
+    if (state.stale) return null
     const issues = state.readiness?.readiness_issues
     if (!Array.isArray(issues)) return null
     for (const issue of issues) {
