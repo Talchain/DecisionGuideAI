@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 /**
  * ⭐⭐⭐ RULE 5, ENFORCED BY MEASUREMENT RATHER THAN BY A LIST OF ALLOWED CLASSES.
@@ -185,6 +185,39 @@ function enclosingTag(code: string, at: number): string {
 const TOKEN_RE = (names: string[]) =>
   new RegExp(`\\btext-(${names.join('|')})(?:-(?:light|hover|active|disabled|\\d{2,3}))?(?:/\\d{1,3})?\\b`, 'g')
 
+
+/**
+ * ⭐⭐ THE SAME SCOPE HOLE THE RULE-1 GUARD CLOSES, CLOSED HERE TOO — found by
+ * asking *"what would have to be true for my guard to pass while the property
+ * fails?"* A card may render a component that does not live in this directory,
+ * and ~24 semantic text tokens sit elsewhere in `src/canvas`.
+ *
+ * Measured at this tip the node surface renders three such components — two
+ * `Tooltip`s and `DataBar` — and all three are clean, so the hole is real and
+ * currently EMPTY: it would have stayed green through the first violation that
+ * walked into it. The set is derived from the cards' own imports rather than
+ * listed, so a fourth cannot arrive unswept.
+ */
+function renderedFromOutside(nodeFiles: string[]): string[] {
+  const out = new Set<string>()
+  const IMPORT = /import\s+(?:\{([^}]*)\}|(\w+))\s+from\s+'((?:\.\.\/){2,}[^']+)'/g
+  for (const file of nodeFiles) {
+    const src = readFileSync(file, 'utf8')
+    let m: RegExpExecArray | null
+    while ((m = IMPORT.exec(src)) !== null) {
+      const spec = m[3]
+      if (!/\/(components|ui|panels)\//.test(spec)) continue
+      const names = (m[1] ?? m[2] ?? '').split(',').map(n => n.trim()).filter(Boolean)
+      if (!names.some(n => /^[A-Z]/.test(n) && !n.startsWith('type '))) continue
+      for (const ext of ['.tsx', '.ts']) {
+        const resolved = join(dirname(file), spec + ext)
+        if (existsSync(resolved)) { out.add(resolved); break }
+      }
+    }
+  }
+  return [...out].sort()
+}
+
 describe('node design system — rule 5, measured', () => {
   it('reads the palette and reproduces the two figures already recorded in the tree', () => {
     const { grounds, tokens } = palette()
@@ -285,5 +318,24 @@ describe('node design system — rule 5, measured', () => {
     // absence of the .text READ, not an absence of the import.
     const importers = tsxFiles(NODES_DIR).filter(f => /from '\.\/colors'/.test(readFileSync(f, 'utf8')))
     expect(importers.length).toBeGreaterThan(0)
+  })
+
+  it('and it follows the card into every component the card renders from outside', () => {
+    const banned = SEMANTIC.filter(n => !clearing(TEXT_THRESHOLD).includes(n))
+    const outside = renderedFromOutside(tsxFiles(NODES_DIR))
+    expect(outside.length, 'the import derivation found nothing — it is not discriminating').toBeGreaterThan(0)
+
+    const hits: string[] = []
+    for (const file of outside) {
+      const code = blankComments(readFileSync(file, 'utf8'))
+      const rel = file.slice(file.indexOf('src/'))
+      const re = TOKEN_RE(banned)
+      let m: RegExpExecArray | null
+      while ((m = re.exec(code)) !== null) {
+        if (/aria-hidden/.test(enclosingTag(code, m.index))) continue
+        hits.push(`${rel}:${code.slice(0, m.index).split('\n').length}  ${m[0]}`)
+      }
+    }
+    expect(hits, 'Rule 5 reaches components a card renders, wherever they live.\n' + hits.join('\n')).toEqual([])
   })
 })

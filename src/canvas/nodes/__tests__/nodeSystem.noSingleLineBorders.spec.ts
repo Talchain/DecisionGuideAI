@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 /**
  * ⭐⭐⭐ PAUL'S RULE, MADE INTO A MECHANISM RATHER THAN A REMINDER (17 Sep 2026)
@@ -94,6 +94,48 @@ function code(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 }
 
+
+/**
+ * ⭐⭐ THE SCOPE HOLE THIS CLOSES, FOUND BY ADVERSARIAL SELF-REVIEW (17 Sep 2026).
+ *
+ * The question that finds these is *"what would have to be true for my guard to
+ * pass while the property fails?"* — and the answer here was: **a violation in a
+ * component that a node card RENDERS but that does not live in this directory.**
+ * The sweep walks `src/canvas/nodes`; 217 single-edge borders and ~24 semantic
+ * text tokens live elsewhere in `src/canvas`, and a card is free to render one.
+ *
+ * Measured at this tip: the node surface renders exactly three components from
+ * outside — two `Tooltip`s and `DataBar` — and **all three are clean**. So the
+ * hole is real and currently empty, which is the most dangerous kind: it would
+ * have stayed green through the first violation that walked into it.
+ *
+ * Rather than record that as a caveat, the sweep now DERIVES what it must cover:
+ * it reads the node components' own imports, keeps the ones that are rendered
+ * (capitalised bindings) from `components/`, `ui/` or `panels/`, and includes
+ * those files. A fourth outside component cannot be rendered on a card without
+ * this sweep following it there.
+ */
+function renderedFromOutside(nodeFiles: string[]): string[] {
+  const out = new Set<string>()
+  const IMPORT = /import\s+(?:\{([^}]*)\}|(\w+))\s+from\s+'((?:\.\.\/){2,}[^']+)'/g
+  for (const file of nodeFiles) {
+    const src = readFileSync(file, 'utf8')
+    let m: RegExpExecArray | null
+    while ((m = IMPORT.exec(src)) !== null) {
+      const spec = m[3]
+      if (!/\/(components|ui|panels)\//.test(spec)) continue
+      const names = (m[1] ?? m[2] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+      // A rendered component is a capitalised value binding, never a `type` one.
+      if (!names.some(n => /^[A-Z]/.test(n) && !n.startsWith('type '))) continue
+      for (const ext of ['.tsx', '.ts']) {
+        const resolved = join(dirname(file), spec + ext)
+        if (existsSync(resolved)) { out.add(resolved); break }
+      }
+    }
+  }
+  return [...out].sort()
+}
+
 describe('node design system — rule 1: borders enclose, nothing is a single line', () => {
   it('the matcher fires on every single-edge spelling (positive control)', () => {
     const violations = [
@@ -158,5 +200,24 @@ describe('node design system — rule 1: borders enclose, nothing is a single li
       'Rule 1: borders enclose. Separate a section with SPACE (see shared/Sep.tsx) or give it a FULL border of its own.\n' +
         hits.join('\n'),
     ).toEqual([])
+  })
+
+  it('and it follows the card into every component the card renders from outside', () => {
+    const outside = renderedFromOutside(sourceFiles(NODES_DIR))
+    // Reachability: the node surface demonstrably DOES render outside components,
+    // so an empty set here would mean the derivation broke, not that the surface
+    // is self-contained.
+    expect(outside.length, 'the import derivation found nothing — it is not discriminating').toBeGreaterThan(0)
+
+    const hits: string[] = []
+    for (const file of outside) {
+      const src = code(readFileSync(file, 'utf8'))
+      const rel = file.slice(file.indexOf('src/'))
+      src.split('\n').forEach((line, i) => {
+        for (const m of line.match(SINGLE_EDGE) ?? []) hits.push(`${rel}:${i + 1}  ${m}  — ${line.trim()}`)
+        for (const m of line.match(CSS_SINGLE_EDGE) ?? []) hits.push(`${rel}:${i + 1}  ${m.trim()}  — ${line.trim()}`)
+      })
+    }
+    expect(hits, 'Rule 1 reaches components a card renders, wherever they live.\n' + hits.join('\n')).toEqual([])
   })
 })
