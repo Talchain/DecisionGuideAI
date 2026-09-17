@@ -41,11 +41,43 @@ interface StatusPillProps {
   title?: string
 }
 
+/**
+ * ⭐⭐ THE COLOUR MOVED TO THE BORDER, 17 Sep 2026 — RULE 5, AND THE REPO'S OWN
+ * DESIGN SYSTEM SAID SO FIRST.
+ *
+ * Node design system, rule 5: *"Kind colour on the full border, the bars and the
+ * glyphs — never on small text. Measured on this palette, no semantic colour
+ * clears 3:1 on either panel ground, so text stays #262626 or #6E6B6B."*
+ *
+ * `DESIGN_SYSTEM.md` §"Pills and Badges" reaches the same rule from the other
+ * end and is blunter about it — it lists `className="border border-danger/30
+ * text-danger"` as an explicit ❌ WRONG example: *"Text on pills is always
+ * `text-text-body` — never `text-{colour}`. Colour is carried by the border
+ * only."* This pill was `text-warning bg-warning/15 border-warning/40`: the
+ * named anti-pattern, at `typography.nodeLabel`.
+ *
+ * ⭐ AND A SIBLING COMPONENT HAD ALREADY MADE THIS EXACT MOVE AND WRITTEN DOWN
+ * WHY. `NodeProvenanceMark` converted its own `border-info/40 text-info` pill on
+ * 1 Sep, recording that `text-warning` and `text-success` measure **1.92:1** and
+ * **2.02:1** against the card fill `--bg-panel` #FEFEFE, where SC 1.4.11 asks
+ * 3:1 for a graphic that carries meaning. That measurement is this pill's too —
+ * same tokens, same ground — and it sat one directory away for sixteen days.
+ *
+ * ⚠ THE FIX RAISES CONTRAST; IT DOES NOT TRADE IT. `text-text-body` (#3F3F3E)
+ * over `bg-warning/15` on #FEFEFE is far above 4.5:1, against the 1.92:1 the
+ * amber was reaching. The amber is not lost — it stays on the border and the
+ * wash, which is where rule 5 puts it and where a colour-blind reader was never
+ * relying on it anyway.
+ *
+ * ⛔ NOTHING ELSE MOVES: no padding, no border width, no `lineHeight`, no copy.
+ * One token, so the pill's geometry is byte-identical and no card's height can
+ * change.
+ */
 export const StatusPill = memo(({ label, title }: StatusPillProps) => (
   <span
     role="status"
     aria-label={title ?? label}
-    className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-medium text-warning bg-warning/15 border border-warning/40 rounded-[10px]`}
+    className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-medium text-text-body bg-warning/15 border border-warning/40 rounded-[10px]`}
     style={{ padding: '2px 8px', lineHeight: 1.2, borderWidth: '0.5px' }}
     title={title ?? label}
     data-testid="needs-input-pill"

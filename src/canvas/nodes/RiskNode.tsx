@@ -184,6 +184,44 @@ export const RiskNode = memo((props: NodeProps) => {
          BEFORE they analyse. */
       return recordedValue ?? null
     }
+    /**
+     * ⭐⭐ THE RISK'S OWN MAGNITUDE OUTRANKS A SCORE ABOUT ONE OF ITS EDGES.
+     *
+     * Node design system, rule 2: *"The node's own unit comes before any score.
+     * A normalised figure with no unit is not a compact presentation of a value,
+     * it is a different quantity wearing its name."* And the anatomy: *"The
+     * node's own value in its own unit comes first… A run adds relative scores
+     * BELOW that — never in place of it."*
+     *
+     * ⛔ THIS BRANCH INVERTED BOTH, AND THE INVERSION WAS INVISIBLE BECAUSE THE
+     * TWO LIVED IN DIFFERENT ARMS OF ONE `if`. `recordedValue` — the risk's own
+     * size, in months or pounds, from `observedState` — was reachable ONLY on
+     * the `!bridgeEdgeData` arm. Give the same risk a bridge edge and the line
+     * became `Strength 40%`: a normalised 0..1 weight belonging to an EDGE,
+     * displacing a native quantity belonging to the NODE.
+     *
+     * ⛔⛔ AND THE UNSET ARM WAS WORSE THAN A DISPLACEMENT — IT WAS AN ABSENCE
+     * CLAIM OVER A PRESENT VALUE. A risk carrying a recorded `4 months`, on an
+     * edge nobody has weighted, rendered **`Strength not set yet`**. The card
+     * announced that nothing was recorded while holding the thing that was.
+     *
+     * ⭐ THE PRECEDENCE IS NOT INVENTED HERE. `GoalNode` already ships
+     * `targetLine ?? …` for exactly this question — the node's own target wins
+     * the single line, and the derived figure takes it only when the target is
+     * absent. Reusing that rule rather than minting a second one is deliberate:
+     * two rules for one question is how the two authorities behind the last two
+     * P0s in this lane came to disagree.
+     *
+     * ⚠ THIS IS NOT STRICTLY ADDITIVE AND MUST NOT BE SOLD AS SUCH. A risk that
+     * has BOTH a recorded magnitude and a weighted bridge edge changes what it
+     * says: `Strength 40%` → `4 months`. There is one line at this rung, so
+     * "below" is not available and the rule's own precedence decides which
+     * survives. Measured coverage bounds the blast radius: `display_value` is
+     * carried by **4 of 23** risks on the captures, so at most four cards can
+     * change, and every one of them changes from a figure about an edge to a
+     * figure about itself.
+     */
+    if (recordedValue) return recordedValue
     const pct = bridgeEdgeData.bridgeStrengthPct
     if (pct != null) return `${METRIC_NOUN.strength} ${pct}%`
     // The connection exists and nobody has said how strong it is. Saying so is

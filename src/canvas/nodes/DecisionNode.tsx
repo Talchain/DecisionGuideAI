@@ -1189,7 +1189,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               <div>{popoverLabel(DECISION_READINESS_COPY.inferred)}: {readiness.inferredCount}</div>
             )}
             {readiness.missingCount > 0 && (
-              <div className="text-danger">{popoverLabel(DECISION_READINESS_COPY.missing)}: {readiness.missingCount}</div>
+              <div>{popoverLabel(DECISION_READINESS_COPY.missing)}: {readiness.missingCount}</div>
             )}
             {readiness.externalCount > 0 && (
               <div>{popoverLabel(DECISION_READINESS_COPY.external)}: {readiness.externalCount}</div>
@@ -1198,7 +1198,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               <>
                 <div className="font-medium text-text-heading mt-1">Bias triggers</div>
                 {readiness.biasTriggers.map(trigger => (
-                  <div key={trigger} className="text-warning">{trigger}</div>
+                  <div key={trigger}>{trigger}</div>
                 ))}
               </>
             )}

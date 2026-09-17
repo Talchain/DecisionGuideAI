@@ -2,7 +2,6 @@ import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
-import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
@@ -15,12 +14,24 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
-  const displayMetadata = useNodeDisplayMetadata(props.id, 'outcome')
+  /**
+   * ⭐⭐ NOT READ ANY MORE, AND THAT IS A FINDING RATHER THAN A TIDY-UP.
+   *
+   * `useNodeDisplayMetadata` was subscribed here for EXACTLY ONE consumer: the
+   * `Goal chance: N%` block removed below. With that gone, `eslint` reported the
+   * binding unused — i.e. **the outcome card's entire connection to analysis
+   * metadata existed to render a figure belonging to the goal.**
+   *
+   * That corroborates the measured producer coverage from the other direction:
+   * 15 of 15 outcome nodes carry provenance and nothing else, so there was never
+   * an outcome-scoped number in that hook for this card to read. The subscription
+   * is dropped rather than silenced, which also drops a store subscription per
+   * outcome node.
+   */
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
   const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
   const body = typeof props.data?.body === 'string' && props.data.body.trim() ? props.data.body : null
@@ -295,30 +306,61 @@ export const OutcomeNode = memo((props: NodeProps) => {
     </div>
   ), [isPostAnalysis, cleanedLabel, outcomeContext])
 
-  // This existing Detailed-only field is the analysis goal probability, not an
-  // outcome-specific forecast. Preserve the shared reader eligibility and caveat.
-  const detailedMetrics = displayMetadata.achievementProbability !== null ? (
-    <>
-      <Sep />
-      <p className={`${typography.edgeLabel} text-text-body m-0`}>
-        Goal chance: {Math.round(displayMetadata.achievementProbability * 100)}%
-      </p>
-      {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): the
-          achievement-probability number above is scored from a MODELLED
-          forward-propagated outcome distribution, not a directly-elicited
-          base — same gate + shared wording as GoalNode/OptionCards'
-          caveat (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the
-          number it qualifies, never separately, never invented. */}
-      {displayMetadata.achievementProbabilityIsModelledBasis === true && (
-        <p
-          className={`${typography.edgeLabel} text-text-light m-0`}
-          data-testid="goal-fit-basis-caveat-outcome-node"
-        >
-          {GOAL_FIT_BASIS_CAVEAT_COPY}
-        </p>
-      )}
-    </>
-  ) : null
+  /**
+   * ⛔⛔ `Goal chance: N%` IS GONE FROM THE OUTCOME CARD (17 Sep 2026), AND THE
+   * REASON IS THAT TWO COMMENTS IN THIS FILE SAID OPPOSITE THINGS ABOUT ONE
+   * NUMBER WHILE THE USER READ A THIRD.
+   *
+   * Above the block, the honest one: *"This existing Detailed-only field is the
+   * analysis goal probability, **not an outcome-specific forecast**."*
+   * At the mount site, the other: *"The achievement metric is a distinct
+   * diagnostic (**probability of the outcome occurring at all**, not the
+   * goal-bridge contribution shown in Layer 1) so it stays."*
+   * On screen, a third: **`Goal chance: 62%`**, on a card named for an outcome.
+   *
+   * ⭐ SETTLED AT THE PRODUCER RATHER THAN BY PICKING A COMMENT
+   * (`hooks/useNodeDisplayMetadata.ts:484-516`):
+   *
+   *     const recommendedOptionId = report.robustness?.recommended_option_id
+   *     const rec = optionProbabilities[recommendedOptionId]
+   *     achievementProbability = selectGoalProbability(rec).goalProbability
+   *
+   * It is **the recommended OPTION's probability of achieving THE GOAL**. There
+   * is no outcome id anywhere in that read. ⇒ the first comment is right, the
+   * second is false, and — the part that decides this — **the figure is
+   * identical on every outcome card in the model**, because nothing about it is
+   * scoped to the node it was drawn on.
+   *
+   * ⛔ THAT MAKES IT THREE VIOLATIONS AT ONCE, NOT A WORDING PROBLEM:
+   *  · **Rule 6** — *"a card may not display a metric the product does not
+   *    produce."* Measured coverage for the outcome kind is **provenance only**:
+   *    15 of 15 outcome nodes carry a name, a kind and a stamp and nothing else.
+   *    No unit, no value, no effect.
+   *  · **The anatomy** — position 2 is *"what the model records"* **about this
+   *    node**. This records nothing about this node.
+   *  · **Paul's standing ruling** — *"saying the same copy on every node is a
+   *    waste of space"*. Identical number AND identical label, on every outcome.
+   *
+   * ⭐ NOTHING IS LOST, WHICH IS WHY THIS IS A DELETION AND NOT A RELABEL.
+   * `GoalNode` already renders this exact figure, through this exact selector,
+   * on the node it actually belongs to, with `GOAL_FIT_BASIS_CAVEAT_COPY`
+   * beside it. The outcome card was a second, unscoped copy of the goal's own
+   * number. A relabel — *"the recommended option's chance of reaching the
+   * goal"* — would be TRUE and still wrong here: it would put a sentence about
+   * the goal and an option onto a third node's card, and repeat it fifteen
+   * times.
+   *
+   * ⚠ THE CAVEAT MACHINERY IS NOT WEAKENED, it is no longer needed HERE.
+   * `achievementProbabilityIsModelledBasis` and `GOAL_FIT_BASIS_CAVEAT_COPY`
+   * remain live on `GoalNode`, `OptionNode` and `GoalPanel`, which is where the
+   * shared rule *"surfaces rendering the number MUST render the caveat
+   * alongside it"* still binds. One fewer surface rendering the number is one
+   * fewer surface that can drift out of step with it.
+   *
+   * ⚠ HEIGHT MOVES DOWN, NOT UP: a `Sep` plus one or two lines leave the
+   * Detailed outcome card. Nothing else on any card changes, and no default-view
+   * card changes at all — this block was `isDetailed`-only.
+   */
 
   return (
     <div
@@ -459,11 +501,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4 OutcomePostDet —
             percentage (Layer 1), separator, "Depends on:" ConnRows (max 3),
-            separator, one Strengthen action. The achievement metric is a
-            distinct diagnostic (probability of the outcome occurring at all,
-            not the goal-bridge contribution shown in Layer 1) so it stays. */}
+            separator, one Strengthen action.
+
+            ⛔ THIS COMMENT USED TO END: "The achievement metric is a distinct
+            diagnostic (probability of the outcome occurring at all, not the
+            goal-bridge contribution shown in Layer 1) so it stays." That is
+            REFUTED at the producer — see the block above `return` for the
+            derivation — and the metric no longer renders here. The sentence is
+            quoted rather than deleted because it is the reason the figure
+            survived on this card for as long as it did. */}
         {isDetailed && layer2ContentPost}
-        {isDetailed && detailedMetrics}
 
         {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
             the card, remainder disclosed (audit §8 P0-5 containment). */}

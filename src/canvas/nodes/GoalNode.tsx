@@ -627,7 +627,7 @@ export const GoalNode = memo((props: NodeProps) => {
 
       {/* Constraint default warning */}
       {hasConstraintDefaultWarning && (
-        <p className={`${typography.edgeLabel} text-warning m-0 mt-0.5`}>
+        <p className={`${typography.edgeLabel} text-text-body m-0 mt-0.5`}>
           Some model inputs missing. Goal probability may be less reliable.
         </p>
       )}
@@ -819,9 +819,7 @@ export const GoalNode = memo((props: NodeProps) => {
             to see how likely you are to reach it" invitation above. hasThreshold makes the two
             mutually exclusive by construction. */}
         {showAchievementReadout && (
-          <div className={`${typography.nodeLabel} mt-1 ${
-            achievementIsCritical ? 'text-danger' : 'text-text-body'
-          }`}>
+          <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
             {/* ROADMAP 2.283: the withheld arm is the shared register's PHRASE
                 form verbatim — the same wording the results panel, the hero,
                 the V7 goal lens and OptionNode render for this basis. The
@@ -909,7 +907,7 @@ export const GoalNode = memo((props: NodeProps) => {
             Target may be ambitious.{' '}
             <button
               type="button"
-              className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
+              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
               onClick={(e) => {
                 e.stopPropagation()
                 openNodeInspector(props.id)

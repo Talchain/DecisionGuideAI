@@ -41,10 +41,34 @@ interface EvidenceGapBadgeProps {
  * (`mapImprovementToTriageCard.ts` — a warning-tinted border, nothing louder):
  * reuse of a settled pattern, not a new palette, which is not mine to mint.
  */
+/**
+ * ⭐⭐ THE GLYPH'S COLOUR MOVED TO THE RING, 17 Sep 2026 — RULE 5, ON THE
+ * SMALLEST TEXT IN THE SYSTEM.
+ *
+ * Node design system, rule 5: *"Kind colour on the full border, the bars and the
+ * glyphs — never on small text. Measured on this palette, no semantic colour
+ * clears 3:1 on either panel ground, so text stays #262626 or #6E6B6B."*
+ *
+ * All three escalations painted `text-warning`, applied at `:164` to
+ * `typography.edgeLabel` — which this file's own header calls *"the smallest
+ * CANVAS token"*. `NodeProvenanceMark` measured `text-warning` at **1.92:1**
+ * against the card fill `--bg-panel` #FEFEFE, where SC 1.4.11 asks 3:1; two of
+ * these three rows put it on `bg-warning-light`, which is paler still, so the
+ * ratio on those is lower again.
+ *
+ * ⭐ THE AMBER IS NOT LOST AND NOTHING IS REDESIGNED. `border-warning` and
+ * `bg-warning-light` are untouched, so the badge reads amber from any distance;
+ * only the character inside the ring changes hue. That is rule 5's whole
+ * construction — colour on the border, meaning in the shape — and it is the
+ * move `NodeProvenanceMark` made on 1 Sep and `StatusPill` makes in this branch.
+ *
+ * ⛔ NO GEOMETRY MOVES: one token per row; no size, weight, padding or border
+ * width. The glyph occupies the same box it did.
+ */
 const ESCALATION_STYLES: Record<EvidenceGapEscalation, { border: string; text: string; bg: string }> = {
-  none:     { border: 'border-warning/50', text: 'text-warning', bg: 'bg-panel' },
-  warning:  { border: 'border-warning',    text: 'text-warning', bg: 'bg-warning-light' },
-  critical: { border: 'border-warning',    text: 'text-warning', bg: 'bg-warning-light' },
+  none:     { border: 'border-warning/50', text: 'text-text-body', bg: 'bg-panel' },
+  warning:  { border: 'border-warning',    text: 'text-text-body', bg: 'bg-warning-light' },
+  critical: { border: 'border-warning',    text: 'text-text-body', bg: 'bg-warning-light' },
 }
 
 /**
@@ -87,10 +111,26 @@ const ESCALATION_STYLES: Record<EvidenceGapEscalation, { border: string; text: s
  *    now say the same thing about the same fact instead of contradicting each
  *    other. That is the repair, and note that it needed NO change to any cut-off.
  *
- * ⚠ THE COLOURS ARE DELIBERATELY UNTOUCHED. `critical` still paints
+ * ⛔⛔ THIS PARAGRAPH WAS FALSE AT ITS OWN FILE'S BYTES, AND IT IS CORRECTED
+ * RATHER THAN DELETED (17 Sep 2026).
+ *
+ * It read: *"⚠ THE COLOURS ARE DELIBERATELY UNTOUCHED. `critical` still paints
  * `border-danger` / `bg-danger-light` and pulses, which is the same alarm in
- * another channel. Visual ownership is Paul's and the palette decision is not
- * mine to make inside a copy repair — flagged on #38 rather than changed here.
+ * another channel."*
+ *
+ * `ESCALATION_STYLES` above has painted `critical` as `border-warning` /
+ * `bg-warning-light`, and there is no pulse anywhere in this file. So one
+ * paragraph described a danger hue the map does not carry while the map sat
+ * forty lines above it — *a hand-maintained mirror inside a single file*, the
+ * exact defect class this estate keeps paying for.
+ *
+ * The true state: the rows differ ONLY in border opacity and background
+ * (`border-warning/50` + `bg-panel` for `none`; full `border-warning` +
+ * `bg-warning-light` for `warning` and `critical`), and since this change the
+ * glyph is `text-text-body` on all three. #38's colour point is closed on this
+ * component. What remains open there is whether `warning` and `critical` should
+ * be distinguishable at all — they currently are not — and that is Paul's call,
+ * not a repair.
  */
 const NO_VALUE_SET = 'Setting a value here would give the analysis something stated to work from.'
 

@@ -1339,7 +1339,7 @@ export const OptionNode = memo((props: NodeProps) => {
             : `${goalBadgeReadout} chance of target.`}{' '}
           <button
             type="button"
-            className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
+            className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
             onClick={handleGoalReviewClick}
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -1771,6 +1771,77 @@ export const OptionNode = memo((props: NodeProps) => {
             The copy is never re-typed here: it comes from
             `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
             which is the ratified wording and the one owner of it. */}
+        {/* ⭐⭐ MOVED ABOVE THE SUPPORT SCORE, 17 Sep 2026 — RULE 2.
+           Node design system: *"The node's own unit comes before any score."*
+           And the anatomy: *"The node's own value in its own unit comes first…
+           A run adds relative scores BELOW that — never in place of it."*
+
+           ⛔ THESE TWO BLOCKS SAT ~270 LINES APART IN THE SAME RENDER, WHICH IS
+           WHY THE INVERSION SURVIVED EVERY READING OF EITHER ONE. The run's
+           normalised `Support 48%` rendered at the top of the body; the option's
+           own change rows — *"Pro plan price · £49 → £79"*, the option's value in
+           the TARGET FACTOR'S unit — rendered far below it. A reader met the
+           score before the thing the score is about.
+
+           ⛔ I CLAIMED THIS WAS HEIGHT-NEUTRAL. IT IS NOT. MEASURED: **+2px.**
+           The claim was read off the class strings — both blocks carry `mt-1.5`,
+           so swapping them "obviously" cannot move anything — and a two-minute
+           browser probe refuted it. Before the swap the two blocks sat ~270
+           lines apart with other content between them; after it they are
+           ADJACENT, so a different pair of vertical margins collapses (`mb-1` on
+           the win readout now meets the next block instead of the deltas' own
+           `mt-1.5`). Margin collapse is a function of ADJACENCY, which is
+           exactly what a reorder changes.
+
+           ⚠ A GREEN SUITE CANNOT SEE A PIXEL, and neither can reading the
+           classes. This lane shipped a +30% density regression on 16 Sep from
+           precisely this reasoning, under a fully green suite. Two pixels is not
+           that — but "+2px, measured" and "height-neutral, asserted" are
+           different kinds of statement and only one of them is evidence.
+
+           ⚠ BOUNDED: the delta applies only to a card that renders BOTH blocks.
+           On the deployed board today that is **0 of 3 options** — every one
+           carries `interventions: {}`, so no structured deltas render and the
+           reorder is inert. It becomes live when the producer starts sending
+           interventions, which is a CEE-side gap already routed.
+
+           ⚠ AND IT IS A REORDER, NOT A PROMOTION: `structuredDeltaChipsRender`
+           keeps its own gate, so a card with no structured deltas renders
+           exactly what it renders today, in the order it renders it. */}
+        {structuredDeltaChipsRender && (
+          <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
+            {baselineOptionReference && (
+              <li className={`${typography.edgeLabel} text-text-light`}>Reference: {baselineOptionReference.label}</li>
+            )}
+            {structuredDeltas.map(d => (
+              <li
+                key={d.factorId}
+                className="flex items-start gap-1"
+                /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go
+                   (Paul, 29 Aug). `label` is compacted to 22 chars; the full
+                   string is here and in the hover popover below. Native
+                   `title` is the canvas-node tooltip idiom in this repo — see
+                   `nodes/shared/MetricPills.tsx`. */
+                title={`${d.fullLabel}: ${d.fromTo}`}
+              >
+                {d.direction === 'up' ? (
+                  <ArrowUp size={10} className="text-text-light flex-shrink-0 mt-0.5" />
+                ) : d.direction === 'down' ? (
+                  <ArrowDown size={10} className="text-text-light flex-shrink-0 mt-0.5" />
+                ) : null}
+                {/* min-w-0 so the text block may shrink and WRAP rather than
+                    overflow. Nothing here is `truncate`: a CSS ellipsis inside
+                    a canvas node REDs `nodeTextClipping.visual.spec.ts`, which
+                    exempts JS-shortened strings by design. */}
+                <span className="min-w-0 flex-1">
+                  <span className={`${typography.nodeLabel} block text-text-body`}>{d.label}</span>
+                  <span className={`${typography.nodeLabel} block text-text-light`}>{d.fromTo}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
@@ -2000,7 +2071,7 @@ export const OptionNode = memo((props: NodeProps) => {
             (`COMPARATIVE_COPY.phrase`), which is the statistic the ratified
             rule licenses. */}
         {closeCallGapPp != null && (
-          <p className={`${typography.nodeLabel} text-warning mt-0.5 m-0`}>
+          <p className={`${typography.nodeLabel} text-text-body mt-0.5 m-0`}>
             Within a small margin of the most-supported option
           </p>
         )}
@@ -2041,39 +2112,6 @@ export const OptionNode = memo((props: NodeProps) => {
             a LEGIBILITY change, not a density one. First-view legibility is
             height-bound at the GRAPH level (build-vs-buy lays out 2693 units
             against ~1600 showable) and no card change reaches that. */}
-        {structuredDeltaChipsRender && (
-          <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
-            {baselineOptionReference && (
-              <li className={`${typography.edgeLabel} text-text-light`}>Reference: {baselineOptionReference.label}</li>
-            )}
-            {structuredDeltas.map(d => (
-              <li
-                key={d.factorId}
-                className="flex items-start gap-1"
-                /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go
-                   (Paul, 29 Aug). `label` is compacted to 22 chars; the full
-                   string is here and in the hover popover below. Native
-                   `title` is the canvas-node tooltip idiom in this repo — see
-                   `nodes/shared/MetricPills.tsx`. */
-                title={`${d.fullLabel}: ${d.fromTo}`}
-              >
-                {d.direction === 'up' ? (
-                  <ArrowUp size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                ) : d.direction === 'down' ? (
-                  <ArrowDown size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                ) : null}
-                {/* min-w-0 so the text block may shrink and WRAP rather than
-                    overflow. Nothing here is `truncate`: a CSS ellipsis inside
-                    a canvas node REDs `nodeTextClipping.visual.spec.ts`, which
-                    exempts JS-shortened strings by design. */}
-                <span className="min-w-0 flex-1">
-                  <span className={`${typography.nodeLabel} block text-text-body`}>{d.label}</span>
-                  <span className={`${typography.nodeLabel} block text-text-light`}>{d.fromTo}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
 
         {/* Polish 4 Task 5: differentiator line — what's strategically unique
             about this option vs the others. Standard view only (Detailed
