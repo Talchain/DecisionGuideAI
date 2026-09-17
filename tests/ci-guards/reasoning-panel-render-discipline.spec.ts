@@ -97,6 +97,8 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve as resolvePath, join as joinPath, relative as relativePath } from 'node:path'
 import { stripComments } from '../helpers/stripSourceComments'
+import { typography } from '../../src/styles/typography'
+import { resolveSizePx } from '../../scripts/lib/type-scale.mjs'
 
 const ROOT = resolvePath(__dirname, '../../src')
 const PANEL_DIR = resolvePath(ROOT, 'components/results/analysisNew')
@@ -129,8 +131,38 @@ const PANEL_DIR = resolvePath(ROOT, 'components/results/analysisNew')
  */
 const DECLARED_TOKENS = ['panelHeader', 'panelBody', 'panelMeta', 'panelTabular', 'reasoningLead'] as const
 
-/** The sizes those tokens resolve to — `panelTabular` shares `panelBody`'s. */
+/**
+ * The sizes those tokens resolve to — `panelTabular` shares `panelBody`'s.
+ *
+ * ⚠⚠ THIS LITERAL IS THE DECLARATION. IT IS NOT THE CHECK. The check is
+ * `derivedSizesPx()` below, which resolves every `DECLARED_TOKENS` entry
+ * through `typography` with the repo's own resolver. Comparing this array to
+ * itself — which is what the first version of the test below did — is a
+ * tautology wearing a rule's name.
+ */
 const DECLARED_SIZES_PX = [18, 14, 12, 11] as const
+
+/**
+ * ⭐ THE SIZES THE PANEL ACTUALLY RENDERS, DERIVED FROM THE TOKENS THEMSELVES.
+ *
+ * `resolveSizePx` is the same resolver `panel-scale-has-exactly-three-sizes`
+ * and the conversation census use, so a token whose class string this repo
+ * cannot parse fails LOUDLY here rather than being silently dropped from the
+ * count — an unresolvable token would otherwise shrink the derived set and
+ * make the assertion pass by measuring less.
+ */
+function derivedSizesPx(): number[] {
+  const px = DECLARED_TOKENS.map((t) => {
+    // `resolveSizePx` returns `{ px, outcome, errors }`; the second argument is
+    // the LABEL used in its error messages, not a context to match on.
+    const r = resolveSizePx((typography as Record<string, string>)[t], `typography.${t}`)
+    if (r.outcome !== 'resolved' || typeof r.px !== 'number') {
+      throw new Error(`typography.${t} -> ${r.outcome}: unresolvable, so the derivation cannot be trusted`)
+    }
+    return r.px
+  })
+  return [...new Set(px)].sort((a, b) => b - a)
+}
 
 /**
  * Every rendering file under the Reasoning tab, DERIVED. Specs are excluded:
@@ -276,8 +308,19 @@ describe('Reasoning panel — RULE A: only the declared panel sizes are rendered
    * a reason attached, rather than a quiet append.
    */
   it('⛔ the panel has FOUR sizes — a fifth is a design decision, not an allowlist edit', () => {
-    expect(DECLARED_SIZES_PX).toHaveLength(4)
-    expect([...DECLARED_SIZES_PX].sort((a, b) => b - a)).toEqual([18, 14, 12, 11])
+    // ⛔ THIS TEST DID NOT ENFORCE ITS OWN TITLE, and an independent reviewer
+    // (`github-c6`) found it in the PR that added it. `DECLARED_SIZES_PX` was
+    // hand-written and never resolved from `typography`, so both assertions
+    // compared a literal to itself and passed unconditionally. A fifth TOKEN
+    // was caught by the NAME check below; a fifth SIZE reached by editing an
+    // EXISTING token's px — `panelTabular` 12 -> 13 — was not: DECLARED_TOKENS
+    // is unchanged, so nothing looked at the tokens at all and the guard stayed
+    // green while the panel rendered five sizes.
+    //
+    // ⭐ The literal is now the DECLARATION and the derivation is the CHECK.
+    // Proven against that exact mutation before this landed: `panelTabular`
+    // 12 -> 13 REDs this test, and read GREEN on the version it replaces.
+    expect(derivedSizesPx()).toEqual([...DECLARED_SIZES_PX])
     // The exception is named, so a rename cannot smuggle a second one through.
     expect(DECLARED_TOKENS.filter((t) => !['panelHeader', 'panelBody', 'panelMeta', 'panelTabular'].includes(t))).toEqual([
       'reasoningLead',
