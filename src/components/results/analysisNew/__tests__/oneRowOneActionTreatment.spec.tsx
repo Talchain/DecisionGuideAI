@@ -41,7 +41,26 @@ const finding: AnalysisNewFinding = {
   focusTargetId: 'n_price',
   reviewTargetId: 'n_price',
   inspect: [{ label: 'Switch probability', value: '72%' }],
+  /**
+   * ⭐⭐ THE ACT THIS FILE COULD NOT SEE, AND THE ONLY ONE THAT CAN FAIL IT.
+   *
+   * An independent reviewer found `row-intervention` asserted ZERO times here:
+   * the fixture carried no `intervention`, so the Sparkles button never
+   * mounted, and both loops below listed only focus and review.
+   *
+   * ⛔ WHY THAT WAS THE WHOLE POINT MISSED. `row-focus` and `row-review` take
+   * `COPY.disclosure.*` constants, which CANNOT be empty. This one takes
+   * `finding.intervention.label` — from DATA. `IconBtn` resolves its name as
+   * `ariaLabel ?? tooltip`, and `??` falls back on null/undefined ONLY, so a
+   * label of `''` ships `aria-label=""`. The assertion "an icon with no name is
+   * unreachable" was pointed at the two names that cannot be empty and away
+   * from the one that can: a guard agreeing with itself.
+   */
+  intervention: { recommendationId: 'strengthen:price', label: 'Work through with Olumi', targetId: 'n_price' },
 }
+
+/** Every act on the row. A hardcoded PAIR is what hid the third one. */
+const ACTS = ['row-focus', 'row-review', 'row-intervention'] as const
 
 afterEach(cleanup)
 
@@ -73,6 +92,7 @@ describe('one row, one action treatment', () => {
         testIdPrefix="row"
         onFocusTarget={vi.fn()}
         onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
       />,
     )
     /**
@@ -83,8 +103,13 @@ describe('one row, one action treatment', () => {
      */
     fireEvent.click(screen.getByTestId('row-row-toggle'))
 
-    const acts = ['row-focus', 'row-review'].filter((t) => screen.queryByTestId(t) !== null)
-    expect(acts.length, 'precondition: the acts this asserts about are on screen').toBeGreaterThanOrEqual(2)
+    /**
+     * ⚠ EXACT, NEVER A FLOOR. `>= 2` passed on exactly the two-member list it
+     * was handed, so it could not notice a third act missing — which is how the
+     * only data-fed act went unasserted through a whole review.
+     */
+    const acts = ACTS.filter((t) => screen.queryByTestId(t) !== null)
+    expect(acts.length, 'precondition: every act is on screen').toBe(ACTS.length)
 
     const shapeOf = (el: HTMLElement) =>
       el.className.split(/\s+/).filter((c) => ['w-7', 'h-7', 'rounded-full'].includes(c)).sort().join(' ')
@@ -113,12 +138,13 @@ describe('one row, one action treatment', () => {
         testIdPrefix="row"
         onFocusTarget={vi.fn()}
         onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
       />,
     )
     fireEvent.click(screen.getByTestId('row-row-toggle'))
 
-    const acts = ['row-focus', 'row-review'].filter((t) => screen.queryByTestId(t) !== null)
-    expect(acts.length).toBeGreaterThanOrEqual(2)
+    const acts = ACTS.filter((t) => screen.queryByTestId(t) !== null)
+    expect(acts.length, 'precondition: every act is on screen').toBe(ACTS.length)
 
     for (const testId of acts) {
       const name = screen.getByTestId(testId).getAttribute('aria-label') ?? ''
@@ -142,6 +168,7 @@ describe('one row, one action treatment', () => {
         testIdPrefix="row"
         onFocusTarget={vi.fn()}
         onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
       />,
     )
     fireEvent.click(screen.getByTestId('row-row-toggle'))
@@ -150,5 +177,42 @@ describe('one row, one action treatment', () => {
     for (const token of INLINE) {
       expect(toggle.className.split(' '), `inspect must carry the tier's ${token}`).toContain(token)
     }
+  })
+
+  /**
+   * ⛔⛔ THE CASE THAT WOULD HAVE SHIPPED, and the reason the fixture above is
+   * not enough on its own.
+   *
+   * `finding.intervention.label` is producer data, so `''` is reachable.
+   * `IconBtn` resolved its name as `ariaLabel ?? tooltip`, and `??` falls back
+   * on null/undefined ONLY — an empty string is a value, so it passes straight
+   * through and the button ships `aria-label=""`. A round, pressable, entirely
+   * unreachable control, and every shape assertion in this file applauds it.
+   *
+   * This arm is why the name assertion is worth anything: it is the only one
+   * whose subject can actually be empty.
+   */
+  it('⛔ an act whose label arrives EMPTY still has a name — an empty string is a value, not an absence', () => {
+    render(
+      <DisclosureRow
+        finding={{ ...finding, intervention: { recommendationId: 'strengthen:price', label: '', targetId: 'n_price' } }}
+        testIdPrefix="row"
+        onFocusTarget={vi.fn()}
+        onReviewTarget={vi.fn()}
+        onRunIntervention={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
+    const btn = screen.queryByTestId('row-intervention')
+    // ⭐ EITHER NAMED OR NOT OFFERED — never a nameless control. Asserting only
+    // "it has a name" would force the panel to invent one; asserting only "it
+    // is absent" would pass on a row that lost the act for any other reason.
+    if (btn !== null) {
+      expect((btn.getAttribute('aria-label') ?? '').trim().length, 'an icon with no name is unreachable').toBeGreaterThan(0)
+    }
+    // Contrast in the same run: the ROW rendered and its other acts are there,
+    // so this is a withheld act rather than a failed render.
+    expect(screen.queryByTestId('row-focus')).not.toBeNull()
+    expect(screen.queryByTestId('row-review')).not.toBeNull()
   })
 })

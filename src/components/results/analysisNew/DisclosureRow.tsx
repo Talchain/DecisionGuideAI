@@ -259,7 +259,27 @@ export function DisclosureRow({
                 that triggered it (§3B). It is never a generic tip: it exists
                 only because the strengthen ENGINE emitted a recommendation for
                 THIS row's target id. */}
-            {finding.intervention && onRunIntervention ? (
+            {/* ⛔ AND IT MUST BE NAMEABLE. `intervention.label` is producer data,
+                so `''` is reachable — and an icon carries no words, which makes
+                its name the control's ONLY name. Rendering it anyway ships a
+                round, pressable, entirely unreachable button that every shape
+                and style assertion applauds.
+
+                ⛔⛔ AND THIS IS A NEW RISK CLASS, NOT ONE WE ARE JOINING — my
+                first draft of this comment claimed the opposite and an
+                independent sweep refuted it. Every OTHER `IconBtn` caller on
+                staging builds its label from a template literal with a literal
+                prefix (`Scenario ${n}`, `Discuss ${label}`) or reads a static
+                token table, so NONE of them can produce an empty name: they are
+                safe by construction rather than by luck. This call site is the
+                first to hand the primitive raw graph data, which is exactly why
+                the guard has to name this act specifically.
+
+                ⚠ THE GATE IS HERE RATHER THAN IN `IconBtn` BECAUSE THE
+                PRIMITIVE CANNOT FIX IT. This call site passes the same value as
+                both tooltip and label, so there is nothing to fall back to. An
+                act we cannot name is an act we do not offer. */}
+            {finding.intervention && finding.intervention.label.trim() !== '' && onRunIntervention ? (
               <IconBtn
                 icon={Sparkles}
                 tooltip={finding.intervention.label}

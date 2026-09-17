@@ -102,6 +102,22 @@ export function IconBtn({
   const styles = variantStyles[variant]
   const buttonStyle = disabled ? styles.disabled : styles.enabled
 
+  /**
+   * ⛔ `??` FALLS BACK ON null/undefined ONLY — AN EMPTY STRING IS A VALUE.
+   *
+   * Both name sites read `ariaLabel ?? tooltip`, so a consumer passing a label
+   * built from DATA shipped `aria-label=""` the moment that data was empty: a
+   * round, pressable, entirely unreachable control that every shape and style
+   * assertion applauds. Found by an independent reviewer on the Reasoning
+   * panel's intervention act, whose label is producer-supplied.
+   *
+   * ⚠ THIS HARDENS THE PRIMITIVE; IT DOES NOT ABSOLVE THE CALL SITE. Where a
+   * consumer passes the SAME empty value as both label and tooltip there is
+   * nothing here to fall back to, so an act that cannot be named must not be
+   * offered at all — see `DisclosureRow`.
+   */
+  const accessibleName = (ariaLabel ?? '').trim() || tooltip
+
   const handleClick = () => {
     if (!disabled) {
       onClick?.()
@@ -117,7 +133,7 @@ export function IconBtn({
   if (disabled) {
     return (
       <Tooltip content={tooltip}>
-        <span className="inline-flex" tabIndex={0} aria-label={ariaLabel ?? tooltip}>
+        <span className="inline-flex" tabIndex={0} aria-label={accessibleName}>
           <button
             type="button"
             disabled
@@ -140,7 +156,7 @@ export function IconBtn({
       <button
         type="button"
         onClick={handleClick}
-        aria-label={ariaLabel ?? tooltip}
+        aria-label={accessibleName}
         {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
         {...(ariaControls ? { 'aria-controls': ariaControls } : {})}
         {...(testId ? { 'data-testid': testId } : {})}
