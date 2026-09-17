@@ -263,3 +263,48 @@ export function statedFactorCategoryLabel(category: unknown, inferredByUi: unkno
   if (inferredByUi === true) return null
   return factorCategoryLabel(category)
 }
+
+/**
+ * ⭐⭐ HOW STRONG AN EFFECT READS — the ONE band vocabulary, for the same reason
+ * this file exists.
+ *
+ * ⚠ IT MOVED HERE FROM `ui/inspector-v2/inspectorStrings.ts` (unchanged —
+ * same four words, same four thresholds, same contract reference). It did NOT
+ * move because the inspector was the wrong place to read it; it moved because
+ * the CANVAS needs the same answer, `domain/` imports from `ui/` **nowhere in
+ * this repo** (measured: 0 occurrences, against 68 the other way), and the
+ * alternative was a second hand-kept copy of four adjectives — the mirror this
+ * module was created to abolish. `inspectorStrings.ts` re-exports it, so every
+ * existing importer is untouched.
+ *
+ * ⚠⚠ WHAT THE MOVE FIXED, and it is the reason the move happened at all.
+ * `domain/edgeLabels.ts`'s `describeEdge` — the canvas edge chip — carried its
+ * own restatement, `absWeight >= 0.7 ? 'Strong' : absWeight >= 0.3 ?
+ * 'Moderate' : 'Weak'`. The two tables agree on exactly ONE band,
+ * |w| ∈ [0.30, 0.40) — 10% of the [0, 1] range — so the canvas said
+ * **"Moderate boost"** about an edge the inspector panel beside it called
+ * **"Strong"**, and **"Strong boost"** about one the inspector called **"Very
+ * strong"**. One number, two authorities, both internally consistent: trap 21,
+ * and trap 12 underneath it.
+ *
+ * ⚠ IT IS A MAGNITUDE-ONLY NAMER AND MUST STAY ONE. Pass `Math.abs(...)`, or a
+ * value already known non-negative. It takes no direction argument and returns
+ * no direction word, deliberately — reading a sign as a scientific claim is the
+ * ROADMAP 2.263 defect class. `getDirectionalStrengthLabel`
+ * (`components/model-tab/strengthBands.ts`) is the DIFFERENT function that
+ * answers the directional question, on its own DIFFERENT band cuts, and the
+ * two are named apart on purpose. Do not collapse them.
+ *
+ * ⚠ THE THRESHOLDS ARE THE CONTRACT'S, NOT THIS FILE'S. They come from
+ * `validation_ui_data_contract_v1.1` and are aligned with the DS v4 reference
+ * artefact; `StrengthBandButtons.tsx` writes the midpoint of each band back
+ * into the model, so a cut moved here silently re-labels a value a user chose.
+ * Change them in the contract first.
+ */
+// Canonical thresholds: Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20, Slight < 0.20
+export function getStrengthLabel(absValue: number): string {
+  if (absValue >= 0.70) return 'Very strong'
+  if (absValue >= 0.40) return 'Strong'
+  if (absValue >= 0.20) return 'Moderate'
+  return 'Slight'
+}
