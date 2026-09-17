@@ -53,7 +53,7 @@ import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
-import type { AnalysisNewViewModel } from './analysisNewTypes'
+import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
 import { buildModelStrip, stripHasContent, stripRendersTargetAffordance } from './buildModelStrip'
@@ -1239,6 +1239,46 @@ export function AnalysisNewTabBody({
     </>
   )
 
+  /**
+   * ⭐⭐ WORK THROUGH THIS FINDING WITH OLUMI — the act Paul said the Reasoning
+   * tab had lost, and the census agrees with him.
+   *
+   * MEASURED on the served build `d3c818f2`, guest, every section opened, all
+   * 36 buttons enumerated by name: sensitivity rows 3 with no act at all,
+   * options rows 3 with focus only, model-strip marks 4 with focus only, and
+   * the two rows that DO carry acts carry canvas and review but never the AI
+   * one. ZERO routes to Olumi from any finding on the panel.
+   *
+   * ⛔ THE SLOT WAS NOT MISSING. #1643 restored it; it is gated on
+   * `finding.intervention`, and no finding carries one on a real run, so the
+   * capability shipped DARK. A restored affordance that no data reaches is the
+   * estate's most expensive pattern, and it passed a full mutant kit because
+   * every mutant asked whether the test could detect a change rather than
+   * whether the act ever renders.
+   *
+   * ⚠ THIS SEEDS THE DRAWER FROM THE ROW'S OWN WORDS AND CLAIMS NOTHING ELSE.
+   * No producer record is looked up because there is none to look up — that is
+   * the whole difference between an ask and a dispatch. `context` is the row's
+   * own detail so the drawer shows what the reader was looking at, `draft` is
+   * the row's headline so the drawer never opens blank, and `targetId` rides only
+   * where the producer named one.
+   *
+   * ⛔ NO `parameters`, AND THE ABSENCE IS DELIBERATE. The intervention route
+   * carries `block_id` because the producer minted the recommendation and can
+   * be told which one came back. An ask about a row has no producer record, so
+   * inventing an identifier here would put a claim on the wire that nothing
+   * upstream authored — the fabrication class this panel has spent the day
+   * removing, one layer down.
+   */
+  const askOlumiAbout = (finding: AnalysisNewFinding) => {
+    openAskOlumi({
+      context: finding.detail ?? finding.implication,
+      draft: finding.headline,
+      label: COPY.disclosure.askOlumi,
+      ...(finding.targetId ? { targetId: finding.targetId } : {}),
+    })
+  }
+
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
     if (!rec) return
@@ -1842,6 +1882,7 @@ export function AnalysisNewTabBody({
           onFocusTarget={focusTarget}
           onReviewTarget={onReviewTarget}
           onRunIntervention={runIntervention}
+          onAskOlumi={askOlumiAbout}
           icon={GitBranch}
           testId="analysis-new-sensitivity"
         />
@@ -2259,6 +2300,7 @@ export function AnalysisNewTabBody({
             emptyMessage={keyInsightsEmptyMessage}
             onFocusTarget={focusTarget}
             onRunIntervention={runIntervention}
+            onAskOlumi={askOlumiAbout}
             icon={Star}
             testId="analysis-new-key-insights"
           />
@@ -2305,6 +2347,7 @@ export function AnalysisNewTabBody({
             emptyMessage={driversEmpty}
             onFocusTarget={focusTarget}
             onRunIntervention={runIntervention}
+            onAskOlumi={askOlumiAbout}
             icon={TrendingUp}
             testId="analysis-new-drivers"
             /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
@@ -2525,6 +2568,7 @@ export function AnalysisNewTabBody({
             onFocusTarget={focusTarget}
             onReviewTarget={onReviewTarget}
             onRunIntervention={runIntervention}
+            onAskOlumi={askOlumiAbout}
             icon={AlertTriangle}
             testId="analysis-new-uncertainty"
           />

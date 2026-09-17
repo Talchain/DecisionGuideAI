@@ -827,6 +827,23 @@ export const ANALYSIS_NEW_COPY = {
      * more.
      */
     reviewTarget: 'Review or change',
+    /**
+     * ⭐⭐ THE AI ACT, AND IT IS THE ONE PAUL SAID WE HAD LOST.
+     *
+     * Measured on the served build `d3c818f2`, every section opened, all 36
+     * buttons enumerated: the panel offered ZERO routes to work on a finding
+     * with Olumi. The slot existed - #1643 restored it - but it was gated on
+     * `finding.intervention`, producer data that NO finding carried on a real
+     * run, so the capability shipped dark.
+     *
+     * ⚠ AN ASK IS NOT A DISPATCH, WHICH IS WHY THE GATE WAS WRONG RATHER THAN
+     * THE SLOT. A producer intervention is a named move the engine recommends,
+     * and it needs producer data. Talking to Olumi about a finding needs only a
+     * SUBJECT, and every row has one: its own title. Gating the ask on the
+     * dispatch's data is the substitution this estate keeps making - one name
+     * answering two questions (CLAUDE.md trap 21).
+     */
+    askOlumi: 'Work through with Olumi',
     moreDrivers: (n: number) => `Show ${n} more`,
     /**
      * ⚠ NAMED APART, for the reason the note below `moreUncertainty` gives.
