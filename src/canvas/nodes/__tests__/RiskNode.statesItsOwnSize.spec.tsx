@@ -153,14 +153,48 @@ describe('a risk card states the size it records', () => {
     expect(lodLine()).toBe('12 months')
   })
 
-  it('⛔ CONTRAST — STRICTLY ADDITIVE: a card that was already speaking says exactly what it said before', () => {
-    // The whole safety argument for the change above. If this ever reads the
-    // recorded value, the new arm has started overriding a branch that was not
-    // silent, which is the opposite-direction twin (CLAUDE.md trap 22b).
+  /**
+   * ⭐⭐⭐ THIS TEST ASSERTED THE OPPOSITE UNTIL 17 Sep 2026, AND IT WAS RIGHT TO.
+   * IT IS INVERTED HERE DELIBERATELY, BY A RULING, AND THE OLD CLAIM IS KEPT
+   * RATHER THAN DELETED SO THE NARROWING IS LEGIBLE.
+   *
+   * It read: *"⛔ CONTRAST — STRICTLY ADDITIVE: a card that was already speaking
+   * says exactly what it said before"*, asserting `line !== '12 months'` and
+   * `line` contains `strength`. Its reasoning was the safety argument for #1645:
+   * *"If this ever reads the recorded value, the new arm has started overriding
+   * a branch that was not silent, which is the opposite-direction twin."*
+   *
+   * ⚠ THAT ARGUMENT IS SOUND AND IT IS NOT WHAT CHANGED. #1645 was a change to a
+   * SILENT branch and additiveness was the right bound for it. What changed is
+   * that rule 2 of the node design system was then applied to the same line:
+   *
+   * > **The node's own unit comes before any score.** *A normalised figure with
+   * > no unit is not a compact presentation of a value, it is a different
+   * > quantity wearing its name.*
+   *
+   * A bridge strength is a normalised 0..1 weight belonging to an EDGE. A
+   * recorded magnitude is a native quantity belonging to the NODE. There is one
+   * line at this rung, so "below" is unavailable and the rule decides which
+   * survives. **Overriding this particular branch is now the point, not the
+   * hazard** — and the same change closed a worse case the additiveness bound
+   * was protecting: a risk holding `4 months`, on an unweighted edge, rendered
+   * `Strength not set yet`, an absence claim over a present value.
+   *
+   * ⛔ THE ADDITIVENESS CLAIM IS NARROWED, NOT ABANDONED, and the narrowed half
+   * is pinned by the test above this one: a risk with NO recorded magnitude
+   * still states its strength, byte for byte. That is the half #1645's argument
+   * actually needed, and it is still guarded.
+   *
+   * *A test whose verdict flips is a finding to record, never an assertion to
+   * quietly reverse* — which is why the old sentence is quoted above instead of
+   * being replaced by a green one.
+   */
+  it('⭐ RULE 2 — the recorded magnitude now outranks a strength about one of its edges', () => {
     draw('risk-6', TIME_TO_TARGET, { ...withBridge('risk-6', 0.5), lodRung: 'line' })
     const line = lodLine()
-    expect(line).not.toBe('12 months')
-    expect(line, 'precondition: the pre-existing branch still produces a line at all').toBeTruthy()
-    expect(line!.toLowerCase()).toContain('strength')
+    expect(line, 'precondition: this branch still produces a line at all').toBeTruthy()
+    expect(line).toBe('12 months')
+    // The discriminating half: the score is not merely outranked, it is absent.
+    expect(line!.toLowerCase()).not.toContain('strength')
   })
 })
