@@ -81,6 +81,8 @@ export interface AnalysisNewSectionProps {
   /** Routes a row to the editor for its subject. Threaded, never composed here. */
   onReviewTarget?: (targetId: string) => void
   onRunIntervention?: (recommendationId: string) => void
+  /** Work through a finding with Olumi. Passed straight through to the row. */
+  onAskOlumi?: (finding: AnalysisNewFinding) => void
   /**
    * Rendered ABOVE the findings, inside the opened section — for a section
    * whose data has a visual form as well as a prose form.
@@ -107,6 +109,7 @@ export function AnalysisNewSection({
   onFocusTarget,
   onReviewTarget,
   onRunIntervention,
+  onAskOlumi,
   icon,
   header,
   testId,
@@ -177,6 +180,7 @@ export function AnalysisNewSection({
                 onFocusTarget={onFocusTarget}
                 onReviewTarget={onReviewTarget}
                 onRunIntervention={onRunIntervention}
+                onAskOlumi={onAskOlumi}
                 testIdPrefix={testId}
                 /* ⭐ ONE FINDING, ONE DOOR. The section above already opens
                    itself on `findings.length === 1`, for a reason it states:

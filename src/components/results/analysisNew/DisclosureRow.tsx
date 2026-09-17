@@ -59,6 +59,19 @@ export interface DisclosureRowProps {
   onReviewTarget?: (targetId: string) => void
   /** Runs the row's reasoning intervention through an EXISTING action route. */
   onRunIntervention?: (recommendationId: string) => void
+  /**
+   * ⭐⭐ WORK THROUGH THIS FINDING WITH OLUMI. Takes the finding rather than an
+   * id, because the ask is ABOUT the row and the drawer is seeded from the
+   * row's own words - there is no producer record to look up.
+   *
+   * ⚠ IT SHARES THE SLOT WITH THE INTERVENTION, IT DOES NOT SIT BESIDE IT.
+   * Both are "work on this with Olumi" and both are the sparkle; two sparkles
+   * on one row would be the panel asking a reader to tell apart two icons it
+   * had already said were the same act. Where the producer named a move, the
+   * act RUNS it and the tooltip says which. Where it did not, the act opens the
+   * conversation. One icon, one meaning, and the accessible name discriminates.
+   */
+  onAskOlumi?: (finding: AnalysisNewFinding) => void
   /** Stable prefix so two sections cannot mint the same testid. */
   testIdPrefix: string
 }
@@ -68,6 +81,7 @@ export function DisclosureRow({
   onFocusTarget,
   onReviewTarget,
   onRunIntervention,
+  onAskOlumi,
   testIdPrefix,
   defaultOpen = false,
 }: DisclosureRowProps) {
@@ -279,6 +293,24 @@ export function DisclosureRow({
                 PRIMITIVE CANNOT FIX IT. This call site passes the same value as
                 both tooltip and label, so there is nothing to fall back to. An
                 act we cannot name is an act we do not offer. */}
+            {/* ⭐⭐ THE AI ACT IS ALWAYS AVAILABLE, AND THAT IS THE CHANGE.
+                Measured on the served build with every section open, all 36
+                buttons enumerated: the panel offered ZERO routes to work on a
+                finding with Olumi. The slot existed and was gated on
+                `finding.intervention` - producer data that no finding carried
+                on a real run - so #1643's restoration shipped dark.
+
+                ⚠ AN ASK IS NOT A DISPATCH. A producer intervention is a named
+                move and needs producer data; talking to Olumi about a finding
+                needs only a SUBJECT, and the row's own title is one. Gating the
+                ask on the dispatch's data was one gate answering two questions
+                (CLAUDE.md trap 21).
+
+                ⛔ AND IT IS ONE SLOT, NOT TWO. Both arms are "work on this with
+                Olumi" and both are the sparkle. Two sparkles on one row would
+                ask the reader to tell apart two icons the panel had just said
+                were the same act. The tooltip and the accessible name carry the
+                difference, which is where a difference of INTENT belongs. */}
             {finding.intervention && finding.intervention.label.trim() !== '' && onRunIntervention ? (
               <IconBtn
                 icon={Sparkles}
@@ -288,6 +320,19 @@ export function DisclosureRow({
                 onClick={() => onRunIntervention(finding.intervention!.recommendationId)}
                 testId={`${testIdPrefix}-intervention`}
                 dataAttrs={{ 'data-recommendation-id': finding.intervention.recommendationId }}
+              />
+            ) : onAskOlumi && finding.headline.trim() !== '' ? (
+              /* ⚠ GATED ON A NAMEABLE SUBJECT, NOT ON THE HANDLER ALONE. An act
+                 whose accessible name would be the copy constant with no
+                 subject is the same defect the intervention arm was fixed for:
+                 a control that cannot say what it acts on. The title is what
+                 seeds the drawer, so an empty one would open it blank. */
+              <IconBtn
+                icon={Sparkles}
+                tooltip={COPY.disclosure.askOlumi}
+                ariaLabel={COPY.disclosure.askOlumi}
+                onClick={() => onAskOlumi(finding)}
+                testId={`${testIdPrefix}-ask`}
               />
             ) : null}
           </div>
