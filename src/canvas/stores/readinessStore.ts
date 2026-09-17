@@ -1361,6 +1361,70 @@ export const selectReadinessStale = (state: ReadinessStoreState) => state.stale
 /** ROADMAP 2.332 — when the verdict on screen was taken. */
 export const selectReadinessVerdictAtMs = (state: ReadinessStoreState) => state.verdictAtMs
 
+/**
+ * ⭐ IS THE RUN GOING TO LEAVE THIS OPTION OUT — and if so, in CEE's words.
+ *
+ * WHAT THIS CLOSES. CEE has been stamping `waived_by_exclusion` on the served
+ * path for some time; measured across 32 real staging turn responses it is
+ * present on 30/32 with 14 `true` and 7 `false`, so it genuinely discriminates.
+ * This repo already PARSES it (`:1113` above), and already uses it to decide
+ * NOT to block the run (`composeBlockedReason.ts:551`). What it has never done
+ * is TELL ANYONE ON THE BOARD. The user was informed in prose in the results
+ * dock — *"Analysis can run, leaving out one option you have not set values
+ * for"* — while the option itself sat on the canvas looking exactly like the
+ * options that ARE in the analysis. The fact arrived, was acted upon, and was
+ * never shown.
+ *
+ * ⛔ ONE AUTHORITATIVE ADMISSION DECISION, AND IT IS NOT THIS REPO'S.
+ * `waived_by_exclusion` is stamped by CEE
+ * (`orchestrator-v5/admission/analysis-admission.ts:954`). The canvas READS it
+ * and must never re-derive it. *"Not connected"*, *"no values set"* and
+ * *"excluded from this calculation"* are THREE different facts, and an option
+ * can be any combination of them; deriving the third from the first two here
+ * would put a second authority on screen disagreeing with the first — the
+ * defect this codebase has paid for repeatedly (trap 21).
+ *
+ * ⚠ RETURNS A PRIMITIVE, DELIBERATELY. A selector building a `Set` or returning
+ * the issue object hands zustand a fresh identity every call and re-renders the
+ * subscriber for ever. `null` means NOT EXCLUDED; a string means excluded and
+ * carries the producer's own sentence (empty when it sent none — still excluded,
+ * so the caller must test against `null`, never truthiness).
+ *
+ * ⚠ AND IT REQUIRES BOTH FIELDS. An entry with `waived_by_exclusion: true` and
+ * no `option_id` names no option, so it cannot mark one — measured 14/14 true
+ * entries DID carry a real id, but an entry that does not must fall through
+ * rather than mark an arbitrary node.
+ */
+export const selectOptionExclusionMessage =
+  (optionId: string) =>
+  (state: ReadinessStoreState): string | null => {
+    // ⛔ A STALE VERDICT MAY NOT MARK A NODE. Found by adversarial self-review
+    // before merge, not by a reviewer.
+    //
+    // `stale` means "the model has moved on from the verdict on screen"
+    // (ROADMAP 2.332). This pill is a claim about what the run WILL do, so a
+    // stale one asserts a future that is no longer predicted. The reachable
+    // harm is precise and it is the user's own fix being ignored: they see
+    // "Not in this analysis", set values on that option, and the marker keeps
+    // saying it is excluded until readiness refetches — the product telling
+    // them their correction did not count.
+    //
+    // ⚠ SILENCE RATHER THAN A CAVEAT, and the reason is the affordance. This
+    // module's standing ruling elsewhere is "caveat, never hide", but a PILL
+    // has no room to carry one and its presence IS the assertion. There is no
+    // wording of "Not in this analysis" that also says "and this may no longer
+    // be true". Absence is the only honest rendering available to it.
+    if (state.stale) return null
+    const issues = state.readiness?.readiness_issues
+    if (!Array.isArray(issues)) return null
+    for (const issue of issues) {
+      if (issue?.waived_by_exclusion === true && issue.option_id === optionId) {
+        return typeof issue.message === 'string' ? issue.message : ''
+      }
+    }
+    return null
+  }
+
 // ── Test helpers ───────────────────────────────────────────────────
 
 /** @internal — exposed for unit testing. Not part of public API. */

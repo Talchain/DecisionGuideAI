@@ -39,6 +39,22 @@ interface StatusPillProps {
   label: string
   /** Tooltip text (defaults to label). */
   title?: string
+  /**
+   * ⭐ THE PILL'S IDENTITY, AND WHY IT IS A PROP RATHER THAN A CONSTANT.
+   *
+   * This testid was hardcoded `needs-input-pill` while the component was used
+   * for exactly one claim. The moment a SECOND claim reuses the same pill —
+   * "Not in this analysis", which is a different fact about a different
+   * question — a spec asserting `needs-input-pill` starts passing on a node
+   * that says no such thing. That is an assertion binding by APPEARANCE rather
+   * than by IDENTITY, the defect trap 19 exists to name, and it would be
+   * invisible: the element is present, the test is green, and the claim it
+   * certifies is not the one on screen.
+   *
+   * Defaults to the original value, so every existing caller and every existing
+   * spec is byte-identical.
+   */
+  testId?: string
 }
 
 /**
@@ -73,14 +89,14 @@ interface StatusPillProps {
  * One token, so the pill's geometry is byte-identical and no card's height can
  * change.
  */
-export const StatusPill = memo(({ label, title }: StatusPillProps) => (
+export const StatusPill = memo(({ label, title, testId = 'needs-input-pill' }: StatusPillProps) => (
   <span
     role="status"
     aria-label={title ?? label}
     className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-medium text-text-body bg-warning/15 border border-warning/40 rounded-[10px]`}
     style={{ padding: '2px 8px', lineHeight: 1.2, borderWidth: '0.5px' }}
     title={title ?? label}
-    data-testid="needs-input-pill"
+    data-testid={testId}
   >
     {label}
   </span>
