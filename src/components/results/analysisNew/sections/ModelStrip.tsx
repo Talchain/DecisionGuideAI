@@ -383,6 +383,19 @@ export function ModelStrip({
   const regionId = useId()
   const subjectId = useId()
   const detailId = useId()
+  /**
+   * ⭐ WHICH STRING LEADS. The decision names what is being considered; the
+   * goal names what success would be. The decision leads when the model has
+   * one — but ONLY when it is a different string, because `buildModelStrip`'s
+   * `goalLabel` falls back to the decision, and a decision-only model would
+   * otherwise render the same words on two lines.
+   *
+   * Both null (a model naming neither) leaves `leadLabel` null and the render
+   * falls through to `NO_SUBJECT_LABEL`, so the lead is never empty.
+   */
+  const decisionLeads = strip.decisionLabel !== null && strip.decisionLabel !== strip.goalLabel
+  const leadLabel = decisionLeads ? strip.decisionLabel : strip.goalLabel
+  const subjectSubLabel = decisionLeads ? strip.goalLabel : null
   const valueInputId = useId()
   /**
    * ⚠ THE NODE ID, NOT A BOOLEAN, AND FOR THE SAME REASON `activeNodeId` IS AN
@@ -753,18 +766,44 @@ export function ModelStrip({
         data-testid={`${testId}-toggle`}
       >
         <span className="min-w-0 flex-1">
+          {/* ── ⭐⭐ THE SUBJECT LINE, AND WHY IT IS TWO ELEMENTS NOW ───────────
+              The panel never named the decision it was about. Measured on
+              deployed `d135ff7e`: the panel's text carried the GOAL and not
+              the decision label, because `buildModelStrip` collapsed the
+              decision into `goalLabel` and only surfaced it on models with no
+              goal.
+
+              ⛔ THE DECISION LEADS ONLY WHEN IT IS A DIFFERENT STRING. The
+              builder's `goalLabel` still falls back to the decision, so on a
+              decision-only model both fields hold the same words — rendering
+              both would put one label on screen twice, which is the exact
+              restatement the first-viewport census exists to stop. When they
+              coincide there is one line, not two.
+
+              ⚠ `aria-labelledby` points HERE, so the landmark is announced as
+              the decision when there is one and the goal when there is not —
+              never as an empty string. */}
           <span
             id={subjectId}
             // ⚠ CLAMPED TO ONE LINE WHILE CLOSED, FULL WHILE OPEN — one
             // element, not two. A second copy of the subject inside the region
             // would put the same sentence on screen twice, which is exactly
             // what the first-viewport census exists to stop.
-            className={`${typography.panelBody} text-text-header block ${open ? '' : 'truncate'}`}
-            data-testid={`${testId}-goal`}
-            title={strip.goalLabel ?? undefined}
+            className={`${typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
+            data-testid={`${testId}-lead`}
+            title={leadLabel ?? undefined}
           >
-            {strip.goalLabel ?? NO_SUBJECT_LABEL}
+            {leadLabel ?? NO_SUBJECT_LABEL}
           </span>
+          {subjectSubLabel === null ? null : (
+            <span
+              className={`${typography.panelBody} text-text-light block ${open ? '' : 'truncate'}`}
+              data-testid={`${testId}-goal`}
+              title={subjectSubLabel}
+            >
+              {subjectSubLabel}
+            </span>
+          )}
 
           {/* ⚠ THE CENSUS, AND IT IS THE THING THE CANVAS CANNOT SAY. A reader
               can see the shapes on the canvas; they cannot count fourteen

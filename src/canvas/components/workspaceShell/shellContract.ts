@@ -149,6 +149,20 @@ export const SHELL_TYPOGRAPHY_KEYS = [
   'panelBody',
   'panelMeta',
   'panelTabular',
+  // ⚠⚠ A GENUINE FOURTH SIZE — 18px, 17 Sep 2026. Unlike `panelTabular` it does
+  // NOT share an existing size, so it is a real widening and is recorded as one
+  // rather than argued away. Measured on deployed `d135ff7e`: the whole
+  // Reasoning panel rendered at 14/12/11 with SIX strings tied for largest at
+  // 14px, so nothing led and the panel never named the decision it was about.
+  // Its only consumer is the model strip's subject line.
+  //
+  // ⚠ NOT `panel*`-PREFIXED, so the `panel*` family's three-size rule (pinned
+  // by name in `panel-scale-has-exactly-three-sizes`) is untouched —
+  // `welcomeHeading` set that convention. Listed here for the same reason
+  // `panelTabular` is: this list is what the conformance guard names as legal,
+  // and omitting a token the panel is meant to use would send the next lane to
+  // delete it.
+  'reasoningLead',
 ] as const
 export type ShellTypographyKey = (typeof SHELL_TYPOGRAPHY_KEYS)[number]
 

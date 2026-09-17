@@ -101,8 +101,36 @@ import { stripComments } from '../helpers/stripSourceComments'
 const ROOT = resolvePath(__dirname, '../../src')
 const PANEL_DIR = resolvePath(ROOT, 'components/results/analysisNew')
 
-/** The three sizes DS v5 §2.2 declares for the panel context. */
-const DECLARED_TOKENS = ['panelHeader', 'panelBody', 'panelMeta', 'panelTabular'] as const
+/**
+ * The three sizes DS v5 §2.2 declares for the panel context, plus ONE governed
+ * exception.
+ *
+ * ⚠⚠ `reasoningLead` IS A FOURTH SIZE AND IS DELIBERATE. Measured on deployed
+ * `d135ff7e`: the whole Reasoning panel rendered at 14/12/11 with SIX strings
+ * tied for largest at 14px, so nothing led — and the panel never named the
+ * decision it was about. Hierarchy needs one step, and one is what this is.
+ *
+ * ⛔ IT IS NOT THE TOKEN THIS PANEL REJECTED TWICE. That one promoted a
+ * FIGURE computed partly from values Olumi invented; `reasoningLead` carries WORDS
+ * the user's model authored, and its only consumer is the model strip's
+ * subject line. `typography.ts:228`'s ruling — "a panel that needs a bigger
+ * size than `panelHeader` is a panel promoting a number; say it in words
+ * instead" — is answered, not waived.
+ *
+ * ⚠ IT IS NOT `panel*`-PREFIXED, AND THAT IS THE POINT. The sibling guard
+ * `panel-scale-has-exactly-three-sizes` pins that FAMILY to {11,12,14} BY NAME
+ * and is preserved untouched. THIS guard asks the render question — "what
+ * sizes reach a panel surface?" — so the exception is declared here, where it
+ * is visible, rather than by forcing the family rule open.
+ *
+ * ⚠ ONE, AND THE TEST BELOW PINS THAT IT STAYS ONE. Adding a fifth size is a
+ * design decision, not an allowlist edit; if this array grows again the panel
+ * has a scale rather than a hierarchy.
+ */
+const DECLARED_TOKENS = ['panelHeader', 'panelBody', 'panelMeta', 'panelTabular', 'reasoningLead'] as const
+
+/** The sizes those tokens resolve to — `panelTabular` shares `panelBody`'s. */
+const DECLARED_SIZES_PX = [18, 14, 12, 11] as const
 
 /**
  * Every rendering file under the Reasoning tab, DERIVED. Specs are excluded:
@@ -238,6 +266,22 @@ describe('Reasoning panel — RULE A: only the declared panel sizes are rendered
       [...used].filter((t) => !DECLARED_TOKENS.includes(t as never)).sort(),
       'a non-panel token on a panel surface is the fourth size the sibling guard records as debt',
     ).toEqual([])
+  })
+
+  /**
+   * ⛔ THE ALLOWLIST ABOVE CLAIMS "ONE GOVERNED EXCEPTION, AND IT STAYS ONE".
+   * A claim in a docblock that no assertion can fail on is not a rule — it is
+   * a comment that the next lane will read as permission. This is the
+   * assertion, so growing the panel's scale costs a deliberate edit here with
+   * a reason attached, rather than a quiet append.
+   */
+  it('⛔ the panel has FOUR sizes — a fifth is a design decision, not an allowlist edit', () => {
+    expect(DECLARED_SIZES_PX).toHaveLength(4)
+    expect([...DECLARED_SIZES_PX].sort((a, b) => b - a)).toEqual([18, 14, 12, 11])
+    // The exception is named, so a rename cannot smuggle a second one through.
+    expect(DECLARED_TOKENS.filter((t) => !['panelHeader', 'panelBody', 'panelMeta', 'panelTabular'].includes(t))).toEqual([
+      'reasoningLead',
+    ])
   })
 })
 
