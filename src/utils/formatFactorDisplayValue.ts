@@ -148,6 +148,12 @@ export interface FactorDisplayInput {
    * (scale/index/…), or null raw_value, display_value still wins.
    */
   display_value?: string | null
+  /**
+   * The producer's statement of what each value on this factor's scale MEANS.
+   * Outranks `display_value` when the value matches a key exactly — see
+   * `encodingMapPhrase`.
+   */
+  encoding_map?: unknown
 }
 
 /**
@@ -216,7 +222,78 @@ export function factorDisplayText(
     cap: unwrapInterventionValue(observedState?.cap).value,
     category,
     display_value: displayValue,
+    // Top-level on node data (`mapDraftNodeToCanvas` spreads the wire node's
+    // remaining keys verbatim), NOT inside observed_state.
+    encoding_map: data.encoding_map,
   })
+}
+
+/**
+ * ⭐⭐ WHAT THE NUMBER MEANS, WHEN THE PRODUCER HAS ALREADY SAID SO.
+ *
+ * THE DEFECT. A binary or stepped factor arrives with an `encoding_map` — the
+ * producer's own statement of what each level means — and a `display_value`
+ * composed in the language of MAGNITUDE. Measured across the four committed
+ * starter captures: 10 of 87 nodes carry an `encoding_map`, and the card
+ * rendered the magnitude word every time.
+ *
+ *   Germany Market Entry      "Low (0)"        map: 0 = "Not pursued"
+ *   Segment Platform Adoption "Low (0)"        map: 0 = "Not adopted"
+ *   Account Executives Added  "Low (0)"        map: 0   = "No AEs added",
+ *                                                   0.5 = "Two AEs added"
+ *
+ * ⛔ THESE ARE NOT VAGUE, THEY ARE WRONG. "Low" is not a small amount of
+ * market entry; the market entry is NOT PURSUED. "Low (0)" for headcount means
+ * zero people, which the map says in words the reader can act on. A magnitude
+ * word applied to a categorical scale is a category error, and it reads as a
+ * finding.
+ *
+ * ⚠ MEASURED REACH, NOT THE WHOLE SET: 9 of the 10 resolve. The tenth is
+ * `GDPR EU Data Residency Compliance`, which carries `value: 0.5` against its
+ * own binary map {0 = "Non-compliant", 1 = "Fully compliant"} — so the
+ * producer contradicts itself, and this returns `null` and leaves the card
+ * exactly as it was. That case needs a producer fix, not a consumer guess, and
+ * it is reported rather than papered over. The one input this cannot answer
+ * honestly is the one it declines to answer.
+ *
+ * ⚠ WHY THIS OUTRANKS `display_value` RATHER THAN DEFERRING TO IT — this
+ * module already settled the principle, at ROADMAP 2.1003: *"A denormalised
+ * string that contradicts the value the analysis is actually computing on is
+ * not a 'contextual override', it is a lie about the user's model."* The same
+ * holds one field over. The producer sent BOTH the truth and a bad summary of
+ * it; the truth is the node's own data and wins.
+ *
+ * ⛔ AND IT NEVER INTERPOLATES. A value that matches no key returns `null` and
+ * falls through to the existing chain. A stepped map of {0, 0.5, 1} says
+ * nothing whatsoever about 0.3, and inventing "between two and four" from two
+ * neighbouring labels would be exactly the fabrication the rest of this file
+ * exists to refuse. Exact numeric match or nothing.
+ *
+ * Keys are compared NUMERICALLY, not as strings: the captures carry `"1.0"`
+ * and `"0.5"` alongside `"0"`, so `"1.0" === String(1)` would miss.
+ */
+export function encodingMapPhrase(
+  encodingMap: unknown,
+  value: number | null | undefined,
+): string | null {
+  // ⚠ `Number.isFinite` here is DEFENSIVE AND DEMONSTRABLY NOT LOAD-BEARING,
+  // recorded rather than claimed: a mutant dropping it SURVIVED, and the
+  // reason is that the key comparison below already excludes NaN and
+  // Infinity — `finiteKey !== NaN` is true for every key, and no key can
+  // itself be non-finite because `Number.isFinite(numericKey)` filters it.
+  // So no input exists for which this line changes the result. It stays
+  // because it states the precondition where a reader looks for it; it is
+  // NOT covered by a test, and nobody should believe it is.
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  if (!encodingMap || typeof encodingMap !== 'object' || Array.isArray(encodingMap)) return null
+  for (const [key, phrase] of Object.entries(encodingMap as Record<string, unknown>)) {
+    const numericKey = Number(key)
+    if (!Number.isFinite(numericKey) || numericKey !== value) continue
+    // The schema admits `string | number`. A NUMBER is not a phrase — it is a
+    // second encoding, and printing it would swap one bare number for another.
+    if (typeof phrase === 'string' && phrase.trim() !== '') return phrase.trim()
+  }
+  return null
 }
 
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
@@ -304,6 +381,13 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // model. Measured live: `display_value = "20%"` beside
   // `observed_state.value = 40`, rendered as 20% on the canvas immediately and
   // after reload while the rerun used 40 and flipped the leading option.
+  // ⭐ THE PRODUCER'S OWN MEANING, ABOVE ITS OWN SUMMARY. See
+  // `encodingMapPhrase` for why this outranks `display_value` and why it
+  // never interpolates. Below Pattern 1 deliberately: a real-world magnitude
+  // (£26,000) is a measurement, and where one exists the map adds nothing.
+  const encoded = encodingMapPhrase(input.encoding_map, value)
+  if (encoded !== null) return encoded
+
   const displayValueContradicted =
     display_value != null
     && display_value !== ''
