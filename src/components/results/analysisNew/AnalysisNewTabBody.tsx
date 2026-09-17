@@ -1551,7 +1551,7 @@ export function AnalysisNewTabBody({
             other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
             it was breaking, and the fix is the gate, not a wider ceiling. */}
         {focusApplicableIds.length > 0 ? (
-          <div data-testid="analysis-new-zone-focus-group">
+          <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
                 of its own: furniture that looked like a block would add the
@@ -1581,7 +1581,7 @@ export function AnalysisNewTabBody({
             ratchet counts it as one child rather than several. A label added
             loose would have raised the count by five and the ceiling with it,
             which is the opposite of what the prototype asks for. */}
-        <div data-testid="analysis-new-zone-answer-group">
+        <div className="space-y-3" data-testid="analysis-new-zone-answer-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
@@ -2034,7 +2034,7 @@ export function AnalysisNewTabBody({
             ratchet counts it as one child rather than several. A label added
             loose would have raised the count by five and the ceiling with it,
             which is the opposite of what the prototype asks for. */}
-        <div data-testid="analysis-new-zone-also-group">
+        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
@@ -2185,7 +2185,7 @@ export function AnalysisNewTabBody({
             ratchet counts it as one child rather than several. A label added
             loose would have raised the count by five and the ceiling with it,
             which is the opposite of what the prototype asks for. */}
-        <div data-testid="analysis-new-zone-further-group">
+        <div className="space-y-3" data-testid="analysis-new-zone-further-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
