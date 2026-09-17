@@ -53,12 +53,6 @@ vi.mock('../shared/NodePopover', () => ({
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
-/** The sentence under repair. Asserted as ABSENT for every non-brief provenance. */
-const BRIEF_CLAIM = /from your brief/i
-/** The honest replacement — asserted present only where there is genuinely no evidence. */
-const PLACEHOLDER_LINE = /placeholder/i
-/** The pre-existing user-owned sentence. Reused, never re-authored. */
-const USER_OWNED_LINE = /You provided this value/i
 
 // `deletable`/`selectable`/`draggable` are REQUIRED by `NodeProps` and are the
 // reason the neighbouring render-matrix suite carries TS2739 in the typecheck
@@ -136,10 +130,6 @@ function renderFactor(observedState: Record<string, unknown>) {
   )
 }
 
-/** The exact shape CEE's substitution writes, witnessed on deployed staging. */
-const SUBSTITUTED = { value: 0.5, extractionType: 'inferred', source: 'cee_inference', unit: 'scale' }
-/** Its twin: same value, same extractionType, but a PERSON owns the number. */
-const USER_OWNED = { value: 0.5, extractionType: 'inferred', source: 'user_override', unit: 'scale' }
 
 
 const DRIVERS = (observedState: Record<string, unknown>) => {
