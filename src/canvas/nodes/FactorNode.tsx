@@ -715,12 +715,26 @@ export const FactorNode = memo((props: NodeProps) => {
           via "+N more in inspector" (audit §8 P0-5 containment).
 
               ⚠ "BOTH VIEWS" MEANS THE TWO PHASE VIEWS (pre- and post-analysis), NOT
-              standard/detailed. This block only renders in DETAILED view: it sits in
-              `postAnalysisLayer2`, rendered as `{isDetailed && layer2Content}` where
-              `isDetailed = viewMode === 'expert'`. On 12 Sep 2026 the other reading
-              cost a wrong derivation ("not view-gated") and a ROADMAP row that had to
-              be withdrawn the same night. Reachable via the left sidebar's eye button
-              ("Detailed view"), so this is P5 progressive disclosure, not a dark surface. */}
+              standard/detailed.
+
+              ⛔⛔ AND THIS COMMENT HAS NOW BEEN WRONG IN BOTH DIRECTIONS ABOUT ONE
+              BLOCK. It read: "This block only renders in DETAILED view." FALSE at
+              this tip — `layer2Content` has TWO mounts:
+
+                  :992   {isDetailed && layer2Content}                ← Detailed inline
+                  :1031  {!isDetailed && isHighPriority && ( … )}     ← Standard hover popover
+
+              so a factor ranked in the top three shows these rows in the DEFAULT
+              view, on hover, with no view switch at all. On 12 Sep 2026 the
+              OPPOSITE mis-reading ("not view-gated") cost a wrong derivation and a
+              ROADMAP row withdrawn the same night — and the correction written to
+              close that over-corrected past the second mount.
+
+              ⭐ The lesson worth keeping: *a correction that flattens a two-mount
+              distinction becomes the next session's confusion.* Name every mount or
+              name none. The Detailed limb is reachable via the left sidebar's eye
+              button, so it is P5 progressive disclosure; the popover limb is
+              default-view and is not disclosure at all. */}
       {outboundConnections.length > 0 && (
         <>
           <Sep />
