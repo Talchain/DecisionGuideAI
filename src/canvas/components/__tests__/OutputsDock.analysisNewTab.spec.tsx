@@ -458,9 +458,23 @@ describe('C · THE SECTION STRUCTURE', () => {
       // ⭐ #1082's trust readout, mounted in the same commit that added this
       // line. Its appearance HERE is the positive control that the mount is
       // real rather than a no-op import: this census went RED on it, by name.
-      // ⚠ STRENGTHEN LEADS AS OF THE REORDER. The coaching was seventh of ten
-      // MOUNTS — below the ranked options and below Key insights — and this
-      // census could not see that; see the scope note on the case below.
+      // ⚠⚠ DRIVERS NOW LEAD, AND STRENGTHEN FOLLOWS THEM — Paul's ruling,
+      // 17 Sep 2026. Asked which of two senses of his acceptance bar's "what
+      // matters most" was intended — the DRIVERS (what the answer turns on) or
+      // the recommended next move — he ruled the drivers, so "What moves the
+      // outcome" moved into the ANSWER zone and its inner "Drivers and
+      // dynamics" heading came with it.
+      //
+      // ⭐ THIS CENSUS GOING RED IS THE PROOF THE MOVE LANDED, exactly as the
+      // uncertainty note below records for its own move. The heading is not
+      // removed from the list — it is REPOSITIONED, so the census still pins
+      // which sections appear and in what order.
+      ANALYSIS_NEW_COPY.sections.drivers,
+      // ⚠ STRENGTHEN LEADS THE DETAIL AS OF THE REORDER. The coaching was
+      // seventh of ten MOUNTS — below the ranked options and below Key
+      // insights — and this census could not see that; see the scope note on
+      // the case below. It still leads everything that is DETAIL; what now
+      // precedes it is part of the answer.
       ANALYSIS_NEW_COPY.sections.strengthen,
       /**
        * ⭐ UNCERTAINTY MOVED UP TO SIT WITH CHECKS — deliberate, and this
@@ -486,7 +500,6 @@ describe('C · THE SECTION STRUCTURE', () => {
        * the assertion that would have passed throughout the defect.
        */
       ANALYSIS_NEW_COPY.sections.keyInsights,
-      ANALYSIS_NEW_COPY.sections.drivers,
       /**
        * ⭐⭐ CHECKS AND UNCERTAINTY MOVED TO THE END — and the ADJACENCY the
        * note above pins is untouched: they moved together, as one group.
@@ -534,8 +547,20 @@ describe('C · THE SECTION STRUCTURE', () => {
       // ⚠ RUN DETAILS LAST, per the prototype — see the census note above. The
       // group order is asserted separately from the section census on purpose,
       // so a regression in either stays legible as itself (trap 21).
-      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
+      //
+      // ⚠⚠ "What moves the outcome" LEADS AS OF 17 Sep 2026, on Paul's ruling
+      // that the DRIVERS are what his acceptance bar means by "what matters
+      // most". The group moved into the ANSWER zone, so it now renders before
+      // the two that remain in "If you want to go further". RUN DETAILS LAST is
+      // untouched — `howWorkedOut` is still last, which is the part of this
+      // line the prototype actually rules on.
+      //
+      // ⭐ THIS ASSERTION WAS NEVER REACHED BEFORE THE FIX ABOVE, and that is
+      // worth recording: it sits in the same `it` as the section census, after
+      // it, so while the census REDed this line never executed. One test, two
+      // claims, and the second is invisible whenever the first fails.
       ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
+      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
       ANALYSIS_NEW_COPY.sections.howWorkedOut,
     ])
   })
@@ -595,7 +620,24 @@ describe('C · THE SECTION STRUCTURE', () => {
     // asking only about section order. They are asserted by name in the census
     // above; re-asserting them here would spread one claim over two cases.
     const headings = allHeadings.filter((t) => t === null || !GROUP_TITLES.includes(t))
-    expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBe(0)
+    /**
+     * ⚠⚠ THIS SAID `toBe(0)` UNTIL 17 Sep 2026, AND A LITERAL INDEX IS NOT THE
+     * CLAIM. Paul ruled that the DRIVERS are part of the answer, so "What moves
+     * the outcome" moved into the answer zone and its inner heading now
+     * precedes the coaching. Under `toBe(0)` that reads as a regression; it is
+     * not one, and the case's own title — "near the TOP, not at the end" — was
+     * never about being first.
+     *
+     * ⛔ SO THE CLAIM IS STATED RATHER THAN NUMBERED, and it is STRONGER than
+     * the literal it replaces: it names exactly what may precede the coaching.
+     * `toBe(0)` could only say "nothing precedes it"; this says "one thing
+     * does, and it is the answer's tail" — which REDs if any DETAIL section
+     * creeps above the coaching, the defect the case exists to catch.
+     */
+    const beforeStrengthen = headings.slice(0, headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen))
+    expect(beforeStrengthen, 'only the answer may precede the coaching').toEqual([
+      ANALYSIS_NEW_COPY.sections.drivers,
+    ])
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
       headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),
     )

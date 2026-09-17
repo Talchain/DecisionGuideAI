@@ -960,16 +960,49 @@ describe('the coaching sits directly under the reading it responds to', () => {
     // not detail, and the case above pins it ABOVE the coaching. Removing it
     // here without that case would have dropped the coverage silently, which
     // is the exact drift this comment block warns about one paragraph up.
+    // ⚠⚠ `analysis-new-drivers` LEFT THIS LIST ON 17 Sep 2026, FOR THE SAME
+    // REASON `analysis-new-options` DID, AND UNDER A RULING RATHER THAN A
+    // READING. Paul was asked which of two senses of his acceptance bar's
+    // "what matters most" was intended — the DRIVERS (what the answer turns on)
+    // or the recommended next move — and ruled the drivers. So the drivers are
+    // the ANSWER, not detail, and "What moves the outcome" now renders inside
+    // the answer zone.
+    //
+    // ⛔ THE COVERAGE MOVED, IT DID NOT DISAPPEAR — which is precisely what the
+    // paragraph above says must happen: the case directly below pins the
+    // drivers ABOVE the coaching, the mirror of the options case. Dropping the
+    // id without that case is the silent drift this block warns about.
     const detail = [
       'analysis-new-checks',
       'analysis-new-key-insights',
-      'analysis-new-drivers',
       'analysis-new-uncertainty',
     ]
     for (const id of detail) {
       const section = screen.getByTestId(id)
       expect(precedes(strengthen, section), `Strengthen must precede ${id}`).toBe(true)
     }
+  })
+
+  /**
+   * ⭐ WHERE THE DRIVERS' COVERAGE WENT. The case above stopped asserting
+   * `strengthen -> drivers` when the ruling reclassified them; this asserts the
+   * OPPOSITE relation, so the pair still covers the drivers' position and a
+   * regression in either direction REDs.
+   *
+   * ⚠ IT IS THE MIRROR OF THE OPTIONS CASE, deliberately, because they are now
+   * the same claim: the answer is above the coaching, and "what the answer
+   * turns on" is part of the answer.
+   */
+  it('the drivers are part of the answer, so they sit ABOVE the coaching', () => {
+    renderBody(genuineDecision())
+    openGroups()
+    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    const drivers = screen.getByTestId('analysis-new-drivers')
+    expect(new Set([strengthen, drivers]).size, 'two distinct elements').toBe(2)
+    expect(
+      precedes(drivers, strengthen),
+      'what the answer turns on is part of the answer, not a detail below the coaching',
+    ).toBe(true)
   })
 
   it('the ordering probe can actually detect a wrong order', () => {
