@@ -11,6 +11,7 @@ import {
 } from '../utils/nodeLayoutConstants'
 import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { logger } from '../../lib/logger'
+import { labelCounterScale } from '../utils/zoomLegibility'
 
 /**
  * Measure-then-layout effect (D2 of the layout-stabilisation brief).
@@ -82,12 +83,49 @@ export function useMeasureThenLayout(): void {
    * `useMeasureThenLayout.heightSubscription.spec.tsx`.
    */
   const measuredHeightSignature = useReactFlowStore((s) => {
-    let signature = ''
+    /**
+     * ⛔⛔ THE LABEL SCALE RIDES THE SIGNATURE, AND IT IS NOT DECORATION.
+     *
+     * `measured.height` is the card's height AT TODAY'S ZOOM, because
+     * `CanvasLabelScaleSync` writes `--canvas-label-scale` onto the React Flow
+     * root and every canvas type token multiplies by it. Measured in real
+     * Chromium (`utils/measureNodeHeightsAtLabelBound.ts` header): a card's
+     * height moves **×2.05 across the zoom band, 45–315px on individual
+     * cards**. The layout does NOT consume that number — it reserves
+     * `heightAtLabelBound`, measured at a CONSTANT scale precisely so two
+     * layouts of one graph at different zooms are identical.
+     *
+     * So watching the live height alone makes a **zoom** dispatch a full
+     * product layout while the height the layout reserves has not moved at all.
+     * That is two questions under one name — *"how tall is this card right
+     * now?"* and *"how much room does layout owe it?"* — and binding the wake
+     * to the first makes layout depend on the camera, which founder ruling R1
+     * forbids outright.
+     *
+     * Reading the scale HERE costs nothing: it comes from the same store
+     * subscription the heights do, exactly as `CanvasLabelScaleSync:52` reads
+     * it, so there is no second subscription and no DOM measurement in a
+     * selector. The effect below uses it to tell the two apart.
+     */
+    /**
+     * ⚠ DEFENSIVE ON `transform`, AND NOT MERELY FOR THE TESTS. Reading
+     * `s.transform[2]` directly threw in four sibling specs whose mocked store
+     * carries only `nodeLookup` — 8 passing tests went to 8 failing. That is a
+     * fixture gap, but it is also a real one: a selector that throws takes the
+     * whole canvas down, and this one now runs on EVERY React Flow emission.
+     * An absent transform means "no zoom information", and the honest reading
+     * of that is scale 1 — the identity, which suppresses nothing.
+     */
+    const zoom = Array.isArray(s.transform) ? s.transform[2] : 1
+    let signature = `@${labelCounterScale(typeof zoom === 'number' ? zoom : 1).toFixed(3)}|`
     for (const [id, node] of s.nodeLookup) {
       signature += `${id}:${node.measured?.height ?? 0};`
     }
     return signature
   })
+
+  /** The label scale the recorded heights were observed at. */
+  const lastLabelScaleRef = useRef<number | null>(null)
 
   // Deadline (ms since epoch) for the fallback timer; survives effect re-runs.
   const fallbackDeadlineRef = useRef<number | null>(null)
@@ -190,6 +228,27 @@ export function useMeasureThenLayout(): void {
     // both doors under one rule — the row band was sized for a shorter card,
     // whatever made it taller.
     if (measured && !layoutInProgress && !pendingLayout && laidOutHeightsRef.current.size > 0) {
+      /**
+       * ⛔ A ZOOM IS NOT GROWTH. The scale prefix on the signature above is what
+       * makes this distinguishable at all. When it moves, EVERY card's live
+       * height moves with it — up to 315px on one card — while
+       * `heightAtLabelBound`, the height the layout actually reserves, has not
+       * changed by a pixel. Re-baseline so the next real content change is still
+       * measured against something current, and lay out NOTHING.
+       *
+       * ⚠ Re-baselining rather than returning early is deliberate: leaving the
+       * stale pre-zoom heights recorded would make the first genuine growth
+       * after a zoom compare against numbers taken at a different scale, which
+       * is the same defect one step later.
+       */
+      const labelScale = Number(measuredHeightSignature.slice(1, measuredHeightSignature.indexOf('|')))
+      if (lastLabelScaleRef.current !== null && labelScale !== lastLabelScaleRef.current) {
+        lastLabelScaleRef.current = labelScale
+        laidOutHeightsRef.current = currentHeights()
+        return
+      }
+      lastLabelScaleRef.current = labelScale
+
       const heights = currentHeights()
       const grown = grownNodeId(heights)
       if (grown !== null) {

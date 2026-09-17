@@ -40,20 +40,22 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useMeasureThenLayout } from '../hooks/useMeasureThenLayout'
 import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 
 type LookupEntry = { measured?: { width?: number; height?: number } }
-type RFState = { nodeLookup: Map<string, LookupEntry> }
+type RFState = { nodeLookup: Map<string, LookupEntry>; transform: [number, number, number] }
 
 /** ONE Map, mutated and never replaced — React Flow's real behaviour. */
 const lookup = new Map<string, LookupEntry>()
+/** The live camera. `transform[2]` is the zoom, exactly as React Flow stores it. */
+const transform: [number, number, number] = [0, 0, 1]
 
 vi.mock('@xyflow/react', () => ({
   useNodesInitialized: () => true,
-  useStore: <T,>(selector: (s: RFState) => T) => selector({ nodeLookup: lookup }),
+  useStore: <T,>(selector: (s: RFState) => T) => selector({ nodeLookup: lookup, transform }),
 }))
 vi.mock('../layout/handleLayoutWithRecovery', () => ({
   handleLayoutWithRecovery: vi.fn(),
@@ -64,10 +66,22 @@ vi.mock('../../lib/logger', () => ({
 
 const layoutCalls = () => (handleLayoutWithRecovery as unknown as { mock: { calls: unknown[] } }).mock.calls.length
 
+/**
+ * ⚠ THE REAL STORE CLEARS `pendingLayout` ONCE A LAYOUT COMMITS, AND THE FIRST
+ * VERSION OF THIS FILE DID NOT. Leaving it `true` forever means the ordinary
+ * run-now path dispatches on EVERY effect run, so the growth-correction arm —
+ * the thing guarded on `!pendingLayout` — was never reached by any test here.
+ * The two cases below are about that arm, so they have to emulate the commit.
+ */
+const settleLayout = () => {
+  act(() => { useCanvasStore.setState({ pendingLayout: false } as never) })
+}
+
 describe('the dep-array entry is the fix, and removing it REDs here', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     lookup.clear()
+    transform[2] = 1
     lookup.set('opt', { measured: { width: 336, height: 160 } })
     lookup.set('fac', { measured: { width: 336, height: 108 } })
     useCanvasStore.getState().resetCanvas()
@@ -119,6 +133,76 @@ describe('the dep-array entry is the fix, and removing it REDs here', () => {
       layoutCalls(),
       'a bare rerender must not lay out, or the first test would pass on render count alone',
     ).toBe(afterFirst)
+  })
+
+  /**
+   * ⛔⛔ THE NEGATIVE CONTROL AN INDEPENDENT REVIEW REQUIRED, AND THE REASON IT
+   * IS NOT OPTIONAL.
+   *
+   * `measured.height` is the card's height AT TODAY'S ZOOM: `CanvasLabelScaleSync`
+   * writes `--canvas-label-scale` and every canvas type token multiplies by it.
+   * Measured in real Chromium, a card's height moves **×2.05 across the zoom
+   * band, 45–315px on individual cards**. The layout does not consume that
+   * number — it reserves `heightAtLabelBound`, measured at a CONSTANT scale.
+   *
+   * So without this gate the fix above would dispatch a full product layout on
+   * a **zoom**, re-arranging the model under a reader who only moved the camera,
+   * while the height the layout reserves had not changed at all. Founder ruling
+   * R1: the canonical layout has no viewport input.
+   *
+   * ⚠ THE FIRST VERSION OF THIS FILE COULD NOT SEE THAT, and that is why it is
+   * worth stating. Its mocked store had no `transform` at all, so a zoom was
+   * unrepresentable and every test passed on a camera that never moved. A guard
+   * whose fixture cannot express the failure mode is not a lenient guard; it is
+   * a blind one.
+   */
+  it('⛔ THE NEGATIVE CONTROL: a zoom-only height change lays out NOTHING', () => {
+    const { rerender } = renderHook(() => useMeasureThenLayout())
+    expect(layoutCalls(), 'the hook must lay out on first render, or this proves nothing').toBeGreaterThan(0)
+    settleLayout()
+    rerender()
+    const settled = layoutCalls()
+
+    // One real growth, so the correction arm is engaged and baselined. Without
+    // this the assertion below could pass because the arm never runs at all.
+    lookup.get('opt')!.measured!.height = 200
+    rerender()
+    const afterGrowth = layoutCalls()
+    expect(afterGrowth, 'precondition: the growth-correction arm is engaged').toBeGreaterThan(settled)
+    settleLayout()
+    rerender()
+    const beforeZoom = layoutCalls()
+
+    // NOW the camera moves, and every card's live height moves with it — which
+    // is exactly what a real zoom does. Nothing about the content changed.
+    transform[2] = 0.5
+    lookup.get('opt')!.measured!.height = 410   // ×2.05, the measured band
+    lookup.get('fac')!.measured!.height = 221
+    rerender()
+
+    expect(
+      layoutCalls(),
+      'a zoom re-laid out the model: the wake is bound to the live height, which is a function of ' +
+        'the camera, rather than to the height the layout actually reserves',
+    ).toBe(beforeZoom)
+  })
+
+  it('⭐ ITS POSITIVE TWIN: real growth at an UNCHANGED zoom still wakes the layout', () => {
+    // The pair is the point. The negative alone is satisfied by a hook that
+    // never lays out at all; this proves the gate suppresses zoom and nothing else.
+    const { rerender } = renderHook(() => useMeasureThenLayout())
+    expect(layoutCalls()).toBeGreaterThan(0)
+    settleLayout()
+    rerender()
+    const settled = layoutCalls()
+
+    lookup.get('opt')!.measured!.height = 320
+    rerender()
+
+    expect(
+      layoutCalls(),
+      'content grew at an unchanged zoom and nothing re-laid out — the gate is suppressing too much',
+    ).toBeGreaterThan(settled)
   })
 
   it('CONTRAST: the sibling node is untouched — the signature is per-node, bound by id', () => {
