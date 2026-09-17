@@ -555,6 +555,24 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       'is how this estate produces a confident wrong answer.',
   },
   {
+    what:
+      'nodeOverlap.measure.ts + overlapHeightTimeline.measure.ts + overlapRootCause.measure.ts + ' +
+      'overlapTriggerProbe.measure.ts — the founder-reported node overlap',
+    why:
+      'Four instruments from one investigation, and the same claim-type test applies to all of ' +
+      'them: each emits a `{...}JSON` line per cell and asserts nothing a product change can ' +
+      'redden, so gating any would add a green arm that cannot fail for a product reason. ' +
+      '⭐ WHAT ONLY THEY COULD DO, and the reason they stay in the tree: they measure in MODEL ' +
+      'space rather than screen space, so no zoom arithmetic enters the comparison, and they ' +
+      'established the correlation that found the cause — `layoutVersion === 1` overlaps 2/2, ' +
+      '`layoutVersion >= 2` overlaps 0/13. That is a statement about a RACE, which jsdom cannot ' +
+      'observe at all and a single-cell assertion could not have separated from bad layout. ' +
+      '⚠ `overlapTriggerProbe` REPEATS A CELL UNTIL IT CATCHES A BROKEN STATE, so it is ' +
+      'deliberately non-deterministic and must never be gated — a flaky required check is worse ' +
+      'than none. The BEHAVIOUR they found is pinned in the main suite by ' +
+      '`useMeasureThenLayout.heightSubscription.spec.tsx`; these bound the claim.',
+  },
+  {
     what: 'edgeLabelOverlap.measure.ts (5 cells, 17.7s darwin) — the P0 glyph-on-glyph defect',
     why:
       '⚠ THE MOST PAINFUL EXCLUSION HERE, AND IT IS NOT ABOUT COST — at 3.5s a cell it is the ' +

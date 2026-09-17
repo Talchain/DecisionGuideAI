@@ -11,6 +11,7 @@ import {
 } from '../utils/nodeLayoutConstants'
 import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { logger } from '../../lib/logger'
+import { measureNodeHeightsAtLabelBound } from '../utils/measureNodeHeightsAtLabelBound'
 
 /**
  * Measure-then-layout effect (D2 of the layout-stabilisation brief).
@@ -47,6 +48,56 @@ export function useMeasureThenLayout(): void {
   const nodesInitialized = useNodesInitialized()
   const nodeLookup = useReactFlowStore((s) => s.nodeLookup)
 
+  /**
+   * ⭐ THE TRIGGER FOR THE TWO CORRECTIONS BELOW. WITHOUT IT THEY ARE DEAD CODE.
+   *
+   * React Flow MUTATES `nodeLookup` IN PLACE as cards measure — it does not
+   * replace the Map. So `useReactFlowStore(s => s.nodeLookup)` returns the SAME
+   * reference before and after a card reaches its final height, React never
+   * re-renders on that account, this effect never re-runs, and neither
+   * correction below ever gets the chance to observe the growth. The layout
+   * committed against the cards' transient first-paint heights is then
+   * TERMINAL, which is precisely the shipped overlap.
+   *
+   * Measured in real Chromium at `d4ff3683`, seeding the `pricing-model`
+   * starter at 1440x900 (`e2e/geometry/overlapHeightTimeline.measure.ts`):
+   *   t=688ms  layoutVersion 0  cards 119/139/154/125/110 px
+   *   t=1512ms layoutVersion 1  row pitches [183,230,218,137,155]
+   *                             cards ALREADY 253/300/251/269/244 px
+   * A 137 px pitch under a 161 px card overlaps by 24 px, and in 5 of 6 runs
+   * nothing corrected it. The discriminating experiment
+   * (`e2e/geometry/overlapTriggerProbe.measure.ts`) nudged ONLY the identity of
+   * the store's `nodes` array — no geometry, position or content touched — and
+   * the graph corrected itself from 15 overlapping pairs at layoutVersion 1 to
+   * ZERO at layoutVersion 3. The logic was never wrong; it was never woken.
+   *
+   * ⚠ A DERIVED SIGNATURE, NOT A HAND-MAINTAINED LIST (CLAUDE.md trap 12): it
+   * is computed from whatever `nodeLookup` currently holds, so a new node type
+   * or a renamed field cannot silently drop out of it.
+   *
+   * ⚠ AND IT MUST BE STABLE WHEN NOTHING CHANGED. A value that differs on every
+   * call (a counter, a fresh object, `Date.now()`) would also "fix" the failing
+   * assertion while re-running this effect on every React Flow emission —
+   * re-laying out the model under a reader, which the hook's own doctrine calls
+   * a worse defect than the overlap. Both directions are pinned by
+   * `useMeasureThenLayout.heightSubscription.spec.tsx`.
+   */
+  const measuredHeightSignature = useReactFlowStore((s) => {
+    /**
+     * ⚠ THIS STRING IS A WAKE, NOT A DECISION. It changes whenever a card's LIVE
+     * height changes — which includes a zoom, because the canvas type tokens
+     * multiply by `--canvas-label-scale`. That is deliberate: waking costs one
+     * effect run, and the effect then asks the authority the layout actually
+     * consumes whether anything really grew. **Deciding from this string is what
+     * two reviews returned.**
+     */
+    let signature = ''
+    for (const [id, node] of s.nodeLookup) {
+      signature += `${id}:${node.measured?.height ?? 0};`
+    }
+    return signature
+  })
+
   // Deadline (ms since epoch) for the fallback timer; survives effect re-runs.
   const fallbackDeadlineRef = useRef<number | null>(null)
 
@@ -66,11 +117,40 @@ export function useMeasureThenLayout(): void {
     const measured = allUnlockedNodesMeasured(storeNodes, nodeLookup)
 
     /** Measured height per unlocked node, right now. */
+    /**
+     * ⭐⭐ THE HEIGHT THE LAYOUT RESERVES — NOT THE HEIGHT THE CARD HAS RIGHT NOW.
+     *
+     * ⛔ TWO REVIEWS RETURNED THIS SEAM AND THE SECOND EXECUTED THE PROOF.
+     * `measured.height` is camera-dependent: `CanvasLabelScaleSync` writes
+     * `--canvas-label-scale`, the canvas type tokens multiply by it, and a card
+     * moves ×2.05 across the zoom band. `store.ts:4578` measures
+     * `heightAtLabelBound` at a CONSTANT scale and `utils/layout.ts:609-612`
+     * PREFERS it. The layout's input and this hook's trigger were two different
+     * quantities, and no amount of filtering the live value fixes that.
+     *
+     * ⛔ MY FIRST ATTEMPT FILTERED IT AND WAS WRONG ON BOTH EMISSION SCHEDULES,
+     * measured through the real hook by the reviewer:
+     *   · transform emits first and the zoom-induced heights arrive LATER — by
+     *     then the scale is unchanged, so the growth branch fired. **2 layouts
+     *     where 1 was correct.**
+     *   · content growth and zoom arriving TOGETHER — the scale moved, so a
+     *     genuinely taller card was recorded as already laid out and the real
+     *     correction was **permanently absorbed.**
+     * My own fixture changed transform and heights before ONE rerender, so it
+     * could express neither: a single-tick discriminator on a two-tick reality.
+     *
+     * ⭐ Reading the authority makes the schedule irrelevant — the bound height
+     * does not move when the camera does, so there is nothing to disambiguate
+     * and no waiting-one-emission heuristic. An id the measurement cannot supply
+     * falls back to the live value, exactly as `getNodeDimensions` already
+     * treats absence: "no better information", never zero.
+     */
     const currentHeights = (): Map<string, number> => {
+      const bound = measureNodeHeightsAtLabelBound()
       const out = new Map<string, number>()
       for (const node of storeNodes) {
         if ((node.data as Record<string, unknown> | undefined)?.locked === true) continue
-        const h = nodeLookup.get(node.id)?.measured?.height
+        const h = bound.get(node.id) ?? nodeLookup.get(node.id)?.measured?.height
         if (typeof h === 'number' && h > 0) out.set(node.id, h)
       }
       return out
@@ -148,6 +228,19 @@ export function useMeasureThenLayout(): void {
     // both doors under one rule — the row band was sized for a shorter card,
     // whatever made it taller.
     if (measured && !layoutInProgress && !pendingLayout && laidOutHeightsRef.current.size > 0) {
+      /**
+       * ⛔ A ZOOM IS NOT GROWTH. The scale prefix on the signature above is what
+       * makes this distinguishable at all. When it moves, EVERY card's live
+       * height moves with it — up to 315px on one card — while
+       * `heightAtLabelBound`, the height the layout actually reserves, has not
+       * changed by a pixel. Re-baseline so the next real content change is still
+       * measured against something current, and lay out NOTHING.
+       *
+       * ⚠ Re-baselining rather than returning early is deliberate: leaving the
+       * stale pre-zoom heights recorded would make the first genuine growth
+       * after a zoom compare against numbers taken at a different scale, which
+       * is the same defect one step later.
+       */
       const heights = currentHeights()
       const grown = grownNodeId(heights)
       if (grown !== null) {
@@ -217,6 +310,9 @@ export function useMeasureThenLayout(): void {
     layoutRequestId,
     nodesInitialized,
     nodeLookup,
+    // The dep that actually changes when a card's measured height changes;
+    // `nodeLookup` alone does not, because React Flow mutates it in place.
+    measuredHeightSignature,
     storeNodes,
     applyLayout,
   ])
