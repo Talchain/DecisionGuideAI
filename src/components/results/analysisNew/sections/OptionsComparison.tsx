@@ -119,7 +119,7 @@
  */
 
 import { useCallback } from 'react'
-import { Scale } from 'lucide-react'
+import { Scale, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -136,6 +136,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 // two spellings of one claim on one screen is how a reader learns to distrust
 // both, and a local literal here could drift from it silently.
 import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
+import type { OptionOrigin } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { action } from '../panelSurfaces'
@@ -381,6 +382,43 @@ export function OptionsComparison({
     return Math.abs(sum - 1) <= PARTITION_TOLERANCE ? fractions : null
   })()
 
+  /**
+   * ⭐⭐ THE PROVENANCE SENTENCE, SAID ONCE WHEN SEVERAL OPTIONS SHARE IT.
+   *
+   * Paul's screenshot of the deployed panel shows "Olumi suggested this option,
+   * you did not name it" under THREE of five options: the same nine words,
+   * three times, in one list.
+   *
+   * ⛔ AND THE PREMISE I FIRST WROTE HERE WAS FALSE, corrected in place rather
+   * than quietly edited out. It said the repetition was "visible WITHOUT
+   * opening anything". MEASURED on the composed tab at rest: `SectionShell`
+   * rests CLOSED, so the panel states the provenance exactly ONCE at rest, in
+   * the glance, and this section renders nothing at all. The repetition is real
+   * in the state the screenshots show - the section open - which is the state
+   * the spec renders, explicitly and by clicking the toggle. Reporting a
+   * forced-open panel as the resting one has produced three wrong claims in
+   * this session; this is the third.
+   *
+   * ⛔ A DE-DUPLICATION, NOT A REMOVAL. Each affected option keeps a marker
+   * whose accessible name IS the full sentence, and the sentence itself is
+   * stated once beneath the list. Nothing is hidden from a screen reader, no
+   * wording is invented, and the disclosure stays at the same level it was:
+   * visible at rest, not moved behind a disclosure.
+   *
+   * ⚠ IDENTITY ACROSS THE AFFECTED OPTIONS, and two or more of them. With one
+   * there is nothing to de-duplicate and a legend would cost a line rather than
+   * save one. `OptionOrigin` has a single member today, so the identity test is
+   * trivially true — it is written anyway because the module's own docblock
+   * says a second member may be added, and on that day a legend speaking for
+   * two different origins would be the section asserting one that some option
+   * does not have.
+   */
+  const sharedOrigin: OptionOrigin | null = (() => {
+    const origins = options.rows.map((o) => o.origin).filter((x): x is OptionOrigin => x !== null)
+    if (origins.length < 2) return null
+    return origins.every((x) => x === origins[0]) ? origins[0] : null
+  })()
+
   const mayDrawMagnitude = true
 
   return (
@@ -508,6 +546,22 @@ export function OptionsComparison({
                 className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 <span data-testid={`${testId}-label`}>{o.label}</span>
+                {sharedOrigin !== null && o.origin === sharedOrigin ? (
+                  /* ⚠ `role="img"` WITH THE FULL SENTENCE AS ITS NAME. A bare
+                     glyph has no accessible name at all, and this one carries a
+                     provenance claim — the reader who cannot see it is exactly
+                     the reader who must still be told. */
+                  <span
+                    role="img"
+                    aria-label={OPTION_ORIGIN_COPY[o.origin]}
+                    title={OPTION_ORIGIN_COPY[o.origin]}
+                    data-testid={`${testId}-option-origin-mark-${o.id}`}
+                    data-option-origin={o.origin}
+                    className="ml-1 inline-flex align-[-2px] text-text-light"
+                  >
+                    <Sparkles className="w-3 h-3" aria-hidden="true" />
+                  </span>
+                ) : null}
               </button>
 
               {/* ⚠ THE NUMBER IS THE SMALLEST TYPE IN THE ROW, AND THAT IS A
@@ -775,7 +829,7 @@ export function OptionsComparison({
                 ⚠ THE SAME COPY CONSTANT THE GLANCE RENDERS, not a second
                 phrasing of one fact — two wordings of one claim on one screen
                 is how a reader learns to distrust both. */}
-            {o.origin !== null ? (
+            {o.origin !== null && !(sharedOrigin !== null && o.origin === sharedOrigin) ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
                 /* BOUND BY THIS ROW'S OWN ID. A shared testid would let a spec
@@ -880,6 +934,20 @@ export function OptionsComparison({
           </li>
         ) : null}
       </ul>
+
+      {/* ⭐ THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
+          constant the rows used and the glance renders — not a second phrasing
+          of one fact, which is how a reader learns to distrust both. */}
+      {sharedOrigin !== null ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-center gap-1`}
+          data-testid={`${testId}-option-origin-legend`}
+          data-option-origin={sharedOrigin}
+        >
+          <Sparkles className="w-3 h-3 shrink-0" aria-hidden="true" />
+          {OPTION_ORIGIN_COPY[sharedOrigin]}
+        </p>
+      ) : null}
     </SectionShell>
   )
 }
