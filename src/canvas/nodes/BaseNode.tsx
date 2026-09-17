@@ -1074,11 +1074,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
         <div
-          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel shadow-1"
+          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel border border-warning shadow-1"
           title="Flagged as assumption"
           data-testid="assumption-badge"
         >
-          <FlagIcon size={12} className="text-warning" />
+          <FlagIcon size={12} className="text-text-body" />
         </div>
       )}
 

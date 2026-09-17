@@ -1339,7 +1339,7 @@ export const OptionNode = memo((props: NodeProps) => {
             : `${goalBadgeReadout} chance of target.`}{' '}
           <button
             type="button"
-            className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
+            className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
             onClick={handleGoalReviewClick}
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -2056,7 +2056,7 @@ export const OptionNode = memo((props: NodeProps) => {
             (`COMPARATIVE_COPY.phrase`), which is the statistic the ratified
             rule licenses. */}
         {closeCallGapPp != null && (
-          <p className={`${typography.nodeLabel} text-warning mt-0.5 m-0`}>
+          <p className={`${typography.nodeLabel} text-text-body mt-0.5 m-0`}>
             Within a small margin of the most-supported option
           </p>
         )}
