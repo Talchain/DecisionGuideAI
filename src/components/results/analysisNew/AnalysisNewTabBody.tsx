@@ -1823,7 +1823,171 @@ export function AnalysisNewTabBody({
             ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
             carries them. A reader meeting one sentence in two sections is a
             defect this panel has already shipped. */}
-        </div>
+        {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
+            ⭐⭐⭐ MOVED INTO THE ANSWER ZONE, 17 Sep 2026, ON PAUL'S RULING.
+
+            Against Paul's own acceptance bar — *"a user opens the Reasoning
+            panel and immediately understands the decision, the current state of
+            the reasoning, what Olumi can and cannot responsibly conclude, WHAT
+            MATTERS MOST, and what they can do next"* — this was the one question
+            of six the panel could not answer in the first viewport.
+
+            Measured on deployed `66854e6c`, guest, an answered run at 1600x1000,
+            panel box 869px: the decision at 20 · the state of the reasoning at
+            177 · what it CAN conclude at 185 · what it CANNOT at 542 · what to
+            do next at 355 — and **this section's title at 1118, 249px below the
+            fold** (358px on a stale run, which carries the ribbon). It sat in
+            ZONE: FURTHER, below "Coaching and method", second from last.
+
+            ⛔ THE RATIONALE THIS REPLACES IS RECORDED RATHER THAN DELETED,
+            because it was reasoned and it is what made me refuse to move this
+            on my own reading. It said: *"The last group: what the answer turns
+            on, what is worth resolving before committing, and the method
+            receipts. All three are DETAIL a reader goes looking for — none of
+            them is something the panel needs to say unprompted, and stacked
+            open they were most of the length Paul was scrolling through."*
+
+            That is a density argument, and it was right about the length. What
+            it got wrong is the classification: Paul ruled that "what matters
+            most" MEANS the drivers — what the answer turns on — not the
+            recommended next move. A reader who has to scroll for that is
+            scrolling for part of the answer. **The section still rests CLOSED,
+            so the density argument is honoured: this costs 61px, not the
+            stacked-open length that argument was written against.**
+
+            ⚠ PLACED AFTER THE CAVEAT AND BEFORE "WHAT WOULD CHANGE YOUR MIND",
+            and the position was measured rather than preferred. Both candidate
+            positions clear the fold; this one reads in the right order — here is
+            the answer, how far it held, what moves it, what would change it —
+            and gives the drivers the higher of the two slots, which is what the
+            ruling asks for.
+
+            ⚠ THE TRADE, STATED: on a STALE run the ribbon costs 44px and
+            "What would change your mind" then ends 22px below the fold. The
+            ruling buys the drivers that space. Measured, not hidden. */}
+        {whatMovesHasContent ? (
+          <SectionShell
+            icon={Activity}
+            title={COPY.sections.whatMovesTheOutcome}
+            subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
+            count={vm.drivers.findings.length + vm.drivers.influenceRows.length}
+            testId="analysis-new-what-moves-the-outcome"
+          >
+          {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
+          <AnalysisNewSection
+            title={COPY.sections.drivers}
+            subtitle={COPY.sectionSubtitles.drivers}
+            findings={vm.drivers.findings}
+            preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
+            // ⚠ The caveat is a function of the PRODUCER's provenance token, not
+            // of taste: a set-relative influence is "largest in this set", never
+            // a causal share of the outcome.
+            caveat={driverCaveatParts.sectionCaveat}
+            // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
+            // A LIVE FALSEHOOD. A run whose factors all came back with a producer
+            // `zero_reason` DID return influence and measured it at zero, and was
+            // told the run returned nothing — in the same words as a run that
+            // genuinely returned nothing. The two were indistinguishable.
+            //
+            // ⚠ THE ORDER IS LOAD-BEARING AND `driversStatus` IS NOT THE FIRST
+            // TEST. `useResultsSectionData.ts:3235` defaults `drivers_status` to
+            // 'computed' when absent on the V5 path, so 'computed' does NOT imply
+            // rows were returned; keying the zero claim on it would manufacture
+            // the MIRROR falsehood on a rows-empty run. `suppressedZeroCount` is
+            // the sufficient one — it is non-zero only because the producer sent a
+            // row it had scored at zero.
+            emptyMessage={driversEmpty}
+            onFocusTarget={focusTarget}
+            onRunIntervention={runIntervention}
+            onAskOlumi={askOlumiAbout}
+            icon={TrendingUp}
+            testId="analysis-new-drivers"
+            /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
+               WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
+               The consolidation that took this panel from fourteen elements to
+               six is the reason: a chart and the prose about the same drivers are
+               one subject, and splitting them would re-open the restatement the
+               consolidation closed. */
+            header={
+              <DriverInfluenceChart
+                rows={vm.drivers.influenceRows}
+                onFocusTarget={focusTarget}
+                scaleNote={driverCaveatParts.scaleNote}
+                topRowNote={driverCaveatParts.topRowNote}
+                /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
+                   reports which of them happened and this surface owns the
+                   words — the same vocabulary the model strip's editor uses,
+                   because it is the same write through the same authority. */
+                onCommitOutcome={(outcome) =>
+                  showToast(
+                    outcome === 'dispatched'
+                      ? COPY.modelStrip.valueDispatched
+                      : outcome === 'local_only'
+                        ? COPY.modelStrip.valueLocalOnly
+                        : COPY.modelStrip.valueNotEncodable,
+                  )
+                }
+                testId="analysis-new-driver-chart"
+              />
+            }
+          />
+
+
+          {/* Whole-decision value of information — a VERDICT, never the number.
+              'not_computed' renders nothing: it is a distinct state from a
+              measured zero and must not be collapsed into one.
+
+              ⭐⭐ THE LABEL IS THE FIX, AND IT IS A TOPIC RATHER THAN A CLAIM.
+              This shipped as a bare `<p>` at the body's TOP LEVEL, between two
+              accordions, with no heading — so the sentence's subject was never
+              named. "This run did not come back at zero" leaves a reader asking
+              *what* did not come back at zero, and the answer was nowhere on
+              screen. Witnessed on staging `e685dafa`.
+
+              ⚠ THE SENTENCE ITSELF IS UNCHANGED, DELIBERATELY. It answers to
+              `UNLICENSED_SIGNIFICANCE_CLAIMS` — `decision_evpi` arrives with no
+              noise floor, no CI and no `n_samples`, so a small positive is not
+              distinguishable from estimator noise and NOTHING here may say the
+              value MEANS anything. The label names the measure, which is the
+              owner's own vocabulary (`RESOLVE_NEXT_COPY.note` — "value of
+              information"), and it is checked against the same imported ceiling
+              by `analysisNewCopyCeiling.spec.ts`.
+
+              ⚠ AND IT TAKES `WhatWeChecked`'S SHELL RATHER THAN A NEW ONE. A
+              third micro-section shape on a panel already criticised for
+              inconsistency would be the defect, not the fix. */}
+          {vm.uncertainty.decisionVoi !== 'not_computed' ? (
+            <section
+              className="border-t border-panel-border pt-3"
+              data-testid="analysis-new-decision-voi-section"
+              aria-labelledby="analysis-new-decision-voi-heading"
+            >
+              <h3
+                id="analysis-new-decision-voi-heading"
+                // `panelHeader` — a section title, for the same reason as
+                // `WhatWeChecked`. These two were the only section headings on
+                // this tab not rendering at 14px/600.
+                className={`${typography.panelHeader} text-text-header mb-1`}
+                data-testid="analysis-new-decision-voi-heading"
+              >
+                {COPY.decisionVoi.label}
+              </h3>
+              <p
+                className={`${typography.panelMeta} text-text-light m-0`}
+                data-testid="analysis-new-decision-voi"
+              >
+                {vm.uncertainty.decisionVoi === 'measured_non_zero'
+                  ? COPY.decisionVoi.measuredNonZero
+                  : COPY.decisionVoi.measuredZero}
+              </p>
+            </section>
+          ) : null}
+
+          {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
+          <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
+          </SectionShell>
+        ) : null}
+
         <AnalysisNewSection
           title={COPY.sections.sensitivity}
           findings={vm.sensitivity.findings}
@@ -1896,6 +2060,7 @@ export function AnalysisNewTabBody({
           icon={GitBranch}
           testId="analysis-new-sensitivity"
         />
+        </div>
 
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.
@@ -2317,134 +2482,6 @@ export function AnalysisNewTabBody({
           </SectionShell>
         ) : null}
 
-        {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
-            The last group: what the answer turns on, what is worth resolving
-            before committing, and the method receipts. All three are DETAIL a
-            reader goes looking for — none of them is something the panel needs
-            to say unprompted, and stacked open they were most of the length
-            Paul was scrolling through. */}
-        {whatMovesHasContent ? (
-          <SectionShell
-            icon={Activity}
-            title={COPY.sections.whatMovesTheOutcome}
-            subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
-            count={vm.drivers.findings.length + vm.drivers.influenceRows.length}
-            testId="analysis-new-what-moves-the-outcome"
-          >
-          {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
-          <AnalysisNewSection
-            title={COPY.sections.drivers}
-            subtitle={COPY.sectionSubtitles.drivers}
-            findings={vm.drivers.findings}
-            preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
-            // ⚠ The caveat is a function of the PRODUCER's provenance token, not
-            // of taste: a set-relative influence is "largest in this set", never
-            // a causal share of the outcome.
-            caveat={driverCaveatParts.sectionCaveat}
-            // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
-            // A LIVE FALSEHOOD. A run whose factors all came back with a producer
-            // `zero_reason` DID return influence and measured it at zero, and was
-            // told the run returned nothing — in the same words as a run that
-            // genuinely returned nothing. The two were indistinguishable.
-            //
-            // ⚠ THE ORDER IS LOAD-BEARING AND `driversStatus` IS NOT THE FIRST
-            // TEST. `useResultsSectionData.ts:3235` defaults `drivers_status` to
-            // 'computed' when absent on the V5 path, so 'computed' does NOT imply
-            // rows were returned; keying the zero claim on it would manufacture
-            // the MIRROR falsehood on a rows-empty run. `suppressedZeroCount` is
-            // the sufficient one — it is non-zero only because the producer sent a
-            // row it had scored at zero.
-            emptyMessage={driversEmpty}
-            onFocusTarget={focusTarget}
-            onRunIntervention={runIntervention}
-            onAskOlumi={askOlumiAbout}
-            icon={TrendingUp}
-            testId="analysis-new-drivers"
-            /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
-               WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
-               The consolidation that took this panel from fourteen elements to
-               six is the reason: a chart and the prose about the same drivers are
-               one subject, and splitting them would re-open the restatement the
-               consolidation closed. */
-            header={
-              <DriverInfluenceChart
-                rows={vm.drivers.influenceRows}
-                onFocusTarget={focusTarget}
-                scaleNote={driverCaveatParts.scaleNote}
-                topRowNote={driverCaveatParts.topRowNote}
-                /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
-                   reports which of them happened and this surface owns the
-                   words — the same vocabulary the model strip's editor uses,
-                   because it is the same write through the same authority. */
-                onCommitOutcome={(outcome) =>
-                  showToast(
-                    outcome === 'dispatched'
-                      ? COPY.modelStrip.valueDispatched
-                      : outcome === 'local_only'
-                        ? COPY.modelStrip.valueLocalOnly
-                        : COPY.modelStrip.valueNotEncodable,
-                  )
-                }
-                testId="analysis-new-driver-chart"
-              />
-            }
-          />
-
-
-          {/* Whole-decision value of information — a VERDICT, never the number.
-              'not_computed' renders nothing: it is a distinct state from a
-              measured zero and must not be collapsed into one.
-
-              ⭐⭐ THE LABEL IS THE FIX, AND IT IS A TOPIC RATHER THAN A CLAIM.
-              This shipped as a bare `<p>` at the body's TOP LEVEL, between two
-              accordions, with no heading — so the sentence's subject was never
-              named. "This run did not come back at zero" leaves a reader asking
-              *what* did not come back at zero, and the answer was nowhere on
-              screen. Witnessed on staging `e685dafa`.
-
-              ⚠ THE SENTENCE ITSELF IS UNCHANGED, DELIBERATELY. It answers to
-              `UNLICENSED_SIGNIFICANCE_CLAIMS` — `decision_evpi` arrives with no
-              noise floor, no CI and no `n_samples`, so a small positive is not
-              distinguishable from estimator noise and NOTHING here may say the
-              value MEANS anything. The label names the measure, which is the
-              owner's own vocabulary (`RESOLVE_NEXT_COPY.note` — "value of
-              information"), and it is checked against the same imported ceiling
-              by `analysisNewCopyCeiling.spec.ts`.
-
-              ⚠ AND IT TAKES `WhatWeChecked`'S SHELL RATHER THAN A NEW ONE. A
-              third micro-section shape on a panel already criticised for
-              inconsistency would be the defect, not the fix. */}
-          {vm.uncertainty.decisionVoi !== 'not_computed' ? (
-            <section
-              className="border-t border-panel-border pt-3"
-              data-testid="analysis-new-decision-voi-section"
-              aria-labelledby="analysis-new-decision-voi-heading"
-            >
-              <h3
-                id="analysis-new-decision-voi-heading"
-                // `panelHeader` — a section title, for the same reason as
-                // `WhatWeChecked`. These two were the only section headings on
-                // this tab not rendering at 14px/600.
-                className={`${typography.panelHeader} text-text-header mb-1`}
-                data-testid="analysis-new-decision-voi-heading"
-              >
-                {COPY.decisionVoi.label}
-              </h3>
-              <p
-                className={`${typography.panelMeta} text-text-light m-0`}
-                data-testid="analysis-new-decision-voi"
-              >
-                {vm.uncertainty.decisionVoi === 'measured_non_zero'
-                  ? COPY.decisionVoi.measuredNonZero
-                  : COPY.decisionVoi.measuredZero}
-              </p>
-            </section>
-          ) : null}
-
-          {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
-          <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
-          </SectionShell>
-        ) : null}
 
         {/* ── HOW THIS WAS WORKED OUT ──────────────────────────────────────
             ⭐⭐⭐ SEVEN SECTIONS ANSWERED ONE QUESTION. `RobustnessCaveat`,

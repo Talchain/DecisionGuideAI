@@ -33,6 +33,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { genuineDecision, highUncertainty, openStrategicChallenge } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
+import { topLevelBlockElements } from './panelContentColumn'
 
 /**
  * ⛔ THE CEILING, PER STATE. Measured 15 Sep 2026 after the restructure.
@@ -53,7 +54,20 @@ const CEILING: Record<string, number> = {
    * growing while the design brief asked it to shrink.
    */
   genuineDecision: 3,
-  highUncertainty: 5,
+  /**
+   * ⭐ LOWERED 5 -> 4 ON 17 Sep 2026, when the sensitivity section moved inside
+   * the answer group (`everySectionBelongsToAZone`). The spec's own rule is
+   * "lower these when the count falls", and here it is load-bearing rather than
+   * tidy: leaving it at 5 licenses the count to climb back, and the ONLY way
+   * back to 5 on this fixture is a section outside every zone — precisely the
+   * defect the sibling spec was written to stop. A slack ceiling would have
+   * made that regression legal.
+   *
+   * ⚠ Measured, with a contrast control: this branch reports slack at 4, and
+   * the same run against `origin/staging`'s copy of the body reports NO slack —
+   * so the fall is this change's and not a fixture drifting underneath.
+   */
+  highUncertainty: 4,
   openStrategicChallenge: 3,
 }
 
@@ -81,12 +95,14 @@ const renderBody = (data: ResultsSectionDataReturn) =>
  * container and it has exactly ONE child — so a counter pointed at it reads 1
  * for every panel that has ever existed, passes every ceiling, and measures
  * nothing. The positive control below caught exactly that on the first run.
+ *
+ * ⭐ THE TRAVERSAL NOW HAS ONE OWNER (`panelContentColumn.ts`), because a
+ * second spec asks the same question about the same element — a different
+ * question ABOUT it, but the same traversal. Two copies that drift is two
+ * guards silently pointed at the scroll container.
  */
 function topLevelBlocks(): number {
-  const root = screen.getByTestId('analysis-new-tab-body')
-  const column = root.firstElementChild
-  if (column === null) throw new Error('tab body rendered no content column')
-  return Array.from(column.children).filter((el) => el.textContent !== '').length
+  return topLevelBlockElements().length
 }
 
 afterEach(() => cleanup())
