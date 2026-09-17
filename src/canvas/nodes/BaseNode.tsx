@@ -1830,7 +1830,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           LOD rung blanks by `visibility`, and an invitation that disappears at
           the zoom the auto-fit parks at is the defect this change exists to
           remove, one level along. */}
-      <TierInvitationRow invitations={myInvitations} nodeId={id} />
+      <TierInvitationRow
+        invitations={myInvitations}
+        nodeId={id}
+        /* ⚠ THE SAME EXPRESSION THAT PAINTS THE TINT, not a second reading of
+           the lens. `evidenceBgStyle` is `undefined` on an untinted card —
+           including the `na` class, which the lens leaves alone — so the
+           invitation's colour and the card's fill cannot disagree about which
+           ground the text is standing on. */
+        onTintedGround={evidenceBgStyle !== undefined}
+      />
 
       <Handle
         type="source"

@@ -25,12 +25,29 @@ import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import type { TierInvitation } from '../../utils/ghostTiers'
 
+/**
+ * ⭐ THE COLOUR FOLLOWS THE GROUND. `onTintedGround` is true exactly when the
+ * card has been repainted by the evidence lens — it is passed down from the same
+ * `evidenceBgStyle` expression that paints the tint, so the two cannot drift.
+ *
+ * Exported because the contrast guard tests THIS decision against the tints it
+ * derives from `BaseNode`, rather than re-reading a class string out of a
+ * rendered tree: jsdom has no real CSS and cannot compute a composited ground.
+ */
+export function invitationTextToken(onTintedGround: boolean): string {
+  // Both literals are written out so Tailwind's source scan generates them;
+  // a computed class name would be absent from the build.
+  return onTintedGround ? 'text-text-body' : 'text-info'
+}
+
 export const TierInvitationRow = memo(function TierInvitationRow({
   invitations,
   nodeId,
+  onTintedGround = false,
 }: {
   invitations: readonly TierInvitation[]
   nodeId: string
+  onTintedGround?: boolean
 }) {
   // Gated for the reason `askSemantic`'s own header gives: with no composer and
   // no drawer registered the ask reaches nothing, and an affordance that does
@@ -41,7 +58,12 @@ export const TierInvitationRow = memo(function TierInvitationRow({
   return (
     <div className="mt-1 flex flex-col gap-0.5" data-testid="tier-invitations">
       {invitations.map((inv) => (
-        <TierInvitationButton key={inv.tier} invitation={inv} nodeId={nodeId} />
+        <TierInvitationButton
+          key={inv.tier}
+          invitation={inv}
+          nodeId={nodeId}
+          onTintedGround={onTintedGround}
+        />
       ))}
     </div>
   )
@@ -50,9 +72,11 @@ export const TierInvitationRow = memo(function TierInvitationRow({
 function TierInvitationButton({
   invitation,
   nodeId,
+  onTintedGround,
 }: {
   invitation: TierInvitation
   nodeId: string
+  onTintedGround: boolean
 }) {
   const { label, prompt, tier } = invitation
   const onClick = useCallback(() => {
@@ -71,7 +95,12 @@ function TierInvitationButton({
       // Focus, hover and the ring are the canvas's existing treatment
       // (`NodeQuickActions.tsx:113`), reused rather than invented — a real
       // <button> with no visible focus indicator fails WCAG 2.4.7.
-      className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan text-left rounded hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+      // The colour is chosen by ground, not fixed: see `invitationTextToken`.
+      // The underline carries the link affordance either way, so the door still
+      // reads as a door once the hue stops being the thing that says so.
+      className={`${typography.edgeLabel} ${invitationTextToken(onTintedGround)} ${
+        onTintedGround ? 'hover:text-text-body' : 'hover:text-info-hover'
+      } underline cursor-pointer nodrag nopan text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
       onClick={onClick}
       onPointerDown={(e) => e.stopPropagation()}
     >
