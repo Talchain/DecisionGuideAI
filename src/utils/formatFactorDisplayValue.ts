@@ -296,6 +296,27 @@ export function encodingMapPhrase(
   return null
 }
 
+/**
+ * Is this `display_value` a MAGNITUDE SUMMARY of the node's own number, rather
+ * than contextual copy?
+ *
+ * The producer composes two very different strings into one field. A summary
+ * restates the model-scale value it is summarising — `"Low (0)"`,
+ * `"Moderate (0.5)"`, `"Very high (0.8)"` — so the parenthesised figure EQUALS
+ * `value`. Contextual copy — `"No acquisition pursued"`, `"No dedicated tech
+ * lead"` — carries no such figure.
+ *
+ * ⭐ STRUCTURAL, NOT SEMANTIC, AND THAT IS THE WHOLE POINT. It asks whether a
+ * number the node already holds is restated in the string. It does not ask what
+ * the words mean, does not hold a list of band words, and cannot drift as copy
+ * changes. An absent `display_value` is not a summary.
+ */
+function displayValueRestatesValue(displayValue: string | null | undefined, value: number | null | undefined): boolean {
+  if (typeof displayValue !== 'string' || typeof value !== 'number' || !Number.isFinite(value)) return false
+  const m = /\(\s*(-?\d+(?:\.\d+)?)\s*\)/.exec(displayValue)
+  return m !== null && Number(m[1]) === value
+}
+
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
   const { label, value, raw_value, unit, factor_type, category, display_value } = input
 
@@ -385,8 +406,25 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // `encodingMapPhrase` for why this outranks `display_value` and why it
   // never interpolates. Below Pattern 1 deliberately: a real-world magnitude
   // (£26,000) is a measurement, and where one exists the map adds nothing.
+  // ⛔ NARROWED, AND CI NARROWED IT. The first version preferred the map
+  // UNCONDITIONALLY, on the premise that the producer had sent "the truth and a
+  // bad summary of it". That premise is too broad and the golden fixture proved
+  // it: `fac_acquisition` carries `display_value: "No acquisition pursued"`
+  // beside `encoding_map {0: "Not pursued"}`, and the CEE-authored sentence is
+  // BETTER — it names the subject, where the map's phrase loses it.
+  //
+  // So the map only wins where `display_value` is a MAGNITUDE SUMMARY, and that
+  // is decided STRUCTURALLY rather than by judging prose: the summary restates
+  // this node's own model-scale number in parentheses ("Low (0)",
+  // "Moderate (0.5)"), so a parenthesised figure EQUAL to `value` is what marks
+  // it. Contextual copy carries no such figure and keeps its place.
+  //
+  // ⚠ Deliberately NOT a predicate over language. This lane closed a PR earlier
+  // today for exactly that: an unwitnessed natural-language rule with no corpus,
+  // where two opposite harms shared one condition. A number that must equal a
+  // number the node already holds is checkable and cannot drift.
   const encoded = encodingMapPhrase(input.encoding_map, value)
-  if (encoded !== null) return encoded
+  if (encoded !== null && displayValueRestatesValue(display_value, value)) return encoded
 
   const displayValueContradicted =
     display_value != null

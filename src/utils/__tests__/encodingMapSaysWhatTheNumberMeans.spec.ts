@@ -43,6 +43,42 @@ describe('the producer\'s meaning replaces the magnitude word', () => {
   })
 })
 
+describe('⛔ it only displaces a MAGNITUDE SUMMARY, never contextual copy', () => {
+  /**
+   * ⭐ THE CASE CI TAUGHT ME, and it is the golden fixture verbatim.
+   * `fac_acquisition` carries display_value "No acquisition pursued" beside
+   * encoding_map {0: "Not pursued"}. The CEE-authored sentence is BETTER — it
+   * names the subject where the map's phrase loses it. My first version
+   * preferred the map unconditionally and replaced good copy with worse.
+   */
+  it('keeps contextual copy that the map would only make terser', () => {
+    expect(formatFactorDisplayValue({
+      ...base, value: 0, display_value: 'No acquisition pursued',
+      encoding_map: { '0': 'Not pursued', '1': 'Pursued' },
+    })).toBe('No acquisition pursued')
+  })
+
+  /** …while a summary that merely restates the model-scale number gives way. */
+  it('displaces a summary that restates the node\'s own number', () => {
+    expect(formatFactorDisplayValue({
+      ...base, value: 0, display_value: 'Low (0)',
+      encoding_map: { '0': 'Not pursued' },
+    })).toBe('Not pursued')
+  })
+
+  /**
+   * The discriminator is STRUCTURAL: the parenthesised figure must EQUAL the
+   * node's value. A parenthesis holding some other number is not a restatement
+   * of this node, so it is contextual copy and keeps its place.
+   */
+  it('does not treat an unrelated parenthesised number as a summary', () => {
+    expect(formatFactorDisplayValue({
+      ...base, value: 0, display_value: 'Cut by half (2 of 4 teams)',
+      encoding_map: { '0': 'Not pursued' },
+    })).toBe('Cut by half (2 of 4 teams)')
+  })
+})
+
 describe('⛔ and it never invents one', () => {
   /**
    * ⭐ THE CASE THAT DECIDES THE IMPLEMENTATION, and it is a real capture.
