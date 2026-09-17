@@ -241,4 +241,70 @@ describe('the conclusion is said once', () => {
     // two matches above are not a matcher that says yes to everything.
     expect(onScreen).not.toMatch(/a sentence this fixture never contained/i)
   })
+
+  /**
+   * ⛔⛔ THE DEFECT MY OWN ADVERSARIAL PASS FOUND, AFTER TWO REVIEWERS.
+   *
+   * `sectionTitleRung` is a property of the SET; whether a row's edge names
+   * RESOLVE is a property of the ROW. So `rowTitle` returns '' at rung 'full'
+   * for a row whose names do not resolve, the implication falls through to the
+   * FULL sentence, and a collection condition missing `headlineText !== ''`
+   * empties a row that has no title either — nothing left on screen to say
+   * what it is about.
+   *
+   * The two rows below differ ONLY in whether their edge labels resolve.
+   */
+  /**
+   * ⭐⭐ THE INVARIANT THAT MAKES THE DEFENSIVE CLAUSE UNNECESSARY — pinned
+   * because it is the thing that would silently stop being true.
+   *
+   * ⛔ THIS REPLACES A TEST THAT COULD NOT FAIL. I believed I had found a
+   * reachable defect in my own collection condition: a row at rung 'full'
+   * whose edge names do not resolve gets no title, so the implication falls
+   * through to the full sentence and a set including it would empty a row that
+   * has nothing else on screen. I wrote a control for it. A mutant deleting
+   * the clause left that control GREEN — so rather than assert equivalence I
+   * proved the state is unreachable, and replaced the tautology.
+   *
+   * WHY IT IS UNREACHABLE: `sectionTitleRung` is ALL-OR-NOTHING. It returns
+   * null the moment ANY candidate row fails to resolve, and candidates are
+   * only rows too long to label themselves. So a mixed set does not produce a
+   * titled row beside an untitled one — it produces NO titles at all.
+   *
+   * That is the property to guard. If it ever became per-row, the defensive
+   * clause in the collection condition would become load-bearing overnight and
+   * nothing else would notice.
+   */
+  it('⭐ the title rung is all-or-nothing — one unresolvable row untitles the whole set', () => {
+    const data = manyFragileEdges()
+    let i = 0
+    const long =
+      'If the assumed strength of this relationship changes significantly in either direction, "Two Developers" could become the better choice'
+    const mixed = {
+      ...data,
+      confidence: {
+        ...data.confidence,
+        uncertainties: data.confidence.uncertainties.flatMap((u) => {
+          if (u.code !== 'SENSITIVE_ASSUMPTION') return [u]
+          if (i >= 2) return []
+          const base = { ...u, message: long, displayText: long } as Record<string, unknown>
+          const row =
+            i === 0
+              ? { ...base, edgeFromLabel: 'Lead gap', edgeToLabel: 'Team output', edgeLabelsResolved: true }
+              : { ...base, edgeFromLabel: undefined, edgeToLabel: undefined, edgeLabelsResolved: false }
+          i++
+          return [row as unknown as (typeof data.confidence.uncertainties)[number]]
+        }),
+      },
+    } as unknown as ResultsSectionDataReturn
+
+    renderBody(mixed)
+    const onScreen = (document.body.textContent ?? '').replace(/\s+/g, ' ')
+    // Neither row is titled: the resolvable row does NOT get a title of its own
+    // while its sibling goes without. That is the all-or-nothing guarantee.
+    expect(onScreen).not.toMatch(/Lead gap → Team output/i)
+    // Contrast in the same run: the rows ARE rendered, so this is an absent
+    // TITLE rather than an absent section.
+    expect(onScreen).toMatch(/changes significantly/i)
+  })
 })

@@ -1383,8 +1383,33 @@ function buildUncertainty(
        * few lines below, so the two cannot disagree about which sentence the
        * row is carrying.
        */
+      /**
+       * ⚠ `headlineText !== ''` MIRRORS THE IMPLICATION'S OWN CONDITION, and it
+       * is DEFENSIVE RATHER THAN LOAD-BEARING TODAY. I added it believing I had
+       * found a reachable defect in my own change; a mutant deleting it left
+       * every control GREEN, so I went and proved which it was rather than
+       * asserting equivalence.
+       *
+       * ⭐ IT IS UNREACHABLE, AND THE REASON IS WORTH KNOWING: the rung is a
+       * property of the SET and resolution is a property of the ROW, so they
+       * look independent — but `sectionTitleRung` returns null the moment ANY
+       * candidate row fails to resolve (`named.some(n => n === null)`), and the
+       * candidate set holds only rows too long to label themselves. A short row
+       * takes `headlineText = text`. So at rung 'full' every row has a title,
+       * and `headlineText === ''` cannot co-occur with it.
+       *
+       * The clause stays because the two conditions must not drift apart if
+       * either derivation changes; it is not claimed to fix anything today.
+       * `theRungIsAllOrNothing` pins the invariant that makes it unnecessary.
+       *
+       * ⚠ THE TWO CONDITIONS ARE DELIBERATELY SPELLED OUT TWICE RATHER THAN
+       * SHARED, because the implication's is a ternary arm in an expression and
+       * hoisting it would change what that expression reads as. The guard
+       * against them drifting is the control below, not proximity.
+       */
       if (
         sectionTitleRung === 'full' &&
+        headlineText !== '' &&
         !u.threshold &&
         typeof u.messageWithSubjectNamedAbove === 'string' &&
         u.messageWithSubjectNamedAbove.length > 0
