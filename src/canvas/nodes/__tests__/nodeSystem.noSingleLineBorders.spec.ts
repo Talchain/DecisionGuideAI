@@ -107,7 +107,14 @@ describe('node design system — rule 1: borders enclose, nothing is a single li
       expect(v.match(SINGLE_EDGE), `matcher missed: ${v}`).not.toBeNull()
     }
     expect('style={{ borderTop: "1px solid #EEE6D8" }}'.match(CSS_SINGLE_EDGE)).not.toBeNull()
-    expect('border-bottom: 1px solid var(--border);'.match(CSS_SINGLE_EDGE)).not.toBeNull()
+    // ⚠ `--border-default`, NOT `--border`. The first version of this fixture
+    // invented `var(--border)` — a property that does not exist — and
+    // `tests/ci-guards/css-var-resolution.spec.ts` correctly RED on it in CI,
+    // because that guard scans TS/TSX for `var(--…)` naming an undefined
+    // property and does not care that this one lives inside a test fixture.
+    // A guard's own fixture is still source: it participates in every other
+    // sweep in the repo.
+    expect('border-bottom: 1px solid var(--border-default);'.match(CSS_SINGLE_EDGE)).not.toBeNull()
   })
 
   it('the matcher does NOT fire on the full-border forms the rule prescribes (negative control)', () => {
