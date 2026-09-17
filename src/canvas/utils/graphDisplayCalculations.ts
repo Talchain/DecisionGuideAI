@@ -9,6 +9,7 @@
  */
 
 import type { RiskImpact } from '../domain/nodes'
+import type { EdgeValueDisplay } from '../domain/edgeValueProvenance'
 
 /**
  * Edge importance formula from Decision Graph Display v2 spec
@@ -207,6 +208,93 @@ export function weightMagnitudeToStrokeWidth(signedMean: number): number {
   if (magnitude >= 0.7) return EDGE_STROKE_WIDTH_BANDS.strong
   if (magnitude >= 0.4) return EDGE_STROKE_WIDTH_BANDS.moderate
   return EDGE_STROKE_WIDTH_BANDS.weak
+}
+
+/**
+ * ⭐ THE UNCERTAINTY BAND — how wide the ribbon around an edge is drawn.
+ *
+ * WHY A NEW MARK AND NOT A NEW MEANING ON THE LINE
+ * -----------------------------------------------
+ * Every channel the line itself owns is already spent, and this module and
+ * `edges/edgePresentation.ts` between them say so explicitly: WIDTH is
+ * strength (`EDGE_STROKE_WIDTH_BANDS` above, and the legend teaches it),
+ * COLOUR is polarity (`EDGE_STROKE_RULES` rule A), DASH is spent three times
+ * over (`EDGE_DASH_RULES` carries `contested`, `existence_certainty` and
+ * `visual_props`, and `resolveEdgeDash` returns the FIRST match — so a fourth
+ * rule is invisible on exactly the edges most in question), and OPACITY is
+ * refused outright as a data channel (`StyledEdge.tsx` P2.9: *"two channels for
+ * one variable is exactly the encoding overload the audit flags"*).
+ *
+ * So `strengthStd` had nowhere to go, and went nowhere: it is carried on the
+ * wire, stored, USER-EDITABLE (`useInspectorMutations.ts:791`) and rendered in
+ * the side panel (`EdgeInspector.tsx:511`, `EdgePanel.tsx:253`) — while the
+ * graph, the surface the whole product is named for, never read it. A team
+ * could not see which of its causal claims were firm and which were guesses
+ * without opening an edge one at a time.
+ *
+ * The band is a SEPARATE ELEMENT drawn behind the line, not a fourth meaning
+ * loaded onto it. That is why it does not violate the P2.9 refusal: the refusal
+ * is against giving ONE variable two channels, and this gives a variable with
+ * ZERO channels its first. It borrows the statistical-chart idiom a reader
+ * already knows — a confidence ribbon around a trend line, where spread means
+ * doubt — so it needs no legend entry to be guessed correctly.
+ *
+ * ⚠ WHAT IT DELIBERATELY CANNOT DO. The half-width FLOORS at
+ * `UNCERTAINTY_BAND_MIN_HALF_WIDTH`, so every stated uncertainty draws a
+ * visible ribbon however tight it is. Measured consequence, stated rather than
+ * hidden: across the 79-edge census (`strengthStd` 0.01–0.22) every edge below
+ * std ≈ 0.042 renders at the same floor and is NOT separable from its
+ * neighbours. That is the deliberate trade — the alternative is a sub-pixel
+ * ribbon, which makes "tight uncertainty" pixel-identical to "nobody said",
+ * and this codebase has already paid once for exactly that collision (see
+ * `UNSET_EDGE_STROKE_WIDTH` above, where an unset strength rendered identically
+ * to a stated weak one). PRESENCE of the band answers *did anyone say?*; WIDTH
+ * answers *how much?*, and only above the floor.
+ */
+export const UNCERTAINTY_BAND_SCALE = 48
+
+/**
+ * The floor, DERIVED from the stroke ladder rather than chosen: one graph unit
+ * clear of the thickest line the width channel can draw, so the ribbon is
+ * always readable AS a ribbon and never mistaken for the line having got
+ * fatter. Moving `EDGE_STROKE_WIDTH_BANDS` moves this with it.
+ */
+export const UNCERTAINTY_BAND_MIN_HALF_WIDTH =
+  Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS)) / 2 + 1
+
+/**
+ * The ceiling. A `strengthStd` is declared OPEN in `EDGE_VALUE_DOMAINS` — the
+ * read gate does not bound it — so without this one pathological value paints
+ * a band across the whole board and hides the model. Clamping is a display
+ * decision and is NOT silent: the band stops widening, the number in the
+ * inspector does not.
+ */
+export const UNCERTAINTY_BAND_MAX_HALF_WIDTH = 14
+
+/**
+ * Half the width of the uncertainty ribbon, in graph units — or `null` when
+ * there is no ribbon to draw.
+ *
+ * ⭐ TAKES THE PROVENANCE UNION, NEVER A `number`. `USER_EDGE_DEFAULTS` writes
+ * `strengthStd: 0.15` with no source stamp, so every user-drawn edge carries a
+ * fabricated uncertainty — the schema's own docblock records that
+ * `KeyRelationships` once rendered it as a "Moderate confidence" dot. A
+ * signature taking `number` would let a caller reach a ribbon by reading
+ * `edge.data.strengthStd` directly, and that ribbon would be a claim nobody
+ * made. There is no argument that can be constructed here meaning "0.15,
+ * source unknown" — the same property `edgeValueBand` was built for and
+ * `weightMagnitudeToStrokeWidth` above lacks.
+ */
+export function uncertaintyBandHalfWidth(display: EdgeValueDisplay): number | null {
+  if (!display.show) return null
+  // A standard deviation is a spread; a negative one is not a tighter spread,
+  // it is a value out of its own definition. `EDGE_VALUE_DOMAINS.strengthStd`
+  // is declared open, so the gate above will not have caught it.
+  if (display.value < 0) return null
+  return Math.min(
+    UNCERTAINTY_BAND_MAX_HALF_WIDTH,
+    Math.max(UNCERTAINTY_BAND_MIN_HALF_WIDTH, display.value * UNCERTAINTY_BAND_SCALE),
+  )
 }
 
 /**
