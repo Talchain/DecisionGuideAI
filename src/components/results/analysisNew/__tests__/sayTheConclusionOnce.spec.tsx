@@ -26,7 +26,7 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { manyFragileEdges } from './analysisNewFixtures'
 import { openAllSections } from './openNamedGroups'
 
-type Alt = { id: string; label: string; reprints?: boolean }
+type Alt = { id: string; label: string; reprints?: boolean; authored?: string }
 
 /**
  * Two sensitivity rows. `reprints` reproduces the DEPLOYED shape, where the
@@ -69,6 +69,35 @@ const withAlternatives = (alts: readonly Alt[]): ResultsSectionDataReturn => {
              * The deployed defect needs rows that ARE titled, which needs
              * labels that fit the slot.
              */
+            /**
+             * ⭐ AUTHORED PROSE: the producer wrote the sentence, so
+             * `useResultsSectionData` offers NO short form for it
+             * (`messageWithSubjectNamedAbove` is populated only when
+             * `!fe.description`). It may name the converged option and still
+             * carry a condition the header never states.
+             */
+            /**
+             * ⛔ THE SHORT FORM MUST BE REMOVED, NOT JUST OVERRIDDEN, and my
+             * first version of this arm forgot to. `manyFragileEdges` ships
+             * `messageWithSubjectNamedAbove`, so overriding only `message` left
+             * the template marker in place and the row was correctly classified
+             * generic — the arm failed while the product was right.
+             *
+             * The real composition cannot produce that combination:
+             * `useResultsSectionData.ts:3671` populates the short form ONLY
+             * when `!fe.description`, so a producer-authored sentence and a
+             * template short form never coexist. Modelling it here is what
+             * makes the fixture capable of expressing the failure at all.
+             */
+            ...(a.authored
+              ? {
+                  message: a.authored,
+                  displayText: a.authored,
+                  edgeFromLabel: `Lead gap ${i}`,
+                  edgeToLabel: `Team output ${i}`,
+                  messageWithSubjectNamedAbove: undefined,
+                }
+              : {}),
             ...(a.reprints
               ? {
                   message: long,
@@ -162,5 +191,54 @@ describe('the conclusion is said once', () => {
     expect(CONVERGENCE(), 'precondition: these rows DO converge').not.toBeNull()
     const kept = screen.queryAllByText(/the comparison could land differently/i)
     expect(kept.length, 'a sentence the header never made must survive').toBeGreaterThanOrEqual(2)
+  })
+
+  /**
+   * ⛔⛔ THE COUNTEREXAMPLE THAT REFUTED THE PREVIOUS IMPLEMENTATION, from an
+   * independent reviewer, and it is the case neither the author nor a second
+   * reviewer could construct.
+   *
+   * These rows CONVERGE and their sentences NAME the converged option — and
+   * they also carry a condition and a consequence the convergence header never
+   * states. A substring test on the label deletes that analysis outright.
+   *
+   * The rule is now identity with `messageWithSubjectNamedAbove`, a field the
+   * producer's own composition populates ONLY when it authored nothing. So
+   * authored prose is not merely unlikely to be caught — it is structurally
+   * incapable of being caught.
+   */
+  it('⛔ AUTHORED prose that names the same option KEEPS its sentence — the header never said this', () => {
+    const AUTHORED = [
+      {
+        id: 'opt_two',
+        label: 'Two Developers',
+        authored:
+          'If team throughput falls below the required capacity, Two Developers needs an additional onboarding month before the delivery commitment is credible',
+      },
+      {
+        id: 'opt_two',
+        label: 'Two Developers',
+        authored:
+          'If onboarding slips past the first sprint, Two Developers loses the cost advantage that made it competitive here',
+      },
+    ] as const
+    renderBody(withAlternatives(AUTHORED))
+    // Precondition: these rows DO converge, so the suppression path is live.
+    expect(CONVERGENCE(), 'precondition: the rows converge').not.toBeNull()
+    /**
+     * ⚠ READ FROM `textContent`, NOT `queryAllByText`. The row truncates at a
+     * word boundary and discloses the remainder, so the sentence is split
+     * across elements and an element-scoped matcher misses text that is
+     * plainly on screen. My first version of this assertion failed for that
+     * reason and the PRODUCT was correct — worth keeping, because a test that
+     * fails for its own reasons is indistinguishable from a real defect until
+     * you look.
+     */
+    const onScreen = (document.body.textContent ?? '').replace(/\s+/g, ' ')
+    expect(onScreen).toMatch(/needs an additional onboarding month/i)
+    expect(onScreen).toMatch(/loses the cost advantage/i)
+    // Contrast in the same run: the probe can also report an absence, so the
+    // two matches above are not a matcher that says yes to everything.
+    expect(onScreen).not.toMatch(/a sentence this fixture never contained/i)
   })
 })
