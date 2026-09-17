@@ -1450,6 +1450,25 @@ export function AnalysisNewTabBody({
             (`aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx`).
             So the gate is here, and the ceiling is UNCHANGED at 8/8/6 rather
             than argued upward. */}
+        {/* ── ZONE: FOCUS ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        <div data-testid="analysis-new-zone-focus-group">
+        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
+            of blocks, so it carries no border, no fill and no radius of its
+            own: furniture that looked like a block would add the weight this
+            change exists to remove. Sized and coloured as `panelMeta`, the
+            quietest of the panel's three sizes. */}
+        <p
+          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+          data-testid="analysis-new-zone-focus"
+        >
+          Focus now
+        </p>
         {focusApplicableIds.length > 0 && (
           <FocusNowContainer applicableStaticIds={focusApplicableIds} />
         )}
@@ -1461,6 +1480,26 @@ export function AnalysisNewTabBody({
             ranking from the same fields, so there is no cap here to declare.
             `primaryIntervention` is the ENGINE's top recommendation, passed
             rather than re-derived: this surface never mints one. */}
+        </div>
+        {/* ── ZONE: ANSWER ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        <div data-testid="analysis-new-zone-answer-group">
+        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
+            of blocks, so it carries no border, no fill and no radius of its
+            own: furniture that looked like a block would add the weight this
+            change exists to remove. Sized and coloured as `panelMeta`, the
+            quietest of the panel's three sizes. */}
+        <p
+          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+          data-testid="analysis-new-zone-answer"
+        >
+          The answer
+        </p>
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
@@ -1681,6 +1720,7 @@ export function AnalysisNewTabBody({
             ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
             carries them. A reader meeting one sentence in two sections is a
             defect this panel has already shipped. */}
+        </div>
         <AnalysisNewSection
           title={COPY.sections.sensitivity}
           findings={vm.sensitivity.findings}
@@ -1893,6 +1933,25 @@ export function AnalysisNewTabBody({
             question to be asked: the acts belong TOGETHER, so the answer was a
             shared wrapper rather than a raised ceiling. What the run suggests
             and what you can ask for regardless are one zone. */}
+        {/* ── ZONE: ALSO ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        <div data-testid="analysis-new-zone-also-group">
+        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
+            of blocks, so it carries no border, no fill and no radius of its
+            own: furniture that looked like a block would add the weight this
+            change exists to remove. Sized and coloured as `panelMeta`, the
+            quietest of the panel's three sizes. */}
+        <p
+          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+          data-testid="analysis-new-zone-also"
+        >
+          Also worth doing
+        </p>
         <div data-testid="analysis-new-acts">
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}
@@ -2024,6 +2083,26 @@ export function AnalysisNewTabBody({
             ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
             the panel under a heading that says what is inside; before, it was
             twelve blocks down under a heading that did not. */}
+        </div>
+        {/* ── ZONE: FURTHER ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        <div data-testid="analysis-new-zone-further-group">
+        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
+            of blocks, so it carries no border, no fill and no radius of its
+            own: furniture that looked like a block would add the weight this
+            change exists to remove. Sized and coloured as `panelMeta`, the
+            quietest of the panel's three sizes. */}
+        <p
+          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+          data-testid="analysis-new-zone-further"
+        >
+          If you want to go further
+        </p>
         {coachingHasContent ? (
           <SectionShell
             icon={GraduationCap}
@@ -2398,6 +2477,7 @@ export function AnalysisNewTabBody({
         ) : null}
 
 
+        </div>
       </div>
     </div>
   )

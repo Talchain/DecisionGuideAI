@@ -39,9 +39,22 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
  * Lower these when the count falls; raising one is a reviewer conversation.
  */
 const CEILING: Record<string, number> = {
-  genuineDecision: 8,
-  highUncertainty: 8,
-  openStrategicChallenge: 6,
+  /**
+   * ⭐ LOWERED 17 Sep 2026 WHEN THE ZONE GRAMMAR LANDED — 8/8/6 -> 4/6/4.
+   *
+   * The approved prototype's first rule is "four named zones, not eight peer
+   * cards". Grouping the blocks into zones is what makes that a REDUCTION
+   * rather than a relabelling: the column's direct children fell by half,
+   * because a zone is one child carrying its own label and its own blocks.
+   *
+   * ⚠ A LOOSE LABEL WOULD HAVE DONE THE OPPOSITE. The first cut added the five
+   * labels without wrapping and the count went 8 -> 13, which this file caught
+   * by name. Raising the ceiling to fit them would have recorded the panel
+   * growing while the design brief asked it to shrink.
+   */
+  genuineDecision: 4,
+  highUncertainty: 6,
+  openStrategicChallenge: 4,
 }
 
 const FIXTURES: ReadonlyArray<[string, () => ResultsSectionDataReturn]> = [
