@@ -39,9 +39,22 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
  * Lower these when the count falls; raising one is a reviewer conversation.
  */
 const CEILING: Record<string, number> = {
-  genuineDecision: 8,
-  highUncertainty: 8,
-  openStrategicChallenge: 6,
+  /**
+   * ⭐ LOWERED 17 Sep 2026 WHEN THE ZONE GRAMMAR LANDED — 8/8/6 -> 4/6/4.
+   *
+   * The approved prototype's first rule is "four named zones, not eight peer
+   * cards". Grouping the blocks into zones is what makes that a REDUCTION
+   * rather than a relabelling: the column's direct children fell by half,
+   * because a zone is one child carrying its own label and its own blocks.
+   *
+   * ⚠ A LOOSE LABEL WOULD HAVE DONE THE OPPOSITE. The first cut added the five
+   * labels without wrapping and the count went 8 -> 13, which this file caught
+   * by name. Raising the ceiling to fit them would have recorded the panel
+   * growing while the design brief asked it to shrink.
+   */
+  genuineDecision: 3,
+  highUncertainty: 5,
+  openStrategicChallenge: 3,
 }
 
 const FIXTURES: ReadonlyArray<[string, () => ResultsSectionDataReturn]> = [
@@ -83,14 +96,29 @@ describe('the panel cannot regrow', () => {
    * ⭐ THE POSITIVE CONTROL, AND IT IS NOT OPTIONAL HERE. A counter that
    * returned 0 for everything would satisfy every ceiling in this file while
    * measuring nothing — the vacuous-green shape this suite has been bitten by
-   * before. A panel that renders SOMETHING must count more than one block.
+   * before.
+   *
+   * ⛔ IT IS STRUCTURAL, NOT A MAGNITUDE, AND IT USED TO BE A MAGNITUDE. This
+   * control read `toBeGreaterThan(3)`, which was comfortably true when the
+   * panel carried eight blocks and became FALSE the moment the zone grammar
+   * cut it to three — the control failing for the success it was meant to
+   * permit. A control pinned to whatever the panel currently measures has an
+   * expiry date nobody wrote down. The real failure it guards is a counter
+   * pointed at the SCROLL CONTAINER, which has exactly one child, so the
+   * honest form is the discrimination itself: the container reads 1, the
+   * counter must read more.
    */
-  it('CONTROL: the counter can see blocks at all', () => {
+  it('CONTROL: the counter is not pointed at the scroll container', () => {
     renderBody(genuineDecision())
+    const root = screen.getByTestId('analysis-new-tab-body')
+    expect(
+      root.children.length,
+      'precondition: the scroll container is the wrong element to count, and has one child',
+    ).toBe(1)
     expect(
       topLevelBlocks(),
-      'the counter read ~0 blocks on a rich run — it is measuring the wrong element',
-    ).toBeGreaterThan(3)
+      'the counter read the scroll container — it is measuring the wrong element',
+    ).toBeGreaterThan(root.children.length)
   })
 
   it.each(FIXTURES)('%s stays at or below its ceiling', (name, make) => {
