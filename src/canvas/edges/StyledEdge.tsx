@@ -64,7 +64,7 @@ import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
-import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
+import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } from '../ui/truncation'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -1213,6 +1213,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlightedEdge, directionStroke, existenceCertaintyDash, visualProps.strokeDasharray,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
+
+  // ⭐ THE UNCERTAINTY RIBBON (see `uncertaintyBandHalfWidth`). `strengthStd`
+  // reached the store, the inspector and the user's own edit control, and never
+  // reached the board — so a team read every causal claim at equal confidence.
+  //
+  // Through the provenance gate, NOT off `edgeData.strengthStd`:
+  // `USER_EDGE_DEFAULTS` writes 0.15 unstamped, so a raw read would paint a
+  // ribbon on every hand-drawn edge announcing an uncertainty nobody stated.
+  // Same refusal the stroke width makes at :455 for the same reason.
+  //
+  // Memoised on `edgeData` because the resolver returns a fresh object each
+  // call — the identity discipline the direction and signed-strength memos
+  // above already keep.
+  const uncertaintyBand = useMemo(() => {
+    const display = resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'strengthStd')
+    return uncertaintyBandHalfWidth(display)
+  }, [edgeData])
   const edgeDash = useMemo(() => resolveEdgeDash(presentationState), [presentationState])
 
   // ⭐ DIRECTION OF CAUSATION. Measured on deployed staging 7 Sep 2026: 39 edges,
@@ -1258,6 +1275,38 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       >
         {isStructuralEdge && structuralTooltip && <title>{structuralTooltip}</title>}
       </path>
+      {/* ⭐ THE UNCERTAINTY RIBBON. Drawn BEFORE `BaseEdge`, so SVG paint order
+          puts it behind the line rather than over it — the line keeps its own
+          width channel fully readable and the ribbon reads as spread around it.
+          Structural edges are excluded: decision→option and option→factor are
+          scaffolding, not causal claims, and have no strength to be uncertain
+          about.
+
+          Drawn in EVERY lens mode on purpose. The lenses repaint and re-width
+          the LINE; this is a separate mark with one fixed meaning, so "how firm
+          is this claim" survives switching lens — which is the question a lens
+          most often raises.
+
+          No `vectorEffect`: the width is in GRAPH units and scales with zoom,
+          exactly like `EDGE_STROKE_WIDTH_BANDS`. A non-scaling ribbon would
+          hold constant screen width while the model shrank, and swamp it.
+
+          `pointerEvents="none"` — the hit area is the transparent path above,
+          which is already wider than anything drawn. A ribbon that grew the hit
+          area would make uncertain edges easier to click than firm ones. */}
+      {uncertaintyBand !== null && !isStructuralEdge && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={edgeStroke.value}
+          strokeWidth={uncertaintyBand * 2}
+          strokeLinecap="round"
+          opacity={0.2}
+          pointerEvents="none"
+          data-testid={`edge-uncertainty-band-${edgeIdKey}`}
+          data-uncertainty-half-width={uncertaintyBand}
+        />
+      )}
       {isAssistantFocused && (
         <path
           d={edgePath}

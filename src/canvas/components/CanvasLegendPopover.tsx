@@ -44,7 +44,7 @@ import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
-import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
+import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 
 interface LegendRow {
   label: string
@@ -208,6 +208,68 @@ const THICKNESS_ROWS: LegendRow[] = [
   {
     label: 'No strength suggested: thin and grey',
     swatch: <ThicknessSwatch width={UNSET_EDGE_STROKE_WIDTH} stroke="var(--edge-neutral)" testId="legend-thickness-unset" />,
+  },
+]
+
+/**
+ * ⭐ THE UNCERTAINTY RIBBON — the fifth channel, and the reason this key exists.
+ *
+ * This popover's own header records L-49: *"the canvas spoke four vocabularies
+ * with no key"*. Adding a channel without adding its row would reproduce that
+ * defect exactly, so this ships in the same change as the ribbon itself and not
+ * after it.
+ *
+ * ⚠ THE WIDTHS ARE DERIVED THROUGH THE REAL FUNCTION, not restated — the same
+ * rule the thickness block above had to learn. `uncertaintyBandHalfWidth` is
+ * the one the edge calls, reached here through hand-built displays because a
+ * legend has no edge to resolve. So if the scale, the floor or the clamp moves,
+ * this key moves with it and cannot teach a ribbon the canvas no longer draws.
+ *
+ * The two sample values are the MEASURED CENSUS EXTREMES (std 0.01 and 0.22
+ * across 79 live edges), so the contrast a reader is taught is the contrast
+ * their own board will actually show them — not an invented pair chosen to look
+ * different.
+ */
+function UncertaintySwatch({ halfWidth, testId }: { halfWidth: number | null; testId?: string }) {
+  const line = EDGE_STROKE_WIDTH_BANDS.moderate
+  const band = halfWidth === null ? 0 : halfWidth * 2
+  const h = Math.max(band + 2, line + 2, 8)
+  return (
+    <svg width={24} height={h} aria-hidden="true" style={{ flexShrink: 0 }} data-testid={testId}>
+      {halfWidth !== null && (
+        <line
+          x1={4} y1={h / 2} x2={20} y2={h / 2}
+          stroke="var(--text-body)" strokeWidth={band}
+          strokeLinecap="round" opacity={0.2}
+        />
+      )}
+      <line
+        x1={4} y1={h / 2} x2={20} y2={h / 2}
+        stroke="var(--text-body)" strokeWidth={line} strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+/** Through the real gate shape, so a stamped value is what earns a ribbon. */
+const censusBand = (std: number) =>
+  uncertaintyBandHalfWidth({ show: true, value: std, source: 'cee' })
+
+const UNCERTAINTY_ROWS: LegendRow[] = [
+  {
+    label: 'Tight band: this strength is fairly certain',
+    swatch: <UncertaintySwatch halfWidth={censusBand(0.01)} testId="legend-uncertainty-tight" />,
+  },
+  {
+    label: 'Wide band: this strength is a rough guess',
+    swatch: <UncertaintySwatch halfWidth={censusBand(0.22)} testId="legend-uncertainty-wide" />,
+  },
+  // Honesty row, the same shape as the thickness block's. Without it a reader
+  // is taught to read "no band" as "certain", which is the strongest possible
+  // misreading of the channel — it inverts it.
+  {
+    label: 'No band: nobody has said how certain this is',
+    swatch: <UncertaintySwatch halfWidth={null} testId="legend-uncertainty-unset" />,
   },
 ]
 
@@ -808,6 +870,8 @@ export function CanvasLegendPopover() {
             <LegendGroup rows={CONNECTION_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={THICKNESS_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={UNCERTAINTY_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={DIRECTION_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
