@@ -270,11 +270,29 @@ const SET_SENTENCE = 'Moderate drag'
 const DIRECTION_UNSET_SENTENCE = 'Moderate effect, direction not stated'
 const NEITHER_SENTENCE = 'Strength not set'
 /**
- * The longest sentence the vocabulary can produce — strength set, direction not
+ * The longest sentence THIS FIXTURE can produce — strength set, direction not
  * stated, likelihood not set. Painted by `LONGEST_DATA`, not merely declared.
- * That the vocabulary can produce nothing longer is asserted by exhaustive
- * enumeration in `domain/__tests__/edgeLabels.spec.ts`, which is where the
- * vocabulary lives; this file's job is that the sentence stays RECOVERABLE.
+ * This file's job is that the sentence stays RECOVERABLE.
+ *
+ * ⚠⚠ IT IS NO LONGER THE VOCABULARY'S LONGEST, AND THE TWO CLAIMS ARE NAMED
+ * APART HERE SO THE DIFFERENCE CANNOT BE RE-COLLAPSED. This block used to say
+ * "the longest sentence the vocabulary can produce", and cited "exhaustive
+ * enumeration in `domain/__tests__/edgeLabels.spec.ts`" for it. **That
+ * enumeration did not exist.** It does now — `describe("the vocabulary's
+ * longest sentence")` — and it measures the true maximum at **"Very strong
+ * effect, direction not stated (likelihood not set)", 61 characters**, because
+ * the canvas chip stopped restating its own band table and now reads the
+ * canonical one, whose top word is "Very strong" rather than "Strong".
+ *
+ * ⚠ THE FIXTURE IS DELIBERATELY UNCHANGED. `SET_WIRE` is a REAL capture edge
+ * (`pricing-model.draft.json`, `strength.mean = −0.3504`), and |0.3504| lands in
+ * [0.30, 0.40) — the ONE band on which the retired and canonical tables agree,
+ * which is the only reason every assertion in this file survived the change
+ * untouched. Re-pointing it at a ≥ 0.70 edge would mean choosing a magnitude to
+ * suit the test, and a fixture you pick yourself is not evidence about the wire
+ * (CLAUDE.md trap 16-inverse). Extending this contract to the 61-character
+ * sentence is REPORTED, not done here: the chip's width lives in
+ * `StyledEdge.tsx`, which the vocabulary lane does not touch.
  */
 const LONGEST_SENTENCE = 'Moderate effect, direction not stated (likelihood not set)'
 /** The pre-3-Sep longest, kept only to pin the off-by-one that stood in its place. */
@@ -310,6 +328,12 @@ describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKL
         expect(LONGEST_SENTENCE.length).toBeGreaterThan(shorter.length)
       }
       expect(LONGEST_SENTENCE.length).toBe(58)
+      // ⚠ 58 is this FIXTURE's sentence, not the vocabulary's maximum — see the
+      // block above `LONGEST_SENTENCE`. The maximum is 61 and is enumerated in
+      // `domain/__tests__/edgeLabels.spec.ts`. Pinned here so the gap between
+      // what this file paints and what the vocabulary can emit is an executing
+      // assertion rather than a sentence someone has to remember.
+      expect('Very strong effect, direction not stated (likelihood not set)'.length).toBe(61)
       // The off-by-one that stood in the comment above for one round.
       expect(RETIRED_LONGEST_SENTENCE.length).toBe(49)
       expect(LONGEST_SENTENCE.length).toBeGreaterThan(RETIRED_LONGEST_SENTENCE.length)

@@ -13,6 +13,10 @@ import {
   type EdgeLabelMode
 } from '../edgeLabels'
 import { EDGE_VALUE_BAND_CUTS, edgeValueBand } from '../edgeValueProvenance'
+// ⚠ IMPORTED, NOT RE-TYPED. The cross-surface pin below has to read the SAME
+// table the product reads, or it is a second mirror asserting agreement with
+// itself (CLAUDE.md trap 12).
+import { getStrengthLabel } from '../vocabulary'
 import type { EdgeDirectionDisplay, EdgeValueDisplay } from '../edgeValueProvenance'
 
 /**
@@ -61,59 +65,175 @@ describe('edgeLabels', () => {
     localStorage.clear()
   })
 
+  /**
+   * ⭐⭐ THE STRENGTH ADJECTIVES BELOW CHANGED, AND THE OLD ONES WERE WRONG —
+   * not stale, WRONG, because a second surface was saying something else about
+   * the same number at the same moment.
+   *
+   * `describeEdge` restated its own band table (`>= 0.7 'Strong' : >= 0.3
+   * 'Moderate' : 'Weak'`). The canonical one is `getStrengthLabel`
+   * (`domain/vocabulary.ts`, moved there from `inspector-v2/inspectorStrings.ts`
+   * in this change): **Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20,
+   * Slight < 0.20**, from `validation_ui_data_contract_v1.1`. It is what
+   * `InfluenceIndicator`, `ConnectionRow` and the `StrengthBandButtons` pills
+   * have always read — and `StrengthBandButtons` WRITES a band's midpoint back
+   * into the model, so the canonical table is the one a user's own click means.
+   *
+   * The two agree on exactly ONE band, |w| ∈ [0.30, 0.40) — 10% of [0, 1]. So
+   * an 0.5 edge read "Moderate boost" on the canvas chip while the inspector
+   * panel an inch away read "Strong"; 0.85 read "Strong boost" against "Very
+   * strong"; 0.25 read "Weak boost" against "Moderate".
+   *
+   * ⚠ EVERY EXPECTATION HERE IS RE-DERIVED FROM THAT TABLE, NOT PATCHED UNTIL
+   * GREEN, and none is weakened: each remains an exact `toBe` on a full string.
+   * Where the number was chosen to sit on a cut, the number moved WITH the cut
+   * so the test still pins a boundary rather than a comfortable interior point.
+   */
   describe('describeEdge', () => {
     describe('Positive weights (boost)', () => {
-      it('returns "Strong boost" for high positive weight with high belief', () => {
+      it('returns "Very strong boost" for high positive weight with high belief', () => {
         const result = describeEdge(SET(0.9), SET(0.9), STATED_POSITIVE)
-        expect(result.label).toBe('Strong boost')
+        // 0.9 ≥ 0.70 → "Very strong". The panel has always called an 0.9 edge
+        // "Very strong"; the chip called it "Strong".
+        expect(result.label).toBe('Very strong boost')
         expect(result.tooltip).toContain('Weight: 0.90')
         expect(result.tooltip).toContain('Belief: 90%')
       })
 
-      it('returns "Moderate boost" for medium positive weight', () => {
+      it('returns "Strong boost" for medium positive weight', () => {
         const result = describeEdge(SET(0.5), SET(0.8), STATED_POSITIVE)
+        // 0.40 ≤ 0.5 < 0.70 → "Strong". This is the single most common
+        // disagreement in the product: `DEFAULT_EDGE_DATA.weight` is 0.5.
+        expect(result.label).toBe('Strong boost')
+      })
+
+      it('returns "Moderate boost" for low positive weight', () => {
+        const result = describeEdge(SET(0.2), SET(0.8), STATED_POSITIVE)
+        // 0.20 ≤ 0.2 < 0.40 → "Moderate", and 0.2 is the Moderate cut exactly.
         expect(result.label).toBe('Moderate boost')
       })
 
-      it('returns "Weak boost" for low positive weight', () => {
-        const result = describeEdge(SET(0.2), SET(0.8), STATED_POSITIVE)
-        expect(result.label).toBe('Weak boost')
+      it('returns "Slight boost" below the Moderate cut', () => {
+        // The fourth band has no old-vocabulary counterpart — "Weak" spanned
+        // everything under 0.3 — so this case is NEW, not a rewritten one, and
+        // it is the only one that pins the bottom word at all.
+        expect(describeEdge(SET(0.19), SET(0.8), STATED_POSITIVE).label).toBe('Slight boost')
       })
 
       it('adds "(uncertain)" qualifier for low belief', () => {
-        expect(describeEdge(SET(0.9), SET(0.5), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
-        expect(describeEdge(SET(0.5), SET(0.4), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
-        expect(describeEdge(SET(0.2), SET(0.3), STATED_POSITIVE).label).toBe('Weak boost (uncertain)')
+        // Qualifier logic untouched; only the adjectives are re-derived.
+        expect(describeEdge(SET(0.9), SET(0.5), STATED_POSITIVE).label).toBe('Very strong boost (uncertain)')
+        expect(describeEdge(SET(0.5), SET(0.4), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
+        expect(describeEdge(SET(0.2), SET(0.3), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
       })
 
-      it('handles edge case at 0.7 threshold', () => {
-        expect(describeEdge(SET(0.7), SET(0.8), STATED_POSITIVE).label).toBe('Strong boost')
-        expect(describeEdge(SET(0.69), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
+      it('handles edge case at the 0.70 Very-strong threshold', () => {
+        // 0.70 is inclusive, 0.69 falls to the band below. The NUMBERS are
+        // unchanged from the old "0.7 threshold" test — this cut is the one the
+        // two tables happened to share — but the WORDS either side of it were
+        // both wrong before.
+        expect(describeEdge(SET(0.7), SET(0.8), STATED_POSITIVE).label).toBe('Very strong boost')
+        expect(describeEdge(SET(0.69), SET(0.8), STATED_POSITIVE).label).toBe('Strong boost')
       })
 
-      it('handles edge case at 0.3 threshold', () => {
-        expect(describeEdge(SET(0.3), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.29), SET(0.8), STATED_POSITIVE).label).toBe('Weak boost')
+      it('handles edge case at the 0.40 Strong threshold', () => {
+        // Replaces the old "0.3 threshold" pair. 0.3 is no longer a cut in the
+        // canonical table, so pinning it would pin a band interior and stop
+        // discriminating; the number moves with the cut it exists to guard.
+        expect(describeEdge(SET(0.4), SET(0.8), STATED_POSITIVE).label).toBe('Strong boost')
+        expect(describeEdge(SET(0.39), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
+      })
+
+      it('handles edge case at the 0.20 Moderate threshold', () => {
+        // The other new cut. 0.20 inclusive → Moderate; below it → Slight.
+        expect(describeEdge(SET(0.2), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
+        expect(describeEdge(SET(0.19), SET(0.8), STATED_POSITIVE).label).toBe('Slight boost')
       })
     })
 
     describe('Negative weights (drag)', () => {
-      it('returns "Strong drag" for high negative weight', () => {
-        expect(describeEdge(SET(-0.9), SET(0.9), STATED_NEGATIVE).label).toBe('Strong drag')
+      it('returns "Very strong drag" for high negative weight', () => {
+        // Magnitude only: |−0.9| = 0.9 ≥ 0.70.
+        expect(describeEdge(SET(-0.9), SET(0.9), STATED_NEGATIVE).label).toBe('Very strong drag')
       })
 
-      it('returns "Moderate drag" for medium negative weight', () => {
-        expect(describeEdge(SET(-0.5), SET(0.8), STATED_NEGATIVE).label).toBe('Moderate drag')
+      it('returns "Strong drag" for medium negative weight', () => {
+        // |−0.5| = 0.5, in [0.40, 0.70).
+        expect(describeEdge(SET(-0.5), SET(0.8), STATED_NEGATIVE).label).toBe('Strong drag')
       })
 
-      it('returns "Weak drag" for low negative weight', () => {
-        expect(describeEdge(SET(-0.2), SET(0.8), STATED_NEGATIVE).label).toBe('Weak drag')
+      it('returns "Moderate drag" for low negative weight', () => {
+        // |−0.2| = 0.2, the Moderate cut exactly.
+        expect(describeEdge(SET(-0.2), SET(0.8), STATED_NEGATIVE).label).toBe('Moderate drag')
       })
 
       it('adds "(uncertain)" qualifier for low belief', () => {
-        expect(describeEdge(SET(-0.9), SET(0.5), STATED_NEGATIVE).label).toBe('Strong drag (uncertain)')
-        expect(describeEdge(SET(-0.5), SET(0.4), STATED_NEGATIVE).label).toBe('Moderate drag (uncertain)')
-        expect(describeEdge(SET(-0.2), SET(0.3), STATED_NEGATIVE).label).toBe('Weak drag (uncertain)')
+        expect(describeEdge(SET(-0.9), SET(0.5), STATED_NEGATIVE).label).toBe('Very strong drag (uncertain)')
+        expect(describeEdge(SET(-0.5), SET(0.4), STATED_NEGATIVE).label).toBe('Strong drag (uncertain)')
+        expect(describeEdge(SET(-0.2), SET(0.3), STATED_NEGATIVE).label).toBe('Moderate drag (uncertain)')
+      })
+    })
+
+    /**
+     * ⭐ THE PIN THE REST OF THIS FILE CANNOT PROVIDE: the chip and the panel
+     * name the SAME EDGE with the SAME ADJECTIVE.
+     *
+     * Every other assertion here is a literal string, so all of them would stay
+     * green if `describeEdge` went back to restating a table that happened to
+     * be re-typed correctly today. This one binds the two surfaces to ONE
+     * function: it reads the adjective `getStrengthLabel` returns and requires
+     * `describeEdge`'s label to start with it. Re-introduce ANY second table and
+     * this REDs on the first value the two disagree about — which the old code
+     * did on 90% of [0, 1].
+     *
+     * ⚠ IT PINS ITS OWN PRECONDITION. A sweep that asserted only "the words
+     * agree" would also pass if `getStrengthLabel` collapsed to a constant, or
+     * if the sample never crossed a cut. So the sweep first asserts it saw all
+     * FOUR words — i.e. that it is discriminating at all — before the agreement
+     * claim means anything (CLAUDE.md trap 13b).
+     */
+    describe('one table, two surfaces', () => {
+      it('the canvas chip opens with exactly the adjective the panel shows, across [0, 1]', () => {
+        const seen = new Set<string>()
+        for (let w = 0; w <= 1.0001; w += 0.01) {
+          const magnitude = Math.round(w * 100) / 100
+          const canonical = getStrengthLabel(magnitude)
+          seen.add(canonical)
+          expect(
+            describeEdge(SET(magnitude), SET(0.9), STATED_POSITIVE).label,
+            `chip and panel disagree at |w| = ${magnitude}`,
+          ).toBe(`${canonical} boost`)
+          expect(
+            describeEdge(SET(-magnitude), SET(0.9), STATED_NEGATIVE).label,
+            `chip and panel disagree at |w| = ${magnitude} (negative)`,
+          ).toBe(`${canonical} drag`)
+          expect(
+            describeEdge(SET(magnitude), SET(0.9), NOT_STATED).label,
+            `chip and panel disagree at |w| = ${magnitude} (direction unstated)`,
+          ).toBe(`${canonical} effect, direction not stated`)
+        }
+        // PRECONDITION, not decoration: without this the agreement above is
+        // satisfiable by a constant on both sides.
+        expect([...seen].sort()).toEqual(['Moderate', 'Slight', 'Strong', 'Very strong'])
+      })
+
+      it('all four adjectives compose grammatically into all three clause shapes', () => {
+        // Constraint checked by reading, then pinned: "Slight boost", "Very
+        // strong drag" and "Very strong effect, direction not stated" are the
+        // new compositions, and none needs an article or a plural change.
+        const byBand: Array<[number, string]> = [
+          [0.85, 'Very strong'],
+          [0.55, 'Strong'],
+          [0.30, 'Moderate'],
+          [0.10, 'Slight'],
+        ]
+        for (const [magnitude, word] of byBand) {
+          expect(describeEdge(SET(magnitude), SET(0.9), STATED_POSITIVE).label).toBe(`${word} boost`)
+          expect(describeEdge(SET(magnitude), SET(0.9), STATED_NEGATIVE).label).toBe(`${word} drag`)
+          expect(describeEdge(SET(magnitude), SET(0.9), NOT_STATED).label).toBe(
+            `${word} effect, direction not stated`,
+          )
+        }
       })
     })
 
@@ -130,20 +250,26 @@ describe('edgeLabels', () => {
      * more structure than the code has.
      */
     describe('the hedge cut — one threshold, two outcomes', () => {
+      /*
+       * ⚠ THE STRENGTH FIXTURE IS UNCHANGED AT 0.5 AND ONLY ITS ADJECTIVE MOVED
+       * (Moderate → Strong): 0.5 sits in [0.40, 0.70). These tests are about the
+       * LIKELIHOOD cut and hold the strength constant on purpose, so re-picking
+       * the number to preserve the old word would have changed what they vary.
+       */
       it('is silent at and above the cut, across the whole range above it', () => {
-        expect(describeEdge(SET(0.5), SET(LABEL_HEDGE_CUT), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.5), SET(0.7), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.5), SET(0.79), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.5), SET(0.85), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.5), SET(1.0), STATED_POSITIVE).label).toBe('Moderate boost')
+        expect(describeEdge(SET(0.5), SET(LABEL_HEDGE_CUT), STATED_POSITIVE).label).toBe('Strong boost')
+        expect(describeEdge(SET(0.5), SET(0.7), STATED_POSITIVE).label).toBe('Strong boost')
+        expect(describeEdge(SET(0.5), SET(0.79), STATED_POSITIVE).label).toBe('Strong boost')
+        expect(describeEdge(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Strong boost')
+        expect(describeEdge(SET(0.5), SET(0.85), STATED_POSITIVE).label).toBe('Strong boost')
+        expect(describeEdge(SET(0.5), SET(1.0), STATED_POSITIVE).label).toBe('Strong boost')
       })
 
       it('hedges below the cut, across the whole range below it', () => {
-        expect(describeEdge(SET(0.5), SET(0.59), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
-        expect(describeEdge(SET(0.5), SET(0.4), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
-        expect(describeEdge(SET(0.5), SET(0.1), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
-        expect(describeEdge(SET(0.5), SET(0), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
+        expect(describeEdge(SET(0.5), SET(0.59), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
+        expect(describeEdge(SET(0.5), SET(0.4), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
+        expect(describeEdge(SET(0.5), SET(0.1), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
+        expect(describeEdge(SET(0.5), SET(0), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
       })
 
       it('there is no THIRD outcome anywhere in [0, 1] — the vocabulary really is binary', () => {
@@ -154,7 +280,7 @@ describe('edgeLabels', () => {
         for (let v = 0; v <= 1.0001; v += 0.01) {
           seen.add(describeEdge(SET(0.5), SET(Math.min(v, 1)), STATED_POSITIVE).label)
         }
-        expect([...seen].sort()).toEqual(['Moderate boost', 'Moderate boost (uncertain)'])
+        expect([...seen].sort()).toEqual(['Strong boost', 'Strong boost (uncertain)'])
       })
     })
 
@@ -169,17 +295,21 @@ describe('edgeLabels', () => {
        * "80% confident" off `beliefExists`.
        */
       it('names an unset likelihood as unset, never as uncertain', () => {
-        expect(describeEdge(SET(0.9), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Strong boost (likelihood not set)')
-        expect(describeEdge(SET(0.5), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Moderate boost (likelihood not set)')
-        expect(describeEdge(SET(0.2), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Weak boost (likelihood not set)')
-        expect(describeEdge(SET(-0.9), LIKELIHOOD_NOT_SET, STATED_NEGATIVE).label).toBe('Strong drag (likelihood not set)')
+        // Strength fixtures and the "(likelihood not set)" qualifier are
+        // unchanged; only the adjective is re-derived (0.9 → Very strong,
+        // 0.5 → Strong, 0.2 → Moderate).
+        expect(describeEdge(SET(0.9), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Very strong boost (likelihood not set)')
+        expect(describeEdge(SET(0.5), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Strong boost (likelihood not set)')
+        expect(describeEdge(SET(0.2), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Moderate boost (likelihood not set)')
+        expect(describeEdge(SET(-0.9), LIKELIHOOD_NOT_SET, STATED_NEGATIVE).label).toBe('Very strong drag (likelihood not set)')
       })
 
       it('reserves "(uncertain)" for a likelihood that was SET and is low', () => {
         // The discriminating pair: same strength, same direction, two
-        // likelihood states, two different sentences.
-        expect(describeEdge(SET(0.9), SET(0.4), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
-        expect(describeEdge(SET(0.9), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Strong boost (likelihood not set)')
+        // likelihood states, two different sentences. Still discriminating —
+        // the two expectations differ in the SAME clause they always did.
+        expect(describeEdge(SET(0.9), SET(0.4), STATED_POSITIVE).label).toBe('Very strong boost (uncertain)')
+        expect(describeEdge(SET(0.9), LIKELIHOOD_NOT_SET, STATED_POSITIVE).label).toBe('Very strong boost (likelihood not set)')
       })
 
       it('provides tooltip even when belief is missing', () => {
@@ -190,8 +320,11 @@ describe('edgeLabels', () => {
     })
 
     describe('Zero weight', () => {
-      it('treats zero weight as weak boost', () => {
-        expect(describeEdge(SET(0), SET(0.8), STATED_POSITIVE).label).toBe('Weak boost')
+      it('treats zero weight as slight boost', () => {
+        // 0 < 0.20 → "Slight", the canonical table's bottom band. The old
+        // vocabulary's bottom band was "Weak"; the behaviour (a stated zero is
+        // still a stated strength, so it gets a band word) is unchanged.
+        expect(describeEdge(SET(0), SET(0.8), STATED_POSITIVE).label).toBe('Slight boost')
       })
     })
   })
@@ -243,7 +376,9 @@ describe('edgeLabels', () => {
   describe('getEdgeLabel', () => {
     it('returns human label when mode is "human"', () => {
       const result = getEdgeLabel(SET(0.9), SET(0.9), STATED_POSITIVE, 'human')
-      expect(result.label).toBe('Strong boost')
+      // 0.9 ≥ 0.70 → "Very strong". This test discriminates HUMAN from NUMERIC
+      // mode; the adjective is incidental to it and simply follows the table.
+      expect(result.label).toBe('Very strong boost')
       expect(result.tooltip).toContain('Weight: 0.90')
     })
 
@@ -257,12 +392,15 @@ describe('edgeLabels', () => {
       expect(getEdgeLabel(SET(0.6), SET(0.85), STATED_POSITIVE).label).toBe('w 0.60 • b 85%')
 
       localStorage.setItem('canvas.edge-labels-mode', 'human')
-      expect(getEdgeLabel(SET(0.9), SET(0.9), STATED_POSITIVE).label).toBe('Strong boost')
+      // 0.9 ≥ 0.70 → "Very strong". These tests assert WHICH MODE is used, not
+      // which band; the fixture is untouched and only the adjective follows the
+      // canonical table.
+      expect(getEdgeLabel(SET(0.9), SET(0.9), STATED_POSITIVE).label).toBe('Very strong boost')
     })
 
     it('defaults to human mode when localStorage is empty', () => {
       localStorage.clear()
-      expect(getEdgeLabel(SET(0.9), SET(0.9), STATED_POSITIVE).label).toBe('Strong boost')
+      expect(getEdgeLabel(SET(0.9), SET(0.9), STATED_POSITIVE).label).toBe('Very strong boost')
     })
   })
 
@@ -271,8 +409,8 @@ describe('edgeLabels', () => {
       const weight = 0.6
       const belief = 0.85
 
-      // Start in human mode (default)
-      expect(getEdgeLabel(SET(weight), SET(belief), STATED_POSITIVE).label).toBe('Moderate boost')
+      // Start in human mode (default). 0.6 ∈ [0.40, 0.70) → "Strong".
+      expect(getEdgeLabel(SET(weight), SET(belief), STATED_POSITIVE).label).toBe('Strong boost')
 
       // Switch to numeric
       localStorage.setItem('canvas.edge-labels-mode', 'numeric')
@@ -280,7 +418,7 @@ describe('edgeLabels', () => {
 
       // Switch back to human
       localStorage.setItem('canvas.edge-labels-mode', 'human')
-      expect(getEdgeLabel(SET(weight), SET(belief), STATED_POSITIVE).label).toBe('Moderate boost')
+      expect(getEdgeLabel(SET(weight), SET(belief), STATED_POSITIVE).label).toBe('Strong boost')
     })
 
     it('persists mode across function calls', () => {
@@ -292,26 +430,29 @@ describe('edgeLabels', () => {
       localStorage.setItem('canvas.edge-labels-mode', 'human')
 
       expect(getEdgeLabelMode()).toBe('human')
-      expect(getEdgeLabel(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
+      // 0.5 ∈ [0.40, 0.70) → "Strong".
+      expect(getEdgeLabel(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Strong boost')
     })
   })
 
   describe('V3 strength.mean → weight → label consistency', () => {
-    it('strength.mean = 0.65 produces weight = 0.65 and "Moderate boost" label', () => {
+    it('strength.mean = 0.65 produces weight = 0.65 and "Strong boost" label', () => {
       // V3 edges: weight = abs(strength.mean), so 0.65 → 0.65
-      // Strength band: 0.3 ≤ 0.65 < 0.7 → "Moderate"
+      // Strength band: 0.40 ≤ 0.65 < 0.70 → "Strong" (canonical table).
       // Direction: positive → "boost"
       const weight = 0.65 // as derived from abs(strength.mean)
       const result = describeEdge(SET(weight), SET(0.85), STATED_POSITIVE)
-      expect(result.label).toBe('Moderate boost')
-    })
-
-    it('strength.mean = 0.70 crosses into "Strong" band', () => {
-      const result = describeEdge(SET(0.70), SET(0.85), STATED_POSITIVE)
       expect(result.label).toBe('Strong boost')
     })
 
-    it('negative strength.mean = -0.65 produces "Moderate drag"', () => {
+    it('strength.mean = 0.70 crosses into the "Very strong" band', () => {
+      // 0.70 is the top cut, inclusive. This pair (0.65 / 0.70) is what makes
+      // the two tests above a BOUNDARY pin rather than two interior points.
+      const result = describeEdge(SET(0.70), SET(0.85), STATED_POSITIVE)
+      expect(result.label).toBe('Very strong boost')
+    })
+
+    it('negative strength.mean = -0.65 produces "Strong drag"', () => {
       // ⚠ CORRECTED (ROADMAP 2.935). This comment used to read "describeEdge
       // receives the signed weight for label purposes". THAT WAS FALSE, and it
       // is the sentence that let the defect live for as long as it did: in the
@@ -320,7 +461,7 @@ describe('edgeLabels', () => {
       // weight from the product at all. The magnitude and the direction are
       // passed separately below, exactly as the store holds them.
       const result = describeEdge(SET(0.65), SET(0.85), STATED_NEGATIVE)
-      expect(result.label).toBe('Moderate drag')
+      expect(result.label).toBe('Strong drag')
     })
 
     it('the same magnitude with the direction UNSTATED asserts no direction', () => {
@@ -328,7 +469,7 @@ describe('edgeLabels', () => {
       // `effect_direction: 'unknown'` or omitted it — and the case this file
       // had no coverage for at all before 2.935.
       const result = describeEdge(SET(0.65), SET(0.85), NOT_STATED)
-      expect(result.label).toBe('Moderate effect, direction not stated')
+      expect(result.label).toBe('Strong effect, direction not stated')
       expect(result.label).not.toContain('boost')
       expect(result.label).not.toContain('drag')
     })
@@ -352,30 +493,40 @@ describe('edgeLabels', () => {
     })
   })
 
+  /*
+   * ⚠ THE FIXTURE VALUES IN THIS BLOCK ARE UNCHANGED — they are meant to be
+   * plausible product numbers, so re-picking them to keep the old adjectives
+   * would have destroyed the only thing the block is for. The comments beside
+   * them named the OLD bands, and each one is now re-derived from the canonical
+   * table rather than left describing a word the line no longer produces (an
+   * honest label overwritten by a false one is CLAUDE.md trap 14).
+   */
   describe('Real-world examples', () => {
     it('handles typical template edge weights', () => {
-      // Strong positive influence
-      expect(describeEdge(SET(0.8), SET(0.9), STATED_POSITIVE).label).toBe('Strong boost')
+      // 0.8 ≥ 0.70 → Very strong.
+      expect(describeEdge(SET(0.8), SET(0.9), STATED_POSITIVE).label).toBe('Very strong boost')
 
-      // Moderate positive influence
-      expect(describeEdge(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
+      // 0.5 ∈ [0.40, 0.70) → Strong.
+      expect(describeEdge(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Strong boost')
 
-      // Weak negative influence
-      expect(describeEdge(SET(-0.2), SET(0.7), STATED_NEGATIVE).label).toBe('Weak drag')
+      // |−0.2| = 0.20, the Moderate cut exactly → Moderate.
+      expect(describeEdge(SET(-0.2), SET(0.7), STATED_NEGATIVE).label).toBe('Moderate drag')
 
-      // Strong negative influence with uncertainty
-      expect(describeEdge(SET(-0.9), SET(0.5), STATED_NEGATIVE).label).toBe('Strong drag (uncertain)')
+      // |−0.9| ≥ 0.70 → Very strong, with the likelihood hedge unchanged.
+      expect(describeEdge(SET(-0.9), SET(0.5), STATED_NEGATIVE).label).toBe('Very strong drag (uncertain)')
     })
 
     it('provides meaningful labels for user-edited weights', () => {
-      // User sets high confidence strong influence
-      expect(describeEdge(SET(0.95), SET(0.95), STATED_POSITIVE).label).toBe('Strong boost')
+      // A user who clicks the "Very strong" pill writes 0.85 and reads "Very
+      // strong" back on the panel. Before this change the chip said "Strong",
+      // i.e. the canvas contradicted the button the user had just pressed.
+      expect(describeEdge(SET(0.95), SET(0.95), STATED_POSITIVE).label).toBe('Very strong boost')
 
-      // User sets low confidence moderate influence
-      expect(describeEdge(SET(0.45), SET(0.4), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
+      // 0.45 ∈ [0.40, 0.70) → Strong.
+      expect(describeEdge(SET(0.45), SET(0.4), STATED_POSITIVE).label).toBe('Strong boost (uncertain)')
 
-      // User sets medium confidence weak drag
-      expect(describeEdge(SET(-0.15), SET(0.75), STATED_NEGATIVE).label).toBe('Weak drag')
+      // |−0.15| < 0.20 → Slight, the band the old vocabulary had no word for.
+      expect(describeEdge(SET(-0.15), SET(0.75), STATED_NEGATIVE).label).toBe('Slight drag')
     })
   })
 
@@ -456,6 +607,63 @@ describe('edgeLabels', () => {
     it('getEdgeLabel routes the gate through both modes', () => {
       expect(getEdgeLabel(STRENGTH_NOT_SET, LIKELIHOOD_NOT_SET, NOT_STATED, 'human').label).toBe('Strength and likelihood not set')
       expect(getEdgeLabel(STRENGTH_NOT_SET, LIKELIHOOD_NOT_SET, NOT_STATED, 'numeric').label).toBe('w not set')
+    })
+  })
+
+  /**
+   * ⭐⭐ THE LONGEST SENTENCE THIS VOCABULARY CAN PRODUCE — ENUMERATED, BECAUSE
+   * SOMETHING DOWNSTREAM HAS TO PAINT IT IN A FIXED-WIDTH BOX.
+   *
+   * ⚠ THIS BLOCK EXISTS BECAUSE ANOTHER FILE ALREADY CITED IT AND IT WAS NOT
+   * HERE. `edges/__tests__/StyledEdge.labelRecoverable.spec.tsx` says of its own
+   * 58-character pin: *"That the vocabulary can produce nothing longer is
+   * asserted by exhaustive enumeration in `domain/__tests__/edgeLabels.spec.ts`,
+   * which is where the vocabulary lives"*. No such enumeration existed. A
+   * cross-reference to a guard that is not there reads exactly like a guard that
+   * is (CLAUDE.md trap 12), and it is how that file's "longest" claim survived
+   * being made false by a band word getting longer.
+   *
+   * ⚠ AND IT IS NOW FALSE BY 3 CHARACTERS. Widening the top band's word from
+   * "Strong" to "Very strong" moved the longest sentence from 58 to 61. That is
+   * a REPORTED consequence of this change, not a fixed one: the canvas chip's
+   * width is `StyledEdge.tsx`'s, which this lane does not touch.
+   *
+   * ⚠ ENUMERATED, NOT REASONED. The maximum is taken by running `describeEdge`
+   * over the product of every band, every direction state and every likelihood
+   * state, so a new clause or a longer word cannot be argued past it.
+   */
+  describe('the vocabulary\'s longest sentence', () => {
+    it('is "Very strong effect, direction not stated (likelihood not set)", 61 characters', () => {
+      const magnitudes = [0, 0.19, 0.2, 0.39, 0.4, 0.69, 0.7, 1]
+      const strengths: EdgeValueDisplay[] = [...magnitudes.map(SET), STRENGTH_NOT_SET, STRENGTH_ABSENT]
+      const likelihoods: EdgeValueDisplay[] = [SET(0), SET(0.4), SET(LABEL_HEDGE_CUT), SET(1), LIKELIHOOD_NOT_SET]
+      const directions = [STATED_POSITIVE, STATED_NEGATIVE, NOT_STATED]
+
+      let longest = ''
+      for (const strength of strengths) {
+        for (const likelihood of likelihoods) {
+          for (const direction of directions) {
+            const { label } = describeEdge(strength, likelihood, direction)
+            if (label.length > longest.length) longest = label
+          }
+        }
+      }
+
+      expect(longest).toBe('Very strong effect, direction not stated (likelihood not set)')
+      expect(longest.length).toBe(61)
+      // The figure `labelRecoverable.spec.tsx` pins, kept here so the 3-character
+      // growth is visible in the file that owns the vocabulary rather than
+      // inferred from two numbers in two places.
+      expect('Moderate effect, direction not stated (likelihood not set)'.length).toBe(58)
+    })
+
+    it('the top band is the longest WORD, which is what made the sentence grow', () => {
+      // Bound to the table, not to a re-typed list: the longest label comes from
+      // the longest band word, so a future band word that is longer still fails
+      // the assertion above and lands here as the explanation.
+      const words = [0, 0.25, 0.5, 0.85].map(getStrengthLabel)
+      expect(words).toEqual(['Slight', 'Moderate', 'Strong', 'Very strong'])
+      expect(words.reduce((a, b) => (b.length > a.length ? b : a))).toBe('Very strong')
     })
   })
 })

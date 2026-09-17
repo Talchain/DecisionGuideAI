@@ -6,6 +6,7 @@
  */
 
 import type { EdgeDirectionDisplay, EdgeValueDisplay } from './edgeValueProvenance'
+import { getStrengthLabel } from './vocabulary'
 
 export type EdgeLabelMode = 'human' | 'numeric'
 
@@ -131,10 +132,32 @@ export const LABEL_HEDGE_CUT = 0.6
 /**
  * Describe an edge in human-readable terms based on strength and belief
  *
- * Weight scale (applied to the RESOLVED strength's magnitude):
- * - Strong: |w| >= 0.7
- * - Moderate: 0.3 <= |w| < 0.7
- * - Weak: |w| < 0.3
+ * Weight scale (applied to the RESOLVED strength's magnitude): NOT STATED HERE.
+ * `getStrengthLabel` (`./vocabulary`) is asked, and the four words it returns
+ * are whatever that table says — this block deliberately quotes no cut, because
+ * a restated cut is what this function used to get wrong.
+ *
+ * ⚠⚠ IT USED TO RESTATE ONE, AND THE RESTATEMENT DISAGREED WITH THE PANEL.
+ * The line here was `absWeight >= 0.7 ? 'Strong' : absWeight >= 0.3 ?
+ * 'Moderate' : 'Weak'`. Against the canonical table those two agree on exactly
+ * ONE band — |w| ∈ [0.30, 0.40), 10% of the [0, 1] range — so for a user the
+ * canvas chip and the inspector panel described the SAME EDGE with DIFFERENT
+ * adjectives: `0.5` read "Moderate boost" on the canvas and "Strong" in the
+ * panel; `0.85` read "Strong boost" and "Very strong"; `0.25` read "Weak boost"
+ * and "Moderate". Both authorities were internally consistent, which is why
+ * neither suite could see it (CLAUDE.md trap 21, over trap 12).
+ *
+ * ⚠ `getStrengthLabel` IS MAGNITUDE-ONLY and is fed `absWeight`. It returns no
+ * direction word; the `direction` argument remains the ONE owner of that claim,
+ * exactly as before. Importing it changes which ADJECTIVE this function picks
+ * and nothing else about what it is entitled to say.
+ *
+ * ⚠ IT IS NOT `getDirectionalStrengthLabel` (`components/model-tab/
+ * strengthBands.ts`), whose cuts are different again (0.6 / 0.25 / 0.05) and
+ * whose midpoints the contested-edge quick-set pills WRITE BACK to the model.
+ * The header's note below — "same vocabulary as `getDirectionalStrengthLabel`"
+ * — is about the "…effect, direction not stated" PHRASE, which both still emit
+ * verbatim, and was never a claim that the band cuts matched. They never did.
  *
  * Likelihood scale — TWO OUTCOMES, not four bands. See `LABEL_HEDGE_CUT`:
  * - Set and >= the hedge cut → no qualifier
@@ -282,8 +305,11 @@ export function describeEdge(
 
   let claim: string
   if (absWeight !== null) {
-    // Categorize strength
-    const strengthLabel = absWeight >= 0.7 ? 'Strong' : absWeight >= 0.3 ? 'Moderate' : 'Weak'
+    // Categorise the strength — DERIVED, never restated. `getStrengthLabel` is
+    // the canonical table (`./vocabulary`); the inspector panel, `ConnectionRow`,
+    // `InfluenceIndicator` and the `StrengthBandButtons` pills all read it, so
+    // the chip and the panel now name the same edge with the same adjective.
+    const strengthLabel = getStrengthLabel(absWeight)
     // Absence stays absence: name the magnitude, and say plainly that the
     // direction was never stated rather than picking one.
     claim = direction.show

@@ -188,7 +188,13 @@ describe('StyledEdge — one placed chip per edge', () => {
     const { container } = render(<StyledEdge {...(props as any)} />)
 
     const containerTitle = chip(container)!.getAttribute('title') ?? ''
-    expect(containerTitle).toContain('Moderate boost')
+    // ⚠ 'Moderate boost' → 'Strong boost'. The fixture is `strength_mean: 0.6`,
+    // unchanged, and 0.6 sits in [0.40, 0.70) on the canonical band table
+    // (`getStrengthLabel`, `domain/vocabulary.ts`) that `describeEdge` now reads
+    // instead of restating its own. This test is about the chip carrying BOTH
+    // sentences in one title; the strength sentence is the referent, and it is
+    // asserted here in the same form the inspector panel would show for 0.6.
+    expect(containerTitle).toContain('Strong boost')
     expect(containerTitle).toContain('49% chance the result flips')
 
     // Each row keeps its own owner and its own title — the chip is a

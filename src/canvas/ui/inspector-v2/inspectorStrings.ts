@@ -210,12 +210,15 @@ export function getExtractionLabel(
 // ─── Strength human labels (validation_ui_data_contract_v1.1 thresholds) ─────
 // Canonical thresholds: Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20, Slight < 0.20
 // Aligned with DS v4 reference artefact.
-export function getStrengthLabel(absValue: number): string {
-  if (absValue >= 0.70) return 'Very strong'
-  if (absValue >= 0.40) return 'Strong'
-  if (absValue >= 0.20) return 'Moderate'
-  return 'Slight'
-}
+//
+// ⚠ THE BODY MOVED TO `domain/vocabulary.ts` AND THIS IS A RE-EXPORT, so this
+// module stays the address every existing importer already knows. It moved
+// because the CANVAS needs the same four words: `domain/edgeLabels.ts` carried
+// a restatement on different cuts and the two surfaces disagreed about the same
+// edge. `domain/` cannot import from `ui/` — nothing in this repo does — so the
+// one source has to sit below both readers. The definition, the thresholds and
+// the contract reference are unchanged; see that file for why.
+export { getStrengthLabel } from '../../domain/vocabulary'
 
 // `getStrengthDescription(signedValue)` — DELETED (ROADMAP 2.950). It built the
 // literal string "Strong positive" from `signedValue >= 0`, i.e. read a
