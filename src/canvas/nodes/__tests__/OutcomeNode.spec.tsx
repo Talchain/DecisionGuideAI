@@ -324,53 +324,39 @@ describe('OutcomeNode', () => {
       voiRank: null,
     })
     renderOutcome()
-    expect(screen.getByText('Goal chance: 68%')).toBeDefined()
-  })
-
-  // Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): same
-  // modelled-basis caveat as GoalNode/OptionCards, gated on the
-  // already-computed achievementProbabilityIsModelledBasis flag, rendered
-  // adjacent to the achievement diagnostic line it qualifies.
-  it('renders the modelled-basis caveat adjacent to the achievement number when flagged', () => {
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
-      influence: null,
-      confidence: null,
-      inSensitivityAnalysis: false,
-      achievementProbability: 0.68,
-      achievementProbabilityIsModelledBasis: true,
-      stabilityPercentage: null,
-      winRate: null,
-      isResultsMode: true,
-      predictedOutcome: null,
-      valueOfInformation: null,
-      voiRank: null,
-    })
-    renderOutcome()
-    expect(screen.getByTestId('goal-fit-basis-caveat-outcome-node')).toHaveTextContent(
-      "Modelled from the target's projected outcome distribution, not a directly-set starting value.",
-    )
-  })
-
-  it('renders no caveat on the achievement line when the flag is absent (honest default)', () => {
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
-      influence: null,
-      confidence: null,
-      inSensitivityAnalysis: false,
-      achievementProbability: 0.68,
-      achievementProbabilityIsModelledBasis: false,
-      stabilityPercentage: null,
-      winRate: null,
-      isResultsMode: true,
-      predictedOutcome: null,
-      valueOfInformation: null,
-      voiRank: null,
-    })
-    renderOutcome()
-    expect(screen.getByText('Goal chance: 68%')).toBeDefined()
+    /**
+     * ⛔⛔ THIS ASSERTION IS INVERTED, 17 Sep 2026, BY A DERIVATION AT THE
+     * PRODUCER — AND THE OLD ONE IS QUOTED RATHER THAN REPLACED.
+     *
+     * It read `expect(screen.getByText('Goal chance: 68%')).toBeDefined()`, and
+     * two sibling tests pinned the modelled-basis caveat beside it. All three
+     * are gone with the block they guarded.
+     *
+     * `achievementProbability` is resolved at
+     * `hooks/useNodeDisplayMetadata.ts:484-516` as
+     * `selectGoalProbability(option_probabilities[robustness.recommended_option_id])`
+     * — **the recommended OPTION's probability of achieving THE GOAL.** No
+     * outcome id appears anywhere in that read, so the figure was IDENTICAL on
+     * every outcome card in a model. `OutcomeNode`'s own comment said as much
+     * (*"the analysis goal probability, not an outcome-specific forecast"*)
+     * while the comment at its mount site said the opposite (*"probability of
+     * the outcome occurring at all"*). One number, two comments, and the user
+     * read a third thing on screen.
+     *
+     * Rule 6 — *a card may not display a metric the product does not produce* —
+     * and measured coverage for this kind is provenance only, 15 of 15.
+     * `GoalNode` still renders the figure, with its caveat, on the node it
+     * belongs to; the caveat machinery is untouched there.
+     */
+    expect(screen.queryByText('Goal chance: 68%')).toBeNull()
     expect(screen.queryByTestId('goal-fit-basis-caveat-outcome-node')).toBeNull()
+
+    // ⚠ PRECONDITION, so this is not a pass by failing to render anything: the
+    // card is on screen and in the Detailed view the figure used to live in.
+    expect(screen.getByText('Revenue growth')).toBeDefined()
   })
+
+
 
   // Wireframe v4 OutcomePostDet: Detailed view caps "Depends on:" ConnRows at 3
   // even when more inbound factors exist.
