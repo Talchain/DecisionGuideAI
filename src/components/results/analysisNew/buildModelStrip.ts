@@ -421,6 +421,38 @@ export function stripRendersTargetAffordance(strip: ModelStrip): boolean {
   return stripHasContent(strip) && strip.goalNodeId !== null
 }
 
+/**
+ * ⭐ THE SUBJECT LINE'S LABEL, OR NULL WHEN THE PRODUCER SAYS IT IS A PLACEHOLDER.
+ *
+ * ⛔ WITNESSED ON SERVED `00805be1`, WHICH IS THE DEPLOY OF THE PR THAT ADDED
+ * THE LEAD. On a model CEE drafted live from a real brief, the decision node's
+ * label was the literal string `Question` and the panel promoted it to 18px as
+ * the largest type on the surface. The node stamps `label_placeholder: true`;
+ * the producer knows the name is a placeholder and says so.
+ *
+ * ⚠ NOTHING IN THE UI READ THAT FLAG — zero consumers repo-wide, against a
+ * contrast control of 53 `provenance` reads in the same directory. A field
+ * computed, emitted and never read, which is this estate's signature defect.
+ *
+ * ⚠ AND THE LEAD MADE IT WORSE RATHER THAN NEUTRAL: before the lead, the
+ * subject was `goalLabel ?? NO_SUBJECT_LABEL`, so this model showed its goal.
+ *
+ * ⭐ STRUCTURAL, NOT A PREDICATE OVER LANGUAGE. It reads the producer's own
+ * flag and never inspects the words — a decision a user genuinely named
+ * "Question", carrying no flag, still leads. Sniffing for names that look like
+ * field names would be the natural-language predicate class this estate has
+ * oscillated on repeatedly.
+ *
+ * ⚠ SCOPED TO THE SUBJECT (goal and decision) DELIBERATELY. Row nodes keep
+ * `labelOf`, whose own rule — a missing label renders as its kind — is a
+ * different question from "may this name the whole panel?".
+ */
+function subjectLabelOf(node: { data?: unknown }): string | null {
+  const data = node.data as { label_placeholder?: unknown } | undefined
+  if (data?.label_placeholder === true) return null
+  return labelOf(node as { id: string; data?: unknown }) || null
+}
+
 export function resolveGoalNodeId(
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
 ): string | null {
@@ -443,11 +475,11 @@ export function buildModelStrip(
     const kind = resolveNodeTypeLiteral(node)
     if (!kind) continue
     if (kind === 'goal') {
-      goalLabel = goalLabel ?? (labelOf(node) || null)
+      goalLabel = goalLabel ?? subjectLabelOf(node)
       continue
     }
     if (kind === 'decision') {
-      decisionLabel = decisionLabel ?? (labelOf(node) || null)
+      decisionLabel = decisionLabel ?? subjectLabelOf(node)
       continue
     }
     const bucket = byKind.get(kind)
