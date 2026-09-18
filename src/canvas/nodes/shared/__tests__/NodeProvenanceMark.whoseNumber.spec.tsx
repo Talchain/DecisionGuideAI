@@ -23,6 +23,26 @@ import { NodeProvenanceMark } from '../NodeProvenanceMark'
 const mark = () => screen.queryByTestId('node-provenance-mark')
 const label = () => mark()!.getAttribute('aria-label')!
 
+/**
+ * ⚠ ADDED 18 Sep 2026. Where node authorship and value basis DISAGREE the card
+ * now renders BOTH facts, so `queryByTestId` throws on multiple matches and
+ * "the label" is no longer a single thing. These bind a mark to WHICH QUESTION
+ * it answers, via `data-provenance-claim`, rather than to its position — with
+ * two marks present, position is not identity (trap 19).
+ *
+ * Every OTHER test in this file is untouched and still uses `label()`: their
+ * fixtures agree (`ai_inferred` + `cee_hypothesis`), or carry no value source,
+ * so exactly one mark renders and the old binding remains exact.
+ */
+const marksByClaim = (claim: 'node' | 'value') =>
+  screen.queryAllByTestId('node-provenance-mark')
+    .filter(el => el.getAttribute('data-provenance-claim') === claim)
+const claimLabel = (claim: 'node' | 'value') => {
+  const found = marksByClaim(claim)
+  expect(found, `expected exactly one "${claim}" mark`).toHaveLength(1)
+  return found[0].getAttribute('aria-label')!
+}
+
 /** A factor carrying a declared value — the shape that earns a `'value'` claim. */
 const factorWith = (over: Record<string, unknown>) => ({
   label: 'Pro Plan Monthly Price',
@@ -33,7 +53,25 @@ const factorWith = (over: Record<string, unknown>) => ({
 })
 
 describe('the badge says whose NUMBER it is, not who named the node', () => {
-  it('⭐ THE MEASURED CASE: model-named node, user-stated number ⇒ "From brief"', () => {
+  /**
+   * ⚠ WIDENED 18 Sep 2026 ON A FOUNDER RULING, AND THE ORIGINAL CLAIM IS INTACT.
+   *
+   * This case is the ONE where the two facts disagree, so it is the only test in
+   * this file whose output changed: the card now renders BOTH marks instead of
+   * letting the value answer silence the authorship one.
+   *
+   * Paul, 18 Sep: *"These are not from the user. These are the AI adding value,
+   * so they need to be displayed in a different way."* The old single mark said
+   * "From brief" and dropped the fact that **Olumi named this node** — the user
+   * wrote "increase the Pro plan price from £49 to £59" and never coined "Pro
+   * Plan Monthly Price". Answering only the number's question left his own
+   * question — *did Olumi suggest this, or did I bring it?* — unanswerable.
+   *
+   * ⭐ THE ORIGINAL FIX IS ASSERTED UNCHANGED BELOW: the VALUE mark still reads
+   * "From brief" and still must not read "AI estimate" over the user's own £49.
+   * The second mark ADDS a true fact; it does not soften the first.
+   */
+  it('⭐ THE MEASURED CASE: model-named node, user-stated number ⇒ BOTH facts', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
@@ -43,9 +81,13 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         })}
       />,
     )
-    expect(label()).toContain('From brief')
+    // The number's basis — the original claim of this spec, unchanged.
+    expect(claimLabel('value')).toContain('From brief')
     // ⛔ The half that makes it a fix rather than a relabel.
-    expect(label()).not.toContain('AI estimate')
+    expect(claimLabel('value')).not.toContain('AI estimate')
+    // The authorship fact that used to vanish: Olumi named this node.
+    expect(claimLabel('node')).not.toContain('From brief')
+    expect(marksByClaim('node')).toHaveLength(1)
   })
 
   /**
