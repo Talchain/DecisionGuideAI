@@ -22,7 +22,6 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import {
-  OPTION_ORIGIN_COPY,
   buildNodeOriginMap,
   optionOriginFromNode,
 } from '../optionOriginDisclosure'
@@ -36,7 +35,11 @@ const LEADER_ID = 'opt_b'
 /** The other option in the same fixture — the identity contrast. */
 const OTHER_ID = 'opt_a'
 
-const SENTENCE = OPTION_ORIGIN_COPY.ai_suggested
+/* ⛔ `SENTENCE` REMOVED 18 Sep 2026, not left unused. It held the disclosure
+   copy this file asserted inside the GLANCE; Paul ruled the conclusion is
+   deleted entirely, and the glance disclosure went with the conclusion it
+   qualified. The sentence itself is NOT unguarded: `optionProvenanceSaidOnce`
+   covers it where it now lives, on the option rows. */
 
 const node = (id: string, provenance: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -114,8 +117,8 @@ describe('At a glance — the disclosure lands where the leader is named', () =>
     renderGlance(genuineDecision(), [node(LEADER_ID, 'ai_inferred')])
 
     // ⭐ DISCLOSURE, NOT EXCLUSION — the leader is still the answer on screen.
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
-    expect(screen.getByTestId('analysis-new-glance-option-origin')).toHaveTextContent(SENTENCE)
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
+    expect(screen.queryByTestId('analysis-new-glance-option-origin'), 'the glance disclosure went with the conclusion it qualified; OptionsComparison owns that claim (option-origin-mark-<id>)').toBeNull()
   })
 
   /**
@@ -130,7 +133,7 @@ describe('At a glance — the disclosure lands where the leader is named', () =>
       node(OTHER_ID, 'ai_inferred'),
     ])
 
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
     expect(screen.queryByTestId('analysis-new-glance-option-origin')).toBeNull()
   })
 
@@ -168,7 +171,7 @@ describe('At a glance — the disclosure lands where the leader is named', () =>
    */
   it('with no graph nodes at all the panel is unchanged', () => {
     renderGlance(genuineDecision(), [])
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
     expect(screen.queryByTestId('analysis-new-glance-option-origin')).toBeNull()
   })
 })

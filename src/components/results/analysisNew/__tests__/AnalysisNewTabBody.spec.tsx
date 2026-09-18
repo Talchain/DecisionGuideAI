@@ -150,7 +150,7 @@ describe('F · the three scenario classes (§24F)', () => {
     // unchanged: the leader is named here, and not restated below.
     renderBody(genuineDecision())
     openGroups()
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
     expect(screen.getByTestId('analysis-new-key-insights').textContent).not.toContain(
       'currently scores higher',
     )
@@ -304,7 +304,7 @@ describe('staleness contextualises without dominating (§20)', () => {
     )
     // One line, not a banner stack: the read is still on screen.
     expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-glance-headline')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
   })
 })
 

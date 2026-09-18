@@ -173,7 +173,7 @@ describe('the withheld run is the state this opens for', () => {
     // absence assertion whose positive control never fires proves nothing.
     cleanup()
     renderBody(genuineDecision())
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
   })
 
   /**
@@ -317,7 +317,7 @@ describe('the collapsed IA is unchanged where the glance already answered', () =
   it('a run that names its leader keeps the options row CLOSED', () => {
     renderBody(genuineDecision())
     // PRECONDITION: the glance really did answer.
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
 
     expect(screen.getByTestId(T)).toHaveAttribute('data-section-open', 'false')
     expect(screen.getByTestId(`${T}-toggle`)).toHaveAttribute('aria-expanded', 'false')

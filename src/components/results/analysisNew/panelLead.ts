@@ -1,4 +1,19 @@
 /**
+ * ⛔⛔ NO PRODUCT CONSUMER SINCE 18 Sep 2026 — READ THIS BEFORE USING IT.
+ *
+ * Paul ruled: "delete the conclusion entirely — there shouldn't be a conclusion."
+ * `AtAGlance` no longer renders one, so nothing in `src/` calls either function.
+ * They survive ONLY as predicates the panel's specs use to classify a FIXTURE
+ * ("does this run's producer data reach a conclusion?"), which is still a real
+ * question about the data even though the panel no longer displays the answer.
+ *
+ * ⛔ DO NOT re-wire either of these into a surface. The question they answer is
+ * "may the panel lead with a conclusion", and the ruling is that it may not.
+ *
+ * ⚠ The 17 Sep ruling quoted below is SUPERSEDED. It is kept because deleting it
+ * would leave the file looking like live doctrine.
+ */
+/**
  * ⭐⭐ WHAT THE PANEL LEADS WITH — ONE OWNER, BECAUSE TWO SURFACES ASK IT.
  *
  * Paul's ruling, 17 Sep 2026: *"The slot means 'the most important thing on

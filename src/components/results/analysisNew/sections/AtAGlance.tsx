@@ -41,8 +41,6 @@ import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
-import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
-import { conclusionLabel, panelHasConclusion } from '../panelLead'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 import { inset, action } from '../panelSurfaces'
 
@@ -458,7 +456,6 @@ export function AtAGlance({
    * expression is how the estate's dominant defect starts: the copies drift,
    * and the panel renders two leads or none, with a red nowhere.
    */
-  const showAnswer = panelHasConclusion(glance)
 
   /**
    * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
@@ -516,9 +513,11 @@ export function AtAGlance({
    * ⭐ WHAT "NO READING" IS DERIVED TO MEAN — this is the claim, and it is the
    * WHOLE claim. In `buildAnalysisNewViewModel.ts`, `winShare` (:1732),
    * `winFraction` (:1740) and `leaderLabel` (:1763) are each non-null only
-   * where `headline` is, and `headline` implies `showAnswer` implies this
-   * gate. So the share, the win bar and the NAMED LEADING OPTION can never
-   * render while this line is suppressed. That is a derivation over three
+   * where `headline` is. (This clause used to continue "and `headline` implies
+   * `showAnswer`"; the conclusion `showAnswer` gated was DELETED on 18 Sep 2026
+   * by Paul's ruling, so the chain now ends at `headline` — the upstream
+   * derivation is unchanged, only the surface it fed is gone.) So the share and
+   * the win bar can never render while this line is suppressed. A derivation over three
    * fields — NOT a statement about everything this section can draw.
    *
    * ⚠⚠ AND IT IS NARROWER THAN IT FIRST READ. Until 9 Sep 2026 this paragraph
@@ -547,10 +546,11 @@ export function AtAGlance({
    * partial comparison scope or a computed flip threshold. If one lands,
    * re-open whether SCOPE and CONDITION count as readings for this gate.
    *
-   * ⚠ THE SECOND DISJUNCT IS CURRENTLY SUBSUMED — `winShare` is gated upstream
-   * on `headline`, which is what `showAnswer` reads — and is written anyway.
-   * This gate then states what THIS component renders rather than depending on
-   * an upstream coupling it cannot see and nothing here pins.
+   * ⚠ THIS IS NOW THE ONLY DISJUNCT. It was the second of two; the first read
+   * `showAnswer`, and the conclusion it gated was deleted on 18 Sep 2026. It was
+   * already written rather than inferred, which is why removing its sibling did
+   * not change what this gate means: it states what THIS component renders
+   * rather than depending on an upstream coupling it cannot see.
    */
   /**
    * ⭐⭐ THE PILL RENDERS ONLY WHERE THIS BLOCK CARRIES SOMETHING THE TRUST LINE
@@ -591,7 +591,11 @@ export function AtAGlance({
     glance.verdict && (glance.winShare || glance.verdict.reason || glance.winFraction !== null),
   )
 
-  const readingOnScreen = showAnswer || Boolean(glance.verdict && glance.winShare)
+  /* ⚠ THE ANSWER DISJUNCT WENT WITH THE ANSWER — the same rule recorded just
+     below for the drivers, applied again. This read `showAnswer || …`; the
+     conclusion it referred to no longer renders, so the disjunct would have kept
+     a qualifier on screen with nothing left on this surface to qualify. */
+  const readingOnScreen = Boolean(glance.verdict && glance.winShare)
 
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
@@ -715,60 +719,32 @@ export function AtAGlance({
           stated once, in the ribbon directly above, where it scopes the whole
           panel instead of one line — three statements of one fact is noise, and
           noise crowds out the only useful response, which is to re-run. */}
-      {showAnswer ? (
-        <div>
-          <Eyebrow>{COPY.glance.eyebrowLeading}</Eyebrow>
-          {/* ── ⭐⭐ THE PANEL'S LARGEST TYPE, AND IT IS THE ANSWER ──────────
-              Paul's ruling, 17 Sep 2026: the 18px slot means "the most
-              important thing on this panel right now — the conclusion when
-              there is one, otherwise the question being worked on."
+      {/* ⛔⛔ THE CONCLUSION IS GONE. DELETED, NOT MOVED, NOT HIDDEN.
+          Paul's ruling, 18 Sep 2026, verbatim: "delete the conclusion entirely —
+          there shouldn't be a conclusion. We are a reasoning enhancement tool,
+          not a generic AI and analysis answering tool."
 
-              ⛔ WHAT IT REPLACED, censused on served `a147cfbb` (a run with a
-              named leader): this line sat at `panelHeader`, tied for size with
-              "What your model implies", "How robust is this?" and "How far this
-              held" — FOUR strings at 14px/600 — while the panel's one 18px slot
-              carried the GOAL. A reader scanning for the answer found the
-              context.
+          WHAT STOOD HERE: an eyebrow ("Most likely to serve your goal"), the
+          leading option's name, and beneath it the line disclosing that Olumi
+          invented that option. #1676 had already demoted the name from 18px to
+          14px; this removes it.
 
-              ⚠ IT IS A LOAN, NOT A SECOND LEAD. `ModelStrip` gives the slot up
-              for exactly as long as this renders; `theLargestTypeIsTheAnswer`
-              counts the elements at this size in both run states and REDs on
-              two as loudly as on none. */}
-          <p
-            className={`${typography.panelHeader} mt-1 mb-0 text-text-header text-balance`}
-            data-testid={`${testId}-headline`}
-          >
-            {conclusionLabel(glance)}
-          </p>
-          {/* ── ⭐⭐ WHOSE IDEA THIS WAS ────────────────────────────────────
-              IMMEDIATELY BENEATH THE NAME, NOT IN A DISCLOSURE AND NOT AT THE
-              FOOT OF THE PANEL — the same rule the scope note and the condition
-              line follow: it changes what the line above MEANS, so a reader who
-              sees one must see the other. A founder read "Raise Price to £54
-              (Soft Increase)" as the answer at 73% and had no way to learn that
-              the £54 was ours and not his.
+          ⭐ THE PROVENANCE DISCLOSURE IS NOT LOST, AND THAT WAS THE ONLY THING
+          THAT MADE DELETION RISKY. "Olumi suggested this option, you did not
+          name it" has a SECOND owner: `OptionsComparison` stamps
+          `option-origin-mark-<id>` on the rows themselves (`sharedOrigin`,
+          #1648). Checked at the bytes before deleting, because removing the one
+          place the product admits AI authorship would have been a worse defect
+          than the one being fixed.
 
-              ⛔ IT NEVER SUPPRESSES THE NAME. The leading option is still the
-              only large type on the surface; this adds a line, removes nothing,
-              and re-ranks nothing. Olumi inventing options is the product
-              working — the defect was the silence about it, not the invention.
+          ⚠ THE MODEL'S NUMBERS ARE UNTOUCHED. Every option, its win share and
+          its ranking still render in the comparison below. What is deleted is
+          the panel ANNOUNCING one of them as the answer — a verdict, not data.
 
-              ⚠ SILENT UNLESS THE CLAIM IS WARRANTED. `optionOrigin` is null for
-              the user's own option, for CEE's ambiguous `ai_inferred`-with-a-
-              quote case, for an unstamped node, and wherever no leader is named
-              at all. There is no fallback wording, because every other wording
-              attributes the idea to somebody. */}
-          {glance.optionOrigin ? (
-            <p
-              className={`${typography.panelMeta} text-text-light m-0 mt-1`}
-              data-testid={`${testId}-option-origin`}
-              data-option-origin={glance.optionOrigin}
-            >
-              {OPTION_ORIGIN_COPY[glance.optionOrigin]}
-            </p>
-          ) : null}
-        </div>
-      ) : glance.designationWithheldReason ? (
+          The withheld branch below STAYS, and is not the same thing: it does not
+          conclude, it explains why the model declined to, which is the reader's
+          cue to supply their own estimate. */}
+      {glance.designationWithheldReason ? (
         /* ── WHY THERE IS NO ANSWER ────────────────────────────────────────
            ⭐⭐ SILENCE IS NOT A DENIAL. Until this slot existed, a run whose
            model REFUSED to license a comparative claim rendered exactly what an
