@@ -212,63 +212,29 @@ async function readCamera(page: Page): Promise<CameraReading> {
 }
 
 test.describe('the overview the user asks for is the overview they keep', () => {
-  test('build-vs-buy: "Show whole model" reaches the derived fit and stays there', async ({ page }) => {
-    await preparePage(page, VIEWPORTS[0])
-    await openCanvas(page)
-    await seedStarterDraft(page, 'build-vs-buy')
-    await clearNotifications(page)
-    await freezeMotion(page)
-    await waitForVisualQuiescence(page)
-    await waitForExtentsSettled(page, GHOST_ID_PREFIX)
-
-    // ENVIRONMENT AND PRECONDITIONS, PINNED IN-TEST — every number below is void
-    // without them (a hidden tab measures 0x0; an unmeasured node is silently
-    // dropped from xyflow's own bounds).
-    const before = await readCamera(page)
-    expect(before.ok, `the reading is not trustworthy: ${before.why}`).toBe(true)
-    expect(before.hidden, 'document.hidden — a hidden tab measures nothing').toBe(false)
-    expect(before.unmeasured, 'unmeasured nodes are dropped from the fit bounds').toBe(0)
-    expect(before.modelNodes, 'no model nodes').toBeGreaterThan(0)
-
-    // THE PRECONDITION THIS SPEC EXISTS FOR: this model needs to be zoomed OUT
-    // to be seen whole. Without it the assertions below could pass on a model
-    // that was already framed, which is the tautology the twin below guards.
-    expect(
-      before.derivedFit,
-      `build-vs-buy is expected to need zooming out; derived fit was ${before.derivedFit}`,
-    ).toBeLessThan(1)
-    expect(
-      before.scale,
-      `the camera is already at the whole-model fit before the click (${before.scale}); nothing would be tested`,
-    ).toBeGreaterThan(before.derivedFit * (1 + FIT_TOLERANCE))
-
-    await page.getByTestId('model-extent-show-all').click()
-    await waitForCameraSettled(page)
-
-    const after = await readCamera(page)
-    expect(after.ok, after.why).toBe(true)
-    expect(
-      Math.abs(after.scale - after.derivedFit) / after.derivedFit,
-      `"Show whole model" left the camera at ${after.scale} when the model's own extents ` +
-      `need ${after.derivedFit} — ${after.modelNodes - after.fullyVisible} of ${after.modelNodes} ` +
-      `elements are outside the pane`,
-    ).toBeLessThanOrEqual(FIT_TOLERANCE)
-    expect(after.fullyVisible, 'the derived fit was reached but elements are still outside the pane').toBe(after.modelNodes)
-
-    // ⭐ AND IT IS STILL THERE. This is the half that fails at pristine: the fit
-    // above lands correctly and the product's own re-fit overwrites it ~155ms
-    // later. A single sample taken at the right instant reports a working button.
-    await page.waitForTimeout(1500)
-    const settled = await readCamera(page)
-    expect(settled.ok, settled.why).toBe(true)
-    expect(
-      Math.abs(settled.scale - settled.derivedFit) / settled.derivedFit,
-      `the camera was moved OFF the user's overview after the fact: ${after.scale} -> ${settled.scale} ` +
-      `(derived fit ${settled.derivedFit}); ${settled.modelNodes - settled.fullyVisible} of ` +
-      `${settled.modelNodes} elements are outside the pane again`,
-    ).toBeLessThanOrEqual(FIT_TOLERANCE)
-    expect(settled.fullyVisible, 'elements left the pane again after the overview').toBe(settled.modelNodes)
-  })
+  /*
+   * ⛔ DELETED 18 Sep 2026 — `build-vs-buy: "Show whole model" reaches the derived
+   * fit and stays there`. A DECLARED deletion, not an incidental one.
+   *
+   * It clicked `model-extent-show-all`, which no longer exists: the founder had
+   * the model-extent panel removed ("just get rid of it completely", 14 Sep), PR
+   * #1561 unmounted it, and this test has timed out at 120s on every run since —
+   * failing for a thing that was deleted on purpose.
+   *
+   * ⭐ ITS GUARANTEE IS NOT LOST, WHICH IS THE ONLY REASON DELETING IT IS SAFE.
+   * Both halves survive in `build-vs-buy: the left-rail "Fit to view" reaches the
+   * model's own fit, not the floor` below: it clicks the affordance that DOES
+   * exist, waits the same 1500ms settle, and asserts the fit is reached AND every
+   * element is inside the pane. That covers "reaches the derived fit" and the
+   * "and it is STILL THERE" half this test existed for — the product's own re-fit
+   * overwriting a user's overview ~155ms later. It also asserts something this
+   * test did not: that the camera did not stop at the legibility floor.
+   *
+   * So re-pointing this test at "Fit to view" would have produced a strict
+   * duplicate with a WEAKER assertion set. Deleting it removes a stale red
+   * without removing a guarantee; the persistence property is held below, by the
+   * control a user can actually reach.
+   */
 
   test('a model that already fits is neither zoomed away from nor re-framed', async ({ page }) => {
     // ⭐ THE DISCRIMINATING TWIN, and it fails on a different assertion from the

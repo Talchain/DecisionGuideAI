@@ -24,8 +24,14 @@
  *
  * WHAT THIS ASSERTS, AND WHY THESE TWO KINDS. The decision and the options are
  * what a decision model IS. Factors, outcomes, risks and goals are supporting
- * detail reachable by scrolling, and the `model-extent-notice` states how much
- * of them is out of view. So this pins the two kinds whose absence makes the
+ * detail reachable by scrolling.
+ *
+ * ⚠ THIS SENTENCE USED TO ADD: "and the `model-extent-notice` states how much of
+ * them is out of view". CORRECTED 18 Sep 2026 — that notice was removed on the
+ * founder's explicit instruction (14 Sep) and nothing states it now. The
+ * rationale below is unaffected, but the reassurance was not: there is no
+ * longer a surface telling a person the rest exists, which makes what this
+ * spec pins MORE load-bearing rather than less. So this pins the two kinds whose absence makes the
  * first view incoherent, and deliberately does NOT pin the rest — a spec that
  * demanded everything would fail on models that genuinely cannot fit, and would
  * push a future lane to satisfy it by zooming below the legibility floor.
