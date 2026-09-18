@@ -665,4 +665,97 @@ describe('a value that came from a panel', () => {
   })
 })
 
+/**
+ * THE SAME MARK, AGAINST THE SOURCE TOKENS THE PRODUCER ACTUALLY WRITES.
+ *
+ * ⚠ THE TWIN IN THE BLOCK ABOVE USES `user_set`, WHICH NOTHING PRODUCES.
+ * Measured 18 Sep 2026 at the deployed database (project etmmuzwxtcjipwphdola)
+ * and at CEE staging `c8df8ba0`: `user_set` appears as an `observed_state.source`
+ * in ZERO scenario rows and has no production write site. The case is correct,
+ * but it is correct over an invented member of the domain — so the four members
+ * the domain actually contains were going untested (trap 22: a corpus drawn from
+ * the author's head cannot see the class the author did not imagine).
+ *
+ * ⭐ THIS CORPUS COMES FROM THE DEPLOYED DATABASE, NOT FROM A HEAD. Across the
+ * 2,000 most recently-updated scenarios carrying `observed_state`:
+ *
+ *   cee_inference     3,185 nodes / 918 scenarios
+ *   brief_extraction    554 nodes / 444 scenarios
+ *   user_override        80 nodes /  75 scenarios
+ *   user                  3 nodes /   3 scenarios
+ *   panel_elicited        0 in that window — 13 nodes / 12 scenarios ESTATE-WIDE,
+ *                         every one at the NODE ROOT (0 at `data.observed_state`),
+ *                         every one carrying `elicited_from`, latest 15 Aug 2026.
+ *
+ * The four siblings are the contrast control for that zero in the same query:
+ * the probe can plainly see tokens, so `panel_elicited`'s absence from the recent
+ * window is real absence and not a blind sweep.
+ *
+ * ⛔ `user_override` IS THE ONE THAT MATTERS. It is the closest neighbour in
+ * meaning — a human deliberately setting a number — and it is exactly what a
+ * later widening ("surely a user-set value is the team's too") would sweep in.
+ * The mark must stay on the ONE token whose stamp CEE writes from the collab
+ * store; every other token is the sender's own number and saying otherwise
+ * attributes to a panel something no panellist ever said.
+ */
+describe('the mark against the source tokens the producer actually writes', () => {
+  const PRODUCED_TOKENS = ['cee_inference', 'brief_extraction', 'user_override', 'user'] as const
+
+  const NODES = [
+    {
+      id: 'f-panel',
+      kind: 'factor',
+      label: 'Churn risk after a price rise',
+      display_value: '0.85',
+      observed_state: {
+        value: 0.85,
+        source: 'panel_elicited',
+        raw_value: 0.85,
+        elicited_from: {
+          round_id: '53f37a3c-a384-45ac-96a2-895dedb32cc0',
+          participant_id: '7186723c-4a31-4671-ac8c-6b51ab798989',
+          evidence_event_id: '882ff08c-9d80-4ff5-bc28-7c435aba6de5',
+        },
+      },
+    },
+    ...PRODUCED_TOKENS.map((source, i) => ({
+      id: `f-${source}`,
+      kind: 'factor',
+      label: `Factor whose number came from ${source}`,
+      display_value: `${i + 1}0%`,
+      observed_state: { value: (i + 1) / 10, source, raw_value: (i + 1) / 10 },
+    })),
+  ]
+
+  function renderWithNodes() {
+    mockGetSharedSnapshotBySlug.mockResolvedValue({
+      ...SNAPSHOT,
+      graph: { nodes: NODES, edges: [] },
+    })
+    renderPage()
+  }
+
+  /** Bound by LABEL, never by a value predicate another node could satisfy. */
+  async function itemFor(label: string): Promise<HTMLElement> {
+    const model = await screen.findByTestId('shared-snapshot-model')
+    const name = within(model).getByText(label)
+    const li = name.closest('li')
+    if (li === null) throw new Error(`no list item for ${label}`)
+    return li as HTMLElement
+  }
+
+  it.each(PRODUCED_TOKENS)('leaves a node whose source is %s unmarked', async (source) => {
+    renderWithNodes()
+    const item = await itemFor(`Factor whose number came from ${source}`)
+    expect(within(item).queryByText('From the team')).not.toBeInTheDocument()
+  })
+
+  it('marks the panel node and only it, among the five real tokens', async () => {
+    renderWithNodes()
+    const panel = await itemFor('Churn risk after a price rise')
+    expect(within(panel).getByText('From the team')).toBeInTheDocument()
+    expect(screen.getAllByText('From the team')).toHaveLength(1)
+  })
+})
+
 })
