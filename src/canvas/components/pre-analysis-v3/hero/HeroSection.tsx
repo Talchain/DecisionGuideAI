@@ -84,11 +84,19 @@ export const SUCCESS_INPUT_ID = 'pre-analysis-v3-success'
  * `modelGoalMinimumTarget` requires, so the success field stays read-only and
  * says where the target is set instead.
  */
-const GOAL_LABEL_EDIT_CONNECTED =
+/**
+ * ⚠ EXPORTED DELIBERATELY. These were unexported, and that is WHY the panel and
+ * the honesty spec each grew their own copy of the derivation rather than
+ * importing it — three declarations of one rule, with the only guard being a
+ * third copy that agreed with itself. Un-exporting them recreates that pressure.
+ * `oneEditAuthorityDerivation.spec.ts` counts the declarations and fails if a
+ * second one ever reappears.
+ */
+export const GOAL_LABEL_EDIT_CONNECTED =
   hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash) &&
   hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd)
 
-const SUCCESS_TARGET_EDIT_CONNECTED = hasServerGraphAuthority(
+export const SUCCESS_TARGET_EDIT_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
 )
 

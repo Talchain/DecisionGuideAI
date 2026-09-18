@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2088
+# count=2081
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -433,7 +433,6 @@
 1	src/lib/prompts.ts
 1	src/modules/diagnostics/ErrorBanner.tsx
 2	src/pages/ScenarioListPage.tsx
-7	src/pages/SharedBriefPage.tsx
 2	src/pages/__tests__/ProfileSettingsPage.test.tsx
 1	src/pages/__tests__/ScenarioListPage.hub.test.tsx
 1	src/pages/__tests__/ScenarioListPage.spec.tsx
