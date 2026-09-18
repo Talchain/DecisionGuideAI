@@ -29,6 +29,41 @@
  * one written here. No `weight`, no `weightSource`, no `direction` is touched, so there is no
  * provenance laundering and no number on screen changes.
  *
+ * ⛔⛔ AND THAT WRITE IS NOW GATED ON THE SETTLEMENT, BECAUSE THE ROW LEAVING IS ITSELF A CLAIM.
+ * The first version of this file did `void sendSystemEvent(...)`, discarded the outcome, and
+ * then retired the row and printed a success sentence UNCONDITIONALLY. `sendSystemEvent` has
+ * five settlements and two of them mean the turn never happened: it THROWS on a network
+ * reject, a 4xx/5xx or a parse failure (`useConversation:2245-2248`, thrown at `:5745`), and it
+ * returns `SEND_BLOCKED` with NO NETWORK CALL AT ALL when the orchestrator flag is off
+ * (`:5995`) or when serialisation drops the event (`:6005`). This file's own comment named that
+ * harm — *"a settled-looking row whose verdict never left the browser is the silent lie"* — and
+ * then guarded only the unreachable `event === null` case.
+ *
+ * ⭐ THE RULE IS NOT RE-DERIVED HERE. `conversation/settleSystemEventSend.ts` exists precisely
+ * "so the next carrier gets the derivation by construction", after the two `edge_strength_edit`
+ * `confirm_current` carriers each shipped `.catch(() => {})` and "every settlement collapsed to
+ * silence, INCLUDING THE SERVER SAYING NO." This is the next carrier. It uses that module, and
+ * `constants.ts` carries one sentence per settlement rather than a fourth spelling of the rule.
+ *
+ * ⛔ TWO HARMS, TWO PREDICATES, PLUS THE WINDOW BETWEEN THEM (CLAUDE.md traps 22b and 21).
+ * `blocked`/`refused` mean the judgement is PROVABLY not with Olumi: the row STAYS, the buttons
+ * stay live, and the line says so. `unverified` means it MAY be with Olumi: the row also stays,
+ * but the line must NOT claim nothing was recorded, because that invites the user to answer
+ * again about something already on file. And `pending` is a THIRD STATE, not the absence of the
+ * other two — a settlement is always at least a microtask late, so it is the NORMAL state at
+ * the instant of the press, and falling through to a success default there is exactly how the
+ * unconditional claim survived. Every one of the six has its own sentence.
+ *
+ * ⚠ WHAT THE RETIREMENT DOES NOT PROMISE. A landed settlement retires the row FOR THIS SESSION.
+ * It is not durable and the copy no longer says it is: this row's suppression reads
+ * `validation.user_action`, an opaque passthrough of the producer's payload
+ * (`domain/edges.ts:408-414`) rewritten at every full draft (`applyDraftResult.ts:139`) and at
+ * every patch touching the connection, and `edge_adjudication` is `fact_and_commit`, which
+ * writes NO graph — so the persisted connection keeps `'pending'` and the row returns on the
+ * next draft, the next patch, or a reload. Olumi's own coaching DOES stop
+ * (`judgement-signals.ts` joins against exactly these facts); this panel does not, and the
+ * sentence the user reads is scoped to what the send did rather than to either.
+ *
  * ⚠ ORIGINAL PARAGRAPH, SUPERSEDED, KEPT FOR ITS REASONING: There is no pre-analysis write path
  * to reuse: the legacy panel's contested resolve handler was deleted in the Brief 4 Task 6
  * dead-code sweep (`PreAnalysisPanel.tsx:76,1106`). The one affordance here is the EXISTING,
@@ -66,13 +101,15 @@
  * (`hierarchyContract.spec.tsx`).
  */
 
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import { Scale } from 'lucide-react'
 import { typography, typo } from '../../../../styles/typography'
 import { useUIStore } from '../../../../stores/uiStore'
 import { useCanvasStore } from '../../../store'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
 import { buildEdgeAdjudicationEvent } from '../../../conversation/edgeAdjudication'
+import { settleSystemEventSend } from '../../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 import type { EdgeData } from '../../../domain/edges'
 import type { ValidationMetadata } from '../../../domain/validation'
 import { CONTESTED_COPY } from '../constants'
@@ -87,6 +124,75 @@ const VERDICT_LABEL: Record<ContestedVerdict, string> = {
 }
 
 /**
+ * How one connection's verdict settled, as this surface knows it.
+ *
+ * ⭐ `'pending'` IS A MEMBER, NOT A NULL. `settleSystemEventSend` settles a promise, so a
+ * settlement cannot arrive in the same tick as the press: between the two, this is the state,
+ * and it is the state EVERY settle passes through. Modelling it as "no settlement yet" and
+ * letting the render fall through to the success branch is the defect this file shipped.
+ */
+type ContestedSettleState = SystemEventSendSettlement | 'pending'
+
+/**
+ * The settlements on which the verdict has left, or is buffered to leave, the browser — and
+ * therefore the only ones on which the row may retire.
+ *
+ * ⚠ `'sent'` IS NOT A RECEIPT. It means a POST left and the server has not answered. Retiring
+ * on it is a session-scoped convenience, not a claim that Olumi holds the judgement; the
+ * SENTENCE is what carries the claim, and `CONTESTED_SETTLE_STATE_COPY.sent` claims only that
+ * it was sent. `'queued'` is buffered behind an in-flight turn and will go, so it retires too.
+ */
+function settlementLanded(settlement: ContestedSettleState): settlement is 'sent' | 'queued' {
+  return settlement === 'sent' || settlement === 'queued'
+}
+
+/**
+ * Retire one settled row through the predicate that already owns retirement
+ * (`selectSurfacedContestedEdges:53` gates on `user_action !== 'pending'`).
+ *
+ * ⚠ THE EDGE IS RE-READ AT SETTLEMENT TIME, NOT CAPTURED AT PRESS TIME. A draft or a patch can
+ * rewrite `validation` inside the window the send is open, and merging onto a snapshot taken
+ * before the send would write back whatever that snapshot held. Identity is not at risk either
+ * way — the WIRE event is built from the press-time read, so the fact and the local write can
+ * still never describe different connections.
+ */
+function retireSettledRow(
+  edgeId: string,
+  verdict: ContestedVerdict,
+  resolvedMean: number | null,
+): void {
+  const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
+  const validation = (edge?.data as { validation?: ValidationMetadata } | undefined)?.validation
+  if (!validation) return
+  const settledValidation: ValidationMetadata = {
+    ...validation,
+    user_action: verdict,
+    resolved_by: 'user',
+    // ⚠ A dismissal asserts NO value, by the same contract rule the builder applies.
+    resolved_value:
+      verdict === 'dismissed' || resolvedMean === null ? null : { strength_mean: resolvedMean },
+  }
+  // ⚠ ONLY `validation` IS PASSED, AND THAT IS LOAD-BEARING — NOT TIDINESS.
+  //
+  // `updateEdge` merges `{ ...e.data, ...updates.data }`, so a partial `data` leaves every
+  // other field alone. Spreading `edge.data` in here instead would widen the write to the
+  // whole edge for no gain, and `edge.data` is `EdgeData | undefined` at this type, so the
+  // spread also loses the required fields and fails the gate.
+  //
+  // ⛔ AND DO NOT "SIMPLIFY" THIS TO `updateEdgeData`. That helper sets `weight: undefined` and
+  // `belief: undefined` EXPLICITLY whenever the caller omits them (`store.ts:3659-3667`), and
+  // those explicit keys survive the spread merge — routing a validation-only update through it
+  // would blank the edge's weight.
+  //
+  // The cast is the partial-update contract `updateEdgeData` itself documents at
+  // `store.ts:3667`: `updateEdge` declares `data: EdgeData` while the implementation merges
+  // partial data.
+  useCanvasStore.getState().updateEdge(edgeId, {
+    data: { validation: settledValidation } as EdgeData,
+  })
+}
+
+/**
  * One contested connection. The expert detail (what the second look was based on, and its
  * own sentence) sits behind a per-row reveal, in the panel's existing reveal idiom — an
  * `aria-expanded` text button, as SharpenSection's "Show N more" uses. Conditional render
@@ -95,14 +201,34 @@ const VERDICT_LABEL: Record<ContestedVerdict, string> = {
  */
 const ContestedRow = memo(function ContestedRow({
   row,
+  settleState,
   onSettle,
 }: {
   row: ContestedRowModel
+  /**
+   * How this row's verdict settled, or `undefined` when none has been sent this session.
+   *
+   * ⚠ `undefined` AND `'pending'` ARE DIFFERENT FACTS and the render must not merge them:
+   * `undefined` means the user has not acted, `'pending'` means they have and the answer has
+   * not arrived. Only the second earns a sentence.
+   */
+  settleState?: ContestedSettleState
   /** Null when no send is available — the row then explains instead of offering a dead button. */
   onSettle: ((row: ContestedRowModel, verdict: ContestedVerdict, resolvedMean: number | null) => void) | null
 }) {
   const [open, setOpen] = useState(false)
   const options = contestedVerdictOptions(row)
+  const isPending = settleState === 'pending'
+  /**
+   * ⚠ A LANDED SETTLEMENT HAS NO ROW LINE, because a landed settlement normally has no ROW: the
+   * retire unmounts it and the section-level acknowledgement carries the sentence. What is left
+   * here is exactly the set of reasons the user is still looking at this connection — the send
+   * is in flight, or it did not land, or it cannot be shown to have landed.
+   */
+  const settleLine =
+    settleState !== undefined && !settlementLanded(settleState)
+      ? CONTESTED_COPY.settleState[settleState]
+      : null
   return (
     <div
       className="grid grid-cols-[16px_1fr] items-start gap-2 border-t border-panel-border py-2 first:border-t-0"
@@ -170,10 +296,16 @@ const ContestedRow = memo(function ContestedRow({
                 <button
                   key={option.verdict}
                   type="button"
+                  // ⚠ DISABLED WHILE IN FLIGHT, NOT REMOVED. A control that vanishes and returns
+                  // reads as a failure of the app; one that is visibly unavailable while the
+                  // sentence beneath it says why reads as the app doing what it was told. The
+                  // re-entry latch in `handleSettle` is what ENFORCES one turn per press — this
+                  // attribute only shows it.
+                  disabled={isPending}
                   onClick={() => onSettle(row, option.verdict, option.resolvedMean)}
                   className={typo(
                     'panelMeta',
-                    'rounded border border-panel-border px-2 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+                    'rounded border border-panel-border px-2 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40 disabled:cursor-not-allowed disabled:opacity-40',
                   )}
                   data-testid={`pre-analysis-v3-contested-settle-${option.verdict}-${row.edgeId}`}
                 >
@@ -181,6 +313,26 @@ const ContestedRow = memo(function ContestedRow({
                 </button>
               ))}
             </div>
+            {/*
+              ⛔ THE SENTENCE THE USER READS AFTER THEY ACT, AND IT IS THE SETTLEMENT'S, NOT A
+              DEFAULT. A row is only still mounted here because its verdict did NOT land
+              (`blocked`/`refused`), because we cannot show that it did (`unverified`), or
+              because the answer has not arrived yet (`pending`). `role="status"` because the
+              text changes asynchronously under a control the user just pressed.
+
+              `data-settlement` is the IDENTITY the spec binds to (CLAUDE.md trap 19) — a text
+              predicate would let a neighbouring row's sentence satisfy the assertion.
+            */}
+            {settleLine !== null && (
+              <p
+                className={`${typography.panelMeta} mt-1.5 text-text-light`}
+                role="status"
+                data-testid={`pre-analysis-v3-contested-settle-state-${row.edgeId}`}
+                data-settlement={settleState}
+              >
+                {settleLine}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -209,36 +361,43 @@ export const ContestedSection = memo(function ContestedSection({
    */
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
-  /** Verdicts sent this session, newest first — the acknowledgement's only source. */
-  const [settled, setSettled] = useState<string[]>([])
+  /**
+   * ⭐ THE RE-ENTRY LATCH IS BACK, AND THIS TIME IT IS REACHABLE — which is why the measurement
+   * that removed it was right AT THE TIME and is wrong now. A mutant deleting the old guard
+   * left the suite green because the retire write was SYNCHRONOUS: the row unmounted before a
+   * second click could reach the handler, so the guard could not fire on any path. The retire
+   * is now gated on the settlement, so the row stays mounted for the whole in-flight window and
+   * a second press WOULD send a second network turn. `contestedSectionSettles.spec.tsx`'s
+   * double-click case now bites this latch rather than an unmount.
+   *
+   * A ref, not state: it is a correctness latch read inside an async callback, and state would
+   * hand `handleSettle` a stale closure of itself. The rendered half is `settleState` below.
+   */
+  const inFlight = useRef<Set<string>>(new Set())
+
+  /** How each connection's verdict settled. Absent = never pressed. */
+  const [settleState, setSettleState] = useState<Record<string, ContestedSettleState>>({})
+
+  /**
+   * Verdicts that LEFT the browser this session, newest first — the acknowledgement's only
+   * source. A settlement that did not land never reaches this list, so the acknowledgement
+   * cannot appear for a verdict that never went.
+   */
+  const [landed, setLanded] = useState<Array<{ edgeId: string; settlement: 'sent' | 'queued' }>>([])
 
   const handleSettle = useCallback(
     (row: ContestedRowModel, verdict: ContestedVerdict, resolvedMean: number | null) => {
       if (!sendSystemEvent) return
+      // ⭐ ONE TURN PER PRESS IS LOAD-BEARING — `sendSystemEvent` is a network TURN, not a
+      // fire-and-forget ping. See the latch's declaration for why it is reachable now and was
+      // not before.
+      if (inFlight.current.has(row.edgeId)) return
       // Read the edge FRESH from the store rather than reconstructing one from the row model:
       // the wire event binds to its edge by from+to NODE ids (`edgeAdjudication.ts`'s IDENTITY
-      // RULE) and the row model carries labels, not ids. The same read feeds the event and the
-      // local write, so the two can never describe different edges.
+      // RULE) and the row model carries labels, not ids.
       const edge = useCanvasStore.getState().edges.find(e => e.id === row.edgeId)
       if (!edge) return
 
-      const validation = (edge.data as { validation?: ValidationMetadata } | undefined)?.validation
-
-      // ⭐ ONE TURN PER CLICK IS LOAD-BEARING (`sendSystemEvent` is a network TURN, not a
-      // fire-and-forget ping) AND IT IS NOT GUARDED HERE — DELIBERATELY, AND MEASURED.
-      //
-      // A `user_action !== 'pending'` re-entry guard was written here first. A mutant that
-      // DELETED it left the suite fully GREEN, which is the only honest way to learn that a
-      // guard is doing nothing: the retire write below is a synchronous zustand `set`, the
-      // parent recomputes `rows` from the edges, and the row UNMOUNTS before a second click can
-      // reach this handler. The guard could not fire on any reachable path, so it was removed
-      // rather than shipped as unpinned code with a confident comment beside it.
-      //
-      // The INVARIANT is pinned instead, at the level a user experiences it:
-      // `contestedSectionSettles.spec.tsx` clicks twice and asserts ONE send, with a live
-      // sibling row proving the suite is not merely observing an unmounted button. Any future
-      // change that keeps the row mounted through a settle turns that test RED, which is where
-      // the decision belongs.
       const event = buildEdgeAdjudicationEvent(
         edge,
         verdict,
@@ -249,47 +408,53 @@ export const ContestedSection = memo(function ContestedSection({
       // settled-looking row whose verdict never left the browser is the silent lie.
       if (!event) return
 
-      void sendSystemEvent(event, {
-        debugSource: 'pre-analysis-v3-contested',
-        debugInitiatedBy: 'user',
-        debugSourceSurface: 'pre-analysis',
-      })
+      inFlight.current.add(row.edgeId)
+      // ⛔ THE PENDING STATE IS SET BEFORE THE SEND, NOT AFTER IT. Setting it in the settlement
+      // callback would leave the press with no rendered consequence for the whole window the
+      // change exists to describe.
+      setSettleState(prev => ({ ...prev, [row.edgeId]: 'pending' }))
 
-      // Retire the row through the predicate that already owns it
-      // (`selectSurfacedContestedEdges:53` gates on `user_action !== 'pending'`). Validation
-      // METADATA only — no weight, no weightSource, no direction.
-      if (validation) {
-        const settledValidation: ValidationMetadata = {
-          ...validation,
-          user_action: verdict,
-          resolved_by: 'user',
-          // ⚠ A dismissal asserts NO value, by the same contract rule the builder applies.
-          resolved_value:
-            verdict === 'dismissed' || resolvedMean === null
-              ? null
-              : { strength_mean: resolvedMean },
-        }
-        // ⚠ ONLY `validation` IS PASSED, AND THAT IS LOAD-BEARING — NOT TIDINESS.
-        //
-        // `updateEdge` merges `{ ...e.data, ...updates.data }`, so a partial `data` leaves every
-        // other field alone. Spreading `edge.data` in here instead would widen the write to the
-        // whole edge for no gain, and `edge.data` is `EdgeData | undefined` at this type, so the
-        // spread also loses the required fields and fails the gate.
-        //
-        // ⛔ AND DO NOT "SIMPLIFY" THIS TO `updateEdgeData`. That helper sets
-        // `weight: undefined` and `belief: undefined` EXPLICITLY whenever the caller omits them
-        // (`store.ts:3659-3667`), and those explicit keys survive the spread merge — routing a
-        // validation-only update through it would blank the edge's weight.
-        //
-        // The cast is the partial-update contract `updateEdgeData` itself documents at
-        // `store.ts:3667`: `updateEdge` declares `data: EdgeData` while the implementation
-        // merges partial data.
-        useCanvasStore.getState().updateEdge(row.edgeId, {
-          data: { validation: settledValidation } as EdgeData,
-        })
-      }
-
-      setSettled(prev => [row.edgeId, ...prev.filter(id => id !== row.edgeId)])
+      /**
+       * ⛔⛔ THE OUTCOME IS NOT DISCARDED, AND THE RULE IS NOT RE-DERIVED.
+       * `settleSystemEventSend` owns the five settlements and the `refused`/`unverified` split
+       * (it asks `isProvenNoWriteConflict`, the one authority for "did the producer state it
+       * wrote nothing?"). Deciding any of that here would be the third spelling of one rule,
+       * which is what that module was extracted to stop.
+       */
+      settleSystemEventSend(
+        sendSystemEvent(event, {
+          debugSource: 'pre-analysis-v3-contested',
+          debugInitiatedBy: 'user',
+          debugSourceSurface: 'pre-analysis',
+        }),
+        settlement => {
+          setSettleState(prev => ({ ...prev, [row.edgeId]: settlement }))
+          // ⭐ THE LATCH GUARDS THE IN-FLIGHT WINDOW AND NOTHING WIDER, SO IT RELEASES ON EVERY
+          // SETTLEMENT. Holding it shut afterwards looks tidier and is worse: this row is
+          // re-raised by the producer at the next draft or patch (see the header), and a
+          // re-raised question the user cannot answer is a dead control, which is the harm this
+          // whole surface exists to remove. On the failure settlements the retry is the POINT of
+          // telling them; `unverified` releases too, because refusing a retry there would be the
+          // opposite lie to the one being fixed.
+          inFlight.current.delete(row.edgeId)
+          if (!settlementLanded(settlement)) {
+            // NOT RECORDED, or NOT SHOWN TO BE RECORDED. The row stays, un-retired, and says so.
+            return
+          }
+          // ⚠ RESIDUAL, DISCLOSED RATHER THAN GUARDED (the reviewer's call, and it is right):
+          // `retireSettledRow` is a no-op for an edge the store holds with no `validation`, so
+          // such a row would stay mounted after a landed send and a second press would send a
+          // second turn. Unreachable today — rows exist only for validated connections, which is
+          // what `selectSurfacedContestedEdges` selects on. A guard here would be unpinnable
+          // code with a confident comment beside it, which is what the removed re-entry guard
+          // already taught this file.
+          retireSettledRow(row.edgeId, verdict, resolvedMean)
+          setLanded(prev => [
+            { edgeId: row.edgeId, settlement },
+            ...prev.filter(entry => entry.edgeId !== row.edgeId),
+          ])
+        },
+      )
     },
     [sendSystemEvent],
   )
@@ -297,8 +462,8 @@ export const ContestedSection = memo(function ContestedSection({
   // ⚠ NOT `rows.length === 0` ALONE. Settling the LAST contested connection empties `rows`, and
   // returning null on that render would take the acknowledgement down with the row that earned
   // it — the user would click and see the whole section vanish with no confirmation that
-  // anything was recorded. EMPTY MEANS ABSENT still holds for a session that settled nothing.
-  if (rows.length === 0 && settled.length === 0) return null
+  // anything was sent. EMPTY MEANS ABSENT still holds for a session that settled nothing.
+  if (rows.length === 0 && landed.length === 0) return null
 
   return (
     <div className="border-t border-panel-border px-4 py-4" data-testid="pre-analysis-v3-contested">
@@ -323,17 +488,29 @@ export const ContestedSection = memo(function ContestedSection({
           <ContestedRow
             key={row.edgeId}
             row={row}
+            settleState={settleState[row.edgeId]}
             onSettle={sendSystemEvent ? handleSettle : null}
           />
         ))}
       </div>
-      {settled.length > 0 && (
+      {/*
+        ⛔ THE ACKNOWLEDGEMENT IS THE SETTLEMENT'S SENTENCE, AND IT EXISTS ONLY FOR VERDICTS THAT
+        LEFT. `landed` is appended to inside the settlement callback and only for `sent`/
+        `queued`, so there is no path on which this renders for a send that was refused, never
+        left, or cannot be shown to have left — those stay on their own row, which stays.
+
+        ⚠ IT SPEAKS FOR THE MOST RECENT LANDED VERDICT, not for all of them: `sent` and `queued`
+        are different facts and one line cannot be true of both at once. Newest-first is the
+        order the list is built in, so `landed[0]` is the one the user just earned.
+      */}
+      {landed.length > 0 && (
         <p
           className={`${typography.panelMeta} mt-2 text-text-light`}
           role="status"
           data-testid="pre-analysis-v3-contested-settled-ack"
+          data-settlement={landed[0].settlement}
         >
-          {CONTESTED_COPY.settledAck}
+          {CONTESTED_COPY.settleState[landed[0].settlement]}
         </p>
       )}
       {/*

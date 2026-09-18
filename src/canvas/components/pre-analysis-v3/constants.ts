@@ -10,6 +10,11 @@
 
 import type { BarKey, BarState, SparkPrompt } from './types'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
+// TYPE ONLY, and that is load-bearing: it is erased at build, so this pure copy
+// module gains no runtime dependency on the conversation seam. Importing the union
+// rather than restating its members is what makes a sixth settlement fail RED here
+// instead of rendering an empty sentence at a control the user just pressed.
+import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 
 export type { SparkPrompt } from './types'
 
@@ -279,6 +284,33 @@ export const SIGNAL_COPY = {
 } as const
 
 /**
+ * One sentence per settlement, keyed by the union itself so a new member is a
+ * type error here rather than an empty line on screen. Scanned by the glossary
+ * sweep like every other string on this panel: `registry.spec.ts`'s `push`
+ * recurses into nested copy objects, so these six are covered by construction.
+ *
+ * ⚠ THE KEY `blocked` IS A KEY, NOT COPY. "blocked" is itself a banned term on
+ * this surface, so no SENTENCE says it — the wording is "not sent", which is
+ * also the more honest thing to tell a person: it says what happened to their
+ * judgement, not what happened inside the app.
+ */
+const CONTESTED_SETTLE_STATE_COPY: Readonly<
+  Record<SystemEventSendSettlement | 'pending', string>
+> = {
+  pending: 'Sending your judgement to Olumi…',
+  /** A POST left. It says nothing about what the server did with it, so nor does this. */
+  sent: 'Sent to Olumi as your judgement.',
+  /** Buffered behind an in-flight turn. The turn does not exist yet, so "sent" would be false. */
+  queued: 'Waiting to go to Olumi, behind another change.',
+  /** Nothing reached the server. Provably not with Olumi, so it may say so plainly. */
+  blocked: 'Not sent. Olumi does not have this judgement, so it may ask again.',
+  /** The server answered and its own line certifies it wrote nothing. */
+  refused: 'Not recorded. Olumi did not take this judgement, so it may ask again.',
+  /** It MAY have landed. This must not claim either way, in either direction. */
+  unverified: 'Olumi may not have this judgement. Check the conversation before answering again.',
+}
+
+/**
  * ROADMAP 2.376 — the contested-relationship surface.
  *
  * Plain language by ruling: no "contested", no "validation", no "pass 1/pass 2", no divergence
@@ -289,8 +321,17 @@ export const SIGNAL_COPY = {
  * is a hand-maintained mirror). `contestedReasonsSweep.spec` scans those five through the
  * same banned-terms matcher this object is scanned with.
  *
- * NO RESOLVE COPY HERE, DELIBERATELY. This section is DISPLAY-ONLY: the pre-analysis panel's
- * contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep.
+ * ⚠⚠ "NO RESOLVE COPY HERE" IS SUPERSEDED, AND IT WAS MISSED WHEN THE REST OF THIS
+ * CHANGE WAS SUPERSEDED. The paragraph below is kept for its reasoning, which still governs
+ * what the settle strings may claim, but its verdict is no longer true: this section now
+ * carries resolve copy, because it now carries the act. `ContestedSection.tsx` and
+ * `contestedCtaPromiseIsHonest.spec.tsx` were both superseded in the same style when the
+ * affordance landed; this one was not, and a false sentence sitting directly above the copy it
+ * describes is the hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
+ *
+ * ORIGINAL, SUPERSEDED: NO RESOLVE COPY HERE, DELIBERATELY. This section is DISPLAY-ONLY: the
+ * pre-analysis panel's contested resolve handler was deleted in the Brief 4 Task 6 dead-code
+ * sweep.
  *
  * ⚠⚠ AND THE SENTENCE THAT USED TO FOLLOW THAT ONE WAS FALSE, WHICH IS WHY `reviewCta`
  * CHANGED (derived at staging `2416ac3f`). It read: *"the only live adjudication surface is
@@ -364,10 +405,54 @@ export const CONTESTED_COPY = {
    */
   settleUnsure: "Can't say yet",
   /**
-   * Shown in place of the row once the verdict is sent. Claims the two things
-   * that are true and nothing about any number.
+   * ⭐⭐ WHAT THIS SURFACE MAY SAY ABOUT THE SEND, ONE SENTENCE PER SETTLEMENT.
+   *
+   * ⛔⛔ THE STRING THAT USED TO BE HERE WAS RENDERED UNCONDITIONALLY AND WAS
+   * FALSE IN TWO SEPARATE WAYS. It read *"Recorded as your judgement. Olumi
+   * will stop raising this one."*
+   *
+   * ⛔ FALSE HALF ONE — IT CLAIMED AN OUTCOME THE SEND HAD NOT REPORTED.
+   * `sendSystemEvent` has FIVE settlements (`settleSystemEventSend.ts`), two of
+   * which mean the turn never happened: it THROWS on a network reject, a 4xx/5xx
+   * or a parse failure, and returns `SEND_BLOCKED` with NO NETWORK CALL AT ALL
+   * when the orchestrator flag is off or serialisation drops the event. The
+   * sentence was printed for all five. A settled-looking row whose verdict never
+   * left the browser is the silent lie, and this file was writing it.
+   *
+   * ⛔ FALSE HALF TWO — THE DURABILITY PROMISE WAS NEVER TRUE OF THIS PANEL, and
+   * it is dropped rather than re-engineered. It IS true of Olumi's coaching:
+   * `judgement-signals.ts` joins contested connections against exactly these
+   * facts, so the nudge stops. It is NOT true of this row: the row's own
+   * suppression reads `validation.user_action`, an opaque passthrough of the
+   * producer's payload that is re-written at every full draft and at every patch
+   * touching the connection, and `edge_adjudication` is `fact_and_commit`, which
+   * writes NO model. So the persisted connection keeps `'pending'` and the row
+   * RETURNS on the next draft, the next patch that touches it, or a reload
+   * — asking the question the user had just been told would stop. Manufacturing
+   * the durability instead of the sentence is a different, larger piece of work;
+   * promising it here is not a smaller one, it is a false one.
+   *
+   * ⛔ SO THERE IS NO "RECORDED" AND NO "SAVED" LINE ON ANY SETTLEMENT.
+   * `settleSystemEventSend`'s own header: `'sent'` means a POST left and the
+   * server HAS NOT ANSWERED — *"a row that rendered 'saved' on it would be an
+   * optimistic write wearing a receipt."* Each sentence below states only what
+   * this app did, which is the part it can vouch for. Same rule, same wording
+   * shape as `FactorControllablePanel:852-858` and `EdgePanel`'s three-outcome
+   * feedback, rather than a fourth spelling of one rule.
+   *
+   * ⛔ TWO HARMS, TWO SENTENCES, NEVER ONE (CLAUDE.md trap 22b). `blocked` and
+   * `refused` mean the judgement is PROVABLY not with Olumi, so they may say so.
+   * `unverified` means it MAY be — claiming nothing was recorded there would
+   * invite the user to answer again about something already on file, which is
+   * the opposite harm. The uncertainty is stated, not resolved.
+   *
+   * ⛔ `pending` IS A THIRD STATE, NOT THE ABSENCE OF THE OTHER TWO. A settlement
+   * is always at least a microtask late, so this is the NORMAL state at the
+   * instant of the press. Falling through to a success default in that window is
+   * how the unconditional claim above survived; it has its own sentence so it
+   * cannot.
    */
-  settledAck: 'Recorded as your judgement. Olumi will stop raising this one.',
+  settleState: CONTESTED_SETTLE_STATE_COPY,
   /**
    * The provider-absent arm. `ContestedSection` renders inside
    * `PreAnalysisPanelV3`, which `ErrorBoundary.tsx:245` places BELOW the canvas
