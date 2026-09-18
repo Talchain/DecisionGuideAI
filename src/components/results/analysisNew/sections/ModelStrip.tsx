@@ -860,7 +860,7 @@ export function ModelStrip({
                   at zero, like every other tally here. */}
               {strip.needsCheckTotal > 0 ? (
                 <span
-                  className={`${typography.panelMeta} text-warning`}
+                  className={`${typography.panelMeta} text-warning-ink`}
                   data-testid={`${testId}-verify-summary`}
                 >
                   {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
@@ -967,8 +967,8 @@ export function ModelStrip({
                  status on this panel uses. `aria-pressed` above already says
                  it to assistive tech; this is the sighted half. */
               verifyActive
-                ? 'bg-warning/20 text-warning ring-1 ring-warning'
-                : 'bg-warning/10 text-warning hover:bg-warning/20'
+                ? 'bg-warning/20 text-warning-ink ring-1 ring-warning'
+                : 'bg-warning/10 text-warning-ink hover:bg-warning/20'
             }`}
             data-testid={`${testId}-verify-toggle`}
           >
@@ -1001,8 +1001,8 @@ export function ModelStrip({
             aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
             className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               noValueActive
-                ? 'bg-warning/20 text-warning ring-1 ring-warning'
-                : 'bg-warning/10 text-warning hover:bg-warning/20'
+                ? 'bg-warning/20 text-warning-ink ring-1 ring-warning'
+                : 'bg-warning/10 text-warning-ink hover:bg-warning/20'
             }`}
             data-testid={`${testId}-no-value-toggle`}
           >
@@ -1343,7 +1343,7 @@ export function ModelStrip({
                   door and the guard caught it, which is what it is for. */}
               {active.needsCheck ? (
                 <span
-                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-warning`}
+                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-warning-ink`}
                   data-testid={`${testId}-detail-verify`}
                 >
                   {UNCONFIRMED_ESTIMATE_LABEL}

@@ -106,6 +106,7 @@ export default {
         // Info / Decision / Navigation (Blue)
         info: {
           DEFAULT: 'rgb(var(--info-rgb) / <alpha-value>)',
+          ink: 'rgb(var(--info-ink-rgb) / <alpha-value>)',
           light: 'rgb(var(--info-light-rgb) / <alpha-value>)',
           hover: 'var(--info-hover)',
           active: 'var(--info-active)',
@@ -121,6 +122,7 @@ export default {
         // Warning (Orange) - Separate from Danger
         warning: {
           DEFAULT: 'rgb(var(--warning-rgb) / <alpha-value>)',
+          ink: 'rgb(var(--warning-ink-rgb) / <alpha-value>)',
           light: 'rgb(var(--warning-light-rgb) / <alpha-value>)',
           hover: 'var(--warning-hover)',
           active: 'var(--warning-active)',

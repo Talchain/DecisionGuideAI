@@ -148,7 +148,18 @@ describe('the staleness ribbon does not crush its own sentence', () => {
     expect(sentence).toBeInTheDocument()
 
     const colourOf = (el: Element) =>
-      (el.className.match(/(?:^|\s)(text-(?:info|warning|danger|success|text-[a-z-]+))(?:\s|$)/) ?? [])[1]
+      (el.className.match(
+        /**
+         * ⚠ `-ink` IS PART OF THE TOKEN NAME, NOT A MODIFIER. Without the
+         * optional group this regex matched `text-warning` inside
+         * `text-warning-ink` and then failed its trailing `\s|$`, so it
+         * returned UNDEFINED for a coloured element — and two undefineds
+         * compare EQUAL, which would have read as "the control and the
+         * sentence are the same colour" when they are not. A stale vocabulary
+         * in a discriminator does not weaken it loudly; it makes it agree.
+         */
+        /(?:^|\s)(text-(?:(?:info|warning|danger|success)(?:-ink)?|text-[a-z-]+))(?:\s|$)/,
+      ) ?? [])[1]
 
     expect(
       colourOf(control),
@@ -156,7 +167,16 @@ describe('the staleness ribbon does not crush its own sentence', () => {
         'same size and colour as the ribbon sentence, separated only by an ' +
         'underline at 11px.',
     ).toBe('text-info')
-    expect(colourOf(sentence)).toBe('text-warning')
+    /**
+     * ⭐ `text-warning` -> `text-warning-ink`, 18 Sep 2026. The PROPERTY this
+     * test pins is unchanged — the control must not wear the sentence's colour
+     * — and both atoms are still asserted by exact token so the pair keeps
+     * discriminating. Only the sentence's token moved: `--warning` as text
+     * measured 1.74:1 inside its own tint against SC 1.4.3's 4.5:1, so text
+     * sites now use the darker same-hue `--warning-ink` (4.86:1). The control
+     * is untouched and still `text-info`.
+     */
+    expect(colourOf(sentence)).toBe('text-warning-ink')
   })
 
   it('gives the sentence a real minimum width instead of permission to vanish', () => {

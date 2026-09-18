@@ -175,6 +175,10 @@
      Light shade kept for canvas node fills and selection backgrounds. */
   --info-rgb: 39 122 157;
   --info: rgb(var(--info-rgb));
+  /* See --warning-ink. Info as text on its own 6% tint measures 4.27:1. */
+  --info-ink-rgb: 36 113 146;
+  --info-ink: rgb(var(--info-ink-rgb));
+
   --info-light-rgb: 186 215 228;
   --info-light: rgb(var(--info-light-rgb));
   /* Border: rgba(39, 122, 157, 0.3) */
@@ -184,6 +188,18 @@
   --warning: rgb(var(--warning-rgb));
   --warning-light-rgb: 252 199 152;
   --warning-light: rgb(var(--warning-light-rgb));
+
+  /* ⭐ INK: THE SAME HUE, DARK ENOUGH TO BE READ AS TEXT.
+     `--warning` is a SIGNAL colour, sized for fills, borders and icons. Used as
+     TEXT on its own 10% tint it measures 1.74:1 on the deployed panel — against
+     a 4.5:1 requirement. Measured, not guessed: `bg-warning/10` over the panel
+     composites to rgb(254,241,227), and amber on that is barely a shade.
+     This is ADDITIVE. `--warning` is unchanged and its 294 call sites are
+     untouched; text sites opt in. Solved against all three grounds the panel
+     actually renders on — the 10% rest tint, the 20% active tint, and the bare
+     panel — because a colour that clears one ground can fail the next state. */
+  --warning-ink-rgb: 145 95 49;
+  --warning-ink: rgb(var(--warning-ink-rgb));
   /* Border: rgba(255, 166, 86, 0.3) */
 
   /* Border emphasis (stronger than --border-default) */
