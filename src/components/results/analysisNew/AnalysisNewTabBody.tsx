@@ -87,6 +87,7 @@ import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
 import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
+import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -1569,7 +1570,23 @@ export function AnalysisNewTabBody({
             label = 0 characters, every one). A zone label is a heading like any
             other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
             it was breaking, and the fix is the gate, not a wider ceiling. */}
-        {focusApplicableIds.length > 0 ? (
+        {/* ⛔⛔ THE GATE WIDENED, AND THE RULE IT PROTECTS IS UNCHANGED.
+            This read `focusApplicableIds.length > 0`, because the comment above
+            is right that a zone label over nothing is the defect. `Focus now`
+            now heads something on EVERY run: `MethodsYouCanRun` renders the
+            static `METHOD_CATALOGUE`, which is never empty. So the heading still
+            claims something that is under it — the gate moved, the rule did not.
+
+            ⭐ PAUL'S INSTRUCTION, 18 Sep 2026: "make it first-screen — put it in
+            ZONE: FOCUS." It was in ZONE: ALSO, below the fold. This zone renders
+            above the answer, so the methods are now the first thing under the
+            decision itself.
+
+            ⚠ THE NUDGES KEEP THEIR OWN GATE, inside. They are run-specific and
+            frequently absent; the methods are not. Two different questions, and
+            folding them into one gate is what would bring the heading-over-
+            nothing defect back. */}
+        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
           <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
@@ -1582,7 +1599,15 @@ export function AnalysisNewTabBody({
             >
               Focus now
             </p>
-            <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
+                specific to THIS model; the methods are always available. A
+                reader who has a run-specific prompt should meet it before the
+                general shelf — prominence for the shelf was the instruction,
+                not precedence over the run. */}
+            {focusApplicableIds.length > 0 ? (
+              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            ) : null}
+            <MethodsYouCanRun />
           </div>
         ) : null}
 
@@ -2291,27 +2316,6 @@ export function AnalysisNewTabBody({
           }
           onRunIntervention={runIntervention}
         />
-        {/* ── ⭐⭐⭐ THE MOVES YOU CAN MAKE YOURSELF ─────────────────────────
-            Paul's instruction, 18 Sep 2026: "Surface the Methods menu — make it
-            prominent."
-
-            ⛔ IT WAS PROMINENT NOWHERE. The same seven methods were already on
-            this tab, inside `ActionsMenu` — 671px of technique behind a 30px
-            menu trigger, mounted LAST in this zone. I found it by censusing the
-            fully-expanded panel; a reader opening the tab would not.
-
-            ⚠ PLACED AHEAD OF THE PRODUCER'S SUGGESTIONS, REVERSING THIS FILE'S
-            OWN EARLIER RULING — which said "what the run raised comes first;
-            this is the shelf for when it raised nothing". That reasoning treated
-            the methods as a FALLBACK. Paul's framing is that choosing your own
-            move is the product's purpose, not its fallback, so the order
-            follows the purpose. The producer's suggestions are directly below
-            and lost no content.
-
-            ⚠ The dropdown STAYS, further down: it also carries GLOBAL_ACTIONS
-            (re-run, edit brief), which are not methods. */}
-        <MethodsYouCanRun />
-
         <div data-testid="analysis-new-acts">
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}

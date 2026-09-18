@@ -57,32 +57,42 @@ export function MethodsYouCanRun({
       >
         Methods you can run
       </h3>
-      {/* ⚠ THE SUBTITLE IS THE WHOLE POINT OF THE SECTION, not decoration: it
-          says these do not wait to be offered. Five of the seven used to appear
-          only when the run raised a matching signal. */}
+      {/* ⚠ THE SUBTITLE IS THE POINT OF THE SECTION, not decoration: it says
+          these do not wait to be offered. Five of the seven used to appear only
+          when the run raised a matching signal, and two were unreachable. */}
       <p className={`${typography.panelMeta} text-text-light m-0 mt-0.5`}>
         Science-grounded moves you can make yourself — whether or not this run raised them.
       </p>
-      <ul className="m-0 mt-2 list-none space-y-1 p-0" data-testid={`${testId}-list`}>
+      {/* ⭐⭐ CHIPS, NOT A SEVEN-ROW LIST, AND THE REASON IS THE FOLD.
+          Paul asked for these to be first-screen (ZONE: FOCUS), which puts them
+          ABOVE the answer zone — and the answer zone alone already measures
+          721px at rest against a ~729px viewport. A row-per-method with
+          descriptions ran ~320px and would have pushed the options comparison
+          back below the fold, undoing #1673 to make room for this.
+
+          Titles alone carry the move: "Reframe the problem", "Consider the
+          opposite", "Run a pre-mortem" are each a complete instruction. The
+          description is not lost — it rides into the drawer as `context` the
+          moment a chip is pressed, which is when a reader actually needs it. */}
+      <ul className="m-0 mt-1.5 flex list-none flex-wrap gap-1 p-0" data-testid={`${testId}-list`}>
         {METHOD_CATALOGUE.map((m) => (
           <li key={m.id}>
             <button
               type="button"
               onClick={() => runMethod(m)}
-              /* ⚠ NOT AN `action()` TIER, DELIBERATELY. Every tier is
-                 `inline-flex`, which would collapse this two-line block row
-                 onto one line. The tiers describe INLINE acts; this is a list
-                 row whose whole surface is the target. Its height comes from
-                 its own content — a 12px title over an 11px description with
-                 `py-1` clears WCAG 2.2 AA's 24px without geometry spelled by
-                 hand, and it carries no `text-info`+`underline` pair, so it is
-                 not claiming a tier it does not use. */
-              className="w-full rounded-md px-2 py-1 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info" 
+              /* ⚠ NOT AN `action()` TIER. `secondary` is the visual match, but
+                 seven of them in a row would claim seven secondary acts on the
+                 panel's first screen — the emphasis every control shares is the
+                 emphasis none of them has, which `panelSurfaces` states as its
+                 own rule. These are a SHELF, so they read as one. The 24px
+                 minimum is carried explicitly because that is geometry, not
+                 emphasis, and WCAG 2.2 AA §2.5.8 applies either way. */
+              className="inline-flex min-h-[24px] items-center rounded-full border border-panel-border px-2 py-0.5 text-text-body hover:border-info hover:text-info-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
               data-testid={`${testId}-method`}
               data-method-id={m.id}
+              title={m.description}
             >
-              <span className={`${typography.panelBody} block text-text-header`}>{m.title}</span>
-              <span className={`${typography.panelMeta} block text-text-light`}>{m.description}</span>
+              <span className={typography.panelMeta}>{m.title}</span>
             </button>
           </li>
         ))}
