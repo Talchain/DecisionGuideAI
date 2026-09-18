@@ -27,7 +27,7 @@
  * `mutations/__tests__/structuralAdd.connectedAddIsDurable.spec.ts`. Neither
  * file restates the other's scope: a menu item that renders is not a save.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useMenuItems, LOCAL_SEMANTIC_CONTEXT_MENU_IDS } from '../useMenuItems'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
@@ -88,6 +88,35 @@ vi.mock('../actions', async (importOriginal) => ({
   setValueWorstCase: vi.fn(),
   setValueReset: vi.fn(),
 }))
+
+/**
+ * ⭐⭐ THE TWO KEYS, MADE VARIABLE — AND DEFAULTING TO THE REAL TABLE, WHICH IS
+ * THE WHOLE POINT OF THE SHAPE.
+ *
+ * `CanvasContextMenu.spec.tsx` asserts these items against the REAL authority
+ * values and therefore can only ever observe ONE state; it cannot show that the
+ * door SHUTS. This override exists so the negative half is assertable.
+ *
+ * ⚠ EMPTY BY DEFAULT, DELIBERATELY. With no override the getter returns
+ * `actual.CANONICAL_EDIT_AUTHORITY` unchanged, so the precondition case below
+ * reads the REAL keys rather than a fixture agreeing with itself (CLAUDE.md
+ * trap 13b — a control pinned to whatever the test just set proves nothing). A
+ * default of `'server_graph'` would have turned that case into a tautology.
+ */
+const authorityOverride: { node?: string; edge?: string } = {}
+vi.mock('../../mutations/mutationAuthority', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../mutations/mutationAuthority')>()
+  return {
+    ...actual,
+    get CANONICAL_EDIT_AUTHORITY() {
+      return {
+        ...actual.CANONICAL_EDIT_AUTHORITY,
+        ...(authorityOverride.node ? { canvasNodeAddWithServerHash: authorityOverride.node } : {}),
+        ...(authorityOverride.edge ? { canvasEdgeAddWithServerHash: authorityOverride.edge } : {}),
+      }
+    },
+  }
+})
 
 const showToast = vi.fn()
 const screenToFlowPosition = vi.fn((pos: any) => pos)
@@ -189,6 +218,11 @@ describe('the node context menu offers the connected adds', () => {
    * is why `menuIdIsAuthorised` reads the two keys in conjunction.
    */
   it('rests on TWO carriers the authority table calls server_graph', () => {
+    // ⚠ READING THE REAL TABLE, NOT A FIXTURE. Asserted rather than assumed,
+    // because an override leaking in from a sibling case would make this pass
+    // by construction and every claim resting on it worthless.
+    expect(authorityOverride.node, 'no node override may be active here').toBeUndefined()
+    expect(authorityOverride.edge, 'no edge override may be active here').toBeUndefined()
     expect(
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash),
       'the NODE half',
@@ -237,5 +271,70 @@ describe('the node context menu offers the connected adds', () => {
    */
   it.each(CONNECTED_ADD_IDS)('still offers no %s on a constraint — structural, not authority', id => {
     expect(menuFor(CONSTRAINT_TARGET).some(e => e.id === id)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE DOOR SHUTS WHEN EITHER CARRIER DOES — the guarantee that moved here
+ * out of `CanvasContextMenu.spec.tsx` on 18 Sep 2026, and the reason that move
+ * is not a weakening.
+ *
+ * That file listed these three labels in `RETIRED_LOCAL_ACTIONS`, asserting they
+ * never mount. The assertion was true and its REASON was
+ * `canvasSemanticMutations: 'disabled'` — a key that no longer governs them. Left
+ * as it was it would have kept failing; deleted outright it would have discarded
+ * a real property. **It is re-pointed: the property is now stated against the
+ * keys that DO govern them, and against both of them separately.**
+ *
+ * ⭐ A DISCRIMINATING TRIO, not a pair of happy paths. The block above proves the
+ * items mount when BOTH keys are `server_graph`. These two prove they are
+ * withheld when EITHER is not. Together they pin the CONJUNCTION:
+ *   · drop the edge conjunct → the LINK case REDs
+ *   · drop the node conjunct → the NODE case REDs
+ *   · replace `&&` with `||`  → BOTH RED
+ * A single case could not distinguish any of these from correct code.
+ *
+ * ⚠ AND THE HARM IT GUARDS IS THE ASYMMETRIC ONE. An item that mounts while its
+ * link carrier is dark would promise durability it cannot deliver — the node
+ * saved, the topology silently dropped. That is worse than never appearing,
+ * which is exactly why the old exclusion was right for as long as it lasted.
+ */
+describe('the door shuts when either carrier is unauthorised', () => {
+  afterEach(() => {
+    delete authorityOverride.node
+    delete authorityOverride.edge
+  })
+
+  it.each(CONNECTED_ADD_IDS)('withholds %s when the NODE carrier is not server_graph', id => {
+    authorityOverride.node = 'disabled'
+    expect(menuFor(FACTOR_TARGET).some(e => e.id === id)).toBe(false)
+  })
+
+  it.each(CONNECTED_ADD_IDS)('withholds %s when the LINK carrier is not server_graph', id => {
+    authorityOverride.edge = 'disabled'
+    expect(menuFor(FACTOR_TARGET).some(e => e.id === id)).toBe(false)
+  })
+
+  /**
+   * ⚠ THE CONTRAST CONTROL. Both cases above are ABSENCE claims, and an absence
+   * claim from an instrument that renders nothing proves nothing (CLAUDE.md
+   * trap 13). This asserts the override shuts THESE ids and not the menu.
+   */
+  it('withholds only the connected adds — the rest of the menu still renders', () => {
+    authorityOverride.node = 'disabled'
+    const ids = menuFor(FACTOR_TARGET).map(e => e.id)
+    expect(ids).toContain('delete')
+    expect(ids).toContain('ask-ai')
+  })
+
+  /**
+   * ⚠ AND THE OVERRIDE ITSELF IS PINNED. If the mock silently stopped taking
+   * effect, every absence above would pass for the wrong reason — the ids would
+   * be mounting and the assertions would be reading a menu nobody disabled.
+   */
+  it('the override genuinely reaches the authority the menu consults', () => {
+    authorityOverride.node = 'disabled'
+    expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)).toBe(false)
+    expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)).toBe(true)
   })
 })
