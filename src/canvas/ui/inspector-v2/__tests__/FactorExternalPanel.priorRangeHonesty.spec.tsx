@@ -758,10 +758,20 @@ describe('FactorExternalPanel — the panel now owns its own fence', () => {
     // graph. The old fragment pinned the false half of the sentence, so it
     // had to move; the ASSERTION'S PURPOSE — this pane gets its own sentence
     // rather than the option pane's — is unchanged and still discriminates.
-    // 'recorded as your judgement' appears in no other authority sentence
-    // (the option pane's is "The name saves. Other fields here are read-only
-    // for now"), so a fall-through to that arm still REDs here.
-    expect(notice).toHaveTextContent('recorded as your judgement')
+    // ⚠⚠ REPAIRED A THIRD TIME, 18 Sep 2026, AND THE DISCRIMINATOR MOVED
+    // CLAUSE. The second pass pinned 'recorded as your judgement' — which was
+    // the RANGE clause asserting an unconditional OUTCOME, exactly the defect
+    // the same pass had just removed from the NAME clause one sentence over.
+    // `setPriorRange` has three silent stand-down arms (no carrier, an
+    // inverted/non-finite pair, a failed send), so "is recorded" is false on
+    // each of them and this assertion made that false sentence load-bearing.
+    //
+    // ⭐ WHAT REPLACES IT IS STILL THE PANE DISCRIMINATOR, AND THE ONLY ONE
+    // LEFT. The range clause is the sole fragment unique to this arm: the
+    // rename clause is now shared verbatim by all four notice arms
+    // (`RENAME_AUTHORITY_CLAUSE`), deliberately, so it can no longer tell this
+    // pane from the option pane. A fall-through to any other arm REDs here.
+    expect(notice).toHaveTextContent('a judgement for Olumi, not an edit to the shared model')
     expect(notice).not.toHaveTextContent("can't yet be saved")
     expect(notice).not.toHaveTextContent('the range save')
     // ⛔ UNRUN AS COMMITTED — the two assertions below were never executed by
@@ -786,15 +796,24 @@ describe('FactorExternalPanel — the panel now owns its own fence', () => {
     // ⭐ WHAT REPLACES IT ASSERTS ONLY WHAT CAN BE SUPPORTED: that the notice
     // states a CONDITION on the name rather than an outcome. This is a
     // positive assertion about the conditional framing, not about a save.
+    //
+    // ⚠ IT IS NO LONGER A PANE DISCRIMINATOR, AND SAYING SO IS THE POINT. As of
+    // the third pass all four arms carry this clause from one constant, so it
+    // pins the rename claim's TRUTH and nothing about WHICH arm rendered.
+    // Reading it as evidence of the right arm would be trap 19 — an assertion
+    // satisfied by an object other than the one it was written for. The line
+    // above is what binds the arm.
     expect(notice).toHaveTextContent('only for elements the model already holds')
-    // ⛔ AND THE UNCONDITIONAL CLAIM MUST NOT COME BACK. Deliberately spelled
-    // WITHOUT the leading capital so it also catches
-    // `INSPECTOR_READ_ONLY_REASON` ("— the name saves to the shared model"),
-    // which is the arm the Router's ternary falls through to. One negative,
-    // two regressions caught: the copy reverting, and the panel losing its own
-    // arm. Its positive control is the `toHaveTextContent` pair above — they
-    // prove the notice rendered and that this is the external arm, so this
-    // negative cannot pass by matching nothing (trap 13).
+    // ⛔ AND THE UNCONDITIONAL CLAIM MUST NOT COME BACK, IN ANY ARM. Spelled
+    // WITHOUT the leading capital so it catches every wording the four arms
+    // have shipped. ⚠ Its scope narrowed with the third pass: it used to be
+    // justified as catching a fall-through to `INSPECTOR_READ_ONLY_REASON`,
+    // which no longer contains the phrase, so it is now a REVERT guard only —
+    // the arm-binding duty has moved to the range-clause assertion above.
+    // Stating the narrowing rather than leaving the old justification in place
+    // is what stops the next reader inheriting a discrimination this line does
+    // not make. Its positive control is the pair above, so it cannot pass by
+    // matching nothing (trap 13).
     expect(notice).not.toHaveTextContent('name saves to the shared model')
   })
 })
