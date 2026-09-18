@@ -61,6 +61,16 @@ type WireNode = { id: string; kind?: string; label: string; provenance?: string;
 
 const optionsOf = (nodes: readonly WireNode[]) => nodes.filter((n) => n.kind === 'option')
 
+/**
+ * Binds a mark to WHICH QUESTION it answers, by `data-provenance-claim`, rather
+ * than to its position — with two marks possible, position is not identity
+ * (trap 19).
+ */
+const marksFor = (claim: 'node' | 'value') =>
+  screen
+    .queryAllByTestId('node-provenance-mark')
+    .filter((el) => el.getAttribute('data-provenance-claim') === claim)
+
 const pollOptions = optionsOf((poll as { graph: { nodes: WireNode[] } }).graph.nodes)
 
 /**
@@ -163,6 +173,113 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
     expect(el).not.toBeNull()
     // The VALUE vocabulary, not the structural one, and not silence.
     expect(el!.getAttribute('aria-label')).not.toBe(OLUMI_CLAIM)
+  })
+
+  /**
+   * ⛔⛔⛔ THE TWIN THAT THE FIXTURE ABOVE CANNOT REACH — AND THE REGRESSION IT CAUGHT.
+   *
+   * `valuedFactorWithAmbiguousPair` carries NO `observed_state.source`, so
+   * `classifyValueProvenance` returns `null`, the two-mark disagreement branch
+   * is never entered, and the card falls to the single-mark path. Every
+   * assertion above is therefore silent about what happens when a value source
+   * IS present — the class the two-mark change (18 Sep) newly admits.
+   *
+   * ⛔ THE CORPUS SHARED THE CODE'S BLIND SPOT (CLAUDE.md trap 13d/22b). Adding
+   * one field to the very same node makes the card render **"Olumi suggested
+   * this"** over the user's own words — the exact sentence this whole spec file
+   * exists to keep off a user's own node, re-opened by a change whose own tests
+   * were all green.
+   *
+   * ⚠ WHY THE GATE MUST BE ASKED HERE AND NOT ONLY IN `nodeProvenanceClaim`.
+   * That gate reads `if (claim === 'structural' && …)`, and its premise —
+   * written down in its own docblock — is that *a valued factor never makes a
+   * structural claim*. The disagreement branch breaks that premise: it makes a
+   * STRUCTURAL claim on a node whose `claim` is `'value'`, so the gate is
+   * bypassed by construction. The mark must ask the owning predicate itself.
+   *
+   * ⭐ THE VALUE MARK MUST SURVIVE. "From brief" is a true statement about the
+   * NUMBER and the quote says nothing about it; silencing both would be the
+   * over-suppression this file's last block exists to forbid.
+   */
+  const ambiguousPairWithABriefSourcedNumber = {
+    ...valuedFactorWithAmbiguousPair,
+    observed_state: { value: 0.04, source: 'brief_extraction' },
+  }
+
+  it('⛔ a BRIEF-SOURCED number does not license claiming the ELEMENT as Olumi\'s', () => {
+    const { data } = mapDraftNodeToCanvas(ambiguousPairWithABriefSourcedNumber)
+    // Preconditions pinned in-test, so a pass cannot be the fixture failing to
+    // reach the branch (trap 13b) — this is precisely how the twin above missed it.
+    expect(data.provenance).toBe('ai_inferred')
+    expect(data.source_quote).toBeDefined()
+    expect((data.observedState as { source?: string }).source).toBe('brief_extraction')
+
+    render(<NodeProvenanceMark nodeType="factor" data={data} />)
+
+    // ⛔ The product must not take credit for the user's own thinking.
+    expect(
+      screen.queryByLabelText(OLUMI_CLAIM),
+      'the card claimed the user\'s own element as Olumi\'s',
+    ).toBeNull()
+    expect(marksFor('node'), 'an authorship mark rendered on an ambiguous node').toHaveLength(0)
+
+    // ⭐ …and the true fact about the NUMBER is still told.
+    const valueMarks = marksFor('value')
+    expect(valueMarks, 'the number\'s own provenance went silent').toHaveLength(1)
+    expect(valueMarks[0].getAttribute('aria-label')).toContain('brief')
+  })
+
+  /**
+   * ⛔ THE DISCRIMINATING TWIN. Identical node, quote REMOVED — a genuine Olumi
+   * invention whose number came out of the brief. Both marks must render, so the
+   * fix above is proven to suppress the AMBIGUOUS case specifically and not to
+   * have simply disabled the two-mark branch.
+   */
+  it('⭐ the same node WITHOUT a quote is a real invention and still gets BOTH marks', () => {
+    const { source_quote: _dropped, ...genuineInvention } = ambiguousPairWithABriefSourcedNumber
+    const { data } = mapDraftNodeToCanvas(genuineInvention)
+    expect(data.source_quote).toBeUndefined()
+
+    render(<NodeProvenanceMark nodeType="factor" data={data} />)
+    expect(screen.queryByLabelText(OLUMI_CLAIM)).not.toBeNull()
+    expect(marksFor('node')).toHaveLength(1)
+    expect(marksFor('value')).toHaveLength(1)
+  })
+
+  /**
+   * ⛔⛔ THE THIRD STATE, AND THE REASON THE PREDICATE IS THE ONE IT IS.
+   *
+   * `olumiAuthorshipClaim` states outright that `olumiAuthorshipIsAmbiguous` and
+   * `mayClaimOlumiAuthorship` are NOT negations: there are three states, and
+   * BOTH are false for `from_brief`. A mark gated on `mayClaimOlumiAuthorship`
+   * would therefore silence **"From your brief"** — a true disclosure the user
+   * wants — while passing every other test in this file.
+   *
+   * ⭐ THAT DISTINCTION WAS A COMMENT UNTIL THIS TEST. A sentence in a docblock
+   * asserting which of two same-shaped predicates is correct is exactly the
+   * claim nobody re-checks (CLAUDE.md trap 13b/21), and swapping them is a
+   * one-word edit. This is the case that REDs when someone makes it.
+   */
+  const briefAuthoredElementWithAnEditedNumber = {
+    id: 'f2',
+    kind: 'factor',
+    label: 'Churn rate',
+    provenance: 'from_brief',
+    observed_state: { value: 0.04, source: 'user_override' },
+  }
+
+  it('⭐ a brief-authored element with an edited number keeps BOTH true facts', () => {
+    const { data } = mapDraftNodeToCanvas(briefAuthoredElementWithAnEditedNumber)
+    // Neither authorship predicate is true here — that is the whole point.
+    expect(data.source_quote).toBeUndefined()
+    expect(data.provenance).toBe('from_brief')
+
+    render(<NodeProvenanceMark nodeType="factor" data={data} />)
+    expect(
+      marksFor('node'),
+      'the brief-authorship disclosure was silenced — mayClaimOlumiAuthorship is the WRONG gate here',
+    ).toHaveLength(1)
+    expect(marksFor('value')).toHaveLength(1)
   })
 
   it('the same factor WITHOUT a value falls to structural, and is then gated', () => {

@@ -1,6 +1,7 @@
 import { classifyNodeProvenance, classifyValueProvenance } from '../../domain/valueProvenance'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 import { nodeProvenanceClaim, provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
+import { olumiAuthorshipIsAmbiguous } from '../../domain/olumiAuthorshipClaim'
 import type { NodeType } from '../../domain/nodes'
 import {
   VALUE_PROVENANCE_ICON,
@@ -269,7 +270,45 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
     // load-bearing; neither half is sufficient.
     !(nodeAuthorship.userOwned && valueProvenance.userOwned)
 
-  if (disagree) {
+  /**
+   * ⛔⛔⛔ MAY THE PRODUCT CLAIM THIS ELEMENT AS ITS OWN? A SECOND QUESTION, ASKED
+   * SEPARATELY — AND WITHOUT IT THIS BRANCH RE-OPENED THE DEFECT IT SITS BESIDE.
+   *
+   * `nodeProvenanceClaim` applies `olumiAuthorshipIsAmbiguous` and its guard
+   * reads `if (claim === 'structural' && …)`. That scope is correct and its
+   * docblock states the premise it rests on: *"a valued factor is untouched
+   * here"* — a node making a VALUE claim was never going to make a structural
+   * one, so the gate had nothing to do there.
+   *
+   * ⚠ THE BRANCH ABOVE BREAKS THAT PREMISE. It makes a STRUCTURAL claim on a
+   * node whose `claim` is `'value'`, so the authorship gate is bypassed BY
+   * CONSTRUCTION — not by an oversight anywhere in the gate. A factor arriving
+   * `ai_inferred` beside the user's own `source_quote`, with a number sourced
+   * from the brief, rendered **"Olumi suggested this"** over the user's own
+   * thinking: the exact harm `olumiAuthorshipClaim` was written to end, on the
+   * surface every user meets first, re-opened one file away from the fix.
+   *
+   * ⭐ ASKED OF THE SHARED OWNER, NOT RE-IMPLEMENTED. A fourth copy of the
+   * predicate is the hand-maintained mirror that produced three disagreeing
+   * readers in the first place (CLAUDE.md trap 12) — this is the same call
+   * `nodeProvenanceClaim` makes, so the two cannot drift.
+   *
+   * ⚠ AND IT IS `olumiAuthorshipIsAmbiguous`, NOT `!mayClaimOlumiAuthorship`.
+   * Those are not negations — there are THREE states, and `mayClaim…` is FALSE
+   * for `from_brief` too. Using it would silence "From your brief", a true and
+   * wanted disclosure, which is the over-suppression the value branch below
+   * exists to forbid.
+   *
+   * ⭐ THE VALUE MARK IS UNAFFECTED, DELIBERATELY. A quote about the ELEMENT
+   * says nothing about a NUMBER, so suppressing "From brief" here would be the
+   * one-field-two-questions conflation this component argues against, applied in
+   * the opposite direction. Where authorship is unclaimable the card falls
+   * through to the single value mark — byte-identical to its behaviour before
+   * the two-mark branch existed.
+   */
+  const authorshipIsClaimable = !olumiAuthorshipIsAmbiguous(data)
+
+  if (disagree && authorshipIsClaimable) {
     return (
       <>
         {renderMark(provenanceClaimLabel('structural', nodeAuthorship.kind), nodeAuthorship.kind, 'node')}
