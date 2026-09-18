@@ -295,14 +295,44 @@ export function weightMagnitudeToStrokeWidth(signedMean: number): number {
  * ⚠ WHAT IT DELIBERATELY CANNOT DO. The half-width FLOORS at
  * `UNCERTAINTY_BAND_MIN_HALF_WIDTH`, so every stated uncertainty draws a
  * visible ribbon however tight it is. Measured consequence, stated rather than
- * hidden: across the 79-edge census (`strengthStd` 0.01–0.22) every edge below
- * std ≈ 0.042 renders at the same floor and is NOT separable from its
- * neighbours. That is the deliberate trade — the alternative is a sub-pixel
- * ribbon, which makes "tight uncertainty" pixel-identical to "nobody said",
- * and this codebase has already paid once for exactly that collision (see
+ * hidden: every `strengthStd` below
+ * `UNCERTAINTY_BAND_MIN_HALF_WIDTH / UNCERTAINTY_BAND_SCALE` renders at the same
+ * floor and is NOT separable from its neighbours, and the 79-edge census puts
+ * the observed spread at 0.01–0.22, so that cut sits inside the live range
+ * rather than below it. That is the deliberate trade — the alternative is a
+ * sub-pixel ribbon, which makes "tight uncertainty" pixel-identical to "nobody
+ * said", and this codebase has already paid once for exactly that collision (see
  * `UNSET_EDGE_STROKE_WIDTH` above, where an unset strength rendered identically
  * to a stated weak one). PRESENCE of the band answers *did anyone say?*; WIDTH
  * answers *how much?*, and only above the floor.
+ *
+ * ⚠⚠ THE NUMBER THAT USED TO SIT ON THAT LINE IS DELETED, NOT UPDATED. It read
+ * *"every edge below std ≈ 0.042"* and matched the constants on NEITHER side of
+ * this change: with the 2/3/4 ladder on `staging` the floor is 3 and the cut is
+ * 3/48 = 0.0625; with the ladder below it is 3.5 and the cut is 3.5/48 ≈ 0.0729.
+ * A literal beside a derived constant is the hand-maintained mirror trap 12
+ * bans, and re-typing it in the five-rung form would only re-arm it — the
+ * expression above cannot drift, because it IS the two constants.
+ *
+ * ⛔⛔ AND THE FIVE-RUNG STROKE LADDER MOVED THIS FLOOR — a consequence on a
+ * channel the strength-vocabulary work does not otherwise touch, established at
+ * the bytes and stated here rather than left to be discovered (18 Sep 2026).
+ * A fifth rung raises the thickest line from 4 to 5, so the derivation raises
+ * the floor from 3 to 3.5 and the band of INDISTINGUISHABLE spreads widens from
+ * `std < 0.0625` to `std < 0.0729` — one sixth wider, inside the census range,
+ * on the one channel that tells an assessed edge from an unassessed one.
+ *
+ * ⛔ THE FLOOR IS NOT RESTORED TO 3, and the reason is the invariant rather than
+ * inertia. A `veryStrong` line is 5 wide, i.e. 2.5 either side of the path; a
+ * floor of 3 leaves the ribbon HALF a graph unit clear of it, at which point the
+ * ribbon stops reading as spread AROUND the line and starts reading as the line
+ * having got fatter — the precise confusion this floor exists to prevent, and
+ * the same collision `UNSET_EDGE_STROKE_WIDTH` was widened to remove one channel
+ * along. Pinning the floor at 3 would also make it a LITERAL again, which is
+ * what went wrong here in the first place. ⚠ What was defective was leaving the
+ * consequence unstated, not the arithmetic: `uncertaintyBandProvenance.spec.ts`
+ * now pins the clearance as EXACTLY one graph unit, so a literal re-pinned here
+ * REDs instead of quietly halving it.
  */
 export const UNCERTAINTY_BAND_SCALE = 48
 

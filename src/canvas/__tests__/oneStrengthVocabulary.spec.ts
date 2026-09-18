@@ -5,7 +5,8 @@
  * ── WHAT WAS WRONG, MEASURED AT THE BYTES ON `eb7211d7` ────────────────────
  *
  * FOUR MOUNTED tables over `|mean|`, all disagreeing — and the word MOUNTED is
- * doing the work, because this is not a count of the tables that exist:
+ * doing the work, because this is not a count of the tables that exist. ⚠ Nor
+ * is MOUNTED the same as RENDERED, which is the correction below:
  *
  *   `domain/vocabulary.getStrengthLabel`        4 words · cuts 0.70/0.40/0.20
  *   `utils/graphDisplayCalculations`            3 widths · cuts 0.70/0.40
@@ -23,15 +24,33 @@
  * exists to abolish (CLAUDE.md trap 20 — the over-read happens in the act of
  * RECORDING, and a number in a comment is what the next lane inherits).
  *
- * What a user saw. In ONE panel — `EdgePanel` renders the band pills and the
- * strength slider together — `|0.15|` lit the **Slight** pill above the words
- * **"Moderate effect."**, and at exactly `0.40` and exactly `0.70` the two
- * INVERTED, because the coaching cuts were inclusive upwards against the
- * contract's inclusive downwards. On the board, the legend taught **"Weak
- * effect"** — a word printed nowhere else in the product — for a thickness the
- * canvas drew for every `|mean| < 0.40`, i.e. for *Slight* and *Moderate*
- * edges alike, so two different findings were pixel-identical on the one
- * channel that key teaches the reader to read as strength.
+ * ⛔⛔ WHAT A USER SAW, AND WHAT THEY DID NOT — corrected 18 Sep 2026 after the
+ * claim was measured rather than read. An earlier draft of this header said the
+ * band pills and the coaching sentence disagreed side by side in `EdgePanel`.
+ * **The sentence is DARK**: `getEffectSizeCoaching`'s only non-test call site,
+ * `SignedStrengthSlider.tsx:84`, discards the result (its JSX ends on *"Value
+ * display and coaching nudge removed"*, and the repo's CI typecheck baseline
+ * names the dead local, `TS6133 'effectCoaching'`). Contrast control in the
+ * same sweep: `getConfidenceCoaching` IS rendered at `EdgeInspector.tsx:447`.
+ * A rendering claim derived from the tree is the estate's chronic failure 1,
+ * and this file is where the next lane would have inherited it.
+ *
+ * RENDERED, and the reason this change is worth shipping: the legend taught
+ * **"Weak effect"** — a word printed nowhere else in the product — for a
+ * thickness the canvas drew for every `|mean| < 0.40`, i.e. for *Slight* and
+ * *Moderate* edges alike, so two different findings were pixel-identical on the
+ * one channel that key teaches the reader to read as strength. The words
+ * themselves reach the chip, `ConnectionRow`, `InfluenceIndicator` and the band
+ * pills.
+ *
+ * DARK, so it is a code defect this closes before it can ever be a user one:
+ * the coaching sentence, whose cuts were inclusive upwards against the
+ * contract's inclusive downwards and therefore INVERTED against the pills'
+ * table at exactly `0.40` and exactly `0.70`.
+ *
+ * ⚠ The assertions below are unaffected either way — they are over PURE
+ * FUNCTIONS, and a function's return value is the same whether or not a
+ * component prints it. What changes is the CLAIM, and only the claim.
  *
  * ── WHAT THIS FILE PINS, AND WHAT IT DELIBERATELY DOES NOT ─────────────────
  *

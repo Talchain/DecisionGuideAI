@@ -309,7 +309,9 @@ export function statedFactorCategoryLabel(category: unknown, inferredByUi: unkno
  * WHAT THIS REPLACED, AND THE QUESTION EACH OF THE FOUR TABLES ANSWERED. Trap
  * 21 says to write the questions down BEFORE reconciling, because two
  * authorities answering DIFFERENT questions must be named apart rather than
- * aligned. Four were live over `|mean|`, all mounted:
+ * aligned. Four were live over `|mean|` — three of them RENDERED and the fourth
+ * computed-and-discarded, a distinction the next block draws because an earlier
+ * draft of this one collapsed it:
  *
  *   1. `getStrengthLabel` (here)            "what ADJECTIVE is this magnitude
  *                                            entitled to?"   4 words, cuts
@@ -329,16 +331,40 @@ export function statedFactorCategoryLabel(category: unknown, inferredByUi: unkno
  * rungs, so (2) gained a fourth rung rather than (3) being taught to hedge.
  * See `graphDisplayCalculations.ts` for that decision in full.
  *
- * WHAT A USER SAW BEFORE. In ONE panel — `EdgePanel` renders the band pills and
- * the strength slider together — dragging to `|0.15|` lit the **Slight** pill
- * while the line under it read **"Moderate effect."**; `|0.95|` lit **Very
- * strong** under the words **"Near-total effect."**; and the two tables
- * INVERTED at their shared boundaries, because (4)'s were inclusive upwards:
- * exactly `0.40` was "Moderate effect." beside a lit **Strong** pill, and
- * exactly `0.70` was "Strong effect." beside a lit **Very strong** pill. On the
- * board, the legend taught **"Weak effect"** — a word the product prints
- * nowhere else — for a thickness the canvas draws for every `|mean| < 0.40`,
- * i.e. for BOTH *Slight* and *Moderate* edges at once.
+ * ⚠⚠ WHICH OF THE FOUR A USER COULD ACTUALLY SEE — CORRECTED 18 Sep 2026, AND
+ * THE CORRECTION IS THE POINT. An earlier draft of this block opened *"WHAT A
+ * USER SAW BEFORE"* and described the band pills and the coaching sentence
+ * disagreeing side by side in `EdgePanel`. **That was a claim about the
+ * deployed product derived by reading the tree, and it is false.** (4)'s
+ * sentence is DARK: `getEffectSizeCoaching` has exactly one non-test call site,
+ * `SignedStrengthSlider.tsx:84`, and that component discards the result — its
+ * JSX ends on *"Value display and coaching nudge removed"*, and the repo's own
+ * `scripts/ci/typecheck-baseline-identities.txt` carries the dead local as
+ * `TS6133 'effectCoaching' is declared but its value is never read`. Contrast
+ * control on the same sweep: the sibling `getConfidenceCoaching` IS rendered
+ * (`EdgeInspector.tsx:447`), so the zero is the code's and not the probe's.
+ * CLAUDE.md chronic failure 1 and trap 20 in one sentence — the over-read
+ * happened in the act of RECORDING, in the file every later lane inherits.
+ *
+ * ── RENDERED, so these were user-visible ───────────────────────────────────
+ *   · (3) the legend taught **"Weak effect"** — a word the product prints
+ *     nowhere else — for a thickness the canvas drew for every `|mean| < 0.40`,
+ *     i.e. for BOTH *Slight* and *Moderate* edges at once. Two different
+ *     findings, pixel-identical on the channel that key teaches as strength.
+ *   · (1)'s words reach the board and the panel: the edge chip
+ *     (`edgeLabels.describeEdge`), `ConnectionRow`, `InfluenceIndicator` and
+ *     the band pills (`StrengthBandButtons`, which also WRITE the midpoint).
+ *   · (2) is the picture itself.
+ *
+ * ── DARK, so this half is a code defect and not yet a user defect ──────────
+ *   · (4) the coaching sentence. The divergence was real between the
+ *     FUNCTIONS — at `|0.15|` the pills' table said *Slight* where it said
+ *     *"Moderate effect."*, and the two INVERTED at their shared boundaries
+ *     because (4)'s cuts were inclusive upwards (`0.40` → "Moderate effect."
+ *     against a *Strong* pill; `0.70` → "Strong effect." against *Very
+ *     strong*). Nobody was shown it. Reconciling a dark vocabulary is still
+ *     right — it cannot re-open when it is lit — but it is CODE EXISTS +
+ *     TESTED on the status ladder, never "what a user saw".
  *
  * ⚠ THE THRESHOLDS ARE THE CONTRACT'S, NOT THIS FILE'S — unchanged by the
  * consolidation. They come from `validation_ui_data_contract_v1.1` and are
@@ -502,6 +528,18 @@ export function getStrengthLabel(absValue: number): string {
  *   `ContestedEdgeCard.tsx` and `ModelRowView.tsx`. It answers the DIRECTIONAL
  *   question. Trap 21: two authorities answering different questions are named
  *   apart, never aligned.
+ *
+ *   ⚠ ONE LATENT SEAM BETWEEN IT AND THIS TABLE, RECORDED SO IT IS NOT
+ *   REDISCOVERED AS A SURPRISE. `ContestedEdgeCard` renders the SHARED
+ *   `ui/inspector/SignedStrengthSlider` (`:396`) seeded from
+ *   `validation.pass1.strength_mean` — the number the card itself labels on the
+ *   directional cuts. The slider asks `getEffectSizeCoaching`, which now speaks
+ *   THIS table. The sentence is dark, so nothing renders twice today; light it
+ *   and that card shows one number under two strength words (`|0.5|` →
+ *   *"Moderate positive effect"* beside *"Strong effect."*). The disagreement
+ *   pre-dates this consolidation — the old ladder said *"Strong effect."* at
+ *   the same value — so it is inherited, not minted here. Full note and the
+ *   two ways out: `ui/inspector/coachingText.ts`.
  *
  * ── EXCLUDED, WITH THE REASON, so the next sweep does not re-adjudicate ─────
  *
