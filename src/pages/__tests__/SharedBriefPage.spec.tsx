@@ -538,4 +538,131 @@ describe('SharedBriefPage', () => {
     expect(await screen.findByText('Failed to load this decision')).toBeInTheDocument()
     expect(screen.getByText('network down')).toBeInTheDocument()
   })
+
+/**
+ * COLLAB — the recipient can tell a panel answer from the sender's own number.
+ *
+ * ⭐ THE SHAPE IS THE PRODUCER'S, READ OFF PERSISTED PRODUCTION ROWS, NOT INVENTED.
+ * CEE stamps it in `factor-value-edit.ts:369-383` (staging 01684837) when the
+ * owner applies a panellist's value, and every id in the stamp is taken from the
+ * COLLAB STORE rather than from the client's claim, so a weakened lookup shows up
+ * as an ABSENT stamp and never as a forged one:
+ *
+ *   "observed_state": { "value": 0.85, "source": "panel_elicited",
+ *                       "raw_value": 0.85,
+ *                       "elicited_from": { "round_id": …, "participant_id": …,
+ *                                          "evidence_event_id": … } }
+ *
+ * Read verbatim from `scenarios.graph` at the deployed database, 18 Sep 2026
+ * (scenario 8514e46b). `createSharedSnapshot` passes that same server-held graph
+ * as `p_graph`, so the stamp already rides to the recipient untouched — the page
+ * was simply dropping it.
+ *
+ * ⛔ WHY THE COPY SAYS "THE TEAM" AND NOT "A COLLEAGUE" — this is a correctness
+ * property, not a tone preference. THE OWNER CAN BE A PANELLIST IN THEIR OWN
+ * ROUND: `rounds-service.ts:154-172` looks for the closing owner on the roster
+ * and REFUSES the close until they have answered or declined, because "seeing
+ * the others first would anchor it". So `participant_id` may name the sender,
+ * and any wording that excludes them ("a colleague's estimate", "a teammate
+ * supplied this") is FALSE on a designed, reachable arm. "The team" includes the
+ * sender; the narrower words do not.
+ *
+ * ⛔ AND WHAT IT MUST NEVER GROW INTO: a consensus claim. The stamp records that
+ * ONE panellist's value was applied. It says nothing about agreement, and
+ * `DisagreementBody`'s header bans exactly this ("no mean, no midpoint, no
+ * 'recommended', no consensus line") one surface away. This mark states
+ * PROVENANCE only.
+ */
+describe('a value that came from a panel', () => {
+  const NODES = [
+    {
+      id: 'f-panel',
+      kind: 'factor',
+      label: 'Churn risk after a price rise',
+      display_value: '0.85',
+      observed_state: {
+        value: 0.85,
+        source: 'panel_elicited',
+        raw_value: 0.85,
+        elicited_from: {
+          round_id: '53f37a3c-a384-45ac-96a2-895dedb32cc0',
+          participant_id: '7186723c-4a31-4671-ac8c-6b51ab798989',
+          evidence_event_id: '882ff08c-9d80-4ff5-bc28-7c435aba6de5',
+        },
+      },
+    },
+    {
+      id: 'f-own',
+      kind: 'factor',
+      label: 'Local demand',
+      display_value: '+12% YoY',
+      observed_state: { value: 0.12, source: 'user_set', raw_value: 0.12 },
+    },
+    { id: 'f-bare', kind: 'factor', label: 'Supplier lead time', display_value: '6 weeks' },
+  ]
+
+  function renderWithNodes() {
+    mockGetSharedSnapshotBySlug.mockResolvedValue({
+      ...SNAPSHOT,
+      graph: { nodes: NODES, edges: [] },
+    })
+    renderPage()
+  }
+
+  /** The list item for one node, found BY ITS LABEL — never by a value predicate
+   *  another node could satisfy (trap 19). */
+  async function itemFor(label: string): Promise<HTMLElement> {
+    const model = await screen.findByTestId('shared-snapshot-model')
+    const name = within(model).getByText(label)
+    const li = name.closest('li')
+    if (li === null) throw new Error(`no list item for ${label}`)
+    return li as HTMLElement
+  }
+
+  it('marks the panel-elicited factor, on that factor', async () => {
+    renderWithNodes()
+    const item = await itemFor('Churn risk after a price rise')
+    expect(within(item).getByText('From the team')).toBeInTheDocument()
+  })
+
+  it('leaves the sender’s own factor unmarked — the discriminating twin', async () => {
+    renderWithNodes()
+    const item = await itemFor('Local demand')
+    expect(within(item).queryByText('From the team')).not.toBeInTheDocument()
+  })
+
+  it('leaves a factor with no observed_state at all unmarked', async () => {
+    renderWithNodes()
+    const item = await itemFor('Supplier lead time')
+    expect(within(item).queryByText('From the team')).not.toBeInTheDocument()
+  })
+
+  it('marks exactly one of the three factors — the mark is not painted on everything', async () => {
+    renderWithNodes()
+    await screen.findByTestId('shared-snapshot-model')
+    expect(screen.getAllByText('From the team')).toHaveLength(1)
+  })
+
+  it('never leaks the ids inside the stamp to an anonymous reader', async () => {
+    renderWithNodes()
+    await screen.findByTestId('shared-snapshot-model')
+    expect(screen.queryByText(/53f37a3c/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/7186723c/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/882ff08c/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/panel_elicited/)).not.toBeInTheDocument()
+  })
+
+  it('states provenance only — no consensus, agreement or averaging claim', async () => {
+    renderWithNodes()
+    const item = await itemFor('Churn risk after a price rise')
+    expect(item.textContent ?? '').not.toMatch(/agree|consensus|average|mean|recommend|majority/i)
+  })
+
+  it('still shows the value the sender saw, unchanged by the mark', async () => {
+    renderWithNodes()
+    const item = await itemFor('Churn risk after a price rise')
+    expect(within(item).getByText('0.85')).toBeInTheDocument()
+  })
+})
+
 })
