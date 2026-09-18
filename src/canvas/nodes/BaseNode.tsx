@@ -47,6 +47,11 @@ import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { useReadinessStore, selectOptionExclusionMessage } from '../stores/readinessStore'
+import {
+  isRetainedExcludedFromAnalysis,
+  UNFINISHED_CONTRIBUTION_COPY,
+  UNFINISHED_CONTRIBUTION_TEST_ID,
+} from './shared/analysisParticipation'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NODE_QUICK_ACTION_BAND_PX, CANVAS_CORNER_STACK_CLASSES } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
@@ -509,6 +514,40 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // factor whose id somehow collided would otherwise inherit an option's
   // exclusion — bound to the node type here rather than trusting id spaces.
   const isExcludedFromAnalysis = nodeType === 'option' && exclusionMessage !== null
+
+  /**
+   * ⭐⭐ DID THE CALCULATION COUNT THIS NODE? — A THIRD QUESTION, NAMED APART
+   * FROM THE OTHER TWO RATHER THAN FOLDED INTO EITHER.
+   *
+   * The three above/below are genuinely distinct facts and this file already
+   * pays for confusing two of them once:
+   *   · `isIncomplete`            — *has the user set values on this?*
+   *   · `isExcludedFromAnalysis`  — *will the RUN proceed without this OPTION?*
+   *     (CEE's PRE-run readiness verdict, option-scoped, stale-gated)
+   *   · this                      — *did the analysis you are looking at leave
+   *     this node OUT of the calculation while keeping it in the model?*
+   *     (CEE's stamp on the graph node itself, any node type)
+   *
+   * Reconciling them would be CLAUDE.md trap 21 — two authorities answering
+   * different questions look like an inconsistency and aligning them is the
+   * wrong fix. So each keeps its own predicate and they queue in one slot.
+   *
+   * ⛔ READ, NEVER DERIVED. There is no edge count, no connectivity test and no
+   * completeness test in this line. *"Not connected"* and *"excluded from this
+   * calculation"* are different facts and CEE owns the second; the canvas is
+   * not entitled to infer it. `isRetainedExcludedFromAnalysis` is a positive
+   * equality against the one licensed value — see that module's header for why
+   * a `!== 'included'` negation would stamp this claim on all 182,015 unstamped
+   * nodes.
+   *
+   * ⚠ INERT AT THIS TIP, DELIBERATELY. Nothing emits `analysis_participation`
+   * yet (swept with a contrast control at `eb7211d7`), so this reads `false` on
+   * every reachable node and the rendered output is byte-identical to before.
+   * The consumer ships READY: the claim appears the day CEE's emitter lands,
+   * with no further UI change. It is not gated on a flag, because a flag would
+   * be a second thing to remember to turn on — the producer's stamp IS the gate.
+   */
+  const isRetainedExcluded = isRetainedExcludedFromAnalysis(data)
 
   const isIncomplete = (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
@@ -1395,6 +1434,38 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             title={exclusionMessage !== null && exclusionMessage !== ''
               ? exclusionMessage
               : 'The analysis will run without this option'}
+          />
+        ) : isRetainedExcluded ? (
+          /* ⭐ A THIRD ARM OF THE SAME TERNARY — NOT A FOURTH CHILD OF THE STACK.
+             `BaseNode.cornerStack.spec.tsx` pins this container at three
+             children, and that pin is a deliberate layout constraint rather
+             than an accident. Joining the existing chain REPLACES rather than
+             stacks, so the child count is unchanged and no measurement anyone
+             took in a browser is invalidated by this change.
+
+             PRECEDENCE, and each position is argued rather than inherited:
+             · BELOW the readiness exclusion, which is untouched. That pill is
+               shipped, measured and reasoned about at length above; an inert
+               new claim does not get to reorder a live one on the strength of
+               an argument nobody has run the product against. On an option
+               where both could fire, the user keeps exactly what they see today.
+             · ABOVE `isIncomplete`, for the reason the block above already
+               gives for the exclusion pill: it states the CONSEQUENCE rather
+               than the cause. "Needs input" tells a user something is missing;
+               this tells them what that cost them — the calculation went ahead
+               without the node. The stronger claim subsumes the weaker, and it
+               carries the weaker inside it ("Unfinished").
+
+             ⚠ ONE STRING IN BOTH SLOTS, DELIBERATELY. `StatusPill` reuses
+             `title` as `aria-label`, so label and title identical means the
+             screen-reader user and the sighted user receive the SAME sentence —
+             the founder's ruled wording, whole. A shortened label with the full
+             sentence in the tooltip would give them different claims, and the
+             shorter of the two would be one the UI authored. */
+          <StatusPill
+            testId={UNFINISHED_CONTRIBUTION_TEST_ID}
+            label={UNFINISHED_CONTRIBUTION_COPY}
+            title={UNFINISHED_CONTRIBUTION_COPY}
           />
         ) : isIncomplete ? (
           <StatusPill
