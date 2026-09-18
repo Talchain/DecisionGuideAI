@@ -202,10 +202,55 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
 //     trap 21 inverted. It is put to Paul on the PR as the only COMPLETE fix.
 // So the caption stays true of both causes and the swatch stays an exemplar of
 // one. An under-illustration is a gap; a narrowed caption would be a lie.
+//
+// ⭐⭐⭐ AND "TRUE OF BOTH CAUSES" WAS ITSELF FALSE — THE SENTENCE DIRECTLY ABOVE
+// IS WITHDRAWN, 18 Sep 2026. The repair re-derived the SOLID row against
+// `resolveEdgeDash` and did not re-derive the DASHED one, so the defect class
+// this whole block exists to remove survived ONE ROW OVER.
+//
+// "someone recorded a doubt" is false for a STRENGTH-ONLY CONTEST, and that is
+// the ordinary contest, not a corner. Derived at the producer's bytes:
+//   · `resolveEdgeDash` (`edges/edgePresentation.ts`) fires the `contested` rule
+//     for EVERY contested edge — the gate is status contested AND user_action
+//     pending AND a finite `max_divergence`. It never reads `contested_reasons`.
+//   · `ContestedReason` (`src/types/validation.ts`) has FIVE members, and only
+//     `existence_boundary_crossing` is about whether the connection holds:
+//     `strength_band_change`, `confidence_band_change` and `raw_magnitude` are
+//     disagreements about HOW STRONG or HOW CERTAIN, and `sign_flip` is about
+//     WHICH WAY. On a `strength_band_change` both passes state a high
+//     `exists_probability` and AGREE about it — nobody recorded a doubt that the
+//     connection exists — and the line dashes under a caption saying somebody
+//     did. That is the panel-printing-"80%" defect (#1677) a third time.
+//   · Not hypothetical: `StyledEdge.presentationStability.spec.tsx`'s own
+//     canonical `contestedValidation()` fixture is exactly this shape —
+//     `contested_reasons: ['strength_band_change']`, pass1 exists 0.8, pass2 0.9.
+//
+// Note the asymmetry that hid it: `resolveEdgeStroke` returns orange for only
+// TWO of the five reasons (`contested_needs_user_input`,
+// `contested_direction_disputed`), so the COLOUR channel is narrow while the
+// DASH channel is wide. A repair that reasons about the orange row cannot see
+// the dashed one (CLAUDE.md trap 21 — two channels, two questions, one word).
+//
+// THE CAPTION NOW NAMES BOTH CAUSES: a doubt (a stated sub-threshold
+// likelihood) OR a disagreement (the two reviews contest a parameter). It is
+// true of every cause that produces a dash, which is the standard the solid row
+// was already held to. It deliberately does NOT reuse the Colour section's
+// "reviews disagree" verbatim: orange is a SUBSET of dashed, and two rows in two
+// sections sharing a phrase would teach the reader that every disagreement is
+// also orange — the "Not set yet" collision recorded lower down, repeated.
+//
+// ⚠ PUT TO PAUL ON THE PR, per this component's standing rule that copy stops
+// and asks: this wording plus the SPLIT-ROW alternative, which is refused here
+// for the reasons at the bullet above (height, and one state keyed twice).
+//
+// ⚠ THE SOLID ROW IS UNTOUCHED AND STILL TRUE. A contested edge always dashes,
+// so no disagreement is ever recorded on a solid line; "no doubt recorded, or
+// only a small one" is incomplete about disagreement, not false about it.
+// Widening it is new copy for no defect, so it is not taken.
 const CONNECTION_ROWS: LegendRow[] = [
   { label: 'Solid connection: no doubt recorded, or only a small one', swatch: <LineSwatch dashed={false} /> },
   {
-    label: 'Dashed connection: someone recorded a doubt',
+    label: 'Dashed connection: a doubt or a disagreement was recorded',
     swatch: <LineSwatch dashed dash={EXISTENCE_UNCERTAIN_DASH} />,
   },
 ]

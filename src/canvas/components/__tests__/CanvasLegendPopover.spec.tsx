@@ -3,6 +3,10 @@
  * that opens on click (keyboard: Enter/Space), is dismissible, and renders ONLY the approved
  * legend strings (A4) with no Claude-authored copy and no "node/edge/graph"
  * vocabulary.
+ *
+ * ⚠ UNRUN IN THE LANE THAT LAST EDITED THIS FILE (18 Sep 2026). No suite, no
+ * typecheck and no install were executed — the cost constraints for that lane
+ * forbade all three. CI at this head is the authority for whether it is green.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -118,7 +122,15 @@ const APPROVED = [
   // ("no doubt recorded") is false across the whole stated-high band and is
   // what this change removed.
   'Solid connection: no doubt recorded, or only a small one',
-  'Dashed connection: someone recorded a doubt',
+  // Dashed is TWO causes, and the caption must be true of BOTH — the standard
+  // the solid row above was already held to. `resolveEdgeDash` fires the
+  // `contested` rule for EVERY contested edge without reading
+  // `contested_reasons`, and three of the five `ContestedReason` members
+  // (`strength_band_change`, `confidence_band_change`, `raw_magnitude`) are
+  // disagreements about HOW STRONG or HOW CERTAIN, with both passes agreeing the
+  // connection exists. "someone recorded a doubt" was false across that whole
+  // population and is what this change removes. See `CanvasLegendPopover.tsx`.
+  'Dashed connection: a doubt or a disagreement was recorded',
   'Weak effect', 'Moderate effect', 'Strong effect',
 ]
 
