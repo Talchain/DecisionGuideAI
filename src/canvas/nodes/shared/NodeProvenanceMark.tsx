@@ -272,7 +272,7 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
   if (disagree) {
     return (
       <>
-        {renderMark(provenanceClaimLabel('node', nodeAuthorship.kind), nodeAuthorship.kind, 'node')}
+        {renderMark(provenanceClaimLabel('structural', nodeAuthorship.kind), nodeAuthorship.kind, 'node')}
         {renderMark(provenanceClaimLabel('value', valueProvenance.kind), valueProvenance.kind, 'value')}
       </>
     )

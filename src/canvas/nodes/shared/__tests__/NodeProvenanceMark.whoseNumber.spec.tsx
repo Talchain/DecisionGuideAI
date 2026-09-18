@@ -17,6 +17,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { NodeProvenanceMark } from '../NodeProvenanceMark'
+import { STRUCTURAL_PROVENANCE_LABEL } from '../../../domain/nodeProvenanceClaim'
 
 /** Same binding the sibling spec uses: the mark's own testid, and the
  *  `aria-label` that carries the claim — the no-hover/no-focus channel. */
@@ -86,7 +87,21 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
     // ⛔ The half that makes it a fix rather than a relabel.
     expect(claimLabel('value')).not.toContain('AI estimate')
     // The authorship fact that used to vanish: Olumi named this node.
-    expect(claimLabel('node')).not.toContain('From brief')
+    //
+    // ⭐ ASSERTED POSITIVELY, AND THAT IS THE POINT. `not.toContain('From
+    // brief')` — what this line said until the type error below was found —
+    // passes on an EMPTY label, on a garbled one, and on any wrong-but-
+    // different sentence. It cannot distinguish "the authorship mark says the
+    // right thing" from "the authorship mark says nothing at all", which is
+    // the exact failure the two-mark change exists to prevent.
+    //
+    // ⚠ It also could not see a real defect that shipped past it: the first
+    // argument was `'node'`, which is not a member of
+    // `Exclude<NodeProvenanceClaim, 'none'>` — a TS2345 that reddened the
+    // typecheck gate while this assertion stayed green, because a type error
+    // still renders SOMETHING and that something did not contain "From brief".
+    // A negative assertion is satisfied by every wrong answer but one.
+    expect(claimLabel('node')).toBe(STRUCTURAL_PROVENANCE_LABEL.ai)
     expect(marksByClaim('node')).toHaveLength(1)
   })
 
