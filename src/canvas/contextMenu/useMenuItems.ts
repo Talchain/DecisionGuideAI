@@ -111,14 +111,31 @@ const DIV: MenuEntry = { type: 'divider' }
  * them apart rather than to align the defaults: each menu id is now judged by
  * the authority of the carrier IT uses.
  *
- * ⚠ THE REST OF THE SET STAYS, AND THE REASONS ARE DERIVED, NOT ASSUMED.
- * `add-connected-*` and `insert-factor-between` route through
- * `store.addNodeWithEdge`, and `duplicate`/`paste` through `duplicateSelected`/
- * `pasteClipboard` — all three capture NOTHING, deliberately, because
- * `structural_add_edge` is `'reader_only_refusal'` in CEE (re-derived at CEE
- * `staging` `3575b189`; see the `pendingStructuralAdds` note in `store.ts`).
- * Emitting a durable add for those would save the nodes and silently DROP the
- * topology. A door that loses half the gesture is worse than no door.
+ * ⚠⚠ THE PARAGRAPH THAT STOOD HERE HELD THE SAME DOOR SHUT ONE LEVEL DOWN,
+ * AND IT EXPIRED ON 13 Sep 2026 (corrected 18 Sep). It read: "`add-connected-*`
+ * and `insert-factor-between` route through `store.addNodeWithEdge`, and
+ * `duplicate`/`paste` through `duplicateSelected`/`pasteClipboard` — all three
+ * capture NOTHING, deliberately, because `structural_add_edge` is
+ * `'reader_only_refusal'` in CEE." **That premise is false.** CEE #1443 shipped
+ * the writer and promoted the kind to `'mutating'` (`dispatch.ts:373`), and the
+ * authority table re-derived it the same day — `canvasEdgeAddWithServerHash` is
+ * `'server_graph'`. The prose outlived its cause by five days, and it is why
+ * nobody reopened the question.
+ *
+ * ⭐ SO `add-connected-*` HAS MOVED TO `CONNECTED_NODE_ADD_MENU_IDS` BELOW,
+ * judged by the two carriers it actually uses. The rest of the set stays, and
+ * their reasons are NOT the same reason:
+ *   · `duplicate` / `paste` — `duplicateSelected` / `pasteClipboard` still
+ *     capture nothing, and the edge writer did not unblock them: their live
+ *     blockers are node DATA the wire cannot express (value, prior,
+ *     `observedState`) and the absence of a BATCHED carrier, so N nodes is N
+ *     sequential turns. Both recorded on `pendingStructuralAdds` in `store.ts`.
+ *   · `insert-factor-between` — has a SECOND WRITER. Its `localApply` installs
+ *     by bare `setState` rather than through a store action
+ *     (`contextMenu/actions.ts`), so capturing at the chokepoint would cover
+ *     neither branch. It needs both writers fenced, which is its own change.
+ *   · `set-value`, `mark-assumption`, `reverse-edge`, `cut`, `undo`, `redo` —
+ *     unchanged, carrierless.
  */
 /**
  * ⛔⛔ KINDS THE PRODUCT READS WITH `.find()` — A SECOND ONE PERSISTS AND IS
@@ -177,6 +194,35 @@ const DURABLE_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
 ])
 
 /**
+ * ⭐⭐ "ADD CONNECTED …" — ONE GESTURE, TWO CARRIERS, JUDGED BY BOTH.
+ *
+ * These three items create a node AND a link in a single action
+ * (`store.addNodeWithEdge`, via `commitValidatedMutation`'s `localApply`), so
+ * the question "may this row present itself as a shared-model edit?" has two
+ * halves and the honest gate is their CONJUNCTION, not either one:
+ *   · the NODE rides `structural_add`      → `canvasNodeAddWithServerHash`
+ *   · the LINK rides `structural_add_edge`  → `canvasEdgeAddWithServerHash`
+ *
+ * ⚠ IT IS A SIBLING OF `DURABLE_NODE_ADD_MENU_IDS`, NOT A MEMBER OF IT, and
+ * that is CLAUDE.md trap 21 applied deliberately rather than discovered later.
+ * `add-node` uses ONE carrier; folding these in beside it would make the pane
+ * add's authority answer a question it was never asked, and the day either key
+ * moves the two sets must be able to disagree.
+ *
+ * ⚠⚠ AND IT IS NOT A PROMISE THAT THE LINK IS SAVED. `USER_EDGE_DEFAULTS`
+ * carries no `weightSource`, so the edge capture stands down at
+ * `strength_not_stated` and RECORDS that on the edge; `EdgePanel` reads the
+ * receipt and offers the control that states a strength, which re-runs the
+ * capture. The node is durable immediately; the link is durable once somebody
+ * says how strong it is, and the product says so rather than implying either.
+ */
+const CONNECTED_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
+  'add-connected-factor',
+  'add-connected-outcome',
+  'add-connected-risk',
+])
+
+/**
  * Local React-Flow mutations that look like shared-model edits. Delete is not
  * in this set: it has its own server-hash/CAS authority gate in the store.
  * Copy, layout, selection, lenses and AI questions are presentation/read-only
@@ -187,9 +233,9 @@ export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
   'redo',
   'paste',
   'set-value',
-  'add-connected-factor',
-  'add-connected-outcome',
-  'add-connected-risk',
+  // ⚠ `add-connected-factor` / `-outcome` / `-risk` LEFT THIS SET ON 18 Sep 2026.
+  // They are judged by `CONNECTED_NODE_ADD_MENU_IDS` above, against the two
+  // carriers they use, rather than by the blanket `canvasSemanticMutations`.
   'mark-assumption',
   'cut',
   'duplicate',
@@ -218,6 +264,14 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
 function menuIdIsAuthorised(id: string, connected: boolean): boolean {
   if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
     return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
+  }
+  if (CONNECTED_NODE_ADD_MENU_IDS.has(id)) {
+    // BOTH, never either — see the set's header. A node saved with its link
+    // dropped is the silent half-loss this conjunction exists to refuse.
+    return (
+      hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash) &&
+      hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)
+    )
   }
   if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
     // ⭐ THE INJECTED VALUE DRIVES THE PER-ID JUDGEMENT, and that is the whole

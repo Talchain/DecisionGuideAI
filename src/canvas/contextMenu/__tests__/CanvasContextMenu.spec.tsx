@@ -56,21 +56,69 @@ const screenToFlowPosition = vi.fn((pos: any) => pos)
  * Every label that remains reaches a writer capturing no `structural_add`;
  * `Add node` reaches `store.addNode`, which does. Rationale and the full
  * replacement corpus: `paneAddNodeDurableDoor.spec.tsx`.
+ *
+ * ⚠⚠ AND THE THREE "Add connected …" LABELS LEFT IT ON 18 Sep 2026, BY THE
+ * SAME MOVE AND FOR THE SAME REASON — `store.addNodeWithEdge` now captures a
+ * `structural_add` for its node and a `structural_add_edge` intent for its link,
+ * so they no longer reach a writer that captures nothing. CEE #1443 shipped the
+ * edge writer on 13 Sep.
+ *
+ * ⚠⚠⚠ THIS LIST IS NOT WHAT IT LOOKS LIKE, AND THE NEXT READER MUST KNOW.
+ * `expectLocalSemanticActionsInert`'s message says "without shared-model
+ * authority", which reads as though a fixture had withheld it. **There is no
+ * such fixture**: this file mocks the store, the toast context and the guidance
+ * store, and NOT `mutationAuthority` — so every assertion here runs against the
+ * REAL, deployed authority table. That is a stronger guarantee than a fixture
+ * would give, and it is also why this list must be re-derived whenever a key in
+ * that table moves, rather than left to drift.
+ *
+ * ⭐ WHAT REPLACED THE THREE, so nothing was merely deleted: the carrier-level
+ * guarantee now lives in `connectedAddDurableDoor.spec.tsx`, which mocks the two
+ * governing keys and asserts the items are WITHHELD when EITHER
+ * `canvasNodeAddWithServerHash` or `canvasEdgeAddWithServerHash` is not
+ * `server_graph`. That is the property this list used to carry for them, pinned
+ * where it can actually be varied — here it could only ever observe one state.
  */
 const RETIRED_LOCAL_ACTIONS = [
   'Paste',
   'Undo',
   'Redo',
   'Set value',
-  'Add connected factor',
-  'Add outcome from this',
-  'Add risk from this',
   'Mark as assumption',
   'Cut',
   'Duplicate',
   'Reverse direction',
   'Insert factor between',
 ] as const
+
+/**
+ * The DOM witness that a human has the door — the positive twin of the list
+ * above, and the same shape `Add node` got when it left it.
+ *
+ * ⚠ NODE MENUS ONLY. `buildNodeMenu` pushes these three; `buildPaneMenu`,
+ * `buildEdgeMenu` and `buildMultiMenu` never do, so asserting them on those
+ * surfaces would assert a structural fact about the builder and not an authority
+ * one — a case that passes for a reason other than the one it names. They are
+ * therefore witnessed at the two node cases and nowhere else.
+ */
+const DURABLE_CONNECTED_ADD_LABELS = [
+  'Add connected factor',
+  'Add outcome from this',
+  'Add risk from this',
+] as const
+
+function expectConnectedAddsOffered(): void {
+  for (const label of DURABLE_CONNECTED_ADD_LABELS) {
+    const node = screen.queryByText(label)
+    expect(node, `${label} should be offered on a node menu`).not.toBeNull()
+    // PRESENT is not enough: an unauthorised keyboard-reachable gesture renders
+    // as a disabled row, so both halves are asserted.
+    expect(
+      node!.closest('button'),
+      `${label} is mounted but inert`,
+    ).not.toHaveAttribute('aria-disabled', 'true')
+  }
+}
 
 /**
  * The five gestures a user can also reach by KEY. They are rendered as
@@ -270,6 +318,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expect(screen.getByText('Explore')).toBeInTheDocument()
     expect(screen.getByText('Copy')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
+    expectConnectedAddsOffered()
     expectLocalSemanticActionsInert()
   })
 
@@ -298,6 +347,11 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expect(screen.getByText('Copy')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expect(screen.queryByText('Explore')).toBeNull()
+    // ⚠ A DECISION NODE GETS THEM TOO, and that is not an oversight: the builder
+    // guards the block with `kind !== 'constraint'` only. "Without fabricating
+    // factor tools" is about Explore and Set value — controls for a kind with no
+    // range and no observed value — not about growing the model from this node.
+    expectConnectedAddsOffered()
     expectLocalSemanticActionsInert()
   })
 

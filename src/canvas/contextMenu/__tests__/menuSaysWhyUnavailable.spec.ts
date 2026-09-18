@@ -344,11 +344,32 @@ describe('menu density — the measurement that chose the policy', () => {
     // LOAD-BEARING claims are the two relations below, and they are unchanged by
     // the rebase. Re-pinning the tuples keeps the record honest without letting
     // the test agree with whatever the code happens to produce.
-    expect(a).toEqual({ rows: 12, inert: 7, pct: 58 })
-    // ⚠ RE-MEASURED 13 Sep 2026: 8/3/38 -> 7/2/29, because `duplicate` moved
-    // from a disabled row to the grouped note. The shipped policy got LESS grey,
-    // which is the direction this measurement exists to track.
-    expect(shipped).toEqual({ rows: 7, inert: 2, pct: 29 })
+    //
+    // ⚠⚠ RE-PINNED 18 Sep 2026 BY DERIVATION, NOT BY MEASUREMENT, AND SAYING SO
+    // IS PART OF THE CHANGE. The lane that moved `add-connected-*` out of
+    // `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` could not run this suite (a load guard
+    // was active; any local number would have been void), so writing "measured"
+    // here would be a fabrication. **CI is the authority on these four digits.**
+    //
+    // ⭐ THE DERIVATION, WRITTEN OUT SO A RED IS DIAGNOSABLE IN ONE READ. It is
+    // checkable against the numbers it replaces rather than invented:
+    //   · `pristine` opens `canvasSemanticMutations` only, so `base` is
+    //     unchanged by the move — `rows: 12` stands.
+    //   · 12 pristine rows − 7 shipped rows + 1 grouped note = SIX ids hidden by
+    //     the shipped policy, and on a factor node those six are exactly
+    //     set-value, add-connected-{factor,outcome,risk}, mark-assumption,
+    //     duplicate. The old `inert: 7` is those six plus `cut`. Both old
+    //     figures reconcile exactly, which is what makes this a derivation.
+    //   · Three of the six left the set, so policy A now disables four:
+    //     inert 7 -> 4, pct round(4/12*100) = 33.
+    //   · The same three become enabled rows under the shipped policy:
+    //     rows 7 -> 10, inert unchanged at 2 (`cut` + the note),
+    //     pct round(2/10*100) = 20.
+    expect(a).toEqual({ rows: 12, inert: 4, pct: 33 })
+    // ⚠ RE-PINNED 18 Sep 2026: 7/2/29 -> 10/2/20. The shipped policy got LESS
+    // grey again, and this time because three rows became ACTIONABLE rather than
+    // because one moved into the note — a better reason than the last move's.
+    expect(shipped).toEqual({ rows: 10, inert: 2, pct: 20 })
     expect(shipped.inert).toBeLessThan(a.inert)
     expect(shipped.rows).toBeLessThan(a.rows)
   })
