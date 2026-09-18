@@ -475,8 +475,11 @@ export function OptionsComparison({
           ⚠ AND IT IS GATED ON THE SAME MAGNITUDE LICENCE AS THE ROW BARS
           (`mayDrawMagnitude`), because unlike the goal figure this IS a
           comparative magnitude — the thing a withheld leader claim withholds. */}
+      {/* ⚠ `mb-2`, NOT `mb-3`, SINCE 18 Sep 2026 — 4px reclaimed so the whole
+          comparison clears the fold at 1440×860. Still on the shell spacing scale,
+          and still a clear break between the bar and the rows it partitions. */}
       {mayDrawMagnitude && partition !== null ? (
-        <div className="mb-3" data-testid={`${testId}-partition`}>
+        <div className="mb-2" data-testid={`${testId}-partition`}>
           <span
             className="flex h-2 w-full gap-[2px] rounded-full overflow-hidden bg-panel-hover"
             aria-hidden="true"
@@ -498,7 +501,11 @@ export function OptionsComparison({
         </div>
       ) : null}
 
-      <ul className="list-none p-0 m-0 space-y-2.5">
+      {/* ⚠ `space-y-2` (8px), NOT `space-y-2.5` (10px). 10px was never on
+          `SHELL_SPACING_SCALE_PX` — this both reclaims 6px and puts the row rhythm
+          on the sanctioned scale, which is why it is a correction and not only a
+          trim. */}
+      <ul className="list-none p-0 m-0 space-y-2">
         {options.rows.map((o) => (
           <li
             key={o.id}

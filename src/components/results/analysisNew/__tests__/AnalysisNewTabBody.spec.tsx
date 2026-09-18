@@ -777,9 +777,23 @@ describe('the engine warning arrives before the reading it qualifies', () => {
    * so the strip correctly rendered nothing and the test failed for a reason
    * that had nothing to do with placement. Set the field explicitly.
    */
+  /**
+   * ⚠⚠ BUILT ON `genuineDecision()` SINCE 18 Sep 2026, AND THAT IS A REAL FIX
+   * RATHER THAN A FIXTURE SWAP. It used to be a bare `makeData({...})`, whose
+   * glance had no headline, verdict or condition — the ONLY thing making the
+   * glance render was the primary-intervention disjunct in `hasAnything`.
+   *
+   * That card moved to `PrimaryIntervention` and its disjunct left `hasAnything`
+   * with it, so this fixture stopped rendering a glance at all and the ordering
+   * claim below had nothing to order against. ⭐ The claim is "the strip is ABOVE
+   * the glance", so the fixture must produce BOTH; a fixture that produced only
+   * one was testing less than its name said even before the move.
+   */
   const warned = () =>
-    makeData({
+    ({
+      ...genuineDecision(),
       confidence: {
+        ...genuineDecision().confidence,
         inferenceWarnings: [
           {
             code: 'ROOT_NODE_DEFAULT_VALUE',
@@ -788,8 +802,8 @@ describe('the engine warning arrives before the reading it qualifies', () => {
             severity: 'warning',
           },
         ],
-      } as never,
-    })
+      },
+    }) as never
 
   it('mounts the warning strip ABOVE the glance, not below the sections', () => {
     renderBody(warned())

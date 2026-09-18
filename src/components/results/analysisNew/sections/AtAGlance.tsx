@@ -34,7 +34,7 @@
  */
 
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
@@ -42,10 +42,9 @@ import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
-import { methodForRecommendation } from '../recommendationMethod'
 import { conclusionLabel, panelHasConclusion } from '../panelLead'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
-import { inset, PANEL_INSET_ACTION, action } from '../panelSurfaces'
+import { inset, action } from '../panelSurfaces'
 
 /**
  * How many parameter names fit before the line stops being readable. Four is a
@@ -147,67 +146,12 @@ export interface AtAGlanceProps {
   glance: AtAGlanceModel
   onFocusTarget?: (targetId: string) => void
   /**
-   * ⛔ `driverTotal` REMOVED WITH THE DRIVER LIST. It existed so the glance
-   * could say "+N more drivers in this run" beneath its cap of three. With the
-   * list gone there is no cap here to declare, and the drivers section states
-   * the true count on its own collapsed row (`SectionShell`'s `count`, derived
-   * from the actual list rather than passed in).
+   * ⚠ `primaryIntervention` and `onRunIntervention` were REMOVED from this
+   * component on 18 Sep 2026, not merely left unrendered. The card they fed
+   * now lives in `sections/PrimaryIntervention.tsx`; leaving the props here
+   * would be a caller-visible promise this component no longer keeps — the
+   * dead-prop shape that lets a later mount site set a value and see nothing.
    */
-  primaryIntervention?: {
-    id: string
-    label: string
-    /**
-     * The finding's OWN name, e.g. "Narrow framing" — never the action.
-     *
-     * ⭐ THIS FIELD REPLACED `why`, WHICH CARRIED THE FINDING'S PARAGRAPH, AND
-     * THE REPLACEMENT IS THE FIX RATHER THAN A RENAME. `why` was
-     * `Recommendation.signal`, and the Strengthen row renders
-     * `strengthenWhyLine(signal, whyNow)` — every arm of which begins with
-     * `signal`. One `Recommendation` therefore had its paragraph printed on
-     * both surfaces, with nothing saying they were one finding. The card is a
-     * POINTER, so it now names the item it points at and the action it runs;
-     * the paragraph, the severity, the grounding, the source line, "I
-     * disagree" and "Not relevant" are rendered once, in the row.
-     *
-     * The field is GONE rather than merely unrendered, so the reprint is
-     * unavailable to a later edit. See
-     * `theFocusCardReferencesRatherThanReprints.spec.tsx`.
-     */
-    title: string
-    /** The producer's `signal_code` on a phase-3 finding; absent on the UI's
-     * own triggers. Carried so the primary card can name a technique when the
-     * producer's code names one — see `recommendationMethod.ts`. */
-    signalCode?: string
-    /**
-     * The canonical bias the producer named on a bias-signal finding; absent
-     * otherwise.
-     *
-     * ⚠ CARRIED BECAUSE OMITTING IT WOULD MAKE TWO SURFACES DISAGREE ABOUT ONE
-     * FINDING. This card is a promoted reference to a Strengthen row, and that
-     * row resolves its method with the bias code. Without it the promoted card
-     * would name "Review a possible bias" while the row beneath it named "Apply
-     * the outside view" — the same producer fact, two answers, which is the
-     * defect class CLAUDE.md trap 21 is about. Never rendered as user copy.
-     */
-    biasCode?: string
-    /**
-     * ⚠ RESTORED, AND ONLY THE CATALOGUE PATH MAY RENDER IT. Removing this
-     * outright made the card strictly LESS informative on the catalogue
-     * recommendations, measured on the top-priority one:
-     *
-     *   staging     ["Define success", "No measurable success target is set."]
-     *   unscoped    ["Define what success looks like", "Define success"]
-     *
-     * — the only informative line replaced by a near-restatement of the header.
-     * On the catalogue, `action.label` is SPECIFIC copy and the sentence IS the
-     * information; on phase-3 findings `action.label` is
-     * `item.actionLabel ?? 'Work through with Olumi'`, so the header was
-     * boilerplate above a body repeating the row. Two different situations
-     * under one name — the swap is right for one and wrong for the other.
-     */
-    signal?: string
-  } | null
-  onRunIntervention?: (recommendationId: string) => void
   /** The displayed run predates the current model. Reframes the answer. */
   isStale?: boolean
   /**
@@ -360,8 +304,6 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 export function AtAGlance({
   glance,
   onFocusTarget,
-  primaryIntervention,
-  onRunIntervention,
   isStale = false,
   staleKind = 'unconfirmed',
   isProvisional = false,
@@ -455,7 +397,6 @@ export function AtAGlance({
     glance.headline ||
     glance.verdict ||
     glance.condition ||
-    (primaryIntervention && onRunIntervention) ||
     ribbon.length > 0
   if (!hasAnything) return null
 
@@ -1300,97 +1241,22 @@ export function AtAGlance({
         })()
       ) : null}
 
-      {/* ── WHAT TO THINK ABOUT NEXT ───────────────────────────────────────── */}
-      {primaryIntervention && onRunIntervention ? (() => {
-        // PHASE-3 producer findings vs the UI's own catalogue. The id prefix is
-        // minted in one place and is identity, not similarity.
-        const isProducerFinding = primaryIntervention.id.startsWith('strengthen:phase3:')
-        return (
-        <button
-          type="button"
-          onClick={() => onRunIntervention(primaryIntervention.id)}
-          className={`w-full flex items-start gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${PANEL_INSET_ACTION}`}
-          data-testid={`${testId}-primary-intervention`}
-          data-recommendation-id={primaryIntervention.id}
-        >
-          <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
-          <span className="min-w-0 flex-1">
-            {/* ⭐ GATED ON PROVENANCE, NOT ON SIMILARITY. A text comparison
-                between the header and the action would fire on whatever
-                happened to look alike; the id says which KIND of
-                recommendation this is, which is the actual discriminator.
-                `strengthen:phase3:` is minted in exactly one place
-                (`buildRecommendations.ts:348`). */}
-            <span
-              className={`${typography.panelHeader} text-text-header block`}
-              data-testid={`${testId}-primary-title`}
-            >
-              {isProducerFinding ? primaryIntervention.title : primaryIntervention.label}
-            </span>
-            {/* ⭐ THE MOST PROMINENT COACHING CARD NAMES ITS TECHNIQUE. This is
-                the one move a reader meets without opening anything, so if any
-                card should say WHICH science-grounded method it is, it is this
-                one. Rendered as a label rather than a control: the card is
-                already a button, and a nested button is invalid markup — the
-                card's own click runs the intervention, which is the same
-                destination the chip would have offered.
+      {/* ⚠⚠ THE PRIMARY INTERVENTION MOVED OUT, 18 Sep 2026 — it is now
+          `sections/PrimaryIntervention.tsx`, rendered by the body in
+          ZONE: ALSO ("Also worth doing").
 
-                `null` for most findings by design (`recommendationMethod.ts`);
-                nothing renders then, never a default technique. */}
-            {(() => {
-              const method = methodForRecommendation(
-                primaryIntervention.id,
-                primaryIntervention.signalCode,
-                primaryIntervention.biasCode,
-              )
-              return method ? (
-                <span
-                  className={`${typography.panelMeta} inline-flex items-center ${action('secondary')} mt-1`}
-                  data-testid={`${testId}-primary-method`}
-                  data-method-id={method.id}
-                >
-                  {method.title}
-                </span>
-              ) : null
-            })()}
-            {/* ⭐ THE ACTION, NOT THE FINDING. This line carried
-                `Recommendation.signal` — the paragraph the Strengthen row also
-                prints — while the header above carried `action.label`. The two
-                are swapped: the header names the finding, this names what
-                pressing the card does.
+          ⭐ ITS OWN HEADING HERE SAID WHY: "WHAT TO THINK ABOUT NEXT". A next
+          action is not part of the answer, and inside this component it cost
+          the answer zone 90px including its gap. At 1440×860 that was the
+          difference between showing "what matters most" and "how the options
+          compare" together and not — every information-preserving spacing trim
+          combined saved only 63px of the 89 needed.
 
-                ⚠ SCOPED, because the old header was not always boilerplate.
-                On the seven UI catalogue recommendations `action.label` is
-                specific copy ("Define success"). On the PHASE-3 producer
-                findings — the kind in the 6 Sep capture — it is
-                `item.actionLabel ?? 'Work through with Olumi'`, so a producer
-                sending no label bought a heading of boilerplate above a body
-                that repeated the row. Derived at the eight `recs.push` sites in
-                `buildRecommendations.ts`, 7 Sep 2026.
-
-                Still conditional. `action.label` is `item.actionLabel ?? '…'`
-                and `??` passes an empty string through, so a producer sending
-                `""` would otherwise buy a blank muted line. */}
-            {(() => {
-              // On a producer finding the header names the finding, so this
-              // names the ACTION. On a catalogue rec the header IS the action,
-              // so this carries the SENTENCE — which is that card's only
-              // information and what the unscoped version deleted.
-              const second = isProducerFinding ? primaryIntervention.label : primaryIntervention.signal
-              return second ? (
-                <span
-                  className={`${typography.panelMeta} text-text-light block mt-0.5`}
-                  data-testid={`${testId}-primary-action`}
-                >
-                  {second}
-                </span>
-              ) : null
-            })()}
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
-        </button>
-        )
-      })() : null}
+          ⛔ `(primaryIntervention && onRunIntervention)` LEFT `hasAnything`
+          WITH IT, and that is this file's own recorded rule rather than a
+          judgement: the note there records a disjunct outliving its content
+          once already, which "would have rendered the section's wrapper and
+          heading over empty space". */}
     </section>
   )
 }
