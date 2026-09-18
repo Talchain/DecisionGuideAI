@@ -123,7 +123,38 @@ export const CANONICAL_EDIT_AUTHORITY = {
   postRunAutoFix: 'disabled',
   preAnalysisFactorValue: 'disabled',
   preAnalysisFactorConfirmation: 'disabled',
-  preAnalysisEdgeStrength: 'disabled',
+  /**
+   * ⭐⭐ FLIPPED FROM `'disabled'` — and the flip is the SECOND half of a change
+   * that is worthless without the first.
+   *
+   * ⛔ THE KEY WAS NEVER THE WHOLE FENCE, AND FLIPPING IT ALONE WOULD HAVE
+   * SHIPPED THE EXACT DEFECT THIS TABLE EXISTS TO PREVENT. Until this commit
+   * `PreAnalysisPanel.handleUpdateEdgeStrength` was ONE local `updateEdgeData`
+   * call that emitted NOTHING. A flip on its own would have rendered three
+   * Weakly / Moderately / Strongly pills that write the browser and never the
+   * shared model — a control that looks saved and is not. The handler is now
+   * wired to `buildEdgeStrengthEditEvent` -> `sendSystemEvent` ->
+   * `buildPayload.ts` `adaptEdgeStrengthEdit` -> CEE `dispatchEdgeStrengthEdit`,
+   * handled `'mutating'`: it writes `scenarios.graph` and commits an
+   * `edit_graph` fact, which is what `server_graph` asserts.
+   *
+   * ⚠ THE AUTHORITY IS SURFACE-WIDE; REACHABILITY IS PER EDGE, AND THE TWO ARE
+   * NOT THE SAME QUESTION (trap 21). `edge_strength_edit` EDITS an edge the
+   * server already holds, so an edge with no server-stated `expected` tuple
+   * cannot be asserted at all. This key answers *"may this surface present a
+   * strength edit as a shared-model edit?"* — now yes. *"Can THIS edge's
+   * strength be asserted?"* is answered per card by
+   * `edgeStrengthEditIsAssertable`, which asks the emitter rather than
+   * re-deriving its rules, and renders no pills when it says no.
+   *
+   * ⚠ ITS SIBLINGS ARE DELIBERATELY NOT FLIPPED WITH IT.
+   * `analysisAssumedEdgeStrength` and `canvasEdgeStrength` both have ZERO
+   * non-test consumers of this table (swept 2026-09-18; contrast controls in
+   * the same sweep: this key 1, `preAnalysisV3StructuralAdd` 2, so the probe
+   * discriminates). Flipping either would change no behaviour while asserting a
+   * capability its surface does not have.
+   */
+  preAnalysisEdgeStrength: 'server_graph',
   preAnalysisV3FactorValue: 'server_graph',
   preAnalysisV3FactorConfirmation: 'disabled',
   // schemas 0.50.0 — FLIPPED FROM `'disabled'`, and the flip is what lights up a

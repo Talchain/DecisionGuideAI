@@ -37,6 +37,10 @@ import {
 } from '../../mutations/mutationAuthority'
 import { normaliseRawFactorValue, withObservedStateUpdate, meaningfulUncertaintyDrivers, overconfidenceSentence } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
+import { buildEdgeStrengthEditEvent, edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
+import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
+import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import type { TriageCardAction } from '../../../components/shared/TriageCard'
 import {
   biasSignal,
   resolveBiasSignal,
@@ -658,7 +662,15 @@ type UnifiedQueueEntryProp = { card: MappedTriageCard; overlay: StrengthenOverla
 interface T1Handlers {
   onConfirm?: (targetId: string) => void
   onEdit?: (targetId: string) => void
-  onUpdateEdgeStrength?: (edgeId: string, value: number) => void
+  /**
+   * ⭐ A FACTORY, NOT A HANDLER, AND THE CHANGE IS DELIBERATE. Whether an edge's
+   * strength can reach the shared model is a fact about THAT EDGE, not about
+   * this surface, so a single handler shared by every card cannot answer it.
+   * This is called per card with that card's action and returns `undefined`
+   * when the edit could not land — which makes `TriageCard` render no
+   * quick-select at all, rather than pills that quietly go nowhere.
+   */
+  onUpdateEdgeStrengthFor?: (action: TriageCardAction | undefined) => ((edgeId: string, value: number) => void) | undefined
   onHoverEnter: (type: 'node' | 'edge', id: string) => void
   onHoverLeave: () => void
   buildAiDiscuss: (entry: UnifiedQueueEntryProp) => React.ReactNode
@@ -673,6 +685,18 @@ const PRE_ANALYSIS_FACTOR_VALUE_CONNECTED = hasServerGraphAuthority(
 const PRE_ANALYSIS_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.preAnalysisFactorConfirmation,
 )
+/**
+ * ⚠ TWO NOTICES, BECAUSE THE TWO ANSWERS ARE DIFFERENT AND COLLAPSING THEM IS
+ * THE DEFECT `settleSystemEventSend` NAMES IN ITS OWN HEADER: telling a user
+ * "not recorded" about a send that MAY have written invites them to state the
+ * value again over a model that already holds it, and telling them "we cannot
+ * confirm" about a refusal the server certified is a hedge where a fact exists.
+ */
+const EDGE_STRENGTH_NOT_RECORDED_NOTICE =
+  'That strength was not recorded — the shared model still holds its previous value.'
+const EDGE_STRENGTH_UNVERIFIED_NOTICE =
+  'Olumi could not confirm that strength reached the shared model. Check the relationship before you rely on it.'
+
 const PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength,
 )
@@ -834,7 +858,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
                   disclosureLabels={PRE_ANALYSIS_DISCLOSURE_LABELS}
                   onConfirm={handlers.onConfirm}
                   onEdit={handlers.onEdit}
-                  onUpdateEdgeStrength={handlers.onUpdateEdgeStrength}
+                  onUpdateEdgeStrength={handlers.onUpdateEdgeStrengthFor?.(entry.card.action)}
                   onHoverEnter={handlers.onHoverEnter}
                   onHoverLeave={handlers.onHoverLeave}
                 />
@@ -868,7 +892,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
                     variant="compact"
                     onConfirm={handlers.onConfirm}
                     onEdit={handlers.onEdit}
-                    onUpdateEdgeStrength={handlers.onUpdateEdgeStrength}
+                    onUpdateEdgeStrength={handlers.onUpdateEdgeStrengthFor?.(entry.card.action)}
                     onHoverEnter={handlers.onHoverEnter}
                     onHoverLeave={handlers.onHoverLeave}
                   />
@@ -959,6 +983,10 @@ export function PreAnalysisPanel({
   // Task P.3.2: Get node and edge counts for minimal graph coaching
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  // The carrier for `edge_strength_edit`. Null outside a ConversationProvider
+  // (and in specs that mount this panel bare), which the gate below reads as
+  // 'no carrier' and renders no quick-select at all.
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   // The hold's second input — see `AnalysisHoldState`. Analysis is held on a
   // ready-made model only while CEE has NOT acknowledged holding it.
   const importPendingServerRegistration = useCanvasStore(s => s.importPendingServerRegistration)
@@ -1261,23 +1289,147 @@ export function PreAnalysisPanel({
   }, [])
 
   // Edge strength quick-select — update edge weight via canonical updateEdgeData (clamps [0,2])
+  /**
+   * ⭐⭐ THE BAND THE USER PICKS NOW REACHES THE SHARED MODEL.
+   *
+   * This handler used to be ONE local `updateEdgeData` and nothing else, while
+   * `preAnalysisEdgeStrength` was `'disabled'` — so the gate below handed
+   * `undefined` to every card and the quick-select never rendered at all. The
+   * carrier it needed was already built and already carrying the Inspector's
+   * slider: `buildEdgeStrengthEditEvent` -> `sendSystemEvent` ->
+   * `buildPayload.ts` `adaptEdgeStrengthEdit` -> CEE's `dispatchEdgeStrengthEdit`,
+   * handled `'mutating'`, which writes `scenarios.graph` and commits an
+   * `edit_graph` fact. Nothing about the wire is new here; what is new is a
+   * user able to reach it from the pre-analysis queue.
+   *
+   * ⛔⛔ IT FAILS CLOSED, AND THAT IS THE ONE DECISION TO READ. `setStrength`
+   * in the Inspector deliberately writes LOCALLY even when the wire refuses,
+   * and discloses the gap through its returned outcome token — correct there,
+   * because its slider is the edge's own editor and a dead slider would be
+   * worse than a disclosed one. It is WRONG here. This surface renders the
+   * quick-select ONLY on edges whose edit reaches the server
+   * (`edgeStrengthHandlerFor` below), so a local-only write behind these pills
+   * would be a control that looks saved and is not — the exact defect the
+   * fence was lifted to stop. The precedent is `useModelEditAuthority`
+   * `proposeEdgeStrength`, which refuses BEFORE the setter runs for the same
+   * reason: *"this hook feeds a surface that offers the affordance only where
+   * the write reaches the server."*
+   *
+   * ⚠ `preserveDirection: true` IS NOT A DEFAULT, IT IS THE TRUTH ABOUT THE
+   * GESTURE. The three bands are bare MAGNITUDES (0.15 / 0.40 / 0.70). A user
+   * pressing "Strongly" has stated a SIZE and said nothing whatever about
+   * direction, so deriving one from the sign would mint a direction claim they
+   * never made — and on an edge with no `direction` it would FABRICATE one into
+   * canonical graph-hash state. The local write below has never touched
+   * `direction` either, so both halves describe the same act by construction.
+   */
   const handleUpdateEdgeStrength = useCallback((edgeId: string, value: number) => {
-    const { updateEdgeData } = useCanvasStore.getState()
+    const { updateEdgeData, edges: currentEdges } = useCanvasStore.getState()
+    const edge = currentEdges.find(e => e.id === edgeId)
+    if (!edge) return
+
+    // Built from the edge as it was BEFORE the local write: `expected` is an
+    // assertion about the PAST, and the same read feeds both halves so the wire
+    // event and the store update can never describe different edges.
+    const event = buildEdgeStrengthEditEvent({
+      edge,
+      requestedMean: value,
+      preserveDirection: true,
+    })
+
+    // Fail closed — see the header. No carrier, no local write, no pill that
+    // pretends the shared model moved.
+    if (!event || !sendSystemEvent) return
+
     // Write weight through updateEdgeData (clamped). Clear strength_mean so
     // computeSignedMean falls through to weight + direction (the canvas schema path).
     // Mark `userReviewedStrength: true` so `buildPriorityProgress` recognises
     // the edge as confirmed in the top-3 priority counter (pre-analysis-power-v2).
     //
     // ⛔ `weightSource: 'user'` is REQUIRED here, not decorative. This handler
-    // fires when the user explicitly picks Weakly / Moderately / Strongly in
-    // `KeyRelationships`, i.e. the one case where the number genuinely came
-    // from a person. Without the stamp that real choice is indistinguishable
-    // from `USER_EDGE_DEFAULTS.weight`, so every downstream surface keeps
-    // saying "Not set" while the picker shows the chosen band highlighted —
-    // the two channels contradicting each other, which is the whole defect
-    // family. Mirrors `useInspectorMutations.setStrength`.
+    // fires when the user explicitly picks Weakly / Moderately / Strongly, i.e.
+    // the one case where the number genuinely came from a person. Without the
+    // stamp that real choice is indistinguishable from `USER_EDGE_DEFAULTS.weight`,
+    // so every downstream surface keeps saying "Not set" while the picker shows
+    // the chosen band highlighted — the two channels contradicting each other,
+    // which is the whole defect family. Mirrors `useInspectorMutations.setStrength`.
     updateEdgeData(edgeId, { weight: value, strength_mean: undefined, userReviewedStrength: true, weightSource: 'user' })
-  }, [])
+
+    /**
+     * ⛔⛔ THE SEND IS SETTLED, NOT SWALLOWED, AND THIS IS THE ONE PLACE THE
+     * UNLOCK COULD STILL HAVE LIED.
+     *
+     * `edge_strength_edit` is the ONLY `'mutating'` kind whose CEE handling is
+     * CONDITIONAL (`system-events/dispatch.ts`: `'mutating'` only while
+     * `config.features.graphCas.rpcEnforce === true`, otherwise
+     * `reader_only_refusal`). The posture is a Render-dashboard value
+     * (`CEE_V5_GRAPH_CAS_RPC`, DEFAULT-SHADOW) that CEE's own config header
+     * calls *"UNOBSERVABLE FROM ANY CLIENT by construction"*, with the standing
+     * instruction to be correct under BOTH. Under the non-enforcing posture the
+     * server answers a TYPED, non-retryable refusal
+     * (`FEATURE_NOT_ENABLED` / `edge_strength_edit_reader_only`).
+     *
+     * A `.catch(() => {})` here — which is what the Inspector's slider still
+     * does, and what `settleSystemEventSend` was extracted to stop — would
+     * collapse that refusal to silence. The local write above has already moved
+     * the number and stamped `weightSource: 'user'`, so silence would leave the
+     * user believing their judgement is in the shared model when the server has
+     * just said it is not. That is the one outcome this whole change exists to
+     * prevent, so the settlement is reported.
+     *
+     * ⚠ AND IT REPORTS ONLY WHAT IT KNOWS. `settleSystemEventSend`'s own scope
+     * note is that it decides *"what the CALLER MAY SAY ABOUT THE SEND"* and is
+     * NOT the applied channel: `'sent'` means a POST left, never that the model
+     * changed. So the quiet path stays quiet rather than claiming a save, and
+     * only the three settlements that mean "this did not land, or cannot be
+     * shown to have landed" speak.
+     */
+    settleSystemEventSend(sendSystemEvent(event), settlement => {
+      if (settlement === 'sent' || settlement === 'queued') return
+      if (typeof window === 'undefined') return
+      window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+        detail: {
+          message: settlement === 'unverified'
+            ? EDGE_STRENGTH_UNVERIFIED_NOTICE
+            : EDGE_STRENGTH_NOT_RECORDED_NOTICE,
+          level: 'warning',
+        },
+      }))
+    })
+  }, [sendSystemEvent])
+
+  /**
+   * ⭐⭐ PER-EDGE, NOT PER-SURFACE — the question the pills are actually asking.
+   *
+   * `edge_strength_edit` EDITS an edge the server already holds: its `expected`
+   * tuple asserts what CEE has persisted, and an edge whose weight came from
+   * `DEFAULT_EDGE_DATA` has no such tuple, so the builder refuses it. A single
+   * surface-wide flag cannot answer this — one card's edge may be editable while
+   * the next card's is not, in the same queue, on the same render.
+   *
+   * ⛔ SO THE GATE ASKS THE EMITTER, PER EDGE, AND NEVER RE-DERIVES ITS RULES.
+   * `edgeStrengthEditIsAssertable` calls `buildEdgeStrengthEditEvent` and reports
+   * whether it would build — the same function the commit calls, so there is no
+   * second copy of the endpoint-id rule, the `[0, 1]` magnitude bound or the
+   * server-stated-`expected` requirement to drift out of sync (trap 12).
+   * `undefined` makes `TriageCard` render no quick-select at all (its own guards
+   * at `:384` and `:571`).
+   *
+   * ⚠ IT FAILS CLOSED BY CONSTRUCTION, and that direction is the point: an
+   * editable edge that offers nothing is a missing affordance, while pills whose
+   * write cannot land are the lie this unlock exists to avoid.
+   */
+  const edgeStrengthHandlerFor = useCallback(
+    (action: TriageCardAction | undefined): ((edgeId: string, value: number) => void) | undefined => {
+      if (!PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED) return undefined
+      if (!sendSystemEvent) return undefined
+      if (action?.targetType !== 'edge' || !action.targetId) return undefined
+      const edge = edges.find(e => e.id === action.targetId)
+      if (!edgeStrengthEditIsAssertable(edge)) return undefined
+      return handleUpdateEdgeStrength
+    },
+    [sendSystemEvent, edges, handleUpdateEdgeStrength],
+  )
 
   // Brief 5.8A D3b/D3c — bundle of T1 handlers. Stable identity so the
   // memoised T1DecisionReadinessCard does not re-render on unrelated parent
@@ -1313,9 +1465,7 @@ export function PreAnalysisPanel({
      * panels own their own authority and reach `factor_value_edit`.
      */
     onEdit: handleSetValueForGap,
-    onUpdateEdgeStrength: PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED
-      ? handleUpdateEdgeStrength
-      : undefined,
+    onUpdateEdgeStrengthFor: edgeStrengthHandlerFor,
     onHoverEnter: handleHoverElement,
     onHoverLeave: handleHoverClear,
     buildAiDiscuss: (entry) => entry.card.aiDiscuss
@@ -1331,7 +1481,7 @@ export function PreAnalysisPanel({
       setHighlightedNodes([])
       setHighlightedEdges([])
     },
-  }), [handleConfirm, handleSetValueForGap, handleUpdateEdgeStrength, handleHoverElement, handleHoverClear, setHighlightedNodes, setHighlightedEdges])
+  }), [handleConfirm, handleSetValueForGap, edgeStrengthHandlerFor, handleHoverElement, handleHoverClear, setHighlightedNodes, setHighlightedEdges])
 
   // Action handlers passed to TriageCard and expertise triage cards
 
