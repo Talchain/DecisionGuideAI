@@ -218,9 +218,15 @@ git add e2e/visual/references
 git commit -m "chore(visreg): re-bless visual references — <why>"
 ```
 
-Re-blessing is deliberately a separate, reviewable commit. Nothing overwrites a
-reference automatically, and no CI job ever commits one. If a reference changes,
-a human has to have looked at the image and said so in a commit message.
+Re-blessing on darwin, on any branch, and for any **new** reference is
+deliberately a separate, reviewable commit: a human looks at the image and says
+so in a commit message.
+
+> ⚠ **CORRECTED 18 Sep 2026.** This paragraph used to end *"Nothing overwrites a
+> reference automatically, and no CI job ever commits one."* **That is no longer
+> true of the linux set.** On a push to `staging` — and only there — CI
+> re-blesses the linux references and commits them. See *CI* below for what was
+> measured, what the trade-off is, and what is still a human decision.
 
 ### Re-blessed 2026-08-17: the four darwin graph references (#758)
 
@@ -345,11 +351,87 @@ run if zero screenshots were captured, and `continue-on-error` marks the job red
 without blocking the gate.
 
 **Linux references** must be generated on Linux, because chromium's text
-rendering differs from darwin's. A branch with no `references/linux/` fails
-loudly: the job generates the set, uploads it as
+rendering differs from darwin's. A branch with **no** `references/linux/` at all
+fails loudly: the job generates the set, uploads it as
 `visual-references-generated-linux`, and reds with instructions — it never
-commits them itself. Download the artefact, look at the images, and commit them
-under `e2e/visual/references/linux/` as their own reviewable commit.
+commits a set that does not exist yet. Download the artefact, look at the
+images, and commit them under `e2e/visual/references/linux/` as their own
+reviewable commit.
+
+### The linux references refresh themselves on every `staging` push (18 Sep 2026)
+
+**What was wrong.** The references were a hand-maintained mirror of a canvas
+that re-lays-out on *any* text change — node geometry is measured from rendered
+text and drives `fitView`, so there is no such thing as a small diff here — held
+to a tolerance calibrated for antialiasing noise. Measured on 18 Sep: **0.41%
+drift within two days of the last blessing**, growing to **5.54%**, stale for the
+**fifth** time since the harness landed on 17 Aug, and red continuously for about
+two weeks.
+
+**Why that was worse than a red.** At 5.54% the job had stopped discriminating.
+From the self-test's own instrumentation, same run:
+
+| perturbation | diff |
+|---|---|
+| none (unmodified page) | 5.5394% |
+| right-hand panel widened 35% | 5.4762% |
+| sticky footer overlapping content | 5.5394% |
+| 1px nudge of one control | 5.5481% |
+
+A deliberate 35% panel-width regression moved the figure **down** by 0.06
+percentage points. The standing drift was 110× the 0.05% tolerance and swamped
+every real regression. The harness detects this about itself and says so — the
+self-test case that fails is the *calibration* case, and its failure is the alarm
+working.
+
+**What happens now.** On a push to `staging`, and only there, the
+`visual-regression` job re-blesses the linux set with `scripts/visual/rebless.sh`
+and commits it with `[skip ci]`. The references are therefore never more than one
+commit behind the product, a PR's comparison shows only what *that PR* changes,
+and the tolerance is meaningful again.
+
+**⛔ The trade-off, stated rather than buried.** A regression merged to `staging`
+becomes the new reference and stops being flagged. That was put to the founder
+and accepted. The defence is the PR job — it compares against references at most
+one commit old, which is precisely the discrimination that did not exist while
+the references were weeks stale. The mitigation is mandatory and is implemented:
+every refresh **names every image that moved and by how many pixels** in the
+step summary, and uploads before/after/diff images as
+`visual-reference-delta-linux`. A silent auto-bless would be the defect this
+change exists to fix.
+
+**What it still refuses to do**, all derived, all fail-closed
+(`scripts/visual/reference-delta.mjs`):
+
+- **adopt anything without proof it measured.** The capture manifest is deleted
+  before blessing, so a bless that never ran leaves no manifest and the refresh
+  is refused — "it did not run" cannot be reported as "nothing moved";
+- **adopt a partial run.** The captured set must equal the committed set by
+  name, in both directions;
+- **add or remove a reference.** A new state is a new claim about the product
+  and stays a human commit;
+- **adopt a blank.** Every rewritten reference must clear the byte floor;
+- **stage anything by directory.** Only the exact files the delta measured are
+  staged, so a `__selftest-*` fixture left behind by a crashed self-test can
+  never be committed as a reference;
+- **touch anything on a pull request, or on `merge_group`.**
+
+**Runner pinning.** `runs-on` is `ubuntu-24.04`, not `ubuntu-latest`. This
+harness is scoped per *font set*, not per platform (see the measurement in
+`playwright.visual.config.ts`), and a floating label means the next Ubuntu
+release invalidates every reference overnight with nothing in the diff to say
+why. ⚠ GitHub exposes the OS release as a label but **not** the image build, so
+font packages can still change inside 24.04 — the auto-refresh is what absorbs
+that; the pin only stops the larger jump. Pinning was *not* the fix for the
+current staleness: that hypothesis was bisected and refuted, the drift grew from
+0.41% to 4.68% while the runner image was constant.
+
+**⚠ Prerequisite, and it is a repository setting rather than code.** `staging`
+is protected with `Staging Gate` as a required status check and `enforce_admins`
+enabled, and a required check blocks **direct pushes** as well as merges. A
+commit created by this job carries no checks, so the push is rejected unless the
+workflow is granted a bypass. If it is rejected the job says so loudly in the
+step summary and names the remediation; it never fails silently.
 
 Both platform sets are committed. The linux set was regenerated **after** the
 font-ordering fix above (run `32069090061`); an earlier set captured before that

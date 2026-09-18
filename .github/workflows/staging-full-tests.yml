@@ -532,13 +532,51 @@ jobs:
   # FIRST RUN ON A BRANCH WITH NO LINUX REFERENCES: chromium renders text
   # differently on darwin and linux, so the committed darwin references cannot
   # be compared here. The job generates the linux set, uploads it for review,
-  # and FAILS with instructions. It never commits them — re-blessing is an
-  # explicit human commit (scripts/visual/rebless.sh, e2e/visual/README.md).
+  # and FAILS with instructions. It never commits them — blessing a set that
+  # does not exist yet is an explicit human commit (scripts/visual/rebless.sh,
+  # e2e/visual/README.md).
+  #
+  # ⭐ WHAT CHANGED 18 SEP 2026: ON A PUSH TO `staging`, AND ONLY THERE, AN
+  # EXISTING REFERENCE SET IS REFRESHED AND COMMITTED AUTOMATICALLY. The
+  # machinery is the block at the end of this job; the reasoning is there too.
+  # The one-line version: the references were a hand-maintained mirror of a
+  # canvas that re-lays-out on ANY text change, held to a 0.05% tolerance, and
+  # they went stale five times in a month. On 18 Sep the standing drift was
+  # 5.54% — 110x the tolerance — and a deliberate +35% panel-width regression
+  # moved that figure by MINUS 0.06 percentage points. The instrument was sound
+  # and had stopped discriminating, which is the worse of the two failures.
   visual-regression:
     name: Visual Regression (advisory)
     needs: install
-    runs-on: ubuntu-latest
+    # ⚠ PINNED — AND THE LABEL IS ALL GITHUB LETS YOU PIN, WHICH IS WORTH BEING
+    # PRECISE ABOUT RATHER THAN CLAIMING MORE THAN IT DOES.
+    #
+    # This harness is scoped per FONT SET, not per platform:
+    # `playwright.visual.config.ts` records the measurement — the same commit,
+    # captured in a container versus on the runner, differed by 5.394% at
+    # 1440x900 (tolerance 0.050%) because ONE GLYPH substituted (`···` for `…`),
+    # node sizes are measured from rendered text, and those measurements drive
+    # `fitView`. One font moves every node on the canvas.
+    #
+    # That is NOT the cause of the current staleness — it was bisected and
+    # refuted: the drift grew 0.41% -> 4.68% while the runner image was
+    # CONSTANT, so the bulk of it is cumulative product change. It is pinned
+    # anyway, because `ubuntu-latest` is a moving alias and the next time it
+    # rolls to a new Ubuntu release it would invalidate every reference
+    # overnight with nothing in the diff to say why.
+    #
+    # ⚠ WHAT THIS DOES NOT BUY: GitHub exposes the OS release as the label
+    # (`ubuntu-24.04`) and does not expose the IMAGE BUILD (`20260907.300.1`) as
+    # anything pinnable. Font packages can still change inside 24.04. The
+    # auto-refresh below is what absorbs that; this line only stops the larger,
+    # sillier jump.
+    runs-on: ubuntu-24.04
     continue-on-error: true
+    # Needed only by the reference-refresh block at the end of this job, and
+    # only on a push to `staging`. The workflow-level default is
+    # `contents: read`; this job-level block replaces it for this job alone.
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -586,7 +624,11 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Found $count committed linux reference image(s)."
 
+      # `id` so the refresh block can gate on this step's OUTCOME. It keeps no
+      # `continue-on-error`: a failed comparison must still redden the job, on a
+      # PR as much as on a push. The refresh steps opt back in with `!cancelled()`.
       - name: Compare against committed linux references
+        id: compare
         if: steps.refs.outputs.count != '0'
         run: pnpm run visual
 
@@ -620,6 +662,11 @@ jobs:
           echo "::error::and commit them to e2e/visual/references/linux/ as their own reviewable commit."
           exit 1
 
+      # ⚠ THIS UPLOAD RUNS BEFORE THE REFRESH BLOCK ON PURPOSE. A re-bless reuses
+      # `test-results/` and `playwright-report-visual/`, so blessing first would
+      # destroy the COMPARISON run's `-expected`/`-actual`/`-diff` triplets —
+      # the evidence a human adjudicates. Uploaded here, this artefact is always
+      # the comparison's. The refresh block has its own artefact.
       - name: Upload diffs and HTML report
         if: always()
         uses: actions/upload-artifact@v4
@@ -631,25 +678,224 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+      # ═══════════════════════════════════════════════════════════════════════
+      # ⭐ AUTO-REFRESH THE LINUX REFERENCES — PUSH TO `staging` ONLY
+      # ═══════════════════════════════════════════════════════════════════════
+      #
+      # WHY. The references were a hand-maintained mirror (CLAUDE.md trap 12) of
+      # a canvas that re-lays-out on ANY text change — node geometry is measured
+      # from rendered text and drives `fitView`, so there is no such thing as a
+      # small diff here — held to a tolerance calibrated for antialiasing noise.
+      # Measured 18 Sep 2026: 0.41% drift within TWO DAYS of the last blessing,
+      # growing to 5.54%, and stale for the FIFTH time since 17 Aug. At that
+      # drift the job had stopped discriminating: an unmodified page, a sticky
+      # footer overlapping content, and a right-hand panel 35% wider all
+      # produced ~5.5%, and the panel regression moved the figure DOWN by 0.06
+      # percentage points. Advisory-and-permanently-red is indistinguishable
+      # from broken, which is trap 7 arriving exactly as this job's own comment
+      # above predicted it would.
+      #
+      # Refreshing on every `staging` push means the references are never more
+      # than one commit behind the product, so a PR's comparison shows only what
+      # THAT PR changed and the 0.05% tolerance is meaningful again.
+      #
+      # ⛔ THE TRADE-OFF, STATED RATHER THAN BURIED. A regression merged to
+      # `staging` BECOMES THE NEW REFERENCE and stops being flagged. That was
+      # put to the founder and accepted. The defence is the PR job: it compares
+      # against references at most one commit old, which is precisely the
+      # discrimination that does not exist today. The mitigation is mandatory
+      # and is implemented below — every refresh NAMES every image that moved,
+      # in pixels, in the step summary, and uploads before/after/diff images.
+      # A silent auto-bless is the defect this whole change is about.
+      #
+      # NEVER ON A PULL REQUEST, and never on `merge_group`. A PR must compare
+      # against committed references or the change is pointless.
+      #
+      # THE LOOP GUARD IS `[skip ci]` IN THE COMMIT MESSAGE, not a `paths-ignore`
+      # on the trigger, and the choice is deliberate:
+      #   - `paths-ignore` is workflow-wide. A human re-bless commit that
+      #     touched only reference images would then skip the ENTIRE staging
+      #     suite — a whole-suite hole opened to solve a one-job problem.
+      #   - `[skip ci]` is scoped to the exact commit CI itself writes, is
+      #     visible in `git log`, and reads as what it is.
+      # GitHub also does not dispatch workflows for pushes made with the default
+      # `GITHUB_TOKEN`, so there are two independent guards. `[skip ci]` is the
+      # load-bearing one, because it survives a switch to any other credential.
+      #
+      # IT CANNOT ADOPT PIXELS HAVING MEASURED NOTHING. The manifest is DELETED
+      # before blessing, and `scripts/visual/reference-delta.mjs` refuses unless
+      # the run's captured set equals the committed set by name in both
+      # directions. "The bless never ran" therefore cannot look like "nothing
+      # moved" — which is the shape of the check in this repo that reported
+      # success having executed nothing for 204 days.
+      - name: Preserve the comparison's evidence, then arm the postcondition
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.refs.outputs.count != '0' && steps.compare.outcome == 'failure' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/visreg-compare" "$RUNNER_TEMP/visreg-before"
+
+          # The step summary must describe the COMPARISON, not the bless that is
+          # about to overwrite `test-results/`. The bless compares nothing.
+          cp test-results/visual-selftest/selftest-report.txt "$RUNNER_TEMP/visreg-compare/" 2>/dev/null || true
+          cp test-results/visual-manifest.txt "$RUNNER_TEMP/visreg-compare/" 2>/dev/null || true
+
+          # The "before" side of the delta: the committed references exactly as
+          # checked out. Taken from the working tree rather than from git
+          # plumbing so it cannot be confused by checkout depth or filters.
+          cp e2e/visual/references/linux/*.png "$RUNNER_TEMP/visreg-before/"
+          echo "Committed linux references snapshotted: $(ls -1 "$RUNNER_TEMP/visreg-before" | wc -l)"
+
+          # ⭐ THE POSITIVE CONTROL. `globalSetup` writes a fresh manifest at the
+          # start of every run; deleting it here means a bless that never
+          # started leaves NO manifest, and the delta script refuses instead of
+          # cheerfully reporting that nothing moved.
+          rm -f test-results/visual-manifest.txt
+
+          # A refresh on top of a dirty reference tree produces a diff nobody
+          # can review. rebless.sh refuses too; this says so before the 10
+          # minutes are spent.
+          git diff --quiet -- e2e/visual/references || {
+            echo "::error::the reference tree is already dirty before blessing — refusing to refresh"
+            exit 1
+          }
+
+      - name: Re-bless the linux references
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.refs.outputs.count != '0' && steps.compare.outcome == 'failure' }}
+        run: |
+          set -o pipefail
+          # `scripts/visual/rebless.sh`, unchanged — the sanctioned bless route,
+          # with its own guards (refuses a dirty reference tree, fails a
+          # re-bless that produced zero images). It still never commits: the
+          # commit is this workflow's, two steps down, and only on `staging`.
+          #
+          # ⚠ ITS EXIT CODE IS DELIBERATELY NOT THE GATE. Under `VISREG_BLESS=1`
+          # the harness's own self-test is EXPECTED to fail: `updateSnapshots:
+          # 'all'` makes `toHaveScreenshot` WRITE where the self-test asserts it
+          # THROWS, and the tolerance case reads a reference the same run is
+          # replacing. A run that wrote all ten references correctly still exits
+          # non-zero. The gate is the derived postcondition in the next step.
+          pnpm visual:bless || echo "::notice::the bless run exited non-zero — expected under VISREG_BLESS=1; the postcondition decides, not this exit code"
+
+      - name: What moved — every reference named, in pixels
+        id: delta
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.refs.outputs.count != '0' && steps.compare.outcome == 'failure' }}
+        run: |
+          set -euo pipefail
+          node scripts/visual/reference-delta.mjs \
+            --before "$RUNNER_TEMP/visreg-before" \
+            --after e2e/visual/references/linux \
+            --manifest test-results/visual-manifest.txt \
+            --diff-out test-results/visual-reference-delta \
+            --json "$RUNNER_TEMP/visreg-delta.json" \
+            --changed-files "$RUNNER_TEMP/visreg-changed-files.txt" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the before / after / diff of every reference that moved
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.refs.outputs.count != '0' && steps.compare.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-reference-delta-linux
+          path: test-results/visual-reference-delta
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Commit the refreshed references to staging
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.refs.outputs.count != '0' && steps.compare.outcome == 'failure' && steps.delta.outputs.changed != '0' && steps.delta.outputs.changed != '' }}
+        run: |
+          set -euo pipefail
+
+          # ⚠ IF `staging` HAS MOVED, THESE PIXELS DESCRIBE AN OLDER TREE.
+          # Do NOT rebase them onto the newer head: that would commit a capture
+          # of commit N as the reference for commit N+1, which is the staleness
+          # this change exists to end, reintroduced by the fix. The newer push
+          # has its own run of this job and will capture the newer tree.
+          REMOTE_HEAD="$(git ls-remote origin refs/heads/staging | cut -f1)"
+          if [ "$REMOTE_HEAD" != "${{ github.sha }}" ]; then
+            echo "::notice::staging moved to ${REMOTE_HEAD} while this ran; its own run refreshes the references"
+            {
+              echo ''
+              echo "⏭ **Not committed** — \`staging\` moved to \`${REMOTE_HEAD}\` while this run was capturing."
+              echo 'These pixels describe the older commit, so adopting them would re-create the staleness.'
+              echo 'The newer push runs this job and refreshes from the newer tree.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # ⛔ STAGE BY NAME, NEVER `git add <dir>`. The self-test writes
+          # `__selftest-blank.png` and `__selftest-nearly-uniform.png` into this
+          # directory and unlinks them in a `finally`; a hard crash leaves one
+          # behind, and a wholesale add would commit a blank image AS A
+          # REFERENCE — permanently disarming the state it names. The delta
+          # script emits the exact file list it measured; only that is staged.
+          xargs -a "$RUNNER_TEMP/visreg-changed-files.txt" -r git add --
+          if git diff --cached --quiet; then
+            echo "::error::the delta named changed files but nothing staged — refusing to commit"
+            exit 1
+          fi
+          # Assert nothing outside the linux reference directory is staged.
+          UNEXPECTED="$(git diff --cached --name-only | grep -v '^e2e/visual/references/linux/' || true)"
+          if [ -n "$UNEXPECTED" ]; then
+            echo "::error::refusing to commit — files outside the linux reference set are staged: $UNEXPECTED"
+            exit 1
+          fi
+
+          git commit -m "chore(visreg): refresh the linux visual references [skip ci]" \
+            -m "Captured on this runner at ${{ github.sha }} by the visual-regression job." \
+            -m "$(cat "$RUNNER_TEMP/visreg-changed-files.txt")" \
+            -m "Adopted automatically so the references are never more than one commit behind the product. The per-image pixel deltas are in this run's step summary; the before/after/diff images are in the visual-reference-delta-linux artefact. [skip ci] stops this commit re-triggering the suite."
+
+          if ! git push origin HEAD:refs/heads/staging; then
+            {
+              echo ''
+              echo '⛔ **The refreshed references could not be pushed.**'
+              echo ''
+              echo 'The most likely cause is branch protection. Derived 18 Sep 2026: `staging` requires'
+              echo 'the `Staging Gate` status check and has `enforce_admins` enabled, and a required check blocks'
+              echo 'DIRECT PUSHES as well as merges — a commit created here carries no checks, so it is'
+              echo 'rejected. No token fixes this; admins are included by `enforce_admins`.'
+              echo ''
+              echo 'The fix is a repository-settings change, not a workflow change: allow this workflow'
+              echo 'to bypass the required check on `staging` (a ruleset with a bypass actor for the'
+              echo 'GitHub Actions app, replacing the classic protection), or accept the human route —'
+              echo 'download `visual-reference-delta-linux`, look at the images, and commit them.'
+              echo ''
+              echo 'Until then the references go stale again, which is the defect this job was changed to fix.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::could not push the refreshed references to staging — see the step summary"
+            exit 1
+          fi
+          echo "::notice::refreshed linux references pushed to staging"
+
       - name: Summary
         if: always()
         run: |
+          # On a push to `staging` the refresh block above re-runs the harness in
+          # BLESS mode, which overwrites `test-results/`. The COMPARISON run's
+          # report and manifest were preserved first, and they are what this
+          # summary must describe — a bless run compared nothing.
+          SELFTEST=test-results/visual-selftest/selftest-report.txt
+          MANIFEST=test-results/visual-manifest.txt
+          [ -f "$RUNNER_TEMP/visreg-compare/selftest-report.txt" ] && SELFTEST="$RUNNER_TEMP/visreg-compare/selftest-report.txt"
+          [ -f "$RUNNER_TEMP/visreg-compare/visual-manifest.txt" ] && MANIFEST="$RUNNER_TEMP/visreg-compare/visual-manifest.txt"
           {
             echo '### Visual regression (advisory — does not block merges)'
             echo ''
-            if [ -f test-results/visual-selftest/selftest-report.txt ]; then
+            if [ -f "$SELFTEST" ]; then
               echo 'Self-test measurement — the tolerance must separate noise from a real regression:'
               echo ''
               echo '```'
-              cat test-results/visual-selftest/selftest-report.txt
+              cat "$SELFTEST"
               echo '```'
             fi
-            if [ -f test-results/visual-manifest.txt ]; then
+            if [ -f "$MANIFEST" ]; then
               echo ''
               echo 'States captured this run:'
               echo ''
               echo '```'
-              cat test-results/visual-manifest.txt
+              cat "$MANIFEST"
               echo '```'
             else
               echo ''
@@ -658,7 +904,13 @@ jobs:
             echo ''
             echo 'Failed comparisons upload `-expected` / `-actual` / `-diff` images in the'
             echo '`visual-regression-report` artifact. Adjudicate the image, do not guess from a ratio.'
-            echo 'To accept a change: `scripts/visual/rebless.sh`, review, and commit the references on their own.'
+            echo ''
+            echo 'On a push to `staging` the linux references are refreshed and committed automatically,'
+            echo 'and every image that moved is named with its pixel count above. On a pull request they'
+            echo 'are never touched: the comparison you are reading is against references at most one'
+            echo 'commit behind `staging`, so it shows what THIS branch changes.'
+            echo 'To accept a change on darwin, or to add a new state: `scripts/visual/rebless.sh`,'
+            echo 'review, and commit the references on their own.'
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ── System E · the Core PoC mounted-browser suite ─────────────────────

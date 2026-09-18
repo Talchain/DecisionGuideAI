@@ -100,11 +100,20 @@ export default defineConfig({
   //
   // CONSEQUENCE, and it is not optional: linux references must be generated ON
   // THE CI RUNNER, never on a local container that merely reports
-  // `process.platform === 'linux'`. The job in `staging-full-tests.yml` does
-  // exactly this when no linux references are committed — it blesses, uploads
-  // them as an artifact for review, and never commits. Delete the stale ones to
-  // invoke it. A container-blessed reference would turn today's honest red into
-  // a permanent, inexplicable one.
+  // `process.platform === 'linux'`. A container-blessed reference would turn
+  // today's honest red into a permanent, inexplicable one.
+  //
+  // The `visual-regression` job in `staging-full-tests.yml` is the only place
+  // that generates them, and it now has two modes:
+  //   - NO linux references committed  -> bless, upload for review, and FAIL.
+  //     It never commits a set that does not exist yet; that stays a human act.
+  //   - references committed, push to `staging` -> refresh them and commit,
+  //     naming every image that moved and by how many pixels. The references
+  //     were a hand-maintained mirror and went stale five times in a month;
+  //     the reasoning, and the trade-off it accepts, are in that job's comment
+  //     and in `e2e/visual/README.md`.
+  // On a pull request the references are never touched, which is what makes a
+  // PR's comparison a statement about that PR.
   snapshotPathTemplate: 'e2e/visual/references/{platform}/{arg}{ext}',
 
   use: {
