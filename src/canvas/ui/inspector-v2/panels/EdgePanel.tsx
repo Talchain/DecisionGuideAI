@@ -44,6 +44,7 @@ import {
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
+import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
@@ -61,6 +62,7 @@ function InspectorSlider({
   onChange,
   color,
   trackFillColor,
+  valueText,
   'aria-label': ariaLabel,
 }: {
   value: number
@@ -70,6 +72,14 @@ function InspectorSlider({
   onChange: (v: number) => void
   color?: string
   trackFillColor?: string
+  /**
+   * Human-readable substitute for the numeric value, announced INSTEAD of
+   * `aria-valuenow` by assistive tech when present. Used when the value is a
+   * fabricated default nobody stated: the visible readout withholds the number,
+   * and this stops the accessibility tree announcing the very figure the
+   * visible surface refuses to print.
+   */
+  valueText?: string
   'aria-label': string
 }) {
   const debounceRef = useRef<NodeJS.Timeout>()
@@ -109,6 +119,7 @@ function InspectorSlider({
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={value}
+          {...(valueText ? { 'aria-valuetext': valueText } : {})}
           className={`w-full ${trackFillColor ? 'relative z-10' : ''}`}
           style={color ? { accentColor: color } : undefined}
         />
@@ -274,15 +285,37 @@ export const EdgePanel = memo(function EdgePanel({
   // comes from the live slider, so the colour bands the number on screen rather
   // than one a debounce tick behind it. `withLiveEdgeValue` cannot upgrade an
   // unset verdict, so this composition cannot fabricate a source.
-  const existenceBand: EdgeValueBand = useMemo(
+  /**
+   * ⭐⭐ ONE UNION, READ BY EVERY CHANNEL ON THIS CONTROL.
+   *
+   * This used to be computed inline for the COLOUR alone, while the NUMBER
+   * three hundred lines below read `localBelief` raw. The colour was gated and
+   * the number was not, so the panel printed "80%" directly beneath its own
+   * sentence "Nobody has said how likely this connection is to exist yet."
+   * One surface, two verdicts, one edge.
+   *
+   * `show: true` REQUIRES a source in the union's own type, so a value nobody
+   * stated is unrepresentable rather than merely discouraged — a guard can be
+   * bypassed; a union member that does not exist cannot.
+   *
+   * ⚠ `withLiveEdgeValue` PRESERVES `show: false` (`edgeValueProvenance.ts:609`),
+   * which is what makes this safe to hang the number on: dragging the slider
+   * cannot fake provenance. It does not need to, because `setExistsProbability`
+   * writes `beliefExistsSource` alongside the value, so the instant a human
+   * states it the union opens and the number appears. Silence is for "nobody
+   * has said", never for "the user is saying it now".
+   */
+  const existenceDisplay = useMemo(
     () =>
-      edgeValueBand(
-        withLiveEdgeValue(
-          resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
-          localBelief,
-        ),
+      withLiveEdgeValue(
+        resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+        localBelief,
       ),
     [edge?.data, localBelief],
+  )
+  const existenceBand: EdgeValueBand = useMemo(
+    () => edgeValueBand(existenceDisplay),
+    [existenceDisplay],
   )
 
   // Fragility check
@@ -685,14 +718,21 @@ export const EdgePanel = memo(function EdgePanel({
                     step={0.05}
                     onChange={handleBeliefChange}
                     trackFillColor={EXISTENCE_BAND_TRACK[existenceBand]}
+                    valueText={existenceDisplay.show ? undefined : METRIC_UNSET.standalone}
                     aria-label="Connection existence probability"
                   />
                 </div>
                 <span data-testid="edge-existence-readout" className={`${typography.panelBody} min-w-[32px] text-right ${EXISTENCE_BAND_TEXT[existenceBand]}`}>
-                  {Math.round(localBelief * 100)}%
+                  {existenceDisplay.show
+                    ? `${Math.round(localBelief * 100)}%`
+                    : METRIC_UNSET.standalone}
                 </span>
               </div>
-              <ExpertAnnotation techMode={techMode} editable value={localBelief} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
+              {/* The same fabricated figure in a third channel. Gated on the
+                  same union so techMode cannot reveal what the panel withholds. */}
+              {existenceDisplay.show && (
+                <ExpertAnnotation techMode={techMode} editable value={localBelief} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
+              )}
             </div>
 
             {/* ⛔ THE LABEL-MODE TOGGLE USED TO SIT HERE AND WAS INERT.

@@ -156,7 +156,12 @@ describe('EdgePanel — existence readout colour is provenance-gated', () => {
     expect(EDGE_CONSTRAINTS.beliefExists.default).toBe(0.7)
     seedEdge({ weight: 0.35, direction: 'positive' })
     render(<EdgePanel {...panelProps} />)
-    expect(screen.getByText('70%')).toBeTruthy()
+    /* ⚠ WAS `expect(screen.getByText('70%')).toBeTruthy()` until 18 Sep 2026.
+       This spec closed the COLOUR channel and, in passing, asserted that the
+       0.7 constant IS PRINTED — so it pinned the number half of the same
+       fabrication it was written to stop. The number is now gated on the same
+       union as the colour; `EdgePanel.unsetNumber.spec.tsx` owns that claim. */
+    expect(readout().textContent ?? '').not.toMatch(/\d+\s*%/)
     expect(readout().className).not.toContain('text-success')
     expect(readout().className).toContain('text-text-light')
   })
