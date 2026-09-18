@@ -7,6 +7,14 @@ import {
 } from '../mutationAuthority'
 
 /**
+ * ⛔⛔ UNRUN AS COMMITTED. The 18 Sep 2026 additions to this file —
+ * `FROZEN_REQUIRED_EVIDENCE`, `liveRequiredEvidence`, `evidenceDrift` and the
+ * test "freezes every requiredEvidence sentence — and the freeze can fail" —
+ * WERE NEVER EXECUTED by their author. No vitest, no tsc, no install: the lane
+ * was cost-constrained to reading code and writing a patch. CI is the
+ * authority for whether they pass, and a reader should treat their green as
+ * unwitnessed until CI says otherwise.
+ *
  * Frozen, independently-written audit contract from Brief B3. This is
  * intentionally not generated from CANONICAL_EDIT_AUTHORITY: adding a new
  * product control must first state where it mounts and what evidence could
@@ -70,10 +78,31 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     requiredEvidence:
       'accepted structural_rename with matching server graph hash AND matching expected_label',
   },
+  // ⚠⚠ REPAIRED 18 Sep 2026, AND BOTH FIELDS WERE WRONG IN THE SAME
+  // DIRECTION — this row froze a claim that stopped being true on 10 Sep.
+  //
+  // `requiredEvidence` read: "blanket Inspector fieldset disables the control;
+  // no pointer or keyboard affordance executes". That was measured FALSE at
+  // staging 5824c05b: `factor-external` is in `InspectorRouter`'s
+  // `AUTHORITY_OWNING_PANELS`, so the pane renders OUTSIDE the
+  // `<fieldset disabled>`, and the quick-set buttons plus the tech-mode
+  // Min/Max inputs all execute. #1454 (10 Sep, 22:19) made it operable.
+  //
+  // ⭐ WHY NOBODY NOTICED, WHICH IS THE PART WORTH KEEPING: `requiredEvidence`
+  // IS NEVER EXECUTED. The only assertion over it is
+  // `expect(contract.requiredEvidence.length).toBeGreaterThan(0)` below, so
+  // any sentence at all passes. A hand-maintained mirror inside the very file
+  // that freezes the contract — this estate's dominant defect, sitting in its
+  // own guard. The `authority` field beside it IS pinned (`toEqual` against
+  // the table), which is why only this half drifted.
+  //
+  // The evidence line now names what a reader can CHECK, not what was true
+  // once: the carrier, its handling class, and the graph write it does NOT do.
   priorRangeJudgement: {
-    authority: 'disabled',
+    authority: 'server_fact',
     entrySurfaces: ['Inspector prior range'],
-    requiredEvidence: 'blanket Inspector fieldset disables the control; no pointer or keyboard affordance executes',
+    requiredEvidence:
+      'accepted prior_range_edit persisted by CEE as a typed turn fact (fact_and_commit) and NO write to scenarios.graph',
   },
   canvasSelectionAndLayout: {
     authority: 'local_presentation',
@@ -192,6 +221,137 @@ const EXPECTED_MOUNTED_AUTHORITY = {
   requiredEvidence: string
 }>
 
+/**
+ * ⭐⭐ THE SECOND COPY OF EVERY EVIDENCE SENTENCE, AND THE DUPLICATION IS THE
+ * MECHANISM RATHER THAN AN OVERSIGHT (18 Sep 2026).
+ *
+ * `requiredEvidence` drifted for EIGHT DAYS and nothing went red, because the
+ * only assertion over it was
+ * `expect(contract.requiredEvidence.length).toBeGreaterThan(0)` — which any
+ * sentence at all satisfies. A hand-maintained mirror with no drift detector,
+ * sitting inside the file that freezes the contract: CLAUDE.md trap 12, in its
+ * own guard.
+ *
+ * ⛔ WHY A SECOND LITERAL AND NOT A DERIVATION. There is nothing to derive
+ * FROM. `authority` has an independent counterpart in the implementation
+ * (`CANONICAL_EDIT_AUTHORITY`), which is what lets the `toEqual` above compare
+ * two sources. `requiredEvidence` exists ONLY here. A prose claim cannot be
+ * made to fail loud on drift without a second copy of it, so trap 12's
+ * fallback applies in terms: "where you cannot derive, the mirror must FAIL
+ * LOUD on drift, never assume-good."
+ *
+ * ⚠⚠ AND WHAT IT DOES NOT BUY, STATED PLAINLY SO NOBODY INHERITS THE
+ * IMPRESSION IT WAS CLOSED. This freeze proves AGREEMENT, never TRUTH — trap
+ * 12d exactly. It cannot tell that a sentence is false; it can only stop one
+ * changing SILENTLY. The value is review-shaped: an edit to an evidence claim
+ * now costs a RED and a two-place diff that a reviewer can see, instead of a
+ * one-word change nobody is pointed at.
+ *
+ * ⛔ NOTE WHAT THIS WOULD NOT HAVE CAUGHT, because it is the honest limit. The
+ * 10 Sep drift was the WORLD moving (#1454 made the control operable) while
+ * BOTH the sentence and `CANONICAL_EDIT_AUTHORITY.priorRangeJudgement` sat
+ * still. Nothing here would have reddened: the two copies would have agreed
+ * with each other and with the implementation, all three wrong together. Only
+ * a reader driving the product catches that class. What this DOES catch is the
+ * next lane quietly editing a sentence to fit a change — which is how a false
+ * claim becomes load-bearing.
+ *
+ * ⚠ APPEND-ONLY IN SPIRIT (trap 14b). These are records of what the contract
+ * asserted. Update one only as a deliberate, argued act; never as tidying.
+ */
+const FROZEN_REQUIRED_EVIDENCE: Readonly<Record<string, string>> = {
+  modelGoalMinimumTarget:
+    'explicit absolute minimum and unit, confirmed typed add_constraint, applied receipt before target sync',
+  modelFactorValue:
+    'accepted factor_value_edit plus GraphV3 readback',
+  modelEdgeStrengthConfirmation:
+    'accepted edge_strength_edit with intent confirm_current, and an applied graph_patch receipt for that exact edge',
+  structuralDeleteWithServerHash:
+    'accepted structural_delete with matching server graph hash',
+  canvasNodeRenameWithServerHash:
+    'accepted structural_rename with matching server graph hash AND matching expected_label',
+  priorRangeJudgement:
+    'accepted prior_range_edit persisted by CEE as a typed turn fact (fact_and_commit) and NO write to scenarios.graph',
+  canvasSelectionAndLayout:
+    'copy makes no shared-model or analysis claim',
+  modelOptionIntervention:
+    'accepted option_intervention_edit plus the canonical committed receipt carrying the value',
+  modelFactorConfirmation:
+    'no pointer or keyboard control mounts',
+  postRunFactorValue:
+    'no edit control mounts',
+  postRunFactorConfirmation:
+    'no confirmation control mounts',
+  postRunAutoFix:
+    'critique remains visible while local Fix automatically control does not mount',
+  preAnalysisFactorValue:
+    'no edit control mounts',
+  preAnalysisFactorConfirmation:
+    'no confirmation control mounts',
+  preAnalysisEdgeStrength:
+    'no edge-strength control mounts',
+  preAnalysisV3FactorValue:
+    'accepted factor_value_edit plus receipt-gated optimistic rollback/readback',
+  preAnalysisV3FactorConfirmation:
+    'Confirm as is and Undo confirmation do not mount',
+  preAnalysisV3StructuralAdd:
+    'inline Add rows mount and each add emits ONE structural_add carrying no value, resolved against the server receipt',
+  canvasEdgeAddWithServerHash:
+    'CEE holds structural_add_edge at mutating with a dedicated writer (#1443); a drag with no stated strength stands down at captureStructuralAddEdge and the user is told via STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE ONLY WHERE THE CANVAS OWNS A SERVER GRAPH — announceStructuralAddEdgeState early-returns on !ownsServerGraph (store.ts:2707), so with currentScenarioId and lastAuthoritativeGraph both null the stand-down is SILENT; measured on a518dca8, a node added to a blank canvas produced toast: null and no structural_add on the wire',
+  canvasNodeAddWithServerHash:
+    'accepted structural_add plus receipt-gated removal on refusal; deferred when no CEE graph_hash has been seen, and disclosed',
+  analysisAssumedEdgeStrength:
+    'finding remains visible; the mounted action ASKS Olumi (a conversation turn) and the surface itself writes no graph state',
+  canvasEdgeStrength:
+    'double-click opens read-only details and writes no edge data',
+  canvasFactorConfirmation:
+    'no local confirmation control mounts',
+  goalSuccessTarget:
+    'no local threshold editor or local Define-success modal action mounts',
+  canvasSemanticMutations:
+    'local add, reverse, duplicate, paste, value and history controls do not mount or execute',
+  inspectorSemanticControls:
+    'disabled fieldset plus one visible shared-model authority reason',
+}
+
+/**
+ * The sentence `priorRangeJudgement` carried from 10 Sep 2026 until it was
+ * repaired on 18 Sep — FALSE for that whole window, and green throughout.
+ * Kept because a contrast control needs a real drift to detect, and the drift
+ * that actually happened is the most honest one available. It is EVIDENCE, not
+ * a fixture to keep current: do not update it.
+ */
+const RETIRED_PRIOR_RANGE_EVIDENCE =
+  'blanket Inspector fieldset disables the control; no pointer or keyboard affordance executes'
+
+/**
+ * family -> sentence, as the live contract currently states it.
+ *
+ * ⚠ AN EXPLICIT LOOP RATHER THAN `Object.fromEntries(... .map(...))`. That
+ * form resolves to the `Iterable<readonly any[]>` overload — it returns `any`,
+ * so the annotated return type would be satisfied by construction and a
+ * mis-keyed table would type-check silently. The loop keeps both the key and
+ * the value checked.
+ */
+function liveRequiredEvidence(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [family, contract] of Object.entries(EXPECTED_MOUNTED_AUTHORITY)) {
+    out[family] = contract.requiredEvidence
+  }
+  return out
+}
+
+/**
+ * Families whose sentence does not match the freeze — reported BOTH ways, so
+ * the set reds if it grows or shrinks (trap 22f) rather than only when a
+ * sentence is edited. A family added without a frozen sentence, or a frozen
+ * sentence left behind by a deleted family, are both drift.
+ */
+function evidenceDrift(live: Readonly<Record<string, string>>): string[] {
+  const families = new Set([...Object.keys(live), ...Object.keys(FROZEN_REQUIRED_EVIDENCE)])
+  return [...families].sort().filter((family) => live[family] !== FROZEN_REQUIRED_EVIDENCE[family])
+}
+
 describe('mutation authority is exhaustive and fail-closed', () => {
   it('matches the frozen mounted-family audit contract exactly', () => {
     expect(CANONICAL_EDIT_AUTHORITY).toEqual(
@@ -202,8 +362,56 @@ describe('mutation authority is exhaustive and fail-closed', () => {
     )
     for (const contract of Object.values(EXPECTED_MOUNTED_AUTHORITY)) {
       expect(contract.entrySurfaces.length).toBeGreaterThan(0)
-      expect(contract.requiredEvidence.length).toBeGreaterThan(0)
     }
+    // ⚠ `expect(contract.requiredEvidence.length).toBeGreaterThan(0)` USED TO
+    // SIT HERE AND HAS BEEN REMOVED, not relaxed. It was the vacuity that let
+    // an evidence sentence be false for eight days under a green suite: any
+    // sentence at all passed it. The freeze in the test below strictly
+    // dominates it — an empty string differs from a frozen non-empty sentence,
+    // so the length property is still enforced, by something that also
+    // notices WHICH sentence it is.
+  })
+
+  /**
+   * ⭐⭐ THE DRIFT DETECTOR `requiredEvidence` NEVER HAD, WITH THE CONTRAST
+   * CONTROLS THAT PROVE IT CAN FAIL.
+   *
+   * A guard that only ever passes is indistinguishable from no guard (trap 13),
+   * and the assertion this replaces was exactly that shape. So the positive
+   * arm is paired with three tampered tables, each of which MUST be reported as
+   * drift and each naming a DIFFERENT failure direction. Without them this test
+   * would be a second guard agreeing with itself (trap 13b).
+   */
+  it('freezes every requiredEvidence sentence — and the freeze can fail', () => {
+    const live = liveRequiredEvidence()
+
+    // Precondition, pinned in-test: the freeze is comparing something real.
+    // Without this a broken `liveRequiredEvidence` could hand back an empty
+    // object and the contrast arms below would still look healthy.
+    expect(Object.keys(live).length).toBe(Object.keys(FROZEN_REQUIRED_EVIDENCE).length)
+    expect(Object.keys(live).length).toBeGreaterThan(20)
+
+    // POSITIVE — the live contract matches the freeze exactly.
+    expect(evidenceDrift(live)).toEqual([])
+
+    // CONTRAST 1 — A SENTENCE EDITED. Uses the real 10 Sep drift, so this
+    // proves the guard would have caught the defect that actually happened
+    // rather than a hypothetical one.
+    expect(evidenceDrift({ ...live, priorRangeJudgement: RETIRED_PRIOR_RANGE_EVIDENCE }))
+      .toEqual(['priorRangeJudgement'])
+
+    // CONTRAST 2 — THE SET GROWS. A family added to the contract without an
+    // evidence sentence being frozen for it.
+    expect(evidenceDrift({ ...live, aNewlyMintedFamily: 'whatever a later lane writes here' }))
+      .toEqual(['aNewlyMintedFamily'])
+
+    // CONTRAST 3 — THE SET SHRINKS. A family removed while its frozen sentence
+    // is left behind. Deleted rather than destructured: an unused destructured
+    // binding is a lint error that fails the required check in under a minute,
+    // before a single test runs (CLAUDE.md trap 22e).
+    const shrunk: Record<string, string> = { ...live }
+    delete shrunk.modelFactorValue
+    expect(evidenceDrift(shrunk)).toEqual(['modelFactorValue'])
   })
 
   /**
