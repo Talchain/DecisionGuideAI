@@ -301,10 +301,99 @@ export function statedFactorCategoryLabel(category: unknown, inferredByUi: unkno
  * into the model, so a cut moved here silently re-labels a value a user chose.
  * Change them in the contract first.
  */
-// Canonical thresholds: Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20, Slight < 0.20
+/**
+ * ⭐⭐⭐ THE CANONICAL BAND TABLE — cuts, words and midpoints in ONE object, so
+ * every canvas surface that speaks about a connector's strength derives from
+ * it instead of restating it (18 Sep 2026).
+ *
+ * WHAT THIS REPLACED, AND THE QUESTION EACH OF THE FOUR TABLES ANSWERED. Trap
+ * 21 says to write the questions down BEFORE reconciling, because two
+ * authorities answering DIFFERENT questions must be named apart rather than
+ * aligned. Four were live over `|mean|`, all mounted:
+ *
+ *   1. `getStrengthLabel` (here)            "what ADJECTIVE is this magnitude
+ *                                            entitled to?"   4 words, cuts
+ *                                            0.70 / 0.40 / 0.20.
+ *   2. `weightMagnitudeToStrokeWidth`       "how THICK is this line?"
+ *      (`utils/graphDisplayCalculations`)    3 rungs, cuts 0.70 / 0.40.
+ *   3. `THICKNESS_ROWS`                     "what does a thickness MEAN?"
+ *      (`components/CanvasLegendPopover`)    3 rows: Weak / Moderate / Strong.
+ *   4. `getEffectSizeCoaching`              "what word describes the value you
+ *      (`ui/inspector/coachingText`)         are SETTING?" 5 words, cuts
+ *                                            0.9 / 0.7 / 0.4 / 0.1.
+ *
+ * (1) and (4) ask the SAME question of the SAME number and answered it
+ * differently, so they are reconciled. (2) asks a genuinely different question
+ * — and (3) is the JOIN: a legend exists precisely to assert "this thickness
+ * means this word". A join is only well-formed when both sides have the same
+ * rungs, so (2) gained a fourth rung rather than (3) being taught to hedge.
+ * See `graphDisplayCalculations.ts` for that decision in full.
+ *
+ * WHAT A USER SAW BEFORE. In ONE panel — `EdgePanel` renders the band pills and
+ * the strength slider together — dragging to `|0.15|` lit the **Slight** pill
+ * while the line under it read **"Moderate effect."**; `|0.95|` lit **Very
+ * strong** under the words **"Near-total effect."**; and the two tables
+ * INVERTED at their shared boundaries, because (4)'s were inclusive upwards:
+ * exactly `0.40` was "Moderate effect." beside a lit **Strong** pill, and
+ * exactly `0.70` was "Strong effect." beside a lit **Very strong** pill. On the
+ * board, the legend taught **"Weak effect"** — a word the product prints
+ * nowhere else — for a thickness the canvas draws for every `|mean| < 0.40`,
+ * i.e. for BOTH *Slight* and *Moderate* edges at once.
+ *
+ * ⚠ THE THRESHOLDS ARE THE CONTRACT'S, NOT THIS FILE'S — unchanged by the
+ * consolidation. They come from `validation_ui_data_contract_v1.1` and are
+ * aligned with the DS v4 reference artefact. `midpoint` is what a "pick this
+ * band" gesture WRITES INTO THE MODEL (`StrengthBandButtons.tsx`), so a cut
+ * moved here silently re-labels a value a user chose. Change the contract
+ * first.
+ *
+ * ⚠ THE TOP BAND HAS NO UPPER BOUND ON PURPOSE. `weight` is clamped to [0, 2]
+ * (UI-SEM-023), not to [0, 1], so a `max` of 1.00 would leave `|mean| = 1.5`
+ * in no band at all. `Infinity` keeps the table total over its input domain.
+ */
+export type StrengthBandId = 'slight' | 'moderate' | 'strong' | 'veryStrong'
+
+export interface StrengthBand {
+  /** Stable key. Consumers index their own per-band values by this, never by label. */
+  readonly id: StrengthBandId
+  /** The ONE user-facing word for this band. */
+  readonly label: string
+  /** Inclusive lower bound on |mean|. */
+  readonly min: number
+  /** Exclusive upper bound on |mean|; `Infinity` on the top band. */
+  readonly max: number
+  /** The exact value a "set it to this band" gesture writes. */
+  readonly midpoint: number
+}
+
+/** Ascending, and the order the band pills render in. */
+export const STRENGTH_BANDS: readonly StrengthBand[] = [
+  { id: 'slight',     label: 'Slight',      min: 0.00, max: 0.20,     midpoint: 0.10 },
+  { id: 'moderate',   label: 'Moderate',    min: 0.20, max: 0.40,     midpoint: 0.30 },
+  { id: 'strong',     label: 'Strong',      min: 0.40, max: 0.70,     midpoint: 0.55 },
+  { id: 'veryStrong', label: 'Very strong', min: 0.70, max: Infinity, midpoint: 0.85 },
+]
+
+/**
+ * The band a magnitude falls in. Scans DOWNWARD and falls through to the lowest
+ * band, so the behaviour is byte-identical to the if-chain this replaced for
+ * every input INCLUDING the ones no caller should pass: a negative, or `NaN`,
+ * lands in the lowest band exactly as it did before, rather than becoming
+ * `undefined` and crashing a caller that never handled one.
+ */
+export function getStrengthBand(absValue: number): StrengthBand {
+  for (let i = STRENGTH_BANDS.length - 1; i > 0; i--) {
+    if (absValue >= STRENGTH_BANDS[i].min) return STRENGTH_BANDS[i]
+  }
+  return STRENGTH_BANDS[0]
+}
+
+/**
+ * The ONE word for a magnitude. A thin read over `STRENGTH_BANDS` — the
+ * threshold list that used to sit on this line is gone, because a comment
+ * restating the table immediately above it is the mirror this file exists to
+ * abolish, and it would be the first thing to go stale.
+ */
 export function getStrengthLabel(absValue: number): string {
-  if (absValue >= 0.70) return 'Very strong'
-  if (absValue >= 0.40) return 'Strong'
-  if (absValue >= 0.20) return 'Moderate'
-  return 'Slight'
+  return getStrengthBand(absValue).label
 }

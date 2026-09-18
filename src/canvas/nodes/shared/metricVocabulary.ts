@@ -165,13 +165,20 @@ export const METRIC_NOUN = {
  * than the flattening statistics above, which describe how OFTEN the old
  * behaviour looked wrong rather than why it WAS wrong.
  *
- * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — STILL NOT
- * FIXED HERE. Thickness still carries the magnitude and `vectorEffect:
+ * ✅ THE COARSENESS OF THE SURVIVING CHANNEL WAS A KNOWN, ROWED GAP AND IS NOW
+ * CLOSED (18 Sep 2026). Thickness carries the magnitude and `vectorEffect:
  * 'non-scaling-stroke'` makes it a SCREEN width, so it is one of the few
  * channels that does not degrade at low zoom (where this metric row sits at
- * ~8.8px). `weightMagnitudeToStrokeWidth` still has three bands (≥0.7→3,
- * ≥0.4→2, else 1.5), so across the 24 starter magnitudes (0.18–0.65) there are
- * still only TWO distinguishable measured widths. That half of the gap stands.
+ * ~8.8px). This note used to continue: *"`weightMagnitudeToStrokeWidth` still
+ * has three bands (≥0.7→3, ≥0.4→2, else 1.5), so across the 24 starter
+ * magnitudes (0.18–0.65) there are still only TWO distinguishable measured
+ * widths."* Two things have happened since. The widths moved to 2/3/4 on
+ * 14 Sep (so that sentence's numbers were already stale), and the ladder gained
+ * a FOURTH rung cut at `0.20` — the vocabulary's own *Slight | Moderate*
+ * boundary — so the same 0.18–0.65 span now draws THREE distinguishable widths.
+ * The cuts are no longer restated in that function at all: they come from
+ * `STRENGTH_BANDS` (`domain/vocabulary.ts`), which is what makes the picture
+ * and the words one answer rather than two.
  *
  * ✅ THE OTHER HALF IS BUILT (8 Sep 2026). This note used to continue: *"and
  * `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest band … one of
@@ -179,7 +186,7 @@ export const METRIC_NOUN = {
  * should be visually distinct from 'weakest' is a live product question with
  * Paul."* Paul cleared it; `UNSET_EDGE_STROKE_WIDTH` is now strictly below
  * every measured band, so the "unset" ambiguity is gone and width reads as a
- * total order — unset < weak < moderate < strong.
+ * total order — unset < slight < moderate < strong < very strong.
  *
  * ⚠ THE PARENTHETICAL THAT USED TO SIT HERE SUGGESTED DASH, AND THE BUILD LANE
  * MEASURED IT AND REFUSED. *"The canvas already uses DASH to mean uncertainty"*

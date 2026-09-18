@@ -1,7 +1,12 @@
 /**
  * InfluenceIndicator — standardised edge strength display
- * Uses getStrengthLabel() thresholds (≥0.70 Very strong, ≥0.40 Strong, ≥0.20 Moderate, else Slight)
- * across all canvas and inspector sites — supersedes describeEdgeInfluence() old thresholds.
+ * Calls getStrengthLabel() across all canvas and inspector sites — supersedes
+ * describeEdgeInfluence()'s old thresholds.
+ *
+ * ⚠ THE THRESHOLDS ARE NOT RESTATED HERE. This line used to spell them out
+ * ("≥0.70 Very strong, ≥0.40 Strong, ≥0.20 Moderate, else Slight"), which is a
+ * hand-maintained mirror of `STRENGTH_BANDS` (`domain/vocabulary.ts`) sitting
+ * in a comment — the form of drift nothing can go red on. Read the table.
  *
  * Accepts either:
  *   - `strength` — signed value (-2 to 2); sign encodes direction

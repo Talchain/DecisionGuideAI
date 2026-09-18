@@ -6,28 +6,21 @@
  * must not silently become an exact number attributed to the user. Clicking a
  * button preserves the current direction sign. The active band is highlighted.
  *
- * Thresholds align with inspectorStrings.ts getStrengthLabel():
- *   Very strong >= 0.70, Strong >= 0.40, Moderate >= 0.20, Slight < 0.20
+ * ⚠ THE BANDS ARE IMPORTED, NOT RESTATED (18 Sep 2026). This file used to carry
+ * its own `BANDS` array under the comment *"Thresholds align with
+ * inspectorStrings.ts getStrengthLabel()"* — four labels, four cuts and four
+ * midpoints, hand-kept in lockstep with the contract's table one directory
+ * along. They aligned on the day they were typed, and nothing would have gone
+ * red when they stopped (CLAUDE.md trap 12). That mattered more here than
+ * anywhere else on the canvas, because these buttons WRITE THE MIDPOINT INTO
+ * THE MODEL: a cut that drifted would have stamped a number the user did not
+ * choose under a word that no longer described it. `STRENGTH_BANDS`
+ * (`domain/vocabulary.ts`) is now the only copy.
  */
 
 import { memo, useMemo, useCallback } from 'react'
 import { typography } from '../../../../styles/typography'
-
-interface StrengthBand {
-  label: string
-  midpoint: number
-  /** Lower bound (inclusive) */
-  min: number
-  /** Upper bound (exclusive for all but last band, which is inclusive up to 1.0) */
-  max: number
-}
-
-const BANDS: StrengthBand[] = [
-  { label: 'Slight',      midpoint: 0.10, min: 0.00, max: 0.20 },
-  { label: 'Moderate',    midpoint: 0.30, min: 0.20, max: 0.40 },
-  { label: 'Strong',      midpoint: 0.55, min: 0.40, max: 0.70 },
-  { label: 'Very strong', midpoint: 0.85, min: 0.70, max: 1.00 },
-]
+import { STRENGTH_BANDS, getStrengthBand } from '../../../domain/vocabulary'
 
 interface StrengthBandButtonsProps {
   /** Current signed strength value (-1 to +1) */
@@ -61,13 +54,17 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
   const absMagnitude = Math.abs(value)
   const isNegative = value < 0
 
+  // ⚠ THE `-1` ARM IS LOAD-BEARING AND IS NOT WHAT `getStrengthBand` RETURNS.
+  // The canonical resolver is TOTAL — it falls through to the lowest band for
+  // any input, including `NaN`, so that no caller can be handed `undefined`.
+  // This component needs the opposite for a non-number: "light nothing" is the
+  // same refusal the `unset` prop below exists for, and lighting *Slight* on a
+  // value that is not a value would propose a band nobody supplied. So the
+  // finiteness check stays here, where the display decision lives, and the
+  // table stays total where the domain decision lives.
   const activeBandIndex = useMemo(() => {
-    for (let i = 0; i < BANDS.length; i++) {
-      const band = BANDS[i]
-      const inBand = absMagnitude >= band.min && (absMagnitude < band.max || i === BANDS.length - 1)
-      if (inBand) return i
-    }
-    return -1
+    if (!Number.isFinite(absMagnitude)) return -1
+    return STRENGTH_BANDS.indexOf(getStrengthBand(absMagnitude))
   }, [absMagnitude])
 
   const handleClick = useCallback((midpoint: number) => {
@@ -77,7 +74,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
 
   return (
     <div className="flex gap-1 mb-2" role="group" aria-label="Strength presets">
-      {BANDS.map((band, i) => {
+      {STRENGTH_BANDS.map((band, i) => {
         // `unset` wins over any derived band — see the prop's note.
         const isActive = !unset && activeBandIndex === i
         return (

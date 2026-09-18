@@ -210,38 +210,48 @@ describe('graphDisplayCalculations', () => {
   })
 
   describe('weightMagnitudeToStrokeWidth', () => {
-    // Graph v1.1 Task 7 (wireframe v4) thresholds:
-    //   |mean| >= 0.7 -> 3px
-    //   |mean| >= 0.4 -> 2px
-    //   |mean| <  0.4 -> 1.5px
-    it('returns the weak band for magnitude 0', () => {
-      expect(weightMagnitudeToStrokeWidth(0)).toBe(EDGE_STROKE_WIDTH_BANDS.weak)
+    // ⚠ FOUR RUNGS SINCE 18 Sep 2026, cut by `STRENGTH_BANDS` — the width
+    // channel and the strength vocabulary now share one set of cuts, so the
+    // legend's "this thickness means this word" is a true statement. The
+    // 0.20 boundary is the NEW one: |mean| 0.2–0.39 used to draw at the same
+    // width as |mean| 0.05, which is *Moderate* and *Slight* rendered
+    // identically on the channel the legend teaches as strength.
+    it('returns the slight band for magnitude 0', () => {
+      expect(weightMagnitudeToStrokeWidth(0)).toBe(EDGE_STROKE_WIDTH_BANDS.slight)
     })
 
-    it('returns the weak band just below the 0.4 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.39)).toBe(EDGE_STROKE_WIDTH_BANDS.weak)
+    it('returns the slight band just below the 0.2 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.19)).toBe(EDGE_STROKE_WIDTH_BANDS.slight)
     })
 
-    it('returns the moderate band at the 0.4 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.4)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
+    it('returns the moderate band at the 0.2 boundary — the rung added for Slight/Moderate', () => {
+      expect(weightMagnitudeToStrokeWidth(0.2)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
     })
 
-    it('returns the moderate band just below the 0.7 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.69)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
+    it('returns the moderate band just below the 0.4 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.39)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
     })
 
-    it('returns the strong band at the 0.7 boundary', () => {
-      expect(weightMagnitudeToStrokeWidth(0.7)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
+    it('returns the strong band at the 0.4 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.4)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
     })
 
-    it('returns the strong band for magnitude 1.0', () => {
-      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
+    it('returns the strong band just below the 0.7 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.69)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
+    })
+
+    it('returns the very strong band at the 0.7 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.7)).toBe(EDGE_STROKE_WIDTH_BANDS.veryStrong)
+    })
+
+    it('returns the very strong band for magnitude 1.0', () => {
+      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(EDGE_STROKE_WIDTH_BANDS.veryStrong)
     })
 
     it('handles negative values via internal Math.abs', () => {
-      expect(weightMagnitudeToStrokeWidth(-0.7)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
-      expect(weightMagnitudeToStrokeWidth(-0.4)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
-      expect(weightMagnitudeToStrokeWidth(-0.1)).toBe(EDGE_STROKE_WIDTH_BANDS.weak)
+      expect(weightMagnitudeToStrokeWidth(-0.7)).toBe(EDGE_STROKE_WIDTH_BANDS.veryStrong)
+      expect(weightMagnitudeToStrokeWidth(-0.4)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
+      expect(weightMagnitudeToStrokeWidth(-0.1)).toBe(EDGE_STROKE_WIDTH_BANDS.slight)
     })
   })
 
