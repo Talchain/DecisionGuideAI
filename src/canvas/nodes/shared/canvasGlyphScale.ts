@@ -342,7 +342,91 @@ export const MIN_TARGET_RENDERED_PX = 24
  * border-box`, so this bounds padding and border too, and a control whose text
  * wraps to two lines simply grows past it. Consumers need `items-center` (or a
  * button's UA centring) for the text to sit in the middle of the taller box.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐ WHY BOTH AXES — THE NAME SAID `BOX` WHILE ONE DIMENSION WAS FLOORED
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This shipped as `minHeight` alone, under a header that said it *"floors the
+ * BOX"* and a name ending `_BOX_STYLE`. WCAG 2.2 AA 2.5.8 asks for **24 x 24**
+ * CSS px (or the spacing alternative), so one dimension is not the criterion,
+ * and the review that caught it was right that the gap was the CLAIM rather
+ * than the pixels.
+ *
+ * ⚠ AND THE HONEST HALF: on today's two call sites `minWidth` is very probably
+ * inert, because both carry multi-word copy — `GHOST_TIERS` labels are whole
+ * questions (*"What else could you do?"*) and `NodeChip` adds `px-2` on top of
+ * its label. **That is exactly why it is added rather than argued away.** The
+ * alternative was to keep one axis and defend it with a claim about label
+ * content — a claim nothing in this file can enforce, that a future one-word
+ * chip would falsify silently, and that would leave the constant's own NAME
+ * carrying it. A floor that is inert today and true by construction tomorrow
+ * costs nothing: it can only ever fire where the criterion is already failed,
+ * and it fires by making a flex item wider, never by overlapping a neighbour.
+ *
+ * ⛔ IT STILL DOES NOT MEASURE THE PAINTED BOX, AND NOR CAN ANY GUARD HERE.
+ * `min-height`/`min-width` are what this module DECLARES; what the user is
+ * handed is decided by layout, in a browser. The claim this constant supports
+ * is *"the floor is declared, in the units the user gets"* — not *"24 painted
+ * pixels were observed"*. `theThinkingPromptsAreHittable.spec.tsx` states the
+ * same boundary at the top of the file rather than letting a green suite imply
+ * the stronger claim (CLAUDE.md trap 3: jsdom cannot prove visibility).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⛔⛔ TWO BOUNDED LIMITS, RECORDED BECAUSE NEITHER IS CLOSED BY THIS CONSTANT
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Both are pinned EXACTLY in `theThinkingPromptsAreHittable.spec.tsx`, so the
+ * suite REDs if either set grows or shrinks (CLAUDE.md trap 22f). A gap
+ * recorded in the suite is honest; a gap invisible to it is how the shortfall
+ * this constant closes reached the board in the first place.
+ *
+ * **L1 — BELOW `LABEL_LEGIBLE_ZOOM` THE FLOOR IS NOT MET.** `labelCounterScale`
+ * caps at `1 / LABEL_LEGIBLE_ZOOM`, so under the floor the rendered target is
+ * `MIN_TARGET_RENDERED_PX x MAX_LABEL_COUNTER_SCALE x zoom` — 19.2px at 0.4,
+ * 12px at 0.25. The auto-fit cannot park there (`useFitViewOnLayoutVersion`
+ * passes the floor as `minZoom`), but the canvas itself is `minZoom={0.1}`
+ * (`ReactFlowGraph.tsx:988`), so a USER zoom-out reaches it.
+ *
+ * ⚠⚠ THE OBVIOUS DEFENCE IS *"level-of-detail has dropped the text there"*, AND
+ * IT DOES NOT HOLD FOR EITHER CALL SITE. Derived at `BaseNode.tsx`, not assumed:
+ *   · `TierInvitationRow` is rendered **OUTSIDE** the body wrapper LOD blanks,
+ *     deliberately and with a comment saying so (`BaseNode.tsx:1878-1881`:
+ *     *"an invitation that disappears at the zoom the auto-fit parks at is the
+ *     defect this change exists to remove"*). It is visible below the floor by
+ *     design.
+ *   · `NodeChip` IS inside that wrapper — but blanking is
+ *     `lodBodyBlanked = bodyReduced && lodBodyLine !== null`
+ *     (`BaseNode.tsx:486`), and that declaration's own doc names REACHABLE null
+ *     arms (a factor that is not `external`, an external factor on an ignorance
+ *     prior, an option whose intervention count is unknown). On those cards the
+ *     body is NOT blanked and the chips render.
+ * So L1 is a real, reachable shortfall at user-chosen zooms below the floor —
+ * stated at the `line` rung by name rather than waved at. Closing it needs the
+ * counter-scale cap raised or the target sized off `zoom` directly, which moves
+ * `MAX_LABEL_COUNTER_SCALE` and therefore node GEOMETRY with it — out of this
+ * seam, and not a change to make from a comment.
+ *
+ * **L2 — THE `var()` FALLBACK FAILS OPEN, SILENTLY.** `CANVAS_LABEL_SCALE_VAR`
+ * is set only on the MAIN React Flow root (`CanvasLabelScaleSync`). Rendered in
+ * any second instance — the Compare-tab mini-maps are the named example in that
+ * module's own header — the fallback `1` applies and the floor resolves to
+ * `MIN_TARGET_RENDERED_PX` DECLARED px, i.e. `24 x zoom` rendered. Nothing
+ * errors and nothing looks wrong. ⚠ The mitigating fact, stated rather than
+ * used as an excuse: `typography.edgeLabel` reads the SAME var with the SAME
+ * fallback, so in that instance the whole card is uniformly unscaled rather
+ * than this control being singled out — a smaller surface, not a broken one.
+ *
+ * ⭐ ROWED, NOT BUILT: the registry beside this file
+ * (`canvasGlyphTargetScale.spec.tsx`) cannot see either call site, twice over —
+ * `targetsIn` filters to `textContent.trim() === ''` and `sizeFromClass` reads
+ * heights from CLASSES only, so an inline style is invisible even if the filter
+ * were widened. Widening it is a real job: it needs a text-bearing branch, an
+ * inline-style reader, and a re-derivation of `KNOWN_SHORT_TARGETS` across all
+ * five registered surfaces. Doing half of it would produce a registry that
+ * LOOKS fleet-wide and is not — which is the defect that file's own header was
+ * written about. Left alone deliberately; this constant is guarded by its own
+ * spec instead.
  */
 export const CANVAS_MIN_TARGET_BOX_STYLE: Readonly<CSSProperties> = Object.freeze({
   minHeight: `calc(${MIN_TARGET_RENDERED_PX}px * var(${CANVAS_LABEL_SCALE_VAR}, 1))`,
+  minWidth: `calc(${MIN_TARGET_RENDERED_PX}px * var(${CANVAS_LABEL_SCALE_VAR}, 1))`,
 })
