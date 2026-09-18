@@ -44,7 +44,7 @@ import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
-import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
+import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 
 interface LegendRow {
   label: string
@@ -66,10 +66,17 @@ const TYPE_ROWS: LegendRow[] = [
   },
 ]
 
-function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, mark }: {
+function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, mark }: {
   dashed?: boolean
   stroke?: string
   width?: number
+  /**
+   * The dasharray to draw when `dashed`. Defaults to a generic sample, because
+   * the CONTESTED row's real dash is divergence-scaled (`readContestedState`
+   * returns `4 4`…`4 8`) and no single constant would be true of it. The
+   * connection row passes the canvas's ACTUAL pattern — see `CONNECTION_ROWS`.
+   */
+  dash?: string
   /** Optional polarity marker drawn beside the line, as the canvas draws it. */
   mark?: '+' | '−'
 }) {
@@ -84,7 +91,7 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, mark }: 
           stroke={stroke}
           strokeWidth={width}
           strokeLinecap="round"
-          strokeDasharray={dashed ? '3 2' : undefined}
+          strokeDasharray={dashed ? (dash ?? '3 2') : undefined}
         />
       </svg>
       {mark && (
@@ -96,9 +103,46 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, mark }: 
   )
 }
 
+// ⭐⭐ THE ROW THAT ASSERTED SOMETHING NOBODY HAD SAID.
+//
+// These two rows read "Solid connection: established" and "Dashed connection:
+// less certain". Both were CLAIMS, and the first one was routinely false.
+//
+// `USER_EDGE_DEFAULTS.beliefExists` is 0.8 with no source stamp, so a link the
+// user had merely DRAWN drew solid — and this key told them solid means
+// established. A line style is read PRE-ATTENTIVELY, so the reader absorbed
+// "this relationship is established" about a connection nobody had assessed,
+// without ever consciously evaluating it. Same defect class as the panel
+// printing "80%" (fixed in #1677), one channel over and harder to see.
+//
+// The canvas half is fixed at source: the dash now consumes the provenance
+// union (`resolveExistenceDash`), so it can only speak when somebody stated a
+// likelihood. THIS half is the one that removes the false claim, because an
+// unmarked line asserts nothing UNLESS a key says it does — and this key did.
+//
+// The labels now describe what the channel can actually know. Dash fires for
+// exactly two causes — a stated sub-threshold likelihood, and a contested edge
+// — and "someone recorded a doubt" is true of both; solid is their absence, not
+// a finding. Neither row claims establishment, because the canvas cannot
+// establish anything: the user is the author.
+//
+// ⚠ NO THIRD ROW, DELIBERATELY. The unset state is NOT taught here — it is
+// taught by the two rows that already describe what an unassessed edge draws
+// ("Grey: direction not set yet" and "No strength suggested: thin and grey"),
+// which is the vocabulary DESIGN_SYSTEM.md ruled owns it on 2026-09-08. A third
+// row would also be new copy, and this component's own standing rule is that
+// any FURTHER copy stops and asks Paul. Repairing a false string is not that.
+//
+// ⚠ THE SWATCH NOW DRAWS THE CANVAS'S DASH. It carried its own '3 2' while the
+// canvas drew '6,4', so the key illustrated a pattern the product has never
+// painted — a hand-maintained mirror inside the component that teaches people
+// how to read the board (trap 12). It comes from the constant now.
 const CONNECTION_ROWS: LegendRow[] = [
-  { label: 'Solid connection: established', swatch: <LineSwatch dashed={false} /> },
-  { label: 'Dashed connection: less certain', swatch: <LineSwatch dashed /> },
+  { label: 'Solid connection: no doubt recorded', swatch: <LineSwatch dashed={false} /> },
+  {
+    label: 'Dashed connection: someone recorded a doubt',
+    swatch: <LineSwatch dashed dash={EXISTENCE_UNCERTAIN_DASH} />,
+  },
 ]
 
 // Direction, as the canvas actually draws it: the line's colour, plus a + or -

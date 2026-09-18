@@ -149,7 +149,6 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 // ⛔ importOriginal-SPREAD, never a hand-listed replacement (CLAUDE.md trap 12).
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: () => undefined,
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 7,
   weightMagnitudeToStrokeWidth: () => 2,

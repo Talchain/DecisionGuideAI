@@ -113,7 +113,6 @@ vi.mock('../../hooks/usePrefersReducedMotion', () => ({
 vi.mock('../../../flags', () => ({ isGraphLensEnabled: () => false }))
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: () => 'solid',
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 2,
   weightMagnitudeToStrokeWidth: () => 2,

@@ -64,7 +64,7 @@ import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
-import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
+import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } from '../ui/truncation'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -553,17 +553,31 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [directionDisplay, edgeSignedStrength, isDark],
   )
 
-  // Decision Graph Display v2: Existence certainty line style
-  // Solid: >70%, Dashed: 40-70%, Dotted: <40%
-  // Use utility function to ensure single source of truth
-  // Issue #1 fix: Add fallback for snake_case field names from raw API data
-  const beliefExists = edgeData?.beliefExists ??
-                       (edgeData as any)?.belief_exists ??
-                       (edgeData as any)?.exists_probability
-  // Both views: dashed when exists_probability < 0.7 (existence certainty styling)
-  const existenceCertaintyDash = useMemo(() =>
-    existenceCertaintyToLineStyle(beliefExists),
-    [beliefExists]
+  /**
+   * ⭐⭐ THE EXISTENCE DASH, FROM THE SAME OWNER THE LABEL AND POPOVER READ.
+   *
+   * ⚠ THIS BLOCK USED TO BE THE SECOND LIKELIHOOD CHANNEL THE COMMENT ON
+   * `edgeLikelihood` ABOVE FORBIDS — thirty lines below that instruction. It
+   * read the RAW field:
+   *
+   *     const beliefExists = edgeData?.beliefExists ?? belief_exists ?? exists_probability
+   *     existenceCertaintyToLineStyle(beliefExists)   // >= 0.7 → solid
+   *
+   * `USER_EDGE_DEFAULTS.beliefExists` is `0.8` with no source stamp, so a link
+   * the user had just DRAWN cleared the threshold and drew SOLID — under a
+   * legend reading "Solid connection: established". One edge, two surfaces, two
+   * answers again: the panel (gated since #1677) said nobody had stated a
+   * likelihood while the stroke asserted the relationship was established.
+   *
+   * It also read a DIFFERENT FIELD SET from the union (`belief_exists` /
+   * `exists_probability` here; `beliefExists` / `belief` there), so the two
+   * could disagree on WHICH number they were even describing. Both now resolve
+   * through `resolveEdgeValueDisplay`. Do not reintroduce a raw read here
+   * (CLAUDE.md trap 21).
+   */
+  const existenceDash = useMemo(
+    () => resolveExistenceDash(edgeLikelihood),
+    [edgeLikelihood]
   )
 
   // Contested edge state — reduced to four named facts by the one authority
@@ -1206,11 +1220,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     contested,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
-    existenceDash: existenceCertaintyDash,
+    existence: existenceDash,
     visualPropsDash: visualProps.strokeDasharray,
   }), [
     isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
-    isHighlightedEdge, directionStroke, existenceCertaintyDash, visualProps.strokeDasharray,
+    isHighlightedEdge, directionStroke, existenceDash, visualProps.strokeDasharray,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
 
@@ -1488,7 +1502,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           strokeDasharray: edgeDash.value,
           stroke: edgeStroke.value,
           // Opacity is a lens-only channel now. exists_probability is a SINGLE
-          // encoding — the dash (existenceCertaintyDash above), which stays
+          // encoding — the dash (existenceDash above), which stays
           // legible at every zoom level and doesn't fight the analysis halo.
           // The former Task 9b belief→opacity coupling was dropped (P2.9): two
           // channels for one variable is exactly the encoding overload the

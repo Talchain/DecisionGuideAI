@@ -86,7 +86,7 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 // importOriginal-SPREAD, never a hand-listed replacement (CLAUDE.md trap 12):
 // a `vi.mock` factory REPLACES the module, so a hand-written list silently drops
 // every export added after it was written. Only the two stubs below are
-// overridden, and `existenceCertaintyToLineStyle` keeps its REAL behaviour so
+// overridden, and `resolveExistenceDash` keeps its REAL behaviour so
 // the existence-dash twin is a genuine measurement.
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),

@@ -314,6 +314,37 @@ unset-thickness row uses the same token. **There is no yellow row.**
 > source file and out of scope for this documentation change — it needs the same
 > correction. See the PR description.
 
+**RULED 2026-09-18 — THE SAME QUESTION ON THE DASH CHANNEL: an edge nobody has
+assessed gets NO MARK, and the legend stops calling solid "established".**
+
+`existenceCertaintyToLineStyle` took a bare number with two branches, so it
+could not express "unset" — and `USER_EDGE_DEFAULTS.beliefExists` is `0.8` with
+no stamp, so a link the user had merely DRAWN cleared the 0.7 threshold, drew
+SOLID, and was captioned *"Solid connection: established"* by
+`CanvasLegendPopover`. The board asserted that an unassessed relationship was
+established, and a line style is read PRE-ATTENTIVELY, so the reader absorbed it
+without ever deciding to believe it. It now consumes `EdgeValueDisplay`
+(`resolveExistenceDash`), per the ⛔ rule above.
+
+**Unset gets no mark of its own, and that is a decision, not an omission.** Every
+position in the dash channel is spoken for, and each reuse would state something
+nobody said: `'6,4'` means *a stated sub-threshold likelihood*; **dotted is NOT
+free — it already means `Low` in the confidence table above and in
+`ConfidenceBadge`**, so a dotted unset edge would read "low"; and the contested
+dash is reserved for a live dispute. Minting a fourth pattern is refused on
+Paul's 17 Aug 2026 ruling — on a fresh or AI-drafted board essentially every edge
+is unset, so *any* mark for unset IS the default mark, and the graph reads as
+alarming when nothing is wrong.
+
+⚠ **This is NOT the width case, and the two must not be reconciled** (trap 21).
+Every width is a claim, so an unset strength had nowhere to stand and needed
+`UNSET_EDGE_STROKE_WIDTH` minted for it. **Solid is not a claim — it is the
+absence of a mark.** An unmarked line asserts nothing unless a key says it does,
+so the fix is in the key: the connection rows now read *"no doubt recorded"* /
+*"someone recorded a doubt"*, true of both dash causes and claiming nothing about
+establishment. The unset state stays visible on the two channels this section
+already ruled own it — grey, at `UNSET_EDGE_STROKE_WIDTH` — and both have rows.
+
 ### Edge-label signals
 
 Three DISTINCT signals may appear on or near an edge — each has one owner and
