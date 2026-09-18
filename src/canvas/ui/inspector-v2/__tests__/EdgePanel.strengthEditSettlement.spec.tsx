@@ -55,9 +55,9 @@ vi.mock('../useInspectorMutations', async importOriginal => {
         ...real,
         setStrength: (
           _mean: number,
-          opts?: { onSendSettled?: (s: SystemEventSendSettlement) => void },
+          opts: { onSendSettled: (s: SystemEventSendSettlement) => void },
         ) => {
-          if (settlementToReport !== null) opts?.onSendSettled?.(settlementToReport)
+          if (settlementToReport !== null) opts.onSendSettled(settlementToReport)
           return 'dispatched' as const
         },
       }

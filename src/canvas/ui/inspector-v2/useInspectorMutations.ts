@@ -954,14 +954,28 @@ export function useEdgeMutations(edgeId: string) {
    */
   const setStrength = useCallback((
     mean: number,
-    opts?: {
+    opts: {
       preserveDirection?: boolean
       /**
-       * ⭐ HOW THE SEND SETTLED — optional, so no existing caller changes shape.
-       * Supplying it is how a surface earns the right to say anything about the
-       * outcome; omitting it keeps today's behaviour exactly.
+       * ⛔⛔ REQUIRED, AND THE FIRST VERSION OF THIS CHANGE HAD IT OPTIONAL —
+       * WHICH REPRODUCED THE DEFECT INSIDE THE FIX FOR IT.
+       *
+       * `settleSystemEventSend` was EXTRACTED so the next carrier would get the
+       * derivation by construction. It did not work: four carriers shipped a
+       * bare send past it, because a helper you must REMEMBER to call leaves
+       * the silent form available and attractive.
+       *
+       * The CEE lane's equivalent seam did not suffer this, and the difference
+       * is structural, not cultural: `mayPresentLeaderClaimForFact` REPLACED the
+       * narrow accessor at every call site, so the composed answer is the only
+       * thing to reach for. Same word, "extraction"; opposite outcomes.
+       *
+       * ⭐ So this is not optional. Making it required forced FOUR callers to
+       * decide — one of which (`EdgeAdvancedEditor:68`) was passing no options
+       * at all and was discovered only because the compiler demanded it. A gap
+       * a type system can find is worth more than a rule a reader must recall.
        */
-      onSendSettled?: (settlement: SystemEventSendSettlement) => void
+      onSendSettled: (settlement: SystemEventSendSettlement) => void
     },
   ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
@@ -973,7 +987,7 @@ export function useEdgeMutations(edgeId: string) {
     const event = buildEdgeStrengthEditEvent({
       edge,
       requestedMean: mean,
-      preserveDirection: opts?.preserveDirection,
+      preserveDirection: opts.preserveDirection,
     })
     const absWeight = Math.abs(mean)
     updateEdge(edgeId, {
@@ -988,7 +1002,7 @@ export function useEdgeMutations(edgeId: string) {
         // slider IS stating a direction, so the value stops being a default in
         // the same update. Under `preserveDirection` neither key is written —
         // a magnitude edit must not mint a direction claim (ROADMAP 2.263).
-        ...(opts?.preserveDirection
+        ...(opts.preserveDirection
           ? {}
           : { direction: mean >= 0 ? 'positive' : 'negative', directionSource: 'user' }),
         weightSource: 'user',
@@ -1032,7 +1046,7 @@ export function useEdgeMutations(edgeId: string) {
      * would alter behaviour for all three at once, and that is a separate
      * decision, taken deliberately or not at all.
      */
-    settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
+    settleSystemEventSend(sendSystemEvent(event), opts.onSendSettled)
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 

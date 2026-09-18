@@ -144,6 +144,22 @@ import {
 } from '../conversation/settleSystemEventSend'
 
 /**
+ * ⛔ A NAMED GAP, SO IT CANNOT PASS FOR A DECISION.
+ *
+ * An anonymous `() => {}` here would be indistinguishable from the
+ * `.catch(() => {})` this whole change exists to remove — and that is the
+ * point: the silence is the same, only the honesty differs. Naming it means
+ * `rg MODEL_TAB_ROW_HAS_NO_SETTLEMENT_SURFACE` answers "who is still
+ * swallowing a settlement?" in one command, instead of requiring someone to
+ * notice an absence.
+ *
+ * To close it, the Model tab's relationship row needs a confirmation surface
+ * and must pass `onSendSettled`. That is that lane's call, not this one's.
+ */
+const MODEL_TAB_ROW_HAS_NO_SETTLEMENT_SURFACE = () => {}
+
+
+/**
  * How a proposal left this seam.
  *
  * - `dispatched`   — local optimistic write landed AND the wire event is with
@@ -707,11 +723,27 @@ export function useModelEditAuthority(
    * pure, so calling it twice costs a computation and changes nothing — the
    * setter's own call is the one whose event is sent.
    */
+
   const proposeEdgeStrength = useCallback(
     (
       edgeId: string,
       signedMean: number,
-      opts: { directionStated: boolean },
+      opts: {
+        directionStated: boolean
+        /**
+         * ⚠ OPTIONAL HERE, AND THAT IS A DISCLOSED GAP, NOT A DESIGN.
+         * `setStrength` now REQUIRES a settlement handler, because four
+         * carriers shipped a bare send past the helper that exists to prevent
+         * exactly that. This caller's own consumer is the Model tab's
+         * relationship row, which has no confirmation surface wired and is
+         * outside this lane's scope by Paul's ruling — so forcing it here would
+         * mean editing a surface I do not own.
+         * The gap is therefore NAMED rather than hidden: see
+         * `MODEL_TAB_ROW_HAS_NO_SETTLEMENT_SURFACE` at module scope, which is greppable
+         * and will show up the moment anyone asks who is still swallowing one.
+         */
+        onSendSettled?: (settlement: SystemEventSendSettlement) => void
+      },
     ): EdgeStrengthProposalOutcome => {
       // The hook is keyed to ONE edge. An id that is not that edge is a caller
       // holding the wrong authority — fail closed rather than write the edge it
@@ -728,7 +760,10 @@ export function useModelEditAuthority(
         return 'refused_unassertable'
       }
 
-      return edgeMutations.setStrength(signedMean, { preserveDirection })
+      return edgeMutations.setStrength(signedMean, {
+        preserveDirection,
+        onSendSettled: opts.onSendSettled ?? MODEL_TAB_ROW_HAS_NO_SETTLEMENT_SURFACE,
+      })
     },
     [activeEdgeId, edgeMutations],
   )

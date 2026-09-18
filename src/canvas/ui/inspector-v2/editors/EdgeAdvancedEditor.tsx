@@ -26,14 +26,26 @@ import { AdvancedWarningPill } from '../shared/AdvancedWarningPill'
  * isolation). The prop is REQUIRED, not defaulted, so a future call site is a
  * type error rather than a silent `'causal'`.
  */
+import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
+
 export type EdgeLinkKind = 'causal' | 'organisational' | 'intervention'
 
 interface EdgeAdvancedEditorProps {
   edgeId: string
   linkKind: EdgeLinkKind
+  /**
+   * ⛔ THIS EDITOR WAS THE FOURTH SILENT CARRIER, AND ONLY THE COMPILER FOUND IT.
+   * `onChange={v => mutations.setStrength(v as number)}` passed no options at
+   * all, so the β field wrote the user's coefficient and reported nothing about
+   * whether it reached the model — the same defect as the bands and the slider,
+   * on the surface a technical user is most likely to trust.
+   * It is REQUIRED rather than optional so this editor cannot drift back into
+   * silence: the panel owns the confirmation, and this control answers to it.
+   */
+  onSendSettled: (settlement: SystemEventSendSettlement) => void
 }
 
-export function EdgeAdvancedEditor({ edgeId, linkKind }: EdgeAdvancedEditorProps) {
+export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdvancedEditorProps) {
   const edge = useCanvasStore(s => s.edges.find(e => e.id === edgeId))
   const mutations = useEdgeMutations(edgeId)
 
@@ -65,7 +77,7 @@ export function EdgeAdvancedEditor({ edgeId, linkKind }: EdgeAdvancedEditorProps
         <AdvancedField
           label="Effect coefficient (β)"
           value={Number(signedMean.toFixed(4))}
-          onChange={v => mutations.setStrength(v as number)}
+          onChange={v => mutations.setStrength(v as number, { onSendSettled })}
           type="number"
           min={-1}
           max={1}

@@ -363,6 +363,17 @@ export const EdgePanel = memo(function EdgePanel({
   const origStrengthRef = useRef(signedValue)
 
   // Handlers
+  /**
+   * ⭐ ONE SETTLEMENT HANDLER FOR EVERY STRENGTH CONTROL ON THIS PANEL.
+   * The bands, the fine-tune slider and the Advanced β field all write the same
+   * edge through the same carrier, so they must all answer for it the same way.
+   * Three copies of this closure would be three chances to drift.
+   */
+  const handleStrengthSendSettled = useCallback(
+    (settlement: SystemEventSendSettlement) => setStrengthEditSend({ ts: Date.now(), settlement }),
+    [],
+  )
+
   const handleStrengthChange = useCallback((v: number) => {
     setLocalStrength(v)
     // A drag is one gesture that fires repeatedly (`SignedStrengthSlider`
@@ -370,11 +381,9 @@ export const EdgePanel = memo(function EdgePanel({
     // the one that describes where the value ended up. Clearing first means a
     // stale "not recorded" can never survive over a later send that landed.
     setStrengthEditSend(null)
-    mutations.setStrength(v, {
-      onSendSettled: settlement => setStrengthEditSend({ ts: Date.now(), settlement }),
-    })
+    mutations.setStrength(v, { onSendSettled: handleStrengthSendSettled })
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [mutations, edgeId, previewEdit])
+  }, [mutations, edgeId, previewEdit, handleStrengthSendSettled])
 
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
@@ -394,12 +403,12 @@ export const EdgePanel = memo(function EdgePanel({
     setStrengthEditSend(null)
     mutations.setStrength(v, {
       preserveDirection: true,
-      onSendSettled: settlement => setStrengthEditSend({ ts: Date.now(), settlement }),
+      onSendSettled: handleStrengthSendSettled,
     })
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
-  }, [mutations, clearPreview, confirmEdit])
+  }, [mutations, clearPreview, confirmEdit, handleStrengthSendSettled])
 
   /**
    * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.
@@ -892,7 +901,7 @@ export const EdgePanel = memo(function EdgePanel({
                 organisational NOR an intervention, so its strength IS read by
                 the analysis. Passed explicitly rather than defaulted: the
                 class is stated at every call site, never inferred. */}
-            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" />
+            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" onSendSettled={handleStrengthSendSettled} />
           </TechnicalDisclosure>
         </>
       )}
@@ -903,6 +912,7 @@ export const EdgePanel = memo(function EdgePanel({
           <EdgeAdvancedEditor
             edgeId={edgeId}
             linkKind={isIntervention ? 'intervention' : 'organisational'}
+            onSendSettled={handleStrengthSendSettled}
           />
         </TechnicalDisclosure>
       )}
