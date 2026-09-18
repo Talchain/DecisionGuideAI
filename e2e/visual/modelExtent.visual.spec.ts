@@ -1,22 +1,54 @@
 /**
- * THE FIRST VIEW TELLS THE TRUTH ABOUT HOW MUCH OF THE MODEL IT IS SHOWING.
+ * THE MODEL-EXTENT NOTICE STAYS REMOVED — AND THIS FILE NOW PROVES IT IN A BROWSER.
  *
- * WHY THIS EXISTS. Measured 30 Aug 2026 in Chromium at 1280x800: on
- * `build-vs-buy` SIX of twenty nodes are entirely outside the pane on first
- * view — including the DECISION NODE, the goal and all three risks — because
- * the auto-fit clamps at the 0.50 legibility floor and then centres. A tester
- * opening that starter alone sees a view that does not contain the decision,
- * and nothing on screen says so.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHY THIS FILE CHANGED (18 Sep 2026)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * It used to pin three things about the bottom-of-canvas "Showing N of M
+ * elements / Show whole model" panel: that it APPEARS when part of the model is
+ * off-screen, that its button WORKS, and that it STAYS AWAY when everything
+ * fits. All three premises are void. The founder asked for that panel to be
+ * removed — twice — and `ReactFlowGraph.tsx` records the second request
+ * verbatim: *"I'm sure I've requested this before, so I don't know why it's
+ * back, but just get rid of it completely."* (14 Sep 2026.)
  *
- * WHAT THIS PINS, and the second one is the point:
- *  1. The notice APPEARS when part of the model is out of view, and states the
- *     remainder rather than fading.
- *  2. Its button ACTUALLY WORKS — after clicking, every node is inside the
- *     pane and the notice removes itself. A control that cannot do what it says
- *     is the defect class this product cleaned up on 29 Aug; this asserts the
- *     outcome, never the click.
- *  3. It STAYS AWAY when the whole model already fits — otherwise it is noise
- *     on every screen, and a notice that always shows says nothing.
+ * PR #1561 removed the mount and updated the UNIT-level guard
+ * (`overlayOwner.sourceScan.spec.ts` pins `ModelExtentNotice` in its
+ * `INTENTIONALLY_UNMOUNTED` set). It did not reach the e2e consumers of the
+ * removed testids, so these two tests have failed on every run since —
+ * `getByTestId('model-extent-notice')` finds nothing, and the second test's
+ * overflow branch asserts a notice that cannot exist.
+ *
+ * ⛔ THEY WERE NOT FAILING BECAUSE THE PRODUCT IS WRONG. They were asserting a
+ * thing the founder decided to delete, which is the most expensive kind of red:
+ * it looks like a defect, it is noise, and the estate had already begun routing
+ * around the whole job because of it.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHAT IT PINS NOW, AND WHY THAT IS WORTH MORE THAN DELETING THE FILE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * That the notice is ABSENT FROM A RUNNING BROWSER — not merely unmounted in
+ * the source. This has already come back once: a later session read the missing
+ * mount as an accident, restored it, and the founder had to ask a second time.
+ * The unit guard catches a re-mount in the source; this catches it wherever it
+ * comes from, including a rebuild of the same panel under new names.
+ *
+ * ⚠ THE ABSENCE IS ONLY MEANINGFUL WITH ITS PRECONDITION. On a model that fits,
+ * the notice would have been absent even when it existed, so the assertion would
+ * prove nothing. `build-vs-buy` is used because it OVERFLOWS the first view, and
+ * that overflow is asserted in-test before any absence is believed — this is the
+ * exact state in which the old notice was designed to appear.
+ *
+ * ⚠ AND A CONTRAST CONTROL, because a page that rendered no overlays at all
+ * would satisfy every absence below. The viewport controls are mounted from the
+ * SAME region of `ReactFlowGraph` — the element immediately after the comment
+ * marking the removed one — so if they are visible, the probe can see overlays
+ * in the place the notice used to occupy.
+ *
+ * ⭐ THE HONEST CAVEAT, carried over from the ruling rather than dropped: this
+ * was the only surface telling a person part of their model is off-screen. The
+ * real repair is that the model should FIT. Removing the disclosure is not free,
+ * and this file is not an argument that it was.
  */
 import { test, expect, type Page } from '@playwright/test'
 import {
@@ -25,44 +57,17 @@ import {
 } from './harness'
 import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 
-/**
- * Wait until the camera transform stops changing.
- *
- * `waitForVisualQuiescence` watches the LAYOUT store, which is silent about the
- * camera — so it returns while a 400ms fit animation is still in flight, and a
- * measurement taken then reports nodes outside the pane that are on their way
- * in. That is a false RED that looks exactly like a dead control.
- */
-async function waitForCameraSettled(page: Page, timeoutMs = 5000): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null
-      if (!vp) return false
-      const w = window as unknown as { __lastTf?: string; __tfStableFrames?: number }
-      const tf = getComputedStyle(vp).transform
-      if (w.__lastTf === tf) { w.__tfStableFrames = (w.__tfStableFrames ?? 0) + 1 }
-      else { w.__lastTf = tf; w.__tfStableFrames = 0 }
-      return (w.__tfStableFrames ?? 0) >= 5
-    },
-    undefined,
-    { timeout: timeoutMs, polling: 50 },
-  )
-}
+/** Every testid the removed panel owned. Absence is asserted for ALL of them. */
+const REMOVED_TESTIDS = ['model-extent-notice', 'model-extent-count', 'model-extent-show-all'] as const
 
 /**
  * Nodes wholly inside the pane, and the total, read from the live DOM.
  *
- * ⚠ THE MODEL, NOT EVERY MOUNTED NODE — AND THIS SPEC WAS THE ONLY PLACE THAT
- * DISAGREED. Three things answer "what is the model?": the notice's own count,
- * `showAll`'s fit target, and this measurement. The first two both resolve to
- * `excludeNonModelNodes`; this one counted `.react-flow__node` wholesale. So
- * once the frontier affordance reached the factor, risk and outcome tiers, the
- * button framed the model — correctly — while this asserted that the
- * *invitations to extend it* should have been framed too, and reported the
- * difference as nodes left outside the pane.
- *
- * Filtered by the product's own `GHOST_ID_PREFIX` rather than a fourth literal:
- * a filter that restates the ids it filters is the drift this whole PR removes.
+ * ⚠ THE MODEL, NOT EVERY MOUNTED NODE. Filtered by the product's own
+ * `GHOST_ID_PREFIX` rather than a fourth literal: a filter that restates the ids
+ * it filters is drift. Ghost nodes are invitations to EXTEND the model, not part
+ * of it, and counting them made this measurement disagree with the product's own
+ * fit target.
  */
 async function nodeVisibility(page: Page) {
   return page.evaluate((ghostPrefix: string) => {
@@ -85,8 +90,8 @@ async function nodeVisibility(page: Page) {
   }, GHOST_ID_PREFIX)
 }
 
-test.describe('the first view discloses its own extent', () => {
-  test('build-vs-buy: the notice states the remainder, and the button reveals the whole model', async ({ page }) => {
+test.describe('the removed model-extent notice stays removed', () => {
+  test('build-vs-buy: the model overflows the first view and NOTHING offers to show the rest', async ({ page }) => {
     await preparePage(page, VIEWPORTS[0])
     await openCanvas(page)
     await seedStarterDraft(page, 'build-vs-buy')
@@ -94,73 +99,39 @@ test.describe('the first view discloses its own extent', () => {
     await freezeMotion(page)
     await waitForVisualQuiescence(page)
 
-    // ENVIRONMENT, asserted before any number is believed.
-    const before = await nodeVisibility(page)
-    expect(before.hidden, 'document.hidden — a hidden tab measures 0x0 and every result is void').toBe(false)
-    expect(before.paneOk, 'the canvas pane has no size — nothing was measured').toBe(true)
-    expect(before.total, 'no nodes mounted').toBeGreaterThan(0)
-
-    // PRECONDITION PINNED IN-TEST: this starter really does overflow the pane.
-    // Without this the assertions below could pass on a model that fits, which
-    // would make the whole spec a tautology.
-    expect(
-      before.fullyVisible,
-      `build-vs-buy is expected to overflow the first view; ${before.fullyVisible}/${before.total} were fully visible`,
-    ).toBeLessThan(before.total)
-
-    const notice = page.getByTestId('model-extent-notice')
-    await expect(notice, 'part of the model is off-screen and nothing says so').toBeVisible()
-
-    // It states a REMAINDER, with both numbers, not a bare "some hidden".
-    const text = (await page.getByTestId('model-extent-count').textContent())?.trim() ?? ''
-    expect(text).toMatch(/Showing \d+ of \d+ elements/)
-    const [, shown, total] = text.match(/Showing (\d+) of (\d+)/)!.map(Number) as unknown as [string, number, number]
-    expect(shown, 'the notice claims everything is visible while the pane disagrees').toBeLessThan(total)
-
-    // THE CONTROL MUST DO WHAT IT SAYS.
-    await page.getByTestId('model-extent-show-all').click()
-    await waitForCameraSettled(page)
-
-    const after = await nodeVisibility(page)
-    expect(after.hidden).toBe(false)
-    expect(
-      after.fullyVisible,
-      `"Show whole model" left ${after.total - after.fullyVisible} node(s) outside the pane`,
-    ).toBe(after.total)
-
-    // ...and having done it, the notice has nothing left to say.
-    await expect(notice, 'the notice persists after the whole model is visible').toBeHidden()
-  })
-
-  test('headcount-allocation: no notice when the model already fits', async ({ page }) => {
-    // The discriminating half. A notice that shows on every model is not a
-    // signal — this proves it is answering the question, not always saying yes.
-    await preparePage(page, VIEWPORTS[0])
-    await openCanvas(page)
-    await seedStarterDraft(page, 'headcount-allocation')
-    await clearNotifications(page)
-    await freezeMotion(page)
-    await waitForVisualQuiescence(page)
-
+    // ENVIRONMENT, asserted before any number is believed. A hidden tab measures
+    // 0x0 and every absence below would be free.
     const v = await nodeVisibility(page)
-    expect(v.hidden).toBe(false)
-    expect(v.paneOk).toBe(true)
-    expect(v.total).toBeGreaterThan(0)
+    expect(v.hidden, 'document.hidden — a hidden tab measures 0x0 and every result is void').toBe(false)
+    expect(v.paneOk, 'the canvas pane has no size — nothing was measured').toBe(true)
+    expect(v.total, 'no nodes mounted').toBeGreaterThan(0)
 
-    if (v.fullyVisible === v.total) {
+    // PRECONDITION: this is the state the removed notice existed to speak in.
+    // Without it the absence below is trivially true and proves nothing.
+    expect(
+      v.fullyVisible,
+      `build-vs-buy is expected to overflow the first view; ${v.fullyVisible}/${v.total} were fully visible, ` +
+      `so the state the notice was designed for was never reached and its absence is untested`,
+    ).toBeLessThan(v.total)
+
+    // CONTRAST CONTROL: overlays ARE reachable in this page, in the same region
+    // of the tree the notice used to occupy. Without this, a page that rendered
+    // no overlays at all would pass every absence assertion below.
+    await expect(
+      page.getByRole('navigation', { name: 'Viewport controls' }),
+      'no overlay is visible at all — the absences below would be blindness, not evidence',
+    ).toBeVisible()
+
+    // THE RULING, IN A BROWSER.
+    for (const testId of REMOVED_TESTIDS) {
       await expect(
-        page.getByTestId('model-extent-notice'),
-        'every node is inside the pane, so the notice must not claim otherwise',
-      ).toBeHidden()
-    } else {
-      // Honest about its own precondition: if this starter also overflows, the
-      // discrimination this test exists for is untested — say so rather than
-      // passing quietly on the branch that proves nothing.
-      await expect(page.getByTestId('model-extent-notice')).toBeVisible()
-      test.info().annotations.push({
-        type: 'warning',
-        description: `headcount-allocation overflowed (${v.fullyVisible}/${v.total}); the no-notice branch was NOT exercised`,
-      })
+        page.getByTestId(testId),
+        `\`${testId}\` is back. ModelExtentNotice was removed on the founder's explicit instruction ` +
+        `("just get rid of it completely", 14 Sep 2026) and has been restored once already by a ` +
+        `session that read its absence as an accident. If this is a deliberate reinstatement, the ` +
+        `ruling in ReactFlowGraph.tsx and the INTENTIONALLY_UNMOUNTED pin in ` +
+        `overlayOwner.sourceScan.spec.ts must change first.`,
+      ).toHaveCount(0)
     }
   })
 })
