@@ -77,6 +77,7 @@ import { executeCanonicalRun } from '../../analysis/canonicalRunRegistry'
 import { analysisHeldNotice } from '../../utils/analysisHeldOnInjectedModel'
 import { useShowToastSafe } from '../../ToastContext'
 import { typography } from '../../../styles/typography'
+import { CANVAS_MIN_TARGET_BOX_STYLE } from './canvasGlyphScale'
 
 interface NodeChipProps {
   label: string
@@ -181,19 +182,47 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
       type="button"
       // ⭐ 24px TOUCH TARGET ON A SURFACE ARGUED FOR TOUCH (WCAG 2.2 AA, 2.5.8).
       //
-      // The painted chip is ~18.5px tall: `edgeLabel` is 10px with `leading-tight`
-      // (12.5px line box), plus `py-0.5` (4px) and a 1px border each side. #1061
-      // moves these chips onto the card because a hover popover cannot be reached
-      // on a touch device — so landing them at 18.5px would answer the wrong half
-      // of that argument.
+      // #1061 moves these chips onto the card because a hover popover cannot be
+      // reached on a touch device — so landing them under the minimum would
+      // answer the wrong half of that argument.
       //
       // Expanded with a pseudo-element rather than padding so the chip's PAINTED
       // size and the row's density are unchanged: the same instrument used on the
       // quick-actions button in #1049, and for the same reason.
       //
-      // ⚠ CSS px at zoom 1. Under ReactFlow's viewport transform this scales with
-      // the canvas like everything else; the guideline is defined at zoom 1 and
-      // that is what this satisfies.
+      // ⛔⛔ AND THAT WAS NOT ENOUGH, FOR TWO REASONS THIS BLOCK USED TO STATE
+      // AS FEATURES. Corrected by derivation at the tip, not measured in a
+      // browser here:
+      //
+      //  1. ⚠ THE ARITHMETIC WENT STALE UNDER IT. This said *"edgeLabel is 10px
+      //     with leading-tight (12.5px line box)"*. `#1527` raised `edgeLabel`
+      //     10 → 11 and it carries `leading-snug` (1.375): the line box is
+      //     15.125px. A hand-copied token value in the one comment that sizes a
+      //     WCAG target — CLAUDE.md trap 12, in miniature.
+      //
+      //  2. ⭐⭐ "CSS px at zoom 1" IS THE WHOLE DEFECT, NOT A CAVEAT. This DOM
+      //     lives inside React Flow's viewport transform and the product parks
+      //     the user at `LABEL_LEGIBLE_ZOOM` (0.50) — the rung there is `quiet`,
+      //     so the body and this chip ARE rendered. `py-0.5`, the 1px border and
+      //     `before:-inset-y-[3px]` are all UNSCALED, and the slop is measured
+      //     from the PADDING box so it clears the border by only 2px per side:
+      //
+      //        painted  15.125 + 6 x zoom  = **18.125px** at the settle zoom
+      //        hit      15.125 + 10 x zoom = **20.125px** at the settle zoom
+      //
+      //     A guideline satisfied in the producer's units, handed to the user
+      //     3.875px short — the same class of miss `canvasGlyphScale.ts` exists
+      //     to close, reached here through a comment rather than a class.
+      //
+      // `CANVAS_MIN_TARGET_BOX_STYLE` floors the BOX at `MIN_TARGET_RENDERED_PX`
+      // in RENDERED px, which takes the painted chip to 24px and the hit area to
+      // 26px at the settle zoom (28px at zoom 1). ⭐ THE SLOP AND `py-0.5` ARE
+      // DELIBERATELY UNTOUCHED: raising the slop instead would need the fifteen
+      // `flex gap-1 flex-wrap` chip rows widened past `gap > 2 x slop` or a
+      // wrapped line would steal its neighbour's clicks — and these chips are
+      // DIFFERENT QUESTIONS, so a near miss sends the wrong one to the model.
+      // A painted box cannot overlap its flex neighbours; see that constant's
+      // header for why the box, and not the slop, is the right instrument.
       //
       // ⭐⭐ THE CHROME RECEDES AT REST; THE TEXT DOES NOT.
       //
@@ -215,9 +244,14 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
       // would have been the obvious move and would have traded a design
       // complaint for an accessibility one.
       //
-      // ⚠ The 24px target below is unaffected: `before:` sizing and `py-0.5`
-      // are unchanged, so the painted size and the hit area both stand.
+      // ⚠ The target below is unaffected BY THE QUIETENING: `before:` sizing and
+      // `py-0.5` are unchanged, so the painted size and the hit area both stand.
+      // (What that target actually WAS is corrected above — this sentence was
+      // true about the chrome change and inherited the "24px" it was measured
+      // against, which was itself never reached at the zoom the product parks
+      // at. The correction belongs upstairs, with the arithmetic.)
       className={`${typography.edgeLabel} font-medium inline-flex items-center px-2 py-0.5 rounded-md border border-transparent bg-transparent text-text-body group-hover:border-info/30 group-hover:bg-panel group-focus-within:border-info/30 group-focus-within:bg-panel cursor-pointer hover:bg-info/5 transition-colors nodrag nopan relative before:absolute before:content-[''] before:-inset-y-[3px] before:left-0 before:right-0`}
+      style={CANVAS_MIN_TARGET_BOX_STYLE}
       onClick={handleClick}
       onPointerDown={(e) => e.stopPropagation()}
       // `title` and not a styled tooltip, deliberately: this is the SAME
