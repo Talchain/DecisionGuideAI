@@ -2218,8 +2218,42 @@ function downloadFile(content: string, filename: string, type = 'application/jso
 /**
  * Transform canvas graph data into enriched export format.
  * Captures the full node/edge data from the store for data-produced-vs-displayed comparison.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐⭐ THIS FUNCTION IS THE FLATTENER. `full_graph` IS NOT THE WIRE.
+ * ────────────────────────────────────────────────────────────────────────────
+ *
+ * On 18 Sep 2026 a bundle from the founder's own staging session (request
+ * `39f05ab7`, UI build `4b9a8fb5`) was read as a CEE payload and produced a P0
+ * against working code. The reasoning ran: `full_graph.edges[]` carries
+ * `strength_mean` and `strength_std` but no `strengthStd`, therefore CEE
+ * supplies uncertainty and the UI drops it at the name. Every step of that is
+ * an artefact of the projection below.
+ *
+ *   · The snake_case names are MADE HERE. `strength_mean` is
+ *     `edge.data.weight`; `strength_std` is `edge.data.strengthStd`. Nothing in
+ *     the product flattens — this transform does, for the bundle only.
+ *   · `strengthStd` CANNOT APPEAR under that spelling, because this projection
+ *     emits no such key. Its absence is guaranteed by the code below and is
+ *     evidence about nothing (CLAUDE.md trap 13 — an absence claim needs a
+ *     probe that could have seen a presence; trap 20 — NAME THE ARTEFACT
+ *     SEARCHED, and `full_graph.edges[]` is not `edge.data`).
+ *   · `"strength":` appears ZERO times in such a bundle for the same reason:
+ *     there is no nested `strength` key in the output shape. That is not
+ *     evidence that the producer sent none. On the live V5 turn path CEE sends
+ *     the CANONICAL nested `strength: { mean, std }` — `EdgeV3Schema` is a
+ *     plain `z.object`, so a CEE edge cannot carry the flat names at all — and
+ *     `mapDraftEdgeToCanvas` reads `e.strength.std` on its FIRST probe.
+ *
+ * ⚠ SO THE ONLY HONEST READING OF THIS BLOCK IS: it says what the CANVAS STORE
+ * held at export time, in a spelling this file invented. To reason about the
+ * wire, read the captured `cee_response`, never `full_graph`.
+ *
+ * Exported for `canvas/utils/__tests__/edgeUncertaintyCarriage.spec.ts`, which
+ * pins the re-keying above so the next reader inherits the mapping rather than
+ * re-deriving it from a bundle.
  */
-function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph {
+export function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph {
   const factors: EnrichedGraphNode[] = []
   const options: EnrichedGraphNode[] = []
 

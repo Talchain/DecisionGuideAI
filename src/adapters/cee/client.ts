@@ -491,14 +491,43 @@ export function adaptDraftResponse(raw: unknown): CEEDraftResponse {
       ]
       const provenance_source = typeof rawProvSource === 'string' && allowedSources.includes(rawProvSource as typeof allowedSources[number]) ? rawProvSource : undefined
 
-      // P0-2: Normalize strength_mean from nested or flat structure
+      // P0-2: Normalize strength_mean/strength_std from nested or flat structure.
       // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
+      //
+      // ⭐⭐ THE NESTED FORM IS THE CONTRACT. THE FLAT ONES ARE OWED BY NOBODY.
+      //
+      // `olumi-schemas` main declares ONE spelling (`src/graph.ts:758`):
+      //
+      //     StrengthSchema = z.object({ mean: number(-1..1), std: number().positive() })
+      //     EdgeV3Schema   = z.object({ from, to, strength: StrengthSchema, ... })
+      //
+      // CEE's own `EdgeV3` (`src/schemas/cee-v3.ts:450`) is identical and
+      // docblocked "nested { mean, std } format (canonical Schema v2.2)".
+      // `strength_mean` and `strength_std` are NOT in either schema. They
+      // survive only because the edge schemas are `.passthrough()` — i.e. they
+      // are tolerated, not promised, and no producer is obliged to send them or
+      // to keep sending them.
+      //
+      // ⚠ THESE TWO PROBES READ FLAT-FIRST UNTIL 18 Sep 2026, WHICH IS
+      // BACKWARDS. When a producer sent BOTH, the undeclared legacy spelling
+      // beat the declared canonical one — so the field nobody owes silently
+      // outranked the field the contract requires, and any drift between them
+      // resolved the wrong way. The order below is now canonical-first; the
+      // flat read is retained ONLY as a legacy fallback for pre-v3 responses
+      // (this whole function is the v1 fallback path — see `adaptDraftResponse`'s
+      // caller), and should be deleted when those stop arriving.
       const strengthObj = asRec(e.strength)
-      const strengthMeanRaw = e.strength_mean ?? strengthObj?.mean
+      const strengthMeanRaw = strengthObj?.mean ?? e.strength_mean
       const strength_mean = Number.isFinite(strengthMeanRaw) ? strengthMeanRaw as number : undefined
 
-      // P0-2: Normalize strength_std from nested or flat structure
-      const strengthStdRaw = e.strength_std ?? strengthObj?.std
+      // ⛔ FAIL CLOSED, AND THE CONTRACT IS WHY. `std` is REQUIRED and
+      // `.positive()` in `StrengthSchema`, so there is no "did anyone supply
+      // it?" question to answer: an edge without a usable std is
+      // contract-invalid, not a value awaiting a default. `undefined` here is
+      // the honest outcome and it must stay `undefined` all the way to the
+      // surface — a substitute would be a number nobody computed. The `> 0`
+      // test enforces the schema's own bound rather than a local opinion.
+      const strengthStdRaw = strengthObj?.std ?? e.strength_std
       const strength_std = Number.isFinite(strengthStdRaw) && (strengthStdRaw as number) > 0 ? strengthStdRaw as number : undefined
 
       // Validate effect_direction against known values
