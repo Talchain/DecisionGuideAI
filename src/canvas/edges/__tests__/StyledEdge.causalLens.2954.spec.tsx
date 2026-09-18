@@ -313,10 +313,16 @@ describe('StyledEdge causal lens — provenance-gated params (ROADMAP 2.954, #62
       )
     })
 
-    it('STRONG: |mean| = 0.5 sits in the MODERATE width band — discriminating from the unset floor', () => {
+    it('STRONG: |mean| = 0.5 sits in the STRONG width band — discriminating from the unset floor', () => {
       expect((STRONG_WIRE as any).strength.mean).toBe(-0.5)
       expect((STRONG_WIRE as any).exists_probability).toBe(0.92)
-      expect(weightMagnitudeToStrokeWidth(0.5)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
+      // ⚠ WAS `.moderate` UNTIL 18 Sep 2026, and the change IS the fix: the
+      // width ladder now takes its cuts from `CANVAS_STRENGTH_BANDS`, so |mean| 0.5 —
+      // which every word surface on the canvas calls "Strong" — finally draws
+      // at the band named `strong` instead of the one named `moderate`. The
+      // old expectation was a correct reading of a picture that contradicted
+      // the caption beside it.
+      expect(weightMagnitudeToStrokeWidth(0.5)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
       // ⭐ WAS `expect(UNSET_EDGE_STROKE_WIDTH).toBe(1.5)` UNTIL 8 Sep 2026, when
       // the unset floor moved strictly below every measured band (it used to
       // EQUAL the weakest one, so "nobody has said" and "we set this to weak"
@@ -507,7 +513,7 @@ describe('StyledEdge causal lens — provenance-gated params (ROADMAP 2.954, #62
   describe('the stroke width channel (thickness = a strength measurement)', () => {
     it('STRONG (|mean| 0.5): width reads the magnitude band, sign irrelevant', () => {
       const { container } = renderCausal(STRONG_DATA)
-      expect(baseEdgeAttr(container, 'data-stroke-width')).toBe(String(EDGE_STROKE_WIDTH_BANDS.moderate))
+      expect(baseEdgeAttr(container, 'data-stroke-width')).toBe(String(EDGE_STROKE_WIDTH_BANDS.strong))
     })
 
     it('NO strength: width sits at the UNSET floor, never a band derived from the default [ROADMAP 2.954]', () => {

@@ -38,7 +38,7 @@ import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
-import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary'
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
@@ -287,7 +287,8 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
    *  measured band as of 8 Sep 2026): the row's caption says "thin AND grey",
    *  and the canvas draws that edge grey via `computeDirectionStroke`'s neutral
    *  return. A swatch that hard-coded the body colour once rendered this row
-   *  pixel-identical to "Weak effect" and made its own caption false — the two
+   *  pixel-identical to the thinnest measured band and made its own caption
+   *  false — the two
    *  now differ on BOTH channels, which is the point. */
   stroke?: string
   testId?: string
@@ -322,10 +323,29 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
 // drift reads green. They now come from the same constant the edge does.
 // Folded in from the former standalone EdgeThicknessLegend so the two
 // bottom-left legends are now one key.
+//
+// ⭐⭐ AND AS OF 18 Sep 2026 THE WORDS ARE IMPORTED TOO — the widths were
+// derived while the LABELS were still typed by hand, which is the same mirror
+// with only half the leak plugged. This key is the JOIN between the thickness
+// channel and the strength vocabulary: it exists to assert *this thickness
+// means this word*. It could not, and it said so in the only way a hand-typed
+// list can — by inventing a word. **"Weak effect" is printed NOWHERE ELSE in
+// the product**: the canvas edge chip, the inspector panel and the band pills
+// all say Slight / Moderate / Strong / Very strong. Worse, the row it labelled
+// was drawn for every `|mean| < 0.40`, which is BOTH *Slight* and *Moderate* —
+// so the legend named one thickness after a band it did not correspond to, and
+// two genuinely different findings were pixel-identical on the channel this
+// very key teaches the reader to read as strength.
+//
+// One row per band now, both halves derived: the label from `CANVAS_STRENGTH_BANDS`,
+// the width from `EDGE_STROKE_WIDTH_BANDS` keyed by the same band id. A band
+// added to the vocabulary appears here automatically; a band added without a
+// width fails to compile at the widths object. Neither can drift.
 const THICKNESS_ROWS: LegendRow[] = [
-  { label: 'Weak effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.weak} testId="legend-thickness-weak" /> },
-  { label: 'Moderate effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.moderate} /> },
-  { label: 'Strong effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.strong} /> },
+  ...CANVAS_STRENGTH_BANDS.map((band): LegendRow => ({
+    label: `${band.label} effect`,
+    swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS[band.id]} testId={`legend-thickness-${band.id}`} />,
+  })),
   // Honesty row: an edge nobody has given a strength still has to be drawn, and
   // without this row the key teaches the reader to mistake a blank for a
   // finding.

@@ -18,7 +18,7 @@ import {
   CLASSIFIED_METRIC_NOUNS,
   visibleMetricRows,
 } from '../CanvasLegendPopover'
-import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
+import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
 import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
@@ -113,6 +113,17 @@ afterEach(() => setPhase('idle'))
 // suite says which. Recorded rather than smoothed over: it is the cost of the
 // mirror this comment already concedes, and the reason the strings below are
 // the ONLY approved-copy assertion in the file.
+
+// ⚠ AND THE THICKNESS WORDS COME FROM `CANVAS_STRENGTH_BANDS` FOR THE SAME REASON
+// (18 Sep 2026). They were listed here as literals — `'Weak effect',
+// 'Moderate effect', 'Strong effect'` — which made this allowlist a mirror of
+// a mirror: the legend restated the vocabulary and this spec restated the
+// legend, so all three could agree while none matched the words the canvas
+// edge chip printed. "Weak effect" in particular appeared in exactly two
+// places in the repo, the legend and this line, and nowhere a user could reach
+// it except through the legend itself.
+const THICKNESS_LABELS = CANVAS_STRENGTH_BANDS.map(b => `${b.label} effect`)
+
 const APPROVED = [
   DECISION_NODE_LABEL, 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
   'Raises', 'Lowers',
@@ -131,8 +142,18 @@ const APPROVED = [
   // connection exists. "someone recorded a doubt" was false across that whole
   // population and is what this change removes. See `CanvasLegendPopover.tsx`.
   'Dashed connection: a doubt or a disagreement was recorded',
-  'Weak effect', 'Moderate effect', 'Strong effect',
+  // ⚠ The three thickness literals are replaced by the derivation above —
+  // keeping them would make this allowlist a mirror of a mirror.
+  ...THICKNESS_LABELS,
 ]
+
+/**
+ * A row this key renders in EVERY phase and posture, used below purely as a
+ * "the popover is populated" discrimination check — an absence assertion needs
+ * a presence assertion beside it or it passes on an empty container (trap 13).
+ * Derived, because this file has just finished proving what a literal does.
+ */
+const THICKNESS_SENTINEL = `${CANVAS_STRENGTH_BANDS[0].label} effect`
 
 describe('CanvasLegendPopover', () => {
   it('is closed initially and opens on click', () => {
@@ -191,16 +212,31 @@ describe('CanvasLegendPopover', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  // The folded-in effect-strength scale renders its three samples (was the
+  // The folded-in effect-strength scale renders ONE SAMPLE PER BAND (was the
   // standalone EdgeThicknessLegend; now one consolidated key). P2.9: thickness
   // means effect strength (weight magnitude) in both phases, so the labels read
   // "effect" not "influence".
-  it('renders the effect-strength thickness scale', () => {
+  //
+  // ⭐ THE COMPLETENESS HALF IS THE POINT, AND A LIST OF THREE `getByText`
+  // CALLS COULD NOT SEE IT. The key had three rows against four vocabulary
+  // bands, so it named a thickness after a band that did not exist ("Weak
+  // effect") while two real bands shared one rung. Asserting the COUNT as well
+  // as the words is what REDs if a band is added to the vocabulary and the
+  // legend silently keeps teaching the old ladder.
+  it('renders one thickness sample per strength band, named by the canonical word', () => {
     render(<CanvasLegendPopover />)
     fireEvent.click(screen.getByRole('button', { name: 'How to read this' }))
-    expect(screen.getByText('Weak effect')).toBeDefined()
-    expect(screen.getByText('Moderate effect')).toBeDefined()
-    expect(screen.getByText('Strong effect')).toBeDefined()
+    for (const label of THICKNESS_LABELS) {
+      expect(screen.getByText(label), `the key does not name the "${label}" band`).toBeDefined()
+    }
+    const swatches = document.querySelectorAll('[data-testid^="legend-thickness-"]')
+    // +1 for the unset floor row, which is not a band.
+    expect(
+      swatches.length,
+      'the thickness key does not carry exactly one swatch per band plus the unset floor',
+    ).toBe(CANVAS_STRENGTH_BANDS.length + 1)
+    // …and "Weak effect" is retired: it named a rung two bands wide.
+    expect(screen.queryByText('Weak effect')).toBeNull()
   })
 })
 
@@ -283,27 +319,30 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
    * legend derives its swatches from the same source, so a literal here would
    * be a mirror of a mirror.
    */
-  it('draws the unset swatch grey AND thinner than "Weak effect"', () => {
+  it('draws the unset swatch grey AND thinner than the thinnest measured band', () => {
     open()
     const unset = document.querySelector('[data-testid="legend-thickness-unset"] line') as SVGLineElement
-    const weak = document.querySelector('[data-testid="legend-thickness-weak"] line') as SVGLineElement
+    // The thinnest band, reached BY ID rather than by the word that used to
+    // label it — the id survives a vocabulary change, the word does not.
+    const thinnestId = CANVAS_STRENGTH_BANDS[0].id
+    const thinnest = document.querySelector(`[data-testid="legend-thickness-${thinnestId}"] line`) as SVGLineElement
     expect(unset).toBeTruthy()
-    expect(weak).toBeTruthy()
+    expect(thinnest).toBeTruthy()
 
     // GREY — the row says "thin and grey"; this is the "grey".
     expect(unset.getAttribute('stroke')).toBe('var(--edge-neutral)')
-    expect(unset.getAttribute('stroke')).not.toBe(weak.getAttribute('stroke'))
+    expect(unset.getAttribute('stroke')).not.toBe(thinnest.getAttribute('stroke'))
 
     // THIN — bound to the constants, and asserted as an ORDERING so it cannot
     // pass on two arbitrary different numbers.
     const unsetW = Number(unset.getAttribute('stroke-width'))
-    const weakW = Number(weak.getAttribute('stroke-width'))
+    const thinnestW = Number(thinnest.getAttribute('stroke-width'))
     expect(unsetW, 'the unset swatch does not render the canvas\'s unset width').toBe(UNSET_EDGE_STROKE_WIDTH)
-    expect(weakW, 'the weak swatch does not render the canvas\'s weak band').toBe(EDGE_STROKE_WIDTH_BANDS.weak)
+    expect(thinnestW, 'the thinnest band swatch does not render the canvas\'s width for that band').toBe(EDGE_STROKE_WIDTH_BANDS[thinnestId])
     expect(
       unsetW,
-      'the legend draws "no strength suggested" at or above the weakest measured band — it is teaching the reader to mistake a blank for a finding',
-    ).toBeLessThan(weakW)
+      'the legend draws "no strength suggested" at or above the thinnest measured band — it is teaching the reader to mistake a blank for a finding',
+    ).toBeLessThan(thinnestW)
   })
 
   it('still teaches direction, and still says Raises / Lowers', () => {
@@ -499,7 +538,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
         without,
         `[${status}] no card carries an ordinal, but the key promises one — the original defect`,
       ).not.toContain(ORDINAL_NOUN)
-      expect(without).toContain('Weak effect')
+      expect(without).toContain(THICKNESS_SENTINEL)
       cleanup()
     }
   })
@@ -550,7 +589,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     expect(text, 'no mounted card carries an ordinal, but the key promises one').not.toContain(ORDINAL_NOUN)
     // Discrimination: the popover is populated and the map really is non-empty,
     // so this is not passing on an empty container or an empty map.
-    expect(text).toContain('Weak effect')
+    expect(text).toContain(THICKNESS_SENTINEL)
     expect(Object.keys(useCanvasStore.getState().optionNumbering)).toHaveLength(1)
   })
 
@@ -609,7 +648,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     expect(expert, 'expert view: the key explains a marking no card can render').not.toContain('est.')
     // Discrimination — the popover is populated and the inferred factor IS
     // still mounted, so this absence is the gate's doing, not an empty board.
-    expect(expert).toContain('Weak effect')
+    expect(expert).toContain(THICKNESS_SENTINEL)
     expect(useCanvasStore.getState().nodes.some(n => n.type === 'factor')).toBe(true)
     cleanup()
 
@@ -617,7 +656,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // marking. Fails for a different reason than (b), which is the point.
     const noFactor = openBoard('idle')
     expect(noFactor, 'no inferred factor is mounted, but the key promises one').not.toContain('est.')
-    expect(noFactor).toContain('Weak effect')
+    expect(noFactor).toContain(THICKNESS_SENTINEL)
     cleanup()
   })
 

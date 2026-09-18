@@ -75,7 +75,7 @@ describe('edgeLabels', () => {
    * (`domain/vocabulary.ts`, moved there from `inspector-v2/inspectorStrings.ts`
    * in this change): **Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20,
    * Slight < 0.20**, from `validation_ui_data_contract_v1.1`. It is what
-   * `InfluenceIndicator`, `ConnectionRow` and the `StrengthBandButtons` pills
+   * `ConnectionRow` and the `StrengthBandButtons` pills
    * have always read — and `StrengthBandButtons` WRITES a band's midpoint back
    * into the model, so the canonical table is the one a user's own click means.
    *
