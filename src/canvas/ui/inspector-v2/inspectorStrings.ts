@@ -510,6 +510,94 @@ export const EDGE_COPY = {
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',
   sliderMaxUncertain: 'Uncertain',
+  /**
+   * ⭐⭐ THE SENTENCE THIS SURFACE EXISTS FOR — printed only when the stated
+   * spread reaches far enough to change the adjective.
+   *
+   * It sits directly beneath the `StrengthBandButtons` pills, one of which is
+   * highlighted with exactly the word it quotes, so the quotation is pointing at
+   * something the reader can see rather than at an abstraction. That adjacency
+   * is the whole design: the product qualifying its own headline word in the
+   * place the word appears is worth more than a caveat filed elsewhere.
+   *
+   * ⛔ THE BAND WORDS ARE PASSED IN, NOT LOOKED UP HERE. They come from
+   * `resolveStrengthSpread`, which is gated on BOTH values' provenance — so this
+   * template is unreachable for an edge nobody characterised. A copy function
+   * that derived its own labels could be called with anything.
+   *
+   * ⛔⛔ IT STATES THE SPAN. IT DOES NOT RETURN A VERDICT ON THE WORD, AND THAT
+   * IS THE WHOLE POINT OF THIS WORDING.
+   *
+   * An earlier draft ended *"so ‘{word}’ is a firmer word than the numbers
+   * earn."* That asserts ONE direction — the adjective overstates — while the
+   * interval is `magnitude ± spread` and opens BOTH ways. Where the stated
+   * magnitude sits low in its band, the span reaches UP into the next one, and
+   * the sentence then told a team to discount a connection its own numbers say
+   * may be UNDERSTATED. Measured against live CEE edges (see the spec header):
+   * `0.30 ± 0.20` → [0.10, 0.50], word "Moderate", span slight…strong — the
+   * old sentence called "Moderate" too firm while 0.50 is "Strong"; and
+   * `0.38 ± 0.05` → [0.33, 0.43] never drops below Moderate at all, so the
+   * claim was false outright rather than merely one-sided.
+   *
+   * One predicate cannot guard two opposite harms (platform trap 22b), so this
+   * copy makes no claim about which way the interval leans. It names the span
+   * and says what the quoted word is a word FOR — both true whichever end of
+   * the interval the truth sits at, and true when the span opens both ways.
+   *
+   * ⚠ THE THREE ARGUMENTS ARE NOT INTERCHANGEABLE. `low`/`high` are the band
+   * words at the ENDS of the interval; `word` is the band word for the stated
+   * magnitude ITSELF, which is what the highlighted pill above shows. `word` is
+   * not always between the other two as printed — it equals `low` whenever the
+   * span opens upwards — and the sentence must stay true in that case.
+   */
+  strengthSpansBands: (low: string, high: string, word: string) =>
+    `Anywhere from ${low} to ${high} fits this estimate — "${word}" is the word for the stated number, not for the range around it.`,
+  /**
+   * The magnitude and its spread together. A bare point estimate reads as a
+   * measurement; this reads as an estimate, which is what it is.
+   *
+   * ⚠ NO "σ", NO "std", NO "standard deviation" in the plain surface. The
+   * expert annotation below still says `σ =` under `techMode`, and that is
+   * the right place for the notation — a reader who has not asked for it gets
+   * the same fact in words.
+   */
+  strengthSpreadReadout: (magnitude: string, spread: string) => `${magnitude} ± ${spread}`,
+  /** Accessible name for the readout above — the symbol spoken as English. */
+  strengthSpreadReadoutLabel: 'Stated strength, give or take the stated uncertainty',
+  /**
+   * ⭐⭐ WHAT AN UNASSESSED SLIDER LOOKS LIKE — AND WHY IT IS WORDS, NOT
+   * GEOMETRY.
+   *
+   * A range input must put its handle somewhere, and on THIS scale every
+   * position is a claim. The three alternatives were weighed and rejected:
+   *
+   *   · MOVE IT TO THE CENTRE. Rejected, and it is the tempting one. The
+   *     centre of this slider is LABELLED — `sliderNoEffect`, "No effect" — and
+   *     `SignedStrengthSlider` prints "No effect" as its own direction word
+   *     there. Centring would swap a fabricated moderate-positive for a
+   *     fabricated NULL RESULT, which is a STRONGER claim about the world, not
+   *     a weaker one. "This connection does nothing" is the last thing a tool
+   *     for thinking should assert on a link nobody has assessed.
+   *   · HIDE OR DISABLE THE CONTROL. Rejected on the standing no-hiding
+   *     ruling recorded on `interventionStrengthInert` above — correct the
+   *     claim, never remove the surface. It is also the one control by which a
+   *     user could FIX the unset state.
+   *   · LEAVE IT AND SAY NOTHING. That is the defect.
+   *
+   * So the handle keeps its position and the panel states what the position
+   * means. The pills above light nothing and the β field withholds its number,
+   * so this sentence is the only thing on screen making a claim about the
+   * handle — and the claim it makes is "not a reading".
+   *
+   * ⚠ WHAT THIS DOES NOT FIX, stated rather than implied. `SignedStrengthSlider`
+   * still draws a coloured fill from the centre out, still prints a direction
+   * word ("Positive"), and still renders `getEffectSizeCoaching` — all three
+   * derived from the same defaulted magnitude. Neutralising them is a change to
+   * that component's visual design on every surface that mounts it, which is a
+   * founder ruling rather than a lane decision, and it is NOT made here.
+   */
+  strengthUnsetSliderNotice:
+    'Nobody has said how strong this effect is yet. The handle starts at a default position — it is not a reading.',
   existenceTooltip: 'How confident are you that this causal link is real?',
   sliderStrongNegative: 'Strong negative',
   sliderNoEffect: 'No effect',
