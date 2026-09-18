@@ -135,7 +135,23 @@ const CONNECTED_ADD_IDS = [
   'add-connected-risk',
 ] as const
 
-beforeEach(() => vi.clearAllMocks())
+/**
+ * ⚠ BRACES, NOT A CONCISE BODY, AND THE REASON IS A REAL TYPE ERROR RATHER
+ * THAN STYLE. `vi.clearAllMocks()` returns `VitestUtils` for chaining, so a
+ * concise arrow body RETURNS it and TypeScript reads the hook as promising a
+ * cleanup callback: `TS2322: Type 'VitestUtils' is not assignable to type
+ * 'Awaitable<HookCleanupCallback>'`. Braces discard the value.
+ *
+ * ⭐ THIS FILE COPIED THE BROKEN SHAPE FROM `useMenuItems.spec.ts:105`, WHERE
+ * THE SAME LINE IS ALREADY IN `scripts/ci/typecheck-baseline.txt` (that file
+ * carries 3 baselined errors). So the sibling is not evidence that the shape
+ * typechecks — it is evidence that it was accepted once. The ratchet caught it
+ * here only because a NEW file gets no baseline, which is exactly the defect
+ * class `--update-baseline` would have laundered: the gate offered that escape
+ * and it was declined, because `baseline=2081 current=2082 (+1)` was a real new
+ * error and not intended drift.
+ */
+beforeEach(() => { vi.clearAllMocks() })
 
 describe('the node context menu offers the connected adds', () => {
   /**
