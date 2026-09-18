@@ -1576,6 +1576,124 @@ export const OptionNode = memo((props: NodeProps) => {
     }
   }, [isPostAnalysis, totalInterventionCount, totalFactorCount])
 
+  /**
+   * ⭐⭐⭐ DOES THE DIFFERENTIATOR FOOTER RENDER? ONE SPELLING, THREE READERS.
+   *
+   * The card's own comment at the render site already warns that this
+   * condition must "MATCH that render exactly rather than [be] re-derived —
+   * two spellings of one question is how these two lines would drift into
+   * contradicting each other". It said that about the Behind clause and then
+   * left the whole predicate inline, where a second reader had nowhere to read
+   * it from. This change adds two more readers (the recovery line, below, and
+   * its spec), so the predicate is hoisted rather than copied three times.
+   *
+   * ⚠ `differentiator &&` STAYS AT THE JSX SITE. This is a `boolean`, so it
+   * cannot narrow `differentiator` from `T | null` for the type checker. The
+   * duplication is a narrowing artefact, not a second authority: the boolean
+   * decides, the null-check only tells TypeScript what the boolean already
+   * guarantees.
+   */
+  const differentiatorRenders =
+    !isBaselineOption &&
+    !isDetailed &&
+    differentiator !== null &&
+    !(isPostAnalysis && !isRecommended && behindReason)
+
+  /**
+   * ⭐⭐⭐ THE SENTENCE A TOUCH USER COULD NOT READ.
+   *
+   * ─── WHAT WAS WRONG ─────────────────────────────────────────────────────
+   *
+   * The footer states which factor makes this option different — the product
+   * naming the reason, which is the whole of what this canvas is for. Its
+   * factor name is shortened in JAVASCRIPT (`compactFactorLabel`, :303), so
+   * the "…" is IN THE TEXT: there is no CSS overflow, and therefore nothing
+   * for a browser to recover. The only recovery was the native `title`
+   * attribute at the render site — i.e. HOVER.
+   *
+   * **A touch user has no hover. For them the subject of the claim was absent
+   * from the product entirely.** You cannot argue with a sentence you cannot
+   * read, and arguing with the model is the product.
+   *
+   * ─── HOW OFTEN IT BIT, MEASURED RATHER THAN ASSUMED ─────────────────────
+   *
+   * Every factor label in the five committed starter captures
+   * (`src/canvas/starters/data/*.draft.json`), pushed through this file's own
+   * pipeline — `sentenceCaseFactorLabel(cleanFactorLabel(raw))` then
+   * `compactFactorLabel(…, NODE_ROW_LABEL_MAX_CHARS)`:
+   *
+   *     build-vs-buy           4/8   cut
+   *     headcount-allocation   4/5   cut
+   *     market-entry           4/8   cut
+   *     pricing-model          5/5   cut
+   *     vendor-selection       6/8   cut
+   *     ────────────────────────────────
+   *     TOTAL                 23/34  cut   (68%)
+   *
+   * Between 5 and 21 characters hidden each time. **Not an edge case — the
+   * ordinary case, on every starter the product ships.** `pricing-model` cuts
+   * every label it has.
+   *
+   * ─── WHY THE POPOVER AND NOT A NEW SURFACE ──────────────────────────────
+   *
+   * Nothing in this repo arbitrates which surfaces may cover the board at once
+   * (a sweep for `overlayArbitr|exclusiveSurface|activeOverlayStore` returns
+   * zero files while 51 canvas files carry their own `zIndex`), so a new
+   * overlay layer would be a new unarbitrated claim on the canvas. This card
+   * ALREADY mounts the popover and that popover ALREADY declares itself the
+   * recovery surface for this card's compaction (:1479-1487). It needed to be
+   * reachable, and to carry this sentence. Both are now true; no layer was
+   * minted, and the card did not grow by a pixel.
+   *
+   * ⚠ NULL WHEN NOTHING WAS ELIDED — the same rule the `title` attribute
+   * already follows, for the same reason: a recovery line that merely repeats
+   * what is on the card is noise, and it teaches a user that opening the
+   * preview tells them nothing new.
+   *
+   * ⚠ AND ONE OVERLAP THE RATIONALE MUST NOT DENY: when the differentiating
+   * factor is also an intervention, this popover's chip list already carries
+   * that factor's FULL name a few lines below. What it does not carry is the
+   * CLAIM — "… is the key difference" / "… → 90%" is the sentence the product
+   * is asserting, and a bare label in a list is not that sentence. So the two
+   * are not duplicates; they are a name and an assertion about it. If a later
+   * pass decides the density is not worth it, that is a rendering decision to
+   * take deliberately, not a reason to think this line is redundant today.
+   *
+   * ⛔ IT DOES NOT TRUNCATE. The popover is portalled outside the React Flow
+   * transform into a 260px wrapping box, which is why this file already calls
+   * it the recovery surface — the same reasoning recorded at the intervention
+   * chips. A recovery surface that re-applied the card's budget would recover
+   * nothing.
+   */
+  const differentiatorRecovery =
+    differentiatorRenders && differentiator && differentiator.fullLabel !== differentiator.label
+      ? differentiator.fullLabel
+      : null
+
+  /**
+   * ⭐ ONE ELEMENT, MOUNTED AT BOTH POPOVERS — not two copies of a line.
+   *
+   * ⚠ IT IS BUILT HERE AND PLACED AT THE CALL SITES, NOT INSIDE
+   * `preAnalysisPopoverContent`, AND THAT IS DELIBERATE. That memo has THREE
+   * return branches (baseline-with-no-interventions, no-interventions, and the
+   * main one). Putting the line inside it would mean writing it three times,
+   * or writing it in one branch and quietly not covering the other two —
+   * exactly the hand-maintained mirror this file's other headers keep paying
+   * for. Placed beside `{layer2Content}` and `{preAnalysisPopoverContent}` it
+   * is one spelling that covers every branch either memo can return.
+   *
+   * ⚠ NOT A NEW LAYER. This renders INSIDE the `NodePopover` the card already
+   * mounts, above content that popover already carried.
+   */
+  const differentiatorRecoveryLine = differentiatorRecovery ? (
+    <p
+      className={`${typography.edgeLabel} text-text-body m-0 mb-1`}
+      data-testid={`option-differentiator-full-${props.id}`}
+    >
+      {differentiatorRecovery}
+    </p>
+  ) : null
+
   // Win-probability readout, derived ONCE.
   //
   // The visible number, the hover text and the text announced to assistive
@@ -1612,6 +1730,12 @@ export const OptionNode = memo((props: NodeProps) => {
         handleMouseLeave()
         nodeHandlers.onMouseLeave()
       }}
+      /* The TAP path. A no-op on a pointer device (`usePopoverHover` gates it
+         on `hover: none`); on touch it is the only way this node preview can
+         be opened at all — and on THIS card the preview is where the full
+         differentiator sentence lives. It does not stopPropagation, so the tap
+         still selects the node. */
+      onClick={nodeHandlers.onClick}
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
       <BaseNode
@@ -2268,10 +2392,14 @@ export const OptionNode = memo((props: NodeProps) => {
             or a label shared with another option and deduped away). The
             universal quantifier was doing rhetorical work the code does not
             do. */}
-        {!isBaselineOption && !isDetailed && differentiator
-          /* Paul's ruling 10 Sep 2026 — "both stay". Was
-             `&& !differentiatorDuplicatesChip`. See the predicate's header. */
-          && !(isPostAnalysis && !isRecommended && behindReason) && (
+        {/* Paul's ruling 10 Sep 2026 — "both stay". The predicate was
+            `!isBaselineOption && !isDetailed && differentiator &&
+            !(isPostAnalysis && !isRecommended && behindReason)`, spelled
+            inline. It is now `differentiatorRenders`, hoisted above so the
+            recovery line in the popover is decided by the SAME expression
+            rather than by a second copy of it. See that constant's header for
+            why `differentiator &&` still appears here. */}
+        {differentiatorRenders && differentiator && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
             /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
@@ -2284,8 +2412,36 @@ export const OptionNode = memo((props: NodeProps) => {
                the canvas-node tooltip idiom in this repo — see the
                structuredDeltas `<li>` above and `nodes/shared/MetricPills.tsx`.
                Undefined when nothing was elided, so hover never merely repeats
-               what is already on screen. */
+               what is already on screen.
+
+               ⚠ IT IS NO LONGER THE ONLY RECOVERY, AND IT WAS NEVER A
+               SUFFICIENT ONE. A native `title` is a MOUSE affordance: it does
+               not exist on a touch device, and on a non-focusable `<p>` it is
+               announced to nobody. It stays because it is the cheapest
+               recovery for the user who does have a mouse — but the sentence
+               now also rides the node preview, which a tap and a keyboard
+               focus can both open (`usePopoverHover`).
+
+               ⛔ WHAT WAS DELIBERATELY *NOT* DONE HERE, AND WHY IT IS ROWED
+               RATHER THAN HALF-DONE. `completeness` below carries its full
+               sentence in a SECOND, `sr-only` span beside an `aria-hidden`
+               visible one, so a screen-reader user gets the whole thing with
+               no interaction at all — and its header states the principle this
+               `<p>` ought to follow too: "Compaction buys space for a sighted
+               reader; it does not license saying less to everyone else."
+               Applying that shape here splits this element's single text node
+               in two, which changes `p.textContent` to the CONCATENATION of
+               both spans and changes what `getByText` resolves to. FIVE spec
+               files assert on this sentence — `OptionNode.spec`,
+               `OptionNode.differentiatorRecoverable.spec`,
+               `OptionNode.differentiatorSurvivesTheRun.spec`,
+               `OptionNode.oneFactorOneName.spec`, `cardCopyCensus.canvas.spec`
+               — and this lane is under a hard no-test-execution constraint, so
+               it could edit all five and verify none of them. A change that
+               greens or reds five suites nobody ran is not a smaller risk than
+               the gap it closes. ROWED. */
             title={differentiator.fullLabel !== differentiator.label ? differentiator.fullLabel : undefined}
+            data-testid={`option-differentiator-${props.id}`}
           >
             {differentiator.label}
           </p>
@@ -2465,7 +2621,12 @@ export const OptionNode = memo((props: NodeProps) => {
         
       </BaseNode>
 
-      {/* ===== LAYER 2: Popover (Standard view, hover) ===== */}
+      {/* ===== LAYER 2: Popover (Standard view — hover, tap or keyboard focus) =====
+          ⚠ THE PARENTHETICAL USED TO READ "(Standard view, hover)" AND THAT WAS
+          THE WHOLE DEFECT IN FOUR WORDS. `usePopoverHover` now opens this on a
+          tap and on keyboard focus as well; the comment is corrected here
+          rather than left to teach the next reader that hover is the only
+          door. */}
       {!isDetailed && isPostAnalysis && (
         <NodePopover
           visible={showPopover}
@@ -2474,6 +2635,7 @@ export const OptionNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {differentiatorRecoveryLine}
           {layer2Content}
         </NodePopover>
       )}
@@ -2488,6 +2650,7 @@ export const OptionNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {differentiatorRecoveryLine}
           {preAnalysisPopoverContent}
         </NodePopover>
       )}

@@ -29,7 +29,60 @@
  * its own box horizontally. It does NOT assert anything about strings the
  * product shortens in JAVASCRIPT before rendering (`truncateAtWord`), because
  * those are a content decision that belongs to the session owning generated
- * text — they render complete, and this measures rendering.
+ * text — ~~they render complete~~, and this measures rendering.
+ *
+ * ⚠⚠ THE STRUCK CLAUSE IS FALSE, AND IT IS WHY THE LARGEST TRUNCATION CLASS ON
+ * THIS CANVAS WENT UNSEEN. Corrected 18 Sep 2026 at the bytes of every helper
+ * named, on staging `4b9a8fb548d3526706e1268753e9188202ea99c9`:
+ *
+ *   · `DecisionNode.tsx:207  truncateAtWord`      -> appends `'…'`
+ *   · `labelUtils.ts:173     truncateLabelAtWord` -> appends `'…'`
+ *   · `nameOrClaim.ts:137    truncateAtWord`      -> appends `'…'`
+ *
+ * JS-shortened strings do NOT render complete. They render with an ellipsis
+ * that is part of the STRING, which is strictly worse than the CSS kind this
+ * file measures: `text-overflow` never fires, so `scrollWidth === clientWidth`
+ * and the scan below is structurally blind to it, AND there is no overflow for
+ * a browser tooltip to recover from either.
+ *
+ * ⚠ AND THE EXEMPTION IS WRITTEN AS ONE NAME BUT APPLIED AS A CLASS. It names
+ * `truncateAtWord`. The differentiator footer on every option card goes through
+ * `compactFactorLabel` -> `truncateLabelAtWord` — a DIFFERENT name, which
+ * `DecisionNode.tsx:151` already records as an invisible twin ("a DIFFERENT
+ * name, invisible to any grep for this one"). Read as a name the exemption
+ * never covered that path; read as a class it swallowed it. Nobody had to
+ * decide, which is how it was exempted without anyone exempting it.
+ *
+ * ⚠ THE OTHER, UNSTATED EXEMPTION — SAY IT OUT LOUD. The scan compares
+ * `scrollWidth` against `clientWidth`, so it measures HORIZONTAL overflow only.
+ * `BaseNode.tsx`'s title is clamped VERTICALLY (`line-clamp-2`) and can never
+ * red this guard however much it hides. Measured on the five committed starter
+ * captures: the longest label of any kind is 56 characters, against a derived
+ * two-line capacity of ~52 at `MAX_LABEL_COUNTER_SCALE` (312px of measure at
+ * 12px x 2 x `AVG_CHAR_EM`), so 3 of 87 node labels sit at or over the bound.
+ * PLAUSIBLE, not confirmed — a character budget is not a pixel measurement and
+ * this one needs a browser. Rowed, not fixed here.
+ *
+ * ── WHAT IS AND IS NOT NOW COVERED ──────────────────────────────────────────
+ *
+ * The JS-shortened class is covered at the SOURCE level instead:
+ * `src/canvas/nodes/__tests__/everyNodePreviewOpensWithoutHover.spec.ts`
+ * asserts that every node mounting a preview wires the tap path and that the
+ * hook carries a keyboard path — i.e. that the recovery surface for elided
+ * text is reachable without a mouse at all. This file keeps its rendering
+ * scope deliberately: a guard that tried to answer both questions would be two
+ * questions under one name (CLAUDE.md trap 21).
+ *
+ * ⚠ THAT SPEC HAS NOT BEEN RUN EITHER — it declares so in its own header, and
+ * this pointer would be worth less than nothing if it implied otherwise.
+ *
+ * ⛔ WHAT IS STILL UNCOVERED, STATED RATHER THAN LEFT TO BE DISCOVERED: no
+ * guard here drives a TAP or a Tab against a real browser and asserts the
+ * recovery surface opens. That needs touch emulation and a driven gesture in
+ * this Playwright harness, which is a larger job than narrowing this comment,
+ * and it is left ROWED rather than half-built. The claim this file may now
+ * make is: it measures CSS clipping, it says so, and it no longer asserts
+ * something false about the class it declines to measure.
  *
  * jsdom cannot prove any of this: `getByText` matches on the full node text
  * whether or not a single character of it is visible.
