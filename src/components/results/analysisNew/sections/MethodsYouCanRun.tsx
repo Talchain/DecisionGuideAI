@@ -30,6 +30,7 @@
  * brief), which are not methods and do not belong in a list headed "methods you
  * can run". Removing it would take those with it.
  */
+import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 import { typography } from '../../../../styles/typography'
 import { METHOD_CATALOGUE } from '../../decision-overview/actionsCatalogue'
 import { runMethod } from '../runMethod'
@@ -55,7 +56,7 @@ export function MethodsYouCanRun({
         className={`${typography.panelHeader} text-text-header m-0`}
         data-testid={`${testId}-title`}
       >
-        Methods you can run
+        {ANALYSIS_NEW_COPY.sections.methods}
       </h3>
       {/* ⚠ THE SUBTITLE IS THE POINT OF THE SECTION, not decoration: it says
           these do not wait to be offered. Five of the seven used to appear only
