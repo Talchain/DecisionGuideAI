@@ -29,6 +29,28 @@
  * An advertised action that terminates in nothing is the defect class this
  * estate ships most often. This spec closes it and keeps it closed.
  *
+ * ── ⚠⚠ SUPERSEDED IN PART, 2026-09-18 — "ADJUDICATION HAS NO LIVE ROUTE" IS NO
+ *    LONGER TRUE, AND THE SENTENCE IS LEFT ABOVE ONLY SO THIS ONE CAN CORRECT IT.
+ *
+ * `ContestedSection` now SETTLES the disagreement in place: it offers the
+ * verdicts from `contestedVerdict.ts` and emits `edge_adjudication`, which CEE
+ * classifies `'fact_and_commit'` and persists stamped `provenance: 'user_set'`.
+ * So adjudication HAS a live route, and it is this file's own subject surface.
+ *
+ * ⭐ EVERY ASSERTION BELOW IS UNCHANGED AND STILL TRUE, because they are all
+ * scoped to the MODEL TAB and to `CONTESTED_COPY.reviewCta`:
+ *   · §2's "offers NO verdict" renders `ModelTabV2Panel` and queries the
+ *     `contested-*` test ids. The new affordance is `pre-analysis-v3-contested-
+ *     settle-*` and renders only in `ContestedSection` — a different surface in a
+ *     different namespace. The Model tab still cannot adjudicate.
+ *   · §4's verb checks read `reviewCta`, which is untouched: the CTA is still
+ *     NAVIGATION ONLY and must still not promise settlement, because its
+ *     DESTINATION still cannot deliver one. That the ORIGIN can now settle a
+ *     disagreement does not license the CTA to promise the destination will.
+ *
+ * ⛔ DO NOT "RECONCILE" THE TWO BY RELAXING §4. Two surfaces answering different
+ * questions is trap 21, and aligning them is the wrong fix.
+ *
  * ── WHY THE BUTTON STAYS ───────────────────────────────────────────────────
  * The destination is not empty. The v2 outline carries every CAUSAL contested
  * relationship, marked with its own shape and named "Two passes disagree"
