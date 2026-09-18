@@ -35,7 +35,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../../mutations/mutationAuthority'
-import { normaliseRawFactorValue, withObservedStateUpdate, meaningfulUncertaintyDrivers } from '../../utils/observedStateHelpers'
+import { normaliseRawFactorValue, withObservedStateUpdate, meaningfulUncertaintyDrivers, overconfidenceSentence } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import {
   biasSignal,
@@ -1597,7 +1597,7 @@ export function PreAnalysisPanel({
             const label = (nd.label as string) ?? topFactorId
             pushDeterministic(
               { code: 'overconfidence' },
-              `${label} is among the highest-priority factors to review but has no supporting evidence. Validate it before relying on it.`,
+              overconfidenceSentence(label),
             )
           }
         }
