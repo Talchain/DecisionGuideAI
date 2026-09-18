@@ -25,6 +25,22 @@ import { useCanvasStore } from '../../store'
  * by a text predicate another card could satisfy. Three cards rendering one
  * string is exactly the shape a `getAllByText(...).toHaveLength(1)` would miss
  * or mis-attribute.
+ *
+ * ⚠⚠ THE FIXTURE-REPURPOSING HAZARD THIS FILE NOW CARRIES, stated once here
+ * because it has already caught one case. Since the fourth absence landed,
+ * "no entry for this option" and "an entry with no share" are DIFFERENT states
+ * rendering DIFFERENT surfaces — `option-not-analysed-*` and
+ * `option-result-unavailable-*`. Before that, an absent entry produced the
+ * latter, so every pre-existing fixture here used absence as a shorthand for
+ * it. Two cases needed their fixtures respelled; one was corrected in the same
+ * change and `holds the ratified copy rulings on both surfaces` was not, so it
+ * went on asserting against a card its own fixture had stopped rendering.
+ * ⛔ SPELL THE STATE A CASE IS ABOUT. Do not rely on absence to select a
+ * surface, and pin the arm in-test so a drift REDs on the state, not the copy.
+ *
+ * ⚠ THE REPAIR TO THAT CASE IS UNRUN — no vitest, no typecheck, no browser was
+ * executed for it. It was derived from the CI failure at `de3532e3` and from
+ * the sibling case's own correction. CI is the authority.
  */
 
 vi.mock('@xyflow/react', async () => {
@@ -343,6 +359,24 @@ describe('a missing support percentage is stated once, not once per option', () 
       nodes: THREE,
       results: { status: 'complete', report: { option_probabilities: {
         a596e935: { status: 'computed', win_probability: 0.62 },
+        // ⭐⭐ THE SAME FIXTURE CORRECTION THE `KEEPS the per-card notice…` CASE
+        // ABOVE RECEIVED, AND FOR THE SAME REASON — it was missed here.
+        //
+        // This case's subject is the COPY on `option-result-unavailable-*`, so
+        // its fixture has to put `5364a6e2` in the state that surface reports:
+        // analysed, no share. An option with NO entry was only ever a SHORTCUT
+        // for that, and since the fourth absence landed the shortcut names a
+        // DIFFERENT state — the run never scored it — which renders
+        // `option-not-analysed-*` instead. This block was byte-identical before
+        // and after that change, so the change silently repurposed its fixture
+        // and the assertion below went looking for a card that no longer
+        // renders (CI at `de3532e3`: "Unable to find an element by:
+        // [data-testid=option-result-unavailable-5364a6e2]").
+        //
+        // ⚠ THE RULINGS THEMSELVES ARE UNCHANGED AND STILL IN FORCE — the
+        // conditioning hedge is live at `OptionNode.tsx` and `DecisionNode.tsx`,
+        // and nothing this case pins was withdrawn. Only the fixture moved.
+        '5364a6e2': { status: 'computed' },
       } } },
     } as never)
     const { container } = render(
@@ -353,6 +387,12 @@ describe('a missing support percentage is stated once, not once per option', () 
         ))}
       </ReactFlowProvider>,
     )
+
+    // ⭐ THE PRECONDITION, PINNED IN-TEST RATHER THAN ASSUMED (trap 13b). The
+    // copy assertion below is only about the surface it names if this option is
+    // on the analysed-no-share arm; were the fixture to drift back, this REDs
+    // on the state rather than leaving the copy check to fail obscurely.
+    expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
 
     const card = screen.getByTestId('option-result-unavailable-5364a6e2')
     // Conditions on the data. It is a thinking tool, not an oracle.
