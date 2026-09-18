@@ -123,7 +123,7 @@ async function loadEdgeFixture(page: Page) {
       const edges = [
         {
           id: edgeUnderTest, source: 'factor-1', target: 'goal-1',
-          data: { weight, direction: 'positive', beliefExists, style: 'solid', pathType: 'bezier', schemaVersion: 4 },
+          data: { weight, direction: 'positive', beliefExists, beliefExistsSource: 'cee', style: 'solid', pathType: 'bezier', schemaVersion: 4 },
         },
         {
           id: controlEdge, source: 'factor-2', target: 'goal-1',
@@ -334,18 +334,22 @@ test.describe('Canvas Edge Properties', () => {
   test('T4 — existence readout reflects the edge value, not the default', async ({ page }) => {
     const dialog = await openEdgeInspector(page, EDGE_UNDER_TEST)
 
-    // 80% is the fixture's beliefExists. The panel's fallback is 70%, so a
-    // panel that stopped reading this edge would render 70% and fail here.
+    // 80% is the fixture's STATED beliefExists (`beliefExistsSource: 'cee'`).
+    // ⚠ THE SOURCE STAMP IS LOAD-BEARING AS OF 18 Sep 2026: the readout is now
+    // provenance-gated, so an edge carrying a number with no stated source
+    // renders "Not set yet" rather than the number. Without the stamp this
+    // fixture would be asserting the fabrication the gate exists to stop.
     await expect(dialog.getByTestId('edge-existence-readout')).toHaveText('80%')
 
-    // The control edge sets no beliefExists, so it shows the 0.7 default —
-    // a second, DIFFERENT expected value. An instrument that has stopped
-    // discriminating cannot produce two different answers.
+    // The control edge sets no beliefExists AT ALL, so it must say so in words
+    // rather than print the 0.7 constant — a second, DIFFERENT expected value.
+    // An instrument that has stopped discriminating cannot produce two
+    // different answers, and this pair is now honest in both arms.
     await page.keyboard.press('Escape')
     await expect(page.locator(EDGE_INSPECTOR)).toHaveCount(0, { timeout: 5000 })
 
     const controlDialog = await openEdgeInspector(page, CONTROL_EDGE)
     await expect(controlDialog.getByText('Market share → Increase annual revenue')).toBeVisible()
-    await expect(controlDialog.getByTestId('edge-existence-readout')).toHaveText('70%')
+    await expect(controlDialog.getByTestId('edge-existence-readout')).toHaveText('Not set yet')
   })
 })

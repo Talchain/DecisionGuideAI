@@ -20,7 +20,17 @@ function setStore(overrides: Record<string, unknown> = {}) {
       { id: 'out1', type: 'outcome', position: { x: 100, y: 0 }, data: { label: 'Revenue' } },
     ],
     edges: [
-      { id: 'e1', source: 'fac1', target: 'out1', data: { weight: 0.35, direction: 'positive', beliefExists: 0.82, strengthStd: 0.15 } },
+      { id: 'e1', source: 'fac1', target: 'out1', data: { weight: 0.35, direction: 'positive', beliefExists: 0.82, beliefExistsSource: 'cee', strengthStd: 0.15 } },
+      /* ⚠ `beliefExistsSource` ADDED 18 Sep 2026, and it is a FIXTURE CORRECTION,
+         not a workaround. This fixture had a `beliefExists` and no provenance —
+         i.e. it was an UNSTAMPED edge, the one state where the panel must say
+         nothing. Two tests below then asserted that it renders "82%" and an
+         editable "P(exists) =", which pinned the fabrication rather than the
+         behaviour they are named for. Their INTENT is "an edge that HAS a
+         stated likelihood shows it", so the fixture now states one. The
+         unstamped case keeps its own dedicated specs:
+         `EdgePanel.unsetColour.spec.tsx` (colour) and
+         `EdgePanel.unsetNumber.spec.tsx` (number, aria and techMode). */
     ],
     results: { status: 'none', report: null },
     ...overrides,
