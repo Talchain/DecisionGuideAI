@@ -100,17 +100,34 @@ describe('the panel is grouped into named zones', () => {
    * passes. One arm alone proves nothing: the first shows the zone can render,
    * the second shows it is the CONTENT that decides.
    */
-  it('⛔ a zone with nothing to say renders no label at all', () => {
+  it('⛔ no zone label renders over nothing — every label has content under it', () => {
     renderBody(genuineDecision(), EARNS_A_NUDGE)
     expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 1: the model lacks a risk, so the zone is earned').not.toBeNull()
     expect(contentBeyondLabel('focus')).toBeGreaterThan(0)
 
     cleanup()
-    // An empty canvas earns no nudge — every fact is unknown, and unknown is
-    // not absent. The zone must go with its content, label included.
+    /**
+     * ⭐ ARM 2 CHANGED SHAPE ON 18 Sep 2026, AND THE RULE DID NOT. It asserted
+     * that an empty canvas — which earns no nudge — removed the focus zone and
+     * its label entirely, because a heading over nothing is the defect.
+     *
+     * Paul then ruled the methods first-screen, so ZONE: FOCUS now also holds
+     * `MethodsYouCanRun`, which renders the static catalogue and is NEVER empty.
+     * The zone therefore always has something under its heading — the rule is
+     * satisfied, by content rather than by absence.
+     *
+     * ⛔ SO THIS ARM NOW ASSERTS THE RULE DIRECTLY rather than its old symptom:
+     * the label may render, but only over real content. If the methods ever
+     * stop rendering AND no nudge is earned, `contentBeyondLabel` goes to zero
+     * and this REDs — which is the original defect, caught by the original
+     * measurement.
+     */
     renderBody(genuineDecision(), [])
-    expect(screen.queryByTestId('analysis-new-zone-focus-group'), 'arm 2: no content, so no group').toBeNull()
-    expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 2: no content, so no heading over nothing').toBeNull()
+    expect(screen.queryByTestId('analysis-new-zone-focus-group'), 'arm 2: the methods are unconditional content').not.toBeNull()
+    expect(
+      contentBeyondLabel('focus'),
+      'arm 2: the heading still claims something that is actually under it',
+    ).toBeGreaterThan(0)
     // Contrast in the SAME arm: the unconditional zones are still there, so
     // arm 2 is measuring the gate and not a failed render.
     expect(screen.queryByTestId('analysis-new-zone-answer-group')).not.toBeNull()

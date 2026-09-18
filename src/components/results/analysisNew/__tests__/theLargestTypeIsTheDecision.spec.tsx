@@ -166,17 +166,27 @@ describe('the panel leads with the decision being made', () => {
     )
 
     /**
-     * ⛔ THE CONCLUSION IS DEMOTED, NOT DELETED, AND THE DISTINCTION IS THE
-     * RULING'S. "There shouldn't be a conclusion" removes the panel's claim to
-     * ANSWER; it does not delete the model's own numbers, which are the team's
-     * reasoning rendered back to them. The leading option is still named — at
-     * section-title size, inside the comparison, with its provenance line — so
-     * nothing a user contributed is hidden. Deleting it would remove
-     * information; demoting it removes a VERDICT.
+     * ⛔⛔ AND THERE IS NO CONCLUSION AT ALL — DELETED, NOT DEMOTED.
+     *
+     * This assertion is the INVERSE of what stood here hours earlier. #1676
+     * demoted the conclusion from 18px to 14px and this test pinned it at
+     * `panelHeader`; Paul then ruled, verbatim, "delete the conclusion entirely".
+     * The earlier wording is kept in the commit, not here, because a test that
+     * still describes the demotion would read as if both were true.
+     *
+     * ⭐ THE PANEL'S NUMBERS ARE NOT WHAT WENT. Every option, its win share and
+     * its ranking still render in the comparison; so does the disclosure that
+     * Olumi invented an option, which `OptionsComparison` owns independently.
+     * What is gone is the panel ANNOUNCING one option as the answer.
      */
-    const conclusion = screen.getByTestId('analysis-new-glance-headline')
-    expect(conclusion).toBeInTheDocument()
-    expect(conclusion.className, 'the conclusion drops to section-title size').toContain(typography.panelHeader)
+    expect(
+      screen.queryByTestId('analysis-new-glance-headline'),
+      'the panel names no conclusion, on ANY run state',
+    ).toBeNull()
+    expect(
+      screen.queryByTestId('analysis-new-glance-option-origin'),
+      'and the disclosure that belonged to it went with it — OptionsComparison owns that claim now',
+    ).toBeNull()
   })
 
   it('⭐ the DECISION also leads when no conclusion was reached', () => {

@@ -136,9 +136,14 @@ describe('the glance and the sections below it do not restate each other', () =>
     const glance = screen.getByTestId('analysis-new-glance').textContent ?? ''
     const insights = screen.queryByTestId('analysis-new-key-insights')?.textContent ?? ''
 
-    const headline = screen.getByTestId('analysis-new-glance-headline').textContent ?? ''
-    expect(headline.length).toBeGreaterThan(10)
-    expect(insights).not.toContain(headline)
+    /**
+     * ⛔ THE HEADLINE LIMB IS RETIRED, THE TRUST-LINE LIMB IS NOT. Paul ruled
+     * 18 Sep 2026 that the conclusion is deleted, so "a key insight repeats the
+     * glance headline" is no longer reachable — there is no headline to repeat.
+     * Asserting its absence here instead keeps the case honest rather than
+     * leaving a limb that passes because its subject vanished.
+     */
+    expect(screen.queryByTestId('analysis-new-glance-headline')).toBeNull()
 
     const trust = screen.getByTestId('analysis-new-glance-verdict').textContent ?? ''
     // The producer's reason is the part most likely to be echoed below.

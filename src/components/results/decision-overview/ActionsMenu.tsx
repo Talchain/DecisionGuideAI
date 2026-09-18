@@ -19,6 +19,7 @@ import { ChevronDown } from 'lucide-react'
 import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegistry'
 import { typography } from '../../../styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
+import { runMethod } from '../analysisNew/runMethod'
 import {
   METHOD_CATALOGUE,
   GLOBAL_ACTIONS,
@@ -87,21 +88,17 @@ export function ActionsMenu() {
     }
   }, [open, close])
 
-  const runMethod = (method: MethodEntry) => {
+  /**
+   * ⭐ THE PAYLOAD MOVED OUT, 18 Sep 2026, and the reason is that it now has a
+   * SECOND caller. Paul asked for the methods to be surfaced prominently, so
+   * `MethodsYouCanRun` renders the same catalogue as a visible section. Two call
+   * sites building the same payload is where this estate's dominant defect
+   * starts, so `runMethod` (`analysisNew/runMethod.ts`) owns it and both call it.
+   * This function keeps only what is genuinely the MENU's: closing itself.
+   */
+  const runMethodAndClose = (method: MethodEntry) => {
     close(true)
-    // Prototype parity: method click opens the drawer with the method's
-    // description as context and its prompt as the editable draft. The
-    // method identity rides parameters so the eventual dispatch is a
-    // conversation-typed turn carrying chip_metadata {method_id}.
-    openAskOlumi({
-      context: method.description,
-      draft: method.prompt,
-      label: method.title,
-      parameters: { method_id: method.id },
-      // Same technique, same intent, whichever surface invoked it.
-      ...(method.intent ? { intent: method.intent } : {}),
-      source: 'chip',
-    })
+    runMethod(method)
   }
 
   const runGlobal = (action: GlobalActionEntry) => {
@@ -170,7 +167,7 @@ export function ActionsMenu() {
               key={m.id}
               type="button"
               role="menuitem"
-              onClick={() => runMethod(m)}
+              onClick={() => runMethodAndClose(m)}
               className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover"
             >
               <span className={`${typography.panelHeader} block text-text-header`}>{m.title}</span>
