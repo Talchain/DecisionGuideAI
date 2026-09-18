@@ -43,14 +43,31 @@ interface ReadNode {
   label: string
   description?: string
   value?: string
+  quote?: string
 }
 
 /**
  * Pull the display fields off one node.
  *
- * Returns null when there is no label, because a node we cannot name is a node
- * we cannot honestly show — and a list of blanks reads as a broken page rather
- * than as missing data.
+ * ⭐ THE FIELD NAMES HERE ARE DERIVED FROM THE PRODUCER, NOT FROM THIS PAGE'S
+ * IDEA OF ONE. Census over every graph written in the 7 days to 18 Sep 2026 —
+ * 45,876 nodes, 72,660 edges:
+ *
+ *   kind           45,876   ← the taxonomy key. `type` occurs ZERO times.
+ *   label          45,876
+ *   source_quote    9,756   ← the sender's own words, per element
+ *   display_value   4,695   (4,687 of them on factors)
+ *   description       118   ← essentially absent
+ *   value / unit        0   ← never written
+ *
+ * The first draft of this page grouped by `type` and leaned on `description`.
+ * Both are hand-authored guesses that happen to appear in older graphs, and
+ * against current data every node would have fallen into the ungrouped bucket
+ * with no supporting text. A fixture you wrote yourself is not evidence about
+ * the wire.
+ *
+ * `type` is still read as a fallback so graphs written before the rename keep
+ * grouping. `value`/`unit` are kept for the same reason and cost nothing.
  */
 function readNode(raw: unknown): ReadNode | null {
   if (!raw || typeof raw !== 'object') return null
@@ -59,7 +76,12 @@ function readNode(raw: unknown): ReadNode | null {
   const label = typeof n.label === 'string' ? n.label.trim() : ''
   if (label === '') return null
 
-  const type = typeof n.type === 'string' ? n.type : 'unknown'
+  const type =
+    typeof n.kind === 'string' && n.kind.trim() !== ''
+      ? n.kind
+      : typeof n.type === 'string' && n.type.trim() !== ''
+        ? n.type
+        : 'unknown'
 
   // `display_value` is the already-formatted string the canvas shows. Prefer
   // it: re-deriving a number's presentation here would give the recipient a
@@ -78,7 +100,17 @@ function readNode(raw: unknown): ReadNode | null {
       ? n.description.trim()
       : undefined
 
-  return { type, label, description, value }
+  // The sender's own words for this element, carried from their brief. Same
+  // content class as `brief_text`, which this page already shows — the sharer's
+  // prose, deliberately shared — so it is inside the allowlist, not an
+  // exception to it. It is also the attribution the programme asks for: it
+  // tells the recipient WHY an element is in the model, in the sender's voice.
+  const quote =
+    typeof n.source_quote === 'string' && n.source_quote.trim() !== ''
+      ? n.source_quote.trim()
+      : undefined
+
+  return { type, label, description, value, quote }
 }
 
 function readNodes(graph: unknown): ReadNode[] {
@@ -98,11 +130,19 @@ function edgeCount(graph: unknown): number {
 // Model renderer
 // ---------------------------------------------------------------------------
 
+/**
+ * Ordered by how a reader meets the decision, not by how common each kind is.
+ * The six kinds are the producer's own, censused over 45,876 nodes:
+ * factor 15,449 · option 12,020 · risk 6,698 · outcome 5,341 · decision 3,184 ·
+ * goal 3,184. `risk` was missing from the first draft of this list, which is
+ * 6,698 nodes that would have rendered under "Also in the model".
+ */
 const GROUPS: Array<{ type: string; heading: string }> = [
   { type: 'decision', heading: 'The decision' },
   { type: 'goal', heading: 'What it is for' },
   { type: 'option', heading: 'Options on the table' },
   { type: 'factor', heading: 'What it depends on' },
+  { type: 'risk', heading: 'What could go wrong' },
   { type: 'outcome', heading: 'What could follow' },
 ]
 
@@ -119,6 +159,11 @@ function NodeList({ nodes }: { nodes: ReadNode[] }) {
           </div>
           {n.description && (
             <p className="mt-1 text-sm text-text-light leading-relaxed">{n.description}</p>
+          )}
+          {n.quote && (
+            <p className="mt-1 text-sm text-text-light leading-relaxed italic">
+              &ldquo;{n.quote}&rdquo;
+            </p>
           )}
         </li>
       ))}
