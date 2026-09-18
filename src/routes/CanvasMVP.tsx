@@ -10,6 +10,7 @@ import { blueprintEventBus } from '../canvas/blueprints/eventBus'
 import { ToastProvider } from '../canvas/ToastContext'
 import { useCanvasStore } from '../canvas/store'
 import { setPersistenceSessionActive } from '../lib/persistenceSession'
+import { ScenarioPersistenceError } from '../types/scenario'
 import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
 import { trackCanvasOpened } from '../canvas/utils/sandboxTelemetry'
 import { DebugTray } from '../components/DebugTray'
@@ -64,7 +65,7 @@ export default function CanvasMVP() {
     lastSavedAt: supabaseLastSaved,
     saveError: supabaseSaveError,
     isPersistenceActive,
-    createSharedBrief,
+    createSharedSnapshot,
   } = useScenario()
 
   // ⭐ THE SINGLE WRITER of `lib/persistenceSession`.
@@ -244,8 +245,8 @@ export default function CanvasMVP() {
    *
    * This handler used to have three outcomes and only one of them was true:
    *
-   *   1. persisted  → `createSharedBrief()` mints a row and returns a slug
-   *                   served by `/brief/:slug`. REAL. Kept.
+   *   1. persisted  → mints a row and returns a slug served by `/brief/:slug`.
+   *                   REAL. Kept — but re-pointed, see below.
    *   2. guest      → `buildShareLink(hash)` → `#/canvas?run=<hash>`, which
    *                   resolves only against the SENDER's device history
    *                   (`shareLink.ts`: "local-device only"). The clipboard
@@ -259,6 +260,20 @@ export default function CanvasMVP() {
    * say. The button itself is now gated on the persisted case in `TopBar`
    * (`shareScenarioId`), so (3) is unreachable from the UI; the guard below is
    * the belt-and-braces for any other caller.
+   *
+   * ⭐ 18 Sep 2026 — AND (1) WAS NEVER REAL EITHER.
+   *
+   * `createSharedBrief` calls an RPC that gates on `scenarios.brief` and
+   * `scenarios.analysis_provenance`. Measured at the deployed database:
+   * populated in 1 of 14,141 rows, and that one row is a synthetic fixture.
+   * The live columns are `brief_text` (12,919) and `graph_identity_hash`
+   * (12,518). So the authenticated owner of a real decision was refused with
+   * P0001 "No brief to share - generate a brief first", the catch below fired,
+   * and the sender was told to "try again shortly" — which could never come
+   * true. `shared_briefs` has 0 rows and has never had one.
+   *
+   * This now calls `createSharedSnapshot`, which carries the GRAPH. Evidence:
+   * output/accelerate-20260918/SHARE-GATING-ITEM-SETTLED.md.
    */
   const handleShare = useCallback(async () => {
     if (!isPersistenceActive || !currentScenarioId) {
@@ -269,7 +284,7 @@ export default function CanvasMVP() {
       return
     }
     try {
-      const result = await createSharedBrief()
+      const result = await createSharedSnapshot()
       if (!result) {
         // eslint-disable-next-line no-alert
         window.alert("We couldn't create a share link for this decision. Please try again shortly.")
@@ -287,10 +302,21 @@ export default function CanvasMVP() {
       }
     } catch (error) {
       console.error('[CanvasMVP] Failed to generate share link', error)
+      // "Try again shortly" is only true of a transient failure. When the
+      // decision simply has no saved model there is nothing to retry, and
+      // saying so cost this product its entire share history: the old RPC
+      // refused permanently and every sender was told to wait.
+      const noModel =
+        error instanceof ScenarioPersistenceError &&
+        error.code === 'CREATE_SHARED_SNAPSHOT_NO_GRAPH'
       // eslint-disable-next-line no-alert
-      window.alert("We couldn't create a share link for this decision. Please try again shortly.")
+      window.alert(
+        noModel
+          ? "This decision has no saved model yet, so a link would open empty for whoever you send it to. Add to the model first, then share."
+          : "We couldn't create a share link for this decision. Please try again shortly.",
+      )
     }
-  }, [isPersistenceActive, currentScenarioId, createSharedBrief])
+  }, [isPersistenceActive, currentScenarioId, createSharedSnapshot])
 
   return (
     // ToastProvider at route level so surfaces OUTSIDE ReactFlowGraph
