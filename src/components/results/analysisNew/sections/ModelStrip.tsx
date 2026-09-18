@@ -301,14 +301,12 @@ export interface ModelStripProps {
    * cannot tell which decision the conclusion belongs to; it drops to the size
    * the panel's section titles use, second-loudest rather than quiet.
    */
-  answerLeads?: boolean
 }
 
 export function ModelStrip({
   testId = 'analysis-new-model-strip',
   isPreRun = false,
   insights = NO_INSIGHTS,
-  answerLeads = false,
 }: ModelStripProps) {
   const showToast = useShowToastSafe()
   /**
@@ -809,7 +807,7 @@ export function ModelStrip({
             // element, not two. A second copy of the subject inside the region
             // would put the same sentence on screen twice, which is exactly
             // what the first-viewport census exists to stop.
-            className={`${answerLeads ? typography.panelHeader : typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
+            className={`${typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >

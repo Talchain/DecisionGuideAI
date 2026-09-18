@@ -75,7 +75,6 @@ import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChanged } from './sections/WhatsChanged'
 import { AtAGlance } from './sections/AtAGlance'
 import { PrimaryIntervention } from './sections/PrimaryIntervention'
-import { panelHasConclusion } from './panelLead'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
@@ -1503,13 +1502,21 @@ export function AnalysisNewTabBody({
             authored by this surface; see `nodeInsights.ts`. */}
         {/* ⭐ THE BODY DECIDES WHO LEADS, BECAUSE ONLY THE BODY SEES BOTH.
             The strip has no access to the view model and must not grow one —
-            the same rule `insights` already follows. `panelHasConclusion` is the
-            single owner of the question; `AtAGlance` asks it too, and neither
-            re-types the expression. */}
+            the same rule `insights` already follows. ⛔ NOTHING ARBITRATES
+            THE 18px SLOT ANY MORE. This passed `answerLeads`, which LOANED that
+            slot to the conclusion whenever the producer named a leader, so the
+            loudest element on screen was Olumi's answer and the decision the team
+            is making stood down to section-title size.
+
+            ⛔ RULED OUT BY PAUL, 18 Sep 2026: "Lead with the decision label and
+            goal, not the conclusion - there shouldn't be a conclusion. We are a
+            reasoning enhancement tool, not a generic AI and analysis answering
+            tool." A surface whose largest type is a verdict does the thinking for
+            the reader. The arbitration is REMOVED rather than inverted: a flag
+            that can still swing is a flag that will. */}
         <ModelStrip
           isPreRun={vm.status.isPreRun}
           insights={nodeInsights}
-          answerLeads={panelHasConclusion(vm.atAGlance)}
         />
 
         {/* ── FOCUS NOW ──────────────────────────────────────────────────────
@@ -1614,7 +1621,7 @@ export function AnalysisNewTabBody({
           className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
           data-testid="analysis-new-zone-answer"
         >
-          The answer
+          What your model shows
         </p>
         <AtAGlance
           glance={vm.atAGlance}
