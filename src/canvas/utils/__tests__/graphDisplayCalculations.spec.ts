@@ -210,7 +210,7 @@ describe('graphDisplayCalculations', () => {
   })
 
   describe('weightMagnitudeToStrokeWidth', () => {
-    // ⚠ FOUR RUNGS SINCE 18 Sep 2026, cut by `STRENGTH_BANDS` — the width
+    // ⚠ FOUR RUNGS SINCE 18 Sep 2026, cut by `CANVAS_STRENGTH_BANDS` — the width
     // channel and the strength vocabulary now share one set of cuts, so the
     // legend's "this thickness means this word" is a true statement. The
     // 0.20 boundary is the NEW one: |mean| 0.2–0.39 used to draw at the same

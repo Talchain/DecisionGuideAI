@@ -10,7 +10,7 @@
 
 import type { RiskImpact } from '../domain/nodes'
 import type { EdgeValueDisplay } from '../domain/edgeValueProvenance'
-import { getStrengthBand, type StrengthBandId } from '../domain/vocabulary'
+import { getCanvasStrengthBand, type CanvasStrengthBandId } from '../domain/vocabulary'
 
 /**
  * Edge importance formula from Decision Graph Display v2 spec
@@ -123,7 +123,7 @@ export function existenceCertaintyToLineStyle(
  * widths moved to 2/3/4 — a hand-maintained mirror of the function three lines
  * below it, in the file whose own comments ban exactly that (trap 12).
  * Re-typing it in the four-rung form would only re-arm it. The cuts live in
- * `STRENGTH_BANDS`, the widths in the object below, and `Math.abs` is still
+ * `CANVAS_STRENGTH_BANDS`, the widths in the object below, and `Math.abs` is still
  * called internally, so a signed mean may be passed directly.
  */
 /**
@@ -184,8 +184,8 @@ export function existenceCertaintyToLineStyle(
  * gap: across the 24 starter magnitudes (0.18–0.65) only TWO widths were
  * distinguishable. With this rung there are THREE.
  *
- * ⚠ THE CUTS ARE NOT HERE. They are `STRENGTH_BANDS` (`domain/vocabulary.ts`)
- * and `weightMagnitudeToStrokeWidth` reads them through `getStrengthBand`. This
+ * ⚠ THE CUTS ARE NOT HERE. They are `CANVAS_STRENGTH_BANDS` (`domain/vocabulary.ts`)
+ * and `weightMagnitudeToStrokeWidth` reads them through `getCanvasStrengthBand`. This
  * object maps BAND ID → WIDTH and nothing else; `satisfies` makes a band added
  * to the vocabulary without a width a COMPILE ERROR rather than a silent gap
  * (trap 12: the mirror must fail loud, never assume-good).
@@ -202,7 +202,7 @@ export const EDGE_STROKE_WIDTH_BANDS = {
   moderate: 3,
   strong: 4,
   veryStrong: 5,
-} as const satisfies Record<StrengthBandId, number>
+} as const satisfies Record<CanvasStrengthBandId, number>
 
 /**
  * The thinnest width a MEASUREMENT can produce, DERIVED from the bands above.
@@ -255,12 +255,12 @@ export const UNSET_EDGE_STROKE_WIDTH = 1
  * ⚠ THE CUTS ARE DERIVED, NEVER RESTATED. This function used to carry its own
  * `>= 0.7` / `>= 0.4` chain beside the four-cut table in `domain/vocabulary.ts`
  * — two hand-kept ladders over one number, agreeing on the day they were
- * written (trap 12). It now asks `getStrengthBand` and looks the width up by
+ * written (trap 12). It now asks `getCanvasStrengthBand` and looks the width up by
  * band id, so a cut can only move in the contract's table and the picture
  * follows the words by construction.
  */
 export function weightMagnitudeToStrokeWidth(signedMean: number): number {
-  return EDGE_STROKE_WIDTH_BANDS[getStrengthBand(Math.abs(signedMean)).id]
+  return EDGE_STROKE_WIDTH_BANDS[getCanvasStrengthBand(Math.abs(signedMean)).id]
 }
 
 /**

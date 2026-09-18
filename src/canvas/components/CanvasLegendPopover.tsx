@@ -38,7 +38,7 @@ import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
-import { DECISION_NODE_LABEL, STRENGTH_BANDS } from '../domain/vocabulary'
+import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary'
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
@@ -183,12 +183,12 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
 // two genuinely different findings were pixel-identical on the channel this
 // very key teaches the reader to read as strength.
 //
-// One row per band now, both halves derived: the label from `STRENGTH_BANDS`,
+// One row per band now, both halves derived: the label from `CANVAS_STRENGTH_BANDS`,
 // the width from `EDGE_STROKE_WIDTH_BANDS` keyed by the same band id. A band
 // added to the vocabulary appears here automatically; a band added without a
 // width fails to compile at the widths object. Neither can drift.
 const THICKNESS_ROWS: LegendRow[] = [
-  ...STRENGTH_BANDS.map((band): LegendRow => ({
+  ...CANVAS_STRENGTH_BANDS.map((band): LegendRow => ({
     label: `${band.label} effect`,
     swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS[band.id]} testId={`legend-thickness-${band.id}`} />,
   })),

@@ -177,7 +177,7 @@ export const METRIC_NOUN = {
  * a FOURTH rung cut at `0.20` — the vocabulary's own *Slight | Moderate*
  * boundary — so the same 0.18–0.65 span now draws THREE distinguishable widths.
  * The cuts are no longer restated in that function at all: they come from
- * `STRENGTH_BANDS` (`domain/vocabulary.ts`), which is what makes the picture
+ * `CANVAS_STRENGTH_BANDS` (`domain/vocabulary.ts`), which is what makes the picture
  * and the words one answer rather than two.
  *
  * ✅ THE OTHER HALF IS BUILT (8 Sep 2026). This note used to continue: *"and

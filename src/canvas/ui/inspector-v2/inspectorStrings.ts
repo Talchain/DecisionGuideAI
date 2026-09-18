@@ -211,7 +211,7 @@ export function getExtractionLabel(
 // ⚠ THE THRESHOLDS ARE NOT RESTATED HERE ANY MORE. This comment used to spell
 // them out beside a re-export of the function that owns them — a mirror two
 // lines from its source, which is the shape that drifts silently (trap 12).
-// They are `STRENGTH_BANDS` in `domain/vocabulary.ts`, aligned with the DS v4
+// They are `CANVAS_STRENGTH_BANDS` in `domain/vocabulary.ts`, aligned with the DS v4
 // reference artefact; read the table, and change the contract before the table.
 //
 // ⚠ THE BODY MOVED TO `domain/vocabulary.ts` AND THIS IS A RE-EXPORT, so this

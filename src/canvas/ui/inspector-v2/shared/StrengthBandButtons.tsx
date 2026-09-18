@@ -14,13 +14,13 @@
  * red when they stopped (CLAUDE.md trap 12). That mattered more here than
  * anywhere else on the canvas, because these buttons WRITE THE MIDPOINT INTO
  * THE MODEL: a cut that drifted would have stamped a number the user did not
- * choose under a word that no longer described it. `STRENGTH_BANDS`
+ * choose under a word that no longer described it. `CANVAS_STRENGTH_BANDS`
  * (`domain/vocabulary.ts`) is now the only copy.
  */
 
 import { memo, useMemo, useCallback } from 'react'
 import { typography } from '../../../../styles/typography'
-import { STRENGTH_BANDS, getStrengthBand } from '../../../domain/vocabulary'
+import { CANVAS_STRENGTH_BANDS, getCanvasStrengthBand } from '../../../domain/vocabulary'
 
 interface StrengthBandButtonsProps {
   /** Current signed strength value (-1 to +1) */
@@ -54,7 +54,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
   const absMagnitude = Math.abs(value)
   const isNegative = value < 0
 
-  // ⚠ THE `-1` ARM IS LOAD-BEARING AND IS NOT WHAT `getStrengthBand` RETURNS.
+  // ⚠ THE `-1` ARM IS LOAD-BEARING AND IS NOT WHAT `getCanvasStrengthBand` RETURNS.
   // The canonical resolver is TOTAL — it falls through to the lowest band for
   // any input, including `NaN`, so that no caller can be handed `undefined`.
   // This component needs the opposite for a non-number: "light nothing" is the
@@ -64,7 +64,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
   // table stays total where the domain decision lives.
   const activeBandIndex = useMemo(() => {
     if (!Number.isFinite(absMagnitude)) return -1
-    return STRENGTH_BANDS.indexOf(getStrengthBand(absMagnitude))
+    return CANVAS_STRENGTH_BANDS.indexOf(getCanvasStrengthBand(absMagnitude))
   }, [absMagnitude])
 
   const handleClick = useCallback((midpoint: number) => {
@@ -74,7 +74,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
 
   return (
     <div className="flex gap-1 mb-2" role="group" aria-label="Strength presets">
-      {STRENGTH_BANDS.map((band, i) => {
+      {CANVAS_STRENGTH_BANDS.map((band, i) => {
         // `unset` wins over any derived band — see the prop's note.
         const isActive = !unset && activeBandIndex === i
         return (

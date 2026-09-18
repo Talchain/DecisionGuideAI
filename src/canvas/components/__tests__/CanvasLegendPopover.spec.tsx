@@ -14,7 +14,7 @@ import {
   CLASSIFIED_METRIC_NOUNS,
   visibleMetricRows,
 } from '../CanvasLegendPopover'
-import { DECISION_NODE_LABEL, STRENGTH_BANDS } from '../../domain/vocabulary'
+import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
 import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
@@ -98,7 +98,7 @@ afterEach(() => setPhase('idle'))
 // hardcoding the word here would make this spec the very mirror
 // `DECISION_NODE_LABEL` was introduced to abolish, and it would go stale the
 // next time the word changes rather than failing loud.
-// ⚠ AND THE THICKNESS WORDS COME FROM `STRENGTH_BANDS` FOR THE SAME REASON
+// ⚠ AND THE THICKNESS WORDS COME FROM `CANVAS_STRENGTH_BANDS` FOR THE SAME REASON
 // (18 Sep 2026). They were listed here as literals — `'Weak effect',
 // 'Moderate effect', 'Strong effect'` — which made this allowlist a mirror of
 // a mirror: the legend restated the vocabulary and this spec restated the
@@ -106,7 +106,7 @@ afterEach(() => setPhase('idle'))
 // edge chip printed. "Weak effect" in particular appeared in exactly two
 // places in the repo, the legend and this line, and nowhere a user could reach
 // it except through the legend itself.
-const THICKNESS_LABELS = STRENGTH_BANDS.map(b => `${b.label} effect`)
+const THICKNESS_LABELS = CANVAS_STRENGTH_BANDS.map(b => `${b.label} effect`)
 
 const APPROVED = [
   DECISION_NODE_LABEL, 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
@@ -120,7 +120,7 @@ const APPROVED = [
  * a presence assertion beside it or it passes on an empty container (trap 13).
  * Derived, because this file has just finished proving what a literal does.
  */
-const THICKNESS_SENTINEL = `${STRENGTH_BANDS[0].label} effect`
+const THICKNESS_SENTINEL = `${CANVAS_STRENGTH_BANDS[0].label} effect`
 
 describe('CanvasLegendPopover', () => {
   it('is closed initially and opens on click', () => {
@@ -201,7 +201,7 @@ describe('CanvasLegendPopover', () => {
     expect(
       swatches.length,
       'the thickness key does not carry exactly one swatch per band plus the unset floor',
-    ).toBe(STRENGTH_BANDS.length + 1)
+    ).toBe(CANVAS_STRENGTH_BANDS.length + 1)
     // …and "Weak effect" is retired: it named a rung two bands wide.
     expect(screen.queryByText('Weak effect')).toBeNull()
   })
@@ -291,7 +291,7 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     const unset = document.querySelector('[data-testid="legend-thickness-unset"] line') as SVGLineElement
     // The thinnest band, reached BY ID rather than by the word that used to
     // label it — the id survives a vocabulary change, the word does not.
-    const thinnestId = STRENGTH_BANDS[0].id
+    const thinnestId = CANVAS_STRENGTH_BANDS[0].id
     const thinnest = document.querySelector(`[data-testid="legend-thickness-${thinnestId}"] line`) as SVGLineElement
     expect(unset).toBeTruthy()
     expect(thinnest).toBeTruthy()

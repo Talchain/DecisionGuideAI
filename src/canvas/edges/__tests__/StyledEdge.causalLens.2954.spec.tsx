@@ -318,7 +318,7 @@ describe('StyledEdge causal lens — provenance-gated params (ROADMAP 2.954, #62
       expect((STRONG_WIRE as any).strength.mean).toBe(-0.5)
       expect((STRONG_WIRE as any).exists_probability).toBe(0.92)
       // ⚠ WAS `.moderate` UNTIL 18 Sep 2026, and the change IS the fix: the
-      // width ladder now takes its cuts from `STRENGTH_BANDS`, so |mean| 0.5 —
+      // width ladder now takes its cuts from `CANVAS_STRENGTH_BANDS`, so |mean| 0.5 —
       // which every word surface on the canvas calls "Strong" — finally draws
       // at the band named `strong` instead of the one named `moderate`. The
       // old expectation was a correct reading of a picture that contradicted

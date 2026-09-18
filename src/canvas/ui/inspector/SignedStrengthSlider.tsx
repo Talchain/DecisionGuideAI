@@ -9,7 +9,7 @@
  * Endpoints: "Strong negative" (left), "Strong positive" (right), "No effect" at centre
  *
  * ⚠ THE ENDPOINT WORDS ARE NOT BAND LABELS AND ARE DELIBERATELY NOT DERIVED
- * FROM `STRENGTH_BANDS` (named apart 18 Sep 2026, CLAUDE.md trap 21). They
+ * FROM `CANVAS_STRENGTH_BANDS` (named apart 18 Sep 2026, CLAUDE.md trap 21). They
  * answer *"which end of this track is which direction?"* — a fixed pair of
  * anchors either side of "No effect" — not *"what word is this value entitled
  * to?"*, which is what the coaching line below the track and the band pills

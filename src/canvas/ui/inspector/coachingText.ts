@@ -19,7 +19,7 @@
  * about the gesture, not a claim about the model.
  */
 
-import { getStrengthBand, type StrengthBandId } from '../../domain/vocabulary'
+import { getCanvasStrengthBand, type CanvasStrengthBandId } from '../../domain/vocabulary'
 
 export interface CoachingNudge {
   text: string
@@ -95,7 +95,7 @@ export function getConfidenceCoaching(belief: number): CoachingNudge {
  * two more cuts. The colour rule survives unchanged in substance — the top band
  * warns — and is now keyed by band id rather than by a fifth set of numbers.
  */
-const EFFECT_COACHING_COLOUR: Record<StrengthBandId, string> = {
+const EFFECT_COACHING_COLOUR: Record<CanvasStrengthBandId, string> = {
   slight: 'text-text-light',
   moderate: 'text-text-light',
   strong: 'text-text-light',
@@ -103,7 +103,7 @@ const EFFECT_COACHING_COLOUR: Record<StrengthBandId, string> = {
 }
 
 export function getEffectSizeCoaching(absValue: number): CoachingNudge {
-  const band = getStrengthBand(absValue)
+  const band = getCanvasStrengthBand(absValue)
   return {
     text: `${band.label} effect.`,
     colorClass: EFFECT_COACHING_COLOUR[band.id],
