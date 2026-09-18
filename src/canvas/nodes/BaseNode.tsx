@@ -11,6 +11,7 @@
 
 import { memo, useState, useCallback, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react'
 import { optionsWereAssessed } from '../domain/optionAssessment'
+import { linkedOptionIds } from '../domain/linkedOptions'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
 import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
@@ -559,8 +560,28 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       // evidence. If a reachable optionless-post-run decision is ever
       // demonstrated, un-gate it THEN, with that case as the fixture.
       if (!isPreRunMode) return false
-      const hasOptions = edges.some(e => e.source === id)
-      return !hasOptions
+      /* ⭐⭐ BOUND TO WHAT THE PILL SAYS, NOT TO WHAT WAS EASY TO READ.
+         This was `edges.some(e => e.source === id)` — "does this decision have
+         any OUTGOING EDGE" — while the pill beneath it states that the decision
+         has no OPTIONS. Two facts, one predicate, and they come apart in both
+         directions:
+
+         · `option → decision` is a permitted draw (`isValidConnection`,
+           `ReactFlowGraph.tsx:2347`, applies no kind or direction rule) and is
+           not an outgoing edge, so the card made a DEFINITE FALSE STATEMENT
+           about the user's model — worse than the vague "Needs input" it
+           replaced, which asserted nothing about the graph. This PR's own
+           thesis, applied to this PR.
+         · `decision → factor` IS outgoing, so ANY such edge suppressed the pill
+           on a decision that genuinely has nothing to compare — the gap this
+           arm exists to close, left open.
+
+         `linkedOptionIds` is the same rule `DecisionPanel.tsx:66-77` already
+         ruled for this exact state (review D3: an `option → decision` edge
+         "fell through BOTH lists"), named once rather than re-spelled here —
+         and it resolves kinds through `resolveNodeTypeLiteral`, the estate's
+         one owner of that question, never a private predicate. */
+      return linkedOptionIds(allNodes, edges, id).length === 0
     }
     if (nodeType === 'option') {
       // Still phase-gated — see the scope note above.
