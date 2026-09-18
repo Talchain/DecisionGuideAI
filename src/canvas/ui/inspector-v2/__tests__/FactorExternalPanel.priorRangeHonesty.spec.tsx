@@ -751,7 +751,22 @@ describe('FactorExternalPanel — the panel now owns its own fence', () => {
     // authority-owning pane that was not `factor-controllable`. A third panel
     // added without its own arm would have inherited a sentence written about a
     // different surface — which the Router's own comment forbids in terms.
-    expect(notice).toHaveTextContent('the range save')
+    // ⚠⚠ REPAIRED 18 Sep 2026. This line read
+    // `toHaveTextContent('the range save')`, which is the fragment the copy
+    // correction deliberately removed: the range does NOT save to the shared
+    // model, because `prior_range_edit` is `fact_and_commit` and writes no
+    // graph. The old fragment pinned the false half of the sentence, so it
+    // had to move; the ASSERTION'S PURPOSE — this pane gets its own sentence
+    // rather than the option pane's — is unchanged and still discriminates.
+    // 'recorded as your judgement' appears in no other authority sentence
+    // (the option pane's is "The name saves. Other fields here are read-only
+    // for now"), so a fall-through to that arm still REDs here.
+    expect(notice).toHaveTextContent('recorded as your judgement')
     expect(notice).not.toHaveTextContent("can't yet be saved")
+    // ⭐ AND THE NEW HALF, asserted positively so a silent regression to the
+    // old wording fails here rather than passing quietly: the notice must NOT
+    // claim the range reaches the shared model. The name still may, and does.
+    expect(notice).toHaveTextContent('The name saves to the shared model')
+    expect(notice).not.toHaveTextContent('the range save')
   })
 })

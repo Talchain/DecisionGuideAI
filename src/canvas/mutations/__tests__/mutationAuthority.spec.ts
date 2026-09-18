@@ -70,10 +70,31 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     requiredEvidence:
       'accepted structural_rename with matching server graph hash AND matching expected_label',
   },
+  // ⚠⚠ REPAIRED 18 Sep 2026, AND BOTH FIELDS WERE WRONG IN THE SAME
+  // DIRECTION — this row froze a claim that stopped being true on 10 Sep.
+  //
+  // `requiredEvidence` read: "blanket Inspector fieldset disables the control;
+  // no pointer or keyboard affordance executes". That was measured FALSE at
+  // staging 5824c05b: `factor-external` is in `InspectorRouter`'s
+  // `AUTHORITY_OWNING_PANELS`, so the pane renders OUTSIDE the
+  // `<fieldset disabled>`, and the quick-set buttons plus the tech-mode
+  // Min/Max inputs all execute. #1454 (10 Sep, 22:19) made it operable.
+  //
+  // ⭐ WHY NOBODY NOTICED, WHICH IS THE PART WORTH KEEPING: `requiredEvidence`
+  // IS NEVER EXECUTED. The only assertion over it is
+  // `expect(contract.requiredEvidence.length).toBeGreaterThan(0)` below, so
+  // any sentence at all passes. A hand-maintained mirror inside the very file
+  // that freezes the contract — this estate's dominant defect, sitting in its
+  // own guard. The `authority` field beside it IS pinned (`toEqual` against
+  // the table), which is why only this half drifted.
+  //
+  // The evidence line now names what a reader can CHECK, not what was true
+  // once: the carrier, its handling class, and the graph write it does NOT do.
   priorRangeJudgement: {
-    authority: 'disabled',
+    authority: 'server_fact',
     entrySurfaces: ['Inspector prior range'],
-    requiredEvidence: 'blanket Inspector fieldset disables the control; no pointer or keyboard affordance executes',
+    requiredEvidence:
+      'accepted prior_range_edit persisted by CEE as a typed turn fact (fact_and_commit) and NO write to scenarios.graph',
   },
   canvasSelectionAndLayout: {
     authority: 'local_presentation',

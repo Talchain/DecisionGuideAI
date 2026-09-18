@@ -281,9 +281,35 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * added without this constant would have told the reader "the name saves" while
  * the range saved too.
  *
- * What saves here: the name, and the prior RANGE. `setPriorRange` writes
- * `data.prior` through `updateNode` (round trip pinned in
- * `useAutosave.analysisFieldPersist.spec.ts`) and emits `prior_range_edit`.
+ * What saves here: the name, and the prior RANGE — ⛔ BUT NOT TO THE SAME
+ * PLACE, AND THE SENTENCE NO LONGER PRETENDS OTHERWISE (18 Sep 2026).
+ *
+ * It read: *"The name and the range save to the shared model."* The first
+ * clause is true — `onLabelChange` routes to `store.updateNodeLabel`, which
+ * captures a durable `structural_rename`, a carrier CEE handles `'mutating'`
+ * with a real write to `scenarios.graph`. The second clause was FALSE.
+ * `setPriorRange` writes `data.prior` through `updateNode` (round trip pinned
+ * in `useAutosave.analysisFieldPersist.spec.ts`) and emits `prior_range_edit`,
+ * which CEE handles `'fact_and_commit'`: a typed TURN FACT, and NO graph
+ * write. This panel's own body has said so all along
+ * (`FactorExternalPanel.tsx`: *"which CEE persists as a typed turn FACT and
+ * which writes no graph"*), so the file contradicted itself across two
+ * hundred lines and the rendered half was the wrong one.
+ *
+ * ⛔ WHY IT MATTERS MORE THAN A WORDING NIT. "the shared model" is this
+ * estate's RESERVED PHRASE for a receipt-bearing GraphV3 write —
+ * `mutationAuthority.ts` opens by defining it that way, and
+ * `SHARED_MODEL_AUTHORITY_COPY` spends it on exactly that. Using it for a turn
+ * fact tells the user their judgement is in the model the next analysis
+ * reloads. It is not: CEE reloads `scenarios.graph`, and the range is not
+ * there. That is the "believes their judgement is in the model when it is not"
+ * failure, arriving through COPY rather than through a dead control.
+ *
+ * ⚠ IT STILL CLAIMS THE SAVE, because there genuinely is one. The range is
+ * not dropped, not local-only and not lost: it reaches CEE and the
+ * prior-facts loader reads it back. Downgrading this to "not sent yet" would
+ * be the opposite error, and this slot has already shipped two sentences that
+ * failed in opposite directions.
  *
  * ⚠ IT CLAIMS NO EFFECT ON RESULTS, DELIBERATELY. PLoT's prior pass is gated
  * four ways and one gate is silent: an `observed_state.value` present skips the
@@ -298,7 +324,7 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * as THE exception would be false the moment another fence is added.
  */
 export const INSPECTOR_FACTOR_EXTERNAL_REASON =
-  'The name and the range save to the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
+  'The name saves to the shared model. The range is recorded as your judgement for Olumi, not written into the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
 
 /**
  * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.
