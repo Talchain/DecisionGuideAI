@@ -241,6 +241,6 @@ describe('a withheld leader designation says why', () => {
 
     renderGlance(data)
     expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-glance-headline')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
   })
 })
