@@ -17,7 +17,8 @@ import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useEdgeMutations, type EdgeStrengthConfirmOutcome } from '../useInspectorMutations'
+import { useEdgeMutations, type EdgeStrengthConfirmOutcome, type EdgeStrengthCommitOutcome } from '../useInspectorMutations'
+import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -270,6 +271,16 @@ export const EdgePanel = memo(function EdgePanel({
   // it must not invite a re-run.
   const [strengthConfirm, setStrengthConfirm] =
     useState<{ ts: number; outcome: EdgeStrengthConfirmOutcome } | null>(null)
+  /**
+   * ⭐ HOW THE LAST STRENGTH **EDIT** SETTLED. Separate state from
+   * `strengthConfirm` above, and deliberately so: confirming and editing are
+   * two acts with two carriers (CLAUDE.md trap 21), and pooling them under one
+   * name is how the confirm path's fix failed to reach the edit path at all.
+   * `null` means no settlement has arrived yet — which is the honest state for
+   * the window between the press and the server's answer.
+   */
+  const [strengthEditSend, setStrengthEditSend] =
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' } | null>(null)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -352,11 +363,48 @@ export const EdgePanel = memo(function EdgePanel({
   const origStrengthRef = useRef(signedValue)
 
   // Handlers
+  /**
+   * ⭐ ONE SETTLEMENT HANDLER FOR EVERY STRENGTH CONTROL ON THIS PANEL.
+   * The bands, the fine-tune slider and the Advanced β field all write the same
+   * edge through the same carrier, so they must all answer for it the same way.
+   * Three copies of this closure would be three chances to drift.
+   */
+  const handleStrengthSendSettled = useCallback(
+    (settlement: SystemEventSendSettlement) => setStrengthEditSend({ ts: Date.now(), settlement }),
+    [],
+  )
+
+  /**
+   * ⛔⛔ A SETTLEMENT DOES NOT ALWAYS ARRIVE, AND MY FIRST VERSION ASSUMED IT DID.
+   *
+   * `setStrength` returns BEFORE the send on two paths — `not_wire_encodable`
+   * (the edge has no assertable `expected`) and `local_only` (no conversation
+   * carrier at all). On both, the local write happens and `settleSystemEventSend`
+   * is never reached, so nothing ever resolves the pending state.
+   *
+   * Left as-is, the panel said **"Sending to Olumi…" forever** — which is itself
+   * a false statement, since nothing is being sent and nothing will be. I
+   * replaced one lie with a quieter one that never resolves.
+   *
+   * ⭐ The outcome token is the answer and it was already being returned and
+   * discarded. `dispatched` is the ONLY value that promises a settlement; every
+   * other one is terminal the moment it is returned.
+   */
+  const noteStrengthOutcome = useCallback((outcome: EdgeStrengthCommitOutcome) => {
+    if (outcome === 'dispatched') return
+    setStrengthEditSend({ ts: Date.now(), settlement: 'not_sent' })
+  }, [])
+
   const handleStrengthChange = useCallback((v: number) => {
     setLocalStrength(v)
-    mutations.setStrength(v)
+    // A drag is one gesture that fires repeatedly (`SignedStrengthSlider`
+    // debounces `onChange` by 120ms), so the settlement of the LATEST send is
+    // the one that describes where the value ended up. Clearing first means a
+    // stale "not recorded" can never survive over a later send that landed.
+    setStrengthEditSend(null)
+    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: handleStrengthSendSettled }))
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [mutations, edgeId, previewEdit])
+  }, [mutations, edgeId, previewEdit, handleStrengthSendSettled])
 
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
@@ -373,11 +421,15 @@ export const EdgePanel = memo(function EdgePanel({
     // Presets choose magnitude only. The sign is retained visually by
     // StrengthBandButtons, but retaining a sign is not the same as the user
     // stating it: preserve both direction and directionSource byte-for-byte.
-    mutations.setStrength(v, { preserveDirection: true })
+    setStrengthEditSend(null)
+    noteStrengthOutcome(mutations.setStrength(v, {
+      preserveDirection: true,
+      onSendSettled: handleStrengthSendSettled,
+    }))
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
-  }, [mutations, clearPreview, confirmEdit])
+  }, [mutations, clearPreview, confirmEdit, handleStrengthSendSettled])
 
   /**
    * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.
@@ -441,6 +493,37 @@ export const EdgePanel = memo(function EdgePanel({
    * renders disabled is a disclosure, while an editor whose write cannot land is
    * the lie this panel is being unfenced to stop.
    */
+  /**
+   * ⛔⛔ TWO HARMS, TWO PREDICATES — NEVER ONE (CLAUDE.md trap 22b).
+   *
+   * `blocked` and `refused` mean the statement is NOT in the model: `blocked`
+   * never reached the server, and on `refused` the server's own line certifies
+   * it wrote nothing. Saying "Updated" there is false, and offering a re-run
+   * there invites the person to SPEND AN ANALYSIS on a change that does not
+   * exist — the precise harm the ⛔⛔ banner on `handleConfirmCurrentStrength`
+   * records as wire-witnessed, closed for confirm and left open for edit.
+   *
+   * `unverified` is the OPPOSITE harm and must not share the predicate: the
+   * change MAY have landed, so suppressing the re-run would hide a real result
+   * and telling the person nothing was recorded would be a second false claim.
+   * It gets its own wording and KEEPS the affordance.
+   */
+  const strengthEditSettlement = strengthEditSend?.settlement
+  /**
+   * ⭐ THE PENDING WINDOW IS A THIRD STATE, NOT AN ABSENCE OF THE OTHER TWO.
+   * Every edit passes through it — a settlement cannot arrive in the same tick
+   * (`settleSystemEventSend` settles a promise), so `null` here is the NORMAL
+   * state at the instant of the press, not an edge case. Falling through to
+   * `EditConfirmation`'s defaults here is what kept the "Updated ✓ in success
+   * green" claim alive for the whole window this change was written to close.
+   */
+  const strengthEditIsPending = strengthEditSettlement === undefined
+  const strengthEditNotSent = strengthEditSettlement === 'not_sent'
+  const strengthEditIsQueued = strengthEditSettlement === 'queued'
+  const strengthEditDidNotLand =
+    strengthEditSettlement === 'blocked' || strengthEditSettlement === 'refused'
+  const strengthEditIsUnverified = strengthEditSettlement === 'unverified'
+
   const strengthReachesTheModel = edgeStrengthEditIsAssertable(edge)
 
   /**
@@ -658,11 +741,52 @@ export const EdgePanel = memo(function EdgePanel({
                   />
                 </div>
               )}
-              {/* Edit feedback */}
+              {/* Edit feedback — SETTLEMENT-AWARE. See the two predicates above. */}
               {lastConfirmed?.field === 'strength' && (
-                <div className="flex items-center gap-2 mt-1">
-                  <EditConfirmation trigger={lastConfirmed.ts} />
-                  <InlineRerunPrompt visible={isStaleAfterEdit} />
+                <div
+                  className="flex items-center gap-2 mt-1"
+                  data-testid="edge-strength-edit-feedback"
+                  data-settlement={strengthEditSettlement ?? 'pending'}
+                >
+                  {/* ⛔ NEVER `tone="success"`, NEVER "Updated". `settleSystemEventSend`'s
+                      own header: `'sent'` means a POST left and the server has not
+                      answered — "a row that rendered 'saved' on it would be an
+                      optimistic write wearing a receipt." Whether the MODEL changed
+                      arrives separately, on the turn. This mirrors
+                      `FactorControllablePanel:852-858`, which already states all
+                      three of its outcomes this way, rather than inventing a fourth
+                      spelling of one rule. */}
+                  <EditConfirmation
+                    trigger={strengthEditSend?.ts ?? lastConfirmed.ts}
+                    label={strengthEditIsPending
+                      ? ACTION_LABELS.strengthEditSending
+                      : strengthEditIsQueued
+                        ? ACTION_LABELS.strengthEditQueued
+                      : strengthEditNotSent
+                        ? ACTION_LABELS.strengthConfirmNotSent
+                        : strengthEditDidNotLand
+                          ? ACTION_LABELS.strengthEditNotRecorded
+                          : strengthEditIsUnverified
+                            ? ACTION_LABELS.strengthEditUnverified
+                            : ACTION_LABELS.strengthConfirmSent}
+                    tone="pending"
+                    hold={strengthEditIsPending}
+                  />
+                  {/* Withheld where the model provably does not hold the value, and
+                      while we do not yet know. `unverified` keeps it — it may have
+                      landed, and hiding a real result is the opposite harm. */}
+                  {/* ⛔ WITHHELD ONLY WHERE THE MODEL PROVABLY LACKS THE VALUE.
+                      My first version also withheld it while PENDING, and that
+                      was over-reach caught by `elicitationChain.spec.ts` — a
+                      journey test walking CTA → editor → canonical write →
+                      stale → rerun. During the pending window the LOCAL value
+                      has already changed, so the results genuinely ARE stale
+                      and offering the re-run is the honest thing. Staleness is
+                      a fact about the graph on screen; it does not wait on the
+                      server's answer. */}
+                  <InlineRerunPrompt
+                    visible={isStaleAfterEdit && !strengthEditDidNotLand}
+                  />
                 </div>
               )}
               {/* Fine-tune slider */}
@@ -813,7 +937,7 @@ export const EdgePanel = memo(function EdgePanel({
                 organisational NOR an intervention, so its strength IS read by
                 the analysis. Passed explicitly rather than defaulted: the
                 class is stated at every call site, never inferred. */}
-            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" />
+            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" onSendSettled={handleStrengthSendSettled} />
           </TechnicalDisclosure>
         </>
       )}
@@ -824,6 +948,7 @@ export const EdgePanel = memo(function EdgePanel({
           <EdgeAdvancedEditor
             edgeId={edgeId}
             linkKind={isIntervention ? 'intervention' : 'organisational'}
+            onSendSettled={handleStrengthSendSettled}
           />
         </TechnicalDisclosure>
       )}

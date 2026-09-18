@@ -556,6 +556,48 @@ export const ACTION_LABELS = {
    * `FactorControllablePanel:840-846`, which already states all three outcomes.
    */
   strengthConfirmNotSent: 'Not sent to Olumi',
+  /**
+   * ⛔⛔ THE EDIT PATH SHIPPED THE DEFECT ITS OWN SIBLING WAS FIXED FOR.
+   * `handleConfirmCurrentStrength` above carries a ⛔⛔ banner recording that it
+   * called `confirmEdit('strength')` unconditionally, rendering `EditConfirmation`
+   * at its defaults — **"Updated" in success green** — plus `InlineRerunPrompt`,
+   * so a person was told their statement was saved and invited to SPEND AN
+   * ANALYSIS on a change that did not exist. That was closed for CONFIRM and
+   * left open for EDIT: a band press and a slider drag still say "Updated" in
+   * success green whatever the server did, because the send was `.catch(() => {})`.
+   * These two labels are the edit path's half, and they are TWO because the
+   * harms are opposite (CLAUDE.md trap 22b): "nothing was recorded" and "we
+   * cannot tell" must never share one sentence.
+   */
+  strengthEditNotRecorded: 'Not recorded — Olumi did not take this change',
+  /**
+   * ⚠ THE UNCERTAINTY IS RETAINED, NOT RESOLVED. `unverified` means the change
+   * MAY have landed, so this must not claim either way — and unlike the line
+   * above it must NOT suppress the re-run affordance, because the model may
+   * genuinely hold the new value.
+   */
+  strengthEditUnverified: 'Olumi may not have recorded this',
+  /**
+   * ⛔ THE WINDOW I MISSED FIRST TIME, AND IT IS THE ONE EVERY EDIT PASSES
+   * THROUGH. A settlement is ALWAYS at least one microtask late
+   * (`settleSystemEventSend` resolves a promise), so between the press and the
+   * answer `strengthEditSend` is `null`. My first version rendered
+   * `EditConfirmation`'s DEFAULTS in that window — "Updated" in success green,
+   * with the re-run offered — which is the exact claim this change exists to
+   * stop, surviving in the gap between the two states I did name.
+   * ⭐ A mock that settles SYNCHRONOUSLY cannot see this window, and mine did.
+   * The test was not missing by oversight; the instrument could not reach it.
+   */
+  strengthEditSending: 'Sending to Olumi…',
+  /**
+   * ⛔ `queued` IS NOT `sent`, AND IT WAS READING AS ONE.
+   * `settleSystemEventSend`: queued means *"buffered behind an in-flight turn —
+   * THE TURN DOES NOT EXIST YET"*. It fell through to "Sent to Olumi", which is
+   * the same optimistic receipt this change exists to remove, one state over.
+   * ⚠ Reachable in normal use: `sendSystemEvent`'s `deferIfBusy` defaults TRUE,
+   * so any edit made while a turn is in flight lands here.
+   */
+  strengthEditQueued: 'Waiting for the current turn to finish',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────

@@ -9,6 +9,8 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
   buildEdgeDirectionEditEvent,
@@ -877,7 +879,7 @@ export function useNodeMutations(nodeId: string) {
  *                          non-finite number.
  *
  * ⚠ NO CALLER READS THIS TOKEN YET, and that is recorded rather than hidden.
- * Four call sites drive `setStrength` and all four ignore the return. The token
+ * Four call sites drive `setStrength`. ⚠ CORRECTED: `EdgePanel` now READS the return — an outcome other than `dispatched` means no settlement is coming and the panel must not wait for one. The token
  * exists so the states are NAMEABLE and testable at the seam; giving each one a
  * user-visible sentence is a copy change, and a sibling lane owns copy today.
  * Under the reachable posture CEE itself discloses the refusal in the
@@ -952,7 +954,29 @@ export function useEdgeMutations(edgeId: string) {
    */
   const setStrength = useCallback((
     mean: number,
-    opts?: { preserveDirection?: boolean },
+    opts: {
+      preserveDirection?: boolean
+      /**
+       * ⛔⛔ REQUIRED, AND THE FIRST VERSION OF THIS CHANGE HAD IT OPTIONAL —
+       * WHICH REPRODUCED THE DEFECT INSIDE THE FIX FOR IT.
+       *
+       * `settleSystemEventSend` was EXTRACTED so the next carrier would get the
+       * derivation by construction. It did not work: four carriers shipped a
+       * bare send past it, because a helper you must REMEMBER to call leaves
+       * the silent form available and attractive.
+       *
+       * The CEE lane's equivalent seam did not suffer this, and the difference
+       * is structural, not cultural: `mayPresentLeaderClaimForFact` REPLACED the
+       * narrow accessor at every call site, so the composed answer is the only
+       * thing to reach for. Same word, "extraction"; opposite outcomes.
+       *
+       * ⭐ So this is not optional. Making it required forced FOUR callers to
+       * decide — one of which (`EdgeAdvancedEditor:80`) was passing no options
+       * at all and was discovered only because the compiler demanded it. A gap
+       * a type system can find is worth more than a rule a reader must recall.
+       */
+      onSendSettled: (settlement: SystemEventSendSettlement) => void
+    },
   ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
     if (!edge) return 'not_encodable'
@@ -996,12 +1020,52 @@ export function useEdgeMutations(edgeId: string) {
     // the two. The outcome token below is how the gap is disclosed instead.
     if (!event) return 'not_wire_encodable'
     if (!sendSystemEvent) return 'local_only'
-    void Promise.resolve(sendSystemEvent(event)).catch(() => {
-      // Swallowed deliberately, exactly as `proposeFactorValue` and
-      // `setPriorRange` do: a genuine send failure is recorded by the
-      // conversation's own failure channel, and a server REFUSAL is not a
-      // failure — the promise resolves normally.
-    })
+    /**
+     * ⛔⛔ THE COMMENT THAT USED TO SIT HERE STATED THE MECHANISM CORRECTLY AND
+     * DREW THE OPPOSITE CONCLUSION. It read: *"a server REFUSAL is not a
+     * failure — the promise resolves normally."* True, and that is precisely
+     * WHY the refusal was invisible: a resolved promise carries the server's
+     * "no" straight past a `.catch`.
+     *
+     * `settleSystemEventSend`'s own header names this exact family — *"the two
+     * `edge_strength_edit` `confirm_current` carriers each shipped
+     * `.catch(() => {})`: every settlement collapsed to silence, INCLUDING THE
+     * SERVER SAYING NO."* Both of those were fixed. This one, the EDIT carrier,
+     * was not — the rule was written on one carrier and swept to its siblings
+     * but not to this one, which is the defect that module exists to end.
+     *
+     * ⚠ SCOPE, UNCHANGED: this settles what the CALLER MAY SAY ABOUT THE SEND.
+     * `'sent'` still means a POST left and the server has not answered. Whether
+     * the MODEL changed arrives separately, on the turn. This is not an applied
+     * channel and must not be rendered as one.
+     *
+     * ⭐ ALL THREE LIVE CALLERS ARE COVERED BY THIS ONE EDIT — the band buttons
+     * (`EdgePanel:627`), the fine-tune slider (`EdgePanel:676`) and the Model
+     * tab's relationship row (`useModelEditAuthority.proposeEdgeStrength`) all
+     * come through here. `deferIfBusy` is deliberately NOT passed: changing it
+     * would alter behaviour for all three at once, and that is a separate
+     * decision, taken deliberately or not at all.
+     */
+    /**
+     * ⚠ `opts?.` AT RUNTIME WHILE THE TYPE STAYS REQUIRED — and the two are
+     * doing different jobs, deliberately.
+     *
+     * The REQUIRED type is the enforcement: it is what forced all four carriers
+     * to decide and what surfaced `EdgeAdvancedEditor`'s silent β field. That
+     * does not change.
+     *
+     * But `useInspectorMutations.writtenFields.spec.tsx` is a DERIVED manifest
+     * guard — it casts the setters to `Record<string, (...a: unknown[]) => void>`
+     * so it can drive every one generically, which means TypeScript cannot see
+     * its calls at all. A one-argument call therefore passed the typecheck and
+     * threw at `opts.preserveDirection` inside a shard.
+     *
+     * ⛔ A THROW HERE IS THE WRONG FAILURE. This runs in a click handler on a
+     * live panel; a caller that omits the handler should lose the disclosure,
+     * not crash the inspector. So the optional chain is defence against a
+     * dynamic caller, and the type is what stops a real one omitting it.
+     */
+    settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
