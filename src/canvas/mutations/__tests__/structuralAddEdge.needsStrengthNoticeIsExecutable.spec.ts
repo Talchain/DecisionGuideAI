@@ -103,7 +103,38 @@ describe('STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE instructs nothing the produc
    * reason is the failure mode this whole spec exists to catch.
    */
   it('PRECONDITION 2b — and no SECOND strength writer is live on that link either', () => {
-    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength).toBe('disabled')
+    /**
+     * ⭐⭐ REPAIRED 2026-09-18 BY THE EDGE-STRENGTH UNLOCK LANE, AND THE OLD
+     * ASSERTION'S OWN PROSE PREDICTED THIS EXACT REPAIR.
+     *
+     * It read `expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength)
+     * .toBe('disabled')`, and the paragraph above it already said what a flip
+     * would and would not mean: *"Flipping this key would NOT falsify the
+     * notice's conclusion ... It falsifies the REASON."* That is precisely what
+     * happened. The key is now `'server_graph'` and the pre-analysis picker
+     * genuinely emits `edge_strength_edit`, so the old sentence — "the handler
+     * is `undefined`, so the picker receives nothing" — has stopped being true.
+     *
+     * ⛔ THE PRECONDITION ITSELF IS UNCHANGED AND STILL HOLDS, FOR A BETTER
+     * REASON. That lane did not merely flip a flag: the picker is now gated PER
+     * EDGE on `edgeStrengthEditIsAssertable`, the same question `EdgePanel`
+     * asks, so a freshly drawn link — which has no server-stated strength —
+     * receives no handler and renders no pills. The second writer is still not
+     * live on THIS link.
+     *
+     * ⭐ AND THE ASSERTION IS NOW BOUND TO THE RIGHT OBJECT. The old form was a
+     * claim about a SURFACE-WIDE FLAG, which could flip for reasons having
+     * nothing to do with drawn links — as it just did. This asks the question
+     * the notice actually depends on, about the very edge the notice is about,
+     * so it stays RED-able if the picker is ever pointed at a strength-less
+     * link and cannot go green by an unrelated flag moving.
+     *
+     * ⚠ The prose above still cites `PreAnalysisPanel.tsx:1279` and `:676`.
+     * Both line numbers are stale after that lane's edit; the mechanism it
+     * describes — one local `updateEdgeData`, gated surface-wide — is the
+     * BEFORE state, kept because it is what this assertion was written against.
+     */
+    expect(edgeStrengthEditIsAssertable(drawnEdge as never)).toBe(false)
   })
 
   it('PRECONDITION 2 — and that same link cannot reach the strength control at all', () => {
