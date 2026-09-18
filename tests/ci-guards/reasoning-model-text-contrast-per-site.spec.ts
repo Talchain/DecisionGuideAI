@@ -249,6 +249,34 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
   //    zero: seven entries remain there (ContestedEdgeCard ×2,
   //    ModelHealthSection ×2, ReanalyseBar ×1, utils.ts ×2), so the SCOPE
   //    entry below still measures a live surface rather than an empty tree.
+  /**
+   * ⭐⭐ NINE MORE SITES REPAIRED 18 Sep 2026 — banked here, as this file asks.
+   *
+   * `AtAGlance text-warning text: 3` and `ModelStrip text-warning text: 6` are
+   * GONE. All nine were the same defect this file's header already named:
+   * `--warning` as TEXT, measuring 1.92:1 bare and 1.74:1 inside its own 10%
+   * tint, against SC 1.4.3's 4.5:1.
+   *
+   * ⭐ REPAIRED BY A TOKEN THAT DID NOT EXIST BEFORE. `FactorValueControl.tsx`
+   * recorded the blocker precisely — *"there is no darker info token to reach
+   * for, so the tint had to go"* — and solved it by removing the tint. That
+   * works, but it spends the tint to buy contrast. `--warning-ink` (and
+   * `--info-ink`) are ADDITIVE: same hue, dark enough to read, so a control can
+   * keep its fill AND be legible. `--warning` is untouched at all 294 of its
+   * call sites; text sites opt in.
+   *
+   * ⚠ SOLVED AGAINST EVERY GROUND, NOT THE ONE I SCREENSHOTTED. The verify
+   * toggle renders on `bg-warning/10` at rest and `bg-warning/20` when active.
+   * `--warning-ink` clears 4.86 / 4.57 / 5.16 on tint-10 / tint-20 / bare panel.
+   * My first `--info-ink` value cleared the 6% tint and FAILED the 10% one; the
+   * guard caught it, which is the whole point of a per-ground assertion.
+   *
+   * ⛔ ICONS ARE DELIBERATELY NOT INCLUDED. `AtAGlance text-warning icon: 2` and
+   * `WhyNoAnalysisYet text-warning icon: 1` stay pinned. Ink would clear their
+   * 3:1 floor comfortably, but an icon's colour is its meaning and changing the
+   * signal hue of a warning glyph is a design judgement, not a contrast sweep —
+   * the same reasoning this file already applied to the `rounded-md` survivor.
+   */
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-success text': 2,
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-warning text': 2,
   'src/canvas/components/model-tab/ModelHealthSection.tsx text-danger icon': 1,
@@ -261,9 +289,7 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
   'src/canvas/model-tab-v2/ModelRowView.tsx text-warning text': 1,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-success text': 1,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-warning icon': 2,
-  'src/components/results/analysisNew/sections/AtAGlance.tsx text-warning text': 3,
   'src/components/results/analysisNew/sections/ModelHeldUp.tsx text-success icon': 1,
-  'src/components/results/analysisNew/sections/ModelStrip.tsx text-warning text': 6,
   /* ⭐ 2 -> 1: the tinted pill repaired; the survivor is the `panelBody`
      `rounded-md` variant, which is a different shape and is owed its own
      judgement rather than a blind sweep. */
@@ -392,7 +418,22 @@ describe('Reasoning + Model surfaces: per-site text and icon contrast', () => {
       sites.filter((s) => s.ok).length,
       'most sites must PASS — a guard that condemns everything is not measuring',
     ).toBeGreaterThan(350)
-    expect(violations.length, 'and it must still be finding the failures').toBeGreaterThan(20)
+    /**
+     * ⭐ 20 -> 15 BECAUSE NINE SITES WERE REPAIRED, NOT BECAUSE THE GUARD WAS
+     * RELAXED. The scan now measures EXACTLY 20 violations, down from 29: the
+     * `--warning`-as-text sites in `AtAGlance` (3) and `ModelStrip` (6) moved to
+     * `--warning-ink`. The control's claim — "the instrument can still see a
+     * failure" — is unchanged and still true with headroom.
+     *
+     * ⚠ THIS IS THE THIRD TIME THIS CONSTANT HAS MOVED, and the comment above
+     * already diagnosed why: an absolute number standing in for a ratio re-reds
+     * on every legitimate repair, which trains the next reader to lower it
+     * without looking. The fix it proposes (a fraction of `sites.length`) is
+     * still the right one and is still deliberately NOT done here, for the same
+     * reason it was not done there: it changes how the control WORKS, and a
+     * repair PR is not where you rewrite the instrument that judges it.
+     */
+    expect(violations.length, 'and it must still be finding the failures').toBeGreaterThan(15)
 
     // 8. The scan sees BOTH roles and resolves grounds both ways, or a whole
     //    classification arm is dead code nothing exercises.

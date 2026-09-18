@@ -56,8 +56,8 @@ const WITHHELD_PARAMETER_CAP = 4
 /** Verdict tone → the accent that carries it. */
 const TONE_PILL: Record<string, string> = {
   stable: 'bg-success/10 text-success',
-  mixed: 'bg-warning/10 text-warning',
-  sensitive: 'bg-warning/10 text-warning',
+  mixed: 'bg-warning/10 text-warning-ink',
+  sensitive: 'bg-warning/10 text-warning-ink',
 }
 
 /**
@@ -623,7 +623,7 @@ export function AtAGlance({
             {ribbon.map((r, i) => (
               <span
                 key={r.testId}
-                className={`${typography.panelMeta} text-warning`}
+                className={`${typography.panelMeta} text-warning-ink`}
                 data-testid={r.testId}
               >
                 {i > 0 ? ' ' : null}
