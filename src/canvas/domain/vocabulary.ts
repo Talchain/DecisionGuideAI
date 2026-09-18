@@ -301,10 +301,63 @@ export function statedFactorCategoryLabel(category: unknown, inferredByUi: unkno
  * into the model, so a cut moved here silently re-labels a value a user chose.
  * Change them in the contract first.
  */
+/**
+ * ⭐ THE LADDER, AS DATA — so a second consumer reads the CUTS rather than
+ * restating them.
+ *
+ * `getStrengthLabel` below is now a projection of this array, and so is
+ * `resolveStrengthBandSpan` (`./strengthBandSpan.ts`), which needs the cut
+ * points themselves to answer *does a ±1-spread interval cross one?* Before
+ * this, the only way to ask that question was to re-type `0.70 / 0.40 / 0.20`
+ * beside the four words — which is exactly the mirror that made the canvas chip
+ * and the inspector panel disagree about the same edge (see the ⚠⚠ note above).
+ * The disagreement is not hypothetical here: it already happened once, between
+ * two tables that were each internally consistent.
+ *
+ * ORDER IS LOAD-BEARING: descending by `min`, and the last entry MUST be the
+ * floor (`min: 0`), because the lookup returns the FIRST band whose `min` the
+ * value clears. `as const` keeps the labels a literal union rather than
+ * `string`, so `StrengthBandLabel` cannot silently widen.
+ *
+ * ⚠⚠ NAMED `..._LADDER`, NOT `STRENGTH_BANDS`, AND THE NAME IS DEFENSIVE.
+ * Three constants called exactly `STRENGTH_BANDS` already exist in this repo,
+ * one of them EXPORTED, and no two of them agree — measured 18 Sep 2026:
+ *
+ *   · `pre-analysis/KeyRelationships.tsx:45` — 3 bands, cuts at 0.25 / 0.60
+ *   · `shared/TriageCard.tsx:195`           — 3 bands, values 0.3 / 0.7 / 1.2
+ *   · `shared/ScientificEditor.tsx:21`      — 3 bands, 0.10–0.25 / 0.30–0.50 /
+ *     0.60–0.85, with GAPS between them that no value can be labelled from
+ *
+ * and this ladder is 4 bands cut at 0.20 / 0.40 / 0.70. They use different WORDS
+ * too ("Weakly" / "Weak" / "Slight"). A fourth identically-named export would
+ * make the wrong auto-import silent and plausible, which is the failure mode
+ * the ⚠⚠ note above records actually happening once already.
+ *
+ * ⛔ THIS IS NOT A CLAIM THAT THE OTHER THREE ARE FINE. They are a live
+ * four-way disagreement about one quantity and they are NOT reconciled here —
+ * reconciling them moves numbers on three surfaces this lane has not measured,
+ * and the contract, not this file, owns the cuts. Recording the divergence is
+ * in scope; changing it is a separate piece of work.
+ */
+export const STRENGTH_BAND_LADDER = [
+  { min: 0.70, label: 'Very strong' },
+  { min: 0.40, label: 'Strong' },
+  { min: 0.20, label: 'Moderate' },
+  { min: 0, label: 'Slight' },
+] as const
+
+/** The four words, as a union — never `string`. */
+export type StrengthBandLabel = (typeof STRENGTH_BAND_LADDER)[number]['label']
+
 // Canonical thresholds: Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20, Slight < 0.20
-export function getStrengthLabel(absValue: number): string {
-  if (absValue >= 0.70) return 'Very strong'
-  if (absValue >= 0.40) return 'Strong'
-  if (absValue >= 0.20) return 'Moderate'
+export function getStrengthLabel(absValue: number): StrengthBandLabel {
+  for (const band of STRENGTH_BAND_LADDER) {
+    if (absValue >= band.min) return band.label
+  }
+  // Unreachable for any non-negative finite input, because the last band's
+  // floor is 0. Retained for the inputs that DO reach it — a negative passed
+  // by a caller that forgot `Math.abs`, and `NaN`, for which every comparison
+  // above is false. Both previously fell through to the same word, and that
+  // behaviour is deliberately preserved rather than newly decided here.
   return 'Slight'
 }

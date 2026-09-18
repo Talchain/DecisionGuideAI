@@ -510,6 +510,74 @@ export const EDGE_COPY = {
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',
   sliderMaxUncertain: 'Uncertain',
+  /**
+   * ⭐⭐ THE SENTENCE THIS SURFACE EXISTS FOR — printed only when the stated
+   * spread reaches far enough to change the adjective.
+   *
+   * It sits directly beneath the `StrengthBandButtons` pills, one of which is
+   * highlighted with exactly the word it quotes, so the quotation is pointing at
+   * something the reader can see rather than at an abstraction. That adjacency
+   * is the whole design: the product contradicting its own headline word in the
+   * place the word appears is worth more than a caveat filed elsewhere.
+   *
+   * ⛔ THE BAND WORDS ARE PASSED IN, NOT LOOKED UP HERE. They come from
+   * `resolveStrengthSpread`, which is gated on BOTH values' provenance — so this
+   * template is unreachable for an edge nobody characterised. A copy function
+   * that derived its own labels could be called with anything.
+   *
+   * ⚠ "earn" RATHER THAN "support". A first draft read "firmer than the numbers
+   * support", which is ambiguous in the wrong direction — it can be read as the
+   * numbers failing to support a true claim, i.e. a data problem. "Earn" puts it
+   * where it belongs: the word is claiming more than it is entitled to.
+   */
+  strengthSpansBands: (low: string, high: string, word: string) =>
+    `Anywhere from ${low} to ${high} fits this estimate — so "${word}" is a firmer word than the numbers earn.`,
+  /**
+   * The magnitude and its spread together. A bare point estimate reads as a
+   * measurement; this reads as an estimate, which is what it is.
+   *
+   * ⚠ NO "σ", NO "std", NO "standard deviation" in the plain surface. The
+   * expert annotation below still says `σ =` under `techMode`, and that is
+   * the right place for the notation — a reader who has not asked for it gets
+   * the same fact in words.
+   */
+  strengthSpreadReadout: (magnitude: string, spread: string) => `${magnitude} ± ${spread}`,
+  /** Accessible name for the readout above — the symbol spoken as English. */
+  strengthSpreadReadoutLabel: 'Stated strength, give or take the stated uncertainty',
+  /**
+   * ⭐⭐ WHAT AN UNASSESSED SLIDER LOOKS LIKE — AND WHY IT IS WORDS, NOT
+   * GEOMETRY.
+   *
+   * A range input must put its handle somewhere, and on THIS scale every
+   * position is a claim. The three alternatives were weighed and rejected:
+   *
+   *   · MOVE IT TO THE CENTRE. Rejected, and it is the tempting one. The
+   *     centre of this slider is LABELLED — `sliderNoEffect`, "No effect" — and
+   *     `SignedStrengthSlider` prints "No effect" as its own direction word
+   *     there. Centring would swap a fabricated moderate-positive for a
+   *     fabricated NULL RESULT, which is a STRONGER claim about the world, not
+   *     a weaker one. "This connection does nothing" is the last thing a tool
+   *     for thinking should assert on a link nobody has assessed.
+   *   · HIDE OR DISABLE THE CONTROL. Rejected on the standing no-hiding
+   *     ruling recorded on `interventionStrengthInert` above — correct the
+   *     claim, never remove the surface. It is also the one control by which a
+   *     user could FIX the unset state.
+   *   · LEAVE IT AND SAY NOTHING. That is the defect.
+   *
+   * So the handle keeps its position and the panel states what the position
+   * means. The pills above light nothing and the β field withholds its number,
+   * so this sentence is the only thing on screen making a claim about the
+   * handle — and the claim it makes is "not a reading".
+   *
+   * ⚠ WHAT THIS DOES NOT FIX, stated rather than implied. `SignedStrengthSlider`
+   * still draws a coloured fill from the centre out, still prints a direction
+   * word ("Positive"), and still renders `getEffectSizeCoaching` — all three
+   * derived from the same defaulted magnitude. Neutralising them is a change to
+   * that component's visual design on every surface that mounts it, which is a
+   * founder ruling rather than a lane decision, and it is NOT made here.
+   */
+  strengthUnsetSliderNotice:
+    'Nobody has said how strong this effect is yet. The handle starts at a default position — it is not a reading.',
   existenceTooltip: 'How confident are you that this causal link is real?',
   sliderStrongNegative: 'Strong negative',
   sliderNoEffect: 'No effect',
