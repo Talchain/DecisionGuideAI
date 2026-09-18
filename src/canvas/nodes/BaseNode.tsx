@@ -54,9 +54,13 @@ import {
   UNFINISHED_CONTRIBUTION_TEST_ID,
 } from './shared/analysisParticipation'
 import { NodeQuickActions } from './shared/NodeQuickActions'
-import { NODE_QUICK_ACTION_BAND_PX, CANVAS_CORNER_STACK_CLASSES } from './shared/canvasGlyphScale'
+import {
+  NODE_QUICK_ACTION_BAND_PX,
+  CANVAS_CORNER_STACK_CLASSES,
+  CANVAS_HEADER_GLYPH_GROUP_CLASSES,
+} from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
-import { sensitivityRankBadgeAccessibleName, STRUCTURAL_UNSET } from './shared/metricVocabulary'
+import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -110,7 +114,9 @@ interface BaseNodeProps extends NodeProps {
    * stack's contract puts it last. Against the `StatusPill` immediately below
    * it the order is UNOBSERVABLE (disjoint on RESULTS MODE — this said "by node
    * type" until 8 Sep 2026, and that gate no longer exists; the mechanism is
-   * derived once, on the stack's contract below); against the edited dot and
+   * derived once, on the stack's contract below, and note there that the phase
+   * gate doing the work is `isIncomplete`'s OPTION arm, which is the only arm
+   * this slot can ever meet); against the edited dot and
    * the coaching marker it is widest-first and load-bearing.
    */
   cornerSlot?: ReactNode
@@ -1231,10 +1237,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
               cornerSlot · StatusPill · rank · edited dot · coaching
 
-          ⚠ AND THREE OF THE TEN PAIRS CAN NEVER CO-OCCUR, which is derived,
+          ⚠ AND TWO OF THE TEN PAIRS CAN NEVER CO-OCCUR, which is derived,
           not incidental — the contract is written total anyway so it stays
           correct if a gate ever changes, and each impossibility is PINNED by a
-          spec that REDs on the change rather than silently overlapping:
+          spec that REDs on the change rather than silently overlapping.
+          ⛔⛔ IT SAID **THREE** UNTIL 18 Sep 2026, AND THE THIRD ONE WAS ALREADY
+          FALSE AT THIS PR'S BASE (`5824c05b`) — the un-gating that falsified it
+          landed earlier and touched neither this comment nor the derivation
+          that went on to rest on it. See the `StatusPill` vs `rank` bullet.
           • `cornerSlot` vs `StatusPill` — still impossible, BY A DIFFERENT
             MECHANISM SINCE 8 Sep 2026, and the change is recorded here because a
             reason left in the wrong place is how a later session concludes the
@@ -1247,17 +1257,50 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             exactly: `cornerSlot`'s caller renders it under `isRecommended`,
             which returns false unless `displayMetadata.isResultsMode`
             (`resultsStatus === 'complete'`); the pill needs `isPreRunMode`
-            (`resultsStatus !== 'complete'`). One store field, opposite tests —
-            the same shape as the pill-vs-rank line below. Their relative order
+            (`resultsStatus !== 'complete'`). One store field, opposite tests.
+            ⚠ AND THE PHASE GATE IN THAT SENTENCE IS THE **OPTION** ARM'S, WHICH
+            IS THE ONLY REASON THIS PAIR SURVIVED THE CHANGE THAT KILLED THE
+            NEXT BULLET: `cornerSlot`'s one caller is an option card, and
+            `isIncomplete`'s option arm still opens `if (!isPreRunMode) return
+            false`. Read the pill's gate as one predicate PER NODE TYPE, never
+            as a single `isPreRunMode` — reading it as one is precisely how the
+            pill-vs-rank line below survived the change that falsified it, and
+            then got inherited by a width derivation. Their relative order
             is therefore still UNOBSERVABLE at runtime; `cornerSlot` leads only
             because it is the caller's slot. Pinned, source-derived, in
             `BaseNode.needsJudgementBadge.spec.tsx`.
-          • `StatusPill` vs `rank` — disjoint on ONE store field: the rank badge
-            requires `results.status === 'complete'` (`isResultsMode`, declared
-            in `useNodeDisplayMetadata.ts`) and the pill requires
-            `results.status !== 'complete'` (`isPreRunMode`, declared in THIS
-            file). Exact complements. Pinned by
-            `BaseNode.statusPillCornerStack.spec.tsx` with the REAL hook.
+          ⛔⛔ `StatusPill` vs `rank` — **NOT A DISJOINT PAIR. THEY CO-OCCUR ON A
+            FACTOR, AND THAT IS THE COMMONEST POST-RUN FACTOR CARD THERE IS.**
+            This bullet read *"the pill requires `results.status !== 'complete'`
+            (`isPreRunMode`) … Exact complements"* until 18 Sep 2026. That
+            sentence describes a gate this file HAD ALREADY DELETED for factors:
+            `isIncomplete`'s factor arm returns `isFactorNeedsInput(data)` with
+            NO phase check (see its ⛔ SCOPE note above — `goal` and `option`
+            KEEP the phase gate, `factor` deliberately does not, because an
+            analysis does not resolve an unknown, it proceeds despite one).
+            `BaseNode.needsInputSurvivesTheRun.spec.tsx` pins exactly that, and
+            its CASE 1 renders the pill at `results.status: 'complete'`.
+            The other half is the datum: `sensitivityRank` is assigned in
+            `useNodeDisplayMetadata.ts`'s `if (nodeType === 'factor')` branch
+            from the driver feed's ranking, gated only on rank DETERMINACY
+            (`rank > 0 && rank <= determinedRankDepth(...)`) — never on whether
+            the user valued the factor. **The two predicates read disjoint
+            inputs — the pill reads NODE DATA, the rank reads the RESULTS
+            REPORT — so neither can exclude the other.**
+            ⭐ AND THE CO-OCCURRENCE IS NOT AN EDGE CASE: an unvalued factor
+            carries the widest uncertainty, so it is the likeliest factor for
+            the result to swing on and therefore the likeliest to be badged.
+            Suppressing either marker there would retract a true claim, so BOTH
+            render and the row must carry both. Pinned at the render in
+            `BaseNode.rankedFactorStillNeedsInput.spec.tsx`.
+            ⚠ WHY THE OLD PIN STAYED GREEN ON A FALSE CLAIM, because that is the
+            reusable half: `BaseNode.statusPillCornerStack.spec.tsx`'s
+            "IMPOSSIBILITY PIN" asserted that the two DECLARATIONS
+            (`const isPreRunMode = …`, `const isResultsMode = …`) exist. Both
+            still do. It never asserted that the pill's factor arm CONSUMES
+            `isPreRunMode` — and that is the line that went. A guard that pins a
+            declaration rather than its consumption cannot see a consumer
+            leaving (CLAUDE.md trap 13b). It has been re-pointed at the arm.
             ⚠ THESE NAME SYMBOLS, NOT LINE OFFSETS, AND THAT IS THE POINT. This
             sentence carried `:256` — the right offset against the wrong file —
             and the correction that repaired the filename broke the number
@@ -1273,8 +1316,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             `nodeType`, and OptionNode's is `"option"`, so on the only node type
             that can supply `cornerSlot` the rank badge can never render.
             Pinned by `OptionNode.leadingPillCornerStack.spec.tsx`.
-          So the largest set reachable on ONE node is THREE: a wide pill (either
-          one, per node type) · the edited dot · the coaching marker.
+          So the largest set reachable on ONE node is FOUR, and it is reachable
+          only on a FACTOR: `StatusPill` · `rank` · the edited dot · the
+          coaching marker — a ranked factor the user never valued, edited since
+          the run, with a live guidance item naming it. On `goal`, `option` and
+          `decision` the maximum is still THREE, because those arms keep the
+          phase gate and `rank` is factor-only. ⛔ THIS SAID THREE UNIVERSALLY
+          until 18 Sep 2026, on the strength of the pill-vs-rank "exact
+          complements" sentence above; `BaseNode.cornerStack.spec.tsx` pins
+          three children on a DECISION fixture, which is correct for that node
+          type and is not evidence about a factor.
 
           ⚠ ORDER IS WIDEST-FIRST, and that is what puts a wide pill at the
           head: the row is anchored by its RIGHT edge and grows LEFTWARD, so the
@@ -1282,6 +1333,27 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           corner and displaces the coaching marker from the rightmost, easiest
           click target. The StatusPill measured 67.9px against the dot's 5px at
           the same zoom, so it leads by a wide margin.
+          ⭐ THE INVARIANT SURVIVES TWO WIDE MEMBERS, AND IT IS WORTH SAYING WHY
+          RATHER THAN LEAVING IT TO BE RE-DERIVED: DOM order is `StatusPill` ·
+          `rank` · dot · coaching, which is still descending width, so on the
+          four-member factor set the dot and the coaching marker keep exactly
+          the places they hold on the three-member sets. Nothing is displaced
+          from the corner.
+          ⛔⛔ WHAT IS **NOT** ESTABLISHED, AND IT IS THE HALF THE ENVELOPE IS
+          ABOUT: the row's TOTAL WIDTH roughly doubles in that state. Both wide
+          members are `typography.nodeLabel` (`calc(12px *
+          var(--canvas-label-scale))`) with the same padding and `lineHeight`,
+          so `Key driver 1` (12 characters) sits within a few px of `Needs
+          input` (11) — call the pair ~140px plus two 4px gaps at the reference
+          zoom the 67.9px was measured at, against a `DEFAULT_NODE_WIDTH` of
+          200 (`cameraComfort.ts`) and a layout that has shipped cards at 180.
+          At the settle zoom the counter-scale caps at 2 and BOTH double while
+          the card does not, so the row extends well past the card's left edge
+          into the band above the tier. That is ARITHMETIC, NOT A MEASUREMENT —
+          the same caveat this file already carries about the band's clearance
+          below — and the measurement is in the browser. Nothing here licenses a
+          claim that the four-member row fits; what this contract now licenses
+          is that it is REACHABLE and must be measured.
 
           ⭐ HOW EACH ARRIVED, because the class is what matters more than the
           count. `StatusPill` hand-wrote `absolute -top-2 -right-1 z-10` — ONE
@@ -1336,7 +1408,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             DELETED that node-type pair, so the pill reaches option cards too and
             that reason is now false. They are disjoint on RESULTS MODE instead:
             `cornerSlot`'s caller renders under `isRecommended`, which needs
-            `isResultsMode`; the pill needs `isPreRunMode`. One store field,
+            `isResultsMode`; the pill's OPTION arm — the only arm reachable on
+            an option card, and the qualification matters, see the contract
+            above — needs `isPreRunMode`. One store field,
             opposite tests — derived in full in the five-member contract above and
             pinned by `BaseNode.needsJudgementBadge.spec.tsx`. Widest-first governs each of
             them against the three badges that follow, which is what keeps those
@@ -1588,14 +1662,79 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         {typeof displayMetadata.sensitivityRank === 'number' && (
           <span
             data-testid={`sensitivity-rank-${id}`}
-            // A fixed round box holding `#N` — centring IS the design here, and
-            // this DECLARES that rather than letting the alignment guard carry a
-            // hand-maintained exemption list of its own (CLAUDE.md trap 12: the
-            // exemption must be visible in the diff, so centring new copy costs
-            // a reviewer's attention instead of nothing).
-            data-node-glyph
-            className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
-            style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
+            /* ⛔⛔ IT WAS A FIXED ROUND BOX HOLDING `#N`, AND IT CARRIED NO
+               WORD AT ALL — `data-node-glyph`, `rounded-full`,
+               `justify-center`, `minWidth: 20px`, `height: 20px`.
+
+               Measured on deployed staging, 18 Sep 2026: factor cards read
+               `#1`, `#2`, `#3`. **`#1` reads as BEST.** It means MOST
+               SENSITIVE — the factor the result moves most on, which is
+               usually the factor the team knows LEAST about and should be
+               arguing with, not trusting. The badge inverted its own meaning
+               on the cards where the inversion costs most.
+
+               ⭐ THREE THINGS CHANGE TOGETHER AND NONE OF THEM IS COSMETIC:
+
+               (1) THE WORD. `sensitivityRankBadgeLabel` renders
+                   `Key driver 1` — the same builder the `aria-label` below is
+                   composed from, so the card and the screen reader cannot be
+                   given different words for one badge (which is precisely the
+                   drift #1414 shipped; see `metricVocabulary.ts`).
+
+               (2) THE GLYPH DECLARATION GOES, AND SO DOES THE CENTRING. This
+                   span declared `data-node-glyph`, the exemption
+                   `nodeCopyIsNeverCentred.spec.tsx` honours for copy that is
+                   a glyph by construction. A numeral was. A NOUN IS NOT.
+                   Keeping the attribute would have held an exemption open
+                   over real copy — the hand-maintained-mirror shape one level
+                   up from the one that guard exists to close — so the
+                   exemption is surrendered and `justify-center` with it. The
+                   words now sit where the reading order puts them, like the
+                   `StatusPill` two lines above.
+
+               (3) THE FIXED 20px BOX GOES, AND IT HAD TO. `typography.nodeLabel`
+                   is `calc(12px * var(--canvas-label-scale))` and that scale
+                   caps at 2, so at the settle zoom the type reaches ~24px
+                   inside a 20px box. A two-character numeral survived that;
+                   `Key driver 1` would have been clipped. Geometry is now
+                   `StatusPill`'s — padding plus `lineHeight`, which counter-
+                   scales with the type instead of fighting it.
+
+               ⛔⛔ WIDTH — AND THE FIRST VERSION OF THIS BLOCK BOUNDED IT WITH A
+               DISJOINTNESS THAT DOES NOT HOLD. It read: *"This badge's only
+               possible neighbours are the 10px edited-since-run dot and the
+               coaching marker … `StatusPill` is disjoint from it on
+               `results.status` … So the widest thing this row ever holds is
+               this badge — and `Key driver 1` is 12 characters against the
+               `Needs input` pill's 11 … The envelope is one the row already
+               carries in this badge's place."* The arithmetic in that sentence
+               is right and its CONCLUSION is wrong, because the two pills are
+               not alternatives: they SHARE the row.
+
+               `isIncomplete`'s factor arm is phase-independent
+               (`isFactorNeedsInput(data)`, no `isPreRunMode`), and
+               `sensitivityRank` is assigned on factors from the results report
+               with no exclusion for unvalued ones. So a user who runs an
+               analysis with a factor they never valued — the likeliest factor
+               to be badged, because an unestimated factor carries the widest
+               uncertainty and the result moves most on it — gets `Needs input`
+               AND `Key driver N` on one row. Re-derived in full on the corner
+               stack's contract above; pinned at the render in
+               `BaseNode.rankedFactorStillNeedsInput.spec.tsx`.
+
+               ⚠ SO THE ENVELOPE THIS BADGE ENTERS IS THE PAIR, NOT THE BADGE.
+               Before #1688 the badge was a fixed 20×20 box; this change takes
+               it to `StatusPill`'s own geometry, which is right for the word
+               and is a ~3× widening of this member. In the widest reachable
+               state the row holds ~140px of text pills plus the dot and the
+               coaching marker, against a `DEFAULT_NODE_WIDTH` of 200 — and both
+               pills counter-scale to 2× at the settle zoom while the card does
+               not. The ordering invariant is unaffected (widest-first still
+               holds: pill · rank · dot · coaching), so nothing is displaced
+               from the corner. Whether the ROW FITS is a browser question and
+               is NOT answered here or anywhere else in this tree yet. */
+            className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-semibold text-text-body bg-panel-border rounded-[10px] shadow-sm`}
+            style={{ padding: '2px 6px', lineHeight: 1.2, pointerEvents: 'none' }}
             /* ⚠⚠ THIS WAS A `title`, AND A `title` ON THIS ELEMENT CAN NEVER
                FIRE. `pointerEvents: 'none'` (the line above, load-bearing so the
                badge does not swallow drags aimed at the card) means the browser
@@ -1611,10 +1750,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
                ⚠ THE SIGHTED READER STILL HAS NO HOVER HERE, and that is stated
                rather than quietly left: the meaning lives in the canvas legend
-               (`metricVocabulary.ts:367-368`), which mounts unconditionally.
-               Giving this badge a real tooltip means removing
-               `pointerEvents: 'none'` and re-measuring drag behaviour on the
-               card — a separate change, not a comment.
+               (`metricVocabulary.ts`, `SENSITIVITY_RANK_CLAUSE` and the row
+               built from it), which mounts unconditionally. Giving this badge a
+               real tooltip means removing `pointerEvents: 'none'` and
+               re-measuring drag behaviour on the card — a separate change, not
+               a comment.
+
+               ⭐ WHAT THE WORD DOES AND DOES NOT CLOSE, SAID NARROWLY. The
+               sighted reader now gets the NOUN without hovering, which is the
+               half that was missing; they still do not get the ORDERING
+               PRINCIPLE (ranked by sensitivity) without the legend. Half a
+               fix, and the half that stops the badge asserting a placing.
 
                ⚠⚠ AND THE CITATION ABOVE USED TO BE THE WHOLE COUPLING, WHICH IS
                TO SAY THERE WAS NONE. This file imported nothing from
@@ -1635,7 +1781,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                badge. The rendered string is unchanged. */
             aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank)}
           >
-            #{displayMetadata.sensitivityRank}
+            {sensitivityRankBadgeLabel(displayMetadata.sensitivityRank)}
           </span>
         )}
 
@@ -1860,8 +2006,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             vocabulary it is entitled to; the reasoning and the corpus that
             forced it are recorded there. It is NOT suppressed on those kinds —
             "did Olumi suggest this option?" is exactly what a reviewer wants. */}
+        {/* ⚠ THIS GROUP CAN HOLD TWO GLYPHS, AND IT SHIPPED WITH NO GAP.
+            `NodeProvenanceMark` renders a SECOND mark where node authorship and
+            value basis disagree; this span was `inline-flex items-center
+            shrink-0 ml-auto`, so the pair rendered flush at 0px — at up to 28px
+            each under the counter-scale. The class string now comes from
+            `CANVAS_HEADER_GLYPH_GROUP_CLASSES`, which the `headerSlot` group
+            below also reads, so the header's two right-hand groups cannot drift
+            apart on spacing. The testid exists so the guard binds to THIS group
+            by identity rather than by walking up from a mark (trap 19). */}
         {!isCausalLens && !isEvidenceLens && (
-          <span className="inline-flex items-center shrink-0 ml-auto">
+          <span
+            data-testid="node-provenance-mark-group"
+            className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
+          >
             <NodeProvenanceMark nodeType={nodeType} data={data} />
           </span>
         )}
@@ -1900,8 +2058,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right
             of the title row. Action icons remain in the footer (ActionIcons). */}
+        {/* Reads the SAME string as the provenance group above — byte-identical
+            to the `inline-flex items-center gap-1 shrink-0 ml-auto` it spelled
+            by hand, so this is a de-duplication and not a style change.
+
+            ⚠ THE TESTID IS LOAD-BEARING, AND IT IS WHY THIS COMMENT EXISTS.
+            Sharing the class string with the provenance group above made the
+            two header groups INDISTINGUISHABLE TO A CSS SELECTOR. A guard in
+            `render-matrix.spec.tsx` asked *"is the headerSlot wrapper gone?"*
+            by querying `.inline-flex.items-center.gap-1` — and once the
+            provenance group started spelling `gap-1` too, that selector began
+            matching the OTHER group and the guard RED'd on an element it was
+            never written about (trap 19: bind by identity, never by a predicate
+            another object can satisfy). Both groups now carry their own testid
+            so the question each guard asks stays attached to its own object,
+            and a future shared class cannot silently re-point either one. */}
         {headerSlot && !isCausalLens && !isEvidenceLens && (
-          <span className="inline-flex items-center gap-1 shrink-0 ml-auto">
+          <span
+            data-testid="node-header-slot-group"
+            className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
+          >
             {headerSlot as ReactNode}
           </span>
         )}

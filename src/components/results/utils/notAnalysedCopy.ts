@@ -53,6 +53,45 @@ export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
     : 'The analysis returned no result for this option, so it has no rank and no probability.'
 }
 
+/*
+ * ⛔⛔ THE FOURTH-WORLD SENTENCE WAS WITHDRAWN, AND THE WITHDRAWAL IS RECORDED
+ * HERE RATHER THAN REVERTED SILENTLY.
+ *
+ * What stood here was `OPTION_LEFT_OUT_AFTER_GRAPH_EDIT_COPY` —
+ *
+ *   "The last analysis has no result for this option, so it has no rank and no
+ *    probability. The graph has changed since that analysis ran — run it again
+ *    to see where this option stands."
+ *
+ * — selected by `optionLeftOutOfRunCopy` when a store flag said the graph had
+ * moved since the run. Both are gone, along with the superset reason type in
+ * `notAnalysedOptions.ts`. `notAnalysedReasonCopy` is once more the whole copy
+ * vocabulary for this family, and the canvas calls it directly.
+ *
+ * ## The first half of that sentence was right, and it is the part worth keeping
+ *
+ * *"HAS no result for"* rather than *"RETURNED no result for"* is a real
+ * distinction: "returned" asserts the run was ASKED about this option. That
+ * observation stands and is not lost — it is why the canvas now WITHHOLDS the
+ * `not_returned` arm rather than restating it, when the product cannot vouch
+ * for the result on screen.
+ *
+ * ## The second half asserted a fact nothing could supply
+ *
+ * *"The graph has changed since that analysis ran"* is a CHANGE ASSERTION, and
+ * it was gated on `graphEditedSinceLastRun` — which `resultsLoadHistorical`
+ * (`canvas/store.ts:6026`) and `resultsHydrateFromSupabase` (`:6097`) reset to
+ * `false` in the same `set()` that installs a restored run. So on the reload
+ * path the gate opened and the sentence it was written to prevent came back.
+ *
+ * ⭐ AND THE HONEST SIGNAL CANNOT RESCUE IT. `useAnalysisResultsAreCurrent`
+ * answers *"is this result confirmably about the current graph?"*; its `false`
+ * pools 'changed' with 'cannot_confirm'. A restored run is cannot-confirm, and
+ * "the graph has changed" is not a true thing to say about cannot-confirm. A
+ * claim needing a fact the authority does not hold is a claim to drop, not one
+ * to re-gate — which is the whole lesson of this pair of PRs.
+ */
+
 /**
  * The label on the resolve affordance, or `null` when there is nothing for the
  * user to do. `null` is meaningful and must not be defaulted to a generic

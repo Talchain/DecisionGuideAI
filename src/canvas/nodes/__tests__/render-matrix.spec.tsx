@@ -868,7 +868,26 @@ describe('Render matrix — DecisionNode chip audit', () => {
     // useScienceIcons is mocked to [] globally, so even before this change
     // the wrapper was empty — but this assertion pins the expectation that
     // the wrapper itself is gone (no headerSlot prop passed).
-    expect(container.querySelector('.inline-flex.items-center.gap-1')).toBeNull()
+    //
+    // ⚠ THIS BOUND BY CSS CLASS AND CAUGHT THE WRONG ELEMENT.
+    // It queried `.inline-flex.items-center.gap-1`. The header has TWO
+    // right-hand glyph groups, and when the provenance group adopted the same
+    // shared class string that selector started matching IT — so the guard
+    // RED'd while the thing it asks about (the headerSlot wrapper) was still
+    // correctly absent. A class string is a value predicate another object can
+    // satisfy; a testid is identity (trap 19).
+    expect(screen.queryByTestId('node-header-slot-group')).toBeNull()
+    // ⭐ AND PIN IT SO IT CANNOT GO VACUOUS. `queryByTestId(...).toBeNull()`
+    // passes just as happily when the testid is DELETED and the wrapper still
+    // renders — the assertion would then be agreeing with itself. So count the
+    // header glyph groups by the class string they share and require EXACTLY
+    // ONE, then bind that one to the provenance group by identity. This RED's
+    // if the headerSlot wrapper comes back (2 groups) AND if the provenance
+    // group disappears (0, or the wrong survivor), neither of which depends on
+    // the headerSlot testid continuing to exist.
+    const glyphGroups = container.querySelectorAll('.inline-flex.items-center.gap-1')
+    expect(glyphGroups).toHaveLength(1)
+    expect(glyphGroups[0].getAttribute('data-testid')).toBe('node-provenance-mark-group')
   })
 })
 

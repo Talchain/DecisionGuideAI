@@ -32,7 +32,7 @@ import { CANVAS_CORNER_STACK_CLASSES } from '../shared/canvasGlyphScale'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
-import { sensitivityRankBadgeAccessibleName } from '../shared/metricVocabulary'
+import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
@@ -157,8 +157,33 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
      * stay green if someone re-added the dead `title` beside it, and the point
      * is that a title on this element is NOT a way to explain the badge.
      */
-    expect(rank).toHaveAccessibleName(/^Key driver #\d+: one of the factors the result is most sensitive to$/)
+    // ⚠ REPAIRED, AND THE `#` IS THE REPAIR. This read `Key driver #\d+`.
+    //   The sigil is gone from both channels on purpose: `#1` reads as a
+    //   FIRST PLACE, and the rank means most-sensitive — usually the factor
+    //   the team knows least about. The literal stays a literal because it is
+    //   the corpus that notices a wrong sentence (trap 12d).
+    expect(rank).toHaveAccessibleName(/^Key driver \d+: one of the factors the result is most sensitive to$/)
     expect(rank).not.toHaveAttribute('title')
+
+    /**
+     * ⭐⭐⭐ THE DEFECT THIS PR CLOSES, PINNED ON THE RENDERED CARD.
+     *
+     * The badge's VISIBLE text was `#1` and nothing else — no word anywhere a
+     * sighted reader could reach without a hover the element structurally
+     * cannot raise (`pointerEvents: 'none'`, see the component). So the only
+     * thing on screen was a numeral, and a bare numeral in a card header is
+     * read as a placing.
+     *
+     * Bound to the builder's output for THIS rank (trap 19: by identity, not
+     * by a pattern another badge could satisfy), and asserted alongside the
+     * accessible name so a future change cannot fix one channel and leave the
+     * other — which is the exact shape of the defect #1414 shipped.
+     */
+    expect(rank).toHaveTextContent(sensitivityRankBadgeLabel(1))
+    expect(rank.textContent, 'the badge is back to a bare numeral').not.toBe('#1')
+    expect(rank.textContent).not.toContain('#')
+    // …and the visible string is a PREFIX of the spoken one (WCAG 2.5.3).
+    expect(rank.getAttribute('aria-label')!.startsWith(rank.textContent!)).toBe(true)
 
     /**
      * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL

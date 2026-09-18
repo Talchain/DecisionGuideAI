@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CANVAS_CORNER_STACK_CLASSES } from '../shared/canvasGlyphScale'
+import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
@@ -467,8 +468,12 @@ describe('FactorNode', () => {
       type: 'factor',
       category: 'controllable',
     })
-    // Badge renders with expected text
-    const badge = screen.getByText('#1')
+    // Badge renders with expected text.
+    // ⚠ REPAIRED: this read `getByText('#1')`. The badge no longer renders a
+    //   bare numeral — a lone `#1` in a card header reads as a first place,
+    //   and this rank means MOST SENSITIVE. Queried through the builder so the
+    //   spec cannot drift from the word the card ships (trap 12).
+    const badge = screen.getByText(sensitivityRankBadgeLabel(1))
     expect(badge).toBeDefined()
     // Positioning is owned by the shared corner STACK (Codex P1-5), not the
     // badge itself — that is what stops the rank badge and the coaching marker

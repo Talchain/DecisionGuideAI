@@ -6,6 +6,7 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
+import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
@@ -30,7 +31,12 @@ import {
   basisWithholdsPossessive,
 } from '../../components/results/utils/selectGoalProbability'
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
-import { NOT_COMPUTED_BADGE, notComputedReasonCopy } from '../../components/results/utils/notAnalysedCopy'
+import {
+  NOT_ANALYSED_BADGE,
+  NOT_COMPUTED_BADGE,
+  notAnalysedReasonCopy,
+  notComputedReasonCopy,
+} from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
@@ -429,6 +435,12 @@ export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
   const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
+  /* ⭐ THE FOURTH ABSENCE — did the run that HAS happened leave this option out?
+     Distinct from `winComputationFailed` (it ran and could not compute) and
+     from the `excluded-from-analysis-pill` (CEE predicting the NEXT run will
+     hold it out). Read through the shared predicates, never re-derived here —
+     see `useOptionLeftOutOfRun` for the domain guard that makes it safe. */
+  const leftOutOfRunReason = useOptionLeftOutOfRun(props.id)
   const scienceIcons = useScienceIcons(props.id, 'option')
 
   const nodes = useCanvasStore(state => state.nodes)
@@ -1972,6 +1984,107 @@ export const OptionNode = memo((props: NodeProps) => {
             only through `title`, because a `title` is unreachable by KEYBOARD
             (this row is not focusable) and absent on TOUCH — the same reason
             the win anchor was restored as visible text on 31 Aug. */}
+        {/* ⭐⭐ THE OPTION THE RUN LEFT OUT — THE FOURTH ABSENCE, AND THE ONE
+            THIS CARD DID NOT DRAW.
+
+            ## What was on screen before, and why it was not enough
+
+            An option with no `option_probabilities` entry left
+            `winComputationFailed` false and `winRate` null, so it fell through
+            to `option-result-unavailable-*` below: *"On the data so far, no
+            support percentage for this option"*. That sentence is TRUE and it
+            POOLS two states whose next steps point in opposite directions —
+            the engine scored this option and could not resolve a share (wait,
+            or re-run) and the engine never scored it at all (say what it
+            changes). A reader who cannot tell them apart takes the wrong
+            action or none, which is the whole reason the ratified design draws
+            four absences rather than one.
+
+            ## It is READ, not derived here
+
+            `useOptionLeftOutOfRun` calls the same three functions the results
+            panel calls (`useResultsSectionData.ts:2056/2085/2272`) on the same
+            inputs, including the DOMAIN GUARD that refuses to mark anything
+            when the run produced no per-option output at all. A second
+            spelling of "was this option in the analysis" is how the canvas and
+            the panel come to contradict each other about one run.
+
+            ## Mutually exclusive with the not-computed row below, by construction
+
+            `winComputationFailed` requires an ENTRY; this requires the ENTRY to
+            be absent. Neither needs a second condition to exclude the other,
+            and the two sentences are deliberately different: "the analysis ran
+            on this option and could not produce a usable result" is a fact
+            about the simulation, "it was left out" is a fact about the
+            submission. Re-badging either as the other is a lie about whose
+            fault it is — the argument `notAnalysedCopy.ts` makes at
+            `NOT_COMPUTED_BADGE`.
+
+            ⛔ IT IS NOT THE `excluded-from-analysis-pill`, AND MUST NOT BE
+            RECONCILED WITH IT. That pill reads CEE's readiness stamp
+            `waived_by_exclusion` — *"the run WILL hold this option out"*, a
+            claim about a run that has not happened, suppressed while the
+            verdict is stale. This row reports what a run that HAS happened
+            did. Different producer, different tense, different question; named
+            apart rather than aligned (CLAUDE.md trap 21).
+
+            ## No action offered, deliberately
+
+            The results panel already carries the resolve route
+            (`notAnalysedActionLabel` / `resolveOptionPrompt`), which reproduces
+            the sentence CEE itself tells users to say. Minting a second route
+            to one capability on the canvas would give the assistant two strings
+            to be trained on and only one of them would be the documented one —
+            the argument `notAnalysedCopy.ts` makes in its own header. The row
+            discloses; the panel acts. Same division the not-computed row keeps.
+
+            ## ⭐⭐ AND THE ROW SAYS NOTHING AT ALL WHEN THE RESULT CANNOT BE
+            VOUCHED FOR
+
+            `results.status` survives a graph edit and survives a reload, so an
+            option added once a run has finished — or simply looked at after a
+            restore — reaches this card with no entry and, if it is wired, the
+            derived reason `not_returned`, whose sentence says the analysis
+            RETURNED nothing for it. It returned nothing because it was never
+            asked. `useOptionLeftOutOfRun` therefore WITHHOLDS that arm unless
+            `useAnalysisResultsAreCurrent` can vouch for the result on screen,
+            and it withholds by returning `null` rather than by substituting a
+            fourth sentence: the currency signal's `false` pools "the graph
+            changed" with "cannot confirm", so no sentence naming a change is
+            licensed by it. The card then falls back to the pooled-but-true line
+            below. `no_interventions` is ungated — it reports the graph as it is
+            now. See the hook's docblock for the measurement.
+
+            ⭐ THE PILL IS DELIBERATELY THE SAME ONE. `NOT_ANALYSED_BADGE` is
+            the GENUS — "this card carries no rank and no probability" — and it
+            already serves two reasons whose next steps differ; the four-absence
+            ruling draws its lines in the SENTENCE, which is where a reader
+            finds the action. A third visible string would also have to dodge
+            "Not in this analysis", which `BaseNode.tsx:1394` already owns for
+            CEE's prediction about the NEXT run — minting a near-synonym beside
+            it is the two-things-under-one-name defect this row exists to avoid.
+
+            The sentence is given to assistive technology directly rather than
+            only through `title`, because a `title` is unreachable by KEYBOARD
+            (this row is not focusable) and absent on TOUCH. */}
+        {displayMetadata.isResultsMode && leftOutOfRunReason !== null && (
+          <div
+            className="mt-1.5 mb-1 flex items-center gap-1.5"
+            title={notAnalysedReasonCopy(leftOutOfRunReason)}
+            data-testid={`option-not-analysed-${props.id}`}
+          >
+            <span
+              className={`${typography.edgeLabel} text-text-light shrink-0`}
+              aria-hidden="true"
+            >
+              {NOT_ANALYSED_BADGE}
+            </span>
+            <span className={typography.screenReaderOnly}>
+              {notAnalysedReasonCopy(leftOutOfRunReason)}
+            </span>
+          </div>
+        )}
+
         {displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true && (
           <div
             className="mt-1.5 mb-1 flex items-center gap-1.5"
@@ -2024,9 +2137,26 @@ export const OptionNode = memo((props: NodeProps) => {
             ⛔ The copy no longer opens with the missing quantity's name. It
             conditions on the data ("On the data so far…"), because what this
             run produced is a fact about this run and not a property of the
-            option. */}
+            option.
+
+            ⭐⭐ AND IT NOW YIELDS TO `leftOutOfRunReason` TOO — a THIRD conjunct,
+            stated here rather than left to be inferred from the gate.
+
+            This line's own subject is an option the run HAD and could not
+            resolve a share for. An option the run never had is a different
+            state with a different next step, and before the row above existed
+            this line was the only thing said about it: one sentence pooling
+            two absences, which is the defect the four-absence ruling exists to
+            prevent. So the yield is not silence and it is not a move either —
+            the sibling row above states the MORE SPECIFIC true sentence in the
+            same position on the same card, and names the ground it rests on.
+
+            ⚠ Deleting the row above turns this into the pooled sentence again,
+            not into a rendering gap — which is why this conjunct must be read
+            WITH it and never tidied away on its own. */}
         {displayMetadata.isResultsMode && displayMetadata.winRate === null &&
           displayMetadata.winComputationFailed !== true &&
+          leftOutOfRunReason === null &&
           !supportShareRunWideAbsent && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}

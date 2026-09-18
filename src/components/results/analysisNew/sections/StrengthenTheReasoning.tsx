@@ -1144,6 +1144,32 @@ export function StrengthenTheReasoning({
                       so on a measured run four of six findings had none and the
                       controls appeared at random. They now seed the record they
                       need, on the user's action, so they can always act. */}
+                  {/* ⭐⭐ "I DISAGREE" AND "NOT RELEVANT" ARE CONTROLS AND DID NOT
+                      LOOK LIKE ANY. Both carried an identical HAND-ROLLED class —
+                      `text-text-light hover:underline` — so at rest they were
+                      indistinguishable from the prose around them, and the
+                      affordance appeared only under a cursor a touch user does
+                      not have.
+
+                      ⛔ PAUL SAW THIS ON HIS OWN MANUAL TEST, 18 Sep 2026, and
+                      read "Not relevant" as a STATEMENT that the finding was not
+                      relevant rather than the button that retires it. He only
+                      noticed that one because the action row WRAPS at the real
+                      428px dock width and it lands alone on the last line — but
+                      the defect is in both, and wrapping merely exposed it.
+
+                      ⭐ `quiet` IS THE TIER THIS WAS BUILT FOR, AND IT HAD ZERO
+                      USES. `ACTION_TIER.quiet` is
+                      `inline-flex items-center min-h-[24px] rounded text-text-light underline`
+                      — the same hue on the same ground, so this changes NO
+                      colour and cannot move a contrast ratio. What it adds is a
+                      PERSISTENT underline and the 24px minimum target (SC 2.5.8),
+                      which the hand-rolled class stated nowhere.
+
+                      ⚠ This estate's chronic failure #1 is building more than we
+                      plug in: the tier was designed, measured and left unused.
+                      Using it is the fix; inventing a new style would have been
+                      the defect the tier system exists to stop. */}
                   <button
                     type="button"
                     onClick={(e) => openDispute(rec.id, standingDispute ?? '', e.currentTarget)}
@@ -1160,7 +1186,7 @@ export function StrengthenTheReasoning({
                        the two record-scoped actions adrift from the primary ones
                        above them. In a wrapping row, flow order reads; edge
                        alignment does not. */
-                    className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelMeta} ${action('quiet')} px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-disagree`}
                   >
                     {standingDispute ? COPY.dissent.edit : COPY.dissent.open}
@@ -1173,7 +1199,7 @@ export function StrengthenTheReasoning({
                       dismiss(recordKey(activeScenarioId, rec.id))
                       showUndo({ id: rec.id, title: rec.title, scenarioId: activeScenarioId })
                     }}
-                    className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelMeta} ${action('quiet')} px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
                   >
                     {STRENGTHEN_COPY.notRelevant}

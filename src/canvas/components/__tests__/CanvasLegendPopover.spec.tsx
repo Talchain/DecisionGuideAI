@@ -19,7 +19,7 @@ import {
   visibleMetricRows,
 } from '../CanvasLegendPopover'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
-import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET } from '../../nodes/shared/metricVocabulary'
+import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
 
@@ -664,7 +664,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
    * ⭐⭐ THE COMPLETENESS GUARD — the one that survives the next edit.
    *
    * `METRIC_ROW_VISIBLE` is keyed by noun, and three of its keys are re-typed
-   * literals with no exported constant (`#1, #2, #3`, the ordinal row, `est.`).
+   * literals with no exported constant (~~`#1, #2, #3`~~ — now
+   * `SENSITIVITY_RANK_LEGEND_NOUN`, imported — the ordinal row, `est.`).
    * That is a hand-maintained mirror of a register in another file (trap 12).
    * The component's runtime default is safe — an unclassified noun is withheld
    * rather than falsely promised — but a safe default is not a decision.
@@ -754,8 +755,15 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // manifest stays METRIC_NOUN.influence because that is the LEGEND's row.
     { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /influenceBasisNoun\(/ },
     { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.strength/ },
-    // The rank badge prints the numeral itself — there is no noun constant.
-    { noun: '#1, #2, #3', files: ['BaseNode.tsx'], pattern: /#\{displayMetadata\.sensitivityRank\}/ },
+    // ⚠ PATTERN AND NOUN BOTH RE-DERIVED; THE CLAIM IS UNCHANGED. The comment
+    //   here read "The rank badge prints the numeral itself — there is no noun
+    //   constant", and BaseNode's JSX was `#{displayMetadata.sensitivityRank}`.
+    //   Both were true and both described the defect: a marking whose entire
+    //   visible copy was a numeral, which a reader takes for a placing. The
+    //   badge now renders `sensitivityRankBadgeLabel(...)` — `Key driver 1` —
+    //   so the noun constant exists and the probe binds to the builder call,
+    //   which is this marking's identity now (trap 19).
+    { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['BaseNode.tsx'], pattern: /\{sensitivityRankBadgeLabel\(/ },
     { noun: ORDINAL_NOUN, files: ['OptionNode.tsx'], pattern: /\{stableOptionNumber\}/ },
     {
       noun: METRIC_UNSET.standalone,

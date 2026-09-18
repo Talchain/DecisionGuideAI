@@ -42,7 +42,7 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 
@@ -537,7 +537,7 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  *                     ⚠ It is SENSITIVITY OUTPUT, not an authored weight —
  *                     `selectDriverPolicyFeed(report)`. Pre-run the factor card
  *                     renders `EdgePills` instead, which says "Link strength".
- *   #1,#2,#3 POST-RUN `BaseNode:738` `typeof sensitivityRank === 'number'`;
+ *   Key driver POST-RUN `BaseNode:738` `typeof sensitivityRank === 'number'`;
  *                     `sensitivityRank` is null whenever `!isResultsMode || !report`.
  *   1,2,3   POST-RUN  `OptionNode:1459` `stableOptionNumber != null`. The node's
  *                     OWN gate carries no results term — which is why this one
@@ -689,7 +689,7 @@ export interface LegendBoardState {
  *             ⚠ SENSITIVITY OUTPUT, not an authored weight — pre-run the card
  *             renders `EdgePills`, which says "Link strength": a different word
  *             for a different quantity, so this row was not merely early.
- *   #1,#2,#3  `BaseNode:738` `typeof sensitivityRank === 'number'`; null
+ *   Key driver `BaseNode:738` `typeof sensitivityRank === 'number'`; null
  *             whenever `!isResultsMode || !report`.
  *   1,2,3     `OptionNode:1459` `stableOptionNumber != null` — AND NOTHING ELSE.
  *             Its gate carries no results term at all, which is the whole of F1.
@@ -743,7 +743,14 @@ const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boole
   [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.strength]: () => true,
-  '#1, #2, #3': (b) => b.isPostAnalysis,
+  // ⭐ ONE OF THE THREE RE-TYPED LITERALS THIS BLOCK'S OWN HEADER NAMES, NOW
+  // DERIVED. The row's heading moved with the badge (`#1, #2, #3` →
+  // `Key driver 1, 2, 3`), and a key keyed by the OLD string would not have
+  // errored: `visibleMetricRows` fails closed on an unknown noun, so the row
+  // would simply have stopped appearing — a legend silently losing the row a
+  // puzzled reader opens it for. Importing the constant makes that
+  // unreachable rather than caught.
+  [SENSITIVITY_RANK_LEGEND_NOUN]: (b) => b.isPostAnalysis,
   '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
   // ALWAYS LIVE, and pre-run is exactly when it is most on screen: a drafted
   // model arrives with every bridge strength unset, so the risk and outcome

@@ -25,6 +25,22 @@ import { useCanvasStore } from '../../store'
  * by a text predicate another card could satisfy. Three cards rendering one
  * string is exactly the shape a `getAllByText(...).toHaveLength(1)` would miss
  * or mis-attribute.
+ *
+ * ⚠⚠ THE FIXTURE-REPURPOSING HAZARD THIS FILE NOW CARRIES, stated once here
+ * because it has already caught one case. Since the fourth absence landed,
+ * "no entry for this option" and "an entry with no share" are DIFFERENT states
+ * rendering DIFFERENT surfaces — `option-not-analysed-*` and
+ * `option-result-unavailable-*`. Before that, an absent entry produced the
+ * latter, so every pre-existing fixture here used absence as a shorthand for
+ * it. Two cases needed their fixtures respelled; one was corrected in the same
+ * change and `holds the ratified copy rulings on both surfaces` was not, so it
+ * went on asserting against a card its own fixture had stopped rendering.
+ * ⛔ SPELL THE STATE A CASE IS ABOUT. Do not rely on absence to select a
+ * surface, and pin the arm in-test so a drift REDs on the state, not the copy.
+ *
+ * ⚠ THE REPAIR TO THAT CASE IS UNRUN — no vitest, no typecheck, no browser was
+ * executed for it. It was derived from the CI failure at `de3532e3` and from
+ * the sibling case's own correction. CI is the authority.
  */
 
 vi.mock('@xyflow/react', async () => {
@@ -51,6 +67,21 @@ beforeEach(() => {
   useCanvasStore.setState({
     nodes: [], edges: [], ceeAnalysisReady: null,
     results: { status: 'idle', report: null }, viewMode: 'expert',
+    // ⭐ THE FOURTH ABSENCE'S PRECONDITION, PINNED RATHER THAN INHERITED.
+    // `useOptionLeftOutOfRun` withholds the `not_returned` sentence unless
+    // `useAnalysisResultsAreCurrent` can vouch for the result on screen, so an
+    // affirmative verdict is stated here rather than inherited from whatever
+    // the store happens to initialise. A default is not a precondition: state
+    // it, or the file silently tests a different rule the day the default moves
+    // (CLAUDE.md trap 13b).
+    //
+    // ⚠ AND THE HONEST SCOPE OF THAT: every not-analysed assertion in THIS file
+    // lands on the `no_interventions` arm, which is NOT gated — it reports the
+    // graph as it is now. The seeding is a guard against a future case in this
+    // file reaching the gated arm, not a load-bearing input to the ones here.
+    analysisFreshness: { freshness: 'fresh' },
+    analysisFreshnessDirty: false,
+    importPendingServerRegistration: false,
   } as never)
 })
 afterEach(cleanup)
@@ -181,15 +212,55 @@ describe('a missing support percentage is stated once, not once per option', () 
         // Only this one resolves. The run is not share-less, so the other two
         // cards carry a fact that genuinely distinguishes them.
         a596e935: { status: 'computed', win_probability: 0.62 },
+        // ⭐⭐ THE OTHER TWO NOW CARRY ENTRIES, AND THAT IS A CORRECTION TO THIS
+        // FIXTURE RATHER THAN AN ACCOMMODATION TO A NEW GATE.
+        //
+        // This test's subject, in its own words above, is "some options
+        // resolved a share and this one did not". An option with NO entry is a
+        // different state — the run never scored it — and since the fourth
+        // absence landed it says so itself (`option-not-analysed-*`). Absent
+        // entries were only ever a SHORTCUT for "did not resolve a share"; the
+        // shortcut now names a second state, so the fixture spells the state
+        // the test is actually about. `status: 'computed'` with no
+        // `win_probability` is exactly that: analysed, no share.
+        '5364a6e2': { status: 'computed' },
+        '9c978d4d': { status: 'computed' },
       } } },
     } as never)
     mountOptions(THREE)
 
     expect(screen.getByTestId('option-result-unavailable-5364a6e2')).toBeInTheDocument()
     expect(screen.getByTestId('option-result-unavailable-9c978d4d')).toBeInTheDocument()
+    // ⭐ AND NEITHER IS RE-BADGED AS ONE THE RUN LEFT OUT. This is the pair
+    // that keeps the two questions apart: the run HAD these options and
+    // returned no share, which is not the same fact as never having had them.
+    expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
+    expect(screen.queryByTestId('option-not-analysed-9c978d4d')).toBeNull()
     // The resolver states its figure and never the absence.
     expect(screen.queryByTestId('option-result-unavailable-a596e935')).toBeNull()
     expect(screen.getByTestId('option-win-readout-a596e935')).toBeInTheDocument()
+  })
+
+  it('an option the run never scored says SO, beside a sibling that resolved a share', () => {
+    // The twin of the case above, and the reason the fixture there had to
+    // change. Same shape, one difference: `9c978d4d` has NO entry, so the run
+    // left it out. It must state the ground rather than the symptom, while its
+    // analysed-but-shareless sibling keeps the symptom sentence.
+    useCanvasStore.setState({
+      nodes: THREE,
+      results: { status: 'complete', report: { option_probabilities: {
+        a596e935: { status: 'computed', win_probability: 0.62 },
+        '5364a6e2': { status: 'computed' },
+      } } },
+    } as never)
+    mountOptions(THREE)
+
+    expect(screen.getByTestId('option-not-analysed-9c978d4d')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-result-unavailable-9c978d4d')).toBeNull()
+    // The discriminating sibling: analysed, no share, so the symptom sentence
+    // is the true one for it and the not-analysed row must stay off.
+    expect(screen.getByTestId('option-result-unavailable-5364a6e2')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
   })
 
   it('does not count a producer-FAILED option as a resolved share', () => {
@@ -205,7 +276,20 @@ describe('a missing support percentage is stated once, not once per option', () 
 
     expect(screen.queryByTestId('option-result-unavailable-5364a6e2')).toBeNull()
     expect(screen.queryByTestId('option-result-unavailable-9c978d4d')).toBeNull()
-    // The failed option keeps its own, different disclosure.
+    // ⚠ THESE TWO NULLS NO LONGER MEAN WHAT THEY MEANT, AND SAYING SO IS THE
+    // POINT OF THIS BLOCK. Before the fourth absence landed they were null
+    // because the run was share-less. They are ALSO null now because these two
+    // options have no entry at all, so they state the ground instead. A test
+    // that keeps passing for a changed reason has stopped discriminating
+    // (trap 13b), so the new reason is pinned explicitly rather than left to
+    // be inferred from a null.
+    expect(screen.getByTestId('option-not-analysed-5364a6e2')).toBeInTheDocument()
+    expect(screen.getByTestId('option-not-analysed-9c978d4d')).toBeInTheDocument()
+    // The failed option keeps its own, different disclosure — and is NOT
+    // re-badged as one the run left out. `status: 'failed'` is an ENTRY: the
+    // run had this option and could not compute it, which is the opposite
+    // claim to never having had it.
+    expect(screen.queryByTestId('option-not-analysed-a596e935')).toBeNull()
     expect(screen.getByTestId('option-not-computed-a596e935')).toBeInTheDocument()
   })
 
@@ -226,6 +310,21 @@ describe('a missing support percentage is stated once, not once per option', () 
     expect(screen.getAllByTestId('decision-support-share-absent')).toHaveLength(1)
     for (const node of THREE) {
       expect(screen.queryByTestId(`option-result-unavailable-${node.id}`)).toBeNull()
+      // ⭐⭐ THE DOMAIN GUARD, PINNED WHERE IT MATTERS MOST — and this is the
+      // assertion the fourth absence most needs, because it is the one that
+      // stops it lying at scale.
+      //
+      // NO option has an entry here. "No entry for this option" is true in
+      // three worlds and only one is the not-analysed ruling's: the run left
+      // THIS option out; the run produced no per-option output at all; the
+      // result ids do not match the graph ids at all. This fixture is the
+      // second — and it is also the shape the V5 mapper's label-keyed path
+      // produces, where EVERY canvas node-id lookup misses on a payload full
+      // of finite numbers. Marking all three would tell a user who configured
+      // everything correctly that they configured nothing, so
+      // `runAnalysedAnyOption` refuses and the cards stay silent while the
+      // Question node states the run-wide fact once.
+      expect(screen.queryByTestId(`option-not-analysed-${node.id}`)).toBeNull()
     }
   })
 
@@ -260,6 +359,24 @@ describe('a missing support percentage is stated once, not once per option', () 
       nodes: THREE,
       results: { status: 'complete', report: { option_probabilities: {
         a596e935: { status: 'computed', win_probability: 0.62 },
+        // ⭐⭐ THE SAME FIXTURE CORRECTION THE `KEEPS the per-card notice…` CASE
+        // ABOVE RECEIVED, AND FOR THE SAME REASON — it was missed here.
+        //
+        // This case's subject is the COPY on `option-result-unavailable-*`, so
+        // its fixture has to put `5364a6e2` in the state that surface reports:
+        // analysed, no share. An option with NO entry was only ever a SHORTCUT
+        // for that, and since the fourth absence landed the shortcut names a
+        // DIFFERENT state — the run never scored it — which renders
+        // `option-not-analysed-*` instead. This block was byte-identical before
+        // and after that change, so the change silently repurposed its fixture
+        // and the assertion below went looking for a card that no longer
+        // renders (CI at `de3532e3`: "Unable to find an element by:
+        // [data-testid=option-result-unavailable-5364a6e2]").
+        //
+        // ⚠ THE RULINGS THEMSELVES ARE UNCHANGED AND STILL IN FORCE — the
+        // conditioning hedge is live at `OptionNode.tsx` and `DecisionNode.tsx`,
+        // and nothing this case pins was withdrawn. Only the fixture moved.
+        '5364a6e2': { status: 'computed' },
       } } },
     } as never)
     const { container } = render(
@@ -270,6 +387,12 @@ describe('a missing support percentage is stated once, not once per option', () 
         ))}
       </ReactFlowProvider>,
     )
+
+    // ⭐ THE PRECONDITION, PINNED IN-TEST RATHER THAN ASSUMED (trap 13b). The
+    // copy assertion below is only about the surface it names if this option is
+    // on the analysed-no-share arm; were the fixture to drift back, this REDs
+    // on the state rather than leaving the copy check to fail obscurely.
+    expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
 
     const card = screen.getByTestId('option-result-unavailable-5364a6e2')
     // Conditions on the data. It is a thinking tool, not an oracle.
