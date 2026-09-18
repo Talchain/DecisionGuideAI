@@ -355,9 +355,34 @@ export function SuggestedChips({
           const roleLabel = chip.role
             ? chip.role.charAt(0).toUpperCase() + chip.role.slice(1)
             : null
-          const ariaLabel = roleLabel
+          const baseLabel = roleLabel
             ? `${roleLabel}: ${chip.label}`
             : chip.label
+          // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
+          //
+          // CEE's readiness repair offer arrives here as an ordinary
+          // `suggested_actions` entry — the readiness arm emits no
+          // `held_proposal` block, so it can never reach `V5HeldProposalBlock`,
+          // the one surface that already honoured this field. Its label counts
+          // the changes ("Apply 3 safe model fixes"); `detail` is the only
+          // place their descriptions — which NAME THE OPTIONS being altered —
+          // appear. The user was being asked to authorise a mutation of their
+          // own reasoning model with that list discarded on arrival.
+          //
+          // The rule is `V5HeldProposalBlock.tsx:209-216`'s, reused rather than
+          // reinvented: trim; empty or equal to the label ⇒ the label already
+          // says everything, so nothing is added; otherwise the accessible name
+          // extends to `${visible}: ${detail}`. It EXTENDS the label, never
+          // replaces it, and composes with the role prefix instead of
+          // displacing it.
+          //
+          // Deliberately the accessible name + `title`, NOT a new visible row:
+          // this file's chip grammar is owned by `CHIP_CLASS`, and a jsdom
+          // suite cannot see a pixel, so a layout change here would be an
+          // unmeasured one. The visible text stays `chip.label` exactly.
+          const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
+          const detailAdds = detailText.length > 0 && detailText !== chip.label
+          const ariaLabel = detailAdds ? `${baseLabel}: ${detailText}` : baseLabel
 
           return (
             <button
@@ -366,6 +391,7 @@ export function SuggestedChips({
               onClick={() => handleClick(chip)}
               disabled={disabled}
               aria-label={ariaLabel}
+              title={detailAdds ? detailText : undefined}
               aria-disabled={disabled}
               // PX-B (Paul, 15 Aug: "oversized actions"). The chip grammar —
               // and the down-size to `.chip`'s 12px/6px at 12px — lives in

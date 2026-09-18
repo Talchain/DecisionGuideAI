@@ -81,5 +81,12 @@ export function buildSuggestedActionChips(
       intent: 'primary' as const,
       message: a.message,
       ...(a.action_type ? { action_type: a.action_type } : {}),
+      // `detail` is the producer's own longer sentence. For the readiness
+      // repair offer it NAMES THE OPTIONS an apply would touch, and CEE emits
+      // it only when it says more than the label — so dropping it here asked
+      // the user to authorise a change to their model with the list of changes
+      // deleted on arrival. Conditional spread, so a chip without one keeps a
+      // byte-identical shape.
+      ...(a.detail ? { detail: a.detail } : {}),
     }))
 }
