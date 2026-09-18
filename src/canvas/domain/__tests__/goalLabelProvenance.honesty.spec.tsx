@@ -52,7 +52,11 @@ import {
   GOAL_LABEL_FROM_BRIEF_TESTID,
   GOAL_LABEL_FROM_BRIEF_COPY,
 } from '../goalLabelProvenance'
-import { HeroSection, GOAL_INPUT_ID } from '../../components/pre-analysis-v3/hero/HeroSection'
+import {
+  HeroSection,
+  GOAL_INPUT_ID,
+  GOAL_LABEL_EDIT_CONNECTED,
+} from '../../components/pre-analysis-v3/hero/HeroSection'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
 import { useCanvasStore } from '../../store'
 
@@ -62,20 +66,26 @@ const GOAL_ID = 'goal-under-test'
 const OTHER_ID = 'factor-not-under-test'
 
 /**
- * The SAME derivation `HeroSection.GOAL_LABEL_EDIT_CONNECTED` uses, read from
- * the REAL module rather than restated as a literal, so this follows the shipped
- * posture instead of mandating the present one. It selects which arm of the
- * honesty biconditional below applies.
+ * ⛔ THIS FILE USED TO DECLARE ITS OWN `GOAL_LABEL_EDIT_CONNECTED`, and that made
+ * this spec A GUARD AGREEING WITH ITSELF. Its docblock claimed it read the
+ * derivation "from the REAL module rather than restated as a literal" — and it
+ * did read `CANONICAL_EDIT_AUTHORITY` from the real module, but it RESTATED THE
+ * CONJUNCTION. So it tracked the INPUTS and not the FORMULA: a third conjunct
+ * added to the hero's rule would have left this spec silently testing the old
+ * one while still looking derived (trap 12d). Worse, it was the ONLY spec naming
+ * the derivation, so `PreAnalysisPanelV3`'s claim that "a divergence REDs" rested
+ * on a test that read neither of the two copies it was supposed to compare.
  *
- * ⚠ NOT `goalSuccessTarget`. #1443 split that constant apart: it governs the
- * SUCCESS THRESHOLD and names neither of the goal field's writes. `commitGoal`
- * performs a rename (`canvasNodeRenameWithServerHash`) or a named add
- * (`preAnalysisV3StructuralAdd`), so those are the carriers the goal field's
- * honesty depends on, and both must hold before it may offer to write.
+ * It is now IMPORTED from the owning module. The declaration count is pinned by
+ * `pre-analysis-v3/__tests__/oneEditAuthorityDerivation.spec.ts`, which fails if
+ * a second declaration reappears anywhere under src/.
+ *
+ * ⚠ NOT `goalSuccessTarget`, and that distinction is unchanged. #1443 split that
+ * constant apart: it governs the SUCCESS THRESHOLD and names neither of the goal
+ * field's writes. `commitGoal` performs a rename
+ * (`canvasNodeRenameWithServerHash`) or a named add (`preAnalysisV3StructuralAdd`),
+ * so those are the carriers the goal field's honesty depends on.
  */
-const GOAL_LABEL_EDIT_CONNECTED =
-  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash) &&
-  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd)
 
 describe('goalLabelIsUnconfirmedBriefExtract — the one predicate', () => {
   it('fires on from_brief, and on nothing else in the vocabulary', () => {

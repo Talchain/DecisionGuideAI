@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2088
+# count=2081
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -1018,7 +1018,6 @@
 1	src/modules/diagnostics/ErrorBanner.tsx	TS6133	'remaining' is declared but its value is never read.
 1	src/pages/ScenarioListPage.tsx	TS6133	'authenticated' is declared but its value is never read.
 1	src/pages/ScenarioListPage.tsx	TS6133	'deleting' is declared but its value is never read.
-7	src/pages/SharedBriefPage.tsx	TS2322	Type 'unknown' is not assignable to type 'ReactNode'.
 1	src/pages/__tests__/ProfileSettingsPage.test.tsx	TS6133	'React' is declared but its value is never read.
 1	src/pages/__tests__/ProfileSettingsPage.test.tsx	TS6133	'userEvent' is declared but its value is never read.
 1	src/pages/__tests__/ScenarioListPage.hub.test.tsx	TS6133	'React' is declared but its value is never read.

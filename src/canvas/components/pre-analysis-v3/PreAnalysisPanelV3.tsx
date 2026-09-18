@@ -18,29 +18,34 @@ import { useSensitivityRanking } from './hooks/useSensitivityRanking'
 import { GoalTargetNudge } from '../pre-analysis/GoalTargetNudge'
 import { PanelHeader } from './header/PanelHeader'
 import type { GateBlockedListing } from '../../utils/canRunAnalysis'
-import { HeroSection, GOAL_INPUT_ID, SUCCESS_INPUT_ID } from './hero/HeroSection'
+import {
+  HeroSection,
+  GOAL_INPUT_ID,
+  SUCCESS_INPUT_ID,
+  GOAL_LABEL_EDIT_CONNECTED,
+  SUCCESS_TARGET_EDIT_CONNECTED,
+} from './hero/HeroSection'
 import { SharpenSection } from './sharpen/SharpenSection'
 import { ContestedSection } from './contested/ContestedSection'
 import { YourDecisionSection } from './model/YourDecisionSection'
 import { AdvancedSection } from './advanced/AdvancedSection'
 import { PanelFooter } from './footer/PanelFooter'
 import type { LadderStep, SignalView } from './types'
-import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
 
 /**
  * ⚠ TWO KEYS, BECAUSE THE TWO FIELDS THESE ROUTES POINT AT ANSWER TO DIFFERENT
- * AUTHORITIES — see the long note on `HeroSection.GOAL_LABEL_EDIT_CONNECTED`.
- * These constants must stay in step with the hero's, because a route that
- * focuses a field the hero renders read-only puts the caret in a `<span>` and
- * nothing happens; the specs assert focus, so a divergence REDs.
+ * AUTHORITIES — see the long note on `HeroSection.GOAL_LABEL_EDIT_CONNECTED`,
+ * which now OWNS both derivations and exports them.
+ *
+ * ⛔ THESE WERE DECLARED HERE, AND THE COMMENT THAT JUSTIFIED IT WAS FALSE. It
+ * read: *"These constants must stay in step with the hero's … the specs assert
+ * focus, so a divergence REDs."* Measured 18 Sep: no spec compared the two
+ * copies. The only spec naming the derivation declared A THIRD COPY and branched
+ * on it, so it agreed with itself and would have stayed green while these two
+ * diverged. A comment claiming a guard exists is worse than no guard, because it
+ * stops the next reader looking. Importing removes the question entirely; the
+ * declaration count is pinned by `oneEditAuthorityDerivation.spec.ts`.
  */
-const GOAL_LABEL_EDIT_CONNECTED =
-  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash) &&
-  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd)
-
-const SUCCESS_TARGET_EDIT_CONNECTED = hasServerGraphAuthority(
-  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
-)
 
 export interface PreAnalysisPanelV3Props {
   onAnalyse: () => void
