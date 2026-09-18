@@ -617,7 +617,7 @@ export function AtAGlance({
           role="status"
           data-testid={`${testId}-ribbon`}
         >
-          <AlertTriangle className="w-3 h-3 mt-[3px] shrink-0 text-warning" aria-hidden="true" />
+          <AlertTriangle className="w-3 h-3 mt-[3px] shrink-0 text-warning-ink" aria-hidden="true" />
           {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
               had to go: `min-w-0` says "I will shrink to nothing", which is
               precisely the permission that let this sentence be squeezed to
@@ -1179,7 +1179,7 @@ export function AtAGlance({
           const Row = (
             <>
               <AlertTriangle
-                className="w-3.5 h-3.5 mt-[3px] shrink-0 text-warning"
+                className="w-3.5 h-3.5 mt-[3px] shrink-0 text-warning-ink"
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">
