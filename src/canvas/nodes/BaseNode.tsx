@@ -1737,9 +1737,24 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             of the title row. Action icons remain in the footer (ActionIcons). */}
         {/* Reads the SAME string as the provenance group above — byte-identical
             to the `inline-flex items-center gap-1 shrink-0 ml-auto` it spelled
-            by hand, so this is a de-duplication and not a style change. */}
+            by hand, so this is a de-duplication and not a style change.
+
+            ⚠ THE TESTID IS LOAD-BEARING, AND IT IS WHY THIS COMMENT EXISTS.
+            Sharing the class string with the provenance group above made the
+            two header groups INDISTINGUISHABLE TO A CSS SELECTOR. A guard in
+            `render-matrix.spec.tsx` asked *"is the headerSlot wrapper gone?"*
+            by querying `.inline-flex.items-center.gap-1` — and once the
+            provenance group started spelling `gap-1` too, that selector began
+            matching the OTHER group and the guard RED'd on an element it was
+            never written about (trap 19: bind by identity, never by a predicate
+            another object can satisfy). Both groups now carry their own testid
+            so the question each guard asks stays attached to its own object,
+            and a future shared class cannot silently re-point either one. */}
         {headerSlot && !isCausalLens && !isEvidenceLens && (
-          <span className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}>
+          <span
+            data-testid="node-header-slot-group"
+            className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
+          >
             {headerSlot as ReactNode}
           </span>
         )}
