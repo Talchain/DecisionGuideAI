@@ -181,15 +181,55 @@ describe('a missing support percentage is stated once, not once per option', () 
         // Only this one resolves. The run is not share-less, so the other two
         // cards carry a fact that genuinely distinguishes them.
         a596e935: { status: 'computed', win_probability: 0.62 },
+        // ⭐⭐ THE OTHER TWO NOW CARRY ENTRIES, AND THAT IS A CORRECTION TO THIS
+        // FIXTURE RATHER THAN AN ACCOMMODATION TO A NEW GATE.
+        //
+        // This test's subject, in its own words above, is "some options
+        // resolved a share and this one did not". An option with NO entry is a
+        // different state — the run never scored it — and since the fourth
+        // absence landed it says so itself (`option-not-analysed-*`). Absent
+        // entries were only ever a SHORTCUT for "did not resolve a share"; the
+        // shortcut now names a second state, so the fixture spells the state
+        // the test is actually about. `status: 'computed'` with no
+        // `win_probability` is exactly that: analysed, no share.
+        '5364a6e2': { status: 'computed' },
+        '9c978d4d': { status: 'computed' },
       } } },
     } as never)
     mountOptions(THREE)
 
     expect(screen.getByTestId('option-result-unavailable-5364a6e2')).toBeInTheDocument()
     expect(screen.getByTestId('option-result-unavailable-9c978d4d')).toBeInTheDocument()
+    // ⭐ AND NEITHER IS RE-BADGED AS ONE THE RUN LEFT OUT. This is the pair
+    // that keeps the two questions apart: the run HAD these options and
+    // returned no share, which is not the same fact as never having had them.
+    expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
+    expect(screen.queryByTestId('option-not-analysed-9c978d4d')).toBeNull()
     // The resolver states its figure and never the absence.
     expect(screen.queryByTestId('option-result-unavailable-a596e935')).toBeNull()
     expect(screen.getByTestId('option-win-readout-a596e935')).toBeInTheDocument()
+  })
+
+  it('an option the run never scored says SO, beside a sibling that resolved a share', () => {
+    // The twin of the case above, and the reason the fixture there had to
+    // change. Same shape, one difference: `9c978d4d` has NO entry, so the run
+    // left it out. It must state the ground rather than the symptom, while its
+    // analysed-but-shareless sibling keeps the symptom sentence.
+    useCanvasStore.setState({
+      nodes: THREE,
+      results: { status: 'complete', report: { option_probabilities: {
+        a596e935: { status: 'computed', win_probability: 0.62 },
+        '5364a6e2': { status: 'computed' },
+      } } },
+    } as never)
+    mountOptions(THREE)
+
+    expect(screen.getByTestId('option-not-analysed-9c978d4d')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-result-unavailable-9c978d4d')).toBeNull()
+    // The discriminating sibling: analysed, no share, so the symptom sentence
+    // is the true one for it and the not-analysed row must stay off.
+    expect(screen.getByTestId('option-result-unavailable-5364a6e2')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
   })
 
   it('does not count a producer-FAILED option as a resolved share', () => {
@@ -205,7 +245,20 @@ describe('a missing support percentage is stated once, not once per option', () 
 
     expect(screen.queryByTestId('option-result-unavailable-5364a6e2')).toBeNull()
     expect(screen.queryByTestId('option-result-unavailable-9c978d4d')).toBeNull()
-    // The failed option keeps its own, different disclosure.
+    // ⚠ THESE TWO NULLS NO LONGER MEAN WHAT THEY MEANT, AND SAYING SO IS THE
+    // POINT OF THIS BLOCK. Before the fourth absence landed they were null
+    // because the run was share-less. They are ALSO null now because these two
+    // options have no entry at all, so they state the ground instead. A test
+    // that keeps passing for a changed reason has stopped discriminating
+    // (trap 13b), so the new reason is pinned explicitly rather than left to
+    // be inferred from a null.
+    expect(screen.getByTestId('option-not-analysed-5364a6e2')).toBeInTheDocument()
+    expect(screen.getByTestId('option-not-analysed-9c978d4d')).toBeInTheDocument()
+    // The failed option keeps its own, different disclosure — and is NOT
+    // re-badged as one the run left out. `status: 'failed'` is an ENTRY: the
+    // run had this option and could not compute it, which is the opposite
+    // claim to never having had it.
+    expect(screen.queryByTestId('option-not-analysed-a596e935')).toBeNull()
     expect(screen.getByTestId('option-not-computed-a596e935')).toBeInTheDocument()
   })
 
@@ -226,6 +279,21 @@ describe('a missing support percentage is stated once, not once per option', () 
     expect(screen.getAllByTestId('decision-support-share-absent')).toHaveLength(1)
     for (const node of THREE) {
       expect(screen.queryByTestId(`option-result-unavailable-${node.id}`)).toBeNull()
+      // ⭐⭐ THE DOMAIN GUARD, PINNED WHERE IT MATTERS MOST — and this is the
+      // assertion the fourth absence most needs, because it is the one that
+      // stops it lying at scale.
+      //
+      // NO option has an entry here. "No entry for this option" is true in
+      // three worlds and only one is the not-analysed ruling's: the run left
+      // THIS option out; the run produced no per-option output at all; the
+      // result ids do not match the graph ids at all. This fixture is the
+      // second — and it is also the shape the V5 mapper's label-keyed path
+      // produces, where EVERY canvas node-id lookup misses on a payload full
+      // of finite numbers. Marking all three would tell a user who configured
+      // everything correctly that they configured nothing, so
+      // `runAnalysedAnyOption` refuses and the cards stay silent while the
+      // Question node states the run-wide fact once.
+      expect(screen.queryByTestId(`option-not-analysed-${node.id}`)).toBeNull()
     }
   })
 

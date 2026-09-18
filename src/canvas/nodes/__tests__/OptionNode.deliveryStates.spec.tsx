@@ -47,11 +47,29 @@ describe('option delivery states through the real store and display selector', (
       } } },
     } as never)
     mountOptions(options)
-    // Copy re-ruled: the card conditions on the data instead of opening with
-    // the missing quantity's name. `zero` resolves a share, so this graph is
-    // the PARTIAL case and `missing` still earns its per-card notice.
-    expect(screen.getByTestId('option-result-unavailable-missing'))
-      .toHaveTextContent('On the data so far, no support percentage for this option')
+    // ⭐⭐ RE-RULED AGAIN — `missing` NOW STATES THE CAUSE, NOT THE SYMPTOM, AND
+    // THIS ASSERTION IS THE RECORD OF WHY.
+    //
+    // It used to read `option-result-unavailable-missing` / "On the data so
+    // far, no support percentage for this option", on the reasoning that
+    // `zero` resolves a share so this graph is the PARTIAL case. The PARTIAL
+    // reasoning is still right and it is pinned by the `outcome-only` case
+    // below, which is an option the run DID analyse and simply returned no
+    // share for. `missing` is not that: it has NO entry at all, so the run
+    // never scored it, and the two states have OPPOSITE next steps — wait or
+    // re-run, versus say what this option changes. One sentence covering both
+    // is the pooling the four-absence ruling exists to prevent, and the
+    // results panel has drawn this line since the no-rank ruling
+    // (`NotAnalysedOptionCard`, Paul, 14 Aug 2026) while this card did not.
+    // Two surfaces disagreeing about one option is trap 21 arriving as a
+    // rendering difference.
+    //
+    // ⚠ NOTHING IS LOST BY THE YIELD: `notAnalysedReasonCopy` states the same
+    // consequence in the same breath ("It has no rank and no probability") and
+    // adds the ground the old sentence had no room for.
+    expect(screen.getByTestId('option-not-analysed-missing'))
+      .toHaveTextContent('This option has no values set yet, so it was left out of the comparison')
+    expect(screen.queryByTestId('option-result-unavailable-missing')).toBeNull()
     expect(screen.queryByTestId('option-win-readout-missing')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-missing')).toBeNull()
     expect(screen.getByTestId('option-not-computed-failed')).toBeInTheDocument()
@@ -86,6 +104,12 @@ describe('option delivery states through the real store and display selector', (
     mountOptions(options)
     expect(screen.getByTestId('option-result-unavailable-outcome-only'))
       .toHaveTextContent('On the data so far, no support percentage for this option')
+    // ⭐ THE DISCRIMINATING HALF OF THE PAIR ABOVE. This option HAS an entry —
+    // the run analysed it and returned an outcome distribution without a share
+    // — so it is the genuine PARTIAL case and must NOT be re-badged as one the
+    // run left out. Without this assertion a `leftOutOfRunReason` widened to
+    // any missing share would pass every other line in this file.
+    expect(screen.queryByTestId('option-not-analysed-outcome-only')).toBeNull()
     expect(screen.queryByText('Result unavailable', { exact: true })).toBeNull()
     expect(screen.queryByTestId('option-win-readout-outcome-only')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-outcome-only')).toBeNull()
