@@ -467,15 +467,28 @@ const FLAGS_CONFIG = {
   // writer. A tester who mistypes a URL lands somewhere real and read-only.
   // (This line said `/canvas` while the code said `/` — corrected 30 Jul.)
   //
-  // ⚠ DELIBERATELY OFF IN EVERY DEPLOYED BUILD. `VITE_ENABLE_DEV_ROUTES` is not
-  // set in netlify.toml for any context and must not be — staging IS the tester
-  // surface. The env key exists because it is how this repo's flags are shaped,
-  // and because the Playwright suite needs it (playwright.config.ts webServer),
-  // not because a deploy should ever set it.
+  // ⚠⚠ SUPERSEDED 18 Sep 2026 BY PAUL, EXPLICITLY. This block previously read
+  // "DELIBERATELY OFF IN EVERY DEPLOYED BUILD … not set in netlify.toml for any
+  // context AND MUST NOT BE — staging IS the tester surface". `netlify.toml`
+  // now sets it under the STAGING context (PR #1652), so that sentence was
+  // false the moment this shipped, and a false standing ruling in the one
+  // docblock every reader consults is this estate's dominant defect.
   //
-  // To reach the scaffolding in YOUR OWN browser, on any environment:
+  // ⛔ THE ORIGINAL ARGUMENT IS NOT WRONG, IT WAS OVERRULED — keep it in view.
+  // Staging IS the tester surface, so dev scaffolding there CAN reach a tester.
+  // The per-browser `localStorage` override could not leak; a deploy-wide flag
+  // can. That cost was put to Paul and he took it, because the redirect was
+  // costing more: every /dev/* URL rendered `<Navigate to="/" replace/>`, which
+  // lands on the sign-in page and READS AS "you must sign in" though the route
+  // needs no auth at all. He hit it himself.
+  //
+  // ⛔ STAGING ONLY, AND STILL NEVER `[build.environment]`. Production and
+  // deploy previews inherit that block; setting it there would ship the
+  // scaffolding to real users. The staging context is the whole permission.
+  //
+  // The per-browser override still works and is still the right tool for any
+  // OTHER environment:
   //   localStorage.setItem('feature.devRoutes', '1')   // then reload
-  // That override is per-browser, so it cannot leak to a tester.
   devRoutes: {
     envKey: 'VITE_ENABLE_DEV_ROUTES',
     storageKey: 'feature.devRoutes',

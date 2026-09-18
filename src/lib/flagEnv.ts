@@ -12,7 +12,7 @@
  * value, so the chunk now carries only keys the app actually declares.
  *
  * DERIVED, NOT HAND-LISTED: 65 flag keys from `src/flags.ts` FLAGS_CONFIG
- * (via the same AST walker `pnpm flags:check` uses) + 21 `VITE_FEATURE_*`/
+ * (via the same AST walker `pnpm flags:check` uses) + 22 `VITE_FEATURE_*`/
  * `VITE_ENABLE_*` keys declared in `netlify.toml`. Adding a flag and re-running the
  * generator is the whole workflow; `--check` reds if this file falls behind.
  *
