@@ -10,6 +10,7 @@ import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domai
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
@@ -351,11 +352,55 @@ export const FactorNode = memo((props: NodeProps) => {
    *
    * `null` whenever the claim is not licensed (see `influenceRankReadout`):
    * both call sites then render EXACTLY what they render today.
+   *
+   * ## ⭐⭐ AND THE COUNTABLE HALF IS WITHHELD UNLESS THE RESULT IS CONFIRMABLY
+   * ABOUT THIS GRAPH — HERE, NOT AT THE PRODUCER.
+   *
+   * `of 5` is a COUNTABLE claim. Every other readout on this card carries
+   * staleness softly — once the graph moves, `80%` is wrong but unfalsifiable
+   * from the screen. A denominator is not: run over five factors, add three, and
+   * the canvas shows EIGHT factor cards beside a row still claiming `of 5`. The
+   * reader refutes the product by counting, which is a different and much more
+   * expensive kind of wrong.
+   *
+   * ⛔ IT WAS GATED IN `useNodeDisplayMetadata` ON `graphEditedSinceLastRun`,
+   * AND BOTH HALVES OF THAT WERE WRONG.
+   *
+   * THE FLAG: `resultsLoadHistorical` (`store.ts:6026`) and
+   * `resultsHydrateFromSupabase` (`:6097`) reset it to `false` in the SAME
+   * `set()` that writes `results.status: 'complete'`, so restoring a historical
+   * run re-published the denominator against a graph it was never computed on —
+   * exactly the harm the gate was written to prevent. It also over-fires the
+   * other way: `historyHash` (`:2025`) includes `position`, so a node DRAG — which
+   * changes no factor the run saw — dropped the caption. The gate is now
+   * {@link useAnalysisResultsAreCurrent}, whose header carries the measurement
+   * and the reason `analysisFreshnessDirty` is not the remedy either.
+   *
+   * THE PLACE: gating inside the producer made the assignment CONDITIONAL, which
+   * falsified the invariant that makes `influenceSetSize?` safe to leave optional
+   * — "rank present, denominator absent is unreachable from this producer". The
+   * commit that introduced the gate asserted that invariant in a docblock and
+   * DISPROVED it four tests later in the same spec file, where a gated fixture
+   * returns `sensitivityRank: 1` with `influenceSetSize: null`. Reading the gate
+   * HERE restores the implication at the producer — the assignment is once more
+   * unconditional inside the factor branch and runs before the rank gate — so the
+   * optionality is safe for the reason its docblock states, with no mock churn
+   * and no required-field change. The claim and the licence to make it are two
+   * questions, and they now live in two places (CLAUDE.md trap 21).
+   *
+   * ⚠ ONE GATE, ONE LOCAL, NO DIVERGENCE. Both influence renders read this
+   * `influenceRank`, and both `influenceRankExplanation` calls read it too, so
+   * the two views cannot disagree about whether the denominator is licensed.
+   *
+   * ⚠ THE RANK ITSELF IS UNTOUCHED, deliberately and narrowly. `sensitivityRank`
+   * is read by the `#N` badge, the inspector and the edge label; withdrawing it
+   * would change three surfaces this lane never argued for. What is withheld is
+   * only the half a reader can refute by counting.
    */
-  const influenceRank = influenceRankReadout(
-    displayMetadata.sensitivityRank,
-    displayMetadata.influenceSetSize,
-  )
+  const resultsAreCurrent = useAnalysisResultsAreCurrent()
+  const influenceRank = resultsAreCurrent
+    ? influenceRankReadout(displayMetadata.sensitivityRank, displayMetadata.influenceSetSize)
+    : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (pill, bar, AND the

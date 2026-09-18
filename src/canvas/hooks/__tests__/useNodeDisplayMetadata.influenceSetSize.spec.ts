@@ -34,6 +34,36 @@
  * pins.** Move the assignment below the gate, make it conditional, or delete
  * it, and this REDs — which is what turns an optional field from a silent
  * fallback into a stated contract.
+ *
+ * ## ⛔⛔ AND THAT INVARIANT WAS FALSE WHEN IT WAS FIRST WRITTEN HERE — SELF-
+ * CONTRADICTED FOUR TESTS LATER IN THIS SAME FILE
+ *
+ * The commit that stated it also added a staleness gate INSIDE the producer:
+ * `influenceSetSize = graphEditedSinceLastRun ? null : new Set(...).size`. That
+ * makes the assignment CONDITIONAL, so "rank present, denominator absent" was
+ * not merely reachable — a describe at the foot of this file PRODUCED it, with
+ * `sensitivityRank: 1` and `influenceSetSize: null` asserted side by side. The
+ * docblock argued the optionality was safe and the spec four tests down proved
+ * it was not, inside one commit. An invariant that the file asserting it also
+ * refutes is worse than no invariant, because it reads as settled.
+ *
+ * ⭐ THE REPAIR IS NOT A STRONGER WORD IN THE DOCBLOCK. The gate moved to the
+ * single render site (`FactorNode.tsx`, `useAnalysisResultsAreCurrent`), where
+ * it belongs: "what is the size of the run's comparison set?" and "may this
+ * claim be published?" are two questions, and answering both in one assignment
+ * is CLAUDE.md trap 21. With the gate gone from here the assignment is once more
+ * unconditional, the implication is TRUE, and the first describe pins something
+ * real. The staleness describe that used to sit at the foot of this file now
+ * lives in `FactorNode.influenceRanking.spec.tsx`, pointed at the surface that
+ * actually makes the claim.
+ *
+ * ⚠ THE OTHER OPTION WAS TO MAKE THE FIELD REQUIRED, and it is rejected on the
+ * measurement recorded on the field's docblock, not on preference: 100
+ * `vi.mocked(useNodeDisplayMetadata).mockReturnValue` call sites across 24 spec
+ * files, only four of which carry a typecheck-baseline entry, so the gate's
+ * blocking per-file COUNT ratchet reds on ~20 newly-erroring files. The
+ * fixture-blindness finding is closed by making the invariant TRUE, which is
+ * what the argument always needed.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
@@ -49,7 +79,6 @@ const makeReport = (overrides: Record<string, unknown> = {}) => ({
 
 let mockState = {
   results: { status: 'idle' as string, report: null as unknown },
-  graphEditedSinceLastRun: false,
 }
 
 vi.mock('../../store', () => ({
@@ -60,17 +89,20 @@ import { useCanvasStore } from '../../store'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockState = { results: { status: 'idle', report: null }, graphEditedSinceLastRun: false }
+  mockState = { results: { status: 'idle', report: null } }
   vi.mocked(useCanvasStore).mockImplementation((selector) => selector(mockState as never))
 })
 
-const setReport = (
-  factorSensitivity: Array<Record<string, unknown>>,
-  graphEditedSinceLastRun = false,
-) => {
+/**
+ * ⚠ THE STORE SLICE THIS HOOK READS IS NOW EXACTLY TWO FIELDS, AND THAT IS THE
+ * SHAPE OF THE FIX. A currency flag was threaded through here for one commit;
+ * it is gone, because the licence to publish a denominator is not this
+ * producer's question. `useNodeDisplayMetadata` reads `results.status` and
+ * `results.report` and nothing else.
+ */
+const setReport = (factorSensitivity: Array<Record<string, unknown>>) => {
   mockState = {
     results: { status: 'complete', report: makeReport({ factor_sensitivity: factorSensitivity }) },
-    graphEditedSinceLastRun,
   }
 }
 
@@ -145,51 +177,19 @@ describe('what the denominator counts', () => {
   })
 })
 
-/**
- * ⭐⭐ THE STALENESS GATE — and why a stale DENOMINATOR is a different class of
- * wrong from a stale percentage.
+/*
+ * ⛔ THE STALENESS DESCRIBE THAT STOOD HERE HAS MOVED, AND THE MOVE IS THE
+ * POINT. It asserted `influenceSetSize === null` for a fixture seeded with
+ * `graphEditedSinceLastRun: true` — which is precisely the "rank present,
+ * denominator absent" state the first describe above declares unreachable. Two
+ * describes in one file, one asserting an implication and the other producing
+ * its counter-example.
  *
- * `results.status` survives a graph edit: it is cleared by a new run, not by a
- * mutation. So a figure from the last completed run outlives the model it
- * described. The old render carried that softly — once the graph moves, `80%`
- * is wrong but UNFALSIFIABLE from the screen. `of 5` is not: run over five
- * factors, add three, and the canvas shows EIGHT factor cards beside a row
- * still claiming `of 5`. The reader refutes the product by counting.
- *
- * ⚠ THE EXISTING FLAG, NOT A NEW ONE. `graphEditedSinceLastRun` is declared on
- * the store, initialised `false`, and set by both the internal edit chokepoint
- * (`pushToHistory`) and the external mutator entry point
- * (`markGraphStructurallyEdited`).
- *
- * ⚠ AND THE REFUSAL REUSES THE EXISTING FAIL-CLOSED ARM rather than minting a
- * ranked-but-uncountable third variant: with no denominator,
- * `influenceRankReadout` returns null and the row renders exactly what it
- * renders today.
+ * The claim it guarded is still guarded: `FactorNode.influenceRanking.spec.tsx`
+ * now pins that a result the product cannot confirm is about the current graph
+ * publishes no denominator, on BOTH views, with its control arm. It is pinned
+ * at the surface that makes the claim rather than at the producer that computes
+ * a count — and on a signal that survives a reload, which
+ * `graphEditedSinceLastRun` does not (`canvas/store.ts:6026`/`:6097` reset it in
+ * the same `set()` that installs a restored run).
  */
-describe('a moved graph withdraws the denominator, and nothing else', () => {
-  it('THE DEFECT: without the gate, an edited graph keeps printing a countable claim', () => {
-    setReport(FIVE_CLEAR, true)
-    expect(metaOf('fac_pricing').influenceSetSize).toBeNull()
-  })
-
-  it('the RANK is untouched — only the countable half of the claim is withdrawn', () => {
-    /* ⚠ THIS IS THE DISCRIMINATING HALF OF THE PAIR, and without it the test
-       above would pass on a gate that had disabled the whole factor branch.
-       The `#N` badge, the inspector's "#N" and the edge's "ranked #N in
-       influence" all read `sensitivityRank`; withdrawing it here would change
-       three other surfaces this lane never argued for. */
-    setReport(FIVE_CLEAR, true)
-    const m = metaOf('fac_pricing')
-    expect(m.sensitivityRank).toBe(1)
-    expect(m.influence).not.toBeNull()
-    expect(m.influenceProvenance).not.toBeNull()
-  })
-
-  it('CONTROL: the same set on an unedited graph DOES carry the denominator', () => {
-    // Both arms asserted explicitly, so neither is reached by accident and the
-    // gate is shown to discriminate rather than merely to return null.
-    setReport(FIVE_CLEAR, false)
-    expect(metaOf('fac_pricing').influenceSetSize).toBe(5)
-    expect(metaOf('fac_pricing').sensitivityRank).toBe(1)
-  })
-})

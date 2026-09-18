@@ -25,6 +25,21 @@ vi.mock('../../store', () => ({
       edges: [],
       ceeAnalysisReady: null,
       results: { status: 'idle', report: null },
+      // ⭐ THE CURRENCY PRECONDITION FOR THE RANKED INFLUENCE READOUT, SEEDED
+      // EXPLICITLY IN EVERY STORE STATE IN THIS FILE.
+      //
+      // `FactorNode` withholds the ranked readout unless
+      // `useAnalysisResultsAreCurrent()` is true, and that hook is imported for
+      // real here — it reads these three fields through the mocked store and
+      // calls the real `classifyFreshnessForDisplay`. An omitted slice
+      // classifies as 'none' and the card falls back, which would make every
+      // ranked assertion in this file fail rather than sit silently on the
+      // fallback branch. Stated, not defaulted: a precondition a fixture leaves
+      // implicit is the fixture-blindness defect this file already carries a
+      // note about (CLAUDE.md trap 3b, arriving through the fixture).
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      importPendingServerRegistration: false,
       highlightedNodes: new Set(),
       dimmedNodeIds: new Set(),
       goalThreshold: null,
@@ -296,6 +311,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -500,6 +520,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -638,6 +663,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -699,6 +729,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -831,6 +866,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -892,6 +932,11 @@ describe('FactorNode', () => {
         selector({
           hoveredOptionId: null, nodes: [], edges: [], ceeAnalysisReady: null,
           results: { status: 'complete', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(), dimmedNodeIds: new Set(),
           goalThreshold: null, goalConstraints: [], viewMode,
         })
@@ -979,6 +1024,11 @@ describe('FactorNode', () => {
           edges: [],
           ceeAnalysisReady: null,
           results: { status: 'complete', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1317,6 +1367,11 @@ describe('FactorNode — intervention hover', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'idle', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -1573,6 +1628,11 @@ describe('FactorNode — intervention hover', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'idle', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -1622,6 +1682,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1666,6 +1731,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1700,6 +1770,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1751,6 +1826,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,

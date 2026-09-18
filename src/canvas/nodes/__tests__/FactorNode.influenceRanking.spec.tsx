@@ -84,7 +84,29 @@ const baseProps = {
   draggable: true,
 }
 
-const setStore = (viewMode: 'standard' | 'expert') => {
+/**
+ * ⭐⭐ THE CURRENCY SLICE IS SEEDED EXPLICITLY, AND AN AFFIRMATIVE VERDICT IS A
+ * PRECONDITION OF EVERY RANKED ASSERTION IN THIS FILE.
+ *
+ * `FactorNode` withholds the whole ranked readout unless
+ * `useAnalysisResultsAreCurrent()` is true, and that hook is NOT mocked here —
+ * it is imported for real, reads these three fields, and calls the real
+ * `classifyFreshnessForDisplay`. Mocking it would leave this file asserting its
+ * own idea of freshness (CLAUDE.md trap 13c: a perfect score against a wrong
+ * oracle).
+ *
+ * ⚠ AND IT FAILS CLOSED ON OMISSION, which is exactly why it is stated. An
+ * absent slice classifies as `'none'`, the readout withholds, and every ranked
+ * expectation below would fail — loudly, rather than by quietly sitting on the
+ * fallback branch, which is the defect this whole file exists to close one level
+ * up. Stating it keeps the failure loud AND makes the precondition visible.
+ */
+const FRESH = { analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false }
+
+const setStore = (
+  viewMode: 'standard' | 'expert',
+  currency: Record<string, unknown> = FRESH,
+) => {
   vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
     selector({
       hoveredOptionId: null,
@@ -96,7 +118,9 @@ const setStore = (viewMode: 'standard' | 'expert') => {
       dimmedNodeIds: new Set(),
       goalThreshold: null,
       goalConstraints: [],
+      importPendingServerRegistration: false,
       viewMode,
+      ...currency,
     })
   )
 }
@@ -264,7 +288,8 @@ describe('Detailed view — the DataBar row states the same ranking', () => {
  * ⭐⭐ THE FAIL-CLOSED ARM, ON BOTH VIEWS. This is not a legacy shim: it is what
  * the deployed card renders for every factor ranked below the badged depth,
  * every factor on a tied set, every single-factor model, and EVERY factor on a
- * model whose graph has been edited since the last run.
+ * model whose result the product cannot confirm is about the current graph (see
+ * the currency describe at the foot of this file).
  */
 describe('no denominator — both views render exactly what they rendered before', () => {
   it('Standard view falls back to the basis noun and the percentage', () => {
@@ -308,5 +333,96 @@ describe('no denominator — both views render exactly what they rendered before
     const row = screen.getByTestId('factor-influence-row')
     expect(row.textContent).toContain('Relative influence')
     expect(row.textContent).not.toContain('Most influential')
+  })
+})
+
+/**
+ * ⭐⭐ A RESULT THE PRODUCT CANNOT VOUCH FOR PUBLISHES NO DENOMINATOR.
+ *
+ * ⛔ THIS DESCRIBE REPLACES A GATE ON `graphEditedSinceLastRun`, AND THE
+ * REPLACEMENT IS THE FINDING OF THIS ROUND.
+ *
+ * `of 5` is a COUNTABLE claim: run over five factors, add three, and the canvas
+ * shows eight cards beside a row still claiming `of 5` — the reader refutes the
+ * product by counting. The previous gate was the legacy store flag, and it
+ * cannot answer the question: `resultsLoadHistorical` (`canvas/store.ts:6026`)
+ * and `resultsHydrateFromSupabase` (`:6097`) reset it to `false` in the same
+ * `set()` that writes `results.status: 'complete'`, so restoring a historical
+ * run re-published the denominator against a graph it was never computed on.
+ * It also over-fired the other way — `historyHash` (`:2025`) includes
+ * `position`, so a node DRAG dropped the caption.
+ *
+ * ⚠ AND THE GATE MOVED FROM THE PRODUCER TO HERE, which is the other half. In
+ * `useNodeDisplayMetadata` it made the `influenceSetSize` assignment
+ * CONDITIONAL and so falsified the invariant that field's optionality rests on.
+ * At the render site the producer's implication holds and the licence is asked
+ * separately — see `useNodeDisplayMetadata.influenceSetSize.spec.ts`, which
+ * pins the restored implication.
+ */
+describe('the ranked claim is withheld when the result is not confirmably current', () => {
+  it('THE DEFECT THIS ROUND CLOSES: a RESTORED run publishes no denominator', () => {
+    // The exact slice both restore actions write: an 'unknown' verdict whose
+    // reason is `hydrated_without_capture`, with the dirty overlay CLEARED.
+    // Under the old gate this state read "the graph has not moved" and the
+    // countable claim went out against a graph never seen.
+    setStore('standard', {
+      analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' },
+      analysisFreshnessDirty: false,
+    })
+    setMetadata(1, 5, 1)
+    renderFactor()
+
+    const row = screen.getByTestId('factor-influence-row')
+    expect(row.textContent).not.toContain('Most influential')
+    expect(row.textContent).not.toContain('of 5')
+    // ⚠ AND IT FALLS BACK RATHER THAN GOING BLANK. Withholding reuses the
+    // existing fail-closed arm, so the row renders what it rendered before the
+    // ranked readout existed — never a third, ranked-but-uncountable variant.
+    expect(row.textContent).toContain('Relative influence')
+    expect(row.textContent).toContain('100%')
+  })
+
+  it('a local analysis-affecting edit withholds it too', () => {
+    // The dirty overlay over a retained CEE 'fresh' — what an ordinary
+    // in-canvas add produces via `invalidateAnalysisReady` (`store.ts:2890`).
+    setStore('standard', {
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: true,
+    })
+    setMetadata(1, 5, 1)
+    renderFactor()
+
+    const row = screen.getByTestId('factor-influence-row')
+    expect(row.textContent).not.toContain('of 5')
+    expect(row.textContent).toContain('100%')
+  })
+
+  it('CONTROL: the same rank and the same set size on a current result DO publish', () => {
+    // Both arms asserted explicitly, so the gate is shown to DISCRIMINATE
+    // rather than merely to return null on everything (CLAUDE.md trap 13b — a
+    // guard agreeing with itself). Same metadata, one store field different.
+    setStore('standard', FRESH)
+    setMetadata(1, 5, 1)
+    renderFactor()
+
+    const row = screen.getByTestId('factor-influence-row')
+    expect(row.textContent).toContain('Most influential')
+    expect(row.textContent).toContain('of 5')
+  })
+
+  it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {
+    // One gate, one local, both renders. Without this the fix could be a
+    // per-view accident, which is the defect this whole file was written for.
+    setStore('expert', {
+      analysisFreshness: { freshness: 'stale' },
+      analysisFreshnessDirty: false,
+    })
+    setMetadata(1, 5, 1)
+    renderFactor()
+
+    const group = screen.getByRole('group', { name: 'Relative influence' })
+    expect(group.textContent).not.toContain('Most influential')
+    expect(group.textContent).not.toContain('of 5')
+    expect(group.textContent).toContain('100%')
   })
 })
