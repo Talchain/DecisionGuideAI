@@ -17,7 +17,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useEdgeMutations, type EdgeStrengthConfirmOutcome } from '../useInspectorMutations'
+import { useEdgeMutations, type EdgeStrengthConfirmOutcome, type EdgeStrengthCommitOutcome } from '../useInspectorMutations'
 import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 import {
   GROUP_LABELS,
@@ -280,7 +280,7 @@ export const EdgePanel = memo(function EdgePanel({
    * the window between the press and the server's answer.
    */
   const [strengthEditSend, setStrengthEditSend] =
-    useState<{ ts: number; settlement: SystemEventSendSettlement } | null>(null)
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' } | null>(null)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -374,6 +374,27 @@ export const EdgePanel = memo(function EdgePanel({
     [],
   )
 
+  /**
+   * ⛔⛔ A SETTLEMENT DOES NOT ALWAYS ARRIVE, AND MY FIRST VERSION ASSUMED IT DID.
+   *
+   * `setStrength` returns BEFORE the send on two paths — `not_wire_encodable`
+   * (the edge has no assertable `expected`) and `local_only` (no conversation
+   * carrier at all). On both, the local write happens and `settleSystemEventSend`
+   * is never reached, so nothing ever resolves the pending state.
+   *
+   * Left as-is, the panel said **"Sending to Olumi…" forever** — which is itself
+   * a false statement, since nothing is being sent and nothing will be. I
+   * replaced one lie with a quieter one that never resolves.
+   *
+   * ⭐ The outcome token is the answer and it was already being returned and
+   * discarded. `dispatched` is the ONLY value that promises a settlement; every
+   * other one is terminal the moment it is returned.
+   */
+  const noteStrengthOutcome = useCallback((outcome: EdgeStrengthCommitOutcome) => {
+    if (outcome === 'dispatched') return
+    setStrengthEditSend({ ts: Date.now(), settlement: 'not_sent' })
+  }, [])
+
   const handleStrengthChange = useCallback((v: number) => {
     setLocalStrength(v)
     // A drag is one gesture that fires repeatedly (`SignedStrengthSlider`
@@ -381,7 +402,7 @@ export const EdgePanel = memo(function EdgePanel({
     // the one that describes where the value ended up. Clearing first means a
     // stale "not recorded" can never survive over a later send that landed.
     setStrengthEditSend(null)
-    mutations.setStrength(v, { onSendSettled: handleStrengthSendSettled })
+    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: handleStrengthSendSettled }))
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
   }, [mutations, edgeId, previewEdit, handleStrengthSendSettled])
 
@@ -401,10 +422,10 @@ export const EdgePanel = memo(function EdgePanel({
     // StrengthBandButtons, but retaining a sign is not the same as the user
     // stating it: preserve both direction and directionSource byte-for-byte.
     setStrengthEditSend(null)
-    mutations.setStrength(v, {
+    noteStrengthOutcome(mutations.setStrength(v, {
       preserveDirection: true,
       onSendSettled: handleStrengthSendSettled,
-    })
+    }))
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
@@ -497,6 +518,7 @@ export const EdgePanel = memo(function EdgePanel({
    * green" claim alive for the whole window this change was written to close.
    */
   const strengthEditIsPending = strengthEditSettlement === undefined
+  const strengthEditNotSent = strengthEditSettlement === 'not_sent'
   const strengthEditDidNotLand =
     strengthEditSettlement === 'blocked' || strengthEditSettlement === 'refused'
   const strengthEditIsUnverified = strengthEditSettlement === 'unverified'
@@ -737,19 +759,30 @@ export const EdgePanel = memo(function EdgePanel({
                     trigger={strengthEditSend?.ts ?? lastConfirmed.ts}
                     label={strengthEditIsPending
                       ? ACTION_LABELS.strengthEditSending
-                      : strengthEditDidNotLand
-                        ? ACTION_LABELS.strengthEditNotRecorded
-                        : strengthEditIsUnverified
-                          ? ACTION_LABELS.strengthEditUnverified
-                          : ACTION_LABELS.strengthConfirmSent}
+                      : strengthEditNotSent
+                        ? ACTION_LABELS.strengthConfirmNotSent
+                        : strengthEditDidNotLand
+                          ? ACTION_LABELS.strengthEditNotRecorded
+                          : strengthEditIsUnverified
+                            ? ACTION_LABELS.strengthEditUnverified
+                            : ACTION_LABELS.strengthConfirmSent}
                     tone="pending"
                     hold={strengthEditIsPending}
                   />
                   {/* Withheld where the model provably does not hold the value, and
                       while we do not yet know. `unverified` keeps it — it may have
                       landed, and hiding a real result is the opposite harm. */}
+                  {/* ⛔ WITHHELD ONLY WHERE THE MODEL PROVABLY LACKS THE VALUE.
+                      My first version also withheld it while PENDING, and that
+                      was over-reach caught by `elicitationChain.spec.ts` — a
+                      journey test walking CTA → editor → canonical write →
+                      stale → rerun. During the pending window the LOCAL value
+                      has already changed, so the results genuinely ARE stale
+                      and offering the re-run is the honest thing. Staleness is
+                      a fact about the graph on screen; it does not wait on the
+                      server's answer. */}
                   <InlineRerunPrompt
-                    visible={isStaleAfterEdit && !strengthEditDidNotLand && !strengthEditIsPending}
+                    visible={isStaleAfterEdit && !strengthEditDidNotLand}
                   />
                 </div>
               )}

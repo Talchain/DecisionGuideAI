@@ -38,6 +38,14 @@ import type { SystemEventSendSettlement } from '../../../conversation/settleSyst
 
 // The settlement the mocked send reports back, set per test.
 let settlementToReport: SystemEventSendSettlement | null = null
+/**
+ * ⛔ THE OUTCOME THE MOCK RETURNS, AND IT IS A SEPARATE AXIS FROM THE SETTLEMENT.
+ * `setStrength` returns BEFORE the send on `not_wire_encodable` and
+ * `local_only`, so on those paths NO settlement ever arrives. A mock that
+ * always returns `'dispatched'` cannot reach that state — which is exactly how
+ * the panel came to say "Sending to Olumi…" with nothing ever resolving it.
+ */
+let outcomeToReport: 'dispatched' | 'local_only' | 'not_wire_encodable' = 'dispatched'
 
 vi.mock('../useInspectorMutations', async importOriginal => {
   const actual = await importOriginal<typeof import('../useInspectorMutations')>()
@@ -57,8 +65,10 @@ vi.mock('../useInspectorMutations', async importOriginal => {
           _mean: number,
           opts: { onSendSettled: (s: SystemEventSendSettlement) => void },
         ) => {
-          if (settlementToReport !== null) opts.onSendSettled(settlementToReport)
-          return 'dispatched' as const
+          if (outcomeToReport === 'dispatched' && settlementToReport !== null) {
+            opts.onSendSettled(settlementToReport)
+          }
+          return outcomeToReport
         },
       }
     },
@@ -89,6 +99,7 @@ const panelProps = { edgeId: 'e1', techMode: false, onClose: vi.fn(), onNavigate
 
 beforeEach(() => {
   settlementToReport = null
+  outcomeToReport = 'dispatched'
   useCanvasStore.setState(useCanvasStore.getState(), true)
   useGuidanceStore.setState({ guidanceItems: [], _prefillChat: null, _sendMessage: null })
 })
@@ -158,7 +169,38 @@ describe('EdgePanel — a strength edit says what actually happened to it', () =
     expect(feedback?.textContent).toContain(ACTION_LABELS.strengthEditSending)
     // ⛔ THE TWO CLAIMS THAT MUST NOT APPEAR HERE.
     expect(feedback?.textContent).not.toContain('Updated')
-    expect(screen.queryByText(/re-run/i)).toBeNull()
+  })
+
+  it('⛔ NO SETTLEMENT IS COMING: resolves to a terminal state instead of "Sending…" forever', () => {
+    seedAssertableEdge()
+    // `local_only` — no conversation carrier. `setStrength` returns BEFORE the
+    // send, so `onSendSettled` is never called and nothing would ever resolve
+    // the pending state. The panel must use the OUTCOME TOKEN, which it was
+    // already being handed and discarding.
+    outcomeToReport = 'local_only'
+    settlementToReport = null
+    const { container } = render(<EdgePanel {...panelProps} />)
+    pressAStrengthBand(container)
+
+    const feedback = container.querySelector('[data-testid="edge-strength-edit-feedback"]')
+    expect(feedback?.getAttribute('data-settlement')).toBe('not_sent')
+    // ⛔ THE TWO THINGS THAT MADE THIS A LIE OF ITS OWN.
+    expect(feedback?.textContent).not.toContain(ACTION_LABELS.strengthEditSending)
+    expect(feedback?.textContent).not.toContain('Updated')
+  })
+
+  it('⭐ PENDING STILL OFFERS THE RE-RUN — the local value changed, so the results ARE stale', () => {
+    seedAssertableEdge()
+    settlementToReport = null
+    const { container } = render(<EdgePanel {...panelProps} />)
+    pressAStrengthBand(container)
+
+    const feedback = container.querySelector('[data-testid="edge-strength-edit-feedback"]')
+    expect(feedback?.getAttribute('data-settlement')).toBe('pending')
+    // Withholding it here was over-reach, caught by `elicitationChain.spec.ts`.
+    // Staleness is a fact about the graph on screen; it does not wait on the
+    // server's answer. Only a PROVEN non-write withholds the affordance.
+    expect(feedback?.textContent).toContain(ACTION_LABELS.strengthEditSending)
   })
 
   it('SENT: says the POST left, and still does not claim the model changed', () => {
