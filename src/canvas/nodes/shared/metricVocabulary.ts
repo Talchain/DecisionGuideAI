@@ -405,11 +405,27 @@ export const STRUCTURAL_UNSET = {
  *     avoided, one level down — and it needs the same treatment the possessive
  *     got, which is a basis-aware surface rather than a legend row.
  *
- * ⚠ NOT EXHAUSTIVE, AND SAYING SO. `#1`/`#2` sensitivity ranks and `est.` are
- * here because they are numerals-with-a-meaning that a reader meets on the
+ * ⚠ NOT EXHAUSTIVE, AND SAYING SO. ~~`#1`/`#2` sensitivity ranks and~~ `est.`
+ * are here because they are numerals-with-a-meaning that a reader meets on the
  * card; `Stability` is not, because it renders with its noun spelled out in
  * full beside it and needs no key. If a fifth captioned quantity is added,
  * this list is where it goes.
+ *
+ * ⚠⚠ THE ADMISSION TEST ABOVE NO LONGER EXPLAINS WHY THE RANK ROW IS HERE, AND
+ * THAT IS WORTH SAYING RATHER THAN QUIETLY REWRITING. The rank badge now
+ * renders `Key driver 1` — its noun spelled out in full, which is the exact
+ * property the sentence gives for EXCLUDING `Stability`. By that test the row
+ * should have left with the numeral.
+ *
+ * It stays, because the test was never the whole reason. A key is earned by a
+ * marking whose MEANING is not recoverable from the card, and spelling the
+ * noun out closes only half of this one: `Key driver 1` says which set the
+ * number indexes, and still not WHAT ORDERS THE SET. Ranked by sensitivity —
+ * so `1` is the factor the result moves most on, which is very often the
+ * factor the team has the least evidence about. That is the sentence
+ * `SENSITIVITY_RANK_CLAUSE` carries and no badge has room for.
+ *
+ * `Stability` needs no key because its noun IS its meaning. This one's is not.
  */
 export interface MetricLegendRow {
   /** The word (or numeral) as the card renders it. */
@@ -452,13 +468,74 @@ export const SENSITIVITY_RANK_CLAUSE = 'the factors the result is most sensitive
 export const ORDINAL_MINT_CLAUSE = 'the order the options were first laid out in'
 
 /**
- * The rank badge's accessible name. `BaseNode` renders `#N` and nothing else,
- * so without this a screen reader gets the bare string "#1" — and "#1" on a
- * factor means the OPPOSITE of "1" on an option card, which is the confusion
- * the legend exists to prevent.
+ * ⭐⭐ THE NOUN THE RANK BADGE NOW SAYS OUT LOUD — MINTED NOWHERE, PROMOTED
+ * FROM THE SENTENCE THAT ALREADY SAID IT.
+ *
+ * ⛔ THE DEFECT, measured on deployed staging 18 Sep 2026: the badge rendered
+ * `#1` / `#2` / `#3` and nothing else. **`#1` reads as BEST.** It means MOST
+ * SENSITIVE — which on a factor card is usually the thing the team knows
+ * LEAST about, and therefore the thing they should argue with rather than
+ * trust. The glyph inverted its own meaning on the cards that matter most,
+ * and it did so in the one channel a reader cannot opt out of: the number was
+ * the whole of the visible copy.
+ *
+ * ⚠ THE HALF THAT WAS ALREADY RIGHT, AND WHY NOTHING IS MINTED HERE. The
+ * accessible name has said `Key driver #N` since #1414 — so a screen-reader
+ * user was told which badge this is and a sighted user was not. The word
+ * existed; it was simply never rendered. "Key driver" is also the estate's
+ * standing noun for this quantity (`driversAdapter.ts`'s `Key drivers`,
+ * `DriverChips`'s `aria-label`), so promoting it costs no new vocabulary —
+ * the alternative, inventing a canvas-only word, is how this file's own
+ * header describes the four-vocabularies defect it exists to close.
+ *
+ * ⛔ AND THE `#` GOES, IN BOTH CHANNELS, WHICH IS THE POINT RATHER THAN A
+ * TIDY-UP. `#` is the placing sigil: `#1` in ordinary English is a placing
+ * even when the noun beside it is not a contest. With the noun rendered,
+ * `Key driver 1` reads as an index into a named set; `Key driver #1` reads as
+ * the winner of one. Dropping it also makes the visible string a LITERAL
+ * PREFIX of the accessible name (WCAG 2.5.3 Label in Name) — true by
+ * construction below, not by two authors agreeing.
+ */
+export const SENSITIVITY_RANK_NOUN = 'Key driver'
+
+/**
+ * What the badge RENDERS. One builder, two consumers — the visible text and
+ * the accessible name below — so the card and the screen reader cannot be
+ * given different words for the same badge. That drift is not hypothetical
+ * here: it is exactly what #1414 shipped, and the comment block above
+ * `SENSITIVITY_RANK_CLAUSE` is its post-mortem.
+ */
+export const sensitivityRankBadgeLabel = (rank: number): string =>
+  `${SENSITIVITY_RANK_NOUN} ${rank}`
+
+/**
+ * The legend's row heading for this badge. `MetricLegendRow.noun` is
+ * documented as "the word (or numeral) as the card renders it", so it is
+ * BUILT from the badge's own noun rather than re-typed: a heading reading
+ * `#1, #2, #3` beside a card reading `Key driver 1` is a key that does not
+ * match the thing it is a key for, and the reader opens the key PRECISELY
+ * when the badge already puzzles them.
+ *
+ * ⭐ Exported because `CanvasLegendPopover`'s `METRIC_ROW_VISIBLE` is KEYED BY
+ * NOUN, and its own docblock names this row as one of three keys that are
+ * "re-typed literals with no exported constant … a hand-maintained mirror of
+ * a register in another file (trap 12)". This makes one of the three derived.
+ */
+export const SENSITIVITY_RANK_LEGEND_NOUN = `${SENSITIVITY_RANK_NOUN} 1, 2, 3`
+
+/**
+ * The rank badge's accessible name. Built from the visible label, so the
+ * spoken string opens with the string on screen and then says what the badge
+ * counts — the part a badge has no room for.
+ *
+ * ⚠ The historic note this replaced said `BaseNode` "renders `#N` and nothing
+ * else, so without this a screen reader gets the bare string '#1'". That was
+ * true when written and is the record of why this builder exists; what has
+ * changed is that the sighted reader is no longer the one left with the bare
+ * numeral.
  */
 export const sensitivityRankBadgeAccessibleName = (rank: number): string =>
-  `Key driver #${rank}: one of ${SENSITIVITY_RANK_CLAUSE}`
+  `${sensitivityRankBadgeLabel(rank)}: one of ${SENSITIVITY_RANK_CLAUSE}`
 
 /**
  * The option ordinal badge's accessible name. Deliberately NOT a bare
@@ -534,7 +611,11 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     gloss: 'how strongly a risk or outcome connects to the goal',
   },
   {
-    noun: '#1, #2, #3',
+    // ⭐ THE HEADING IS NOW THE BADGE'S OWN WORDS, BY CONSTRUCTION. It read
+    // `#1, #2, #3` while the badge rendered the same numerals; the badge now
+    // says `Key driver 1`, so a re-typed heading here would have been a key
+    // naming a marking that is no longer on any card.
+    noun: SENSITIVITY_RANK_LEGEND_NOUN,
     // ⭐ SHARED WITH THE BADGE'S OWN ACCESSIBLE NAME, by import rather than by
     // repetition — see SENSITIVITY_RANK_CLAUSE above. Byte-identical to the
     // literal it replaced.

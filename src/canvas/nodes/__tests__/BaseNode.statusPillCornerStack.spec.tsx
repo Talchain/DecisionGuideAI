@@ -16,25 +16,42 @@
  * covered 15px² of the dot's 25px² (60%). The no-run-history arm of the same run
  * measured zero co-occurrence, so the probe discriminates.
  *
- * ⚠ THE PAIR THAT CANNOT HAPPEN, pinned below rather than assumed: the
- * sensitivity-rank badge requires `results.status === 'complete'`
- * (`isResultsMode`, declared in `useNodeDisplayMetadata.ts`) and the pill
- * requires `results.status !== 'complete'` (`isPreRunMode`, declared in
- * `BaseNode.tsx`) — exact complements on ONE store field, so rank and pill are
- * structurally unable to co-occur. Both were line offsets until 2026-09-04;
- * `#1175` moved the hook's and the corner-stack change moved BaseNode's, so
- * both pointed at unrelated lines within days. Symbols do not move. This file
- * does NOT mock `useNodeDisplayMetadata`, so nothing here can manufacture a state
- * the product cannot reach (CLAUDE.md trap 16-inverse — a fixture you wrote
- * yourself is not evidence about the product).
+ * ⛔⛔ THE PAIR THIS FILE CALLED IMPOSSIBLE IS REACHABLE, AND HAS BEEN SINCE THE
+ * "NEEDS INPUT" MARKER STOPPED BEING PHASE-GATED ON FACTORS (corrected
+ * 2026-09-18). This header read: *"the sensitivity-rank badge requires
+ * `results.status === 'complete'` … and the pill requires `results.status !==
+ * 'complete'` … exact complements on ONE store field, so rank and pill are
+ * structurally unable to co-occur."*
  *
- * ⚠ BUT NOT MOCKING THE HOOK IS NOT ITSELF A PIN, and claiming it was is the one
- * thing this file got wrong first time round. A rendered ABSENCE of the rank
- * badge here is over-determined — this mock's `report` is null and the node is a
- * goal, and either alone suppresses the badge whatever the status gate does — so
- * a mutant forcing `isResultsMode = true` SURVIVED the original render-based pin.
- * The complement is asserted at the SOURCE instead, in the last test. See its
- * header for the full account.
+ * `isIncomplete`'s FACTOR arm returns `isFactorNeedsInput(data)` with no phase
+ * check (`BaseNode.tsx`; `BaseNode.needsInputSurvivesTheRun.spec.tsx` pins it,
+ * and its CASE 1 renders the pill at `results.status: 'complete'`). The rank is
+ * assigned on factors from the results report with no exclusion for unvalued
+ * ones. So on a FACTOR the two render together — see
+ * `BaseNode.rankedFactorStillNeedsInput.spec.tsx`, which is where that pair is
+ * now pinned at the render.
+ *
+ * ⭐ WHAT THIS FILE STILL PINS, AND IT IS A REAL CLAIM: this fixture is a GOAL,
+ * and `goal` KEEPS the phase gate. The pill and the rank badge genuinely cannot
+ * co-occur here — not because the gates are complements in general, but because
+ * this node type's arm is still phase-gated and the rank badge is factor-only.
+ *
+ * ⚠ WHY THE OLD PIN STAYED GREEN ON A FALSE CLAIM — the reusable half. It
+ * asserted that two DECLARATIONS exist (`const isPreRunMode = …` in
+ * `BaseNode.tsx`, `const isResultsMode = …` in the hook). Both still do. It
+ * never asserted that the pill's factor arm CONSUMES `isPreRunMode`, and that
+ * is the line that went. A guard pinned to a declaration rather than to its
+ * consumption cannot see a consumer leave (CLAUDE.md trap 13b). Re-pointed at
+ * the arm in the last test.
+ *
+ * ⚠ AN EARLIER ROUND HAD ALREADY FOUND HALF OF THIS AND FIXED THE WRONG HALF. It
+ * began as a RENDER assertion — mount the pill, assert no rank badge — and a
+ * mutant forcing `isResultsMode = true` SURVIVED it, because this mock's
+ * `report` is null and the node is a goal, either of which suppresses the badge
+ * whatever the status gate says. The conclusion drawn was that the render was
+ * over-determined and the claim belonged at the source. The render WAS
+ * over-determined; the claim was also FALSE, and moving a false claim to a
+ * stronger-looking instrument made it harder to see, not easier.
  *
  * ORDER: pill · rank · edited-dot · coaching, widest-first. The stack is
  * right-anchored and grows leftward, so widest-first keeps the small badges
@@ -175,25 +192,29 @@ describe('BaseNode — "Needs input" pill joins the corner stack', () => {
   })
 
   /**
-   * ⚠ THIS PIN IS SOURCE-DERIVED, AND THE FIRST VERSION OF IT WAS VACUOUS.
+   * ⛔⛔ THIS TEST USED TO PIN AN IMPOSSIBILITY THAT IS NOT ONE. Its assertions
+   * are kept, its CLAIM is replaced, and the difference between those two
+   * things is the whole finding.
    *
-   * It began as a RENDER assertion — mount the pill, assert no rank badge. A
-   * mutant that forced `isResultsMode = true` in `useNodeDisplayMetadata`
-   * SURVIVED it. Two confounds in this file's own fixture, either of which
-   * alone makes the rank badge absent no matter what the status gate says:
-   *   1. the hook short-circuits on `!report`, and this mock's report is null;
-   *   2. the rank badge is FACTOR-only and the node under test is a goal.
-   * So the render could never have been sensitive to the complement it claimed
-   * to pin — a guard whose discrimination came entirely from its fixture
-   * (CLAUDE.md trap 13b).
+   * It asserted that `const isPreRunMode = …` exists in `BaseNode.tsx` and
+   * `const isResultsMode = …` exists in the hook, and concluded from that pair
+   * of DECLARATIONS that the pill and the rank badge can never co-occur. Both
+   * declarations still exist. The conclusion is false, and was false before
+   * this test was last touched: `isIncomplete`'s FACTOR arm no longer consumes
+   * `isPreRunMode` at all, so on a factor the pill outlives the run and can sit
+   * beside the rank badge (`BaseNode.rankedFactorStillNeedsInput.spec.tsx`).
    *
-   * The claim worth pinning is a STRUCTURAL one about two gates in two files,
-   * so it is asserted where it actually lives. If either expression changes,
-   * this REDs and the next session must re-derive whether the pill and the rank
-   * badge can now co-occur — and, if they can, measure that pair's geometry
-   * rather than inheriting this file's verdict.
+   * A guard pinned to a declaration cannot see a CONSUMER leave. So this now
+   * reads the two ARMS of `isIncomplete` and pins the asymmetry that is
+   * actually there — with the goal arm as the contrast control, so a reader
+   * that could not see either arm's text cannot pass by finding nothing.
+   *
+   * If the factor arm gains a phase gate, or the goal arm loses one, this REDs
+   * and the next session must re-derive the corner stack's reachable maximum
+   * (four members on a factor, three elsewhere) and re-measure that row rather
+   * than inheriting this file's verdict.
    */
-  it('IMPOSSIBILITY PIN: the pill gate and the rank gate are exact complements on one store field', () => {
+  it('ARM PIN: the goal arm is phase-gated and the factor arm is NOT — so the complement is not total', () => {
     const baseNode = readFileSync(
       resolve(__dirname, '../BaseNode.tsx'), 'utf8')
     const metadataHook = readFileSync(
@@ -204,9 +225,37 @@ describe('BaseNode — "Needs input" pill joins the corner stack', () => {
     expect(baseNode).toContain('node-corner-stack-')
     expect(metadataHook).toContain('useNodeDisplayMetadata')
 
-    // The pill mounts only in pre-run mode...
+    // Both declarations are still here. They are NOT the claim.
     expect(baseNode).toContain("const isPreRunMode = resultsStatus !== 'complete'")
-    // ...and the rank badge only in results mode. One field, opposite tests.
     expect(metadataHook).toContain("const isResultsMode = resultsStatus === 'complete'")
+
+    // Read the arms out of `isIncomplete` itself, bounded by the next
+    // declaration after it, so a phase gate elsewhere in the file cannot be
+    // mistaken for one inside an arm.
+    const open = baseNode.indexOf('const isIncomplete = (() => {')
+    expect(open).toBeGreaterThan(-1)
+    const close = baseNode.indexOf('const controllability =', open)
+    expect(close).toBeGreaterThan(open)
+    const isIncompleteSrc = baseNode.slice(open, close)
+
+    const armAfter = (type: string): string => {
+      const start = isIncompleteSrc.indexOf(`if (nodeType === '${type}') {`)
+      expect(start).toBeGreaterThan(-1)
+      const rest = isIncompleteSrc.slice(start + 1)
+      const next = rest.indexOf("if (nodeType === '")
+      return next === -1 ? rest : rest.slice(0, next)
+    }
+
+    const factorArm = armAfter('factor')
+    const goalArm = armAfter('goal')
+
+    // CONTRAST CONTROL — the goal arm DOES carry the phase gate. Without this
+    // the negative assertion below would also pass on a reader that sliced
+    // nothing useful out of the file.
+    expect(goalArm).toContain('if (!isPreRunMode) return false')
+
+    // THE CLAIM: the factor arm asks about the GAP and nothing else.
+    expect(factorArm).toContain('isFactorNeedsInput(data)')
+    expect(factorArm).not.toContain('isPreRunMode')
   })
 })
