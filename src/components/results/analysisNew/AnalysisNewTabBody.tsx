@@ -1700,129 +1700,35 @@ export function AnalysisNewTabBody({
 
             It renders on re-runs only: the producer emits no delta on a first
             run, and absence renders nothing at all. */}
-        {/* ⭐⭐ THE ANSWER, ALWAYS HERE. This used to render in one of TWO places
-            depending on whether the glance withheld its figures — promoted to
-            the top on a withheld run, and fifteen blocks down otherwise. The
-            conditional was solving the right problem in the wrong direction:
-            "how the options compare" and "what your model implies" ARE the
-            answer, so they belong beside the glance on every run, not only on
-            the runs where the glance had nothing to say.
+        {/* ⭐⭐⭐ WHAT MATTERS MOST READS FIRST — Paul's ruling, 18 Sep 2026.
+            "Take option (d) — reorder so drivers come first."
 
-            ⚠ THE PAIR STAYS BOUND. `answerBlock` carries `ModelImplication`
-            and `OptionsComparison` together because the claim moves with its
-            entitlement; splitting them is what put a withheld claim on screen
-            before. Moving the fragment moves both. */}
-        {answerBlock}
+            ⛔ THE FOLD WIN FROM #1665 WAS WORTH ±20px OF RUN CONTENT. Measured
+            on three deployed states at 1600×1000 (fold 869): a fresh withheld
+            run cleared it by +17px; #1668's touch-target repair took that to
+            +10px; and after one estimate and a re-run it was **−3px, BELOW the
+            fold**. A bar item that depends on which factors a reader happens to
+            have estimated is not met, it is lucky.
 
-        {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
-            One line where seven sections answered one question. It states the
-            producer's verdict and routes to the method; it combines nothing and
-            scores nothing. See `TrustLine` for why a single "trust score" is
-            the one thing this must never render. */}
-        <TrustLine
-          verdict={vm.atAGlance.verdict}
-          checksRan={vm.checks.items.length}
-          openQuestions={vm.uncertainty.findings.length}
-          methodOpen={methodOpen}
-          onOpenMethod={() => setMethodOpen(true)}
-        />
+            ⭐ THIS REORDER COSTS NO HEIGHT AND BUYS 366px OF MARGIN. Measured
+            by moving the node on the deployed build before writing this: the
+            drivers' bottom goes 858 → 491 against the same 869 fold — **+12px
+            of margin becomes +378px** — and the options comparison stays above
+            it (bottom 778, +91px). No copy, no behaviour, no new element.
 
-        <WhatsChanged view={vm.whatsChanged} />
+            ⚠ AND THE HONEST LIMIT, MEASURED AT A SECOND VIEWPORT: at 1440×860
+            (fold 729) the answer zone EXCEEDS the viewport and this becomes an
+            either/or — drivers +238px above, options −49px below. So this does
+            not "solve" the fold; it decides WHICH of the two sits above it, the
+            way Paul's earlier ruling already did. Shortening the zone is the
+            only route to having both on a 1440 laptop, and that is rowed.
 
-        <RobustnessCaveat
-          leaderClaimPermitted={vm.leaderClaimPermitted}
-          verdictReason={vm.atAGlance.verdict?.reason ?? null}
-        />
-
-        {/* ── THE MODEL HELD UP ─────────────────────────────────────────────
-            ⭐ DIRECTLY UNDER THE GLANCE, and it renders on almost no runs —
-            which is the point. It is the panel's TERMINAL state: when the model
-            holds up, every section below has nothing to say and the surface
-            goes quiet at exactly the moment the team should be handed their
-            decision. Placed after the reading it concludes, never before it. */}
-        <ModelHeldUp
-          /**
-           * ⛔⛔ THESE TWO WERE MISSING AND THE DEFAULTS WERE DOING REAL WORK.
-           * `ModelHeldUp` consults `useRobustnessCaveatOnScreen` so the two
-           * trust surfaces cannot contradict each other. That hook needs the
-           * SAME two inputs `RobustnessCaveat` is given four lines up — and this
-           * mount passed neither, so it fell back to `leaderClaimPermitted =
-           * true` on every run.
-           *
-           * The consequence was the exact failure the fix exists to prevent,
-           * inverted: on a WITHHELD run the caveat correctly renders nothing,
-           * while this section believed one was on screen and silenced itself —
-           * so the reader got NEITHER statement. My spec passed
-           * `leaderClaimPermitted={false}` explicitly and was green; the product
-           * used the default. A guard that supplies what the mount omits tests
-           * the component and not the product (CLAUDE.md trap 3b's shape).
-           *
-           * ⚠ QUOTED FROM THE SAME TWO EXPRESSIONS `RobustnessCaveat` reads, not
-           * recomputed — two spellings of one question is how this pair came to
-           * disagree in the first place.
-           */
-          leaderClaimPermitted={vm.leaderClaimPermitted}
-          verdictReason={vm.atAGlance.verdict?.reason ?? null}
-          verdictTone={vm.atAGlance.verdict?.tone ?? null}
-          /* ⚠⚠ BOTH LIMBS, AND THE FIRST IS WHAT KEEPS THIS HONEST. "Assessed,
-             none found" and "never assessed" both produce an empty array, and
-             congratulating a team on a model whose evidence was never examined
-             is a lie told in the surface's most confident voice. */
-          evidenceAssessed={vm.uncertainty.evidenceAssessed}
-          gapCount={vm.uncertainty.findings.length}
-          isStale={vm.status.isStale}
-          isPreRun={vm.status.isPreRun}
-          /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
-             above renders `missingResults` on a provisional run — without this
-             the panel names the results that did not come back and then
-             congratulates the reader on the model, in that order. */
-          isProvisional={vm.status.isProvisional}
-          /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
-             The banner's predicate answers "did this model hold up?"; the act
-             answers "may I write down what we chose?" — and hanging the second
-             off the first made recording a decision reachable ONLY on a run
-             that held up, which is backwards (CLAUDE.md trap 21). The act is
-             now the section directly below, on its own gate. */
-          testId="analysis-new-held-up"
-        />
-
-
-        {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
-            ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
-            Witnessed on staging `e685dafa`: the single most decision-relevant
-            sentence this product emits —
-
-              "If \"Bottom-Up Adoption Friction → Bottom-Up Adoption Rate\"
-               changes significantly, \"A Full Switch at Renewal\" could become
-               the better choice"
-
-            — rendered inside "Uncertainty and gaps", a heading that reads as a
-            list of caveats. Meanwhile "How the options compare", which restates
-            the headline, had a section of its own higher up. That is an
-            inverted information architecture, and this is the correction.
-
-            ⚠ ABOVE THE COACHING, DELIBERATELY, AND IT DOES NOT CONTRADICT THE
-            NOTE BELOW. That note's rule is WHAT HAPPENED → WHAT TO DO → THE
-            DETAIL. "What would change your mind" is the last half of what
-            happened, not the first half of what to do: it is a property of the
-            result the glance just stated, and the coaching that follows is a
-            response to BOTH. Placed under the coaching it would be detail
-            again, which is where it came from.
-
-            ⚠⚠ `emptyMessage={null}` IS THE GATE, AND IT IS THE WHOLE OF IT.
-            An empty list here cannot distinguish "nothing would flip this" from
-            "the run did not test it", and only one of those is reassurance —
-            so the section must be ABSENT rather than empty. `AnalysisNewSection`
-            already owns that rule (`findings.length === 0 && !emptyMessage`
-            returns null, §19), so a `length > 0` conditional at this mount was
-            REDUNDANT — and a mutant proved it: deleting it left all 59 tests
-            green. Dead code shaped like a safety gate is worse than none, because
-            it tells the next reader the mount decides when the section does.
-            The mutant that bites is giving this an emptyMessage.
-
-            ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
-            carries them. A reader meeting one sentence in two sections is a
-            defect this panel has already shipped. */}
+            ⛔ IT GOES BEFORE THE WHOLE PAIR, NOT BETWEEN ITS HALVES, AND THAT
+            IS NOT A PREFERENCE. `answerBlock` binds `ModelImplication` to
+            `OptionsComparison` because "every claim moves with its
+            entitlement" — splitting them is what once put a withheld claim on
+            screen. Inserting between them would be exactly that split, so the
+            only placement that respects the binding is above both. */}
         {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
             ⭐⭐⭐ MOVED INTO THE ANSWER ZONE, 17 Sep 2026, ON PAUL'S RULING.
 
@@ -1987,6 +1893,130 @@ export function AnalysisNewTabBody({
           <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
           </SectionShell>
         ) : null}
+
+        {/* ⭐⭐ THE ANSWER, ALWAYS HERE. This used to render in one of TWO places
+            depending on whether the glance withheld its figures — promoted to
+            the top on a withheld run, and fifteen blocks down otherwise. The
+            conditional was solving the right problem in the wrong direction:
+            "how the options compare" and "what your model implies" ARE the
+            answer, so they belong beside the glance on every run, not only on
+            the runs where the glance had nothing to say.
+
+            ⚠ THE PAIR STAYS BOUND. `answerBlock` carries `ModelImplication`
+            and `OptionsComparison` together because the claim moves with its
+            entitlement; splitting them is what put a withheld claim on screen
+            before. Moving the fragment moves both. */}
+        {answerBlock}
+
+        {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
+            One line where seven sections answered one question. It states the
+            producer's verdict and routes to the method; it combines nothing and
+            scores nothing. See `TrustLine` for why a single "trust score" is
+            the one thing this must never render. */}
+        <TrustLine
+          verdict={vm.atAGlance.verdict}
+          checksRan={vm.checks.items.length}
+          openQuestions={vm.uncertainty.findings.length}
+          methodOpen={methodOpen}
+          onOpenMethod={() => setMethodOpen(true)}
+        />
+
+        <WhatsChanged view={vm.whatsChanged} />
+
+        <RobustnessCaveat
+          leaderClaimPermitted={vm.leaderClaimPermitted}
+          verdictReason={vm.atAGlance.verdict?.reason ?? null}
+        />
+
+        {/* ── THE MODEL HELD UP ─────────────────────────────────────────────
+            ⭐ DIRECTLY UNDER THE GLANCE, and it renders on almost no runs —
+            which is the point. It is the panel's TERMINAL state: when the model
+            holds up, every section below has nothing to say and the surface
+            goes quiet at exactly the moment the team should be handed their
+            decision. Placed after the reading it concludes, never before it. */}
+        <ModelHeldUp
+          /**
+           * ⛔⛔ THESE TWO WERE MISSING AND THE DEFAULTS WERE DOING REAL WORK.
+           * `ModelHeldUp` consults `useRobustnessCaveatOnScreen` so the two
+           * trust surfaces cannot contradict each other. That hook needs the
+           * SAME two inputs `RobustnessCaveat` is given four lines up — and this
+           * mount passed neither, so it fell back to `leaderClaimPermitted =
+           * true` on every run.
+           *
+           * The consequence was the exact failure the fix exists to prevent,
+           * inverted: on a WITHHELD run the caveat correctly renders nothing,
+           * while this section believed one was on screen and silenced itself —
+           * so the reader got NEITHER statement. My spec passed
+           * `leaderClaimPermitted={false}` explicitly and was green; the product
+           * used the default. A guard that supplies what the mount omits tests
+           * the component and not the product (CLAUDE.md trap 3b's shape).
+           *
+           * ⚠ QUOTED FROM THE SAME TWO EXPRESSIONS `RobustnessCaveat` reads, not
+           * recomputed — two spellings of one question is how this pair came to
+           * disagree in the first place.
+           */
+          leaderClaimPermitted={vm.leaderClaimPermitted}
+          verdictReason={vm.atAGlance.verdict?.reason ?? null}
+          verdictTone={vm.atAGlance.verdict?.tone ?? null}
+          /* ⚠⚠ BOTH LIMBS, AND THE FIRST IS WHAT KEEPS THIS HONEST. "Assessed,
+             none found" and "never assessed" both produce an empty array, and
+             congratulating a team on a model whose evidence was never examined
+             is a lie told in the surface's most confident voice. */
+          evidenceAssessed={vm.uncertainty.evidenceAssessed}
+          gapCount={vm.uncertainty.findings.length}
+          isStale={vm.status.isStale}
+          isPreRun={vm.status.isPreRun}
+          /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
+             above renders `missingResults` on a provisional run — without this
+             the panel names the results that did not come back and then
+             congratulates the reader on the model, in that order. */
+          isProvisional={vm.status.isProvisional}
+          /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
+             The banner's predicate answers "did this model hold up?"; the act
+             answers "may I write down what we chose?" — and hanging the second
+             off the first made recording a decision reachable ONLY on a run
+             that held up, which is backwards (CLAUDE.md trap 21). The act is
+             now the section directly below, on its own gate. */
+          testId="analysis-new-held-up"
+        />
+
+
+        {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
+            ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
+            Witnessed on staging `e685dafa`: the single most decision-relevant
+            sentence this product emits —
+
+              "If \"Bottom-Up Adoption Friction → Bottom-Up Adoption Rate\"
+               changes significantly, \"A Full Switch at Renewal\" could become
+               the better choice"
+
+            — rendered inside "Uncertainty and gaps", a heading that reads as a
+            list of caveats. Meanwhile "How the options compare", which restates
+            the headline, had a section of its own higher up. That is an
+            inverted information architecture, and this is the correction.
+
+            ⚠ ABOVE THE COACHING, DELIBERATELY, AND IT DOES NOT CONTRADICT THE
+            NOTE BELOW. That note's rule is WHAT HAPPENED → WHAT TO DO → THE
+            DETAIL. "What would change your mind" is the last half of what
+            happened, not the first half of what to do: it is a property of the
+            result the glance just stated, and the coaching that follows is a
+            response to BOTH. Placed under the coaching it would be detail
+            again, which is where it came from.
+
+            ⚠⚠ `emptyMessage={null}` IS THE GATE, AND IT IS THE WHOLE OF IT.
+            An empty list here cannot distinguish "nothing would flip this" from
+            "the run did not test it", and only one of those is reassurance —
+            so the section must be ABSENT rather than empty. `AnalysisNewSection`
+            already owns that rule (`findings.length === 0 && !emptyMessage`
+            returns null, §19), so a `length > 0` conditional at this mount was
+            REDUNDANT — and a mutant proved it: deleting it left all 59 tests
+            green. Dead code shaped like a safety gate is worse than none, because
+            it tells the next reader the mount decides when the section does.
+            The mutant that bites is giving this an emptyMessage.
+
+            ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
+            carries them. A reader meeting one sentence in two sections is a
+            defect this panel has already shipped. */}
 
         <AnalysisNewSection
           title={COPY.sections.sensitivity}
