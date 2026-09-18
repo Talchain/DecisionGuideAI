@@ -987,7 +987,7 @@ export function useEdgeMutations(edgeId: string) {
     const event = buildEdgeStrengthEditEvent({
       edge,
       requestedMean: mean,
-      preserveDirection: opts.preserveDirection,
+      preserveDirection: opts?.preserveDirection,
     })
     const absWeight = Math.abs(mean)
     updateEdge(edgeId, {
@@ -1002,7 +1002,7 @@ export function useEdgeMutations(edgeId: string) {
         // slider IS stating a direction, so the value stops being a default in
         // the same update. Under `preserveDirection` neither key is written —
         // a magnitude edit must not mint a direction claim (ROADMAP 2.263).
-        ...(opts.preserveDirection
+        ...(opts?.preserveDirection
           ? {}
           : { direction: mean >= 0 ? 'positive' : 'negative', directionSource: 'user' }),
         weightSource: 'user',
@@ -1046,7 +1046,26 @@ export function useEdgeMutations(edgeId: string) {
      * would alter behaviour for all three at once, and that is a separate
      * decision, taken deliberately or not at all.
      */
-    settleSystemEventSend(sendSystemEvent(event), opts.onSendSettled)
+    /**
+     * ⚠ `opts?.` AT RUNTIME WHILE THE TYPE STAYS REQUIRED — and the two are
+     * doing different jobs, deliberately.
+     *
+     * The REQUIRED type is the enforcement: it is what forced all four carriers
+     * to decide and what surfaced `EdgeAdvancedEditor`'s silent β field. That
+     * does not change.
+     *
+     * But `useInspectorMutations.writtenFields.spec.tsx` is a DERIVED manifest
+     * guard — it casts the setters to `Record<string, (...a: unknown[]) => void>`
+     * so it can drive every one generically, which means TypeScript cannot see
+     * its calls at all. A one-argument call therefore passed the typecheck and
+     * threw at `opts.preserveDirection` inside a shard.
+     *
+     * ⛔ A THROW HERE IS THE WRONG FAILURE. This runs in a click handler on a
+     * live panel; a caller that omits the handler should lose the disclosure,
+     * not crash the inspector. So the optional chain is defence against a
+     * dynamic caller, and the type is what stops a real one omitting it.
+     */
+    settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
