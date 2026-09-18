@@ -1,4 +1,12 @@
 /**
+ * ⛔⛔ UNRUN IN THIS SESSION — CI IS THE AUTHORITY.
+ * The 18 Sep re-point below (`'node'` -> `'structural'`) and the set assertion
+ * added with it were written under a hard no-execution constraint: no vitest,
+ * no typecheck, no install was run against this tree. Nothing here has been
+ * observed to pass OR to fail. Treat the "Staging Tests" run on this branch as
+ * the only evidence about these assertions.
+ */
+/**
  * ⭐⭐⭐ "AI ESTIMATE" OVER THE USER'S OWN £49 — the founder saw this himself.
  *
  * Settled at a captured wire body served by build `1690c1f`: factor `6d9a37f3`
@@ -18,6 +26,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { NodeProvenanceMark } from '../NodeProvenanceMark'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../../../domain/nodeProvenanceClaim'
+import type { NodeProvenanceClaim } from '../../../domain/nodeProvenanceClaim'
 
 /** Same binding the sibling spec uses: the mark's own testid, and the
  *  `aria-label` that carries the claim — the no-hover/no-focus channel. */
@@ -34,11 +43,22 @@ const label = () => mark()!.getAttribute('aria-label')!
  * Every OTHER test in this file is untouched and still uses `label()`: their
  * fixtures agree (`ai_inferred` + `cee_hypothesis`), or carry no value source,
  * so exactly one mark renders and the old binding remains exact.
+ *
+ * ⛔⛔ RE-POINTED 18 Sep 2026 TO THE DOMAIN VOCABULARY, AND THE HELPER'S OWN TYPE
+ * WAS HALF THE DEFECT. This read `(claim: 'node' | 'value')` while the card's
+ * authorship mark emitted `data-provenance-claim="node"` — a fourth value in a
+ * vocabulary whose owner declares three (`NodeProvenanceClaim = 'value' |
+ * 'structural' | 'none'`). Spec and component AGREED on a spelling the domain
+ * type, the label builder and six other assertions all reject, so the split was
+ * cemented on both sides and no assertion anywhere could see it. Typing the
+ * helper from the DOMAIN rather than from the component's argument is what makes
+ * a future re-split a type error here as well as at the card.
  */
-const marksByClaim = (claim: 'node' | 'value') =>
+type MarkClaim = Exclude<NodeProvenanceClaim, 'none'>
+const marksByClaim = (claim: MarkClaim) =>
   screen.queryAllByTestId('node-provenance-mark')
     .filter(el => el.getAttribute('data-provenance-claim') === claim)
-const claimLabel = (claim: 'node' | 'value') => {
+const claimLabel = (claim: MarkClaim) => {
   const found = marksByClaim(claim)
   expect(found, `expected exactly one "${claim}" mark`).toHaveLength(1)
   return found[0].getAttribute('aria-label')!
@@ -101,8 +121,19 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
     // typecheck gate while this assertion stayed green, because a type error
     // still renders SOMETHING and that something did not contain "From brief".
     // A negative assertion is satisfied by every wrong answer but one.
-    expect(claimLabel('node')).toBe(STRUCTURAL_PROVENANCE_LABEL.ai)
-    expect(marksByClaim('node')).toHaveLength(1)
+    expect(claimLabel('structural')).toBe(STRUCTURAL_PROVENANCE_LABEL.ai)
+    expect(marksByClaim('structural')).toHaveLength(1)
+
+    // ⛔ AND NO FOURTH SPELLING. The two assertions above bind by identity, but
+    // each only proves its OWN claim is present — neither can see a mark
+    // carrying a value outside the domain vocabulary, which is precisely what
+    // shipped (`"node"`). This pins the EXACT SET the card emits, so a fourth
+    // spelling REDs here as well as at the compiler.
+    expect(
+      screen.queryAllByTestId('node-provenance-mark')
+        .map(el => el.getAttribute('data-provenance-claim'))
+        .sort(),
+    ).toEqual(['structural', 'value'])
   })
 
   /**

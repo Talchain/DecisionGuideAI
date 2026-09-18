@@ -1,6 +1,7 @@
 import { classifyNodeProvenance, classifyValueProvenance } from '../../domain/valueProvenance'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 import { nodeProvenanceClaim, provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
+import type { NodeProvenanceClaim } from '../../domain/nodeProvenanceClaim'
 import { olumiAuthorshipIsAmbiguous } from '../../domain/olumiAuthorshipClaim'
 import type { NodeType } from '../../domain/nodes'
 import {
@@ -238,6 +239,56 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
    * wearing the opposite sign — noise that teaches a reader to ignore the
    * corner, which is where the "Needs input" pill and the rank badge also live.
    *
+   * ─────────────────────────────────────────────────────────────────────────
+   * ⭐ HOW OFTEN — MEASURED, BECAUSE "ONLY THE GENUINE DISAGREEMENT" WAS PROSE
+   * ─────────────────────────────────────────────────────────────────────────
+   * The paragraph above asserted restraint and supplied no frequency, and the
+   * branch fires on `ai_inferred` + `brief_extraction` — the shape a CEE draft
+   * plausibly produces for a factor the model named off a number in the brief.
+   * If that were the common case, "the exception" would be most factor cards
+   * and this argument would invert. So it is counted rather than claimed.
+   *
+   * SCOPE, STATED (trap 20): every tracked `*.json` in this repo at
+   * `7dce79f3` — 192 files, 249 factor nodes, of which **198 make a `'value'`
+   * claim**. Counted by replaying `SOURCE_CLASSES` / `classifyNodeProvenance` /
+   * `USER_OWNED_KINDS` / `sourceQuoteRecorded` over the captured node bodies.
+   *
+   *   | outcome for a valued factor                  | count |
+   *   |----------------------------------------------|-------|
+   *   | ⭐ TWO MARKS (authorship and value disagree)  |   **1** |
+   *   | agree, `ai`/`ai`                              |    97 |
+   *   | agree, `brief`/`brief`                        |    12 |
+   *   | both user-owned (`human`/`edited`) — exempted |     2 |
+   *   | no classifiable `observedState.source`        |    53 |
+   *   | no classifiable authorship literal            |    33 |
+   *
+   * The ONE is `6d9a37f3` "Pro Plan Monthly Price" — the node this branch was
+   * written for. **1 of 198.** The restraint claim holds on everything
+   * committed, and the dominant population by a wide margin is `ai`/`ai`, which
+   * AGREES and has always rendered one mark.
+   *
+   * ⚠ AND THE LIMIT OF THAT NUMBER, WHICH MATTERS MORE THAN THE NUMBER. The
+   * corpus is dominated by the five committed STARTER captures. The only
+   * genuine live-wire capture in the repo
+   * (`hydrate/__tests__/fixtures/pricing-provisional-poll.json`, captured
+   * 2026-09-09 off UI `81dbddd0` / CEE `a03ead1`) holds FOUR factors, of which
+   * exactly ONE carries a value at all — and that one is the two-mark case.
+   * **n = 1 is not a frequency.** The honest statement is therefore narrow: the
+   * "most factor cards" hypothesis is unsupported by anything committed, and
+   * the rate on fresh CEE drafts is UNMEASURED. A live draft capture would
+   * settle it; a starter corpus cannot.
+   *
+   * ⚠ ALSO WORTH KNOWING WHEN READING THE HEADER OF `nodeProvenanceClaim`: its
+   * corpus table counts factors carrying a VALUE KEY. This branch needs a
+   * classifiable `observedState.source`, which is strictly narrower — 145 of
+   * the 198 have one, and only that single node disagrees.
+   *
+   * ⚠ NO NON-FACTOR KIND CAN REACH THIS BRANCH ON THE CAPTURED CORPUS. `risk`
+   * and `constraint` also admit a `'value'` claim, but zero captured risks
+   * carry `probability` and zero constraints appear at all — so the nine risks
+   * that DO carry an `observed_state.source` claim `'structural'` and never
+   * compute a value class.
+   *
    * ## ⚠ ABSENCE IS NEVER A CLAIM
    * Both classifiers return `null` for absent or unrecognised input, so an
    * unstamped node renders NOTHING and acquires no attribution. Core measured
@@ -311,8 +362,8 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
   if (disagree && authorshipIsClaimable) {
     return (
       <>
-        {renderMark(provenanceClaimLabel('structural', nodeAuthorship.kind), nodeAuthorship.kind, 'node')}
-        {renderMark(provenanceClaimLabel('value', valueProvenance.kind), valueProvenance.kind, 'value')}
+        {renderMark('structural', nodeAuthorship.kind)}
+        {renderMark('value', valueProvenance.kind)}
       </>
     )
   }
@@ -320,7 +371,7 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
   const cls = valueProvenance ?? nodeAuthorship
   if (!cls) return null
 
-  return renderMark(provenanceClaimLabel(claim, cls.kind), cls.kind, claim)
+  return renderMark(claim, cls.kind)
 }
 
 /**
@@ -328,11 +379,40 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
  * always had, so the agreeing case cannot drift from the disagreeing one — the
  * hand-maintained-mirror defect that two copies of this markup would create.
  *
- * `claimFor` is carried through to `data-provenance-claim` so a spec can bind
- * to WHICH QUESTION a mark answers by identity rather than by reading its
- * words (trap 19) — with two marks present, position is not identity.
+ * `claim` is carried through to `data-provenance-claim` so a spec can bind to
+ * WHICH QUESTION a mark answers by identity rather than by reading its words
+ * (trap 19) — with two marks present, position is not identity.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⛔⛔ A FOURTH VALUE IN A THREE-MEMBER VOCABULARY — AND THE SIGNATURE IS WHY
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This took `(label, kind, claimFor: string)`, i.e. the LABEL and the ATTRIBUTE
+ * as two independent arguments, and the two-mark return passed
+ * `provenanceClaimLabel('structural', …)` beside `claimFor: 'node'`. The words
+ * came from one vocabulary and the attribute from another, in one call, and
+ * `claimFor: string` accepted it silently.
+ *
+ * ⚠ THAT IS A DIFFERENT DEFECT FROM THE TS2345 ALREADY FIXED ON THIS BRANCH.
+ * The earlier fix corrected the LABEL argument to `'structural'` and left the
+ * attribute as `'node'` on the reasoning that the two arguments answer
+ * different questions. They do not: `data-provenance-claim` is named for, and
+ * read as, the claim — `NodeProvenanceClaim = 'value' | 'structural' | 'none'`
+ * (`domain/nodeProvenanceClaim.ts`). `'node'` is not a member. The single-mark
+ * return below has always emitted `'structural'`, and six existing assertions
+ * plus the label builder all spell it that way, so the two-mark path emitted a
+ * value that NOTHING ELSE IN THE ESTATE CAN SELECT — on exactly the cards this
+ * feature was written for. A consumer asking
+ * `[data-provenance-claim="structural"]` matched nothing.
+ *
+ * ⭐ THE MECHANISM IS THE SIGNATURE, NOT A CORRECTED STRING. There is now ONE
+ * `claim` argument: it builds the label AND stamps the attribute, so the two
+ * cannot be given different vocabularies, and it is typed
+ * `Exclude<NodeProvenanceClaim, 'none'>`, so a fourth spelling is a TYPE ERROR
+ * at the call site rather than an attribute nobody queries. Fixing the literal
+ * alone would have left the next caller free to reintroduce it.
  */
-function renderMark(label: string, kind: ValueProvenanceKind, claimFor: string) {
+function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProvenanceKind) {
+  const label = provenanceClaimLabel(claim, kind)
   const Icon = VALUE_PROVENANCE_ICON[kind]
   return (
     <Tooltip asChild content={label} delay={NODE_TOOLTIP_DELAY_MS}>
@@ -340,7 +420,7 @@ function renderMark(label: string, kind: ValueProvenanceKind, claimFor: string) 
         data-testid="node-provenance-mark"
         data-node-tooltip="true"
         data-provenance-kind={kind}
-        data-provenance-claim={claimFor}
+        data-provenance-claim={claim}
         // The claim itself, available with no hover and no focus. The tooltip
         // above is the MOUSE channel for the same sentence — one source, so the
         // two cannot drift into saying different things about one glyph.

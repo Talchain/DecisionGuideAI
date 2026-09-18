@@ -1,4 +1,12 @@
 /**
+ * ⛔⛔ UNRUN IN THIS SESSION — CI IS THE AUTHORITY.
+ * The 18 Sep re-point below (`'node'` -> `'structural'`) and the set assertion
+ * added with it were written under a hard no-execution constraint: no vitest,
+ * no typecheck, no install was run against this tree. Nothing here has been
+ * observed to pass OR to fail. Treat the "Staging Tests" run on this branch as
+ * the only evidence about these assertions.
+ */
+/**
  * ⛔⛔ THE CANVAS MUST NOT CLAIM A USER'S OWN OPTION AS OLUMI'S.
  *
  * ── THE DEFECT, AND IT IS A TRUTHFULNESS DEFECT ──────────────────────────────
@@ -46,6 +54,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { NodeProvenanceMark } from '../NodeProvenanceMark'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../../../domain/nodeProvenanceClaim'
+import type { NodeProvenanceClaim } from '../../../domain/nodeProvenanceClaim'
 import { mapDraftNodeToCanvas } from '../../../utils/applyDraftResult'
 import poll from '../../../hydrate/__tests__/fixtures/pricing-provisional-poll.json'
 import pricingStarter from '../../../starters/data/pricing-model.draft.json'
@@ -65,8 +74,14 @@ const optionsOf = (nodes: readonly WireNode[]) => nodes.filter((n) => n.kind ===
  * Binds a mark to WHICH QUESTION it answers, by `data-provenance-claim`, rather
  * than to its position — with two marks possible, position is not identity
  * (trap 19).
+ *
+ * ⛔ RE-POINTED 18 Sep 2026: the union was `'node' | 'value'`, matching a
+ * spelling the card emitted and the domain type does not own
+ * (`NodeProvenanceClaim = 'value' | 'structural' | 'none'`). Typed from the
+ * DOMAIN so the two cannot re-split — see the sibling `whoseNumber` spec's
+ * helper for the full account.
  */
-const marksFor = (claim: 'node' | 'value') =>
+const marksFor = (claim: Exclude<NodeProvenanceClaim, 'none'>) =>
   screen
     .queryAllByTestId('node-provenance-mark')
     .filter((el) => el.getAttribute('data-provenance-claim') === claim)
@@ -221,7 +236,7 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
       screen.queryByLabelText(OLUMI_CLAIM),
       'the card claimed the user\'s own element as Olumi\'s',
     ).toBeNull()
-    expect(marksFor('node'), 'an authorship mark rendered on an ambiguous node').toHaveLength(0)
+    expect(marksFor('structural'), 'an authorship mark rendered on an ambiguous node').toHaveLength(0)
 
     // ⭐ …and the true fact about the NUMBER is still told.
     const valueMarks = marksFor('value')
@@ -242,7 +257,7 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
 
     render(<NodeProvenanceMark nodeType="factor" data={data} />)
     expect(screen.queryByLabelText(OLUMI_CLAIM)).not.toBeNull()
-    expect(marksFor('node')).toHaveLength(1)
+    expect(marksFor('structural')).toHaveLength(1)
     expect(marksFor('value')).toHaveLength(1)
   })
 
@@ -276,7 +291,7 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
 
     render(<NodeProvenanceMark nodeType="factor" data={data} />)
     expect(
-      marksFor('node'),
+      marksFor('structural'),
       'the brief-authorship disclosure was silenced — mayClaimOlumiAuthorship is the WRONG gate here',
     ).toHaveLength(1)
     expect(marksFor('value')).toHaveLength(1)
