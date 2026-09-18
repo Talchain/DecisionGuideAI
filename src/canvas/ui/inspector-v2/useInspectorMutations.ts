@@ -284,10 +284,10 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * What saves here: the name, and the prior RANGE — ⛔ BUT NOT TO THE SAME
  * PLACE, AND THE SENTENCE NO LONGER PRETENDS OTHERWISE (18 Sep 2026).
  *
- * It read: *"The name and the range save to the shared model."* The first
- * clause is true — `onLabelChange` routes to `store.updateNodeLabel`, which
- * captures a durable `structural_rename`, a carrier CEE handles `'mutating'`
- * with a real write to `scenarios.graph`. The second clause was FALSE.
+ * It read: *"The name and the range save to the shared model."* BOTH clauses
+ * were wrong, in different ways, and the 18 Sep edit caught only one of them.
+ *
+ * The RANGE clause was flatly FALSE.
  * `setPriorRange` writes `data.prior` through `updateNode` (round trip pinned
  * in `useAutosave.analysisFieldPersist.spec.ts`) and emits `prior_range_edit`,
  * which CEE handles `'fact_and_commit'`: a typed TURN FACT, and NO graph
@@ -311,6 +311,77 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * be the opposite error, and this slot has already shipped two sentences that
  * failed in opposite directions.
  *
+ * ⭐⭐ AND THE NAME CLAUSE, WHICH THE 18 Sep EDIT LEFT UNCONDITIONAL WHILE
+ * AUDITING ITS NEIGHBOUR — repaired here (18 Sep 2026, second pass).
+ *
+ * *"The name saves to the shared model."* asserts an OUTCOME. The rename's own
+ * authority row does not: `mutationAuthority.ts` calls
+ * `canvasNodeRenameWithServerHash` "⚠ CONDITIONAL", and this spec file's frozen
+ * evidence line for it reads "accepted structural_rename with MATCHING SERVER
+ * GRAPH HASH AND matching expected_label". A sentence auditing one clause for
+ * truth while leaving the other asserting unconditionally is the same defect
+ * one column across.
+ *
+ * ⛔ THE MECHANISM IS NOT THE ONE THE REVIEW NAMED, AND THE DIFFERENCE IS WHY
+ * THIS WORDING IS WHAT IT IS. The review traced the harm to `store.ts:2513`
+ * branching on `result.reason === 'no_server_graph_hash'`. That line is inside
+ * `recordStructuralDeleteIntent` — the DELETE path. `captureStructuralRename`
+ * does not own that reason at all; its own header is explicit that "A MISSING
+ * BASE HASH IS NO LONGER A STAND-DOWN — it is a DEFERRAL", and it returns
+ * `ok: true, deferred: baseGraphHash === null`. So the review's scenario — a
+ * restored scenario renamed before any hash — does NOT go local-only; it is
+ * queued and stamped by `resolveStructuralRenameBase` on the next turn.
+ * (Trap 16: a grepped symbol proves presence in the repo, never presence on
+ * the path you named.)
+ *
+ * ⭐ THE CONCLUSION SURVIVES ANYWAY, THROUGH TWO ARMS I DERIVED INSTEAD:
+ *
+ *   1. `node_not_server_held` — `structuralRename.ts` stands down when
+ *      `authoritativeNodeIds` is a record we hold and the node is absent from
+ *      it. `recordStructuralRenameIntent` then `return`s on `!result.ok` and
+ *      `updateNodeLabel` applies the LOCAL write regardless. Nothing is
+ *      queued, nothing is sent, AND NO NOTICE FIRES — the deferral toast is
+ *      gated on `result.deferred`, which this arm never reaches. Reachable on
+ *      this very pane: `CommandPalette` `add-factor` creates a factor
+ *      client-side, `setCategory('external')` routes it to THIS panel, and the
+ *      rename is then silently local-only under a notice promising a save.
+ *   2. The DEFERRED arm — honest, but not a save yet. `store.ts` says it in
+ *      terms: "until a turn supplies one the model genuinely does not hold the
+ *      name — and the queue is memory-only, so a reload before that turn still
+ *      loses it."
+ *
+ * ⛔⛔ AND THE WORDING THIS FILE ALREADY FORBIDS. "with your next message" was
+ * the obvious repair and it is FALSE here, for the reason the edge sibling
+ * records forty lines down: `useStructuralRenameEvents` is "⚠ NOT DEBOUNCED" —
+ * on the happy path the drain runs "on the effect after the gesture's render"
+ * and sends its OWN turn, not the user's next message. That phrasing is
+ * correct ONLY on the deferred arm, which is exactly where
+ * `STRUCTURAL_RENAME_DEFERRED_NOTICE` already spends it. A panel-level notice
+ * covers every arm, so it cannot borrow an arm-specific sentence.
+ *
+ * ⭐ SO IT STATES A NECESSARY CONDITION AND ASSERTS NO OUTCOME. "only for
+ * elements the model already holds" is TRUE on every arm — the stand-down arm
+ * (absent from the record, never sent), the deferred arm (held, sent later),
+ * the happy path (held, sent now), and the null-record sub-case where a send
+ * is attempted for a node CEE has never seen and comes back `unproven`, so it
+ * still does not REACH `scenarios.graph`. A necessary condition cannot be
+ * falsified by an arm where it is merely insufficient, which is precisely the
+ * property a static panel-level string needs.
+ *
+ * ⚠ WHY NOT A CONDITIONAL STRING, the way the EDGE pane picks between three.
+ * That pane branches on `edgeStrengthReaches`, a property readable AT RENDER.
+ * This condition is not: it is evaluated per gesture inside the store, against
+ * `lastAuthoritativeGraph` and `lastServerGraphHash` at the moment the user
+ * commits the name. Rendering a verdict minutes earlier would be a TOCTOU
+ * claim — a turn can land between the read and the rename — so a render-time
+ * branch here would be a confident sentence about a state nobody read.
+ *
+ * ⚠ THE SIBLING IS UNAUDITED AND DELIBERATELY UNTOUCHED.
+ * `INSPECTOR_FACTOR_CONTROLLABLE_REASON` opens "The name and the value save to
+ * the shared model" and carries the SAME unconditional name claim through the
+ * SAME `updateNodeLabel` chokepoint. It is out of this lane's scope; reported,
+ * not edited, so the correction is not smuggled in beside an unrelated one.
+ *
  * ⚠ IT CLAIMS NO EFFECT ON RESULTS, DELIBERATELY. PLoT's prior pass is gated
  * four ways and one gate is silent: an `observed_state.value` present skips the
  * prior with no warning, as do a non-external category, a non-uniform
@@ -324,7 +395,7 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * as THE exception would be false the moment another fence is added.
  */
 export const INSPECTOR_FACTOR_EXTERNAL_REASON =
-  'The name saves to the shared model. The range is recorded as your judgement for Olumi, not written into the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
+  'Renaming reaches the shared model, but only for elements the model already holds. The range is recorded as your judgement for Olumi, not written into the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
 
 /**
  * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.
