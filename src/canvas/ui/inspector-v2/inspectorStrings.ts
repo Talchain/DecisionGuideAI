@@ -586,6 +586,15 @@ export const ACTION_LABELS = {
    * The test was not missing by oversight; the instrument could not reach it.
    */
   strengthEditSending: 'Sending to Olumi…',
+  /**
+   * ⛔ `queued` IS NOT `sent`, AND IT WAS READING AS ONE.
+   * `settleSystemEventSend`: queued means *"buffered behind an in-flight turn —
+   * THE TURN DOES NOT EXIST YET"*. It fell through to "Sent to Olumi", which is
+   * the same optimistic receipt this change exists to remove, one state over.
+   * ⚠ Reachable in normal use: `sendSystemEvent`'s `deferIfBusy` defaults TRUE,
+   * so any edit made while a turn is in flight lands here.
+   */
+  strengthEditQueued: 'Waiting for the current turn to finish',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────

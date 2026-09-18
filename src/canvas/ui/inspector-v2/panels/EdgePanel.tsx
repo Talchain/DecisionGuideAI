@@ -519,6 +519,7 @@ export const EdgePanel = memo(function EdgePanel({
    */
   const strengthEditIsPending = strengthEditSettlement === undefined
   const strengthEditNotSent = strengthEditSettlement === 'not_sent'
+  const strengthEditIsQueued = strengthEditSettlement === 'queued'
   const strengthEditDidNotLand =
     strengthEditSettlement === 'blocked' || strengthEditSettlement === 'refused'
   const strengthEditIsUnverified = strengthEditSettlement === 'unverified'
@@ -759,6 +760,8 @@ export const EdgePanel = memo(function EdgePanel({
                     trigger={strengthEditSend?.ts ?? lastConfirmed.ts}
                     label={strengthEditIsPending
                       ? ACTION_LABELS.strengthEditSending
+                      : strengthEditIsQueued
+                        ? ACTION_LABELS.strengthEditQueued
                       : strengthEditNotSent
                         ? ACTION_LABELS.strengthConfirmNotSent
                         : strengthEditDidNotLand

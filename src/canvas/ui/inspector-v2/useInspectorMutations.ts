@@ -879,7 +879,7 @@ export function useNodeMutations(nodeId: string) {
  *                          non-finite number.
  *
  * ⚠ NO CALLER READS THIS TOKEN YET, and that is recorded rather than hidden.
- * Four call sites drive `setStrength` and all four ignore the return. The token
+ * Four call sites drive `setStrength`. ⚠ CORRECTED: `EdgePanel` now READS the return — an outcome other than `dispatched` means no settlement is coming and the panel must not wait for one. The token
  * exists so the states are NAMEABLE and testable at the seam; giving each one a
  * user-visible sentence is a copy change, and a sibling lane owns copy today.
  * Under the reachable posture CEE itself discloses the refusal in the
@@ -971,7 +971,7 @@ export function useEdgeMutations(edgeId: string) {
        * thing to reach for. Same word, "extraction"; opposite outcomes.
        *
        * ⭐ So this is not optional. Making it required forced FOUR callers to
-       * decide — one of which (`EdgeAdvancedEditor:68`) was passing no options
+       * decide — one of which (`EdgeAdvancedEditor:80`) was passing no options
        * at all and was discovered only because the compiler demanded it. A gap
        * a type system can find is worth more than a rule a reader must recall.
        */

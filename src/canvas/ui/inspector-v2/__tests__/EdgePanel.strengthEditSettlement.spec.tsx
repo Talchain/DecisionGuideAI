@@ -92,6 +92,28 @@ function seedAssertableEdge() {
         strength_mean: 0.35, effect_direction: 'positive',
       },
     }],
+    /**
+     * ⛔⛔ THE STALE VERDICT IS SEEDED, AND WITHOUT IT EVERY RE-RUN ASSERTION IN
+     * THIS FILE IS VACUOUS. Independent review caught exactly that: the store
+     * default is `null`, `resolveDisplayedFreshness` returns `null` on it, and
+     * `useEditConfirmation`'s predicate excludes `null` — so `isStaleAfterEdit`
+     * was `false` and `InlineRerunPrompt` rendered NOTHING in every case here.
+     *
+     * The refused case's `queryByText(/re-run/i)).toBeNull()` — the line my own
+     * comment called "The money half" — therefore passed because nothing
+     * rendered, not because anything was withheld. **Deleting the withholding
+     * predicate reddened nothing in the repo** (CLAUDE.md trap 11), so the
+     * "spend an analysis on a change that does not exist" harm this whole
+     * change is named for had no live guard at all.
+     *
+     * ⭐ AND THE PATTERN ALREADY EXISTED ON THE SIBLING CARRIER.
+     * `agreeingIsAnActThatLands.spec.tsx:145` seeds this exact verdict for this
+     * exact assertion, under a header reading "WITHOUT IT THIS TEST IS
+     * VACUOUS". A rule written on the confirm side and not swept to the edit
+     * side — which is the defect this PR exists to fix, reproduced inside its
+     * own test.
+     */
+    analysisFreshness: { freshness: 'stale', computedAt: 1 },
   } as never)
 }
 
@@ -197,10 +219,41 @@ describe('EdgePanel — a strength edit says what actually happened to it', () =
 
     const feedback = container.querySelector('[data-testid="edge-strength-edit-feedback"]')
     expect(feedback?.getAttribute('data-settlement')).toBe('pending')
-    // Withholding it here was over-reach, caught by `elicitationChain.spec.ts`.
+    expect(feedback?.textContent).toContain(ACTION_LABELS.strengthEditSending)
+    // ⭐ THE ASSERTION THIS TEST'S NAME PROMISED, AND WHICH IT DID NOT MAKE.
+    // Withholding here was over-reach, caught by `elicitationChain.spec.ts`.
     // Staleness is a fact about the graph on screen; it does not wait on the
     // server's answer. Only a PROVEN non-write withholds the affordance.
-    expect(feedback?.textContent).toContain(ACTION_LABELS.strengthEditSending)
+    expect(screen.getByText(/Re-run to see how this affects the results/i)).toBeInTheDocument()
+  })
+
+  it('BLOCKED: nothing reached the server, so it says so and withholds the re-run', () => {
+    seedAssertableEdge()
+    settlementToReport = 'blocked'
+    const { container } = render(<EdgePanel {...panelProps} />)
+    pressAStrengthBand(container)
+
+    const feedback = container.querySelector('[data-testid="edge-strength-edit-feedback"]')
+    expect(feedback?.getAttribute('data-settlement')).toBe('blocked')
+    expect(feedback?.textContent).toContain(ACTION_LABELS.strengthEditNotRecorded)
+    // Shares the PREDICATE with `refused` deliberately — both mean the model
+    // provably lacks the value. It does NOT share one with `unverified`.
+    expect(screen.queryByText(/re-run/i)).toBeNull()
+  })
+
+  it('QUEUED: does not claim a POST left, because none has', () => {
+    seedAssertableEdge()
+    settlementToReport = 'queued'
+    const { container } = render(<EdgePanel {...panelProps} />)
+    pressAStrengthBand(container)
+
+    const feedback = container.querySelector('[data-testid="edge-strength-edit-feedback"]')
+    expect(feedback?.getAttribute('data-settlement')).toBe('queued')
+    // ⛔ `settleSystemEventSend`: queued means "buffered behind an in-flight
+    // turn — THE TURN DOES NOT EXIST YET". Saying "Sent to Olumi" there is the
+    // same optimistic receipt this change removes, one state over.
+    expect(feedback?.textContent).not.toContain(ACTION_LABELS.strengthConfirmSent)
+    expect(feedback?.textContent).toContain(ACTION_LABELS.strengthEditQueued)
   })
 
   it('SENT: says the POST left, and still does not claim the model changed', () => {
