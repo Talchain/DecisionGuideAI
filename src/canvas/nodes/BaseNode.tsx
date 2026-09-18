@@ -56,7 +56,7 @@ import {
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NODE_QUICK_ACTION_BAND_PX, CANVAS_CORNER_STACK_CLASSES } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
-import { sensitivityRankBadgeAccessibleName, STRUCTURAL_UNSET } from './shared/metricVocabulary'
+import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -1588,14 +1588,58 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         {typeof displayMetadata.sensitivityRank === 'number' && (
           <span
             data-testid={`sensitivity-rank-${id}`}
-            // A fixed round box holding `#N` — centring IS the design here, and
-            // this DECLARES that rather than letting the alignment guard carry a
-            // hand-maintained exemption list of its own (CLAUDE.md trap 12: the
-            // exemption must be visible in the diff, so centring new copy costs
-            // a reviewer's attention instead of nothing).
-            data-node-glyph
-            className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
-            style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
+            /* ⛔⛔ IT WAS A FIXED ROUND BOX HOLDING `#N`, AND IT CARRIED NO
+               WORD AT ALL — `data-node-glyph`, `rounded-full`,
+               `justify-center`, `minWidth: 20px`, `height: 20px`.
+
+               Measured on deployed staging, 18 Sep 2026: factor cards read
+               `#1`, `#2`, `#3`. **`#1` reads as BEST.** It means MOST
+               SENSITIVE — the factor the result moves most on, which is
+               usually the factor the team knows LEAST about and should be
+               arguing with, not trusting. The badge inverted its own meaning
+               on the cards where the inversion costs most.
+
+               ⭐ THREE THINGS CHANGE TOGETHER AND NONE OF THEM IS COSMETIC:
+
+               (1) THE WORD. `sensitivityRankBadgeLabel` renders
+                   `Key driver 1` — the same builder the `aria-label` below is
+                   composed from, so the card and the screen reader cannot be
+                   given different words for one badge (which is precisely the
+                   drift #1414 shipped; see `metricVocabulary.ts`).
+
+               (2) THE GLYPH DECLARATION GOES, AND SO DOES THE CENTRING. This
+                   span declared `data-node-glyph`, the exemption
+                   `nodeCopyIsNeverCentred.spec.tsx` honours for copy that is
+                   a glyph by construction. A numeral was. A NOUN IS NOT.
+                   Keeping the attribute would have held an exemption open
+                   over real copy — the hand-maintained-mirror shape one level
+                   up from the one that guard exists to close — so the
+                   exemption is surrendered and `justify-center` with it. The
+                   words now sit where the reading order puts them, like the
+                   `StatusPill` two lines above.
+
+               (3) THE FIXED 20px BOX GOES, AND IT HAD TO. `typography.nodeLabel`
+                   is `calc(12px * var(--canvas-label-scale))` and that scale
+                   caps at 2, so at the settle zoom the type reaches ~24px
+                   inside a 20px box. A two-character numeral survived that;
+                   `Key driver 1` would have been clipped. Geometry is now
+                   `StatusPill`'s — padding plus `lineHeight`, which counter-
+                   scales with the type instead of fighting it.
+
+               ⚠ WIDTH, WHICH THE BRIEF ASKED ABOUT, AND IT IS BOUNDED BY A
+               DERIVATION RATHER THAN BY HOPE. This badge's only possible
+               neighbours are the 10px edited-since-run dot and the coaching
+               marker: the corner stack's five-member contract above records
+               that `StatusPill` is disjoint from it on `results.status`, and
+               `cornerSlot` cannot co-occur because `sensitivityRank` is
+               assigned only on `nodeType === 'factor'`. So the widest thing
+               this row ever holds is this badge — and `Key driver 1` is 12
+               characters against the `Needs input` pill's 11, in the same
+               font, in the same stack, measured at 67.9px in real Chromium.
+               The envelope is one the row already carries in this badge's
+               place. */
+            className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-semibold text-text-body bg-panel-border rounded-[10px] shadow-sm`}
+            style={{ padding: '2px 6px', lineHeight: 1.2, pointerEvents: 'none' }}
             /* ⚠⚠ THIS WAS A `title`, AND A `title` ON THIS ELEMENT CAN NEVER
                FIRE. `pointerEvents: 'none'` (the line above, load-bearing so the
                badge does not swallow drags aimed at the card) means the browser
@@ -1611,10 +1655,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
                ⚠ THE SIGHTED READER STILL HAS NO HOVER HERE, and that is stated
                rather than quietly left: the meaning lives in the canvas legend
-               (`metricVocabulary.ts:367-368`), which mounts unconditionally.
-               Giving this badge a real tooltip means removing
-               `pointerEvents: 'none'` and re-measuring drag behaviour on the
-               card — a separate change, not a comment.
+               (`metricVocabulary.ts`, `SENSITIVITY_RANK_CLAUSE` and the row
+               built from it), which mounts unconditionally. Giving this badge a
+               real tooltip means removing `pointerEvents: 'none'` and
+               re-measuring drag behaviour on the card — a separate change, not
+               a comment.
+
+               ⭐ WHAT THE WORD DOES AND DOES NOT CLOSE, SAID NARROWLY. The
+               sighted reader now gets the NOUN without hovering, which is the
+               half that was missing; they still do not get the ORDERING
+               PRINCIPLE (ranked by sensitivity) without the legend. Half a
+               fix, and the half that stops the badge asserting a placing.
 
                ⚠⚠ AND THE CITATION ABOVE USED TO BE THE WHOLE COUPLING, WHICH IS
                TO SAY THERE WAS NONE. This file imported nothing from
@@ -1635,7 +1686,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                badge. The rendered string is unchanged. */
             aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank)}
           >
-            #{displayMetadata.sensitivityRank}
+            {sensitivityRankBadgeLabel(displayMetadata.sensitivityRank)}
           </span>
         )}
 

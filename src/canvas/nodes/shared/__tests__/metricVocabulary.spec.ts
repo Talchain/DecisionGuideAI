@@ -36,6 +36,8 @@ import {
   ORDINAL_ROW_MUST_STATE_MINT,
   MAX_GLOSS_LENGTH,
   sensitivityRankBadgeAccessibleName,
+  sensitivityRankBadgeLabel,
+  SENSITIVITY_RANK_LEGEND_NOUN,
   optionOrdinalBadgeAccessibleName,
   SENSITIVITY_RANK_CLAUSE,
   ORDINAL_MINT_CLAUSE,
@@ -269,14 +271,36 @@ describe('METRIC_LEGEND_ROWS', () => {
   it('⭐⭐ the badge accessible names are BUILT FROM the legend rows, not repeated', () => {
     // (a) THE RANK BADGE. Expected value derived from the register — find the
     //     row by its noun, never by writing the clause out again here.
-    const rankRow = METRIC_LEGEND_ROWS.find((r) => r.noun === '#1, #2, #3')!
+    // ⚠ REPAIRED, NOT LOOSENED. This read `r.noun === '#1, #2, #3'` — the
+    //   heading the badge carried when it rendered a bare numeral. The badge
+    //   now renders `Key driver 1` and the heading moved with it, so the old
+    //   literal found NO row and this whole test would have thrown on the
+    //   `!`. The lookup binds to the register's exported constant, which is
+    //   the same thing the component keys its gate map by, so the three
+    //   cannot drift apart again (the mirror this block is about).
+    const rankRow = METRIC_LEGEND_ROWS.find((r) => r.noun === SENSITIVITY_RANK_LEGEND_NOUN)!
     expect(rankRow, 'the sensitivity-rank row is gone — if deliberate, delete this test too').toBeDefined()
     expect(
       sensitivityRankBadgeAccessibleName(1),
       'the rank badge no longer speaks the legend’s own gloss',
     ).toContain(rankRow.gloss)
     // ...and it still says which badge it is, so the name is not the gloss alone.
-    expect(sensitivityRankBadgeAccessibleName(2)).toContain('#2')
+    // ⭐ STILL A LITERAL, AND DELIBERATELY SO — a derived guard proves the
+    //   copies agree, never that the wording is right (trap 12d). The literal
+    //   is what notices a wrong sentence; it is updated to the sentence that
+    //   now ships, which is the word-bearing one.
+    expect(sensitivityRankBadgeAccessibleName(2)).toContain('Key driver 2')
+    // ⭐⭐ AND THE PROPERTY THE WHOLE CHANGE RESTS ON: the visible string is a
+    //   PREFIX of the spoken one (WCAG 2.5.3 Label in Name). A badge whose
+    //   `aria-label` says something the card does not is the #1414 defect;
+    //   here it is structurally impossible, and this asserts that rather than
+    //   trusting the builder's shape.
+    expect(sensitivityRankBadgeAccessibleName(2).startsWith(sensitivityRankBadgeLabel(2))).toBe(true)
+    // …and the placing sigil is gone from BOTH channels. `#1` is what read as
+    //   a first place; a "friendlier" rewrite putting it back is the
+    //   regression this line exists to RED on.
+    expect(sensitivityRankBadgeAccessibleName(2)).not.toContain('#')
+    expect(sensitivityRankBadgeLabel(2)).not.toContain('#')
 
     // (b) THE ORDINAL BADGE. The legend row carries two extra sentences the
     //     badge has no room for, so the shared unit is the row’s FIRST clause
