@@ -300,7 +300,19 @@ export const ACTION_TIER = {
    * ⚠ CARRIES THE SAME TOUCH TARGET AS `primary` — see the note there. A tier
    * that is quieter is not a tier that may be harder to hit.
    */
-  secondary: 'inline-flex items-center min-h-[24px] px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info',
+  /**
+   * ⚠ `text-info-ink`, NOT `text-info` — AND THE REASON IS COMPOSITIONAL, which
+   * is why reading this tier in isolation could never find it. The tier is
+   * border-only, so `text-info` sits on the bare panel at 4.78:1 and is legal.
+   * But a PARENT may tint the ground under it: measured on the deployed build,
+   * this pill inside `analysis-new-glance-primary-intervention` (a 6% info tint)
+   * drops to 4.06:1, under SC 1.4.3's 4.5:1. The tier was solved for one ground
+   * and then rendered on another.
+   *
+   * `--info-ink` is the same hue, dark enough to clear BOTH: 4.83:1 on the 6%
+   * tint, 4.59:1 on 10%, 5.21:1 bare.
+   */
+  secondary: 'inline-flex items-center min-h-[24px] px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info-ink',
   /**
    * AN ACT INSIDE PROSE. Underlined AT REST, never on hover alone — see the
    * contrast note above.
