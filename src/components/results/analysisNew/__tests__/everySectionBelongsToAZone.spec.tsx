@@ -43,6 +43,12 @@ import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { decisionWithLeaderWithheld, genuineDecision, manyFragileEdges } from './analysisNewFixtures'
 import { contentColumn, topLevelBlockElements } from './panelContentColumn'
+import { readFileSync } from 'node:fs'
+import { resolve as resolvePath, join as joinPath } from 'node:path'
+import { stripComments } from '../../../../../tests/helpers/stripSourceComments'
+
+/** The `analysisNew` directory, for the source-derived checks at the foot of this file. */
+const DIR = resolvePath(__dirname, '..')
 
 /**
  * ⭐ THE ONE THING THAT IS NOT A SECTION. Kept as a literal id so that a second
@@ -246,5 +252,64 @@ describe('the drivers answer "what matters most", so they sit in the answer zone
     for (const id of figures) {
       expect(drivers, `the drivers must precede ${id}`).toBeLessThan(order.indexOf(id))
     }
+  })
+})
+
+/**
+ * ⭐⭐ A NEXT ACTION IS NOT PART OF THE ANSWER.
+ *
+ * Paul, 18 Sep 2026: *"Shorten the answer zone so both fit at 1440."* The
+ * primary-intervention card rendered inside `AtAGlance` — its own heading there
+ * read "WHAT TO THINK ABOUT NEXT" — which put an action in the zone that holds
+ * the answer and cost that zone 90px including its gap.
+ *
+ * ⛔ WHY A GUARD AND NOT JUST THE MOVE. Nothing pinned the card's zone before,
+ * so nothing would stop it drifting back: it is one JSX relocation away, and the
+ * pixels that justify it are invisible to jsdom. #1671 taught this exactly —
+ * every symbol-scoped spec stayed green after that reorder, because no assertion
+ * owned the ordering.
+ *
+ * ⚠⚠ ASSERTED FROM SOURCE, NOT FROM THE DOM, AND THE REASON IS A MEASUREMENT
+ * RATHER THAN A PREFERENCE: **none of this file's fixtures produces a primary
+ * intervention at all** (probed across `genuineDecision`,
+ * `decisionWithLeaderWithheld`, `manyFragileEdges` and `highUncertainty` — the
+ * card is absent on every one, because the view model builds it from
+ * recommendations these fixtures do not carry). A DOM assertion here would
+ * therefore be vacuous, which is the failure this file has already had once.
+ * The source position is the thing that is actually true and actually checkable.
+ *
+ * ⚠ THIS CANNOT SEE THE FOLD. The 89px deficit, and that this move plus two
+ * whitespace corrections clears it with 23px to spare at 1440×860, are DEPLOYED
+ * measurements recorded in the PR.
+ */
+describe('the next action lives with the other actions', () => {
+  const body = readFileSync(joinPath(DIR, 'AnalysisNewTabBody.tsx'), 'utf8')
+
+  const zoneOfMount = (mount: string): string | null => {
+    const at = body.indexOf(mount)
+    if (at === -1) return null
+    const before = body.slice(0, at)
+    const opens = [...before.matchAll(/data-testid="analysis-new-zone-(\w+)-group"/g)]
+    return opens.length ? opens[opens.length - 1][1] : null
+  }
+
+  it('PRECONDITION: the card is mounted, and the zone probe can see a zone', () => {
+    expect(body, 'the body must mount the card at all').toContain('<PrimaryIntervention')
+    // the probe must be able to name a zone for a mount we KNOW is in one
+    expect(zoneOfMount('<AtAGlance'), 'control: the glance is in the answer zone').toBe('answer')
+  })
+
+  it('⭐ the primary intervention is mounted in ALSO, not in the ANSWER zone', () => {
+    expect(zoneOfMount('<PrimaryIntervention'), 'a next action belongs with the other things to do').toBe('also')
+  })
+
+  it('⛔ and AtAGlance no longer renders it, so it cannot be in two places', () => {
+    const glance = readFileSync(joinPath(DIR, 'sections', 'AtAGlance.tsx'), 'utf8')
+    const code = stripComments(glance, 'AtAGlance.tsx')
+    expect(code, 'the card must not render from the glance any more').not.toContain('-primary-intervention')
+    expect(
+      code,
+      'and its disjunct must have left `hasAnything` with it, or the glance renders an empty wrapper',
+    ).not.toContain('primaryIntervention && onRunIntervention')
   })
 })

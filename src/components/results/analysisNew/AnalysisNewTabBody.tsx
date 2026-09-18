@@ -74,6 +74,7 @@ import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSec
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChanged } from './sections/WhatsChanged'
 import { AtAGlance } from './sections/AtAGlance'
+import { PrimaryIntervention } from './sections/PrimaryIntervention'
 import { panelHasConclusion } from './panelLead'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
@@ -1591,7 +1592,19 @@ export function AnalysisNewTabBody({
             ratchet counts it as one child rather than several. A label added
             loose would have raised the count by five and the ceiling with it,
             which is the opposite of what the prototype asks for. */}
-        <div className="space-y-3" data-testid="analysis-new-zone-answer-group">
+        {/* ⚠⚠ 8px INSIDE THIS ZONE, 12px IN THE OTHERS, AND THAT ASYMMETRY IS
+            DELIBERATE. #1658 gave every zone 12px against the column's 16px on
+            the argument that "if the gap INSIDE a zone equalled the gap BETWEEN
+            zones the groups would stop reading as groups". 8px does not weaken
+            that argument, it strengthens it — the inside gap moves FURTHER from
+            the 16px between zones.
+
+            This is the zone that has to fit the most content above the fold, and
+            it is the only one that was failing to. `theZonesCarryTheirOwnRhythm`
+            requires each zone to be strictly tighter than the column and on the
+            sanctioned scale; it does NOT require the zones to match, and 8px
+            satisfies both. Worth 16px of fold margin across four gaps. */}
+        <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
@@ -1648,32 +1661,6 @@ export function AnalysisNewTabBody({
              one the gate itself consumed. */
           isRunning={isRunning}
           missingResults={vm.status.missingResults}
-          primaryIntervention={
-            glancePrimary
-              ? {
-                  id: glancePrimary.id,
-                  label: glancePrimary.action.label,
-                  /* ⭐ `title`, NOT `signal`. The glance card used to be handed
-                     `signal` — the finding's paragraph — which the Strengthen
-                     row below also prints, because `strengthenWhyLine` begins
-                     with `signal` on every arm. The promoted card is a
-                     reference to the row, so it is handed the finding's NAME
-                     and the paragraph is left to the row that carries the
-                     severity, the grounding and the disagreement controls.
-                     Guarded by `theFocusCardReferencesRatherThanReprints`. */
-                  title: glancePrimary.title,
-                  signalCode: glancePrimary.signalCode,
-                  /* The producer's own bias on a bias-signal finding, so this
-                     card names the SAME technique as the row it promotes. */
-                  biasCode: glancePrimary.biasCode,
-                  /* ⚠ The CATALOGUE path renders this and the phase-3 path does
-                     not — see `AtAGlance`'s `signal` prop. Passed for both
-                     because the card, not the caller, owns which kind it is. */
-                  signal: glancePrimary.signal,
-                }
-              : null
-          }
-          onRunIntervention={runIntervention}
         />
         {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
             reachable on this tab for the first time. `robustness_caveat` rides
@@ -2251,6 +2238,51 @@ export function AnalysisNewTabBody({
         >
           Also worth doing
         </p>
+        {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
+            instruction to shorten the answer zone so both "what matters most"
+            and "how the options compare" fit at 1440.
+
+            It rendered inside `AtAGlance`, which put a NEXT ACTION in the zone
+            that holds the ANSWER. Its own heading there said so: "WHAT TO THINK
+            ABOUT NEXT". This zone is labelled "Also worth doing".
+
+            ⭐ MEASURED, not preferred. At 1440×860 (fold 729) the options
+            comparison sat 89px below the fold. Every information-preserving
+            spacing trim COMBINED saved 63px — still 26 short. Moving this card
+            saves 90px including its gap, on its own, and deletes nothing.
+
+            ⚠ The composition stays in this body rather than moving into the
+            component, for the reason every other composition does: the card is
+            presentational and must not grow a second derivation of what the
+            producer recommended. */}
+        <PrimaryIntervention
+          primaryIntervention={
+                glancePrimary
+                  ? {
+                      id: glancePrimary.id,
+                      label: glancePrimary.action.label,
+                      /* ⭐ `title`, NOT `signal`. The glance card used to be handed
+                         `signal` — the finding's paragraph — which the Strengthen
+                         row below also prints, because `strengthenWhyLine` begins
+                         with `signal` on every arm. The promoted card is a
+                         reference to the row, so it is handed the finding's NAME
+                         and the paragraph is left to the row that carries the
+                         severity, the grounding and the disagreement controls.
+                         Guarded by `theFocusCardReferencesRatherThanReprints`. */
+                      title: glancePrimary.title,
+                      signalCode: glancePrimary.signalCode,
+                      /* The producer's own bias on a bias-signal finding, so this
+                         card names the SAME technique as the row it promotes. */
+                      biasCode: glancePrimary.biasCode,
+                      /* ⚠ The CATALOGUE path renders this and the phase-3 path does
+                         not — see `AtAGlance`'s `signal` prop. Passed for both
+                         because the card, not the caller, owns which kind it is. */
+                      signal: glancePrimary.signal,
+                    }
+                  : null
+          }
+          onRunIntervention={runIntervention}
+        />
         <div data-testid="analysis-new-acts">
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}

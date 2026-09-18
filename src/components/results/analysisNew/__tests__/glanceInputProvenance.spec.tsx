@@ -335,10 +335,25 @@ describe('the condition line on screen', () => {
           verdict: null,
           drivers: [],
         })}
-        primaryIntervention={{ id: 'r1', label: 'Define success', title: 'Define what success looks like' }}
-        onRunIntervention={() => {}}
+        /**
+         * ⚠⚠ THIS USED TO PASS `primaryIntervention` + `onRunIntervention`, and
+         * it was not testing the card — it was the only thing making
+         * `hasAnything` true so the component rendered at all. That card moved
+         * to `PrimaryIntervention` on 18 Sep 2026 and its disjunct left
+         * `hasAnything` with it, so the props here would now render NOTHING and
+         * this case would pass because the component returned null — a
+         * different, weaker statement than the one its name makes.
+         *
+         * ⭐ `isStale` replaces it: the ribbon keeps `hasAnything` true, so the
+         * assertion below is still about the CAVEAT being absent rather than
+         * about the component being absent. The precondition makes that
+         * explicit rather than trusting it.
+         */
+        isStale
+        staleKind="changed"
       />,
     )
+    expect(screen.getByTestId('analysis-new-glance'), 'precondition: the component must render, or this asserts nothing').toBeInTheDocument()
     expect(screen.queryByTestId(PROVENANCE_TESTID)).toBeNull()
   })
 
