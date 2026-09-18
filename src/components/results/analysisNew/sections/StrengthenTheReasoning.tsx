@@ -1092,7 +1092,7 @@ export function StrengthenTheReasoning({
                   <button
                     type="button"
                     onClick={() => runPrimaryAction(rec)}
-                    className={`${typography.panelBody} inline-flex items-center gap-1 rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelBody} inline-flex items-center gap-1 rounded-md bg-info/10 px-2 py-1 text-info-ink hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-action`}
                   >
                     {rec.action.label}

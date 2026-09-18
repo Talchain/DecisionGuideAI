@@ -175,8 +175,15 @@
      Light shade kept for canvas node fills and selection backgrounds. */
   --info-rgb: 39 122 157;
   --info: rgb(var(--info-rgb));
-  /* See --warning-ink. Info as text on its own 6% tint measures 4.27:1. */
-  --info-ink-rgb: 36 113 146;
+  /* See --warning-ink. Info as text on its own 6% tint measures 4.27:1.
+     ⚠ DARKENED 36 113 146 -> 33 102 132, 18 Sep 2026, and the reason is the one
+     this file keeps having to relearn: GROUNDS ARE PER RENDER STATE. The first
+     value was solved against the resting tints and the bare panel, and FAILED at
+     4.03:1 on `bg-info/20` over `--bg-panel-hover` — the HOVER state of a filled
+     pill. Solved now against all eight grounds (bare/6%/10%/20% over both
+     --bg-panel and --bg-panel-hover); worst is 4.69:1, with headroom deliberately
+     left so a rounding difference in the guard cannot flip it. */
+  --info-ink-rgb: 33 102 132;
   --info-ink: rgb(var(--info-ink-rgb));
 
   --info-light-rgb: 186 215 228;

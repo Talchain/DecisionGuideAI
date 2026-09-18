@@ -290,10 +290,13 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-success text': 1,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-warning icon': 2,
   'src/components/results/analysisNew/sections/ModelHeldUp.tsx text-success icon': 1,
-  /* ⭐ 2 -> 1: the tinted pill repaired; the survivor is the `panelBody`
-     `rounded-md` variant, which is a different shape and is owed its own
-     judgement rather than a blind sweep. */
-  'src/components/results/analysisNew/sections/StrengthenTheReasoning.tsx text-info text': 1,
+  /* ⭐ 1 -> 0, 18 Sep 2026. THE SURVIVOR IS REPAIRED, and the judgement it was
+     owed is now cheap to make. The note above deferred it because it is a
+     FILLED pill (`bg-info/10`, `rounded-md`), and the only remedy available at
+     the time was to remove the tint — which would have changed its shape to buy
+     contrast. `--info-ink` buys the contrast without spending the fill, so the
+     pill keeps its shape AND clears 4.5:1. Measured on served 5824c05b: this
+     site was one of the last two failures in the panel at 4.06:1. */
   'src/components/results/analysisNew/sections/WhatWeChecked.tsx text-danger text': 1,
   'src/components/results/analysisNew/sections/WhatWeChecked.tsx text-success text': 1,
   'src/components/results/analysisNew/sections/WhyNoAnalysisYet.tsx text-warning icon': 1,
