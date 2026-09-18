@@ -3,6 +3,10 @@
  * that opens on click (keyboard: Enter/Space), is dismissible, and renders ONLY the approved
  * legend strings (A4) with no Claude-authored copy and no "node/edge/graph"
  * vocabulary.
+ *
+ * ⚠ UNRUN IN THE LANE THAT LAST EDITED THIS FILE (18 Sep 2026). No suite, no
+ * typecheck and no install were executed — the cost constraints for that lane
+ * forbade all three. CI at this head is the authority for whether it is green.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -98,9 +102,35 @@ afterEach(() => setPhase('idle'))
 // hardcoding the word here would make this spec the very mirror
 // `DECISION_NODE_LABEL` was introduced to abolish, and it would go stale the
 // next time the word changes rather than failing loud.
+//
+// ⚠⚠ AND THIS LIST WENT STALE EXACTLY AS PREDICTED, WITHOUT FAILING LOUD ABOUT
+// THE RIGHT THING. The two connection rows were rewritten in this PR's own
+// first commit ("…: established" / "…: less certain" → the doubt wording) and
+// this file was not touched, so `renders exactly the approved legend strings`
+// was RED on two `getByText` calls at head `6e4ce7d7`. The mirror did fail — but
+// it fails as "string missing", which reads like a rendering regression rather
+// than "someone edited the copy and left me behind", and nothing else in the
+// suite says which. Recorded rather than smoothed over: it is the cost of the
+// mirror this comment already concedes, and the reason the strings below are
+// the ONLY approved-copy assertion in the file.
 const APPROVED = [
   DECISION_NODE_LABEL, 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
-  'Raises', 'Lowers', 'Solid connection: established', 'Dashed connection: less certain',
+  'Raises', 'Lowers',
+  // Solid is TWO populations — nobody stated a likelihood, and somebody stated
+  // one at or above `EDGE_VALUE_BAND_CUTS.high`. `graphDisplayCalculations.spec.ts`
+  // pins both. The caption must stay true of both; a bare absence claim here
+  // ("no doubt recorded") is false across the whole stated-high band and is
+  // what this change removed.
+  'Solid connection: no doubt recorded, or only a small one',
+  // Dashed is TWO causes, and the caption must be true of BOTH — the standard
+  // the solid row above was already held to. `resolveEdgeDash` fires the
+  // `contested` rule for EVERY contested edge without reading
+  // `contested_reasons`, and three of the five `ContestedReason` members
+  // (`strength_band_change`, `confidence_band_change`, `raw_magnitude`) are
+  // disagreements about HOW STRONG or HOW CERTAIN, with both passes agreeing the
+  // connection exists. "someone recorded a doubt" was false across that whole
+  // population and is what this change removes. See `CanvasLegendPopover.tsx`.
+  'Dashed connection: a doubt or a disagreement was recorded',
   'Weak effect', 'Moderate effect', 'Strong effect',
 ]
 

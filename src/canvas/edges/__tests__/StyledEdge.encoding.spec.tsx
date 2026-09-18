@@ -108,7 +108,6 @@ vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   // down across seven files at once. The spread makes the mock derive from the
   // real module and override only what it means to stub.
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: (p: number | undefined) => (p !== undefined && p < 0.7 ? '6,4' : undefined),
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 7,
   weightMagnitudeToStrokeWidth: () => 2,
@@ -195,8 +194,14 @@ describe('StyledEdge — belief is a single channel: dash, not opacity (item 2)'
   })
 
   it('low exists_probability sets the dash but NEVER dims the edge via opacity', () => {
+    // ⚠ `beliefExistsSource` IS LOAD-BEARING AND WAS ADDED DELIBERATELY. The
+    // dash now consumes the provenance union, so an UNSTAMPED 0.3 draws nothing
+    // — which is the point of the change, not a regression: the canvas may only
+    // speak about a likelihood somebody actually stated. This test is about the
+    // CHANNEL (dash, never opacity), so its fixture has to carry a real stated
+    // belief for the channel to have anything to say.
     const { container } = render(
-      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.3, confidence: 0.5 }} />
+      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.3, beliefExistsSource: 'cee', confidence: 0.5 }} />
     )
     const style = styleOf(container)
     // Belief still encoded via the dash channel.

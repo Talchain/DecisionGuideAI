@@ -60,6 +60,7 @@
  */
 
 import type { ValidationMetadata } from '../../types/validation'
+import type { ExistenceDash } from '../utils/graphDisplayCalculations'
 import { MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
 import {
   GLYPH_ANCHOR_RADIUS,
@@ -190,8 +191,16 @@ export interface EdgePresentationState {
    * case, so there is no "no polarity" hole for another rule to fill.
    */
   readonly polarityStroke: string
-  /** Dash from `existenceCertaintyToLineStyle`, or null/undefined when unset. */
-  readonly existenceDash: string | null | undefined
+  /**
+   * The existence channel's decision, from `resolveExistenceDash`.
+   *
+   * ⚠ THIS USED TO BE `existenceDash: string | null | undefined`, and the
+   * nullable string was the defect: "nobody stated a likelihood" and "someone
+   * stated a high one" both arrived here as the SAME absent value, so this
+   * module could not tell them apart even in principle. It now receives the
+   * resolved union, and the two answers are separate named rules below.
+   */
+  readonly existence: ExistenceDash
   /** Dash from the legacy visual-props map. Last resort. */
   readonly visualPropsDash: string | undefined
 }
@@ -301,6 +310,18 @@ export const EDGE_DASH_RULES = [
    * channel that keeps the contest visible once orange stops being automatic.
    */
   'contested',
+  /**
+   * NOBODY SUPPLIED A LIKELIHOOD, so this channel says nothing — and says it
+   * by NAME rather than by falling through, because a fallthrough is what let
+   * the defect ship. `resolveExistenceDash`'s header carries the derivation for
+   * why the honest treatment is an unmarked line and not a third dash.
+   *
+   * ⚠ IT SITS ABOVE `existence_certainty` BECAUSE PROVENANCE IS ASKED BEFORE
+   * VALUE (DESIGN_SYSTEM.md, RULED 2026-09-08). The order is inert between
+   * these two — they partition ONE field on its stamp and cannot both match —
+   * but stating it in the array is what makes the doctrine reviewable.
+   */
+  'existence_unset',
   /** exists_probability below the certainty threshold — a stated value. */
   'existence_certainty',
   /** Legacy visual-props map. */
@@ -319,8 +340,16 @@ export function resolveEdgeDash(state: EdgePresentationState): EdgeDashDecision 
   if (state.contested.isContested && state.contested.dash !== null) {
     return { value: state.contested.dash, rule: 'contested' }
   }
-  if (state.existenceDash !== null && state.existenceDash !== undefined) {
-    return { value: state.existenceDash, rule: 'existence_certainty' }
+  // Provenance before value. Nobody stated a likelihood, so neither this
+  // channel NOR the legacy `visual_props` map below may mark the edge: `style`
+  // is a presentational field with no provenance at all, and letting it paint a
+  // certainty mark on an unassessed link is the same defect one layer down.
+  // Inert as measured — a sweep of `src/` for `style: 'dashed'|'dotted'` outside
+  // tests and fixtures returns zero against a `style: 'solid'` contrast control
+  // in the same run — so this closes a hole rather than changing a pixel.
+  if (state.existence.kind === 'unset') return { value: undefined, rule: 'existence_unset' }
+  if (state.existence.dash !== undefined) {
+    return { value: state.existence.dash, rule: 'existence_certainty' }
   }
   return { value: state.visualPropsDash, rule: 'visual_props' }
 }
