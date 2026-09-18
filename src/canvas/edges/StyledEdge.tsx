@@ -1287,9 +1287,35 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           is this claim" survives switching lens — which is the question a lens
           most often raises.
 
-          No `vectorEffect`: the width is in GRAPH units and scales with zoom,
-          exactly like `EDGE_STROKE_WIDTH_BANDS`. A non-scaling ribbon would
-          hold constant screen width while the model shrank, and swamp it.
+          ⛔ CORRECTED 18 Sep 2026 — THIS COMMENT ARGUED THE OPPOSITE OF THE LINE'S
+          OWN COMMENT, AND THE LINE'S IS RIGHT. It used to read: "No `vectorEffect`:
+          the width is in GRAPH units and scales with zoom, exactly like
+          `EDGE_STROKE_WIDTH_BANDS`. A non-scaling ribbon would hold constant screen
+          width while the model shrank, and swamp it."
+
+          `EDGE_STROKE_WIDTH_BANDS` is exactly what it does NOT do: the line is
+          `non-scaling-stroke`, and the comment beside it states the principle —
+          "thickness here is an ENCODING of strength, not a drawing property, so it
+          should mean the same thing at every zoom rather than growing with the
+          camera." Band width encodes UNCERTAINTY. The same sentence applies word for
+          word, and the two decisions were simply made at different times and never
+          put side by side (trap 21, inside one feature).
+
+          MEASURED CONSEQUENCE on served 1212e2eb at the camera the board opens at
+          (`output/canvas-witness-20260917/ribbon-occlusion.json`): camera 0.5 read
+          off the viewport transform · line `non-scaling-stroke`, so 1/2/3/4px on
+          screen · ribbon in graph units, halved · thinnest ribbon 4.28px against a
+          4px line · margin 0.282px · 0.0565px once the 0.2 opacity applies. The
+          floor of the uncertainty channel was INVISIBLE, hidden inside the line it
+          wraps, so a tight well-measured uncertainty and one never assessed both
+          rendered as a bare line. The acceptance witness that passed for this
+          feature checked that the ribbon painted WHERE STAMPED and never asked
+          whether it could be SEEN — this spec file's own header had already said
+          visibility "only a browser can settle", and nobody went and settled it.
+
+          The swamping worry is real and is answered by the bound that already
+          exists, `UNCERTAINTY_BAND_MAX_HALF_WIDTH`, not by letting the encoding
+          evaporate as the camera pulls back.
 
           `pointerEvents="none"` — the hit area is the transparent path above,
           which is already wider than anything drawn. A ribbon that grew the hit
@@ -1303,6 +1329,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           strokeLinecap="round"
           opacity={0.2}
           pointerEvents="none"
+          vectorEffect="non-scaling-stroke"
           data-testid={`edge-uncertainty-band-${edgeIdKey}`}
           data-uncertainty-half-width={uncertaintyBand}
         />
