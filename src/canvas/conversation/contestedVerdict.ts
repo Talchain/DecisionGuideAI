@@ -58,7 +58,7 @@
  * offerable because it asserts no value by contract.
  */
 
-import type { UserAction } from '../../../domain/validation'
+import type { UserAction } from '../domain/validation'
 
 /** The verdicts this surface can offer. `overridden` needs a number input and is not here. */
 export type ContestedVerdict = Extract<
