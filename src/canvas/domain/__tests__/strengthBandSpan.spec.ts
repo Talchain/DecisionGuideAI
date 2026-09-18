@@ -3,8 +3,8 @@
  *
  * ⚠⚠ THIS SPEC HAS NOT BEEN RUN. The lane that wrote it was barred from running
  * any test runner, installing anything, or invoking `tsc`. Every expectation
- * below was derived by reading the implementation and the ladder it consults,
- * line by line. Treat it as an UNVERIFIED claim about behaviour until CI or a
+ * below was derived by reading the implementation and the band words it
+ * consults, line by line. Treat it as an UNVERIFIED claim about behaviour until CI or a
  * later lane executes it; do not quote a passing result that nobody has seen.
  *
  * ── WHAT IS PINNED, AND WHY EACH ONE IS HERE
@@ -26,12 +26,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import {
-  resolveStrengthSpread,
-  inlineStrengthLabel,
-  strengthCutsCrossed,
-} from '../strengthBandSpan'
-import { STRENGTH_BAND_LADDER, getStrengthLabel } from '../vocabulary'
+import { resolveStrengthSpread, inlineStrengthLabel } from '../strengthBandSpan'
+import { getStrengthLabel } from '../vocabulary'
 import { resolveEdgeValueDisplay, type EdgeValueDisplay } from '../edgeValueProvenance'
 import { USER_EDGE_DEFAULTS } from '../edges'
 
@@ -235,51 +231,92 @@ describe('the band span — does the adjective survive the spread?', () => {
   })
 })
 
-describe('the ladder is the ONE authority, and these derive from it', () => {
-  /**
-   * ⭐ NOT A HAND-WRITTEN TABLE. This iterates the ladder itself, so moving a cut
-   * or adding a band extends the coverage automatically instead of leaving a
-   * mirror to drift — the defect class `vocabulary.ts` records happening once.
-   */
+/**
+ * ⛔ THE CUTS ARE DISCOVERED, NOT RESTATED — and not imported either.
+ *
+ * An earlier draft of this lane exported a `STRENGTH_BAND_LADDER` from
+ * `vocabulary.ts` so these tests could iterate it. That minted a SECOND band
+ * table in the one module PR #1699 is consolidating to exactly one, and #1699's
+ * `canvas/__tests__/oneStrengthVocabulary.spec.ts` counts that module's exported
+ * tables at runtime and REDs at two. The ladder is gone, and re-typing
+ * `0.20 / 0.40 / 0.70` here instead would be the same mirror one level down:
+ * the cuts would stop matching `getStrengthLabel` with nothing going red.
+ *
+ * So the sweep WALKS `getStrengthLabel` and reports where its answer changes.
+ * Move a cut, add a band or remove one, and the coverage below follows without
+ * an edit — which is the property the ladder was introduced for in the first
+ * place, obtained without a second authority to keep in step.
+ *
+ * ⚠ GRANULARITY IS A CLAIM. 0.001 over [0, 1] resolves every cut the contract
+ * states to two decimal places, and `toFixed(3)` normalises the accumulated
+ * float error so the reported cut is the value a reader would write. A cut
+ * finer than 0.001, or above 1, is invisible to this sweep — stated here rather
+ * than left for a successor to assume.
+ */
+const SWEEP_STEPS = 1000
+function sweep(): { value: number; label: string }[] {
+  const out: { value: number; label: string }[] = []
+  for (let i = 0; i <= SWEEP_STEPS; i++) {
+    const value = Number((i / SWEEP_STEPS).toFixed(3))
+    out.push({ value, label: getStrengthLabel(value) })
+  }
+  return out
+}
+
+/** The first value at or above each point where the word changes. */
+function interiorCuts(): number[] {
+  const steps = sweep()
+  return steps.filter((step, i) => i > 0 && step.label !== steps[i - 1].label).map(s => s.value)
+}
+
+/** Every distinct word the namer produces over [0, 1]. */
+function bandWords(): string[] {
+  return [...new Set(sweep().map(s => s.label))]
+}
+
+describe('getStrengthLabel is the ONE authority, and these derive from it', () => {
+  it('POSITIVE CONTROL: the sweep can see cuts at all', () => {
+    // Without this every loop below passes vacuously on an empty list, which is
+    // exactly how an absence probe with no control certifies nothing (trap 13).
+    expect(sweep()).toHaveLength(SWEEP_STEPS + 1)
+    expect(interiorCuts().length).toBeGreaterThanOrEqual(2)
+    expect(bandWords().length).toBeGreaterThanOrEqual(3)
+  })
+
   it('every interior cut is crossable, and crossing it changes the word', () => {
-    for (const band of STRENGTH_BAND_LADDER) {
-      if (band.min <= 0) continue
-      const below = band.min - 0.01
-      const above = band.min + 0.01
-      expect(getStrengthLabel(below)).not.toBe(getStrengthLabel(above))
-      const magnitude = band.min
-      const r = resolveStrengthSpread(stated(magnitude), stated(0.01))
+    const cuts = interiorCuts()
+    expect(cuts.length).toBeGreaterThanOrEqual(2)
+    for (const cut of cuts) {
+      expect(getStrengthLabel(cut - 0.01)).not.toBe(getStrengthLabel(cut + 0.01))
+      const r = resolveStrengthSpread(stated(cut), stated(0.01))
       expect(r.known).toBe(true)
       if (r.known) expect(r.crossesBand).toBe(true)
     }
   })
 
-  it('counts interior cuts crossed, and never counts the floor', () => {
-    // [0.15, 0.45] crosses 0.20 and 0.40, but not the 0 floor.
-    const two = resolveStrengthSpread(stated(0.3), stated(0.15))
-    expect(strengthCutsCrossed(two)).toBe(2)
-    // Wholly inside one band.
-    const none = resolveStrengthSpread(stated(0.55), stated(0.02))
-    expect(strengthCutsCrossed(none)).toBe(0)
-    // A refusal crosses nothing, and must not throw.
-    expect(strengthCutsCrossed(resolveStrengthSpread(unstated, unstated))).toBe(0)
-  })
-
-  it('the ladder is ordered descending and floored at zero', () => {
-    // Order is load-bearing: the lookup returns the FIRST band cleared.
-    const mins = STRENGTH_BAND_LADDER.map(b => b.min)
-    expect([...mins].sort((a, b) => b - a)).toEqual(mins)
-    expect(mins[mins.length - 1]).toBe(0)
+  it('CONTRAST CONTROL: a magnitude away from every cut does not cross', () => {
+    // Without this, a `crossesBand` hardwired to `true` would pass the test
+    // above on every cut in the sweep.
+    const cuts = interiorCuts()
+    const clear = cuts.map(cut => cut + 0.05).filter(v => !cuts.some(c => Math.abs(v - c) <= 0.02))
+    expect(clear.length).toBeGreaterThanOrEqual(1)
+    for (const magnitude of clear) {
+      const r = resolveStrengthSpread(stated(magnitude), stated(0.01))
+      expect(r.known).toBe(true)
+      if (r.known) expect(r.crossesBand).toBe(false)
+    }
   })
 })
 
 describe('inlineStrengthLabel', () => {
-  it('lowercases only the first character, for every label on the ladder', () => {
-    for (const band of STRENGTH_BAND_LADDER) {
-      const inline = inlineStrengthLabel(band.label)
-      expect(inline).toBe(`${band.label.charAt(0).toLowerCase()}${band.label.slice(1)}`)
+  it('lowercases only the first character, for every word the namer produces', () => {
+    const words = bandWords()
+    expect(words.length).toBeGreaterThanOrEqual(3)
+    for (const label of words) {
+      const inline = inlineStrengthLabel(label)
+      expect(inline).toBe(`${label.charAt(0).toLowerCase()}${label.slice(1)}`)
       // "Very strong" must become "very strong", never "very Strong".
-      expect(inline.toLowerCase()).toBe(band.label.toLowerCase())
+      expect(inline.toLowerCase()).toBe(label.toLowerCase())
     }
   })
 })

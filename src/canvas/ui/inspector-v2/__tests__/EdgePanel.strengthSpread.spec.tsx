@@ -30,6 +30,16 @@
  * fact that the stated spread reached into the neighbouring band. A team read a
  * settled adjective where the numbers supported a range.
  *
+ * ── DEFECT 3: THE SENTENCE THAT FIXED DEFECT 2 POINTED ONE WAY ONLY
+ * Its first wording ended *"so ‘{word}’ is a firmer word than the numbers
+ * earn."* — a verdict that the adjective OVERSTATES. The interval is
+ * `magnitude ± spread` and opens both ways, so where the stated magnitude sits
+ * low in its band the span reaches UP and the product was telling a team to
+ * discount a connection its own numbers said might be understated.
+ * `OPENS_UPWARD_EDGE` below is the case where that reading is false outright:
+ * nothing in [0.33, 0.43] is below "Moderate". The two tests at the end of this
+ * file are the pin, and they RED against the old wording on `/firmer|earn/`.
+ *
  * ── CLAIM TYPE
  * Rendered-text and attribute claims on elements bound by `data-testid` or
  * accessible name. jsdom cannot prove visibility or layout (platform trap 3) and
@@ -101,6 +111,35 @@ const SPANNING_EDGE = {
   strengthStdSource: 'cee',
 }
 
+/**
+ * ⭐ THE SPAN THAT OPENS UPWARDS — the case the first wording got wrong.
+ * 0.38 ± 0.05 → [0.33, 0.43]. The stated magnitude bands as "Moderate", and
+ * EVERY value in the interval is at least Moderate while some are Strong. A
+ * sentence calling "Moderate" too firm is false here in the plain sense, not
+ * merely one-sided. 0.05 sits inside the 0.01–0.22 census cited above.
+ */
+const OPENS_UPWARD_EDGE = {
+  weight: 0.38,
+  direction: 'positive',
+  weightSource: 'cee',
+  strengthStd: 0.05,
+  strengthStdSource: 'cee',
+}
+
+/**
+ * ⭐ THE SPAN THAT OPENS BOTH WAYS. 0.30 ± 0.20 → [0.10, 0.50]: "Slight" at one
+ * end, "Strong" at the other, and the stated magnitude bands as "Moderate" in
+ * between. Taken from a live capture of three edges out of one factor
+ * (0.75/0.18, 0.4354/0.104, 0.30/0.20); 0.20 is the top of the census range.
+ */
+const OPENS_BOTH_WAYS_EDGE = {
+  weight: 0.3,
+  direction: 'positive',
+  weightSource: 'cee',
+  strengthStd: 0.2,
+  strengthStdSource: 'cee',
+}
+
 /** The same shape, but tight enough to stay inside one band: [0.53, 0.57]. */
 const TIGHT_EDGE = {
   weight: 0.55,
@@ -167,11 +206,11 @@ describe('EdgePanel — how much of this answer is still open', () => {
     seedEdge(SPANNING_EDGE)
     render(<EdgePanel {...panelProps} />)
     const sentence = screen.getByTestId('edge-strength-spans-bands').textContent ?? ''
-    // The two band words, as the reader meets them.
+    // The two band words at the ends of the interval, as the reader meets them.
     expect(sentence).toContain('moderate')
     expect(sentence).toContain('strong')
-    // And the point: the highlighted adjective is doing unearned work.
-    expect(sentence).toContain('earn')
+    // And the word the highlighted pill shows, quoted back.
+    expect(sentence).toContain('"Strong"')
   })
 
   it('shows the magnitude WITH its spread, not a bare point estimate', () => {
@@ -232,6 +271,42 @@ describe('EdgePanel — how much of this answer is still open', () => {
     seedEdge({ weight: 0.45, direction: 'positive', weightSource: 'cee' })
     render(<EdgePanel {...panelProps} />)
     expect(screen.queryByTestId('edge-strength-spread')).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ DEFECT 3, PINNED FROM BOTH SIDES. The sentence must state the SPAN and
+   * must not return a verdict on the quoted word, because the interval opens
+   * both ways and a one-directional verdict is false in the other one.
+   *
+   * These two RED against the previous wording (*"a firmer word than the numbers
+   * earn"*) on the `/firmer|earn/` assertion, and only on that assertion — the
+   * band words and the quoted word were already correct. That is deliberate:
+   * the defect was the VERDICT, not the span, so the pin is placed on the
+   * verdict alone and the rest of the sentence stays free to be reworded.
+   */
+  it('⭐⭐ does not call the word too firm when the span opens UPWARDS', () => {
+    // 0.38 ± 0.05 → [0.33, 0.43]. Nothing in that interval is below "Moderate",
+    // so "Moderate is firmer than the numbers earn" was false outright — and it
+    // pushed a team to discount a connection that may be UNDERSTATED.
+    seedEdge(OPENS_UPWARD_EDGE)
+    render(<EdgePanel {...panelProps} />)
+    const sentence = screen.getByTestId('edge-strength-spans-bands').textContent ?? ''
+    expect(sentence).toContain('moderate')
+    expect(sentence).toContain('strong')
+    expect(sentence).toContain('"Moderate"')
+    expect(sentence).not.toMatch(/firmer|\bearns?\b|overstat|understat/i)
+  })
+
+  it('states the span rather than a direction when it opens BOTH ways', () => {
+    // 0.30 ± 0.20 → [0.10, 0.50]: slight at one end, strong at the other, and
+    // the stated magnitude bands as Moderate in between. A live-captured edge.
+    seedEdge(OPENS_BOTH_WAYS_EDGE)
+    render(<EdgePanel {...panelProps} />)
+    const sentence = screen.getByTestId('edge-strength-spans-bands').textContent ?? ''
+    expect(sentence).toContain('slight')
+    expect(sentence).toContain('strong')
+    expect(sentence).toContain('"Moderate"')
+    expect(sentence).not.toMatch(/firmer|\bearns?\b|overstat|understat/i)
   })
 })
 

@@ -31,17 +31,26 @@
  * are different facts about the edge and a surface may want to say different
  * things about them.
  *
+ * ⛔⛔ THIS MODULE HOLDS NO BAND TABLE, AND MUST NOT GAIN ONE. Every band word
+ * here comes from `getStrengthLabel`, and `crossesBand` is decided by COMPARING
+ * TWO LABELS rather than by testing cut points — so there is no list of cuts to
+ * drift. An earlier draft of this lane exported a `STRENGTH_BAND_LADDER` from
+ * `domain/vocabulary.ts` to serve a `strengthCutsCrossed` helper that NO product
+ * surface called; that made a second band table in the one file PR #1699 is
+ * consolidating to exactly one, and #1699's guard spec
+ * (`canvas/__tests__/oneStrengthVocabulary.spec.ts`) counts that module's
+ * exported tables at runtime and REDs at two. Both the ladder and the unused
+ * helper are gone. If a surface ever genuinely needs the CUTS rather than the
+ * WORDS, import them from `vocabulary.ts`'s single table — do not re-type them
+ * here.
+ *
  * ⚠ IT IS MAGNITUDE-ONLY, like `getStrengthLabel` which it delegates to. The
  * sign is direction and is not a strength claim (ROADMAP 2.263); a "Strong"
  * negative effect and a "Strong" positive one are equally strong. The magnitude
  * is taken with `Math.abs` here so no caller has to remember.
  */
 
-import {
-  getStrengthLabel,
-  STRENGTH_BAND_LADDER,
-  type StrengthBandLabel,
-} from './vocabulary'
+import { getStrengthLabel } from './vocabulary'
 import type { EdgeValueDisplay } from './edgeValueProvenance'
 
 /**
@@ -76,8 +85,8 @@ export type StrengthSpread =
       low: number
       /** magnitude + spread. Deliberately NOT clamped — see the note below. */
       high: number
-      lowLabel: StrengthBandLabel
-      highLabel: StrengthBandLabel
+      lowLabel: string
+      highLabel: string
       /**
        * ⭐ THE DELIVERABLE. True exactly when `low` and `high` fall in different
        * bands — i.e. the interval crosses a cut point, and the single adjective
@@ -166,29 +175,9 @@ export function resolveStrengthSpread(
  * because none of them contains a proper noun. Same transformation, and the
  * same reason, as `METRIC_UNSET.inline`.
  *
- * ⚠ DERIVED FROM THE LABEL, never a second lowercase table beside the ladder.
- * A fifth band added to `STRENGTH_BAND_LADDER` gets its inline form for free.
+ * ⚠ DERIVED FROM THE LABEL, never a second lowercase table beside the band
+ * words. A fifth band added to `getStrengthLabel` gets its inline form for free.
  */
-export function inlineStrengthLabel(label: StrengthBandLabel): string {
+export function inlineStrengthLabel(label: string): string {
   return `${label.charAt(0).toLowerCase()}${label.slice(1)}`
-}
-
-/**
- * How many cut points the stated interval crosses.
- *
- * Not consumed by the panel today — `crossesBand` is the question the sentence
- * asks. It is exported because it is the honest way to answer "how much worse
- * than one band is this?" without re-deriving the ladder at a call site, and
- * because a spread wide enough to cross two cuts (Moderate through to Very
- * strong) is a materially different statement from one that crosses one.
- *
- * ⚠ SCOPE: counts INTERIOR cuts only. `STRENGTH_BAND_LADDER`'s last entry is the
- * floor at 0, which every non-negative value clears, so it is not a crossing
- * and is excluded rather than silently counted.
- */
-export function strengthCutsCrossed(spread: StrengthSpread): number {
-  if (!spread.known) return 0
-  return STRENGTH_BAND_LADDER.filter(
-    band => band.min > 0 && spread.low < band.min && spread.high >= band.min,
-  ).length
 }

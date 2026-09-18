@@ -517,7 +517,7 @@ export const EDGE_COPY = {
    * It sits directly beneath the `StrengthBandButtons` pills, one of which is
    * highlighted with exactly the word it quotes, so the quotation is pointing at
    * something the reader can see rather than at an abstraction. That adjacency
-   * is the whole design: the product contradicting its own headline word in the
+   * is the whole design: the product qualifying its own headline word in the
    * place the word appears is worth more than a caveat filed elsewhere.
    *
    * ⛔ THE BAND WORDS ARE PASSED IN, NOT LOOKED UP HERE. They come from
@@ -525,13 +525,33 @@ export const EDGE_COPY = {
    * template is unreachable for an edge nobody characterised. A copy function
    * that derived its own labels could be called with anything.
    *
-   * ⚠ "earn" RATHER THAN "support". A first draft read "firmer than the numbers
-   * support", which is ambiguous in the wrong direction — it can be read as the
-   * numbers failing to support a true claim, i.e. a data problem. "Earn" puts it
-   * where it belongs: the word is claiming more than it is entitled to.
+   * ⛔⛔ IT STATES THE SPAN. IT DOES NOT RETURN A VERDICT ON THE WORD, AND THAT
+   * IS THE WHOLE POINT OF THIS WORDING.
+   *
+   * An earlier draft ended *"so ‘{word}’ is a firmer word than the numbers
+   * earn."* That asserts ONE direction — the adjective overstates — while the
+   * interval is `magnitude ± spread` and opens BOTH ways. Where the stated
+   * magnitude sits low in its band, the span reaches UP into the next one, and
+   * the sentence then told a team to discount a connection its own numbers say
+   * may be UNDERSTATED. Measured against live CEE edges (see the spec header):
+   * `0.30 ± 0.20` → [0.10, 0.50], word "Moderate", span slight…strong — the
+   * old sentence called "Moderate" too firm while 0.50 is "Strong"; and
+   * `0.38 ± 0.05` → [0.33, 0.43] never drops below Moderate at all, so the
+   * claim was false outright rather than merely one-sided.
+   *
+   * One predicate cannot guard two opposite harms (platform trap 22b), so this
+   * copy makes no claim about which way the interval leans. It names the span
+   * and says what the quoted word is a word FOR — both true whichever end of
+   * the interval the truth sits at, and true when the span opens both ways.
+   *
+   * ⚠ THE THREE ARGUMENTS ARE NOT INTERCHANGEABLE. `low`/`high` are the band
+   * words at the ENDS of the interval; `word` is the band word for the stated
+   * magnitude ITSELF, which is what the highlighted pill above shows. `word` is
+   * not always between the other two as printed — it equals `low` whenever the
+   * span opens upwards — and the sentence must stay true in that case.
    */
   strengthSpansBands: (low: string, high: string, word: string) =>
-    `Anywhere from ${low} to ${high} fits this estimate — so "${word}" is a firmer word than the numbers earn.`,
+    `Anywhere from ${low} to ${high} fits this estimate — "${word}" is the word for the stated number, not for the range around it.`,
   /**
    * The magnitude and its spread together. A bare point estimate reads as a
    * measurement; this reads as an estimate, which is what it is.
