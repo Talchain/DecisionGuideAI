@@ -168,6 +168,27 @@ export interface SharedBriefRow {
   expires_at: string | null
 }
 
+/**
+ * A shared SNAPSHOT — the payload `get_shared_snapshot_by_slug` returns.
+ *
+ * Distinct from `SharedBriefRow` above, and the difference is the whole point:
+ * a brief row carries prose plus three hashes, so a recipient opening one sees
+ * no model. A snapshot carries the graph, which is the thing worth sending.
+ *
+ * Optional fields arrive as explicit JSON nulls — the reader deliberately does
+ * not strip them, because an explicit null inside shared content is the
+ * sharer's data. Treat null and absent identically.
+ */
+export interface SharedSnapshotRow {
+  graph: unknown
+  analysis: unknown
+  brief_text: string | null
+  graph_hash: string | null
+  seed: number | null
+  created_at: string
+  expires_at: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Typed error for all persistence operations
 // ---------------------------------------------------------------------------

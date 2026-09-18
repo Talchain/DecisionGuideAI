@@ -78,6 +78,18 @@ export interface UseScenarioReturn {
   setStage: (stage: ScenarioStage, turnId?: string) => Promise<void>
   createSharedBrief: () => Promise<{ slug: string } | null>
 
+  /**
+   * Mint a shareable SNAPSHOT of the saved decision and return its slug.
+   *
+   * Prefer this over `createSharedBrief`: the brief RPC gates on two columns
+   * the product stopped writing, so it refuses every real decision, and its
+   * payload carries no graph even when it succeeds.
+   *
+   * Pending saves are flushed first, so the link carries the model the sender
+   * is actually looking at rather than the last debounced write.
+   */
+  createSharedSnapshot: () => Promise<{ slug: string } | null>
+
   // Graph staleness — true when graph has been edited after the last analysis
   analysisStale: boolean
   clearAnalysisStale: () => void
@@ -1176,6 +1188,17 @@ export function useScenario(): UseScenarioReturn {
     return { slug: result.slug }
   }, [isPersistenceActive, currentScenarioId])
 
+  const createSharedSnapshot = useCallback(async (): Promise<{
+    slug: string
+  } | null> => {
+    if (!isPersistenceActive || !currentScenarioId) return null
+    // Flush first: a share that carries the previous debounced graph is a
+    // quiet lie to the recipient, and the sender has no way to notice.
+    await flushPendingSaves()
+    const result = await scenarioService.createSharedSnapshot(currentScenarioId)
+    return { slug: result.slug }
+  }, [isPersistenceActive, currentScenarioId, flushPendingSaves])
+
   // -----------------------------------------------------------------------
   // Return value (stable via useMemo to prevent unnecessary re-renders)
   // -----------------------------------------------------------------------
@@ -1196,6 +1219,7 @@ export function useScenario(): UseScenarioReturn {
       persistBrief,
       setStage,
       createSharedBrief,
+      createSharedSnapshot,
       analysisStale,
       clearAnalysisStale,
       flushPendingSaves,
@@ -1215,6 +1239,7 @@ export function useScenario(): UseScenarioReturn {
       persistBrief,
       setStage,
       createSharedBrief,
+      createSharedSnapshot,
       analysisStale,
       clearAnalysisStale,
       flushPendingSaves,

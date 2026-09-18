@@ -34,6 +34,7 @@ import type {
   ScenarioListItem,
   ScenarioStage,
   SharedBriefRow,
+  SharedSnapshotRow,
 } from '../types/scenario'
 import { ScenarioPersistenceError } from '../types/scenario'
 
@@ -589,6 +590,96 @@ export async function getSharedBriefBySlug(
   }
 
   return (data as SharedBriefRow) ?? null
+}
+
+// ---------------------------------------------------------------------------
+// 15b. createSharedSnapshot / getSharedSnapshotBySlug
+//
+// The share path that actually carries the decision.
+//
+// `create_shared_brief` (14 above) gates on `scenarios.brief` and
+// `scenarios.analysis_provenance`. Measured at the deployed database on
+// 18 Sep 2026: both are populated in 1 of 14,141 rows, and that row is a
+// synthetic fixture — the live columns are `brief_text` and
+// `graph_identity_hash`. So every real owner is refused with P0001 "No brief
+// to share", and even a row that passed would reach the recipient without a
+// graph. Evidence: output/accelerate-20260918/SHARE-GATING-ITEM-SETTLED.md.
+//
+// We snapshot the row the SERVER holds rather than client state, so the link
+// carries what was actually persisted. Callers flush pending saves first, so
+// "what was persisted" is also "what the sender is looking at".
+// ---------------------------------------------------------------------------
+
+export async function createSharedSnapshot(
+  scenarioId: string,
+): Promise<{ id: string; slug: string }> {
+  const { data: saved, error: readError } = await supabase
+    .from('scenarios')
+    .select('graph, brief_text, graph_identity_hash')
+    .eq('id', scenarioId)
+    .single()
+
+  if (readError) {
+    throw new ScenarioPersistenceError(
+      `Failed to read the saved decision before sharing: ${readError.message}`,
+      'CREATE_SHARED_SNAPSHOT_FAILED',
+      readError,
+    )
+  }
+
+  const row = saved as {
+    graph: unknown
+    brief_text: string | null
+    graph_identity_hash: string | null
+  } | null
+
+  // Refuse here rather than at the database. A snapshot with no graph is the
+  // empty-canvas failure this path exists to end, and the sender deserves a
+  // reason rather than a generic retry.
+  if (!row || row.graph == null || typeof row.graph !== 'object') {
+    throw new ScenarioPersistenceError(
+      'This decision has no saved model yet, so a link would open empty for whoever you send it to.',
+      'CREATE_SHARED_SNAPSHOT_NO_GRAPH',
+    )
+  }
+
+  const { data, error } = await supabase.rpc('create_shared_snapshot', {
+    p_scenario_id: scenarioId,
+    p_graph: row.graph,
+    p_analysis: null,
+    p_brief_text: row.brief_text ?? null,
+    p_graph_hash: row.graph_identity_hash ?? null,
+    p_seed: null,
+    p_expires_at: null,
+  })
+
+  if (error) {
+    throw new ScenarioPersistenceError(
+      `Failed to create shared snapshot: ${error.message}`,
+      'CREATE_SHARED_SNAPSHOT_FAILED',
+      error,
+    )
+  }
+
+  return data as { id: string; slug: string }
+}
+
+export async function getSharedSnapshotBySlug(
+  slug: string,
+): Promise<SharedSnapshotRow | null> {
+  const { data, error } = await supabase.rpc('get_shared_snapshot_by_slug', {
+    p_slug: slug,
+  })
+
+  if (error) {
+    throw new ScenarioPersistenceError(
+      `Failed to fetch shared snapshot: ${error.message}`,
+      'GET_SHARED_SNAPSHOT_FAILED',
+      error,
+    )
+  }
+
+  return (data as SharedSnapshotRow) ?? null
 }
 
 // ---------------------------------------------------------------------------
