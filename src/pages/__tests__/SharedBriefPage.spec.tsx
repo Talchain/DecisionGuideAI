@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import React from 'react'
 
@@ -70,6 +70,95 @@ const SNAPSHOT = {
   created_at: '2026-09-18T00:29:15.899114+00:00',
   expires_at: null,
 }
+
+/**
+ * ⭐ THE ANALYSIS FIXTURE'S SHAPE IS DERIVED FROM THE PRODUCER.
+ *
+ * Measured at the deployed database on 18 Sep 2026 across every `scenarios.brief`
+ * CEE has written (39 rows, all written that day between 01:48Z and 12:37Z —
+ * this column went live TODAY, which is why the page had nothing to show before).
+ * All 18 keys present on all 39 rows. Population of the parts that matter:
+ *
+ *   options            39/39   [{ rank, label, option_id, win_probability }]
+ *   headline           39/39   producer's own sentence
+ *   robustness_caveat  39/39   { text, basis, doctrine, flip_evidence }
+ *   what_would_change  39/39   array of STRINGS ("A → B")
+ *   top_drivers        27/39   [{ factor_label, direction, sensitivity }]
+ *   key_assumptions    27/39   array of STRINGS (factor labels)
+ *   warnings           35/39   [{ code, message, severity }]
+ *   defaulted_assumptions 9/39 [{ code, note, source }]
+ *
+ * win_probability measured across 131 option rows: min 0.000125, max 0.99595,
+ * zero above 1 — a probability, not a percentage.
+ *
+ * `warnings` and `defaulted_assumptions` are DELIBERATELY ABSENT from the
+ * allowlist and are included in this fixture to prove they stay out: measured
+ * over the same rows, 12 of 103 warning messages carry raw node ids
+ * ("root node '6bb6259c'", 'factor node "ab78e513"') and internal service
+ * names ("ISL will default to intercept=0"). Contrast control in the same
+ * sweep: every allowlisted field read ZERO hex ids across 40/188/56/135/60/40
+ * elements, so the instrument could see ids and those zeros are real.
+ */
+const ANALYSIS = {
+  version: '1',
+  brief_id: 'brief-internal-9f2',
+  created_at: '2026-09-18T00:20:00Z',
+  graph_hash: 'deadbeefcafe',
+  seed: 424242,
+  lineage: { run_id: 'run-internal-441' },
+  headline:
+    'Lease in Leeds produced the best outcome in 82% of runs of this model. The link from Local demand to Revenue is where this result is most sensitive to your assumptions.',
+  headline_banded: {
+    band: 'clearly_ahead',
+    text: 'Lease in Leeds is clearly ahead.',
+    leader_label: 'Lease in Leeds',
+    leader_option_id: 'b54e5dac',
+    runner_up_option_id: '9c25f4ff',
+    robustness_gated: false,
+    win_probability_gap: 0.6571,
+    doctrine: 'provisional_doctrine_v0',
+  },
+  analysis_summary: {
+    leading_option: 'Lease in Leeds',
+    robustness_band: 'moderate',
+    win_probability: 0.823475,
+  },
+  options: [
+    { rank: 1, label: 'Lease in Leeds', option_id: 'b54e5dac', win_probability: 0.823475 },
+    { rank: 2, label: 'Stay put', option_id: '9c25f4ff', win_probability: 0.176525 },
+  ],
+  robustness: 'moderate',
+  robustness_caveat: {
+    text: 'This run held up under the changes we tested. That is not a guarantee. Defaulted or uncertain inputs could still change it.',
+    basis: 'is_robust',
+    doctrine: 'provisional_doctrine_v0',
+    flip_evidence: { text: 'Varying any one factor did not change the order.', status: 'all_no_effect' },
+  },
+  top_drivers: [
+    { factor_label: 'Local demand', direction: 'positive', sensitivity: 0.3077636585204695 },
+    { factor_label: 'Build cost', direction: 'negative', sensitivity: 0.2073286500854376 },
+  ],
+  what_would_change: ['Local demand → Revenue', 'Build cost → Revenue'],
+  key_assumptions: ['Local demand', 'Build cost'],
+  warnings: [
+    {
+      code: 'GOAL_ANCESTOR_DATA_GAP',
+      message:
+        "Goal node 'aa289540' is scored from its forward-propagated outcome distribution, but root ancestor(s) '6bb6259c' carry no observed value. ISL will default to intercept=0.",
+      severity: 'warning',
+    },
+  ],
+  warning_codes: ['GOAL_ANCESTOR_DATA_GAP'],
+  defaulted_assumptions: [
+    {
+      code: 'ROOT_NODE_DEFAULT_VALUE',
+      note: "No observed value provided for root node '6bb6259c'; defaulted to 0.0.",
+      source: 'default_disclosure',
+    },
+  ],
+}
+
+const SNAPSHOT_WITH_ANALYSIS = { ...SNAPSHOT, analysis: ANALYSIS }
 
 describe('SharedBriefPage', () => {
   beforeEach(() => {
@@ -212,6 +301,230 @@ describe('SharedBriefPage', () => {
   // -------------------------------------------------------------------------
   // States
   // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // The analysis — what the run concluded, not just what was modelled
+  // -------------------------------------------------------------------------
+
+  describe('the analysis', () => {
+    beforeEach(() => {
+      mockGetSharedSnapshotBySlug.mockResolvedValue(SNAPSHOT_WITH_ANALYSIS)
+    })
+
+    it('shows the producer’s own headline — the claim it was entitled to make', async () => {
+      renderPage()
+      expect(
+        await screen.findByText(/produced the best outcome in 82% of runs/),
+      ).toBeInTheDocument()
+    })
+
+    it('ranks the options with their win probabilities', async () => {
+      renderPage()
+      const section = await screen.findByTestId('shared-snapshot-analysis')
+      // Bound by identity: the option LABEL carries its own probability, so a
+      // row cannot pass by matching a number that belongs to another option.
+      const leeds = within(section).getByTestId('shared-option-0')
+      expect(within(leeds).getByText('Lease in Leeds')).toBeInTheDocument()
+      expect(within(leeds).getByText('82%')).toBeInTheDocument()
+
+      const stay = within(section).getByTestId('shared-option-1')
+      expect(within(stay).getByText('Stay put')).toBeInTheDocument()
+      expect(within(stay).getByText('18%')).toBeInTheDocument()
+    })
+
+    it('keeps robustness as a SEPARATE disclosure, never folded into the leader claim', async () => {
+      // decisionVerdict.ts: separation and robustness are two axes, and every
+      // contradictory string this product has shipped came from collapsing
+      // them. The producer's own caveat sentence is rendered as written.
+      renderPage()
+      expect(
+        await screen.findByText(/held up under the changes we tested/),
+      ).toBeInTheDocument()
+    })
+
+    it('shows what would change the outcome', async () => {
+      renderPage()
+      expect(await screen.findByText('Local demand → Revenue')).toBeInTheDocument()
+      expect(screen.getByText('Build cost → Revenue')).toBeInTheDocument()
+    })
+
+    it('names the factors the result is most sensitive to', async () => {
+      renderPage()
+      const drivers = await screen.findByTestId('shared-analysis-drivers')
+      expect(within(drivers).getByText('Local demand')).toBeInTheDocument()
+      expect(within(drivers).getByText('Build cost')).toBeInTheDocument()
+    })
+
+    it('never renders the raw sensitivity number, whose units are not disclosed', async () => {
+      // 0.3077636585204695 is not a probability and not a percentage; the
+      // producer does not say which. Rendering it would invent a presentation.
+      renderPage()
+      await screen.findByTestId('shared-snapshot-analysis')
+      expect(screen.queryByText(/0\.30776/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/31%/)).not.toBeInTheDocument()
+    })
+
+    // -----------------------------------------------------------------------
+    // ⛔ The allowlist — this page is PUBLIC and anonymous
+    // -----------------------------------------------------------------------
+
+    it('never renders an analysis internal at the anonymous reader', async () => {
+      renderPage()
+      await screen.findByTestId('shared-snapshot-analysis')
+
+      // Producer-internal identifiers carried in every real brief.
+      expect(screen.queryByText(/b54e5dac/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/9c25f4ff/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/brief-internal-9f2/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/run-internal-441/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/deadbeefcafe/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/424242/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/provisional_doctrine_v0/)).not.toBeInTheDocument()
+    })
+
+    it('never renders warnings or defaulted assumptions — they carry raw node ids', async () => {
+      // Measured: 12 of 103 warning messages name internal node ids and the
+      // ISL service by name. They are operator diagnostics, not content for a
+      // recipient, so they are outside the allowlist by decision, not by
+      // oversight.
+      renderPage()
+      await screen.findByTestId('shared-snapshot-analysis')
+
+      expect(screen.queryByText(/aa289540/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/6bb6259c/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/ISL will default/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/GOAL_ANCESTOR_DATA_GAP/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/ROOT_NODE_DEFAULT_VALUE/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/default_disclosure/)).not.toBeInTheDocument()
+    })
+
+    it('renders no raw dump, however deeply an unknown field is nested', async () => {
+      // The worst defect this page ever had was a JSON.stringify fallback.
+      mockGetSharedSnapshotBySlug.mockResolvedValue({
+        ...SNAPSHOT,
+        analysis: {
+          ...ANALYSIS,
+          internal_owner_email: 'someone@example.com',
+          telemetry: { session_id: 'sess-777', prompt_version: 'v202' },
+        },
+      })
+      renderPage()
+      await screen.findByTestId('shared-snapshot-analysis')
+
+      expect(screen.queryByText(/someone@example\.com/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/sess-777/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/v202/)).not.toBeInTheDocument()
+    })
+
+    // -----------------------------------------------------------------------
+    // Withheld claims and missing analysis
+    // -----------------------------------------------------------------------
+
+    it('makes NO leader claim when the producer withheld one', async () => {
+      // CEE #711 made SILENCE MEANINGFUL: on a withheld turn it drops
+      // `headline`/`headline_banded` while the per-option win probabilities
+      // keep riding the wire, because the DATA is not withheld — only the
+      // CLAIM. decisionVerdict.ts deleted the UI-side fallback rather than
+      // gating it, for exactly this reason. This page must not rebuild the
+      // claim the producer declined to make.
+      const { headline, headline_banded, analysis_summary, ...withheld } = ANALYSIS
+      void headline
+      void headline_banded
+      void analysis_summary
+      mockGetSharedSnapshotBySlug.mockResolvedValue({
+        ...SNAPSHOT,
+        analysis: withheld,
+      })
+      renderPage()
+
+      const section = await screen.findByTestId('shared-snapshot-analysis')
+      // The data still renders.
+      expect(within(section).getByText('Lease in Leeds')).toBeInTheDocument()
+      expect(within(section).getByText('82%')).toBeInTheDocument()
+      // The claim does not.
+      expect(screen.queryByTestId('shared-analysis-headline')).not.toBeInTheDocument()
+      expect(screen.queryByText(/clearly ahead/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/\brecommended\b/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/\bbest option\b/i)).not.toBeInTheDocument()
+    })
+
+    it('does not rebuild the claim from `headline_banded` when `headline` is gone', async () => {
+      // Found by a surviving mutant. The case above drops `headline`,
+      // `headline_banded` AND `analysis_summary` together, which is what CEE
+      // #711 does on a withheld turn — so it could not tell a page that
+      // rebuilds the claim from `headline_banded.text` apart from one that
+      // does not. This case keeps the banded object present and adversarial:
+      // the page must still make no claim, because `headline` is the only
+      // field it is allowed to render, and a fallback is precisely the
+      // "Authority 3" that decisionVerdict.ts deleted rather than gated.
+      const { headline, ...withBanded } = ANALYSIS
+      void headline
+      mockGetSharedSnapshotBySlug.mockResolvedValue({
+        ...SNAPSHOT,
+        analysis: withBanded,
+      })
+      renderPage()
+
+      const section = await screen.findByTestId('shared-snapshot-analysis')
+      expect(within(section).getByText('Lease in Leeds')).toBeInTheDocument()
+      expect(screen.queryByTestId('shared-analysis-headline')).not.toBeInTheDocument()
+      expect(screen.queryByText(/is clearly ahead/i)).not.toBeInTheDocument()
+    })
+
+    it('shows the model and NO analysis section when the scenario has no brief', async () => {
+      // 14,213 of 14,252 scenarios measured on 18 Sep 2026. The link must open
+      // cleanly for them — no empty heading, no broken section.
+      mockGetSharedSnapshotBySlug.mockResolvedValue(SNAPSHOT)
+      renderPage()
+
+      expect(await screen.findByTestId('shared-snapshot-model')).toBeInTheDocument()
+      expect(screen.queryByTestId('shared-snapshot-analysis')).not.toBeInTheDocument()
+    })
+
+    it('shows no analysis section when the analysis carries nothing renderable', async () => {
+      mockGetSharedSnapshotBySlug.mockResolvedValue({
+        ...SNAPSHOT,
+        analysis: { brief_id: 'x', lineage: { run_id: 'y' }, warnings: ANALYSIS.warnings },
+      })
+      renderPage()
+
+      expect(await screen.findByTestId('shared-snapshot-model')).toBeInTheDocument()
+      expect(screen.queryByTestId('shared-snapshot-analysis')).not.toBeInTheDocument()
+    })
+
+    it('shows the analysis even when the model itself cannot be rendered', async () => {
+      // The two sections are independent: a graph this page cannot read must
+      // not take the conclusions down with it.
+      mockGetSharedSnapshotBySlug.mockResolvedValue({
+        ...SNAPSHOT_WITH_ANALYSIS,
+        graph: null,
+      })
+      renderPage()
+
+      expect(
+        await screen.findByTestId('shared-snapshot-unrenderable'),
+      ).toBeInTheDocument()
+      expect(screen.getByTestId('shared-snapshot-analysis')).toBeInTheDocument()
+    })
+
+    it('survives an analysis whose arrays are the wrong type', async () => {
+      mockGetSharedSnapshotBySlug.mockResolvedValue({
+        ...SNAPSHOT,
+        analysis: {
+          headline: 'A sentence.',
+          options: 'not-an-array',
+          top_drivers: { nope: true },
+          what_would_change: 42,
+          key_assumptions: null,
+          robustness_caveat: 'not-an-object',
+        },
+      })
+      renderPage()
+
+      const section = await screen.findByTestId('shared-snapshot-analysis')
+      expect(within(section).getByText('A sentence.')).toBeInTheDocument()
+    })
+  })
 
   it('shows a not-found state for an unknown or expired slug', async () => {
     mockGetSharedSnapshotBySlug.mockResolvedValue(null)
