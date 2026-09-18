@@ -50,7 +50,7 @@ import { useReadinessStore, selectOptionExclusionMessage } from '../stores/readi
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NODE_QUICK_ACTION_BAND_PX, CANVAS_CORNER_STACK_CLASSES } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
-import { sensitivityRankBadgeAccessibleName } from './shared/metricVocabulary'
+import { sensitivityRankBadgeAccessibleName, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -1397,10 +1397,61 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               : 'The analysis will run without this option'}
           />
         ) : isIncomplete ? (
-          <StatusPill
-            label="Needs input"
-            title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
-          />
+          /* ⭐⭐ NOT MODELLED IS NOT NOT ESTIMATED — ONE PILL WAS SAYING BOTH.
+
+             `isIncomplete` admits four node types, and until this change all
+             four rendered the identical pill: `needs-input-pill`, label
+             "Needs input", title "Missing required input". Three of the arms
+             are quantitative — a factor with no value, a goal with no target,
+             an option with no interventions. The DECISION arm is not, and this
+             file's own spec had already written the distinction down:
+             `BaseNode.needsJudgementBadge.spec.tsx` — *"a decision node's
+             incompleteness is the ONLY one of the four that is a property of
+             the GRAPH rather than of the node's own data"*. The difference was
+             known, documented in the suite, and drawn the same way anyway.
+
+             ⛔ THE COST IS THE NEXT STEP. "Missing required input" tells a
+             reader to supply a value to this card. On an optionless decision
+             there is no value to supply — what is absent is the alternatives
+             themselves, and the repair is to create them. Pooling the two
+             means a reader cannot tell "nobody estimated this" from "this was
+             never modelled", so they take the wrong action or none.
+
+             ⚠ THE CARD WAS ALREADY DISAGREEING WITH ITSELF. `DecisionNode`'s
+             resting line has said `No options linked yet` with an `Add options`
+             CTA for some time, on the SAME card, at the SAME moment this pill
+             said "Needs input". Two surfaces, one fact, two vocabularies — and
+             the one with no route was the one using the misleading word. Both
+             now read `STRUCTURAL_UNSET`, one record, so they cannot drift back
+             apart (CLAUDE.md trap 12). They read DIFFERENT MEMBERS of it on
+             purpose: the pill states the CONSEQUENCE ("nothing to compare
+             yet") and carries the CAUSE in its title, which is the same
+             division of labour the exclusion pill above already uses. Giving
+             both surfaces the identical string was the first cut of this
+             change, and `DecisionNode.readinessSummary.spec.tsx` caught it —
+             the card rendered one sentence twice.
+
+             ⚠ ITS OWN TESTID, FOR THE REASON `StatusPill` ALREADY ARGUES in
+             its own header: a second claim reusing `needs-input-pill` makes an
+             assertion pass on a node that says no such thing (trap 19). The
+             exclusion pill above set this precedent; this follows it.
+
+             ⛔ STILL ONE CHILD, NOT TWO. This REPLACES the pill for decisions
+             rather than adding beside it — the corner stack is pinned at three
+             children, and these two arms answer the same question. No hue, no
+             geometry and no other arm's copy changes. */
+          nodeType === 'decision' ? (
+            <StatusPill
+              testId="no-options-linked-pill"
+              label={STRUCTURAL_UNSET.nothingCompared}
+              title={STRUCTURAL_UNSET.noOptions}
+            />
+          ) : (
+            <StatusPill
+              label="Needs input"
+              title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
+            />
+          )
         ) : null}
 
         {/* Sensitivity rank badge — Results mode, top 3 factors. */}

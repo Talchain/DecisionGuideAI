@@ -205,10 +205,23 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
     expect(within(stackOf(OPTION_ID)).getByTestId('needs-input-pill')).toBeTruthy()
   })
 
-  it('⭐ DECISION (no options linked) — NEWLY COVERED by the re-ruling', () => {
+  it('⭐ DECISION (no options linked) — its own pill, because its absence is a different KIND', () => {
     renderOptionlessDecision()
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
-    expect(within(stackOf(DECISION_ID)).getByTestId('needs-input-pill')).toBeTruthy()
+
+    /* ⭐⭐ REPAIRED, AND DELIBERATELY STRENGTHENED — this case used to assert
+       `needs-input-pill` here. That assertion was TRUE and it bound to the
+       wrong claim: the same testid, label and title served all four arms, so
+       it would have stayed green on a decision rendering the quantitative
+       sentence "Missing required input", which is false of a card whose
+       options do not exist. The comment below already said these were
+       different kinds; the assertion did not.
+
+       It now binds by IDENTITY to the structural pill (trap 19) and pins the
+       pooled one ABSENT in the same case — so a revert that puts "Needs input"
+       back on a decision REDs here rather than passing. */
+    expect(within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
+    expect(within(stackOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
 
     // OPPOSITE DIRECTION: give the decision an option and the badge must go.
     // A decision node's incompleteness is the ONLY one of the four that is a
@@ -216,6 +229,7 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
     // worth spending a case on.
     cleanup()
     renderOptionlessDecision([{ id: 'e1', source: DECISION_ID, target: OPTION_ID }])
+    expect(screen.queryByTestId('no-options-linked-pill')).toBeNull()
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 })

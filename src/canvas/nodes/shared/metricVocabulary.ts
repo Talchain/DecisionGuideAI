@@ -214,6 +214,89 @@ export const METRIC_UNSET = {
 } as const
 
 /**
+ * ⭐⭐ A PART OF THE MODEL THAT DOES NOT EXIST IS NOT A QUANTITY NOBODY SUPPLIED.
+ *
+ * `METRIC_UNSET` above is the canvas's word for **not estimated** — the thing
+ * is in the model and no one has said how big it is. This constant is the word
+ * for the other absence: **not modelled** — the thing is not in the model at
+ * all, so there is no quantity to withhold.
+ *
+ * ⛔ WHY IT HAD TO BE SEPARATED. `BaseNode`'s `isIncomplete` admits four node
+ * types and rendered ONE pill for all four — `needs-input-pill`, label
+ * "Needs input", title "Missing required input". Three of those arms are
+ * quantitative (a factor with no value, a goal with no target, an option with
+ * no interventions). The fourth is not: a decision with no options linked is
+ * missing OPTION NODES, and `BaseNode.needsJudgementBadge.spec.tsx` already
+ * says so in writing — *"a decision node's incompleteness is the ONLY one of
+ * the four that is a property of the GRAPH rather than of the node's own
+ * data"*. The codebase had already named the distinction and still drew both
+ * absences the same way.
+ *
+ * The cost is the next step, which is the whole point of drawing absences
+ * apart. "Missing required input" tells a reader to supply a value to this
+ * card. On an optionless decision there is no value to supply: the repair is
+ * to CREATE the alternatives being compared. A reader who cannot tell "nobody
+ * estimated this" from "this was never modelled" takes the wrong action, or
+ * none.
+ *
+ * ⚠ ONE STRING, TWO SURFACES, AND THAT IS THE POINT. The decision card's own
+ * resting line already said the true thing — `DECISION_RESTING_COPY.noOptionsLine`
+ * — while the pill in its corner said the pooled thing. Both now READ THIS
+ * CONSTANT rather than spelling their own, so the card cannot go back to
+ * disagreeing with itself (CLAUDE.md trap 12: a word in two places drifts, and
+ * the drift always reads as green). The value is byte-identical to the line
+ * that already shipped, so nothing on the resting line changes.
+ *
+ * ⚠ NO NEW HUE AND NO NEW GEOMETRY. The pill keeps the amber needs-judgement
+ * treatment already ruled for this estate: an unbuilt comparison wants the
+ * user's attention for the same reason an unset value does. Only the WORDS and
+ * the testid change, so the corner stack's pinned child count is untouched.
+ */
+export const STRUCTURAL_UNSET = {
+  /**
+   * THE CAUSE, for the card body — what is absent, and the line the `Add
+   * options` CTA sits under. `DECISION_RESTING_COPY.noOptionsLine` reads this.
+   */
+  noOptions: 'No options linked yet',
+  /**
+   * ⭐ THE CONSEQUENCE, for the corner pill — AND THE SECOND FORM EXISTS
+   * BECAUSE THE FIRST ONE, REUSED VERBATIM, SHIPPED A DEFECT THAT THE EXISTING
+   * SUITE CAUGHT.
+   *
+   * The first cut of this change gave the pill `noOptions` itself, on the
+   * anti-drift reasoning that one fact deserves one string.
+   * `DecisionNode.readinessSummary.spec.tsx:454` went RED on
+   * `getByText(noOptionsLine)` finding TWO elements — because the pill and the
+   * resting line both render on the same card at the same moment, so the card
+   * said one sentence twice. Height and width are the scarcest resources on
+   * this canvas and `FactorNode` already rules on exactly this: saying it
+   * twice costs a line and adds nothing.
+   *
+   * ⚠ SO WHY NOT DROP THE PILL AND KEEP THE LINE, which is the shorter fix?
+   * Because the line is not always the one showing. `DecisionNode`'s resting
+   * state is a FIRST-MATCH chain — an UNNAMED optionless decision renders
+   * `unnamedLine`, never `noOptionsLine`. On that card the pill is the only
+   * channel carrying the structural absence at all, so removing it would
+   * reopen the gap the pill was added to close.
+   *
+   * ⚠ TWO FORMS, ONE FACT, ONE OWNER — which is this file's whole job. They sit
+   * adjacent in one record precisely so they cannot drift into contradicting
+   * each other, the same construction `METRIC_UNSET` uses for its `standalone`
+   * / `inline` pair. Not derived by string surgery: dropping a word from the
+   * cause does not produce an honest consequence.
+   *
+   * ⚠ AND IT IS IN THE PILL'S DOCUMENTED REGISTER. `BaseNode` argues, for the
+   * exclusion pill, that a pill "states the CONSEQUENCE rather than the cause"
+   * — "Needs input" tells a user something is missing, the consequence tells
+   * them what it costs. For an optionless decision the cost is exact: there is
+   * nothing being compared. "compare" is the estate's own word for it
+   * (`DECISION_RESTING_COPY.noOptionsAsk` — "Suggest options to compare here"),
+   * not one minted here.
+   */
+  nothingCompared: 'Nothing to compare yet',
+} as const
+
+/**
  * ⭐ THE LEGEND — the second half of Paul's ruling: "a legend where the model
  * is, not in a panel."
  *
