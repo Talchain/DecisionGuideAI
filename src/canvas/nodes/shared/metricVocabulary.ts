@@ -292,6 +292,26 @@ export const STRUCTURAL_UNSET = {
    * nothing being compared. "compare" is the estate's own word for it
    * (`DECISION_RESTING_COPY.noOptionsAsk` — "Suggest options to compare here"),
    * not one minted here.
+   *
+   * ⛔⛔ THIS STRING IS THE PILL'S *ONLY* STRING — `noOptions` MUST NOT BE
+   * HANDED TO THE SAME PILL AS A `title`, AND THAT IS A CORRECTION TO THE
+   * PARAGRAPH ABOVE RATHER THAN A GLOSS ON IT. The first cut of the split did
+   * exactly that, on the reasoning that the pill could state the consequence
+   * and carry the cause in its tooltip. `StatusPill` composes
+   * `aria-label={title ?? label}`, so the "tooltip" is also the ACCESSIBLE
+   * NAME: the pill then announced `noOptions` verbatim while the body line
+   * announced it too, and the card a screen-reader user hears said one sentence
+   * twice — the defect the split exists to remove, moved rather than removed.
+   * Worse, the assertion that certified the split was `getByText`, which reads
+   * text content and cannot see `aria-label`, so the visible channel went green
+   * while the a11y channel never moved.
+   *
+   * ⚠ SO THE RULE THIS RECORD NOW CARRIES: one surface, one member. The corner
+   * pill renders `nothingCompared` and passes NO `title`, so its visible label,
+   * its tooltip and its accessible name are one string and cannot drift; the
+   * card body renders `noOptions`. A THIRD form invented for the tooltip would
+   * be this same defect one round later, invisible to every sighted reviewer.
+   * Pinned as literals in `BaseNode.needsJudgementBadge.spec.tsx` §5.
    */
   nothingCompared: 'Nothing to compare yet',
 } as const

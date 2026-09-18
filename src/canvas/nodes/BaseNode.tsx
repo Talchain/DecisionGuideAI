@@ -1425,11 +1425,50 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
              now read `STRUCTURAL_UNSET`, one record, so they cannot drift back
              apart (CLAUDE.md trap 12). They read DIFFERENT MEMBERS of it on
              purpose: the pill states the CONSEQUENCE ("nothing to compare
-             yet") and carries the CAUSE in its title, which is the same
-             division of labour the exclusion pill above already uses. Giving
-             both surfaces the identical string was the first cut of this
-             change, and `DecisionNode.readinessSummary.spec.tsx` caught it —
-             the card rendered one sentence twice.
+             yet") and the body states the CAUSE. Giving both surfaces the
+             identical string was the first cut of this change, and
+             `DecisionNode.readinessSummary.spec.tsx` caught it — the card
+             rendered one sentence twice.
+
+             ⛔⛔ AND THE FIRST FIX ONLY MOVED THAT DUPLICATE ONTO THE CHANNEL
+             NOBODY WAS LOOKING AT — NO `title` HERE, DELIBERATELY.
+
+             This arm shipped `title={STRUCTURAL_UNSET.noOptions}`, and
+             `StatusPill` composes `aria-label={title ?? label}` as well as the
+             tooltip (`StatusPill.tsx` — the same reuse this file's goal-arm
+             block above already records as load-bearing, naming the symbol
+             rather than an offset for the reason the corner-stack block gives).
+             So the pill ANNOUNCED the body line's sentence verbatim,
+             `role="status"`, on a card whose body announces it too: the sighted
+             user got two sentences and the screen-reader user got one sentence
+             twice — the exact defect this block exists to remove, surviving in
+             the accessibility tree.
+
+             ⛔ AND THE GREEN CAME FROM THE INSTRUMENT, NOT FROM THE FIX. What
+             caught the visible duplicate was `getByText`, which reads TEXT
+             CONTENT and cannot see `aria-label`. Moving the string from `label`
+             into `title` therefore turned that assertion green while leaving
+             the duplication exactly where it was, one channel over
+             (CLAUDE.md trap 13b — a guard that cannot observe the property it
+             certifies).
+
+             ⭐ THE FIX IS TO OMIT `title`, NOT TO PARAPHRASE IT. A third
+             sentence about one fact, visible to no reviewer, is this defect one
+             round later; a paraphrase still says the same sentence twice to
+             AT. With `title` absent the component's documented fallback makes
+             BOTH the accessible name and the tooltip the VISIBLE label, so the
+             two channels agree by construction and there is no second string
+             left to drift into the body's (WCAG 2.5.3 Label in Name, which the
+             shipped arm also failed: name and visible label were different
+             sentences).
+
+             ⚠ NOTHING IS LOST ON THE UNNAMED ARM. The cause lives on the body
+             line wherever that line renders; where it does not — an UNNAMED
+             optionless decision, which renders `unnamedLine` — "Nothing to
+             compare yet" is a complete statement of the structural absence and
+             prescribes no act. That restraint is this file's own goal-arm rule:
+             a `role="status"` span with no handler is not a route, so it states
+             the fact and offers no action the card cannot perform.
 
              ⚠ ITS OWN TESTID, FOR THE REASON `StatusPill` ALREADY ARGUES in
              its own header: a second claim reusing `needs-input-pill` makes an
@@ -1444,7 +1483,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             <StatusPill
               testId="no-options-linked-pill"
               label={STRUCTURAL_UNSET.nothingCompared}
-              title={STRUCTURAL_UNSET.noOptions}
             />
           ) : (
             <StatusPill

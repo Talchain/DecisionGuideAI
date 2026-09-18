@@ -73,7 +73,8 @@ import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
 import { GoalNode } from '../GoalNode'
-import { DecisionNode } from '../DecisionNode'
+import { DecisionNode, DECISION_RESTING_COPY } from '../DecisionNode'
+import { STRUCTURAL_UNSET } from '../shared/metricVocabulary'
 
 const baseProps = {
   selected: false,
@@ -372,5 +373,99 @@ describe('IMPOSSIBILITY PIN — the badge and the "Most supported" pill are exac
     expect(code).not.toContain(
       "isIncomplete && (nodeType === 'factor' || nodeType === 'goal')",
     )
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 5 · THE WORDS, AND THE CHANNEL THE LAST ROUND LEFT UNGUARDED
+ *
+ * ⚠ UNRUN AT THE TIME OF WRITING. No suite, no typecheck and no browser was
+ * executed for this section — the cost constraints on the lane barred all
+ * three. CI is the authority on whether it passes; it is written to be RED
+ * against the code as it stood one commit ago, which is the only claim being
+ * made for it here.
+ *
+ * ⛔ WHY LITERALS, WHEN THIS ESTATE'S STANDING RULE IS "DERIVE, DON'T MIRROR".
+ * Because the two rules answer different questions (CLAUDE.md trap 12d, stated
+ * in full there): a DERIVED assertion proves the surfaces AGREE with the
+ * record, and can never notice that the record itself now says something else.
+ * `getByText(DECISION_RESTING_COPY.noOptionsLine)` is the shape to avoid — the
+ * render and the assertion read one constant, so a copy change moves both and
+ * the guard stays green while the product's sentence changes under it. Every
+ * literal below is therefore deliberate and hand-written, and the derived
+ * assertions sit BESIDE them rather than instead of them: the literals notice
+ * a copy change, the derived ones notice the two surfaces drifting apart.
+ *
+ * ⚠ SCOPE, same as §3: these are jsdom renders and accname computations, not a
+ * screen-reader session (CLAUDE.md trap 3).
+ * ──────────────────────────────────────────────────────────────────────────── */
+describe('the structural absence says one sentence per channel — and the sentences are pinned', () => {
+  it('⛔ COPY PIN — both members of STRUCTURAL_UNSET, as hand-written literals', () => {
+    // Hand-written on purpose. Change either sentence and this REDs, which is
+    // the whole job: nothing else in the tree can notice `nothingCompared`
+    // changing, because nothing else spells it.
+    expect(STRUCTURAL_UNSET.noOptions).toBe('No options linked yet')
+    expect(STRUCTURAL_UNSET.nothingCompared).toBe('Nothing to compare yet')
+    // And they are two sentences, not one aliased twice — the premise the
+    // corner/body split rests on.
+    expect(STRUCTURAL_UNSET.nothingCompared).not.toBe(STRUCTURAL_UNSET.noOptions)
+  })
+
+  it('⭐ THE PILL: visible text, tooltip and accessible name are ONE string — the body line is not it', () => {
+    renderOptionlessDecision()
+    // Precondition pinned in-test: this card IS in the structural-absence
+    // state, so the assertions below are about the pill under test and not
+    // about a card that renders a pill unconditionally (trap 13b).
+    expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
+
+    const pill = within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')
+
+    // LITERALS — what a user sees, what a pointer user hovers, what AT says.
+    expect(pill.textContent).toBe('Nothing to compare yet')
+    expect(pill.getAttribute('title')).toBe('Nothing to compare yet')
+    expect(pill).toHaveAccessibleName('Nothing to compare yet')
+    // DERIVED, beside the literals: the pill renders the record's member.
+    expect(pill.textContent).toBe(STRUCTURAL_UNSET.nothingCompared)
+
+    /* ⛔⛔ THE ASSERTION THIS SECTION EXISTS FOR. The shipped arm passed
+       `title={STRUCTURAL_UNSET.noOptions}`, and `StatusPill` composes
+       `aria-label={title ?? label}` — so the pill ANNOUNCED the body line's
+       sentence verbatim while the body announced it too. `getByText` reads
+       text content and is blind to `aria-label`, so the spec that certified
+       the split could not see it. These three are RELATIONAL and therefore
+       derived on purpose: the claim is "not the body's string", whatever that
+       string becomes. */
+    expect(pill.getAttribute('aria-label')).not.toBe(DECISION_RESTING_COPY.noOptionsLine)
+    expect(pill.getAttribute('title')).not.toBe(DECISION_RESTING_COPY.noOptionsLine)
+    expect(pill).not.toHaveAccessibleName(DECISION_RESTING_COPY.noOptionsLine)
+  })
+
+  it('⭐ THE CARD: the cause is stated ONCE in the visible channel, and it is the body that states it', () => {
+    renderOptionlessDecision()
+    const pill = within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')
+    expect(pill).toBeTruthy()
+
+    // The body still carries the cause — LITERAL, so a copy change REDs here
+    // rather than moving the assertion with it.
+    const resting = screen.getByTestId('decision-node-resting-state')
+    expect(resting.textContent).toContain('No options linked yet')
+    expect(resting.textContent).toContain(DECISION_RESTING_COPY.noOptionsLine)
+
+    /* …and exactly one element on the card says it OUT LOUD. Both surfaces
+       render together in this fixture, which is what makes this case able to
+       fail at all: put the cause back on the pill's LABEL and the count goes
+       to 2.
+
+       ⛔ STATED PRECISELY, BECAUSE THE IMPRECISE VERSION IS THE DEFECT THIS
+       SECTION EXISTS FOR: `getAllByText` reads TEXT CONTENT, so this counts
+       the VISIBLE channel and NOTHING ELSE. It would not move if the sentence
+       came back as `aria-label` or `title` — which is precisely how the
+       duplication survived the first fix. The a11y channel is pinned in the
+       case above, and neither case substitutes for the other. */
+    expect(screen.getAllByText('No options linked yet')).toHaveLength(1)
+
+    // OPPOSITE DIRECTION (trap 22b): the consequence is the pill's, and the
+    // body does not repeat THAT either.
+    expect(resting.textContent).not.toContain('Nothing to compare yet')
   })
 })
