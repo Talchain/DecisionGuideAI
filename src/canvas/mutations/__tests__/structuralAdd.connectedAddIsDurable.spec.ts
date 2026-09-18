@@ -41,11 +41,18 @@ import type { Node } from '@xyflow/react'
 /** A CEE-stamped hash, so the capture is a SEND rather than a deferral. */
 const SERVER_HASH = 'aag_v1:deadbeefcafe'
 
+/**
+ * ⚠ A TYPED CONSTANT, not `OUTCOME_TARGET.data?.label`. `Node['data']` is
+ * `Record<string, unknown>`, so reading the label back out of it yields
+ * `unknown` and cannot be handed to `toBe` under `strict`.
+ */
+const OUTCOME_LABEL = 'Supply continuity'
+
 const OUTCOME_TARGET: Node = {
   id: '1',
   type: 'outcome',
   position: { x: 0, y: 0 },
-  data: { label: 'Supply continuity', kind: 'outcome' },
+  data: { label: OUTCOME_LABEL, kind: 'outcome' },
 } as Node
 
 /**
@@ -70,6 +77,29 @@ function performConnectedAdd(opts: { stamped: boolean }): { nodeId: string; edge
     ceeAnalysisReady: null,
   } as never)
 
+  // ⛔⛔ RESEED THE ID COUNTER, AND THE REASON IS A MEASURED FALSE RESULT RATHER
+  // THAN TIDINESS (18 Sep 2026). `nextNodeId` initialises to 1 (`store.ts:3184`)
+  // and `createNodeId` returns `String(nextNodeId)`, so on a store seeded by raw
+  // `setState` the FIRST created node takes id `'1'` — which is
+  // `OUTCOME_TARGET`'s id. Two nodes then share an id, and
+  // `captureStructuralAdd`'s `nodesAfter.find(n => n.id === nodeId)` returns the
+  // FIRST match: the pre-existing OUTCOME. The intent came back
+  // `nodeKind: 'outcome'` and this file read like the capture was grabbing the
+  // wrong node.
+  //
+  // ⭐ IT IS NOT. The capture is bound by identity exactly as its header claims;
+  // the FIXTURE manufactured a duplicate id that the product prevents. Every
+  // real graph-loading path reseeds — `importCanvas` (`store.ts:4535`), the
+  // autosave load (`:8398`), `RecoveryBanner`, and `store/scenarios.ts` — and
+  // `store.ts:5165-5172` records this exact hazard in its own words: "a reset
+  // makes the NEXT graph reissue the same ids the previous one used."
+  //
+  // ⚠ SO THIS USES THE PRODUCT'S OWN MECHANISM rather than hardcoding a counter.
+  // `reseedIds` derives `Math.max(maxNodeId + 1, 5)`, so a future fixture with
+  // higher ids stays correct with no edit here.
+  useCanvasStore.getState().reseedIds([OUTCOME_TARGET] as unknown as Node[], [])
+
+  const preExistingNodeIds = new Set(useCanvasStore.getState().nodes.map((n) => n.id))
   const before = useCanvasStore.getState().edges.length
   // `getEdgeDirectionForKind('outcome')` returns `'to-target'`, which is what the
   // "Add connected factor" item passes for an outcome target.
@@ -77,6 +107,17 @@ function performConnectedAdd(opts: { stamped: boolean }): { nodeId: string; edge
     { x: 150, y: 0 }, 'factor', OUTCOME_TARGET.id, 'to-target',
   )
   expect(typeof nodeId, 'the gesture must return the new node id').toBe('string')
+  // ⭐⭐ PIN THE PRECONDITION IN-TEST (CLAUDE.md trap 13b). Every assertion in
+  // this file distinguishes the CREATED node from the pre-existing one, and all
+  // of them are worthless the moment the two share an id — which is precisely
+  // what happened before the reseed above. This is the guard that makes that
+  // failure LOUD and specific instead of surfacing as a baffling
+  // `expected 'outcome' to be 'factor'` three assertions later.
+  expect(
+    preExistingNodeIds.has(nodeId as string),
+    'fixture defect: the created node reused a pre-existing id, so every ' +
+      'identity-bound assertion below would silently read the wrong node',
+  ).toBe(false)
   const edges = useCanvasStore.getState().edges
   expect(edges.length, 'the gesture must have created exactly one edge').toBe(before + 1)
   return { nodeId: nodeId as string, edgeId: edges[edges.length - 1].id }
@@ -98,6 +139,17 @@ describe('the node half is durable', () => {
     expect(intent, 'no intent captured for the created node').toBeDefined()
     expect(intent?.nodeKind).toBe('factor')
     expect(intent?.label).toBe('New factor')
+    // ⛔ THE HARM, PINNED DIRECTLY RATHER THAN INFERRED FROM THE KIND. A capture
+    // that took the gesture's EXISTING endpoint instead of its new node would
+    // persist something the user never asked for and lose the thing they did —
+    // worse than the door staying shut. `nodeKind` alone is a value predicate the
+    // wrong node can satisfy whenever both are the same kind (CLAUDE.md trap 19);
+    // this names the object.
+    expect(
+      intent?.nodeId,
+      'the intent must describe the CREATED node, never the endpoint it joined',
+    ).not.toBe(OUTCOME_TARGET.id)
+    expect(intent?.label).not.toBe(OUTCOME_LABEL)
   })
 
   /**
