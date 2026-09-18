@@ -24,7 +24,7 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay, FactorFirmnessBand, resolveFactorFirmnessDisplay } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -191,6 +191,22 @@ export const FactorNode = memo((props: NodeProps) => {
       valueDisplay,
     }),
     [nodeCategory, observedState, props.data, valueDisplay],
+  )
+
+  // ⭐ HOW FIRM THIS FACTOR'S NUMBER IS — the card's spread channel.
+  //
+  // Provenance-gated in `shared/factorFirmness.ts`, which returns a union whose
+  // `show: true` arm cannot be constructed without both a positive σ and a
+  // classified author. The card therefore has no way to draw a band from a
+  // defaulted or unattributed `observedState.std`, which is the defect class
+  // this lane exists to prevent.
+  //
+  // ⛔ THIS IS NOT THE EDGE RIBBON. That one is `edge.data.strengthStd` and
+  // answers how firm a LINK's strength is; this is the factor's own observed
+  // value. Neighbouring questions, named apart on purpose.
+  const firmnessDisplay = useMemo(
+    () => resolveFactorFirmnessDisplay(props.data as Record<string, unknown> | undefined),
+    [props.data],
   )
 
   const isInferred = observedState?.extractionType === 'inferred'
@@ -853,7 +869,19 @@ export const FactorNode = memo((props: NodeProps) => {
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
           <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-baseline gap-1`}>
-            <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
+            {/* ⭐ THE SPREAD BAND RIDES THE VALUE'S OWN BOX. `relative
+                inline-block` establishes the containing block; the band inside
+                is ABSOLUTE, so it sits in the line box's half-leading under the
+                baseline and contributes no height. The wrapper is `inline-block`
+                rather than `inline` because an inline box is not a containing
+                block for an absolutely positioned child's height — with `inline`
+                the band would resolve against the card and drift.
+                ⚠ The wrapper stays inside the existing flex item, so the value
+                keeps its baseline alignment with `EstimateMarker` beside it. */}
+            <span className="relative inline-block">
+              {isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}
+              <FactorFirmnessBand display={firmnessDisplay} />
+            </span>
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>
         )}
