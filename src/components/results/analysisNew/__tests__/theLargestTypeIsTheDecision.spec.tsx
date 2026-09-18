@@ -1,9 +1,16 @@
 /**
- * ⭐⭐ THE PANEL'S LARGEST TYPE IS THE MOST IMPORTANT THING ON IT.
+ * ⭐⭐ THE PANEL'S LARGEST TYPE IS THE DECISION BEING MADE. ALWAYS.
  *
- * Paul's ruling, 17 Sep 2026: the 18px slot means *"the most important thing on
- * this panel right now — the conclusion when there is one, otherwise the
- * question being worked on."*
+ * Paul's ruling, 18 Sep 2026, verbatim: *"Lead with the decision label and goal,
+ * not the conclusion - there shouldn't be a conclusion. We are a reasoning
+ * enhancement tool, not a generic AI and analysis answering tool."*
+ *
+ * ⛔ THIS SUPERSEDES THE 17 Sep RULING, WHICH IS KEPT HERE SO IT IS NOT
+ * REINSTATED BY SOMEONE READING ONLY THE CODE: that ruling read *"the most
+ * important thing on this panel right now — the conclusion when there is one,
+ * otherwise the question being worked on."* It made the slot CONDITIONAL, and
+ * the condition is what has been removed. A panel whose loudest element is a
+ * verdict does the reader's thinking for them.
  *
  * ⛔ WHAT THE DEPLOYED BUILD DID INSTEAD, censused on served `a147cfbb` (a run
  * with a named leader, "Segment"): the 18px slot carried the GOAL, and the
@@ -110,7 +117,7 @@ afterEach(() => {
   useCanvasStore.setState({ nodes: previous.nodes } as never)
 })
 
-describe('the panel leads with the most important thing on it', () => {
+describe('the panel leads with the decision being made', () => {
   /**
    * ⭐ THE PRECONDITION, PINNED IN-TEST (trap 13b). Every case below is a claim
    * about a STATE. A fixture that quietly stopped withholding — or stopped
@@ -151,26 +158,31 @@ describe('the panel leads with the most important thing on it', () => {
     ).toHaveLength(1)
   })
 
-  it('⭐ the CONCLUSION takes the lead when there is one, and the subject stands down', () => {
+  it('⭐ the DECISION leads even on a run that reached a conclusion', () => {
     const { container } = renderBody(genuineDecision())
     const [lead] = leadElements(container)
-    expect(lead.getAttribute('data-testid'), 'the conclusion leads').toBe('analysis-new-glance-headline')
+    expect(lead.getAttribute('data-testid'), 'the decision leads, never the conclusion').toBe(
+      'analysis-new-model-strip-lead',
+    )
 
     /**
-     * ⛔ STANDS DOWN, NOT DISAPPEARS, AND NOT DEMOTED TO BODY. The subject is
-     * still what the run is ABOUT; a reader who loses it cannot tell which
-     * decision the conclusion belongs to. It drops one step, to the size the
-     * panel's section titles use — second-loudest, not quiet.
+     * ⛔ THE CONCLUSION IS DEMOTED, NOT DELETED, AND THE DISTINCTION IS THE
+     * RULING'S. "There shouldn't be a conclusion" removes the panel's claim to
+     * ANSWER; it does not delete the model's own numbers, which are the team's
+     * reasoning rendered back to them. The leading option is still named — at
+     * section-title size, inside the comparison, with its provenance line — so
+     * nothing a user contributed is hidden. Deleting it would remove
+     * information; demoting it removes a VERDICT.
      */
-    const subject = screen.getByTestId('analysis-new-model-strip-lead')
-    expect(subject).toBeInTheDocument()
-    expect(subject.className, 'the subject keeps the second-largest size').toContain(typography.panelHeader)
+    const conclusion = screen.getByTestId('analysis-new-glance-headline')
+    expect(conclusion).toBeInTheDocument()
+    expect(conclusion.className, 'the conclusion drops to section-title size').toContain(typography.panelHeader)
   })
 
-  it('⭐ the SUBJECT keeps the lead when no conclusion was reached', () => {
+  it('⭐ the DECISION also leads when no conclusion was reached', () => {
     const { container } = renderBody(decisionWithLeaderWithheld())
     const [lead] = leadElements(container)
-    expect(lead.getAttribute('data-testid'), 'the question being worked on leads').toBe(
+    expect(lead.getAttribute('data-testid'), 'the decision being worked on leads').toBe(
       'analysis-new-model-strip-lead',
     )
     expect(

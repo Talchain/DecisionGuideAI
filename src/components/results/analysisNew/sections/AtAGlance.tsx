@@ -735,7 +735,7 @@ export function AtAGlance({
               counts the elements at this size in both run states and REDs on
               two as loudly as on none. */}
           <p
-            className={`${typography.reasoningLead} mt-1 mb-0 text-text-header text-balance`}
+            className={`${typography.panelHeader} mt-1 mb-0 text-text-header text-balance`}
             data-testid={`${testId}-headline`}
           >
             {conclusionLabel(glance)}
