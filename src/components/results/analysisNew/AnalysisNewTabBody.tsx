@@ -1933,6 +1933,31 @@ export function AnalysisNewTabBody({
             producer's verdict and routes to the method; it combines nothing and
             scores nothing. See `TrustLine` for why a single "trust score" is
             the one thing this must never render. */}
+        {/* ⭐⭐ NO TRUST READOUT BEFORE A RUN — AND THIS IS NOT A REVERSAL OF
+            "ABSENCE IS A STATE". `TrustLine`'s own header rules that a missing
+            verdict must SAY the basis was never established rather than render
+            nothing, and that ruling stands untouched for the case it was written
+            about: a run that HAPPENED and returned no verdict. That is a fact
+            about the analysis and the reader deserves it.
+
+            ⛔ IT WAS ALSO FIRING WHERE NO RUN HAD HAPPENED AT ALL, and there the
+            same words make a statement about a result that does not exist.
+            Witnessed by Paul on his own manual test, 18 Sep 2026: the panel said
+            "No analysis has run yet for this model" and then, on the same first
+            screen, "How far this holds was not established · 0 checks ran ·
+            0 open questions". "How far this holds" has no referent there, and
+            the two zeros are the shape this estate's own rule refuses — a count
+            of nothing read as a measurement of nothing.
+
+            ⚠ TWO QUESTIONS UNDER ONE ABSENCE (trap 21). "The producer sent no
+            verdict" and "there is no producer output" are different facts with
+            different honest answers; `verdict === null` cannot tell them apart,
+            so the caller — which knows the run state — makes the distinction and
+            the component stays presentational, as every other section here is.
+
+            ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
+            it, including the no-verdict one. */}
+        {vm.status.isPreRun ? null : (
         <TrustLine
           verdict={vm.atAGlance.verdict}
           checksRan={vm.checks.items.length}
@@ -1940,6 +1965,7 @@ export function AnalysisNewTabBody({
           methodOpen={methodOpen}
           onOpenMethod={() => setMethodOpen(true)}
         />
+        )}
 
         <WhatsChanged view={vm.whatsChanged} />
 
