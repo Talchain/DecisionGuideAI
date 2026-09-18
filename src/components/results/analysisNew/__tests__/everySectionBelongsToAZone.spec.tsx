@@ -41,7 +41,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { genuineDecision, manyFragileEdges } from './analysisNewFixtures'
+import { decisionWithLeaderWithheld, genuineDecision, manyFragileEdges } from './analysisNewFixtures'
 import { contentColumn, topLevelBlockElements } from './panelContentColumn'
 
 /**
@@ -207,21 +207,44 @@ describe('the drivers answer "what matters most", so they sit in the answer zone
   })
 
   /**
-   * ⚠ ORDER, NOT JUST MEMBERSHIP. Appended at the END of the answer group the
-   * section is still "in the answer zone" and still clears the fold — but it
-   * reads after "what would change your mind", which inverts the sequence the
-   * ruling asks for: here is the answer, how far it held, what moves it, what
-   * would change it. Membership alone cannot see that.
+   * ⭐⭐ ORDER, AND IT IS PAUL'S RULING OF 18 Sep: *"Take option (d) — reorder so
+   * drivers come first."*
+   *
+   * ⛔⛔ THIS CASE WAS VACUOUS AND THE REORDER EXPOSED IT. It used to read
+   * `if (caveat > -1) expect(drivers).toBeGreaterThan(caveat)` — and on every
+   * fixture here the caveat is NOT a direct child of the answer group, so the
+   * conditional skipped and the assertion never ran. When I moved the drivers
+   * to the top of the zone, **all 27 symbol-scoped specs stayed green**: nothing
+   * pinned the old order, which means nothing would have pinned the new one
+   * either. A guard that skips is indistinguishable from a guard that passes.
+   *
+   * ⭐ SO IT NOW PINS THE RULING POSITIVELY AND CANNOT SKIP. The claim is that
+   * "what matters most" is read BEFORE the figures it is about — which is the
+   * whole point of the move, measured on the deployed build as +12px of fold
+   * margin becoming +378px.
+   *
+   * ⛔ AND IT ASSERTS AGAINST THE PAIR, NOT ITS HALVES. `answerBlock` binds
+   * `ModelImplication` to `OptionsComparison` ("every claim moves with its
+   * entitlement"), so the drivers sit above BOTH. Asserting only against
+   * `analysis-new-options` would pass if a later edit split the pair and left
+   * the implication stranded above the drivers.
    */
-  it('⭐ it reads after the caveat and before "what would change your mind"', () => {
-    renderBody(manyFragileEdges())
+  it.each([
+    ['a run that reached a conclusion', genuineDecision],
+    ['a withheld run — the surface the ruling is about', decisionWithLeaderWithheld],
+  ])('⭐ %s reads the drivers BEFORE the answer\'s figures — Paul\'s ruling, not an accident', (_name, fixture) => {
+    renderBody(fixture())
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
     const order = Array.from(answer.children).map((c) => c.getAttribute('data-testid'))
-    const caveat = order.indexOf('analysis-new-robustness-caveat')
     const drivers = order.indexOf(DRIVERS)
-    const sensitivity = order.indexOf('analysis-new-sensitivity')
-    expect(drivers, 'the drivers are a direct child of the answer group').toBeGreaterThan(-1)
-    if (caveat > -1) expect(drivers, 'after the caveat').toBeGreaterThan(caveat)
-    if (sensitivity > -1) expect(drivers, 'before what would change your mind').toBeLessThan(sensitivity)
+
+    // PRECONDITION: this case must not be able to pass by absence.
+    expect(drivers, 'the drivers must be a direct child of the answer group').toBeGreaterThan(-1)
+    const figures = ['analysis-new-options', 'analysis-new-implication'].filter((id) => order.includes(id))
+    expect(figures.length, 'at least one of the answer figures must render, or this asserts nothing').toBeGreaterThan(0)
+
+    for (const id of figures) {
+      expect(drivers, `the drivers must precede ${id}`).toBeLessThan(order.indexOf(id))
+    }
   })
 })
