@@ -121,6 +121,36 @@ export function isPlaceholderEvidence(value: unknown): boolean {
  * invisible: a card showing a bullet while the coaching says there is no
  * evidence. Both now call this.
  */
+/**
+ * ⭐ THE OVERCONFIDENCE SENTENCE, CLAIMING ONLY WHAT WAS CHECKED.
+ *
+ * It used to read *"X is among the highest-priority factors to review but has no
+ * supporting evidence. Validate it before relying on it."* — two claims drawn from
+ * one signal, and neither of them was the signal.
+ *
+ * 1. "among the highest-priority factors to review" came from `topInfluence`, the
+ *    single MOST INFLUENTIAL factor. Influence is not review priority, and the
+ *    comment immediately above that call site is already careful to make "no
+ *    causal-share claim" — the care simply stopped one clause short.
+ * 2. "has no supporting evidence" is a claim about EVERY carrier of a basis while
+ *    the test reads ONE, `uncertainty_drivers`.
+ *
+ * ⚠ AND WHY THIS IS WORDING RATHER THAN A CARRIER CHECK, which is the tempting
+ * fix and would have been a dark branch. Measured across the eight committed
+ * coherence captures: nine factors carry an `observedState`, eight are AI-sourced
+ * under the real `AI_SOURCES` set, all eight fire this warning, and ZERO of them
+ * carry `extractionType === 'explicit'`, a `source_quote`, a `rationale` or a
+ * `provenance` value. `source_quote` appears in 27 files of code and reaches a
+ * factor's observed state in none of them. So a "check the other carriers" branch
+ * would execute on 0 of 8 firing factors. Naming the carrier in the sentence gets
+ * the honesty without shipping a branch nothing can reach. If a producer change
+ * ever stamps a basis without drivers, the carrier check becomes real and this
+ * comment is the trigger to revisit it.
+ */
+export function overconfidenceSentence(label: string): string {
+  return `${label} is the most influential factor in this model, and no uncertainty drivers are recorded for it. Validate it before relying on it.`
+}
+
 export function meaningfulUncertaintyDrivers(drivers: unknown): string[] {
   if (!Array.isArray(drivers)) return []
   return drivers.filter(

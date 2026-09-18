@@ -97,11 +97,25 @@ export function useModelReadiness(): ModelReadiness {
     const hasBaseline = optionNodes.some(n => (n.data as Record<string, unknown> | undefined)?.is_baseline === true)
     if (hasBaseline) biasTriggers.push(`${biasSignal('status_quo_bias').title}: baseline present`)
     // Overconfidence: any factor is inferred (unvalidated estimate)
+    //
+    // ⛔ THE SENTENCE USED TO SAY "top factor unvalidated" ON THE STRENGTH OF THIS
+    // `.some()`. The comment above has always said "any factor", and the predicate
+    // has always agreed with the comment — only the user-facing string disagreed,
+    // so where the most influential factor was explicit and a minor one inferred,
+    // the anchor card said something false. It is shipped copy, not a latent
+    // string: DecisionNode.tsx maps `biasTriggers` to visible rows.
+    //
+    // ⚠ THE PREDICATE IS DELIBERATELY UNCHANGED. `inferredCount` is the obvious
+    // substitute and is a DIFFERENT POPULATION — the loop above buckets a
+    // value-less factor as `missing` before it ever reads `extractionType`, and
+    // skips `category === 'external'` outright. Swapping it in would change WHICH
+    // graphs raise the signal while appearing to fix a wording problem. The spec
+    // pins that difference so a later tidy-up cannot make the substitution quietly.
     const hasInferredFactor = factorNodes.some(n => {
       const os = (n.data as Record<string, unknown> | undefined)?.observedState as Record<string, unknown> | undefined
       return os?.extractionType === 'inferred'
     })
-    if (hasInferredFactor) biasTriggers.push(`${biasSignal('overconfidence').title}: top factor unvalidated`)
+    if (hasInferredFactor) biasTriggers.push(`${biasSignal('overconfidence').title}: a factor is an unvalidated estimate`)
 
     return {
       explicitCount,
