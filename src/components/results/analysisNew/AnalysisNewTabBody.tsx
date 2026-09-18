@@ -86,6 +86,7 @@ import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
+import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -2290,6 +2291,27 @@ export function AnalysisNewTabBody({
           }
           onRunIntervention={runIntervention}
         />
+        {/* ── ⭐⭐⭐ THE MOVES YOU CAN MAKE YOURSELF ─────────────────────────
+            Paul's instruction, 18 Sep 2026: "Surface the Methods menu — make it
+            prominent."
+
+            ⛔ IT WAS PROMINENT NOWHERE. The same seven methods were already on
+            this tab, inside `ActionsMenu` — 671px of technique behind a 30px
+            menu trigger, mounted LAST in this zone. I found it by censusing the
+            fully-expanded panel; a reader opening the tab would not.
+
+            ⚠ PLACED AHEAD OF THE PRODUCER'S SUGGESTIONS, REVERSING THIS FILE'S
+            OWN EARLIER RULING — which said "what the run raised comes first;
+            this is the shelf for when it raised nothing". That reasoning treated
+            the methods as a FALLBACK. Paul's framing is that choosing your own
+            move is the product's purpose, not its fallback, so the order
+            follows the purpose. The producer's suggestions are directly below
+            and lost no content.
+
+            ⚠ The dropdown STAYS, further down: it also carries GLOBAL_ACTIONS
+            (re-run, edit brief), which are not methods. */}
+        <MethodsYouCanRun />
+
         <div data-testid="analysis-new-acts">
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}
