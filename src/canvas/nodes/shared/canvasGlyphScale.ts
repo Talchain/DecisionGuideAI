@@ -52,7 +52,8 @@
  * plain declared px and is untouched by this file.
  */
 
-import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import type { CSSProperties } from 'react'
+import { CANVAS_LABEL_SCALE_VAR, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 
 /**
  * The px sizes the canvas node surfaces actually use. A size that is not here
@@ -261,3 +262,87 @@ export const NODE_QUICK_ACTION_BAND_PX =
  * user never sees.
  */
 export const MIN_TARGET_RENDERED_PX = 24
+
+/**
+ * ⭐⭐⭐ THE TARGET FLOOR FOR A **TEXT-BEARING** CONTROL — carried by the BOX,
+ * not by a hit slop, and applied as an INLINE STYLE rather than a class. Both
+ * choices are the finding, and both were arrived at by refusing the obvious fix.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT IS SHORT, DERIVED AT THIS TIP RATHER THAN MEASURED IN A BROWSER
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The maps above closed the ICON targets. They could not reach the controls
+ * whose whole job is to make a team interrogate the model — the critical-
+ * thinking prompts — because those carry TEXT, and the guard beside this file
+ * excludes text-bearing controls by design (`canvasGlyphTargetScale.spec.tsx`:
+ * *"a labelled control takes its target size from its TEXT box, which jsdom
+ * cannot measure"*). That exclusion is correct about the question IT asks — did
+ * the viewport transform halve an icon? — and it is silent about a different
+ * one: does a text control meet 2.5.8 at all? Two questions, named apart
+ * (CLAUDE.md trap 21); this constant answers the second and does not touch the
+ * first.
+ *
+ * `typography.edgeLabel` is `calc(11px*var(--canvas-label-scale,1))` with
+ * `leading-snug` (1.375), so its line box is `15.125 x scale` DECLARED. Across
+ * the legible band `scale = 1/zoom`, so `declared x scale x zoom` collapses to
+ * **15.125 rendered px at every zoom in the band** — the counter-scale is
+ * working exactly as designed, and the box is still 8.875px short on its own.
+ *
+ *   `TierInvitation` button   no padding, no border, no slop
+ *                             → **15.125px rendered**, at every zoom in the band
+ *   `NodeChip` button         + `py-0.5` (4px) + 1px border, both UNSCALED
+ *                             → painted `15.125 + 6 x zoom` = **18.125px** at
+ *                               the settle zoom;
+ *                             its `before:-inset-y-[3px]` is unscaled AND is
+ *                             measured from the PADDING box, so it clears the
+ *                             border by only 2px per side:
+ *                             hit `15.125 + 10 x zoom` = **20.125px**.
+ *
+ * Both are under `MIN_TARGET_RENDERED_PX`, and the settle zoom is where the
+ * product parks the user (`useFitViewOnLayoutVersion` floors at
+ * `LABEL_LEGIBLE_ZOOM`). The rung there is `quiet`, not `line`, so the card body
+ * — and every chip in it — is rendered: this is not a shortfall on a surface
+ * nobody sees.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⛔ WHY NOT MORE HIT SLOP, WHICH IS THE OBVIOUS FIX
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Because `CANVAS_GAP_CLASSES` states the price: the separation invariant is
+ * `gap > 2 x slop`, and every container these controls sit in is BELOW it
+ * already. `TierInvitationRow` is `flex-col gap-0.5` — **2px, unscaled, so 1px
+ * rendered at the settle zoom**. The fifteen `flex gap-1 flex-wrap` chip rows
+ * across eight node components give **4px unscaled**, i.e. 2px rendered between
+ * WRAPPED lines. Any slop worth having overlaps its neighbour, and these
+ * neighbours are DIFFERENT QUESTIONS — a near miss sends the wrong one to the
+ * model, which is a worse product defect than a small target, not a smaller one.
+ *
+ * **A painted box cannot overlap its flex neighbours.** Sizing the BOX to the
+ * minimum therefore discharges 2.5.8 and leaves the separation invariant
+ * untouched — no new gap constant, no edit to fifteen containers, and nothing
+ * for a sixteenth call site to forget. Where a control already carries slop
+ * (`NodeChip`), that slop becomes surplus rather than load-bearing, so it is
+ * left exactly as it is.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ WHY AN INLINE STYLE, WHEN EVERYTHING ABOVE IS A CLASS
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The maps above are literal strings because **Tailwind's JIT scans source text
+ * and emits no CSS for a class it cannot see** — the silent, green-looking
+ * failure this file's header is about. An inline style is not scanned, so that
+ * failure mode does not exist for it, and `BaseNode`'s `LOD_BLANKED_BODY_STYLE`
+ * already carries `calc(16px * var(--canvas-label-scale, 1))` this way. It also
+ * lets the var be READ from `CANVAS_LABEL_SCALE_VAR` and the px from
+ * `MIN_TARGET_RENDERED_PX` instead of hand-spelled: this is the one value in
+ * this file with **no hand-copied number in it at all**.
+ *
+ * Frozen and module-level, so every consumer shares one object and a `memo`'d
+ * button is not re-rendered by a fresh style literal each pass.
+ *
+ * ⚠ IT IS A FLOOR, NOT A HEIGHT. Tailwind Preflight sets `box-sizing:
+ * border-box`, so this bounds padding and border too, and a control whose text
+ * wraps to two lines simply grows past it. Consumers need `items-center` (or a
+ * button's UA centring) for the text to sit in the middle of the taller box.
+ */
+export const CANVAS_MIN_TARGET_BOX_STYLE: Readonly<CSSProperties> = Object.freeze({
+  minHeight: `calc(${MIN_TARGET_RENDERED_PX}px * var(${CANVAS_LABEL_SCALE_VAR}, 1))`,
+})
