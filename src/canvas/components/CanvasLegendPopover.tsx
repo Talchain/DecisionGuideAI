@@ -71,10 +71,28 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
   stroke?: string
   width?: number
   /**
-   * The dasharray to draw when `dashed`. Defaults to a generic sample, because
-   * the CONTESTED row's real dash is divergence-scaled (`readContestedState`
-   * returns `4 4`…`4 8`) and no single constant would be true of it. The
-   * connection row passes the canvas's ACTUAL pattern — see `CONNECTION_ROWS`.
+   * The dasharray to draw when `dashed`. Defaults to a GENERIC SAMPLE, and the
+   * default is load-bearing rather than lazy: the CONTESTED dash is
+   * divergence-scaled, so no single constant is true of it.
+   *
+   * ⚠ THIS DOCBLOCK SAID THE SCALED FAMILY WAS `4 4`…`4 8`. IT IS NOT, AND THAT
+   * RANGE IS IN NO SOURCE FILE. `readContestedState` (`edges/edgePresentation.ts`
+   * — named, not line-numbered, because pointers here go stale)
+   * builds `` `${dashWidth} ${gap}` `` where `dashWidth = 1.5 + d * 1.5` and
+   * `gap = needs_user_input ? 3 : round(4 + d * 4)` — so the family is
+   * `1.5 4` … `3 8`, plus a tightened `· 3`. The dash WIDTH varies too, and it
+   * never reaches 4. Swept with a contrast control: the `dashWidth` template is
+   * present (1 hit), `'4 4'`/`'4 8'` as an edge dasharray is zero (the three
+   * `"4 4"` hits in `src/` are PLC alignment guides and legacy `GraphCanvas`).
+   * A fabricated range inside the comment that LICENSES the generic sample is
+   * the hand-maintained mirror this component is otherwise removing (trap 12).
+   *
+   * ⚠ AND `'6,4'` ON THE CONNECTION ROW IS AN EXEMPLAR, NOT AN ENUMERATION.
+   * That row's caption names TWO dash causes and one swatch can draw one of
+   * them. It is kept because it is a pattern the canvas genuinely paints, where
+   * the generic sample is one it never paints — the smaller of the two
+   * inaccuracies, chosen deliberately. It does NOT illustrate the contested
+   * cause, and no single dasharray can. See `CONNECTION_ROWS`.
    */
   dash?: string
   /** Optional polarity marker drawn beside the line, as the canvas draws it. */
@@ -126,6 +144,36 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
 // a finding. Neither row claims establishment, because the canvas cannot
 // establish anything: the user is the author.
 //
+// ⚠⚠ AND THE FIRST REPAIR REPLACED ONE FALSE CLAIM WITH ANOTHER. It read
+// "Solid connection: no doubt recorded" — and SOLID IS NOT ONE POPULATION.
+// `resolveExistenceDash` returns `{kind:'unset'}` when nobody stated a
+// likelihood, and `{kind:'stated', dash: undefined}` when somebody stated one
+// AT OR ABOVE `EDGE_VALUE_BAND_CUTS.high` (0.7). Both draw solid. So an edge
+// CEE stamps at `exists_probability: 0.75` — A RECORDED 25% DOUBT — drew solid
+// under a key saying no doubt was recorded.
+//
+// It is the COMMON case, not a corner: `applyDraftResult.ts:104-108` fills
+// `beliefExists` from `exists_probability` and stamps it `'cee'`, and a debug
+// capture of the founder's own model (18 Sep 2026) carries `exists_probability`
+// on all 13 edges. On an AI-drafted board, stated values in [0.7, 1.0) are the
+// norm — so the caption was false on most of the board it describes.
+//
+// ⭐ THE SPEC ALREADY PROVED IT AND NOBODY READ IT ACROSS.
+// `graphDisplayCalculations.spec.ts:172-181` asserts, in adjacent `it` blocks,
+// that unset is solid AND that a stated 0.7/0.71/1.0 is solid. The collapse was
+// pinned, green, and contradicted by the string written one file away — the
+// caption is a claim about the union of those two blocks and was checked
+// against neither. A green suite is not evidence about a sentence.
+//
+// The caption now covers both causes. It is deliberately NOT narrowed to the
+// unset case, which would have been the third false version of the same row.
+//
+// ⚠ A THIRD SOLID POPULATION IS KNOWN AND NOT CLAIMED HERE: `resolveEdgeDash`'s
+// `structural` rule returns solid FIRST, before existence is consulted, so a
+// scaffolding edge carrying a low stated likelihood draws solid too. Naming
+// scaffolding in the key is new copy and is NOT taken — it is reported on the
+// PR instead, for Paul's ruling with the wording below.
+//
 // ⚠ NO THIRD ROW, DELIBERATELY. The unset state is NOT taught here — it is
 // taught by the two rows that already describe what an unassessed edge draws
 // ("Grey: direction not set yet" and "No strength suggested: thin and grey"),
@@ -137,8 +185,25 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
 // canvas drew '6,4', so the key illustrated a pattern the product has never
 // painted — a hand-maintained mirror inside the component that teaches people
 // how to read the board (trap 12). It comes from the constant now.
+//
+// ⚠ BUT IT ILLUSTRATES ONE OF THE TWO CAUSES ITS CAPTION NAMES, and the two
+// available remedies are BOTH REFUSED, with the argument recorded so the next
+// lane does not re-propose them:
+//   · NARROWING the caption to the existence cause is refused because it makes
+//     the row FALSE for a contested edge — which dashes at a divergence-scaled
+//     pattern and may carry a perfectly high likelihood. That is the identical
+//     defect being repaired one row above, re-created one row below.
+//   · A SEPARATE CONTESTED ROW is refused HERE, not on the merits: it is new
+//     copy, and this component's standing rule sends new copy to Paul. It also
+//     costs height in a popover with a MEASURED overflow history (816px tall at
+//     y = −43 on 1280×800, deployed build `bd18bace` — see the panel docblock
+//     below), and contested is already keyed once under Colour ("Orange:
+//     reviews disagree — your call"). Two rows in two sections for one state is
+//     trap 21 inverted. It is put to Paul on the PR as the only COMPLETE fix.
+// So the caption stays true of both causes and the swatch stays an exemplar of
+// one. An under-illustration is a gap; a narrowed caption would be a lie.
 const CONNECTION_ROWS: LegendRow[] = [
-  { label: 'Solid connection: no doubt recorded', swatch: <LineSwatch dashed={false} /> },
+  { label: 'Solid connection: no doubt recorded, or only a small one', swatch: <LineSwatch dashed={false} /> },
   {
     label: 'Dashed connection: someone recorded a doubt',
     swatch: <LineSwatch dashed dash={EXISTENCE_UNCERTAIN_DASH} />,

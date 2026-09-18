@@ -340,10 +340,35 @@ alarming when nothing is wrong.
 Every width is a claim, so an unset strength had nowhere to stand and needed
 `UNSET_EDGE_STROKE_WIDTH` minted for it. **Solid is not a claim — it is the
 absence of a mark.** An unmarked line asserts nothing unless a key says it does,
-so the fix is in the key: the connection rows now read *"no doubt recorded"* /
-*"someone recorded a doubt"*, true of both dash causes and claiming nothing about
-establishment. The unset state stays visible on the two channels this section
-already ruled own it — grey, at `UNSET_EDGE_STROKE_WIDTH` — and both have rows.
+so the fix is in the key. The unset state stays visible on the two channels this
+section already ruled own it — grey, at `UNSET_EDGE_STROKE_WIDTH` — and both
+have rows.
+
+⚠⚠ **AND THE FIRST WORDING OF THAT KEY WAS ALSO FALSE — CORRECTED 2026-09-18,
+BEFORE MERGE.** This paragraph said the rows now read *"no doubt recorded"* /
+*"someone recorded a doubt"*, *"true of both dash causes"*. **The DASHED row is
+true of both causes. The SOLID row was not true of both SOLID causes, and solid
+has two of them.** `resolveExistenceDash` returns `unset` when nobody stated a
+likelihood **and** `{stated, dash: undefined}` when somebody stated one at or
+above `EDGE_VALUE_BAND_CUTS.high` — so an edge CEE stamps at
+`exists_probability: 0.75`, **a recorded 25% doubt**, drew solid under a key
+saying no doubt was recorded. Not a corner case: `applyDraftResult.ts:104-108`
+fills `beliefExists` from `exists_probability` and stamps it `'cee'`, and on an
+AI-drafted board stated values in [0.7, 1.0) are the norm.
+
+**The solid row now reads *"no doubt recorded, or only a small one"***, which is
+true of both solid causes. ⭐ **The standing rule this yields: a caption on a
+visual channel is a claim about the UNION of every population that channel
+collapses — enumerate the populations from the resolver before writing it.** The
+collapse here was already pinned, green, in `graphDisplayCalculations.spec.ts`
+(adjacent `it` blocks asserting unset is solid and stated-0.7 is solid) and the
+sentence one file away contradicted it. A green suite is not evidence about a
+caption.
+
+⚠ A **third** solid population is known and deliberately unclaimed: the
+`structural` rule in `resolveEdgeDash` returns solid before existence is read,
+so scaffolding carrying a low stated likelihood is solid too. Naming scaffolding
+in the key is new copy and awaits Paul.
 
 ### Edge-label signals
 

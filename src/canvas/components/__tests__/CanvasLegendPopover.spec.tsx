@@ -98,9 +98,27 @@ afterEach(() => setPhase('idle'))
 // hardcoding the word here would make this spec the very mirror
 // `DECISION_NODE_LABEL` was introduced to abolish, and it would go stale the
 // next time the word changes rather than failing loud.
+//
+// ⚠⚠ AND THIS LIST WENT STALE EXACTLY AS PREDICTED, WITHOUT FAILING LOUD ABOUT
+// THE RIGHT THING. The two connection rows were rewritten in this PR's own
+// first commit ("…: established" / "…: less certain" → the doubt wording) and
+// this file was not touched, so `renders exactly the approved legend strings`
+// was RED on two `getByText` calls at head `6e4ce7d7`. The mirror did fail — but
+// it fails as "string missing", which reads like a rendering regression rather
+// than "someone edited the copy and left me behind", and nothing else in the
+// suite says which. Recorded rather than smoothed over: it is the cost of the
+// mirror this comment already concedes, and the reason the strings below are
+// the ONLY approved-copy assertion in the file.
 const APPROVED = [
   DECISION_NODE_LABEL, 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
-  'Raises', 'Lowers', 'Solid connection: established', 'Dashed connection: less certain',
+  'Raises', 'Lowers',
+  // Solid is TWO populations — nobody stated a likelihood, and somebody stated
+  // one at or above `EDGE_VALUE_BAND_CUTS.high`. `graphDisplayCalculations.spec.ts`
+  // pins both. The caption must stay true of both; a bare absence claim here
+  // ("no doubt recorded") is false across the whole stated-high band and is
+  // what this change removed.
+  'Solid connection: no doubt recorded, or only a small one',
+  'Dashed connection: someone recorded a doubt',
   'Weak effect', 'Moderate effect', 'Strong effect',
 ]
 

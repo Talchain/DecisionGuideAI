@@ -182,6 +182,22 @@ export const EXISTENCE_UNCERTAIN_DASH = '6,4'
  * Cut at `EDGE_VALUE_BAND_CUTS.high`, imported rather than restated: the same
  * 0.7 lives in `edgeValueBand` and in the panel, and it was a hand-copied
  * literal here. The boundary at exactly 0.7 is solid, as before.
+ *
+ * ⚠⚠ THIS FUNCTION COLLAPSES TWO POPULATIONS INTO SOLID, AND THE LEGEND'S
+ * CAPTION IS A CLAIM ABOUT THEIR UNION. `{kind:'unset'}` (nobody stated a
+ * likelihood) and `{kind:'stated', dash: undefined}` (somebody stated one in
+ * [0.7, 1.0]) are DIFFERENT DECISIONS that paint IDENTICAL PIXELS. The first
+ * repair of the key captioned all of it *"no doubt recorded"*, which is false
+ * across the whole stated-high band — an edge CEE stamps at
+ * `exists_probability: 0.75` has a **recorded 25% doubt** and draws solid.
+ *
+ * ⛔ DO NOT "FIX" THAT BY MOVING OR REMOVING THE CUT. Raising it dashes most of
+ * an AI-drafted board (Paul's 17 Aug ruling, quoted in the header above);
+ * removing it deletes the only honest use of the channel. **The union is the
+ * thing the caption must describe**, and `CanvasLegendPopover.CONNECTION_ROWS`
+ * now does — *"no doubt recorded, or only a small one"*. Any change to this
+ * cut, or to the `kind` members, is a change to that sentence's truth
+ * conditions: re-derive the caption in the same commit.
  */
 export function resolveExistenceDash(display: EdgeValueDisplay): ExistenceDash {
   if (!display.show) return { kind: 'unset' }
