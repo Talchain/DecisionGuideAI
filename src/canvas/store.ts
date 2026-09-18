@@ -1037,26 +1037,37 @@ interface CanvasState {
    * ⚠ THE THREE THAT MATTER FOR DURABILITY CAPTURE NOTHING, and they are NOT
    * all deliberate:
    *
-   *   · `addNodeWithEdge` — FIVE user-reachable affordances: the four "Add
-   *     connected …" context-menu items (`contextMenu/actions.ts:182, 285, 319,
-   *     352`) and the inspector's Add option (`inspector-v2/panels/
-   *     DecisionPanel.tsx:59`). DELIBERATE: `structural_add_edge` is
-   *     `'reader_only_refusal'` in CEE — no writer — so emitting `structural_add`
-   *     here would durably save the node and silently DROP the edge, trading one
-   *     silent loss for a subtler one. It rides with that lane.
+   *   · `addNodeWithEdge` — ⭐⭐ **NO LONGER UNCOVERED. IT CAPTURES BOTH HALVES
+   *     AS OF 18 Sep 2026**, and the two paragraphs that stood here explaining
+   *     why it could not are DELETED rather than struck, because they asserted a
+   *     CEE posture that is simply no longer the case and a reader who met them
+   *     would re-close a door that is now open. What they said: `structural_add_edge`
+   *     was `'reader_only_refusal'` in CEE (re-derived 2 Sep at `staging`
+   *     `3575b189`), so emitting `structural_add` here would have saved the node
+   *     and silently dropped the edge. **CEE #1443 shipped the writer on 13 Sep
+   *     and promoted the kind to `'mutating'` (`dispatch.ts:373`)**; the UI
+   *     authority table re-derived it the same day
+   *     (`mutations/mutationAuthority.ts` `canvasEdgeAddWithServerHash`).
    *
-   *     ⭐ RE-DERIVED 2 Sep 2026 AT CEE `staging` `3575b189`, because that
-   *     claim was load-bearing and had been taken on a lane's word:
-   *     `SYSTEM_EVENT_HANDLING` still reads
-   *     `structural_add_edge: 'reader_only_refusal'`
-   *     (`orchestrator-v5/system-events/dispatch.ts:316`), there is no
-   *     `*add-edge*` writer module beside `structural-add.ts` /
-   *     `structural-delete.ts` / `structural-rename.ts`, and the refusal copy
-   *     tells the user to ask in chat instead (`dispatch.ts:469-475`). **The
-   *     deliberate exclusion STANDS.** The contract states the same rule from
-   *     the other side: a `structural_add` node "has no incident edges by
-   *     construction", and "drawing a node and then an edge is two gestures
-   *     and two turns" (`boundary/turn-payload` `StructuralAddEvent`).
+   *     ⚠ FOUR user-reachable affordances, not five — the count here said FIVE
+   *     while naming four context-menu items, and there are THREE: `add-connected-factor`,
+   *     `add-connected-outcome` and `add-connected-risk` (`contextMenu/actions.ts:302,
+   *     336, 369`), plus the inspector's Add option
+   *     (`inspector-v2/panels/DecisionPanel.tsx:59`). Re-derive with
+   *     `grep -rn 'addNodeWithEdge' src` rather than quoting this sentence.
+   *
+   *     ⚠ THE EDGE HALF IS CONDITIONAL AND SAYS SO. A gesture that states no
+   *     strength stands down at `strength_not_stated` and RECORDS the stand-down
+   *     on the edge, which `EdgePanel` reads to offer the control that supplies
+   *     one. Disclosed, never silent.
+   *
+   *     ⚠ THE SECOND WRITER IS UNCHANGED BY THIS. Every `add-connected-*` item
+   *     reaches this action as `commitValidatedMutation`'s `localApply`, which
+   *     runs only because `plot.validatePatch` does not exist at this tip
+   *     (swept 18 Sep across `src/adapters/`: ZERO hits, contrast control
+   *     `httpV1Adapter` 42). The day it exists, the validated-graph branch
+   *     installs PLoT's nodes and this capture never runs — the hazard already
+   *     recorded below in this same block, not a new one.
    *
    *     ⚠⚠ THE DIGIT ON THIS PATH IS **FIXED** (2 Sep 2026), and the record of
    *     it here was TOO BROAD in a way worth keeping visible. It said an
@@ -1069,18 +1080,26 @@ interface CanvasState {
    *     itself was the defect and it is gone; see the note at
    *     `addNodeWithEdge`.
    *
-   *   · `duplicateSelected` (:3428) and `pasteClipboard` (:3472) — ⚠ THIS
-   *     ENTRY SAID "NOT deliberate. Simply not done." **DERIVED 2 Sep 2026,
-   *     THAT IS WRONG: they are blocked by the SAME missing writer as
-   *     `addNodeWithEdge`, and by a second thing the wire cannot express.**
+   *   · `duplicateSelected` (:3428) and `pasteClipboard` (:3472) — STILL
+   *     UNCOVERED, and ⚠⚠ **THE REASON NARROWED ON 18 Sep 2026. Reasons (b)
+   *     and (c) are live and sufficient; reason (a) has EXPIRED.** This entry
+   *     once said "NOT deliberate. Simply not done."; 2 Sep derived that they
+   *     were blocked by the same missing edge writer as `addNodeWithEdge` plus
+   *     two things the wire cannot express. The edge writer now exists (CEE
+   *     #1443), so that shared blocker is gone — but these two do not follow
+   *     `addNodeWithEdge` through the door, because (b) and (c) never depended
+   *     on it.
    *
-   *       (a) EDGES. Both copy edges — `duplicateSelected` every edge whose
-   *           BOTH endpoints are selected, `pasteClipboard` every clipboard
-   *           edge. With `structural_add_edge` reader-only, emitting
-   *           `structural_add` per node saves a DISCONNECTED subgraph and
-   *           drops the topology silently. That is the identical trade the
-   *           `addNodeWithEdge` exclusion refuses, and connectivity is what
-   *           goal-reachability and sensitivity are computed over.
+   *       (a) ⚠ EXPIRED — STRUCK, NOT DELETED, because a conclusion left
+   *           standing on withdrawn evidence is worse than a visible strike.
+   *           It read: "EDGES. Both copy edges — `duplicateSelected` every
+   *           edge whose BOTH endpoints are selected, `pasteClipboard` every
+   *           clipboard edge. With `structural_add_edge` reader-only, emitting
+   *           `structural_add` per node saves a DISCONNECTED subgraph and drops
+   *           the topology silently." The premise (reader-only) is false as of
+   *           13 Sep. ⭐ THE CONCLUSION IS UNCHANGED, which is the point of
+   *           having written three reasons rather than one: (b) and (c) are
+   *           untouched and either alone is sufficient.
    *       (b) NODE DATA. Both copy `data: { ...node.data }` — value, prior,
    *           `observedState`, category. The wire event carries FIVE keys and
    *           `.strict()`s the rest: the `kind` union discriminator plus
@@ -1103,9 +1122,15 @@ interface CanvasState {
    *     of the selection is worse than a uniform "not yet", so it is NOT
    *     shipped as a special case.
    *
-   * ⭐ NET: all three remain uncovered, and the blocker is now ONE named thing
-   * for all three — a durable edge writer in CEE. Whoever builds it unblocks
-   * every path here at once; nothing else in this file needs to change first.
+   * ⭐ NET (re-derived 18 Sep 2026, replacing "all three remain uncovered, and
+   * the blocker is now ONE named thing for all three — a durable edge writer in
+   * CEE"): **the edge writer was built (CEE #1443, 13 Sep) and it did NOT unblock
+   * every path at once.** `addNodeWithEdge` is now covered. `duplicateSelected`
+   * and `pasteClipboard` are not, and their remaining reasons — unexpressible
+   * node data, and no batched carrier — are about the ADD event's shape, not
+   * about edges. One blocker cleared, two reasons left standing: the prediction
+   * that one fix would carry all three was wrong, and it is recorded here so the
+   * next lane prices (b) and (c) rather than inheriting the optimism.
    * ─────────────────────────────────────────────────────────────────────────
    */
   pendingStructuralAdds: StructuralAddIntent[]
@@ -3413,11 +3438,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // pre-analysis AddRow and the hero goal field. Capturing at any one of them
     // would have left the others silent.
     //
-    // ⚠⚠ IT IS **NOT** EVERY CREATION PATH IN THE CANVAS. `addNodeWithEdge`
-    // (five user-reachable affordances), `duplicateSelected` and
-    // `pasteClipboard` capture NOTHING. The measured scope, and the derived
-    // reason each one is still uncovered, is on `pendingStructuralAdds`; read
-    // it there rather than inferring coverage from this line.
+    // ⚠⚠ IT IS **NOT** EVERY CREATION PATH IN THE CANVAS. `duplicateSelected`
+    // and `pasteClipboard` capture NOTHING. ⚠ `addNodeWithEdge` USED TO BE ON
+    // THAT LIST — described here as "five user-reachable affordances", which was
+    // wrong twice over: it is FOUR, and as of 18 Sep 2026 it captures both its
+    // node and its edge through its own chokepoint. The measured scope, and the
+    // derived reason each remaining path is still uncovered, is on
+    // `pendingStructuralAdds`; read it there rather than inferring coverage from
+    // this line.
     const nodesAfter: Node[] = [...get().nodes, created]
     const plan = planStructuralAddIntent(get(), nodesAfter, id)
     set(() => ({ nodes: nodesAfter, ...plan.patch }))
@@ -3468,8 +3496,50 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Pinned in both directions, against the REAL store action and a REAL
     // `FactorNode` mount, by
     // `mutations/__tests__/structuralAdd.connectedAddExplicitUnknown.spec.tsx`.
-    set((s) => ({
-      nodes: [
+
+    // ⭐⭐ CAPTURED, AS OF 18 Sep 2026 — BOTH HALVES, IN ONE TRANSACTION.
+    //
+    // This wrote with a bare `set()` and captured NOTHING, deliberately, for a
+    // reason that expired on 13 Sep: CEE held `structural_add_edge` at
+    // `'reader_only_refusal'`, so emitting `structural_add` here would have
+    // saved the node and silently DROPPED the link. CEE #1443 promoted the kind
+    // to `'mutating'` (`dispatch.ts:373`) and shipped the writer, and the
+    // authority table already says so — `canvasEdgeAddWithServerHash` is
+    // `'server_graph'`. The exclusion outlived its cause by five days.
+    //
+    // ⚠⚠ THE TWO CAPTURES ANSWER DIFFERENT QUESTIONS AND ARE NOT COLLAPSED
+    // (CLAUDE.md trap 21). The NODE is durable unconditionally — it needs only a
+    // label and a wire-persistable kind, both of which this gesture supplies.
+    // The EDGE is durable only where somebody has STATED a strength, and this
+    // gesture states none: `USER_EDGE_DEFAULTS` carries `weight: 0.3` with no
+    // `weightSource` and no `directionSource`, so the provenance gate reads both
+    // as NOT SET and `captureStructuralAddEdge` stands down at
+    // `strength_not_stated`. That is the DESIGNED outcome, not a failure — see
+    // `mutations/structuralAddEdge.ts`. Sending 0.3 would assert a strength the
+    // user never gave, server-side.
+    //
+    // ⭐ SO THE STAND-DOWN IS RECORDED ON THE EDGE, exactly as `addEdge` does.
+    // `EdgeData.structuralAddStandDown` is what turns a silent half-save into a
+    // disclosed one: `EdgePanel` reads it and offers "How strong is this
+    // effect?", and the strength the user picks re-runs the capture through
+    // `retryStructuralAddEdgeCapture` (fired from `updateEdge`). Without the
+    // receipt the link would be unsaved with no way to notice and no way to fix
+    // it.
+    //
+    // ⚠ ONE `set()`, for the ordering reason `addNode` records at length: the
+    // capture must read a graph that CONTAINS the new node and the new edge, and
+    // the subscriber's first observation must already carry the claims. The
+    // projected arrays below are exactly the ones this `set()` installs — not a
+    // guess about them. The two patches touch DIFFERENT keys
+    // (`pendingStructuralAdds` / `pendingStructuralAddEdges`), so spreading both
+    // cannot clobber either.
+    let addOutcome: {
+      nodeDeferred: boolean
+      edgeDeferred: boolean
+      edgeNeedsStrength: boolean
+    } = { nodeDeferred: false, edgeDeferred: false, edgeNeedsStrength: false }
+    set((s) => {
+      const nodesAfter: Node[] = [
         ...s.nodes,
         {
           id: nodeId,
@@ -3477,8 +3547,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           position: pos,
           data: { label: `New ${type}`, kind: type },
         },
-      ],
-      edges: [
+      ]
+      // ⚠ ANNOTATED, not inferred. The literal used to sit inside the returned
+      // object and was contextually typed by `Partial<CanvasState>`; hoisted to a
+      // `const` it has no context, and an inferred union element type is the kind
+      // of thing the repo's typecheck GATE flags where a bare `tsc` would not.
+      const edgesAfter: Edge<EdgeData>[] = [
         ...s.edges,
         {
           id: edgeId,
@@ -3487,9 +3561,43 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           type: 'styled' as const,
           data: { ...USER_EDGE_DEFAULTS },
         },
-      ],
-      selection: { nodeIds: new Set([nodeId]), edgeIds: new Set<string>(), anchorPosition: null },
-    }))
+      ]
+      const nodePlan = planStructuralAddIntent(s, nodesAfter, nodeId)
+      const edgePlan = planStructuralAddEdgeIntent(s, edgesAfter, edgeId)
+      addOutcome = {
+        nodeDeferred: nodePlan.deferred,
+        edgeDeferred: edgePlan.deferred,
+        edgeNeedsStrength: edgePlan.needsStrength,
+      }
+      const edgesWithReceipt = edgePlan.needsStrength
+        ? edgesAfter.map((e) =>
+            e.id === edgeId
+              ? { ...e, data: { ...(e.data as EdgeData), structuralAddStandDown: 'strength_not_stated' as const } }
+              : e,
+          )
+        : edgesAfter
+      return {
+        nodes: nodesAfter,
+        edges: edgesWithReceipt,
+        selection: { nodeIds: new Set([nodeId]), edgeIds: new Set<string>(), anchorPosition: null },
+        ...nodePlan.patch,
+        ...edgePlan.patch,
+      }
+    })
+
+    // ⚠ AFTER the transaction, never inside it — a store updater must stay a
+    // pure function of state. Both announcers record the same rule.
+    //
+    // ⚠⚠ BOTH MAY FIRE, AND THAT IS DELIBERATE. They are two true sentences
+    // about two different things: "the model does not hold this node yet" (no
+    // CEE-stamped hash this session) and "this link needs a strength before it
+    // can be saved". Suppressing either to keep the gesture to one toast would
+    // hide a real loss, which is the defect this capture exists to close. In the
+    // ordinary case — a scenario that has had a turn — the node is NOT deferred
+    // and the user sees exactly one notice, about the link.
+    if (addOutcome.nodeDeferred) announceDeferredStructuralAdd(get())
+    if (addOutcome.edgeDeferred) announceStructuralAddEdgeState(get(), 'deferred')
+    else if (addOutcome.edgeNeedsStrength) announceStructuralAddEdgeState(get(), 'needs_strength')
     return nodeId
   },
 

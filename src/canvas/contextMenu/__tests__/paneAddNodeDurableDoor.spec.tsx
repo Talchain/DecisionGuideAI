@@ -164,15 +164,31 @@ describe('the pane context menu offers a durable node add', () => {
 
 describe('the carrierless neighbours stay shut', () => {
   /**
-   * Every id here reaches a writer that captures NO `structural_add`, and each
-   * is named rather than iterated so shrinking the set cannot pass in silence.
+   * ⚠⚠ THE GROUPED REASON THAT STOOD HERE HAS EXPIRED (18 Sep 2026), AND THE
+   * ASSERTIONS BELOW STILL HOLD FOR REASONS THAT ARE NOT THE SAME AS EACH
+   * OTHER'S. It read: "All three are blocked by the same missing writer:
+   * `structural_add_edge` is `'reader_only_refusal'` in CEE." CEE #1443 shipped
+   * that writer on 13 Sep, `store.addNodeWithEdge` now captures both halves, and
+   * `add-connected-*` is offered and ACTIONABLE on the node menu.
    *
-   *   · `add-connected-*` and `insert-factor-between` → `addNodeWithEdge`
-   *   · `duplicate` / `paste` → `duplicateSelected` / `pasteClipboard`
+   * ⚠ SO THE `add-connected-*` ROWS BELOW ARE NOW PINNING SOMETHING ELSE, AND
+   * IT IS WEAKER THAN IT LOOKS. Those three ids are built by `buildNodeMenu`,
+   * never by `buildPaneMenu`, so their absence from the PANE menu has always
+   * been about the TARGET KIND rather than about authority — this case could
+   * not have discriminated the authority change in either direction. Kept, with
+   * the reason corrected, rather than deleted: it still guards against the pane
+   * menu quietly growing node-only rows. The authority claim it used to carry
+   * now lives in `connectedAddDurableDoor.spec.tsx`, against a NODE target,
+   * where it can actually fail.
    *
-   * All three are blocked by the same missing writer: `structural_add_edge` is
-   * `'reader_only_refusal'` in CEE, so a durable emit would save the nodes and
-   * silently DROP the topology.
+   *   · `add-connected-*` → node-target items; never built for the pane
+   *   · `insert-factor-between` → edge-target item, and it has a SECOND writer
+   *     (a bare `setState` localApply) so the chokepoint would not cover it
+   *   · `duplicate` / `paste` → `duplicateSelected` / `pasteClipboard`, still
+   *     carrierless: unexpressible node data, and no batched carrier
+   *
+   * Each is named rather than iterated so shrinking the set cannot pass in
+   * silence.
    */
   /**
    * ⚠ SPLIT ON REBASE, 13 Sep 2026 — INVERTED, NOT DELETED, so the overturned
