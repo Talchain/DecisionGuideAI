@@ -69,13 +69,39 @@ describe('the inline act carries its own touch target', () => {
    * ⭐ THE DISCRIMINATING ARM. The three assertions above would all pass if
    * every tier were given the same blob — which would say nothing about
    * `inline` specifically and would quietly restyle the pill tiers. This pins
-   * that the change is scoped: the pills keep their own, different geometry.
+   * that the change is scoped: the tiers keep their own, distinct identities.
+   *
+   * ⚠⚠ AMENDED 18 Sep 2026, AND THE AMENDMENT IS THE INTERESTING PART. This
+   * arm used to assert `secondary` and `neutral` do NOT match `inline-flex`.
+   * That was a fair proxy for "scoped" when the only reason any tier would
+   * carry `inline-flex` was a careless copy of `inline`'s blob — but it
+   * hard-coded an ABSENCE that later turned out to be a defect:
+   * `primary` and `secondary` rendered `py-0.5`, about 19px, and
+   * `analysis-new-model-strip-target-edit` measured **76×19 on deployed
+   * `d084e9a8`** — the only control under 24px at rest on the whole panel.
+   *
+   * ⭐ SO THE PURPOSE SURVIVES AND THE FORM CHANGES. A 24px touch target is a
+   * GUARANTEE every tier owes (WCAG 2.2 AA §2.5.8, asserted over the whole map
+   * by `everyActTierIsHittable`); `rounded-full`, `underline` and `bg-primary`
+   * are IDENTITY, which is what "not smeared" was really protecting. Asserting
+   * identity directly is strictly stronger than asserting the absence of one
+   * shared class: it still REDs if a future edit blanket-replaces the map, and
+   * it no longer REDs when a tier gains a guarantee it should always have had.
    */
-  it('does not smear one geometry across the other tiers', () => {
+  it('does not smear one identity across the other tiers', () => {
+    // the pills stay pills
     expect(ACTION_TIER.secondary).toContain('rounded-full')
     expect(ACTION_TIER.neutral).toContain('rounded-full')
-    expect(ACTION_TIER.secondary).not.toMatch(/inline-flex/)
-    expect(ACTION_TIER.neutral).not.toMatch(/inline-flex/)
+    // and the non-pills do not become pills
+    expect(ACTION_TIER.inline).not.toMatch(/rounded-full/)
+    expect(ACTION_TIER.primary).not.toMatch(/rounded-full/)
+    // each tier keeps the treatment that makes it that tier
+    expect(ACTION_TIER.inline).toMatch(/underline/)
+    expect(ACTION_TIER.primary).toMatch(/bg-primary/)
+    expect(ACTION_TIER.neutral).toMatch(/border/)
+    // ⛔ and no two tiers are the same string — the blanket-replace this arm exists to catch
+    const values = Object.values(ACTION_TIER)
+    expect(new Set(values).size, 'every tier must remain distinguishable').toBe(values.length)
   })
 })
 
