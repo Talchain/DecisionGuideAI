@@ -26,9 +26,10 @@ import { EdgePanel } from '../panels/EdgePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { ACTION_LABELS } from '../inspectorStrings'
+import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 
 // The settlement the mocked send reports back, set per test.
-let settlementToReport: string | null = null
+let settlementToReport: SystemEventSendSettlement | null = null
 
 vi.mock('../useInspectorMutations', async importOriginal => {
   const actual = await importOriginal<typeof import('../useInspectorMutations')>()
@@ -37,11 +38,17 @@ vi.mock('../useInspectorMutations', async importOriginal => {
     // ⭐ SPREAD THE ORIGINAL, OVERRIDE ONE METHOD. A hand-listed mock object
     // would silently drop every mutation added since it was written — the
     // hand-maintained-mirror defect (CLAUDE.md trap 12).
-    useEdgeMutations: (edgeId: string | null) => {
+    // ⚠ `edgeId: string`, matching the real signature exactly. Declaring it
+    // wider (`string | null`) is not a harmless convenience — it is a
+    // different function, and the typecheck ratchet catches it.
+    useEdgeMutations: (edgeId: string) => {
       const real = actual.useEdgeMutations(edgeId)
       return {
         ...real,
-        setStrength: (_mean: number, opts?: { onSendSettled?: (s: string) => void }) => {
+        setStrength: (
+          _mean: number,
+          opts?: { onSendSettled?: (s: SystemEventSendSettlement) => void },
+        ) => {
           if (settlementToReport !== null) opts?.onSendSettled?.(settlementToReport)
           return 'dispatched' as const
         },
