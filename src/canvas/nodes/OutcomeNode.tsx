@@ -7,6 +7,7 @@ import { typography } from '../../styles/typography'
 import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
 import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
+import { countOptionsReaching, optionsReachingLine } from '../domain/optionsReaching'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
@@ -156,6 +157,31 @@ export const OutcomeNode = memo((props: NodeProps) => {
     // the same true thing the full card says, in the width one line allows.
     return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
   }, [bridgeEdgeData])
+
+  /**
+   * ⭐⭐ WHAT THE READER CAME TO THE CARD FOR: HOW MUCH OF THEIR CHOICE LANDS
+   * HERE — and it is available BEFORE the run, which nothing else on this card
+   * was.
+   *
+   * ⚠ IT IS NOT `inboundConnections`, AND THE DIFFERENCE IS THE WHOLE POINT.
+   * That array is post-analysis only (`useNodeConnections.ts:35` returns `[]`
+   * until `results.status === 'complete'`) and it is one hop: the factors
+   * wired straight into this outcome. An option is never one hop away — the
+   * measured edge grammar has no `option → outcome` pair at all — so the count
+   * is derived by walking upstream. `domain/optionsReaching.ts` carries the
+   * measurement, the de-duplication rule and the reason the baseline option is
+   * counted.
+   *
+   * ⛔ NO PHASE GATE, DELIBERATELY. This is a fact about the structure the user
+   * and the drafter have drawn, not about a result, so it is as true at rest as
+   * it is after a run and it is withheld in neither. The card's other numbers
+   * are gated because they are CLAIMS ABOUT VALUES; this one counts lines on
+   * the board.
+   */
+  const optionsMovingThis = useMemo(
+    () => optionsReachingLine(countOptionsReaching(nodes, edges, props.id)),
+    [nodes, edges, props.id],
+  )
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
@@ -491,6 +517,24 @@ export const OutcomeNode = memo((props: NodeProps) => {
               phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
             />
           )
+        )}
+
+        {/* ⭐ "3 options move this" — the card's own scoped quantity, on the
+            face, in every view and both phases. Silent at zero (see
+            `optionsReachingLine`), which is why there is no `> 0` test here:
+            the silence rule lives with the sentence, so a second surface
+            reusing the line cannot get it wrong.
+
+            Styling is `FactorNode`'s "Linked to N outcomes." line verbatim
+            (`FactorNode.tsx:613`) — the same class of statement in the opposite
+            direction should not read as a different kind of thing. */}
+        {optionsMovingThis && (
+          <p
+            className={`${typography.edgeLabel} text-text-body m-0 mb-1`}
+            data-testid="outcome-options-moving"
+          >
+            {optionsMovingThis}
+          </p>
         )}
 
         {/* The falsification question rides the CARD in Standard view, in both
