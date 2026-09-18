@@ -9,6 +9,8 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
   buildEdgeDirectionEditEvent,
@@ -952,7 +954,15 @@ export function useEdgeMutations(edgeId: string) {
    */
   const setStrength = useCallback((
     mean: number,
-    opts?: { preserveDirection?: boolean },
+    opts?: {
+      preserveDirection?: boolean
+      /**
+       * ⭐ HOW THE SEND SETTLED — optional, so no existing caller changes shape.
+       * Supplying it is how a surface earns the right to say anything about the
+       * outcome; omitting it keeps today's behaviour exactly.
+       */
+      onSendSettled?: (settlement: SystemEventSendSettlement) => void
+    },
   ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
     if (!edge) return 'not_encodable'
@@ -996,12 +1006,33 @@ export function useEdgeMutations(edgeId: string) {
     // the two. The outcome token below is how the gap is disclosed instead.
     if (!event) return 'not_wire_encodable'
     if (!sendSystemEvent) return 'local_only'
-    void Promise.resolve(sendSystemEvent(event)).catch(() => {
-      // Swallowed deliberately, exactly as `proposeFactorValue` and
-      // `setPriorRange` do: a genuine send failure is recorded by the
-      // conversation's own failure channel, and a server REFUSAL is not a
-      // failure — the promise resolves normally.
-    })
+    /**
+     * ⛔⛔ THE COMMENT THAT USED TO SIT HERE STATED THE MECHANISM CORRECTLY AND
+     * DREW THE OPPOSITE CONCLUSION. It read: *"a server REFUSAL is not a
+     * failure — the promise resolves normally."* True, and that is precisely
+     * WHY the refusal was invisible: a resolved promise carries the server's
+     * "no" straight past a `.catch`.
+     *
+     * `settleSystemEventSend`'s own header names this exact family — *"the two
+     * `edge_strength_edit` `confirm_current` carriers each shipped
+     * `.catch(() => {})`: every settlement collapsed to silence, INCLUDING THE
+     * SERVER SAYING NO."* Both of those were fixed. This one, the EDIT carrier,
+     * was not — the rule was written on one carrier and swept to its siblings
+     * but not to this one, which is the defect that module exists to end.
+     *
+     * ⚠ SCOPE, UNCHANGED: this settles what the CALLER MAY SAY ABOUT THE SEND.
+     * `'sent'` still means a POST left and the server has not answered. Whether
+     * the MODEL changed arrives separately, on the turn. This is not an applied
+     * channel and must not be rendered as one.
+     *
+     * ⭐ ALL THREE LIVE CALLERS ARE COVERED BY THIS ONE EDIT — the band buttons
+     * (`EdgePanel:627`), the fine-tune slider (`EdgePanel:676`) and the Model
+     * tab's relationship row (`useModelEditAuthority.proposeEdgeStrength`) all
+     * come through here. `deferIfBusy` is deliberately NOT passed: changing it
+     * would alter behaviour for all three at once, and that is a separate
+     * decision, taken deliberately or not at all.
+     */
+    settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 

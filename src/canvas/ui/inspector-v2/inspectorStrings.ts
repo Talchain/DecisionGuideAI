@@ -553,6 +553,27 @@ export const ACTION_LABELS = {
    * `FactorControllablePanel:840-846`, which already states all three outcomes.
    */
   strengthConfirmNotSent: 'Not sent to Olumi',
+  /**
+   * ⛔⛔ THE EDIT PATH SHIPPED THE DEFECT ITS OWN SIBLING WAS FIXED FOR.
+   * `handleConfirmCurrentStrength` above carries a ⛔⛔ banner recording that it
+   * called `confirmEdit('strength')` unconditionally, rendering `EditConfirmation`
+   * at its defaults — **"Updated" in success green** — plus `InlineRerunPrompt`,
+   * so a person was told their statement was saved and invited to SPEND AN
+   * ANALYSIS on a change that did not exist. That was closed for CONFIRM and
+   * left open for EDIT: a band press and a slider drag still say "Updated" in
+   * success green whatever the server did, because the send was `.catch(() => {})`.
+   * These two labels are the edit path's half, and they are TWO because the
+   * harms are opposite (CLAUDE.md trap 22b): "nothing was recorded" and "we
+   * cannot tell" must never share one sentence.
+   */
+  strengthEditNotRecorded: 'Not recorded — Olumi did not take this change',
+  /**
+   * ⚠ THE UNCERTAINTY IS RETAINED, NOT RESOLVED. `unverified` means the change
+   * MAY have landed, so this must not claim either way — and unlike the line
+   * above it must NOT suppress the re-run affordance, because the model may
+   * genuinely hold the new value.
+   */
+  strengthEditUnverified: 'Olumi may not have recorded this',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────
