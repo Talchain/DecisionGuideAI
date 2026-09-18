@@ -160,6 +160,32 @@ function performConnectedFactorAdd(): { nodeId: string; data: Record<string, unk
     ceeAnalysisReady: null,
   } as never)
 
+  /**
+   * ⛔⛔ RESEED THE ID COUNTER, OR EVERY ASSERTION IN THIS FILE READS THE WRONG
+   * NODE ON THE FIRST INVOCATION.
+   *
+   * `nextNodeId` initialises to `1` (`store.ts:3184`) and is a MODULE SINGLETON
+   * this file never reset — the bare `setState` above omits it. `createNodeId`
+   * returns `String(nextNodeId)`, so the FIRST call here minted `'1'`, which is
+   * `OUTCOME_TARGET.id`. `nodes.find(n => n.id === nodeId)` then returns the
+   * FIRST match — the pre-existing outcome, not the factor just created.
+   *
+   * ⭐ THE LOOKUP WAS BOUND BY IDENTITY, EXACTLY AS TRAP 19 REQUIRES. Identity
+   * simply stopped being unique. Binding by identity ASSUMES uniqueness, and a
+   * fixture can quietly withdraw that assumption.
+   *
+   * ⚠ And it was ORDER-DEPENDENT: only the first invocation collided, so
+   * whichever test ran first took it. Inserting a case above, or randomising
+   * order, would have migrated the defect to an assertion whose failure is not
+   * benign.
+   *
+   * `reseedIds` is the PRODUCT's mechanism (`store.ts:3383`,
+   * `Math.max(maxNodeId + 1, 5)`), derived from the arrays passed to it — so a
+   * fixture with higher ids stays correct with no edit here, and every
+   * invocation mints deterministically instead of depending on call order.
+   */
+  useCanvasStore.getState().reseedIds([OUTCOME_TARGET] as unknown as Node[], [])
+
   // `getEdgeDirectionForKind('outcome')` returns `'to-target'`, so the new
   // factor has an outgoing edge to an existing outcome. Both the direction
   // and target kind are required for the positive control to expose a count.
@@ -217,12 +243,47 @@ beforeEach(() => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('LAYER 0 — the topology enables the linked-outcome count', () => {
+  /**
+   * ⛔⛔ THE GUARD ON THE GUARD. Every assertion in this file distinguishes the
+   * CREATED node from the PRE-EXISTING one, and all of them are worthless the
+   * moment those two share an id. This makes that failure LOUD and SPECIFIC
+   * instead of surfacing as a baffling mismatch several layers down.
+   *
+   * It must itself be able to fail: delete the `reseedIds` call in
+   * `performConnectedFactorAdd` and this REDs with its own message.
+   */
+  it('⭐⭐ PRECONDITION ON THE PRECONDITION — the created node does not reuse an existing id', () => {
+    const { nodeId } = performConnectedFactorAdd()
+    const { nodes } = useCanvasStore.getState()
+    expect(
+      nodeId,
+      'the created node reused OUTCOME_TARGET\'s id — every assertion in this file is now reading the wrong node',
+    ).not.toBe(OUTCOME_TARGET.id)
+    expect(
+      nodes.filter((node) => node.id === nodeId),
+      'two nodes share the created id, so `find` returns whichever comes first',
+    ).toHaveLength(1)
+  })
+
   it('⭐ the created factor is the source of an edge to an existing outcome', () => {
     // ⚠ WITHOUT THIS, EVERY "NO DIGIT" RESULT BELOW COULD BE THE FIXTURE
     // FAILING TO TRIGGER RATHER THAN THE CODE BEHAVING (CLAUDE.md trap 13b).
     // Assert both prerequisites of the live count, not just edge direction.
     const { nodeId } = performConnectedFactorAdd()
     const { nodes, edges } = useCanvasStore.getState()
+
+    /**
+     * ⛔ ENDPOINTS ASSERTED DISTINCT, AND THIS IS THE REPAIR.
+     *
+     * This test's NAME claims an edge to an EXISTING outcome — a different
+     * node. When the created node reused `OUTCOME_TARGET.id`, the edge was a
+     * SELF-LOOP `{source: '1', target: '1'}`, and
+     * `objectContaining({ source: nodeId, target: OUTCOME_TARGET.id })`
+     * matched it happily because both interpolated to the same string. The
+     * assertion passed while the topology it names did not exist.
+     */
+    expect(nodeId, 'a self-loop satisfies the edge assertion below').not.toBe(OUTCOME_TARGET.id)
+
     expect(nodes.find((node) => node.id === OUTCOME_TARGET.id)?.type).toBe('outcome')
     expect(edges.filter((edge) => edge.source === nodeId)).toEqual([
       expect.objectContaining({ source: nodeId, target: OUTCOME_TARGET.id }),
