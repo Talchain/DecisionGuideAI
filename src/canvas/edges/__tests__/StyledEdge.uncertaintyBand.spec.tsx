@@ -35,7 +35,11 @@ vi.mock('@xyflow/react', async () => {
   return {
     ...actual,
     BaseEdge: ({ style }: any) => (
-      <path data-testid="base-edge" data-stroke-width={String(style?.strokeWidth)} />
+      <path
+        data-testid="base-edge"
+        data-stroke-width={String(style?.strokeWidth)}
+        data-vector-effect={String(style?.vectorEffect)}
+      />
     ),
     EdgeLabelRenderer: ({ children }: any) => <div>{children}</div>,
     getBezierPath: () => ['M0 0 L100 100', 50, 50],
@@ -201,6 +205,75 @@ describe('the ribbon reaches the board', () => {
     const structural = ingest(findEdge('dec_pricing', 'opt_hybrid'))
     expect(resolveEdgeValueDisplay(structural, 'strengthStd').show).toBe(true)
     const { container } = renderEdge(structural, { src: 'decision', tgt: 'option' })
+    expect(band(container)).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ THE RIBBON'S WIDTH IS AN ENCODING, NOT A DRAWING PROPERTY — so it must be a
+ * SCREEN width, exactly as the line's already is.
+ *
+ * MEASURED ON THE SERVED BUILD (1212e2eb, 18 Sep 08:46Z,
+ * `output/canvas-witness-20260917/ribbon-occlusion.json`), at the camera the board
+ * actually opens at:
+ *
+ *   camera zoom                  0.5   (read off the viewport transform, not assumed)
+ *   line    vector-effect        non-scaling-stroke  → 1/2/3/4px on screen
+ *   ribbon  vector-effect        none                → graph units, halved by the camera
+ *   thinnest ribbon on screen    4.28px
+ *   thickest line on screen      4px
+ *   margin the ribbon shows      0.282px
+ *   × its 0.2 opacity            0.0565px of signal
+ *
+ * So at the opening camera the floor of the uncertainty channel is not merely hard
+ * to read — it is INVISIBLE, hidden inside the line it wraps. A reader cannot tell
+ * a tight, well-measured uncertainty from one that was never assessed, because both
+ * render as a bare line.
+ *
+ * ⛔ THIS IS TRAP 21 INSIDE ONE FEATURE. `StyledEdge` already argues the correct
+ * principle for the LINE, in terms: *"thickness here is an ENCODING of strength, not
+ * a drawing property, so it should mean the same thing at every zoom rather than
+ * growing with the camera."* The ribbon's own comment argues the opposite for itself
+ * — *"the width is in GRAPH units and scales with zoom… a non-scaling ribbon would
+ * hold constant screen width while the model shrank, and swamp it."* Both were
+ * reasoned; neither was compared with the other. The first argument is the right one
+ * and it applies verbatim to the ribbon: band width encodes UNCERTAINTY, so it must
+ * mean the same thing at every zoom. The swamping worry is answered by the bound
+ * that already exists (`UNCERTAINTY_BAND_MAX_HALF_WIDTH`), not by letting the
+ * encoding evaporate.
+ *
+ * ⚠ SCOPE, so this is not read as more than it is. jsdom cannot prove visibility
+ * (trap 3) and these tests do not try: they assert the ATTRIBUTE that decides
+ * whether the width is a screen width. The visibility claim is the browser
+ * measurement above, and re-measuring it after this change is the acceptance
+ * condition on the row — not this spec.
+ */
+describe('the ribbon width survives the camera', () => {
+  it('CONTRAST CONTROL: the line is already non-scaling, so the attribute is readable here', () => {
+    // Without this, a missing attribute on the ribbon is indistinguishable from a
+    // mock that never forwards vectorEffect at all.
+    const { container } = renderEdge(CAUSAL_DATA, CAUSAL_KINDS)
+    const line = container.querySelector('[data-testid="base-edge"]')
+    expect(line).not.toBeNull()
+    expect(line!.getAttribute('data-vector-effect')).toBe('non-scaling-stroke')
+  })
+
+  it('the ribbon declares its width in screen pixels, like the line it wraps', () => {
+    const { container } = renderEdge(CAUSAL_DATA, CAUSAL_KINDS)
+    expect(band(container)!.getAttribute('vector-effect')).toBe('non-scaling-stroke')
+  })
+
+  it('the two channels agree — neither is scaled by the camera while the other is not', () => {
+    // The defect was the DISAGREEMENT, so this binds them together rather than
+    // pinning a literal on one of them. It fails if either side is changed alone.
+    const { container } = renderEdge(CAUSAL_DATA, CAUSAL_KINDS)
+    const line = container.querySelector('[data-testid="base-edge"]')!
+    expect(band(container)!.getAttribute('vector-effect')).toBe(line.getAttribute('data-vector-effect'))
+  })
+
+  it('still draws nothing when the producer stated no uncertainty', () => {
+    // The fix must not turn the provenance gate into a mark that always paints.
+    const { container } = renderEdge(NO_STD_DATA, CAUSAL_KINDS)
     expect(band(container)).toBeNull()
   })
 })
