@@ -339,6 +339,43 @@ export const CONTESTED_COPY = {
    * disagreement at this tip, so this must not say that it can.
    */
   reviewCta: 'See these in the model tab',
+
+  /**
+   * ── THE SETTLE AFFORDANCE ──────────────────────────────────────────────────
+   *
+   * Every string here is bounded by what `edge_adjudication` actually does: CEE
+   * classifies it `'fact_and_commit'`, which persists a typed turn fact with
+   * `provenance: 'user_set'` and writes NO graph. So the copy may claim that the
+   * JUDGEMENT is recorded and that Olumi stops raising this connection — both
+   * true, the second because `judgement-signals.ts` derives
+   * `contestedUnadjudicated` by joining contested edges against exactly these
+   * facts. It may NOT claim any effect-strength value changed, because none does.
+   */
+  settlePrompt: 'Which reading do you trust?',
+  /** Pass 1 is, by the contract's own comment, "what the graph currently uses". */
+  settlePass1: 'The original',
+  settlePass2: 'The second look',
+  /**
+   * ⚠ NOT "dismiss" and NOT "skip". `dismissed` is a real verdict in the
+   * contract enum and this records it as one: the user looked, and decided they
+   * cannot settle it yet. That is a legitimate reasoning position, it is stored
+   * as their judgement, and it stops Olumi asking again — which is what the
+   * label must convey and no more.
+   */
+  settleUnsure: "Can't say yet",
+  /**
+   * Shown in place of the row once the verdict is sent. Claims the two things
+   * that are true and nothing about any number.
+   */
+  settledAck: 'Recorded as your judgement. Olumi will stop raising this one.',
+  /**
+   * The provider-absent arm. `ContestedSection` renders inside
+   * `PreAnalysisPanelV3`, which `ErrorBoundary.tsx:245` places BELOW the canvas
+   * `ConversationProvider` — so this is not the live path. It exists because a
+   * surface with no send must say so rather than offering a button that
+   * terminates in silence (the Research-CTA anti-pattern).
+   */
+  settleUnavailable: 'Settling a disagreement needs the Olumi panel open.',
 } as const
 
 export const ATTRIBUTION_COPY = {

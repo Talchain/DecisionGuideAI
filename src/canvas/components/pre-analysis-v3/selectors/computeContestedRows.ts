@@ -53,6 +53,32 @@ export interface ContestedRowModel {
   basis: string
   /** The second look's own sentence, glossary-guarded. Null when it cannot be made safe. */
   reasoning: string | null
+  /**
+   * The two passes' signed strength means — WIRE AND GATING ONLY, NEVER RENDERED.
+   *
+   * ⚠ These do NOT weaken this module's "NUMBERS ARE DELIBERATELY ABSENT" rule
+   * above, and the rule is why they carry this comment. They exist so
+   * `contestedVerdictOptions` can refuse to offer a verdict whose pass states no
+   * finite mean (a verdict whose whole content is "I trust THIS reading" cannot
+   * be recorded self-containedly without it), and so the endorsed mean can ride
+   * in the `edge_adjudication` fact's `resolved_strength_mean`. Neither path
+   * reaches the screen; `contestedSectionSettles.spec.tsx` pins that no rendered
+   * string in the section contains either number.
+   *
+   * Null when the pass states nothing finite — fail-closed, never defaulted.
+   */
+  pass1Mean: number | null
+  pass2Mean: number | null
+}
+
+/**
+ * A finite mean, or null. `ValidationMetadata` types both means as required
+ * `number`, but this data arrives off the wire through a lenient path, so the
+ * read is defensive: a missing or non-finite mean drops the verdict rather than
+ * defaulting it. Fail-closed, the same rule every other read in this panel uses.
+ */
+function finiteMeanOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 export function computeContestedRows(
@@ -78,6 +104,8 @@ export function computeContestedRows(
       reasons: reasons.length > 0 ? reasons : [CONTESTED_COPY.reasonFallback],
       basis: getBasisLabel(validation.pass2.basis),
       reasoning: rawReasoning ? guardCeeTextOrNull(rawReasoning) : null,
+      pass1Mean: finiteMeanOrNull(validation.pass1?.strength_mean),
+      pass2Mean: finiteMeanOrNull(validation.pass2?.strength_mean),
     }
   })
 }
