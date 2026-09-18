@@ -41,23 +41,96 @@
  *
  * `isAnalysedOption`, `runAnalysedAnyOption` and `deriveNotAnalysedReason` are
  * imported from `components/results/utils/notAnalysedOptions` — the same three
- * functions `useResultsSectionData.ts:2056/2085/2272` calls, in the same order,
- * on the same inputs. A second spelling of "was this option in the analysis"
- * is how the canvas and the panel end up contradicting each other about one
- * run, which is the defect this estate keeps paying for (trap 21).
+ * functions `useResultsSectionData.ts:2056/2085/2272` calls, in the same order.
+ * A second spelling of "was this option in the analysis" is how the canvas and
+ * the panel end up contradicting each other about one run, which is the defect
+ * this estate keeps paying for (trap 21).
+ *
+ * ## ⚠⚠ A CORRECTED PREMISE — THIS HEADER ONCE SAID "ON THE SAME INPUTS", AND
+ * THAT WAS FALSE
+ *
+ * The three functions are shared; the LEFT SIDE OF THE JOIN was not. This hook
+ * collected `state.nodes` where `node.type === 'option'` under a comment
+ * claiming the join was "exactly as it is in `useResultsSectionData`", which
+ * filters on `(n.data as ResultsCanvasNodeData)?.kind === 'option'`
+ * (`:2024`). Two different predicates over two different fields, and the store
+ * provably populates them differently: `addNode` (`store.ts:3376-3381`) writes
+ * `data: { label }` and nothing else, while `addNodeWithEdge` (`:3478`) writes
+ * `data: { label, kind: type }`. So a plain-added option carries `type` and no
+ * `data.kind`, and a draft-added one carries both. Sharing the functions and
+ * diverging on their arguments is the same defect one level down — and it is
+ * invisible, because every function name matches.
+ *
+ * The join now runs through `resolveNodeTypeLiteral` (`canvas/domain/nodes.ts`),
+ * the estate's DECLARED single owner of "what kind of element is this node?",
+ * whose own header says a second copy in a hook is trap 12. Its chain is
+ * `node.type ?? data.kind ?? data.type`, so it is a strict SUPERSET of the
+ * predicate this hook used (anything with `node.type === 'option'` still
+ * resolves to `'option'` on the first link) and it additionally catches the
+ * `data.kind`-only shape the panel sees and this hook did not.
+ *
+ * ⚠ AND THE RESIDUAL DIVERGENCE IS REPORTED, NOT SILENTLY CLOSED. The panel's
+ * `:2024` filter still reads `data.kind` alone, so a plain-added option is in
+ * the canvas's option set and not in the panel's. Widening `:2024` would change
+ * which nodes become `OptionResult`s across the entire panel — ranking, winner
+ * selection, the comparison table — which is a different change with a
+ * different blast radius and is out of this lane's scope. What is fixed here is
+ * that the canvas asks the DOMAIN OWNER rather than keeping a private second
+ * spelling; what remains is one predicate in the panel, named so the next lane
+ * can find it.
  */
 import { useCanvasStore } from '../store'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
 import type { ResultsReport } from '../../components/results/types'
 import {
   deriveNotAnalysedReason,
   isAnalysedOption,
   runAnalysedAnyOption,
-  type NotAnalysedReason,
+  type OptionLeftOutOfRunReason,
 } from '../../components/results/utils/notAnalysedOptions'
 
 /**
  * `null` when this option was in the run (or when the question cannot be
- * asked honestly). A {@link NotAnalysedReason} when the run left it out.
+ * asked honestly). An {@link OptionLeftOutOfRunReason} when the run left it
+ * out.
+ *
+ * ## ⭐⭐ THE FOURTH WORLD: THE GRAPH MOVED AFTER THE RUN
+ *
+ * `results.status` SURVIVES a graph edit. `pushToHistory` (`store.ts:2054`)
+ * sets `graphEditedSinceLastRun: true` and `analysisStateReady: false` and
+ * never touches `results`. So a run completes on A and B, the user adds C and
+ * wires it to a factor, and C arrives here with an intervention edge and no
+ * entry — `deriveNotAnalysedReason` answers `not_returned`, and the card said
+ * *"The analysis returned no result for this option"* with no action offered.
+ * The analysis returned nothing about C **because C did not exist.** The
+ * sentence blamed the engine for the user's own edit.
+ *
+ * `graphEditedSinceLastRun` is therefore read as a GATE on the engine-blaming
+ * arm: we may only say the run answered nothing about this option while the
+ * graph is the graph the run saw.
+ *
+ * ⚠ IT GATES `not_returned` ONLY, AND POOLING `no_interventions` IN WOULD BE A
+ * WORSE CARD. An option with no intervention edges is not submittable, so
+ * "re-run it" is a FUTILE step — the thing `notAnalysedActionLabel` refuses to
+ * prescribe — while "say what it changes" is true and actionable whether the
+ * option predates the run or not. The two arms fail in opposite directions and
+ * each keeps its own.
+ *
+ * ⚠ IT OVER-FIRES, AND THAT IS THE CHOSEN DIRECTION. The flag is set by ANY
+ * hash-changing edit, a node drag included, so an option that genuinely was
+ * submitted and unanswered will yield the fourth sentence after an unrelated
+ * edit. That costs PRECISION. The alternative costs TRUTH: asserting the run
+ * answered nothing about an option it never saw. The fourth sentence is true in
+ * both sub-cases; the `not_returned` sentence is false in one. It fails toward
+ * saying less, the same direction as the domain guard below.
+ *
+ * ⛔ THE FLAG IS A GATE, NEVER A FRESHNESS AUTHORITY. `OutputsDock`,
+ * `ActionStrip` and `deriveAnalysisDisplayState` each record that this flag
+ * "fabricated 'stale'" and route *"are these results current?"* through the
+ * composed CEE freshness semantic instead. That ruling stands and is not
+ * touched here: this hook answers *"may I say the run considered THIS
+ * option?"*, which is a different question with a different producer, and the
+ * copy it selects states the local edit rather than a verdict on the run.
  *
  * ## THE DOMAIN GUARD IS THE LOAD-BEARING HALF, and it is not ours
  *
@@ -90,21 +163,29 @@ import {
  * Returns a primitive, so the zustand selector is reference-stable and this
  * adds no re-render beyond an actual change of the answer.
  */
-export function useOptionLeftOutOfRun(optionNodeId: string): NotAnalysedReason | null {
-  return useCanvasStore((state) => {
+export function useOptionLeftOutOfRun(optionNodeId: string): OptionLeftOutOfRunReason | null {
+  // ⚠ THE SELECTOR CARRIES ITS OWN RETURN ANNOTATION, AND IT IS LOAD-BEARING.
+  // Without it TypeScript infers the selector's return type from its bodies and
+  // WIDENS the bare `'graph_edited_since_run'` literal to `string`, so zustand's
+  // `U` resolves to `string | null` and the outer signature stops being a union
+  // of known reasons. Annotating here also makes every branch checked against
+  // the vocabulary rather than merely assignable at the call site.
+  return useCanvasStore((state): OptionLeftOutOfRunReason | null => {
     if (state.results.status !== 'complete') return null
     const report = state.results.report
     if (!report) return null
     const optionProbabilities =
       (report as unknown as ResultsReport).option_probabilities ?? {}
 
-    // The USER'S GRAPH is the left side of the join, exactly as it is in
-    // `useResultsSectionData`. Collected once and reused for both the domain
-    // guard and the reason, so the two cannot disagree about which nodes are
-    // options.
+    // The USER'S GRAPH is the left side of the join, resolved through the
+    // DOMAIN OWNER of "what kind of node is this" rather than by a private
+    // field read — see the corrected premise in this module's header for what
+    // the private read got wrong and what remains divergent in the panel.
+    // Collected once and reused for both the domain guard and the reason, so
+    // the two cannot disagree about which nodes are options.
     const optionNodeIds: string[] = []
     for (const node of state.nodes) {
-      if (node.type === 'option') optionNodeIds.push(node.id)
+      if (resolveNodeTypeLiteral(node) === 'option') optionNodeIds.push(node.id)
     }
 
     // Asked of a node that is not an option at all, this is not a fact we hold.
@@ -113,6 +194,20 @@ export function useOptionLeftOutOfRun(optionNodeId: string): NotAnalysedReason |
     if (!runAnalysedAnyOption(optionProbabilities, optionNodeIds)) return null
     if (isAnalysedOption(optionProbabilities, optionNodeId)) return null
 
-    return deriveNotAnalysedReason(optionNodeId, state.edges, optionNodeIds)
+    const reason = deriveNotAnalysedReason(optionNodeId, state.edges, optionNodeIds)
+
+    // ⭐⭐ THE FOURTH WORLD, GATED ON THE ONE ARM THAT BLAMES THE ENGINE.
+    //
+    // `not_returned` is the claim "the run had this option and answered
+    // nothing about it". That claim is only ours to make while the graph is
+    // the graph the run saw. Once it has moved we cannot tell that from "this
+    // option was not there", so the claim is WITHDRAWN and replaced by the one
+    // sentence true in both — never widened to `no_interventions`, whose step
+    // stays right and whose re-run would be futile. See the docblock above.
+    if (reason === 'not_returned' && state.graphEditedSinceLastRun) {
+      return 'graph_edited_since_run'
+    }
+
+    return reason
   })
 }

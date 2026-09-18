@@ -34,8 +34,8 @@ import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/uti
 import {
   NOT_ANALYSED_BADGE,
   NOT_COMPUTED_BADGE,
-  notAnalysedReasonCopy,
   notComputedReasonCopy,
+  optionLeftOutOfRunCopy,
 } from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
@@ -2038,13 +2038,36 @@ export const OptionNode = memo((props: NodeProps) => {
             the argument `notAnalysedCopy.ts` makes in its own header. The row
             discloses; the panel acts. Same division the not-computed row keeps.
 
+            ## ⭐⭐ AND A FOURTH REASON RIDES THIS SAME ROW: THE GRAPH MOVED
+            AFTER THE RUN
+
+            `results.status` survives a graph edit, so an option added once a
+            run has finished reaches this card with no entry and — if it was
+            wired, i.e. the ordinary connected-add gesture — the derived reason
+            `not_returned`, whose sentence says the analysis RETURNED nothing
+            for it. It returned nothing because the option did not exist. The
+            hook withdraws that claim while `graphEditedSinceLastRun` is set and
+            returns `graph_edited_since_run` instead, and
+            `optionLeftOutOfRunCopy` states the absence without attributing it,
+            then points at re-running. See the hook's docblock for why the gate
+            covers only that arm.
+
+            ⭐ THE PILL IS DELIBERATELY THE SAME ONE. `NOT_ANALYSED_BADGE` is
+            the GENUS — "this card carries no rank and no probability" — and it
+            already serves two reasons whose next steps differ; the four-absence
+            ruling draws its lines in the SENTENCE, which is where a reader
+            finds the action. A third visible string would also have to dodge
+            "Not in this analysis", which `BaseNode.tsx:1394` already owns for
+            CEE's prediction about the NEXT run — minting a near-synonym beside
+            it is the two-things-under-one-name defect this row exists to avoid.
+
             The sentence is given to assistive technology directly rather than
             only through `title`, because a `title` is unreachable by KEYBOARD
             (this row is not focusable) and absent on TOUCH. */}
         {displayMetadata.isResultsMode && leftOutOfRunReason !== null && (
           <div
             className="mt-1.5 mb-1 flex items-center gap-1.5"
-            title={notAnalysedReasonCopy(leftOutOfRunReason)}
+            title={optionLeftOutOfRunCopy(leftOutOfRunReason)}
             data-testid={`option-not-analysed-${props.id}`}
           >
             <span
@@ -2054,7 +2077,7 @@ export const OptionNode = memo((props: NodeProps) => {
               {NOT_ANALYSED_BADGE}
             </span>
             <span className={typography.screenReaderOnly}>
-              {notAnalysedReasonCopy(leftOutOfRunReason)}
+              {optionLeftOutOfRunCopy(leftOutOfRunReason)}
             </span>
           </div>
         )}

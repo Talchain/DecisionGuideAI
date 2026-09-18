@@ -92,6 +92,33 @@ export type NotAnalysedReason =
    */
   | 'not_returned'
 
+/**
+ * ⭐⭐ THE FOURTH WORLD — A SUPERSET TYPE, DELIBERATELY NOT A WIDENING OF
+ * {@link NotAnalysedReason}.
+ *
+ * `NotAnalysedReason` is what {@link deriveNotAnalysedReason} is TOTAL over,
+ * and `notAnalysedCopy.ts` rests an argument on that totality ("there is no
+ * third 'no reason known' arm, because at this tip there is no such run").
+ * Both stay true: nothing here changes what that function returns, and the
+ * results panel's producer (`useResultsSectionData.ts:2272`) can still only
+ * emit the two values. Widening the union in place would instead have made
+ * every `reason === 'no_interventions' ? A : B` ternary in this family answer
+ * the new value with B — the `not_returned` sentence — which is precisely the
+ * false sentence the fourth world exists to stop.
+ *
+ * `graph_edited_since_run` is a fact the RESULTS PANEL DOES NOT HOLD. It is
+ * composed by the canvas hook from a store flag (`graphEditedSinceLastRun`)
+ * layered on top of the derived reason, so it belongs to a strictly larger
+ * vocabulary. Named apart rather than folded in (CLAUDE.md trap 21), and
+ * `notAnalysedCopy.optionLeftOutOfRunCopy` is the one function total over it.
+ *
+ * ⚠ THE VALUE NAMES THE FACT WE HOLD, NOT THE STORY WE INFER. We do not know
+ * this option was ADDED after the run — only that the graph changed since the
+ * run, so we are no longer entitled to say the run considered this option.
+ * `added_after_run` would assert more than anything measured.
+ */
+export type OptionLeftOutOfRunReason = NotAnalysedReason | 'graph_edited_since_run'
+
 /** The shape this module needs off a canvas edge. */
 export interface OptionEdgeLike {
   readonly source: string

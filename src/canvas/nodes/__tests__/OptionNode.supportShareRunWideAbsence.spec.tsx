@@ -51,6 +51,13 @@ beforeEach(() => {
   useCanvasStore.setState({
     nodes: [], edges: [], ceeAnalysisReady: null,
     results: { status: 'idle', report: null }, viewMode: 'expert',
+    // ⭐ THE FOURTH ABSENCE'S PRECONDITION, PINNED RATHER THAN INHERITED.
+    // `useOptionLeftOutOfRun` withdraws the `not_returned` sentence while the
+    // graph has moved since the run, so every assertion below about what an
+    // option card SAYS is conditional on this being false. A default is not a
+    // precondition: state it, or the file silently tests a different rule the
+    // day the default moves (CLAUDE.md trap 13b).
+    graphEditedSinceLastRun: false,
   } as never)
 })
 afterEach(cleanup)
