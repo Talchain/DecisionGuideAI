@@ -53,7 +53,7 @@
  */
 
 import type { CSSProperties } from 'react'
-import { CANVAS_LABEL_SCALE_VAR, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 
 /**
  * The px sizes the canvas node surfaces actually use. A size that is not here
@@ -330,10 +330,28 @@ export const MIN_TARGET_RENDERED_PX = 24
  * and emits no CSS for a class it cannot see** — the silent, green-looking
  * failure this file's header is about. An inline style is not scanned, so that
  * failure mode does not exist for it, and `BaseNode`'s `LOD_BLANKED_BODY_STYLE`
- * already carries `calc(16px * var(--canvas-label-scale, 1))` this way. It also
- * lets the var be READ from `CANVAS_LABEL_SCALE_VAR` and the px from
- * `MIN_TARGET_RENDERED_PX` instead of hand-spelled: this is the one value in
- * this file with **no hand-copied number in it at all**.
+ * already carries `calc(16px * var(--canvas-label-scale, 1))` this way. The px
+ * is READ from `MIN_TARGET_RENDERED_PX`, so this is still the one value in this
+ * file with **no hand-copied number in it at all**.
+ *
+ * ⚠⚠ THE PROPERTY NAME IS SPELLED LITERALLY, AND THAT IS A CORRECTION, NOT AN
+ * OVERSIGHT. It was `var(${CANVAS_LABEL_SCALE_VAR}, 1)`, which reads better and
+ * cost a required check: `scripts/css-var-census.mjs` assembles a template
+ * literal with sentinels, so an interpolation INSIDE the `var()` name region
+ * makes the reference DYNAMIC — and `tests/ci-guards/css-var-resolution.spec.ts`
+ * pins the dynamic sites by FILE, exactly and bidirectionally. This file joined
+ * that set and the pin RED. Measured, not inferred: run 35366431899, shard 2,
+ * `expected [ …(2) ] to deeply equal [ 'src/styles/evaluative.ts' ]`.
+ *
+ * ⭐ Spelling the name is also the STRONGER arm of that guard, not an evasion of
+ * it. A static reference is checked against the real definitions and against
+ * fallback drift; a dynamic one is only expanded and registered. It is what the
+ * nine class entries above already do, and what the registry spec beside this
+ * file already asserts against. The mirror it introduces is closed by
+ * `theThinkingPromptsAreHittable.spec.tsx`, which parses the property name back
+ * out of BOTH this constant and the two rendered call sites and asserts it
+ * equals `CANVAS_LABEL_SCALE_VAR` — an assertion that was circular while the
+ * name was interpolated and bites now that it is not.
  *
  * Frozen and module-level, so every consumer shares one object and a `memo`'d
  * button is not re-rendered by a fresh style literal each pass.
@@ -427,6 +445,6 @@ export const MIN_TARGET_RENDERED_PX = 24
  * spec instead.
  */
 export const CANVAS_MIN_TARGET_BOX_STYLE: Readonly<CSSProperties> = Object.freeze({
-  minHeight: `calc(${MIN_TARGET_RENDERED_PX}px * var(${CANVAS_LABEL_SCALE_VAR}, 1))`,
-  minWidth: `calc(${MIN_TARGET_RENDERED_PX}px * var(${CANVAS_LABEL_SCALE_VAR}, 1))`,
+  minHeight: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-label-scale, 1))`,
+  minWidth: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-label-scale, 1))`,
 })

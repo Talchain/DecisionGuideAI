@@ -61,10 +61,37 @@
  * ⛔ NOT EXECUTED. This spec was written under a no-run cost constraint: no
  * install, no vitest, no tsc, nothing driven. CI at the pushed head is the
  * authority for whether it passes, and the mutation pair above is the check to
- * run before trusting it.
+ * run before trusting it. **The same constraint applies to the round-3 edits
+ * below: also unrun.**
+ *
+ * ───────────────────────────────────────────────────────────────────────────────
+ * ⚠⚠ ROUND 3 — WHAT THIS FILE GOT WRONG, AND WHAT THE CI LOG SAID
+ * ───────────────────────────────────────────────────────────────────────────────
+ * **1. AN ASSERTION MESSAGE RED A REQUIRED CHECK.** `expectFlooredBox` spelled
+ * the property as a literal ellipsis character, and
+ * `tests/ci-guards/css-var-resolution.spec.ts` reports any `var()` name region
+ * that reaches for a custom property and gets it wrong — wherever it appears,
+ * prose included. Prose in a test file is scanned code. It names the real
+ * property now.
+ *
+ * **2. THREE ASSERTIONS COULD NEVER RED, AND ONE OF THEM CITED TRAP 13.** Each
+ * is repaired in place with the reasoning at the line, not summarised away here:
+ *   · the constant's own px, parsed back out and compared to the constant it is
+ *     INTERPOLATED FROM — now pinned to `WCAG_MIN_TARGET_CSS_PX`, a literal;
+ *   · `expect(getByTestId(…)).not.toBeNull()` — the query throws first, so the
+ *     matcher was unreachable; now a COUNT inside the row;
+ *   · `expect(subjects.length).toBe(1 + INVITATIONS.length)` — true by
+ *     construction, and the line written to prevent vacuity was the vacuous one;
+ *     now counted against the DOM.
+ * A fourth, `minHeight.px === minWidth.px`, followed by transitivity from the
+ * loop two lines above it and is deleted with its reason left in place.
+ *
+ * ⚠ THE PART A READER SHOULD NOT INHERIT: these are claims about what CAN red,
+ * derived by reading. None has been executed, and a mutation pair is still the
+ * only thing that settles it.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { NodeChip } from '../NodeChip'
 import { TierInvitationRow } from '../TierInvitation'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -102,6 +129,24 @@ const AXES = ['minHeight', 'minWidth'] as const
  * checks). The defensible claim is the arithmetic one, so it is the one made.
  */
 const FLOAT_SLACK = 1e-9
+
+/**
+ * ⭐ WCAG 2.2 AA 2.5.8's minimum, SPELLED AS A LITERAL ON PURPOSE — the one
+ * place in this file where a literal is the honest form.
+ *
+ * `CANVAS_MIN_TARGET_BOX_STYLE` is BUILT by interpolating
+ * `MIN_TARGET_RENDERED_PX`, so parsing that constant back out and asserting it
+ * equals `MIN_TARGET_RENDERED_PX` compares a value with itself: both sides move
+ * together and the assertion can never RED. Lowering the constant to 12 would
+ * have passed. 24 CSS px is an EXTERNAL requirement and is not ours to derive,
+ * so it is pinned here and the criterion REDs when the constant leaves it.
+ *
+ * ⚠ THIS IS NOT THE PIN FOR THE RENDERED ELEMENTS. `expectFlooredBox` keeps
+ * comparing those against `MIN_TARGET_RENDERED_PX`, because there the two sides
+ * are INDEPENDENT — a call site that hand-spells a different number REDs on the
+ * number, which is the whole argument of `parseFloor`'s header.
+ */
+const WCAG_MIN_TARGET_CSS_PX = 24
 
 /**
  * Every zoom in the band the product calls legible, DERIVED from
@@ -154,7 +199,7 @@ function expectFlooredBox(el: HTMLElement, who: string): number {
       p,
       `${who}: no ${axis} floor — style.${axis} was "${raw}". ` +
         `Either \`style={CANVAS_MIN_TARGET_BOX_STYLE}\` is missing from this call site, ` +
-        `or the constant stopped spelling calc(Npx * var(--…, 1)).`,
+        `or the constant stopped spelling calc(Npx * var(--canvas-label-scale, 1)).`,
     ).not.toBeNull()
     expect(p!.px, `${who}: ${axis} floors ${p!.px}px, not MIN_TARGET_RENDERED_PX`).toBe(
       MIN_TARGET_RENDERED_PX,
@@ -162,9 +207,13 @@ function expectFlooredBox(el: HTMLElement, who: string): number {
     expect(p!.varName, `${who}: ${axis} reads the wrong custom property`).toBe(CANVAS_LABEL_SCALE_VAR)
     parsed[axis] = p
   }
-  // Both axes must floor the SAME box; a divergence would make the constant's
-  // name true of neither dimension.
-  expect(parsed.minHeight!.px, `${who}: the two axes floor different sizes`).toBe(parsed.minWidth!.px)
+  // ⚠ THERE IS NO CROSS-AXIS EQUALITY ASSERTION HERE, AND ITS ABSENCE IS THE
+  // POINT. This read `expect(parsed.minHeight.px).toBe(parsed.minWidth.px)`
+  // under a comment calling it a same-box invariant. The loop above has already
+  // pinned BOTH axes to `MIN_TARGET_RENDERED_PX`, so the equality follows by
+  // transitivity and could never RED — a guard agreeing with itself
+  // (CLAUDE.md trap 13b), spent before it was written. The invariant it named is
+  // carried by the loop; restating it bought a line that cannot fail.
   return parsed.minHeight!.px
 }
 
@@ -257,7 +306,17 @@ describe('the critical-thinking prompts carry the WCAG target floor', () => {
     for (const axis of AXES) {
       const p = parseFloor(String(CANVAS_MIN_TARGET_BOX_STYLE[axis] ?? ''))
       expect(p, `CANVAS_MIN_TARGET_BOX_STYLE has no ${axis}`).not.toBeNull()
-      expect(p!.px, `${axis} does not spell MIN_TARGET_RENDERED_PX`).toBe(MIN_TARGET_RENDERED_PX)
+      // Against the LITERAL, not against `MIN_TARGET_RENDERED_PX`: the constant
+      // interpolates it, so the two sides move together and the old form could
+      // never RED. See `WCAG_MIN_TARGET_CSS_PX`.
+      expect(p!.px, `${axis} floors ${p!.px}px, not the 2.5.8 minimum`).toBe(WCAG_MIN_TARGET_CSS_PX)
+      // This one BITES, and only since the property name stopped being
+      // interpolated into the `var()` name region: the constant now spells
+      // `--canvas-label-scale` literally, because interpolating it made the
+      // reference DYNAMIC to `scripts/css-var-census.mjs` and moved the exact
+      // dynamic-site pin in `tests/ci-guards/css-var-resolution.spec.ts`. So
+      // the literal and `CANVAS_LABEL_SCALE_VAR` are genuinely two sides now,
+      // and a divergence REDs here rather than moving both at once.
       expect(p!.varName, `${axis} does not read CANVAS_LABEL_SCALE_VAR`).toBe(CANVAS_LABEL_SCALE_VAR)
     }
     // Its header claims a frozen module-level object so a `memo`'d button is not
@@ -293,10 +352,18 @@ describe('the critical-thinking prompts carry the WCAG target floor', () => {
    */
   it('TierInvitation — every invitation on the card carries the floor', () => {
     render(<TierInvitationRow invitations={INVITATIONS} nodeId="node-a" />)
-    // Pin the precondition: the ask gate is open and BOTH buttons mounted.
-    // Without this, a closed gate renders null and the loop below asserts
-    // nothing while reporting green.
-    expect(screen.getByTestId('tier-invitations')).not.toBeNull()
+    // Pin the precondition — with something that CAN red. This asserted
+    // `expect(screen.getByTestId('tier-invitations')).not.toBeNull()`, and
+    // `getByTestId` THROWS on absence: by the time the matcher ran the query had
+    // already decided the test, so the matcher could never fail. A closed gate
+    // does RED this test, but on the throw, never on that line.
+    // The COUNT inside the row can fail: it REDs if the gate opens and the row
+    // mounts fewer invitations than the fixture supplied.
+    const row = screen.getByTestId('tier-invitations')
+    expect(
+      within(row).getAllByRole('button'),
+      'the invitation row mounted a different number of controls than the fixture supplied',
+    ).toHaveLength(INVITATIONS.length)
     for (const inv of INVITATIONS) {
       expectFlooredBox(screen.getByTestId(`tier-invitation-${inv.tier}`), `TierInvitation(${inv.tier})`)
     }
@@ -332,12 +399,23 @@ describe('the critical-thinking prompts carry the WCAG target floor', () => {
         el: screen.getByTestId(`tier-invitation-${inv.tier}`),
       })
     }
-    // The fixture pins its own precondition: one chip plus every invitation.
-    // Without this a fixture that rendered nothing would loop zero times and
-    // report green (CLAUDE.md trap 13).
-    expect(subjects.length, 'fixture produced fewer controls than it claims to measure').toBe(
-      1 + INVITATIONS.length,
-    )
+    // ⛔ THE PRECONDITION, PINNED AGAINST THE DOM RATHER THAN AGAINST THE ARRAY
+    // THIS TEST JUST BUILT. It read
+    // `expect(subjects.length).toBe(1 + INVITATIONS.length)` under a comment
+    // citing trap 13 — and `subjects` is one push plus one per invitation, with
+    // every query throwing on absence, so the equality held BY CONSTRUCTION and
+    // could never RED. A fixture that rendered nothing would throw at
+    // `getByRole`, not loop zero times. The line written to prevent vacuity was
+    // itself the vacuous one.
+    // Counting the buttons in the document CAN red, and catches the failure the
+    // old line only claimed to: a control joining this fixture that the loop
+    // below is silently not measuring. Derived at the two components' bytes —
+    // `NodeChip` renders one <button> plus a <span role="status">, and
+    // `TierInvitationRow` one <button> per invitation and nothing else.
+    expect(
+      screen.getAllByRole('button'),
+      'the fixture mounted a different set of controls than this test measures',
+    ).toHaveLength(subjects.length)
 
     for (const { who, el } of subjects) {
       const declared = expectFlooredBox(el, who)
