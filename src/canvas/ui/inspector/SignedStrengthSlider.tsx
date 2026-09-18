@@ -7,6 +7,17 @@
  *
  * Track fill: var(--success) for positive, var(--danger) for negative
  * Endpoints: "Strong negative" (left), "Strong positive" (right), "No effect" at centre
+ *
+ * ⚠ THE ENDPOINT WORDS ARE NOT BAND LABELS AND ARE DELIBERATELY NOT DERIVED
+ * FROM `CANVAS_STRENGTH_BANDS` (named apart 18 Sep 2026, CLAUDE.md trap 21). They
+ * answer *"which end of this track is which direction?"* — a fixed pair of
+ * anchors either side of "No effect" — not *"what word is this value entitled
+ * to?"*, which is what the coaching line below the track and the band pills
+ * above it answer, both now from the one canonical table. Deriving the anchors
+ * would re-label the left end "Very strong negative" for no reason a user cares
+ * about and would tie a directional caption to a magnitude-only table. If you
+ * are here to unify a strength vocabulary, `getEffectSizeCoaching` is the one
+ * that was genuinely answering the same question — and it already is.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'

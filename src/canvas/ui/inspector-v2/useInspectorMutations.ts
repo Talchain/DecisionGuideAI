@@ -217,8 +217,62 @@ export const EDITOR_WRITTEN_FIELDS = {
  * is where the title lives, so nothing about the enforcement boundary moved
  * here. Only the sentence describing it did.
  */
+/**
+ * ⭐⭐ ONE MECHANISM, ONE SENTENCE — AND IT IS A CONSTANT BECAUSE FOUR COPIES OF
+ * IT IS WHAT WENT WRONG (18 Sep 2026, third pass).
+ *
+ * ⛔ UNRUN AS COMMITTED. No vitest, no tsc, no install — this lane was
+ * cost-constrained to reading code and writing a patch. CI is the authority for
+ * every assertion that moved with it.
+ *
+ * The Inspector's authority notice has FOUR arms (`InspectorRouter.tsx:519-525`)
+ * and every one of them sits above the SAME rename: `InspectorShell`'s
+ * `onLabelChange` is wired to `handleLabelChange` for every node panel type
+ * (`InspectorRouter.tsx:173-179, 500`), which calls `store.updateNodeLabel`. One
+ * chokepoint, one durability answer.
+ *
+ * The second pass repaired the rename claim in the EXTERNAL arm only and
+ * recorded the other three as "out of this lane's scope; reported, not edited".
+ * That left the product giving TWO DIFFERENT DURABILITY ANSWERS FOR ONE
+ * MECHANISM, decided by which factor the user happened to click: the external
+ * pane said the reach was conditional, the other three asserted the outcome
+ * flatly ("the name saves to the shared model" / "The name saves." / "The name
+ * and the value save to the shared model"). A user who renames a
+ * locally-created factor is told a different thing about the same silent
+ * stand-down depending on the pane. That is trap 21 read backwards — not two
+ * questions under one name, but ONE question under four names — and a scoping
+ * decision made it, not a mistake about the facts.
+ *
+ * ⭐ RECONCILED RATHER THAN NAMED APART, because nothing genuinely differs.
+ * There is no per-panel rename path to name apart: `resolvePanelType` picks the
+ * BODY, never the title writer. If a future change does give one panel its own
+ * rename carrier, this constant is where that split becomes visible.
+ *
+ * ⛔ AND IT IS A SINGLE DEFINITION, NOT FOUR MATCHING LITERALS. Four
+ * hand-copied sentences about one mechanism is the hand-maintained mirror
+ * (trap 12) that produced this finding in the first place; the next lane
+ * correcting the condition would have had to remember all four. Interpolated
+ * once, a correction cannot land in three places out of four.
+ *
+ * ⚠ THE CLAUSE IS A NECESSARY CONDITION AND ASSERTS NO OUTCOME, which is what
+ * makes it true on every arm — the `node_not_server_held` stand-down (local
+ * write applied, nothing sent, and NO notice, because the toast is gated on
+ * `result.deferred`), the deferred arm, the happy path, and the `unproven`
+ * sub-case. The full derivation sits on `INSPECTOR_FACTOR_EXTERNAL_REASON`
+ * below, where it was first written; it is not repeated here.
+ *
+ * ⚠ WHAT THIS DOES NOT TOUCH, deliberately and with the reason stated. "The
+ * value saves to the shared model" in the controllable arm is a claim about
+ * `factor_value_edit` — a DIFFERENT mechanism, and one with a single sentence,
+ * so it carries no contradiction for a reader to hit. It may still be
+ * over-flat; that is a separate audit, and folding it in here would smuggle an
+ * unrelated correction into a reconciliation.
+ */
+export const RENAME_AUTHORITY_CLAUSE =
+  'reaches the shared model, but only for elements the model already holds'
+
 export const INSPECTOR_READ_ONLY_REASON =
-  "You can rename this — the name saves to the shared model. The other fields here are read-only for now because those changes can't yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure."
+  `You can rename this — renaming ${RENAME_AUTHORITY_CLAUSE}. The other fields here are read-only for now because those changes can't yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure.`
 
 /**
  * ⭐ THE SAME FACTS, FOR THE ONE PANE THAT NOW FENCES ITSELF.
@@ -235,8 +289,14 @@ export const INSPECTOR_READ_ONLY_REASON =
  * looking for it (`OPTION_EDIT_ROUTE_NOTE`) — so this line does not have to
  * carry the whole explanation, and the pane does not say it twice.
  */
+// ⚠ "The name saves." STOOD HERE and was the shortest of the four flat rename
+// claims — short enough that its unconditionality read as brevity rather than
+// as an assertion. It is the same claim as the other three and it shares their
+// single carrier, so it takes the same clause. The pane still says less than
+// the blanket string above; it now says less about the same thing, rather than
+// something different.
 export const INSPECTOR_OPTION_READ_ONLY_REASON =
-  'The name saves. Other fields here are read-only for now — links, details and coaching still work.'
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Other fields here are read-only for now — links, details and coaching still work.`
 
 /**
  * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE
@@ -253,7 +313,7 @@ export const INSPECTOR_OPTION_READ_ONLY_REASON =
  * discover the exception by losing a description to the next rehydrate.
  */
 export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
-  // ⚠ TWO CORRECTIONS LIVE IN THIS ONE SENTENCE.
+  // ⚠ THREE CORRECTIONS LIVE IN THIS ONE NOTICE.
   //
   // (1) DELIBERATELY NOT A CLOSED CLAIM. An earlier wording named description as
   // THE exception; the panel also fences its advanced editor (14 writers with no
@@ -268,7 +328,14 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
   // this device" claim is simply false, however reassuring it sounds. What is
   // true is that these edits are not SENT, which is a claim about this app's
   // behaviour rather than about where bytes live.
-  'The name and the value save to the shared model. Other edits here are not sent yet — links, details and coaching still work.'
+  //
+  // (3) THE NAME AND THE VALUE ARE NOW TWO SENTENCES, because they are two
+  // carriers with two truth conditions and the conjunction hid that. "The name
+  // and the value save to the shared model" gave the rename the value's
+  // flatness for free. The rename clause is shared with the other three arms
+  // (see `RENAME_AUTHORITY_CLAUSE`); the value clause is left exactly as it
+  // was, unaudited, and that is recorded rather than quietly fixed.
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. The value saves to the shared model. Other edits here are not sent yet — links, details and coaching still work.`
 
 /**
  * ⭐ THE EXTERNAL-FACTOR PANE, AND IT EXISTS SO THE THIRD PANEL CANNOT INHERIT
@@ -281,9 +348,162 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * added without this constant would have told the reader "the name saves" while
  * the range saved too.
  *
- * What saves here: the name, and the prior RANGE. `setPriorRange` writes
- * `data.prior` through `updateNode` (round trip pinned in
- * `useAutosave.analysisFieldPersist.spec.ts`) and emits `prior_range_edit`.
+ * What saves here: the name, and the prior RANGE — ⛔ BUT NOT TO THE SAME
+ * PLACE, AND THE SENTENCE NO LONGER PRETENDS OTHERWISE (18 Sep 2026).
+ *
+ * It read: *"The name and the range save to the shared model."* BOTH clauses
+ * were wrong, in different ways, and the 18 Sep edit caught only one of them.
+ *
+ * The RANGE clause was flatly FALSE.
+ * `setPriorRange` writes `data.prior` through `updateNode` (round trip pinned
+ * in `useAutosave.analysisFieldPersist.spec.ts`) and emits `prior_range_edit`,
+ * which CEE handles `'fact_and_commit'`: a typed TURN FACT, and NO graph
+ * write. This panel's own body has said so all along
+ * (`FactorExternalPanel.tsx`: *"which CEE persists as a typed turn FACT and
+ * which writes no graph"*), so the file contradicted itself across two
+ * hundred lines and the rendered half was the wrong one.
+ *
+ * ⛔ WHY IT MATTERS MORE THAN A WORDING NIT. "the shared model" is this
+ * estate's RESERVED PHRASE for a receipt-bearing GraphV3 write —
+ * `mutationAuthority.ts` opens by defining it that way, and
+ * `SHARED_MODEL_AUTHORITY_COPY` spends it on exactly that. Using it for a turn
+ * fact tells the user their judgement is in the model the next analysis
+ * reloads. It is not: CEE reloads `scenarios.graph`, and the range is not
+ * there. That is the "believes their judgement is in the model when it is not"
+ * failure, arriving through COPY rather than through a dead control.
+ *
+ * ⚠ IT STILL CLAIMS THE SAVE, because there genuinely is one. The range is
+ * not dropped, not local-only and not lost: it reaches CEE and the
+ * prior-facts loader reads it back. Downgrading this to "not sent yet" would
+ * be the opposite error, and this slot has already shipped two sentences that
+ * failed in opposite directions.
+ *
+ * ⭐⭐ AND THE NAME CLAUSE, WHICH THE 18 Sep EDIT LEFT UNCONDITIONAL WHILE
+ * AUDITING ITS NEIGHBOUR — repaired here (18 Sep 2026, second pass).
+ *
+ * *"The name saves to the shared model."* asserts an OUTCOME. The rename's own
+ * authority row does not: `mutationAuthority.ts` calls
+ * `canvasNodeRenameWithServerHash` "⚠ CONDITIONAL", and this spec file's frozen
+ * evidence line for it reads "accepted structural_rename with MATCHING SERVER
+ * GRAPH HASH AND matching expected_label". A sentence auditing one clause for
+ * truth while leaving the other asserting unconditionally is the same defect
+ * one column across.
+ *
+ * ⛔ THE MECHANISM IS NOT THE ONE THE REVIEW NAMED, AND THE DIFFERENCE IS WHY
+ * THIS WORDING IS WHAT IT IS. The review traced the harm to `store.ts:2513`
+ * branching on `result.reason === 'no_server_graph_hash'`. That line is inside
+ * `recordStructuralDeleteIntent` — the DELETE path. `captureStructuralRename`
+ * does not own that reason at all; its own header is explicit that "A MISSING
+ * BASE HASH IS NO LONGER A STAND-DOWN — it is a DEFERRAL", and it returns
+ * `ok: true, deferred: baseGraphHash === null`. So the review's scenario — a
+ * restored scenario renamed before any hash — does NOT go local-only; it is
+ * queued and stamped by `resolveStructuralRenameBase` on the next turn.
+ * (Trap 16: a grepped symbol proves presence in the repo, never presence on
+ * the path you named.)
+ *
+ * ⭐ THE CONCLUSION SURVIVES ANYWAY, THROUGH TWO ARMS I DERIVED INSTEAD:
+ *
+ *   1. `node_not_server_held` — `structuralRename.ts` stands down when
+ *      `authoritativeNodeIds` is a record we hold and the node is absent from
+ *      it. `recordStructuralRenameIntent` then `return`s on `!result.ok` and
+ *      `updateNodeLabel` applies the LOCAL write regardless. Nothing is
+ *      queued, nothing is sent, AND NO NOTICE FIRES — the deferral toast is
+ *      gated on `result.deferred`, which this arm never reaches. Reachable on
+ *      this very pane: `CommandPalette` `add-factor` creates a factor
+ *      client-side, `setCategory('external')` routes it to THIS panel, and the
+ *      rename is then silently local-only under a notice promising a save.
+ *   2. The DEFERRED arm — honest, but not a save yet. `store.ts` says it in
+ *      terms: "until a turn supplies one the model genuinely does not hold the
+ *      name — and the queue is memory-only, so a reload before that turn still
+ *      loses it."
+ *
+ * ⛔⛔ AND THE WORDING THIS FILE ALREADY FORBIDS. "with your next message" was
+ * the obvious repair and it is FALSE here, for the reason the edge sibling
+ * records forty lines down: `useStructuralRenameEvents` is "⚠ NOT DEBOUNCED" —
+ * on the happy path the drain runs "on the effect after the gesture's render"
+ * and sends its OWN turn, not the user's next message. That phrasing is
+ * correct ONLY on the deferred arm, which is exactly where
+ * `STRUCTURAL_RENAME_DEFERRED_NOTICE` already spends it. A panel-level notice
+ * covers every arm, so it cannot borrow an arm-specific sentence.
+ *
+ * ⭐ SO IT STATES A NECESSARY CONDITION AND ASSERTS NO OUTCOME. "only for
+ * elements the model already holds" is TRUE on every arm — the stand-down arm
+ * (absent from the record, never sent), the deferred arm (held, sent later),
+ * the happy path (held, sent now), and the null-record sub-case where a send
+ * is attempted for a node CEE has never seen and comes back `unproven`, so it
+ * still does not REACH `scenarios.graph`. A necessary condition cannot be
+ * falsified by an arm where it is merely insufficient, which is precisely the
+ * property a static panel-level string needs.
+ *
+ * ⚠ WHY NOT A CONDITIONAL STRING, the way the EDGE pane picks between three.
+ * That pane branches on `edgeStrengthReaches`, a property readable AT RENDER.
+ * This condition is not: it is evaluated per gesture inside the store, against
+ * `lastAuthoritativeGraph` and `lastServerGraphHash` at the moment the user
+ * commits the name. Rendering a verdict minutes earlier would be a TOCTOU
+ * claim — a turn can land between the read and the rename — so a render-time
+ * branch here would be a confident sentence about a state nobody read.
+ *
+ * ⚠⚠ THE SIBLING IS NO LONGER UNTOUCHED, AND LEAVING IT WAS THE DEFECT.
+ * This block used to end "It is out of this lane's scope; reported, not
+ * edited." Correct about the facts, wrong about the consequence: three other
+ * arms asserting the rename flatly, above the same `updateNodeLabel`
+ * chokepoint, meant the product answered one durability question two ways
+ * depending on which pane was open. All four now share
+ * `RENAME_AUTHORITY_CLAUSE` — the reasoning is on that constant.
+ *
+ * ⭐⭐ AND THE RANGE CLAUSE, WHICH THE SECOND PASS WROTE UNCONDITIONALLY WHILE
+ * MAKING ITS NEIGHBOUR CONDITIONAL — repaired here (18 Sep 2026, third pass).
+ *
+ * It read *"The range is recorded as your judgement for Olumi, not written
+ * into the shared model."* The negative half is unconditionally true: there is
+ * no graph write on any arm. The POSITIVE half — "is recorded" — asserts an
+ * OUTCOME, and `setPriorRange` has three arms where no record is made and the
+ * user is told nothing:
+ *
+ *   1. NO CARRIER. `if (!sendSystemEvent) return` (this file, in
+ *      `setPriorRange`). `useOptionalConversationContext()` is null wherever no
+ *      `ConversationProvider` is mounted — `MaybeConversationProvider`
+ *      (`ReactFlowGraph.tsx:3173`) mounts one only under `isAiPanelV2Enabled()`.
+ *      ⚠ SCOPE, STATED: that flag is ON for every fresh user on the deployed
+ *      posture, so this is the LEAST reachable of the three and I am not
+ *      claiming it as the live one.
+ *   2. AN INVERTED OR NON-FINITE PAIR. `if (!Number.isFinite(min) ||
+ *      !Number.isFinite(max) || min > max) return` — AFTER the local
+ *      `updateNode`. Reachable on this pane in tech mode: `handleMinBlur`
+ *      calls `setPriorRange(parsed, rangeMax ?? parsed)`, so on a 0.2-0.8 range
+ *      a user typing a Min of 0.9 and stopping gets the inverted pair written
+ *      locally and NOTHING sent. No toast, no return value, no disclosure.
+ *   3. A REFUSED OR FAILED SEND. The emit is `.catch(() => {})` by design —
+ *      "the local edit stands; re-editing re-emits". Honest as a policy, silent
+ *      as an outcome.
+ *
+ * ⭐ SO THE CLAUSE STATES WHAT THE RANGE IS, NOT WHAT HAPPENED TO IT. "A range
+ * you set here is a judgement for Olumi, not an edit to the shared model" is a
+ * ROLE claim plus the unconditional negative, and a role claim cannot be
+ * falsified by an arm where the send did not happen — the same property that
+ * makes the rename clause's necessary condition safe. Both clauses now say only
+ * what they can support, which is what the pair should have done together the
+ * first time.
+ *
+ * ⛔ AND IT DOES NOT DOWNGRADE, WHICH IS THE OTHER DIRECTION THIS SLOT KEEPS
+ * FAILING IN (trap 22b — a predicate guarding two opposite harms needs two
+ * treatments). "Not sent yet" would be false: on the ordinary path the range
+ * reaches CEE and the prior-facts loader reads it back, and a reader who
+ * believed it was unsent would re-state the range in chat or route it through
+ * the Model tab. The sentence still names Olumi as what the range is FOR.
+ *
+ * ⚠ "a range YOU SET HERE", not "the range". This panel's own body records why
+ * `"your judgement"` is avoided for the DISPLAYED range: a drafted prior
+ * arrives from CEE already populated, so the panel cannot establish who
+ * authored what is on screen. Scoping the clause to the user's own action
+ * sidesteps that without weakening it — the notice is about what your edits do,
+ * which is a different subject from what the field currently holds.
+ *
+ * ⚠ THE SILENCE IN ARMS 2 AND 3 IS REPORTED, NOT FIXED. Making `setPriorRange`
+ * disclose a stand-down is a behaviour change with a return-value contract
+ * (the edge setters already model it — they return `'local_only'`), and it is
+ * not a copy correction. Rowing it is the honest move; smuggling it into a
+ * notice audit is not.
  *
  * ⚠ IT CLAIMS NO EFFECT ON RESULTS, DELIBERATELY. PLoT's prior pass is gated
  * four ways and one gate is silent: an `observed_state.value` present skips the
@@ -298,7 +518,7 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * as THE exception would be false the moment another fence is added.
  */
 export const INSPECTOR_FACTOR_EXTERNAL_REASON =
-  'The name and the range save to the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A range you set here is a judgement for Olumi, not an edit to the shared model. Other edits here are not sent yet. Links, details and coaching still work.`
 
 /**
  * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.

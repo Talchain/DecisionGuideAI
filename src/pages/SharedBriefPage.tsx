@@ -58,6 +58,15 @@ interface ReadNode {
   description?: string
   value?: string
   quote?: string
+  /**
+   * This number came from a blind panel round, not from the sender setting it.
+   *
+   * Present-or-absent, never `false`: absence means "not panel-elicited", which
+   * is both the ordinary case and the safe one. A tri-state would invite a
+   * "provenance unknown" rendering, and this page has no way to tell "the sender
+   * set it" from "nobody recorded how it got here" — so it claims neither.
+   */
+  fromPanel?: true
 }
 
 /**
@@ -124,7 +133,33 @@ function readNode(raw: unknown): ReadNode | null {
       ? n.source_quote.trim()
       : undefined
 
-  return { type, label, description, value, quote }
+  /**
+   * ⭐ THE ONE FACT THIS PAGE CARRIES ABOUT *WHO* PUT A NUMBER THERE.
+   *
+   * CEE stamps `observed_state.source = 'panel_elicited'` (plus an
+   * `elicited_from` id triple) when the owner applies a panellist's answer —
+   * `factor-value-edit.ts:369-383`, and every id in that stamp is read from the
+   * COLLAB STORE rather than from the client's claim, so a weakened lookup
+   * yields an ABSENT stamp, never a forged one. `createSharedSnapshot` passes
+   * the same server-held graph as `p_graph`, so the stamp was already arriving
+   * here intact and this page was the hop that dropped it.
+   *
+   * ⚠ MATCHED ON THE EXACT PRODUCER TOKEN, NOT ON THE PRESENCE OF
+   * `observed_state`. Most nodes carry an `observed_state` whose `source` is
+   * something else entirely; keying on the object would mark the whole model.
+   *
+   * ⛔ THE IDS THEMSELVES STAY OFF THIS PAGE. It is public and anonymous, and
+   * `elicited_from` is a triple of raw uuids naming a person, a round and one
+   * person's written note. The recipient is told THAT the model drew on a
+   * panel; who said what is the owner's reveal to share, not this link's.
+   */
+  const observedState =
+    n.observed_state !== null && typeof n.observed_state === 'object'
+      ? (n.observed_state as Record<string, unknown>)
+      : undefined
+  const fromPanel = observedState?.source === 'panel_elicited' ? (true as const) : undefined
+
+  return { type, label, description, value, quote, fromPanel }
 }
 
 function readNodes(graph: unknown): ReadNode[] {
@@ -467,6 +502,22 @@ function NodeList({ nodes }: { nodes: ReadNode[] }) {
               <span className="text-sm text-text-body whitespace-nowrap">{n.value}</span>
             )}
           </div>
+          {/* ⛔ "THE TEAM", NOT "A COLLEAGUE" — AND THE DIFFERENCE IS TRUTH, NOT TONE.
+              The owner can sit on their own panel: `rounds-service.ts:154-172`
+              finds the closing owner on the roster and refuses the close until
+              they have answered or declined, because "seeing the others first
+              would anchor it". So the applied answer may be the SENDER'S OWN,
+              and "a colleague's estimate" is false on a designed, reachable arm.
+              "The team" is true whoever answered.
+
+              ⛔ AND IT STATES PROVENANCE, NEVER AGREEMENT. One panellist's value
+              was applied; that is all the stamp records. No mean, no consensus,
+              no "the team agreed" — the same rule `DisagreementBody` is held to
+              one surface away, and the temptation arrives at this call site too,
+              because a single calm badge reads more settled than the round was. */}
+          {n.fromPanel && (
+            <p className="mt-1 text-sm text-text-light">From the team</p>
+          )}
           {n.description && (
             <p className="mt-1 text-sm text-text-light leading-relaxed">{n.description}</p>
           )}

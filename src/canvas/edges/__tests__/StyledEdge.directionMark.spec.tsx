@@ -142,7 +142,6 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 // REPLACES the module, so any export added later silently vanishes.
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: () => undefined,
   calculateEdgeImportance: () => 0.5,
   weightMagnitudeToStrokeWidth: () => 2,
 }))

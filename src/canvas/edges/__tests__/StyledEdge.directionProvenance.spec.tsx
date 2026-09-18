@@ -133,7 +133,6 @@ vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   // down across seven files at once. The spread makes the mock derive from the
   // real module and override only what it means to stub.
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: (p: number | undefined) => (p !== undefined && p < 0.7 ? '6,4' : undefined),
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 7,
   weightMagnitudeToStrokeWidth: () => 2,

@@ -4,13 +4,19 @@
  * The invitations this button unburies are "Challenge this", "Explore ▸ Trace
  * to goal" and "Select path to goal", plus "Explain this", Copy and Delete.
  *
- * ⚠ AN EARLIER VERSION OF THIS HEADER ALSO NAMED "Add risk from this", "Add
- * outcome from this" and "Add connected factor". None of the three can render —
- * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` strips them because
- * `canvasSemanticMutations` is `'disabled'`, test-locked as a permanent audit.
- * The claim was false in shipped source and in this spec, which is the place it
- * does most damage: a comment that overstates what a thing does teaches the
- * next reader to stop checking.
+ * ⚠⚠ AND THREE MORE, AS OF 18 Sep 2026: "Add connected factor", "Add outcome
+ * from this" and "Add risk from this". An earlier version of this header named
+ * them; a correction then struck them on the grounds that
+ * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` stripped all three because
+ * `canvasSemanticMutations` is `'disabled'`, "test-locked as a permanent audit".
+ * **The strike has itself gone stale.** CEE #1443 shipped the
+ * `structural_add_edge` writer, the three ids now sit in
+ * `CONNECTED_NODE_ADD_MENU_IDS` judged by the two carriers they use, and they
+ * render and are actionable on every non-constraint node
+ * (`contextMenu/__tests__/connectedAddDurableDoor.spec.tsx`). Both the
+ * over-claim and the over-correction are left visible: a comment that overstates
+ * what a thing does teaches the next reader to stop checking, and so does one
+ * that understates it.
  *
  * Until this button the only ways in were RIGHT-CLICK — which has no equivalent
  * on a touch device — and SHIFT+F10, which nobody discovers.

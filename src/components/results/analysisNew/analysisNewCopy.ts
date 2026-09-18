@@ -276,6 +276,13 @@ export const ANALYSIS_NEW_COPY = {
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
     /**
+     * ⭐ THE ONLY SECTION A PERSON REACHES WITHOUT THE PRODUCER OFFERING IT.
+     * Named here rather than inline in the component so the section censuses
+     * bind to the constant, as they do for every peer — a census matching a
+     * string literal cannot tell a rename from a removal (trap 19).
+     */
+    methods: 'Methods you can run',
+    /**
      * ⭐⭐ THE SECTION NAME IS THE READER'S QUESTION, NOT THE PRODUCER'S
      * CATEGORY. "Sensitive assumptions" is what the analysis calls these;
      * "What would change your mind" is what the reader is asking when they get

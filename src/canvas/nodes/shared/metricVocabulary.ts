@@ -165,13 +165,20 @@ export const METRIC_NOUN = {
  * than the flattening statistics above, which describe how OFTEN the old
  * behaviour looked wrong rather than why it WAS wrong.
  *
- * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — STILL NOT
- * FIXED HERE. Thickness still carries the magnitude and `vectorEffect:
+ * ✅ THE COARSENESS OF THE SURVIVING CHANNEL WAS A KNOWN, ROWED GAP AND IS NOW
+ * CLOSED (18 Sep 2026). Thickness carries the magnitude and `vectorEffect:
  * 'non-scaling-stroke'` makes it a SCREEN width, so it is one of the few
  * channels that does not degrade at low zoom (where this metric row sits at
- * ~8.8px). `weightMagnitudeToStrokeWidth` still has three bands (≥0.7→3,
- * ≥0.4→2, else 1.5), so across the 24 starter magnitudes (0.18–0.65) there are
- * still only TWO distinguishable measured widths. That half of the gap stands.
+ * ~8.8px). This note used to continue: *"`weightMagnitudeToStrokeWidth` still
+ * has three bands (≥0.7→3, ≥0.4→2, else 1.5), so across the 24 starter
+ * magnitudes (0.18–0.65) there are still only TWO distinguishable measured
+ * widths."* Two things have happened since. The widths moved to 2/3/4 on
+ * 14 Sep (so that sentence's numbers were already stale), and the ladder gained
+ * a FOURTH rung cut at `0.20` — the vocabulary's own *Slight | Moderate*
+ * boundary — so the same 0.18–0.65 span now draws THREE distinguishable widths.
+ * The cuts are no longer restated in that function at all: they come from
+ * `CANVAS_STRENGTH_BANDS` (`domain/vocabulary.ts`), which is what makes the picture
+ * and the words one answer rather than two.
  *
  * ✅ THE OTHER HALF IS BUILT (8 Sep 2026). This note used to continue: *"and
  * `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest band … one of
@@ -179,7 +186,7 @@ export const METRIC_NOUN = {
  * should be visually distinct from 'weakest' is a live product question with
  * Paul."* Paul cleared it; `UNSET_EDGE_STROKE_WIDTH` is now strictly below
  * every measured band, so the "unset" ambiguity is gone and width reads as a
- * total order — unset < weak < moderate < strong.
+ * total order — unset < slight < moderate < strong < very strong.
  *
  * ⚠ THE PARENTHETICAL THAT USED TO SIT HERE SUGGESTED DASH, AND THE BUILD LANE
  * MEASURED IT AND REFUSED. *"The canvas already uses DASH to mean uncertainty"*
@@ -211,6 +218,109 @@ export const METRIC_UNSET = {
   standalone: UNSET_STANDALONE,
   /** The same state following a noun in the reduced line: "Strength not set yet". */
   inline: `${UNSET_STANDALONE.charAt(0).toLowerCase()}${UNSET_STANDALONE.slice(1)}`,
+} as const
+
+/**
+ * ⭐⭐ A PART OF THE MODEL THAT DOES NOT EXIST IS NOT A QUANTITY NOBODY SUPPLIED.
+ *
+ * `METRIC_UNSET` above is the canvas's word for **not estimated** — the thing
+ * is in the model and no one has said how big it is. This constant is the word
+ * for the other absence: **not modelled** — the thing is not in the model at
+ * all, so there is no quantity to withhold.
+ *
+ * ⛔ WHY IT HAD TO BE SEPARATED. `BaseNode`'s `isIncomplete` admits four node
+ * types and rendered ONE pill for all four — `needs-input-pill`, label
+ * "Needs input", title "Missing required input". Three of those arms are
+ * quantitative (a factor with no value, a goal with no target, an option with
+ * no interventions). The fourth is not: a decision with no options linked is
+ * missing OPTION NODES, and `BaseNode.needsJudgementBadge.spec.tsx` already
+ * says so in writing — *"a decision node's incompleteness is the ONLY one of
+ * the four that is a property of the GRAPH rather than of the node's own
+ * data"*. The codebase had already named the distinction and still drew both
+ * absences the same way.
+ *
+ * The cost is the next step, which is the whole point of drawing absences
+ * apart. "Missing required input" tells a reader to supply a value to this
+ * card. On an optionless decision there is no value to supply: the repair is
+ * to CREATE the alternatives being compared. A reader who cannot tell "nobody
+ * estimated this" from "this was never modelled" takes the wrong action, or
+ * none.
+ *
+ * ⚠ ONE STRING, TWO SURFACES, AND THAT IS THE POINT. The decision card's own
+ * resting line already said the true thing — `DECISION_RESTING_COPY.noOptionsLine`
+ * — while the pill in its corner said the pooled thing. Both now READ THIS
+ * CONSTANT rather than spelling their own, so the card cannot go back to
+ * disagreeing with itself (CLAUDE.md trap 12: a word in two places drifts, and
+ * the drift always reads as green). The value is byte-identical to the line
+ * that already shipped, so nothing on the resting line changes.
+ *
+ * ⚠ NO NEW HUE AND NO NEW GEOMETRY. The pill keeps the amber needs-judgement
+ * treatment already ruled for this estate: an unbuilt comparison wants the
+ * user's attention for the same reason an unset value does. Only the WORDS and
+ * the testid change, so the corner stack's pinned child count is untouched.
+ */
+export const STRUCTURAL_UNSET = {
+  /**
+   * THE CAUSE, for the card body — what is absent, and the line the `Add
+   * options` CTA sits under. `DECISION_RESTING_COPY.noOptionsLine` reads this.
+   */
+  noOptions: 'No options linked yet',
+  /**
+   * ⭐ THE CONSEQUENCE, for the corner pill — AND THE SECOND FORM EXISTS
+   * BECAUSE THE FIRST ONE, REUSED VERBATIM, SHIPPED A DEFECT THAT THE EXISTING
+   * SUITE CAUGHT.
+   *
+   * The first cut of this change gave the pill `noOptions` itself, on the
+   * anti-drift reasoning that one fact deserves one string.
+   * `DecisionNode.readinessSummary.spec.tsx:454` went RED on
+   * `getByText(noOptionsLine)` finding TWO elements — because the pill and the
+   * resting line both render on the same card at the same moment, so the card
+   * said one sentence twice. Height and width are the scarcest resources on
+   * this canvas and `FactorNode` already rules on exactly this: saying it
+   * twice costs a line and adds nothing.
+   *
+   * ⚠ SO WHY NOT DROP THE PILL AND KEEP THE LINE, which is the shorter fix?
+   * Because the line is not always the one showing. `DecisionNode`'s resting
+   * state is a FIRST-MATCH chain — an UNNAMED optionless decision renders
+   * `unnamedLine`, never `noOptionsLine`. On that card the pill is the only
+   * channel carrying the structural absence at all, so removing it would
+   * reopen the gap the pill was added to close.
+   *
+   * ⚠ TWO FORMS, ONE FACT, ONE OWNER — which is this file's whole job. They sit
+   * adjacent in one record precisely so they cannot drift into contradicting
+   * each other, the same construction `METRIC_UNSET` uses for its `standalone`
+   * / `inline` pair. Not derived by string surgery: dropping a word from the
+   * cause does not produce an honest consequence.
+   *
+   * ⚠ AND IT IS IN THE PILL'S DOCUMENTED REGISTER. `BaseNode` argues, for the
+   * exclusion pill, that a pill "states the CONSEQUENCE rather than the cause"
+   * — "Needs input" tells a user something is missing, the consequence tells
+   * them what it costs. For an optionless decision the cost is exact: there is
+   * nothing being compared. "compare" is the estate's own word for it
+   * (`DECISION_RESTING_COPY.noOptionsAsk` — "Suggest options to compare here"),
+   * not one minted here.
+   *
+   * ⛔⛔ THIS STRING IS THE PILL'S *ONLY* STRING — `noOptions` MUST NOT BE
+   * HANDED TO THE SAME PILL AS A `title`, AND THAT IS A CORRECTION TO THE
+   * PARAGRAPH ABOVE RATHER THAN A GLOSS ON IT. The first cut of the split did
+   * exactly that, on the reasoning that the pill could state the consequence
+   * and carry the cause in its tooltip. `StatusPill` composes
+   * `aria-label={title ?? label}`, so the "tooltip" is also the ACCESSIBLE
+   * NAME: the pill then announced `noOptions` verbatim while the body line
+   * announced it too, and the card a screen-reader user hears said one sentence
+   * twice — the defect the split exists to remove, moved rather than removed.
+   * Worse, the assertion that certified the split was `getByText`, which reads
+   * text content and cannot see `aria-label`, so the visible channel went green
+   * while the a11y channel never moved.
+   *
+   * ⚠ SO THE RULE THIS RECORD NOW CARRIES: one surface, one member. The corner
+   * pill renders `nothingCompared` and passes NO `title`, so its visible label,
+   * its tooltip and its accessible name are one string and cannot drift; the
+   * card body renders `noOptions`. A THIRD form invented for the tooltip would
+   * be this same defect one round later, invisible to every sighted reviewer.
+   * Pinned as literals in `BaseNode.needsJudgementBadge.spec.tsx` §5.
+   */
+  nothingCompared: 'Nothing to compare yet',
 } as const
 
 /**
@@ -302,11 +412,27 @@ export const METRIC_UNSET = {
  *     avoided, one level down — and it needs the same treatment the possessive
  *     got, which is a basis-aware surface rather than a legend row.
  *
- * ⚠ NOT EXHAUSTIVE, AND SAYING SO. `#1`/`#2` sensitivity ranks and `est.` are
- * here because they are numerals-with-a-meaning that a reader meets on the
+ * ⚠ NOT EXHAUSTIVE, AND SAYING SO. ~~`#1`/`#2` sensitivity ranks and~~ `est.`
+ * are here because they are numerals-with-a-meaning that a reader meets on the
  * card; `Stability` is not, because it renders with its noun spelled out in
  * full beside it and needs no key. If a fifth captioned quantity is added,
  * this list is where it goes.
+ *
+ * ⚠⚠ THE ADMISSION TEST ABOVE NO LONGER EXPLAINS WHY THE RANK ROW IS HERE, AND
+ * THAT IS WORTH SAYING RATHER THAN QUIETLY REWRITING. The rank badge now
+ * renders `Key driver 1` — its noun spelled out in full, which is the exact
+ * property the sentence gives for EXCLUDING `Stability`. By that test the row
+ * should have left with the numeral.
+ *
+ * It stays, because the test was never the whole reason. A key is earned by a
+ * marking whose MEANING is not recoverable from the card, and spelling the
+ * noun out closes only half of this one: `Key driver 1` says which set the
+ * number indexes, and still not WHAT ORDERS THE SET. Ranked by sensitivity —
+ * so `1` is the factor the result moves most on, which is very often the
+ * factor the team has the least evidence about. That is the sentence
+ * `SENSITIVITY_RANK_CLAUSE` carries and no badge has room for.
+ *
+ * `Stability` needs no key because its noun IS its meaning. This one's is not.
  */
 export interface MetricLegendRow {
   /** The word (or numeral) as the card renders it. */
@@ -349,13 +475,74 @@ export const SENSITIVITY_RANK_CLAUSE = 'the factors the result is most sensitive
 export const ORDINAL_MINT_CLAUSE = 'the order the options were first laid out in'
 
 /**
- * The rank badge's accessible name. `BaseNode` renders `#N` and nothing else,
- * so without this a screen reader gets the bare string "#1" — and "#1" on a
- * factor means the OPPOSITE of "1" on an option card, which is the confusion
- * the legend exists to prevent.
+ * ⭐⭐ THE NOUN THE RANK BADGE NOW SAYS OUT LOUD — MINTED NOWHERE, PROMOTED
+ * FROM THE SENTENCE THAT ALREADY SAID IT.
+ *
+ * ⛔ THE DEFECT, measured on deployed staging 18 Sep 2026: the badge rendered
+ * `#1` / `#2` / `#3` and nothing else. **`#1` reads as BEST.** It means MOST
+ * SENSITIVE — which on a factor card is usually the thing the team knows
+ * LEAST about, and therefore the thing they should argue with rather than
+ * trust. The glyph inverted its own meaning on the cards that matter most,
+ * and it did so in the one channel a reader cannot opt out of: the number was
+ * the whole of the visible copy.
+ *
+ * ⚠ THE HALF THAT WAS ALREADY RIGHT, AND WHY NOTHING IS MINTED HERE. The
+ * accessible name has said `Key driver #N` since #1414 — so a screen-reader
+ * user was told which badge this is and a sighted user was not. The word
+ * existed; it was simply never rendered. "Key driver" is also the estate's
+ * standing noun for this quantity (`driversAdapter.ts`'s `Key drivers`,
+ * `DriverChips`'s `aria-label`), so promoting it costs no new vocabulary —
+ * the alternative, inventing a canvas-only word, is how this file's own
+ * header describes the four-vocabularies defect it exists to close.
+ *
+ * ⛔ AND THE `#` GOES, IN BOTH CHANNELS, WHICH IS THE POINT RATHER THAN A
+ * TIDY-UP. `#` is the placing sigil: `#1` in ordinary English is a placing
+ * even when the noun beside it is not a contest. With the noun rendered,
+ * `Key driver 1` reads as an index into a named set; `Key driver #1` reads as
+ * the winner of one. Dropping it also makes the visible string a LITERAL
+ * PREFIX of the accessible name (WCAG 2.5.3 Label in Name) — true by
+ * construction below, not by two authors agreeing.
+ */
+export const SENSITIVITY_RANK_NOUN = 'Key driver'
+
+/**
+ * What the badge RENDERS. One builder, two consumers — the visible text and
+ * the accessible name below — so the card and the screen reader cannot be
+ * given different words for the same badge. That drift is not hypothetical
+ * here: it is exactly what #1414 shipped, and the comment block above
+ * `SENSITIVITY_RANK_CLAUSE` is its post-mortem.
+ */
+export const sensitivityRankBadgeLabel = (rank: number): string =>
+  `${SENSITIVITY_RANK_NOUN} ${rank}`
+
+/**
+ * The legend's row heading for this badge. `MetricLegendRow.noun` is
+ * documented as "the word (or numeral) as the card renders it", so it is
+ * BUILT from the badge's own noun rather than re-typed: a heading reading
+ * `#1, #2, #3` beside a card reading `Key driver 1` is a key that does not
+ * match the thing it is a key for, and the reader opens the key PRECISELY
+ * when the badge already puzzles them.
+ *
+ * ⭐ Exported because `CanvasLegendPopover`'s `METRIC_ROW_VISIBLE` is KEYED BY
+ * NOUN, and its own docblock names this row as one of three keys that are
+ * "re-typed literals with no exported constant … a hand-maintained mirror of
+ * a register in another file (trap 12)". This makes one of the three derived.
+ */
+export const SENSITIVITY_RANK_LEGEND_NOUN = `${SENSITIVITY_RANK_NOUN} 1, 2, 3`
+
+/**
+ * The rank badge's accessible name. Built from the visible label, so the
+ * spoken string opens with the string on screen and then says what the badge
+ * counts — the part a badge has no room for.
+ *
+ * ⚠ The historic note this replaced said `BaseNode` "renders `#N` and nothing
+ * else, so without this a screen reader gets the bare string '#1'". That was
+ * true when written and is the record of why this builder exists; what has
+ * changed is that the sighted reader is no longer the one left with the bare
+ * numeral.
  */
 export const sensitivityRankBadgeAccessibleName = (rank: number): string =>
-  `Key driver #${rank}: one of ${SENSITIVITY_RANK_CLAUSE}`
+  `${sensitivityRankBadgeLabel(rank)}: one of ${SENSITIVITY_RANK_CLAUSE}`
 
 /**
  * The option ordinal badge's accessible name. Deliberately NOT a bare
@@ -431,7 +618,11 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     gloss: 'how strongly a risk or outcome connects to the goal',
   },
   {
-    noun: '#1, #2, #3',
+    // ⭐ THE HEADING IS NOW THE BADGE'S OWN WORDS, BY CONSTRUCTION. It read
+    // `#1, #2, #3` while the badge rendered the same numerals; the badge now
+    // says `Key driver 1`, so a re-typed heading here would have been a key
+    // naming a marking that is no longer on any card.
+    noun: SENSITIVITY_RANK_LEGEND_NOUN,
     // ⭐ SHARED WITH THE BADGE'S OWN ACCESSIBLE NAME, by import rather than by
     // repetition — see SENSITIVITY_RANK_CLAUSE above. Byte-identical to the
     // literal it replaced.

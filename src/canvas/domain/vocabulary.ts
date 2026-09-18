@@ -301,10 +301,262 @@ export function statedFactorCategoryLabel(category: unknown, inferredByUi: unkno
  * into the model, so a cut moved here silently re-labels a value a user chose.
  * Change them in the contract first.
  */
-// Canonical thresholds: Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20, Slight < 0.20
-export function getStrengthLabel(absValue: number): string {
-  if (absValue >= 0.70) return 'Very strong'
-  if (absValue >= 0.40) return 'Strong'
-  if (absValue >= 0.20) return 'Moderate'
-  return 'Slight'
+/**
+ * ⭐⭐⭐ THE CANONICAL BAND TABLE — cuts, words and midpoints in ONE object, so
+ * every canvas surface that speaks about a connector's strength derives from
+ * it instead of restating it (18 Sep 2026).
+ *
+ * WHAT THIS REPLACED, AND THE QUESTION EACH OF THE FOUR TABLES ANSWERED. Trap
+ * 21 says to write the questions down BEFORE reconciling, because two
+ * authorities answering DIFFERENT questions must be named apart rather than
+ * aligned. Four were live over `|mean|` — three of them RENDERED and the fourth
+ * computed-and-discarded, a distinction the next block draws because an earlier
+ * draft of this one collapsed it:
+ *
+ *   1. `getStrengthLabel` (here)            "what ADJECTIVE is this magnitude
+ *                                            entitled to?"   4 words, cuts
+ *                                            0.70 / 0.40 / 0.20.
+ *   2. `weightMagnitudeToStrokeWidth`       "how THICK is this line?"
+ *      (`utils/graphDisplayCalculations`)    3 rungs, cuts 0.70 / 0.40.
+ *   3. `THICKNESS_ROWS`                     "what does a thickness MEAN?"
+ *      (`components/CanvasLegendPopover`)    3 rows: Weak / Moderate / Strong.
+ *   4. `getEffectSizeCoaching`              "what word describes the value you
+ *      (`ui/inspector/coachingText`)         are SETTING?" 5 words, cuts
+ *                                            0.9 / 0.7 / 0.4 / 0.1.
+ *
+ * (1) and (4) ask the SAME question of the SAME number and answered it
+ * differently, so they are reconciled. (2) asks a genuinely different question
+ * — and (3) is the JOIN: a legend exists precisely to assert "this thickness
+ * means this word". A join is only well-formed when both sides have the same
+ * rungs, so (2) gained a fourth rung rather than (3) being taught to hedge.
+ * See `graphDisplayCalculations.ts` for that decision in full.
+ *
+ * ⚠⚠ WHICH OF THE FOUR A USER COULD ACTUALLY SEE — CORRECTED 18 Sep 2026, AND
+ * THE CORRECTION IS THE POINT. An earlier draft of this block opened *"WHAT A
+ * USER SAW BEFORE"* and described the band pills and the coaching sentence
+ * disagreeing side by side in `EdgePanel`. **That was a claim about the
+ * deployed product derived by reading the tree, and it is false.** (4)'s
+ * sentence is DARK: `getEffectSizeCoaching` has exactly one non-test call site,
+ * `SignedStrengthSlider.tsx:84`, and that component discards the result — its
+ * JSX ends on *"Value display and coaching nudge removed"*, and the repo's own
+ * `scripts/ci/typecheck-baseline-identities.txt` carries the dead local as
+ * `TS6133 'effectCoaching' is declared but its value is never read`. Contrast
+ * control on the same sweep: the sibling `getConfidenceCoaching` IS rendered
+ * (`EdgeInspector.tsx:447`), so the zero is the code's and not the probe's.
+ * CLAUDE.md chronic failure 1 and trap 20 in one sentence — the over-read
+ * happened in the act of RECORDING, in the file every later lane inherits.
+ *
+ * ── RENDERED, so these were user-visible ───────────────────────────────────
+ *   · (3) the legend taught **"Weak effect"** — a word the CANVAS prints
+ *     nowhere else (⚠ the Model tab DOES print it, on different cuts — see
+ *     `graphDisplayCalculations.ts`; the original "nowhere in the product"
+ *     claim is withdrawn) — for a thickness the canvas drew for every `|mean| < 0.40`,
+ *     i.e. for BOTH *Slight* and *Moderate* edges at once. Two different
+ *     findings, pixel-identical on the channel that key teaches as strength.
+ *   · (1)'s words reach the board and the panel: the edge chip
+ *     (`edgeLabels.describeEdge`), `ConnectionRow` and
+ *     the band pills (`StrengthBandButtons`, which also WRITE the midpoint).
+ *   · (2) is the picture itself.
+ *
+ * ── DARK, so this half is a code defect and not yet a user defect ──────────
+ *   · (4) the coaching sentence. The divergence was real between the
+ *     FUNCTIONS — at `|0.15|` the pills' table said *Slight* where it said
+ *     *"Moderate effect."*, and the two INVERTED at their shared boundaries
+ *     because (4)'s cuts were inclusive upwards (`0.40` → "Moderate effect."
+ *     against a *Strong* pill; `0.70` → "Strong effect." against *Very
+ *     strong*). Nobody was shown it. Reconciling a dark vocabulary is still
+ *     right — it cannot re-open when it is lit — but it is CODE EXISTS +
+ *     TESTED on the status ladder, never "what a user saw".
+ *
+ * ⚠ THE THRESHOLDS ARE THE CONTRACT'S, NOT THIS FILE'S — unchanged by the
+ * consolidation. They come from `validation_ui_data_contract_v1.1` and are
+ * aligned with the DS v4 reference artefact. `midpoint` is what a "pick this
+ * band" gesture WRITES INTO THE MODEL (`StrengthBandButtons.tsx`), so a cut
+ * moved here silently re-labels a value a user chose. Change the contract
+ * first.
+ *
+ * ⚠ THE TOP BAND HAS NO UPPER BOUND ON PURPOSE. `weight` is clamped to [0, 2]
+ * (UI-SEM-023), not to [0, 1], so a `max` of 1.00 would leave `|mean| = 1.5`
+ * in no band at all. `Infinity` keeps the table total over its input domain.
+ *
+ * ⚠⚠ EVERY NAME BELOW CARRIES A `Canvas`/`CANVAS_` PREFIX, AND THE PREFIX IS
+ * LOAD-BEARING RATHER THAN DECORATIVE. Three of the four names this block
+ * wanted are ALREADY EXPORTED ELSEWHERE IN THIS REPO, by modules that answer
+ * different questions on different cuts — measured 18 Sep 2026:
+ *
+ *   · `STRENGTH_BANDS`  — `components/shared/ScientificEditor.tsx:21`, an
+ *     EXPORTED array of `{ label, min, max }`. **Structurally compatible with
+ *     this table**: `band.label`, `band.min` and `band.max` all typecheck
+ *     against either, so a wrong auto-import COMPILES CLEAN and silently
+ *     substitutes 0.10–0.25 / 0.30–0.50 / 0.60–0.85 for 0.20 / 0.40 / 0.70.
+ *   · `StrengthBand`    — `components/model-tab/strengthBands.ts:13`, a string
+ *     union `'strong' | 'moderate' | 'weak' | 'negligible'`.
+ *   · `getStrengthBand` — `components/model-tab/strengthBands.ts:19`, the same
+ *     `(number) => StrengthBand` SHAPE as this one. Because each module owns
+ *     its own `StrengthBand`, a consistently-wrong import pair
+ *     (`ContestedEdgeCard.tsx:136` is exactly this shape —
+ *     `useRef<StrengthBand>(getStrengthBand(...))`) also compiles clean, on
+ *     cuts of 0.6 / 0.25 / 0.05.
+ *
+ * ⛔ SO THE COLLISION WAS NOT A TIDINESS QUESTION. The typechecker is the only
+ * thing standing between a mis-import and a silently re-banded number, and on
+ * all three names it does not object. Prefixing is what makes the wrong import
+ * impossible to write by accident.
+ *
+ * `getStrengthLabel` is deliberately NOT prefixed: it has no collision in this
+ * repo, and `inspector-v2/inspectorStrings.ts` re-exports it as the address
+ * every existing importer already knows.
+ */
+export type CanvasStrengthBandId = 'slight' | 'moderate' | 'strong' | 'veryStrong'
+
+export interface CanvasStrengthBand {
+  /** Stable key. Consumers index their own per-band values by this, never by label. */
+  readonly id: CanvasStrengthBandId
+  /** The ONE user-facing word for this band. */
+  readonly label: string
+  /** Inclusive lower bound on |mean|. */
+  readonly min: number
+  /** Exclusive upper bound on |mean|; `Infinity` on the top band. */
+  readonly max: number
+  /** The exact value a "set it to this band" gesture writes. */
+  readonly midpoint: number
 }
+
+/**
+ * Ascending, and the order the band pills render in.
+ *
+ * ⛔⛔ THIS FILE MUST CONTAIN EXACTLY ONE BAND TABLE, AND THAT IS ASSERTED
+ * RATHER THAN REQUESTED. `canvas/__tests__/oneStrengthVocabulary.spec.ts`
+ * walks this MODULE'S OWN EXPORTS at runtime and REDs if a second array of
+ * `{ label, min, … }` appears here under any name. A file holding two canonical
+ * tables is the exact defect this consolidation exists to remove, re-created
+ * one merge later — and it is a live hazard now, not a hypothetical: the open
+ * branch `canvas/how-much-is-still-open` adds `STRENGTH_BAND_LADDER` to this
+ * same file, and `git merge-tree` already reports the conflict. Resolving that
+ * conflict by KEEPING BOTH is the wrong answer, and the guard is what makes
+ * that answer fail loudly instead of merging quietly.
+ */
+export const CANVAS_STRENGTH_BANDS: readonly CanvasStrengthBand[] = [
+  { id: 'slight',     label: 'Slight',      min: 0.00, max: 0.20,     midpoint: 0.10 },
+  { id: 'moderate',   label: 'Moderate',    min: 0.20, max: 0.40,     midpoint: 0.30 },
+  { id: 'strong',     label: 'Strong',      min: 0.40, max: 0.70,     midpoint: 0.55 },
+  { id: 'veryStrong', label: 'Very strong', min: 0.70, max: Infinity, midpoint: 0.85 },
+]
+
+/**
+ * The band a magnitude falls in. Scans DOWNWARD and falls through to the lowest
+ * band, so the behaviour is byte-identical to the if-chain this replaced for
+ * every input INCLUDING the ones no caller should pass: a negative, or `NaN`,
+ * lands in the lowest band exactly as it did before, rather than becoming
+ * `undefined` and crashing a caller that never handled one.
+ */
+export function getCanvasStrengthBand(absValue: number): CanvasStrengthBand {
+  for (let i = CANVAS_STRENGTH_BANDS.length - 1; i > 0; i--) {
+    if (absValue >= CANVAS_STRENGTH_BANDS[i].min) return CANVAS_STRENGTH_BANDS[i]
+  }
+  return CANVAS_STRENGTH_BANDS[0]
+}
+
+/**
+ * The ONE word for a magnitude. A thin read over `CANVAS_STRENGTH_BANDS` — the
+ * threshold list that used to sit on this line is gone, because a comment
+ * restating the table immediately above it is the mirror this file exists to
+ * abolish, and it would be the first thing to go stale.
+ */
+export function getStrengthLabel(absValue: number): string {
+  return getCanvasStrengthBand(absValue).label
+}
+
+/**
+ * ⛔⛔ THE STRENGTH TABLES THIS CONSOLIDATION DID **NOT** RECONCILE — a DATED
+ * MEASUREMENT, recorded here so the next lane inherits the scope rather than a
+ * count (18 Sep 2026).
+ *
+ * ⚠⚠ THE PREVIOUS COUNT WAS WRONG AND IS WITHDRAWN. The note on
+ * `pre-analysis/KeyRelationships.tsx` called itself "A FIFTH" strength
+ * vocabulary, which asserts that it was the only one left over. It was one of
+ * THREE. A count minted from a partial sweep is this estate's characteristic
+ * defect (CLAUDE.md trap 20: the over-read happens in the act of RECORDING),
+ * so what is written down below is the probe, its date and its exclusions —
+ * not a number to be trusted.
+ *
+ * THE PROBE, and it is NOT blind — it carries a contrast control (`TriageCard`,
+ * expected present, returned 90 references) exactly because a sweep that can
+ * see nothing returns the same clean output as a sweep that looked (trap 13e).
+ * Drop the backslashes before the slashes; they are here only so the glob's
+ * `**` + `/` does not close this block comment:
+ *
+ *   rg -a -n "0\.[0-9]" src/ -g '!**\/__tests__\/**' -g '!*.spec.*' \
+ *     | rg -a -i "'(Very strong|Strongly|Moderately|Weakly|Weak|Moderate|Strong|Slight)'"
+ *
+ * ── STILL DIVERGENT, ALL THREE MEASURED **DARK** ───────────────────────────
+ *
+ *   1. `canvas/components/pre-analysis/KeyRelationships.tsx:75` — 3 bands,
+ *      "Weakly / Moderately / Strongly", cuts 0.25 / 0.60, writing
+ *      0.15 / 0.40 / 0.70. DARK: zero product call sites — the only `import`
+ *      and every `<KeyRelationships` usage in `src/` and `e2e/` is its own spec.
+ *
+ *   2. `components/shared/TriageCard.tsx:195` — 3 bands, "Weak / Moderate /
+ *      Strong", writing **0.3 / 0.7 / 1.2**. DARK on BOTH of its hosts, and the
+ *      two reasons differ: `PreAnalysisPanel.tsx:1316` passes
+ *      `onUpdateEdgeStrength` only when `CANONICAL_EDIT_AUTHORITY
+ *      .preAnalysisEdgeStrength` has server-graph authority, and it is
+ *      `'disabled'` (`mutations/mutationAuthority.ts:126`); the other host,
+ *      `results/TriageActionCardsBody.tsx`, never passes the prop at all. Both
+ *      render sites are `onUpdateEdgeStrength &&`-gated, so the pills mount on
+ *      neither.
+ *      ⚠ WERE THAT GATE FLIPPED, clicking **"Moderate"** would write **0.7** —
+ *      which the table above calls **"Very strong"** — and "Strong" would write
+ *      1.2, also "Very strong", so two of the three pills would be
+ *      indistinguishable in the model AND both mislabelled. This is the one
+ *      kind of surface that cannot be allowed a private vocabulary: a divergent
+ *      cut on a WRITING control does not merely mislabel, it attributes a
+ *      fabricated number to the user.
+ *
+ *   3. `components/shared/ScientificEditor.tsx:21` — 3 bands, "Weakly /
+ *      Moderately / Strongly", `0.10–0.25 / 0.30–0.50 / 0.60–0.85`, **with gaps
+ *      that no value can be labelled from** (0.25–0.30, 0.50–0.60, and either
+ *      end). DARK, and more completely than the band row alone: `<ScientificEditor`
+ *      has **zero render sites in `src/` and `e2e/`** — its only references
+ *      anywhere are `import type { ScientificEditorProps }`, a props SHAPE that
+ *      `TriageCard` renders with its own controls. Contrast control on the same
+ *      probe: `TriageCard`, 90 references. Its midpoints would read
+ *      Slight / Strong / Very strong against the table above — all three wrong.
+ *
+ * ── LIVE, AND NAMED APART ON PURPOSE (NOT a defect; do not "reconcile") ─────
+ *
+ *   `components/model-tab/strengthBands.ts` — `getStrengthBand` +
+ *   `getDirectionalStrengthLabel`, cuts 0.6 / 0.25 / 0.05, consumed by
+ *   `ContestedEdgeCard.tsx` and `ModelRowView.tsx`. It answers the DIRECTIONAL
+ *   question. Trap 21: two authorities answering different questions are named
+ *   apart, never aligned.
+ *
+ *   ⚠ ONE LATENT SEAM BETWEEN IT AND THIS TABLE, RECORDED SO IT IS NOT
+ *   REDISCOVERED AS A SURPRISE. `ContestedEdgeCard` renders the SHARED
+ *   `ui/inspector/SignedStrengthSlider` (`:396`) seeded from
+ *   `validation.pass1.strength_mean` — the number the card itself labels on the
+ *   directional cuts. The slider asks `getEffectSizeCoaching`, which now speaks
+ *   THIS table. The sentence is dark, so nothing renders twice today; light it
+ *   and that card shows one number under two strength words (`|0.5|` →
+ *   *"Moderate positive effect"* beside *"Strong effect."*). The disagreement
+ *   pre-dates this consolidation — the old ladder said *"Strong effect."* at
+ *   the same value — so it is inherited, not minted here. Full note and the
+ *   two ways out: `ui/inspector/coachingText.ts`.
+ *
+ * ── EXCLUDED, WITH THE REASON, so the next sweep does not re-adjudicate ─────
+ *
+ *   · `results/DriversSection.tsx:226` `CONTESTED_PRESETS` — the same three
+ *     adverbs, but over a driver's CONFIDENCE, and its own comments record that
+ *     it does not propagate to the edge store.
+ *   · `ui/inspector-v2/panels/FactorExternalPanel.tsx:47` `QUICK_SET` — Low /
+ *     Moderate / High over a factor's expected LEVEL range, not a connector's
+ *     strength.
+ *   · `utils/labelUtils.ts:266` `evidenceTierLabel` — Strong / Fair / Weak over
+ *     an EVIDENCE score.
+ *
+ * ⚠ THIS IS A MEASUREMENT, NOT A GUARD. Unlike the one-table assertion above,
+ * nothing REDs when it goes stale — it is a hand-maintained mirror by
+ * construction, which is why it carries its probe and its date. Re-run the
+ * probe; do not inherit the list, including this sentence.
+ */
+

@@ -52,6 +52,7 @@
  * plain declared px and is untouched by this file.
  */
 
+import type { CSSProperties } from 'react'
 import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 
 /**
@@ -164,6 +165,65 @@ export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Ob
 export const CANVAS_CORNER_STACK_CLASSES =
   'absolute bottom-full right-[-8px] mb-[2px] z-10 flex items-center gap-1'
 
+/**
+ * ⭐⭐ THE RIGHT-HAND GROUP OF THE CARD HEADER — one string, every group that
+ * sits there, because the header now holds groups that can carry MORE THAN ONE
+ * GLYPH and one of them shipped without a gap.
+ *
+ * ⛔ THE DEFECT, MEASURED ON THIS BRANCH AT `dfa351cb`. The provenance group was
+ * `inline-flex items-center shrink-0 ml-auto` — NO gap — and the two-mark branch
+ * (`NodeProvenanceMark`, when node authorship and value basis disagree) mounts
+ * two bare lucide svgs inside it, each `w-[calc(14px*var(--canvas-label-scale,1))]`
+ * with no margin of its own. **They abut at 0px, at up to 28px each under the 2x
+ * counter-scale.**
+ *
+ * ⚠ IT IS NOT COSMETIC HERE, AND `NodeProvenanceMark`'s OWN HEADER SAYS WHY. The
+ * hue was taken off these glyphs on a measurement — `text-warning` is 1.92:1
+ * against the card fill, under SC 1.4.11's 3:1 — on the explicit ground that
+ * **"the SHAPE carries the meaning"**. Two touching 14px shapes at the fit zoom
+ * degrade the one channel the design says is load-bearing, so a gap is the
+ * cheapest defence of a decision already made.
+ *
+ * ⭐ THE FIX IS A SHARED OWNER, NOT A COPIED HABIT. `gap-1` was already the
+ * convention for adjacent header glyphs — the `headerSlot` group in `BaseNode`
+ * and the ScienceIcons group in `FactorNode` both spell it — and the provenance
+ * group was the only one without it. Copying the token a third time is the
+ * hand-maintained mirror this file exists to avoid (CLAUDE.md trap 12), so the
+ * two `BaseNode` groups now read THIS string and cannot drift apart.
+ * `FactorNode`'s group is nested INSIDE the `headerSlot` one and is deliberately
+ * left alone: it is not an `ml-auto` header group, and folding it in here would
+ * give it positioning it must not have.
+ *
+ * ⚠⚠ THE GAP IS NOT COUNTER-SCALED, AND THAT IS A KNOWN ASYMMETRY RATHER THAN AN
+ * OVERSIGHT. The glyphs carry `--canvas-label-scale` and this 4px does not, so at
+ * the settle zoom (0.5) the user gets two 14px glyphs separated by 2px instead of
+ * 4px. Stated, not smuggled, and NOT resolved here for two reasons: (1) the
+ * sibling groups this matches are in exactly the same position, so scaling only
+ * this one would create the second authority the whole file argues against — the
+ * question is owed by the header row as a whole; (2) a scaled gap costs 8px of
+ * header measure at the bound instead of 4px, which widens the wrap band derived
+ * in `BaseNode.twoMarksNeedAGap.spec.tsx` from `[294, 326)` to `[294, 330)`
+ * against a `NODE_CARD_MAX_W` of 336. The cheap, consistent 4px is taken now; the
+ * scaling question is named for whoever owns the header row next.
+ */
+export const CANVAS_HEADER_GLYPH_GROUP_CLASSES = 'inline-flex items-center gap-1 shrink-0 ml-auto'
+
+/**
+ * The px `gap-1` above resolves to — Tailwind spacing `1` = `0.25rem` = **4px**
+ * at this app's 16px root.
+ *
+ * Exported as a NUMBER so the header-fit arithmetic can be computed rather than
+ * restated: a card fits its title and its header glyphs on ONE row only when
+ * `NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_GAP_PX + glyphs + gaps <= cardW -
+ * NODE_CARD_PADDING_X`, and that sum needs this as a number, not as a class.
+ *
+ * ⚠ THE PAIR IS GUARDED, because a number beside a class string IS a mirror:
+ * `BaseNode.twoMarksNeedAGap.spec.tsx` asserts the group string actually spells
+ * `gap-1`, so changing one without the other REDs instead of silently
+ * invalidating every width derived from it.
+ */
+export const CANVAS_HEADER_GLYPH_GAP_PX = 4
+
 export const CANVAS_CORNER_OFFSET_CLASSES_LEFT: Readonly<Record<6 | 12, string>> = Object.freeze({
   6: 'bottom-[calc(-6px*var(--canvas-label-scale,1))] left-[calc(-6px*var(--canvas-label-scale,1))]',
   12: 'bottom-[calc(-12px*var(--canvas-label-scale,1))] left-[calc(-12px*var(--canvas-label-scale,1))]',
@@ -261,3 +321,189 @@ export const NODE_QUICK_ACTION_BAND_PX =
  * user never sees.
  */
 export const MIN_TARGET_RENDERED_PX = 24
+
+/**
+ * ⭐⭐⭐ THE TARGET FLOOR FOR A **TEXT-BEARING** CONTROL — carried by the BOX,
+ * not by a hit slop, and applied as an INLINE STYLE rather than a class. Both
+ * choices are the finding, and both were arrived at by refusing the obvious fix.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT IS SHORT, DERIVED AT THIS TIP RATHER THAN MEASURED IN A BROWSER
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The maps above closed the ICON targets. They could not reach the controls
+ * whose whole job is to make a team interrogate the model — the critical-
+ * thinking prompts — because those carry TEXT, and the guard beside this file
+ * excludes text-bearing controls by design (`canvasGlyphTargetScale.spec.tsx`:
+ * *"a labelled control takes its target size from its TEXT box, which jsdom
+ * cannot measure"*). That exclusion is correct about the question IT asks — did
+ * the viewport transform halve an icon? — and it is silent about a different
+ * one: does a text control meet 2.5.8 at all? Two questions, named apart
+ * (CLAUDE.md trap 21); this constant answers the second and does not touch the
+ * first.
+ *
+ * `typography.edgeLabel` is `calc(11px*var(--canvas-label-scale,1))` with
+ * `leading-snug` (1.375), so its line box is `15.125 x scale` DECLARED. Across
+ * the legible band `scale = 1/zoom`, so `declared x scale x zoom` collapses to
+ * **15.125 rendered px at every zoom in the band** — the counter-scale is
+ * working exactly as designed, and the box is still 8.875px short on its own.
+ *
+ *   `TierInvitation` button   no padding, no border, no slop
+ *                             → **15.125px rendered**, at every zoom in the band
+ *   `NodeChip` button         + `py-0.5` (4px) + 1px border, both UNSCALED
+ *                             → painted `15.125 + 6 x zoom` = **18.125px** at
+ *                               the settle zoom;
+ *                             its `before:-inset-y-[3px]` is unscaled AND is
+ *                             measured from the PADDING box, so it clears the
+ *                             border by only 2px per side:
+ *                             hit `15.125 + 10 x zoom` = **20.125px**.
+ *
+ * Both are under `MIN_TARGET_RENDERED_PX`, and the settle zoom is where the
+ * product parks the user (`useFitViewOnLayoutVersion` floors at
+ * `LABEL_LEGIBLE_ZOOM`). The rung there is `quiet`, not `line`, so the card body
+ * — and every chip in it — is rendered: this is not a shortfall on a surface
+ * nobody sees.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⛔ WHY NOT MORE HIT SLOP, WHICH IS THE OBVIOUS FIX
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Because `CANVAS_GAP_CLASSES` states the price: the separation invariant is
+ * `gap > 2 x slop`, and every container these controls sit in is BELOW it
+ * already. `TierInvitationRow` is `flex-col gap-0.5` — **2px, unscaled, so 1px
+ * rendered at the settle zoom**. The fifteen `flex gap-1 flex-wrap` chip rows
+ * across eight node components give **4px unscaled**, i.e. 2px rendered between
+ * WRAPPED lines. Any slop worth having overlaps its neighbour, and these
+ * neighbours are DIFFERENT QUESTIONS — a near miss sends the wrong one to the
+ * model, which is a worse product defect than a small target, not a smaller one.
+ *
+ * **A painted box cannot overlap its flex neighbours.** Sizing the BOX to the
+ * minimum therefore discharges 2.5.8 and leaves the separation invariant
+ * untouched — no new gap constant, no edit to fifteen containers, and nothing
+ * for a sixteenth call site to forget. Where a control already carries slop
+ * (`NodeChip`), that slop becomes surplus rather than load-bearing, so it is
+ * left exactly as it is.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ WHY AN INLINE STYLE, WHEN EVERYTHING ABOVE IS A CLASS
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The maps above are literal strings because **Tailwind's JIT scans source text
+ * and emits no CSS for a class it cannot see** — the silent, green-looking
+ * failure this file's header is about. An inline style is not scanned, so that
+ * failure mode does not exist for it, and `BaseNode`'s `LOD_BLANKED_BODY_STYLE`
+ * already carries `calc(16px * var(--canvas-label-scale, 1))` this way. The px
+ * is READ from `MIN_TARGET_RENDERED_PX`, so this is still the one value in this
+ * file with **no hand-copied number in it at all**.
+ *
+ * ⚠⚠ THE PROPERTY NAME IS SPELLED LITERALLY, AND THAT IS A CORRECTION, NOT AN
+ * OVERSIGHT. It was `var(${CANVAS_LABEL_SCALE_VAR}, 1)`, which reads better and
+ * cost a required check: `scripts/css-var-census.mjs` assembles a template
+ * literal with sentinels, so an interpolation INSIDE the `var()` name region
+ * makes the reference DYNAMIC — and `tests/ci-guards/css-var-resolution.spec.ts`
+ * pins the dynamic sites by FILE, exactly and bidirectionally. This file joined
+ * that set and the pin RED. Measured, not inferred: run 35366431899, shard 2,
+ * `expected [ …(2) ] to deeply equal [ 'src/styles/evaluative.ts' ]`.
+ *
+ * ⭐ Spelling the name is also the STRONGER arm of that guard, not an evasion of
+ * it. A static reference is checked against the real definitions and against
+ * fallback drift; a dynamic one is only expanded and registered. It is what the
+ * nine class entries above already do, and what the registry spec beside this
+ * file already asserts against. The mirror it introduces is closed by
+ * `theThinkingPromptsAreHittable.spec.tsx`, which parses the property name back
+ * out of BOTH this constant and the two rendered call sites and asserts it
+ * equals `CANVAS_LABEL_SCALE_VAR` — an assertion that was circular while the
+ * name was interpolated and bites now that it is not.
+ *
+ * Frozen and module-level, so every consumer shares one object and a `memo`'d
+ * button is not re-rendered by a fresh style literal each pass.
+ *
+ * ⚠ IT IS A FLOOR, NOT A HEIGHT. Tailwind Preflight sets `box-sizing:
+ * border-box`, so this bounds padding and border too, and a control whose text
+ * wraps to two lines simply grows past it. Consumers need `items-center` (or a
+ * button's UA centring) for the text to sit in the middle of the taller box.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐ WHY BOTH AXES — THE NAME SAID `BOX` WHILE ONE DIMENSION WAS FLOORED
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This shipped as `minHeight` alone, under a header that said it *"floors the
+ * BOX"* and a name ending `_BOX_STYLE`. WCAG 2.2 AA 2.5.8 asks for **24 x 24**
+ * CSS px (or the spacing alternative), so one dimension is not the criterion,
+ * and the review that caught it was right that the gap was the CLAIM rather
+ * than the pixels.
+ *
+ * ⚠ AND THE HONEST HALF: on today's two call sites `minWidth` is very probably
+ * inert, because both carry multi-word copy — `GHOST_TIERS` labels are whole
+ * questions (*"What else could you do?"*) and `NodeChip` adds `px-2` on top of
+ * its label. **That is exactly why it is added rather than argued away.** The
+ * alternative was to keep one axis and defend it with a claim about label
+ * content — a claim nothing in this file can enforce, that a future one-word
+ * chip would falsify silently, and that would leave the constant's own NAME
+ * carrying it. A floor that is inert today and true by construction tomorrow
+ * costs nothing: it can only ever fire where the criterion is already failed,
+ * and it fires by making a flex item wider, never by overlapping a neighbour.
+ *
+ * ⛔ IT STILL DOES NOT MEASURE THE PAINTED BOX, AND NOR CAN ANY GUARD HERE.
+ * `min-height`/`min-width` are what this module DECLARES; what the user is
+ * handed is decided by layout, in a browser. The claim this constant supports
+ * is *"the floor is declared, in the units the user gets"* — not *"24 painted
+ * pixels were observed"*. `theThinkingPromptsAreHittable.spec.tsx` states the
+ * same boundary at the top of the file rather than letting a green suite imply
+ * the stronger claim (CLAUDE.md trap 3: jsdom cannot prove visibility).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⛔⛔ TWO BOUNDED LIMITS, RECORDED BECAUSE NEITHER IS CLOSED BY THIS CONSTANT
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Both are pinned EXACTLY in `theThinkingPromptsAreHittable.spec.tsx`, so the
+ * suite REDs if either set grows or shrinks (CLAUDE.md trap 22f). A gap
+ * recorded in the suite is honest; a gap invisible to it is how the shortfall
+ * this constant closes reached the board in the first place.
+ *
+ * **L1 — BELOW `LABEL_LEGIBLE_ZOOM` THE FLOOR IS NOT MET.** `labelCounterScale`
+ * caps at `1 / LABEL_LEGIBLE_ZOOM`, so under the floor the rendered target is
+ * `MIN_TARGET_RENDERED_PX x MAX_LABEL_COUNTER_SCALE x zoom` — 19.2px at 0.4,
+ * 12px at 0.25. The auto-fit cannot park there (`useFitViewOnLayoutVersion`
+ * passes the floor as `minZoom`), but the canvas itself is `minZoom={0.1}`
+ * (`ReactFlowGraph.tsx:988`), so a USER zoom-out reaches it.
+ *
+ * ⚠⚠ THE OBVIOUS DEFENCE IS *"level-of-detail has dropped the text there"*, AND
+ * IT DOES NOT HOLD FOR EITHER CALL SITE. Derived at `BaseNode.tsx`, not assumed:
+ *   · `TierInvitationRow` is rendered **OUTSIDE** the body wrapper LOD blanks,
+ *     deliberately and with a comment saying so (`BaseNode.tsx:1878-1881`:
+ *     *"an invitation that disappears at the zoom the auto-fit parks at is the
+ *     defect this change exists to remove"*). It is visible below the floor by
+ *     design.
+ *   · `NodeChip` IS inside that wrapper — but blanking is
+ *     `lodBodyBlanked = bodyReduced && lodBodyLine !== null`
+ *     (`BaseNode.tsx:486`), and that declaration's own doc names REACHABLE null
+ *     arms (a factor that is not `external`, an external factor on an ignorance
+ *     prior, an option whose intervention count is unknown). On those cards the
+ *     body is NOT blanked and the chips render.
+ * So L1 is a real, reachable shortfall at user-chosen zooms below the floor —
+ * stated at the `line` rung by name rather than waved at. Closing it needs the
+ * counter-scale cap raised or the target sized off `zoom` directly, which moves
+ * `MAX_LABEL_COUNTER_SCALE` and therefore node GEOMETRY with it — out of this
+ * seam, and not a change to make from a comment.
+ *
+ * **L2 — THE `var()` FALLBACK FAILS OPEN, SILENTLY.** `CANVAS_LABEL_SCALE_VAR`
+ * is set only on the MAIN React Flow root (`CanvasLabelScaleSync`). Rendered in
+ * any second instance — the Compare-tab mini-maps are the named example in that
+ * module's own header — the fallback `1` applies and the floor resolves to
+ * `MIN_TARGET_RENDERED_PX` DECLARED px, i.e. `24 x zoom` rendered. Nothing
+ * errors and nothing looks wrong. ⚠ The mitigating fact, stated rather than
+ * used as an excuse: `typography.edgeLabel` reads the SAME var with the SAME
+ * fallback, so in that instance the whole card is uniformly unscaled rather
+ * than this control being singled out — a smaller surface, not a broken one.
+ *
+ * ⭐ ROWED, NOT BUILT: the registry beside this file
+ * (`canvasGlyphTargetScale.spec.tsx`) cannot see either call site, twice over —
+ * `targetsIn` filters to `textContent.trim() === ''` and `sizeFromClass` reads
+ * heights from CLASSES only, so an inline style is invisible even if the filter
+ * were widened. Widening it is a real job: it needs a text-bearing branch, an
+ * inline-style reader, and a re-derivation of `KNOWN_SHORT_TARGETS` across all
+ * five registered surfaces. Doing half of it would produce a registry that
+ * LOOKS fleet-wide and is not — which is the defect that file's own header was
+ * written about. Left alone deliberately; this constant is guarded by its own
+ * spec instead.
+ */
+export const CANVAS_MIN_TARGET_BOX_STYLE: Readonly<CSSProperties> = Object.freeze({
+  minHeight: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-label-scale, 1))`,
+  minWidth: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-label-scale, 1))`,
+})

@@ -38,13 +38,13 @@ import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
-import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary'
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
-import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
+import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 
 interface LegendRow {
   label: string
@@ -66,10 +66,35 @@ const TYPE_ROWS: LegendRow[] = [
   },
 ]
 
-function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, mark }: {
+function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, mark }: {
   dashed?: boolean
   stroke?: string
   width?: number
+  /**
+   * The dasharray to draw when `dashed`. Defaults to a GENERIC SAMPLE, and the
+   * default is load-bearing rather than lazy: the CONTESTED dash is
+   * divergence-scaled, so no single constant is true of it.
+   *
+   * ⚠ THIS DOCBLOCK SAID THE SCALED FAMILY WAS `4 4`…`4 8`. IT IS NOT, AND THAT
+   * RANGE IS IN NO SOURCE FILE. `readContestedState` (`edges/edgePresentation.ts`
+   * — named, not line-numbered, because pointers here go stale)
+   * builds `` `${dashWidth} ${gap}` `` where `dashWidth = 1.5 + d * 1.5` and
+   * `gap = needs_user_input ? 3 : round(4 + d * 4)` — so the family is
+   * `1.5 4` … `3 8`, plus a tightened `· 3`. The dash WIDTH varies too, and it
+   * never reaches 4. Swept with a contrast control: the `dashWidth` template is
+   * present (1 hit), `'4 4'`/`'4 8'` as an edge dasharray is zero (the three
+   * `"4 4"` hits in `src/` are PLC alignment guides and legacy `GraphCanvas`).
+   * A fabricated range inside the comment that LICENSES the generic sample is
+   * the hand-maintained mirror this component is otherwise removing (trap 12).
+   *
+   * ⚠ AND `'6,4'` ON THE CONNECTION ROW IS AN EXEMPLAR, NOT AN ENUMERATION.
+   * That row's caption names TWO dash causes and one swatch can draw one of
+   * them. It is kept because it is a pattern the canvas genuinely paints, where
+   * the generic sample is one it never paints — the smaller of the two
+   * inaccuracies, chosen deliberately. It does NOT illustrate the contested
+   * cause, and no single dasharray can. See `CONNECTION_ROWS`.
+   */
+  dash?: string
   /** Optional polarity marker drawn beside the line, as the canvas draws it. */
   mark?: '+' | '−'
 }) {
@@ -84,7 +109,7 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, mark }: 
           stroke={stroke}
           strokeWidth={width}
           strokeLinecap="round"
-          strokeDasharray={dashed ? '3 2' : undefined}
+          strokeDasharray={dashed ? (dash ?? '3 2') : undefined}
         />
       </svg>
       {mark && (
@@ -96,9 +121,138 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, mark }: 
   )
 }
 
+// ⭐⭐ THE ROW THAT ASSERTED SOMETHING NOBODY HAD SAID.
+//
+// These two rows read "Solid connection: established" and "Dashed connection:
+// less certain". Both were CLAIMS, and the first one was routinely false.
+//
+// `USER_EDGE_DEFAULTS.beliefExists` is 0.8 with no source stamp, so a link the
+// user had merely DRAWN drew solid — and this key told them solid means
+// established. A line style is read PRE-ATTENTIVELY, so the reader absorbed
+// "this relationship is established" about a connection nobody had assessed,
+// without ever consciously evaluating it. Same defect class as the panel
+// printing "80%" (fixed in #1677), one channel over and harder to see.
+//
+// The canvas half is fixed at source: the dash now consumes the provenance
+// union (`resolveExistenceDash`), so it can only speak when somebody stated a
+// likelihood. THIS half is the one that removes the false claim, because an
+// unmarked line asserts nothing UNLESS a key says it does — and this key did.
+//
+// The labels now describe what the channel can actually know. Dash fires for
+// exactly two causes — a stated sub-threshold likelihood, and a contested edge
+// — and "someone recorded a doubt" is true of both; solid is their absence, not
+// a finding. Neither row claims establishment, because the canvas cannot
+// establish anything: the user is the author.
+//
+// ⚠⚠ AND THE FIRST REPAIR REPLACED ONE FALSE CLAIM WITH ANOTHER. It read
+// "Solid connection: no doubt recorded" — and SOLID IS NOT ONE POPULATION.
+// `resolveExistenceDash` returns `{kind:'unset'}` when nobody stated a
+// likelihood, and `{kind:'stated', dash: undefined}` when somebody stated one
+// AT OR ABOVE `EDGE_VALUE_BAND_CUTS.high` (0.7). Both draw solid. So an edge
+// CEE stamps at `exists_probability: 0.75` — A RECORDED 25% DOUBT — drew solid
+// under a key saying no doubt was recorded.
+//
+// It is the COMMON case, not a corner: `applyDraftResult.ts:104-108` fills
+// `beliefExists` from `exists_probability` and stamps it `'cee'`, and a debug
+// capture of the founder's own model (18 Sep 2026) carries `exists_probability`
+// on all 13 edges. On an AI-drafted board, stated values in [0.7, 1.0) are the
+// norm — so the caption was false on most of the board it describes.
+//
+// ⭐ THE SPEC ALREADY PROVED IT AND NOBODY READ IT ACROSS.
+// `graphDisplayCalculations.spec.ts:172-181` asserts, in adjacent `it` blocks,
+// that unset is solid AND that a stated 0.7/0.71/1.0 is solid. The collapse was
+// pinned, green, and contradicted by the string written one file away — the
+// caption is a claim about the union of those two blocks and was checked
+// against neither. A green suite is not evidence about a sentence.
+//
+// The caption now covers both causes. It is deliberately NOT narrowed to the
+// unset case, which would have been the third false version of the same row.
+//
+// ⚠ A THIRD SOLID POPULATION IS KNOWN AND NOT CLAIMED HERE: `resolveEdgeDash`'s
+// `structural` rule returns solid FIRST, before existence is consulted, so a
+// scaffolding edge carrying a low stated likelihood draws solid too. Naming
+// scaffolding in the key is new copy and is NOT taken — it is reported on the
+// PR instead, for Paul's ruling with the wording below.
+//
+// ⚠ NO THIRD ROW, DELIBERATELY. The unset state is NOT taught here — it is
+// taught by the two rows that already describe what an unassessed edge draws
+// ("Grey: direction not set yet" and "No strength suggested: thin and grey"),
+// which is the vocabulary DESIGN_SYSTEM.md ruled owns it on 2026-09-08. A third
+// row would also be new copy, and this component's own standing rule is that
+// any FURTHER copy stops and asks Paul. Repairing a false string is not that.
+//
+// ⚠ THE SWATCH NOW DRAWS THE CANVAS'S DASH. It carried its own '3 2' while the
+// canvas drew '6,4', so the key illustrated a pattern the product has never
+// painted — a hand-maintained mirror inside the component that teaches people
+// how to read the board (trap 12). It comes from the constant now.
+//
+// ⚠ BUT IT ILLUSTRATES ONE OF THE TWO CAUSES ITS CAPTION NAMES, and the two
+// available remedies are BOTH REFUSED, with the argument recorded so the next
+// lane does not re-propose them:
+//   · NARROWING the caption to the existence cause is refused because it makes
+//     the row FALSE for a contested edge — which dashes at a divergence-scaled
+//     pattern and may carry a perfectly high likelihood. That is the identical
+//     defect being repaired one row above, re-created one row below.
+//   · A SEPARATE CONTESTED ROW is refused HERE, not on the merits: it is new
+//     copy, and this component's standing rule sends new copy to Paul. It also
+//     costs height in a popover with a MEASURED overflow history (816px tall at
+//     y = −43 on 1280×800, deployed build `bd18bace` — see the panel docblock
+//     below), and contested is already keyed once under Colour ("Orange:
+//     reviews disagree — your call"). Two rows in two sections for one state is
+//     trap 21 inverted. It is put to Paul on the PR as the only COMPLETE fix.
+// So the caption stays true of both causes and the swatch stays an exemplar of
+// one. An under-illustration is a gap; a narrowed caption would be a lie.
+//
+// ⭐⭐⭐ AND "TRUE OF BOTH CAUSES" WAS ITSELF FALSE — THE SENTENCE DIRECTLY ABOVE
+// IS WITHDRAWN, 18 Sep 2026. The repair re-derived the SOLID row against
+// `resolveEdgeDash` and did not re-derive the DASHED one, so the defect class
+// this whole block exists to remove survived ONE ROW OVER.
+//
+// "someone recorded a doubt" is false for a STRENGTH-ONLY CONTEST, and that is
+// the ordinary contest, not a corner. Derived at the producer's bytes:
+//   · `resolveEdgeDash` (`edges/edgePresentation.ts`) fires the `contested` rule
+//     for EVERY contested edge — the gate is status contested AND user_action
+//     pending AND a finite `max_divergence`. It never reads `contested_reasons`.
+//   · `ContestedReason` (`src/types/validation.ts`) has FIVE members, and only
+//     `existence_boundary_crossing` is about whether the connection holds:
+//     `strength_band_change`, `confidence_band_change` and `raw_magnitude` are
+//     disagreements about HOW STRONG or HOW CERTAIN, and `sign_flip` is about
+//     WHICH WAY. On a `strength_band_change` both passes state a high
+//     `exists_probability` and AGREE about it — nobody recorded a doubt that the
+//     connection exists — and the line dashes under a caption saying somebody
+//     did. That is the panel-printing-"80%" defect (#1677) a third time.
+//   · Not hypothetical: `StyledEdge.presentationStability.spec.tsx`'s own
+//     canonical `contestedValidation()` fixture is exactly this shape —
+//     `contested_reasons: ['strength_band_change']`, pass1 exists 0.8, pass2 0.9.
+//
+// Note the asymmetry that hid it: `resolveEdgeStroke` returns orange for only
+// TWO of the five reasons (`contested_needs_user_input`,
+// `contested_direction_disputed`), so the COLOUR channel is narrow while the
+// DASH channel is wide. A repair that reasons about the orange row cannot see
+// the dashed one (CLAUDE.md trap 21 — two channels, two questions, one word).
+//
+// THE CAPTION NOW NAMES BOTH CAUSES: a doubt (a stated sub-threshold
+// likelihood) OR a disagreement (the two reviews contest a parameter). It is
+// true of every cause that produces a dash, which is the standard the solid row
+// was already held to. It deliberately does NOT reuse the Colour section's
+// "reviews disagree" verbatim: orange is a SUBSET of dashed, and two rows in two
+// sections sharing a phrase would teach the reader that every disagreement is
+// also orange — the "Not set yet" collision recorded lower down, repeated.
+//
+// ⚠ PUT TO PAUL ON THE PR, per this component's standing rule that copy stops
+// and asks: this wording plus the SPLIT-ROW alternative, which is refused here
+// for the reasons at the bullet above (height, and one state keyed twice).
+//
+// ⚠ THE SOLID ROW IS UNTOUCHED AND STILL TRUE. A contested edge always dashes,
+// so no disagreement is ever recorded on a solid line; "no doubt recorded, or
+// only a small one" is incomplete about disagreement, not false about it.
+// Widening it is new copy for no defect, so it is not taken.
 const CONNECTION_ROWS: LegendRow[] = [
-  { label: 'Solid connection: established', swatch: <LineSwatch dashed={false} /> },
-  { label: 'Dashed connection: less certain', swatch: <LineSwatch dashed /> },
+  { label: 'Solid connection: no doubt recorded, or only a small one', swatch: <LineSwatch dashed={false} /> },
+  {
+    label: 'Dashed connection: a doubt or a disagreement was recorded',
+    swatch: <LineSwatch dashed dash={EXISTENCE_UNCERTAIN_DASH} />,
+  },
 ]
 
 // Direction, as the canvas actually draws it: the line's colour, plus a + or -
@@ -133,7 +287,8 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
    *  measured band as of 8 Sep 2026): the row's caption says "thin AND grey",
    *  and the canvas draws that edge grey via `computeDirectionStroke`'s neutral
    *  return. A swatch that hard-coded the body colour once rendered this row
-   *  pixel-identical to "Weak effect" and made its own caption false — the two
+   *  pixel-identical to the thinnest measured band and made its own caption
+   *  false — the two
    *  now differ on BOTH channels, which is the point. */
   stroke?: string
   testId?: string
@@ -168,10 +323,29 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
 // drift reads green. They now come from the same constant the edge does.
 // Folded in from the former standalone EdgeThicknessLegend so the two
 // bottom-left legends are now one key.
+//
+// ⭐⭐ AND AS OF 18 Sep 2026 THE WORDS ARE IMPORTED TOO — the widths were
+// derived while the LABELS were still typed by hand, which is the same mirror
+// with only half the leak plugged. This key is the JOIN between the thickness
+// channel and the strength vocabulary: it exists to assert *this thickness
+// means this word*. It could not, and it said so in the only way a hand-typed
+// list can — by inventing a word. **"Weak effect" is printed NOWHERE ELSE in
+// the product**: the canvas edge chip, the inspector panel and the band pills
+// all say Slight / Moderate / Strong / Very strong. Worse, the row it labelled
+// was drawn for every `|mean| < 0.40`, which is BOTH *Slight* and *Moderate* —
+// so the legend named one thickness after a band it did not correspond to, and
+// two genuinely different findings were pixel-identical on the channel this
+// very key teaches the reader to read as strength.
+//
+// One row per band now, both halves derived: the label from `CANVAS_STRENGTH_BANDS`,
+// the width from `EDGE_STROKE_WIDTH_BANDS` keyed by the same band id. A band
+// added to the vocabulary appears here automatically; a band added without a
+// width fails to compile at the widths object. Neither can drift.
 const THICKNESS_ROWS: LegendRow[] = [
-  { label: 'Weak effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.weak} testId="legend-thickness-weak" /> },
-  { label: 'Moderate effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.moderate} /> },
-  { label: 'Strong effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.strong} /> },
+  ...CANVAS_STRENGTH_BANDS.map((band): LegendRow => ({
+    label: `${band.label} effect`,
+    swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS[band.id]} testId={`legend-thickness-${band.id}`} />,
+  })),
   // Honesty row: an edge nobody has given a strength still has to be drawn, and
   // without this row the key teaches the reader to mistake a blank for a
   // finding.
@@ -363,7 +537,7 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  *                     ⚠ It is SENSITIVITY OUTPUT, not an authored weight —
  *                     `selectDriverPolicyFeed(report)`. Pre-run the factor card
  *                     renders `EdgePills` instead, which says "Link strength".
- *   #1,#2,#3 POST-RUN `BaseNode:738` `typeof sensitivityRank === 'number'`;
+ *   Key driver POST-RUN `BaseNode:738` `typeof sensitivityRank === 'number'`;
  *                     `sensitivityRank` is null whenever `!isResultsMode || !report`.
  *   1,2,3   POST-RUN  `OptionNode:1459` `stableOptionNumber != null`. The node's
  *                     OWN gate carries no results term — which is why this one
@@ -515,7 +689,7 @@ export interface LegendBoardState {
  *             ⚠ SENSITIVITY OUTPUT, not an authored weight — pre-run the card
  *             renders `EdgePills`, which says "Link strength": a different word
  *             for a different quantity, so this row was not merely early.
- *   #1,#2,#3  `BaseNode:738` `typeof sensitivityRank === 'number'`; null
+ *   Key driver `BaseNode:738` `typeof sensitivityRank === 'number'`; null
  *             whenever `!isResultsMode || !report`.
  *   1,2,3     `OptionNode:1459` `stableOptionNumber != null` — AND NOTHING ELSE.
  *             Its gate carries no results term at all, which is the whole of F1.
@@ -569,7 +743,14 @@ const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boole
   [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.strength]: () => true,
-  '#1, #2, #3': (b) => b.isPostAnalysis,
+  // ⭐ ONE OF THE THREE RE-TYPED LITERALS THIS BLOCK'S OWN HEADER NAMES, NOW
+  // DERIVED. The row's heading moved with the badge (`#1, #2, #3` →
+  // `Key driver 1, 2, 3`), and a key keyed by the OLD string would not have
+  // errored: `visibleMetricRows` fails closed on an unknown noun, so the row
+  // would simply have stopped appearing — a legend silently losing the row a
+  // puzzled reader opens it for. Importing the constant makes that
+  // unreachable rather than caught.
+  [SENSITIVITY_RANK_LEGEND_NOUN]: (b) => b.isPostAnalysis,
   '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
   // ALWAYS LIVE, and pre-run is exactly when it is most on screen: a drafted
   // model arrives with every bridge strength unset, so the risk and outcome

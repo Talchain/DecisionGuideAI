@@ -31,6 +31,8 @@ import {
   INFLUENCE_QUANTITY_BY_BASIS,
   INFLUENCE_STABILITY_DISCLOSURE,
   INFLUENCE_LEVER_DISCLOSURE,
+  influenceRankReadout,
+  influenceRankExplanation,
 } from '../influenceScaleCopy'
 import {
   resolveAnalysisMetric,
@@ -111,6 +113,39 @@ function allStrings(): string[] {
        interpolation, not just over the badge label on its own. */
     INFLUENCE_STABILITY_DISCLOSURE,
     INFLUENCE_LEVER_DISCLOSURE,
+    /* ⛔ THE RANKED READOUT ARRIVED UNPOLICED, AND THIS FILE'S OWN RULE SAYS WHY
+       THAT MATTERS: "a string not named here is silently unpoliced by all three
+       cases below … an export arriving in this module has to arrive in this
+       array in the same commit". `influenceRankReadout` shipped three new
+       user-facing strings (a visible caption, a visible figure column and an
+       announced sentence) and `influenceRankExplanation` a fourth, and none of
+       them reached this corpus. Added 2026-09-18.
+
+       ⚠ CROSSED OVER EVERY RANK THE PRODUCER CAN EMIT, not just rank 1. The
+       ordinal branch (`2nd`, `3rd`) builds a DIFFERENT string from a different
+       code path, so policing only the leader would leave two thirds of the
+       reachable copy unexamined — and `MAX_BADGED_RANK` is a product decision
+       that has moved once already, so the loop runs past today's cap.
+
+       ⚠ AND THE EXPLANATION IS CROSSED WITH PROVENANCE because it INTERPOLATES
+       `influenceExplanation`, exactly the reason `INFLUENCE_LEVER_DISCLOSURE`
+       is listed above: the hygiene cases must run over the composed result,
+       not over the two halves separately. */
+    ...[1, 2, 3, 4].flatMap((rank) => {
+      const readout = influenceRankReadout(rank, 8)
+      // Non-vacuity: if the readout ever stopped being produced for these
+      // ranks this would contribute nothing and every case below would pass by
+      // testing nothing (CLAUDE.md trap 13). Fail loudly instead.
+      if (readout == null) throw new Error(`influenceRankReadout(${rank}, 8) returned null — corpus is vacuous`)
+      return [
+        readout.caption,
+        readout.setSizeText,
+        readout.phrase,
+        ...PROVENANCES.flatMap((p) =>
+          IMPORTANCE_BASES.map((basis) => influenceRankExplanation(readout, 62, p, basis)),
+        ),
+      ]
+    }),
   ]
 }
 

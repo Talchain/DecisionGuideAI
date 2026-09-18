@@ -86,6 +86,8 @@ import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
+import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
+import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -1568,7 +1570,23 @@ export function AnalysisNewTabBody({
             label = 0 characters, every one). A zone label is a heading like any
             other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
             it was breaking, and the fix is the gate, not a wider ceiling. */}
-        {focusApplicableIds.length > 0 ? (
+        {/* ⛔⛔ THE GATE WIDENED, AND THE RULE IT PROTECTS IS UNCHANGED.
+            This read `focusApplicableIds.length > 0`, because the comment above
+            is right that a zone label over nothing is the defect. `Focus now`
+            now heads something on EVERY run: `MethodsYouCanRun` renders the
+            static `METHOD_CATALOGUE`, which is never empty. So the heading still
+            claims something that is under it — the gate moved, the rule did not.
+
+            ⭐ PAUL'S INSTRUCTION, 18 Sep 2026: "make it first-screen — put it in
+            ZONE: FOCUS." It was in ZONE: ALSO, below the fold. This zone renders
+            above the answer, so the methods are now the first thing under the
+            decision itself.
+
+            ⚠ THE NUDGES KEEP THEIR OWN GATE, inside. They are run-specific and
+            frequently absent; the methods are not. Two different questions, and
+            folding them into one gate is what would bring the heading-over-
+            nothing defect back. */}
+        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
           <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
@@ -1581,7 +1599,15 @@ export function AnalysisNewTabBody({
             >
               Focus now
             </p>
-            <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
+                specific to THIS model; the methods are always available. A
+                reader who has a run-specific prompt should meet it before the
+                general shelf — prominence for the shelf was the instruction,
+                not precedence over the run. */}
+            {focusApplicableIds.length > 0 ? (
+              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            ) : null}
+            <MethodsYouCanRun />
           </div>
         ) : null}
 
@@ -1907,6 +1933,31 @@ export function AnalysisNewTabBody({
             producer's verdict and routes to the method; it combines nothing and
             scores nothing. See `TrustLine` for why a single "trust score" is
             the one thing this must never render. */}
+        {/* ⭐⭐ NO TRUST READOUT BEFORE A RUN — AND THIS IS NOT A REVERSAL OF
+            "ABSENCE IS A STATE". `TrustLine`'s own header rules that a missing
+            verdict must SAY the basis was never established rather than render
+            nothing, and that ruling stands untouched for the case it was written
+            about: a run that HAPPENED and returned no verdict. That is a fact
+            about the analysis and the reader deserves it.
+
+            ⛔ IT WAS ALSO FIRING WHERE NO RUN HAD HAPPENED AT ALL, and there the
+            same words make a statement about a result that does not exist.
+            Witnessed by Paul on his own manual test, 18 Sep 2026: the panel said
+            "No analysis has run yet for this model" and then, on the same first
+            screen, "How far this holds was not established · 0 checks ran ·
+            0 open questions". "How far this holds" has no referent there, and
+            the two zeros are the shape this estate's own rule refuses — a count
+            of nothing read as a measurement of nothing.
+
+            ⚠ TWO QUESTIONS UNDER ONE ABSENCE (trap 21). "The producer sent no
+            verdict" and "there is no producer output" are different facts with
+            different honest answers; `verdict === null` cannot tell them apart,
+            so the caller — which knows the run state — makes the distinction and
+            the component stays presentational, as every other section here is.
+
+            ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
+            it, including the no-verdict one. */}
+        {vm.status.isPreRun ? null : (
         <TrustLine
           verdict={vm.atAGlance.verdict}
           checksRan={vm.checks.items.length}
@@ -1914,6 +1965,7 @@ export function AnalysisNewTabBody({
           methodOpen={methodOpen}
           onOpenMethod={() => setMethodOpen(true)}
         />
+        )}
 
         <WhatsChanged view={vm.whatsChanged} />
 

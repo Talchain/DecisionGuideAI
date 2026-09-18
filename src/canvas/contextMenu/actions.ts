@@ -167,12 +167,21 @@ export async function addNodeAction(
   //
   // It read: if the kind is `option` and a decision node exists, route through
   // `store.addNodeWithEdge` so the option arrives already joined to the
-  // decision. Convenient, and NOT DURABLE: `addNodeWithEdge` captures no
-  // `structural_add`, deliberately, because `structural_add_edge` is
+  // decision. Convenient, and NOT DURABLE at the time: `addNodeWithEdge`
+  // captured no `structural_add`. So five of the six kinds reached the durable
+  // chokepoint and `option` — on any graph that has a decision, i.e. every real
+  // one — silently did not.
+  //
+  // ⚠⚠ THE REASON GIVEN HERE HAS EXPIRED (corrected 18 Sep 2026), AND THE
+  // DECISION HAS NOT. The sentence struck from this block said the capture was
+  // absent "deliberately, because `structural_add_edge` is
   // `'reader_only_refusal'` in CEE — no writer (re-derived at CEE `staging`
-  // `3575b189`; the reasoning is on `pendingStructuralAdds` in `store.ts`).
-  // So five of the six kinds reached the durable chokepoint and `option` — on
-  // any graph that has a decision, i.e. every real one — silently did not.
+  // `3575b189`)". CEE #1443 shipped that writer on 13 Sep, and
+  // `store.addNodeWithEdge` now captures BOTH halves. ⭐ But the auto-connect
+  // stays gone on the OTHER two reasons below, which never depended on it: the
+  // contract's own model of an add is a node with no incident edges, and a menu
+  // whose six kinds do not all behave alike is the defect this removal fixed.
+  // A reason that stops holding is struck where the next reader will see it.
   //
   // ⚠ THE ASYMMETRY IS THE WHOLE POINT. While this menu was stripped it cost
   // nothing; the moment the item renders, one kind in six would save nothing

@@ -86,7 +86,6 @@ vi.mock('../../../flags', () => ({
 
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: () => 'solid',
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 2,
   weightMagnitudeToStrokeWidth: () => 2,
