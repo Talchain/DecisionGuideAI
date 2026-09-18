@@ -379,7 +379,13 @@ export interface InfluenceRankReadout {
   caption: string
   /** The figure column, where the bare percentage used to sit. "of 5". */
   setSizeText: string
-  /** The two columns as one sentence, for assistive tech and the tooltip. */
+  /**
+   * The two columns as one sentence, for assistive tech and the tooltip.
+   *
+   * ⚠ INVARIANT, AND IT IS GUARDED: this CONTAINS `caption` and `setSizeText`
+   * verbatim, so a sighted reader and a screen-reader user are given the same
+   * words. See the containment note on `influenceRankReadout`.
+   */
   phrase: string
 }
 
@@ -419,6 +425,29 @@ function ordinalSuffix(n: number): string {
  * ⚠ `caption` AND `phrase` ARE BUILT FROM ONE `core` STRING ON PURPOSE. They
  * are the same claim in two places on one row; deriving both from one literal
  * is what stops the visible words and the announced words drifting apart.
+ *
+ * ⭐⭐ AND `phrase` CONTAINS BOTH VISIBLE STRINGS VERBATIM — THE VISIBLE TEXT IS
+ * A PREFIX OF THE ANNOUNCED TEXT, NOT A PARAPHRASE OF IT.
+ *
+ * The first cut read `The most influential of the 5 factors compared in this
+ * model`, which is good English and **contains neither visible string**: the
+ * card shows `Most influential` (capital M — not a substring of `The most
+ * influential`) and `of 5` (the phrase said `of the 5`). A sighted user reading
+ * the row aloud to a screen-reader user was reading two different sentences.
+ *
+ * ⚠ SCOPE OF THE STANDARD BEING MET, STATED PRECISELY. WCAG 2.5.3 *Label in
+ * Name* governs components with a visible LABEL that accept user action; this
+ * row publishes `role="img"`, so 2.5.3 does not strictly bite and no compliance
+ * claim is made here. What binds is the estate's own ruling — #1688 engineered
+ * prefix-containment on a neighbouring surface the same day for exactly this
+ * reason — and the plainer point that **two channels describing one row should
+ * not disagree about the words on it**. So the phrase is now composed FROM
+ * `caption` and the set size, which is why it cannot drift from either: change
+ * the caption and the announced name changes with it.
+ *
+ * ⚠ THE SENTENCE IS SLIGHTLY BLUNTER FOR IT (`Most influential of 5 factors
+ * compared in this model`, no leading article). That is the trade, taken
+ * deliberately: containment is a property a guard can hold, elegance is not.
  */
 export function influenceRankReadout(
   rank: number | null | undefined,
@@ -429,10 +458,14 @@ export function influenceRankReadout(
   if (rank > setSize) return null
 
   const core = rank === 1 ? 'most influential' : `${rank}${ordinalSuffix(rank)} most influential`
+  const caption = core.charAt(0).toUpperCase() + core.slice(1)
+  const setSizeText = `of ${setSize}`
   return {
-    caption: core.charAt(0).toUpperCase() + core.slice(1),
-    setSizeText: `of ${setSize}`,
-    phrase: `The ${core} of the ${setSize} factors compared in this model`,
+    caption,
+    setSizeText,
+    // Composed from the two VISIBLE strings, so containment is structural
+    // rather than a coincidence of wording that a later copy edit could break.
+    phrase: `${caption} ${setSizeText} factors compared in this model`,
   }
 }
 

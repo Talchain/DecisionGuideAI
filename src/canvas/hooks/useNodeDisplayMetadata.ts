@@ -76,14 +76,46 @@ export interface NodeDisplayMetadata {
    * Distinct KEYS, matching the duplicate-id collapse `determinedRankDepth`
    * already applies: two rows sharing an id are one factor.
    *
-   * ⚠ OPTIONAL, following `goalFitAvailable` and `winComputationFailed` below
-   * and for the reason stated there: making it required forces edits into
-   * unrelated `NodeDisplayMetadata` test mocks, and that churn rewrites the
-   * printed type strings of pre-existing diagnostics, desyncing the typecheck
-   * gate's IDENTITY baseline. The default here is genuinely safe rather than
-   * merely convenient — `influenceRankReadout` returns null on an absent size,
-   * so the row falls back to the caption it renders today. Absence degrades to
-   * the status quo, never to a fabricated denominator.
+   * ⚠⚠ NULL WHENEVER THE GRAPH HAS MOVED SINCE THE RUN — see the gate at the
+   * assignment below. A denominator is a COUNTABLE claim, and a countable claim
+   * the reader can falsify by counting cards is worse than the uncountable one
+   * it replaced.
+   *
+   * ⚠ OPTIONAL, following `goalFitAvailable` and `winComputationFailed` below.
+   * ⛔ THE REASON RECORDED HERE FIRST WAS WRONG, AND A WRONG REASON IN A
+   * DOCBLOCK IS WHAT THE NEXT SESSION INHERITS. It said the mock churn would
+   * desync "the typecheck gate's IDENTITY baseline". Derived at the gate's own
+   * bytes (`scripts/ci/typecheck-gate.sh`): the identity baseline is
+   * explicitly NON-BLOCKING — its diffs are emitted with `note`, i.e. as
+   * `::notice::`, because the union-order canonicaliser feeding it is a
+   * heuristic and "a heuristic belongs where its drift costs noise in a report,
+   * never a red build" (the script's own header). Desyncing it costs a notice.
+   *
+   * ⭐ WHAT ACTUALLY BLOCKS is the PER-FILE COUNT RATCHET, and it blocks hard.
+   * Measured in this tree: `vi.mocked(useNodeDisplayMetadata).mockReturnValue`
+   * has **100 call sites across 24 spec files** (contrast, same sweep:
+   * `vi.mocked(useCanvasStore)` → 301, so the probe is not blind). Only four of
+   * those 24 files carry a baseline entry, so making this field required
+   * without editing all 100 sites turns ~20 files into NEW erroring files — the
+   * gate's first blocking condition — and raises the total. Right conclusion,
+   * wrong mechanism; the mechanism is recorded now so nobody re-derives it.
+   *
+   * ⭐⭐ AND THE OPTIONALITY IS MADE SAFE BY A PINNED PRODUCER INVARIANT, NOT BY
+   * THE DEFAULT BEING CONVENIENT. An optional field whose absence silently
+   * selects a different render is precisely CLAUDE.md trap 3b arriving through
+   * the fixture. What removes that risk is that the state "rank present,
+   * denominator absent" is UNREACHABLE FROM THIS PRODUCER: the assignment below
+   * is unconditional within the factor branch and runs BEFORE the rank gate, so
+   * `sensitivityRank != null` implies `influenceSetSize != null`. That
+   * implication is asserted in `useNodeDisplayMetadata.influenceSetSize.spec.ts`
+   * and REDs if the assignment is moved, removed or made conditional. A fixture
+   * that supplies a rank without a size is therefore a KNOWN-FICTIONAL input
+   * (trap 16-inverse), not an under-specified one.
+   *
+   * The default is still fail-closed on its own terms — `influenceRankReadout`
+   * returns null on an absent size, so the row falls back to the caption it
+   * renders today. Absence degrades to the status quo, never to a fabricated
+   * denominator.
    */
   influenceSetSize?: number | null
   /**
@@ -270,6 +302,46 @@ export function useNodeDisplayMetadata(
 ): NodeDisplayMetadata {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
+  /**
+   * ⚠ READ SOLELY TO GATE THE RANKED DENOMINATOR — no other field on this hook
+   * consults it, and none should start without its own argument.
+   *
+   * `results.status` SURVIVES A GRAPH EDIT (it is cleared by a new run, not by
+   * a mutation), which is exactly why a figure derived from the last completed
+   * run can outlive the model it described. Every other readout on this card
+   * already carried that staleness SOFTLY — `80%` is wrong-but-unfalsifiable
+   * once the graph moves. `of 5` is not: run over five factors, add three, and
+   * the canvas shows EIGHT factor cards beside a row still claiming `of 5`. The
+   * reader can refute the product by counting, which is a different and much
+   * more expensive kind of wrong.
+   *
+   * ⚠ THE EXISTING FLAG, NOT A NEW ONE. `graphEditedSinceLastRun` is declared
+   * on the store (`store.ts:632`), initialised `false` (`:3176`), set by the
+   * internal edit chokepoint `pushToHistory` (`:2054`) and by the external
+   * mutator entry point `markGraphStructurallyEdited` (`:6997`). Minting a
+   * second staleness notion here would re-open the very defect the store's own
+   * comment records — "two staleness systems exist with disjoint readers … a
+   * mutation path that sets one and misses the other ships a false 'analysis
+   * reflects the current model'".
+   *
+   * ⚠ SCOPE OF THE CHOICE, STATED: the store's OTHER staleness system is
+   * `analysisFreshnessDirty`, and it is NOT an equivalent. Measured at the
+   * bytes: `pushToHistory` sets `graphEditedSinceLastRun` and does NOT call
+   * `markAnalysisFreshnessDirty`, so on the ordinary in-canvas edit path — the
+   * one that adds the three factors in the scenario above — the legacy flag is
+   * the one that fires. This gates on it alone rather than OR-ing two
+   * authorities together, because they answer different questions (CLAUDE.md
+   * trap 21) and reconciling them is a separate, larger piece of work than this
+   * lane owns. If the freshness overlay ever needs to gate this too, that is an
+   * argued change, not a widening.
+   *
+   * ⚠ `undefined` IS A MOCK-ONLY STATE and is treated as NOT stale. The store
+   * declares the field as a required `boolean` with an initial value, so the
+   * product cannot produce it; only an incomplete test store can. Both real
+   * arms (`true` and `false`) are asserted explicitly in the spec, so neither
+   * is reached by accident.
+   */
+  const graphEditedSinceLastRun = useCanvasStore(state => state.graphEditedSinceLastRun)
 
   const isResultsMode = resultsStatus === 'complete'
 
@@ -342,7 +414,23 @@ export function useNodeDisplayMetadata(
       // never be derived from a different set than the rank beside it. Distinct
       // keys, mirroring the duplicate-id collapse `determinedRankDepth` applies
       // — one factor, one position, one unit of the total.
-      influenceSetSize = new Set(ranked.map((f) => f.key)).size
+      //
+      // ⚠⚠ WITHHELD ONCE THE GRAPH HAS MOVED — see the store read at the top of
+      // this hook for why a stale DENOMINATOR is a different class of wrong
+      // from a stale percentage. Withholding it makes `influenceRankReadout`
+      // return null, so the row renders EXACTLY what it renders today
+      // (`Relative influence … NN%`) rather than a third, ranked-but-
+      // uncountable variant. Reusing the existing fail-closed arm is the whole
+      // point: this card's rows were unified to remove presentations of one
+      // idea, not to add one.
+      //
+      // ⚠ THIS IS DELIBERATELY BROADER THAN "THE FACTOR COUNT CHANGED". The
+      // flag fires on ANY graph edit, so a pure value edit also drops the
+      // caption. That over-suppression is the safe direction — it degrades to
+      // the status quo — and narrowing it would need a count comparison against
+      // the run's own set, which is a claim this hook cannot make without the
+      // run's graph.
+      influenceSetSize = graphEditedSinceLastRun ? null : new Set(ranked.map((f) => f.key)).size
 
       // Find this node's rank (1-indexed).
       //
@@ -706,5 +794,12 @@ export function useNodeDisplayMetadata(
       voiRank,
       isResultsMode: true,
     }
-  }, [isResultsMode, report, nodeId, nodeType])
+    // ⚠ `graphEditedSinceLastRun` IS A DEPENDENCY, NOT AN INCIDENTAL READ. The
+    // memo is keyed on the REPORT, and a graph edit does not change the report
+    // — that is the entire staleness problem restated. Omitting it here would
+    // leave the withdrawn denominator memoised away and the card would go on
+    // printing `of 5` after the edit, i.e. the defect would survive its own fix
+    // in the cache. `react-hooks/exhaustive-deps` runs in this repo's lint, so
+    // an omission would have been caught, which is not a reason to rely on it.
+  }, [isResultsMode, report, nodeId, nodeType, graphEditedSinceLastRun])
 }
