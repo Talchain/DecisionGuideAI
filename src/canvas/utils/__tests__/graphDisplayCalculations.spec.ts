@@ -8,7 +8,8 @@ import {
   calculateEdgeImportance,
   importanceToStrokeWidth,
   calculateRiskSeverity,
-  existenceCertaintyToLineStyle,
+  resolveExistenceDash,
+  EXISTENCE_UNCERTAIN_DASH,
   weightMagnitudeToStrokeWidth,
   getRiskSeverityColors,
   getControllabilityBorderStyle,
@@ -155,57 +156,45 @@ describe('graphDisplayCalculations', () => {
     })
   })
 
-  describe('existenceCertaintyToLineStyle', () => {
-    it('returns undefined (solid) for undefined probability', () => {
-      const lineStyle = existenceCertaintyToLineStyle(undefined)
-      expect(lineStyle).toBeUndefined()
+  describe('resolveExistenceDash', () => {
+    // A STATED likelihood — `show: true` is only reachable through
+    // `resolveEdgeValueDisplay`, which requires a source stamp.
+    const stated = (value: number) =>
+      ({ show: true, value, source: 'cee' }) as const
+    const unset = { show: false, reason: 'not_set' } as const
+
+    it('says NOTHING when nobody supplied a likelihood', () => {
+      // ⭐ THE DEFECT THIS FUNCTION WAS REWRITTEN TO REMOVE. The old signature
+      // took a bare number, so `USER_EDGE_DEFAULTS.beliefExists` (0.8, no
+      // stamp) cleared the threshold and drew SOLID under a legend reading
+      // "Solid connection: established". `kind: 'unset'` is a named decision,
+      // not an `undefined` that a reader would take for a fallthrough.
+      expect(resolveExistenceDash(unset)).toEqual({ kind: 'unset' })
+      expect(resolveExistenceDash({ show: false, reason: 'absent' })).toEqual({ kind: 'unset' })
     })
 
-    it('returns undefined (solid) for >70% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.71)
-      expect(lineStyle).toBeUndefined()
+    it('is solid for a STATED likelihood at or above the threshold', () => {
+      expect(resolveExistenceDash(stated(0.71))).toEqual({ kind: 'stated', dash: undefined })
+      expect(resolveExistenceDash(stated(1.0))).toEqual({ kind: 'stated', dash: undefined })
+      // The boundary at exactly 0.7 falls on the solid side, as before.
+      expect(resolveExistenceDash(stated(0.7))).toEqual({ kind: 'stated', dash: undefined })
     })
 
-    it('returns undefined (solid) for exactly 100% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(1.0)
-      expect(lineStyle).toBeUndefined()
+    it('dashes a STATED likelihood below the threshold', () => {
+      for (const v of [0.6999, 0.5, 0.4, 0.39, 0.05, 0]) {
+        expect(resolveExistenceDash(stated(v))).toEqual({
+          kind: 'stated',
+          dash: EXISTENCE_UNCERTAIN_DASH,
+        })
+      }
     })
 
-    it('returns "6,4" (dashed) for sub-threshold certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.5)
-      expect(lineStyle).toBe('6,4')
-    })
-
-    // Wireframe v4: edges with exists_probability < 0.7 are dashed; >= 0.7 is
-    // solid. The boundary at exactly 0.7 falls on the solid side.
-    it('returns undefined (solid) for exactly 70% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.7)
-      expect(lineStyle).toBeUndefined()
-    })
-
-    it('returns "6,4" (dashed) just below the 70% boundary', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.6999)
-      expect(lineStyle).toBe('6,4')
-    })
-
-    it('returns "6,4" (dashed) for exactly 40% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.4)
-      expect(lineStyle).toBe('6,4')
-    })
-
-    it('returns "6,4" (dashed) for <40% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.39)
-      expect(lineStyle).toBe('6,4')
-    })
-
-    it('returns "6,4" (dashed) for very low certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.05)
-      expect(lineStyle).toBe('6,4')
-    })
-
-    it('returns "6,4" (dashed) for 0% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0)
-      expect(lineStyle).toBe('6,4')
+    it('distinguishes an unset edge from a stated high one — the pair the old signature could not express', () => {
+      // Both draw an unmarked line, and that is deliberate (see the function's
+      // header: solid is the ABSENCE of a mark, not a claim). What matters is
+      // that the two are now DIFFERENT DECISIONS, so `resolveEdgeDash` can name
+      // which one fired and a future lane has a position to hang a mark on.
+      expect(resolveExistenceDash(unset)).not.toEqual(resolveExistenceDash(stated(0.9)))
     })
   })
 

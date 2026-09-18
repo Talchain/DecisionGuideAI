@@ -23,6 +23,7 @@ import { memo, useCallback } from 'react'
 import { typography } from '../../../styles/typography'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { CANVAS_MIN_TARGET_BOX_STYLE } from './canvasGlyphScale'
 import type { TierInvitation } from '../../utils/ghostTiers'
 
 /**
@@ -98,9 +99,31 @@ function TierInvitationButton({
       // The colour is chosen by ground, not fixed: see `invitationTextToken`.
       // The underline carries the link affordance either way, so the door still
       // reads as a door once the hue stops being the thing that says so.
+      //
+      // ⭐⭐ THE HARDEST CONTROL ON THE CARD TO HIT WAS THE ONE THAT EXISTS TO
+      // MAKE A TEAM ARGUE WITH THE MODEL. This button carried no padding, no
+      // border and no hit slop, so its target was its line box alone:
+      // `edgeLabel` (11px) x `leading-snug` (1.375) = **15.125px rendered at
+      // every zoom in the legible band** — the counter-scale holds it steady
+      // and 8.875px short of WCAG 2.2 AA 2.5.8. `CANVAS_MIN_TARGET_BOX_STYLE`
+      // floors the BOX at `MIN_TARGET_RENDERED_PX`; its header carries the
+      // derivation and the reason a hit slop was the wrong instrument here
+      // (this row's `gap-0.5` is 1px rendered, so slop would overlap the
+      // question below and send the wrong one).
+      //
+      // ⚠ `inline-flex items-center` IS THE CROSS AXIS ON A ROW — vertical centring of
+      // the text inside the now-taller box, NOT the horizontal centring the
+      // node surface bans (`nodeCopyIsNeverCentred.spec.tsx` flags `flex-col` +
+      // `items-center`, which is the column case and is not this). `text-left`
+      // stays: the UA stylesheet centres <button> copy and nothing inherited
+      // can override a declared value. The spelling matches the 23 places this
+      // product already pairs `underline` with `inline-flex items-center` — as a
+      // flex item this blockifies to `flex` either way, so it is the same box
+      // with the established spelling.
       className={`${typography.edgeLabel} ${invitationTextToken(onTintedGround)} ${
         onTintedGround ? 'hover:text-text-body' : 'hover:text-info-hover'
-      } underline cursor-pointer nodrag nopan text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+      } underline cursor-pointer nodrag nopan text-left inline-flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+      style={CANVAS_MIN_TARGET_BOX_STYLE}
       onClick={onClick}
       onPointerDown={(e) => e.stopPropagation()}
     >

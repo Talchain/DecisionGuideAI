@@ -29,7 +29,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
-import { METRIC_NOUN } from './shared/metricVocabulary'
+import { METRIC_NOUN, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
@@ -60,7 +60,16 @@ export const DECISION_RESTING_COPY = {
   unnamedCta: 'Name it',
   unnamedAsk: 'Suggest a clear name for this part of the model',
   unnamedAskLabel: 'Name this',
-  noOptionsLine: 'No options linked yet',
+  /**
+   * ⚠ A REFERENCE, NOT A COPY, AND THAT IS LOAD-BEARING — the same rule this
+   * record's own header states. `STRUCTURAL_UNSET.noOptions` is the canvas's
+   * one word for "not modelled", and the `StatusPill` in this card's corner
+   * reads the SAME constant (`BaseNode.tsx`). Re-typing the literal here would
+   * let the corner and the body drift back into disagreeing about one fact.
+   * The VALUE is unchanged, so every rendered assertion on this line still
+   * matches byte for byte.
+   */
+  noOptionsLine: STRUCTURAL_UNSET.noOptions,
   noOptionsCta: 'Add options',
   noOptionsAsk: 'Suggest options to compare here',
   noOptionsAskLabel: 'Add options',

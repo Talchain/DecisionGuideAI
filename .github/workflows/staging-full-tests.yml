@@ -700,9 +700,106 @@ jobs:
   # Both are pinned by `tests/ci-guards/core-completeness-guard.spec.ts`, which
   # runs in the REQUIRED suite above, so the guard is protected even though the
   # browser suite is advisory.
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ⭐⭐ THE RULE THE JOB ABOVE ALREADY STATES, NOW ENFORCED RATHER THAN WRITTEN DOWN
+  # ═══════════════════════════════════════════════════════════════════════════
+  # `core-e2e`'s own docblock rules that on a pull request its result is NOT about
+  # the diff — "a GREEN here is NOT evidence that this PR is safe" — with ONE stated
+  # exception: a PR that changes `e2e/core/**` or `playwright.core.config.ts`, where
+  # the suite under test IS the diff. That rule was correct and unenforced, so the
+  # job ran on every PR regardless.
+  #
+  # ⛔ WHY THAT IS NOT MERELY WASTEFUL. Derived at the bytes, not assumed:
+  #   - `CORE_EXPECT_COMMIT` is `github.sha` ONLY on a push to `staging`; on a
+  #     pull_request it is the EMPTY STRING (the `&&`/`||` ternary two blocks down).
+  #   - `classifySample` gates on `if (expectedCommit && sample.commit !== expected)`,
+  #     so an empty expectation SHORT-CIRCUITS and whatever the alias is currently
+  #     serving is ACCEPTED.
+  #   ⇒ On a PR this job measures the DEPLOYED staging build — code the PR has not
+  #     changed and cannot change — and it is `continue-on-error`, so it can never
+  #     block anything either.
+  #
+  # And it is not free. `E2-readiness-truthful.core.spec.ts` calls `draftAsGuest`
+  # THREE times, each a real draft turn against the deployed CEE. So every PR into
+  # `staging` spent at least three live model calls to re-measure a build it did not
+  # touch, and could not learn anything about itself by doing so.
+  #
+  # ⚠ NO SIGNAL IS LOST, and that is the load-bearing claim here:
+  #   - push to `staging` — UNCHANGED. Still runs, still pinned to the exact commit
+  #     via `CORE_EXPECT_COMMIT`, which is the only posture in which its verdict was
+  #     ever attributable.
+  #   - `workflow_dispatch` — UNCHANGED.
+  #   - PR that touches the suite — STILL RUNS, which is the docblock's own exception.
+  #   - PR that does not — skipped, because its result was never about that PR.
+  #
+  # The completeness guard is untouched: `tests/ci-guards/core-completeness-guard.spec.ts`
+  # runs in the REQUIRED suite, so "this job cannot report success having executed
+  # nothing" is still pinned whether or not the browser suite runs.
+  core-scope:
+    name: Does this PR change the Core suite itself?
+    runs-on: ubuntu-latest
+    outputs:
+      touched: ${{ steps.check.outputs.touched }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Anything that is not a pull_request keeps the old behaviour exactly.
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "not a pull_request ($EVENT) — Core E2E runs, unchanged"
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # ⚠ FAIL OPEN, DELIBERATELY. If either SHA is missing or the diff cannot be
+          # taken, RUN the suite. A skip caused by a broken scope check would be a
+          # silent loss of coverage that looks exactly like a clean skip; an extra run
+          # is merely the previous behaviour. The expensive direction is the wrong one
+          # to guess in.
+          if [ -z "$BASE_SHA" ] || [ -z "$HEAD_SHA" ]; then
+            echo "base/head sha unavailable — failing OPEN and running Core E2E"
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null); then
+            echo "git diff failed — failing OPEN and running Core E2E"
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A positive control on the diff itself: an EMPTY changed-file list from a
+          # real PR means the diff did not measure anything, and a skip derived from
+          # it would be blindness rather than a decision (CLAUDE.md trap 13).
+          if [ -z "$CHANGED" ]; then
+            echo "changed-file list is EMPTY for a pull_request — the diff measured"
+            echo "nothing, so this is instrument failure, not an absence."
+            echo "Failing OPEN and running Core E2E."
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$CHANGED" | sed 's/^/  /'
+          if echo "$CHANGED" | grep -qE '^(e2e/core/|playwright\.core\.config\.ts$|scripts/core-e2e/)'; then
+            echo "this PR changes the Core suite itself — running Core E2E"
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "this PR changes none of e2e/core/**, playwright.core.config.ts or"
+            echo "scripts/core-e2e/** — Core E2E would measure the DEPLOYED staging"
+            echo "build, not this diff, so it is skipped. See the docblock below."
+            echo "touched=false" >> "$GITHUB_OUTPUT"
+          fi
+
   core-e2e:
     name: Core E2E · System E (advisory)
-    needs: install
+    needs: [install, core-scope]
+    if: needs.core-scope.outputs.touched == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     # 30 -> 45. The resolve step now waits up to 15 minutes for Netlify to publish the

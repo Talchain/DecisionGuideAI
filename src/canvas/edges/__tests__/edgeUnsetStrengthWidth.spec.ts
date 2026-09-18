@@ -134,7 +134,7 @@ describe('an unset strength is not drawn as a measurement', () => {
       // if `lens_causal` ever started falling through to polarity, these two
       // would diverge and this test REDs.
       polarityStroke: 'var(--edge-negative)',
-      existenceDash: null,
+      existence: { kind: 'stated', dash: undefined },
       visualPropsDash: undefined,
     }
     const sameDirectionOtherPolarity: EdgePresentationState = {

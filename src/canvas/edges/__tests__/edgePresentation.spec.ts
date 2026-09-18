@@ -40,7 +40,7 @@ function state(overrides: Partial<EdgePresentationState> = {}): EdgePresentation
     contested: NOT_CONTESTED,
     isHighlighted: false,
     polarityStroke: POLARITY_GREEN,
-    existenceDash: null,
+    existence: { kind: 'stated', dash: undefined },
     visualPropsDash: undefined,
     ...overrides,
   }
@@ -98,6 +98,9 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
     expect([...EDGE_DASH_RULES]).toEqual([
       'structural',
       'contested',
+      // Provenance is asked BEFORE value: an edge nobody assessed reaches a
+      // NAMED rule rather than falling through to the legacy visual-props map.
+      'existence_unset',
       'existence_certainty',
       'visual_props',
     ])
@@ -232,19 +235,48 @@ describe('edgePresentation — the contest is ALWAYS visible, on the dash', () =
 
   it('OPPOSITE-DIRECTION TWIN: a genuinely uncertain edge still dashes from existence certainty', () => {
     // Removing the fake "needs attention" dash must not remove the real one.
-    const d = resolveEdgeDash(state({ existenceDash: '6,4' }))
+    const d = resolveEdgeDash(state({ existence: { kind: 'stated', dash: '6,4' } }))
     expect(d.rule).toBe('existence_certainty')
     expect(d.value).toBe('6,4')
   })
 
-  it('a quiet edge with nothing stated is SOLID — no alarm by default', () => {
-    const d = resolveEdgeDash(state())
+  it('an edge NOBODY ASSESSED is solid, and says so by NAME rather than by falling through', () => {
+    // ⭐ THE DEFECT THIS RULE WAS ADDED TO REMOVE. `USER_EDGE_DEFAULTS.beliefExists`
+    // is 0.8 with no source stamp; the dash used to read that number raw, clear
+    // the 0.7 threshold and draw solid — under a legend reading "Solid
+    // connection: established". The board asserted that a link the user had
+    // merely DRAWN was established, pre-attentively.
+    //
+    // Binding to the RULE, not the value, is the whole point: the pixels are
+    // unchanged (solid), so a value assertion could not tell this apart from the
+    // defect. Only the decision's identity can (trap 19).
+    const d = resolveEdgeDash(state({ existence: { kind: 'unset' } }))
+    expect(d.rule).toBe('existence_unset')
+    expect(d.value).toBeUndefined()
+  })
+
+  it('OPPOSITE-DIRECTION TWIN: a STATED high likelihood is solid too, and is a DIFFERENT decision', () => {
+    // The pair is what proves the binding. Same pixels, different rule — so a
+    // future lane that wants to mark the unset state has a named position to
+    // hang it on, and nothing silently inherits the other's treatment.
+    const d = resolveEdgeDash(state({ existence: { kind: 'stated', dash: undefined } }))
     expect(d.rule).toBe('visual_props')
+    expect(d.value).toBeUndefined()
+    expect(d.rule).not.toBe('existence_unset')
+  })
+
+  it('an unassessed edge is NOT marked by the legacy visual-props map either', () => {
+    // Provenance before value: `style` is a presentational field with no
+    // provenance at all, so it may not paint a certainty mark on a link nobody
+    // assessed. Inert in the product today (nothing sets `style` to 'dashed'),
+    // which is why this is a closed hole rather than a pixel change.
+    const d = resolveEdgeDash(state({ existence: { kind: 'unset' }, visualPropsDash: '6 4' }))
+    expect(d.rule).toBe('existence_unset')
     expect(d.value).toBeUndefined()
   })
 
   it('structural edges are always solid', () => {
-    const d = resolveEdgeDash(state({ isStructural: true, contested: contestedSignFlip, existenceDash: '6,4' }))
+    const d = resolveEdgeDash(state({ isStructural: true, contested: contestedSignFlip, existence: { kind: 'stated', dash: '6,4' } }))
     expect(d.rule).toBe('structural')
     expect(d.value).toBeUndefined()
   })

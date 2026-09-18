@@ -86,6 +86,8 @@ import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
+import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
+import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -1568,7 +1570,23 @@ export function AnalysisNewTabBody({
             label = 0 characters, every one). A zone label is a heading like any
             other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
             it was breaking, and the fix is the gate, not a wider ceiling. */}
-        {focusApplicableIds.length > 0 ? (
+        {/* ⛔⛔ THE GATE WIDENED, AND THE RULE IT PROTECTS IS UNCHANGED.
+            This read `focusApplicableIds.length > 0`, because the comment above
+            is right that a zone label over nothing is the defect. `Focus now`
+            now heads something on EVERY run: `MethodsYouCanRun` renders the
+            static `METHOD_CATALOGUE`, which is never empty. So the heading still
+            claims something that is under it — the gate moved, the rule did not.
+
+            ⭐ PAUL'S INSTRUCTION, 18 Sep 2026: "make it first-screen — put it in
+            ZONE: FOCUS." It was in ZONE: ALSO, below the fold. This zone renders
+            above the answer, so the methods are now the first thing under the
+            decision itself.
+
+            ⚠ THE NUDGES KEEP THEIR OWN GATE, inside. They are run-specific and
+            frequently absent; the methods are not. Two different questions, and
+            folding them into one gate is what would bring the heading-over-
+            nothing defect back. */}
+        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
           <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
@@ -1581,7 +1599,15 @@ export function AnalysisNewTabBody({
             >
               Focus now
             </p>
-            <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
+                specific to THIS model; the methods are always available. A
+                reader who has a run-specific prompt should meet it before the
+                general shelf — prominence for the shelf was the instruction,
+                not precedence over the run. */}
+            {focusApplicableIds.length > 0 ? (
+              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            ) : null}
+            <MethodsYouCanRun />
           </div>
         ) : null}
 

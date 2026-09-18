@@ -174,7 +174,6 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 // width assertions below bind to the genuine band mapping.
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: () => undefined,
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 7,
 }))

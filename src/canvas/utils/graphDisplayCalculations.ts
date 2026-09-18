@@ -9,7 +9,7 @@
  */
 
 import type { RiskImpact } from '../domain/nodes'
-import type { EdgeValueDisplay } from '../domain/edgeValueProvenance'
+import { EDGE_VALUE_BAND_CUTS, type EdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getCanvasStrengthBand, type CanvasStrengthBandId } from '../domain/vocabulary'
 
 /**
@@ -100,20 +100,112 @@ export function calculateRiskSeverity(
 }
 
 /**
- * Map existence certainty to SVG dasharray for line style.
- * Graph v1.1 Task 7 / wireframe v4: edges with `exists_probability < 0.7`
- * render dashed; `>= 0.7` is solid. The boundary at exactly 0.7 is solid.
+ * ⭐⭐ THE EXISTENCE DASH — AND WHY IT TAKES A RESOLVED DISPLAY, NOT A NUMBER.
  *
- * @param existsProbability - edge.exists_probability (0-1)
- * @returns SVG dasharray string or undefined for solid
+ * This took `existsProbability: number | undefined` and returned solid for
+ * `undefined` or `>= 0.7`. Two branches, and NEITHER could express "unset".
+ *
+ * `USER_EDGE_DEFAULTS.beliefExists` is `0.8` and carries NO source stamp, so a
+ * link the user had merely DRAWN arrived here as the number `0.8`, cleared the
+ * threshold, and drew SOLID — while `CanvasLegendPopover` told the reader
+ * "Solid connection: established". The board therefore asserted that a
+ * relationship nobody had assessed was ESTABLISHED. That is the defect
+ * `EdgePanel.thresholdColor(v: number)` had one channel over, and it is worse
+ * here: a line style is read PRE-ATTENTIVELY, so a reader absorbs the claim
+ * without ever deciding to believe it.
+ *
+ * Taking `EdgeValueDisplay` is the fix, and it is the fix `computeDirectionStroke`
+ * and `resolveEdgeSignedStrengthDisplay` already made on their own channels:
+ * there is no argument to this function that means "0.8, source unknown".
+ * DESIGN_SYSTEM.md states the rule it obeys (RULED 2026-09-08) — "⛔ The unset
+ * state is decided by PROVENANCE, never by a value … Any future rule here must
+ * key on whether anyone SUPPLIED the value — never on the value itself, which
+ * always has a default."
+ *
+ * ⚠ WHY UNSET GETS NO MARK OF ITS OWN, having asked the question properly.
+ * The obvious move is a third dash. Every position in this channel is already
+ * spent, and each reuse would state something nobody said:
+ *   · `'6,4'`        — "someone stated a likelihood below the threshold".
+ *   · dotted `'2 3'` — `styleToDashArray`'s third case, and NOT free: dotted
+ *                      already means LOW in this codebase's confidence
+ *                      vocabulary (`ConfidenceBadge.low` draws a dotted border;
+ *                      DESIGN_SYSTEM v5's confidence table pins `Low` to
+ *                      `border-dotted`). An unset edge drawn dotted reads "low".
+ *   · the contested dash — reserved for a live, divergence-scaled dispute.
+ * `UNSET_EDGE_STROKE_WIDTH` below reached the same verdict about dash from the
+ * STRENGTH side ("dash is already spent three times over"). Re-derived here for
+ * the EXISTENCE axis it holds again, on the dotted evidence above — which that
+ * entry did not have, because it never had cause to ask whether dotted was free.
+ *
+ * And minting a FOURTH pattern is refused on Paul's 17 Aug 2026 ruling, which
+ * bites hardest exactly here: "reserve exception styling for genuinely
+ * exceptional/contested states". On a fresh or AI-drafted board essentially
+ * every edge is unset, so ANY mark for unset IS the default mark — and the
+ * graph reads as alarming when nothing is wrong.
+ *
+ * So the honest treatment is SILENCE on this channel, and it is not the same
+ * thing as the old behaviour even though the pixels agree: a dash is a mark
+ * ADDED to a line, and an unmarked line asserts nothing — UNLESS a legend says
+ * it does. The legend did. `CanvasLegendPopover.CONNECTION_ROWS` is corrected in
+ * the same change, and that is the half that removes the false claim.
+ *
+ * ⚠ THE ASYMMETRY WITH WIDTH, since the two look like the same problem: EVERY
+ * width is a claim (weak/moderate/strong), so an unset strength had nowhere to
+ * stand and needed `UNSET_EDGE_STROKE_WIDTH` minted for it. Solid is not a
+ * claim; it is the absence of a mark. The channels differ, so the remedies do.
+ *
+ * The unset state stays VISIBLE on the two channels DESIGN_SYSTEM.md already
+ * ruled own it: a freshly drawn edge draws grey (`computeDirectionStroke`'s
+ * neutral, because `weight` is unstamped too) at `UNSET_EDGE_STROKE_WIDTH`, and
+ * the legend teaches both rows. "New states must reuse this vocabulary, not
+ * invent a third treatment."
  */
-export function existenceCertaintyToLineStyle(
-  existsProbability: number | undefined
-): string | undefined {
-  if (existsProbability === undefined || existsProbability >= 0.7) {
-    return undefined // Solid (default)
+export type ExistenceDash =
+  /**
+   * Nobody supplied a likelihood. This channel has NOTHING to say — and that is
+   * a DECISION, which is why it is a named member here and a named rule in
+   * `EDGE_DASH_RULES`, not an `undefined` that a later reader would mistake for
+   * a fallthrough.
+   */
+  | { readonly kind: 'unset' }
+  /** Somebody stated one. `dash` is `undefined` when it cleared the threshold. */
+  | { readonly kind: 'stated'; readonly dash: string | undefined }
+
+/**
+ * The dash a STATED sub-threshold likelihood draws. Named so the legend can
+ * consume it instead of restating it — `CanvasLegendPopover`'s connection key
+ * carried its own `'3 2'` swatch under a caption describing this channel, so
+ * the key taught a dash the canvas has never drawn (trap 12).
+ */
+export const EXISTENCE_UNCERTAIN_DASH = '6,4'
+
+/**
+ * Cut at `EDGE_VALUE_BAND_CUTS.high`, imported rather than restated: the same
+ * 0.7 lives in `edgeValueBand` and in the panel, and it was a hand-copied
+ * literal here. The boundary at exactly 0.7 is solid, as before.
+ *
+ * ⚠⚠ THIS FUNCTION COLLAPSES TWO POPULATIONS INTO SOLID, AND THE LEGEND'S
+ * CAPTION IS A CLAIM ABOUT THEIR UNION. `{kind:'unset'}` (nobody stated a
+ * likelihood) and `{kind:'stated', dash: undefined}` (somebody stated one in
+ * [0.7, 1.0]) are DIFFERENT DECISIONS that paint IDENTICAL PIXELS. The first
+ * repair of the key captioned all of it *"no doubt recorded"*, which is false
+ * across the whole stated-high band — an edge CEE stamps at
+ * `exists_probability: 0.75` has a **recorded 25% doubt** and draws solid.
+ *
+ * ⛔ DO NOT "FIX" THAT BY MOVING OR REMOVING THE CUT. Raising it dashes most of
+ * an AI-drafted board (Paul's 17 Aug ruling, quoted in the header above);
+ * removing it deletes the only honest use of the channel. **The union is the
+ * thing the caption must describe**, and `CanvasLegendPopover.CONNECTION_ROWS`
+ * now does — *"no doubt recorded, or only a small one"*. Any change to this
+ * cut, or to the `kind` members, is a change to that sentence's truth
+ * conditions: re-derive the caption in the same commit.
+ */
+export function resolveExistenceDash(display: EdgeValueDisplay): ExistenceDash {
+  if (!display.show) return { kind: 'unset' }
+  return {
+    kind: 'stated',
+    dash: display.value >= EDGE_VALUE_BAND_CUTS.high ? undefined : EXISTENCE_UNCERTAIN_DASH,
   }
-  return '6,4'
 }
 
 /**

@@ -25,6 +25,21 @@ vi.mock('../../store', () => ({
       edges: [],
       ceeAnalysisReady: null,
       results: { status: 'idle', report: null },
+      // ⭐ THE CURRENCY PRECONDITION FOR THE RANKED INFLUENCE READOUT, SEEDED
+      // EXPLICITLY IN EVERY STORE STATE IN THIS FILE.
+      //
+      // `FactorNode` withholds the ranked readout unless
+      // `useAnalysisResultsAreCurrent()` is true, and that hook is imported for
+      // real here — it reads these three fields through the mocked store and
+      // calls the real `classifyFreshnessForDisplay`. An omitted slice
+      // classifies as 'none' and the card falls back, which would make every
+      // ranked assertion in this file fail rather than sit silently on the
+      // fallback branch. Stated, not defaulted: a precondition a fixture leaves
+      // implicit is the fixture-blindness defect this file already carries a
+      // note about (CLAUDE.md trap 3b, arriving through the fixture).
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      importPendingServerRegistration: false,
       highlightedNodes: new Set(),
       dimmedNodeIds: new Set(),
       goalThreshold: null,
@@ -296,6 +311,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -500,6 +520,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -638,6 +663,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -699,6 +729,11 @@ describe('FactorNode', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -711,6 +746,33 @@ describe('FactorNode', () => {
       influence: 1,
       influenceProvenance: 'normalised_elasticity',
       influenceImportanceBasis: null,
+      /* ⛔⛔ THE FIXTURE'S STANCE ON THE DENOMINATOR IS NOW EXPLICIT, AND THAT
+         IS THE FIX (2026-09-18).
+
+         `influenceSetSize` arrived OPTIONAL, so this mock — written before it
+         existed — silently omitted it, `influenceRankReadout(1, undefined)`
+         returned null, and this test went on asserting the pre-ranking render
+         on a path the deployed card could no longer take. The suite would have
+         stayed green while the card said `Most influential … of 5`: CLAUDE.md
+         trap 3b reaching the surface THROUGH THE FIXTURE rather than through a
+         flag.
+
+         ⚠ AND THE OMISSION WAS NOT MERELY UNDER-SPECIFIED, IT WAS FICTIONAL.
+         The producer assigns the denominator unconditionally in its factor
+         branch, BEFORE the rank gate, so `sensitivityRank != null` implies
+         `influenceSetSize != null` — pinned in
+         `useNodeDisplayMetadata.influenceSetSize.spec.ts`. A rank without a
+         size is a state the hook cannot emit (trap 16-inverse: a fixture you
+         wrote yourself is not evidence about the wire).
+
+         ⚠ RE-POINTED, NEVER RELAXED — the phrase this file already uses. The
+         claim underneath is unchanged: the per-set-normalised figure must not
+         reach a prominent surface stripped of the sentence that stops it being
+         read as an absolute. It is now asserted HARDER, because the ranked row
+         does not print a bare percentage at all, and the percentage is asserted
+         to survive in the disclosure. The pre-ranking strings are not lost
+         either: they are pinned verbatim in the fail-closed twin below. */
+      influenceSetSize: 5,
       confidence: null,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -736,11 +798,22 @@ describe('FactorNode', () => {
     // accessible name, now including the value as well as its scale.
     const row = screen.getByTestId('factor-influence-row')
     fireEvent.mouseEnter(row)
+    // ⭐ THE DISCLOSURE IS STRICTLY LONGER THAN IT WAS: the ranked sentence is
+    // PREPENDED and the scale sentence is carried verbatim, so this still pins
+    // every word the pre-ranking assertion pinned.
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+      'Most influential of 5 factors compared in this model, at 100% of the strongest factor. Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
-    expect(row.textContent).toContain('Relative influence')
-    expect(row.textContent).toContain('100%')
+    // The visible row is now a RANKING, which is the claim a reader can push
+    // back on. Bound to the two columns by their exact strings.
+    expect(row.textContent).toContain('Most influential')
+    expect(row.textContent).toContain('of 5')
+    // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is
+    // the assertion that would RED if either call site reverted to the
+    // pre-ranking render. Without it the two `toContain`s above could both pass
+    // on a row that ALSO still printed `100%`.
+    expect(row.textContent).not.toContain('100%')
+    expect(row.textContent).not.toContain('Relative influence')
     // ⚠ THE **BAR** PHRASE, NOT THE PILL'S — and that is a deliberate upgrade,
     // not a relaxation. `influenceScaleCopy` carries both spellings and the row
     // is a bar, so it now reads the SAME string the Detailed-view Influence bar
@@ -749,13 +822,96 @@ describe('FactorNode', () => {
     // one number on one card. Both still come from that one module, so neither
     // can drift; they now also agree with each other.
     expect(row).toHaveAccessibleName(
-      // ⚠ 'Influence:' -> 'Relative influence:'. The accessible name is built as
-      // `${label}: ${formatted}. ${phrase}` (NodeMetricRow), and the label is now the
-      // basis-aware visible noun. The result reads slightly redundantly for a screen
-      // reader ("Relative influence: 100%. Influence, relative to the strongest...") and
-      // that is the RIGHT trade: the pointer and the assistive channels now state the
-      // SAME basis, where before only the assistive one did. Pinned verbatim so a change
-      // to either channel has to come back here and be argued.
+      // ⚠ THE ROW NOW OWNS ITS WHOLE ACCESSIBLE NAME (`NodeMetricRow`'s
+      // `accessibleName` override), because the default composition
+      // `${label}: ${formatted}. ${phrase}` would announce "Most influential:
+      // of 5." — a colon between a phrase and its own tail. Pinned verbatim so
+      // a change to either channel has to come back here and be argued.
+      //
+      // ⭐⭐ AND THE PERCENTAGE IS HERE, WHICH IS WHY REMOVING IT FROM THE FACE
+      // OF THE CARD IS A DEMOTION AND NOT A DELETION. This assertion is the
+      // NO-HIDING half of the claim: a reader who wants the figure still gets
+      // it, stated WITH the scale that makes it meaningful. If a later change
+      // drops the percentage from the disclosure as well, this REDs — which is
+      // the only thing standing between "demoted" and "hidden a finding".
+      //
+      // ⚠ CONTAINMENT, VISIBLE AND DERIVABLE: this name OPENS with the visible
+      // caption and contains the visible figure string. The general invariant
+      // is guarded in `influenceRankReadout.spec.ts`; what is pinned here is
+      // that the ROW actually publishes it.
+      'Most influential of 5 factors compared in this model, at 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%',
+    )
+  })
+
+  /**
+   * ⭐⭐ THE FAIL-CLOSED TWIN, AND IT CARRIES THE ORIGINAL ASSERTION VERBATIM.
+   *
+   * The test above was re-pointed to the ranked render. Re-pointing a guard
+   * without leaving something behind on the old arm is how a claim quietly
+   * stops being policed, so the pre-ranking strings are pinned HERE instead —
+   * character for character, including the `${label}: ${formatted}. ${phrase}`
+   * accessible name that `NodeMetricRow` composes when no override is passed.
+   *
+   * ⚠ THIS ARM IS REACHABLE ON THE DEPLOYED CARD, NOT A LEGACY SHIM. The
+   * denominator is withheld whenever the rank is (a tie, or below the badged
+   * depth) AND whenever the graph has been edited since the last run. So every
+   * factor ranked 4th or lower, every factor on a tied set, and EVERY factor on
+   * a model whose graph has moved renders exactly this.
+   */
+  it('FAIL-CLOSED: with no denominator the row renders the pre-ranking caption, unchanged', async () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: null,
+        nodes: [],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'complete', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'standard',
+      })
+    )
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: 1,
+      influence: 1,
+      influenceProvenance: 'normalised_elasticity',
+      influenceImportanceBasis: null,
+      // EXPLICIT null — the point of this test is the absent denominator, so it
+      // is stated rather than omitted. An omission here would be the same
+      // silent-fallback defect one level down, in the test written to cover it.
+      influenceSetSize: null,
+      confidence: null,
+      confidenceIsDefaulted: false,
+      confidenceIsProvisional: false,
+      inSensitivityAnalysis: true,
+      achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
+    const row = screen.getByTestId('factor-influence-row')
+    fireEvent.mouseEnter(row)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+    )
+    expect(row.textContent).toContain('Relative influence')
+    expect(row.textContent).toContain('100%')
+    // NON-VACUITY: prove this really is the OTHER arm, not the ranked one
+    // rendering something that happens to contain the old words.
+    expect(row.textContent).not.toContain('Most influential')
+    expect(row).toHaveAccessibleName(
       'Relative influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
     )
   })
@@ -776,6 +932,11 @@ describe('FactorNode', () => {
         selector({
           hoveredOptionId: null, nodes: [], edges: [], ceeAnalysisReady: null,
           results: { status: 'complete', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(), dimmedNodeIds: new Set(),
           goalThreshold: null, goalConstraints: [], viewMode,
         })
@@ -783,6 +944,18 @@ describe('FactorNode', () => {
       vi.mocked(useNodeDisplayMetadata).mockReturnValue({
         sensitivityRank: 1, influence: 0.8, influenceProvenance: 'influence_score',
         influenceImportanceBasis: null,
+        /* ⚠ EXPLICITLY ON THE FAIL-CLOSED ARM (2026-09-18), AND SAID OUT LOUD.
+           This block is about the PILL/BAR hierarchy, not about the influence
+           wording, so it deliberately stays on the unranked render — which
+           keeps its `Relative influence` / `80%` assertions below true and,
+           more importantly, true ON PURPOSE. Before this line they were true by
+           ACCIDENT: `influenceSetSize` was optional, the mock omitted it, and
+           the block was silently pinned to a branch it had never chosen. A
+           fixture whose branch is implicit is a guard whose subject can move
+           without it (CLAUDE.md trap 3b, arriving through the fixture). The
+           ranked render is covered in
+           `FactorNode.influenceRanking.spec.tsx`. */
+        influenceSetSize: null,
         confidence: 0.45, confidenceIsDefaulted: false, confidenceIsProvisional: false,
         inSensitivityAnalysis: true,
         achievementProbability: null, achievementProbabilityIsModelledBasis: false,
@@ -851,6 +1024,11 @@ describe('FactorNode', () => {
           edges: [],
           ceeAnalysisReady: null,
           results: { status: 'complete', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1189,6 +1367,11 @@ describe('FactorNode — intervention hover', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'idle', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -1445,6 +1628,11 @@ describe('FactorNode — intervention hover', () => {
         edges: [],
         ceeAnalysisReady: null,
         results: { status: 'idle', report: null },
+        // The ranked readout's currency precondition — see the note on the
+        // module-level store mock at the top of this file.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
         highlightedNodes: new Set(),
         dimmedNodeIds: new Set(),
         goalThreshold: null,
@@ -1494,6 +1682,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1538,6 +1731,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1572,6 +1770,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,
@@ -1623,6 +1826,11 @@ describe('FactorNode — intervention hover', () => {
           ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
+          // The ranked readout's currency precondition — see the note on the
+          // module-level store mock at the top of this file.
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
+          importPendingServerRegistration: false,
           highlightedNodes: new Set(),
           dimmedNodeIds: new Set(),
           goalThreshold: null,

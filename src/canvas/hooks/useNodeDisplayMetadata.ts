@@ -65,6 +65,69 @@ export interface NodeDisplayMetadata {
    */
   influenceImportanceBasis: string | null
   /**
+   * How many DISTINCT factors the influence figure was ranked against — the
+   * denominator that turns `sensitivityRank` into a claim a reader can argue
+   * with ("most influential of 5") instead of a bare normalised percentage.
+   *
+   * ⚠ IT IS THE COMPARISON SET, NOT THE CANVAS. Counted off the SAME `ranked`
+   * array `sensitivityRank` is derived from, so the rank and its denominator
+   * can never be computed on different bases — which is the defect
+   * `driverDisplayModel.ts` records for the rank/badge pair one level down.
+   * Distinct KEYS, matching the duplicate-id collapse `determinedRankDepth`
+   * already applies: two rows sharing an id are one factor.
+   *
+   * ⚠⚠ THE STALENESS GATE THAT WAS HERE HAS MOVED TO THE RENDER SITE, AND THAT
+   * IS WHAT KEEPS THE INVARIANT BELOW TRUE. A denominator is a COUNTABLE claim —
+   * `of 5` beside eight factor cards is refutable by counting — so it is
+   * withheld unless the result is confirmably about the current graph. But the
+   * question "may this claim be made?" is not the question "what is the size of
+   * the run's comparison set?", and answering both here made the assignment
+   * CONDITIONAL, which falsified the invariant that makes this field's
+   * optionality safe. `FactorNode.tsx` now reads
+   * `useAnalysisResultsAreCurrent()` and withholds the whole readout; this
+   * producer answers only its own question. See that call site for the
+   * measurement that condemned the previous gate (`graphEditedSinceLastRun` is
+   * reset to `false` by `store.ts:6026`/`:6097` in the same `set()` that
+   * installs a restored run).
+   *
+   * ⚠ OPTIONAL, following `goalFitAvailable` and `winComputationFailed` below.
+   * ⛔ THE REASON RECORDED HERE FIRST WAS WRONG, AND A WRONG REASON IN A
+   * DOCBLOCK IS WHAT THE NEXT SESSION INHERITS. It said the mock churn would
+   * desync "the typecheck gate's IDENTITY baseline". Derived at the gate's own
+   * bytes (`scripts/ci/typecheck-gate.sh`): the identity baseline is
+   * explicitly NON-BLOCKING — its diffs are emitted with `note`, i.e. as
+   * `::notice::`, because the union-order canonicaliser feeding it is a
+   * heuristic and "a heuristic belongs where its drift costs noise in a report,
+   * never a red build" (the script's own header). Desyncing it costs a notice.
+   *
+   * ⭐ WHAT ACTUALLY BLOCKS is the PER-FILE COUNT RATCHET, and it blocks hard.
+   * Measured in this tree: `vi.mocked(useNodeDisplayMetadata).mockReturnValue`
+   * has **100 call sites across 24 spec files** (contrast, same sweep:
+   * `vi.mocked(useCanvasStore)` → 301, so the probe is not blind). Only four of
+   * those 24 files carry a baseline entry, so making this field required
+   * without editing all 100 sites turns ~20 files into NEW erroring files — the
+   * gate's first blocking condition — and raises the total. Right conclusion,
+   * wrong mechanism; the mechanism is recorded now so nobody re-derives it.
+   *
+   * ⭐⭐ AND THE OPTIONALITY IS MADE SAFE BY A PINNED PRODUCER INVARIANT, NOT BY
+   * THE DEFAULT BEING CONVENIENT. An optional field whose absence silently
+   * selects a different render is precisely CLAUDE.md trap 3b arriving through
+   * the fixture. What removes that risk is that the state "rank present,
+   * denominator absent" is UNREACHABLE FROM THIS PRODUCER: the assignment below
+   * is unconditional within the factor branch and runs BEFORE the rank gate, so
+   * `sensitivityRank != null` implies `influenceSetSize != null`. That
+   * implication is asserted in `useNodeDisplayMetadata.influenceSetSize.spec.ts`
+   * and REDs if the assignment is moved, removed or made conditional. A fixture
+   * that supplies a rank without a size is therefore a KNOWN-FICTIONAL input
+   * (trap 16-inverse), not an under-specified one.
+   *
+   * The default is still fail-closed on its own terms — `influenceRankReadout`
+   * returns null on an absent size, so the row falls back to the caption it
+   * renders today. Absence degrades to the status quo, never to a fabricated
+   * denominator.
+   */
+  influenceSetSize?: number | null
+  /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
    * producer sent none OR when the ruled policy says the figure is not fit to
@@ -258,6 +321,7 @@ export function useNodeDisplayMetadata(
         influence: null,
         influenceProvenance: null,
         influenceImportanceBasis: null,
+        influenceSetSize: null,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
@@ -282,6 +346,7 @@ export function useNodeDisplayMetadata(
     let influence: number | null = null
     let influenceProvenance: DriverDisplayProvenance | null = null
     let influenceImportanceBasis: string | null = null
+    let influenceSetSize: number | null = null
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -313,6 +378,23 @@ export function useNodeDisplayMetadata(
           value: displayModel.get(r.key)?.value ?? 0,
         }))
         .sort(compareByDisplayModel)
+
+      // The denominator for the ranked caption, taken off THIS array so it can
+      // never be derived from a different set than the rank beside it. Distinct
+      // keys, mirroring the duplicate-id collapse `determinedRankDepth` applies
+      // — one factor, one position, one unit of the total.
+      //
+      // ⭐⭐ UNCONDITIONAL INSIDE THIS BRANCH, AND THAT IS A CONTRACT, NOT A
+      // CONVENIENCE. It is what makes `sensitivityRank != null` imply
+      // `influenceSetSize != null`, which is the whole argument for leaving the
+      // field optional on `NodeDisplayMetadata` — see its docblock. A staleness
+      // gate sat here for one commit and broke that implication silently: the
+      // docblock claimed the state was unreachable while the spec four tests
+      // later produced it. The licence to PUBLISH the denominator is a different
+      // question with a different producer and it is asked at the render site
+      // (`FactorNode.tsx`, `useAnalysisResultsAreCurrent`). Two questions, two
+      // places, neither answering for the other (CLAUDE.md trap 21).
+      influenceSetSize = new Set(ranked.map((f) => f.key)).size
 
       // Find this node's rank (1-indexed).
       //
@@ -657,6 +739,7 @@ export function useNodeDisplayMetadata(
       influence,
       influenceProvenance,
       influenceImportanceBasis,
+      influenceSetSize,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,
@@ -675,5 +758,12 @@ export function useNodeDisplayMetadata(
       voiRank,
       isResultsMode: true,
     }
+    // ⚠ THE CURRENCY SIGNAL IS DELIBERATELY NOT A DEPENDENCY HERE, because it is
+    // no longer an input. It was, for one commit, and the note that stood in
+    // this position explained why the memo had to re-run when the graph moved —
+    // correct reasoning about a read that should not have been in this hook.
+    // The memo is keyed on the REPORT, which is exactly right for a question
+    // about the report; the render site re-reads its own gate on every render
+    // and is not memoised on this.
   }, [isResultsMode, report, nodeId, nodeType])
 }
