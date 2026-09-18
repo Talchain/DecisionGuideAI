@@ -164,6 +164,65 @@ export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Ob
 export const CANVAS_CORNER_STACK_CLASSES =
   'absolute bottom-full right-[-8px] mb-[2px] z-10 flex items-center gap-1'
 
+/**
+ * ⭐⭐ THE RIGHT-HAND GROUP OF THE CARD HEADER — one string, every group that
+ * sits there, because the header now holds groups that can carry MORE THAN ONE
+ * GLYPH and one of them shipped without a gap.
+ *
+ * ⛔ THE DEFECT, MEASURED ON THIS BRANCH AT `dfa351cb`. The provenance group was
+ * `inline-flex items-center shrink-0 ml-auto` — NO gap — and the two-mark branch
+ * (`NodeProvenanceMark`, when node authorship and value basis disagree) mounts
+ * two bare lucide svgs inside it, each `w-[calc(14px*var(--canvas-label-scale,1))]`
+ * with no margin of its own. **They abut at 0px, at up to 28px each under the 2x
+ * counter-scale.**
+ *
+ * ⚠ IT IS NOT COSMETIC HERE, AND `NodeProvenanceMark`'s OWN HEADER SAYS WHY. The
+ * hue was taken off these glyphs on a measurement — `text-warning` is 1.92:1
+ * against the card fill, under SC 1.4.11's 3:1 — on the explicit ground that
+ * **"the SHAPE carries the meaning"**. Two touching 14px shapes at the fit zoom
+ * degrade the one channel the design says is load-bearing, so a gap is the
+ * cheapest defence of a decision already made.
+ *
+ * ⭐ THE FIX IS A SHARED OWNER, NOT A COPIED HABIT. `gap-1` was already the
+ * convention for adjacent header glyphs — the `headerSlot` group in `BaseNode`
+ * and the ScienceIcons group in `FactorNode` both spell it — and the provenance
+ * group was the only one without it. Copying the token a third time is the
+ * hand-maintained mirror this file exists to avoid (CLAUDE.md trap 12), so the
+ * two `BaseNode` groups now read THIS string and cannot drift apart.
+ * `FactorNode`'s group is nested INSIDE the `headerSlot` one and is deliberately
+ * left alone: it is not an `ml-auto` header group, and folding it in here would
+ * give it positioning it must not have.
+ *
+ * ⚠⚠ THE GAP IS NOT COUNTER-SCALED, AND THAT IS A KNOWN ASYMMETRY RATHER THAN AN
+ * OVERSIGHT. The glyphs carry `--canvas-label-scale` and this 4px does not, so at
+ * the settle zoom (0.5) the user gets two 14px glyphs separated by 2px instead of
+ * 4px. Stated, not smuggled, and NOT resolved here for two reasons: (1) the
+ * sibling groups this matches are in exactly the same position, so scaling only
+ * this one would create the second authority the whole file argues against — the
+ * question is owed by the header row as a whole; (2) a scaled gap costs 8px of
+ * header measure at the bound instead of 4px, which widens the wrap band derived
+ * in `BaseNode.twoMarksNeedAGap.spec.tsx` from `[294, 326)` to `[294, 330)`
+ * against a `NODE_CARD_MAX_W` of 336. The cheap, consistent 4px is taken now; the
+ * scaling question is named for whoever owns the header row next.
+ */
+export const CANVAS_HEADER_GLYPH_GROUP_CLASSES = 'inline-flex items-center gap-1 shrink-0 ml-auto'
+
+/**
+ * The px `gap-1` above resolves to — Tailwind spacing `1` = `0.25rem` = **4px**
+ * at this app's 16px root.
+ *
+ * Exported as a NUMBER so the header-fit arithmetic can be computed rather than
+ * restated: a card fits its title and its header glyphs on ONE row only when
+ * `NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_GAP_PX + glyphs + gaps <= cardW -
+ * NODE_CARD_PADDING_X`, and that sum needs this as a number, not as a class.
+ *
+ * ⚠ THE PAIR IS GUARDED, because a number beside a class string IS a mirror:
+ * `BaseNode.twoMarksNeedAGap.spec.tsx` asserts the group string actually spells
+ * `gap-1`, so changing one without the other REDs instead of silently
+ * invalidating every width derived from it.
+ */
+export const CANVAS_HEADER_GLYPH_GAP_PX = 4
+
 export const CANVAS_CORNER_OFFSET_CLASSES_LEFT: Readonly<Record<6 | 12, string>> = Object.freeze({
   6: 'bottom-[calc(-6px*var(--canvas-label-scale,1))] left-[calc(-6px*var(--canvas-label-scale,1))]',
   12: 'bottom-[calc(-12px*var(--canvas-label-scale,1))] left-[calc(-12px*var(--canvas-label-scale,1))]',

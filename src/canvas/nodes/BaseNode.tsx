@@ -48,7 +48,11 @@ import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { useReadinessStore, selectOptionExclusionMessage } from '../stores/readinessStore'
 import { NodeQuickActions } from './shared/NodeQuickActions'
-import { NODE_QUICK_ACTION_BAND_PX, CANVAS_CORNER_STACK_CLASSES } from './shared/canvasGlyphScale'
+import {
+  NODE_QUICK_ACTION_BAND_PX,
+  CANVAS_CORNER_STACK_CLASSES,
+  CANVAS_HEADER_GLYPH_GROUP_CLASSES,
+} from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
 import { sensitivityRankBadgeAccessibleName } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -1679,8 +1683,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             vocabulary it is entitled to; the reasoning and the corpus that
             forced it are recorded there. It is NOT suppressed on those kinds —
             "did Olumi suggest this option?" is exactly what a reviewer wants. */}
+        {/* ⚠ THIS GROUP CAN HOLD TWO GLYPHS, AND IT SHIPPED WITH NO GAP.
+            `NodeProvenanceMark` renders a SECOND mark where node authorship and
+            value basis disagree; this span was `inline-flex items-center
+            shrink-0 ml-auto`, so the pair rendered flush at 0px — at up to 28px
+            each under the counter-scale. The class string now comes from
+            `CANVAS_HEADER_GLYPH_GROUP_CLASSES`, which the `headerSlot` group
+            below also reads, so the header's two right-hand groups cannot drift
+            apart on spacing. The testid exists so the guard binds to THIS group
+            by identity rather than by walking up from a mark (trap 19). */}
         {!isCausalLens && !isEvidenceLens && (
-          <span className="inline-flex items-center shrink-0 ml-auto">
+          <span
+            data-testid="node-provenance-mark-group"
+            className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
+          >
             <NodeProvenanceMark nodeType={nodeType} data={data} />
           </span>
         )}
@@ -1719,8 +1735,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right
             of the title row. Action icons remain in the footer (ActionIcons). */}
+        {/* Reads the SAME string as the provenance group above — byte-identical
+            to the `inline-flex items-center gap-1 shrink-0 ml-auto` it spelled
+            by hand, so this is a de-duplication and not a style change. */}
         {headerSlot && !isCausalLens && !isEvidenceLens && (
-          <span className="inline-flex items-center gap-1 shrink-0 ml-auto">
+          <span className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}>
             {headerSlot as ReactNode}
           </span>
         )}
