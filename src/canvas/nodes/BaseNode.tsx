@@ -110,7 +110,9 @@ interface BaseNodeProps extends NodeProps {
    * stack's contract puts it last. Against the `StatusPill` immediately below
    * it the order is UNOBSERVABLE (disjoint on RESULTS MODE — this said "by node
    * type" until 8 Sep 2026, and that gate no longer exists; the mechanism is
-   * derived once, on the stack's contract below); against the edited dot and
+   * derived once, on the stack's contract below, and note there that the phase
+   * gate doing the work is `isIncomplete`'s OPTION arm, which is the only arm
+   * this slot can ever meet); against the edited dot and
    * the coaching marker it is widest-first and load-bearing.
    */
   cornerSlot?: ReactNode
@@ -1231,10 +1233,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
               cornerSlot · StatusPill · rank · edited dot · coaching
 
-          ⚠ AND THREE OF THE TEN PAIRS CAN NEVER CO-OCCUR, which is derived,
+          ⚠ AND TWO OF THE TEN PAIRS CAN NEVER CO-OCCUR, which is derived,
           not incidental — the contract is written total anyway so it stays
           correct if a gate ever changes, and each impossibility is PINNED by a
-          spec that REDs on the change rather than silently overlapping:
+          spec that REDs on the change rather than silently overlapping.
+          ⛔⛔ IT SAID **THREE** UNTIL 18 Sep 2026, AND THE THIRD ONE WAS ALREADY
+          FALSE AT THIS PR'S BASE (`5824c05b`) — the un-gating that falsified it
+          landed earlier and touched neither this comment nor the derivation
+          that went on to rest on it. See the `StatusPill` vs `rank` bullet.
           • `cornerSlot` vs `StatusPill` — still impossible, BY A DIFFERENT
             MECHANISM SINCE 8 Sep 2026, and the change is recorded here because a
             reason left in the wrong place is how a later session concludes the
@@ -1247,17 +1253,50 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             exactly: `cornerSlot`'s caller renders it under `isRecommended`,
             which returns false unless `displayMetadata.isResultsMode`
             (`resultsStatus === 'complete'`); the pill needs `isPreRunMode`
-            (`resultsStatus !== 'complete'`). One store field, opposite tests —
-            the same shape as the pill-vs-rank line below. Their relative order
+            (`resultsStatus !== 'complete'`). One store field, opposite tests.
+            ⚠ AND THE PHASE GATE IN THAT SENTENCE IS THE **OPTION** ARM'S, WHICH
+            IS THE ONLY REASON THIS PAIR SURVIVED THE CHANGE THAT KILLED THE
+            NEXT BULLET: `cornerSlot`'s one caller is an option card, and
+            `isIncomplete`'s option arm still opens `if (!isPreRunMode) return
+            false`. Read the pill's gate as one predicate PER NODE TYPE, never
+            as a single `isPreRunMode` — reading it as one is precisely how the
+            pill-vs-rank line below survived the change that falsified it, and
+            then got inherited by a width derivation. Their relative order
             is therefore still UNOBSERVABLE at runtime; `cornerSlot` leads only
             because it is the caller's slot. Pinned, source-derived, in
             `BaseNode.needsJudgementBadge.spec.tsx`.
-          • `StatusPill` vs `rank` — disjoint on ONE store field: the rank badge
-            requires `results.status === 'complete'` (`isResultsMode`, declared
-            in `useNodeDisplayMetadata.ts`) and the pill requires
-            `results.status !== 'complete'` (`isPreRunMode`, declared in THIS
-            file). Exact complements. Pinned by
-            `BaseNode.statusPillCornerStack.spec.tsx` with the REAL hook.
+          ⛔⛔ `StatusPill` vs `rank` — **NOT A DISJOINT PAIR. THEY CO-OCCUR ON A
+            FACTOR, AND THAT IS THE COMMONEST POST-RUN FACTOR CARD THERE IS.**
+            This bullet read *"the pill requires `results.status !== 'complete'`
+            (`isPreRunMode`) … Exact complements"* until 18 Sep 2026. That
+            sentence describes a gate this file HAD ALREADY DELETED for factors:
+            `isIncomplete`'s factor arm returns `isFactorNeedsInput(data)` with
+            NO phase check (see its ⛔ SCOPE note above — `goal` and `option`
+            KEEP the phase gate, `factor` deliberately does not, because an
+            analysis does not resolve an unknown, it proceeds despite one).
+            `BaseNode.needsInputSurvivesTheRun.spec.tsx` pins exactly that, and
+            its CASE 1 renders the pill at `results.status: 'complete'`.
+            The other half is the datum: `sensitivityRank` is assigned in
+            `useNodeDisplayMetadata.ts`'s `if (nodeType === 'factor')` branch
+            from the driver feed's ranking, gated only on rank DETERMINACY
+            (`rank > 0 && rank <= determinedRankDepth(...)`) — never on whether
+            the user valued the factor. **The two predicates read disjoint
+            inputs — the pill reads NODE DATA, the rank reads the RESULTS
+            REPORT — so neither can exclude the other.**
+            ⭐ AND THE CO-OCCURRENCE IS NOT AN EDGE CASE: an unvalued factor
+            carries the widest uncertainty, so it is the likeliest factor for
+            the result to swing on and therefore the likeliest to be badged.
+            Suppressing either marker there would retract a true claim, so BOTH
+            render and the row must carry both. Pinned at the render in
+            `BaseNode.rankedFactorStillNeedsInput.spec.tsx`.
+            ⚠ WHY THE OLD PIN STAYED GREEN ON A FALSE CLAIM, because that is the
+            reusable half: `BaseNode.statusPillCornerStack.spec.tsx`'s
+            "IMPOSSIBILITY PIN" asserted that the two DECLARATIONS
+            (`const isPreRunMode = …`, `const isResultsMode = …`) exist. Both
+            still do. It never asserted that the pill's factor arm CONSUMES
+            `isPreRunMode` — and that is the line that went. A guard that pins a
+            declaration rather than its consumption cannot see a consumer
+            leaving (CLAUDE.md trap 13b). It has been re-pointed at the arm.
             ⚠ THESE NAME SYMBOLS, NOT LINE OFFSETS, AND THAT IS THE POINT. This
             sentence carried `:256` — the right offset against the wrong file —
             and the correction that repaired the filename broke the number
@@ -1273,8 +1312,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             `nodeType`, and OptionNode's is `"option"`, so on the only node type
             that can supply `cornerSlot` the rank badge can never render.
             Pinned by `OptionNode.leadingPillCornerStack.spec.tsx`.
-          So the largest set reachable on ONE node is THREE: a wide pill (either
-          one, per node type) · the edited dot · the coaching marker.
+          So the largest set reachable on ONE node is FOUR, and it is reachable
+          only on a FACTOR: `StatusPill` · `rank` · the edited dot · the
+          coaching marker — a ranked factor the user never valued, edited since
+          the run, with a live guidance item naming it. On `goal`, `option` and
+          `decision` the maximum is still THREE, because those arms keep the
+          phase gate and `rank` is factor-only. ⛔ THIS SAID THREE UNIVERSALLY
+          until 18 Sep 2026, on the strength of the pill-vs-rank "exact
+          complements" sentence above; `BaseNode.cornerStack.spec.tsx` pins
+          three children on a DECISION fixture, which is correct for that node
+          type and is not evidence about a factor.
 
           ⚠ ORDER IS WIDEST-FIRST, and that is what puts a wide pill at the
           head: the row is anchored by its RIGHT edge and grows LEFTWARD, so the
@@ -1282,6 +1329,27 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           corner and displaces the coaching marker from the rightmost, easiest
           click target. The StatusPill measured 67.9px against the dot's 5px at
           the same zoom, so it leads by a wide margin.
+          ⭐ THE INVARIANT SURVIVES TWO WIDE MEMBERS, AND IT IS WORTH SAYING WHY
+          RATHER THAN LEAVING IT TO BE RE-DERIVED: DOM order is `StatusPill` ·
+          `rank` · dot · coaching, which is still descending width, so on the
+          four-member factor set the dot and the coaching marker keep exactly
+          the places they hold on the three-member sets. Nothing is displaced
+          from the corner.
+          ⛔⛔ WHAT IS **NOT** ESTABLISHED, AND IT IS THE HALF THE ENVELOPE IS
+          ABOUT: the row's TOTAL WIDTH roughly doubles in that state. Both wide
+          members are `typography.nodeLabel` (`calc(12px *
+          var(--canvas-label-scale))`) with the same padding and `lineHeight`,
+          so `Key driver 1` (12 characters) sits within a few px of `Needs
+          input` (11) — call the pair ~140px plus two 4px gaps at the reference
+          zoom the 67.9px was measured at, against a `DEFAULT_NODE_WIDTH` of
+          200 (`cameraComfort.ts`) and a layout that has shipped cards at 180.
+          At the settle zoom the counter-scale caps at 2 and BOTH double while
+          the card does not, so the row extends well past the card's left edge
+          into the band above the tier. That is ARITHMETIC, NOT A MEASUREMENT —
+          the same caveat this file already carries about the band's clearance
+          below — and the measurement is in the browser. Nothing here licenses a
+          claim that the four-member row fits; what this contract now licenses
+          is that it is REACHABLE and must be measured.
 
           ⭐ HOW EACH ARRIVED, because the class is what matters more than the
           count. `StatusPill` hand-wrote `absolute -top-2 -right-1 z-10` — ONE
@@ -1336,7 +1404,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             DELETED that node-type pair, so the pill reaches option cards too and
             that reason is now false. They are disjoint on RESULTS MODE instead:
             `cornerSlot`'s caller renders under `isRecommended`, which needs
-            `isResultsMode`; the pill needs `isPreRunMode`. One store field,
+            `isResultsMode`; the pill's OPTION arm — the only arm reachable on
+            an option card, and the qualification matters, see the contract
+            above — needs `isPreRunMode`. One store field,
             opposite tests — derived in full in the five-member contract above and
             pinned by `BaseNode.needsJudgementBadge.spec.tsx`. Widest-first governs each of
             them against the three badges that follow, which is what keeps those
@@ -1626,18 +1696,39 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                    `StatusPill`'s — padding plus `lineHeight`, which counter-
                    scales with the type instead of fighting it.
 
-               ⚠ WIDTH, WHICH THE BRIEF ASKED ABOUT, AND IT IS BOUNDED BY A
-               DERIVATION RATHER THAN BY HOPE. This badge's only possible
-               neighbours are the 10px edited-since-run dot and the coaching
-               marker: the corner stack's five-member contract above records
-               that `StatusPill` is disjoint from it on `results.status`, and
-               `cornerSlot` cannot co-occur because `sensitivityRank` is
-               assigned only on `nodeType === 'factor'`. So the widest thing
-               this row ever holds is this badge — and `Key driver 1` is 12
-               characters against the `Needs input` pill's 11, in the same
-               font, in the same stack, measured at 67.9px in real Chromium.
-               The envelope is one the row already carries in this badge's
-               place. */
+               ⛔⛔ WIDTH — AND THE FIRST VERSION OF THIS BLOCK BOUNDED IT WITH A
+               DISJOINTNESS THAT DOES NOT HOLD. It read: *"This badge's only
+               possible neighbours are the 10px edited-since-run dot and the
+               coaching marker … `StatusPill` is disjoint from it on
+               `results.status` … So the widest thing this row ever holds is
+               this badge — and `Key driver 1` is 12 characters against the
+               `Needs input` pill's 11 … The envelope is one the row already
+               carries in this badge's place."* The arithmetic in that sentence
+               is right and its CONCLUSION is wrong, because the two pills are
+               not alternatives: they SHARE the row.
+
+               `isIncomplete`'s factor arm is phase-independent
+               (`isFactorNeedsInput(data)`, no `isPreRunMode`), and
+               `sensitivityRank` is assigned on factors from the results report
+               with no exclusion for unvalued ones. So a user who runs an
+               analysis with a factor they never valued — the likeliest factor
+               to be badged, because an unestimated factor carries the widest
+               uncertainty and the result moves most on it — gets `Needs input`
+               AND `Key driver N` on one row. Re-derived in full on the corner
+               stack's contract above; pinned at the render in
+               `BaseNode.rankedFactorStillNeedsInput.spec.tsx`.
+
+               ⚠ SO THE ENVELOPE THIS BADGE ENTERS IS THE PAIR, NOT THE BADGE.
+               Before #1688 the badge was a fixed 20×20 box; this change takes
+               it to `StatusPill`'s own geometry, which is right for the word
+               and is a ~3× widening of this member. In the widest reachable
+               state the row holds ~140px of text pills plus the dot and the
+               coaching marker, against a `DEFAULT_NODE_WIDTH` of 200 — and both
+               pills counter-scale to 2× at the settle zoom while the card does
+               not. The ordering invariant is unaffected (widest-first still
+               holds: pill · rank · dot · coaching), so nothing is displaced
+               from the corner. Whether the ROW FITS is a browser question and
+               is NOT answered here or anywhere else in this tree yet. */
             className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-semibold text-text-body bg-panel-border rounded-[10px] shadow-sm`}
             style={{ padding: '2px 6px', lineHeight: 1.2, pointerEvents: 'none' }}
             /* ⚠⚠ THIS WAS A `title`, AND A `title` ON THIS ELEMENT CAN NEVER
