@@ -8,6 +8,16 @@
  * `canvas/rank-badge-carries-a-word`. CI is the authority on whether it passes;
  * if it REDs, read the assertion, not this header.
  *
+ * ⚠ HISTORY, so the next reader does not re-derive it: at `69ec8cf5` this file
+ * failed CI, and NOT on an assertion — `FACTOR_ID` was a plain top-level
+ * `const` read inside the hoisted `../../store` factory's immediate body, so
+ * the file died AT COLLECT (`ReferenceError: Cannot access 'FACTOR_ID' before
+ * initialization`) and all four cases ran zero times. Repaired by moving it
+ * into the `vi.hoisted()` block. The repair is itself UNRUN — see the note
+ * there. NONE of the four cases below has ever been observed passing or
+ * failing; the only thing CI has established about them is that they did not
+ * execute.
+ *
  * ── WHY IT EXISTS ─────────────────────────────────────────────────────────
  * `BaseNode.tsx`'s five-member corner-stack contract said `StatusPill` and the
  * rank badge were "exact complements" on `results.status`, and #1688's width
@@ -69,10 +79,21 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 
-const FACTOR_ID = 'fac_hiring'
-
 // Hoisted so the (also hoisted) vi.mock factory can close over them.
-const { editedNodeIds, selectNodeWithoutHistory } = vi.hoisted(() => ({
+//
+// ⚠ `FACTOR_ID` MUST be hoisted with them, not declared as a plain top-level
+// `const`. The `../../store` factory below reads it in its IMMEDIATE body
+// (`const state = { nodes: [{ id: FACTOR_ID … }] }`), and that body runs during
+// the import of `FactorNode` — before any top-level `const` in this file has
+// initialised. As a plain `const` it threw
+// `ReferenceError: Cannot access 'FACTOR_ID' before initialization`, which
+// fails the WHOLE FILE AT COLLECT: all four cases contribute zero tests.
+//
+// Contrast `sensitivityRank` below, which stays a top-level `let` on purpose —
+// it is read inside the returned closure, evaluated at render time, and each
+// test reassigns it.
+const { FACTOR_ID, editedNodeIds, selectNodeWithoutHistory } = vi.hoisted(() => ({
+  FACTOR_ID: 'fac_hiring',
   editedNodeIds: new Set<string>(),
   selectNodeWithoutHistory: vi.fn(),
 }))
