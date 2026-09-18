@@ -66,6 +66,7 @@ import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { meaningfulUncertaintyDrivers } from '../../../utils/observedStateHelpers'
 
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
@@ -193,11 +194,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   // Canonical location is observedState.uncertainty_drivers (per ObservedStateSchema).
   // Fall back to legacy top-level node.data.uncertainty_drivers for in-flight data
   // that predates the schema consolidation.
-  const uncertaintyDrivers =
+  // ⭐ THROUGH THE SHARED PREDICATE. This surface renders the drivers list and
+  // was missed by the first placeholder fix, which wired only the factor card
+  // and the pre-analysis check. A placeholder printed here reads as evidence.
+  const uncertaintyDrivers = meaningfulUncertaintyDrivers(
     (obs?.uncertainty_drivers ??
-      ((factorData as unknown as { uncertainty_drivers?: string[] })?.uncertainty_drivers)) as
-      | string[]
-      | undefined
+      ((factorData as unknown as { uncertainty_drivers?: string[] })?.uncertainty_drivers)) as string[] | undefined,
+  )
 
   // Description — EmptyDescriptionPrompt pattern (Pattern B parity)
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))

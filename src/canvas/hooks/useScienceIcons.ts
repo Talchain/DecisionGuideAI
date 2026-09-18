@@ -40,6 +40,7 @@ import type { NodeType } from '../domain/nodes'
 // fourth raw-signed channel (#629's `getStrengthDescription` precedent).
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 
 export interface ScienceIconDef {
   id: string
@@ -94,7 +95,13 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
     const extractionType = observedState?.extractionType as string | undefined
     const value = observedState?.value as number | undefined
     const prior = nodeData.prior as { range_min?: number; range_max?: number } | undefined
-    const uncertaintyDrivers = observedState?.uncertainty_drivers as string[] | undefined
+    // ⛔ THE SECOND LENGTH-ZERO GATE THE PLACEHOLDER DEFEATED. CEE sends
+    // `['Not provided']` when it has no evidence; that array has length ONE,
+    // so the overconfidence test below (`!drivers || length === 0`) did not
+    // fire on exactly the factors it exists to catch. Same defect as
+    // `PreAnalysisPanel`, one surface over, and it was MISSED by the first
+    // fix — which claimed 'one predicate, both consumers' when there are five.
+    const uncertaintyDrivers = meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)
 
     // --- Factor-specific triggers ---
     if (nodeType === 'factor') {
@@ -140,7 +147,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
 
       // 8. Overconfidence: top-ranked factor, inferred, no uncertainty_drivers
       const rank = displayMetadata.sensitivityRank
-      if ((rank === 1 || rank === 2) && extractionType === 'inferred' && (!uncertaintyDrivers || uncertaintyDrivers.length === 0)) {
+      if ((rank === 1 || rank === 2) && extractionType === 'inferred' && uncertaintyDrivers.length === 0) {
         icons.push({
           id: 'overconfidence',
           icon: Gauge,
