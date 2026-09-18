@@ -73,7 +73,8 @@ import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
 import { GoalNode } from '../GoalNode'
-import { DecisionNode } from '../DecisionNode'
+import { DecisionNode, DECISION_RESTING_COPY } from '../DecisionNode'
+import { STRUCTURAL_UNSET } from '../shared/metricVocabulary'
 
 const baseProps = {
   selected: false,
@@ -154,10 +155,28 @@ function renderTargetlessGoal(over: Record<string, unknown> = {}) {
   )
 }
 
-/** A decision with no option hanging off it — no edge whose `source` is this node. */
-function renderOptionlessDecision(edges: unknown[] = []) {
+/** The option the twin cases link to this decision — a real node, because the
+ *  predicate now resolves the far end's KIND and a bare edge id names nothing. */
+const OPTION_NODE = { id: OPTION_ID, type: 'option', data: { label: 'Rebuild', type: 'option' } }
+/** A non-option, for the mirror case: an OUTGOING edge that is not an option
+ *  link. An outcome rather than a factor deliberately — a valueless factor in
+ *  `nodes` would also change `DecisionNode`'s triage line, and a fixture that
+ *  moves two things at once cannot say which one the assertion is about. */
+const OUTCOME_NODE = { id: 'out_margin', type: 'outcome', data: { label: 'Margin', type: 'outcome' } }
+
+/**
+ * A decision with no option linked to it.
+ *
+ * ⚠ `otherNodes` IS NOT CONVENIENCE — it is what the repaired predicate needs.
+ * The arm used to ask "is there any edge whose `source` is this node", which
+ * could be satisfied by an edge pointing at an id no node in the store carries.
+ * It now asks "is an OPTION linked to this node", so the far end has to be a
+ * node the fixture actually seeds. A fixture that omits it is asserting the
+ * dangling-edge case, not the linked-option one.
+ */
+function renderOptionlessDecision(edges: unknown[] = [], otherNodes: unknown[] = []) {
   const data = { label: 'Platform choice', type: 'decision' }
-  mockStore({ nodes: [{ id: DECISION_ID, type: 'decision', data }], edges })
+  mockStore({ nodes: [{ id: DECISION_ID, type: 'decision', data }, ...otherNodes], edges })
   return render(
     <ReactFlowProvider>
       <DecisionNode {...(baseProps as any)} type="decision" id={DECISION_ID} data={data as any} />
@@ -205,17 +224,34 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
     expect(within(stackOf(OPTION_ID)).getByTestId('needs-input-pill')).toBeTruthy()
   })
 
-  it('⭐ DECISION (no options linked) — NEWLY COVERED by the re-ruling', () => {
+  it('⭐ DECISION (no options linked) — its own pill, because its absence is a different KIND', () => {
     renderOptionlessDecision()
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
-    expect(within(stackOf(DECISION_ID)).getByTestId('needs-input-pill')).toBeTruthy()
+
+    /* ⭐⭐ REPAIRED, AND DELIBERATELY STRENGTHENED — this case used to assert
+       `needs-input-pill` here. That assertion was TRUE and it bound to the
+       wrong claim: the same testid, label and title served all four arms, so
+       it would have stayed green on a decision rendering the quantitative
+       sentence "Missing required input", which is false of a card whose
+       options do not exist. The comment below already said these were
+       different kinds; the assertion did not.
+
+       It now binds by IDENTITY to the structural pill (trap 19) and pins the
+       pooled one ABSENT in the same case — so a revert that puts "Needs input"
+       back on a decision REDs here rather than passing. */
+    expect(within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
+    expect(within(stackOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
 
     // OPPOSITE DIRECTION: give the decision an option and the badge must go.
     // A decision node's incompleteness is the ONLY one of the four that is a
     // property of the GRAPH rather than of the node's own data, so its twin is
     // worth spending a case on.
     cleanup()
-    renderOptionlessDecision([{ id: 'e1', source: DECISION_ID, target: OPTION_ID }])
+    renderOptionlessDecision(
+      [{ id: 'e1', source: DECISION_ID, target: OPTION_ID }],
+      [OPTION_NODE],
+    )
+    expect(screen.queryByTestId('no-options-linked-pill')).toBeNull()
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 })
@@ -358,5 +394,181 @@ describe('IMPOSSIBILITY PIN — the badge and the "Most supported" pill are exac
     expect(code).not.toContain(
       "isIncomplete && (nodeType === 'factor' || nodeType === 'goal')",
     )
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 5 · THE WORDS, AND THE CHANNEL THE LAST ROUND LEFT UNGUARDED
+ *
+ * ⚠ UNRUN AT THE TIME OF WRITING. No suite, no typecheck and no browser was
+ * executed for this section — the cost constraints on the lane barred all
+ * three. CI is the authority on whether it passes; it is written to be RED
+ * against the code as it stood one commit ago, which is the only claim being
+ * made for it here.
+ *
+ * ⛔ WHY LITERALS, WHEN THIS ESTATE'S STANDING RULE IS "DERIVE, DON'T MIRROR".
+ * Because the two rules answer different questions (CLAUDE.md trap 12d, stated
+ * in full there): a DERIVED assertion proves the surfaces AGREE with the
+ * record, and can never notice that the record itself now says something else.
+ * `getByText(DECISION_RESTING_COPY.noOptionsLine)` is the shape to avoid — the
+ * render and the assertion read one constant, so a copy change moves both and
+ * the guard stays green while the product's sentence changes under it. Every
+ * literal below is therefore deliberate and hand-written, and the derived
+ * assertions sit BESIDE them rather than instead of them: the literals notice
+ * a copy change, the derived ones notice the two surfaces drifting apart.
+ *
+ * ⚠ SCOPE, same as §3: these are jsdom renders and accname computations, not a
+ * screen-reader session (CLAUDE.md trap 3).
+ * ──────────────────────────────────────────────────────────────────────────── */
+describe('the structural absence says one sentence per channel — and the sentences are pinned', () => {
+  it('⛔ COPY PIN — both members of STRUCTURAL_UNSET, as hand-written literals', () => {
+    // Hand-written on purpose. Change either sentence and this REDs, which is
+    // the whole job: nothing else in the tree can notice `nothingCompared`
+    // changing, because nothing else spells it.
+    expect(STRUCTURAL_UNSET.noOptions).toBe('No options linked yet')
+    expect(STRUCTURAL_UNSET.nothingCompared).toBe('Nothing to compare yet')
+    // And they are two sentences, not one aliased twice — the premise the
+    // corner/body split rests on.
+    expect(STRUCTURAL_UNSET.nothingCompared).not.toBe(STRUCTURAL_UNSET.noOptions)
+  })
+
+  it('⭐ THE PILL: visible text, tooltip and accessible name are ONE string — the body line is not it', () => {
+    renderOptionlessDecision()
+    // Precondition pinned in-test: this card IS in the structural-absence
+    // state, so the assertions below are about the pill under test and not
+    // about a card that renders a pill unconditionally (trap 13b).
+    expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
+
+    const pill = within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')
+
+    // LITERALS — what a user sees, what a pointer user hovers, what AT says.
+    expect(pill.textContent).toBe('Nothing to compare yet')
+    expect(pill.getAttribute('title')).toBe('Nothing to compare yet')
+    expect(pill).toHaveAccessibleName('Nothing to compare yet')
+    // DERIVED, beside the literals: the pill renders the record's member.
+    expect(pill.textContent).toBe(STRUCTURAL_UNSET.nothingCompared)
+
+    /* ⛔⛔ THE ASSERTION THIS SECTION EXISTS FOR. The shipped arm passed
+       `title={STRUCTURAL_UNSET.noOptions}`, and `StatusPill` composes
+       `aria-label={title ?? label}` — so the pill ANNOUNCED the body line's
+       sentence verbatim while the body announced it too. `getByText` reads
+       text content and is blind to `aria-label`, so the spec that certified
+       the split could not see it. These three are RELATIONAL and therefore
+       derived on purpose: the claim is "not the body's string", whatever that
+       string becomes. */
+    expect(pill.getAttribute('aria-label')).not.toBe(DECISION_RESTING_COPY.noOptionsLine)
+    expect(pill.getAttribute('title')).not.toBe(DECISION_RESTING_COPY.noOptionsLine)
+    expect(pill).not.toHaveAccessibleName(DECISION_RESTING_COPY.noOptionsLine)
+  })
+
+  it('⭐ THE CARD: the cause is stated ONCE in the visible channel, and it is the body that states it', () => {
+    renderOptionlessDecision()
+    const pill = within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')
+    expect(pill).toBeTruthy()
+
+    // The body still carries the cause — LITERAL, so a copy change REDs here
+    // rather than moving the assertion with it.
+    const resting = screen.getByTestId('decision-node-resting-state')
+    expect(resting.textContent).toContain('No options linked yet')
+    expect(resting.textContent).toContain(DECISION_RESTING_COPY.noOptionsLine)
+
+    /* …and exactly one element on the card says it OUT LOUD. Both surfaces
+       render together in this fixture, which is what makes this case able to
+       fail at all: put the cause back on the pill's LABEL and the count goes
+       to 2.
+
+       ⛔ STATED PRECISELY, BECAUSE THE IMPRECISE VERSION IS THE DEFECT THIS
+       SECTION EXISTS FOR: `getAllByText` reads TEXT CONTENT, so this counts
+       the VISIBLE channel and NOTHING ELSE. It would not move if the sentence
+       came back as `aria-label` or `title` — which is precisely how the
+       duplication survived the first fix. The a11y channel is pinned in the
+       case above, and neither case substitutes for the other. */
+    expect(screen.getAllByText('No options linked yet')).toHaveLength(1)
+
+    // OPPOSITE DIRECTION (trap 22b): the consequence is the pill's, and the
+    // body does not repeat THAT either.
+    expect(resting.textContent).not.toContain('Nothing to compare yet')
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 6 · THE SENTENCE IS BOUND TO THE FACT IT STATES
+ *
+ * ⚠ UNRUN AT THE TIME OF WRITING. No suite, no typecheck and no browser was
+ * executed for this section — the cost constraints on the lane barred all
+ * three. CI is the authority on whether it passes; it is written to be RED
+ * against the code as it stood one commit ago, which is the only claim being
+ * made for it here.
+ *
+ * ── WHAT THE LAST ROUND SHIPPED ────────────────────────────────────────────
+ * §1 replaced a vague pill with a precise one — and left the predicate behind
+ * it reading `edges.some(e => e.source === id)`, which answers "does this
+ * decision have any OUTGOING EDGE". The pill says the decision has no OPTIONS.
+ * Two facts, one predicate, and they come apart in BOTH directions:
+ *
+ *   FALSE CLAIM  `option → decision` is a permitted draw (`isValidConnection`
+ *                applies no kind or direction rule) and is not outgoing, so the
+ *                card stated "Nothing to compare yet" about a decision whose
+ *                option was on the canvas. ⛔ Note the DIRECTION of that
+ *                regression: the vague "Needs input" it replaced made no claim
+ *                about the graph at all. A precise sentence bound to the wrong
+ *                predicate is worse than a vague one bound to nothing — which
+ *                is §1's own thesis, arriving back at §1.
+ *   SILENT GAP   `decision → outcome` IS outgoing, so any such edge suppressed
+ *                the pill on a decision that genuinely has nothing to compare.
+ *
+ * ── WHY BOTH CASES, AND WHY EACH PINS ITS OWN PRECONDITION ─────────────────
+ * One predicate guarding two opposite harms needs a corpus pointing BOTH ways
+ * (CLAUDE.md trap 22b — a corpus that tests one direction is a guard watching
+ * one door, and §1's twin case pointed only at the suppressing direction). Each
+ * case below asserts, in-test, that its fixture WOULD have satisfied the old
+ * outgoing-edge predicate — so the verdict is provably the new predicate's
+ * doing and not the fixture quietly failing to reproduce the state
+ * (CLAUDE.md trap 13b).
+ * ──────────────────────────────────────────────────────────────────────────── */
+describe('⭐ the pill claims "no options", so it must be ABOUT options', () => {
+  it('⛔ REVERSED LINK — an `option → decision` edge is an option, and the card must not deny it', () => {
+    const edges = [{ id: 'e1', source: OPTION_ID, target: DECISION_ID }]
+
+    // PRECONDITION, pinned in-test: this fixture is exactly the state the OLD
+    // predicate got wrong — no edge whose `source` is the decision, and an
+    // option node genuinely joined to it. Without this, a green result could
+    // come from a fixture that linked nothing.
+    expect(edges.some(e => e.source === DECISION_ID)).toBe(false)
+    expect(edges.some(e => e.source === OPTION_ID && e.target === DECISION_ID)).toBe(true)
+    expect(OPTION_NODE.type).toBe('option')
+
+    renderOptionlessDecision(edges, [OPTION_NODE])
+
+    // The claim under test: no structural pill, because there IS something to
+    // compare. Bound by identity to THIS decision's corner stack (trap 19).
+    expect(within(stackOf(DECISION_ID)).queryByTestId('no-options-linked-pill')).toBeNull()
+    // And not re-pooled into the quantitative one on the way out.
+    expect(within(stackOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
+    // The sentence itself, as a literal — so a testid rename cannot hide it.
+    expect(screen.queryByText('Nothing to compare yet')).toBeNull()
+  })
+
+  it('⛔ MIRROR — an outgoing edge to a NON-option leaves the gap open, so the pill must still fire', () => {
+    const edges = [{ id: 'e1', source: DECISION_ID, target: OUTCOME_NODE.id }]
+
+    // PRECONDITION: the old predicate was SATISFIED by this fixture (there is an
+    // outgoing edge), which is why it suppressed the pill — and no option is
+    // linked in either direction, so the pill's sentence is true here.
+    expect(edges.some(e => e.source === DECISION_ID)).toBe(true)
+    expect(OUTCOME_NODE.type).not.toBe('option')
+
+    renderOptionlessDecision(edges, [OUTCOME_NODE])
+
+    expect(within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
+    expect(within(stackOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
+    expect(screen.getByText('Nothing to compare yet')).toBeTruthy()
+  })
+
+  it('⛔ DANGLING — an edge to an id no node carries names no option, so the pill still fires', () => {
+    // The state the old predicate treated as "has options": an outgoing edge
+    // whose far end is not in `nodes` at all. An id is not an option.
+    renderOptionlessDecision([{ id: 'e1', source: DECISION_ID, target: 'ghost_node' }], [])
+    expect(within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
   })
 })
