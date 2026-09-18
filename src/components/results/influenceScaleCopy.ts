@@ -330,6 +330,134 @@ export function influenceBasisNoun(
     : 'Influence'
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE RANKED READOUT — the same fact, said as a POSITION IN A SET.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * ⭐ WHY THIS EXISTS. Everything above answers "WHAT SCALE IS THIS NUMBER ON?"
+ * and answers it correctly — and a reader still has to do the inference. On a
+ * deployed staging graph a factor card reads `Relative influence … 100%`. The
+ * noun is already right: `influenceBasisNoun` returns "Relative influence"
+ * precisely so the figure is not taken for a causal share. But the number the
+ * eye lands on is still `100%`, and a bare 100% reads as certainty about the
+ * world. What it actually means is "the top of the factors this model
+ * compared" — a RANKING, and a ranking is what the reader can argue with.
+ *
+ * ⚠ THIS IS NOT A SECOND RANK NOTION, AND THAT IS THE WHOLE DESIGN CONSTRAINT.
+ * The caption is fed by `sensitivityRank` — the SAME gated datum the canvas
+ * `#N` badge consumes, produced by `determinedRankDepth` in
+ * `driverDisplayModel.ts`. That gate withholds a rank whenever a tie means the
+ * ordering cannot support a comparative claim (it was added after `#2` and
+ * `#3` were handed out on ALPHABETICAL node id). Minting a rival "how deep is
+ * the order determined" question here to reach ranks 4+ would re-open exactly
+ * that defect one level over, and would let the caption claim a rank on the
+ * very same card whose badge is withholding one. One question, one function —
+ * so ranks the badge will not print, this will not word.
+ *
+ * ⚠ CONSEQUENCE, STATED RATHER THAN HIDDEN: only ranks 1..MAX_BADGED_RANK get
+ * the ranked caption. Every other factor keeps `influenceBasisNoun` + the
+ * percentage, unchanged. That is a fail-closed default — absence degrades to
+ * today's already-correct render, never to a false claim.
+ */
+
+/**
+ * The set size is a COUNT OF THE COMPARISON, not a count of what is on screen.
+ *
+ * ⚠ SCOPE OF THE CLAIM, because the two are not the same question. The
+ * denominator supplied by `useNodeDisplayMetadata` is the number of DISTINCT
+ * factor keys in the shared driver policy feed — i.e. the set the influence
+ * figure is normalised against, which is what makes "most influential of N"
+ * true. Whether every feed row also has a factor CARD on the canvas is NOT
+ * something this lane measured; if a row can exist with no node, a reader
+ * counting cards could count fewer than N. The wording below therefore says
+ * "factors compared", which is true of the feed either way, and never "factors
+ * on this canvas", which would be a claim about a thing nobody here checked.
+ */
+export interface InfluenceRankReadout {
+  /** The caption column: the ranked word. "Most influential", "2nd most influential". */
+  caption: string
+  /** The figure column, where the bare percentage used to sit. "of 5". */
+  setSizeText: string
+  /** The two columns as one sentence, for assistive tech and the tooltip. */
+  phrase: string
+}
+
+/**
+ * ⚠ WRITTEN GENERALLY THOUGH ONLY 1..3 IS REACHABLE TODAY. `MAX_BADGED_RANK`
+ * is 3, so `ordinalSuffix` is only ever asked for 2 and 3 at present. It
+ * handles the 11/12/13 exception anyway: the cap is a product decision that
+ * has already moved once, and a helper that is silently wrong at 11 the day
+ * someone raises it is the hand-maintained mirror this estate keeps paying for
+ * (CLAUDE.md trap 12).
+ */
+function ordinalSuffix(n: number): string {
+  const lastTwo = n % 100
+  if (lastTwo >= 11 && lastTwo <= 13) return 'th'
+  switch (n % 10) {
+    case 1: return 'st'
+    case 2: return 'nd'
+    case 3: return 'rd'
+    default: return 'th'
+  }
+}
+
+/**
+ * The ranked readout for a factor, or `null` when the claim cannot be made.
+ *
+ * ⚠ EVERY REFUSAL ARM IS A REAL CASE, not defensive padding:
+ *   · `rank` null — the tie gate withheld it, or the factor is below the
+ *     badged depth. Both mean "no comparative claim is licensed here".
+ *   · `setSize` null — the hook did not supply one (an older call site, or a
+ *     mock). Absence must degrade to today's caption, never to a guess.
+ *   · `setSize < 2` — "most influential of 1" is not a comparison. A set of
+ *     one has a maximum, not a ranking.
+ *   · `rank > setSize` — incoherent, so nothing is said. This cannot arise
+ *     from the current producer (the rank is an index INTO the counted set),
+ *     which is exactly why it is cheap to refuse rather than to reason about.
+ *
+ * ⚠ `caption` AND `phrase` ARE BUILT FROM ONE `core` STRING ON PURPOSE. They
+ * are the same claim in two places on one row; deriving both from one literal
+ * is what stops the visible words and the announced words drifting apart.
+ */
+export function influenceRankReadout(
+  rank: number | null | undefined,
+  setSize: number | null | undefined,
+): InfluenceRankReadout | null {
+  if (typeof rank !== 'number' || !Number.isInteger(rank) || rank < 1) return null
+  if (typeof setSize !== 'number' || !Number.isInteger(setSize) || setSize < 2) return null
+  if (rank > setSize) return null
+
+  const core = rank === 1 ? 'most influential' : `${rank}${ordinalSuffix(rank)} most influential`
+  return {
+    caption: core.charAt(0).toUpperCase() + core.slice(1),
+    setSizeText: `of ${setSize}`,
+    phrase: `The ${core} of the ${setSize} factors compared in this model`,
+  }
+}
+
+/**
+ * Tooltip / accessible explanation for a ranked influence row.
+ *
+ * ⭐ THE PERCENTAGE IS NOT DELETED, IT IS DEMOTED. Taking `100%` off the face
+ * of the card is the point; taking the figure away from a reader who wants it
+ * would be hiding a finding, which this estate's NO-HIDING ruling forbids. So
+ * the number moves into the disclosure, where it is stated WITH the scale that
+ * makes it meaningful ("of the strongest factor") instead of alone.
+ *
+ * The scale words themselves are not re-minted here — `influenceExplanation`
+ * is appended verbatim, so this row still cannot drift from the pill or the
+ * Drivers panel.
+ */
+export function influenceRankExplanation(
+  readout: InfluenceRankReadout,
+  pct: number,
+  provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasis?: string | null,
+): string {
+  return `${readout.phrase}, at ${pct}% of the strongest factor. ${influenceExplanation(provenance, importanceBasis)}`
+}
+
 /**
  * Accessible name for the detailed-view Influence DataBar. The value is
  * announced separately via aria-valuenow, so the name carries the basis only.

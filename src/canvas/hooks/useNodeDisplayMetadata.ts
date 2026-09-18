@@ -65,6 +65,28 @@ export interface NodeDisplayMetadata {
    */
   influenceImportanceBasis: string | null
   /**
+   * How many DISTINCT factors the influence figure was ranked against — the
+   * denominator that turns `sensitivityRank` into a claim a reader can argue
+   * with ("most influential of 5") instead of a bare normalised percentage.
+   *
+   * ⚠ IT IS THE COMPARISON SET, NOT THE CANVAS. Counted off the SAME `ranked`
+   * array `sensitivityRank` is derived from, so the rank and its denominator
+   * can never be computed on different bases — which is the defect
+   * `driverDisplayModel.ts` records for the rank/badge pair one level down.
+   * Distinct KEYS, matching the duplicate-id collapse `determinedRankDepth`
+   * already applies: two rows sharing an id are one factor.
+   *
+   * ⚠ OPTIONAL, following `goalFitAvailable` and `winComputationFailed` below
+   * and for the reason stated there: making it required forces edits into
+   * unrelated `NodeDisplayMetadata` test mocks, and that churn rewrites the
+   * printed type strings of pre-existing diagnostics, desyncing the typecheck
+   * gate's IDENTITY baseline. The default here is genuinely safe rather than
+   * merely convenient — `influenceRankReadout` returns null on an absent size,
+   * so the row falls back to the caption it renders today. Absence degrades to
+   * the status quo, never to a fabricated denominator.
+   */
+  influenceSetSize?: number | null
+  /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
    * producer sent none OR when the ruled policy says the figure is not fit to
@@ -258,6 +280,7 @@ export function useNodeDisplayMetadata(
         influence: null,
         influenceProvenance: null,
         influenceImportanceBasis: null,
+        influenceSetSize: null,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
@@ -282,6 +305,7 @@ export function useNodeDisplayMetadata(
     let influence: number | null = null
     let influenceProvenance: DriverDisplayProvenance | null = null
     let influenceImportanceBasis: string | null = null
+    let influenceSetSize: number | null = null
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -313,6 +337,12 @@ export function useNodeDisplayMetadata(
           value: displayModel.get(r.key)?.value ?? 0,
         }))
         .sort(compareByDisplayModel)
+
+      // The denominator for the ranked caption, taken off THIS array so it can
+      // never be derived from a different set than the rank beside it. Distinct
+      // keys, mirroring the duplicate-id collapse `determinedRankDepth` applies
+      // — one factor, one position, one unit of the total.
+      influenceSetSize = new Set(ranked.map((f) => f.key)).size
 
       // Find this node's rank (1-indexed).
       //
@@ -657,6 +687,7 @@ export function useNodeDisplayMetadata(
       influence,
       influenceProvenance,
       influenceImportanceBasis,
+      influenceSetSize,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,
