@@ -737,7 +737,13 @@ export function AtAGlance({
               /* `disabled:no-underline` is not decoration: the underline is half of
                  what says PRESSABLE on this strip (the other half is `text-info`),
                  so a refused control must stop claiming it. */
-              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
+              /* ⚠⚠ NAMED, NOT SPELLED. This string used to write the tier out by
+                 hand — `rounded … text-info underline` plus `ACTION_FOCUS`
+                 verbatim — so #1655's touch target, which lives ON the tier,
+                 could never reach it. The disabled treatment stays here because
+                 it is genuinely this control's own; the geometry and the colour
+                 are the tier's. */
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
               data-testid={`${testId}-ribbon-reanalyse`}
             >
               {COPY.status.reanalyseToBeSure}
@@ -960,7 +966,16 @@ export function AtAGlance({
                  it by ancestry. Underline plus `text-info` is what says
                  PRESSABLE here — the sentence above is `panelBody
                  text-text-body`, so the two cannot be confused at rest. */
-              className={`${typography.panelMeta} mt-1.5 inline-block rounded text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              /* ⛔⛔ THIS CONTROL IS WHY #1655 EXISTED, AND #1655 COULD NOT REACH
+                 IT. Its rationale named this exact button — “the ONLY route out
+                 of a withheld verdict” — and put the 24px touch target on
+                 `ACTION_TIER.inline`. But this className spelled the tier out by
+                 HAND, so the fix landed on a tier this call site never used.
+                 Measured on deployed `45659d8f`, on the surface a fresh guest
+                 actually lands on: **133×15**. The per-call-site spelling is the
+                 defect the tier exists to end, surviving inside the control the
+                 tier was created for. */
+              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:opacity-80`}
               data-testid={`${testId}-withheld-review-estimates`}
             >
               {COPY.glance.reviewEstimates}

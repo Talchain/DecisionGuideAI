@@ -216,7 +216,29 @@ export const ACTION_TIER = {
    * them in view — an emphasis every control shares is an emphasis none of
    * them has.
    */
-  primary: 'px-2 py-0.5 rounded bg-primary text-text-on-color',
+  /**
+   * ⚠⚠ IT CARRIES THE TOUCH TARGET TOO, AND FOR THE REASON `inline` ALREADY
+   * RECORDS BELOW. #1655 put WCAG 2.2 AA §2.5.8 (24×24 CSS px) on `inline`
+   * after finding the geometry applied at exactly one of twelve call sites.
+   * ⛔ It fixed the tier it was looking at and did not ask the same question
+   * of the others — so `primary` and `secondary` kept `py-0.5`, about 19px.
+   *
+   * Measured on deployed `d084e9a8`: `analysis-new-model-strip-target-edit`
+   * ("Set a target") was 76×19 and the ONLY control under 24px at rest on the
+   * whole panel. With the strip and every section opened, 27 of 77 controls
+   * were under 24; this tier fix reaches the ones that NAME a tier, and the
+   * bespoke remainder is rowed rather than swept up here.
+   *
+   * ⚠ `inline-flex items-center` IS PART OF THE GUARANTEE, not decoration:
+   * `min-h` does nothing to a purely inline box, so the minimum would be
+   * stated and not reached — the same note `inline` carries.
+   *
+   * ⚠ COST, MEASURED BY INJECTION ON THE DEPLOYED BUILD BEFORE SHIPPING: the
+   * at-rest control 19px → 24px and the panel column 1292 → 1297 (+5px,
+   * +0.39%). Fully expanded, fixing EVERY sub-24 control would cost +48px on
+   * 5305 (+0.9%) — an upper bound this change does not spend.
+   */
+  primary: 'inline-flex items-center min-h-[24px] px-2 py-0.5 rounded bg-primary text-text-on-color',
   /**
    * A NAMED ACT beside the reading it belongs to. An OUTLINED pill: the shape
    * is the affordance, so the hue is doing no load-bearing work.
@@ -274,7 +296,11 @@ export const ACTION_TIER = {
    * done — as a deliberate visual change, banked by deleting their lines from
    * that pin, not smuggled in under a refactor.
    */
-  secondary: 'px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info',
+  /**
+   * ⚠ CARRIES THE SAME TOUCH TARGET AS `primary` — see the note there. A tier
+   * that is quieter is not a tier that may be harder to hit.
+   */
+  secondary: 'inline-flex items-center min-h-[24px] px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info',
   /**
    * AN ACT INSIDE PROSE. Underlined AT REST, never on hover alone — see the
    * contrast note above.
@@ -303,13 +329,19 @@ export const ACTION_TIER = {
    * rest: "quiet" is a claim about emphasis, never a licence to drop the
    * affordance.
    */
-  quiet: 'rounded text-text-light underline',
+  /**
+   * ⚠ THE TOUCH TARGET IS NOT A FUNCTION OF EMPHASIS. `quiet` has zero call
+   * sites today, which is exactly why it gets the geometry now: a tier that is
+   * missing it is discovered by its FIRST user shipping a 15px control, and
+   * that is how `inline` shipped eleven of them.
+   */
+  quiet: 'inline-flex items-center min-h-[24px] rounded text-text-light underline',
   /**
    * A NON-DIRECTIVE ACT — an outlined pill for something the panel offers
    * without recommending, e.g. recording a decision. Carries a border rather
    * than a fill so it reads as available, not urged.
    */
-  neutral: 'px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
+  neutral: 'inline-flex items-center min-h-[24px] px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
 } as const
 
 export type ActionTier = keyof typeof ACTION_TIER
