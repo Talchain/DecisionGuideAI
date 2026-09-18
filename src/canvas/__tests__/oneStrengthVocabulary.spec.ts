@@ -36,12 +36,14 @@
  * and this file is where the next lane would have inherited it.
  *
  * RENDERED, and the reason this change is worth shipping: the legend taught
- * **"Weak effect"** — a word printed nowhere else in the product — for a
+ * **"Weak effect"** — a word printed nowhere else ON THE CANVAS (the Model tab
+ * prints it too, on different cuts; the "nowhere in the product" claim is
+ * withdrawn) — for a
  * thickness the canvas drew for every `|mean| < 0.40`, i.e. for *Slight* and
  * *Moderate* edges alike, so two different findings were pixel-identical on the
  * one channel that key teaches the reader to read as strength. The words
- * themselves reach the chip, `ConnectionRow`, `InfluenceIndicator` and the band
- * pills.
+ * themselves reach the chip, `ConnectionRow` and the band pills. (NOT
+ * `InfluenceIndicator`, which is orphaned — 0 importers, 0 JSX sites.)
  *
  * DARK, so it is a code defect this closes before it can ever be a user one:
  * the coaching sentence, whose cuts were inclusive upwards against the

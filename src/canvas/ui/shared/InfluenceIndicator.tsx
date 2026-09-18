@@ -1,7 +1,13 @@
 /**
  * InfluenceIndicator — standardised edge strength display
- * Calls getStrengthLabel() across all canvas and inspector sites — supersedes
- * describeEdgeInfluence()'s old thresholds.
+ * ⛔ ORPHANED — NOT RENDERED ANYWHERE. Measured at this tip: **0 importers,
+ * 0 JSX sites**, contrast controls in the same sweep `DataBar` 12 imports /
+ * 61 JSX and `ConnectionRow` 11 / 15. The previous line here claimed it
+ * "calls getStrengthLabel() across all canvas and inspector sites", which was
+ * false and had been copied into four other files as a RENDERED claim.
+ * The live equivalents are `StrengthBandButtons` (`EdgePanel.tsx:597,627`)
+ * and `getStrengthLabel` in `inspector-v2/inspectorStrings.ts`.
+ * Keep or delete it deliberately — but do not cite it as user-visible.
  *
  * ⚠ THE THRESHOLDS ARE NOT RESTATED HERE. This line used to spell them out
  * ("≥0.70 Very strong, ≥0.40 Strong, ≥0.20 Moderate, else Slight"), which is a

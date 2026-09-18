@@ -90,7 +90,8 @@ export function getConfidenceCoaching(belief: number): CoachingNudge {
  * lit — but it must not be counted as a user-visible fix. The user-visible half
  * of this change is elsewhere and is not in doubt: the legend's invented "Weak
  * effect" row, the width ladder, the edge chip (`describeEdge`), the band pills
- * and `ConnectionRow`/`InfluenceIndicator` all render. **CLAUDE.md status
+ * and `ConnectionRow` all render. (`InfluenceIndicator` does NOT: 0 importers,
+ * 0 JSX sites, contrast `DataBar` 12/61 — it is orphaned.) **CLAUDE.md status
  * ladder: this paragraph is CODE EXISTS + TESTED. It is not WIRE-WITNESSED and
  * it is certainly not JOURNEY-WITNESSED. Do not restate it as either.**
  *

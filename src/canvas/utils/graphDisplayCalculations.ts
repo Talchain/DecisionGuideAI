@@ -263,8 +263,16 @@ export function resolveExistenceDash(display: EdgeValueDisplay): ExistenceDash {
  * this word*. That assertion is only well-formed when the two ladders have the
  * same rungs, and ours did not: the thinnest rung was drawn for every
  * `|mean| < 0.40`, which spans BOTH *Slight* and *Moderate*, so the key had to
- * invent a fourth word — **"Weak effect"**, printed nowhere else in the
- * product — to name a thickness that is not one band.
+ * invent a fourth word — **"Weak effect"**, printed nowhere else ON THE
+ * CANVAS — to name a thickness that is not one band.
+ *
+ * ⚠ SCOPE, CORRECTED at review: "nowhere else in the PRODUCT" was too wide and
+ * is withdrawn. `model-tab-v2/adapters.ts:458` is LIVE (`OutputsDock:4023` →
+ * `ModelTabBody:811` → `ModelTabV2Panel:1532` → `ModelOutline:1127` →
+ * `ModelRowView`) and emits "Weak positive effect" — on DIFFERENT cuts
+ * (0.6/0.25/0.05) over the SAME edge number. The canvas claim stands; the
+ * product-wide one did not, and an over-wide scope is how a fix gets rowed as
+ * closing more than it closed.
  *
  * ⚠ AND THE COLLISION IS THE ONE THIS FILE HAS ALREADY PAID FOR ONCE. The
  * `UNSET_EDGE_STROKE_WIDTH` note below widened the floor on the grounds that

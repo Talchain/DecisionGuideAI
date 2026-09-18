@@ -347,12 +347,14 @@ export function statedFactorCategoryLabel(category: unknown, inferredByUi: unkno
  * happened in the act of RECORDING, in the file every later lane inherits.
  *
  * ── RENDERED, so these were user-visible ───────────────────────────────────
- *   · (3) the legend taught **"Weak effect"** — a word the product prints
- *     nowhere else — for a thickness the canvas drew for every `|mean| < 0.40`,
+ *   · (3) the legend taught **"Weak effect"** — a word the CANVAS prints
+ *     nowhere else (⚠ the Model tab DOES print it, on different cuts — see
+ *     `graphDisplayCalculations.ts`; the original "nowhere in the product"
+ *     claim is withdrawn) — for a thickness the canvas drew for every `|mean| < 0.40`,
  *     i.e. for BOTH *Slight* and *Moderate* edges at once. Two different
  *     findings, pixel-identical on the channel that key teaches as strength.
  *   · (1)'s words reach the board and the panel: the edge chip
- *     (`edgeLabels.describeEdge`), `ConnectionRow`, `InfluenceIndicator` and
+ *     (`edgeLabels.describeEdge`), `ConnectionRow` and
  *     the band pills (`StrengthBandButtons`, which also WRITE the midpoint).
  *   · (2) is the picture itself.
  *
