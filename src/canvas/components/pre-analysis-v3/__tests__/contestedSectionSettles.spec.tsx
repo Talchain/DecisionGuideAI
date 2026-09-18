@@ -64,7 +64,7 @@ import { useReadinessStore } from '../../../stores/readinessStore'
 import { useUIStore } from '../../../../stores/uiStore'
 import { makeContestedEdge, makeContestedValidation } from '../../../../__fixtures__/contestedEdge'
 import { CONTESTED_COPY } from '../constants'
-import { contestedVerdictOptions } from '../contested/contestedVerdict'
+import { contestedVerdictOptions } from '../../../conversation/contestedVerdict'
 import type { EdgeData } from '../../../domain/edges'
 import type { ValidationMetadata } from '../../../domain/validation'
 

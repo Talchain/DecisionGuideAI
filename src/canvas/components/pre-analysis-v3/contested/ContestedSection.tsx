@@ -70,13 +70,12 @@ import { memo, useCallback, useState } from 'react'
 import { Scale } from 'lucide-react'
 import { typography, typo } from '../../../../styles/typography'
 import { useUIStore } from '../../../../stores/uiStore'
-import { useCanvasStore } from '../../../store'
-import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
-import { buildEdgeAdjudicationEvent } from '../../../conversation/edgeAdjudication'
-import type { EdgeData } from '../../../domain/edges'
-import type { ValidationMetadata } from '../../../domain/validation'
+import { useSettleContestedEdge } from '../../../conversation/useSettleContestedEdge'
 import { CONTESTED_COPY } from '../constants'
-import { contestedVerdictOptions, type ContestedVerdict } from './contestedVerdict'
+import {
+  contestedVerdictOptions,
+  type ContestedVerdict,
+} from '../../../conversation/contestedVerdict'
 import type { ContestedRowModel } from '../selectors/computeContestedRows'
 
 /** Button label per verdict. Kept beside the union so a new member fails RED at the type. */
@@ -201,97 +200,23 @@ export const ContestedSection = memo(function ContestedSection({
     useUIStore.getState().setActiveOutputTab('diagnostics')
   }, [])
 
-  /**
-   * Optional by design, exactly as `CalibrateDrillIn` and `FactorControllablePanel` do it in
-   * this same panel: a missing provider must degrade to a stated refusal, never throw. It is
-   * also what puts the verdict behind `useConversation`'s deferral buffer, so one sent during
-   * a running analysis is queued rather than dropped.
-   */
-  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  // ⭐ ONE IMPLEMENTATION OF THE ACT, shared with the inspector's `EdgePanel`
+  // (`useSettleContestedEdge`). This surface owns only its PRESENTATION — which verdicts to
+  // show, in what order, and what the acknowledgement says. Re-spelling the emit, the
+  // fail-closed rules or the retire write here would be the trap-12 mirror the hook exists to
+  // abolish, and the two copies would drift on the fields carrying the user's judgement.
+  const { settle } = useSettleContestedEdge()
 
   /** Verdicts sent this session, newest first — the acknowledgement's only source. */
   const [settled, setSettled] = useState<string[]>([])
 
   const handleSettle = useCallback(
     (row: ContestedRowModel, verdict: ContestedVerdict, resolvedMean: number | null) => {
-      if (!sendSystemEvent) return
-      // Read the edge FRESH from the store rather than reconstructing one from the row model:
-      // the wire event binds to its edge by from+to NODE ids (`edgeAdjudication.ts`'s IDENTITY
-      // RULE) and the row model carries labels, not ids. The same read feeds the event and the
-      // local write, so the two can never describe different edges.
-      const edge = useCanvasStore.getState().edges.find(e => e.id === row.edgeId)
-      if (!edge) return
-
-      const validation = (edge.data as { validation?: ValidationMetadata } | undefined)?.validation
-
-      // ⭐ ONE TURN PER CLICK IS LOAD-BEARING (`sendSystemEvent` is a network TURN, not a
-      // fire-and-forget ping) AND IT IS NOT GUARDED HERE — DELIBERATELY, AND MEASURED.
-      //
-      // A `user_action !== 'pending'` re-entry guard was written here first. A mutant that
-      // DELETED it left the suite fully GREEN, which is the only honest way to learn that a
-      // guard is doing nothing: the retire write below is a synchronous zustand `set`, the
-      // parent recomputes `rows` from the edges, and the row UNMOUNTS before a second click can
-      // reach this handler. The guard could not fire on any reachable path, so it was removed
-      // rather than shipped as unpinned code with a confident comment beside it.
-      //
-      // The INVARIANT is pinned instead, at the level a user experiences it:
-      // `contestedSectionSettles.spec.tsx` clicks twice and asserts ONE send, with a live
-      // sibling row proving the suite is not merely observing an unmounted button. Any future
-      // change that keeps the row mounted through a settle turns that test RED, which is where
-      // the decision belongs.
-      const event = buildEdgeAdjudicationEvent(
-        edge,
-        verdict,
-        resolvedMean === null ? undefined : resolvedMean,
-      )
-      // The builder FAILS CLOSED on any shape the wire's cross-field rules would refuse. A null
-      // here means "do not emit" — never a production 422, and never a local write either: a
-      // settled-looking row whose verdict never left the browser is the silent lie.
-      if (!event) return
-
-      void sendSystemEvent(event, {
-        debugSource: 'pre-analysis-v3-contested',
-        debugInitiatedBy: 'user',
-        debugSourceSurface: 'pre-analysis',
-      })
-
-      // Retire the row through the predicate that already owns it
-      // (`selectSurfacedContestedEdges:53` gates on `user_action !== 'pending'`). Validation
-      // METADATA only — no weight, no weightSource, no direction.
-      if (validation) {
-        const settledValidation: ValidationMetadata = {
-          ...validation,
-          user_action: verdict,
-          resolved_by: 'user',
-          // ⚠ A dismissal asserts NO value, by the same contract rule the builder applies.
-          resolved_value:
-            verdict === 'dismissed' || resolvedMean === null
-              ? null
-              : { strength_mean: resolvedMean },
-        }
-        // ⚠ ONLY `validation` IS PASSED, AND THAT IS LOAD-BEARING — NOT TIDINESS.
-        //
-        // `updateEdge` merges `{ ...e.data, ...updates.data }`, so a partial `data` leaves every
-        // other field alone. Spreading `edge.data` in here instead would widen the write to the
-        // whole edge for no gain, and `edge.data` is `EdgeData | undefined` at this type, so the
-        // spread also loses the required fields and fails the gate.
-        //
-        // ⛔ AND DO NOT "SIMPLIFY" THIS TO `updateEdgeData`. That helper sets
-        // `weight: undefined` and `belief: undefined` EXPLICITLY whenever the caller omits them
-        // (`store.ts:3659-3667`), and those explicit keys survive the spread merge — routing a
-        // validation-only update through it would blank the edge's weight.
-        //
-        // The cast is the partial-update contract `updateEdgeData` itself documents at
-        // `store.ts:3667`: `updateEdge` declares `data: EdgeData` while the implementation
-        // merges partial data.
-        useCanvasStore.getState().updateEdge(row.edgeId, {
-          data: { validation: settledValidation } as EdgeData,
-        })
-      }
-
+      if (!settle) return
+      settle(row.edgeId, verdict, resolvedMean)
       setSettled(prev => [row.edgeId, ...prev.filter(id => id !== row.edgeId)])
     },
-    [sendSystemEvent],
+    [settle],
   )
 
   // ⚠ NOT `rows.length === 0` ALONE. Settling the LAST contested connection empties `rows`, and
@@ -323,7 +248,7 @@ export const ContestedSection = memo(function ContestedSection({
           <ContestedRow
             key={row.edgeId}
             row={row}
-            onSettle={sendSystemEvent ? handleSettle : null}
+            onSettle={settle ? handleSettle : null}
           />
         ))}
       </div>

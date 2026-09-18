@@ -27,6 +27,7 @@ import {
   resolveEdgeLinkTemplate,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
+import { ContestedSettle } from '../shared/ContestedSettle'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { ExpertAnnotation } from '../shared/ExpertAnnotation'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -760,6 +761,11 @@ export const EdgePanel = memo(function EdgePanel({
                     The user-language surface, and the progressive disclosure
                     that keeps the numbers, live in EdgeReviewDisagreement. */}
                 <EdgeReviewDisagreement validation={validation} techMode={techMode} />
+                {/* The ACT. Until this landed, the panel told the reader two passes disagreed
+                    and offered nothing to do about it — the same gap the pre-analysis list
+                    carried, on the surface where a user inspects ONE edge. Shares the emit
+                    with that list (`useSettleContestedEdge`); presentation only here. */}
+                <ContestedSettle edgeId={edgeId} validation={validation} />
               </PanelGroup>
             )
           })()}
