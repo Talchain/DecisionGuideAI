@@ -134,6 +134,13 @@ import {
   type DebugRedactionManifest,
 } from '../../../lib/debugRedactionManifest'
 import {
+  buildEnrichedProjectionManifest,
+  projectBySpecs,
+  EDGE_PROJECTION,
+  NODE_PROJECTION,
+  type EnrichedProjectionManifest,
+} from './enrichedGraphProjection'
+import {
   runScientificValidation,
   type ScientificValidation,
 } from '../../../lib/scientificValidation'
@@ -1072,6 +1079,12 @@ export interface EnrichedGraphNode {
   goal_threshold_raw?: number | null
   goal_threshold_unit?: string | null
   goal_threshold_cap?: number | null
+  /**
+   * V3 goal frame. Contract: absence means UNATTESTED and consumers MUST fail
+   * closed (no goal probability) — so a bundle that cannot carry the field
+   * cannot be used to reason about the rule. Projected since 18 Sep 2026.
+   */
+  goal_threshold_frame?: string | null
   data?: Record<string, unknown>
 }
 
@@ -1379,6 +1392,19 @@ interface DebugBundle {
     edges: Array<Record<string, unknown>>
     options: Array<Record<string, unknown>>
   }
+  /**
+   * Projection manifest — what the `full_graph` projection RENAMED and what it
+   * DROPPED, derived from the spec tables the projection itself ran. Emitted
+   * only when `full_graph` is (it describes nothing otherwise).
+   *
+   * ⚠ NOT the same section as `debug_redaction_manifest`, and deliberately not
+   * merged with it: that one answers "what did the redactor suppress under
+   * payloads.* and why" (a safety surface over the captured wire), this one
+   * answers "under which spelling should I search full_graph, and what does it
+   * never carry" (a fidelity surface). Two questions, two sections.
+   * See `./enrichedGraphProjection.ts`.
+   */
+  debug_projection_manifest?: EnrichedProjectionManifest
   /** CEE option interventions (ceeAnalysisReady.options) — real intervention data */
   cee_options?: Array<Record<string, unknown>> | null
   /**
@@ -2045,6 +2071,13 @@ export interface FullGraphData {
       goal_threshold_raw?: number
       goal_threshold_unit?: string
       goal_threshold_cap?: number
+      /**
+       * Contract: absence means UNATTESTED and consumers MUST fail closed (no
+       * goal probability). Declared so the field is typed at the seam that
+       * projects it — it was reaching `node.data` via the Record intersection
+       * and being dropped by an allowlist that had never heard of it.
+       */
+      goal_threshold_frame?: string
     }
   }>
   edges: Array<{
@@ -2056,6 +2089,8 @@ export interface FullGraphData {
       strength?: number
       strength_mean?: number
       strength_std?: number
+      /** Canvas camelCase spelling; projected out as `strength_std`. */
+      strengthStd?: number
       confidence?: number
       belief_exists?: number
       beliefExists?: number
@@ -2184,7 +2219,15 @@ Despite redaction, payloads may still contain decision content
 - display_state — Snapshot of what the UI was rendering at export time
 - user_actions — Ring buffer of recent user interactions (max 50)
 - panel_state.panels — Visibility state of all panels
-- full_graph (enriched) — Full node/edge data including observed_state, category, interventions
+- full_graph (enriched) — A PROJECTION of the canvas graph, not a dump: a fixed
+  allowlist of keys, several RE-KEYED from a different canvas spelling
+  (e.g. strengthStd is emitted as strength_std), and anything unnamed dropped.
+  ⚠ A key missing from full_graph is NOT evidence the product lost it — read
+  debug_projection_manifest first: it lists the renames (search by the bundle
+  spelling), the allowlist, and the keys this export actually dropped.
+- debug_projection_manifest — What full_graph renamed and dropped, derived from
+  the projection itself. Distinct from debug_redaction_manifest, which reports
+  what the REDACTOR suppressed under payloads.* and why.
 - orchestrator — Conversation orchestrator context (turn count, blocks, coaching signals)
 - schema_versions — Schema versions used for CEE/PLoT requests/responses
 - feature_flags_at_request — All VITE_ENABLE_/VITE_FEATURE_ flags at export time
@@ -2225,32 +2268,15 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
 
   for (const node of graphData.nodes) {
     const nodeKind = (node.data?.kind ?? node.data?.type ?? 'factor').toLowerCase()
-    const entry: EnrichedGraphNode = {
+    // Projected from NODE_PROJECTION — the SAME table
+    // `buildEnrichedProjectionManifest` is emitted from, so the bundle's
+    // account of what it renamed and dropped cannot desync from what it did.
+    // `type` is computed rather than projected: it also routes the node.
+    const entry = {
       id: node.id,
-      label: node.data?.label ?? '',
       type: nodeKind,
-      kind: node.data?.kind ?? undefined,
-      description: node.data?.description,
-      observed_state: node.data?.observedState ?? null,
-      category: node.data?.category ?? null,
-      interventions: node.data?.interventions ?? null,
-      interventionKeys: node.data?.interventionKeys ?? null,
-      // V3 factor fields
-      display_value: (node.data?.display_value as string | undefined)
-        ?? ((node.data?.observedState as Record<string, unknown> | undefined)?.display_value as string | undefined)
-        ?? null,
-      intercept: typeof node.data?.intercept === 'number' ? node.data.intercept : null,
-      encoding_map: (node.data?.encoding_map as Record<string, unknown> | undefined) ?? null,
-      // V3 option fields
-      is_baseline: (node.data?.is_baseline as boolean | undefined) ?? null,
-      // V3 goal fields
-      goal_threshold: (node.data?.goal_threshold as number | undefined)
-        ?? (node.data?.success_threshold as number | undefined)
-        ?? null,
-      goal_threshold_raw: (node.data?.goal_threshold_raw as number | undefined) ?? null,
-      goal_threshold_unit: (node.data?.goal_threshold_unit as string | undefined) ?? null,
-      goal_threshold_cap: (node.data?.goal_threshold_cap as number | undefined) ?? null,
-    }
+      ...projectBySpecs(NODE_PROJECTION, node.data),
+    } as unknown as EnrichedGraphNode
 
     if (nodeKind === 'option') {
       options.push(entry)
@@ -2263,25 +2289,12 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    label: edge.data?.label ?? edge.label,
-    strength: edge.data?.strength_mean ?? edge.data?.strength ?? edge.data?.confidence,
-    strength_mean: edge.data?.weight ?? edge.data?.strength_mean,
-    strength_std: edge.data?.strength_std ?? edge.data?.strengthStd,
-    belief_exists: edge.data?.belief_exists ?? edge.data?.beliefExists,
-    effect_direction: edge.data?.effect_direction ?? edge.data?.direction,
-    // DEPRECATED: use strength_mean. Remove after 2026-05-15.
-    weight: edge.data?.weight,
-    direction: edge.data?.direction,
-    beliefStrength: edge.data?.beliefStrength,
-    // V3 edge metadata
-    edge_type: edge.data?.edge_type,
-    provenance_source: edge.data?.provenance_source,
-    exists_probability: edge.data?.exists_probability ?? edge.data?.beliefExists,
-    // F7: carried verbatim. Absent stamp ⇒ absent field ⇒ "nothing proves this
-    // was set" — the honest state, and the same reading the canvas uses.
-    weight_source: edge.data?.weightSource,
-    belief_exists_source: edge.data?.beliefExistsSource,
-  }))
+    ...projectBySpecs(
+      EDGE_PROJECTION,
+      edge.data,
+      edge as unknown as Record<string, unknown>,
+    ),
+  }) as unknown as EnrichedGraphEdge)
 
   return {
     _meta: {
@@ -3497,8 +3510,16 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
 
   // Transform graph data if requested (always enriched)
   let fullGraph: DebugBundle['full_graph'] | undefined
+  let projectionManifest: EnrichedProjectionManifest | undefined
   if (options.includeFullGraph && options.graphData) {
     fullGraph = transformGraphDataEnriched(options.graphData)
+    // Derived from the same spec tables the transform just ran, plus the keys
+    // actually present on THIS graph — so "what did the bundle drop" is
+    // measured, never remembered.
+    projectionManifest = buildEnrichedProjectionManifest(
+      options.graphData.nodes.map((n) => n.data),
+      options.graphData.edges.map((e) => e.data),
+    )
   }
 
   // Capture ceeAnalysisReady.options — real intervention data that node.data.interventions misses
@@ -3736,6 +3757,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     dropped_content_counter: getDroppedContentSnapshot(),
     readme: generateReadme(data),
     ...(fullGraph && { full_graph: fullGraph }),
+    ...(projectionManifest && { debug_projection_manifest: projectionManifest }),
     ...(ceeOptions && { cee_options: ceeOptions }),
     session: {
       timestamp,
