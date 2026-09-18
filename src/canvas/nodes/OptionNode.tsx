@@ -34,8 +34,8 @@ import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/uti
 import {
   NOT_ANALYSED_BADGE,
   NOT_COMPUTED_BADGE,
+  notAnalysedReasonCopy,
   notComputedReasonCopy,
-  optionLeftOutOfRunCopy,
 } from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
@@ -2038,19 +2038,22 @@ export const OptionNode = memo((props: NodeProps) => {
             the argument `notAnalysedCopy.ts` makes in its own header. The row
             discloses; the panel acts. Same division the not-computed row keeps.
 
-            ## ⭐⭐ AND A FOURTH REASON RIDES THIS SAME ROW: THE GRAPH MOVED
-            AFTER THE RUN
+            ## ⭐⭐ AND THE ROW SAYS NOTHING AT ALL WHEN THE RESULT CANNOT BE
+            VOUCHED FOR
 
-            `results.status` survives a graph edit, so an option added once a
-            run has finished reaches this card with no entry and — if it was
-            wired, i.e. the ordinary connected-add gesture — the derived reason
-            `not_returned`, whose sentence says the analysis RETURNED nothing
-            for it. It returned nothing because the option did not exist. The
-            hook withdraws that claim while `graphEditedSinceLastRun` is set and
-            returns `graph_edited_since_run` instead, and
-            `optionLeftOutOfRunCopy` states the absence without attributing it,
-            then points at re-running. See the hook's docblock for why the gate
-            covers only that arm.
+            `results.status` survives a graph edit and survives a reload, so an
+            option added once a run has finished — or simply looked at after a
+            restore — reaches this card with no entry and, if it is wired, the
+            derived reason `not_returned`, whose sentence says the analysis
+            RETURNED nothing for it. It returned nothing because it was never
+            asked. `useOptionLeftOutOfRun` therefore WITHHOLDS that arm unless
+            `useAnalysisResultsAreCurrent` can vouch for the result on screen,
+            and it withholds by returning `null` rather than by substituting a
+            fourth sentence: the currency signal's `false` pools "the graph
+            changed" with "cannot confirm", so no sentence naming a change is
+            licensed by it. The card then falls back to the pooled-but-true line
+            below. `no_interventions` is ungated — it reports the graph as it is
+            now. See the hook's docblock for the measurement.
 
             ⭐ THE PILL IS DELIBERATELY THE SAME ONE. `NOT_ANALYSED_BADGE` is
             the GENUS — "this card carries no rank and no probability" — and it
@@ -2067,7 +2070,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {displayMetadata.isResultsMode && leftOutOfRunReason !== null && (
           <div
             className="mt-1.5 mb-1 flex items-center gap-1.5"
-            title={optionLeftOutOfRunCopy(leftOutOfRunReason)}
+            title={notAnalysedReasonCopy(leftOutOfRunReason)}
             data-testid={`option-not-analysed-${props.id}`}
           >
             <span
@@ -2077,7 +2080,7 @@ export const OptionNode = memo((props: NodeProps) => {
               {NOT_ANALYSED_BADGE}
             </span>
             <span className={typography.screenReaderOnly}>
-              {optionLeftOutOfRunCopy(leftOutOfRunReason)}
+              {notAnalysedReasonCopy(leftOutOfRunReason)}
             </span>
           </div>
         )}

@@ -92,32 +92,27 @@ export type NotAnalysedReason =
    */
   | 'not_returned'
 
-/**
- * ⭐⭐ THE FOURTH WORLD — A SUPERSET TYPE, DELIBERATELY NOT A WIDENING OF
- * {@link NotAnalysedReason}.
+/*
+ * ⛔ THE FOURTH VALUE WAS WITHDRAWN. A `graph_edited_since_run` member was added
+ * to a superset union here, meaning "the graph moved since the run, so we may
+ * not say the run considered this option". It is gone, and the withdrawal is
+ * recorded rather than silently reverted because the reasoning that minted it
+ * was sound and the FACT it named was not available.
  *
- * `NotAnalysedReason` is what {@link deriveNotAnalysedReason} is TOTAL over,
- * and `notAnalysedCopy.ts` rests an argument on that totality ("there is no
- * third 'no reason known' arm, because at this tip there is no such run").
- * Both stay true: nothing here changes what that function returns, and the
- * results panel's producer (`useResultsSectionData.ts:2272`) can still only
- * emit the two values. Widening the union in place would instead have made
- * every `reason === 'no_interventions' ? A : B` ternary in this family answer
- * the new value with B — the `not_returned` sentence — which is precisely the
- * false sentence the fourth world exists to stop.
+ * It was composed from `graphEditedSinceLastRun`, and that flag is reset to
+ * `false` by `resultsLoadHistorical` (`canvas/store.ts:6026`) and
+ * `resultsHydrateFromSupabase` (`:6097`) in the same `set()` that installs the
+ * restored result — so it reads "the graph has not moved" about a result
+ * computed on a graph the session has never seen. The honest signal
+ * (`canvas/hooks/useAnalysisResultsAreCurrent`) can only answer *"is this result
+ * confirmably about the current graph?"*, and its `false` pools 'changed' with
+ * 'cannot_confirm'. It therefore licenses WITHHOLDING a claim and never
+ * ASSERTING a change, which is what this value asserted.
  *
- * `graph_edited_since_run` is a fact the RESULTS PANEL DOES NOT HOLD. It is
- * composed by the canvas hook from a store flag (`graphEditedSinceLastRun`)
- * layered on top of the derived reason, so it belongs to a strictly larger
- * vocabulary. Named apart rather than folded in (CLAUDE.md trap 21), and
- * `notAnalysedCopy.optionLeftOutOfRunCopy` is the one function total over it.
- *
- * ⚠ THE VALUE NAMES THE FACT WE HOLD, NOT THE STORY WE INFER. We do not know
- * this option was ADDED after the run — only that the graph changed since the
- * run, so we are no longer entitled to say the run considered this option.
- * `added_after_run` would assert more than anything measured.
+ * ⭐ The consequence for this file is that {@link NotAnalysedReason} is once
+ * more the whole vocabulary, {@link deriveNotAnalysedReason} is total over it,
+ * and `notAnalysedCopy.ts`'s argument from that totality stands unqualified.
  */
-export type OptionLeftOutOfRunReason = NotAnalysedReason | 'graph_edited_since_run'
 
 /** The shape this module needs off a canvas edge. */
 export interface OptionEdgeLike {

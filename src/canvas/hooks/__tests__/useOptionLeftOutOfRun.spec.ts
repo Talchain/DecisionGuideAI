@@ -51,7 +51,20 @@ interface MockCanvasState {
   nodes: MockNode[]
   edges: MockEdge[]
   results: { status: string; report: unknown }
-  graphEditedSinceLastRun: boolean
+  /**
+   * ⭐ THE CURRENCY INPUTS, and they replaced `graphEditedSinceLastRun` here for
+   * the reason `useAnalysisResultsAreCurrent`'s header measures: that flag is
+   * reset to `false` by `resultsLoadHistorical` and `resultsHydrateFromSupabase`
+   * in the same `set()` that installs a restored run, so a spec seeded with it
+   * was pinning a gate that opens on every reload.
+   *
+   * These three are the real classifier's real inputs. `classifyFreshnessForDisplay`
+   * is imported for real by the hook under test and is NOT mocked — mocking it
+   * would leave this file asserting its own idea of freshness.
+   */
+  analysisFreshness: { freshness: string; freshnessReason?: string } | null
+  analysisFreshnessDirty: boolean
+  importPendingServerRegistration: boolean
 }
 
 let store: UseBoundStore<StoreApi<MockCanvasState>>
@@ -79,7 +92,15 @@ function seed(partial: Partial<MockCanvasState> = {}) {
     nodes: [],
     edges: [],
     results: { status: 'complete', report: { option_probabilities: {} } },
-    graphEditedSinceLastRun: false,
+    // ⚠ THE DEFAULT IS AN AFFIRMATIVE CEE VERDICT, STATED RATHER THAN OMITTED.
+    // The hook withholds `not_returned` unless the result is confirmably
+    // current, and an omitted slice classifies as 'none' — so a default of
+    // `null` here would make every `not_returned` expectation in this file pass
+    // for the wrong reason, or fail for one. The currency describe below states
+    // BOTH arms explicitly so neither is reached by accident.
+    analysisFreshness: { freshness: 'fresh' },
+    analysisFreshnessDirty: false,
+    importPendingServerRegistration: false,
     ...partial,
   }))
 }
@@ -220,64 +241,130 @@ describe('useOptionLeftOutOfRun — F1: the intervention predicate reads the dom
   })
 })
 
-describe('useOptionLeftOutOfRun — F2: the graph moved after the run', () => {
-  const afterTheRun = (graphEditedSinceLastRun: boolean) => ({
+describe('useOptionLeftOutOfRun — F2: a result we cannot vouch for says nothing', () => {
+  /**
+   * ⛔⛔ THIS DESCRIBE REPLACES ONE GATED ON `graphEditedSinceLastRun`, AND THE
+   * REPLACEMENT IS THE FINDING.
+   *
+   * The old version asserted that an edited graph swapped `not_returned` for a
+   * fourth reason, `graph_edited_since_run`. Both the gate and the fourth reason
+   * are withdrawn:
+   *
+   *   · the GATE, because `resultsLoadHistorical` (`canvas/store.ts:6026`) and
+   *     `resultsHydrateFromSupabase` (`:6097`) set `graphEditedSinceLastRun:
+   *     false` in the same `set()` as `results.status: 'complete'` — so after a
+   *     reload or a scenario switch the false engine-blaming sentence returned;
+   *   · the FOURTH REASON, because its copy asserted *"the graph has changed"*
+   *     and the honest signal cannot say that. `useAnalysisResultsAreCurrent`
+   *     returns `false` for 'changed' AND for 'cannot_confirm', and a restored
+   *     run is cannot-confirm.
+   *
+   * So the arm WITHHOLDS. `null`, and the card falls back to the pooled
+   * `option-result-unavailable` line.
+   */
+  const afterTheRun = (freshness: Partial<MockCanvasState>) => ({
     nodes: [bothSpellings('scored'), bothSpellings('added-later'), factorNode('a-factor')],
     edges: [{ id: 'e1', source: 'added-later', target: 'a-factor' }],
     results: { status: 'complete', report: { option_probabilities: { scored: {} } } },
-    graphEditedSinceLastRun,
+    ...freshness,
   })
 
-  it('withdraws the engine-blaming reason once the graph has been edited', () => {
-    // The traced journey: a run completes on the options that existed, the
-    // user adds one and wires it to a factor (the ordinary connected-add), and
-    // `results.status` survives the edit because `pushToHistory` does not touch
-    // `results`. The option then has an intervention edge and no entry, which
-    // reads as `not_returned` — "the analysis returned no result for this
-    // option". It returned nothing because the option did not exist.
-    seed(afterTheRun(false))
+  it('withholds the engine-blaming reason once a local edit has dirtied the verdict', () => {
+    // The traced journey: a run completes on the options that existed, the user
+    // adds one and wires it to a factor (the ordinary connected-add). That path
+    // runs `invalidateAnalysisReady` (`store.ts:3438` → `:2890`), which marks
+    // the freshness overlay — so a retained CEE 'fresh' displays as 'unknown'
+    // and the classifier answers 'changed'.
+    //
+    // BOTH ARMS ASSERTED, so the gate is shown to discriminate rather than
+    // merely to return null.
+    seed(afterTheRun({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false }))
     expect(ask('added-later')).toBe('not_returned')
 
-    seed(afterTheRun(true))
-    expect(ask('added-later')).toBe('graph_edited_since_run')
+    seed(afterTheRun({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: true }))
+    expect(ask('added-later')).toBeNull()
   })
 
-  it('does NOT pool `no_interventions` into it', () => {
-    // An option with nothing wired is not submittable, so "run it again" is a
-    // futile step. "Say what it changes" stays true and stays actionable
-    // whether or not the option predates the run, so this arm keeps its own
-    // reason and its own action. The two arms fail in opposite directions.
+  it('⭐ THE DEFECT THIS ROUND CLOSES: a RESTORED run withholds it too', () => {
+    // This is the case the old gate got wrong and could not see. Both store
+    // actions that install a restored run write exactly this slice —
+    // `{ freshness: 'unknown', freshnessReason: 'hydrated_without_capture' }`
+    // with the dirty overlay CLEARED — while resetting `graphEditedSinceLastRun`
+    // to false. Under the old gate this graph yielded `not_returned`: "the
+    // analysis returned no result for this option", about a run whose graph this
+    // session has never seen.
+    seed(
+      afterTheRun({
+        analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' },
+        analysisFreshnessDirty: false,
+      }),
+    )
+    expect(ask('added-later')).toBeNull()
+  })
+
+  it('withholds it on a CEE-stated stale verdict as well', () => {
+    // The third way the signal says "not current", and the only one the product
+    // hears first-hand from the producer. Included so the arm is not pinned to a
+    // single reachable state.
+    seed(afterTheRun({ analysisFreshness: { freshness: 'stale' }, analysisFreshnessDirty: false }))
+    expect(ask('added-later')).toBeNull()
+  })
+
+  it('withholds it under an import hold, which the affirmative gate outranks', () => {
+    // `classifyFreshnessForDisplay` returns cannot-confirm for (fresh, hold)
+    // before it returns 'current' — the ordering its own comment calls "the
+    // whole design". Pinned here so this hook inherits that ordering rather
+    // than relying on it silently.
+    seed(
+      afterTheRun({
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: true,
+      }),
+    )
+    expect(ask('added-later')).toBeNull()
+  })
+
+  it('does NOT gate `no_interventions`', () => {
+    // An option with nothing wired is not submittable, and that is a fact about
+    // the graph AS IT IS NOW — it needs no licence from a verdict about the run.
+    // Withholding it would delete the only arm that carries an action.
     seed({
       nodes: [bothSpellings('scored'), bothSpellings('bare-option')],
       edges: [],
       results: { status: 'complete', report: { option_probabilities: { scored: {} } } },
-      graphEditedSinceLastRun: true,
+      analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' },
+      analysisFreshnessDirty: false,
     })
     expect(ask('bare-option')).toBe('no_interventions')
   })
 
-  it('does NOT reach an option the run returned, however stale the graph', () => {
+  it('does NOT reach an option the run returned, however uncertain the verdict', () => {
     // The gate rides on top of the absence; it must not manufacture one. An
-    // analysed option stays silent whatever the flag says.
+    // analysed option stays silent whatever the currency signal says.
     seed({
       nodes: [bothSpellings('scored')],
       results: {
         status: 'complete',
         report: { option_probabilities: { scored: { status: 'computed', win_probability: 0.6 } } },
       },
-      graphEditedSinceLastRun: true,
+      analysisFreshnessDirty: true,
     })
     expect(ask('scored')).toBeNull()
   })
 
   it('does NOT defeat the domain guard', () => {
-    // A stale graph plus a run with no per-option output at all is still the
-    // world where marking anything would be a lie about the user's setup.
+    // A confirmably-current result with no per-option output at all is still the
+    // world where marking anything would be a lie about the user's setup. Seeded
+    // CURRENT deliberately, so the null below is the guard's doing and not the
+    // currency gate's — two gates returning the same value is how a test stops
+    // discriminating (CLAUDE.md trap 13b).
     seed({
       nodes: [bothSpellings('one'), bothSpellings('two')],
       edges: [{ id: 'e1', source: 'one', target: 'a-factor' }],
       results: { status: 'complete', report: { option_probabilities: {} } },
-      graphEditedSinceLastRun: true,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
     })
     expect(ask('one')).toBeNull()
     expect(ask('two')).toBeNull()

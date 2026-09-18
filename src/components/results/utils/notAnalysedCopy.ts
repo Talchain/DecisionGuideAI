@@ -34,7 +34,7 @@
  * reports. Same rule CEE applies to its own status-quo hold disclosure.
  */
 
-import type { NotAnalysedReason, OptionLeftOutOfRunReason } from './notAnalysedOptions'
+import type { NotAnalysedReason } from './notAnalysedOptions'
 
 /** The pill on the card. Names the state; claims nothing about quality. */
 export const NOT_ANALYSED_BADGE = 'Not analysed'
@@ -53,74 +53,44 @@ export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
     : 'The analysis returned no result for this option, so it has no rank and no probability.'
 }
 
-/**
- * ⭐⭐ THE FOURTH WORLD — WHAT THE CARD SAYS WHEN THE GRAPH HAS MOVED UNDER THE
- * RESULTS, AND WHY EVERY CLAUSE IS THE ONE IT IS.
+/*
+ * ⛔⛔ THE FOURTH-WORLD SENTENCE WAS WITHDRAWN, AND THE WITHDRAWAL IS RECORDED
+ * HERE RATHER THAN REVERTED SILENTLY.
  *
- * ## The sentence it replaces was FALSE, not merely imprecise
+ * What stood here was `OPTION_LEFT_OUT_AFTER_GRAPH_EDIT_COPY` —
  *
- * `results.status` survives a graph edit — `pushToHistory` (`canvas/store.ts`)
- * sets `graphEditedSinceLastRun: true` and `analysisStateReady: false` and does
- * NOT touch `results`. So a run completes on A and B, the user adds C and wires
- * it to a factor (the ordinary connected-add gesture), and C reaches this
- * family with an intervention edge and no entry: `deriveNotAnalysedReason`
- * returns `not_returned` and the card says *"The analysis returned no result
- * for this option"*. The analysis returned nothing about C **because C did not
- * exist when it ran.** That sentence blames the engine for the user's own edit,
- * and `notAnalysedActionLabel` correctly offers nothing for `not_returned`, so
- * the card also says there is nothing to do. Both halves are wrong at once.
+ *   "The last analysis has no result for this option, so it has no rank and no
+ *    probability. The graph has changed since that analysis ran — run it again
+ *    to see where this option stands."
  *
- * ## *"has no result for"*, never *"returned no result for"*
+ * — selected by `optionLeftOutOfRunCopy` when a store flag said the graph had
+ * moved since the run. Both are gone, along with the superset reason type in
+ * `notAnalysedOptions.ts`. `notAnalysedReasonCopy` is once more the whole copy
+ * vocabulary for this family, and the canvas calls it directly.
  *
- * The distinction is the whole fix and it is one word. *"Returned"* asserts the
- * run was ASKED about this option and answered. *"The last analysis has no
- * result for this option"* asserts only what we measured — an absence from the
- * result set — and is true whether the option was never submitted or submitted
- * and unanswered. This card is written for the state in which we cannot tell
- * those apart, so it must not pick one.
+ * ## The first half of that sentence was right, and it is the part worth keeping
  *
- * ## It states the graph change and points at re-running
+ * *"HAS no result for"* rather than *"RETURNED no result for"* is a real
+ * distinction: "returned" asserts the run was ASKED about this option. That
+ * observation stands and is not lost — it is why the canvas now WITHHOLDS the
+ * `not_returned` arm rather than restating it, when the product cannot vouch
+ * for the result on screen.
  *
- * A bare absence with no ground reads as a rendering gap (the rule
- * {@link notAnalysedReasonCopy} and {@link NOT_COMPUTED_REASON_COPY} both
- * follow). The ground here is the user's own edit, which is also the only thing
- * that makes the step actionable: re-running is what settles where this option
- * stands. It does not PROMISE the option will be included — the engine may
- * still hold it out — for the same reason {@link BRING_INTO_COMPARISON_LABEL}
- * refuses to name an outcome the act cannot deliver.
+ * ## The second half asserted a fact nothing could supply
  *
- * ## ⛔ IT IS NOT A FRESHNESS VERDICT, AND MUST NOT BECOME ONE
+ * *"The graph has changed since that analysis ran"* is a CHANGE ASSERTION, and
+ * it was gated on `graphEditedSinceLastRun` — which `resultsLoadHistorical`
+ * (`canvas/store.ts:6026`) and `resultsHydrateFromSupabase` (`:6097`) reset to
+ * `false` in the same `set()` that installs a restored run. So on the reload
+ * path the gate opened and the sentence it was written to prevent came back.
  *
- * Three surfaces record, in their own comments, that `graphEditedSinceLastRun`
- * "fabricated 'stale'" and is not the authority for *"are these results
- * current?"* — `components/OutputsDock.tsx`, `conversation/ActionStrip.tsx` and
- * `utils/deriveAnalysisDisplayState.ts` all route that question through the
- * composed CEE freshness semantic instead. This sentence answers a DIFFERENT
- * question: *"am I entitled to say the run considered THIS option?"* The flag
- * is used as a GATE on a claim, never as a claim about the run's currency, and
- * the copy states the local edit rather than a verdict on the results. Two
- * authorities over one question is trap 21; one fact serving two questions,
- * named apart, is not.
+ * ⭐ AND THE HONEST SIGNAL CANNOT RESCUE IT. `useAnalysisResultsAreCurrent`
+ * answers *"is this result confirmably about the current graph?"*; its `false`
+ * pools 'changed' with 'cannot_confirm'. A restored run is cannot-confirm, and
+ * "the graph has changed" is not a true thing to say about cannot-confirm. A
+ * claim needing a fact the authority does not hold is a claim to drop, not one
+ * to re-gate — which is the whole lesson of this pair of PRs.
  */
-export const OPTION_LEFT_OUT_AFTER_GRAPH_EDIT_COPY =
-  'The last analysis has no result for this option, so it has no rank and no probability. ' +
-  'The graph has changed since that analysis ran — run it again to see where this option stands.'
-
-/**
- * What a CANVAS option card says about an option the run left out — total over
- * the wider {@link OptionLeftOutOfRunReason} vocabulary.
- *
- * ⚠ THE FORK LIVES HERE, ONCE, AND NOT AT THE RENDER SITE. A `reason === …`
- * ternary in `OptionNode.tsx` would be a second copy authority for one card,
- * which is the defect this module's header exists to refuse. The two shared
- * values delegate to {@link notAnalysedReasonCopy} verbatim, so the canvas and
- * the panel cannot drift on the sentences they already share.
- */
-export function optionLeftOutOfRunCopy(reason: OptionLeftOutOfRunReason): string {
-  return reason === 'graph_edited_since_run'
-    ? OPTION_LEFT_OUT_AFTER_GRAPH_EDIT_COPY
-    : notAnalysedReasonCopy(reason)
-}
 
 /**
  * The label on the resolve affordance, or `null` when there is nothing for the

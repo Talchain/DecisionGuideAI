@@ -52,12 +52,20 @@ beforeEach(() => {
     nodes: [], edges: [], ceeAnalysisReady: null,
     results: { status: 'idle', report: null }, viewMode: 'expert',
     // ⭐ THE FOURTH ABSENCE'S PRECONDITION, PINNED RATHER THAN INHERITED.
-    // `useOptionLeftOutOfRun` withdraws the `not_returned` sentence while the
-    // graph has moved since the run, so every assertion below about what an
-    // option card SAYS is conditional on this being false. A default is not a
-    // precondition: state it, or the file silently tests a different rule the
-    // day the default moves (CLAUDE.md trap 13b).
-    graphEditedSinceLastRun: false,
+    // `useOptionLeftOutOfRun` withholds the `not_returned` sentence unless
+    // `useAnalysisResultsAreCurrent` can vouch for the result on screen, so an
+    // affirmative verdict is stated here rather than inherited from whatever
+    // the store happens to initialise. A default is not a precondition: state
+    // it, or the file silently tests a different rule the day the default moves
+    // (CLAUDE.md trap 13b).
+    //
+    // ⚠ AND THE HONEST SCOPE OF THAT: every not-analysed assertion in THIS file
+    // lands on the `no_interventions` arm, which is NOT gated — it reports the
+    // graph as it is now. The seeding is a guard against a future case in this
+    // file reaching the gated arm, not a load-bearing input to the ones here.
+    analysisFreshness: { freshness: 'fresh' },
+    analysisFreshnessDirty: false,
+    importPendingServerRegistration: false,
   } as never)
 })
 afterEach(cleanup)
