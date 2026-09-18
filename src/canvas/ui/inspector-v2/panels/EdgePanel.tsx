@@ -479,6 +479,15 @@ export const EdgePanel = memo(function EdgePanel({
    * It gets its own wording and KEEPS the affordance.
    */
   const strengthEditSettlement = strengthEditSend?.settlement
+  /**
+   * ⭐ THE PENDING WINDOW IS A THIRD STATE, NOT AN ABSENCE OF THE OTHER TWO.
+   * Every edit passes through it — a settlement cannot arrive in the same tick
+   * (`settleSystemEventSend` settles a promise), so `null` here is the NORMAL
+   * state at the instant of the press, not an edge case. Falling through to
+   * `EditConfirmation`'s defaults here is what kept the "Updated ✓ in success
+   * green" claim alive for the whole window this change was written to close.
+   */
+  const strengthEditIsPending = strengthEditSettlement === undefined
   const strengthEditDidNotLand =
     strengthEditSettlement === 'blocked' || strengthEditSettlement === 'refused'
   const strengthEditIsUnverified = strengthEditSettlement === 'unverified'
@@ -707,18 +716,32 @@ export const EdgePanel = memo(function EdgePanel({
                   data-testid="edge-strength-edit-feedback"
                   data-settlement={strengthEditSettlement ?? 'pending'}
                 >
+                  {/* ⛔ NEVER `tone="success"`, NEVER "Updated". `settleSystemEventSend`'s
+                      own header: `'sent'` means a POST left and the server has not
+                      answered — "a row that rendered 'saved' on it would be an
+                      optimistic write wearing a receipt." Whether the MODEL changed
+                      arrives separately, on the turn. This mirrors
+                      `FactorControllablePanel:852-858`, which already states all
+                      three of its outcomes this way, rather than inventing a fourth
+                      spelling of one rule. */}
                   <EditConfirmation
                     trigger={strengthEditSend?.ts ?? lastConfirmed.ts}
-                    label={strengthEditDidNotLand
-                      ? ACTION_LABELS.strengthEditNotRecorded
-                      : strengthEditIsUnverified
-                        ? ACTION_LABELS.strengthEditUnverified
-                        : undefined}
-                    tone={strengthEditDidNotLand || strengthEditIsUnverified ? 'pending' : 'success'}
+                    label={strengthEditIsPending
+                      ? ACTION_LABELS.strengthEditSending
+                      : strengthEditDidNotLand
+                        ? ACTION_LABELS.strengthEditNotRecorded
+                        : strengthEditIsUnverified
+                          ? ACTION_LABELS.strengthEditUnverified
+                          : ACTION_LABELS.strengthConfirmSent}
+                    tone="pending"
+                    hold={strengthEditIsPending}
                   />
-                  {/* Suppressed ONLY where the model provably does not hold the
-                      value. `unverified` keeps it: it may. */}
-                  <InlineRerunPrompt visible={isStaleAfterEdit && !strengthEditDidNotLand} />
+                  {/* Withheld where the model provably does not hold the value, and
+                      while we do not yet know. `unverified` keeps it — it may have
+                      landed, and hiding a real result is the opposite harm. */}
+                  <InlineRerunPrompt
+                    visible={isStaleAfterEdit && !strengthEditDidNotLand && !strengthEditIsPending}
+                  />
                 </div>
               )}
               {/* Fine-tune slider */}

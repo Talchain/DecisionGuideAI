@@ -19,6 +19,14 @@
  * and withhold the re-run. `unverified` means it MAY — so it must NOT claim
  * nothing was recorded, and must NOT withhold the re-run. Two opposite harms
  * cannot share one window (CLAUDE.md trap 22b).
+ *
+ * ⚠ WHAT THIS SPEC CANNOT SEE, STATED PLAINLY. The mock settles SYNCHRONOUSLY,
+ * so no case here observes the TRANSITION from pending to settled — only the
+ * two ends of it. The pending case below reaches the right STATE (the mock
+ * reports no settlement, which is what the panel holds before the server
+ * answers) but not the moment of change. A mock that cannot reach a state is
+ * indistinguishable from a state that does not exist, and that is exactly how
+ * the pending window survived the first version of this change.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -132,7 +140,28 @@ describe('EdgePanel — a strength edit says what actually happened to it', () =
     expect(feedback?.textContent).not.toContain(ACTION_LABELS.strengthEditNotRecorded)
   })
 
-  it('SENT: unchanged — the historic success wording survives where it is true', () => {
+  it('⭐ PENDING: the window every edit passes through never claims "Updated", and withholds the re-run', () => {
+    seedAssertableEdge()
+    // `null` means the mock reports NO settlement — which is exactly the real
+    // state between the press and the server's answer, because
+    // `settleSystemEventSend` settles a promise and cannot resolve in the same
+    // tick. This is the state the first version of this change fell through to
+    // `EditConfirmation`'s defaults on, rendering "Updated" in success green
+    // with the re-run offered.
+    settlementToReport = null
+    const { container } = render(<EdgePanel {...panelProps} />)
+    pressAStrengthBand(container)
+
+    const feedback = container.querySelector('[data-testid="edge-strength-edit-feedback"]')
+    expect(feedback, 'the edit feedback must render at all').toBeTruthy()
+    expect(feedback?.getAttribute('data-settlement')).toBe('pending')
+    expect(feedback?.textContent).toContain(ACTION_LABELS.strengthEditSending)
+    // ⛔ THE TWO CLAIMS THAT MUST NOT APPEAR HERE.
+    expect(feedback?.textContent).not.toContain('Updated')
+    expect(screen.queryByText(/re-run/i)).toBeNull()
+  })
+
+  it('SENT: says the POST left, and still does not claim the model changed', () => {
     seedAssertableEdge()
     settlementToReport = 'sent'
     const { container } = render(<EdgePanel {...panelProps} />)
@@ -142,5 +171,10 @@ describe('EdgePanel — a strength edit says what actually happened to it', () =
     expect(feedback?.getAttribute('data-settlement')).toBe('sent')
     expect(feedback?.textContent).not.toContain(ACTION_LABELS.strengthEditNotRecorded)
     expect(feedback?.textContent).not.toContain(ACTION_LABELS.strengthEditUnverified)
+    // ⛔ `'sent'` means a POST left and the server has not answered.
+    // `settleSystemEventSend`'s own header: a row rendering "saved" on it is
+    // "an optimistic write wearing a receipt".
+    expect(feedback?.textContent).not.toContain('Updated')
+    expect(feedback?.textContent).toContain(ACTION_LABELS.strengthConfirmSent)
   })
 })

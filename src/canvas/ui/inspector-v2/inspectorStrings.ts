@@ -574,6 +574,18 @@ export const ACTION_LABELS = {
    * genuinely hold the new value.
    */
   strengthEditUnverified: 'Olumi may not have recorded this',
+  /**
+   * ⛔ THE WINDOW I MISSED FIRST TIME, AND IT IS THE ONE EVERY EDIT PASSES
+   * THROUGH. A settlement is ALWAYS at least one microtask late
+   * (`settleSystemEventSend` resolves a promise), so between the press and the
+   * answer `strengthEditSend` is `null`. My first version rendered
+   * `EditConfirmation`'s DEFAULTS in that window — "Updated" in success green,
+   * with the re-run offered — which is the exact claim this change exists to
+   * stop, surviving in the gap between the two states I did name.
+   * ⭐ A mock that settles SYNCHRONOUSLY cannot see this window, and mine did.
+   * The test was not missing by oversight; the instrument could not reach it.
+   */
+  strengthEditSending: 'Sending to Olumi…',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────
