@@ -222,6 +222,23 @@ export const ContestedSection = memo(function ContestedSection({
       const edge = useCanvasStore.getState().edges.find(e => e.id === row.edgeId)
       if (!edge) return
 
+      const validation = (edge.data as { validation?: ValidationMetadata } | undefined)?.validation
+
+      // ⭐ ONE TURN PER CLICK IS LOAD-BEARING (`sendSystemEvent` is a network TURN, not a
+      // fire-and-forget ping) AND IT IS NOT GUARDED HERE — DELIBERATELY, AND MEASURED.
+      //
+      // A `user_action !== 'pending'` re-entry guard was written here first. A mutant that
+      // DELETED it left the suite fully GREEN, which is the only honest way to learn that a
+      // guard is doing nothing: the retire write below is a synchronous zustand `set`, the
+      // parent recomputes `rows` from the edges, and the row UNMOUNTS before a second click can
+      // reach this handler. The guard could not fire on any reachable path, so it was removed
+      // rather than shipped as unpinned code with a confident comment beside it.
+      //
+      // The INVARIANT is pinned instead, at the level a user experiences it:
+      // `contestedSectionSettles.spec.tsx` clicks twice and asserts ONE send, with a live
+      // sibling row proving the suite is not merely observing an unmounted button. Any future
+      // change that keeps the row mounted through a settle turns that test RED, which is where
+      // the decision belongs.
       const event = buildEdgeAdjudicationEvent(
         edge,
         verdict,
@@ -241,7 +258,6 @@ export const ContestedSection = memo(function ContestedSection({
       // Retire the row through the predicate that already owns it
       // (`selectSurfacedContestedEdges:53` gates on `user_action !== 'pending'`). Validation
       // METADATA only — no weight, no weightSource, no direction.
-      const validation = (edge.data as { validation?: ValidationMetadata } | undefined)?.validation
       if (validation) {
         const settledValidation: ValidationMetadata = {
           ...validation,

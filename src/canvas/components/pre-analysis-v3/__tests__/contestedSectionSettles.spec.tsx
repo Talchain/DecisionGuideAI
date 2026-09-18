@@ -35,7 +35,9 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
 
-const sendSystemEvent = vi.fn(async () => 'sent')
+/** Typed so `.mock.calls[0][0]` is the EVENT, not an untyped tuple index. */
+type SentEvent = { type: string; payload: Record<string, unknown> }
+const sendSystemEvent = vi.fn(async (_event: SentEvent, _opts?: Record<string, unknown>) => 'sent')
 
 /**
  * The context the panel sees. A MUTABLE hoisted handle rather than a second `vi.mock` in the
@@ -143,9 +145,7 @@ describe('settling a contested connection — the verdict reaches the wire', () 
     fireEvent.click(screen.getByTestId(settleBtn('accepted_pass2')))
 
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
-    const [event] = sendSystemEvent.mock.calls[0] as unknown as [
-      { type: string; payload: Record<string, unknown> },
-    ]
+    const [event] = sendSystemEvent.mock.calls[0]!
     // IDENTITY: the contract's rule is from+to NODE ids, not the client edge id.
     expect(event.type).toBe('edge_adjudication')
     expect(event.payload.from).toBe('f_lead')
@@ -161,9 +161,7 @@ describe('settling a contested connection — the verdict reaches the wire', () 
     renderPanel()
 
     fireEvent.click(screen.getByTestId(settleBtn('accepted_pass2')))
-    const pass2Event = sendSystemEvent.mock.calls[0]![0] as unknown as {
-      payload: Record<string, unknown>
-    }
+    const pass2Event = sendSystemEvent.mock.calls[0]![0]
     expect(pass2Event.payload.resolved_strength_mean).toBe(0.35)
 
     // ⚠ UNMOUNT FIRST. A second `render` into the same container leaves BOTH panels in the
@@ -174,9 +172,7 @@ describe('settling a contested connection — the verdict reaches the wire', () 
     oneContested()
     renderPanel()
     fireEvent.click(screen.getByTestId(settleBtn('accepted_pass1')))
-    const pass1Event = sendSystemEvent.mock.calls[0]![0] as unknown as {
-      payload: Record<string, unknown>
-    }
+    const pass1Event = sendSystemEvent.mock.calls[0]![0]
     expect(pass1Event.payload.resolved_strength_mean).toBe(0.6)
   })
 
@@ -186,9 +182,7 @@ describe('settling a contested connection — the verdict reaches the wire', () 
 
     fireEvent.click(screen.getByTestId(settleBtn('dismissed')))
 
-    const event = sendSystemEvent.mock.calls[0]![0] as unknown as {
-      payload: Record<string, unknown>
-    }
+    const event = sendSystemEvent.mock.calls[0]![0]
     expect(event.payload.verdict).toBe('dismissed')
     // A dismissal asserts NO value — the contract's own rule, applied by the builder.
     expect(event.payload).not.toHaveProperty('resolved_strength_mean')
@@ -230,6 +224,34 @@ describe('settling a contested connection — the row retires and says so', () =
     // The count, the lead and the navigation CTA describe a list that is now empty.
     expect(screen.queryByTestId('pre-analysis-v3-contested-review')).toBeNull()
     expect(screen.queryByText(CONTESTED_COPY.lead)).toBeNull()
+  })
+
+  it('sends ONE turn per connection even if the control is clicked twice', () => {
+    // `sendSystemEvent` is a network TURN, so two for one intent is a real cost.
+    //
+    // ⚠ THE MECHANISM IS THE UNMOUNT, NOT A RE-ENTRY GUARD, and this comment used to say the
+    // opposite. A mutant deleting the guard in `handleSettle` left this GREEN — the retire
+    // write is a synchronous zustand `set`, the parent recomputes `rows`, and the row is gone
+    // before a second click can reach the handler. The guard was removed; THIS test is what
+    // holds the invariant, so a change that keeps the row mounted through a settle REDs here.
+    //
+    // Two rows, so the sibling click below proves the suite is not merely observing an
+    // unmounted button — without it this test would pass against a component that had stopped
+    // sending altogether.
+    setGraph([
+      makeContestedEdge(EDGE, 'f_lead', 'f_speed', makeContestedValidation()),
+      makeContestedEdge('e_cost_morale', 'f_cost', 'f_morale', makeContestedValidation()),
+    ])
+    renderPanel()
+    const button = screen.getByTestId(settleBtn('accepted_pass2'))
+
+    fireEvent.click(button)
+    fireEvent.click(button)
+
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    // POSITIVE CONTROL: the guard is per connection, not a global latch — the sibling still sends.
+    fireEvent.click(screen.getByTestId(settleBtn('dismissed', 'e_cost_morale')))
+    expect(sendSystemEvent).toHaveBeenCalledTimes(2)
   })
 
   it('leaves a DIFFERENT contested connection untouched', () => {
