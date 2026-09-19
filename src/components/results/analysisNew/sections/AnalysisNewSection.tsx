@@ -118,7 +118,20 @@ export function AnalysisNewSection({
 
   // Nothing to show, and nothing truthful to say about its absence: render
   // NOTHING, not a heading over empty space (§19, corrected at the mount).
-  if (findings.length === 0 && !emptyMessage) return null
+  /**
+   * ⛔ A HEADER IS CONTENT — and this predicate asked a narrower question than
+   * its job (trap 21). It answered *"are there FINDINGS?"* while the section's
+   * actual question is *"is there anything to show?"*.
+   *
+   * Found by independent review on #1625: the sensitivity section passes
+   * `emptyMessage={null}`, so a run that produced a real tipping point
+   * ("Tech Lead Presence would have to rise from 0.6 to 0.96 before Two
+   * Developers comes out ahead") and no sensitivity rows had that sentence
+   * DISCARDED here — a producer statement deleted by a guard about a different
+   * field. The convergence header cannot reach this case (it needs two rows),
+   * so nothing that renders today changes.
+   */
+  if (findings.length === 0 && !emptyMessage && !header) return null
 
   const limit = preview ?? findings.length
   const visible = expanded ? findings : findings.slice(0, limit)
