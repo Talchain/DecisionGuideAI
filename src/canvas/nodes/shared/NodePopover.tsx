@@ -82,6 +82,34 @@ const SCOPE_STYLE = { display: 'contents' } as const
 
 export function NodePopover({ visible, width, children, onMouseEnter, onMouseLeave, anchorRef }: NodePopoverProps) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  /**
+   * ⭐⭐ WHICH NODE THIS POPOVER BELONGS TO — and why the attribute cannot stay
+   * valueless.
+   *
+   * `data-node-popover` used to be written as `data-node-popover=""`. A bare
+   * attribute is a PREDICATE ANOTHER OBJECT SATISFIES (CLAUDE.md trap 19):
+   * EVERY node's popover carries it, so `usePopoverHover`'s focus guard read
+   * the popover of a DIFFERENT node as "inside mine" and held its own popover
+   * open while focus was demonstrably elsewhere. Two node popovers being open
+   * at once is not hypothetical — it is what the keyboard path made reachable,
+   * because keyboard focus on one node and a pointer hovering another are
+   * independent states that nothing coordinates.
+   *
+   * This is the same defect, and the same remedy, as `StyledEdge.tsx`'s
+   * `data-edge-popover={edgeIdKey}`: the exception is granted BY IDENTITY.
+   *
+   * ⚠ THE ID IS DERIVED FROM THE ANCHOR, NOT PASSED IN, AND THAT IS WHAT KEEPS
+   * IT HONEST. All eleven call sites already pass `anchorRef={nodeElRef}` — the
+   * very element `usePopoverHover` holds — so both sides of the comparison read
+   * the SAME DOM, and there is no prop for a caller to forget or to pass
+   * inconsistently. React Flow stamps `data-id` on `.react-flow__node`
+   * (`@xyflow/react@12.10.2` `dist/esm/index.mjs`: `"data-id": id`), which is
+   * the id the hook reads on its own side.
+   *
+   * An EMPTY id means "no identity", never "matches another empty id" — the
+   * hook fails closed on it. See `usePopoverHover`'s `ownsFocus`.
+   */
+  const [ownerId, setOwnerId] = useState('')
   // ⚠ BEFORE EVERY EARLY RETURN. This component returns null on three separate
   // paths; a hook called after any of them would break the rules of hooks.
   const scope = useNodeKeyboardScope<HTMLDivElement>()
@@ -92,6 +120,9 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
       setPos(null)
       return
     }
+
+    const id = anchorRef.current.closest('.react-flow__node')?.getAttribute('data-id') ?? ''
+    setOwnerId(prev => (prev === id ? prev : id))
 
     let rafId: number
     const track = () => {
@@ -128,7 +159,18 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
 
   if (!visible) return null
 
-  // Fallback: if no anchorRef, render inline (backward compat)
+  /*
+   * Fallback: if no anchorRef, render inline (backward compat).
+   *
+   * ⚠ ITS ATTRIBUTE STAYS VALUELESS, DELIBERATELY. With no anchor there is no
+   * node to derive an id from — and none is needed: this branch renders INSIDE
+   * the node, so `usePopoverHover`'s guard already owns it through
+   * `rfNode.contains()` before the attribute is ever consulted. The empty value
+   * is then the fail-closed answer for every OTHER node's guard, which is the
+   * correct one. Measured at this tip: all eleven product call sites pass
+   * `anchorRef`, so this branch has zero product call sites — only a spec
+   * exercises it.
+   */
   if (!anchorRef) {
     return (
       <div
@@ -147,7 +189,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
 
   return createPortal(
     <div
-      data-node-popover=""
+      data-node-popover={ownerId}
       className="fixed z-[9999] bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel"
       style={{ top: pos.top, left: pos.left, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '10px 12px' }}
       onMouseEnter={onMouseEnter}
