@@ -85,6 +85,13 @@ export function waitIsExhausted(
   // THE OBSERVED ANSWER. The schedule ended; `delivered` is the only ending
   // that put something on screen, so every other one means this client stopped
   // waiting and the surface still shows nothing.
+  //
+  // ⚠ AND IT IS THE SETTLE OF THE ATTEMPT THAT OWNS THE RECORD. `run_key`
+  // repeats across re-arms, so `recordDeliverySettled` now takes the arming
+  // token too; a superseded attempt's abort no longer reaches this reader at
+  // all. Recorded here because this predicate is WHY that ownership had to
+  // exist: a diagnostic blemish became a false claim the moment a product
+  // surface read it.
   if (record.outcome !== null) return record.outcome !== 'delivered'
 
   // THE FLOOR. Armed and never settled — possible if the effect was torn down

@@ -1094,8 +1094,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
    * See `useAnalysisWaitExhausted.ts` for the bound and why it is imported
    * rather than written.
    */
-  const analysisWaitExhausted = useAnalysisWaitExhausted(composedAnalysisState.trust.isRunning)
-  const analysisStillAwaited = composedAnalysisState.trust.isRunning && !analysisWaitExhausted
+  const provisionalWaitExhausted = useAnalysisWaitExhausted(composedAnalysisState.trust.isRunning)
   const displayedFreshness = composedAnalysisState.displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
   /**
@@ -1283,6 +1282,34 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+  /**
+   * ⭐⭐⭐ ONLY THE WIRE HALF EXPIRES. A LOCAL RUN IS FIRST-HAND KNOWLEDGE.
+   *
+   * ⛔ THE REGRESSION THIS CLOSES, found by an independent seat before merge.
+   * `trust.isRunning` is `localRunning || wireRunning`, and an earlier cut
+   * subtracted the exhaustion from the COMBINED value. The sequence that breaks
+   * it is the one this very change creates:
+   *
+   *   an old record settles `deadline`/`withheld`  ->  the restored "Run the
+   *   analysis" act is pressed  ->  `resultsAnalysing` sets `preparing`, so
+   *   `localRunning` is TRUE  ->  but the WIRE still carries the old
+   *   `started_at`, so the old record still matches and exhaustion is still
+   *   TRUE  ->  the combined subtraction hides the cover for the run that is
+   *   ACTIVE RIGHT NOW and says it stopped waiting, mid-retry.
+   *
+   * The recovery affordance would have broken the recovery.
+   *
+   * ⭐ The rule: a record may only expire the wait it describes. `isRunning`
+   * here is the dock's LOCAL flag — a request this client issued and is
+   * watching — and no record about an earlier run may speak for it.
+   *
+   * ⚠ `waitExhausted` is subtracted too, not only the cover, so the panel
+   * cannot say "this analysis has not reached this page" while a run it
+   * dispatched is in flight. One expression, every reader.
+   */
+  const analysisWaitExhausted = provisionalWaitExhausted && !isRunning
+  const analysisStillAwaited =
+    isRunning || (composedAnalysisState.trust.isRunning && !analysisWaitExhausted)
 
   // Wave1-L2 (seam D-M): exactly ONE run-status region, now mounted for
   // EVERY in-flight run rather than only when a previous report is on

@@ -37,6 +37,19 @@
 export interface ProvisionalDeliveryRecord {
   /** The hook's own arming key: `${scenarioId}:${run_state.started_at}`. */
   readonly run_key: string
+  /**
+   * ⭐⭐ WHICH ATTEMPT AT THAT KEY. `run_key` is NOT unique per attempt: the
+   * effect re-arms on the same `${scenarioId}:${started_at}` whenever its auth
+   * identity dependency changes, so attempt A is torn down and attempt B arms
+   * under the identical key.
+   *
+   * While this record was read only by the debug bundle, A's late settle
+   * overwriting B was a diagnostic blemish. `useAnalysisWaitExhausted` now
+   * reads it as PRODUCT AUTHORITY — so without ownership, A's abort would
+   * declare B's live schedule stopped and the panel would announce an
+   * abandoned run over one still in flight.
+   */
+  readonly attempt: number
   /** When the schedule armed, ISO. */
   readonly armed_at: string
   /**
@@ -62,20 +75,41 @@ export interface ProvisionalDeliveryRecord {
  */
 let current: ProvisionalDeliveryRecord | null = null
 
-/** Called by the hook at the moment it arms. Replaces any previous record. */
-export function recordDeliveryArmed(runKey: string): void {
-  current = { run_key: runKey, armed_at: new Date().toISOString(), outcome: null, settled_at: null }
+let attempts = 0
+
+/**
+ * Called by the hook at the moment it arms. Replaces any previous record and
+ * returns the token that owns it.
+ *
+ * ⚠ The caller must keep the token and hand it back on settle. A monotonic
+ * counter rather than the key, precisely because the key repeats across
+ * re-arms — see `attempt` on the record.
+ */
+export function recordDeliveryArmed(runKey: string): number {
+  attempts += 1
+  current = {
+    run_key: runKey,
+    attempt: attempts,
+    armed_at: new Date().toISOString(),
+    outcome: null,
+    settled_at: null,
+  }
+  return attempts
 }
 
 /**
  * Called when the schedule settles.
  *
- * ⚠ Ignores an outcome for a run key that is no longer current — a late settle
- * from an aborted schedule must not overwrite the record of the run that
+ * ⚠ Ignores an outcome that does not own the current record — a late settle
+ * from an aborted schedule must not overwrite the record of the attempt that
  * replaced it.
+ *
+ * ⛔ THE KEY ALONE WAS NOT ENOUGH, and that gap is why `attempt` exists. A
+ * re-arm produces a NEW attempt under the SAME `run_key`, so a key-only check
+ * accepted attempt A's late abort as if it described attempt B.
  */
-export function recordDeliverySettled(runKey: string, outcome: string): void {
-  if (current === null || current.run_key !== runKey) return
+export function recordDeliverySettled(runKey: string, attempt: number, outcome: string): void {
+  if (current === null || current.run_key !== runKey || current.attempt !== attempt) return
   current = { ...current, outcome, settled_at: new Date().toISOString() }
 }
 
@@ -87,4 +121,5 @@ export function readDeliveryRecord(): ProvisionalDeliveryRecord | null {
 /** Test-only reset. Never called by product code. */
 export function __resetDeliveryRecordForTest(): void {
   current = null
+  attempts = 0
 }
