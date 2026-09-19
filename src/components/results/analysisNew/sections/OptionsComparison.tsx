@@ -618,7 +618,28 @@ export function OptionsComparison({
                    claim about the model. */
                 onFocus={() => highlightNode(o.id)}
                 onBlur={clearHighlight}
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                /* ⭐ 24px MINIMUM, MEASURED ON THE DEPLOYED BUILD RATHER THAN
+                   ASSUMED. `62879fc1`, prototype route: this control rendered
+                   **20px high, six of six** — and after #1668 and #1708 repaired
+                   `trust-line-open-method` (131×15 → 147×24) and
+                   `model-strip-target-edit` (→ 76×24), it was the ONLY target on
+                   the whole panel still under WCAG 2.2 AA's 24×24: 6 of 36
+                   interactive targets, all of them this one.
+
+                   ⚠ `min-h` PLUS 2px OF PADDING, AND EXPLICITLY NOT
+                   `inline-flex items-center`. Centring the label that way was my
+                   first draft and it is wrong here: this button is already a
+                   flex ITEM (`flex-1`) whose CONTENTS are inline — a wrapping
+                   label and an inline origin mark. Making it a flex CONTAINER
+                   turns those into flex items side by side, which changes how a
+                   long option name wraps. Padding reaches the same 24px and
+                   leaves inline flow exactly as it was.
+
+                   ⚠ 4px PER ROW IS THE WHOLE COST, and it is paid deliberately
+                   in the block this lane is otherwise trying to SHORTEN. `min-h`
+                   rather than `h` because the label wraps: a fixed height would
+                   clip the second line. */
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 min-h-[24px] cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
