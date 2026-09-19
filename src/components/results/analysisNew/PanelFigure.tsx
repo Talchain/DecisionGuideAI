@@ -149,13 +149,21 @@ export function PanelFigure({
       return <span className={track} data-testid={testId} {...a11y} />
     }
     const width = Math.max(band.end - band.start, 0)
+    /*
+     * ⚠ NO `overflow-visible` OVERRIDE. My first draft added one beside the
+     * track's `overflow-hidden`, which is two competing classes whose winner
+     * depends on stylesheet order rather than on intent. The clamp below already
+     * guarantees the marker sits INSIDE the track, so there is nothing to let
+     * out — the containment that override was protecting is the thing rule 2
+     * removed.
+     *
+     * ⚠ AND THIS COMMENT SITS OUTSIDE THE `return`, WHICH IS WHY IT IS A BLOCK
+     * COMMENT. A `{/* … *\/}` JSX comment placed before the root element inside
+     * `return ( … )` is a syntax error — a returned expression has exactly one
+     * root. My delimiter-balance check reads it as balanced, because it is:
+     * the defect is JSX GRAMMAR, not delimiters. Only the build caught it.
+     */
     return (
-      {/* ⚠ NO `overflow-visible` OVERRIDE. My first draft added one beside the
-          track's `overflow-hidden`, which is two competing classes whose winner
-          depends on stylesheet order rather than on intent. The clamp above
-          already guarantees the marker sits INSIDE the track, so there is
-          nothing to let out — the containment the override was protecting
-          against is the thing rule 2 removed. */}
       <span className={track} data-testid={testId} {...a11y}>
         <span
           className={`absolute top-0 ${FIGURE_TRACK_HEIGHT} ${FIGURE_RADIUS} ${FILL.range}`}
