@@ -400,7 +400,9 @@ describe('withheld fields (ROADMAP 2.1273) — never read, never rendered', () =
   it('still renders the HONEST statistic it was standing beside', () => {
     // The discriminating half: without this, deleting the win share outright
     // would satisfy the absence case above and prove nothing.
-    expect(build(genuineDecision()).atAGlance.winShare).toBe('Scored highest in 69% of simulated futures')
+    expect(build(genuineDecision()).atAGlance.winShare).toBe(
+      'One option scored highest in 69% of simulated futures.',
+    )
   })
 })
 

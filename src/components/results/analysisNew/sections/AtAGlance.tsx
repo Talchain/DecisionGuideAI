@@ -40,7 +40,7 @@ import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
-import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList, sentenceCase } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 import { inset, action, icon } from '../panelSurfaces'
@@ -631,6 +631,26 @@ export function AtAGlance({
      thing and are no longer here. */
   const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
 
+  /**
+   * ⚠ RECORDED, NOT FIXED: `hasAnything` above can pass on `glance.verdict`
+   * while every block that block feeds declines to render, leaving
+   * `<section aria-label="At a glance"></section>` — a named landmark a
+   * screen-reader user can reach and find empty. Reproduced on
+   * `decisionWithLeaderWithheld()`, where the view model nulls `winShare` and
+   * `winFraction` and `mayExplainByRanking` deletes `verdict.reason`, all three
+   * by design.
+   *
+   * ⛔ AND THE OBVIOUS FIX IS WRONG — MEASURED, NOT ARGUED. Rebinding the guard
+   * to `verdictCarriesItsOwnReading` REDS 36 specs, because the verdict feeds
+   * several blocks besides the reading (the withheld reason, the refusal act,
+   * the disclosure line). The reading predicate was the only one in hand when
+   * the fix was written, which is how an invariant ends up narrower than the
+   * thing it guards. Enumerating the rest by hand would rebuild the mirror the
+   * old `glance.drivers.length > 0` disjunct already demonstrates decays.
+   *
+   * Left as a finding for a seat that can derive the full set of verdict-fed
+   * renderers, rather than shipped as a guess that 36 tests refute.
+   */
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
       {ribbon.length > 0 ? (
@@ -1050,7 +1070,24 @@ export function AtAGlance({
                   className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
                   data-testid={`${testId}-verdict-reason`}
                 >
-                  {glance.verdict.reason}
+                  {/* ⛔ THE PRODUCER COMPOSED THIS MID-SENTENCE, AND THIS PANEL
+                      IS THE ONLY CONSUMER THAT OPENS ONE WITH IT. The wire
+                      fixture is `robustnessVerdictReason: 'held up across the
+                      ranges we varied'`, and `TriageActionCardsBody:946` spends
+                      it as a native tooltip where a bare clause reads fine.
+                      Here it is a standalone paragraph, so on the deployed
+                      build `7ec3fed2` the glance's second line began "varying
+                      any one of the factors we could test…" — lower case, mid
+                      air.
+
+                      ⚠ FIRST CHARACTER ONLY, AND THE PRECEDENT IS THIS PANEL'S
+                      OWN. `sentenceCase` exists because `missingResultLabels`
+                      hit the same boundary ("composed mid-sentence, behind a
+                      dash… moves them to the front of the second one. Only the
+                      first character is touched"). The producer stays the sole
+                      owner of the words; the panel owns only where a sentence
+                      begins. */}
+                  {sentenceCase(glance.verdict.reason)}
                 </p>
               ) : null}
               {glance.winFraction !== null ? (
