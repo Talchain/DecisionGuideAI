@@ -3710,7 +3710,12 @@ export function buildAnalysisNewViewModel(
     // `buildDeeper` states; the failure mode here is worse because the
     // unassessed states are exactly what this section is FOR.
     checks: preRun
-      ? { items: [], leaderWithholdCause: null }
+      ? // ⚠ `leaderWithheld: false` PRE-RUN, and it is a fact rather than a
+        // default: nothing was withheld because nothing was assessed. The
+        // distinction matters downstream — the glance ribbon uses this to
+        // decide whether a re-run could help, and pre-run there is no result
+        // for it to be about.
+        { items: [], leaderWithholdCause: null, leaderWithheld: false }
       : buildChecks(data, inputs.producerLeaderWithholdReason),
   }
 }

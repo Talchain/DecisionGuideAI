@@ -30,7 +30,7 @@ import '@testing-library/jest-dom/vitest'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AtAGlance } from '../sections/AtAGlance'
-import type { AtAGlanceModel } from '../analysisNewTypes'
+import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
