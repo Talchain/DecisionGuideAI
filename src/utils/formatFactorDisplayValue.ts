@@ -132,6 +132,28 @@ export interface FactorDisplayInput {
   unit?: string | null
   factor_type?: string | null
   cap?: number | null
+  /**
+ * Who stated this value — the producer's own `observed_state.source`.
+ *
+ * ⭐⭐ IT EXISTS FOR EXACTLY ONE DECISION, and that decision was being made
+ * wrongly. Pattern 1 skips a placeholder unit on a stated premise: *"raw_value
+ * is just the denormalised normalised value (value x cap) — not a real-world
+ * measurement."* **That premise is false when the person typed the number.**
+ *
+ * Measured on the founder's board, 19 Sep 2026 (`olumi-debug-12928b8c`):
+ * `Round Oversubscription Likelihood` holds `value: 4`, `raw_value: 4`,
+ * `unit: 'scale'`, **`source: 'user'`**, and no `cap` at all — so `raw_value`
+ * is not `value x cap`, it IS what he stated, and `value: 4` is outside [0,1]
+ * so it is not a normalised value either. **The card rendered nothing.**
+ *
+ * ⛔ HIDING A PERSON'S OWN NUMBER IS A DIFFERENT ACT FROM DECLINING TO ASSERT
+ * A MACHINE'S. The suppression exists so the product does not present an
+ * uncalibrated inference as a measurement — a claim about what OLUMI may say.
+ * It was also answering *"may I hide what the user told me?"*, which nobody
+ * asked and whose answer is always no. One predicate, two questions
+ * (CLAUDE.md trap 21).
+ */
+value_source?: string | null
   category?: string | null
   /**
    * CEE-provided contextual display text. Returned verbatim when none of the
@@ -220,6 +242,7 @@ export function factorDisplayText(
     unit: unit ?? null,
     factor_type: (observedState?.factor_type as string | null | undefined) ?? null,
     cap: unwrapInterventionValue(observedState?.cap).value,
+    value_source: (observedState?.source as string | null | undefined) ?? null,
     category,
     display_value: displayValue,
     // Top-level on node data (`mapDraftNodeToCanvas` spreads the wire node's
@@ -429,7 +452,13 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   const { kind: unitKind, canonical: unitCanonical } = unit
     ? classifyUnit(unit)
     : { kind: null as null, canonical: '' }
-  if (raw_value != null && unit && unitKind !== 'placeholder') {
+  // ⭐⭐ A VALUE THE USER STATED IS NEVER A DENORMALISED GUESS, so the skip
+  // above does not apply to it. See `value_source` on the input type for the
+  // measurement: the founder stated 4 on a `scale` factor with no cap, and the
+  // card rendered nothing. The product may decline to assert its OWN estimate;
+  // it may not hide his.
+  const userStatedThisValue = input.value_source === 'user' || input.value_source === 'user_confirmed'
+  if (raw_value != null && unit && (unitKind !== 'placeholder' || userStatedThisValue)) {
     const numericRaw = typeof raw_value === 'number' ? raw_value : Number(raw_value)
     if (!isNaN(numericRaw)) {
       // Cost factor at zero → contextual
@@ -439,6 +468,12 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // Polish 4 review follow-up: classifyUnit handles symbol/ISO/%/other
       // with case + whitespace normalisation. 'CHF' now renders as the
       // ISO-style prefix "CHF 500" instead of the old suffix "500 CHF".
+      // ⚠ A PLACEHOLDER UNIT STILL PRINTS NO UNIT WORD, only the figure. The
+      // word asserts a scale nobody defined; the figure is the person's own.
+      // Reached only when `userStatedThisValue` opened the gate above.
+      if (unitKind === 'placeholder') {
+        return formatNumber(numericRaw)
+      }
       if (unitKind === 'symbol') {
         return `${unitCanonical}${formatNumber(numericRaw)}`
       }
@@ -592,6 +627,13 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     // as binary-like zero and produce contextual "No X in place" text.
     // When factor_type IS set to something non-binary (e.g. 'continuous'),
     // suppress — the explicit type indicates this isn't binary.
+    // ⭐ THE SAME RULE ON THE SECOND PATH. Pattern 1 covers a user-stated value
+    // that arrives with a `raw_value`; this covers one that does not. Both
+    // paths suppressed, so fixing one would have left the other hiding the
+    // person's own number for a shape nobody would think to test.
+    if (isMeaningless && !isExplicitlyBinary && userStatedThisValue && typeof value === 'number') {
+      return formatNumber(value)
+    }
     if (isMeaningless && !isExplicitlyBinary) {
       if (value === 0 && factorTypeUnset) {
         const stripped = stripSuffixes(label).toLowerCase()
