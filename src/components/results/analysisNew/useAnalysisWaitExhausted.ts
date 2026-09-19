@@ -56,14 +56,11 @@
 import { useEffect, useState } from 'react'
 
 import { useCanvasStore } from '../../../canvas/store'
-import { readDeliveryRecord } from '../../../canvas/hooks/provisionalDeliveryRecord'
+import { readDeliveryRecord, subscribeDeliveryRecord } from '../../../canvas/hooks/provisionalDeliveryRecord'
 import type { ProvisionalDeliveryRecord } from '../../../canvas/hooks/provisionalDeliveryRecord'
 import { PROVISIONAL_DELIVERY_DEADLINE_MS } from '../../../canvas/hooks/useProvisionalAnalysisDelivery'
 
 export { PROVISIONAL_DELIVERY_DEADLINE_MS }
-
-/** How often the settled flag is re-read. The record is module state, not reactive. */
-export const WAIT_POLL_MS = 5_000
 
 /**
  * The predicate, pure and exported so it can be checked without a renderer.
@@ -131,40 +128,80 @@ export function useAnalysisWaitExhausted(isRunning: boolean): boolean {
 
   useEffect(() => {
     const read = (): boolean => waitIsExhausted(isRunning, readDeliveryRecord(), runKey, Date.now())
-    setExhausted(read())
-    if (!isRunning || runKey === null) return undefined
 
     /**
-     * ⚠ A SELF-CANCELLING CHAIN, NOT A REPEATING INTERVAL — and the difference
-     * is that this one STOPS.
+     * ⛔⛔⛔ OBSERVED ON ATTEMPT OWNERSHIP, NOT POLLED ON THE RUN KEY.
      *
-     * An earlier cut used `setInterval`, which never ends. `OutputsDock` is the
-     * largest component in the app and is mounted by dozens of specs and by
-     * every session; a timer that re-reads and re-renders it every five seconds
-     * for the life of the page is a real cost with no upper bound, and in a
-     * test that never unmounts it runs forever.
+     * THE DEFECT THIS CLOSES, found by an independent seat on this PR and worth
+     * stating plainly: **this PR added `attempt` to the record precisely because
+     * `run_key` is not unique per attempt — and then keyed this consumer on the
+     * run key.** The same trap, one layer up, inside its own fix.
      *
-     * The question this answers resolves ONCE and within a known budget, so the
-     * schedule is bounded by that budget: each tick re-arms only while the
-     * record is unsettled AND the deadline has not passed. Past it the answer
-     * cannot change again, so nothing is scheduled.
+     * The sequence: attempt A never settles and passes its deadline; this hook
+     * declares exhaustion and stops; auth identity then resolves, so the
+     * producer cleans up A and arms attempt B under the SAME key with a fresh
+     * `armed_at`. Neither `isRunning` nor `runKey` changed, so a consumer keyed
+     * on them never restarts and never clears — the panel goes on announcing an
+     * abandoned run while B is actively waiting. That is the exact false state
+     * this PR exists to remove.
+     *
+     * ⭐ AND NO POLL CAN FIX IT. A poll is either unbounded — a timer
+     * re-rendering the largest component in the app for the life of the page,
+     * which is the cut before this one — or bounded, and therefore blind to
+     * everything after its bound, which is the cut the seat is reviewing. The
+     * record now publishes its own transitions, so every arm and every settle
+     * is seen exactly once, with no timer between them.
+     *
+     * ⚠ THE DEADLINE FLOOR IS STILL NEEDED and is still bounded PER ATTEMPT.
+     * "Armed and never settled" produces no transition to observe, so one
+     * timeout is armed for the current attempt's remaining budget and re-armed
+     * only when the attempt changes.
      */
     let timer: ReturnType<typeof setTimeout> | undefined
-    const tick = (): void => {
-      if (read()) {
-        setExhausted(true)
-        return
-      }
+    let observed: number | null = null
+
+    const sync = (): void => {
       const record = readDeliveryRecord()
-      const armed = record === null ? Number.NaN : Date.parse(record.armed_at)
-      const remaining = Number.isFinite(armed)
-        ? armed + PROVISIONAL_DELIVERY_DEADLINE_MS - Date.now()
-        : PROVISIONAL_DELIVERY_DEADLINE_MS
+      /**
+       * A NEW attempt under the same key is a fresh wait, so the previous
+       * attempt's floor is dropped.
+       *
+       * ⚠ AND THIS BLOCK IS NARROWER THAN ITS FIRST COMMENT CLAIMED, which two
+       * mutation runs established rather than reasoning. The CLEARING of an
+       * exhausted state comes from `setExhausted(read())` below, on the
+       * subscription — not from here; mutating this block away left every arm
+       * green until the right one existed.
+       *
+       * What it is actually for: an UNSETTLED earlier attempt leaves a LIVE
+       * timer set for ITS deadline, which is earlier than the new attempt's.
+       * Without dropping it, that stale timer fires first and reports the new
+       * attempt as abandoned while it is still inside its own budget — a false
+       * abandonment, arriving early. Pinned by
+       * `aFreshAttemptClearsTheAbandonment.spec.tsx`'s unsettled-A arm.
+       */
+      if (record !== null && record.attempt !== observed) {
+        observed = record.attempt
+        if (timer !== undefined) clearTimeout(timer)
+        timer = undefined
+      }
+      setExhausted(read())
+      if (timer !== undefined) return
+      if (!isRunning || runKey === null || record === null) return
+      if (record.run_key !== runKey || record.outcome !== null) return
+      const armed = Date.parse(record.armed_at)
+      if (!Number.isFinite(armed)) return
+      const remaining = armed + PROVISIONAL_DELIVERY_DEADLINE_MS - Date.now()
       if (remaining <= 0) return
-      timer = setTimeout(tick, Math.min(WAIT_POLL_MS, remaining + 1))
+      timer = setTimeout(() => {
+        timer = undefined
+        setExhausted(read())
+      }, remaining + 1)
     }
-    timer = setTimeout(tick, WAIT_POLL_MS)
+
+    sync()
+    const unsubscribe = subscribeDeliveryRecord(sync)
     return () => {
+      unsubscribe()
       if (timer !== undefined) clearTimeout(timer)
     }
   }, [isRunning, runKey])

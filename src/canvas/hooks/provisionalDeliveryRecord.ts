@@ -78,6 +78,49 @@ let current: ProvisionalDeliveryRecord | null = null
 let attempts = 0
 
 /**
+ * ⭐⭐ THE RECORD IS OBSERVABLE, BECAUSE A CONSUMER CANNOT POLL ITS WAY TO
+ * CORRECTNESS HERE.
+ *
+ * ⛔ THE DEFECT THIS CLOSES, found by an independent seat on #1764. A product
+ * consumer keyed on `run_key` cannot see a RE-ARM: the producer re-arms under
+ * the SAME key when auth identity resolves, so attempt A can expire, the
+ * consumer can settle on "stopped waiting", and attempt B can then arm and wait
+ * — with nothing the consumer depends on having changed. The panel goes on
+ * announcing an abandoned run over one that is actively in flight.
+ *
+ * ⭐ AND POLLING IS THE WRONG SHAPE FOR IT. A poll is either unbounded (a timer
+ * re-rendering the largest component in the app for the life of the page) or
+ * bounded and therefore blind to anything after its bound. Both were tried on
+ * #1764. Notification is neither.
+ *
+ * ⚠ THIS IS NOT THE STORE, and the reason this module gave for staying out of
+ * it still holds: it carries no user text and no product state, only what this
+ * client did. A listener set does not change that.
+ */
+type RecordListener = () => void
+const listeners = new Set<RecordListener>()
+
+/** Subscribe to arm/settle transitions. Returns its own unsubscribe. */
+export function subscribeDeliveryRecord(listener: RecordListener): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+function notify(): void {
+  // A listener that throws must not stop the others, and must never reach the
+  // producer: this channel is observation, and observation cannot fail a run.
+  for (const listener of listeners) {
+    try {
+      listener()
+    } catch {
+      /* deliberately swallowed — see above */
+    }
+  }
+}
+
+/**
  * Called by the hook at the moment it arms. Replaces any previous record and
  * returns the token that owns it.
  *
@@ -94,6 +137,7 @@ export function recordDeliveryArmed(runKey: string): number {
     outcome: null,
     settled_at: null,
   }
+  notify()
   return attempts
 }
 
@@ -111,6 +155,7 @@ export function recordDeliveryArmed(runKey: string): number {
 export function recordDeliverySettled(runKey: string, attempt: number, outcome: string): void {
   if (current === null || current.run_key !== runKey || current.attempt !== attempt) return
   current = { ...current, outcome, settled_at: new Date().toISOString() }
+  notify()
 }
 
 /** What the bundle reads. `null` means the schedule never armed in this session. */
