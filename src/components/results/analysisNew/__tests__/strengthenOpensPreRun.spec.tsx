@@ -143,14 +143,25 @@ describe('THE INSTRUMENT — the precondition, pinned in test', () => {
   it('pre-run, the engine really does ground exactly one finding', () => {
     draw(openStrategicChallenge(), true)
     expect(screen.getByTestId('analysis-new-strengthen')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-strengthen-count')).toHaveTextContent('1')
+    // ⚠ READ OFF THE SECTION, NOT OFF THE BADGE. The badge is suppressed when
+    // the subtitle already states the number (`oneFactSaidOnce`), so a
+    // precondition bound to it would go VACUOUS on a copy edit — silently, and
+    // in the direction that makes this whole file agree with itself.
+    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
+      'data-section-count',
+      '1',
+    )
   })
 
   /** The opposite precondition, for the empty twin: this model grounds NONE. */
   it('with a target already stated, the engine grounds none', () => {
     draw(targetAlreadySet(), true)
     expect(screen.getByTestId('analysis-new-strengthen')).toBeInTheDocument()
-    expect(screen.queryByTestId('analysis-new-strengthen-count')).toBeNull()
+    // `count` is null when nothing is grounded, so the attribute is absent —
+    // which is a different fact from "the badge did not draw".
+    expect(screen.getByTestId('analysis-new-strengthen')).not.toHaveAttribute(
+      'data-section-count',
+    )
   })
 })
 
@@ -396,7 +407,10 @@ describe('the producer\'s own coaching reaches the pre-run reader', () => {
   it('the block is promoted into the pre-run list at all', () => {
     seedProducerCoaching()
     draw(openStrategicChallenge(), true)
-    expect(screen.getByTestId('analysis-new-strengthen-count')).toHaveTextContent('2')
+    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
+      'data-section-count',
+      '2',
+    )
   })
 
   it('and the reader can READ it — open, and bound to the producer\'s own id', () => {
@@ -428,6 +442,9 @@ describe('the producer\'s own coaching reaches the pre-run reader', () => {
       .getAllByTestId('analysis-new-strengthen-item')
       .map((r) => r.getAttribute('data-recommendation-id'))
     expect(ids).not.toContain('strengthen:phase3:g_narrow')
-    expect(screen.getByTestId('analysis-new-strengthen-count')).toHaveTextContent('1')
+    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
+      'data-section-count',
+      '1',
+    )
   })
 })

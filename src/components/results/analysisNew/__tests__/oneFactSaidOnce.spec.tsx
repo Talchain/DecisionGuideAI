@@ -76,3 +76,58 @@ describe('a header states a fact once', () => {
     expect(screen.queryByTestId(`${T}-count`)).toBeNull()
   })
 })
+
+/**
+ * ⭐⭐ THE HALF THIS CHANGE GOT WRONG FIRST, AND CI CAUGHT.
+ *
+ * Suppressing the badge is a rule about what the READER meets. It must not be
+ * a rule about what the section KNOWS. The first version of this change let
+ * the number leave the DOM entirely when the subtitle stated it — and three
+ * preconditions in `strengthenOpensPreRun.spec.tsx` were reading that badge to
+ * prove their fixture still grounded exactly one finding.
+ *
+ * ⚠ Note the DIRECTION of the harm. Those preconditions exist so the assertions
+ * beneath them cannot pass vacuously. Binding a precondition to a rendered
+ * element whose presence depends on COPY means a future subtitle reword
+ * silently removes the guard — no red, and the file goes on agreeing with
+ * itself. That is this estate's trap 13b reached through a display rule.
+ *
+ * So the count is now carried on the section unconditionally, and the badge is
+ * the only thing the rule governs.
+ */
+describe('the fact is still KNOWN when it is not SAID', () => {
+  it('⛔ carries the count on the section even when the badge is suppressed', () => {
+    shell({ count: 4, subtitle: '0 addressed · 4 worth checking' })
+    expect(
+      screen.queryByTestId(`${T}-count`),
+      'PRECONDITION: this is the suppressed case, or the arm proves nothing',
+    ).toBeNull()
+    expect(
+      screen.getByTestId(T),
+      'a suppressed badge must not take the fact out of the DOM',
+    ).toHaveAttribute('data-section-count', '4')
+  })
+
+  it('carries the count when the badge DOES draw, so readers need only one binding', () => {
+    shell({ count: 4, subtitle: 'Drivers, what is worth resolving, and the receipts' })
+    expect(screen.getByTestId(`${T}-count`)).toHaveTextContent('4')
+    expect(screen.getByTestId(T)).toHaveAttribute('data-section-count', '4')
+  })
+
+  it('carries a zero rather than dropping it — 0 findings is a fact, not an absence', () => {
+    shell({ count: 0, subtitle: 'nothing to report' })
+    expect(screen.getByTestId(T)).toHaveAttribute('data-section-count', '0')
+  })
+
+  /**
+   * ⚠ THE DISCRIMINATING TWIN. Without it, an implementation that stamped a
+   * constant on every section would satisfy every arm above.
+   */
+  it('⛔ omits the attribute entirely when the section has no count to carry', () => {
+    shell({ count: null, subtitle: 'nothing countable here' })
+    expect(
+      screen.getByTestId(T),
+      'absent is a different fact from zero, and the shell already distinguishes them',
+    ).not.toHaveAttribute('data-section-count')
+  })
+})

@@ -185,6 +185,24 @@ export function SectionShell({
       // navigating by landmark would otherwise meet four unnamed regions.
       aria-labelledby={`${testId}-heading`}
       data-section-open={open ? 'true' : 'false'}
+      /**
+       * ⭐ THE COUNT IS ALWAYS CARRIED HERE, WHETHER OR NOT THE BADGE DRAWS.
+       *
+       * Saying a fact once is a rule about what the READER meets, not about
+       * what the section KNOWS. Suppressing the badge when the subtitle
+       * already states the number is correct; letting the number leave the
+       * DOM entirely is not — it takes the fact away from assistive tech,
+       * from the debug bundle, and from every precondition that uses the
+       * count to prove a fixture still grounds what it claims to ground.
+       *
+       * ⚠ THIS IS THE DEFECT THIS CHANGE SHIPPED AND CI CAUGHT. Three
+       * preconditions in `strengthenOpensPreRun.spec.tsx` read the badge to
+       * assert "the engine really does ground exactly one finding". With the
+       * badge conditional on COPY, those preconditions would have gone
+       * vacuous the next time a subtitle was reworded — silently, and in the
+       * direction that makes a suite agree with itself.
+       */
+      data-section-count={count != null ? String(count) : undefined}
     >
       {/* ⚠ HEADING WRAPS BUTTON — the WAI-ARIA accordion pattern, and the
           reason is that BOTH facts are true at once: this is a heading in the
