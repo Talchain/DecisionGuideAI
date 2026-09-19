@@ -789,6 +789,38 @@ export function StrengthenTheReasoning({
       title={COPY.sections.strengthen}
       icon={icon}
       count={interventions.length > 0 ? interventions.length : null}
+      // ⭐⭐ PROGRESS THROUGH THE WORK, ON THE COLLAPSED HEADER.
+      //
+      // `SectionShell` has taken a `subtitle` all along and this section has
+      // never passed one, so the collapsed header read as a name and a number.
+      // Its own docblock says why that is not enough: "a title plus a count is
+      // a container name and a number, and the subtitle is the part that tells
+      // a reader whether the row is worth a click."
+      //
+      // ⭐ AND THE NUMBER IT SHOULD CARRY IS THE READER'S OWN WORK. Until now
+      // the only acknowledgement that any of it had happened arrived when the
+      // list emptied completely — `completedAllAddressed` renders ONLY on the
+      // succeeded state — so a reader four findings into eight saw no evidence
+      // they had done anything. "2 addressed · 6 worth checking" is the tool
+      // showing the work back, which is the point of the surface.
+      //
+      // ⚠ COPY AND COUNTS COME FROM WHERE THEY ALREADY LIVED. The string is the
+      // SHARED `STRENGTHEN_COPY.summary`, which the Analysis twin already
+      // renders, so the two cannot drift into two phrasings of one fact.
+      // `addressedCount` is read BY STATUS, never by subtraction — its own
+      // `useMemo` records why: `selectHistory` may retire a status this
+      // component does not know about, and `addressed = total − dismissed`
+      // would silently credit it as work the team did.
+      //
+      // ⚠ UNDEFINED WHEN NOTHING IS LIVE. With the list empty the section
+      // already renders its succeeded state, and a subtitle counting "0 worth
+      // checking" above it is furniture over a finished room — the defect this
+      // panel adjudicated out as "Nothing addressed yet".
+      subtitle={
+        interventions.length > 0
+          ? STRENGTHEN_COPY.summary(addressedCount, interventions.length)
+          : undefined
+      }
       defaultOpen={defaultOpen}
       testId={testId}
     >
