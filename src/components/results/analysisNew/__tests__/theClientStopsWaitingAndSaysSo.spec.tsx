@@ -60,12 +60,19 @@ import type { ProvisionalDeliveryRecord } from '../../../../canvas/hooks/provisi
 const KEY = 'scenario-1:2026-09-19T14:31:06.392Z'
 const T0 = 1_700_000_000_000
 
+/**
+ * ⚠ FIELD BY FIELD, NOT A SPREAD. `Partial<T>` admits `undefined` for every
+ * key, so `{ ...base, ...over }` widens the REQUIRED `attempt` to
+ * `number | undefined` and the gate rejects it. Naming each field keeps the
+ * fixture honest about the record's real shape — which is the thing the
+ * privacy guard in `deliveryIsObservable.spec.ts` pins.
+ */
 const rec = (over: Partial<ProvisionalDeliveryRecord> = {}): ProvisionalDeliveryRecord => ({
-  run_key: KEY,
-  armed_at: new Date(T0).toISOString(),
-  outcome: null,
-  settled_at: null,
-  ...over,
+  run_key: over.run_key ?? KEY,
+  attempt: over.attempt ?? 1,
+  armed_at: over.armed_at ?? new Date(T0).toISOString(),
+  outcome: over.outcome ?? null,
+  settled_at: over.settled_at ?? null,
 })
 
 const NODES = [
