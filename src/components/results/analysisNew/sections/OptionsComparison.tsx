@@ -118,7 +118,7 @@
  * self-teaching, and the sentence a screen reader needs is the button's name.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useId, useState } from 'react'
 import { Scale, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -141,6 +141,16 @@ import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { action } from '../panelSurfaces'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+
+/**
+ * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
+ *
+ * The control maps it, the arrow keys index it, and the order IS the semantics —
+ * low to high across the same range. A second literal would let the keyboard
+ * traverse an order the eye does not see.
+ */
+const RANGE_LENS_ARMS = ['cautious', 'middle', 'optimistic'] as const
+type RangeLensArm = (typeof RANGE_LENS_ARMS)[number]
 
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
@@ -404,6 +414,30 @@ export function OptionsComparison({
     if (!(hi > lo)) return null
     return { lo, hi, span: hi - lo }
   })()
+
+  /**
+   * ⭐⭐ THE LENS ARM — WHICH END OF EACH RANGE THE DOT MARKS.
+   *
+   * Paul's instruction was to bring the Analysis tab's lens onto this tab. What
+   * came across is the QUESTION it asks ("read this run cautiously or
+   * optimistically?"), not its implementation, because that implementation
+   * shipped two P1s: a control claiming a ranking `sortOptionsForDisplay` never
+   * performed (ROADMAP 2.237) and a crown rendered under a sentence declaring
+   * the lens had no data (2.238).
+   *
+   * ⛔ SO THIS ARM MOVES ONE DOT AND NOTHING ELSE. It does not reorder the
+   * rows, does not crown an option, does not change a readout, and makes no
+   * claim in units — the row order and every number on screen are byte-identical
+   * across the three arms. That is the whole difference between a lens that
+   * improves a reading and one that asserts a different answer.
+   *
+   * ⚠ LOCAL, NOT LIFTED. Nothing else on the panel reads it and no producer
+   * supplies it, so a store would be a second authority over a presentational
+   * choice. If a sibling surface ever needs the same arm, lift it then — with a
+   * reason — rather than pre-building the seam.
+   */
+  const [rangeAppetite, setRangeAppetite] = useState<RangeLensArm>('middle')
+  const rangeLensId = useId()
 
   const partition = (() => {
     const analysed = options.rows.filter(
@@ -782,15 +816,39 @@ export function OptionsComparison({
                     width: `${Math.max(((o.outcomeRange.p90 - o.outcomeRange.p10) / rangeScale.span) * 100, 1)}%`,
                   }}
                 />
-                {o.outcomeRange.p50 !== null ? (
-                  <span
-                    className="absolute top-[-1px] w-1.5 h-[9px] rounded-pill bg-text-body"
-                    style={{
-                      left: `calc(${((o.outcomeRange.p50 - rangeScale.lo) / rangeScale.span) * 100}% - 3px)`,
-                    }}
-                    data-testid={`${testId}-outcome-mid-${o.id}`}
-                  />
-                ) : null}
+                {/* ⭐⭐ THE DOT THE LENS MOVES, AND THE ONLY THING IT MOVES.
+                    `markAt` is p10 / p50 / p90 of THIS option's own range, so
+                    every arm reads one quantity family off one distribution —
+                    the consistency ruling `selectLensOption.ts` was extracted to
+                    honour, where the old three arms measured three different
+                    things under one label.
+
+                    ⚠ `!= null`, LOOSE, FOR THE SAME REASON AS `rangeScale`
+                    ABOVE. `p50` is required on the type and arrives `undefined`
+                    from fixtures; a strict `!== null` admits it and then draws
+                    `left: calc(NaN% - 3px)`, which is a silently invisible dot
+                    rather than a crash — worse than the throw CI caught, because
+                    nothing reports it. The endpoints are pinned by the type's
+                    own arithmetic above, so only the marker needs the guard. */}
+                {(() => {
+                  const markAt =
+                    rangeAppetite === 'cautious'
+                      ? o.outcomeRange.p10
+                      : rangeAppetite === 'optimistic'
+                        ? o.outcomeRange.p90
+                        : o.outcomeRange.p50
+                  return markAt != null ? (
+                    <span
+                      className="absolute top-[-1px] w-1.5 h-[9px] rounded-pill bg-text-body"
+                      style={{
+                        left: `calc(${((markAt - rangeScale.lo) / rangeScale.span) * 100}% - 3px)`,
+                      }}
+                      data-testid={`${testId}-outcome-mid-${o.id}`}
+                      data-lens-arm={rangeAppetite}
+                      data-mark-at={markAt}
+                    />
+                  ) : null
+                })()}
               </span>
             ) : null}
 
@@ -1043,12 +1101,94 @@ export function OptionsComparison({
 
           ⚠ It describes the DRAWING, not the numbers. No units are claimed,
           because this section does not know the goal's units — see the bar. */}
+      {/* ⭐⭐ THE CONTROL AND ITS LEGEND SHARE ONE GATE, because they describe
+          the same drawing. `rangeScale === null` means fewer than two rows carry
+          a range, or the domain has no width — in both states there are no dots
+          to read, so an arm control would offer three views of nothing. That is
+          the 2.238 defect in its general form: an affordance live while the view
+          it governs is unavailable. Absent, never disabled, never defaulted. */}
+      {rangeScale !== null ? (
+        <div className="mt-1 flex items-center gap-1 flex-wrap">
+          <span
+            id={`${rangeLensId}-label`}
+            className={`${typography.panelMeta} text-text-light mr-1`}
+          >
+            {COPY.optionFigures.rangeLensLabel}
+          </span>
+          {/* ⚠⚠ THE ARROW KEYS ARE IMPLEMENTED, NOT ASSUMED. `role="radio"` is a
+              PROMISE to a screen-reader user about how the control behaves; ARIA
+              supplies the announcement and none of the behaviour. A radiogroup
+              without roving tabindex and arrow traversal tells an assistive-tech
+              user to press the arrow keys and then ignores them — a control that
+              announces an affordance it does not have, which is the same defect
+              class this section already polices in its figures.
+
+              ⚠ ONE TAB STOP, WHICH IS THE OTHER HALF OF THE PATTERN. Three
+              separately-tabbable arms would make a keyboard user traverse the
+              lens to reach the rows; the selected arm holds the only `tabIndex`
+              of 0, exactly as a native radio group does.
+
+              ⚠ 24px MINIMUM. The panel carries a measured finding that 7 of 17
+              interactive targets were under WCAG 2.2 AA's 24×24; a new control
+              arriving under it would re-open a defect this lane is mid-way
+              through closing. */}
+          <div
+            role="radiogroup"
+            aria-labelledby={`${rangeLensId}-label`}
+            className="flex items-center gap-1"
+            data-testid={`${testId}-range-lens`}
+          >
+            {RANGE_LENS_ARMS.map((arm, i) => {
+              const selected = rangeAppetite === arm
+              return (
+                <button
+                  key={arm}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setRangeAppetite(arm)}
+                  onKeyDown={(e) => {
+                    const step =
+                      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                        ? 1
+                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                          ? -1
+                          : 0
+                    if (step === 0) return
+                    e.preventDefault()
+                    // Wraps, as a native radio group does.
+                    const next =
+                      RANGE_LENS_ARMS[
+                        (i + step + RANGE_LENS_ARMS.length) % RANGE_LENS_ARMS.length
+                      ]
+                    setRangeAppetite(next)
+                    // Selection FOLLOWS focus here, so focus must follow with
+                    // it — otherwise the arm a screen reader announces and the
+                    // arm the group considers current diverge after one press.
+                    e.currentTarget.parentElement
+                      ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
+                      ?.focus()
+                  }}
+                  className={`${typography.panelMeta} min-h-[24px] px-2 rounded inline-flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                  }`}
+                  data-arm={arm}
+                  data-testid={`${testId}-range-lens-${arm}`}
+                >
+                  {COPY.optionFigures.rangeLensArms[arm]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
       {rangeScale !== null ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
           data-testid={`${testId}-outcome-range-legend`}
         >
-          {COPY.optionFigures.rangeLegend}
+          {COPY.optionFigures.rangeLegend(rangeAppetite)}
         </p>
       ) : null}
     </SectionShell>
