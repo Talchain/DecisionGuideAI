@@ -151,6 +151,10 @@ import {
   type ParseFailureKind,
 } from '../../../v5/responseParser'
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import {
+  readDeliveryRecord,
+  type ProvisionalDeliveryRecord,
+} from '../../../canvas/hooks/provisionalDeliveryRecord'
 
 // =============================================================================
 // Feature Flag
@@ -1652,6 +1656,14 @@ interface DebugBundle {
 
   /** Display state snapshot — what the UI actually rendered at export time */
   display_state: DisplayState | null
+  /**
+   * What the client's provisional-delivery schedule did, written by the
+   * schedule itself rather than rebuilt from the store.
+   *
+   * `null` = never armed · `{ outcome: null }` = armed, still running at export
+   * · `{ outcome }` = armed and settled. See `provisionalDeliveryRecord.ts`.
+   */
+  provisional_delivery: ProvisionalDeliveryRecord | null
 
   // =========================================================================
   // V2.0 sections — present only when VITE_DEBUG_BUNDLE_V2 is ON
@@ -3837,6 +3849,26 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
 
     // Display state (provided by caller at export time)
     display_state: options.displayState ?? null,
+    /**
+     * ⭐ WHAT THE CLIENT'S DELIVERY SCHEDULE DID — an OBSERVATION, not a
+     * reconstruction.
+     *
+     * Every other `*_displayed` field in this bundle is rebuilt from the store.
+     * This one is written by the schedule itself at the moment it arms and
+     * again when it settles, so a reader can tell these three apart, which no
+     * field in this bundle could before:
+     *
+     *   null                          the schedule NEVER ARMED this session
+     *   { outcome: null }             armed and STILL RUNNING at export time
+     *   { outcome: '…' }             armed and settled, with its own verdict
+     *
+     * ⚠ THE FIRST OF THOSE WAS THE UNANSWERABLE ONE. On the 19 Sep run the
+     * server committed a result at 10:46:26 and the client still read
+     * `run_state: never_run` at 10:47:43 — and nothing in the bundle could say
+     * whether the client had even tried. Two conclusions were drawn from that
+     * silence and both were wrong.
+     */
+    provisional_delivery: readDeliveryRecord(),
 
     // V2.0 sections — CEE diagnostic trace (passthrough, only when flag is ON)
     //
