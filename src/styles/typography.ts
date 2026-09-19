@@ -49,10 +49,17 @@ export const CANVAS_TYPE_PX = {
    * decision card. The card's own number was the smallest thing on it.
    *
    * ⚠ THIS IS THE MECHANISM BEHIND "THE CARDS LOOK EMPTY" and it is NOT a space
-   * problem. Main.dc.html's own density correction measured the deployed cards
-   * at 34px UNDER its height target at the camera the board actually opens at.
-   * They are not short of room; they were short of WEIGHT on the one element the
-   * anatomy exists to foreground.
+   * problem. Measured at the counter-scale bound, raising these rows costs
+   * +5.5px on the factor and risk cards and +8.25px on the decision card,
+   * against 45-64px of slack before anything reflows. They were not short of
+   * room; they were short of WEIGHT on the one element the anatomy exists to
+   * foreground.
+   *
+   * ⚠ An earlier version of this cited a "34px under target" figure from the
+   * design board. That board is NOT in this repo, so the number is unverifiable
+   * from here — review said so and was right. The slack above is measurable in
+   * the tree and says the same thing without borrowing authority from a document
+   * a reader cannot open.
    */
   nodeValue: 14,
   nodeLabel: 12,

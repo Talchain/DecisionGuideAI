@@ -125,12 +125,26 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // at the settle zoom, with no counter-scale applied. If this assertion ever
     // fails, the counter-scale has stopped being the thing doing the work.
     //
-    // ⚠ Re-stated with the declared sizes: 6.5/5.5/5.0 at 13/11/10, then
-    // 6/5.5/5 at 12/11/10, now 7/6/5.5 at 14/12/11. The NUMBERS move with the
-    // ramp; the CLAIM does not — every one of them is still under the 10px
-    // canvas floor, which is the whole point of the assertion below.
+    // ⚠⚠ THE RESTATED LIST IS GONE, AND ITS OWN COMMENT SAID WHY IT HAD TO BE.
+    // It read "6.5/5.5/5.0 at 13/11/10, then 6/5.5/5 at 12/11/10, now 7/6/5.5 at
+    // 14/12/11. The NUMBERS move with the ramp; the CLAIM does not." That is an
+    // accurate description of a hand-maintained mirror: a copy of `DECLARED`
+    // that a human must remember to re-type every time the ramp moves.
+    //
+    // It bit on 19 Sep. Adding a fourth token updated the map's FIRST consumer
+    // and left this one three-wide, so the suite went red on
+    // `[7, 7, 6, 5.5]` vs `[7, 6, 5.5]` — a loud failure opened in the same edit
+    // that closed a silent one 70 lines above.
+    //
+    // Re-typing it to `[7, 7, 6, 5.5]` would re-arm it for the next token, so it
+    // is DERIVED instead. What the restated list genuinely bought is a positive
+    // control — proof the floor check below is not passing over an empty or
+    // truncated list — and that is kept, without the copy.
     const before = Object.values(DECLARED).map(px => px * LABEL_LEGIBLE_ZOOM)
-    expect(before).toEqual([7, 6, 5.5])
+    expect(before.length, 'no declared sizes — the floor assertion below would pass over an empty list').toBe(
+      Object.keys(DECLARED).length,
+    )
+    expect(before.length).toBeGreaterThan(0)
     for (const px of before) expect(px).toBeLessThan(DS_CANVAS_FLOOR_PX)
   })
 
