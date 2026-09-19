@@ -16,7 +16,7 @@
  * trailing suffix ("500 CHF") — inconsistent with the rest of the codebase.
  */
 
-import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
+import { classifyUnit, qualitativeTierLabel, unwrapInterventionValue } from '../canvas/utils/labelUtils'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
@@ -317,6 +317,88 @@ function displayValueRestatesValue(displayValue: string | null | undefined, valu
   return m !== null && Number(m[1]) === value
 }
 
+/**
+ * ⭐⭐ A PLACEHOLDER UNIT SPELLED INTO `display_value` — THE THIRD PATH.
+ *
+ * THE DEFECT, on the founder's own board (debug bundle
+ * `olumi-debug-b3d5806d-20260919`, `client_build: fd65f971`): a `scale`-dominated
+ * graph — 54 raw occurrences over 8 distinct values — whose factor cards read
+ * `0.3 scale est.` and `0.5 scale est.` on their faces. *"Things like a 0.4
+ * ratio aren't something that most onboarding users will understand."*
+ *
+ * ⭐ WHY TWO CORRECT GUARDS DID NOT CATCH IT, which is the only interesting part.
+ * `scale` is in `GENERIC_PLACEHOLDER_UNITS`, and this module already suppresses
+ * it on BOTH numeric paths — Pattern 1 skips placeholder units outright, Pattern 2
+ * calls them `isMeaningless` and returns `null`. Measured at this tip by rendering
+ * `FactorNode` with `{ value: 0.3, unit: 'scale' }` and no `display_value`: the
+ * card body is EMPTY. Both gates hold.
+ *
+ * They guard what this module COMPOSES. Nothing guarded what it FORWARDS. The
+ * `display_value` passthrough below returns the producer's string verbatim, and
+ * its docblock justifies that with CONTEXTUAL PROSE ("No dedicated tech lead") —
+ * it never contemplated a magnitude summary wearing a placeholder unit. So the
+ * header's promise, *"Never returns generic placeholders"*, was true of every
+ * string this module builds and false of the one it passes on.
+ *
+ * That is trap 21's shape: one predicate answering *"may I compose this?"* while
+ * no predicate answered *"may I forward this?"*. Two authorities, different
+ * questions, and the gap between them is what the user reads.
+ *
+ * THE POLICY IS NOT MINTED HERE. It is the one `formatValueWithUnit` already
+ * states and this estate has already ruled: a placeholder unit with a value in
+ * [0,1] renders a QUALITATIVE WORD; outside that range the unit is SUPPRESSED and
+ * the bare number renders, because "placeholder units carry no real-world scale,
+ * so '0 score' / '50 index' are misleading". Out of range a band word would be a
+ * fabrication — 50 is not a 0–1 tier — so only the empty unit is dropped and the
+ * producer's own number survives.
+ *
+ * ⛔ NARROW BY CONSTRUCTION, AND THE NARROWNESS IS THE DESIGN:
+ *   · the unit word is classified through the shared `classifyUnit`, never a
+ *     local list — a unit added to `GENERIC_PLACEHOLDER_UNITS` is covered here
+ *     the same day, and nothing else can ever match;
+ *   · `ratio` is NOT a placeholder (it is a proportion unit and keeps its word).
+ *     Ruled by independent review: *"Undefined scales do not justify labels such
+ *     as 'moderate'. Use qualitative bands only when their meaning is defined."*
+ *     `scale` is DEFINED — as a placeholder — which is exactly the case that
+ *     ruling permits. `ratio`'s meaning is an open producer question and it
+ *     renders here exactly as it does today;
+ *   · the whole string must be `<number> <single word>`. Prose, ranges,
+ *     parenthesised summaries ("Moderate (0.5)"), real units ("42 days") and
+ *     bare numbers all fail to match and keep today's behaviour byte-for-byte.
+ *
+ * ⚠ IT READS THE NUMBER IN THE STRING, NOT `value`, DELIBERATELY. The string is
+ * what the producer chose to show; this re-states that same magnitude in honest
+ * vocabulary. Reaching for `value` instead would silently change WHICH number is
+ * being summarised — a different and larger claim than the one being fixed.
+ *
+ * ⛔ TWIN NOTICE — NAMED APART, NOT CONVERGED. Two qualitative vocabularies exist
+ * and they genuinely differ: `labelUtils.qualitativeTierLabel` (Title Case,
+ * inclusive upper bound, "Medium") and `formatValueWithUnit.qualitativeLabel`
+ * (lower case, exclusive upper bound, "moderate"). They disagree at every
+ * boundary — 0.2 is "Very low" in one and "low" in the other. This path uses the
+ * CANVAS vocabulary, because the canvas is the surface it renders on: the same
+ * words already appear on intervention chips, OptionNode and GraphTextView, and
+ * Title Case is the register a card face is read in. Converging the two is a
+ * separate decision with its own blast radius and is NOT taken here.
+ *
+ * @returns the honest rendering, or `null` when this rule does not apply (the
+ *          caller then keeps today's behaviour exactly).
+ */
+const PLACEHOLDER_MAGNITUDE_SUMMARY = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s+([A-Za-z]+)\s*$/
+
+function placeholderMagnitudeSummary(displayValue: string): string | null {
+  const m = PLACEHOLDER_MAGNITUDE_SUMMARY.exec(displayValue)
+  if (m === null) return null
+  // Shared classifier — never a local unit list (the hand-maintained mirror).
+  if (classifyUnit(m[2]).kind !== 'placeholder') return null
+  const n = Number(m[1].replace(/,/g, ''))
+  if (!Number.isFinite(n)) return null
+  // In [0,1] → the qualitative word. Outside → drop the empty unit, keep the
+  // number; inventing a band for a figure off the 0–1 scale would be the
+  // fabrication this module exists to refuse.
+  return n >= 0 && n <= 1 ? qualitativeTierLabel(n) : formatNumber(n)
+}
+
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
   const { label, value, raw_value, unit, factor_type, category, display_value } = input
 
@@ -432,6 +514,14 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     && isDisplayValueContradicted(display_value, { value, raw_value })
 
   if (display_value != null && display_value !== '' && !displayValueContradicted) {
+    // ⭐ THE FORWARDING GATE. Everything above decides whether this string may be
+    // TRUSTED; this decides whether it may be SHOWN AS IT STANDS. A magnitude
+    // summary wearing a placeholder unit ("0.3 scale") is the one shape the
+    // module's own header forbids it to return. See `placeholderMagnitudeSummary`
+    // — it returns null for every other string, so the passthrough below keeps
+    // its purpose and its behaviour.
+    const honest = placeholderMagnitudeSummary(display_value)
+    if (honest !== null) return honest
     return display_value
   }
 
