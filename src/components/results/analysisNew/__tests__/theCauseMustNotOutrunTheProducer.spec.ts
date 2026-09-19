@@ -100,8 +100,13 @@ describe('leaderWithholdCause — the cause may not outrun the producer', () => 
   })
 
   it('still returns null for an ordinary unminted token, and for absence', () => {
-    expect(leaderWithholdCause('separation_unavailable')).toBeNull()
+    // ⚠ `separation_unavailable` was this arm's first example and MOVED, because
+    // bundle `b3d5806d` (19 Sep 14:32Z) carried it on a real run and the map's
+    // own rule is that it grows when a capture earns the entry. The arm keeps
+    // its job with tokens no run has produced — what it discriminates is
+    // unchanged, so the case stays and only the example moved.
     expect(leaderWithholdCause('options_do_not_separate')).toBeNull()
+    expect(leaderWithholdCause('a_token_no_capture_has_shown')).toBeNull()
     expect(leaderWithholdCause('')).toBeNull()
     expect(leaderWithholdCause(null)).toBeNull()
     expect(leaderWithholdCause(undefined)).toBeNull()
