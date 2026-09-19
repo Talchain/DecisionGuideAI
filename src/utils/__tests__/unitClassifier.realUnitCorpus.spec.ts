@@ -26,6 +26,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { classifyUnit, GENERIC_PLACEHOLDER_UNITS } from '../unitClassifier'
+import { formatFactorDisplayValue } from '../formatFactorDisplayValue'
 
 /**
  * Units that NAME A RANGE and say nothing about what is measured. Counts are
@@ -91,5 +92,103 @@ describe('the placeholder set against a corpus measured off the wire', () => {
       ...REAL_UNITS.map(([u]) => classifyUnit(u).kind),
     ])
     expect(kinds.size, 'every corpus entry classified identically — the probe is not discriminating').toBeGreaterThan(1)
+  })
+})
+
+/**
+ * ⭐⭐ THE FORMATTER PATH — the one the corpus above could not see.
+ *
+ * Independent review found that adding `unit_interval` to the placeholder set
+ * fixed CLASSIFICATION and changed nothing on the card: the formatter's
+ * `BARE_MAGNITUDE_SUMMARY` accepted only `[A-Za-z]+` as a suffix, so the
+ * underscore made `"0.15 unit_interval"` fail to match and the producer's
+ * string was forwarded verbatim. **The founder's card went on printing
+ * `0.15 unit_interval est.` after the PR that claimed to stop it.**
+ *
+ * ⛔ THE CORPUS ABOVE SHARED THE FORMATTER'S BLIND SPOT. It asserted
+ * `classifyUnit(...)` and never asked what the card renders — CLAUDE.md trap
+ * 13d, in the very file written to guard against a short list. A corpus that
+ * tests the wrong LAYER is as blind as one that omits a value.
+ *
+ * ⚠ WIDENING THE SHAPE MUST NOT WIDEN THE POLICY, which is the whole risk of
+ * this delta: `"5 active leads"` and `"0.4 ratio"` now MATCH the pattern, and
+ * both must still render untouched because `classifyUnit` — not the regex —
+ * decides what is a placeholder. Both are pinned below with their measured
+ * frequencies from the founder's boards.
+ */
+describe('the formatter path, not just the classifier', () => {
+  it('⭐ the exact captured face: "0.15 unit_interval" renders its figure only', () => {
+    expect(formatFactorDisplayValue({
+      label: 'Dilution Level', value: 0.15, raw_value: null,
+      unit: 'unit_interval', display_value: '0.15 unit_interval',
+    })).toBe('0.15')
+  })
+
+  it.each([
+    ['unit_interval', '0.15 unit_interval', '0.15'],
+    ['unit interval', '0.15 unit interval', '0.15'],
+    ['scale', '0.3 scale', '0.3'],
+  ])('%s: the figure survives and the unit word does not', (unit, displayValue, expected) => {
+    const out = formatFactorDisplayValue({
+      label: 'Team Capability', value: 0.3, raw_value: null, unit, display_value: displayValue,
+    })
+    expect(out).toBe(expected)
+    expect(out!).not.toContain(unit)
+  })
+
+  it('⛔ CONTROL: a spelling nobody has MEASURED is not silently adopted', () => {
+    // ⚠ THIS CASE CAUGHT MY OWN OVER-REACH ON ITS FIRST RUN. I widened the
+    // regex to accept `-` and then asserted `0.15 unit-interval` would be
+    // stripped — a spelling that is NOT in `GENERIC_PLACEHOLDER_UNITS`,
+    // because no capture has ever shown a producer sending it. The shape is
+    // permissive; the POLICY stays measured. Inventing a spelling to make a
+    // test pass is how a set stops meaning anything.
+    expect(GENERIC_PLACEHOLDER_UNITS.has('unit-interval')).toBe(false)
+    expect(formatFactorDisplayValue({
+      label: 'Dilution Level', value: 0.15, raw_value: null,
+      unit: 'unit-interval', display_value: '0.15 unit-interval',
+    })).toBe('0.15 unit-interval')
+  })
+
+  it('⛔ CONTROL: a REAL multi-word unit now matches the shape and must be UNTOUCHED', () => {
+    // 23 occurrences on the founder's boards. If the widened pattern had also
+    // widened the policy, this would have lost its unit and read "5".
+    expect(formatFactorDisplayValue({
+      label: 'Investor Pipeline Size', value: 0.5, raw_value: null,
+      unit: 'active leads', display_value: '5 active leads',
+    })).toBe('5 active leads')
+  })
+
+  it('⛔ CONTROL: `ratio` matches the shape and must still render in full', () => {
+    // 27 occurrences. Its frame is an open producer question; the UI must not
+    // convert or strip it.
+    expect(formatFactorDisplayValue({
+      label: 'Conversion', value: 0.4, raw_value: null,
+      unit: 'ratio', display_value: '0.4 ratio',
+    })).toBe('0.4 ratio')
+  })
+
+  it('⛔ CONTROL: a real single-word unit is untouched', () => {
+    expect(formatFactorDisplayValue({
+      label: 'Lead time', value: null, raw_value: 42, unit: 'days', display_value: '42 days',
+    })).toBe('42 days')
+  })
+
+  it('⛔ CONTROL: prose and parenthesised summaries still pass through', () => {
+    expect(formatFactorDisplayValue({
+      label: 'Tech Lead', value: 0, raw_value: null, unit: 'scale',
+      display_value: 'No dedicated tech lead',
+    })).toBe('No dedicated tech lead')
+    expect(formatFactorDisplayValue({
+      label: 'Capability', value: 0.5, raw_value: null, unit: 'scale',
+      display_value: 'Moderate (0.5)',
+    })).toBe('Moderate (0.5)')
+  })
+
+  it('⭐ and a declared encoding still wins over all of it', () => {
+    expect(formatFactorDisplayValue({
+      label: 'Germany Market Entry', value: 0, raw_value: null, unit: 'unit_interval',
+      display_value: '0 unit_interval', encoding_map: { '0': 'Not pursued', '1': 'Pursued' },
+    })).toBe('Not pursued')
   })
 })
