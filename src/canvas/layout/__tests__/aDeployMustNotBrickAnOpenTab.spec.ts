@@ -10,28 +10,54 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { handleLayoutWithRecovery } from '../handleLayoutWithRecovery'
 import { useLayoutProgressStore } from '../../layoutProgressStore'
+import { STALE_BUILD_NOTICE_COPY, STALE_BUILD_ACTION_COPY } from '../../../lib/staleBuildRecovery'
 
 const FOUNDER_CAPTURE =
   'Failed to fetch dynamically imported module: https://staging--olumi.netlify.app/assets/elk.bundled-BgtF8tzk.js'
+
+/**
+ * ⭐ THE SHAPE MY OWN DETECTOR MISSED, and the reason this file now delegates.
+ * A SPA fallback answers 200 text/html where JS was expected. The existing
+ * authority has witnessed it; the competing corpus I wrote did not contain it,
+ * so the same retired-asset failure still reached the futile Retry path.
+ */
+const MIME_FALLBACK =
+  'Failed to load module script: Expected a JavaScript module script but the server responded with a MIME type of "text/html".'
 
 const settle = () => new Promise<void>(r => setTimeout(r, 0))
 
 describe('a deploy under an open tab', () => {
   beforeEach(() => { useLayoutProgressStore.getState().cancel() })
 
-  it('⭐ the founder\'s exact rejection offers RELOAD, and says the version changed', async () => {
-    handleLayoutWithRecovery(() => Promise.reject(new TypeError(FOUNDER_CAPTURE)))
+  it.each([
+    ["the founder's exact rejection", FOUNDER_CAPTURE],
+    ['the MIME/SPA-fallback shape my own corpus missed', MIME_FALLBACK],
+  ])('%s offers RELOAD with the shared notice', async (_name, message) => {
+    handleLayoutWithRecovery(() => Promise.reject(new TypeError(message)))
     await settle()
 
     const s = useLayoutProgressStore.getState()
     expect(s.status).toBe('error')
-    expect(s.actionLabel).toBe('Reload')
-    expect(s.message).toMatch(/new version/i)
-    expect(s.message).toMatch(/nothing in your model is lost/i)
+    expect(s.actionLabel).toBe(STALE_BUILD_ACTION_COPY)
+    // ⚠ THE SHARED SENTENCE, ASSERTED BY IDENTITY. My own copy promised
+    // "nothing in your model is lost" — a claim `reloadForCurrentBuild`
+    // verifies nowhere. Binding to the constant means a reword of the estate's
+    // line cannot leave this path saying something else.
+    expect(s.message).toBe(STALE_BUILD_NOTICE_COPY)
     // The sentence he actually saw, and which sent him to a button that could
-    // not work. It must not be what this state says.
+    // not work.
     expect(s.message).not.toMatch(/try again/i)
     expect(s.canRetry).toBe(true)
+  })
+
+  it('⭐ it walks `cause` — the wrapper is what this path is handed', async () => {
+    // `runLayoutWithProgress` re-throws; a detector reading only the top-level
+    // message answers about the wrapper, not the failure.
+    const wrapped = new Error('Layout step failed') as Error & { cause?: unknown }
+    wrapped.cause = new TypeError(FOUNDER_CAPTURE)
+    handleLayoutWithRecovery(() => Promise.reject(wrapped))
+    await settle()
+    expect(useLayoutProgressStore.getState().actionLabel).toBe(STALE_BUILD_ACTION_COPY)
   })
 
   it('⛔ DISCRIMINATION: an ordinary ELK failure still offers RETRY', async () => {
@@ -59,7 +85,7 @@ describe('a deploy under an open tab', () => {
   it('a successful layout clears the banner and resets the verb', async () => {
     handleLayoutWithRecovery(() => Promise.reject(new TypeError(FOUNDER_CAPTURE)))
     await settle()
-    expect(useLayoutProgressStore.getState().actionLabel).toBe('Reload')
+    expect(useLayoutProgressStore.getState().actionLabel).toBe(STALE_BUILD_ACTION_COPY)
 
     handleLayoutWithRecovery(() => Promise.resolve())
     await settle()

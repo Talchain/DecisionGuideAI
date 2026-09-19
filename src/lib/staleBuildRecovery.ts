@@ -181,9 +181,36 @@ export const CHUNK_LOAD_NEAR_MISSES: readonly string[] = [
 export function isChunkLoadError(error: Error | null | undefined): boolean {
   if (!error) return false
   const message = `${error.name ?? ''} ${error.message ?? ''}`
-  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Failed to load module script|Loading chunk [\w-]+ failed|ChunkLoadError|Unable to preload CSS for/i.test(
-    message
-  )
+  return CHUNK_LOAD_PATTERN.test(message)
+}
+
+/** The one pattern, named so the cause walk below cannot drift from it. */
+const CHUNK_LOAD_PATTERN =
+  /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Failed to load module script|Loading chunk [\w-]+ failed|ChunkLoadError|Unable to preload CSS for/i
+
+/**
+ * ⭐⭐ THE SAME QUESTION, ASKED THROUGH A WRAPPER.
+ *
+ * `isChunkLoadError` reads the error it is handed. A caller that catches a
+ * rejection and re-throws its own — `runLayoutWithProgress` is one — hands this
+ * module the WRAPPER, and the wrapper's message says nothing about chunks. So a
+ * genuine retired-asset failure reaching the layout path read as an ordinary
+ * error and the user was offered a futile "Try again".
+ *
+ * ⚠ IT DELEGATES RATHER THAN MATCHING. Every shape lives in
+ * `CHUNK_LOAD_PATTERN` and the witnessed corpora above; this adds only the
+ * WALK. A second corpus is what `stale-build-recovery-single-writer.spec.ts`
+ * exists to forbid, and it caught exactly that on 19 Sep 2026 when a layout
+ * lane shipped a competing detector that missed the MIME/SPA-fallback shape.
+ *
+ * ⚠ DEPTH-BOUNDED so a cyclic `cause` cannot hang an error path.
+ */
+export function isChunkLoadErrorWithCause(error: unknown, depth = 0): boolean {
+  if (depth > 5 || error == null) return false
+  if (typeof error === 'string') return CHUNK_LOAD_PATTERN.test(error)
+  const e = error as { name?: unknown; message?: unknown; cause?: unknown }
+  if (CHUNK_LOAD_PATTERN.test(`${e.name ?? ''} ${e.message ?? ''}`)) return true
+  return isChunkLoadErrorWithCause(e.cause, depth + 1)
 }
 
 /**

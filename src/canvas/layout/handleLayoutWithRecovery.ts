@@ -1,6 +1,11 @@
 import { useLayoutProgressStore } from '../layoutProgressStore'
 import { logCanvasBreadcrumb, describeError } from '../utils/canvasBreadcrumb'
-import { isStaleChunkError, STALE_CHUNK_MESSAGE, STALE_CHUNK_ACTION_LABEL, reloadForNewVersion } from '../../utils/staleChunkError'
+import {
+  isChunkLoadErrorWithCause,
+  STALE_BUILD_NOTICE_COPY,
+  STALE_BUILD_ACTION_COPY,
+  reloadForCurrentBuild,
+} from '../../lib/staleBuildRecovery'
 
 /**
  * What a layout attempt reports back. `laidOut: false` means the call RESOLVED
@@ -90,9 +95,25 @@ export function handleLayoutWithRecovery(
       // neither helped — the product had told him to do both. A reload is the
       // only cure, so in this one state it is the only thing offered, and the
       // message says the version changed rather than implying his model broke.
-      if (isStaleChunkError(err)) {
-        logCanvasBreadcrumb('layout:failed', { phase: 'stale-chunk', err: describeError(err) })
-        useLayoutProgressStore.getState().fail(STALE_CHUNK_MESSAGE, reloadForNewVersion, STALE_CHUNK_ACTION_LABEL)
+      // ⛔⛔ THIS DELEGATES TO `lib/staleBuildRecovery`, WHICH ALREADY OWNS THE
+      // QUESTION — and the first version of this change did not. It shipped a
+      // competing detector with its own corpus, which MISSED the MIME/SPA-
+      // fallback shape (`Failed to load module script: … MIME type of
+      // "text/html"`) that the existing authority has witnessed, so the same
+      // retired-asset failure still fell through to the futile Retry path.
+      // `stale-build-recovery-single-writer.spec.ts` exists to forbid exactly
+      // that and caught it in CI, independently of review.
+      //
+      // ⚠ THE NOTICE IS ITS COPY, NOT A NEW SENTENCE. Mine promised "nothing in
+      // your model is lost"; `reloadForCurrentBuild` verifies no such thing —
+      // the crash flush can decline or fail, and the main error boundary
+      // conditions its save assurance on that result. The existing line names
+      // the cause and the way forward and claims nothing about saved state.
+      if (isChunkLoadErrorWithCause(err)) {
+        logCanvasBreadcrumb('layout:failed', { phase: 'stale-build', err: describeError(err) })
+        useLayoutProgressStore
+          .getState()
+          .fail(STALE_BUILD_NOTICE_COPY, reloadForCurrentBuild, STALE_BUILD_ACTION_COPY)
         return
       }
 
