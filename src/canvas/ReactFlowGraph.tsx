@@ -2761,14 +2761,24 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 the false version is why nobody looked (CLAUDE.md trap 14: an
                 honest label overwritten by a reassuring one).
 
-                `TierLanes` renders through `<ViewportPortal>`, and portalled
+                `TierLanes` renders through `ViewportPortal` (angle brackets
+                omitted deliberately — see below), and portalled
                 content leaves this call site's position entirely — it lands in
                 `.react-flow__viewport-portal`, the LAST of the viewport's five
                 children. So the bands painted ON TOP of every card, washing body
                 text from ~10.4:1 to ~2.66:1 contrast. Where the element is
                 WRITTEN says nothing about where it PAINTS; the stacking is now
                 declared explicitly in `TierLanes` itself, which is the only file
-                that can see the portal. */}
+                that can see the portal.
+
+                ⚠ AND THE ANGLE BRACKETS ARE OMITTED ON PURPOSE, WHICH IS ITSELF
+                WORTH KNOWING. `canvasTextCounterScale.census.spec.ts` sweeps
+                `src/` for `/<ViewportPortal[\s/>]/` against RAW SOURCE TEXT and
+                asserts the declared set is exactly `['src/canvas/nodes/TierLanes
+                .tsx']`. Writing the JSX spelling in this COMMENT added a second
+                entry and failed a gate-required job — the census cannot tell code
+                from prose describing code. Same defect class as the stripper in
+                the guard this PR adds, one level up; rowed, not fixed here. */}
             <TierLanes nodes={memoizedNodes} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
