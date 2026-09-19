@@ -398,10 +398,31 @@ describe('Reasoning panel — RULE B: no text-info control relies on colour alon
  * "outside your control" and shipped a false claim once. A button at the wrong
  * loudness is this file's.
  */
+/**
+ * The ACTION_TIER object literal ALONE.
+ *
+ * ⛔ THIS SLICE USED TO RUN TO THE END OF THE FILE, and that was a live defect
+ * rather than a tidiness point: `panelSurfaces.ts` gained `ICON_SCALE` below
+ * `ACTION_TIER`, whose entries have the same `name: 'classes'` shape, so the
+ * rules below started reading ICON SIZES as ACTION TIERS and RED'd on
+ * `section: 'w-4 h-4'` for carrying "no rest-state shape signal". It is not an
+ * action tier and was never claimed to be.
+ *
+ * ⚠ The guard was reading more than the register it names. Bounding it at the
+ * literal's closing `} as const` is what makes its scope match its sentence —
+ * and stops the next const added to that file re-opening this.
+ */
+function actionTierBlock(src: string): string {
+  const start = src.indexOf('export const ACTION_TIER')
+  if (start < 0) return ''
+  const end = src.indexOf('\n} as const', start)
+  return end < 0 ? src.slice(start) : src.slice(start, end)
+}
+
 describe('Reasoning panel — RULE C: the action-tier register is injective', () => {
   it('no two tiers resolve to the same visual channel', () => {
     const src = readFileSync(resolvePath(PANEL_DIR, 'panelSurfaces.ts'), 'utf8')
-    const block = src.slice(src.indexOf('export const ACTION_TIER'))
+    const block = actionTierBlock(src)
     const tiers = [...block.matchAll(/^\s{2}(\w+):\s*'([^']+)'/gm)].map((m) => [m[1]!, m[2]!] as const)
 
     expect(tiers.length, 'PRECONDITION: the register must be readable').toBeGreaterThanOrEqual(4)
@@ -431,7 +452,7 @@ describe('Reasoning panel — RULE C: the action-tier register is injective', ()
    */
   it('DISCRIMINATOR: the register is plural and every tier carries a shape signal', () => {
     const src = readFileSync(resolvePath(PANEL_DIR, 'panelSurfaces.ts'), 'utf8')
-    const block = src.slice(src.indexOf('export const ACTION_TIER'))
+    const block = actionTierBlock(src)
     const tiers = [...block.matchAll(/^\s{2}(\w+):\s*'([^']+)'/gm)].map((m) => [m[1]!, m[2]!] as const)
     expect(tiers.length, 'a register of one tier is not a register').toBeGreaterThan(1)
     for (const [name, cls] of tiers) {

@@ -202,7 +202,7 @@ export function SectionShell({
           </span>
         ) : null}
         {/* ⭐ THE SUBTITLE IS A LINE, NOT A TOOLTIP.
-            It was `title={subtitle}` on the toggle — present in the DOM,
+            It was `title={subtitle}` on the toggle: present in the DOM,
             unreachable by touch and by keyboard, and supplied by no mount, so
             it never rendered at all. The design pack draws it on every
             collapsed row for a reason: a title plus a count is a container name
