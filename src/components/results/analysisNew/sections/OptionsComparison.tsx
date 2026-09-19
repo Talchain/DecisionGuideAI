@@ -118,7 +118,7 @@
  * self-teaching, and the sentence a screen reader needs is the button's name.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useId, useState } from 'react'
 import { Scale, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -141,6 +141,16 @@ import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { action } from '../panelSurfaces'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+
+/**
+ * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
+ *
+ * The control maps it, the arrow keys index it, and the order IS the semantics —
+ * low to high across the same range. A second literal would let the keyboard
+ * traverse an order the eye does not see.
+ */
+const RANGE_LENS_ARMS = ['cautious', 'middle', 'optimistic'] as const
+type RangeLensArm = (typeof RANGE_LENS_ARMS)[number]
 
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
@@ -198,6 +208,39 @@ export function OptionsComparison({
   testId = 'analysis-new-options',
 }: OptionsComparisonProps) {
   const showToast = useShowToastSafe()
+
+  /**
+   * ⭐⭐ THE LENS ARM — WHICH END OF EACH RANGE THE DOT MARKS.
+   *
+   * Paul's instruction was to bring the Analysis tab's lens onto this tab. What
+   * came across is the QUESTION it asks ("read this run cautiously or
+   * optimistically?"), not its implementation, because that implementation
+   * shipped two P1s: a control claiming a ranking `sortOptionsForDisplay` never
+   * performed (ROADMAP 2.237) and a crown rendered under a sentence declaring
+   * the lens had no data (2.238).
+   *
+   * ⛔ SO THIS ARM MOVES ONE DOT AND NOTHING ELSE. It does not reorder the
+   * rows, does not crown an option, does not change a readout, and makes no
+   * claim in units — the row order and every number on screen are byte-identical
+   * across the three arms. That is the whole difference between a lens that
+   * improves a reading and one that asserts a different answer.
+   *
+   * ⛔⛔ DECLARED HERE, ABOVE `if (options.totalCount === 0) return null`,
+   * BECAUSE I FIRST PUT IT BELOW AND CI WAS RIGHT TO REJECT IT.
+   * `react-hooks/rules-of-hooks` caught `useState` and `useId` called
+   * CONDITIONALLY: a render with no options returns before them, so the hook
+   * order differs between renders and React's state slots mis-align. It reads
+   * like a lint nit and it is a crash waiting for the first run that goes from
+   * some options to none. Hooks belong above every early return, always.
+   *
+   * ⚠ LOCAL, NOT LIFTED. Nothing else on the panel reads it and no producer
+   * supplies it, so a store would be a second authority over a presentational
+   * choice. If a sibling surface ever needs the same arm, lift it then — with a
+   * reason — rather than pre-building the seam.
+   */
+  const [rangeAppetite, setRangeAppetite] = useState<RangeLensArm>('middle')
+  const rangeLensId = useId()
+
 
   /**
    * ⭐ THE ACT, AND IT FAILS LOUDLY OR NOT AT ALL.
@@ -371,6 +414,40 @@ export function OptionsComparison({
    * runs silently unaccounted for.
    */
   const PARTITION_TOLERANCE = 0.01
+  /**
+   * ⭐⭐ ONE SCALE FOR EVERY BAR, OR THE BARS LIE.
+   *
+   * The whole point of drawing ranges is that a reader can see two of them
+   * OVERLAP. Per-row normalisation would give every option a full-width bar and
+   * destroy exactly the comparison the drawing exists to make — the same defect
+   * as the old tornado chart, which rescaled one option's spread per factor.
+   *
+   * ⚠ NULL UNLESS AT LEAST TWO ROWS CARRY A RANGE. A single bar has nothing to
+   * be compared against, and a lone full-width track reads as a measurement of
+   * something rather than as one option's spread.
+   *
+   * ⚠ A ZERO-WIDTH DOMAIN IS REFUSED rather than divided by. If every option
+   * shares one p10 and one p90 the denominator is 0; there is no honest bar for
+   * that, and `null` draws nothing.
+   */
+  const rangeScale = (() => {
+    const ranges = options.rows.flatMap((r) =>
+      // ⚠ `!= null`, LOOSE, AND IT IS NOT A STYLE CHOICE. `outcomeRange` is
+      // REQUIRED on the type, but fixtures across the suite build these rows
+      // without it, so at runtime the value is `undefined` — which passes a
+      // strict `!== null` and then throws on `.p10`. CI caught exactly that:
+      // "Cannot read properties of undefined (reading 'p10')", six times.
+      // A field being required in TypeScript is not a guarantee about a value
+      // arriving from a fixture, a cast, or an older cached view model.
+      r.kind === 'analysed' && r.outcomeRange != null ? [r.outcomeRange] : [],
+    )
+    if (ranges.length < 2) return null
+    const lo = Math.min(...ranges.map((r) => r.p10))
+    const hi = Math.max(...ranges.map((r) => r.p90))
+    if (!(hi > lo)) return null
+    return { lo, hi, span: hi - lo }
+  })()
+
   const partition = (() => {
     const analysed = options.rows.filter(
       (r): r is Extract<typeof r, { kind: 'analysed' }> => r.kind === 'analysed',
@@ -550,7 +627,37 @@ export function OptionsComparison({
                    claim about the model. */
                 onFocus={() => highlightNode(o.id)}
                 onBlur={clearHighlight}
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                /* ⭐ 24px MINIMUM, MEASURED ON THE DEPLOYED BUILD RATHER THAN
+                   ASSUMED. `62879fc1`, prototype route: this control rendered
+                   **20px high, six of six** — and after #1668 and #1708 repaired
+                   `trust-line-open-method` (131×15 → 147×24) and
+                   `model-strip-target-edit` (→ 76×24), it was the ONLY target on
+                   the whole panel still under WCAG 2.2 AA's 24×24: 6 of 36
+                   interactive targets, all of them this one.
+
+                   ⛔ PADDING ALONE, AND NO `min-h-[24px]` HERE — the literal is
+                   BANNED in this file. `everyInlineActIsReachableByTouch` sweeps
+                   every section carrying `action('inline')` and fails on a
+                   hand-rolled touch target, because the tier is meant to be the
+                   single owner. This control cannot take a tier (it is the
+                   option's NAME, and `inline`'s underline + `text-info` would
+                   repaint it), so the 24px comes from padding, measured on the
+                   deployed DOM rather than asserted: 20 → 24 on all six.
+
+                   ⚠ 2px OF PADDING, AND EXPLICITLY NOT
+                   `inline-flex items-center`. Centring the label that way was my
+                   first draft and it is wrong here: this button is already a
+                   flex ITEM (`flex-1`) whose CONTENTS are inline — a wrapping
+                   label and an inline origin mark. Making it a flex CONTAINER
+                   turns those into flex items side by side, which changes how a
+                   long option name wraps. Padding reaches the same 24px and
+                   leaves inline flow exactly as it was.
+
+                   ⚠ 4px PER ROW IS THE WHOLE COST, and it is paid deliberately
+                   in the block this lane is otherwise trying to SHORTEN. `min-h`
+                   rather than `h` because the label wraps: a fixed height would
+                   clip the second line. */
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
@@ -717,6 +824,83 @@ export function OptionsComparison({
                     ...(o.winFraction > 0 ? { minWidth: '2px' } : {}),
                   }}
                 />
+              </span>
+            ) : null}
+
+            {/* ⭐⭐ THE RANGE THIS OPTION ACTUALLY PRODUCED.
+                The share above says how OFTEN this option came top. This says
+                how WIDE the outcome was when it did — and where two of these
+                overlap, the ordering the shares imply is not settled. Measured
+                on a real run: RudderStack p10 −0.163 / p90 0.211 against
+                Segment −0.235 / 0.188, printed as "56%" beside "36%".
+
+                ⚠ PRESENTATIONAL ONLY, AND IT MAKES NO CLAIM IN UNITS. No
+                number is printed from these percentiles: the goal target may be
+                in currency, a count or a normalised scale, and this section
+                does not know which. The bar says WHERE and HOW WIDE relative to
+                the other options, which is exactly what the reader needs to see
+                an overlap, and nothing more. */}
+            {o.kind === 'analysed' && o.outcomeRange != null && rangeScale !== null ? (
+              <span
+                className="mt-1 block relative h-1.5 w-full rounded-pill bg-panel-hover"
+                data-testid={`${testId}-outcome-range-${o.id}`}
+                data-p10={o.outcomeRange.p10}
+                data-p90={o.outcomeRange.p90}
+                aria-hidden="true"
+              >
+                <span
+                  className="absolute top-0 h-1.5 rounded-pill bg-option"
+                  style={{
+                    left: `${((o.outcomeRange.p10 - rangeScale.lo) / rangeScale.span) * 100}%`,
+                    width: `${Math.max(((o.outcomeRange.p90 - o.outcomeRange.p10) / rangeScale.span) * 100, 1)}%`,
+                  }}
+                />
+                {/* ⭐⭐ THE DOT THE LENS MOVES, AND THE ONLY THING IT MOVES.
+                    `markAt` is p10 / p50 / p90 of THIS option's own range, so
+                    every arm reads one quantity family off one distribution —
+                    the consistency ruling `selectLensOption.ts` was extracted to
+                    honour, where the old three arms measured three different
+                    things under one label.
+
+                    ⚠ `!= null`, LOOSE, FOR THE SAME REASON AS `rangeScale`
+                    ABOVE. `p50` is required on the type and arrives `undefined`
+                    from fixtures; a strict `!== null` admits it and then draws
+                    `left: calc(NaN% - 3px)`, which is a silently invisible dot
+                    rather than a crash — worse than the throw CI caught, because
+                    nothing reports it. The endpoints are pinned by the type's
+                    own arithmetic above, so only the marker needs the guard. */}
+                {(() => {
+                  const markAt =
+                    rangeAppetite === 'cautious'
+                      ? o.outcomeRange.p10
+                      : rangeAppetite === 'optimistic'
+                        ? o.outcomeRange.p90
+                        : o.outcomeRange.p50
+                  return markAt != null ? (
+                    <span
+                      className="absolute top-[-1px] w-1.5 h-[9px] rounded-pill bg-text-body"
+                      /* ⛔⛔ CLAMPED, AND THE LENS IS WHAT MAKES THIS MANDATORY
+                         RATHER THAN DEFENSIVE.
+                         `rangeScale`'s domain is DEFINED BY the smallest p10 and
+                         the largest p90 across the rows. So on the cautious arm
+                         exactly one option's marker lands at 0%, and on the
+                         optimistic arm exactly one lands at 100% — every single
+                         run, by construction, not by bad luck.
+                         `calc(0% - 3px)` then puts half of the 6px dot outside
+                         its own track. **Measured in the browser: 3px of
+                         overhang at each extreme, 0px once clamped.**
+                         p50 almost never hits an endpoint, which is why #1726
+                         shipped without this and was right to — the lens is what
+                         turns a theoretical edge case into a guaranteed one. */
+                      style={{
+                        left: `clamp(0px, calc(${((markAt - rangeScale.lo) / rangeScale.span) * 100}% - 3px), calc(100% - 6px))`,
+                      }}
+                      data-testid={`${testId}-outcome-mid-${o.id}`}
+                      data-lens-arm={rangeAppetite}
+                      data-mark-at={markAt}
+                    />
+                  ) : null
+                })()}
               </span>
             ) : null}
 
@@ -953,6 +1137,120 @@ export function OptionsComparison({
         >
           <Sparkles className="w-3 h-3 shrink-0" aria-hidden="true" />
           {OPTION_ORIGIN_COPY[sharedOrigin]}
+        </p>
+      ) : null}
+
+      {/* ⭐⭐ THE SENTENCE THE BARS EXIST FOR.
+          Without it the ranges are decoration; with it they are an argument.
+          "Where ranges overlap, treat the order as unsettled" is the one line
+          on this section that tells a reader when NOT to trust the ordering the
+          percentages above imply — which is the difference between a tool that
+          ranks options and a tool that improves reasoning.
+
+          ⚠ Rendered only alongside the bars it describes. A legend for
+          something not on screen is furniture, the defect this panel has
+          adjudicated out twice (the empty zone label, "Nothing addressed yet").
+
+          ⚠ It describes the DRAWING, not the numbers. No units are claimed,
+          because this section does not know the goal's units — see the bar. */}
+      {/* ⭐⭐ THE CONTROL AND ITS LEGEND SHARE ONE GATE, because they describe
+          the same drawing. `rangeScale === null` means fewer than two rows carry
+          a range, or the domain has no width — in both states there are no dots
+          to read, so an arm control would offer three views of nothing. That is
+          the 2.238 defect in its general form: an affordance live while the view
+          it governs is unavailable. Absent, never disabled, never defaulted. */}
+      {rangeScale !== null ? (
+        <div className="mt-1 flex items-center gap-1 flex-wrap">
+          <span
+            id={`${rangeLensId}-label`}
+            className={`${typography.panelMeta} text-text-light mr-1`}
+          >
+            {COPY.optionFigures.rangeLensLabel}
+          </span>
+          {/* ⚠⚠ THE ARROW KEYS ARE IMPLEMENTED, NOT ASSUMED. `role="radio"` is a
+              PROMISE to a screen-reader user about how the control behaves; ARIA
+              supplies the announcement and none of the behaviour. A radiogroup
+              without roving tabindex and arrow traversal tells an assistive-tech
+              user to press the arrow keys and then ignores them — a control that
+              announces an affordance it does not have, which is the same defect
+              class this section already polices in its figures.
+
+              ⚠ ONE TAB STOP, WHICH IS THE OTHER HALF OF THE PATTERN. Three
+              separately-tabbable arms would make a keyboard user traverse the
+              lens to reach the rows; the selected arm holds the only `tabIndex`
+              of 0, exactly as a native radio group does.
+
+              ⚠ 24px MINIMUM. The panel carries a measured finding that 7 of 17
+              interactive targets were under WCAG 2.2 AA's 24×24; a new control
+              arriving under it would re-open a defect this lane is mid-way
+              through closing. */}
+          <div
+            role="radiogroup"
+            aria-labelledby={`${rangeLensId}-label`}
+            className="flex items-center gap-1"
+            data-testid={`${testId}-range-lens`}
+          >
+            {RANGE_LENS_ARMS.map((arm, i) => {
+              const selected = rangeAppetite === arm
+              return (
+                <button
+                  key={arm}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setRangeAppetite(arm)}
+                  onKeyDown={(e) => {
+                    const step =
+                      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                        ? 1
+                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                          ? -1
+                          : 0
+                    if (step === 0) return
+                    e.preventDefault()
+                    // Wraps, as a native radio group does.
+                    const next =
+                      RANGE_LENS_ARMS[
+                        (i + step + RANGE_LENS_ARMS.length) % RANGE_LENS_ARMS.length
+                      ]
+                    setRangeAppetite(next)
+                    // Selection FOLLOWS focus here, so focus must follow with
+                    // it — otherwise the arm a screen reader announces and the
+                    // arm the group considers current diverge after one press.
+                    e.currentTarget.parentElement
+                      ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
+                      ?.focus()
+                  }}
+                  /* ⛔ THE TIER OWNS THE TOUCH TARGET. My first version spelled
+                     `min-h-[24px] … inline-flex items-center` out here, which is
+                     the exact arrangement `everyInlineActIsReachableByTouch`
+                     bans: *"if a later call site hand-rolls its own touch
+                     target, the tier is no longer the single owner and the next
+                     one added will miss it again."* That is how the 133×15
+                     review-estimates control happened, in this same directory.
+                     `no-underline` because an underline is `quiet`'s emphasis
+                     for a text link and reads wrong on a segmented control —
+                     the same override the Strengthen row toggle uses. */
+                  className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                  }`}
+                  data-arm={arm}
+                  data-testid={`${testId}-range-lens-${arm}`}
+                >
+                  {COPY.optionFigures.rangeLensArms[arm]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+      {rangeScale !== null ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+          data-testid={`${testId}-outcome-range-legend`}
+        >
+          {COPY.optionFigures.rangeLegend(rangeAppetite)}
         </p>
       ) : null}
     </SectionShell>

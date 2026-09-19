@@ -611,6 +611,36 @@ export type ComparisonOption =
        */
       goalBasisIsModelled: boolean
       /**
+       * ⭐⭐ THE RANGE THIS RUN ACTUALLY PRODUCED, so a reader can see when an
+       * ordering is NOT settled.
+       *
+       * A win percentage is a scalar and reads as a ranking: "56%" beside "36%"
+       * looks decided. The distributions behind them frequently are not.
+       * Measured on a real staging run, 19 Sep 2026, at
+       * `results.report.option_comparison`:
+       *
+       *     RudderStack   p10 −0.163   p50  0.027   p90 0.211
+       *     Segment       p10 −0.235   p50 −0.017   p90 0.188
+       *
+       * The panel printed 56% and 36% beside each other while those two ranges
+       * overlap across almost their whole width. Neither percentage is wrong —
+       * each is the share of runs that option came top in — but presented alone
+       * they invite a confidence the spread does not support. Drawing the range
+       * lets the surface say so WITHOUT arguing with its own number.
+       *
+       * ⛔ NOT THE OLD TORNADO'S p10/p90, and the distinction is load-bearing
+       * (`DriverInfluenceRow` carries the full note). That chart took ONE
+       * option's range and rescaled it per factor, presenting per-factor
+       * outcome bounds the data does not contain. This is each option's OWN
+       * forward-propagated outcome distribution — the thing the producer
+       * computed, under its own name, for the option it belongs to.
+       *
+       * `null` whenever the producer sent no usable p10/p90. Nothing is drawn
+       * then — never a zero-width bar at the origin, which would read as a
+       * certainty rather than an absence.
+       */
+      outcomeRange: { p10: number; p50: number | null; p90: number } | null
+      /**
        * ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION —
        * `recommendation.storyHeadlines[option.id]`, sanitised at the data layer
        * and rendered VERBATIM. Never composed, never templated, never inferred

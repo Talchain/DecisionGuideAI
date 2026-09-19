@@ -1476,6 +1476,65 @@ export const ANALYSIS_NEW_COPY = {
      * `noWinnerVocabulary.spec.ts` redded an earlier caption of mine for
      * exactly that.
      */
+    /**
+     * ⭐⭐ THE ONE LINE THAT TELLS A READER WHEN NOT TO TRUST THE ORDER.
+     *
+     * The share figures above it partition the runs and sum to 1, so they read
+     * as a ranking. The ranges frequently overlap. This sentence is what makes
+     * the bars an argument rather than decoration, and it is the difference
+     * between a surface that ranks options and one that improves reasoning.
+     *
+     * ⚠ "Mid-point", not "expected outcome": the dot is p50, the MEDIAN, and
+     * `OptionOutcome` carries `mean` separately. Calling a median an expected
+     * value is a claim about the distribution that this section cannot make.
+     */
+    /**
+     * ⭐⭐⭐ A FUNCTION OF THE ARM, BECAUSE THE SENTENCE NAMES WHAT THE DOT IS.
+     *
+     * This was a constant reading "Dots show the mid-point." The lens moves the
+     * dot to p10 or p90, so a constant would leave the panel drawing one
+     * percentile and naming another — the same number honest in one place and
+     * false in the other, which `formatPercent.ts`'s header documents by name
+     * (ROADMAP 2.236) and which this section has already shipped once (a "< 1%"
+     * readout beside a 0px fill).
+     *
+     * ⛔ THE PERCENTILE IS IN THE STRING ON PURPOSE. Naming it is what lets a
+     * reader check the drawing against the claim, and it is what makes the
+     * mutant bite: draw p90 under the mid-point wording and the spec REDs.
+     *
+     * ⚠ THE OVERLAP SENTENCE IS INVARIANT ACROSS THE ARMS. Overlapping ranges
+     * unsettle the order whichever end you read, so it is not the lens's to
+     * qualify — and dropping it on two arms of three is how a caveat quietly
+     * becomes conditional on the reader's mood.
+     */
+    rangeLegend: (appetite: 'cautious' | 'middle' | 'optimistic'): string =>
+      `Dots show ${
+        appetite === 'cautious'
+          ? 'the low end (p10)'
+          : appetite === 'optimistic'
+            ? 'the high end (p90)'
+            : 'the mid-point (p50)'
+      } of each range. Lines show the range this run produced. Where ranges overlap, treat the order as unsettled.`,
+    /**
+     * ⭐ THE CONTROL DESCRIBES THE DRAWING, NEVER A RECOMMENDATION.
+     *
+     * The Analysis tab's lens shipped two P1s (ROADMAP 2.237 / 2.238) because
+     * its control said "Rank by outcome" over a list ordered by something else,
+     * and crowned an option under a sentence saying the view had no data. Both
+     * are the same defect: the subject of the claim was not the source of the
+     * number. This control therefore claims exactly one thing — where the dot
+     * sits — and the rows keep the order they already had.
+     *
+     * ⚠ NO CONTEST VOCABULARY. `noWinnerVocabulary.spec.ts` has already redded
+     * a caption of mine on this section; "cautious" and "optimistic" describe
+     * the READING, not the option, and no arm names a leader.
+     */
+    rangeLensLabel: 'Read each range at',
+    rangeLensArms: {
+      cautious: 'Low end',
+      middle: 'Mid-point',
+      optimistic: 'High end',
+    },
     partitionCaption: 'Every simulated scenario is accounted for above.',
   },
   modelStrip: {

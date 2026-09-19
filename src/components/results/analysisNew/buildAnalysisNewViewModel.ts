@@ -3115,6 +3115,19 @@ function buildOptionsComparison(
         : null,
       goalFraction: goalOnScreen && goalValue !== null ? Math.max(0, Math.min(1, goalValue)) : null,
       goalBasisIsModelled: o.goalFitIsModelledBasis === true,
+      // ⭐ THE RANGE, READ FROM THE OPTION'S OWN OUTCOME DISTRIBUTION.
+      // `o.outcome` is `OptionOutcome` on `OptionResult` — the producer's
+      // forward-propagated percentiles for THIS option, not a rescaling of
+      // somebody else's (see the type's note on the old tornado chart).
+      //
+      // ⚠ BOTH BOUNDS OR NOTHING. A bar needs a start and an end; one bound
+      // present and the other null cannot be drawn honestly, and coalescing
+      // the missing side to 0 would invent a bound at the origin. p50 is
+      // allowed to be absent on its own — the dot is then simply not placed.
+      outcomeRange:
+        typeof o.outcome?.p10 === 'number' && typeof o.outcome?.p90 === 'number'
+          ? { p10: o.outcome.p10, p50: typeof o.outcome.p50 === 'number' ? o.outcome.p50 : null, p90: o.outcome.p90 }
+          : null,
       why,
     })
   }
