@@ -2,6 +2,37 @@
  * Edge property inspector — 3-section accordion layout
  * B.I.4: Summary (always open), Assumptions, Advanced
  * Debounced sliders (~120ms) with aria-live announcements
+ *
+ * ── ⛔⛔ NO LIVE RENDERER. RE-DERIVED AND RE-CONFIRMED 19 Sep 2026. ────────
+ * The measurement already in this file (inside `handleDelete`, the block opening
+ * *"THE REACHABILITY CLAIM THAT USED TO SIT HERE WAS FALSE"*) is
+ * easy to miss because it sits in a callback, and a raw-float census missed it:
+ * it ranked the `Suggested weight: {…suggested_weight.toFixed(2)}` label, the
+ * `±{…strengthStd.toFixed(3)}` label and the three `setAnnouncement(…)`
+ * aria-live strings as its **5th** highest-value fix, on mount evidence
+ * *"→ InspectorModal.tsx → EdgeInspector (depth 5)"*. (Sites are named by
+ * EXPRESSION, not by line — a line number in a comment is the mirror this
+ * estate keeps paying for, and mine were stale inside one edit.)
+ *
+ * Re-derived at the bytes at staging `719915a9`, both renderers enumerated:
+ *   · `canvas/components/InspectorModal.tsx:232` — LEGACY branch, below
+ *     `:160 if (USE_INSPECTOR_V2) { return <InspectorRouter …> }`, where `:17`
+ *     is the module literal `const USE_INSPECTOR_V2 = true`. Statically dead.
+ *   · `canvas/components/PropertiesPanel.tsx:32` — `PropertiesPanel`'s only
+ *     importer in the tree is a spec; no barrel re-exports it.
+ * Controls: `InspectorModal` importers = 1; fabricated symbol = 0.
+ *
+ * ⭐ The census's own §7.1/§7.2 predict this exactly: its mount probe was an
+ * import-graph closure over VALUE edges, `InspectorModal` does import this file
+ * as a value, and an early `return` above the use site is invisible to a
+ * closure. **Module reachability is not JSX reachability.** So the `aria-live`
+ * announcements here — the part a visual review would most easily miss — are
+ * also the part no user can hear.
+ *
+ * ⛔ Display work here reaches no user. The live equivalent of these readouts is
+ * `inspector-v2/panels/EdgePanel.tsx`, which is owned elsewhere.
+ * ⛔ And do not trust this note either: re-derive the two renderers. See the
+ * longer warning at `handleDelete` for why that instruction is written twice.
  */
 
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
