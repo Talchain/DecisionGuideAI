@@ -153,7 +153,25 @@ describe('AppPoC routing — tester-safe surface', () => {
     // the repo that could tell a deliberate re-gating from an accidental
     // deletion of the sandbox route, and it went RED on the first push — which
     // is the control doing its job, not a regression.
-    it('still renders the POC sandbox on the catch-all when E2E is on', async () => {
+    // ⚠⚠ BOTH FLAGS, AND CI TAUGHT ME WHY. I first set `e2e` alone and this
+    // case still RED: the catch-all lives INSIDE `DevRoutesGuard`, so with
+    // `devRoutes` off the guard redirects the WHOLE block before the catch-all
+    // is ever reached. E2E re-gates WHICH ELEMENT the catch-all renders; it
+    // does not exempt it from the guard.
+    //
+    // ⭐ SETTING BOTH IS ALSO THE HONEST POSTURE: playwright.config.ts sets
+    // `VITE_E2E` AND `VITE_ENABLE_DEV_ROUTES`, so this reproduces the state the
+    // suite actually runs in rather than a state nothing runs in.
+    //
+    // ⚠ IT NO LONGER DISCRIMINATES A REVERT ON ITS OWN, and that is fine
+    // because it never had to: with both flags set, a revert to devRoutes-only
+    // gating would still render the sandbox here. The case ABOVE is the
+    // discriminator — devRoutes ON with E2E off must land on the scenario list,
+    // and that is precisely what a revert breaks. Presence here, discrimination
+    // there; neither case does both, and saying so stops a later reader
+    // trusting this one for a job it cannot do.
+    it('still renders the POC sandbox on the catch-all in the Playwright posture', async () => {
+      localStorage.setItem('feature.devRoutes', '1')
       localStorage.setItem('e2e.enabled', '1')
       renderAt('#/canvs')
       await waitFor(() => expect(screen.getByTestId('poc-sandbox')).toBeInTheDocument())
