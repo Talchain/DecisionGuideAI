@@ -200,7 +200,42 @@ describe('once the client has stopped waiting, the panel stops claiming a run', 
   it('and says why running again is worth doing', () => {
     draw({ isBusy: true, waitExhausted: true })
     expect(block()).toHaveTextContent(COPY.status.waitExhaustedWhy)
-    expect(block()).toHaveTextContent('It may have finished without being sent back.')
+    expect(block()).toHaveTextContent('Olumi has stopped waiting for it.')
+  })
+
+  /**
+   * ⭐⭐⭐ THE BREADTH ARM — and it exists because the first draft of this copy
+   * FAILED it, caught in self-review before merge.
+   *
+   * The flag is reached by at least two opposite outcomes of
+   * `runProvisionalDeliverySchedule`:
+   *   `deadline`  nothing usable arrived inside the budget.
+   *   `withheld`  a terminal verdict DID arrive and was declined as divergent.
+   *               `applyScenarioAnalysisRead`: "A divergent read writes
+   *               NOTHING: no verdict, no results" — so `run_state` stays
+   *               `running` and the panel lands in the same state.
+   *
+   * The draft said "It may have finished without being sent back", which is
+   * true of the first and false of the second. This pins that the shipped line
+   * makes no claim about WHAT HAPPENED TO THE RUN — only about what this client
+   * did and what the reader can do — so it cannot go stale against an outcome
+   * it does not enumerate (CLAUDE.md trap 13d: write the invariant against the
+   * spec, never against the failure mode in hand).
+   *
+   * ⚠ Asserted as an ABSENCE OF CAUSAL CLAIMS, which is the property, rather
+   * than as "does not contain the old sentence" — that would pass the moment
+   * someone wrote a DIFFERENT false cause.
+   */
+  it('makes no claim about what happened to the run itself', () => {
+    draw({ isBusy: true, waitExhausted: true })
+    const said = block().textContent ?? ''
+    expect(said).not.toMatch(/\bfailed\b|\bcrashed\b|\berror\b/i)
+    expect(said).not.toMatch(/\bstill (?:running|going|analysing)\b/i)
+    expect(said).not.toMatch(/without being sent back|never sent|was not sent/i)
+    expect(said).not.toMatch(/\bfinished\b|\bcompleted\b/i)
+    // ⭐ The precondition twin: the block must actually be the exhausted one,
+    // or every absence above is satisfied by an empty string.
+    expect(said).toContain('This analysis has not reached this page.')
   })
 
   /**

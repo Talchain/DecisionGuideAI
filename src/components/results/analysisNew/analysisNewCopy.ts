@@ -2080,15 +2080,42 @@ export const ANALYSIS_NEW_COPY = {
      */
     waitExhausted: 'This analysis has not reached this page.',
     /**
-     * ⚠ THE REMEDY IS NAMED, AND IT IS A DIFFERENT REMEDY FROM #1759's.
-     * Where a leading option is WITHHELD, re-running hits the same gate and the
-     * panel offers "Review or set an estimate" instead. Here the result was
-     * never delivered, so running again is the one act that can change the
-     * outcome. Two causes, two acts — the class fix, applied in the direction
-     * that happens to restore the button rather than remove it.
+     * ⭐⭐⭐ WRITTEN AGAINST THE PREDICATE, NOT AGAINST THE RUN THAT PROMPTED IT
+     * — and the first draft was not, which is why this note exists.
+     *
+     * The flag this renders under is reachable by (at least) TWO outcomes of
+     * `runProvisionalDeliverySchedule`, and they are opposites:
+     *
+     *   `deadline`  nothing usable arrived inside the client's budget. The run
+     *               may still be going, or may have finished and not been sent.
+     *   `withheld`  a terminal verdict DID arrive and was declined, because it
+     *               describes a graph the user has since changed. The applier's
+     *               own words: "A divergent read writes NOTHING: no verdict, no
+     *               results" — so `run_state` stays `running` on this path too,
+     *               and the panel reaches exactly the same state.
+     *
+     * The first draft read "It may have finished without being sent back",
+     * which is TRUE of `deadline` and FALSE of `withheld` — there it was sent
+     * back and refused. CLAUDE.md trap 13d in one sentence: an invariant
+     * written with the same shape as the failure mode in hand.
+     *
+     * ⭐ So the line asserts only what holds on BOTH: this client has stopped
+     * waiting, and a fresh run is the way to get an answer about the model as
+     * it stands now. On `withheld` that is not a consolation — it is precisely
+     * the right remedy, because divergence is what made the answer unusable.
+     *
+     * ⚠ AND IT STAYS TRUE IF A THIRD OUTCOME REACHES HERE (`unreadable`,
+     * `aborted`). Five of the six outcomes are silent by design today; copy
+     * keyed on the flag must survive the ones not yet enumerated.
+     *
+     * ⚠ THE REMEDY IS THE OPPOSITE OF #1759's, FOR THE SAME REASON BOTH ARE
+     * RIGHT. Where a leading option is WITHHELD, re-running hits the same gate
+     * and the panel offers "Review or set an estimate" instead. Here no result
+     * has been applied at all, so running again is the one act that can change
+     * it. Two causes, two acts.
      */
     waitExhaustedWhy:
-      'It may have finished without being sent back. Running it again is the surest way to find out.',
+      'Olumi has stopped waiting for it. Running the analysis again is the surest way to get a result that matches your model as it stands now.',
     /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is
      * the user's best available context and the Rerun control sits in the
