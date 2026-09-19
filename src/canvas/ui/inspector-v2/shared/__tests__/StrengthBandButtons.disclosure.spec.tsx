@@ -464,3 +464,96 @@ describe('StrengthBandButtons — the disclosure states the SIGNED value that wi
     )
   })
 })
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐ MIXED INPUT: THE SLOT MUST DESCRIBE THE CONTROL THE NEXT KEYPRESS COMMITS
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * ⛔ THE TESTS ABOVE STILL DID NOT COVER A USER WITH BOTH HANDS ON THE MACHINE.
+ * Every reveal test above drives ONE channel at a time — a Tab, or a hover, never
+ * both — and the component held ONE `engagedIndex` for both, so whichever fired
+ * last won. The review's reproduction, verbatim: *Tab to Strong (focus stays on
+ * Strong, disclosure `0.55`) → move the mouse over Slight without clicking
+ * (`onMouseEnter` replaces `engagedIndex` with Slight, disclosure `0.10`) →
+ * press Space. Native keyboard activation still targets focused Strong and
+ * writes `0.55`, although the visible consequence slot says `0.10`.*
+ *
+ * That is the ORIGINAL defect's own class one route along: a disclosure that
+ * does not describe the write. It is not a display nicety here, because these
+ * pills stamp what they write as the user's OWN STATED strength.
+ *
+ * ⭐ SO THE PROPERTY IS A CONSISTENCY, NOT TWO PRESENCES. The test below reads
+ * the figure OUT of the slot and asserts it EQUALS the figure `onChange` then
+ * receives, in the same test and in the same interaction. Two separate
+ * assertions — "the slot shows something" and "the write is 0.55" — are exactly
+ * what let this through: both were true while they described different pills.
+ */
+describe('StrengthBandButtons — focus and hover are separate claims, and focus owns the keypress', () => {
+  it('⭐⭐ MIXED INPUT: Tab to Strong, hover Slight, press Space — the disclosed figure IS the written one', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={onChange} />)
+
+    // A REAL keyboard route to Strong, with the landing asserted.
+    await user.tab()
+    await user.tab()
+    await user.tab()
+    const strong = bandButton(container, 'Strong')
+    expect(document.activeElement, 'Tab must reach the Strong pill').toBe(strong)
+    expect(revealed(container), 'precondition: focus alone discloses Strong').toContain('0.55')
+
+    // The mouse now wanders over a DIFFERENT pill without clicking. Focus has
+    // not moved, so Space still targets Strong.
+    fireEvent.mouseEnter(bandButton(container, 'Slight'))
+    expect(document.activeElement, 'a hover must not move focus').toBe(strong)
+
+    // Read what the user can SEE at the instant before they commit.
+    const disclosedAtKeypress = revealed(container)
+    const match = /set strength to (-?\d+\.\d+)/.exec(disclosedAtKeypress)
+    expect(match, `the slot must state a parseable consequence — saw "${disclosedAtKeypress}"`).not.toBeNull()
+
+    // Native activation of the FOCUSED control.
+    await user.keyboard(' ')
+    expect(onChange, 'Space on a focused button must write exactly once').toHaveBeenCalledTimes(1)
+    const written = onChange.mock.calls[0][0]
+
+    // ⭐ THE LOAD-BEARING LINE: what the screen said and what the control
+    // committed are ONE number, not two that happen to be checked separately.
+    expect(
+      Number(match![1]),
+      `the slot disclosed ${match![1]} but Space wrote ${written} — the screen states one number and the control commits another`,
+    ).toBe(written)
+  })
+
+  it('⭐ hover-OUT over a pill that still holds FOCUS must not blank its disclosure', () => {
+    // The second half of the same root cause: one variable for two channels, so
+    // `onMouseLeave` clears an index that FOCUS still owns. The user has not
+    // moved focus and has not stopped being able to press Space — withdrawing
+    // the consequence leaves them about to commit a number nothing states.
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    const strong = bandButton(container, 'Strong')
+
+    fireEvent.focus(strong)
+    fireEvent.mouseEnter(strong)
+    expect(revealed(container), 'precondition: focused AND hovered discloses Strong').toContain('0.55')
+
+    fireEvent.mouseLeave(strong)
+    expect(
+      revealed(container),
+      'focus still owns Strong, so the consequence of pressing Space must still be on screen',
+    ).toContain('0.55')
+
+    // ⭐ THE OPPOSITE-DIRECTION TWIN (CLAUDE.md trap 22b). Independence has two
+    // faces and one assertion only watches one door: a surviving mutant that
+    // cleared the HOVER claim on blur passed the check above untouched. Tab
+    // away while the pointer stays on the pill and a click still commits 0.55,
+    // so the hover claim must outlive the focus one just as it did the reverse.
+    fireEvent.mouseEnter(strong)
+    fireEvent.blur(strong)
+    expect(
+      revealed(container),
+      'the pointer still rests on Strong, so a click still commits 0.55 and must still be disclosed',
+    ).toContain('0.55')
+  })
+})

@@ -48,6 +48,15 @@
  *     hover affordance, and pretending otherwise ships a control whose
  *     disclosure never appears.
  *
+ * ⛔ AND A THIRD ROUTE WAS STILL WRONG — A USER WITH BOTH HANDS ON THE MACHINE
+ * (P1, same day). Focus and hover shared ONE state variable, so a hover
+ * overwrote a focus claim and a hover ending revoked one. Tab to Strong, let the
+ * mouse drift over Slight, press Space: the slot said `0.10` and the control
+ * wrote `0.55`. Two separate pieces of state and an explicit precedence rule now
+ * hold the two channels apart — see `focusedIndex` / `hoveredIndex` below. The
+ * rule is DERIVED, not chosen: a keypress is dispatched to the FOCUSED element,
+ * so while focus exists the focused band is the one that would be committed.
+ *
  * ⭐ NOTE WHAT THE TOUCH ARM COSTS AND WHAT IT DOES NOT. It is ONE line for the
  * WHOLE GROUP, not a figure back on each pill: the faces stay word-only on every
  * device, which was the whole point of the move. The clutter the founder
@@ -165,8 +174,54 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
     return CANVAS_STRENGTH_BANDS.indexOf(getCanvasStrengthBand(absMagnitude))
   }, [absMagnitude])
 
-  /** Index of the band the user is currently engaging with, by focus or by pointer. */
-  const [engagedIndex, setEngagedIndex] = useState<number | null>(null)
+  /**
+   * ⭐⭐ TWO CHANNELS, TWO CLAIMS — AND THIS USED TO BE ONE VARIABLE (19 Sep 2026).
+   *
+   * A single `engagedIndex` served focus and hover both, so whichever fired last
+   * won and the other's claim was silently destroyed. Two consequential paths
+   * came out of that, and a review caught both:
+   *
+   *   · Tab to Strong (slot reads `0.55`) → move the mouse over Slight WITHOUT
+   *     clicking (`onMouseEnter` overwrites the index; slot reads `0.10`) →
+   *     press Space. Native keyboard activation still targets FOCUSED Strong and
+   *     writes `0.55` — while the visible consequence says `0.10`.
+   *   · Hover a pill that also holds focus, then move the mouse off it.
+   *     `onMouseLeave` cleared an index FOCUS still owned, blanking the slot for
+   *     a user who has not moved focus and can still press Space.
+   *
+   * That is this component's ORIGINAL defect one route along: a disclosure that
+   * does not describe the write. It matters here more than on any other control
+   * on this panel, because these pills stamp what they write as the user's OWN
+   * STATED strength.
+   *
+   * So focus and hover are now SEPARATE state, and each channel clears only its
+   * OWN claim. Naming them apart is the fix; reconciling them into one index is
+   * what caused this (CLAUDE.md trap 21).
+   */
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
+  /**
+   * ⭐ PRECEDENCE, STATED EXPLICITLY: FOCUS WINS WHENEVER FOCUS EXISTS.
+   *
+   * This is not a preference between two channels — it is DERIVED from what the
+   * next commit will actually be. The binding constraint is that the slot must
+   * describe the control the user's next action commits:
+   *
+   *   · With focus on a pill, a Space or Enter is dispatched by the browser to
+   *     `document.activeElement` — the FOCUSED pill — no matter where the
+   *     pointer is resting. So the focused band is what would be written.
+   *   · With no focus anywhere, the only committing action available is a click,
+   *     which lands on the HOVERED pill. So hover is correct exactly then.
+   *
+   * Hence: focused first, hover as the fallback, and nothing else can be right
+   * without making the slot describe a control that is not about to be used.
+   *
+   * ⚠ `??`, NOT `||`. Index `0` is a real band (Slight) and is falsy, so `||`
+   * would drop a legitimate focus claim on the FIRST pill through to hover —
+   * silently reintroducing this very defect for one band out of four.
+   */
+  const engagedIndex = focusedIndex ?? hoveredIndex
 
   /**
    * Does this device have a hover channel at all? Read once, from the browser,
@@ -204,13 +259,15 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
               key={band.label}
               type="button"
               onClick={() => onChange(signedMidpoint)}
-              // Both engage channels clear only their OWN index, so a leave
+              // Each handler touches ONLY its own channel's claim, and clears
+              // it only if this pill is still the one holding it — so a leave
               // arriving after the next button's enter cannot blank a slot that
-              // now belongs to a different pill.
-              onFocus={() => setEngagedIndex(i)}
-              onBlur={() => setEngagedIndex(prev => (prev === i ? null : prev))}
-              onMouseEnter={() => setEngagedIndex(i)}
-              onMouseLeave={() => setEngagedIndex(prev => (prev === i ? null : prev))}
+              // now belongs to a different pill, and a hover ending cannot
+              // revoke a focus claim it never owned.
+              onFocus={() => setFocusedIndex(i)}
+              onBlur={() => setFocusedIndex(prev => (prev === i ? null : prev))}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(prev => (prev === i ? null : prev))}
               aria-label={disclosure}
               title={disclosure}
               className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
