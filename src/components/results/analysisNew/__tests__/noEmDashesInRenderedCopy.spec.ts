@@ -320,16 +320,32 @@ const isConsoleCall = (n: ts.Node): boolean =>
  * version of this that cannot drift: JSX comments are comments, JSX attributes
  * are attributes, and neither can be mistaken for copy.
  *
- * ⚠ A CHANGE OF PARSE IS A CHANGE OF COVERAGE, so it does not go in unwatched
- * — `PARSE COVERAGE` below asserts this scanner still sees a plausible number
- * of real literals. A parser switch that quietly halved what it reads would
- * otherwise look exactly like a fix.
+ * ⚠ A CHANGE OF PARSE IS A CHANGE OF COVERAGE, so it does not go in unwatched.
+ * Three guards below watch it, and each is named for what it can actually
+ * prove: `PARSE KIND` pins the extension map itself (including `.jsx`, and
+ * anchored to the end of the name); `the real file that broke` pins the exact
+ * regression — clean as TSX, offending as TS; and `real .tsx copy with an em
+ * dash is STILL reported` proves the TSX parse has not stopped seeing copy.
+ *
+ * ⛔ WHAT IS DELIBERATELY *NOT* GUARDED, and why — the obvious guard here is a
+ * per-file count inequality (`asTsx >= asTs`), and it is WRONG. The motivating
+ * defect is that the JSX-off parse FABRICATES literals, so its count is not a
+ * lower bound on anything. MEASURED, not argued — `const Row = () => <div>"one"
+ * "two"</div>` parses to **0 string literals as TSX and 2 as TS**: the quoted
+ * words are JsxText under the correct parse and are not copy, while error
+ * recovery with JSX off invents two StringLiterals. `asTsx >= asTs` is
+ * therefore VIOLATED BY CORRECT CODE, and that guard would have REDded required
+ * CI on a legitimate JSX edit without one word of copy being removed. Tying the gate to
+ * `strictlyMore > 0` is worse still: it makes the continued PRESENCE of
+ * malformed-parse artefacts in product files a permanent law. The 19 Sep census
+ * (8 of 37 `.tsx` files, 5721 vs 5701) is retained as dated evidence at
+ * `evidence/emdash-guard-census-2026-09-19/CENSUS.md`, not as an invariant.
  */
 const scriptKindFor = (fileName: string): ts.ScriptKind =>
-  fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+  /\.(tsx|jsx)$/.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS
 
-function literals(src: string, fileName = 'scan.ts'): string[] {
-  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, scriptKindFor(fileName))
+function literals(src: string, fileName = 'scan.ts', kind = scriptKindFor(fileName)): string[] {
+  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, kind)
   const out: string[] = []
   const visit = (n: ts.Node, inConsole: boolean): void => {
     const nowInConsole = inConsole || isConsoleCall(n)
@@ -501,6 +517,54 @@ describe('rendered product copy carries no em dashes', () => {
         offendersIn(src, REAL.replace(/\.tsx$/, '.ts')).length,
         'read as TS the defect reappears — which is what made this worth fixing',
       ).toBeGreaterThan(0)
+    })
+
+    it('PARSE KIND: the map covers `.jsx`, and is anchored to the END of the name', () => {
+      // ⭐ ADDED BECAUSE A MUTANT SURVIVED AND TURNED OUT NOT TO BE EQUIVALENT.
+      // The pair above varies `.tsx` against `.ts` only, so it is satisfied by a
+      // map handling exactly those two — and `endsWith('.tsx')` was one. `.jsx` is
+      // NOT hypothetical: `MODULE_EXT` in `reasoningTabCopyScope.ts` resolves
+      // `.jsx`, so such a file can enter this corpus, and it would have been read
+      // with JSX off — the defect this guard just closed, waiting on the next
+      // `.jsx` file anyone adds. The `.tsx.ts` row is the anchor: an extension is
+      // the END of a name, never a substring of it.
+      const REAL = 'src/components/results/analysisNew/sections/SectionShell.tsx'
+      const src = readFileSync(resolve(process.cwd(), REAL), 'utf8')
+
+      for (const name of ['Fake.tsx', 'Fake.jsx']) {
+        expect(offendersIn(src, name), `${name} was not parsed as JSX`).toEqual([])
+      }
+      for (const name of ['Fake.ts', 'Fake.tsx.ts']) {
+        expect(offendersIn(src, name).length, `${name} was parsed as JSX`).toBeGreaterThan(0)
+      }
+    })
+
+    it('POSITIVE CONTROL: real `.tsx` copy with an em dash is STILL reported', () => {
+      // ⭐⭐ THE GUARD AGAINST OVER-NARROWING, AND THE HALF THE PAIR ABOVE CANNOT
+      // GIVE. Teaching a scanner to stop reading something risks a scanner that
+      // reads nothing, and "clean" then looks exactly like "blind": every absence
+      // assertion in this file would pass on an extractor that returned [].
+      // Three literal positions a `.tsx` file actually uses for copy.
+      //
+      // An accessible name IS rendered copy for this guard's purposes — a screen
+      // reader reads `aria-label` aloud.
+      const jsx = [
+        'export const Row = () => (',
+        '  <div>',
+        `    <span className="x">{'Comparing 4 of your 8 options ${EM_DASH} 2 were left out.'}</span>`,
+        `    <button aria-label="Withheld ${EM_DASH} not guessed">?</button>`,
+        `    <p title={\`Your results stand ${EM_DASH} nothing downstream changed.\`}>ok</p>`,
+        '  </div>',
+        ')',
+      ].join('\n')
+
+      expect(offendersIn(jsx, 'Row.tsx').sort(), 'the corrected parse has gone blind to real copy').toEqual(
+        [
+          `Comparing 4 of your 8 options ${EM_DASH} 2 were left out.`,
+          `Withheld ${EM_DASH} not guessed`,
+          `Your results stand ${EM_DASH} nothing downstream changed.`,
+        ].sort(),
+      )
     })
 
     it('PRECONDITION: the scan reaches real copy — it is not reading empty files', () => {
