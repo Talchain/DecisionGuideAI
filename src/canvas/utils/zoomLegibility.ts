@@ -593,9 +593,26 @@ export type LodRung = 'full' | 'quiet' | 'line'
  * sentence said "0.44-0.4999" and silently omitted [0.41667, 0.44), which also
  * changes; the omission made the blast radius look smaller than it is.
  *
- * Real fits park inside it — 0.4456, 0.4509, 0.488, 0.49 and 0.4935 are all
- * recorded in this repo's own evidence — so hiding the body there was the
- * over-eager half of the founder's complaint. Below 0.41667 nothing changes.
+ * ⚠ WHO PARKS THERE — TWO CLASSES, NOT ONE, AND THIS MODULE EXISTS TO KEEP
+ * THEM APART. A PRODUCT fit CANNOT park in this band: `fitBoundsFor('product')`
+ * floors it at `LABEL_LEGIBLE_ZOOM` (0.5). A USER-INVOKED fit can —
+ * `fitBoundsFor('user')` returns `{}` deliberately, so "show me the whole
+ * model" is bounded only by the canvas instance's own `minZoom={0.1}`.
+ *
+ * ⛔ AN EARLIER VERSION OF THIS SENTENCE READ "Real fits park inside it —
+ * 0.4456, 0.4509, 0.488, 0.49 and 0.4935". That merged three provenances and
+ * erased the very distinction `fitBoundsFor` was written to express:
+ *   · 0.4456 / 0.4509 are the ORIGINAL DEFECT measurements (this file's header,
+ *     :8 and :11) — the PRE-FLOOR behaviour `fitBoundsFor` was added to
+ *     PREVENT, so they cannot recur on the product path;
+ *   · 0.488 / 0.4935 are the UNFLOORED USER path.
+ * The conclusion was right and the evidence was not. Kept visible rather than
+ * quietly swapped, because a comment that cites pre-fix numbers as evidence of
+ * current behaviour is exactly how this lane closed #1720 on a false premise.
+ *
+ * So the band is reached by the founder's own zoom-out gesture — which is
+ * precisely the complaint — and hiding the body there was the over-eager half
+ * of it. Below 0.41667 nothing changes.
  */
 export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeLabel * MAX_LABEL_COUNTER_SCALE)
 
