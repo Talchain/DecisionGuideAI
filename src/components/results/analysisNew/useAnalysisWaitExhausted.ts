@@ -133,8 +133,40 @@ export function useAnalysisWaitExhausted(isRunning: boolean): boolean {
     const read = (): boolean => waitIsExhausted(isRunning, readDeliveryRecord(), runKey, Date.now())
     setExhausted(read())
     if (!isRunning || runKey === null) return undefined
-    const timer = setInterval(() => setExhausted(read()), WAIT_POLL_MS)
-    return () => clearInterval(timer)
+
+    /**
+     * ⚠ A SELF-CANCELLING CHAIN, NOT A REPEATING INTERVAL — and the difference
+     * is that this one STOPS.
+     *
+     * An earlier cut used `setInterval`, which never ends. `OutputsDock` is the
+     * largest component in the app and is mounted by dozens of specs and by
+     * every session; a timer that re-reads and re-renders it every five seconds
+     * for the life of the page is a real cost with no upper bound, and in a
+     * test that never unmounts it runs forever.
+     *
+     * The question this answers resolves ONCE and within a known budget, so the
+     * schedule is bounded by that budget: each tick re-arms only while the
+     * record is unsettled AND the deadline has not passed. Past it the answer
+     * cannot change again, so nothing is scheduled.
+     */
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const tick = (): void => {
+      if (read()) {
+        setExhausted(true)
+        return
+      }
+      const record = readDeliveryRecord()
+      const armed = record === null ? Number.NaN : Date.parse(record.armed_at)
+      const remaining = Number.isFinite(armed)
+        ? armed + PROVISIONAL_DELIVERY_DEADLINE_MS - Date.now()
+        : PROVISIONAL_DELIVERY_DEADLINE_MS
+      if (remaining <= 0) return
+      timer = setTimeout(tick, Math.min(WAIT_POLL_MS, remaining + 1))
+    }
+    timer = setTimeout(tick, WAIT_POLL_MS)
+    return () => {
+      if (timer !== undefined) clearTimeout(timer)
+    }
   }, [isRunning, runKey])
 
   return exhausted
