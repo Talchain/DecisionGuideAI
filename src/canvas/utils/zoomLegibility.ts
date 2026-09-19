@@ -593,26 +593,42 @@ export type LodRung = 'full' | 'quiet' | 'line'
  * sentence said "0.44-0.4999" and silently omitted [0.41667, 0.44), which also
  * changes; the omission made the blast radius look smaller than it is.
  *
- * ⚠ WHO PARKS THERE — TWO CLASSES, NOT ONE, AND THIS MODULE EXISTS TO KEEP
- * THEM APART. A PRODUCT fit CANNOT park in this band: `fitBoundsFor('product')`
- * floors it at `LABEL_LEGIBLE_ZOOM` (0.5). A USER-INVOKED fit can —
- * `fitBoundsFor('user')` returns `{}` deliberately, so "show me the whole
- * model" is bounded only by the canvas instance's own `minZoom={0.1}`.
+ * ⚠ WHO PARKS THERE. `fitBoundsFor` splits fits into two CLASSES, but there
+ * are THREE paths, and the third is the one that matters:
+ *   · PRODUCT, via `useFitViewOnLayoutVersion` — spreads `fitBoundsFor('product')`,
+ *     so it is FLOORED at `LABEL_LEGIBLE_ZOOM` (0.5) and cannot land here.
+ *   · USER, via `fitBoundsFor('user')` → `{}` — unbounded by design, so "show me
+ *     the whole model" can.
+ *   · ⛔ PRODUCT, via the canvas element's own bare `fitView` prop
+ *     (`ReactFlowGraph.tsx`, `<ReactFlow … fitView minZoom={0.1} maxZoom={4}>`)
+ *     — it passes NO `fitViewOptions`, so it never consults `fitBoundsFor` at
+ *     all and is bounded only by `minZoom={0.1}`. **A product fit CAN park
+ *     here, by that path.** `useFitViewOnLayoutVersion` names the hazard in its
+ *     own prose, and nothing guards it: `zoomLegibilitySingleSource` bans
+ *     hand-set legibility CONSTANTS, not unbounded fits.
  *
- * ⛔ AN EARLIER VERSION OF THIS SENTENCE READ "Real fits park inside it —
- * 0.4456, 0.4509, 0.488, 0.49 and 0.4935". That merged three provenances and
- * erased the very distinction `fitBoundsFor` was written to express:
- *   · 0.4456 / 0.4509 are the ORIGINAL DEFECT measurements (this file's header,
- *     :8 and :11) — the PRE-FLOOR behaviour `fitBoundsFor` was added to
- *     PREVENT, so they cannot recur on the product path;
- *   · 0.488 / 0.4935 are the UNFLOORED USER path.
- * The conclusion was right and the evidence was not. Kept visible rather than
- * quietly swapped, because a comment that cites pre-fix numbers as evidence of
- * current behaviour is exactly how this lane closed #1720 on a false premise.
+ * ⛔ TWO VERSIONS OF THIS SENTENCE HAVE NOW BEEN WRONG, IN OPPOSITE DIRECTIONS,
+ * AND BOTH ARE KEPT BECAUSE THE PAIR IS THE LESSON.
+ *   · It first read "Real fits park inside it — 0.4456, 0.4509, 0.488, 0.49 and
+ *     0.4935", merging four provenances into one claim.
+ *   · The correction then read "a PRODUCT fit CANNOT park in this band", which
+ *     is true of the hook and FALSE of the element's own `fitView`. Fixing an
+ *     over-broad claim with its over-broad inverse is this estate's trap 22b at
+ *     the level of a comment.
  *
- * So the band is reached by the founder's own zoom-out gesture — which is
- * precisely the complaint — and hiding the body there was the over-eager half
- * of it. Below 0.41667 nothing changes.
+ * THE FOUR CLASSES BEHIND THE FIVE FIGURES, each named rather than pooled:
+ *   · 0.4456 / 0.4509 — the ORIGINAL DEFECT measurements (this file's header,
+ *     :8 and :11). Pre-floor product fits; the hook path cannot reproduce them.
+ *   · 0.4935 — the FRESH-BOARD DEFAULT (`BaseNode.tsx`,
+ *     `measureNodeHeightsAtLabelBound.ts`), i.e. product class. ⚠ And not a
+ *     camera reading at all: it is a computed pane/layout ratio.
+ *   · 0.488 — the USER path, "Show whole model" (`lodMetricLine.ts`).
+ *   · 0.49 — a DEPLOYED measurement: 14 of 16 cards rendered an empty box at
+ *     that zoom (`lodMetricLine.ts`, corroborated in `cardCopyCensus`).
+ *
+ * So the band is reached on the product path AND by the founder's own zoom-out
+ * gesture — which is the complaint — and hiding the body here was the
+ * over-eager half of it. Below 0.41667 nothing changes.
  */
 export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeLabel * MAX_LABEL_COUNTER_SCALE)
 
