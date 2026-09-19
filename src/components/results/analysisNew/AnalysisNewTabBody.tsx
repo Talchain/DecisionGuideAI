@@ -1637,6 +1637,35 @@ export function AnalysisNewTabBody({
             requires each zone to be strictly tighter than the column and on the
             sanctioned scale; it does NOT require the zones to match, and 8px
             satisfies both. Worth 16px of fold margin across four gaps. */}
+        {/* ⛔⛔ A ZONE LABEL NEEDS A ZONE — AND I CREATED THIS DEFECT YESTERDAY.
+            #1711 gated `TrustLine` off the pre-run state, correctly: it was
+            claiming "How far this holds was not established · 0 checks ran ·
+            0 open questions" about a result that did not exist. What I did not
+            check is that `TrustLine` was this zone's ONLY pre-run occupant, so
+            removing it left "What your model shows" heading nothing, running
+            straight into "Also worth doing".
+
+            ⛔ WITNESSED BY PAUL ON THE SERVED BUILD within an hour of that merge,
+            in the screenshot he took to confirm the fix worked. The fix DID work;
+            it opened this beside it. A change that removes the last child of a
+            labelled group has to be checked against the GROUP, not only against
+            the child — the guard I wrote for ZONE: FOCUS in #1694 says exactly
+            this ("a zone label over nothing is the defect") and I did not apply
+            my own rule one zone over.
+
+            ⭐ THE PREDICATE IS SEMANTIC, NOT A CONTENT SNIFF. This zone is
+            "What your model shows" — every child of it is analysis output
+            (`AtAGlance`, `WhatsChanged`, drivers, options, robustness, the
+            sensitivity section). A pre-run state has no analysis, so the zone
+            has nothing to show BY DEFINITION rather than by coincidence. Gating
+            on `isPreRun` therefore cannot go stale the way a hand-listed
+            "does any child render?" conjunction would (trap 12).
+
+            ⚠ EVERY POST-RUN PATH IS UNTOUCHED, including a withheld run — which
+            is the one that matters most here, because that is where `AtAGlance`
+            carries "no option can be called the leader until you have set at
+            least one". */}
+        {vm.status.isPreRun ? null : (
         <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
@@ -2137,6 +2166,7 @@ export function AnalysisNewTabBody({
           testId="analysis-new-sensitivity"
         />
         </div>
+        )}
 
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.
