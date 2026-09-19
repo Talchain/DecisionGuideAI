@@ -24,7 +24,8 @@ vi.mock('../Conversation.module.css', () => ({
   },
 }))
 
-vi.mock('../../../styles/typography', () => ({
+vi.mock('../../../styles/typography', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../../styles/typography')>()),
   typography: { bodySmall: 'bodySmall', panelMeta: 'panelMeta', caption: 'caption', body: 'body', chatProse: 'chatProse', panelBody: 'panelBody' },
 }))
 

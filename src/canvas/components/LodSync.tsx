@@ -16,10 +16,11 @@
  * (`quiet` and `full` behave identically), and `BaseNode.lodQuietIsNoOp.spec.tsx`
  * measures it rather than asserting it.
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useStore } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { LABEL_LEGIBLE_ZOOM, labelsRenderedAtZoom, resolveLodRung } from '../utils/zoomLegibility'
+import type { LodRung } from '../utils/zoomLegibility'
 
 /**
  * Below this zoom, full node cards are unreadable soup — simplify (D2).
@@ -43,9 +44,34 @@ export function isLodZoom(zoom: number): boolean {
   return !labelsRenderedAtZoom(zoom)
 }
 
+/**
+ * ⭐⭐ THE ONLY PLACE THE HYSTERESIS IS APPLIED, AND IT MUST BE HERE.
+ *
+ * `resolveLodRung` is pure and stateless when called with one argument; the
+ * dead-band only exists for a caller that can say what the rung WAS. This
+ * component is the single non-test call site and the only thing that sees a
+ * real camera's SEQUENCE, so threading the previous rung here gives the
+ * dead-band to the live board without letting any stateless caller — a spec, a
+ * selector, a future surface asking "what rung is 0.42?" — inherit a stale
+ * opinion from a render it did not perform.
+ *
+ * ⚠ THE REF IS READ INSIDE THE SELECTOR, DELIBERATELY. Zustand re-runs the
+ * selector on every transform tick; the ref holds the rung we last COMMITTED,
+ * so the comparison is always against the state the user is actually looking
+ * at. Keeping the previous rung in React state instead would schedule a render
+ * to decide whether to render, which is the loop this ref exists to avoid.
+ *
+ * ⚠ The store's `setLodRung` already skips a write when the rung is unchanged
+ * (`store.ts`), so this adds a dead-band on the THRESHOLD where that only ever
+ * de-duplicated the WRITE. The two are complementary: without the dead-band a
+ * camera resting on the boundary produces a genuine alternating sequence, and
+ * a skip-if-same cannot suppress an alternation — only a repeat.
+ */
 export function LodSync() {
-  const rung = useStore((s) => resolveLodRung(s.transform[2]))
+  const previousRef = useRef<LodRung | undefined>(undefined)
+  const rung = useStore((s) => resolveLodRung(s.transform[2], previousRef.current))
   useEffect(() => {
+    previousRef.current = rung
     const { setLodRung } = useCanvasStore.getState()
     if (typeof setLodRung === 'function') setLodRung(rung)
   }, [rung])

@@ -67,6 +67,8 @@
  * that sets `minZoom`/`maxZoom` from these constants by hand. The prose can no
  * longer drift from the behaviour without something going red.
  */
+import { CANVAS_TYPE_PX } from '../../styles/typography'
+
 
 /**
  * Below this zoom node labels are hidden (level-of-detail); at or above it they
@@ -506,9 +508,159 @@ export type LodRung = 'full' | 'quiet' | 'line'
  * with `isLodZoom` across the range rather than asserting `'line'` outright, so
  * the two cannot drift apart silently.
  */
-export function resolveLodRung(zoom: number): LodRung {
-  if (!labelsRenderedAtZoom(zoom)) return 'line'
-  return zoom >= ICON_LEGIBLE_ZOOM ? 'full' : 'quiet'
+/**
+ * ⭐⭐⭐ THE LEVEL-OF-DETAIL CLIFF IS NO LONGER THE LEGIBILITY FLOOR.
+ *
+ * These were ONE number answering TWO questions, which is this estate's
+ * signature defect (CLAUDE.md trap 21):
+ *
+ *   Q1  "is rendered text still at its declared size?"  → LABEL_LEGIBLE_ZOOM
+ *       This is the COUNTER-SCALE question. It governs `labelCounterScale`,
+ *       `isLodZoom` and the product's own auto-fit floor. **Unmoved.**
+ *   Q2  "should a card stop showing its body?"          → LOD_BODY_HIDDEN_ZOOM
+ *       This is the PRESENTATION question, and it is what the founder
+ *       experiences as the board flipping to coloured blocks.
+ *
+ * ⛔ WHY THEY HAD TO SEPARATE, MEASURED RATHER THAN ARGUED. `fitBoundsFor`
+ * floors the product's own automatic fit at `LABEL_LEGIBLE_ZOOM`, and while the
+ * two numbers were the same value the auto-fit PARKED THE CAMERA EXACTLY ON THE
+ * CLIFF — measured 0.5 in 10 of 10 committed starter × viewport rows in
+ * `evidence/zoom-ladder-2026-09-02/after-ladder.json`. Downward travel from the
+ * default camera to the flip was NIL. One trackpad nudge, one wheel notch, or
+ * one press of the toolbar's zoom-out (÷1.2) reduced the whole board.
+ *
+ * The founder hit this in manual testing on 19 Sep and put it plainly: *"you
+ * only have to zoom in a little bit for the graph to change to the small
+ * coloured option. Is that really an optimal user experience?"* It was not.
+ *
+ * ⚠ THE FLOOR ITSELF IS DELIBERATELY NOT RAISED, and the direction matters.
+ * Raising the auto-fit floor would keep the camera clear of the cliff by
+ * REFUSING TO FIT LARGE MODELS — the fit is already clamped at 0.5 precisely
+ * where a model is too big to show whole, so a higher floor clips exactly the
+ * boards that need the overview most. Lowering the CLIFF costs nothing and buys
+ * the same margin.
+ *
+ * ⚠ `zoomLadder.spec.ts` asserted these two agree across the range, with the
+ * note "the floor is not this PR's to move". That guard did its job: it made
+ * this a deliberate, argued change instead of a silent one. It is updated in
+ * the same commit to pin the SEPARATION rather than the agreement.
+ */
+/**
+ * The zoom below which a card hides its body: the point at which its body text
+ * falls under the design system's floor.
+ *
+ * ⭐⭐ DERIVED, NOT PICKED — AND THE FIRST VERSION OF THIS WAS PICKED.
+ * It read `LABEL_LEGIBLE_ZOOM * 0.75`, a ratio chosen because it looked like
+ * enough headroom, in a module whose whole argument is that thresholds must be
+ * derived. Review caught it. The honest cliff is the one the type system already
+ * implies:
+ *
+ *   below `LABEL_LEGIBLE_ZOOM` the counter-scale has capped at
+ *   `MAX_LABEL_COUNTER_SCALE`, so rendered body text is
+ *   `nodeLabel * MAX_LABEL_COUNTER_SCALE * zoom` — which reaches
+ *   `CANVAS_TEXT_FLOOR_PX` at exactly this zoom.
+ *
+ * So the card stops showing its body precisely when that body stops being
+ * legible by the DS's own definition, and not one notch earlier. Measured:
+ * 0.41667, which renders `nodeLabel` at exactly 10.00px.
+ *
+ * ⭐ AND IT LANDS EXACTLY ON THE TOOLBAR'S OWN STEP. The product's auto-fit
+ * floors at `LABEL_LEGIBLE_ZOOM` and the zoom-out button steps by 1.2, and
+ * `CLIFF`, `0.5 / 1.2` and `0.5 * (1 / 1.2)` — the last being what xyflow's
+ * `scaleBy` actually computes — are the SAME DOUBLE to full precision.
+ *
+ * ⚠ SO IT TAKES TWO PRESSES, NOT ONE, and an earlier version of this comment
+ * said one. The first press lands ON the cliff, where `zoom >= floor` holds, so
+ * the body stays and text is at exactly 10.00px. The behaviour is better than
+ * the claim was; the claim was still wrong and is corrected rather than quietly
+ * improved.
+ *
+ * ⛔ AND DO NOT LEAN ON THE COINCIDENCE. It holds only while body text is 12px:
+ * `nodeLabel` moved 11 -> 12 four days ago, and at 11 the cliff would be 0.4545
+ * and one press WOULD cross. The derivation is the load-bearing thing here — the
+ * alignment with the button step is a pleasant consequence, not a design.
+ *
+ * ⛔ WHY THE FLOOR ITSELF IS NOT MOVED. `fitBoundsFor('product')` floors the
+ * product's own fit at `LABEL_LEGIBLE_ZOOM`, and it is clamped there exactly
+ * where a model is too big to show whole — so raising it would clip the boards
+ * that most need an overview. Lowering the CLIFF costs nothing and buys the
+ * travel. The counter-scale question (`isLodZoom`, `labelsRenderedAtZoom`) is a
+ * DIFFERENT question and is untouched (trap 21).
+ *
+ * ⚠ WHAT THIS CHANGES, STATED: across the WHOLE band [0.41667, 0.5) a card now
+ * shows its body where it previously did not — body text renders 10.00px at the
+ * cliff and 12.00px at the floor, legible throughout. An earlier version of this
+ * sentence said "0.44-0.4999" and silently omitted [0.41667, 0.44), which also
+ * changes; the omission made the blast radius look smaller than it is.
+ *
+ * Real fits park inside it — 0.4456, 0.4509, 0.488, 0.49 and 0.4935 are all
+ * recorded in this repo's own evidence — so hiding the body there was the
+ * over-eager half of the founder's complaint. Below 0.41667 nothing changes.
+ */
+export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeLabel * MAX_LABEL_COUNTER_SCALE)
+
+/**
+ * How far past the cliff a zoom must climb before the body comes BACK.
+ *
+ * ⭐ WITHOUT THIS THE RUNG FLAPS. `LodSync` recomputes the rung from the raw
+ * viewport on every tick, so a single sharp comparison means a camera resting on
+ * the boundary toggles the entire board on sub-pixel jitter — and a trackpad
+ * pinch delivers a stream of values, not one. An absence sweep over `src/**`
+ * found `hysteresis|deadband|dead-band` → 1 hit, unrelated; contrast controls in
+ * the same sweep: `debounce` → 109 files, `throttle` → present. The codebase
+ * knows how to do this and simply had not done it here.
+ *
+ * Expressed as a ratio so it cannot drift from the cliff it guards.
+ */
+/**
+ * ⚠ ONE CONSTANT, TWO DEAD-BANDS, AND THEY DO NOT SHARE A SAFE RANGE.
+ * This margin now sets re-entry at BOTH the body cliff and the icon floor.
+ * Mutation-measured: at 1.30 a test on EACH boundary REDs, for different
+ * reasons. The harm is unreachable today because the body pin bites first, but
+ * a future change that relaxes the body pin would silently widen the icon
+ * dead-band too. Split it before that happens, not after.
+ *
+ * ⚠ AND THE SUITE BOUNDS THIS, IT DOES NOT PIN IT. The arms assert the
+ * dead-band EXISTS; the value survives anywhere in roughly [1.001, 1.111).
+ * Bounded is not pinned and should not be described as pinned.
+ */
+const LOD_REENTRY_MARGIN = 1.08
+
+/** The zoom at or above which a hidden body is restored. */
+export const LOD_BODY_RESTORED_ZOOM = LOD_BODY_HIDDEN_ZOOM * LOD_REENTRY_MARGIN
+
+/**
+ * Which rung is this zoom on?
+ *
+ * ⚠ `previous` IS THE HYSTERESIS, AND IT IS OPTIONAL ON PURPOSE. Called with one
+ * argument this is the old pure function with the new cliff — which is what
+ * every existing caller and spec that asks "what rung is 0.42?" still wants.
+ * `LodSync` passes the live previous rung, so only the SEQUENCE seen by a real
+ * camera gets the dead-band. A stateless caller cannot accidentally inherit a
+ * stale opinion from a render it did not perform.
+ *
+ * ⚠ NaN still resolves to `line`, unchanged: `NaN >= x` is false for every x, so
+ * a torn-down or not-yet-measured viewport reads as reduced exactly as before.
+ */
+export function resolveLodRung(zoom: number, previous?: LodRung): LodRung {
+  const floor = previous === 'line' ? LOD_BODY_RESTORED_ZOOM : LOD_BODY_HIDDEN_ZOOM
+  if (!(zoom >= floor)) return 'line'
+
+  /**
+   * ⭐ THE UPPER BOUNDARY NEEDS THE SAME DEAD-BAND, AND ONLY RECENTLY.
+   *
+   * While `quiet` rendered identically to `full`, a flap across
+   * `ICON_LEGIBLE_ZOOM` was invisible and cost nothing. `quiet` is now SPENT —
+   * the card's action chips unmount there — so a camera resting on 0.714286
+   * alternates the chips on exactly the jitter the lower dead-band was added to
+   * absorb. Review named this while the change that created it was still open;
+   * closing both boundaries here rather than waiting for it to be reported.
+   *
+   * Same shape as the body cliff: coming DOWN from `full`, chips stay until the
+   * zoom clears the re-entry margin below the icon floor.
+   */
+  const iconFloor = previous === 'full' ? ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN : ICON_LEGIBLE_ZOOM
+  return zoom >= iconFloor ? 'full' : 'quiet'
 }
 
 /**

@@ -152,19 +152,39 @@ export function CanvasLodNotice() {
         type="button"
         data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`}
         onClick={() => {
-          // Return to the legibility floor exactly, keeping the centre of the
-          // current view fixed so the user does not lose their place. Derived
-          // from LABEL_LEGIBLE_ZOOM, never a restated literal — the
-          // single-source guard fails on a second numeric zoom literal.
+          // ⭐⭐ LAND ON THE LEGIBILITY FLOOR, A FULL NOTCH CLEAR OF THE CLIFF.
+          //
+          // The remedy set the viewport to the boundary value EXACTLY, so a user
+          // who pressed "Zoom in for detail" got detail and zero margin: one
+          // wheel notch, one trackpad nudge, or one press of the toolbar's
+          // zoom-out (÷1.2) put the whole board straight back. A remedy that
+          // leaves you one gesture from the problem is not a remedy.
+          //
+          // ⛔ AN EARLIER VERSION OF THIS WROTE `Math.max(LABEL_LEGIBLE_ZOOM,
+          // LOD_BODY_RESTORED_ZOOM)` and claimed it overshot the cliff. Review
+          // proved it a NO-OP by execution: the re-entry point is 0.45 and the
+          // legibility floor is 0.5, so the max is always the floor. The comment
+          // asserted a behaviour the code did not have — corrected rather than
+          // deleted, because a confident comment over an inert line is how the
+          // next reader inherits a false model (trap 14).
+          //
+          // Landing on `LABEL_LEGIBLE_ZOOM` IS the right target now, and for a
+          // reason that only holds since the cliff moved: at 0.5 the
+          // counter-scale is at full compensation and body text is at its
+          // declared size, and the cliff is a whole toolbar notch below at
+          // 0.41667. The remedy leaves the user inside the band with real
+          // travel, which is exactly what it failed to do when the cliff and the
+          // floor were the same number.
           const vp = getViewport()
           if (vp.zoom >= LABEL_LEGIBLE_ZOOM) return
           const el = document.querySelector('.react-flow') as HTMLElement | null
           const w = el?.clientWidth ?? 0
           const h = el?.clientHeight ?? 0
-          const scale = LABEL_LEGIBLE_ZOOM / vp.zoom
+          const target = LABEL_LEGIBLE_ZOOM
+          const scale = target / vp.zoom
           setViewport(
             {
-              zoom: LABEL_LEGIBLE_ZOOM,
+              zoom: target,
               x: w / 2 - (w / 2 - vp.x) * scale,
               y: h / 2 - (h / 2 - vp.y) * scale,
             },
