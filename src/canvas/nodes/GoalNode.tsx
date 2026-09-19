@@ -235,19 +235,32 @@ export const GOAL_TARGET_ROUTE_IS_LIVE = hasServerGraphAuthority(
  * outlive its authority. The details clause is untouched: it still says only
  * what the click does.
  */
-export function goalNoTargetChannels({ diagnostic }: { diagnostic: boolean }): {
+export function goalNoTargetChannels({
+  diagnostic,
+  routeIsLive = GOAL_TARGET_ROUTE_IS_LIVE,
+}: {
+  diagnostic: boolean
+  /**
+   * ⚠ INJECTABLE FOR ONE REASON: so BOTH branches of the composition can be
+   * driven BY EXECUTION. The spec previously asserted them behind
+   * `if (GOAL_TARGET_ROUTE_IS_LIVE) … else …`, which is a tautology — it passes
+   * whichever way the flag falls, so it can never fail ON the flag's value. A
+   * mutant regressing `modelGoalMinimumTarget` to `'disabled'` SURVIVED it, and
+   * the mutant kit is the only reason I know. Production never passes this: the
+   * default IS the derivation, and a test pins that the two agree.
+   */
+  routeIsLive?: boolean
+}): {
   visible: string
   'aria-label': string
   title: string
 } {
   // One clause, composed once, so the three channels cannot drift — the
   // property the header records as the reason this is a function at all.
-  const tail = GOAL_TARGET_ROUTE_IS_LIVE
+  const tail = routeIsLive
     ? `set one in ${GOAL_TARGET_LIVE_ROUTE}, or open this goal's details`
     : "open this goal's details"
-  const routeSentence = GOAL_TARGET_ROUTE_IS_LIVE
-    ? ` Set one in ${GOAL_TARGET_LIVE_ROUTE}.`
-    : ''
+  const routeSentence = routeIsLive ? ` Set one in ${GOAL_TARGET_LIVE_ROUTE}.` : ''
   return {
     visible: GOAL_NO_TARGET_STATE,
     'aria-label': diagnostic

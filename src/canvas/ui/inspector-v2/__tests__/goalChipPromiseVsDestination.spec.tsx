@@ -68,6 +68,7 @@ import { useAuth } from '../../../../contexts/AuthContext'
 import { canCaptureGoalTarget } from '../../../domain/goalTarget'
 import {
   goalNoTargetChannels,
+  GOAL_NO_TARGET_STATE,
   GOAL_TARGET_LIVE_ROUTE,
   GOAL_TARGET_ROUTE_IS_LIVE,
 } from '../../../nodes/GoalNode'
@@ -324,19 +325,45 @@ describe('so the chip states the fact and promises no repair it cannot keep', ()
     expect(promisesRepairAtDetails(legitimate)).toBe(false)
   })
 
-  it('⭐ the live-route clause is DERIVED — it disappears if the authority does', () => {
-    // The property that stops this becoming the fourth unwitnessed promise.
-    // Asserted against the authority the clause is composed from, not against
-    // a second copy of the rule.
+  /**
+   * ⚠⚠ THIS WAS AN `if (FLAG) … else …` AND A MUTANT WALKED THROUGH IT.
+   * Flipping `modelGoalMinimumTarget` to `'disabled'` SURVIVED: the else-branch
+   * simply ran and agreed with itself. A conditional assertion over the value it
+   * is conditioning on cannot fail on that value — it is a tautology wearing a
+   * control's clothes. Both branches are now driven BY EXECUTION.
+   */
+  it('⭐ the route clause is PRESENT when the route is live and ABSENT when it is not', () => {
+    for (const diagnostic of [false, true]) {
+      const live = goalNoTargetChannels({ diagnostic, routeIsLive: true })
+      const dead = goalNoTargetChannels({ diagnostic, routeIsLive: false })
+      for (const channel of ['aria-label', 'title'] as const) {
+        expect(live[channel], `live ${channel}`).toContain(GOAL_TARGET_LIVE_ROUTE)
+        expect(dead[channel], `dead ${channel}`).not.toContain(GOAL_TARGET_LIVE_ROUTE)
+      }
+      // And the dead arm must still state the fact and still say what the click
+      // does — the ban must not be satisfiable by falling silent.
+      expect(dead['aria-label']).toContain(GOAL_NO_TARGET_STATE)
+      expect(dead['aria-label']).toContain('details')
+      // The dead arm must also carry NO repair promise at all: with no live
+      // route to name, any repair verb is the withdrawn sentence again.
+      expect(REPAIR_PROMISE.test(dead['aria-label']), dead['aria-label']).toBe(false)
+    }
+  })
+
+  it('⭐ the default IS the derivation — the constant is read, not written', () => {
+    // Binds the exported constant to the authority. ⚠ This alone does NOT catch
+    // a hardcoded `true`, because `modelGoalMinimumTarget` IS `'server_graph'`
+    // today and the two agree — measured, not assumed: that mutant survived.
+    // The discriminating case is the PAIR (hardcode the constant AND regress the
+    // authority), which this assertion then fails. Stated because a mutant that
+    // needs a partner is a real result, not a gap to paper over.
     expect(GOAL_TARGET_ROUTE_IS_LIVE).toBe(
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget),
     )
-    const channels = goalNoTargetChannels({ diagnostic: false })
-    if (GOAL_TARGET_ROUTE_IS_LIVE) {
-      expect(channels['aria-label']).toContain(GOAL_TARGET_LIVE_ROUTE)
-    } else {
-      expect(channels['aria-label']).not.toContain(GOAL_TARGET_LIVE_ROUTE)
-    }
+    // The production call takes the default, so the shipped copy tracks it.
+    expect(goalNoTargetChannels({ diagnostic: false })).toEqual(
+      goalNoTargetChannels({ diagnostic: false, routeIsLive: GOAL_TARGET_ROUTE_IS_LIVE }),
+    )
   })
 
   it('and still states the fact — the ban must not be satisfied by saying nothing', () => {
