@@ -225,12 +225,39 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   constraint_verdict_withheld:
     'The check against the limits you set does not support putting one option forward.',
   /**
-   * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. "This run did not separate them"
-   * is a statement about resolution; "they are level" would be a finding about
-   * the options, which a withheld verdict is not entitled to make.
+   * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
+   * could establish; "they are level" would be a finding about the options,
+   * which a withheld verdict is not entitled to make.
+   *
+   * ⛔⛔ AND THE FIRST VERSION OF THIS SENTENCE WAS FALSE ON A REAL RUN.
+   * It read: "This run did not separate the options far enough apart to put one
+   * forward." That is a MEASUREMENT — it asserts the gap was computed and found
+   * too small.
+   *
+   * Paul's capture refutes it. Bundle `84c8e210`, staging `c952cca3`,
+   * 19 Sep 18:56Z, `analysis_ready.status: "ready"`:
+   *
+   *     leader_claim = { permitted: false, withheld_reason: "separation_unavailable" }
+   *     win_probability = 0.639 / 0.300 / 0.047 / 0.015      ← a 34-point gap
+   *
+   * The options are separated by a wide margin and the panel told the reader
+   * they were not. An independent seat had already raised this as a [P2] on
+   * #1757; the capture settles it.
+   *
+   * ⭐ THE TELL IS IN THE PAYLOAD'S OWN VOCABULARY, and it is a contrast
+   * control rather than an argument. When the producer HAS assessed separation
+   * it says so in a sibling field: `5376e928` carries `"separation":
+   * "separated"`, `57555f97` carries `"separation": "near_tie"`. On this run
+   * that field is ABSENT. `separation_unavailable` means the assessment could
+   * not be MADE — it is the absence of a measurement, not a measurement of
+   * closeness.
+   *
+   * ⚠ Trap 21 at word level: `separation_unavailable` and a near-tie are two
+   * different facts, and the token reads like the second. The sentence must
+   * carry the difference, because nothing else on the surface does.
    */
   separation_unavailable:
-    'This run did not separate the options far enough apart to put one forward.',
+    'This run could not work out how far apart the options are, so it cannot put one forward.',
 }
 
 /**
