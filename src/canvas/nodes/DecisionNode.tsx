@@ -1077,7 +1077,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const optionCountLine = optionCountLineText === null ? null : (
     <div
       data-testid="decision-node-option-count"
-      className={`${typography.edgeLabel} text-text-body mt-1`}
+      className={`${typography.nodeValue} text-text-body mt-1`}
     >
       {optionCountLineText}
     </div>

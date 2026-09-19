@@ -14,7 +14,7 @@
  * **9.3px**, EdgePills arrow **7.0px**, evidence-gap "?" **5.5px**.
  *
  * `#758` fixed this for TEXT and only for text: the counter-scale reaches a
- * label through the three canvas tokens in `typography.ts` and nothing else.
+ * label through the four canvas tokens in `typography.ts` and nothing else.
  * An icon's `w-3.5`, a button's `h-5` and a hit slop's `-inset-[2px]` are not
  * text, carry no token, and were therefore all still halved.
  *

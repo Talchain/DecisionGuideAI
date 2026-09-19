@@ -576,7 +576,14 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // the rise is the definition landing, not a panel component reaching past
     // the tokens, which is what this ratchet exists to catch everywhere else.
     // Any rise in ANY OTHER file in this map is still the real defect.
-    'src/styles/typography.ts': 39,
+    // ⚠ 39 -> 40, 19 Sep 2026, and it is the SAME exemption as the two rises
+    // above, for the same reason. `nodeValue` is a TOKEN DECLARATION in the
+    // token-definition file: its `font-medium` is the raw weight every token
+    // here carries by construction, so the rise is the definition landing, not a
+    // component reaching past the tokens. The size itself is an arbitrary-value
+    // fragment byte-identical to `nodeTitle`'s, so it adds no new raw size.
+    // Any rise in ANY OTHER file in this map is still the real defect.
+    'src/styles/typography.ts': 40,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 2,
@@ -671,7 +678,11 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // anywhere else, or a rise in this file for anything but a new token, is
     // still the defect this pair exists to catch and must be refused.
     expect(files).toBe(28)
-    expect(total).toBe(98)
+    // 19 Sep 2026: 98 -> 99, paired with the `typography.ts` 39 -> 40 above.
+    // The pair is the whole mechanism: raising the map entry alone would turn
+    // the ratchet green and THIS assertion red, so neither end can be hollowed
+    // out quietly. `files` stays 28 — no new file entered the map.
+    expect(total).toBe(99)
   })
 })
 
