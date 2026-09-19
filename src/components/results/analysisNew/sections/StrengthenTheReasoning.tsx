@@ -44,6 +44,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PanelActRow } from '../PanelActRow'
 import { ArrowRight, ChevronDown, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
@@ -1240,7 +1241,7 @@ export function StrengthenTheReasoning({
 
                 {/* The action is the point of the card, so it reads as a
                     control rather than as a fourth line of prose. */}
-                <div className="flex flex-wrap items-center gap-2 mt-2">
+                <PanelActRow className="mt-2" testId={`${testId}-acts-row`}>
                   <button
                     type="button"
                     onClick={() => runPrimaryAction(rec)}
@@ -1356,7 +1357,7 @@ export function StrengthenTheReasoning({
                   >
                     {STRENGTHEN_COPY.notRelevant}
                   </button>
-                </div>
+                </PanelActRow>
 
                 {/* ⭐ THE OBJECTION STAYS ON THE CARD. It is not a note filed
                     elsewhere and it is not a chat message that scrolls away —
@@ -1405,7 +1406,11 @@ export function StrengthenTheReasoning({
                         {dissentSaveError}
                       </p>
                     ) : null}
-                    <div className="mt-1 flex items-center gap-3">
+                    {/* ⛔ THIS ROW COULD NOT WRAP. It was `flex items-center gap-3` with no
+                        `flex-wrap`, so at a narrowed dock its two buttons overflowed rather
+                        than moving to a second line — a shared constant copied minus one
+                        class, which is exactly why this is a component and not a string. */}
+                    <PanelActRow className="mt-1">
                       <button
                         type="button"
                         onClick={() => commitDispute(rec)}
@@ -1422,7 +1427,7 @@ export function StrengthenTheReasoning({
                       >
                         {COPY.dissent.cancel}
                       </button>
-                    </div>
+                    </PanelActRow>
                   </div>
                 ) : standingDispute ? (
                   <p
