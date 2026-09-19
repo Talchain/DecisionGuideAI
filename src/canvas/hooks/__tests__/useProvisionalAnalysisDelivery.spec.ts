@@ -156,8 +156,22 @@ describe('H4 — a non-terminal read keeps waiting; a terminal one settles', () 
     const answers = [
       graphResult(verdict({ kind: 'never_run' })),
       graphResult(verdict({ kind: 'never_run' })),
+      // ⭐⭐ THE ANSWER, WITH ITS NUMBERS — and the result block is the repair.
+      //
+      // This arm's PROPERTY is right and unchanged: once the answer arrives the
+      // loop must stop, because polling on is a budget leak and a re-write risk.
+      // Its FIXTURE did not contain an answer. `analysisResult` defaults to
+      // `null` here, so it asserted that a `complete_current` verdict carrying
+      // NO numbers counts as delivered — which is the defect witnessed on
+      // 19 Sep 2026 (scenario `2b1a023c`: the ladder stopped at attempt 6 of 17
+      // and the user's options rendered with `win_probability_displayed: null`).
+      //
+      // Giving it the block it always meant to have makes the arm test what its
+      // own name says. See `aVerdictWithoutItsNumbers.spec.ts` for the
+      // no-numbers case, which is now a separate and opposite assertion.
       graphResult(
         verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
+        { type: 'analysis_result', response_hash: 'hash_real_answer', options: [], summary: {} },
       ),
     ]
     let call = 0
