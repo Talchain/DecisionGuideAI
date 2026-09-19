@@ -139,6 +139,7 @@ import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import type { OptionOrigin } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
+import { PanelFigure } from '../PanelFigure'
 import { action } from '../panelSurfaces'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 
@@ -749,82 +750,12 @@ export function OptionsComparison({
                 THIS RUN may put a comparative magnitude on screen. Either one
                 alone would be the wrong gate. */}
             {mayDrawMagnitude && o.kind === 'analysed' && o.winFraction !== null ? (
-              <span
-                /**
-                 * ⭐⭐ 8px, NOT 4px — AND THE HEIGHT IS THE DEFECT, NOT A TASTE.
-                 *
-                 * This was `h-1`. Four pixels of track behind a fill the same
-                 * colour weight as the panel's furniture is not a figure a
-                 * reader can measure; it is a rule with a tint on it. Paul,
-                 * 2026-09-11, on the deployed tab: the lower half is *"just a
-                 * big lump of text"* and *"not an actual tool for enhancing
-                 * critical creative thinking or visualising information"* — and
-                 * for this section that is a geometry finding, because the
-                 * comparison it is named for WAS being drawn, at a size that
-                 * reads as absent.
-                 *
-                 * ⚠⚠ `h-2` IS DERIVED FROM THIS SURFACE, NOT IMPORTED FROM THE
-                 * OTHER TAB. `DriverInfluenceChart.tsx:227` is the Reasoning
-                 * tab's own bar figure and it is `h-2`; it mounts in this very
-                 * body (`AnalysisNewTabBody.tsx:1493`), one section away. So the
-                 * two bar figures on one surface now agree, and the number came
-                 * from a sibling rather than from preference.
-                 *
-                 * ⛔ THE ANALYSIS TAB'S TREATMENT WAS DELIBERATELY NOT COPIED.
-                 * `WinGauge` is the reference for the SHAPE — a proportional
-                 * fill on a shared baseline — and its radii, paddings and
-                 * container styling stay where they are. #1346 removed seven
-                 * container treatments that carried one meaning between them and
-                 * ruled GEOMETRY IS GRAMMAR AND IS FIXED, TONE IS MEANING AND
-                 * VARIES (`panelSurfaces.ts:23`); importing a second tab's
-                 * geometry to fix a figure would re-open that drift two days
-                 * after it was closed. The shape is borrowed, the grammar is
-                 * this surface's.
-                 *
-                 * ⚠ NOT TALLER THAN THE SIBLING, EITHER. A bar bigger than the
-                 * driver chart's would make this section the loudest thing on
-                 * the panel, and the file header's own rule is that the NAME
-                 * leads and the share qualifies it — the same anchoring argument
-                 * that keeps the readout at `panelMeta`.
-                 */
-                className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
-                aria-hidden="true"
-                data-testid={`${testId}-bar`}
-              >
-                <span
-                  className="block h-full rounded-full bg-info"
-                  /**
-                   * ⭐⭐ THE GEOMETRY IS FLOORED BECAUSE THE READOUT IS.
-                   *
-                   * This was `Math.round(winFraction * 100)`, and it shipped a
-                   * measured non-zero share as a 0px fill. Browser-witnessed on
-                   * deployed `ce32426c`, guest, real 4-option run: the row read
-                   * "< 1%" beside a 371px track with `width: 0%`. One row, one
-                   * quantity, two contradictory claims — and precisely what the
-                   * comment above says this component refuses.
-                   *
-                   * `formatProbabilityWithResolution` floors the READOUT so a
-                   * measured tiny share never prints as "0%". Rounding the
-                   * WIDTH re-opened that exact falsehood in the one channel the
-                   * eye reads first — the defect `formatPercent.ts`'s own header
-                   * documents by name (ROADMAP 2.236): the same number honest in
-                   * one place and "0%" in another.
-                   *
-                   * ⚠ TWO DIRECTIONS, AND THEY MUST NOT COLLAPSE. A genuine
-                   * measured zero MUST render an empty track — "came out ahead
-                   * in 0% of simulated scenarios" is true, and the floor exists
-                   * to stop a non-zero value reading as zero, never to stop zero
-                   * reading as zero. So the minimum is applied ONLY when the
-                   * fraction is strictly positive, and the rounding is gone so a
-                   * small share keeps its own width rather than borrowing the
-                   * floor's.
-                   */
-                  style={{
-                    width: `${o.winFraction * 100}%`,
-                    ...(o.winFraction > 0 ? { minWidth: '2px' } : {}),
-                  }}
-                />
-              </span>
+              <PanelFigure
+                variant="share"
+                className="mt-1"
+                fraction={o.winFraction}
+                testId={`${testId}-bar`}
+              />
             ) : null}
 
             {/* ⭐⭐ THE RANGE THIS OPTION ACTUALLY PRODUCED.
@@ -841,67 +772,35 @@ export function OptionsComparison({
                 the other options, which is exactly what the reader needs to see
                 an overlap, and nothing more. */}
             {o.kind === 'analysed' && o.outcomeRange != null && rangeScale !== null ? (
-              <span
-                className="mt-1 block relative h-1.5 w-full rounded-pill bg-panel-hover"
-                data-testid={`${testId}-outcome-range-${o.id}`}
-                data-p10={o.outcomeRange.p10}
-                data-p90={o.outcomeRange.p90}
-                aria-hidden="true"
-              >
-                <span
-                  className="absolute top-0 h-1.5 rounded-pill bg-option"
-                  style={{
-                    left: `${((o.outcomeRange.p10 - rangeScale.lo) / rangeScale.span) * 100}%`,
-                    width: `${Math.max(((o.outcomeRange.p90 - o.outcomeRange.p10) / rangeScale.span) * 100, 1)}%`,
-                  }}
-                />
-                {/* ⭐⭐ THE DOT THE LENS MOVES, AND THE ONLY THING IT MOVES.
-                    `markAt` is p10 / p50 / p90 of THIS option's own range, so
-                    every arm reads one quantity family off one distribution —
-                    the consistency ruling `selectLensOption.ts` was extracted to
-                    honour, where the old three arms measured three different
-                    things under one label.
-
-                    ⚠ `!= null`, LOOSE, FOR THE SAME REASON AS `rangeScale`
-                    ABOVE. `p50` is required on the type and arrives `undefined`
-                    from fixtures; a strict `!== null` admits it and then draws
-                    `left: calc(NaN% - 3px)`, which is a silently invisible dot
-                    rather than a crash — worse than the throw CI caught, because
-                    nothing reports it. The endpoints are pinned by the type's
-                    own arithmetic above, so only the marker needs the guard. */}
-                {(() => {
-                  const markAt =
-                    rangeAppetite === 'cautious'
-                      ? o.outcomeRange.p10
-                      : rangeAppetite === 'optimistic'
-                        ? o.outcomeRange.p90
-                        : o.outcomeRange.p50
-                  return markAt != null ? (
-                    <span
-                      className="absolute top-[-1px] w-1.5 h-[9px] rounded-pill bg-text-body"
-                      /* ⛔⛔ CLAMPED, AND THE LENS IS WHAT MAKES THIS MANDATORY
-                         RATHER THAN DEFENSIVE.
-                         `rangeScale`'s domain is DEFINED BY the smallest p10 and
-                         the largest p90 across the rows. So on the cautious arm
-                         exactly one option's marker lands at 0%, and on the
-                         optimistic arm exactly one lands at 100% — every single
-                         run, by construction, not by bad luck.
-                         `calc(0% - 3px)` then puts half of the 6px dot outside
-                         its own track. **Measured in the browser: 3px of
-                         overhang at each extreme, 0px once clamped.**
-                         p50 almost never hits an endpoint, which is why #1726
-                         shipped without this and was right to — the lens is what
-                         turns a theoretical edge case into a guaranteed one. */
-                      style={{
-                        left: `clamp(0px, calc(${((markAt - rangeScale.lo) / rangeScale.span) * 100}% - 3px), calc(100% - 6px))`,
-                      }}
-                      data-testid={`${testId}-outcome-mid-${o.id}`}
-                      data-lens-arm={rangeAppetite}
-                      data-mark-at={markAt}
-                    />
-                  ) : null
-                })()}
-              </span>
+              (() => {
+                // ⭐ THE ONLY ARITHMETIC THAT STAYS HERE: turning this option's
+                // percentiles into positions on the SHARED domain. `PanelFigure`
+                // is handed fractions and never sees a p10 — which is what keeps
+                // its "claims nothing in units" rule true by construction rather
+                // than by every call site remembering it.
+                const toFraction = (v: number) => (v - rangeScale.lo) / rangeScale.span
+                const markAt =
+                  rangeAppetite === 'cautious'
+                    ? o.outcomeRange.p10
+                    : rangeAppetite === 'optimistic'
+                      ? o.outcomeRange.p90
+                      : o.outcomeRange.p50
+                return (
+                  <PanelFigure
+                    variant="range"
+                    className="mt-1"
+                    band={{
+                      start: toFraction(o.outcomeRange.p10),
+                      end: toFraction(o.outcomeRange.p90),
+                      // `!= null`, loose: p50 is `number | null` on the producer
+                      // path but `undefined` from hand-built fixtures.
+                      marker: markAt != null ? toFraction(markAt) : null,
+                    }}
+                    markerData={{ 'data-lens-arm': rangeAppetite, 'data-mark-at': String(markAt) }}
+                    testId={`${testId}-outcome-range-${o.id}`}
+                  />
+                )
+              })()
             ) : null}
 
             {/* ⭐⭐ THE OTHER QUESTION — "does this reach the target I set?"
@@ -951,31 +850,12 @@ export function OptionsComparison({
                     {o.goalReadout}
                   </span>
                 </div>
-                <span
-                  /* The sibling's geometry exactly — same height, same track,
-                     same radius. Two figures of the same weight read as two
-                     answers to two questions; a different treatment would read
-                     as one of them mattering more, which is a claim neither the
-                     producer nor this panel makes. */
-                  className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
-                  aria-hidden="true"
-                  data-testid={`${testId}-goal-bar`}
-                >
-                  <span
-                    className="block h-full rounded-full bg-info"
-                    /* The floor rule the sibling derives, applied for the same
-                       reason: `formatGoalProbability` floors the READOUT so a
-                       measured tiny probability never prints as "0%", and
-                       rounding the WIDTH would re-open that falsehood in the
-                       channel the eye reads first. Applied only when the
-                       fraction is strictly positive — a measured zero must draw
-                       an empty track, because that is true. */
-                    style={{
-                      width: `${o.goalFraction * 100}%`,
-                      ...(o.goalFraction > 0 ? { minWidth: '2px' } : {}),
-                    }}
-                  />
-                </span>
+                <PanelFigure
+                  variant="goal"
+                  className="mt-1"
+                  fraction={o.goalFraction}
+                  testId={`${testId}-goal-bar`}
+                />
                 {/* Display-honesty (ROADMAP 1.6b / PLoT #204): the figure is
                     scored from a modelled forward-propagated outcome
                     distribution rather than a directly-set starting value, and
