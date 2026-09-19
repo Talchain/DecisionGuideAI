@@ -80,7 +80,9 @@ describe('computeStructuralAbsence — no_downside', () => {
     // Drop the f1 → r1 link: the risk is now stranded.
     const edges = [edge('e1', 'o1', 'f1'), edge('e2', 'o2', 'f2')]
     const result = computeStructuralAbsence(nodes, edges)
-    expect(result).toEqual({ kind: 'no_downside', optionCount: 2 })
+    // Whole-object `toEqual`, so a NEW field arriving unpinned REDs here rather
+    // than sliding in unobserved. r1 is the stranded risk this fixture creates.
+    expect(result).toEqual({ kind: 'no_downside', optionCount: 2, actionTargetIds: ['r1'] })
   })
 
   it('fires when a negative edge exists but no option reaches it', () => {
@@ -137,6 +139,7 @@ describe('computeStructuralAbsence — shared_mechanism', () => {
     expect(computeStructuralAbsence(nodes, edges)).toEqual({
       kind: 'shared_mechanism',
       optionCount: 2,
+      actionTargetIds: ['x1'],
     })
   })
 
@@ -176,6 +179,7 @@ describe('computeStructuralAbsence — no_external_factor', () => {
     expect(computeStructuralAbsence(nodes, edges)).toEqual({
       kind: 'no_external_factor',
       optionCount: 2,
+      actionTargetIds: [],
     })
   })
 

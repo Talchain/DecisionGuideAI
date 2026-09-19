@@ -50,6 +50,27 @@ export interface StructuralAbsence {
   kind: StructuralAbsenceKind
   /** Options in the model when the finding fired — copy names the quantity. */
   optionCount: number
+  /**
+   * Canvas node ids the finding's PRESCRIBED ACTION names — the element a
+   * reader would edit, and therefore the only ids a marker may sit on.
+   *
+   * ⚠ NOT THE FINDING'S SUBJECT, and the two must never collapse into one
+   * field (CLAUDE.md trap 21: two questions under one name). `shared_mechanism`
+   * is ABOUT the options — the registry carries `entityKind: 'option'` for
+   * exactly that — while the edit it prescribes is at the shared parts they all
+   * run through. A field named `nodeIds` would have hidden that difference.
+   *
+   * ⚠ EMPTY IS A REAL ANSWER, NEVER A FALLBACK. Two reachable cases return
+   * `[]` and both are honest: `no_external_factor` prescribes ADDING a node, so
+   * nothing on the board is the thing to change; and `no_downside` fires on
+   * negative edges alone as well as on risk nodes, and where the only stated
+   * harm is an EDGE there is no downside NODE to mark. Naming a node anyway
+   * would assert something the data does not say.
+   *
+   * Every id here is a node present in the `nodes` argument. Widening what a
+   * finding can NAME changes nothing about when it FIRES.
+   */
+  actionTargetIds: ReadonlyArray<string>
 }
 
 /**
@@ -180,7 +201,18 @@ export function computeStructuralAbsence(
       return negativeEdgeSources.has(optionId)
     })
     if (!anyOptionReachesDownside) {
-      return { kind: 'no_downside', optionCount: optionIds.length }
+      // The risk NODES, and only those. The finding fires exactly when no
+      // option reaches any of them, so every risk present is stranded — there
+      // is no reached subset to exclude. ⚠ `[]` HERE IS CORRECT AND REACHABLE:
+      // `hasDownsideElement` admits this branch on `negativeEdges` alone, and a
+      // negative edge's source/target is an ordinary node that nothing states
+      // IS the downside. A marker sits on a node; that harm is carried by an
+      // edge, so this limb names nothing rather than naming the wrong thing.
+      return {
+        kind: 'no_downside',
+        optionCount: optionIds.length,
+        actionTargetIds: [...riskIds],
+      }
     }
   }
 
@@ -195,7 +227,18 @@ export function computeStructuralAbsence(
       s => s.size === first.size && [...s].every(t => first.has(t)),
     )
     if (allIdentical) {
-      return { kind: 'shared_mechanism', optionCount: optionIds.length }
+      // The shared TARGETS — the bottleneck every option runs through — not the
+      // options themselves. Marking all N options would mark everything, which
+      // marks nothing, and it would answer the wrong question (see the field's
+      // docblock). ⚠ `adjacency` holds DIRECT targets only, so this is "acts
+      // directly on", never transitively: `structuralSharedMechanismRationale`
+      // already says "the same immediate parts of the model", so the copy and
+      // the ids agree.
+      return {
+        kind: 'shared_mechanism',
+        optionCount: optionIds.length,
+        actionTargetIds: [...first],
+      }
     }
   }
 
@@ -211,7 +254,15 @@ export function computeStructuralAbsence(
     )
     const everyFactorKnown = resolved.every(value => value !== null)
     if (everyFactorKnown && !resolved.includes('external')) {
-      return { kind: 'no_external_factor', optionCount: optionIds.length }
+      // GENUINELY GLOBAL. The absence is of a node CLASS, and the prescribed
+      // edit is to ADD one — so no node on the board is the thing to change.
+      // Marking every controllable factor would say "this one is wrong" about
+      // factors that are correctly modelled.
+      return {
+        kind: 'no_external_factor',
+        optionCount: optionIds.length,
+        actionTargetIds: [],
+      }
     }
   }
 
