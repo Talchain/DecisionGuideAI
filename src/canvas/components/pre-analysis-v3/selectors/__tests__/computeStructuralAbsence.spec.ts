@@ -348,3 +348,173 @@ describe('computeStructuralAbsence — the fourth check is deliberately absent',
     expect(admitted.some(k => /feedback|cycle|loop/.test(k))).toBe(false)
   })
 })
+
+/**
+ * ⭐⭐ WHAT THE FINDING CAN NAME — `actionTargetIds`.
+ *
+ * The finding's SUBJECT and its ACTION TARGET are different things, and this
+ * block exists to keep them named apart (CLAUDE.md trap 21). `shared_mechanism`
+ * is ABOUT the options — the registry carries `entityKind: 'option'` for
+ * exactly that — and the edit it prescribes is at the shared parts they all run
+ * through. Asserting the subject here would pass on the wrong object.
+ *
+ * ⚠ EVERY ASSERTION BINDS BY ID, NEVER BY A VALUE PREDICATE (trap 19) — and
+ * identity binding presupposes identity is UNIQUE. A fixture that seeded two
+ * nodes under one id would make every `includes`/`find` answer about whichever
+ * copy came first, silently. `expectUniqueIds` is therefore a NAMED PRECONDITION
+ * that can itself fail, asserted on every fixture below before its finding is
+ * read.
+ */
+function expectUniqueIds(nodes: ReadonlyArray<Node>): void {
+  const ids = nodes.map(n => n.id)
+  // Asserted as a SET COMPARISON, not a length check on a deduped copy, so the
+  // failure message names the duplicate rather than a bare number mismatch.
+  const duplicated = ids.filter((id, i) => ids.indexOf(id) !== i)
+  expect(duplicated).toEqual([])
+  expect(new Set(ids).size).toBe(nodes.length)
+}
+
+describe('computeStructuralAbsence — actionTargetIds: what the finding can NAME', () => {
+  it('PRECONDITION GUARD ITSELF FAILS on a duplicated fixture id', () => {
+    // The precondition above is load-bearing for every identity assertion in
+    // this block, so it is proven capable of failing before it is trusted
+    // (CLAUDE.md trap 13: an instrument that cannot fail is not evidence).
+    expect(() => expectUniqueIds([node('dup', 'option'), node('dup', 'risk')])).toThrow()
+  })
+
+  it('no_downside names the STRANDED RISK NODE by id, not the options', () => {
+    const { nodes } = healthyGraph()
+    expectUniqueIds(nodes)
+    const edges = [edge('e1', 'o1', 'f1'), edge('e2', 'o2', 'f2')]
+    const result = computeStructuralAbsence(nodes, edges)
+    expect(result?.kind).toBe('no_downside')
+    // BY IDENTITY: the risk r1 is the element the copy tells the reader to
+    // connect. `toEqual` on the whole array, so an extra member REDs too.
+    expect(result?.actionTargetIds).toEqual(['r1'])
+    // The options are the finding's SUBJECT and must NOT be its action target —
+    // marking all N options would mark everything, which marks nothing.
+    expect(result?.actionTargetIds).not.toContain('o1')
+    expect(result?.actionTargetIds).not.toContain('o2')
+  })
+
+  it('no_downside names EVERY stranded risk, because the finding fires only when none is reached', () => {
+    const nodes = [
+      node('o1', 'option'),
+      node('o2', 'option'),
+      node('f1', 'factor', { category: 'external' }),
+      node('f2', 'factor', { category: 'controllable' }),
+      node('r1', 'risk'),
+      node('r2', 'risk'),
+    ]
+    expectUniqueIds(nodes)
+    const edges = [edge('e1', 'o1', 'f1'), edge('e2', 'o2', 'f2')]
+    const result = computeStructuralAbsence(nodes, edges)
+    expect(result?.kind).toBe('no_downside')
+    expect([...(result?.actionTargetIds ?? [])].sort()).toEqual(['r1', 'r2'])
+  })
+
+  it('⛔ no_downside names NO NODE on the negative-edge-only limb — a marker sits on a node, and the only downside here is an EDGE', () => {
+    const nodes = [
+      node('o1', 'option'),
+      node('o2', 'option'),
+      node('f1', 'factor', { category: 'external' }),
+      node('f2', 'factor', { category: 'controllable' }),
+      node('x1', 'outcome'),
+      node('x2', 'outcome'),
+    ]
+    expectUniqueIds(nodes)
+    const edges = [
+      edge('e1', 'o1', 'f1'),
+      edge('e2', 'o2', 'f2'),
+      negativeEdge('e3', 'x1', 'x2'),
+    ]
+    const result = computeStructuralAbsence(nodes, edges)
+    expect(result?.kind).toBe('no_downside')
+    // ⚠ HONEST EMPTY, NOT A FALLBACK. There is no risk NODE here; the stated
+    // harm is carried by an edge. Naming `x1` or `x2` would assert that an
+    // outcome node IS the downside, which nothing in the data says.
+    expect(result?.actionTargetIds).toEqual([])
+  })
+
+  it('shared_mechanism names the SHARED TARGET nodes — the single route, not the options that take it', () => {
+    const nodes = [
+      node('o1', 'option'),
+      node('o2', 'option'),
+      node('x1', 'outcome'),
+      node('r1', 'risk'),
+    ]
+    expectUniqueIds(nodes)
+    const edges = [
+      edge('e1', 'o1', 'x1'),
+      edge('e2', 'o2', 'x1'),
+      edge('e3', 'x1', 'r1'),
+    ]
+    const result = computeStructuralAbsence(nodes, edges)
+    expect(result?.kind).toBe('shared_mechanism')
+    // BY IDENTITY: x1 is the bottleneck every option acts directly on.
+    expect(result?.actionTargetIds).toEqual(['x1'])
+    // ⭐ THE DISCRIMINATING NEGATIVE. The registry's `entityKind` for this
+    // finding is 'option' — its SUBJECT. If `actionTargetIds` also held the
+    // options, the two concepts would have collapsed into one.
+    expect(result?.actionTargetIds).not.toContain('o1')
+    expect(result?.actionTargetIds).not.toContain('o2')
+    // r1 is reachable but NOT a direct target of any option — "acts directly
+    // on" is the measured claim, and a transitive node is not it.
+    expect(result?.actionTargetIds).not.toContain('r1')
+  })
+
+  it('shared_mechanism names every member of a multi-node shared route', () => {
+    const nodes = [
+      node('o1', 'option'),
+      node('o2', 'option'),
+      node('x1', 'outcome'),
+      node('x2', 'outcome'),
+      node('r1', 'risk'),
+    ]
+    expectUniqueIds(nodes)
+    const edges = [
+      edge('e1', 'o1', 'x1'),
+      edge('e2', 'o1', 'x2'),
+      edge('e3', 'o2', 'x1'),
+      edge('e4', 'o2', 'x2'),
+      edge('e5', 'x1', 'r1'),
+    ]
+    const result = computeStructuralAbsence(nodes, edges)
+    expect(result?.kind).toBe('shared_mechanism')
+    expect([...(result?.actionTargetIds ?? [])].sort()).toEqual(['x1', 'x2'])
+  })
+
+  it('⛔ no_external_factor STAYS GLOBAL — an absent node CLASS has no node to mark', () => {
+    const nodes = [
+      node('o1', 'option'),
+      node('o2', 'option'),
+      node('f1', 'factor', { category: 'controllable' }),
+      node('f2', 'factor', { category: 'observable' }),
+      node('r1', 'risk'),
+    ]
+    expectUniqueIds(nodes)
+    const edges = [
+      edge('e1', 'o1', 'f1'),
+      edge('e2', 'o2', 'f2'),
+      edge('e3', 'f1', 'r1'),
+    ]
+    const result = computeStructuralAbsence(nodes, edges)
+    expect(result?.kind).toBe('no_external_factor')
+    // The prescribed edit is to ADD a node. No node present on the board is the
+    // thing to change, and marking every controllable factor would say "this
+    // one is wrong" about factors that are correctly modelled.
+    expect(result?.actionTargetIds).toEqual([])
+  })
+
+  it('every action target id is a node that EXISTS on the board (fail-closed: no ghost ids)', () => {
+    const { nodes } = healthyGraph()
+    expectUniqueIds(nodes)
+    const edges = [edge('e1', 'o1', 'f1'), edge('e2', 'o2', 'f2')]
+    const result = computeStructuralAbsence(nodes, edges)
+    const present = new Set(nodes.map(n => n.id))
+    for (const id of result?.actionTargetIds ?? []) {
+      expect(present.has(id)).toBe(true)
+    }
+    expect(result?.actionTargetIds.length).toBeGreaterThan(0)
+  })
+})
