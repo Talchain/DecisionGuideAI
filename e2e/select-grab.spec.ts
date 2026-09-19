@@ -56,8 +56,25 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     await expect(page.locator('[data-id="dec_cdp"]')).toBeVisible()
     await page.getByRole('button', { name: 'Collapse outputs dock', exact: true }).click()
     await fit(page)
+    // ⚠ THE BOOT MODE IS NOW ASSERTED, NOT ASSUMED. This block used to pan
+    // straight away and then click "Switch to Select mode", both of which only
+    // worked because the canvas booted in HAND mode. The default is now
+    // 'select' (a board that cannot be rearranged on arrival is a viewer, not a
+    // thinking surface), so the pan below needs Hand asked for explicitly and
+    // the toolbar's label at boot is the opposite of what it was.
+    //
+    // Asserting the boot state rather than silently adapting to it: if the
+    // default moves again, this REDs here with a clear message instead of
+    // failing twenty lines later on a stale bounding box.
+    await expect(
+      page.getByRole('button', { name: 'Switch to Hand mode', exact: true }),
+      'the canvas should boot in Select mode — the toolbar offers the OTHER mode',
+    ).toBeVisible()
+
     // Keep the target below the local offline-engine notice, when present.
     // This is ordinary Hand panning; no UI or model state is injected.
+    await page.getByRole('button', { name: 'Switch to Hand mode', exact: true }).click()
+    await expect(page.locator('.canvas-mode-hand')).toBeVisible()
     await drag(page, 1000, 180, 0, 160)
     await page.getByRole('button', { name: 'Switch to Select mode', exact: true }).click()
 

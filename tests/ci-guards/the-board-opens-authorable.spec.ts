@@ -59,12 +59,29 @@ describe('the stripper this guard rests on', () => {
 })
 
 describe('the board opens authorable', () => {
-  it("⭐ the interaction mode initialises to 'select', in CODE", () => {
+  /**
+   * ⚠ COUNT-PINNED AND ANCHORED, because the first version of this guard was
+   * one-directional. A reviewer's mutant kit showed four arms passing it: a
+   * decoy `useState<'select'|'hand'>('select')` elsewhere in the file, plus
+   * whitespace reformattings. A `toMatch` that only asks "does this string
+   * appear SOMEWHERE" tests presence, never binding (trap 19), and a mutant set
+   * that only ever REMOVES the token cannot see one that MOVES or DUPLICATES it
+   * (trap 22b — a corpus that tests one direction).
+   */
+  it("⭐ the interaction mode initialises to 'select', exactly once, on the real declaration", () => {
     const code = codeOnly(graph)
+    // Whitespace-tolerant so an ordinary reformat cannot red it, but still
+    // ANCHORED to the real declaration and COUNT-PINNED so a decoy cannot green it.
+    const decl = /const\s*\[\s*interactionMode\s*,\s*setInteractionMode\s*\]\s*=\s*useState\s*<\s*'select'\s*\|\s*'hand'\s*>\s*\(\s*'(select|hand)'\s*\)/g
+    const found = [...code.matchAll(decl)]
     expect(
-      code,
+      found.length,
+      `expected exactly ONE interactionMode declaration, found ${found.length} — a second one means this guard may be binding to a decoy rather than to the mode the canvas actually boots with`,
+    ).toBe(1)
+    expect(
+      found[0]![1],
       "the canvas no longer boots in select mode. With `nodesDraggable={effectiveMode === 'select'}`, booting in 'hand' means NO card can be moved until the user finds the V/H toggle — the board arrives unauthorable.",
-    ).toMatch(/useState<'select'\s*\|\s*'hand'>\('select'\)/)
+    ).toBe('select')
   })
 
   it('the draggability binding it depends on is still in place', () => {
@@ -74,14 +91,27 @@ describe('the board opens authorable', () => {
     expect(codeOnly(graph)).toContain("nodesDraggable={effectiveMode === 'select'}")
   })
 
-  it('a card may not advertise a drag the mode refuses', () => {
-    // In hand mode React Flow never adds `.draggable`, so the two bare selectors
-    // that used to be here painted `grab` on cards that could not move.
-    const code = codeOnly(css)
-    expect(code).toContain('.canvas-mode-hand .react-flow__node.draggable')
-    expect(
-      code,
-      'a bare `.canvas-mode-hand .react-flow__node` cursor rule is back — it matches undraggable cards and promises a gesture the mode refuses',
-    ).not.toMatch(/\.canvas-mode-hand \.react-flow__node(?![.\w-])\s*,/)
-  })
-})
+  /**
+   * ⛔ THE CSS ASSERTIONS THAT STOOD HERE ARE DELETED, AND THE PREMISE WAS WRONG.
+   *
+   * This PR originally narrowed `.canvas-mode-hand .react-flow__node` to
+   * `.draggable`, on the claim that hand mode painted `cursor: grab` on a card
+   * that could not be dragged — "a promise the product refuses".
+   *
+   * ⭐ THE CURSOR WAS TELLING THE TRUTH. In @xyflow/react 12.10.2 the node
+   * wrapper applies `nopan` ONLY when the node is draggable, so in hand mode a
+   * left-drag starting ON a card reaches d3-zoom and PANS. `grab` meant "grab
+   * the canvas", not "grab this card". `e2e/select-grab.spec.ts` already proved
+   * it: cursor `grab` over a card in hand mode, then a drag moves the VIEWPORT
+   * by (80,40) with every node position unchanged.
+   *
+   * And the narrowing could never have worked: `.canvas-mode-hand` is applied
+   * exactly when `nodesDraggable` is false, so `.canvas-mode-hand` and
+   * `.draggable` are mutually exclusive BY CONSTRUCTION. The rule would have
+   * matched nothing and hand mode would have lost its grab cursor entirely —
+   * making the surface worse while claiming to fix an honesty defect.
+   *
+   * The CSS hunk is reverted. The one-word default change fixes the reported
+   * defect on its own, and nothing here should pin a CSS shape again.
+   */
+

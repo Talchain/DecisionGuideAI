@@ -1189,6 +1189,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * surface whose whole purpose is that **humans remain the authors** of the
    * model — but it is the founder's call, and reversing it is this one word.
    *
+   * ⛔ AND THE SHARPEST FORM OF THE COUNTER-ARGUMENT, NAMED RATHER THAN OMITTED:
+   * `SELECT_MODE_PAN_BUTTONS` is `[1]` — MIDDLE BUTTON ONLY. On a trackpad there
+   * is no middle button, so the only pointer pan left in select mode is
+   * space-hold. A laptop user who never discovers the space bar has traded
+   * "cannot move a card" for "cannot pan by dragging", which is a smaller loss
+   * (the viewport still moves by wheel/trackpad scroll, and hand mode is one
+   * toolbar click away) but it is a loss, and it is the strongest reason someone
+   * might want this reverted. Raised by review; recorded so the next reader
+   * weighs the real trade and not a flattering version of it.
+   *
+   * ⭐ WHY 'select' STILL WINS, in one line: a default should be chosen by what
+   * it makes IMPOSSIBLE. Hand mode removed the only way to move a card; select
+   * mode removes one of several ways to move the viewport.
+   *
    * ⚠ NOT PERSISTED, DELIBERATELY. This is component-local `useState` with no
    * store or localStorage writer anywhere in the repo (swept: only the type
    * declaration and the toolbar toggle reference it). A remembered mode would
