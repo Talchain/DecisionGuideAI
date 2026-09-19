@@ -24,6 +24,38 @@
  *     inspector, then `setActiveGuidanceItem` — which scrolls the matching
  *     guidance card into view (its `isActive` effect) and pulses the node ring
  *     (useGuidancePulseHighlight). One route, the lightest existing one.
+ *
+ * ⭐⭐ THIS IS NOW THE NODE COACHING **SLOT**, WITH TWO SOURCES AND A RANKING.
+ * PRODUCER FIRST, LOCAL STRUCTURE SECOND.
+ *
+ * The producer filter below is unchanged and still decides everything: where a
+ * live `guidance_item` names this node, the producer's marker renders and nothing
+ * else does. Where it does NOT — most nodes, most runs — the `!top` branch renders
+ * `NodeStructuralMarker`, the client-derived channel: `computeStructuralAbsence`
+ * read from the nodes and edges in the browser, with no producer stamp behind it
+ * and none claimed.
+ *
+ * That ranking is NOT new. `hooks/__tests__/oneVoicePerNode.spec.ts` and
+ * `hooks/useScienceIcons.ts:60-84` already ruled it for the other local channel:
+ * the producer outranks a client-derived signal per node, and the local channel is
+ * not deleted, because where the producer is silent the local observation is all
+ * the reader gets and it is true. A structural finding is the same epistemic class,
+ * so it inherits the same precedence. Applying it HERE, in the `!top` branch,
+ * decides it in one place instead of at five call sites, and a node can never
+ * carry two coaching voices.
+ *
+ * ⛔ THE FENCE THE `!top` BRANCH EXISTS TO RESPECT. The alternative route for a
+ * client-derived finding is to synthesise a `GuidanceItem` with a `target_object`
+ * and push it into `guidanceStore`. That fabricates producer provenance, and it
+ * would also silence `useScienceIcons`'s `producerNamesThisNode` with a client-side
+ * computation. Nothing of the kind happens: the structural finding never enters
+ * `guidanceItems`, so the filter at :59 can never see it and no store consumer can
+ * either. ⚠ LEAVE THAT FILTER BYTE-FOR-BYTE ALONE.
+ *
+ * ⚠ THE SLOT IS STILL ONE CORNER MEMBER. BaseNode's top-right stack is a
+ * single-owner FIVE-MEMBER contract (`BaseNode.tsx:1206-1240`); the two sources here
+ * are mutually exclusive, so this slot renders at most one glyph and the contract
+ * is unchanged. A sixth sibling was rejected on exactly that ground.
  */
 
 import { useCallback, useMemo } from 'react'
@@ -36,6 +68,7 @@ import {
 } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
 import { openNodeInspector } from './openNodeInspector'
+import { NodeStructuralMarker } from './NodeStructuralMarker'
 
 interface NodeCoachingMarkerProps {
   /** The canvas node id this marker sits on. */
@@ -77,8 +110,15 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
     [top, nodeId, setActiveGuidanceItem],
   )
 
-  // No live item names this node → no marker (never a permanently-empty slot).
-  if (!top) return null
+  // No live item names this node → the slot falls through to the client-derived
+  // channel, which self-gates and renders null unless THIS node is one the
+  // structural finding's prescribed action names. Still never a permanently-empty
+  // slot: when neither source applies, nothing renders.
+  //
+  // ⭐ THE PRECEDENCE IS THIS `if`. It reads the producer's own filter, so the
+  // producer wins per node by construction — the `oneVoicePerNode` ruling applied
+  // once here rather than restated at every call site.
+  if (!top) return <NodeStructuralMarker nodeId={nodeId} />
 
   const tone = guidanceCategoryTone(top.category)
   // Icon + tint from the shared source of truth (same one the inspector card
