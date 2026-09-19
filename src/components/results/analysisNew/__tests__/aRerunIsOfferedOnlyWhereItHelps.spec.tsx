@@ -86,18 +86,26 @@ const draw = (over: Record<string, unknown>) =>
 const RERUN = 'analysis-new-glance-ribbon-reanalyse'
 const ESTIMATE = 'analysis-new-glance-ribbon-review-estimates'
 
+/**
+ * ⚠ REBOUND FROM `leaderWithheld` TO `rerunWouldNotHelp`, and the rename is the
+ * fix rather than a tidy-up. An independent seat found that `leader_not_assessed`
+ * covers an assessed durable limitation AND a missing verdict, an unknown
+ * separation, an incomplete or failed result — so binding the act to it removed
+ * the retry from exactly the cases a retry serves. These arms now describe
+ * RECOVERABILITY, which is what the act asks about.
+ */
 describe('a re-run is offered only where it helps', () => {
   it('CONTROL: this fixture renders the ribbon at all', () => {
     // ⭐ WITHOUT THIS, EVERY ARM BELOW PASSES OVER AN ABSENT RIBBON. My first
     // version had no such control and died on a fixture too thin to render one;
     // a thinner fixture that merely rendered NOTHING would have gone GREEN.
-    draw({ leaderWithheld: false })
+    draw({ rerunWouldNotHelp: false })
     expect(screen.getByTestId(RERUN), 'the strip must mount before any arm asserts about it')
       .toBeInTheDocument()
   })
 
   it('PRECONDITION: with nothing withheld, the re-run IS offered — the case that must survive', () => {
-    draw({ leaderWithheld: false })
+    draw({ rerunWouldNotHelp: false })
     expect(
       screen.queryByTestId(RERUN),
       'results missing by FAILURE are exactly what a re-run is for',
@@ -106,7 +114,7 @@ describe('a re-run is offered only where it helps', () => {
   })
 
   it('⛔ where a DESIGNATION was withheld, the re-run is not offered', () => {
-    draw({ leaderWithheld: true })
+    draw({ rerunWouldNotHelp: true })
     expect(
       screen.queryByTestId(RERUN),
       'pressing it reaches the same gate and returns the same partial answer',
@@ -114,7 +122,7 @@ describe('a re-run is offered only where it helps', () => {
   })
 
   it('⛔ and the remedy that WOULD work takes its place', () => {
-    draw({ leaderWithheld: true })
+    draw({ rerunWouldNotHelp: true })
     const act = screen.getByTestId(ESTIMATE)
     expect(act, 'a limitation with no route is the defect one level down').toBeInTheDocument()
     expect(act).toHaveTextContent(/estimate/i)
@@ -126,7 +134,7 @@ describe('a re-run is offered only where it helps', () => {
    * renders NO control rather than a dead one.
    */
   it('⛔ with no estimate route, it renders no act at all — never a dead one', () => {
-    draw({ leaderWithheld: true, onReviewEstimates: undefined })
+    draw({ rerunWouldNotHelp: true, onReviewEstimates: undefined })
     expect(screen.queryByTestId(ESTIMATE)).toBeNull()
     expect(
       screen.queryByTestId(RERUN),
@@ -139,7 +147,7 @@ describe('a re-run is offered only where it helps', () => {
    * re-run would satisfy every case above — trading one wrong act for another.
    */
   it('⛔ the re-run still disappears when the gate refuses AND gives no reason', () => {
-    draw({ leaderWithheld: false, reanalyseBlocked: true, reanalyseBlockedReason: null })
+    draw({ rerunWouldNotHelp: false, reanalyseBlocked: true, reanalyseBlockedReason: null })
     expect(screen.queryByTestId(RERUN), 'the existing gate is unchanged').toBeNull()
   })
 })

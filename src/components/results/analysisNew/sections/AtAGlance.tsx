@@ -286,6 +286,20 @@ export interface AtAGlanceProps {
    * second is the common case — `withheld_reason` is free-form at the contract.
    */
   leaderWithheld?: boolean
+  /**
+   * ⭐⭐⭐ WOULD A RE-RUN CHANGE THIS? The question this ribbon's act actually
+   * asks, and it is NOT `leaderWithheld`.
+   *
+   * ⛔ An independent seat found the conflation: `leader_not_assessed` includes
+   * a missing verdict, an unknown separation and an incomplete or failed
+   * result, so binding the act to it removed the retry from the retryable
+   * class. See `buildChecks` for the two evidenced conjuncts.
+   *
+   * Absent = false: a caller that has not been given it keeps the re-run, which
+   * is the fail-open direction — offering a run that turns out not to help
+   * costs a click; withholding one that would have helped strands the reader.
+   */
+  rerunWouldNotHelp?: boolean
   missingResults?: readonly string[]
   testId?: string
 }
@@ -323,7 +337,7 @@ export function AtAGlance({
   reanalyseBlocked,
   reanalyseBlockedReason,
   isRunning,
-  leaderWithheld = false,
+  rerunWouldNotHelp = false,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -692,7 +706,7 @@ export function AtAGlance({
               ⚠ `leaderWithheld`, NOT `leaderWithholdCause`: the cause is null
               both when nothing was withheld and when the reason cannot be named,
               and the second is the common case. */}
-          {onReanalyse && leaderWithheld && onReviewEstimates ? (
+          {onReanalyse && rerunWouldNotHelp && onReviewEstimates ? (
             <button
               type="button"
               onClick={onReviewEstimates}
@@ -701,7 +715,7 @@ export function AtAGlance({
             >
               {COPY.glance.reviewEstimates}
             </button>
-          ) : onReanalyse && !leaderWithheld && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
+          ) : onReanalyse && !rerunWouldNotHelp && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}
