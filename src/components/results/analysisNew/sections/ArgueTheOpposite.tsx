@@ -30,6 +30,7 @@
  */
 
 import { Lightbulb } from 'lucide-react'
+import { icon } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { buildArgueTheOppositeAsk } from '../considerTheOppositeAsk'
@@ -108,7 +109,7 @@ export function ArgueTheOpposite({
            the sentence back. */
         data-argue-the-opposite-form={ask.form}
       >
-        <Lightbulb className="w-3 h-3" aria-hidden={true} />
+        <Lightbulb className={`${icon('inline')}`} aria-hidden={true} />
         {ask.label}
       </button>
     </div>

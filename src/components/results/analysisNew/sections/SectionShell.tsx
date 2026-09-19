@@ -37,6 +37,7 @@
  */
 
 import { useId, useState, type ReactNode } from 'react'
+import { icon } from '../panelSurfaces'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
@@ -197,7 +198,7 @@ export function SectionShell({
       >
         {Icon ? (
           <span className="shrink-0 w-6 h-6 rounded-full bg-panel-hover flex items-center justify-center">
-            <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden={true} />
+            <Icon className={`${icon('row')} text-text-light`} aria-hidden={true} />
           </span>
         ) : null}
         {/* ⭐ THE SUBTITLE IS A LINE, NOT A TOOLTIP.
@@ -236,9 +237,9 @@ export function SectionShell({
           </span>
         ) : null}
         {open ? (
-          <ChevronDown className="w-4 h-4 shrink-0 text-text-light" aria-hidden={true} />
+          <ChevronDown className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
         ) : (
-          <ChevronRight className="w-4 h-4 shrink-0 text-text-light" aria-hidden={true} />
+          <ChevronRight className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
         )}
       </button>
       </h3>

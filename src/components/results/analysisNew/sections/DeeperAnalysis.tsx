@@ -30,6 +30,7 @@
  */
 
 import { useState } from 'react'
+import { icon } from '../panelSurfaces'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -96,9 +97,9 @@ export function DeeperAnalysis({
             data-testid={`${testId}-toggle`}
           >
             {open ? (
-              <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
+              <ChevronDown className={`${icon('row')} mt-0.5 shrink-0`} aria-hidden="true" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
+              <ChevronRight className={`${icon('row')} mt-0.5 shrink-0`} aria-hidden="true" />
             )}
             {/* ⚠ THIS ROW IS THE ODD ONE OUT AND IS NOT MIGRATED HERE. Every
                 other collapsed row on the panel is a `SectionShell` — icon,

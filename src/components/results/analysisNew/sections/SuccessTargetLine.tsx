@@ -92,7 +92,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../../../../canvas/mutations/mutationAuthority'
-import { action } from '../panelSurfaces'
+import { action, icon } from '../panelSurfaces'
 
 /**
  * ⭐ THE KEY THAT NAMES THIS SURFACE'S OPERATION, read exactly as
@@ -405,7 +405,7 @@ export function SuccessTargetLine({
       className="flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2"
       data-testid={testId}
     >
-      <Target className="w-3 h-3 self-center shrink-0 text-text-light" aria-hidden="true" />
+      <Target className={`${icon('inline')} self-center shrink-0 text-text-light`} aria-hidden="true" />
       <span className={`${typography.panelMeta} text-text-light shrink-0`}>
         {COPY.successTarget.label}
       </span>

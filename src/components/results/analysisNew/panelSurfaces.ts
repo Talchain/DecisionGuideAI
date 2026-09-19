@@ -370,6 +370,45 @@ export const ACTION_TIER = {
   neutral: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
 } as const
 
+/**
+ * ⭐⭐ THE ICON SCALE — THREE STEPS, KEYED TO DEPTH, NOT TO TASTE.
+ *
+ * Measured across `analysisNew`: FOUR square icon sizes (`w-3` x22, `w-3.5` x9,
+ * `w-4` x8, `w-6` x1) with no rule, and **the same disclosure chevron rendering
+ * at THREE of them** — `ChevronDown`/`ChevronRight` appear at `w-3`, `w-3.5` and
+ * `w-4`. Four files use more than one size internally.
+ *
+ * ⚠ THE SIZES ARE MOSTLY RIGHT ALREADY, WHICH IS THE POINT. This is not a resize
+ * — it is naming what was being chosen ad hoc, so the next icon inherits a
+ * decision instead of guessing from whatever is nearest on screen. That is how
+ * the four accumulated: each one was reasonable beside its neighbour.
+ *
+ * ⭐ DEPTH IS THE AXIS, and it is a real one. A section's own icon should not be
+ * the same weight as an icon inside a sentence three levels into that section;
+ * the hierarchy the panel draws with headings and zones should be drawn by its
+ * icons too. So the scale encodes WHERE an icon sits, and a caller picks by
+ * position rather than by size.
+ *
+ * ⛔ `w-6` IS NOT ON THIS SCALE AND MUST NOT JOIN IT. `SectionShell`'s 24px
+ * circle is a CONTAINER that holds an icon, not an icon — sizing it from here
+ * would make a badge and a glyph the same kind of thing.
+ */
+export const ICON_SCALE = {
+  /** A section's own leading icon, and the disclosure chevron beside it. */
+  section: 'w-4 h-4',
+  /** A row inside a section — its chevron, its status mark. */
+  row: 'w-3.5 h-3.5',
+  /** Inside a line of text, where the glyph must not outweigh the words. */
+  inline: 'w-3 h-3',
+} as const
+
+export type IconDepth = keyof typeof ICON_SCALE
+
+/** `icon('row')` reads at the call site the way `action('quiet')` does. */
+export function icon(depth: IconDepth): string {
+  return ICON_SCALE[depth]
+}
+
 export type ActionTier = keyof typeof ACTION_TIER
 
 /**

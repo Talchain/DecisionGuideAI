@@ -23,7 +23,7 @@ import { IconBtn } from '../../../canvas/components/pre-analysis/primitives/Icon
 import { typography } from '../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type { AnalysisNewFinding } from './analysisNewTypes'
-import { action } from './panelSurfaces'
+import { action, icon } from './panelSurfaces'
 
 const MARKER_LABEL: Record<NonNullable<AnalysisNewFinding['marker']>, string> = {
   provisional: COPY.markers.provisional,
@@ -128,9 +128,9 @@ export function DisclosureRow({
       >
         {hasLevel2 ? (
           open ? (
-            <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+            <ChevronDown className={`${icon('row')} mt-0.5 shrink-0 text-text-light`} aria-hidden="true" />
           ) : (
-            <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+            <ChevronRight className={`${icon('row')} mt-0.5 shrink-0 text-text-light`} aria-hidden="true" />
           )
         ) : (
           <span className="w-3.5 shrink-0" aria-hidden="true" />
@@ -373,9 +373,9 @@ export function DisclosureRow({
                 data-testid={`${testIdPrefix}-inspect-toggle`}
               >
                 {inspectOpen ? (
-                  <ChevronDown className="w-3 h-3 inline-block mr-0.5 -mt-px" aria-hidden="true" />
+                  <ChevronDown className={`${icon('inline')} inline-block mr-0.5 -mt-px`} aria-hidden="true" />
                 ) : (
-                  <ChevronRight className="w-3 h-3 inline-block mr-0.5 -mt-px" aria-hidden="true" />
+                  <ChevronRight className={`${icon('inline')} inline-block mr-0.5 -mt-px`} aria-hidden="true" />
                 )}
                 {COPY.disclosure.inspect}
               </button>

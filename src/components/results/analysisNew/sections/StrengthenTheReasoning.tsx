@@ -76,7 +76,7 @@ import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
 import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
-import { action } from '../panelSurfaces'
+import { action, icon } from '../panelSurfaces'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -1035,7 +1035,7 @@ export function StrengthenTheReasoning({
 
                     Both moves RED in `StrengthenSeveritySignals.spec.tsx`. */}
                 <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
-                  {markKind ? <NodeMark kind={markKind} className="w-3 h-3 self-center" /> : null}
+                  {markKind ? <NodeMark kind={markKind} className={`${icon('inline')} self-center`} /> : null}
                   <span className="min-w-0" data-testid={`${testId}-title`}>
                     {rec.title}
                   </span>
@@ -1152,7 +1152,7 @@ export function StrengthenTheReasoning({
                         data-method-id={method.id}
                         title={method.description}
                       >
-                        <Lightbulb className="w-3 h-3" aria-hidden={true} />
+                        <Lightbulb className={`${icon('inline')}`} aria-hidden={true} />
                         {method.title}
                         {/* ⚠ `title` RENDERS ON MOUSE HOVER ONLY — no major
                             browser shows it on keyboard focus. So what the
@@ -1185,7 +1185,7 @@ export function StrengthenTheReasoning({
                           strengthLabel ? ` · ${strengthLabel}` : ''
                         }.`}
                       >
-                        <FlaskConical className="w-3 h-3" aria-hidden={true} />
+                        <FlaskConical className={`${icon('inline')}`} aria-hidden={true} />
                         {strengthLabel ?? COPY.strengthen.groundedChip}
                         <span className="sr-only">
                           {`Grounded in the decision-science knowledge base${
@@ -1248,7 +1248,7 @@ export function StrengthenTheReasoning({
                     data-testid={`${testId}-action`}
                   >
                     {rec.action.label}
-                    <ArrowRight className="w-3 h-3" aria-hidden={true} />
+                    <ArrowRight className={`${icon('inline')}`} aria-hidden={true} />
                   </button>
                   {rec.targetId ? (
                     <button
@@ -1277,7 +1277,7 @@ export function StrengthenTheReasoning({
                       className={`${typography.panelMeta} inline-flex items-center gap-1 rounded px-1 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-focus`}
                     >
-                      <Crosshair className="w-3 h-3" aria-hidden={true} />
+                      <Crosshair className={`${icon('inline')}`} aria-hidden={true} />
                       Show on canvas
                     </button>
                   ) : null}
