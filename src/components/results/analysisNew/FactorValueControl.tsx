@@ -27,6 +27,15 @@
  * to the saved shared model. It is not a writer gate and is not read here, per
  * its own header's explicit warning.
  */
+/**
+ * @panel-act-opt-out three tones of one control (set / clear / suggested) whose
+ * borders differ by MEANING; one tier would flatten them into a single act
+ *
+ * ⚠ DECLARED, NOT SILENT. These carried NO touch-target geometry at all — they
+ * passed 24px only by accident of content and padding, which is the latent shape
+ * behind both the 133x15 escape hatch and the 22px row toggle. Geometry is now
+ * carried here in BOTH dimensions; `everyActIsReachableByTouch` reads the marker.
+ */
 import { useId, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
@@ -455,7 +464,7 @@ export function FactorValueControl({
              panel grounds for this directory. The hover promise is dropped with
              the affordance — a control that still lights up under the pointer
              while refusing is the advertisement this whole change removes. */
-          className={`${typography.panelMeta} inline-flex items-center rounded-full border px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+          className={`${typography.panelMeta} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
             offScaleReason === null
               ? 'border-info/40 text-info hover:border-info'
               : 'border-panel-border text-text-light'
@@ -468,7 +477,7 @@ export function FactorValueControl({
           onClick={() => setEditing(false)}
           data-testid={`${testIdPrefix}-value-cancel`}
           data-node-id={nodeId}
-          className={`${typography.panelMeta} inline-flex items-center rounded-full px-2 py-0.5 text-text-light hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          className={`${typography.panelMeta} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full px-2 py-0.5 text-text-light hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         >
           {ANALYSIS_NEW_COPY.modelStrip.cancelValue}
         </button>
@@ -581,7 +590,7 @@ export function FactorValueControl({
       }}
       data-testid={`${testIdPrefix}-value-edit`}
       data-node-id={nodeId}
-      className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full border border-info/40 px-2 py-0.5 text-info hover:border-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      className={`${typography.panelMeta} inline-flex min-h-[24px] min-w-[24px] flex-none items-center gap-1 rounded-full border border-info/40 px-2 py-0.5 text-info hover:border-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
     >
       <Pencil className="h-3 w-3" aria-hidden={true} />
       {ANALYSIS_NEW_COPY.modelStrip.changeValue}

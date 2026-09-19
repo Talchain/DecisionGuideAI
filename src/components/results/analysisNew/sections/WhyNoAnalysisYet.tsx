@@ -39,6 +39,15 @@
  * second authority on the same question — the exact defect class this file's
  * own dependencies were built to end.
  */
+/**
+ * @panel-act-opt-out a dotted-underline word inside a sentence; a tier's padding would break the line it sits in
+ *
+ * ⚠ DECLARED, NOT SILENT. This file renders an interactive element without an
+ * `action()` tier. The geometry is therefore carried HERE and must be BOTH
+ * dimensions — WCAG 2.2 AA is 24x24, and a control that passes the height and
+ * fails the width is the exact shape the Strengthen row toggle shipped (22px).
+ * `everyActIsReachableByTouch` reads this marker; removing it REDs the guard.
+ */
 import { AlertCircle } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -93,7 +102,7 @@ export function WhyNoAnalysisYet({
                 <button
                   type="button"
                   onClick={() => onFocusTarget(targetId)}
-                  className="text-left underline underline-offset-2 decoration-dotted hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
+                  className="text-left min-h-[24px] min-w-[24px] underline underline-offset-2 decoration-dotted hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
                   data-testid={`${testId}-route`}
                   data-target-id={targetId}
                 >

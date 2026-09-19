@@ -36,6 +36,15 @@
  * count that misreports reads as "you have seen everything" when you have not.
  */
 
+/**
+ * @panel-act-opt-out a FULL-WIDTH disclosure header; `min-w` is meaningless on a
+ * `w-full` control and a tier's inline padding would fight `py-3`
+ *
+ * ⚠ DECLARED, NOT SILENT. The height came from `py-3` alone — true today and a
+ * property of the padding rather than a guarantee. `min-h-[24px]` makes it one.
+ * The width dimension is satisfied by `w-full` BY CONSTRUCTION, which is why this
+ * file is the one legitimate exception to the both-dimensions rule and says so.
+ */
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -192,7 +201,7 @@ export function SectionShell({
         // UNMOUNTED rather than CSS-hidden (the rule `DisclosureRow` already
         // follows), so a resting `aria-controls` would reference nothing.
         aria-controls={open ? regionId : undefined}
-        className={`w-full flex items-center gap-2.5 py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        className={`w-full flex items-center gap-2.5 min-h-[24px] py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         data-testid={`${testId}-toggle`}
       >
         {Icon ? (
