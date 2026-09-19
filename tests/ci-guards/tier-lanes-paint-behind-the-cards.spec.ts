@@ -19,13 +19,18 @@
  * composite, so it cannot answer this (CLAUDE.md trap 3). A render test would
  * pass on the defect. The honest instrument is to pin the DECLARATION.
  *
- * ⚠⚠ AND THE STRIPPER IS THE LOAD-BEARING PART. This file's own prose names
- * `zIndex: -1`, so an assertion over raw source would be satisfied by the
- * comment explaining the rule while the rule itself was deleted. That exact
- * vacuity shipped in this repo earlier today — a stripper that missed TRAILING
- * line comments let a mutant pass. The stripper below handles block comments,
- * whole-line comments AND trailing comments, and its positive controls prove
- * each case rather than asserting it.
+ * ⚠⚠ THE STRIPPER IS STILL LOAD-BEARING, THOUGH MY STATED REASON WAS WRONG.
+ * I wrote that `TierLanes.tsx`'s own prose names `zIndex: -1`, so a raw-source
+ * assertion would be satisfied by the comment. **At this head it does not** —
+ * that file carries one literal (the code) and spells the concept "z-index" in
+ * prose. Review caught the overstatement; corrected rather than quietly dropped,
+ * because a guard justified by a false premise invites someone to remove it.
+ *
+ * The stripper stays, for the reason that IS true: a comment naming the property
+ * is one edit away at any time, and the exact vacuity it prevents shipped in
+ * this repo earlier today when a stripper missed TRAILING line comments. It
+ * handles block, whole-line and trailing comments, and its positive controls
+ * prove each case rather than asserting it.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -71,27 +76,98 @@ describe('the comment stripper is not the vacuity it exists to prevent', () => {
   })
 })
 
-describe('tier lanes paint behind the cards', () => {
-  it('⭐ the band style declares a negative z-index, in CODE', () => {
-    const code = codeOnly(tierLanes)
-    expect(
-      code,
-      'the tier bands no longer declare zIndex: -1. They render through ViewportPortal, which lands LAST in the viewport, so without this they composite OVER every card and wash its text below the WCAG contrast floor.',
-    ).toMatch(/zIndex:\s*-1/)
+/**
+ * Extract the per-band inline style object by BRACE MATCHING from `style={{`,
+ * so an assertion can be bound to that object's extent rather than to "anywhere
+ * after it". The first version of this guard used `indexOf('left: lane.x')` as a
+ * lower bound, which every later line in the file satisfies.
+ */
+function bandStyleObject(src: string): string {
+  const code = codeOnly(src)
+  const anchor = code.indexOf('left: lane.x')
+  if (anchor === -1) return ''
+  const open = code.lastIndexOf('{', anchor)
+  let depth = 0
+  for (let k = open; k < code.length; k++) {
+    if (code[k] === '{') depth++
+    else if (code[k] === '}') {
+      depth--
+      if (depth === 0) return code.slice(open, k + 1)
+    }
+  }
+  return ''
+}
+
+describe('the extent extractor binds to the band object only', () => {
+  it('POSITIVE CONTROL: it returns a non-empty object containing the band geometry', () => {
+    const obj = bandStyleObject(tierLanes)
+    expect(obj.length, 'the band style object was not extracted — every assertion below would be vacuous').toBeGreaterThan(40)
+    expect(obj).toContain('left: lane.x')
+    expect(obj).toContain('top: lane.y')
   })
 
-  it('the band is still the element carrying it — not the static wrapper', () => {
-    // A z-index on the wrapper div is silently ignored: it is `position: static`.
-    // Moving the declaration there would read as a fix and change nothing.
-    const code = codeOnly(tierLanes)
-    const bandStyleStart = code.indexOf('left: lane.x')
-    const bandStyleEnd = code.indexOf('}', code.indexOf('zIndex: -1'))
-    expect(bandStyleStart, 'the per-band style object was not found — this guard is reading the wrong shape').toBeGreaterThan(-1)
+  it('⭐ DISCRIMINATION: it EXCLUDES content that follows the object', () => {
+    // This is the property the first version of this guard lacked. A reviewer
+    // showed that moving `zIndex: -1` from the band style to the title span
+    // twelve lines below deleted the fix while the guard stayed green.
+    const obj = bandStyleObject(tierLanes)
+    expect(obj, 'the extractor is swallowing the title span — it is not bound to the band object').not.toContain('tier-lane-${lane.tier}-title')
+  })
+})
+
+describe('tier lanes paint behind the cards', () => {
+  /**
+   * ⚠ BOUND BY EXTENT AND COUNT-PINNED, because version one was one-directional.
+   *
+   * It asserted `code.toMatch(/zIndex: -1/)` plus `indexOf(...) > indexOf('left:
+   * lane.x')`. A reviewer's 9-mutant kit passed FIVE arms against that, the worst
+   * being: MOVE `zIndex: -1` from the band style object to the title span twelve
+   * lines below. The fix is fully deleted, the bands paint over the cards again,
+   * and the guard stays GREEN — because everything after `left: lane.x`
+   * satisfies a lower-bound test.
+   *
+   * My own four mutants were all "REMOVE the token". None was "MOVE the token"
+   * or "ADD a second one". A corpus that tests one direction cannot see the
+   * other (trap 22b), and a positional `>` is a value predicate another object
+   * can satisfy (trap 19). It matters here because `TierLanes.tsx` has no render
+   * spec at all — this file is the only thing watching.
+   */
+  it('⭐ the BAND STYLE OBJECT declares a negative z-index, exactly once', () => {
+    const obj = bandStyleObject(tierLanes)
+    const hits = [...obj.matchAll(/(^|[\s{,])zIndex\s*:\s*-1\s*(,|\}|$)/g)]
     expect(
-      code.indexOf('zIndex: -1'),
-      'zIndex: -1 must sit INSIDE the per-band style object (after `left: lane.x`), not on the static wrapper where it would be ignored',
-    ).toBeGreaterThan(bandStyleStart)
-    expect(bandStyleEnd).toBeGreaterThan(-1)
+      hits.length,
+      'the tier bands no longer declare `zIndex: -1` INSIDE their own style object. They render through ViewportPortal, which lands LAST in the viewport, so without this they composite OVER every card and wash its text below the WCAG contrast floor. Moving the property elsewhere in the file does not count — the band is the element that must carry it.',
+    ).toBe(1)
+  })
+
+  it('a negative z-index elsewhere in the file cannot stand in for it', () => {
+    // The band object is what paints over the cards. A `zIndex: -1` on the
+    // wrapper would be silently ignored (it is `position: static`); one on the
+    // title, or on an unused export, changes nothing at all.
+    const obj = bandStyleObject(tierLanes)
+    const whole = codeOnly(tierLanes)
+    const outside = whole.replace(obj, '')
+    expect(
+      /zIndex\s*:\s*-1/.test(outside),
+      'a second `zIndex: -1` exists outside the band style object — if the band ever loses its own, this file would still look correct at a glance',
+    ).toBe(false)
+  })
+
+  it('the band is not silently flipped positive', () => {
+    // `zIndex: 1` with a decoy `-1` later was one of the surviving mutants.
+    //
+    // ⚠ READ THE VALUE, DO NOT LOOK-AHEAD PAST IT. My first spelling was
+    // `/zIndex\s*:\s*(?!-)/`, which is always true: `\s*` backtracks to zero
+    // width and the lookahead then inspects the SPACE, which is not `-`. It
+    // reported the pristine file as positive. A negative-lookahead after a
+    // variable-width match tests the wrong character.
+    const obj = bandStyleObject(tierLanes)
+    const values = [...obj.matchAll(/zIndex\s*:\s*(-?\d+)/g)].map(m => Number(m[1]))
+    expect(values.length, 'no z-index value parsed out of the band object').toBeGreaterThan(0)
+    for (const v of values) {
+      expect(v, `the band declares z-index ${v} — a non-negative value paints it over the cards`).toBeLessThan(0)
+    }
   })
 
   it('the bands remain non-interactive, so stacking cannot become a click-blocker', () => {
