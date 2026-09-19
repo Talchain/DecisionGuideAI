@@ -47,6 +47,7 @@ import {
   LOD_BODY_HIDDEN_ZOOM,
   LOD_BODY_RESTORED_ZOOM,
   fitBoundsFor,
+  labelCounterScale,
 } from '../utils/zoomLegibility'
 import { isLodZoom } from '../components/LodSync'
 
@@ -152,23 +153,54 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
     // counter-scale has stopped compensating (isLodZoom true) but the card still
     // shows its body (rung is NOT 'line'). That band IS the fix — it is the
     // travel the founder had none of.
-    for (const z of [LOD_BODY_HIDDEN_ZOOM, 0.4, 0.45, 0.4999]) {
+    for (const z of [LOD_BODY_HIDDEN_ZOOM, 0.45, 0.49, 0.4999]) {
       expect(isLodZoom(z), `isLodZoom should be true below the legibility floor at ${z}`).toBe(true)
       expect(resolveLodRung(z), `the body must still be shown at ${z} — this is the margin`).not.toBe('line')
     }
 
     // Below the new cliff they agree again.
-    for (const z of [0.1, 0.25, 0.37]) {
+    for (const z of [0.1, 0.25, 0.4]) {
       expect(resolveLodRung(z), `body must be hidden at ${z}`).toBe('line')
       expect(isLodZoom(z)).toBe(true)
     }
   })
 
   it('the margin is non-empty — a zero-width band would make the fix a no-op', () => {
-    // Without this, LOD_CLIFF_MARGIN drifting to 1 would silently restore the
-    // old cliff with every other assertion here still green.
+    // Without this, a cliff drifting up to the floor would silently restore the
+    // old behaviour with every other assertion here still green.
     expect(LOD_BODY_HIDDEN_ZOOM).toBeLessThan(LABEL_LEGIBLE_ZOOM)
     expect(LOD_BODY_RESTORED_ZOOM).toBeGreaterThan(LOD_BODY_HIDDEN_ZOOM)
+  })
+
+  /**
+   * ⚠ THE DEAD-BAND HAS AN UPPER BOUND TOO, AND THE FIRST VERSION HAD NONE.
+   * Review mutated `LOD_REENTRY_MARGIN` to 1.45 and the whole suite stayed GREEN
+   * — which would push the re-entry point ABOVE the legibility floor. A body
+   * hidden below 0.4167 would then refuse to come back until 0.604, so a user
+   * zooming back in would pass the floor, see text at full declared size, and
+   * still be looking at reduced cards. A dead-band bounded on one side only is
+   * half a guard.
+   */
+  it('the re-entry point stays BELOW the legibility floor', () => {
+    expect(
+      LOD_BODY_RESTORED_ZOOM,
+      'the hysteresis re-entry is above the legibility floor — a card would stay reduced at a zoom where its text is already at full size',
+    ).toBeLessThan(LABEL_LEGIBLE_ZOOM)
+  })
+
+  /**
+   * ⭐ THE CLIFF IS DERIVED, AND THIS IS WHAT MAKES THAT CLAIM CHECKABLE.
+   * It must equal the zoom at which body text reaches the DS floor — not a
+   * ratio someone liked. The first version was `LABEL_LEGIBLE_ZOOM * 0.75`, a
+   * picked number in a module whose argument is that thresholds are derived.
+   */
+  it('the cliff IS the DS text floor, not a chosen ratio', () => {
+    const renderedBodyPxAtCliff =
+      CANVAS_TYPE_PX.nodeLabel * labelCounterScale(LOD_BODY_HIDDEN_ZOOM) * LOD_BODY_HIDDEN_ZOOM
+    expect(
+      renderedBodyPxAtCliff,
+      'the body cliff is no longer the point where body text hits CANVAS_TEXT_FLOOR_PX — it has become a picked number again',
+    ).toBeCloseTo(CANVAS_TEXT_FLOOR_PX, 6)
   })
 
   it('⭐ the auto-fit parking zoom is INSIDE the shown-body band, not on its edge', () => {

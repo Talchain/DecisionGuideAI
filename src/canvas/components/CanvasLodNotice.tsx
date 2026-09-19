@@ -50,7 +50,7 @@ import { createPortal } from 'react-dom'
 import { useReactFlow } from '@xyflow/react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
-import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden, selectLensDetailActive, LOD_BODY_RESTORED_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden, selectLensDetailActive } from '../utils/zoomLegibility'
 import { cameraDuration } from '../utils/cameraMotion'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
@@ -160,17 +160,27 @@ export function CanvasLodNotice() {
           // zoom-out (÷1.2) put the whole board straight back. A remedy that
           // leaves you one gesture from the problem is not a remedy.
           //
-          // `LOD_BODY_RESTORED_ZOOM` is the hysteresis re-entry point, so
-          // landing there means the button leaves the user INSIDE the restored
-          // band rather than on its edge — and it is derived from the same
-          // cliff, so the two cannot drift apart. Still no second zoom literal:
-          // the single-source guard permits expressions, never new numbers.
+          // ⛔ AN EARLIER VERSION OF THIS WROTE `Math.max(LABEL_LEGIBLE_ZOOM,
+          // LOD_BODY_RESTORED_ZOOM)` and claimed it overshot the cliff. Review
+          // proved it a NO-OP by execution: the re-entry point is 0.45 and the
+          // legibility floor is 0.5, so the max is always the floor. The comment
+          // asserted a behaviour the code did not have — corrected rather than
+          // deleted, because a confident comment over an inert line is how the
+          // next reader inherits a false model (trap 14).
+          //
+          // Landing on `LABEL_LEGIBLE_ZOOM` IS the right target now, and for a
+          // reason that only holds since the cliff moved: at 0.5 the
+          // counter-scale is at full compensation and body text is at its
+          // declared size, and the cliff is a whole toolbar notch below at
+          // 0.41667. The remedy leaves the user inside the band with real
+          // travel, which is exactly what it failed to do when the cliff and the
+          // floor were the same number.
           const vp = getViewport()
           if (vp.zoom >= LABEL_LEGIBLE_ZOOM) return
           const el = document.querySelector('.react-flow') as HTMLElement | null
           const w = el?.clientWidth ?? 0
           const h = el?.clientHeight ?? 0
-          const target = Math.max(LABEL_LEGIBLE_ZOOM, LOD_BODY_RESTORED_ZOOM)
+          const target = LABEL_LEGIBLE_ZOOM
           const scale = target / vp.zoom
           setViewport(
             {

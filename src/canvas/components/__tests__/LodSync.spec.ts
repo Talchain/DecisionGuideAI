@@ -56,7 +56,7 @@ describe('what LodSync now writes — the rung, agreeing with the old boolean at
    */
   it('`line` tracks the BODY cliff, not the legibility floor — and the gap is the margin', () => {
     // Below the cliff, and above the legibility floor, the two still agree.
-    const agree = [0.1, 0.26, 0.37, LABEL_LEGIBLE_ZOOM, 0.6, 0.7139, 0.7143, 1, 4, Number.NaN]
+    const agree = [0.1, 0.26, 0.4, LABEL_LEGIBLE_ZOOM, 0.6, 0.7139, 0.7143, 1, 4, Number.NaN]
     for (const z of agree) {
       expect(
         resolveLodRung(z) === 'line',
@@ -67,7 +67,7 @@ describe('what LodSync now writes — the rung, agreeing with the old boolean at
     // ⭐ And in between they disagree ON PURPOSE: the counter-scale has stopped
     // compensating (isLodZoom true) while the card still shows its body. That
     // band IS the fix — it is the travel the founder had none of.
-    for (const z of [0.38, 0.4999]) {
+    for (const z of [0.45, 0.4999]) {
       expect(isLodZoom(z), `isLodZoom should be true below the legibility floor at ${z}`).toBe(true)
       expect(
         resolveLodRung(z),
