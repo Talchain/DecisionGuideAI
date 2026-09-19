@@ -2,7 +2,7 @@ import { useLayoutProgressStore } from '../layoutProgressStore'
 import { typography } from '../../styles/typography'
 
 export function LayoutProgressBanner() {
-  const { status, message, canRetry, retry, cancel } = useLayoutProgressStore()
+  const { status, message, canRetry, retry, cancel, actionLabel } = useLayoutProgressStore()
 
   if (status === 'idle') return null
 
@@ -30,7 +30,7 @@ export function LayoutProgressBanner() {
               onClick={retry}
               className={`${typography.caption} px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors`}
             >
-              Retry
+              {actionLabel}
             </button>
           )}
           <button

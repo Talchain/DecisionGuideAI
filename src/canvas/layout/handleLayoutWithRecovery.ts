@@ -1,5 +1,6 @@
 import { useLayoutProgressStore } from '../layoutProgressStore'
 import { logCanvasBreadcrumb, describeError } from '../utils/canvasBreadcrumb'
+import { isStaleChunkError, STALE_CHUNK_MESSAGE, STALE_CHUNK_ACTION_LABEL, reloadForNewVersion } from '../../utils/staleChunkError'
 
 /**
  * What a layout attempt reports back. `laidOut: false` means the call RESOLVED
@@ -74,6 +75,27 @@ export function handleLayoutWithRecovery(
       if (import.meta.env.DEV) {
         console.warn('[layout] failure:', err)
       }
+
+      // ⭐⭐ AND THE LINE THAT ANSWERED IT. Measured on the founder's tab,
+      // 19 Sep 2026: the rejection was
+      // `TypeError: Failed to fetch dynamically imported module .../elk.bundled-BgtF8tzk.js`,
+      // a 404 — staging had deployed new hashed assets at 18:12:44Z while his
+      // page, built at f22e15fd, was open. `utils/layout.ts:618` fetches ELK
+      // lazily at first use, so the layout engine's own code was simply gone
+      // from the origin.
+      //
+      // ⛔ "Try again" CANNOT WORK IN THAT STATE, and offering it is the real
+      // harm: the chunk is permanently absent, so every retry re-requests the
+      // same dead URL. He pressed Retry, then Auto-arrange, and reported
+      // neither helped — the product had told him to do both. A reload is the
+      // only cure, so in this one state it is the only thing offered, and the
+      // message says the version changed rather than implying his model broke.
+      if (isStaleChunkError(err)) {
+        logCanvasBreadcrumb('layout:failed', { phase: 'stale-chunk', err: describeError(err) })
+        useLayoutProgressStore.getState().fail(STALE_CHUNK_MESSAGE, reloadForNewVersion, STALE_CHUNK_ACTION_LABEL)
+        return
+      }
+
       failWithRetry()
     })
 }
