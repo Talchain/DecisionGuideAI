@@ -669,6 +669,27 @@ export const ANALYSIS_NEW_COPY = {
      */
     promptSendsToOlumi: 'Why? This stays on the card and is sent to Olumi.',
     notSaved: 'Not saved for next time. Your words are still here. Retry, or copy them before leaving.',
+    /**
+     * ⭐⭐⭐ THE ROW WENT AND THE SAVE FAILED — the one case where the composer
+     * cannot hold the words, because the composer is gone with the row.
+     *
+     * ⛔ WITNESSED IN REVIEW OF MY OWN #1752, on the SERVED commit. The rescue
+     * effect ignored `recordDissent`'s false result and skipped persistence
+     * entirely when there was no scenario id, then called `closeDispute()`
+     * unconditionally — so a rerun that removed the finding cleared what
+     * someone had typed after a FAILED save. The PR was titled "What someone
+     * typed must not vanish with the row it was typed in" and it still
+     * vanished on the failing path.
+     *
+     * ⚠ THE WORDS THEMSELVES ARE RENDERED, not merely referred to. An
+     * unmounted row holding state the reader cannot reach is not recovery —
+     * the reviewer's phrase, and the standard this copy is written to. So this
+     * sentence introduces the text rather than replacing it.
+     */
+    rescuedUnsaved: 'This could not be saved, so it is kept here. Copy it before you leave the page.',
+    /** Names the finding it was written about, so the words keep their context. */
+    rescuedAbout: 'You wrote this about',
+    rescuedDismiss: 'Dismiss',
     sessionOnly: 'Kept in this tab only.',
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
