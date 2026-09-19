@@ -34,7 +34,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // Without this, a broken generator would leave every property below
     // passing over an empty or tiny set.
     expect(domain()).toHaveLength(CELLS)
-    expect(new Set(domain().map(figureTallySubtitle)).size).toBeGreaterThan(10)
+    expect(new Set(domain().map(t => figureTallySubtitle(t))).size).toBeGreaterThan(10)
   })
 
   it('a noun always agrees with the number immediately before it', () => {
@@ -149,7 +149,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // source and moves only who did the counting.
     const USER = /\byou (?:mentioned|gave|wrote|said|told|listed)\b/i
     const bad = domain()
-      .map(figureTallySubtitle)
+      .map(t => figureTallySubtitle(t))
       .filter(s => USER.test(s))
     expect([...new Set(bad)], `a count attributed to the user's own words:\n${bad.join('\n')}`).toEqual([])
   })
@@ -158,7 +158,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // The other half, and without it the property above is satisfied by
     // deleting the attribution entirely — a sentence made true by saying less.
     const bad = domain()
-      .map(figureTallySubtitle)
+      .map(t => figureTallySubtitle(t))
       .filter(s => /\d|^All |^None /.test(s) && !s.includes('I found in your brief'))
     expect([...new Set(bad)], `a count with no attribution:\n${bad.join('\n')}`).toEqual([])
   })

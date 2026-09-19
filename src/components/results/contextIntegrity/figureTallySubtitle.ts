@@ -143,6 +143,19 @@ export type TallyAbsence =
   /** A manifest arrived and its quantities are not derived. */
   | 'not_counted'
 
+/**
+ * ⚠ THE SECOND PARAMETER BREAKS POINT-FREE USE, AND CI CAUGHT IT.
+ *
+ * Three existing arms passed this function straight to `.map(...)`, where the
+ * array callback's second argument is `index: number` — not assignable to
+ * `TallyAbsence`. TS2345 x3. The call sites now wrap in an arrow, which is the
+ * honest repair: the signature genuinely takes two things now.
+ *
+ * Kept as a parameter rather than split into two exported functions because the
+ * ONE caller that matters asks one question — "what does this subtitle say?" —
+ * and a split would push a null-branch into the component, which is where this
+ * kind of branch has gone wrong before.
+ */
 export function figureTallySubtitle(
   tally: FigureTally | null,
   absence: TallyAbsence = 'no_manifest',
