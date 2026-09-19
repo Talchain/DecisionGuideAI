@@ -837,7 +837,19 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     })
     render(<WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      "I can't show this yet",
+      "I couldn't check the figures in your brief this time",
+    )
+    // ⚠ THE EXPECTATION MOVED; THE PROPERTY THIS ARM GUARDS DID NOT. Its name is
+    // "renders as unknown, never as a ZERO TALLY" — a sentence implying the brief
+    // contained no figures. Still forbidden, and now asserted explicitly.
+    //
+    // ⛔ What changed: this fixture supplies `briefText`, so the section RENDERS
+    // THE BRIEF — and the old string said it could not show it, directly above
+    // the content. Witnessed in Paul's 19 Sep screenshots. A manifest with
+    // `status: 'unavailable'` EXISTS; only its quantities are missing, so the
+    // sentence names the FIGURES rather than the section.
+    expect(screen.getByTestId('what-i-was-given-summary').textContent).not.toMatch(
+      /no figures|0 figures/i,
     )
   })
 
