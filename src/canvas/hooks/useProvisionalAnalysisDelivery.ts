@@ -402,6 +402,50 @@ export async function runProvisionalDeliverySchedule(deps: {
  * its own store literal can only ever confirm the author's model of the store,
  * which is precisely how this shipped.
  */
+/**
+ * WHICH RUN THIS HOOK IS ARMED FOR — latched, so a run cannot be abandoned the
+ * moment it finishes.
+ *
+ * ⛔⛔ THE DEFECT THIS CLOSES, witnessed in bundle `84c8e210` (19 Sep 2026):
+ *
+ *     armed_at    18:56:15.594
+ *     computed_at 18:56:16.932   ← the run finished
+ *     settled_at  18:56:58.194   outcome = "aborted"
+ *
+ * `runKey` is `null` unless `run_state.kind === 'running'`, and it was an
+ * effect dependency. So the moment a turn carried the COMPLETED verdict the
+ * effect re-ran and its cleanup aborted the schedule — the one whose entire
+ * purpose is to fetch the result of the run that had just completed.
+ *
+ * ⭐ A later verdict about run X is not a reason to stop fetching run X's
+ * result; it is the first moment that result can exist. The verdict and the
+ * result travel separately — #1768 exists because `complete_current` arrives
+ * with `resultsHydrated: false` — so the gap between them is exactly when this
+ * schedule earns its keep, and it was being closed at the start of that gap.
+ *
+ * ⚠ TWO ABORTS ARE CORRECT AND ARE KEPT, which is why this is a latch and not
+ * "never abort": a genuinely NEW run (a different `started_at`) replaces the
+ * latch, and a SCENARIO SWITCH drops it.
+ *
+ * Pure and exported so the rule is provable without a renderer.
+ */
+export function resolveArmKey(
+  previous: { runKey: string | null; scenarioId: string | null },
+  scenarioId: string | null,
+  runKey: string | null,
+): { runKey: string | null; scenarioId: string | null } {
+  // A different scenario is a different question. Drop the latch with it.
+  if (scenarioId !== previous.scenarioId) {
+    return { scenarioId, runKey }
+  }
+  // A running run always wins — including a NEW one, which is what a changed
+  // `started_at` means.
+  if (runKey !== null) return { scenarioId, runKey }
+  // The wire has stopped saying 'running'. That is the run FINISHING, not the
+  // run being abandoned, so the latch stands.
+  return previous
+}
+
 export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
   const s = useCanvasStore.getState()
   return {
@@ -598,10 +642,50 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
   const armedRef = useRef<string | null>(null)
   const userId = user?.id ?? null
 
+  /**
+   * ⛔⛔⛔ THE SCHEDULE WAS ABORTED BY THE VERY EVENT IT EXISTS TO WAIT FOR.
+   *
+   * WITNESSED, 19 Sep 2026, bundle `84c8e210` (scenario `26b908ee`):
+   *
+   *     armed_at   18:56:15.594
+   *     computed_at 18:56:16.932   ← the run finished
+   *     settled_at 18:56:58.194   outcome = "aborted"
+   *
+   * `runKey` above is `null` unless `run_state.kind === 'running'`. So the
+   * moment a turn carries the COMPLETED verdict, `runKey` becomes null, this
+   * effect re-runs, and its cleanup calls `controller.abort()` — killing the
+   * schedule whose whole purpose is to fetch the result of the run that just
+   * completed.
+   *
+   * ⭐ A LATER VERDICT ABOUT RUN X IS NOT A REASON TO STOP FETCHING RUN X'S
+   * RESULT. It is the opposite: it is the first moment the result can exist.
+   * The verdict and the result travel separately — #1768 exists because a
+   * `complete_current` arrives with `resultsHydrated: false` — so the window
+   * between them is precisely when this schedule earns its keep, and it was
+   * being closed at the start of that window.
+   *
+   * So the effect keys on the run this hook ARMED for, latched, rather than on
+   * whatever the wire is saying now. The schedule then ends the way it is meant
+   * to: delivered, withheld, or its own deadline.
+   *
+   * ⚠ A GENUINELY NEW RUN STILL RE-ARMS — the latch is replaced whenever a
+   * DIFFERENT running key appears, which is what `started_at` changing means.
+   * ⚠ AND A SCENARIO SWITCH STILL ABORTS, because `scenarioId` is its own
+   * dependency and the latch is dropped with it. Those two aborts are correct
+   * and are the reason this is a latch rather than "never abort".
+   */
+  const latch = useRef<{ runKey: string | null; scenarioId: string | null }>({
+    runKey: null,
+    scenarioId: null,
+  })
+  latch.current = resolveArmKey(latch.current, scenarioId, runKey)
+  const armKey = latch.current.runKey
+
   useEffect(() => {
-    if (scenarioId === null || runKey === null) return
-    if (armedRef.current === runKey) return
-    armedRef.current = runKey
+    if (scenarioId === null || armKey === null) return
+    if (armedRef.current === armKey) return
+    armedRef.current = armKey
+    const runKey = armKey
     // ⭐ OBSERVABLE, NOT INFERRED. The outcome below goes to `logger.debug`,
     // which `drop_console` removes from the production bundle entirely — so on
     // a deployed build there was NO record that this schedule ever armed, and a
@@ -641,5 +725,5 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
       // when the schedule did not settle keeps dev and prod in agreement.
       if (!settled) armedRef.current = null
     }
-  }, [scenarioId, runKey, userId])
+  }, [scenarioId, armKey, userId])
 }
