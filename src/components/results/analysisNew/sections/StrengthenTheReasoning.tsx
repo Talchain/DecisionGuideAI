@@ -44,7 +44,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
+import { ArrowRight, ChevronDown, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
@@ -279,6 +279,34 @@ export function StrengthenTheReasoning({
    * two open composers in a 278px column is not a thing anyone can use.
    */
   const showToast = useShowToastSafe()
+  /**
+   * ⭐⭐ ROWS COLLAPSE, AND NOTHING UNMOUNTS WHEN THEY DO.
+   *
+   * The rows render fully expanded, so two findings cost ~670px and the reader
+   * meets one at a time. The Analysis tab's twin collapses each to a line and
+   * fits five in ~400px. This section's own header already argues for the
+   * denser shape — "SectionShell's default is CLOSED and that is the collapsed
+   * IA the design asks for … a budget, not a preference" — and the panel
+   * measures 4,164px fully open against a viewport a third of that.
+   *
+   * ⭐ THE BODY UNMOUNTS, matching `DisclosureRow` and `SectionShell` — whose
+   * own note gives the reason a CSS-hidden region is wrong here: a resting
+   * `aria-controls` would reference something that is not in the document.
+   *
+   * ⚠ I FIRST WROTE THIS AS `hidden` ON A FALSE PREMISE, and the premise is
+   * worth recording because it was nearly shipped as a docblock. The reasoning
+   * was that the "I disagree" composer holds unsaved text and a keyed remount
+   * had already discarded a reader's draft once. The draft is real and that
+   * incident is real — but the text lives in this SECTION's `draft` state and
+   * the textarea is CONTROLLED (`value={draft}`), so it is not in the row's DOM
+   * and unmounting the row cannot lose it. A true fact about the past attached
+   * to the wrong mechanism.
+   *
+   * ⚠ AND THE ROW BEING DISPUTED CANNOT BE COLLAPSED AT ALL. Even with the
+   * body mounted, hiding a focused composer mid-sentence is its own defect.
+   * `disputingId` is single-valued, so this is one conjunct rather than a set.
+   */
+  const [openRowIds, setOpenRowIds] = useState<ReadonlySet<string> | null>(null)
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [dissentSaveError, setDissentSaveError] = useState<string | null>(null)
@@ -735,6 +763,25 @@ export function StrengthenTheReasoning({
   )
   const limit = preview ?? plan.ordered.length
   const visible = expanded ? plan.ordered : plan.ordered.slice(0, limit)
+  /**
+   * ⭐ THE FIRST ROW IS OPEN, THE REST ARE CLOSED — the shape Paul pointed at on
+   * the Analysis tab, where "Define what success looks like" is expanded above
+   * four collapsed assumptions.
+   *
+   * It is the right default for a reason beyond matching: a section of closed
+   * rows is the "told a number, asked to guess whether it is worth a click"
+   * state this component's own header rejects, while a section of open rows is
+   * the 670px-for-two-findings state that sent me here. One open row shows what
+   * a finding CONTAINS, and the rest say what they are about in a line.
+   *
+   * ⚠ `null` MEANS UNTOUCHED, not empty. Once the reader toggles anything the
+   * set becomes theirs and the default stops applying — including their right
+   * to close the first row, which a `has(id) || index === 0` predicate would
+   * silently refuse.
+   */
+  const firstRowId = plan.ordered.length > 0 ? plan.ordered[0].id : null
+  const openRows: ReadonlySet<string> =
+    openRowIds ?? new Set(firstRowId === null ? [] : [firstRowId])
   const hidden = plan.ordered.length - visible.length
 
   return (
@@ -851,6 +898,9 @@ export function StrengthenTheReasoning({
             // bias rather than the one generic "review a possible bias" every
             // one of the sixteen shared. Absent on every non-bias finding.
             const method = methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)
+            // Open when the reader opened it, and ALWAYS while it is being
+            // disputed — see the note on `openRowIds`.
+            const rowOpen = openRows.has(rec.id) || disputingId === rec.id
             /**
              * ⭐ THE MARK MOVES WORK OUT OF THE SENTENCE AND INTO THE FORM.
              * A card about a Risk now carries the risk shape, in the risk
@@ -957,6 +1007,44 @@ export function StrengthenTheReasoning({
                   <span className="min-w-0" data-testid={`${testId}-title`}>
                     {rec.title}
                   </span>
+                  {/* ⭐ THE TOGGLE IS ITS OWN CONTROL, NOT THE TITLE.
+                      Making the whole header pressable is the obvious move and
+                      it is wrong here: the header already carries the method
+                      chip, which IS a button, and a button inside a button is
+                      invalid markup that browsers resolve by dropping one of
+                      them. A trailing disclosure keeps both acts reachable.
+
+                      ⚠ IT DISAPPEARS WHILE THE ROW IS BEING DISPUTED rather
+                      than rendering disabled: a control that is present and
+                      refuses is worse than one that is absent, and the reader
+                      has an explicit Cancel on the composer. */}
+                  {disputingId === rec.id ? null : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenRowIds((prev) => {
+                          const next = new Set(prev ?? openRows)
+                          if (next.has(rec.id)) next.delete(rec.id)
+                          else next.add(rec.id)
+                          return next
+                        })
+                      }
+                      className={`${action('quiet')} ml-auto self-center shrink-0 px-1 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      aria-expanded={rowOpen}
+                      aria-controls={rowOpen ? `${testId}-body-${rec.id}` : undefined}
+                      aria-label={
+                        rowOpen
+                          ? STRENGTHEN_COPY.rowCollapse(rec.title)
+                          : STRENGTHEN_COPY.rowExpand(rec.title)
+                      }
+                      data-testid={`${testId}-row-toggle`}
+                    >
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${rowOpen ? '' : '-rotate-90'}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  )}
                 </p>
 
                 {rec.category || grounding || method ? (
@@ -1064,6 +1152,25 @@ export function StrengthenTheReasoning({
                   </div>
                 ) : null}
 
+                {/* ⭐ THE COLLAPSED LINE. One clamped sentence so the row still
+                    says what it is about — a title and a chip alone is the
+                    "told a number, asked to guess whether it is worth a click"
+                    shape this section's own header rejects. Rendered as its own
+                    element rather than by clamping the body, because the body
+                    must stay mounted and a clamp that toggles would fight the
+                    hidden state. */}
+                {rowOpen ? null : (
+                  <p
+                    className={`${typography.panelBody} text-text-light mt-1 mb-0 line-clamp-1`}
+                    data-testid={`${testId}-summary`}
+                  >
+                    {strengthenWhyLine(rec.signal, rec.whyNow)}
+                  </p>
+                )}
+                {/* Unmounted when closed, per `DisclosureRow`'s rule. The
+                    dispute draft is section state, not row DOM. */}
+                {rowOpen ? (
+                <div data-testid={`${testId}-body`} id={`${testId}-body-${rec.id}`}>
                 <p
                   className={`${typography.panelBody} text-text-body mt-1 mb-0`}
                   data-testid={`${testId}-why`}
@@ -1336,6 +1443,8 @@ export function StrengthenTheReasoning({
                   >
                     {rec.sourceLine}
                   </p>
+                ) : null}
+                </div>
                 ) : null}
               </li>
             )
