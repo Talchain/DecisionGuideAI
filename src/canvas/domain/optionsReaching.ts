@@ -64,6 +64,7 @@
  * true of an unvalued edge. Nothing here needs analysis to have run, which is
  * why the card can say it before the first run.
  */
+import { resolveOptionInterventionCount } from '../nodes/shared/optionInterventionCount'
 import { resolveNodeTypeLiteral } from './nodes'
 
 interface NodeLike {
@@ -91,7 +92,9 @@ export function countOptionsReaching(
   targetId: string,
 ): number {
   const optionIds = new Set<string>()
+  const nodeById = new Map<string, NodeLike>()
   for (const node of nodes) {
+    nodeById.set(node.id, node)
     if (resolveNodeTypeLiteral(node) === 'option') optionIds.add(node.id)
   }
   if (optionIds.size === 0) return 0
@@ -119,8 +122,43 @@ export function countOptionsReaching(
     }
   }
 
+  /**
+   * ⛔⛔ AN OPTION THAT CARRIES NO EFFECT VALUE MOVES NOTHING, AND COUNTING IT
+   * PUT TWO CONTRADICTORY SENTENCES ON ONE BOARD.
+   *
+   * Measured on the founder's own staging run, 19 Sep: the outcome card read
+   * "4 options move this" while an option card three inches away read
+   * "Not in this analysis" — because reachability alone counted an option whose
+   * `interventions` map is EMPTY. At the bytes that option had `interventions:
+   * {}`, `interventionKeys: []`, and four option→factor edges byte-identical to
+   * the options that WERE analysed, so nothing in the graph SHAPE distinguished
+   * it. Reachability is structural and the claim is causal; they are not the
+   * same question.
+   *
+   * ⚠ THIS IS NOT RE-DERIVING CEE'S ADMISSION DECISION, and the distinction is
+   * the one this estate keeps paying for. "Not connected", "no values set" and
+   * "excluded from this calculation" are THREE different facts and CEE owns the
+   * third — the canvas must never compute it. What is read here is the FIRST
+   * fact about the node itself: does this option carry any effect value at all.
+   * An option can be excluded while carrying values, and can carry none while
+   * still being admitted; this counts the ones that can move the card's own
+   * outcome, and says nothing about admission.
+   *
+   * ⚠ DERIVED THROUGH THE SHARED OWNER, not a fourth spelling. The cee-then-node
+   * precedence lives in `resolveOptionInterventionCount`, which the option card
+   * and its reduced line already consume — a private copy here is how two
+   * surfaces come to disagree about how many changes one option makes.
+   */
   let reaching = 0
-  for (const id of ancestors) if (optionIds.has(id)) reaching += 1
+  for (const id of ancestors) {
+    if (!optionIds.has(id)) continue
+    const node = nodeById.get(id)
+    const count = resolveOptionInterventionCount(id, {
+      ceeOptions: null,
+      nodeInterventions: (node?.data as { interventions?: unknown } | undefined)?.interventions,
+    })
+    if (count > 0) reaching += 1
+  }
   return reaching
 }
 

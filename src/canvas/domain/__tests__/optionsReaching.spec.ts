@@ -205,3 +205,78 @@ describe('optionsReachingLine', () => {
     expect(optionsReachingLine(7)).toBe('7 options move this')
   })
 })
+
+/**
+ * ⛔⛔ REGRESSION, FOUND ON THE FOUNDER'S OWN BOARD — and introduced by the PR
+ * that added this module.
+ *
+ * On his 19 Sep staging run the outcome card read "4 options move this" while an
+ * option card three inches away read "Not in this analysis". Reachability alone
+ * counted an option whose `interventions` map is EMPTY.
+ *
+ * At the bytes that option carried `interventions: {}`, `interventionKeys: []`,
+ * and four option→factor edges with `strength_mean: 1, weight: 1,
+ * exists_probability: 1` — BYTE-IDENTICAL to the option→factor edges of the
+ * three options that were analysed. So nothing in the graph SHAPE distinguished
+ * it, which is precisely why a structural walk got it wrong: reachability is a
+ * structural question and "moves this" is a causal one.
+ *
+ * ⚠ These tests must NOT be read as re-deriving CEE's admission decision. "Not
+ * connected", "no values set" and "excluded from this calculation" are three
+ * different facts and CEE owns the third. What is asserted here is the first:
+ * does the option carry any effect value at all.
+ */
+describe('an option with no effect value does not move anything', () => {
+  const outcome = { id: 'out', type: 'outcome' as const, data: {} }
+  const factor = { id: 'fac', type: 'factor' as const, data: {} }
+  const withValues = { id: 'opt-a', type: 'option' as const, data: { interventions: { fac: 0.5 } } }
+  const noValues = { id: 'opt-b', type: 'option' as const, data: { interventions: {} } }
+  const edges = [
+    { source: 'opt-a', target: 'fac' },
+    { source: 'opt-b', target: 'fac' },
+    { source: 'fac', target: 'out' },
+  ]
+
+  it('POSITIVE CONTROL: both options genuinely REACH the outcome', () => {
+    // Without this the test below could pass because the walk is broken rather
+    // than because the filter works — the two options must be structurally
+    // indistinguishable for the assertion to mean anything.
+    const bothCounted = countOptionsReaching(
+      [outcome, factor, withValues, { ...noValues, data: { interventions: { fac: 0.1 } } }],
+      edges,
+      'out',
+    )
+    expect(bothCounted, 'the walk cannot see both options — this fixture proves nothing').toBe(2)
+  })
+
+  it('⭐ counts only the option that carries an effect value', () => {
+    expect(
+      countOptionsReaching([outcome, factor, withValues, noValues], edges, 'out'),
+      'an option with an empty interventions map was counted as moving this outcome — the same board then says it is not in the analysis',
+    ).toBe(1)
+  })
+
+  it('an absent interventions key counts as no value, never as unknown', () => {
+    const absent = { id: 'opt-c', type: 'option' as const, data: {} }
+    expect(
+      countOptionsReaching(
+        [outcome, factor, absent],
+        [{ source: 'opt-c', target: 'fac' }, { source: 'fac', target: 'out' }],
+        'out',
+      ),
+    ).toBe(0)
+  })
+
+  it('CONTRAST: a valued option two hops away still counts', () => {
+    // The filter must not become a proximity rule — the module's whole point is
+    // that options act on outcomes THROUGH factors.
+    const mid = { id: 'mid', type: 'factor' as const, data: {} }
+    expect(
+      countOptionsReaching(
+        [outcome, factor, mid, withValues],
+        [{ source: 'opt-a', target: 'mid' }, { source: 'mid', target: 'fac' }, { source: 'fac', target: 'out' }],
+        'out',
+      ),
+    ).toBe(1)
+  })
+})
