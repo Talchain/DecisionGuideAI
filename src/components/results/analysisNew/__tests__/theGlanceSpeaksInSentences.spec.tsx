@@ -42,7 +42,11 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
+import {
+  decisionWithLeaderWithheld,
+  decisionWithLeaderWithheldAndReason,
+  genuineDecision,
+} from './analysisNewFixtures'
 import { openGroupsIfPresent } from './openNamedGroups'
 
 /**
@@ -172,43 +176,49 @@ const run = (): ResultsSectionDataReturn => {
     }
   })
 
-  it('⭐ OPPOSITE-DIRECTION TWIN — and it PINS A KNOWN GAP rather than hiding it', () => {
-    // The rule must be checked against the glance's OTHER whole state, not only
-    // the one the fragments were witnessed on. Measuring it turned up something
-    // the sentence rule cannot fix, so the gap is pinned here rather than left
-    // in a comment: a gap recorded in the suite is honest, a gap invisible to
-    // it is how a defect survives a rewrite.
+  it('⛔ a glance with nothing to show renders NOTHING, not an empty landmark', () => {
+    // ── THE GAP THIS ARM WAS OPENED TO PIN, NOW CLOSED ──────────────────────
+    // It first ran as a known-gap pin, because measuring the withheld state
+    // found a labelled landmark with no content inside it — a region a
+    // screen-reader user reaches by name and finds empty. `hasAnything` passed
+    // on `glance.verdict` while every block that verdict feeds declined.
     //
-    // ⛔ THE WITHHELD GLANCE RENDERS AN EMPTY LABELLED LANDMARK. `hasAnything`
-    // in `AtAGlance` passes on `glance.verdict`, and on a withheld run every
-    // block that verdict feeds declines: the view model nulls `winShare` and
-    // `winFraction`, and `mayExplainByRanking` deletes `verdict.reason`, all
-    // three by design. A screen-reader user navigating by landmark reaches
-    // "At a glance" and finds nothing inside it.
+    // ⚠ THE FIRST REPAIR WAS REFUTED BY EXECUTION, and that is worth keeping in
+    // view: binding the guard to `verdictCarriesItsOwnReading` alone RED 36
+    // specs, because that is ONE of five things this section renders. The guard
+    // now reads all five children's own expressions.
     //
-    // ⚠ THE OBVIOUS FIX IS REFUTED BY EXECUTION, which is why this is a pin and
-    // not a repair: rebinding `hasAnything` to `verdictCarriesItsOwnReading`
-    // REDs 36 specs, because the verdict feeds several blocks besides the
-    // reading. The narrow predicate was the only one in hand.
+    // This fixture is the producer that sent NO refusal message, so there is
+    // genuinely nothing to show. The honest render is no render.
+    renderGlance(decisionWithLeaderWithheld(), 'withheld_no_message')
+    expect(
+      screen.queryByTestId('analysis-new-glance'),
+      'the glance rendered a labelled landmark with nothing inside it',
+    ).toBeNull()
+  })
+
+  it('⭐ OPPOSITE-DIRECTION TWIN: the withheld run that DOES speak, speaks in sentences', () => {
+    // Without this the arm above is satisfied by an `AtAGlance` that never
+    // renders on a withheld run at all — which would delete the withheld
+    // sentence from the one state a fresh user is most likely to land in, and
+    // is a worse defect than the empty landmark it replaced.
     //
-    // ⭐ THIS ARM REDS IN BOTH DIRECTIONS. If the landmark starts rendering
-    // content, the `toHaveLength(0)` fails and whoever fixed it is told to
-    // promote this into the sentence census above. If it starts rendering a
-    // FRAGMENT, the census in that branch fails. Neither change can land
-    // silently.
-    renderGlance(decisionWithLeaderWithheld(), 'withheld_speaks_in_sentences')
+    // The admission is a capture: `CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED`,
+    // the code behind the withheld leader on Paul's own run.
+    renderGlance(decisionWithLeaderWithheldAndReason(), 'withheld_with_message')
     const landmark = screen.queryByTestId('analysis-new-glance')
-    expect(landmark, 'the glance stopped rendering at all on a withheld run').not.toBeNull()
+    expect(landmark, 'the withheld run lost its glance entirely').not.toBeNull()
 
     const lines = glanceLines()
-    if (lines.length === 0) {
-      // The known gap, exactly as measured. Pinned by identity, not by a
-      // tolerance: the landmark EXISTS and is EMPTY.
-      expect(landmark?.getAttribute('aria-label')).toBe('At a glance')
-      expect(landmark?.textContent).toBe('')
-      return
-    }
-    // The gap is closed — then the rule applies here too, and must.
+    expect(lines.length, 'the withheld glance rendered no text — this arm is vacuous').toBeGreaterThan(
+      0,
+    )
+    // PRECONDITION: it is the WITHHELD sentence on screen, not some other block.
+    expect(
+      landmark?.textContent ?? '',
+      'the withheld reason is not on screen — this arm is measuring a different state',
+    ).toContain('no option can be called the leader')
+
     for (const line of lines) {
       expect(line.charAt(0), `"${line}" does not open with a capital`).toBe(
         line.charAt(0).toUpperCase(),

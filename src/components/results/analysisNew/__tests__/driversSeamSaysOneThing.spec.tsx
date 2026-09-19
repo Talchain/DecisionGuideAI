@@ -218,6 +218,12 @@ describe('the factor ranking is rendered once on the tab', () => {
     // Without this, the case above passes against an `AtAGlance` that renders
     // nothing at all — which would be a far worse regression than the one it is
     // written to catch.
+    //
+    // ⚠ THE VERDICT CARRIES ITS REASON, AND IT HAS TO. A bare verdict renders
+    // NOTHING: every block it feeds needs more than the verdict, so this
+    // control used to be satisfied by a labelled landmark with no content —
+    // proving the component MOUNTS, not that it RENDERS. The reason is the
+    // producer's own clause, verbatim from `leaderClaim.fixtures.ts:205`.
     render(
       <AtAGlance
         isRunning={false}
@@ -231,7 +237,7 @@ describe('the factor ranking is rendered once on the tab', () => {
             winFraction: null,
             comparisonScope: { kind: 'whole_set' },
             comparativeClaim: 'none',
-            verdict: { tone: 'stable', label: 'Stable' },
+            verdict: { tone: 'stable', label: 'Stable', reason: 'held up across the ranges we varied' },
             drivers: [],
             influenceIsSetRelative: false,
             condition: null,

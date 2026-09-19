@@ -419,12 +419,9 @@ export function AtAGlance({
      show here, and keeping the disjunct would have rendered the section's
      wrapper and heading over empty space: the "heading promising content"
      defect `AnalysisNewSection` records at its own early return. */
-  const hasAnything =
-    glance.headline ||
-    glance.verdict ||
-    glance.condition ||
-    ribbon.length > 0
-  if (!hasAnything) return null
+  /* ⚠ `hasAnything` MOVED — it now sits directly above `return`, because it can
+     only ask the right question once every render predicate exists. See the
+     docblock there. */
 
   /**
    * ⛔ `driversDiscriminate` AND `conditionFirst` REMOVED WITH THE DRIVER LIST.
@@ -625,6 +622,15 @@ export function AtAGlance({
      a qualifier on screen with nothing left on this surface to qualify. */
   const readingOnScreen = Boolean(glance.verdict && glance.winShare)
 
+  /**
+   * The scope disclosure's own condition, NAMED so the emptiness guard can read
+   * the same expression the child renders on. Written here rather than inlined
+   * twice — two copies of one predicate is the mirror this file keeps paying
+   * for (trap 12), and the guard's whole job is to agree with the renderer.
+   */
+  const scopeDisclosureOnScreen =
+    glance.comparisonScope.kind === 'partial' && glance.comparativeClaim !== 'none'
+
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
@@ -632,25 +638,44 @@ export function AtAGlance({
   const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
 
   /**
-   * ⚠ RECORDED, NOT FIXED: `hasAnything` above can pass on `glance.verdict`
-   * while every block that block feeds declines to render, leaving
-   * `<section aria-label="At a glance"></section>` — a named landmark a
-   * screen-reader user can reach and find empty. Reproduced on
-   * `decisionWithLeaderWithheld()`, where the view model nulls `winShare` and
-   * `winFraction` and `mayExplainByRanking` deletes `verdict.reason`, all three
-   * by design.
+   * ⛔⛔ AN EMPTY LABELLED LANDMARK, AND THE GUARD WRITTEN TO PREVENT ONE WAS
+   * WHAT PERMITTED IT.
    *
-   * ⛔ AND THE OBVIOUS FIX IS WRONG — MEASURED, NOT ARGUED. Rebinding the guard
-   * to `verdictCarriesItsOwnReading` REDS 36 specs, because the verdict feeds
-   * several blocks besides the reading (the withheld reason, the refusal act,
-   * the disclosure line). The reading predicate was the only one in hand when
-   * the fix was written, which is how an invariant ends up narrower than the
-   * thing it guards. Enumerating the rest by hand would rebuild the mirror the
-   * old `glance.drivers.length > 0` disjunct already demonstrates decays.
+   * This read `glance.headline || glance.verdict || glance.condition ||
+   * ribbon.length > 0`, and its own note states the question correctly: "have I
+   * anything to SHOW?". It answered with DATA presence, and two of its four
+   * disjuncts were wrong in opposite directions:
    *
-   * Left as a finding for a seat that can derive the full set of verdict-fed
-   * renderers, rather than shipped as a guess that 36 tests refute.
+   *   · `glance.headline` renders NOTHING since 18 Sep 2026 — Paul's ruling
+   *     deleted the conclusion it fed. A dead disjunct that keeps the section
+   *     alive over nothing.
+   *   · `glance.verdict` is far too broad. Every block a verdict feeds needs
+   *     more than the verdict, and on a leader-withheld run the view model
+   *     nulls `winShare` and `winFraction` and `mayExplainByRanking` deletes
+   *     `verdict.reason` — all three by design. Measured: the section emitted
+   *     `<section aria-label="At a glance"></section>`, a named landmark a
+   *     screen-reader user can navigate to and find empty.
+   *
+   * ⚠ AND THE FIRST REPAIR WAS WRONG TOO, WHICH IS WHY THIS ONE IS DERIVED.
+   * Rebinding the guard to `verdictCarriesItsOwnReading` alone RED 36 specs:
+   * it is ONE of FIVE things this section renders, and the withheld reason and
+   * the scope disclosure do not pass through it. An invariant written from the
+   * failure mode in hand is narrower than the thing it guards (trap 13d).
+   *
+   * ⭐ SO THE DISJUNCTION IS THE SECTION'S FIVE TOP-LEVEL CHILDREN, EACH READ
+   * FROM THE EXPRESSION THE CHILD ITSELF RENDERS ON — never a paraphrase of it.
+   * `scopeDisclosureOnScreen` was named above for exactly that reason. Guard
+   * and renderer now share their predicates and cannot drift apart silently.
    */
+  const hasAnything =
+    ribbon.length > 0 ||
+    Boolean(glance.designationWithheldReason) ||
+    verdictCarriesItsOwnReading ||
+    showInputProvenance ||
+    scopeDisclosureOnScreen ||
+    Boolean(glance.condition)
+  if (!hasAnything) return null
+
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
       {ribbon.length > 0 ? (
@@ -1163,7 +1188,7 @@ export function AtAGlance({
           Excluded options were two full prose paragraphs each repeating the
           same sentence. They are now rows in a list: same facts, same
           sanctioned copy, a fraction of the visual mass. */}
-      {glance.comparisonScope.kind === 'partial' && glance.comparativeClaim !== 'none' ? (
+      {scopeDisclosureOnScreen ? (
         <div data-testid={`${testId}-scope`}>
           <ComparisonScopeNote
             scope={glance.comparisonScope.scope}
