@@ -301,6 +301,52 @@ export async function runProvisionalDeliverySchedule(deps: {
       store: getStore(),
     })
     if (outcome.outcome === 'applied') {
+      /**
+       * ⭐⭐⭐ A VERDICT WITHOUT ITS NUMBERS IS NOT THE ANSWER WE ARE WAITING FOR.
+       *
+       * ⛔ WITNESSED (19 Sep 2026, scenario `2b1a023c`). This ladder ran
+       * CORRECTLY — six reads at its declared offsets — and then stopped at
+       * attempt 6 of 17, with 87 seconds of budget unused:
+       *
+       *   14:31:15.877  read  arm + 8s
+       *   14:31:22.668  + 14s     14:31:29.611  + 20s
+       *   14:31:37.623  + 27s     14:31:46.818  + 35s
+       *   14:31:48.309  CEE: auto_run_after_draft  commit_performed=true
+       *   14:31:55.721  + 43s   ← LAST. Attempt 7 (+51s) never fired.
+       *
+       * The user's panel rendered every option with `win_probability_displayed:
+       * null` and `rank_source: "withheld"`. The run had finished.
+       *
+       * ⭐ THE CAUSE, REPRODUCED AGAINST THE REAL MODULES. `applyScenarioAnalysisRead`
+       * returns `{ outcome: 'applied', resultsHydrated: false }` when the verdict
+       * lands and NO result block came with it. This branch LOGGED
+       * `resultsHydrated` and then returned `'delivered'` regardless — so the
+       * schedule reported delivery of something it had not delivered, and spent
+       * the rest of its budget on nothing.
+       *
+       * ⚠ SCOPED TO `complete_current`, AND THAT IS THE WHOLE CARE HERE. Three
+       * of the four terminal kinds ship no result block BY DESIGN, and this
+       * file's own header says so per kind: `complete_stale` ("CEE ships no
+       * result block on this verdict — those numbers describe a graph the user
+       * has since changed"), `blocked` ("no run was attempted"), `refused`.
+       * Waiting for numbers on those would burn the whole ladder and end in a
+       * false "we gave up", which is the opposite defect.
+       *
+       * `complete_current` is the one kind this header calls "THE answer being
+       * waited for". Arriving without its numbers is the answer not having
+       * arrived, so the remaining attempts are spent the way they were budgeted.
+       *
+       * ⚠ AND IT CANNOT SPIN. The ladder is bounded (17 attempts / 130s); if the
+       * numbers never come it ends at `deadline`, which is now a state the panel
+       * states honestly rather than a silent stop.
+       */
+      if (outcome.kind === 'complete_current' && !outcome.resultsHydrated) {
+        logger.debug('provisional_analysis_delivery.verdict_without_result', {
+          scenarioId: deps.scenarioId,
+          kind: outcome.kind,
+        })
+        continue
+      }
       logger.debug('provisional_analysis_delivery.delivered', {
         scenarioId: deps.scenarioId,
         kind: outcome.kind,
