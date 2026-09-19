@@ -46,6 +46,8 @@ import { readInferenceWarnings } from '../../components/results/utils/readInfere
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
 import { NodeChip, NodeMetricRow, NodePopover, ScienceIcon } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -636,17 +638,20 @@ export const GoalNode = memo((props: NodeProps) => {
           fires when the achievement probability is critically low; "Is my
           target realistic?" applies to every post-analysis goal with a
           threshold. */}
+      {/* ⛔ "Is this the real goal?" IS NOT HERE and must not be added back.
+          It is the only goal question that does not interrogate the NUMBER, so
+          `hasThreshold` was the wrong home for it — see the body render. The
+          resolver keeps the two apart as `threshold` and `card` surfaces. */}
       {hasThreshold && (
-        <div className="flex gap-1 flex-wrap mt-1.5">
-          {achievementIsCritical && (
-            <NodeChip chipId="goal_why_so_low" actionType="explain_results" label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
-          )}
-          <NodeChip chipId="goal_target_realistic" actionType={null} label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
-          {/* ⛔ "Is this the real goal?" HAS MOVED TO THE CARD BODY and out of
-              this gate. It is the only chip here that does not interrogate the
-              NUMBER, so `hasThreshold` was the wrong home for it — see the body
-              render for the measurement. */}
-        </div>
+        <CoachingChipRow
+          className="flex gap-1 flex-wrap mt-1.5"
+          chips={resolveNodeCoaching({
+            kind: 'goal',
+            surface: 'threshold',
+            state: { achievementIsCritical },
+            context: {},
+          })}
+        />
       )}
     </>
   ) : null
@@ -978,9 +983,15 @@ export const GoalNode = memo((props: NodeProps) => {
             so it holds this card face precisely when the old gate suppressed
             this question. The two are complementary, and together they read as
             one thought: no target set yet, and is this even the right goal. */}
-        <div className="mt-1.5 flex gap-1 flex-wrap">
-          <NodeChip chipId="goal_is_this_the_real_goal" actionType={null} label="Is this the real goal?" message="Is this goal the outcome we actually want, or a measurable proxy for it? What would we be optimising away if we treated this as the objective?" />
-        </div>
+        <CoachingChipRow
+          className="mt-1.5 flex gap-1 flex-wrap"
+          chips={resolveNodeCoaching({
+            kind: 'goal',
+            surface: 'card',
+            state: { achievementIsCritical },
+            context: {},
+          })}
+        />
 
         {/* Coaching chip "Is my target realistic?" moved to popover (Standard)
             / Detailed inline layer-2. See `layer2Content` above. */}

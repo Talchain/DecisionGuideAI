@@ -13,7 +13,9 @@ import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 
@@ -229,11 +231,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
           <p className={`${typography.edgeLabel} text-text-body m-0 mb-1 break-words`}>
             Test the connection from {factorLabel}
           </p>
-          <NodeChip
-            chipId="outcome_validate_assumption"
-            actionType={null}
-            label="Validate this assumption"
-            message={validateQuestion}
+          {/* ⚠ `className={null}` — pristine rendered this chip BARE beneath its
+              own <p>, with no flex row. See CoachingChipRow's docblock. */}
+          <CoachingChipRow
+            className={null}
+            chips={resolveNodeCoaching({
+              kind: 'outcome',
+              surface: 'validate',
+              state: { isPostAnalysis },
+              context: { label: cleanedLabel, outcomeContext, validateQuestion },
+            })}
           />
         </>
       )}
@@ -275,62 +282,34 @@ export const OutcomeNode = memo((props: NodeProps) => {
    * `Explore consequences` and `What affects this?` stay in the popover, so the
    * promoted question is never rendered twice. Detailed view is unchanged.
    */
+  const outcomeCoachingContext = useMemo(
+    () => ({ label: cleanedLabel, outcomeContext }),
+    [cleanedLabel, outcomeContext],
+  )
+  const outcomeCoachingState = useMemo(() => ({ isPostAnalysis }), [isPostAnalysis])
+
   const outcomeFaceChip = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip
-        chipId="outcome_what_would_falsify"
-        actionType={null}
-        label="What would falsify this?"
-        message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
-      />
-    </div>
-  ), [cleanedLabel, outcomeContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'outcome', surface: 'card', state: outcomeCoachingState, context: outcomeCoachingContext })}
+    />
+  ), [outcomeCoachingState, outcomeCoachingContext])
 
   const outcomePopoverChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip
-        chipId="outcome_explore_consequences"
-        actionType={null}
-        label="Explore consequences"
-        message={`What would ${cleanedLabel || 'this outcome'} mean for this model, including possible benefits and downsides?${outcomeContext}`}
-      />
-      {!isPostAnalysis && (
-        <NodeChip
-          chipId="outcome_what_strengthens"
-          actionType={null}
-          label="What affects this?"
-          message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
-        />
-      )}
-    </div>
-  ), [isPostAnalysis, cleanedLabel, outcomeContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'outcome', surface: 'popover', state: outcomeCoachingState, context: outcomeCoachingContext })}
+    />
+  ), [outcomeCoachingState, outcomeCoachingContext])
 
   // Detailed view keeps the full set inline. The falsification question is no
   // longer phase-gated here either — same reason as above.
   const outcomeChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip
-        chipId="outcome_explore_consequences"
-        actionType={null}
-        label="Explore consequences"
-        message={`What would ${cleanedLabel || 'this outcome'} mean for this model, including possible benefits and downsides?${outcomeContext}`}
-      />
-      {!isPostAnalysis && (
-        <NodeChip
-          chipId="outcome_what_strengthens"
-          actionType={null}
-          label="What affects this?"
-          message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
-        />
-      )}
-      <NodeChip
-        chipId="outcome_what_would_falsify"
-        actionType={null}
-        label="What would falsify this?"
-        message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
-      />
-    </div>
-  ), [isPostAnalysis, cleanedLabel, outcomeContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'outcome', surface: 'detailed', state: outcomeCoachingState, context: outcomeCoachingContext })}
+    />
+  ), [outcomeCoachingState, outcomeCoachingContext])
 
   /**
    * ⛔⛔ `Goal chance: N%` IS GONE FROM THE OUTCOME CARD (17 Sep 2026), AND THE
