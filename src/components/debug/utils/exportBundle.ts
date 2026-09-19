@@ -8,7 +8,6 @@
  */
 
 import type {
-import { readDeliveryRecord } from '../../../canvas/hooks/provisionalDeliveryRecord'
   DebugData,
   BuildVersions,
   CeeTraceData,
@@ -152,6 +151,7 @@ import {
   type ParseFailureKind,
 } from '../../../v5/responseParser'
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { readDeliveryRecord } from '../../../canvas/hooks/provisionalDeliveryRecord'
 
 // =============================================================================
 // Feature Flag
