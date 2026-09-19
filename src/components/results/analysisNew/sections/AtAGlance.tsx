@@ -274,6 +274,18 @@ export interface AtAGlanceProps {
    */
   reanalyseBlockedReason: string | null
   /** Which results did not come back, already named for this surface. */
+  /**
+   * ⭐ WOULD A RE-RUN CHANGE THIS? — the third question, and the one the
+   * ribbon's act was missing.
+   *
+   * Supplied by the caller from `vm.checks.leaderWithheld`; this component
+   * derives nothing, exactly as it does not re-derive the run gate.
+   *
+   * ⚠ THE WITHHELD FACT, NOT ITS NAMEABLE CAUSE. `leaderWithholdCause` is null
+   * both when nothing was withheld and when the reason cannot be named, and the
+   * second is the common case — `withheld_reason` is free-form at the contract.
+   */
+  leaderWithheld?: boolean
   missingResults?: readonly string[]
   testId?: string
 }
@@ -311,6 +323,7 @@ export function AtAGlance({
   reanalyseBlocked,
   reanalyseBlockedReason,
   isRunning,
+  leaderWithheld = false,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -652,7 +665,43 @@ export function AtAGlance({
 
               ⚠ FAIL-CLOSED. No handler, no button — never a dead affordance,
               the same pre-gate this panel uses for focus targets. */}
-          {onReanalyse && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
+          {/* ⛔⛔ A RE-RUN IS OFFERED ONLY WHERE A RE-RUN COULD HELP.
+              WITNESSED ON PAUL'S RUN, 19 Sep 14:32Z, staging `fd65f971`.
+
+              The ribbon read *"This analysis is partial. The win share and the
+              overall robustness rating did not come back"* with **Re-run to be
+              sure** beside it. Both sentences were TRUE. The act was not: CEE
+              had suppressed the result on
+              `reason=leading_option_claim_withheld`, downstream of
+              `CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED` — a property of the
+              MODEL, not of the run. Pressing it reaches the same gate, spends
+              the same compute, and returns the same partial answer.
+
+              ⭐ THE GATE BELOW ANSWERED "MAY I RE-RUN?" WHEN THE READER NEEDED
+              "WOULD RE-RUNNING CHANGE THIS?" — two questions under one control,
+              which is the same shape as the CEE suppression that caused it and
+              as trap 21 generally. The fix is to name them apart, never to
+              align them.
+
+              ⚠ SO THE RE-RUN IS NOT DELETED. Where results are missing by
+              FAILURE a re-run is exactly right, and removing it would trade one
+              wrong act for another. It is withheld only where the panel knows a
+              DESIGNATION was withheld, and the remedy that works — the estimate
+              route this component already owns — takes its place.
+
+              ⚠ `leaderWithheld`, NOT `leaderWithholdCause`: the cause is null
+              both when nothing was withheld and when the reason cannot be named,
+              and the second is the common case. */}
+          {onReanalyse && leaderWithheld && onReviewEstimates ? (
+            <button
+              type="button"
+              onClick={onReviewEstimates}
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80`}
+              data-testid={`${testId}-ribbon-review-estimates`}
+            >
+              {COPY.glance.reviewEstimates}
+            </button>
+          ) : onReanalyse && !leaderWithheld && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}

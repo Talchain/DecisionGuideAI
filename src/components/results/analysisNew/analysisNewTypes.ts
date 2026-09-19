@@ -1151,6 +1151,12 @@ export interface ChecksSection {
    * cause, and load-bearing against reading a figure-less list as a tie.
    */
   leaderWithholdCause: string | null
+  /**
+   * Was a leading option withheld at all? Distinct from `leaderWithholdCause`,
+   * which is null BOTH when nothing was withheld AND when the reason cannot be
+   * named — two different facts that one nullable string cannot carry.
+   */
+  leaderWithheld: boolean
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1734,6 +1734,7 @@ export function AnalysisNewTabBody({
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
+          leaderWithheld={vm.checks.leaderWithheld}
           onReanalyse={onReanalyse}
           /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
              IT — and not the verdict itself. `reanalyseBlocked` is
