@@ -200,7 +200,7 @@ import {
   type StripRow,
 } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
-import { action } from '../panelSurfaces'
+import { action, icon } from '../panelSurfaces'
 
 /**
  * The subject line when the model names neither a goal nor a decision.
@@ -871,9 +871,9 @@ export function ModelStrip({
         </span>
 
         {open ? (
-          <ChevronDown className="w-4 h-4 shrink-0 mt-0.5 text-text-light" aria-hidden={true} />
+          <ChevronDown className={`${icon('section')} shrink-0 mt-0.5 text-text-light`} aria-hidden={true} />
         ) : (
-          <ChevronRight className="w-4 h-4 shrink-0 mt-0.5 text-text-light" aria-hidden={true} />
+          <ChevronRight className={`${icon('section')} shrink-0 mt-0.5 text-text-light`} aria-hidden={true} />
         )}
       </button>
 
@@ -972,7 +972,7 @@ export function ModelStrip({
             }`}
             data-testid={`${testId}-verify-toggle`}
           >
-            <ListChecks className="w-3 h-3" aria-hidden={true} />
+            <ListChecks className={`${icon('inline')}`} aria-hidden={true} />
             {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
           </button>
         ) : null}
@@ -1006,7 +1006,7 @@ export function ModelStrip({
             }`}
             data-testid={`${testId}-no-value-toggle`}
           >
-            <NoValueMark className="w-3 h-3" aria-hidden={true} />
+            <NoValueMark className={`${icon('inline')}`} aria-hidden={true} />
             {COPY.modelStrip.noValueCount(strip.noValueTotal)}
           </button>
         ) : null}
@@ -1289,7 +1289,7 @@ export function ModelStrip({
               className={`${typography.panelBody} text-text-header m-0 flex items-start gap-1 min-w-0`}
               data-testid={`${testId}-detail-title`}
             >
-              <NodeMark kind={active.kind} className="w-3 h-3 mt-0.5" />
+              <NodeMark kind={active.kind} className={`${icon('inline')} mt-0.5`} />
               {/* No label recorded is not an error and not a blank: the kind
                   noun is the only true name available, and it is the same
                   substitution the mark's own accessible name makes. */}
@@ -1365,7 +1365,7 @@ export function ModelStrip({
               data-testid={`${testId}-detail-focus`}
               data-node-id={active.id}
             >
-              <Crosshair className="w-3 h-3" aria-hidden={true} />
+              <Crosshair className={`${icon('inline')}`} aria-hidden={true} />
               {COPY.modelStrip.showOnCanvas}
             </button>
 
@@ -1470,7 +1470,7 @@ export function ModelStrip({
                     data-testid={`${testId}-detail-value-edit`}
                     data-node-id={active.id}
                   >
-                    <Pencil className="w-3 h-3" aria-hidden={true} />
+                    <Pencil className={`${icon('inline')}`} aria-hidden={true} />
                     {COPY.modelStrip.changeValue}
                   </button>
                 )}
@@ -1534,7 +1534,7 @@ export function ModelStrip({
                     data-method-id={method.id}
                     title={method.description}
                   >
-                    <Lightbulb className="w-3 h-3" aria-hidden={true} />
+                    <Lightbulb className={`${icon('inline')}`} aria-hidden={true} />
                     {method.title}
                     {/* A browser renders `title` on pointer hover only, so the
                         science content would otherwise be withheld from anyone

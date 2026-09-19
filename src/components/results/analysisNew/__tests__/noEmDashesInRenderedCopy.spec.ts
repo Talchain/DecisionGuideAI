@@ -298,6 +298,28 @@ const isConsoleCall = (n: ts.Node): boolean =>
  * green 10/10. The two dashes witnessed here sit in strings of 44 and 150
  * characters, so a cap in either direction would have missed one of them.
  */
+/**
+ * ⚠⚠ KNOWN DEFECT, ROWED 19 Sep 2026 — `.tsx` IS PARSED AS `ScriptKind.TS`.
+ *
+ * With JSX off, `<span className="min-w-0 flex-1">` inside a JSX COMMENT is not
+ * a comment to this parser: the tags read as comparison operators and the
+ * attribute quotes pair across the comment, so a run of explanatory prose can
+ * surface as a "string literal".
+ *
+ * **Measured:** on #1744, converting one `className="w-3.5 h-3.5 …"` to
+ * `className={`${icon('row')} …`}` in `SectionShell.tsx` shifted that pairing
+ * and this guard RED'd on an em dash inside a docblock — prose no user can ever
+ * see. That comment was reworded to unblock; **the parse is the cause and is not
+ * fixed here.**
+ *
+ * ⛔ NOT FIXED IN THIS PR ON PURPOSE. Switching to `ScriptKind.TSX` is correct
+ * and changes what the scanner sees across the WHOLE corpus — it may surface new
+ * offenders and drop ones currently caught. That is its own change with its own
+ * before/after census, not a side effect of an icon-sizing PR.
+ *
+ * Until then: a RED naming a `.tsx` file whose text is plainly a COMMENT is this
+ * defect, not a product defect. Check the quoted span before rewording anything.
+ */
 function literals(src: string, fileName = 'scan.ts'): string[] {
   const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
   const out: string[] = []

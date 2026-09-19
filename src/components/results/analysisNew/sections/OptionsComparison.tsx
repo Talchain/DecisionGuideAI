@@ -169,7 +169,7 @@ import type { OptionOrigin } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { PanelFigure } from '../PanelFigure'
-import { action } from '../panelSurfaces'
+import { action, icon } from '../panelSurfaces'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 
 /**
@@ -720,7 +720,7 @@ export function OptionsComparison({
                     data-option-origin={o.origin}
                     className="ml-1 inline-flex align-[-2px] text-text-light"
                   >
-                    <Sparkles className="w-3 h-3" aria-hidden="true" />
+                    <Sparkles className={`${icon('inline')}`} aria-hidden="true" />
                   </span>
                 ) : null}
               </button>
@@ -1061,7 +1061,7 @@ export function OptionsComparison({
           data-testid={`${testId}-option-origin-legend`}
           data-option-origin={sharedOrigin}
         >
-          <Sparkles className="w-3 h-3 shrink-0" aria-hidden="true" />
+          <Sparkles className={`${icon('inline')} shrink-0`} aria-hidden="true" />
           {OPTION_ORIGIN_COPY[sharedOrigin]}
         </p>
       ) : null}

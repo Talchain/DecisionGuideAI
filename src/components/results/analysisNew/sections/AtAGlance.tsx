@@ -42,7 +42,7 @@ import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
-import { inset, action } from '../panelSurfaces'
+import { inset, action, icon } from '../panelSurfaces'
 
 /**
  * How many parameter names fit before the line stops being readable. Four is a
@@ -617,7 +617,7 @@ export function AtAGlance({
           role="status"
           data-testid={`${testId}-ribbon`}
         >
-          <AlertTriangle className="w-3 h-3 mt-[3px] shrink-0 text-warning-ink" aria-hidden="true" />
+          <AlertTriangle className={`${icon('inline')} mt-[3px] shrink-0 text-warning-ink`} aria-hidden="true" />
           {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
               had to go: `min-w-0` says "I will shrink to nothing", which is
               precisely the permission that let this sentence be squeezed to
@@ -951,9 +951,9 @@ export function AtAGlance({
                 >
                   {reassuranceIsStale(glance.verdict.tone, isStale) ? null : glance.verdict.tone ===
                     'stable' ? (
-                    <CheckCircle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                    <CheckCircle className={`inline ${icon('inline')} -mt-px mr-1`} aria-hidden="true" />
                   ) : (
-                    <AlertTriangle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                    <AlertTriangle className={`inline ${icon('inline')} -mt-px mr-1`} aria-hidden="true" />
                   )}
                   {glance.verdict.label}
                 </span>
@@ -1179,7 +1179,7 @@ export function AtAGlance({
           const Row = (
             <>
               <AlertTriangle
-                className="w-3.5 h-3.5 mt-[3px] shrink-0 text-warning-ink"
+                className={`${icon('row')} mt-[3px] shrink-0 text-warning-ink`}
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">
@@ -1187,7 +1187,7 @@ export function AtAGlance({
                 {glance.condition!.text}
               </span>
               {focusable ? (
-                <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+                <ChevronRight className={`${icon('row')} mt-0.5 shrink-0 text-text-light`} aria-hidden="true" />
               ) : null}
             </>
           )

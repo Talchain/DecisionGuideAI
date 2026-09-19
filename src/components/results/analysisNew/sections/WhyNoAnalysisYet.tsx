@@ -49,6 +49,7 @@
  * `everyActIsReachableByTouch` reads this marker; removing it REDs the guard.
  */
 import { AlertCircle } from 'lucide-react'
+import { icon } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { GateBlockedListing } from '../../../../canvas/utils/canRunAnalysis'
@@ -82,7 +83,7 @@ export function WhyNoAnalysisYet({
       data-testid={testId}
     >
       <p className={`${typography.panelMeta} text-text-body flex items-center gap-1.5 m-0`}>
-        <AlertCircle className="w-3 h-3 shrink-0 text-warning-ink" aria-hidden="true" />
+        <AlertCircle className={`${icon('inline')} shrink-0 text-warning-ink`} aria-hidden="true" />
         {COPY.whyNoAnalysis.heading}
       </p>
       <ul className="list-none p-0 m-0 space-y-1">

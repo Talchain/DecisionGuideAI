@@ -21,7 +21,7 @@
 import { Sparkles, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { methodForRecommendation } from '../recommendationMethod'
-import { PANEL_INSET_ACTION, action } from '../panelSurfaces'
+import { PANEL_INSET_ACTION, action, icon } from '../panelSurfaces'
 
 export interface PrimaryInterventionProps {
   /**
@@ -75,7 +75,7 @@ export function PrimaryIntervention({
           data-testid={`${testId}-primary-intervention`}
           data-recommendation-id={primaryIntervention.id}
         >
-          <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
+          <Sparkles className={`${icon('row')} mt-0.5 shrink-0 text-info`} aria-hidden="true" />
           <span className="min-w-0 flex-1">
             {/* ⭐ GATED ON PROVENANCE, NOT ON SIMILARITY. A text comparison
                 between the header and the action would fire on whatever
@@ -159,7 +159,7 @@ export function PrimaryIntervention({
               ) : null
             })()}
           </span>
-          <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+          <ChevronRight className={`${icon('row')} mt-0.5 shrink-0 text-text-light`} aria-hidden="true" />
         </button>
         )
 }

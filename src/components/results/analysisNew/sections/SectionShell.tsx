@@ -46,6 +46,7 @@
  * file is the one legitimate exception to the both-dimensions rule and says so.
  */
 import { useId, useState, type ReactNode } from 'react'
+import { icon } from '../panelSurfaces'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
@@ -233,11 +234,11 @@ export function SectionShell({
       >
         {Icon ? (
           <span className="shrink-0 w-6 h-6 rounded-full bg-panel-hover flex items-center justify-center">
-            <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden={true} />
+            <Icon className={`${icon('row')} text-text-light`} aria-hidden={true} />
           </span>
         ) : null}
         {/* ⭐ THE SUBTITLE IS A LINE, NOT A TOOLTIP.
-            It was `title={subtitle}` on the toggle — present in the DOM,
+            It was `title={subtitle}` on the toggle: present in the DOM,
             unreachable by touch and by keyboard, and supplied by no mount, so
             it never rendered at all. The design pack draws it on every
             collapsed row for a reason: a title plus a count is a container name
@@ -287,9 +288,9 @@ export function SectionShell({
           </span>
         ) : null}
         {open ? (
-          <ChevronDown className="w-4 h-4 shrink-0 text-text-light" aria-hidden={true} />
+          <ChevronDown className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
         ) : (
-          <ChevronRight className="w-4 h-4 shrink-0 text-text-light" aria-hidden={true} />
+          <ChevronRight className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
         )}
       </button>
       </h3>
