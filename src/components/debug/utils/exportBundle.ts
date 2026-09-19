@@ -151,7 +151,10 @@ import {
   type ParseFailureKind,
 } from '../../../v5/responseParser'
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
-import { readDeliveryRecord } from '../../../canvas/hooks/provisionalDeliveryRecord'
+import {
+  readDeliveryRecord,
+  type ProvisionalDeliveryRecord,
+} from '../../../canvas/hooks/provisionalDeliveryRecord'
 
 // =============================================================================
 // Feature Flag
@@ -1653,6 +1656,14 @@ interface DebugBundle {
 
   /** Display state snapshot — what the UI actually rendered at export time */
   display_state: DisplayState | null
+  /**
+   * What the client's provisional-delivery schedule did, written by the
+   * schedule itself rather than rebuilt from the store.
+   *
+   * `null` = never armed · `{ outcome: null }` = armed, still running at export
+   * · `{ outcome }` = armed and settled. See `provisionalDeliveryRecord.ts`.
+   */
+  provisional_delivery: ProvisionalDeliveryRecord | null
 
   // =========================================================================
   // V2.0 sections — present only when VITE_DEBUG_BUNDLE_V2 is ON
