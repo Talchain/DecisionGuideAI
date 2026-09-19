@@ -151,10 +151,17 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['pre-analysis improvement card'],
     requiredEvidence: 'no confirmation control mounts',
   },
+  // ⭐ REPAIRED 2026-09-18 BY THE EDGE-STRENGTH UNLOCK LANE, and the OLD
+  // `requiredEvidence` is why the repair was needed rather than optional: it
+  // read *'no edge-strength control mounts'*, which was TRUE — the panel handed
+  // `undefined` to every card, so `TriageCard`'s own guard rendered no
+  // quick-select. That sentence is now false in both halves. A control mounts,
+  // and it emits. The new evidence names the carrier, so a regression to a
+  // local-only write is a claim this row contradicts.
   preAnalysisEdgeStrength: {
-    authority: 'disabled',
+    authority: 'server_graph',
     entrySurfaces: ['pre-analysis improvement card'],
-    requiredEvidence: 'no edge-strength control mounts',
+    requiredEvidence: 'accepted edge_strength_edit from the card quick-select; pills render only where edgeStrengthEditIsAssertable',
   },
   preAnalysisV3FactorValue: {
     authority: 'server_graph',
@@ -467,6 +474,13 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       // factor-value row it is most often confused with — and those two are
       // exactly the pair a witnessed defect once collapsed.
       'modelOptionIntervention',
+      // ⭐ 18 Sep 2026 — the PRE-ANALYSIS strength quick-select joins, on the
+      // same terms as every member above: a wire carrier (`edge_strength_edit`,
+      // CEE `'mutating'`), a server writer, and a `graph_patch` receipt. It is
+      // NOT a new carrier — it is the one the Inspector's slider already used,
+      // reached from a second surface. Sorted, so it lands before its v3
+      // siblings rather than beside them.
+      'preAnalysisEdgeStrength',
       'preAnalysisV3FactorValue',
       'preAnalysisV3StructuralAdd',
       'structuralDeleteWithServerHash',
@@ -478,7 +492,10 @@ describe('mutation authority is exhaustive and fail-closed', () => {
     expect(CANONICAL_EDIT_AUTHORITY.postRunAutoFix).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisFactorValue).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisFactorConfirmation).toBe('disabled')
-    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength).toBe('disabled')
+    // ⭐ REPAIRED 2026-09-18: asserted POSITIVELY rather than dropped, so a
+    // silent regression to 'disabled' REDs here instead of going unnoticed —
+    // the same discipline the durable-add lane applied to its two keys below.
+    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorValue).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorConfirmation).toBe('disabled')
     // ⭐ FLIPPED BY THE DURABLE-ADD LANE. This assertion is the pristine RED
