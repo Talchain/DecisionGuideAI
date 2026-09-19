@@ -172,6 +172,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (hoverPopoverTimerRef.current) clearTimeout(hoverPopoverTimerRef.current)
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current)
   }, [])
+  // A13 (keyboard parity): the group this component renders, used only to reach
+  // React Flow's own focusable edge element above it. See the focus effect.
+  const edgeGroupRef = useRef<SVGGElement | null>(null)
+  // Escape closed the popover; do not re-open it until the user leaves and
+  // comes back. Mirrors `dismissed` in `hooks/usePopoverHover.ts`.
+  const keyboardDismissedRef = useRef(false)
+  // Whether the POINTER is currently over this edge. Read only by the focus
+  // handlers, so losing focus cannot close a popover the mouse still owns.
+  const pointerWithinRef = useRef(false)
   // `id` reaches this component as `unknown` through EdgeProps<EdgeData> in the
   // current TS setup (the two neighbouring `.has(id)` selectors below carry
   // baseline diagnostics for exactly that). The canvas contract is that edge
@@ -736,12 +745,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Structural edges skip the popover timer entirely — they show a native
   // browser tooltip via the <title> child on the hitbox path instead.
   const handleMouseEnter = () => {
+    pointerWithinRef.current = true
     setIsHovered(true)
     if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
     if (isStructuralEdge) return
+    // An Escape the user has just pressed outranks a pointer that never left.
+    if (keyboardDismissedRef.current) return
     hoverPopoverTimerRef.current = setTimeout(() => setShowHoverPopover(true), 300)
   }
   const handleMouseLeave = () => {
+    pointerWithinRef.current = false
+    // Leaving the edge re-arms the popover: a dismissal applies to the visit it
+    // was made in, not to the edge for ever.
+    keyboardDismissedRef.current = false
     setIsHovered(false)
     if (hoverPopoverTimerRef.current) {
       clearTimeout(hoverPopoverTimerRef.current)
@@ -801,6 +817,146 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
     return { isStructuralEdge: false, structuralTooltip: null }
   }, [data, sourceNode, targetNode])
+
+  /**
+   * ⭐⭐ A13 — THE KEYBOARD PATH. This component had none, in any form.
+   *
+   * Swept at staging `99b46212`, target and contrast in the SAME sweep of this
+   * SAME file, because a target reading zero is equally consistent with a
+   * correct product and a blind probe (CLAUDE.md trap 13e):
+   *
+   *     grep -acE 'onFocus|onBlur|tabIndex|onKeyDown|focus-visible'  ->  0
+   *     grep -acE 'onMouseEnter|onMouseLeave'                        ->  6
+   *
+   * Six mouse bindings, no keyboard binding. Everything this edge has to say —
+   * direction, confidence, strength, fragility, and the two coaching chips that
+   * dispatch turns to CEE — was reachable with a pointer and by nothing else.
+   * WCAG 2.1 AA 1.4.13 (Content on Hover or Focus) is the standard, and a
+   * keyboard user has no pointer to hover with.
+   *
+   * ── WHY THE LISTENER IS ON AN ANCESTOR AND NOT ON OUR OWN GROUP ────────────
+   *
+   * Derived at the bytes of the pinned library, `@xyflow/react@12.10.2`
+   * (`dist/esm/index.mjs`, `EdgeWrapper`):
+   *
+   *     const isFocusable = !!(edge.focusable || (edgesFocusable && typeof edge.focusable === 'undefined'))
+   *     tabIndex: isFocusable ? 0 : undefined,
+   *
+   * with `edgesFocusable: true` in the store defaults, and `ReactFlowGraph.tsx`
+   * passing neither `edgesFocusable` nor `disableKeyboardA11y` — so the default
+   * governs and **every edge is already a tab stop.** React Flow already owns
+   * the focus target: `g.react-flow__edge`, an ANCESTOR of the group this
+   * component renders. `focusin` bubbles UP, so a listener bound here could
+   * only ever see a DESCENDANT take focus, never the ancestor that actually
+   * receives it. Adding our own `tabIndex` instead would give every edge two
+   * tab stops, which is a second defect, not a fix.
+   *
+   * This is the same structure, and the same resolution, as the node preview at
+   * `hooks/usePopoverHover.ts:176-223` — only the class name differs.
+   *
+   * ── WHY `:focus-visible` AND NOT PLAIN FOCUS ──────────────────────────────
+   *
+   * A mouse click focuses the edge too (React Flow's own click handler runs on
+   * this element). Opening on every click would bypass the 300ms hover intent
+   * the pointer path exists to provide, and would change a behaviour nobody
+   * asked to change. The pseudo-class is the browser's own answer to "was this
+   * a keyboard focus", and it is already this repo's idiom.
+   *
+   * ⚠ THE FALLBACK DIRECTION IS DELIBERATE. A DOM implementation that does not
+   * know the selector throws rather than answering false, so the call is
+   * guarded — and the guard returns TRUE. Failing toward MORE recovery is
+   * correct here: a popover that opens when it need not is a nuisance, one that
+   * will not open is the defect this closes.
+   *
+   * ── NO DELAY ON THIS PATH ─────────────────────────────────────────────────
+   *
+   * The 300ms enter delay models a pointer PASSING OVER an edge on its way
+   * somewhere else. A Tab is never accidental in that way, so making a keyboard
+   * user wait is latency bought for no benefit.
+   */
+  useEffect(() => {
+    const group = edgeGroupRef.current
+    if (!group) return
+    const rfEdge = group.closest('.react-flow__edge')
+    if (!rfEdge) return
+
+    const isKeyboardFocus = (el: Element): boolean => {
+      try {
+        return el.matches(':focus-visible')
+      } catch {
+        return true
+      }
+    }
+
+    const focusIn = (event: FocusEvent) => {
+      // ONLY the edge's own focus ring. A control that happens to sit inside
+      // must not be treated as the edge being focused.
+      if (event.target !== rfEdge) return
+      if (!isKeyboardFocus(rfEdge)) return
+      // A keyboard user arriving deliberately outranks an earlier Escape.
+      keyboardDismissedRef.current = false
+      if (hoverPopoverTimerRef.current) { clearTimeout(hoverPopoverTimerRef.current); hoverPopoverTimerRef.current = null }
+      if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
+      // The label, the thicker stroke and the fragility marker are all gated on
+      // `isHovered`, so focus must set it too — otherwise "available on focus"
+      // would mean the popover only, and a keyboard user would still be missing
+      // what a pointer user sees. It also gives the edge a visible focus state.
+      setIsHovered(true)
+      // Structural edges have no causal popover in ANY modality; they carry a
+      // native title on the hitbox instead. Matching the pointer path's own
+      // exclusion, not exceeding it.
+      if (isStructuralEdge) return
+      setShowHoverPopover(true)
+    }
+
+    const focusOut = (event: FocusEvent) => {
+      const next = event.relatedTarget
+      // ⚠ `contains()` ALONE WOULD BE WRONG. `EdgeLabelRenderer` portals the
+      // popover out of this edge's group, so the popover is NOT a DOM
+      // descendant of the element losing focus — closing on containment would
+      // destroy the popover the instant a keyboard user tabbed into the very
+      // content it was opened to show, including both coaching chips.
+      if (
+        next instanceof Element &&
+        (rfEdge.contains(next) || next.closest('[data-edge-popover]'))
+      ) return
+      // The pointer still owns this edge; its own leave handler will close it.
+      if (pointerWithinRef.current) return
+      if (hoverPopoverTimerRef.current) { clearTimeout(hoverPopoverTimerRef.current); hoverPopoverTimerRef.current = null }
+      setIsHovered(false)
+      setShowHoverPopover(false)
+    }
+
+    rfEdge.addEventListener('focusin', focusIn as EventListener)
+    rfEdge.addEventListener('focusout', focusOut as EventListener)
+    return () => {
+      rfEdge.removeEventListener('focusin', focusIn as EventListener)
+      rfEdge.removeEventListener('focusout', focusOut as EventListener)
+    }
+  }, [isStructuralEdge])
+
+  /**
+   * ⭐ DISMISSIBLE — the second of WCAG 1.4.13's three obligations, and the one
+   * this component failed in every modality: it had no key handler at all.
+   *
+   * The popover must be removable WITHOUT moving the pointer or the keyboard
+   * focus, because a keyboard user who tabs to an edge and is shown a popover
+   * they cannot close has had content forced on them. `keyboardDismissedRef`
+   * then holds it shut until the user leaves and returns, so the dismissal is
+   * not undone by the same visit that provoked it.
+   */
+  useEffect(() => {
+    if (!showHoverPopover) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      keyboardDismissedRef.current = true
+      if (hoverPopoverTimerRef.current) { clearTimeout(hoverPopoverTimerRef.current); hoverPopoverTimerRef.current = null }
+      if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
+      setShowHoverPopover(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [showHoverPopover])
 
   // Graph Editing Experience Task 9c: Persistent labels on top 3 edges
   // Pre-analysis: rank by |strength.mean|. Post-analysis: rank by composite importance.
@@ -1271,6 +1427,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           hitbox path or BaseEdge's interaction path (which renders on top in SVG
           paint order). Both paths bubble mouseenter/mouseleave to this <g>. */}
       <g
+        ref={edgeGroupRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
@@ -2142,6 +2299,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           <EdgeLabelRenderer>
             <div
               data-testid="edge-hover-popover"
+              /* A13: the identity handle the focus-out rule asks for. The
+                 popover is portalled out of the edge's group, so `contains()`
+                 cannot reach it and a containment test alone would close it the
+                 moment focus entered it. Mirrors `data-node-popover`, which
+                 exists on the node preview for exactly this question. */
+              data-edge-popover=""
               role="tooltip"
               style={causalPopoverStyle}
               className="bg-panel border border-panel-border rounded-lg shadow-panel px-3 py-2.5 space-y-1.5 nodrag nopan nowheel"
