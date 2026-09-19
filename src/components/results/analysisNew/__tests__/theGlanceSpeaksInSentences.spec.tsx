@@ -112,7 +112,7 @@ describe('the glance renders no fragments', () => {
     // empty — or withheld — census agrees with every rule ever written.
     expect(lines.length, 'the glance rendered no text — this census is vacuous').toBeGreaterThan(0)
     expect(
-      lines.some((l) => l.includes('scored highest in')),
+      lines.some((l) => /scored highest in/i.test(l)),
       'the entitled fixture no longer renders a share — the case this arm exists for is gone',
     ).toBe(true)
 
