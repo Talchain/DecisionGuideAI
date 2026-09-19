@@ -34,6 +34,7 @@
  */
 
 import { useState } from 'react'
+import { PanelFigure } from '../PanelFigure'
 import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
@@ -990,16 +991,26 @@ export function AtAGlance({
                 </p>
               ) : null}
               {glance.winFraction !== null ? (
-                <span
-                  className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
-                  aria-hidden="true"
-                  data-testid={`${testId}-win-bar`}
-                >
-                  <span
-                    className={`block h-full rounded-full ${glance.verdict.tone === 'stable' ? 'bg-success' : 'bg-warning'}`}
-                    style={{ width: `${Math.round(glance.winFraction * 100)}%` }}
-                  />
-                </span>
+                /* ⭐⭐ ADOPTED, AND THE ROUNDING DEFECT GOES WITH IT.
+                   This was `Math.round(winFraction * 100)` — the exact
+                   expression `OptionsComparison` removed after it shipped a
+                   measured non-zero share as a 0px fill on deployed `ce32426c`
+                   ("< 1%" beside an empty track). The same defect was still
+                   live HERE, in the glance, which is the first figure a reader
+                   meets. `PanelFigure` floors a strictly-positive fraction and
+                   leaves a genuine zero empty, so the fix arrives with the
+                   grammar rather than needing to be remembered a third time.
+
+                   ⚠ AND THE TRACK WAS `h-1` — the 4px hairline #1346 ruled out
+                   as "a comparison drawn at four pixels reads as no comparison
+                   at all". It survived here because nothing swept for it. */
+                <PanelFigure
+                  variant="share"
+                  tone={glance.verdict.tone === 'stable' ? 'stable' : 'caution'}
+                  className="mt-1.5"
+                  fraction={glance.winFraction}
+                  testId={`${testId}-win-bar`}
+                />
               ) : null}
 
             </div>

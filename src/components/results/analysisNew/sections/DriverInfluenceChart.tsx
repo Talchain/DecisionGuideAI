@@ -37,6 +37,23 @@
  * SAME `useFactorValueCommit` hook, and dispatches a real edit. Ranked by what
  * moves the answer most, editable in place: a worklist, not a diagram.
  */
+/**
+ * @panel-figure-opt-out a DIVERGING figure — two halves about a zero line, where
+ * the SIDE carries meaning (raises vs lowers) and the track is not a single
+ * proportion
+ *
+ * ⚠ DECLARED, NOT OVERLOOKED. `PanelFigure` is the grammar for "a proportion of
+ * a track": one domain, one direction, a fill that grows from one end. This
+ * chart is bidirectional — its zero line is the reference point the whole figure
+ * depends on, and `row.direction` decides which half a bar occupies. Forcing it
+ * into the shared component would either add a `diverging` variant that no other
+ * caller wants, or flatten a distinction the chart exists to draw.
+ *
+ * ⭐ WHAT IT DOES SHARE, and must keep sharing: the `h-2` track height, so the
+ * panel's figures still read at one weight. `everyFigureHasOneGrammar` asserts
+ * the height even here, because the height IS the grammar and only the
+ * DIRECTIONALITY is the exception.
+ */
 import { useId, useState } from 'react'
 import { ArrowLeft, ArrowRight, Minus } from 'lucide-react'
 import { typography } from '../../../../styles/typography'

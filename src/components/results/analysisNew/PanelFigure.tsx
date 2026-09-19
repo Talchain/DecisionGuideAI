@@ -85,12 +85,42 @@ const FILL: Record<FigureVariant, string> = {
   goal: 'bg-info',
   range: 'bg-option',
   influence: 'bg-info',
+  partition: 'bg-info',
 }
 
-export type FigureVariant = 'share' | 'goal' | 'range' | 'influence'
+export type FigureVariant = 'share' | 'goal' | 'range' | 'influence' | 'partition'
+
+/**
+ * ⭐ TONE IS MEANING AND VARIES — #1346's other half, and the reason this is a
+ * NAMED SET rather than a colour prop. The glance's bar is green when the run's
+ * verdict is `stable` and amber otherwise; that is a claim about the RESULT, so
+ * the caller owns which one, and the component owns what each one looks like. A
+ * free `color` prop would hand tone back to the call sites, which is the drift
+ * this whole component exists to stop.
+ */
+export type FigureTone = 'neutral' | 'stable' | 'caution'
+
+const TONE: Record<FigureTone, string | null> = {
+  neutral: null,
+  stable: 'bg-success',
+  caution: 'bg-warning',
+}
+
+/** A segment of a `partition` — the parts sum to the whole by construction. */
+export interface FigureSegment {
+  readonly id: string
+  readonly fraction: number
+}
 
 export interface PanelFigureProps {
   variant: FigureVariant
+  /** Overrides the variant's fill where the RESULT's character is the claim. */
+  tone?: FigureTone
+  /**
+   * `partition` only: the parts, in order. Every part is floored by the same
+   * rule as a single fill, so a measured sliver stays visible in a stack.
+   */
+  segments?: readonly FigureSegment[] | null
   /**
    * A proportion of the track, 0..1, for everything except `range`.
    * `null` renders the empty track — an absence, never a guessed zero.
@@ -129,6 +159,8 @@ export function markerLeft(fraction: number): string {
 
 export function PanelFigure({
   variant,
+  tone = 'neutral',
+  segments = null,
   fraction = null,
   band = null,
   markerData,
@@ -183,11 +215,31 @@ export function PanelFigure({
     )
   }
 
+  if (variant === 'partition') {
+    return (
+      <span className={`${track} flex gap-[2px]`} data-testid={testId} {...a11y}>
+        {(segments ?? []).map((seg) => (
+          <span
+            key={seg.id}
+            className={`block h-full ${FILL.partition} first:rounded-l-full last:rounded-r-full`}
+            /* The same floor as a single fill: a sliver that was measured must
+               survive being stacked beside a runaway share. */
+            style={{
+              width: pct(seg.fraction),
+              ...(seg.fraction > 0 ? { minWidth: `${NON_ZERO_FLOOR_PX}px` } : {}),
+            }}
+            data-testid={`${testId}-segment`}
+          />
+        ))}
+      </span>
+    )
+  }
+
   return (
     <span className={track} data-testid={testId} {...a11y}>
       {fraction != null ? (
         <span
-          className={`block h-full ${FIGURE_RADIUS} ${FILL[variant]}`}
+          className={`block h-full ${FIGURE_RADIUS} ${TONE[tone] ?? FILL[variant]}`}
           /* Rule 1: floor a measured non-zero, never a genuine zero. */
           style={{
             width: pct(fraction),

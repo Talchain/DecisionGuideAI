@@ -604,18 +604,11 @@ export function OptionsComparison({
           and still a clear break between the bar and the rows it partitions. */}
       {mayDrawMagnitude && partition !== null ? (
         <div className="mb-2" data-testid={`${testId}-partition`}>
-          <span
-            className="flex h-2 w-full gap-[2px] rounded-full overflow-hidden bg-panel-hover"
-            aria-hidden="true"
-          >
-            {partition.map((p) => (
-              <span
-                key={p.id}
-                className="block h-full bg-info first:rounded-l-full last:rounded-r-full"
-                style={{ width: `${p.fraction * 100}%`, ...(p.fraction > 0 ? { minWidth: '2px' } : {}) }}
-              />
-            ))}
-          </span>
+          <PanelFigure
+            variant="partition"
+            segments={partition}
+            testId={`${testId}-partition-bar`}
+          />
           <p
             className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
             data-testid={`${testId}-partition-caption`}

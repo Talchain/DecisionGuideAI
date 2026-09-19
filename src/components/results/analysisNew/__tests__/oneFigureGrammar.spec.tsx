@@ -34,6 +34,8 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import fs from 'node:fs'
+import path from 'node:path'
 
 import {
   PanelFigure,
@@ -42,6 +44,8 @@ import {
   FIGURE_RADIUS,
   type FigureVariant,
 } from '../PanelFigure'
+
+const PANEL_DIR = path.resolve(__dirname, '..')
 
 afterEach(() => cleanup())
 
@@ -141,5 +145,51 @@ describe('rule 3 — geometry is grammar and does not vary', () => {
     render(<PanelFigure variant="share" fraction={0.5} testId="b" label="Ahead of the others, 50%" />)
     expect(screen.getByTestId('b')).toHaveAttribute('role', 'img')
     expect(screen.getByTestId('b')).toHaveAttribute('aria-label', 'Ahead of the others, 50%')
+  })
+})
+
+/**
+ * ⭐ THE CENSUS ARM — the one that stops a SIXTH grammar arriving.
+ *
+ * Every rule above tests the component. None of them notices a call site that
+ * simply does not use it, which is exactly how five treatments accumulated
+ * under a ruling that already forbade them.
+ *
+ * ⚠ AND THE SCOPE IS THE WHOLE PANEL, NOT `sections/`. My first census swept
+ * `sections/` and reported five figures. Re-run across all of `analysisNew`
+ * after the first adoptions, it found a SIXTH in `DisclosureRow.tsx` — one
+ * directory up. **A census scoped to a directory answers "which figures are in
+ * sections?" and not "which figures does the panel draw", silently.**
+ */
+describe('the census — no seventh grammar', () => {
+  it('⛔ no file hand-rolls a figure track outside the component', () => {
+    const TRACK = /className="[^"]*\bh-(?:1|1\.5|2|2\.5|3)\b[^"]*(?:rounded-full|bg-panel-hover)[^"]*"/g
+    const offenders: string[] = []
+    let seen = 0
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir)) {
+        if (entry === '__tests__' || entry === 'prototype') continue
+        const full = path.join(dir, entry)
+        if (fs.statSync(full).isDirectory()) walk(full)
+        else if (/\.tsx$/.test(full) && !/\.(spec|test)\./.test(full)) {
+          const raw = fs.readFileSync(full, 'utf8')
+          const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+          seen += 1
+          const tracks = (code.match(TRACK) ?? []).filter((c) => c.includes('w-full') || c.includes('gap-'))
+          if (tracks.length === 0) continue
+          if (code.includes('PanelFigure') || raw.includes('@panel-figure-opt-out')) continue
+          offenders.push(path.relative(PANEL_DIR, full))
+        }
+      }
+    }
+    walk(PANEL_DIR)
+
+    // PRECONDITION: a walker that found nothing would satisfy this vacuously.
+    expect(seen, 'the census reached no panel sources').toBeGreaterThan(20)
+    expect(
+      offenders,
+      'a figure must use PanelFigure or declare `@panel-figure-opt-out <reason>`. ' +
+        'Five treatments accumulated under a ruling that already forbade them.',
+    ).toEqual([])
   })
 })
