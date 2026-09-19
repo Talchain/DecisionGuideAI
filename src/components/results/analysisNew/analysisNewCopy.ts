@@ -2060,6 +2060,63 @@ export const ANALYSIS_NEW_COPY = {
     preRunRunAction: 'Run the analysis',
     running: 'Analysis is running.',
     /**
+     * ⭐⭐ THE SENTENCE FOR A RUN THE CLIENT HAS STOPPED WAITING FOR.
+     *
+     * Witnessed (bundle `b3d5806d`, 19 Sep 2026): CEE started a run, committed
+     * its result 42s later, and suppressed the directive that would have
+     * delivered it. No later turn corrected `run_state`, so the wire said
+     * `running` for a run that had finished, with no bound on how long it would
+     * keep saying it. See `useAnalysisWaitExhausted.ts` for the full chain.
+     *
+     * ⚠ EVERY WORD IS TRUE UNDER ALL THREE POSSIBLE OUTCOMES, because the
+     * client cannot tell them apart. It knows only that it asked for the result
+     * until its own budget ran out and did not get one. So the subject of the
+     * sentence is THE RESULT ARRIVING, never the run finishing or failing:
+     * "has not reached this page" is observed, "failed" would be invented.
+     *
+     * ⚠ AND IT IS NOT A `stale` TWIN. Staleness is a property of a DISPLAYED
+     * run; there is nothing displayed here. Naming them apart is the same
+     * ruling `stale` and `unconfirmed` already carry two entries below.
+     */
+    waitExhausted: 'This analysis has not reached this page.',
+    /**
+     * ⭐⭐⭐ WRITTEN AGAINST THE PREDICATE, NOT AGAINST THE RUN THAT PROMPTED IT
+     * — and the first draft was not, which is why this note exists.
+     *
+     * The flag this renders under is reachable by (at least) TWO outcomes of
+     * `runProvisionalDeliverySchedule`, and they are opposites:
+     *
+     *   `deadline`  nothing usable arrived inside the client's budget. The run
+     *               may still be going, or may have finished and not been sent.
+     *   `withheld`  a terminal verdict DID arrive and was declined, because it
+     *               describes a graph the user has since changed. The applier's
+     *               own words: "A divergent read writes NOTHING: no verdict, no
+     *               results" — so `run_state` stays `running` on this path too,
+     *               and the panel reaches exactly the same state.
+     *
+     * The first draft read "It may have finished without being sent back",
+     * which is TRUE of `deadline` and FALSE of `withheld` — there it was sent
+     * back and refused. CLAUDE.md trap 13d in one sentence: an invariant
+     * written with the same shape as the failure mode in hand.
+     *
+     * ⭐ So the line asserts only what holds on BOTH: this client has stopped
+     * waiting, and a fresh run is the way to get an answer about the model as
+     * it stands now. On `withheld` that is not a consolation — it is precisely
+     * the right remedy, because divergence is what made the answer unusable.
+     *
+     * ⚠ AND IT STAYS TRUE IF A THIRD OUTCOME REACHES HERE (`unreadable`,
+     * `aborted`). Five of the six outcomes are silent by design today; copy
+     * keyed on the flag must survive the ones not yet enumerated.
+     *
+     * ⚠ THE REMEDY IS THE OPPOSITE OF #1759's, FOR THE SAME REASON BOTH ARE
+     * RIGHT. Where a leading option is WITHHELD, re-running hits the same gate
+     * and the panel offers "Review or set an estimate" instead. Here no result
+     * has been applied at all, so running again is the one act that can change
+     * it. Two causes, two acts.
+     */
+    waitExhaustedWhy:
+      'Olumi has stopped waiting for it. Running the analysis again is the surest way to get a result that matches your model as it stands now.',
+    /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is
      * the user's best available context and the Rerun control sits in the
      * shell's footer bar. Overstating this would make the honest thing to do
