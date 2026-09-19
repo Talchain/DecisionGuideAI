@@ -6,6 +6,26 @@
  * must not silently become an exact number attributed to the user. Clicking a
  * button preserves the current direction sign. The active band is highlighted.
  *
+ * ⚠ THE DISCLOSURE MOVED CHANNEL, IT DID NOT GO AWAY (19 Sep 2026). The face
+ * used to carry the raw midpoint in mono 9px directly beneath the word — so the
+ * pill read *"Slight 0.10"*, printing a model-internal float next to the very
+ * word that exists to replace it. That is progressive disclosure inverted, and
+ * it is the founder's complaint verbatim. The figure now rides the button's
+ * `title` and its `aria-label`, which are built from ONE string below so they
+ * cannot drift apart; the face carries the word alone.
+ *
+ * ⛔ AND IT IS DELIBERATELY *NOT* BEHIND `techMode`, THOUGH THAT IS THIS
+ * SUBTREE'S USUAL DISCLOSURE GATE. `useTechToggle` defaults technical detail
+ * OFF, so gating the midpoint behind it would make the midpoint ABSENT for
+ * every default user — and the paragraph above is a promise that it never is,
+ * because THESE BUTTONS WRITE IT AND STAMP IT AS THE USER'S OWN STATED
+ * STRENGTH. "Is the face cluttered for a newcomer?" and "does the clicker know
+ * what they are about to author?" are two different questions; they are named
+ * apart here rather than reconciled by moving a default (CLAUDE.md trap 21).
+ * `title` answers the first without conceding the second. Gating this figure —
+ * on `techMode` or anything else — reopens the consent defect the `unset` prop
+ * below exists to refuse, one channel along.
+ *
  * ⚠ THE BANDS ARE IMPORTED, NOT RESTATED (18 Sep 2026). This file used to carry
  * its own `BANDS` array under the comment *"Thresholds align with
  * inspectorStrings.ts getStrengthLabel()"* — four labels, four cuts and four
@@ -77,12 +97,17 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
       {CANVAS_STRENGTH_BANDS.map((band, i) => {
         // `unset` wins over any derived band — see the prop's note.
         const isActive = !unset && activeBandIndex === i
+        // ONE string, both channels. The hover channel and the screen-reader
+        // channel state the same consequence by construction, so neither can
+        // quietly stop disclosing what the other still promises.
+        const disclosure = `${band.label}: set strength to ${band.midpoint.toFixed(2)}`
         return (
           <button
             key={band.label}
             type="button"
             onClick={() => handleClick(band.midpoint)}
-            aria-label={`${band.label}: set strength to ${band.midpoint.toFixed(2)}`}
+            aria-label={disclosure}
+            title={disclosure}
             className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
               ${isActive
                 ? 'border-primary text-primary'
@@ -92,7 +117,6 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             data-testid={`strength-band-${band.label.toLowerCase().replace(/\s+/g, '-')}`}
           >
             <span>{band.label}</span>
-            <span className="font-mono text-[9px] opacity-75">{band.midpoint.toFixed(2)}</span>
           </button>
         )
       })}
