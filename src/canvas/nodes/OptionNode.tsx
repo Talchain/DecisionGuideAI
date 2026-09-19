@@ -13,7 +13,7 @@ import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN, optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../utils/nodeLayoutConstants'
 import {
@@ -450,7 +450,12 @@ export const OptionNode = memo((props: NodeProps) => {
   // rendered on the canvas node so it matches the Analysis panel's "Option N"
   // chip. Subscribed (not the outside-React snapshot) so it re-renders when the
   // numbering registers. undefined until analysis registers this option.
-  const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
+  /* `optionNumbering` is still maintained in the store and still available to any
+     surface that needs a stable per-option handle. The CARD no longer subscribes
+     to it: the only consumer here was the order-of-creation badge, removed below
+     per the design system's "no chip carries a bare number" rule. Dropping the
+     selector with the render keeps the subscription honest — a card that reads a
+     slice it never displays re-renders for nothing. */
   const isPostAnalysis = resultsStatus === 'complete'
   // The same composed authority as the panels, never a node-local hash.
   // Keep the previous result visible, but distinguish changed from unknown.
@@ -1831,53 +1836,37 @@ export const OptionNode = memo((props: NodeProps) => {
             )}
           </>
         ) : undefined}
-        headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
+        headerSlot={scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
-            {stableOptionNumber != null && (
-              <span
-                data-testid={`option-stable-number-${props.id}`}
-                /* ⚠ WAS `Option N`, WHICH READS AS A RANK. Two numbering
-                   systems share this canvas — `#1/#2/#3` on factors IS an
-                   ordering (by sensitivity), and this one is NOT. A bare
-                   "Option 3" is indistinguishable from the ranking badge to
-                   anyone using a screen reader, and that is the confusion the
-                   legend exists to prevent.
+            {/* ⭐⭐⭐ THE ORDER-OF-CREATION BADGE IS GONE, BY THE DESIGN'S OWN RULING.
+                 It rendered a bare `{stableOptionNumber}` — "the order the options
+                 were first laid out in" — as a numeral in the card header.
 
-                   Wording DERIVED from the legend's own gloss
-                   (`metricVocabulary.ts:373`) rather than written afresh, so the
-                   two cannot drift into saying different things about the same
-                   badge.
+                 ⛔ AND IT WAS ACTIVELY MISLEADING ON A REAL BOARD. On the founder's
+                 19 Sep staging run the badges read `1` on the option supported at
+                 <1% and `2` on the option supported at 67%. A lone number beside
+                 competing options reads as a rank, and here it CONTRADICTED the
+                 support figures printed on the same cards.
 
-                   ⚠⚠ THE SENTENCE ABOVE WAS FALSE WHEN IT WAS WRITTEN, AND IS
-                   KEPT RATHER THAN OVERWRITTEN BECAUSE IT IS THE RECORD OF HOW
-                   THIS SHIPPED. There was no import: the `aria-label` was a
-                   template literal that merely REPEATED the legend's wording,
-                   and this comment asserted the derivation that would have made
-                   that safe. A claim in a comment is not a coupling — it is the
-                   hand-maintained mirror this estate keeps paying for
-                   (CLAUDE.md trap 12), wearing the language of the fix.
+                 The node design system rules it out by name, and anticipates the
+                 defence I nearly shipped instead:
 
-                   Nothing could have caught it: `ORDINAL_ROW_MUST_STATE_MINT`
-                   is applied only to `row.gloss`, so a legend rewrite would
-                   keep the mint guard green, leave this badge on the old
-                   words, and tell a screen-reader user something different
-                   from what a sighted reader sees in the popover.
+                   "No chip carries a bare number. An order-of-creation index is
+                    NOT SHOWN AT ALL, because a lone '#3' beside a card reads as
+                    third place HOWEVER THE TOOLTIP IS WORDED."
 
-                   ⭐ IT IS TRUE NOW, AND BY IMPORT: the name comes from
-                   `optionOrdinalBadgeAccessibleName`, which is built from
-                   `ORDINAL_MINT_CLAUSE` — the same constant the legend row is
-                   built from. Two guards hold it, and they are not redundant:
-                   `metricVocabulary.spec.ts` asserts the builder's output
-                   carries the legend row's own clause (agreement), and the
-                   render specs assert THIS element's accessible name equals
-                   the builder's output (so re-inlining a literal here REDs).
-                   The rendered string is unchanged. */
-                aria-label={optionOrdinalBadgeAccessibleName(stableOptionNumber)}
-                className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
-              >
-                {stableOptionNumber}
-              </span>
-            )}
+                 That last clause is the load-bearing one. The element carried a
+                 correct `aria-label` — "Option 2 — the order the options were first
+                 laid out in, not a ranking" — so a screen-reader user was told the
+                 truth and a sighted reader was not. Adding a visible word was the
+                 obvious repair and the design refuses it too: the option's NAME is
+                 the handle a team refers to, and the kind is already carried by the
+                 glyph and the lane, so "Option 2" would spend header words on both
+                 a redundancy and an ambiguity.
+
+                 ⚠ `optionNumbering` is untouched in the store. This removes one
+                 RENDER, not the numbering — anything that needs a stable per-option
+                 handle still has it. */}
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
             ))}
