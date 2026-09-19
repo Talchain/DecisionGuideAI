@@ -1468,6 +1468,33 @@ export const ANALYSIS_NEW_COPY = {
       'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
     notEncodable: 'That target could not be applied, so nothing changed.',
     /**
+     * ⭐⭐⭐ A FIFTH OUTCOME, AND IT IS THE ONE PAUL ACTUALLY HIT.
+     *
+     * ⛔ WITNESSED 19 Sep 2026. The panel's own Strengthen row says "No
+     * measurable success target is set" and offers "Define success". Paul did
+     * exactly that and typed `1.3 million` — the figure from his own brief, in
+     * the words his brief used. `statedTargetNumber` is an anchored numeric
+     * literal predicate and does not read magnitude words, so it returned null
+     * and the whole answer was "That target could not be applied, so nothing
+     * changed."
+     *
+     * **The product asked for an input, the user supplied it, and it was
+     * refused without saying what was wrong with it.** That is the worst
+     * interaction available on this surface: it punishes the one act we most
+     * want.
+     *
+     * ⚠ THE PARSER IS NOT WIDENED HERE, DELIBERATELY. A magnitude alphabet is
+     * a known hazard in this estate — the canonical map was missing `thousand`
+     * while every derived guard agreed with it (CLAUDE.md trap 12d) — and it
+     * has an owner. Naming the cause is the bounded correction; teaching the
+     * parser to read "1.3 million" is a separate, larger piece of work.
+     *
+     * ⚠ SAYS WHAT TO TYPE, and shows it. A refusal that names a format without
+     * demonstrating it makes the reader guess twice.
+     */
+    notANumber:
+      'I could not read that as a number. Type the figure in digits, like 1300000, and put the unit in the box beside it.',
+    /**
      * ⭐⭐ NAMES THE CAUSE AND THE MOVE, because this is the one refusal a
      * reader can act on. `notEncodable` above covers three causes at once — no
      * unit, a target at or below zero, a scenario that moved — and a reader met
