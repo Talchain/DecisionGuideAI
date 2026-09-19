@@ -104,13 +104,41 @@
  *    mouse hover alone.
  *
  * So the act here is `focusModelTarget` — the fail-closed panel→canvas primitive
- * the shipped Strengthen panel and `ModelStrip` already use, whose behaviour
- * ("centre this option in the model") is what the row's `aria-label` states.
- * ⛔ `openNodeInspector` was considered and rejected on evidence: `InspectorRouter`
- * wraps every panel in an unconditional `<fieldset disabled>`, and this estate has
- * ALREADY re-pointed one act away from it for exactly that reason
- * (`TriageActionCardsBody.tsx:278-305`). Honouring the old tab's literal wording
- * would have imported a promise the destination cannot keep.
+ * the shipped Strengthen panel and `ModelStrip` already use — AND
+ * `openNodeInspector`, which is the half this section refused to wire.
+ *
+ * ⭐⭐ THE REFUSAL RESTED ON A PREMISE THAT IS NO LONGER TRUE, AND WHAT IT COST
+ * WAS A WORKING AFFORDANCE. This paragraph used to read: "`openNodeInspector` was
+ * considered and rejected on evidence: `InspectorRouter` wraps every panel in an
+ * unconditional `<fieldset disabled>`". Re-derived at the tip rather than
+ * inherited:
+ *
+ *  · The wrap is CONDITIONAL. `InspectorRouter.tsx:441` declares
+ *    `AUTHORITY_OWNING_PANELS = new Set(['option','factor-controllable','factor-external'])`
+ *    and `:541-551` renders `panelOwnsAuthority ? <PanelComponent readOnly />`
+ *    against the fence. Six node panels are still wrapped; three are not, and
+ *    the edge branch early-returns at `:192` with no blanket fence at all.
+ *  · `'option'` is IN that set — and every row here resolves to exactly that
+ *    panel type, because every row id is a canvas option node id by
+ *    construction (`useResultsSectionData.ts:1726`, `:1783`).
+ *  · What the unfenced panel gives a reader is what a comparison row cannot:
+ *    the intervention rows, the connection rows, the coaching card and the
+ *    "Add a change" trigger, all live. `OptionPanel.readOnlyFence.spec.tsx`
+ *    pins that as a PAIR — every writer fenced, every non-writer reachable —
+ *    so the panel cannot satisfy it by fencing everything or nothing.
+ *
+ * So the old tab's literal wording is now a promise the destination CAN keep,
+ * and the row makes it: the camera settles on the option and its panel opens
+ * onto it. The `aria-label` names BOTH halves, because a control whose name
+ * covers one of its two effects is this same defect one size down.
+ *
+ * ⚠ THE SIBLING RE-POINT IS NOT REVERSED BY THIS, and citing it as though it
+ * were would repeat the inherited-premise error in the other direction.
+ * `TriageActionCardsBody`'s act is a FACTOR VALUE EDIT and its destination is
+ * the Model tab; that decision stands on grounds its own comment never gave (it
+ * must serve `factor-observable`, which is still fenced), and only its stated
+ * reason was wrong. Two surfaces, two questions — CLAUDE.md trap 21. Do not
+ * align them.
  *
  * ⚠ AND THE AFFORDANCE IS NOT NARRATED. No hint line was added: the dock floor is
  * 280px, and a sentence telling the reader what hovering does is one more thing to
@@ -123,6 +151,7 @@ import { Scale, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { openNodeInspector } from '../../../../canvas/nodes/shared/openNodeInspector'
 import { clearHighlight, highlightNode } from '../../../../canvas/utils/highlightHelpers'
 import {
   BRING_INTO_COMPARISON_LABEL,
@@ -266,7 +295,24 @@ export function OptionsComparison({
    */
   const activate = useCallback(
     (optionId: string) => {
-      if (!focusModelTarget(optionId)) showToast(COPY.canvas.focusFailed)
+      if (!focusModelTarget(optionId)) {
+        showToast(COPY.canvas.focusFailed)
+        return
+      }
+      /*
+       * ⭐ THE PANEL, RAISED ONTO A SETTLED SELECTION — the ordering is
+       * `openNodeInspector`'s own stated rule and it holds across this seam too.
+       *
+       * ⚠ ITS RETURN IS NOT DISCARDED CARELESSLY, which the paragraph above
+       * rightly bans. It is fail-closed on the SAME question the line above just
+       * answered: `focusModelTarget`'s first branch is
+       * `nodes.some(n => n.id === targetId)` and `openNodeInspector`'s guard is
+       * that identical predicate, so a second notice here could only fire on a
+       * divergence the resolver cannot produce for these ids — an option row's
+       * id is a canvas option node id by construction. One act, one notice; two
+       * notices for one stale click would be the louder defect.
+       */
+      openNodeInspector(optionId)
     },
     [showToast],
   )

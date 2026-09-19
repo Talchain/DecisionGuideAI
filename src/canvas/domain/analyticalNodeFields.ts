@@ -146,10 +146,21 @@ export const NODE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
     //    and CEE's own graph contract declares it — `schemas/cee-v3.ts:184-185`,
     //    "ISL needs prior ranges to run Monte Carlo sampling on external factors."
     //  · It called the field "user-editable in isolation on the live path ...
-    //    routed live via InspectorRouter". That is now false: `InspectorRouter`
-    //    wraps every panel in an unconditional `<fieldset disabled>`
-    //    (InspectorRouter.tsx:334-340), and that fieldset is the whole
-    //    enforcement.
+    //    routed live via InspectorRouter".
+    //    ⚠⚠ THE CORRECTION THAT REPLACED IT HAS ITSELF GONE STALE, AND IT IS
+    //    CONTRADICTED BY THE `note` TWO LINES BELOW — which is the string a
+    //    consumer actually reads, and which already says the field IS editable.
+    //    The stale text said: "That is now false: `InspectorRouter` wraps every
+    //    panel in an unconditional `<fieldset disabled>` (InspectorRouter.tsx:334-340),
+    //    and that fieldset is the whole enforcement."
+    //    Re-derived at the tip: the wrap is CONDITIONAL. `InspectorRouter.tsx:441`
+    //    holds `AUTHORITY_OWNING_PANELS` = option, factor-controllable,
+    //    factor-external, and `:541-551` renders `readOnly` for those instead of
+    //    the fence. `prior` is an EXTERNAL-factor field, so its panel is one of
+    //    the exempt three and `setPriorRange` is reachable. The cited line range
+    //    `:334-340` now points at unrelated code inside the edge branch.
+    //    The ORIGINAL sentence was therefore closer to right than the correction
+    //    that overwrote it — a correction written when true, never re-derived.
     //    ⚠ A second clause here cited `NODE_SETTER_AUTHORITY.setPriorRange:
     //    'disabled'` (useInspectorMutations.ts:127) as a corroborating
     //    authority. That manifest was DELETED on 26 Aug 2026 (PR #886) as an

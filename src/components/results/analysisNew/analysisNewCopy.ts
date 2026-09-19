@@ -922,17 +922,29 @@ export const ANALYSIS_NEW_COPY = {
    */
   canvas: {
     /**
-     * What activating an option row does, per row, with the option NAMED.
+     * What activating an option row does, per row, with the option NAMED —
+     * BOTH halves of it, because the row now performs both.
      *
-     * ⚠ "Show … on the canvas" — NOT "open the inspector", which is what the
-     * old tab's tooltip promises. That promise is not kept anywhere: the click
-     * handler it sits beside toggles a graph LENS (`OptionCards.tsx:1444`
-     * → `handleLensClick`), and the estate's actual inspector helper
-     * (`openNodeInspector`) is not on that path — `OptionCards.tsx:1084-1098`
-     * says so in its own comment. Copying the sentence across would have
-     * imported a false promise into a second surface.
+     * ⚠ THIS SENTENCE USED TO STOP AT "Show … on the canvas", on the ground
+     * that "open the inspector" was a promise nothing kept. ONE HALF OF THAT IS
+     * STILL TRUE and is kept: the OLD TAB's tooltip sits beside a handler that
+     * toggles a graph LENS (`OptionCards.tsx:1444` → `handleLensClick`), not
+     * the inspector, so that surface still promises what it does not do.
+     *
+     * The other half — that the inspector could not serve an option AT ALL —
+     * rested on `InspectorRouter`'s blanket `<fieldset disabled>`, and that wrap
+     * is CONDITIONAL at the tip: `:441` exempts `option`, `factor-controllable`
+     * and `factor-external`, and `:541-551` chooses `readOnly` over the fence
+     * for them. An option's panel is operable, so this surface opens it and the
+     * name says so.
+     *
+     * ⛔ KEEP BOTH CLAUSES TRUE OR CHANGE THE HANDLER. `OptionsComparison`'s
+     * `activate` focuses AND raises the panel; a name covering one of two
+     * effects is the defect this constant was extracted to prevent, and
+     * `optionsComparisonOperable.spec.tsx` asserts the name BY CALLING THIS
+     * FUNCTION, so a reword moves the spec with it rather than past it.
      */
-    focusOption: (label: string) => `Show ${label} on the canvas`,
+    focusOption: (label: string) => `Show ${label} on the canvas and open its details`,
     /**
      * Fail-closed notice when the option's node is no longer on the canvas —
      * a recovered session with different ids, or a node deleted between render

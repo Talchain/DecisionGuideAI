@@ -157,17 +157,38 @@ export function assumedStrengthOthers(assumedFragileCount: number): string | nul
  */
 /**
  * ⭐ "ASK OLUMI TO", NOT "SET". The button used to read "Set this strength" and
- * pointed at `openEdgeStrengthEditor` -> the Inspector, which is read-only
- * because `InspectorRouter` wraps every panel in an unconditional
- * `<fieldset disabled>`, and whose own mounted copy says it "cannot yet be
- * saved to the shared model". (This cited the `EDGE_SETTER_AUTHORITY` manifest
- * in `inspector-v2/useInspectorMutations.ts`; deleted 27 Aug 2026, PR #886 —
- * zero code consumers. The reason the button was re-pointed is unchanged.)
- * So the product's MOST PROMINENT intervention — zero clicks, panel top level,
- * carrying the most specific sentence Olumi produces — terminated in nothing.
+ * pointed at `openEdgeStrengthEditor` -> the Inspector.
  *
- * There is no user-facing edge editor to route to; there is no v2 edge surface.
- * But OLUMI can change an edge: `update_edge` is a first-class op in the
+ * ⚠⚠ THE RECORDED REASON WAS "the Inspector … is read-only because
+ * `InspectorRouter` wraps every panel in an unconditional `<fieldset disabled>`".
+ * THAT IS FALSE AT THE TIP, and for the EDGE panel it is false twice over:
+ * `InspectorRouter.tsx:192` early-returns the edge branch, which carries NO
+ * blanket fence — `:300-313` records the removal in its own words — and the
+ * node branch's fence at `:541-551` is conditional on `AUTHORITY_OWNING_PANELS`
+ * (`:441`). `EdgePanel` self-fences instead, per edge.
+ * (The paragraph also cited the `EDGE_SETTER_AUTHORITY` manifest in
+ * `inspector-v2/useInspectorMutations.ts`; deleted 27 Aug 2026, PR #886 — zero
+ * code consumers, so it recorded a verdict rather than making one.)
+ *
+ * ⭐ THE WORDING STANDS ANYWAY, ON THE PREDICATE THAT ACTUALLY DECIDES IT.
+ * `EdgePanel.tsx:699` disables the strength control on `!strengthReachesTheModel`
+ * — `edgeStrengthEditIsAssertable(edge)`, which asks
+ * `buildEdgeStrengthEditEvent` whether an `edge_strength_edit` could be built at
+ * all, and answers NO for an edge with no server-stated `expected` tuple. That
+ * is precisely the `'missing'` half of this module's own population
+ * (`selectAssumedStrengthToResolve`: `valueSource === null` — an AI-drawn edge
+ * still carrying a default). For those edges there is still nothing to route to,
+ * and "Set" would still be a promise the product cannot keep.
+ *
+ * ⚠ WHAT IS NOW GENUINELY OPEN, STATED RATHER THAN BURIED: for the
+ * `'ai_inferred'` half (`valueSource === 'cee'`, a producer-supplied weight) the
+ * strength control IS reachable, so a DIRECT route exists for part of this
+ * population where none existed before. Routing the card there would mean one
+ * surface with two destinations chosen by a predicate the copy would also have
+ * to explain — a design decision with its own blast radius, not a comment fix,
+ * and deliberately NOT taken here. The ask serves both halves with one sentence.
+ *
+ * OLUMI can change an edge either way: `update_edge` is a first-class op in the
  * model-facing tool schema and CEE applies it through the canonical commit path.
  * So the honest act is to ask, and the wording says exactly that. It promises
  * the ASK, never the outcome — a single live trial proved the router elects this
