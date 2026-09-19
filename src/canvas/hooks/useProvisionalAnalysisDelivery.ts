@@ -101,6 +101,7 @@
  */
 
 import { useEffect, useRef } from 'react'
+import { recordDeliveryArmed, recordDeliverySettled } from './provisionalDeliveryRecord'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
@@ -555,6 +556,11 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
     if (scenarioId === null || runKey === null) return
     if (armedRef.current === runKey) return
     armedRef.current = runKey
+    // ⭐ OBSERVABLE, NOT INFERRED. The outcome below goes to `logger.debug`,
+    // which `drop_console` removes from the production bundle entirely — so on
+    // a deployed build there was NO record that this schedule ever armed, and a
+    // delivery failure could only be reasoned about from what the SERVER said.
+    recordDeliveryArmed(runKey)
 
     const controller = new AbortController()
     let settled = false
@@ -577,6 +583,7 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
         wait: waitFor,
       })
       settled = true
+      recordDeliverySettled(runKey, String(outcome))
       logger.debug('provisional_analysis_delivery.outcome', { scenarioId, outcome })
     })()
 
