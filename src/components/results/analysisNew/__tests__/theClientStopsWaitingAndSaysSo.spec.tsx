@@ -311,6 +311,46 @@ describe('once the client has stopped waiting, the panel stops claiming a run', 
   })
 })
 
+describe('A LIVE LOCAL RUN OUTRANKS ANY RECORD ABOUT AN EARLIER ONE', () => {
+  /**
+   * ⛔⛔ THE REGRESSION AN INDEPENDENT SEAT FOUND BEFORE MERGE, and it is the
+   * sharpest kind: the recovery affordance breaking the recovery.
+   *
+   * `trust.isRunning` is `localRunning || wireRunning`. An earlier cut
+   * subtracted the exhaustion from the COMBINED value, so:
+   *
+   *   old record settles `deadline` -> user presses the restored "Run the
+   *   analysis" -> `resultsAnalysing` sets `preparing` -> BUT the wire still
+   *   carries the old `started_at`, so the old record still matches and
+   *   exhaustion is still true -> the panel hides the cover for the run
+   *   dispatched one second ago and says it stopped waiting.
+   *
+   * The host now subtracts only the wire half (`provisionalWaitExhausted &&
+   * !isRunning`). This arm pins the BODY's half of that contract: given the
+   * props the host produces mid-retry, it must speak as a live run.
+   */
+  it('mid-retry, the panel reports the run and not the abandonment', () => {
+    // What the host passes once a local run is in flight: `analysisStillAwaited`
+    // is true because `isRunning` is, and `analysisWaitExhausted` is subtracted
+    // to false by the same local flag.
+    draw({ isBusy: true, waitExhausted: false })
+    expect(block()).toHaveTextContent(COPY.status.running)
+    expect(block()).not.toHaveTextContent(COPY.status.waitExhausted)
+    expect(busyAttr()).toBe('true')
+  })
+
+  /**
+   * ⭐ THE DEFENCE-IN-DEPTH TWIN. Even if a future host regressed and sent both,
+   * the body must not announce an abandoned run over a live one. Being wrong
+   * toward "still running" is recoverable; the inverse is what was witnessed.
+   */
+  it('and even a host that wrongly sends both still reports the run', () => {
+    draw({ isBusy: true, waitExhausted: true })
+    expect(block()).toHaveTextContent(COPY.status.running)
+    expect(block()).not.toHaveTextContent('This analysis has not reached this page.')
+  })
+})
+
 describe('a cold panel is not an abandoned run', () => {
   /**
    * ⚠ THE OPPOSITE-DIRECTION TWIN (trap 22b). Both a cold panel and an
