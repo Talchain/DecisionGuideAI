@@ -23,7 +23,9 @@ import {
 } from '../utils/interventionDisplay'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { NodeChip, BriefIcon, NodePopover, ScienceIcon } from './shared'
+import { BriefIcon, NodePopover, ScienceIcon } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import {
@@ -1198,107 +1200,30 @@ export const OptionNode = memo((props: NodeProps) => {
 
   // ----- Coaching chip cluster (shared between Standard popover and Detailed inline) -----
   // All option AI chips live here. Body never renders chips directly.
-  const optionChips = useMemo(() => {
-    const optionLabel = (props.data?.label as string) ?? 'this option'
-    if (isPostAnalysis) {
-      if (isBaselineOption) {
-        // Baseline chips already pre-existed inside layer2Content; keep them.
-        return (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why does this do better or worse on your goal?" message={`Why does the baseline (${optionLabel}) do better or worse against my goal than the other options?`} />
-            <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of staying with the baseline?" />
-          </div>
-        )
-      }
-      if (isRecommended) {
-        return (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            {/* ROADMAP 2.724 — CONTRASTIVE, not a verdict. This chip composes a
-                sentence that lands in the user's OWN transcript, so the old
-                "…to no longer be the best choice?" made the system put a
-                crowning claim in the user's mouth and then answer it. The
-                product recommends what to INVESTIGATE, never what to CHOOSE.
-                Asking about the ALTERNATIVE keeps the whole what_would_flip
-                question while presupposing nothing about the leader. Same
-                register as the sibling chips and `winnerChipCopy.ts`
-                (ROADMAP 1.223). */}
-            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to be better supported than ${optionLabel}?`} />
-            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why is this best supported?" message={`Why is ${optionLabel} better supported than the other options?`} />
-            {/* ⭐ THE COUNTER-CASE — the reasoning frontier's one door on the
-                leading option, and the moment a team is most likely to stop
-                looking.
-
-                ⚠ IT IS NOT A FOURTH WAY OF ASKING THE TWO ABOVE, and that is
-                the objection worth answering before adding a chip to a row that
-                already has two. Both existing chips are questions about the
-                MODEL'S ARITHMETIC: "what would need to change for another
-                option to be better supported" asks which inputs the computed
-                figure is sensitive to, and "why is this best supported" asks it to explain the
-                numbers it already produced. Both are answerable entirely from
-                what the model contains.
-
-                This one asks what the model might be MISSING — the conditions
-                under which the whole exercise points the wrong way. A
-                pre-mortem, not a sensitivity sweep. That is the distinction the
-                frontier exists on: everything else on this canvas helps a team
-                interrogate the model they built, and nothing helps them notice
-                what they never put in it. A sensitivity analysis cannot tell
-                you about a factor nobody entered.
-
-                ⚠ IT ASSERTS NOTHING, WHICH IS WHY IT NEEDS NO PRODUCER. "What
-                would have to be true for X to be the wrong choice" presupposes
-                neither that it IS the wrong choice nor that the model is
-                deficient. Compare the sibling comment above: that chip is
-                deliberately phrased about the ALTERNATIVE to avoid putting a
-                crowning claim in the user's mouth. This one names the leader
-                but makes no claim about it — the question is well-formed
-                whatever the answer turns out to be.
-
-                ⚠ THE LEADER ENTITLEMENT IS INHERITED, NOT RE-DERIVED. This sits
-                inside the `isRecommended` arm, which is
-                `verdict.hasLeadingOption && verdict.leaderId === props.id` AND
-                requires `winRate !== null`. So on a withheld turn, an exact tie,
-                or an option the producer could not compute, this chip does not
-                render — because the arm does not. Naming the leader in copy
-                while the product is not entitled to name one is precisely the
-                permission seam CLAUDE.md trap 21 records, and the defence is to
-                reuse the single authority rather than mint a second reader of
-                the same question three lines from the first. */}
-            <NodeChip chipId="option_counter_case" actionType={null} label="What would make this wrong?" message={`Set aside the numbers for a moment. What would have to be true for ${optionLabel} to be the wrong choice here — what could this model be missing?`} />
-          </div>
-        )
-      }
-      // Non-winner, non-baseline
-      if (displayMetadata.winRate !== null) {
-        return (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            {closeCallGapPp != null && (
-              <NodeChip
-                chipId="option_what_would_change_close_call"
-                actionType="what_would_flip"
-                label="What would change this?"
-                message={`What would need to be true for ${optionLabel} to be the better choice?`}
-              />
-            )}
-            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this better supported?" message={`What would need to change for ${optionLabel} to be better supported?`} />
-          </div>
-        )
-      }
-      return null
-    }
-    /* ⭐ PRE-ANALYSIS: THE ONE QUESTION MOVED TO THE CARD FACE, so this arm is
-       now empty by design rather than by omission. It returned a single chip —
-       `option_what_could_go_wrong` — which lived in the Standard popover and
-       was therefore reachable only by hovering. Measured on deployed
-       `79866c44`: 4 of 4 option cards asked nothing on their face.
-
-       ⛔ IT IS RETURNED FROM ONE PLACE, NOT TWO. #1591 rendered the factor's
-       question on the card while the popover still rendered the same chip on
-       the same card, and CI caught it with `getMultipleElementsFoundError`.
-       "Exactly once" is structural here for the same reason: `cardQuestion`
-       below is the only render site, and this arm renders nothing. */
-    return null
-  }, [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
+  // ⚠ ALL FOUR ARMS, THEIR PRECEDENCE AND BOTH `null` RETURNS now live in
+  // `resolveNodeCoaching`, unchanged: baseline is still tested before
+  // recommended (so a baseline that also leads gets baseline copy), the
+  // pre-analysis arm is still empty by design because its one question was
+  // promoted to the card face, and an option whose win rate the producer could
+  // not compute still asks no comparative question. The reasons are carried in
+  // the resolver's docblock.
+  const optionChips = useMemo(() => (
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({
+        kind: 'option',
+        surface: 'cluster',
+        state: {
+          isPostAnalysis,
+          isBaselineOption,
+          isRecommended,
+          winRateIsKnown: displayMetadata.winRate !== null,
+          closeCallGapIsSet: closeCallGapPp != null,
+        },
+        context: { label: (props.data?.label as string) ?? 'this option' },
+      })}
+    />
+  ), [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
 
   /**
    * ⭐⭐ THE QUESTION THE CARD ASKS ON ITS OWN FACE.
@@ -1324,15 +1249,24 @@ export const OptionNode = memo((props: NodeProps) => {
    * choose staying as we are" is a question about a choice nobody is proposing
    * to make; the baseline's own coaching is its status-quo ScienceIcon.
    */
-  const cardQuestion = useMemo(() => {
-    if (isPostAnalysis || isBaselineOption) return null
-    const optionLabel = (props.data?.label as string) ?? 'this option'
-    return {
-      id: 'option_what_could_go_wrong',
-      label: 'What could go wrong?',
-      message: `What could go wrong if we choose ${optionLabel}?`,
-    }
-  }, [isPostAnalysis, isBaselineOption, props.data])
+  // ⚠ Pre-analysis only, and the baseline still gets nothing — both preserved
+  // in the resolver with their reasons.
+  const cardQuestion = useMemo(
+    () =>
+      resolveNodeCoaching({
+        kind: 'option',
+        surface: 'card',
+        state: {
+          isPostAnalysis,
+          isBaselineOption,
+          isRecommended: false,
+          winRateIsKnown: true,
+          closeCallGapIsSet: false,
+        },
+        context: { label: (props.data?.label as string) ?? 'this option' },
+      }),
+    [isPostAnalysis, isBaselineOption, props.data],
+  )
 
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
@@ -2475,16 +2409,11 @@ export const OptionNode = memo((props: NodeProps) => {
             ⚠ It renders in BOTH views. The Detailed view's layer-2 carries the
             post-analysis chips, and `cardQuestion` is null there, so nothing
             doubles. */}
-        {cardQuestion && (
-          <div className="flex gap-1 flex-wrap mt-1.5" data-testid="option-card-question">
-            <NodeChip
-              chipId={cardQuestion.id}
-              actionType={null}
-              label={cardQuestion.label}
-              message={cardQuestion.message}
-            />
-          </div>
-        )}
+        <CoachingChipRow
+          className="flex gap-1 flex-wrap mt-1.5"
+          testId="option-card-question"
+          chips={cardQuestion}
+        />
 
         {/* Post-analysis coaching chips live in the popover (Standard) /
             Detailed inline layer-2. See `optionChips` useMemo above and the

@@ -32,6 +32,8 @@ import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
 import { METRIC_NOUN, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
@@ -533,42 +535,51 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * "Your options are too similar" would be a claim about the user's reasoning
    * and belongs to the producer.
    */
-  const exploreOptionsMessage =
-    `My model has ${optionCount} option${optionCount === 1 ? '' : 's'} so far.` +
-    ' What other options could answer this decision that I have not put on the board?'
-
+  // ⚠ The sentence itself now lives in the resolver, which composes it from
+  // `optionCount`. Counting only, never assessing — the pluralisation and the
+  // wording are unchanged.
   const preAnalysisCoachingChips = useMemo(() => (
-    <div className="flex items-center gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="decision_explore_more_options" actionType={null} label="Explore more options" message={exploreOptionsMessage} />
-      {!showRunAnalysis && (
-        <NodeChip chipId="decision_what_could_go_wrong" actionType={null} label="What could go wrong?" message="What could go wrong with this decision?" />
-      )}
-    </div>
-  ), [showRunAnalysis, exploreOptionsMessage])
+    <CoachingChipRow
+      className="flex items-center gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({
+        kind: 'decision',
+        surface: 'preAnalysis',
+        state: { showRunAnalysis },
+        context: { optionCount },
+      })}
+    />
+  ), [showRunAnalysis, optionCount])
 
   const postAnalysisCoachingChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
+    <>
       {/* ⭐⭐ THE QUESTION IS COMPARATIVE, BECAUSE THE ACTION IS.
-          `what_would_flip` asks what would change the ORDER of the options. The
-          sentence it sent asked what would make a different option "most likely
-          to hit my goal" — which fuses a comparative ranking with target
-          attainment, and those are two different questions with two different
-          answers. A model can rank first and still be unlikely to reach the
-          goal; the goal probability can move without any option changing place.
+      `what_would_flip` asks what would change the ORDER of the options. The
+      sentence it sent asked what would make a different option "most likely
+      to hit my goal" — which fuses a comparative ranking with target
+      attainment, and those are two different questions with two different
+      answers. A model can rank first and still be unlikely to reach the
+      goal; the goal probability can move without any option changing place.
 
-          ⚠ THIS IS THE CONFLATION PAUL HAS RULED ON REPEATEDLY, arriving through
-          a chat message rather than a badge — which is why repairing the visible
-          bar did not reach it. The typed route is unchanged and was never wrong;
-          only the natural-language question was, and it is the half that reaches
-          the model and comes back as an answer to a question nobody asked.
+      ⚠ THIS IS THE CONFLATION PAUL HAS RULED ON REPEATEDLY, arriving through
+      a chat message rather than a badge — which is why repairing the visible
+      bar did not reach it. The typed route is unchanged and was never wrong;
+      only the natural-language question was, and it is the half that reaches
+      the model and comes back as an answer to a question nobody asked.
 
-          ⚠ NO GOAL PREMISE AT ALL, deliberately. Asking "which assumptions could
-          change the comparison" needs no goal probability to be meaningful, so it
-          cannot smuggle the attainment claim back in through its own framing. */}
-      <NodeChip chipId="decision_challenge_result" actionType="what_would_flip" label="Challenge this result" message="Which assumptions could change the comparison between these options?" />
-      <NodeChip chipId="decision_compare_options" actionType="compare_options" label="Compare options" message="Compare the options side by side" />
-    </div>
-  ), [])
+      ⚠ NO GOAL PREMISE AT ALL, deliberately. Asking "which assumptions could
+      change the comparison" needs no goal probability to be meaningful, so it
+      cannot smuggle the attainment claim back in through its own framing. */}
+      <CoachingChipRow
+        className="flex gap-1 flex-wrap mt-1.5"
+        chips={resolveNodeCoaching({
+          kind: 'decision',
+          surface: 'postAnalysis',
+          state: { showRunAnalysis },
+          context: { optionCount },
+        })}
+      />
+    </>
+  ), [showRunAnalysis, optionCount])
 
   // Stability for post-analysis Detailed body and Standard popover.
   // Returns the underlying fraction (0-1) so the popover progress bar can use

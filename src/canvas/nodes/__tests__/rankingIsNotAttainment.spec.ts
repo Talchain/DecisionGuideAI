@@ -45,29 +45,54 @@
  * copy-only and the pairing lives in one JSX attribute set — not because
  * runtime observation is impossible.
  *
- * ⚠ SCOPE: `DecisionNode.tsx`, the `decision_challenge_result` chip, comments
- * stripped. It says nothing about any other chip, and deliberately so.
+ * ── ⚠⚠ RE-POINTED AT THE RESOLVER (this lane), AND IT CAUGHT ITSELF DOING IT ──
+ *
+ * This chip's authorship moved out of `DecisionNode.tsx` into
+ * `coaching/resolveNodeCoaching.ts` when the per-node coaching selectors were
+ * folded into one resolver. **This file failed LOUD rather than passing
+ * vacuously** — its precondition pin (below) reported *"no <NodeChip
+ * chipId=…> found — the assertions below are vacuous"*, which is precisely what
+ * a source scan whose subject has moved is supposed to do. It is recorded here
+ * because a guard that had NOT pinned its precondition would have gone green on
+ * an empty match and this property would have stopped being tested silently.
+ *
+ * ⭐ THE EXTRACTION IS NOW RUNTIME, AND THAT IS STRICTLY STRONGER. The property
+ * is unchanged — a comparative ACTION must ask a comparative QUESTION — but it
+ * is now read off the resolver's actual output rather than off a JSX attribute
+ * regex. This header already withdrew the claim that a `message` *"can only be
+ * tested in source"*; folding the authorship into a pure function is what makes
+ * acting on that withdrawal free. A regex over source could be defeated by a
+ * template literal or a renamed prop; calling the resolver cannot.
+ *
+ * ⚠ SCOPE: the `decision_challenge_result` chip as RESOLVED for a decision
+ * node's post-analysis surface. It says nothing about any other chip, and
+ * deliberately so.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { stripComments } from '../../../../tests/helpers/stripSourceComments'
+import { resolveNodeCoaching } from '../coaching/resolveNodeCoaching'
+import type { CoachingChip } from '../coaching/resolveNodeCoaching'
 
-const DECISION_NODE = path.resolve(__dirname, '../DecisionNode.tsx')
 const CHIP_ID = 'decision_challenge_result'
 
-/** The one chip's JSX, by id — never by position or by a phrase a sibling shares. */
-function challengeChip(): string {
-  const src = stripComments(readFileSync(DECISION_NODE, 'utf8'), 'DecisionNode.tsx')
-  const match = src.match(new RegExp(`<NodeChip[^>]*chipId="${CHIP_ID}"[^>]*/>`, 's'))
-  // PRECONDITION PINNED IN-TEST: a matcher that found nothing agrees with every
-  // other matcher that found nothing (trap 13).
-  expect(match, `no <NodeChip chipId="${CHIP_ID}"> found — the assertions below are vacuous`).not.toBeNull()
-  return match![0]
+/** The one chip, BY ID — never by position or by a phrase a sibling shares. */
+function challengeChip(): CoachingChip {
+  const resolved = resolveNodeCoaching({
+    kind: 'decision',
+    surface: 'postAnalysis',
+    state: { showRunAnalysis: false },
+    context: { optionCount: 3 },
+  })
+  // PRECONDITION PINNED IN-TEST: a lookup that found nothing agrees with every
+  // other lookup that found nothing (trap 13). This is the assertion that fired
+  // when the authorship moved, instead of the suite going quietly green.
+  expect(resolved, `the post-analysis decision surface resolved to null — the assertions below are vacuous`).not.toBeNull()
+  const match = resolved!.find(c => c.id === CHIP_ID)
+  expect(match, `no resolved chip with id "${CHIP_ID}" — the assertions below are vacuous`).toBeDefined()
+  return match!
 }
 
-const messageOf = (chip: string) => chip.match(/message="([^"]+)"/)?.[1] ?? ''
-const actionOf = (chip: string) => chip.match(/actionType="([^"]+)"/)?.[1] ?? ''
+const messageOf = (chip: CoachingChip) => chip.message
+const actionOf = (chip: CoachingChip) => chip.actionType
 
 /**
  * ⚠ A CORPUS, NAMED AS ONE. "Does this sentence import a goal-attainment
