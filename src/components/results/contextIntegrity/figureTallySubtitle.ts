@@ -115,8 +115,58 @@ const figures = (n: number): string => `figure${n === 1 ? '' : 's'}`
  */
 const FOUND = 'I found in your brief'
 
-export function figureTallySubtitle(tally: FigureTally | null): string {
-  if (tally === null) return "I can't show this yet"
+/**
+ * ⛔⛔ A MISSING TALLY IS NOT A MISSING BRIEF — AND THIS RETURNED THE SAME
+ * SENTENCE FOR BOTH.
+ *
+ * `tally === null` covers two states the section treats very differently:
+ *
+ *   · **no manifest at all** — CEE told us nothing. "I can't show this yet" is
+ *     exactly right, and the section's own header rules it: never an empty list
+ *     and never silence, because both read as "everything made it in".
+ *   · **a manifest that is NOT `derived`** — `status: 'unavailable'`, which the
+ *     adapter documents as *"CEE looked and could not"*. The manifest EXISTS.
+ *
+ * ⚠ IN THE SECOND STATE THE BRIEF IS ON SCREEN. The section returns null only
+ * when `briefText === null && manifest === null`, so with a brief present it
+ * renders the user's own words — **under a subtitle saying it cannot show them.**
+ * Witnessed in Paul's 19 Sep screenshots: *"What you gave me, and what I did
+ * with it — I can't show this yet"*, above the content.
+ *
+ * ⭐ SO THE CALLER NAMES WHICH ABSENCE IT HAS. The figures are what could not be
+ * counted; the brief is not in question, and the sentence must not put it in
+ * question. Two states under one sentence is trap 21 at copy grain.
+ */
+export type TallyAbsence =
+  /** CEE told us nothing at all. */
+  | 'no_manifest'
+  /** A manifest arrived and its quantities are not derived. */
+  | 'not_counted'
+
+/**
+ * ⚠ THE SECOND PARAMETER BREAKS POINT-FREE USE, AND CI CAUGHT IT.
+ *
+ * Three existing arms passed this function straight to `.map(...)`, where the
+ * array callback's second argument is `index: number` — not assignable to
+ * `TallyAbsence`. TS2345 x3. The call sites now wrap in an arrow, which is the
+ * honest repair: the signature genuinely takes two things now.
+ *
+ * Kept as a parameter rather than split into two exported functions because the
+ * ONE caller that matters asks one question — "what does this subtitle say?" —
+ * and a split would push a null-branch into the component, which is where this
+ * kind of branch has gone wrong before.
+ */
+export function figureTallySubtitle(
+  tally: FigureTally | null,
+  absence: TallyAbsence = 'no_manifest',
+): string {
+  if (tally === null) {
+    return absence === 'not_counted'
+      ? // ⚠ ABOUT THE FIGURES, NOT ABOUT THE SECTION. Naming the brief here —
+        // "I can't show this" — would contradict the brief rendered beneath it.
+        "I couldn't check the figures in your brief this time"
+      : "I can't show this yet"
+  }
 
   const notYet = tally.absent + tally.proseOnly
 

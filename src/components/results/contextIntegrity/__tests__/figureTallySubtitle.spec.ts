@@ -34,7 +34,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // Without this, a broken generator would leave every property below
     // passing over an empty or tiny set.
     expect(domain()).toHaveLength(CELLS)
-    expect(new Set(domain().map(figureTallySubtitle)).size).toBeGreaterThan(10)
+    expect(new Set(domain().map(t => figureTallySubtitle(t))).size).toBeGreaterThan(10)
   })
 
   it('a noun always agrees with the number immediately before it', () => {
@@ -149,7 +149,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // source and moves only who did the counting.
     const USER = /\byou (?:mentioned|gave|wrote|said|told|listed)\b/i
     const bad = domain()
-      .map(figureTallySubtitle)
+      .map(t => figureTallySubtitle(t))
       .filter(s => USER.test(s))
     expect([...new Set(bad)], `a count attributed to the user's own words:\n${bad.join('\n')}`).toEqual([])
   })
@@ -158,7 +158,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // The other half, and without it the property above is satisfied by
     // deleting the attribution entirely — a sentence made true by saying less.
     const bad = domain()
-      .map(figureTallySubtitle)
+      .map(t => figureTallySubtitle(t))
       .filter(s => /\d|^All |^None /.test(s) && !s.includes('I found in your brief'))
     expect([...new Set(bad)], `a count with no attribution:\n${bad.join('\n')}`).toEqual([])
   })
@@ -222,5 +222,63 @@ describe('figureTallySubtitle — the named states, by exact sentence', () => {
     ['no manifest at all', null, "I can't show this yet"],
   ])('%s', (_name, tally, expected) => {
     expect(figureTallySubtitle(tally as FigureTally | null)).toBe(expected)
+  })
+})
+
+/**
+ * ⛔⛔ A MISSING TALLY IS NOT A MISSING BRIEF.
+ *
+ * Witnessed in Paul's 19 Sep screenshots on staging `fd65f971`:
+ * *"What you gave me, and what I did with it — I can't show this yet"* — **above
+ * the brief it was rendering.**
+ *
+ * `tally === null` covers two states the section treats very differently:
+ * no manifest at all (CEE told us nothing), and a manifest that is not
+ * `derived` (`status: 'unavailable'` — *"CEE looked and could not"*). The
+ * section returns null only when `briefText === null && manifest === null`, so
+ * in the second state the user's own words are on screen under a sentence
+ * saying they cannot be shown.
+ */
+describe('a missing tally is not a missing brief', () => {
+  it('⛔ with a manifest that could not be counted, it does not claim the section is unavailable', () => {
+    const s = figureTallySubtitle(null, 'not_counted')
+    expect(s, 'the brief is rendered directly beneath this sentence').not.toBe(
+      "I can't show this yet",
+    )
+    // ⚠ The sentence must be about the FIGURES. "show" here is the word that
+    // made it read as a statement about the section.
+    expect(s.toLowerCase()).toContain('figures')
+  })
+
+  it('⛔ with NO manifest, the original sentence is unchanged — that state is correct', () => {
+    expect(
+      figureTallySubtitle(null, 'no_manifest'),
+      'CEE told us nothing, and the section header rules that this must be explicit',
+    ).toBe("I can't show this yet")
+  })
+
+  /**
+   * ⚠ THE DEFAULT IS THE STRICTER STATE. A caller that forgets to say which
+   * absence it has gets the sentence that claims LESS, never the one that
+   * quietly reassures.
+   */
+  it('defaults to the no-manifest sentence when the caller says nothing', () => {
+    expect(figureTallySubtitle(null)).toBe("I can't show this yet")
+  })
+
+  /**
+   * ⛔ THE DISCRIMINATOR. Without it, an implementation returning the same
+   * string for both absences would satisfy the "not unavailable" arm only by
+   * accident of wording.
+   */
+  it('⛔ the two absences produce DIFFERENT sentences', () => {
+    expect(figureTallySubtitle(null, 'not_counted')).not.toBe(
+      figureTallySubtitle(null, 'no_manifest'),
+    )
+  })
+
+  it('a real tally is unaffected by the new argument', () => {
+    const tally = { total: 2, inModel: 2, proseOnly: 0, absent: 0 }
+    expect(figureTallySubtitle(tally, 'not_counted')).toBe(figureTallySubtitle(tally))
   })
 })
