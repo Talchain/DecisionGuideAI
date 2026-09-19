@@ -151,6 +151,26 @@ export interface AnalysisNewTabBodyProps {
    * that has not been given the composed value, never a silent "not running".
    */
   isBusy?: boolean
+  /**
+   * ⭐⭐ THE CLIENT HAS STOPPED WAITING FOR THIS RUN — a DIFFERENT fact from
+   * `isBusy`, and the reason it is a third prop rather than a swap.
+   *
+   * `isBusy` reports what the producer last said. This reports what THIS CLIENT
+   * has done about it: its delivery schedule reached
+   * `PROVISIONAL_DELIVERY_DEADLINE_MS` and, in the hook's own words, "past this
+   * the hook stops and writes nothing". A surface cannot derive that from
+   * `isBusy` alone, because `isBusy`'s wire half never expires.
+   *
+   * ⚠ COMPUTED BY THE HOST, NOT HERE, AND THAT IS LOAD-BEARING. `OutputsDock`
+   * feeds the SAME value to `AnalysisRunStateCover` mounted directly above this
+   * body. Deriving it independently here would put two predicates on one
+   * question (trap 21) and let the cover keep shimmering a skeleton over a
+   * sentence saying nothing is coming.
+   *
+   * Absent = false: a caller that has not been given it keeps today's
+   * behaviour, never a silent "given up".
+   */
+  waitExhausted?: boolean
   /** The displayed report predates the current model. Freshness only. */
   isStale: boolean
   /**
@@ -616,6 +636,7 @@ export function AnalysisNewTabBody({
   isPreRun,
   isRunning,
   isBusy,
+  waitExhausted,
   isStale,
   staleReason = 'unconfirmed',
   nSamples,
@@ -677,7 +698,25 @@ export function AnalysisNewTabBody({
    * local one; swapping it would test a different run than the one that
    * produced the verdict. Two questions, two flags — see that comment.
    */
-  const isBusyNow = isBusy ?? isRunning
+  /**
+   * ⭐⭐ ONE EXPRESSION, EVERY READER — which is why the bound lives HERE and
+   * not beside the sentence it produces.
+   *
+   * Four things downstream ask "is a run in flight?": the `aria-busy` marker,
+   * the running sentence, the suppression of `WhyNoAnalysisYet`, and the
+   * suppression of the run affordance. Bounding only the sentence would leave a
+   * panel that says the analysis never arrived while still marked busy, with
+   * its explanation and its only way out both withheld — i.e. it would move the
+   * contradiction rather than close it.
+   *
+   * ⚠ THE REPORTED VALUE IS KEPT SEPARATELY, because the new sentence needs to
+   * distinguish "no run was ever asserted" from "a run was asserted and this
+   * client gave up on it". Collapsing them would make the exhausted state
+   * indistinguishable from a cold panel.
+   */
+  const isBusyReported = isBusy ?? isRunning
+  const runWaitExhausted = isBusyReported && waitExhausted === true
+  const isBusyNow = isBusyReported && !runWaitExhausted
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -1427,8 +1466,27 @@ export function AnalysisNewTabBody({
         {vm.status.isPreRun ? (
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
             <p className={`${typography.panelBody} text-text-body`}>
-              {isBusyNow ? COPY.status.running : COPY.status.preRun}
+              {isBusyNow
+                ? COPY.status.running
+                : runWaitExhausted
+                  ? COPY.status.waitExhausted
+                  : COPY.status.preRun}
             </p>
+            {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
+                "This analysis has not reached this page." on its own reads as a
+                fault the reader caused. This line says what the client actually
+                knows — that the run may well have completed somewhere it could
+                not be sent from — and names the one act that can change it.
+
+                ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
+                stays in every state and describes what the panel is FOR; this
+                describes what happened to one run, and only in the state where
+                something did. */}
+            {runWaitExhausted ? (
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {COPY.status.waitExhaustedWhy}
+              </p>
+            ) : null}
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
             {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
                 sentences above orient a reader who has not run one yet; neither
