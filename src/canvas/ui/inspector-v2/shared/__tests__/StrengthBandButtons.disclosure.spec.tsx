@@ -27,8 +27,9 @@
  * hover. These are assertions about DOM text, attributes, identity and counts
  * only.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { StrengthBandButtons } from '../StrengthBandButtons'
 import { CANVAS_STRENGTH_BANDS } from '../../../../domain/vocabulary'
 
@@ -205,5 +206,261 @@ describe('the identity-binding instrument itself discriminates', () => {
       </div>,
     )
     expect(() => bandButton(container, 'Strong')).toThrow()
+  })
+})
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐ THE PRE-WRITE DISCLOSURE (added 19 Sep 2026, answering a P1 review)
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * ⛔ THE TESTS ABOVE ARE NOT SUFFICIENT AND THE REVIEW WAS RIGHT TO SAY SO.
+ * Every assertion above reads an ATTRIBUTE. `title` is not a focus channel and
+ * it is not a touch channel, so *"the figure is disclosed"* was true of the DOM
+ * and false of the person: a sighted keyboard user could Tab to Strong and press
+ * Space having seen nothing, and a finger has no hover to disclose with. The
+ * requirement in the component header is about the user who is ABOUT TO COMMIT,
+ * by the route they are using — attribute presence does not satisfy it.
+ *
+ * ⭐ SO THE LOAD-BEARING PROPERTY HERE IS A STATE TRANSITION, NOT A PRESENCE.
+ * The reveal is driven by REACT STATE rather than by a Tailwind `group-hover:`
+ * variant, and that is a deliberate testability decision as much as a design
+ * one: jsdom applies no CSS, so a class-based reveal would put the figure in the
+ * DOM at rest and every "revealed on focus" assertion below would pass BEFORE
+ * the focus — the same vacuity one channel along (CLAUDE.md trap 13). The
+ * at-rest test is therefore paired with every reveal test on purpose: it is what
+ * proves the reveal test is measuring a change.
+ *
+ * ⚠ jsdom STILL CANNOT PROVE VISIBILITY, LAYOUT, PAINT OR TOOLTIP BEHAVIOUR.
+ * What is proven below: the consequence text is ABSENT from the DOM at rest,
+ * PRESENT after a real `Tab` has moved `document.activeElement` onto the button,
+ * PRESENT after a mouse enters, PRESENT at rest when the browser reports no
+ * hover channel, and byte-identical to the accessible name. What is NOT proven:
+ * that it is legible, correctly positioned, unclipped, or that it paints before
+ * the user acts. Those need a real browser.
+ */
+
+/** The one element that carries the revealed consequence, bound by identity. */
+function consequence(container: HTMLElement): Element {
+  const matches = container.querySelectorAll('[data-testid="strength-preset-consequence"]')
+  expect(
+    matches.length,
+    `identity binding is only sound if the consequence slot is unique — found ${matches.length}`,
+  ).toBe(1)
+  return matches[0]
+}
+
+/** Text of the consequence slot, normalised. Empty string when nothing is revealed. */
+function revealed(container: HTMLElement): string {
+  return (consequence(container).textContent ?? '').trim()
+}
+
+/**
+ * Tell the component whether a hover channel exists, the way a browser would.
+ *
+ * ⚠ THIS REWRITES A GLOBAL THAT NOTHING ELSE RESTORES. `tests/setup/rtl.ts`
+ * installs `window.matchMedia` ONCE, as a plain function precisely so vitest's
+ * `mockReset` cannot strip it — which also means `vi.clearAllMocks()` cannot put
+ * it back. Without the `afterEach` below, the first touch test would leave every
+ * later test in this file running on a touch device, and the CONTRAST CONTROL
+ * that follows it would fail for a reason that has nothing to do with the
+ * component. Restoring it is what keeps the two touch tests independent.
+ */
+function setHoverChannel(present: boolean): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches: present ? false : query.includes('hover: none'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => true,
+    }),
+  })
+}
+
+/** A touch device: no hover channel at all. */
+function withNoHoverChannel(): void {
+  setHoverChannel(false)
+}
+
+afterEach(() => {
+  setHoverChannel(true)
+})
+
+describe('StrengthBandButtons — a KEYBOARD user reaches the figure BEFORE committing', () => {
+  it('⭐ nothing is revealed at rest (so every reveal test below measures a change)', () => {
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    expect(
+      revealed(container),
+      'the consequence must be ABSENT at rest, or the focus assertions are vacuous',
+    ).toBe('')
+  })
+
+  it('⭐⭐ Tab to "Strong" discloses 0.55 with NO write — the P1 case, verbatim', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={onChange} />)
+
+    // A REAL keyboard route: three Tabs, and the assertion that focus landed
+    // where we think it did. `fireEvent.focus` would prove nothing about the
+    // tab order a keyboard user actually walks.
+    await user.tab()
+    await user.tab()
+    await user.tab()
+    const strong = bandButton(container, 'Strong')
+    expect(document.activeElement, 'Tab must reach the Strong pill').toBe(strong)
+
+    expect(
+      revealed(container),
+      'a sighted keyboard user must see the consequence before pressing Space',
+    ).toContain('0.55')
+    expect(onChange, 'focus must not write — this is the PRE-commit disclosure').not.toHaveBeenCalled()
+  })
+
+  it('⭐ the revealed string is BYTE-IDENTICAL to the accessible name (one source, three channels)', () => {
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    for (const band of CANVAS_STRENGTH_BANDS) {
+      const btn = bandButton(container, band.label)
+      fireEvent.focus(btn)
+      const name = btn.getAttribute('aria-label')
+      expect(name, `${band.label} must have an accessible name`).toBeTruthy()
+      expect(revealed(container), `${band.label} revealed text`).toBe(name)
+      expect(btn.getAttribute('title'), `${band.label} tooltip`).toBe(name)
+      fireEvent.blur(btn)
+    }
+  })
+
+  it('⭐ the reveal is bound to the FOCUSED band, not to any band (discriminating)', () => {
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    fireEvent.focus(bandButton(container, 'Slight'))
+    const onSlight = revealed(container)
+    expect(onSlight).toContain('0.10')
+    expect(
+      onSlight,
+      'focusing Slight must not disclose Strong’s midpoint — that would be a value-predicate binding',
+    ).not.toContain('0.55')
+  })
+
+  it('blur withdraws it, so the slot is not a one-way latch', () => {
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    const strong = bandButton(container, 'Strong')
+    fireEvent.focus(strong)
+    expect(revealed(container)).toContain('0.55')
+    fireEvent.blur(strong)
+    expect(revealed(container)).toBe('')
+  })
+
+  it('a MOUSE user gets the same disclosure on hover (WCAG 1.4.13 parity, both directions)', () => {
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    const strong = bandButton(container, 'Strong')
+    expect(revealed(container)).toBe('')
+    fireEvent.mouseEnter(strong)
+    expect(revealed(container)).toContain('0.55')
+    fireEvent.mouseLeave(strong)
+    expect(revealed(container)).toBe('')
+  })
+})
+
+describe('StrengthBandButtons — a TOUCH user reaches the figure BEFORE committing', () => {
+  /**
+   * A tap both focuses and activates, so on a device with no hover channel there
+   * is NO pre-commit interaction to hang a reveal on. The disclosure therefore
+   * has to be PRESENT — and it is present ONCE for the group rather than four
+   * times on four faces, which is what keeps the face word-only. This is the
+   * same reasoning `NodeQuickActions.tsx` records for its `(pointer: coarse)`
+   * arm being MANDATORY, and it detects the device the way `usePopoverHover.ts`
+   * does, with `matchMedia('(hover: none)')`.
+   */
+  it('⭐⭐ with NO hover channel, every signed figure is disclosed at rest', () => {
+    withNoHoverChannel()
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    const text = revealed(container)
+    for (const band of CANVAS_STRENGTH_BANDS) {
+      expect(text, `a finger must be able to read ${band.label}’s consequence`).toContain(
+        band.midpoint.toFixed(2),
+      )
+    }
+  })
+
+  it('⭐ CONTRAST CONTROL: with a hover channel present, that at-rest line is NOT there', () => {
+    // Without this the test above would pass on a component that simply always
+    // prints all four figures — i.e. on the pre-PR cluttered face.
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    expect(
+      revealed(container),
+      'the clean word-only face must survive wherever a reveal channel exists',
+    ).toBe('')
+  })
+
+  it('the touch disclosure does NOT move the figures back onto the pill faces', () => {
+    withNoHoverChannel()
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    for (const band of CANVAS_STRENGTH_BANDS) {
+      expect(
+        bandButton(container, band.label).textContent,
+        `${band.label}’s face must still carry the word alone`,
+      ).toBe(band.label)
+    }
+  })
+})
+
+describe('StrengthBandButtons — the disclosure states the SIGNED value that will be written', () => {
+  /**
+   * The carry-forward from the same review: the write preserved the minus sign
+   * while every disclosure channel printed the positive magnitude, so a pill
+   * offered `0.55` and committed `-0.55`. Resolved by DERIVING the sentence from
+   * the very value passed to `onChange`, not by restating it — so the two cannot
+   * disagree, and the test below is what asserts they cannot.
+   */
+  it('⭐⭐ at a negative value, the disclosed figure IS the number written (all channels)', () => {
+    for (const band of CANVAS_STRENGTH_BANDS) {
+      const onChange = vi.fn()
+      const { container } = render(<StrengthBandButtons value={-0.5} onChange={onChange} />)
+      const btn = bandButton(container, band.label)
+      const expected = `${band.label}: set strength to ${(-band.midpoint).toFixed(2)}`
+
+      expect(btn.getAttribute('aria-label'), `${band.label} accessible name`).toBe(expected)
+      expect(btn.getAttribute('title'), `${band.label} tooltip`).toBe(expected)
+      fireEvent.focus(btn)
+      expect(revealed(container), `${band.label} revealed text`).toBe(expected)
+
+      fireEvent.click(btn)
+      const written = onChange.mock.calls[0][0]
+      expect(Object.is(written, -band.midpoint), `${band.label} must write -${band.midpoint}`).toBe(true)
+    }
+  })
+
+  it('⭐ the figure parsed back out of the disclosure EQUALS the number written', () => {
+    // The anti-drift assertion. A disclosure that says one thing and a write
+    // that does another is the defect one level down from the P1; this closes
+    // it by execution rather than by inspection, and on both signs.
+    for (const value of [0.5, -0.5]) {
+      for (const band of CANVAS_STRENGTH_BANDS) {
+        const onChange = vi.fn()
+        const { container } = render(<StrengthBandButtons value={value} onChange={onChange} />)
+        const btn = bandButton(container, band.label)
+        fireEvent.focus(btn)
+        const match = /set strength to (-?\d+\.\d+)/.exec(revealed(container))
+        expect(match, `${band.label} at ${value} must disclose a parseable figure`).not.toBeNull()
+        fireEvent.click(btn)
+        const written = onChange.mock.calls[0][0]
+        expect(
+          Number(match![1]),
+          `${band.label} at ${value}: disclosed ${match![1]} but wrote ${written}`,
+        ).toBe(written)
+      }
+    }
+  })
+
+  it('a POSITIVE value still discloses the unsigned figure (no gratuitous "+")', () => {
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    expect(bandButton(container, 'Strong').getAttribute('aria-label')).toBe(
+      'Strong: set strength to 0.55',
+    )
   })
 })
