@@ -163,7 +163,12 @@ function rowIds(): (string | null)[] {
   )
 }
 
-const markOf = (id: string) => screen.getByTestId(`${TESTID}-outcome-mid-${id}`)
+// ⚠ RE-BOUND TO `PanelFigure`'S GRAMMAR, DELIBERATELY. The marker used to be
+// `-outcome-mid-<id>` — a name that describes p50, on an element the lens moves
+// to p10 and p90. `PanelFigure` names its parts `-band` and `-marker`, which is
+// what they are on every variant. The rename is the point of the component, so
+// the spec follows it rather than pinning the old name.
+const markOf = (id: string) => screen.getByTestId(`${TESTID}-outcome-range-${id}-marker`)
 const arm = (a: Arm) => screen.getByTestId(`${TESTID}-range-lens-${a}`)
 
 describe('the outcome lens', () => {
