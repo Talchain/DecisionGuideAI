@@ -890,9 +890,41 @@ export const EdgePanel = memo(function EdgePanel({
                 <div className="mt-1.5">
                   <div className="relative mb-2">
                     <UncertaintyBand strength={localStrength} std={localStd} />
-                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={techMode} />
+                    {/* ⛔⛔ `techMode={true}` IS A LITERAL ON PURPOSE, AND IT IS NOT THE
+                        TECH TOGGLE. Measured 19 Sep 2026: this prop's ONLY consumer
+                        inside `SignedStrengthSlider` is its `{!techMode && …}` endpoint-
+                        caption block, so on that component the flag means *"SUPPRESS my
+                        own captions — my host renders its own scale"*. It does not reveal
+                        a figure; the slider renders no visible number at all. The name is
+                        backwards and #1751's prop doc says so, naming the honest spelling
+                        `hostRendersItsOwnScale` and leaving the rename to this file's
+                        owner because this is its ONLY caller.
+
+                        THIS PANEL ALWAYS RENDERS ITS OWN SCALE — the `EDGE_COPY` row
+                        immediately below is an unconditional sibling of the slider, in
+                        this same `<details>`. So the honest answer to *"does the host
+                        render its own scale?"* is a constant `true`, and passing the tech
+                        toggle answered a DIFFERENT QUESTION (CLAUDE.md trap 21). At the
+                        toggle's default — `useTechToggle` starts `false`, i.e. EVERY
+                        default user — it asserted "no scale here", the slider helpfully
+                        added its own, and the user read "Strong negative / No effect /
+                        Strong positive" TWICE. Measured at pristine `a40ca56a`: 2/2/2 at
+                        `techMode=false`, 1/1/1 at `techMode=true`.
+
+                        ⛔ NOT a `techMode` gate on the caption row itself — that would
+                        hide the scale from every default user, which is the trap #1751
+                        documents. The row below stays UNCONDITIONAL; only the slider's
+                        duplicate is suppressed. `endpointScaleIsNotDuplicated.spec.tsx`
+                        REDs if either state stops reading exactly one. */}
+                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={true} />
                   </div>
-                  <div className="flex justify-between">
+                  {/* The panel's OWN endpoint scale — direction anchors for the track
+                      above, never band words (`SignedStrengthSlider`'s header names them
+                      apart from `CANVAS_STRENGTH_BANDS` and that ruling is untouched
+                      here). `data-testid` so the spec can bind the surviving captions to
+                      THIS row by identity rather than by string value, which the slider
+                      could also satisfy. */}
+                  <div className="flex justify-between" data-testid="edge-strength-endpoint-scale">
                     <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderStrongNegative}</span>
                     <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderNoEffect}</span>
                     <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderStrongPositive}</span>
