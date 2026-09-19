@@ -310,6 +310,30 @@ function channelTwinKey(item: StrengthenPhase3Item): string | null {
   return code !== '' && body !== '' ? `${code}\u0000${body}` : null
 }
 
+/**
+ * ⛔⛔ THE CHANNEL DISCRIMINATOR — AND ITS ABSENCE WAS A REAL DEFECT THE
+ * EXISTING SUITE CAUGHT.
+ *
+ * The first version keyed on `signal_code` + body alone. That is too loose:
+ * `biasMethodReachesTheProducersBias` mounts **six named bias cards that share
+ * one generic body** (`COGNITIVE_BIAS` / "Producer evidence quoting the brief.")
+ * and differ only by title. The loose key folded all six into one and spent the
+ * display budget on a row the producer never sent.
+ *
+ * ⭐ "One finding on two channels" means literally that, so the rule must test
+ * the CHANNEL. A `review_card` carries no `coaching_kind`; a `coaching` block
+ * always does. So a twin pair is one of each — and six coaching cards can never
+ * pair with one another however much text they share.
+ *
+ * ⚠ Derived from the capture, not assumed: `review:assumption:1:…` has no
+ * `coaching_kind`, `coach:assumption:1:…` has `assumption_check`, and all six
+ * bias cards carry `bias_signal`. The discriminator separates the real pair and
+ * refuses the false one on the same evidence.
+ */
+function isCrossChannelPair(a: StrengthenPhase3Item, b: StrengthenPhase3Item): boolean {
+  return (a.coachingKind == null) !== (b.coachingKind == null)
+}
+
 function mergeChannelTwins(items: StrengthenPhase3Item[]): StrengthenPhase3Item[] {
   const out: StrengthenPhase3Item[] = []
   const firstAt = new Map<string, number>()
@@ -326,6 +350,12 @@ function mergeChannelTwins(items: StrengthenPhase3Item[]): StrengthenPhase3Item[
       continue
     }
     const kept = out[at]
+    // ⛔ Same code and same body is NOT enough. Without the channel test, six
+    // bias cards sharing one generic body collapse into one row.
+    if (!isCrossChannelPair(kept, item)) {
+      out.push(item)
+      continue
+    }
     // ⚠ `??` and a length check, never a spread of the twin: the kept row's own
     // producer copy must win every field it already has. Adopting is for what
     // it LACKS — which on the measured run is exactly the action and the target.

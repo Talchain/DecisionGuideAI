@@ -210,6 +210,39 @@ describe('one finding on two channels', () => {
   })
 
   /**
+   * ⛔⛔ THE ARM THE EXISTING SUITE TAUGHT ME TO WRITE.
+   *
+   * My first key was `signal_code` + body alone. `biasMethodReachesTheProducersBias`
+   * mounts SIX named bias cards sharing one generic body, and that key folded all
+   * six into one row — spending the display budget on a finding the producer never
+   * sent. The channel test is what separates a real twin pair from a false one.
+   */
+  it('⛔ same code and same body on the SAME channel never merge', () => {
+    const sameChannel = (id: string, title: string): Record<string, unknown> => ({
+      block_id: id,
+      type: 'coaching',
+      coaching_kind: 'bias_signal',
+      title,
+      body: 'Producer evidence quoting the brief.',
+      source: 'draft_graph',
+      freshness: 'fresh',
+      priority_rank: 1,
+      category: 'should_fix',
+      signal_code: 'COGNITIVE_BIAS',
+    })
+    const blocks = [
+      sameChannel('blk-anchoring', 'Anchoring'),
+      sameChannel('blk-overconfidence', 'Overconfidence'),
+      sameChannel('blk-sunk-cost', 'Sunk cost'),
+    ]
+    expect(toItems(blocks), 'PRECONDITION: all three reach the engine').toHaveLength(3)
+    expect(
+      phase3(blocks),
+      'three coaching cards are three findings, however generic the body they share',
+    ).toHaveLength(3)
+  })
+
+  /**
    * ⚠ The merge must not fire where identity cannot be established. A block with
    * no `signal_code` has no producer-minted identity, so body equality alone
    * would be the content sniff this design avoids.
