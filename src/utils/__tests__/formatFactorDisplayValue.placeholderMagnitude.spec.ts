@@ -32,22 +32,23 @@
  * estate's trap 21, one predicate answering "may I compose this?" while nothing
  * answered "may I forward this?".
  *
- * THE POLICY APPLIED HERE is not minted; it is the one `formatValueWithUnit`
- * already states and this estate has already ruled: a placeholder unit with a
- * value in [0,1] renders a QUALITATIVE WORD; outside that range the unit is
- * SUPPRESSED and the bare number renders, because "placeholder units carry no
- * real-world scale, so '0 score' / '50 index' are misleading".
+ * ⛔⛔ THE FIRST VERSION OF THIS FIX BANDED THE NUMBER, AND THAT WAS WRONG.
+ * It mapped the figure to a qualitative word ("0.3 scale" → "Low"). Independent
+ * review refused it on this module's own ruling: calling `scale` a defined
+ * PLACEHOLDER does not define what "Low" MEANS. The consequential case it
+ * derived is pinned below as a regression — `value: 0` with
+ * `encoding_map {0: "Not pursued"}` returned "Very low", manufacturing a
+ * magnitude for a CATEGORICAL state, which is the exact category error
+ * `encodingMapPhrase` exists to refuse. Two things follow, and both are tested
+ * here: a declared encoding wins wherever the producer stated one, and where it
+ * did not, the rendering is WITHHELD rather than reworded.
  *
- * ⛔ SCOPE, DELIBERATELY NARROW — `ratio` IS NOT TOUCHED. An independent review
- * ruled: *"Undefined scales do not justify labels such as 'moderate'. Use
- * qualitative bands only when their meaning is defined."* `scale` IS defined —
- * as a placeholder, which is exactly the case the ruling permits. `ratio` is
- * NOT a placeholder (it classifies as a proportion unit and keeps its word);
- * its meaning is an open producer question, and it renders here exactly as it
- * does today. That distinction is pinned below so a later tidy-up cannot
- * quietly widen this.
+ * ⛔ SCOPE, DELIBERATELY NARROW — `ratio` IS NOT TOUCHED. It is not a
+ * placeholder (it classifies as a proportion unit), its frame is an open
+ * producer question, and it renders here exactly as it does today. That
+ * distinction is pinned below so a later tidy-up cannot quietly widen this.
  *
- * ⛔ DISPLAY ONLY. Nothing here writes. Pinned explicitly below.
+ * ⛔ DISPLAY ONLY. No number is rounded, rescaled or invented. Pinned below.
  */
 import { describe, it, expect } from 'vitest'
 import { formatFactorDisplayValue, factorDisplayText } from '../formatFactorDisplayValue'
@@ -57,90 +58,111 @@ import { GENERIC_PLACEHOLDER_UNITS } from '../unitClassifier'
 const FOUNDER_SCALE_VALUES = [0, 0.2, 0.3, 0.5, 0.55, 0.75, 0.8, 0.85] as const
 
 describe('placeholder magnitude summaries never render as if measured', () => {
-  describe('the founder\'s board: "<number> scale" is replaced by a qualitative word', () => {
-    it.each([
-      ['0 scale', 0, 'Very low'],
-      ['0.2 scale', 0.2, 'Very low'],
-      ['0.3 scale', 0.3, 'Low'],
-      ['0.5 scale', 0.5, 'Medium'],
-      ['0.55 scale', 0.55, 'Medium'],
-      ['0.75 scale', 0.75, 'High'],
-      ['0.8 scale', 0.8, 'High'],
-      ['0.85 scale', 0.85, 'Very high'],
-    ])('display_value %s (value %s) renders %s', (displayValue, value, expected) => {
-      expect(formatFactorDisplayValue({
-        label: 'Team Capability',
-        value,
-        raw_value: null,
-        unit: 'scale',
-        display_value: displayValue,
-      })).toBe(expected)
-    })
+  describe('the founder\'s board: "<number> scale" is withheld, not reworded', () => {
+    it.each(FOUNDER_SCALE_VALUES.map(v => [`${v} scale`, v] as const))(
+      'display_value %s (value %s) is withheld', (displayValue, value) => {
+        expect(formatFactorDisplayValue({
+          label: 'Team Capability',
+          value,
+          raw_value: null,
+          unit: 'scale',
+          display_value: displayValue,
+        })).toBeNull()
+      })
 
-    it('not one of the founder\'s eight values leaves the word "scale" on screen', () => {
+    it('not one of the founder\'s eight values leaves a placeholder figure on screen', () => {
       for (const v of FOUNDER_SCALE_VALUES) {
-        const out = formatFactorDisplayValue({
+        expect(formatFactorDisplayValue({
           label: 'Team Capability',
           value: v,
           raw_value: null,
           unit: 'scale',
           display_value: `${v} scale`,
-        })
-        expect(out, `value ${v}`).not.toBeNull()
-        expect(out!, `value ${v}`).not.toContain('scale')
-        expect(out!, `value ${v}`).not.toMatch(/\d/)
+        }), `value ${v}`).toBeNull()
       }
     })
   })
 
-  describe('both ends of the [0,1] range are correct', () => {
-    it('0 is IN range and renders the bottom band, never "0 scale"', () => {
+  describe('⛔ REGRESSION: a declared encoding is never replaced by a magnitude', () => {
+    // The exact reproduction from the independent review that refused the first
+    // version of this fix. Under that version this returned "Very low".
+    it('value 0 + display "0 scale" + map {0: "Not pursued"} resolves the MAP', () => {
       expect(formatFactorDisplayValue({
-        label: 'Germany Market Entry', value: 0, raw_value: null,
-        unit: 'scale', display_value: '0 scale',
-      })).toBe('Very low')
+        label: 'Germany Market Entry',
+        value: 0,
+        raw_value: null,
+        unit: 'scale',
+        display_value: '0 scale',
+        encoding_map: { '0': 'Not pursued', '1': 'Pursued' },
+      })).toBe('Not pursued')
     })
 
-    it('1 is IN range and renders the top band', () => {
+    it('and the same map still resolves the OTHER declared level', () => {
       expect(formatFactorDisplayValue({
-        label: 'Team Capability', value: 1, raw_value: null,
-        unit: 'scale', display_value: '1 scale',
-      })).toBe('Very high')
+        label: 'Germany Market Entry',
+        value: 1,
+        raw_value: null,
+        unit: 'scale',
+        display_value: '1 scale',
+        encoding_map: { '0': 'Not pursued', '1': 'Pursued' },
+      })).toBe('Pursued')
     })
 
-    it('ABOVE 1 is OUT of range: the unit is suppressed and the bare number renders', () => {
-      // "placeholder units carry no real-world scale, so '50 index' is
-      // misleading" — but 50 is not a 0–1 band, so a band word would be a
-      // fabrication. The number is the producer's; only the empty unit goes.
+    it('DISCRIMINATION: the SAME input with no map is withheld, not banded', () => {
+      // Pins that the map — not the suppression rule — is what produced the
+      // words above. Without this, both tests could pass on one mechanism.
       expect(formatFactorDisplayValue({
-        label: 'Readiness', value: 0.5, raw_value: null,
+        label: 'Germany Market Entry',
+        value: 0,
+        raw_value: null,
+        unit: 'scale',
+        display_value: '0 scale',
+      })).toBeNull()
+    })
+
+    it('the already-working parenthesised form is unchanged by the widening', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Germany Market Entry',
+        value: 0,
+        raw_value: null,
+        unit: 'scale',
+        display_value: 'Low (0)',
+        encoding_map: { '0': 'Not pursued' },
+      })).toBe('Not pursued')
+    })
+
+    it('a map whose key does NOT match the value cannot be forced to speak', () => {
+      // The producer contradicting itself is reported by silence, not guessed.
+      expect(formatFactorDisplayValue({
+        label: 'GDPR EU Data Residency Compliance',
+        value: 0.5,
+        raw_value: null,
+        unit: 'scale',
+        display_value: '0.5 scale',
+        encoding_map: { '0': 'Non-compliant', '1': 'Fully compliant' },
+      })).toBeNull()
+    })
+  })
+
+  describe('out of the [0,1] range is withheld too — one rule, no boundary', () => {
+    it('"50 index" does not render', () => {
+      expect(GENERIC_PLACEHOLDER_UNITS.has('index')).toBe(true)
+      expect(formatFactorDisplayValue({
+        label: 'Market Index', value: 50, raw_value: null,
         unit: 'index', display_value: '50 index',
-      })).toBe('50')
+      })).toBeNull()
     })
 
-    it('BELOW 0 is OUT of range: the unit is suppressed, the sign is kept', () => {
+    it('a negative figure does not render', () => {
       expect(formatFactorDisplayValue({
         label: 'Drift', value: -0.4, raw_value: null,
         unit: 'score', display_value: '-0.4 score',
-      })).toBe('-0.4')
+      })).toBeNull()
     })
   })
 
-  describe('every generic placeholder unit is covered, not just "scale"', () => {
-    // Derived from the canonical set so a unit added there cannot silently
-    // escape this rule — the hand-maintained-mirror defect this estate pays for.
-    it.each([...GENERIC_PLACEHOLDER_UNITS])('unit %s at 0.3 renders "Low"', (unit) => {
-      expect(formatFactorDisplayValue({
-        label: 'Team Capability', value: 0.3, raw_value: null,
-        unit, display_value: `0.3 ${unit}`,
-      })).toBe('Low')
-    })
-  })
-
-  describe('⛔ the narrowness IS the design — everything else renders byte-for-byte as today', () => {
+  describe('⛔ everything else keeps today\'s behaviour byte-for-byte', () => {
     it('`ratio` is NOT a placeholder and is left exactly as it renders today', () => {
-      // Ruled: qualitative bands only where the scale's meaning is defined.
-      // `ratio`'s meaning is an open producer question. Untouched.
       expect(GENERIC_PLACEHOLDER_UNITS.has('ratio')).toBe(false)
       expect(formatFactorDisplayValue({
         label: 'Conversion', value: 0.4, raw_value: null,
@@ -156,23 +178,25 @@ describe('placeholder magnitude summaries never render as if measured', () => {
     })
 
     it('a producer magnitude summary with a parenthesised figure is untouched', () => {
-      // "Moderate (0.5)" is already a qualitative word; FactorNode collapses the
-      // parenthetical at rest. Not this rule's business.
       expect(formatFactorDisplayValue({
-        label: 'Team Capability', value: 0.5, raw_value: null,
+        label: 'Capability', value: 0.5, raw_value: null,
         unit: 'scale', display_value: 'Moderate (0.5)',
       })).toBe('Moderate (0.5)')
     })
 
     it('a REAL unit keeps its number and its unit', () => {
+      // Pattern 1 (fresh raw_value + meaningful unit) outranks display_value and
+      // composes the string itself — measured, not assumed: this reads
+      // "GBP 40,000", not the producer's "£40,000". Unchanged by this fix.
       expect(formatFactorDisplayValue({
-        label: 'Budget', value: 0.2, raw_value: 40000, unit: '£', cap: 200000,
-      })).toBe('£40,000')
+        label: 'Budget', value: null, raw_value: 40000,
+        unit: 'GBP', display_value: '£40,000',
+      })).toBe('GBP 40,000')
     })
 
     it('a real unit spelled into display_value is untouched (e.g. "42 days")', () => {
       expect(formatFactorDisplayValue({
-        label: 'Lead Time', value: 0.42, raw_value: null,
+        label: 'Lead time', value: null, raw_value: 42,
         unit: 'days', display_value: '42 days',
       })).toBe('42 days')
     })
@@ -191,7 +215,7 @@ describe('placeholder magnitude summaries never render as if measured', () => {
     })
   })
 
-  describe('⛔ DISPLAY ONLY — no stored value moves', () => {
+  describe('⛔ DISPLAY ONLY — nothing on this path writes', () => {
     it('formatFactorDisplayValue does not mutate its input', () => {
       const input = {
         label: 'Team Capability', value: 0.3, raw_value: null,
@@ -206,11 +230,10 @@ describe('placeholder magnitude summaries never render as if measured', () => {
       const data = {
         label: 'Team Capability',
         display_value: '0.3 scale',
-        observedState: { value: 0.3, unit: 'scale', raw_value: null, extractionType: 'inferred' },
+        observedState: { value: 0.3, unit: 'scale', raw_value: null },
       }
       const before = JSON.stringify(data)
-      expect(factorDisplayText(data)).toBe('Low')
-      // The stored value, its unit and the producer's own string all survive.
+      expect(factorDisplayText(data)).toBeNull()
       expect(JSON.stringify(data)).toBe(before)
       expect(data.observedState.value).toBe(0.3)
       expect(data.observedState.unit).toBe('scale')

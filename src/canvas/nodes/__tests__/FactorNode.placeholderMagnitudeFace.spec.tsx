@@ -111,66 +111,70 @@ const founderFactor = (value: number, displayValue: string | null) => ({
 describe('FactorNode face: a placeholder unit never reaches the card as if measured', () => {
   beforeEach(() => { vi.clearAllMocks(); viewMode = 'standard' })
 
-  it('DISCRIMINATOR: the numeric gates render nothing; only display_value reaches the face', () => {
+  it('DISCRIMINATOR: the three paths now AGREE, and the passthrough is still alive', () => {
     // Arm 1 — no display_value. Pattern 1 skips placeholder units, Pattern 2
-    // calls them meaningless. Nothing should render.
+    // calls them meaningless. Nothing renders.
     const withoutDv = faceText(renderFactor(founderFactor(0.3, null)).container)
     expect(withoutDv).toContain('Team Capability')
     expect(withoutDv).not.toContain('0.3')
     expect(withoutDv).not.toContain('scale')
 
-    // Arm 2 — identical state PLUS the producer's string. This is the path.
+    // Arm 2 — identical state PLUS the producer's string. This is the path that
+    // used to leak. It must now read the SAME as arm 1: the fix does not invent
+    // a word, it withholds a rendering the other two paths already withhold.
     const withDv = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
-    expect(withDv).toContain('Team Capability')
+    expect(withDv).toBe(withoutDv)
 
-    // PRECONDITION PINNED: the two arms must genuinely differ, or this spec is
-    // agreeing with itself and proves nothing about which path renders.
-    expect(withDv).not.toBe(withoutDv)
-
-    // And the face is now honest.
-    expect(withDv).toContain('Low')
-    expect(withDv).not.toContain('scale')
-    expect(withDv).not.toContain('0.3')
+    // ⭐ PRECONDITION PINNED, AND IT CANNOT BE THE EQUALITY ABOVE. Two arms that
+    // agree prove nothing on their own — a FactorNode that rendered no body at
+    // all would satisfy it. So a third arm on the SAME passthrough must still
+    // differ, which proves the passthrough is live and only this shape is
+    // withheld.
+    const prose = faceText(renderFactor({
+      label: 'Team Capability', type: 'factor',
+      display_value: 'No dedicated tech lead',
+      observedState: { value: 0.3, unit: 'scale', extractionType: 'inferred' },
+    }).container)
+    expect(prose).not.toBe(withoutDv)
+    expect(prose).toContain('No dedicated tech lead')
   })
 
-  it.each([
-    [0, 'Very low'],
-    [0.2, 'Very low'],
-    [0.3, 'Low'],
-    [0.5, 'Medium'],
-    [0.55, 'Medium'],
-    [0.75, 'High'],
-    [0.8, 'High'],
-    [0.85, 'Very high'],
-  ])('a card at value %s reads "%s" and shows no placeholder unit', (value, expected) => {
-    const text = faceText(renderFactor(founderFactor(value, `${value} scale`)).container)
-    expect(text).toContain(expected)
-    expect(text).not.toContain('scale')
-    expect(text).not.toContain(`${value} scale`)
-  })
+  it.each([0, 0.2, 0.3, 0.5, 0.55, 0.75, 0.8, 0.85])(
+    'a card at value %s shows no placeholder unit and no bare figure', (value) => {
+      const text = faceText(renderFactor(founderFactor(value, `${value} scale`)).container)
+      expect(text).toContain('Team Capability')
+      expect(text).not.toContain('scale')
+      expect(text).not.toContain(`${value} scale`)
+    })
 
-  it('THE FOUNDER\'S EXACT FACE: "0.3 scale est." becomes "Low est."', () => {
-    // The card he is looking at, marker and all. The fix changes the WORD and
-    // nothing else — the provenance disclosure is untouched, so the reader still
-    // learns the value was filled in for them.
+  it("THE FOUNDER'S EXACT FACE: \"0.3 scale est.\" no longer reads as a measurement", () => {
+    // The card he is looking at. The unreadable figure is withheld; nothing is
+    // reworded into a magnitude the producer never declared.
     const { container } = renderFactor(founderFactor(0.3, '0.3 scale'))
-    // ⚠ ASSERTED AS TWO ELEMENTS, NOT ONE STRING. The word and the marker are
-    // siblings separated by a CSS gap, so `textContent` joins them as "Lowest."
-    // — pinning that would be a LAYOUT claim, and jsdom cannot make one. Each
-    // part is bound by identity instead.
-    const marker = container.querySelector('[data-testid="estimate-marker"]')
-    expect(marker, 'the est. marker must still render').toBeTruthy()
-    expect(marker!.textContent).toBe('est.')
     const text = faceText(container)
-    expect(text).toContain('Low')
+    expect(text).toContain('Team Capability')
     expect(text).not.toContain('0.3 scale')
     expect(text).not.toContain('scale')
   })
 
-  it('the expert view keeps its own rendering and is equally free of the placeholder', () => {
+  it('the expert view is equally free of the placeholder', () => {
     viewMode = 'expert'
     const text = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
-    expect(text).toContain('Low')
+    expect(text).not.toContain('scale')
+    expect(text).not.toContain('0.3')
+  })
+
+  it('⛔ REGRESSION: a declared encoding still speaks on the face', () => {
+    // The independent review's reproduction, at the surface. A categorical
+    // state must keep the producer's own words, not become a magnitude and not
+    // be withheld.
+    const text = faceText(renderFactor({
+      label: 'Germany Market Entry', type: 'factor',
+      display_value: '0 scale',
+      encoding_map: { '0': 'Not pursued', '1': 'Pursued' },
+      observedState: { value: 0, unit: 'scale', extractionType: 'inferred' },
+    }).container)
+    expect(text).toContain('Not pursued')
     expect(text).not.toContain('scale')
   })
 

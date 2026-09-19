@@ -16,7 +16,7 @@
  * trailing suffix ("500 CHF") — inconsistent with the rest of the codebase.
  */
 
-import { classifyUnit, qualitativeTierLabel, unwrapInterventionValue } from '../canvas/utils/labelUtils'
+import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
@@ -313,8 +313,19 @@ export function encodingMapPhrase(
  */
 function displayValueRestatesValue(displayValue: string | null | undefined, value: number | null | undefined): boolean {
   if (typeof displayValue !== 'string' || typeof value !== 'number' || !Number.isFinite(value)) return false
-  const m = /\(\s*(-?\d+(?:\.\d+)?)\s*\)/.exec(displayValue)
-  return m !== null && Number(m[1]) === value
+  const parenthesised = /\(\s*(-?\d+(?:\.\d+)?)\s*\)/.exec(displayValue)
+  if (parenthesised !== null) return Number(parenthesised[1]) === value
+  // ⭐ SECOND SURFACE FORM OF THE SAME SUMMARY, and it must be recognised here
+  // or the encoding map silently loses to it. `"0 scale"` restates the node's
+  // own number just as `"Low (0)"` does — it simply spells the scale instead of
+  // naming a band. Independent review found the consequence: with
+  // `encoding_map {0: "Not pursued"}`, a rule reading `"0 scale"` before this
+  // one returned a MAGNITUDE for a categorical state, which is precisely the
+  // category error `encodingMapPhrase` above exists to refuse.
+  const bare = BARE_MAGNITUDE_SUMMARY.exec(displayValue)
+  if (bare === null) return false
+  if (classifyUnit(bare[2]).kind !== 'placeholder') return false
+  return Number(bare[1].replace(/,/g, '')) === value
 }
 
 /**
@@ -344,59 +355,41 @@ function displayValueRestatesValue(displayValue: string | null | undefined, valu
  * no predicate answered *"may I forward this?"*. Two authorities, different
  * questions, and the gap between them is what the user reads.
  *
- * THE POLICY IS NOT MINTED HERE. It is the one `formatValueWithUnit` already
- * states and this estate has already ruled: a placeholder unit with a value in
- * [0,1] renders a QUALITATIVE WORD; outside that range the unit is SUPPRESSED and
- * the bare number renders, because "placeholder units carry no real-world scale,
- * so '0 score' / '50 index' are misleading". Out of range a band word would be a
- * fabrication — 50 is not a 0–1 tier — so only the empty unit is dropped and the
- * producer's own number survives.
+ * ⛔⛔ IT SUPPRESSES. IT DOES NOT BAND — AND THE FIRST VERSION OF THIS FIX DID,
+ * WHICH WAS WRONG. It mapped the number to a qualitative word ("0.3 scale" →
+ * "Low"). Independent review refused it, on this module's OWN ruling: naming
+ * `scale` a defined PLACEHOLDER does not define what "Low" MEANS. The
+ * consequential case it derived — `value: 0`, `display_value: "0 scale"`,
+ * `encoding_map {0: "Not pursued", 1: "Pursued"}` — resolved to "Very low",
+ * manufacturing a magnitude for a categorical state, the exact category error
+ * `encodingMapPhrase` above was written to refuse. Both halves are fixed:
+ * `displayValueRestatesValue` now recognises this surface form, so the declared
+ * encoding wins wherever one exists; and where none does, the treatment is the
+ * one the other two paths already give an uncalibrated placeholder — nothing.
  *
  * ⛔ NARROW BY CONSTRUCTION, AND THE NARROWNESS IS THE DESIGN:
  *   · the unit word is classified through the shared `classifyUnit`, never a
  *     local list — a unit added to `GENERIC_PLACEHOLDER_UNITS` is covered here
  *     the same day, and nothing else can ever match;
- *   · `ratio` is NOT a placeholder (it is a proportion unit and keeps its word).
- *     Ruled by independent review: *"Undefined scales do not justify labels such
- *     as 'moderate'. Use qualitative bands only when their meaning is defined."*
- *     `scale` is DEFINED — as a placeholder — which is exactly the case that
- *     ruling permits. `ratio`'s meaning is an open producer question and it
- *     renders here exactly as it does today;
+ *   · `ratio` is NOT a placeholder (it is a proportion unit) and is untouched.
+ *     Its frame is an open producer question and it renders exactly as today;
  *   · the whole string must be `<number> <single word>`. Prose, ranges,
  *     parenthesised summaries ("Moderate (0.5)"), real units ("42 days") and
- *     bare numbers all fail to match and keep today's behaviour byte-for-byte.
+ *     bare numbers all fail to match and keep today's behaviour byte-for-byte;
+ *   · no number is rounded, rescaled or invented anywhere on this path. The
+ *     stored value is untouched; only an unreadable RENDERING is withheld.
  *
- * ⚠ IT READS THE NUMBER IN THE STRING, NOT `value`, DELIBERATELY. The string is
- * what the producer chose to show; this re-states that same magnitude in honest
- * vocabulary. Reaching for `value` instead would silently change WHICH number is
- * being summarised — a different and larger claim than the one being fixed.
- *
- * ⛔ TWIN NOTICE — NAMED APART, NOT CONVERGED. Two qualitative vocabularies exist
- * and they genuinely differ: `labelUtils.qualitativeTierLabel` (Title Case,
- * inclusive upper bound, "Medium") and `formatValueWithUnit.qualitativeLabel`
- * (lower case, exclusive upper bound, "moderate"). They disagree at every
- * boundary — 0.2 is "Very low" in one and "low" in the other. This path uses the
- * CANVAS vocabulary, because the canvas is the surface it renders on: the same
- * words already appear on intervention chips, OptionNode and GraphTextView, and
- * Title Case is the register a card face is read in. Converging the two is a
- * separate decision with its own blast radius and is NOT taken here.
- *
- * @returns the honest rendering, or `null` when this rule does not apply (the
- *          caller then keeps today's behaviour exactly).
+ * @returns `true` when the string is a magnitude summary wearing a placeholder
+ *          unit and must not be shown as it stands.
  */
-const PLACEHOLDER_MAGNITUDE_SUMMARY = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s+([A-Za-z]+)\s*$/
+const BARE_MAGNITUDE_SUMMARY = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s+([A-Za-z]+)\s*$/
 
-function placeholderMagnitudeSummary(displayValue: string): string | null {
-  const m = PLACEHOLDER_MAGNITUDE_SUMMARY.exec(displayValue)
-  if (m === null) return null
+function isPlaceholderMagnitudeSummary(displayValue: string): boolean {
+  const m = BARE_MAGNITUDE_SUMMARY.exec(displayValue)
+  if (m === null) return false
   // Shared classifier — never a local unit list (the hand-maintained mirror).
-  if (classifyUnit(m[2]).kind !== 'placeholder') return null
-  const n = Number(m[1].replace(/,/g, ''))
-  if (!Number.isFinite(n)) return null
-  // In [0,1] → the qualitative word. Outside → drop the empty unit, keep the
-  // number; inventing a band for a figure off the 0–1 scale would be the
-  // fabrication this module exists to refuse.
-  return n >= 0 && n <= 1 ? qualitativeTierLabel(n) : formatNumber(n)
+  if (classifyUnit(m[2]).kind !== 'placeholder') return false
+  return Number.isFinite(Number(m[1].replace(/,/g, '')))
 }
 
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
@@ -517,11 +510,10 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     // ⭐ THE FORWARDING GATE. Everything above decides whether this string may be
     // TRUSTED; this decides whether it may be SHOWN AS IT STANDS. A magnitude
     // summary wearing a placeholder unit ("0.3 scale") is the one shape the
-    // module's own header forbids it to return. See `placeholderMagnitudeSummary`
-    // — it returns null for every other string, so the passthrough below keeps
-    // its purpose and its behaviour.
-    const honest = placeholderMagnitudeSummary(display_value)
-    if (honest !== null) return honest
+    // module's own header forbids it to return, so it is withheld rather than
+    // reworded. By this line any declared `encoding_map` has already won, so
+    // suppression here costs no meaning the producer actually stated.
+    if (isPlaceholderMagnitudeSummary(display_value)) return null
     return display_value
   }
 
