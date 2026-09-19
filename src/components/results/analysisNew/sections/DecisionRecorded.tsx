@@ -71,7 +71,6 @@ import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { surface, icon } from '../panelSurfaces'
-import { glyphAlign } from '../panelGlyphAlign'
 
 export interface DecisionRecordedProps {
   /** Pre-run there is no decision to record — the options are not analysed. */
@@ -228,10 +227,7 @@ export function DecisionRecorded({
       aria-label={record ? COPY.decisionRecord.recorded : COPY.decisionRecord.open}
     >
       <div className="flex items-start gap-2">
-        <ClipboardCheck
-          className={`${icon('section')} ${glyphAlign('section', 'panelHeader')} shrink-0 text-text-light`}
-          aria-hidden="true"
-        />
+        <ClipboardCheck className={`${icon('section')} mt-[1px] shrink-0 text-text-light`} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           {record === null ? (
             <>

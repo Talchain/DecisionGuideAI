@@ -43,7 +43,6 @@ import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNew
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 import { inset, action, icon } from '../panelSurfaces'
-import { glyphAlign } from '../panelGlyphAlign'
 
 /**
  * How many parameter names fit before the line stops being readable. Four is a
@@ -618,10 +617,7 @@ export function AtAGlance({
           role="status"
           data-testid={`${testId}-ribbon`}
         >
-          <AlertTriangle
-            className={`${icon('inline')} ${glyphAlign('inline', 'panelMeta')} shrink-0 text-warning-ink`}
-            aria-hidden="true"
-          />
+          <AlertTriangle className={`${icon('inline')} mt-[3px] shrink-0 text-warning-ink`} aria-hidden="true" />
           {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
               had to go: `min-w-0` says "I will shrink to nothing", which is
               precisely the permission that let this sentence be squeezed to
@@ -1075,10 +1071,7 @@ export function AtAGlance({
                 data-option-id={o.id}
                 title={o.reasonCopy}
               >
-                <span
-                  className={`${glyphAlign('bullet', 'panelMeta')} h-1 w-1 shrink-0 rounded-full bg-text-light`}
-                  aria-hidden="true"
-                />
+                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="text-text-body">{o.label}</span>
                   {/* ⭐ A FULL STOP, NOT A DASH. Paul, 10 Sep 2026: no em dashes in
@@ -1122,10 +1115,7 @@ export function AtAGlance({
                   className={`${typography.panelMeta} text-text-light flex items-start gap-1.5`}
                   data-testid={`${testId}-excluded-unnamed`}
                 >
-                  <span
-                    className={`${glyphAlign('bullet', 'panelMeta')} h-1 w-1 shrink-0 rounded-full bg-text-light`}
-                    aria-hidden="true"
-                  />
+                  <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     {COPY.disclosure.unnamedExcluded(unnameable)}
                   </span>
@@ -1189,7 +1179,7 @@ export function AtAGlance({
           const Row = (
             <>
               <AlertTriangle
-                className={`${icon('row')} ${glyphAlign('row', 'panelBody')} shrink-0 text-warning-ink`}
+                className={`${icon('row')} mt-[3px] shrink-0 text-warning-ink`}
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">

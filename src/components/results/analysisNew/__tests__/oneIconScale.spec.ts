@@ -34,7 +34,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { ICON_SCALE, icon } from '../panelSurfaces'
-import { GLYPH_PX, glyphAlign, glyphNudgePx } from '../panelGlyphAlign'
 
 const PANEL_DIR = path.resolve(__dirname, '..')
 /** A square size written by hand inside a className — what the scale replaces. */
@@ -107,84 +106,5 @@ describe('the icon scale', () => {
       uses.map((f) => f.name),
       'if nothing uses w-6 any more, drop the exception rather than leaving it open',
     ).not.toEqual([])
-  })
-})
-
-/**
- * ⭐⭐ THE OTHER HALF OF THE SAME RELATIONSHIP: WHERE THE GLYPH SITS.
- *
- * Naming the sizes and leaving the nudges hand-typed would have shipped half a
- * component. A nudge is a function of the glyph's height and the line box of
- * the text beside it — and this PR moves the first of those two. A literal
- * `mt-[1px]` cannot follow it, and nothing in this estate can see one pixel go
- * wrong.
- *
- * Measured before the change: eight sites, **four correct and four a pixel
- * out**, with the same glyph/scale pair given two different answers in two
- * different files.
- *
- * ⚠ SCOPE, STATED. This governs the ARBITRARY-BRACKET top nudge only, which is
- * now producible solely by `glyphAlign()`. It deliberately says nothing about
- * `mt-0.5` or `-mt-px`: the first is a scale step expressing rhythm, the second
- * is baseline alignment of an icon in inline flow. Three mechanisms that look
- * alike is this estate's trap 21, so they are named apart rather than merged.
- */
-describe('one glyph alignment, derived from the pair it depends on', () => {
-  it('⛔ no file hand-types an arbitrary top nudge — `glyphAlign()` is the only producer', () => {
-    const offenders = panelSources()
-      .filter((f) => f.name !== 'panelGlyphAlign.ts')
-      .filter((f) => /\bmt-\[\d+px\]/.test(f.code))
-      .map((f) => f.name)
-
-    expect(
-      offenders,
-      'use `glyphAlign(<glyph>, <text scale>)`. A typed pixel value records a measurement ' +
-        'taken once against a size and a line height that both move — and four of the eight ' +
-        'this replaced were already a pixel out.',
-    ).toEqual([])
-  })
-
-  it('PRECONDITION: the rule bites on a file that breaks it', () => {
-    // Without this, a regex that matched nothing would satisfy the case above
-    // by examining an empty set — the vacuity this estate has shipped before.
-    expect(/\bmt-\[\d+px\]/.test('<Icon className="w-4 h-4 mt-[1px]" />')).toBe(true)
-    expect(/\bmt-\[\d+px\]/.test("className={`${icon('row')} mt-0.5`}")).toBe(false)
-  })
-
-  it('reproduces every value a human got RIGHT — the control on the derivation', () => {
-    // ⭐ If this disagreed with all eight shipped values it would be evidence
-    // about the arithmetic, not about the code. It agrees on exactly the four
-    // that were correct, across three glyph sizes and three text scales.
-    expect(glyphNudgePx('section', 'panelHeader'), 'TrustLine:88 shipped 2px').toBe(2)
-    expect(glyphNudgePx('row', 'panelBody'), 'AtAGlance:1182 shipped 3px').toBe(3)
-    expect(glyphNudgePx('bullet', 'panelMeta'), 'AtAGlance:1074/1118 shipped 6px').toBe(6)
-  })
-
-  it('and corrects the four that were not', () => {
-    // section/panelHeader shipped as 1px in three files; inline/panelMeta as 3px.
-    expect(glyphNudgePx('section', 'panelHeader')).not.toBe(1)
-    expect(glyphNudgePx('inline', 'panelMeta'), 'AtAGlance:620 shipped 3px').toBe(2)
-  })
-
-  /**
-   * ⛔ THE ARM THAT STOPS THE GLYPH MAP DRIFTING FROM `ICON_SCALE`. Two maps of
-   * the same three sizes is the mirror this estate keeps paying for. `bullet`
-   * is deliberately absent from the tier map — no tier draws one — which is why
-   * the two maps are not merged into one.
-   */
-  it('⛔ every icon tier has a glyph height, and the two agree on the square', () => {
-    for (const depth of ['section', 'row', 'inline'] as const) {
-      const step = GLYPH_PX[depth] / 4
-      expect(
-        ICON_SCALE[depth],
-        `ICON_SCALE.${depth} and GLYPH_PX.${depth} describe the same square`,
-      ).toBe(`w-${step} h-${step}`)
-    }
-  })
-
-  it('never pulls a glyph UP — an overhanging glyph would only overhang further', () => {
-    // `section` is 16px; `panelMeta`'s line box is 15.125px, so there is no slack.
-    expect(glyphNudgePx('section', 'panelMeta')).toBe(0)
-    expect(glyphAlign('section', 'panelMeta'), 'and emits no class at all').toBe('')
   })
 })

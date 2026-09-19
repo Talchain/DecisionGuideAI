@@ -37,7 +37,6 @@ import { CheckCircle2 } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { surface, icon } from '../panelSurfaces'
-import { glyphAlign } from '../panelGlyphAlign'
 import { mayClaimHeldUp, useRobustnessCaveatOnScreen } from '../robustnessStanding'
 
 export interface ModelHeldUpProps {
@@ -160,10 +159,7 @@ export function ModelHeldUp({
       aria-label={COPY.heldUp.title}
     >
       <div className="flex items-start gap-2">
-        <CheckCircle2
-          className={`${icon('section')} ${glyphAlign('section', 'panelHeader')} shrink-0 text-success`}
-          aria-hidden="true"
-        />
+        <CheckCircle2 className={`${icon('section')} mt-[1px] shrink-0 text-success`} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className={`${typography.panelHeader} text-text-header m-0`} data-testid={`${testId}-title`}>
             {COPY.heldUp.title}
