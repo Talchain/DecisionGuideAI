@@ -170,7 +170,90 @@ export interface Edge {
  * rather than only through a filesystem walk where an alias bug looks exactly
  * like a file that legitimately was not reached.
  */
-export function parseEdges(src: string): Edge[] {
+/**
+ * ⭐⭐ COMMENTS ARE NOT CODE — AND THIS WALKER READ THEM AS CODE FOR THE WHOLE
+ * TIME IT HAS EXISTED.
+ *
+ * `parseEdges` is a regex over raw source. A docblock that WRITES OUT an import
+ * as prose — `lib/staleBuildRecovery.ts:222` carries the line
+ * `` `import('../routes/CanvasMVP')` `` explaining what React.lazy waits for —
+ * matched the dynamic-import arm and became a real edge in the closure.
+ *
+ * ⚠ MEASURED, not inferred. That ONE comment pulled
+ * `routes/CanvasMVP` → `canvas/ReactFlowGraph` → `canvas/components/OutputsDock`
+ * → `components/results/ResultsBody` into the Reasoning tab's swept corpus, and
+ * with it `OptionCards`, `TriageActionCardsBody`, `analysis-hero/heroCopy` and
+ * eleven more — 15 failing assertions, including the CONTRAST CONTROL that
+ * exists to prove the walk is not "everything under results/". The scope guard's
+ * own discriminator was defeated by a sentence in a comment.
+ *
+ * ⚠⚠ AND IT FIRED ON AN UNRELATED PR. `#1766` changed one import specifier in
+ * `handleLayoutWithRecovery.ts` so that a module carrying that comment entered
+ * the graph. Nothing about the change touched copy, the Reasoning tab, or any
+ * file this guard sweeps. **A guard that reds on prose teaches authors to
+ * disable it** (trap 7 — a broken alarm), and it cost a real deploy a cycle.
+ *
+ * ⛔ WHY A SCANNER AND NOT A REGEX. Stripping `//`…EOL and `/*`…`*\/` with a
+ * regex corrupts string literals that contain them, and this tree has 857 real
+ * dynamic imports to keep. The scanner tracks string state (`'`, `"`, and
+ * template literals) so a `//` inside a quoted path is preserved and a `'` inside
+ * a comment cannot open a phantom string.
+ *
+ * ⚠ THE LIMIT, STATED: regex LITERALS are not tracked. A `/` that opens one is
+ * emitted verbatim, so `/[//]/` — an unescaped slash pair inside a character
+ * class — would be read as a line comment and over-strip to end of line. That
+ * direction DROPS an edge rather than inventing one, and a dropped edge shrinks
+ * the closure, which `PRECONDITION: the scope is derived, non-trivial` and the
+ * positive controls both fail on. Erring toward the failure your guards can see.
+ */
+export function stripCommentsPreservingStrings(src: string): string {
+  let out = ''
+  let i = 0
+  const n = src.length
+  while (i < n) {
+    const c = src[i]!
+    const d = src[i + 1]
+    if (c === '/' && d === '/') {
+      while (i < n && src[i] !== '\n') i++
+      continue
+    }
+    if (c === '/' && d === '*') {
+      i += 2
+      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) {
+        // Newlines are kept so line-anchored parts of the edge regex still see
+        // the same line structure they would in the original source.
+        if (src[i] === '\n') out += '\n'
+        i++
+      }
+      i += 2
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const quote = c
+      out += c
+      i++
+      while (i < n) {
+        const q = src[i]!
+        out += q
+        i++
+        if (q === '\\') {
+          if (i < n) { out += src[i]!; i++ }
+          continue
+        }
+        if (q === quote) break
+        // An unterminated single/double-quoted string cannot span a newline.
+        if (q === '\n' && quote !== '`') break
+      }
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+export function parseEdges(rawSrc: string): Edge[] {
+  const src = stripCommentsPreservingStrings(rawSrc)
   const re =
     /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?(?:([\s\S]*?)\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
   const out: Edge[] = []
