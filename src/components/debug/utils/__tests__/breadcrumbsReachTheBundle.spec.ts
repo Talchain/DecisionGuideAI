@@ -145,6 +145,30 @@ describe('the canvas breadcrumb ring reaches the exported bundle', () => {
       expect(JSON.stringify(collectCanvasBreadcrumbs())).not.toContain('sentinel.sig')
     })
 
+    it('⛔ P1: a secret BELOW the old depth bound, under a never-redacted key', () => {
+      // Independent review's exact witness. `neverRedactKeys` includes
+      // `observed_state`, and `redactValue` RESETS DEPTH there — so the
+      // structural pass admits this content at absolute depth 9, past the
+      // depth-8 bound this walk used to have, and returned it UNINSPECTED.
+      win().__SAFE_DEBUG__ = { logs: [{
+        t: 1, m: 'canvas:trace:layout:failed',
+        data: { a: { b: { c: { d: { e: { f: { g: {
+          observed_state: { error: `authorization=${SENTINEL}` },
+        } } } } } } } },
+      }] }
+      expect(JSON.stringify(collectCanvasBreadcrumbs())).not.toContain('sentinel.sig')
+    })
+
+    it('⛔ a CYCLE cannot smuggle a secret past the scrubber', () => {
+      // Cycles are now handled by identity rather than by depth. The loop is
+      // dropped; what is NOT dropped is any string on the way to it.
+      const loop: Record<string, unknown> = { error: `authorization=${SENTINEL}` }
+      loop.self = loop
+      win().__SAFE_DEBUG__ = { logs: [{ t: 1, m: 'canvas:trace:layout:failed', data: loop }] }
+      expect(() => collectCanvasBreadcrumbs()).not.toThrow()
+      expect(JSON.stringify(collectCanvasBreadcrumbs())).not.toContain('sentinel.sig')
+    })
+
     it('⭐ AND THE DIAGNOSTIC SURVIVES — a redaction that destroyed the evidence would defeat the carrier', () => {
       // The whole reason this file exists is to make a failure readable. The
       // scrubber must remove the secret and nothing else.

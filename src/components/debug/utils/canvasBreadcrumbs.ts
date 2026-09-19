@@ -120,18 +120,31 @@ const MAX_ENTRIES = 400
  * is untouched and still names the cause. That is the whole point: a redaction
  * that destroyed the diagnostic would defeat the carrier it protects.
  */
-function scrubStrings(value: unknown, depth = 0): unknown {
-  if (depth > 8) return value
+function scrubStrings(value: unknown, seen: WeakSet<object> = new WeakSet()): unknown {
   if (typeof value === 'string') return scrubSecretsInString(value)
-  if (Array.isArray(value)) return value.map(v => scrubStrings(v, depth + 1))
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = scrubStrings(v, depth + 1)
-    }
-    return out
+  if (value === null || typeof value !== 'object') return value
+  // ⛔⛔ A DEPTH BOUND HERE RETURNED THE VALUE UNINSPECTED, AND THAT LET THE
+  // SAME SECRET THROUGH. Independent review traced it: this walk was bounded at
+  // depth 8, but `DEBUG_BUNDLE_REDACTION_OPTIONS.neverRedactKeys` includes
+  // `observed_state`, `goal_constraints` and `constraint_analysis`, and
+  // `redactValue` RESETS DEPTH at those keys — so the structural pass admits
+  // content at absolute depth 9 and beyond. Its witness:
+  //   {a:{b:{c:{d:{e:{f:{g:{observed_state:{error:"authorization=Bearer …"}}}}}}}}}
+  // reached `error` at depth 9 and was returned with the bearer bytes intact.
+  //
+  // ⭐ THE RULE THAT REPLACES IT: scrub every string the structural pass
+  // ADMITS, and never hand back a value this pass declined to inspect. Cycles
+  // are handled by identity rather than by depth, so there is no bound left to
+  // be wrong about — a revisited object returns `undefined`, which drops the
+  // loop rather than smuggling it past the scrubber.
+  if (seen.has(value as object)) return undefined
+  seen.add(value as object)
+  if (Array.isArray(value)) return value.map(v => scrubStrings(v, seen))
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = scrubStrings(v, seen)
   }
-  return value
+  return out
 }
 
 /**
