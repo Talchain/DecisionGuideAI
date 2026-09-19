@@ -44,6 +44,9 @@ import {
   lodBodyHiddenAt,
   cardControlsVisibleAt,
   selectLodBodyHidden,
+  LOD_BODY_HIDDEN_ZOOM,
+  LOD_BODY_RESTORED_ZOOM,
+  fitBoundsFor,
 } from '../utils/zoomLegibility'
 import { isLodZoom } from '../components/LodSync'
 
@@ -79,9 +82,16 @@ describe('ICON_LEGIBLE_ZOOM states its own derivation', () => {
 })
 
 describe('resolveLodRung — boundary PAIRS, either side of both thresholds', () => {
-  it('the legibility floor: below is `line`, at is `quiet`', () => {
-    expect(resolveLodRung(0.4999)).toBe('line')
-    expect(resolveLodRung(LABEL_LEGIBLE_ZOOM)).toBe('quiet')
+  it('the BODY cliff: below is `line`, at is `quiet` — and it is no longer the legibility floor', () => {
+    // ⚠ THIS PAIR MOVED, DELIBERATELY. It straddled LABEL_LEGIBLE_ZOOM while the
+    // presentation cliff and the counter-scale floor were one number. They are
+    // now two (see the separation test below), so the pair straddles the cliff
+    // it actually names. `0.4999` is no longer `line`: that value sits in the
+    // new margin, which is the entire point of the change — the camera the
+    // product parks at 0.5 must have somewhere to go before the board collapses.
+    expect(resolveLodRung(LOD_BODY_HIDDEN_ZOOM * 0.999)).toBe('line')
+    expect(resolveLodRung(LOD_BODY_HIDDEN_ZOOM)).toBe('quiet')
+    expect(resolveLodRung(0.4999), 'the old cliff value now sits inside the margin').toBe('quiet')
   })
 
   it('the icon floor: below is `quiet`, at is `full`', () => {
@@ -109,15 +119,100 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
     expect(resolveLodRung(Number.NaN) === 'line').toBe(isLodZoom(Number.NaN))
   })
 
-  it('agrees with `isLodZoom` across the whole reachable zoom range', () => {
-    // The anti-mirror assertion, as a sweep rather than at two points: `line` is
-    // the rung the old boolean named, everywhere. If the rung resolver ever
-    // grows a second opinion about the FLOOR, this reds — the floor is not this
-    // PR's to move.
-    const zooms = [0.1, 0.25, 0.38, 0.4999, 0.5, 0.6, 0.7139, 0.7143, 0.9, 1, 2, 4]
-    for (const z of zooms) {
-      expect(resolveLodRung(z) === 'line', `rung and isLodZoom disagree at ${z}`).toBe(isLodZoom(z))
+  /**
+   * ⭐⭐⭐ THIS ASSERTION IS DELIBERATELY INVERTED, AND THE OLD ONE DID ITS JOB.
+   *
+   * It read: "If the rung resolver ever grows a second opinion about the FLOOR,
+   * this reds — the floor is not this PR's to move." It was right to pin that,
+   * and it is the reason this change had to be argued rather than slipped in.
+   *
+   * ⛔ THIS IS THE PR WHOSE JOB IT IS TO MOVE IT, on measured evidence. While
+   * the LOD cliff and the legibility floor were ONE number, the product's own
+   * auto-fit — floored at `LABEL_LEGIBLE_ZOOM` by `fitBoundsFor('product')` —
+   * PARKED THE CAMERA EXACTLY ON THE CLIFF, measured 0.5 in 10 of 10 committed
+   * starter x viewport rows. Downward travel to the flip was nil, and the
+   * founder hit it immediately in manual testing on 19 Sep: "you only have to
+   * zoom in a little bit for the graph to change to the small coloured option."
+   *
+   * They are now two questions with two names (CLAUDE.md trap 21):
+   *   `isLodZoom` / `labelsRenderedAtZoom`  → the COUNTER-SCALE floor, unmoved
+   *   `resolveLodRung`                      → the PRESENTATION cliff, lowered
+   *
+   * So the sweep now pins the SEPARATION, with the band where they deliberately
+   * disagree asserted by name. Agreement is no longer the property; a correct
+   * and stated disagreement is.
+   */
+  it('is SEPARATE from `isLodZoom` — and the separation is exactly the new margin', () => {
+    // Above the legibility floor the two still agree: labels render, body shows.
+    for (const z of [0.5, 0.6, 0.7139, 0.7143, 0.9, 1, 2, 4]) {
+      expect(resolveLodRung(z) === 'line', `rung and isLodZoom should agree at ${z}`).toBe(isLodZoom(z))
     }
+
+    // ⭐ THE MARGIN ITSELF. In [LOD_BODY_HIDDEN_ZOOM, LABEL_LEGIBLE_ZOOM) the
+    // counter-scale has stopped compensating (isLodZoom true) but the card still
+    // shows its body (rung is NOT 'line'). That band IS the fix — it is the
+    // travel the founder had none of.
+    for (const z of [LOD_BODY_HIDDEN_ZOOM, 0.4, 0.45, 0.4999]) {
+      expect(isLodZoom(z), `isLodZoom should be true below the legibility floor at ${z}`).toBe(true)
+      expect(resolveLodRung(z), `the body must still be shown at ${z} — this is the margin`).not.toBe('line')
+    }
+
+    // Below the new cliff they agree again.
+    for (const z of [0.1, 0.25, 0.37]) {
+      expect(resolveLodRung(z), `body must be hidden at ${z}`).toBe('line')
+      expect(isLodZoom(z)).toBe(true)
+    }
+  })
+
+  it('the margin is non-empty — a zero-width band would make the fix a no-op', () => {
+    // Without this, LOD_CLIFF_MARGIN drifting to 1 would silently restore the
+    // old cliff with every other assertion here still green.
+    expect(LOD_BODY_HIDDEN_ZOOM).toBeLessThan(LABEL_LEGIBLE_ZOOM)
+    expect(LOD_BODY_RESTORED_ZOOM).toBeGreaterThan(LOD_BODY_HIDDEN_ZOOM)
+  })
+
+  it('⭐ the auto-fit parking zoom is INSIDE the shown-body band, not on its edge', () => {
+    // The whole defect in one assertion. `fitBoundsFor('product')` floors the
+    // product's own fit at LABEL_LEGIBLE_ZOOM, so this is where the camera lands
+    // on any model too large to fit above it. It must not be the flip point.
+    const parked = fitBoundsFor('product').minZoom
+    expect(parked, 'the product fit must declare a floor').toBeTypeOf('number')
+    expect(resolveLodRung(parked as number), 'the parked camera must show card bodies').not.toBe('line')
+    expect(parked as number, 'the parked camera must sit strictly above the cliff, not on it').toBeGreaterThan(
+      LOD_BODY_HIDDEN_ZOOM,
+    )
+  })
+
+  describe('hysteresis — the rung must not flap on a camera resting at the boundary', () => {
+    it('holds `line` until the zoom clears the re-entry point', () => {
+      // Coming UP from a hidden body, a zoom just above the cliff must NOT
+      // restore it — that is the dead-band. Without it, sub-pixel jitter on a
+      // trackpad pinch alternates the entire board.
+      const justAbove = LOD_BODY_HIDDEN_ZOOM * 1.01
+      expect(justAbove).toBeLessThan(LOD_BODY_RESTORED_ZOOM)
+      expect(resolveLodRung(justAbove, 'line'), 'should still be line inside the dead-band').toBe('line')
+      expect(resolveLodRung(LOD_BODY_RESTORED_ZOOM, 'line'), 'should restore at the re-entry point').not.toBe('line')
+    })
+
+    it('an alternating camera produces a STABLE rung — the founder-facing property', () => {
+      // A camera resting on the old boundary produced a genuine alternation, and
+      // the store's skip-if-same cannot suppress an alternation, only a repeat.
+      let rung = resolveLodRung(LOD_BODY_HIDDEN_ZOOM * 1.02, 'line')
+      const seen = new Set([rung])
+      for (const z of [LOD_BODY_HIDDEN_ZOOM * 0.999, LOD_BODY_HIDDEN_ZOOM * 1.02, LOD_BODY_HIDDEN_ZOOM * 1.001]) {
+        rung = resolveLodRung(z, rung)
+        seen.add(rung)
+      }
+      expect(seen.size, `the rung flapped across ${[...seen].join(' -> ')} on a jittering camera`).toBe(1)
+    })
+
+    it('stateless callers are unaffected — the dead-band needs a previous rung', () => {
+      // A spec or selector asking "what rung is this zoom?" must get the plain
+      // answer, never a stale opinion from a render it did not perform.
+      const inBand = LOD_BODY_HIDDEN_ZOOM * 1.01
+      expect(resolveLodRung(inBand)).not.toBe('line')
+      expect(resolveLodRung(inBand, 'line')).toBe('line')
+    })
   })
 })
 

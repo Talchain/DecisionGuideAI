@@ -50,7 +50,7 @@ import { createPortal } from 'react-dom'
 import { useReactFlow } from '@xyflow/react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
-import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden, selectLensDetailActive } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden, selectLensDetailActive, LOD_BODY_RESTORED_ZOOM } from '../utils/zoomLegibility'
 import { cameraDuration } from '../utils/cameraMotion'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
@@ -152,19 +152,29 @@ export function CanvasLodNotice() {
         type="button"
         data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`}
         onClick={() => {
-          // Return to the legibility floor exactly, keeping the centre of the
-          // current view fixed so the user does not lose their place. Derived
-          // from LABEL_LEGIBLE_ZOOM, never a restated literal — the
-          // single-source guard fails on a second numeric zoom literal.
+          // ⭐⭐ OVERSHOOT THE CLIFF, DELIBERATELY — THIS USED TO LAND ON IT.
+          //
+          // The remedy set the viewport to the boundary value EXACTLY, so a user
+          // who pressed "Zoom in for detail" got detail and zero margin: one
+          // wheel notch, one trackpad nudge, or one press of the toolbar's
+          // zoom-out (÷1.2) put the whole board straight back. A remedy that
+          // leaves you one gesture from the problem is not a remedy.
+          //
+          // `LOD_BODY_RESTORED_ZOOM` is the hysteresis re-entry point, so
+          // landing there means the button leaves the user INSIDE the restored
+          // band rather than on its edge — and it is derived from the same
+          // cliff, so the two cannot drift apart. Still no second zoom literal:
+          // the single-source guard permits expressions, never new numbers.
           const vp = getViewport()
           if (vp.zoom >= LABEL_LEGIBLE_ZOOM) return
           const el = document.querySelector('.react-flow') as HTMLElement | null
           const w = el?.clientWidth ?? 0
           const h = el?.clientHeight ?? 0
-          const scale = LABEL_LEGIBLE_ZOOM / vp.zoom
+          const target = Math.max(LABEL_LEGIBLE_ZOOM, LOD_BODY_RESTORED_ZOOM)
+          const scale = target / vp.zoom
           setViewport(
             {
-              zoom: LABEL_LEGIBLE_ZOOM,
+              zoom: target,
               x: w / 2 - (w / 2 - vp.x) * scale,
               y: h / 2 - (h / 2 - vp.y) * scale,
             },

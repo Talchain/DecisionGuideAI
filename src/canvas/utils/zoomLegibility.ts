@@ -506,8 +506,89 @@ export type LodRung = 'full' | 'quiet' | 'line'
  * with `isLodZoom` across the range rather than asserting `'line'` outright, so
  * the two cannot drift apart silently.
  */
-export function resolveLodRung(zoom: number): LodRung {
-  if (!labelsRenderedAtZoom(zoom)) return 'line'
+/**
+ * ⭐⭐⭐ THE LEVEL-OF-DETAIL CLIFF IS NO LONGER THE LEGIBILITY FLOOR.
+ *
+ * These were ONE number answering TWO questions, which is this estate's
+ * signature defect (CLAUDE.md trap 21):
+ *
+ *   Q1  "is rendered text still at its declared size?"  → LABEL_LEGIBLE_ZOOM
+ *       This is the COUNTER-SCALE question. It governs `labelCounterScale`,
+ *       `isLodZoom` and the product's own auto-fit floor. **Unmoved.**
+ *   Q2  "should a card stop showing its body?"          → LOD_BODY_HIDDEN_ZOOM
+ *       This is the PRESENTATION question, and it is what the founder
+ *       experiences as the board flipping to coloured blocks.
+ *
+ * ⛔ WHY THEY HAD TO SEPARATE, MEASURED RATHER THAN ARGUED. `fitBoundsFor`
+ * floors the product's own automatic fit at `LABEL_LEGIBLE_ZOOM`, and while the
+ * two numbers were the same value the auto-fit PARKED THE CAMERA EXACTLY ON THE
+ * CLIFF — measured 0.5 in 10 of 10 committed starter × viewport rows in
+ * `evidence/zoom-ladder-2026-09-02/after-ladder.json`. Downward travel from the
+ * default camera to the flip was NIL. One trackpad nudge, one wheel notch, or
+ * one press of the toolbar's zoom-out (÷1.2) reduced the whole board.
+ *
+ * The founder hit this in manual testing on 19 Sep and put it plainly: *"you
+ * only have to zoom in a little bit for the graph to change to the small
+ * coloured option. Is that really an optimal user experience?"* It was not.
+ *
+ * ⚠ THE FLOOR ITSELF IS DELIBERATELY NOT RAISED, and the direction matters.
+ * Raising the auto-fit floor would keep the camera clear of the cliff by
+ * REFUSING TO FIT LARGE MODELS — the fit is already clamped at 0.5 precisely
+ * where a model is too big to show whole, so a higher floor clips exactly the
+ * boards that need the overview most. Lowering the CLIFF costs nothing and buys
+ * the same margin.
+ *
+ * ⚠ `zoomLadder.spec.ts` asserted these two agree across the range, with the
+ * note "the floor is not this PR's to move". That guard did its job: it made
+ * this a deliberate, argued change instead of a silent one. It is updated in
+ * the same commit to pin the SEPARATION rather than the agreement.
+ */
+const LOD_CLIFF_MARGIN = 0.75
+
+/**
+ * The zoom below which a card hides its body. Derived, never a second literal —
+ * `zoomLegibilitySingleSource.spec.ts` forbids a third hand-written zoom number
+ * and permits exactly this: an expression over the one that already exists.
+ *
+ * At `LABEL_LEGIBLE_ZOOM` 0.5 this is 0.375, so a camera parked on the auto-fit
+ * floor now has a quarter of its zoom range in hand before anything collapses.
+ */
+export const LOD_BODY_HIDDEN_ZOOM = LABEL_LEGIBLE_ZOOM * LOD_CLIFF_MARGIN
+
+/**
+ * How far past the cliff a zoom must climb before the body comes BACK.
+ *
+ * ⭐ WITHOUT THIS THE RUNG FLAPS. `LodSync` recomputes the rung from the raw
+ * viewport on every tick, so a single sharp comparison means a camera resting on
+ * the boundary toggles the entire board on sub-pixel jitter — and a trackpad
+ * pinch delivers a stream of values, not one. An absence sweep over `src/**`
+ * found `hysteresis|deadband|dead-band` → 1 hit, unrelated; contrast controls in
+ * the same sweep: `debounce` → 109 files, `throttle` → present. The codebase
+ * knows how to do this and simply had not done it here.
+ *
+ * Expressed as a ratio so it cannot drift from the cliff it guards.
+ */
+const LOD_REENTRY_MARGIN = 1.08
+
+/** The zoom at or above which a hidden body is restored. */
+export const LOD_BODY_RESTORED_ZOOM = LOD_BODY_HIDDEN_ZOOM * LOD_REENTRY_MARGIN
+
+/**
+ * Which rung is this zoom on?
+ *
+ * ⚠ `previous` IS THE HYSTERESIS, AND IT IS OPTIONAL ON PURPOSE. Called with one
+ * argument this is the old pure function with the new cliff — which is what
+ * every existing caller and spec that asks "what rung is 0.42?" still wants.
+ * `LodSync` passes the live previous rung, so only the SEQUENCE seen by a real
+ * camera gets the dead-band. A stateless caller cannot accidentally inherit a
+ * stale opinion from a render it did not perform.
+ *
+ * ⚠ NaN still resolves to `line`, unchanged: `NaN >= x` is false for every x, so
+ * a torn-down or not-yet-measured viewport reads as reduced exactly as before.
+ */
+export function resolveLodRung(zoom: number, previous?: LodRung): LodRung {
+  const floor = previous === 'line' ? LOD_BODY_RESTORED_ZOOM : LOD_BODY_HIDDEN_ZOOM
+  if (!(zoom >= floor)) return 'line'
   return zoom >= ICON_LEGIBLE_ZOOM ? 'full' : 'quiet'
 }
 
