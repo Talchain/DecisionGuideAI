@@ -228,3 +228,86 @@ export function isCountUnit(unit: string | null | undefined): boolean {
   if (unit == null) return false
   return COUNT_UNITS.has(unit.trim().toLowerCase())
 }
+
+/**
+ * ⭐⭐ UNIT SPELLINGS THAT NAME NO REAL-WORLD SCALE A READER CAN INTERPRET
+ * UNAIDED — AND THAT IS THE WHOLE OF THE CLAIM.
+ *
+ * Measured on a founder's own board (`olumi-debug-54a6c321-20260919.json`,
+ * 19 Sep 2026): `ratio` is the third unit spelling present, and it reaches the
+ * reader as the bare string `0.4 ratio`. His words: *"things like a 0.4 ratio
+ * aren't something that most onboarding users will understand."*
+ *
+ * ⛔⛔ THIS SET IS NOT A CONVERSION LICENCE, AND THE OBVIOUS READING OF IT IS
+ * WRONG. The tempting inference is `0.4 ratio` → `40%`. It was briefed and
+ * REFUTED before it shipped; both refutations are recorded here because a
+ * spelling in a set is exactly where the next session comes looking for
+ * permission, and the inference is trivially re-derivable.
+ *
+ *   (1) `60% on sales` in a brief establishes `40% on product` ONLY if those two
+ *       categories exhaust the allocation. They need not — 60/25/15 across
+ *       sales/product/admin fits the same brief. A value in [0,1] does not
+ *       itself establish a percentage of anything.
+ *
+ *   (2) DECISIVE, AT THE BYTES: the option interventions carrying this unit in
+ *       that bundle are shaped
+ *       `{display_value: "0.85 ratio", normalised_value: 0.85, unit: "ratio"}`.
+ *       The producer names the number `normalised_value`. A normalised 0–1
+ *       coordinate is not a percentage, so ×100 would mint meaning the wire does
+ *       not carry. A real-world unit label does NOT establish whether the stored
+ *       number is native or normalised — read the frame, not the label.
+ *
+ * ⚠ WHETHER `ratio` DENOTES A PROPORTION OR A MULTIPLE IS UNRESOLVED, AND IT IS
+ * NOT THE UI'S QUESTION. `0.4` could be four tenths of a named whole or a 0.4×
+ * multiplier; nothing on the wire distinguishes them. That ruling is owned by the
+ * backend (CEE/PLoT), which mints the unit. Until it lands, this set carries no
+ * semantic claim at all — it names a spelling whose magnitude the UI must
+ * PRESERVE and must not interpret.
+ *
+ * ⭐ AND THE MULTIPLE READING IS NOT HYPOTHETICAL — THE ESTATE ALREADY RECORDS IT.
+ * `canvas/utils/goalConstraintText.ts` rejected `ratio` from its
+ * `REWRITTEN_SCALE_UNITS` set on exactly this ground: *"A genuine ratio limit
+ * ('keep the ratio under 3') reconstructs EXACTLY and would lose its comparable
+ * numeric form for nothing."* So a third, independent refutation of the ×100 sits
+ * in this repo, written before this set existed: a `ratio` of 3 is a multiple, and
+ * `300%` would be nonsense. Values above 1 are therefore expected, not an edge
+ * case, which is why nothing here is bounded to [0,1].
+ *
+ * ⚠ WHY THIS IS NOT A MEMBER OF `GENERIC_PLACEHOLDER_UNITS`, WHICH IS WHERE IT
+ * FIRST LOOKS LIKE IT BELONGS — the same trap `BARE_MAGNITUDE_UNITS` documents
+ * above, and for a sharper reason. That set answers *"is this value on a
+ * normalised / qualitative scale?"*, and roughly twenty consumers read it for
+ * that: the ×100 percent scaling, and the qualitative-word branch in
+ * `canvas/utils/formatValueWithUnit` which turns a 0–1 magnitude into `moderate`.
+ * Joining it would replace a precise `0.4` with a band label over a scale whose
+ * bands are undefined — inventing meaning rather than deferring it. An undefined
+ * scale does not justify the word `moderate`. Two questions under one name is
+ * trap 21; they are named apart.
+ *
+ * ⚠ AND IT IS A PREDICATE, NOT A `UnitClass` MEMBER. `ratio` classifies as
+ * `other` and keeps doing so. 22 production files consume `classifyUnit` and NOT
+ * ONE switches on the kind — every consumer is an if/else chain ending in an
+ * `other` fall-through — so a new union member would produce ZERO TypeScript
+ * errors while silently changing all 22, four of which read `=== 'other'`
+ * explicitly (`canvas/utils/labelUtils.ts:839` and `:904`,
+ * `canvas/utils/goalConstraintText.ts:21`, `components/shared/TriageCard.tsx:265`).
+ * A value-aware rule cannot live in `classifyUnit` anyway — it never sees the
+ * value.
+ *
+ * Only `ratio` is listed. `proportion`, `fraction` and `share` are NOT included,
+ * deliberately: none has appeared on the wire, and an unmeasured spelling would
+ * be a guess — the same rule `PERCENT_UNIT_SPELLINGS` states for `'per cent'` and
+ * `BARE_MAGNITUDE_UNITS` for `'counts'`. A new spelling joins this set; it does
+ * not earn a new branch in a formatter.
+ */
+export const PROPORTION_UNITS: ReadonlySet<string> = new Set(['ratio'])
+
+/**
+ * True when `unit` names a scale the reader cannot interpret unaided (see
+ * `PROPORTION_UNITS`). Says nothing about what the value MEANS — only that the
+ * UI must preserve its magnitude rather than reinterpret it.
+ */
+export function isProportionUnit(unit: string | null | undefined): boolean {
+  if (unit == null) return false
+  return PROPORTION_UNITS.has(unit.trim().toLowerCase())
+}
