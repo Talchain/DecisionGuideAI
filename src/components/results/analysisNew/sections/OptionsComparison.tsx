@@ -389,7 +389,14 @@ export function OptionsComparison({
    */
   const rangeScale = (() => {
     const ranges = options.rows.flatMap((r) =>
-      r.kind === 'analysed' && r.outcomeRange !== null ? [r.outcomeRange] : [],
+      // ⚠ `!= null`, LOOSE, AND IT IS NOT A STYLE CHOICE. `outcomeRange` is
+      // REQUIRED on the type, but fixtures across the suite build these rows
+      // without it, so at runtime the value is `undefined` — which passes a
+      // strict `!== null` and then throws on `.p10`. CI caught exactly that:
+      // "Cannot read properties of undefined (reading 'p10')", six times.
+      // A field being required in TypeScript is not a guarantee about a value
+      // arriving from a fixture, a cast, or an older cached view model.
+      r.kind === 'analysed' && r.outcomeRange != null ? [r.outcomeRange] : [],
     )
     if (ranges.length < 2) return null
     const lo = Math.min(...ranges.map((r) => r.p10))
@@ -760,7 +767,7 @@ export function OptionsComparison({
                 does not know which. The bar says WHERE and HOW WIDE relative to
                 the other options, which is exactly what the reader needs to see
                 an overlap, and nothing more. */}
-            {o.kind === 'analysed' && o.outcomeRange !== null && rangeScale !== null ? (
+            {o.kind === 'analysed' && o.outcomeRange != null && rangeScale !== null ? (
               <span
                 className="mt-1 block relative h-1.5 w-full rounded-pill bg-panel-hover"
                 data-testid={`${testId}-outcome-range-${o.id}`}
