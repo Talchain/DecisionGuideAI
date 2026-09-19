@@ -161,11 +161,12 @@ export interface AnalysisNewTabBodyProps {
    * the hook stops and writes nothing". A surface cannot derive that from
    * `isBusy` alone, because `isBusy`'s wire half never expires.
    *
-   * ⚠ COMPUTED BY THE HOST, NOT HERE, AND THAT IS LOAD-BEARING. `OutputsDock`
-   * feeds the SAME value to `AnalysisRunStateCover` mounted directly above this
-   * body. Deriving it independently here would put two predicates on one
-   * question (trap 21) and let the cover keep shimmering a skeleton over a
-   * sentence saying nothing is coming.
+   * ⚠ COMPUTED BY THE HOST, NOT HERE, AND CI PROVED IT LOAD-BEARING.
+   * `OutputsDock` subtracts it from ONE identifier that feeds both this body's
+   * `isBusy` and the `AnalysisRunStateCover` mounted directly above it. An
+   * earlier cut bounded only this side; `busyMarkerSharesTheCoversAuthority`
+   * RED'd, and it was right — a skeleton would have kept shimmering over a
+   * sentence saying nothing is coming (trap 21).
    *
    * Absent = false: a caller that has not been given it keeps today's
    * behaviour, never a silent "given up".
@@ -714,9 +715,21 @@ export function AnalysisNewTabBody({
    * client gave up on it". Collapsing them would make the exhausted state
    * indistinguishable from a cold panel.
    */
-  const isBusyReported = isBusy ?? isRunning
-  const runWaitExhausted = isBusyReported && waitExhausted === true
-  const isBusyNow = isBusyReported && !runWaitExhausted
+  const isBusyNow = isBusy ?? isRunning
+  /**
+   * ⚠ NOT BOUNDED AGAIN HERE, AND CI PROVED WHY. The first cut subtracted the
+   * exhaustion from `isBusyNow` in this file while the host still handed the
+   * COVER the unbounded value, and `busyMarkerSharesTheCoversAuthority` — a
+   * source scan that exists for exactly this pair — RED'd with "the marker and
+   * the cover must read ONE authority". The host now bounds both with one
+   * identifier, so `isBusy` arrives already correct and this line is unchanged
+   * from before the fix.
+   *
+   * `waitExhausted` therefore says only WHY the panel is not busy, which is the
+   * one thing `isBusy` cannot carry: a cold panel and an abandoned run are both
+   * "not busy" and need different sentences.
+   */
+  const runWaitExhausted = !isBusyNow && waitExhausted === true
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a

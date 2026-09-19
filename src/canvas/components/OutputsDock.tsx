@@ -1094,10 +1094,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
    * See `useAnalysisWaitExhausted.ts` for the bound and why it is imported
    * rather than written.
    */
-  const analysisWaitExhausted = useAnalysisWaitExhausted(
-    composedAnalysisState.trust.isRunning,
-    composedAnalysisState.trust.runStartedAt,
-  )
+  const analysisWaitExhausted = useAnalysisWaitExhausted(composedAnalysisState.trust.isRunning)
   const analysisStillAwaited = composedAnalysisState.trust.isRunning && !analysisWaitExhausted
   const displayedFreshness = composedAnalysisState.displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
@@ -3959,7 +3956,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                      `localRunning || wireRunning`. Passing the local one here
                      left the tab telling the user a run was in flight while
                      leaving its content unmarked. */
-                  isBusy={composedAnalysisState.trust.isRunning}
+                  isBusy={analysisStillAwaited}
                   /* The client's own answer, beside the producer's. See the
                      derivation above and the prop's note on why it is not
                      derived inside the body. */

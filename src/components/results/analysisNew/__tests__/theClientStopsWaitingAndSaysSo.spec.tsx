@@ -55,6 +55,18 @@ import {
   PROVISIONAL_DELIVERY_DEADLINE_MS,
 } from '../useAnalysisWaitExhausted'
 import { PROVISIONAL_DELIVERY_DEADLINE_MS as HOOK_DEADLINE_MS } from '../../../../canvas/hooks/useProvisionalAnalysisDelivery'
+import type { ProvisionalDeliveryRecord } from '../../../../canvas/hooks/provisionalDeliveryRecord'
+
+const KEY = 'scenario-1:2026-09-19T14:31:06.392Z'
+const T0 = 1_700_000_000_000
+
+const rec = (over: Partial<ProvisionalDeliveryRecord> = {}): ProvisionalDeliveryRecord => ({
+  run_key: KEY,
+  armed_at: new Date(T0).toISOString(),
+  outcome: null,
+  settled_at: null,
+  ...over,
+})
 
 const NODES = [
   { id: 'g1', type: 'goal', data: { label: 'Board wants NRR above 110%' } },
@@ -88,47 +100,97 @@ const draw = ({ isBusy = true, waitExhausted, onReanalyse = vi.fn() }: DrawOpts 
     />,
   )
 
+/**
+ * ⭐ THE EXHAUSTED STATE AS THE HOST PRODUCES IT. `OutputsDock` computes
+ * `analysisStillAwaited = isRunning && !exhausted` and passes it as `isBusy`,
+ * so by the time this body sees an abandoned run, `isBusy` is ALREADY false.
+ * A fixture that sent `isBusy: true` here would be testing a state the product
+ * cannot reach (CLAUDE.md trap 16-inverse: a self-authored input encodes the
+ * author's model of the producer rather than the producer).
+ */
+const EXHAUSTED = { isBusy: false, waitExhausted: true } as const
+
 const block = () => screen.getByTestId('analysis-new-status-pre-run')
 const busyAttr = () => screen.getByTestId('analysis-new-tab-body').getAttribute('aria-busy')
 
-describe('THE BOUND IS THE DELIVERY HOOK\'S OWN, NOT A NUMBER THIS MODULE CHOSE', () => {
+describe('THE ANSWER IS OBSERVED, NOT INFERRED FROM THE PRODUCER\'S CLOCK', () => {
   /**
-   * ⭐⭐ THE PIN THAT MAKES EVERY OTHER ARM MEAN SOMETHING. If this module ever
-   * grows its own constant, the panel starts giving up at a moment unrelated to
-   * when the client actually stops trying, and every arm below would still pass.
+   * ⭐⭐ THE PIN THAT MAKES THE FLOOR MEAN SOMETHING. If this module grows its
+   * own constant, the floor stops matching the moment the hook actually stops.
    */
   it('re-exports the hook\'s deadline rather than restating it', () => {
     expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBe(HOOK_DEADLINE_MS)
-    // ⚠ And it is a real duration, so a future refactor cannot satisfy the line
-    // above with two matching zeroes.
     expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBeGreaterThan(60_000)
   })
 
-  const T0 = 1_700_000_000_000
-
-  it('is false while any attempt remains', () => {
-    expect(waitIsExhausted(true, T0, T0 + PROVISIONAL_DELIVERY_DEADLINE_MS - 1)).toBe(false)
-  })
-
-  it('is false AT the bound, and true after it', () => {
-    expect(waitIsExhausted(true, T0, T0 + PROVISIONAL_DELIVERY_DEADLINE_MS)).toBe(false)
-    expect(waitIsExhausted(true, T0, T0 + PROVISIONAL_DELIVERY_DEADLINE_MS + 1)).toBe(true)
+  /**
+   * ⭐⭐⭐ THE ARM THE FIRST CUT FAILED, AND THE REASON THIS FILE EXISTS.
+   * The first predicate measured `now - run_state.started_at`. That is the
+   * PRODUCER's clock; the schedule arms when the client mounts. A page opened
+   * long after a run was asserted must NOT report that it has stopped waiting,
+   * because it has just started. CI caught this as a missing run banner.
+   */
+  it('a run asserted long ago, with a schedule that has only just armed, is NOT exhausted', () => {
+    const justArmed = rec({ armed_at: new Date(T0).toISOString() })
+    expect(waitIsExhausted(true, justArmed, KEY, T0 + 1_000)).toBe(false)
+    // Even if the RUN itself was asserted hours earlier — which is the exact
+    // shape of the fixture that RED'd.
+    expect(waitIsExhausted(true, justArmed, KEY, T0 + 5_000)).toBe(false)
   })
 
   /**
-   * ⚠ FAIL-CLOSED WITHOUT A CLOCK. Mount time measures the age of a COMPONENT,
-   * not of a run — the round-2 P1 regression recorded in
-   * `AnalysisRunningBanner.tsx`. A surface with no run clock keeps saying what
-   * it was last honestly told.
+   * ⭐⭐ THE OUTCOME A CLOCK CANNOT SEE. `withheld` settles the schedule EARLY
+   * — "divergence is a property of the canvas, not of the answer's timing" — so
+   * a clock-only predicate would keep claiming a run was in flight for the
+   * whole remaining ladder on the one outcome that is already final.
    */
-  it('no clock means never exhausted, however long the page has been open', () => {
-    expect(waitIsExhausted(true, undefined, T0 + 10 * PROVISIONAL_DELIVERY_DEADLINE_MS)).toBe(false)
-    expect(waitIsExhausted(true, Number.NaN, T0 + 10 * PROVISIONAL_DELIVERY_DEADLINE_MS)).toBe(false)
+  it('a schedule that settled WITHHELD is exhausted immediately, long before any deadline', () => {
+    const settled = rec({ outcome: 'withheld', settled_at: new Date(T0 + 9_000).toISOString() })
+    expect(waitIsExhausted(true, settled, KEY, T0 + 10_000)).toBe(true)
   })
 
-  /** And with no run asserted there is nothing to have given up on. */
-  it('no run means never exhausted', () => {
-    expect(waitIsExhausted(false, T0, T0 + 10 * PROVISIONAL_DELIVERY_DEADLINE_MS)).toBe(false)
+  it('a schedule that settled at the DEADLINE is exhausted', () => {
+    const settled = rec({ outcome: 'deadline' })
+    expect(waitIsExhausted(true, settled, KEY, T0 + 1_000)).toBe(true)
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN. Without this, "settled means exhausted" would
+   * also fire on the one ending that PUT SOMETHING ON SCREEN, and the panel
+   * would announce an abandoned run over a delivered result.
+   */
+  it('a schedule that DELIVERED is never exhausted', () => {
+    const delivered = rec({ outcome: 'delivered', settled_at: new Date(T0 + 9_000).toISOString() })
+    expect(waitIsExhausted(true, delivered, KEY, T0 + 10_000)).toBe(false)
+  })
+
+  /**
+   * ⚠ THE FLOOR, on THIS CLIENT's clock. Armed and never settled, which is
+   * possible if the effect was torn down mid-schedule.
+   */
+  it('armed and never settled is exhausted only past the deadline, measured from arming', () => {
+    const armed = rec()
+    expect(waitIsExhausted(true, armed, KEY, T0 + PROVISIONAL_DELIVERY_DEADLINE_MS)).toBe(false)
+    expect(waitIsExhausted(true, armed, KEY, T0 + PROVISIONAL_DELIVERY_DEADLINE_MS + 1)).toBe(true)
+  })
+
+  /**
+   * ⭐⭐ THE KEY MATCH, AND IT IS LOAD-BEARING. A settled record from a PREVIOUS
+   * run must not mark the current one abandoned — otherwise every re-run opens
+   * already claiming it was given up on.
+   */
+  it('a settled record for a DIFFERENT run says nothing about this one', () => {
+    const other = rec({ run_key: 'scenario-1:2026-09-19T99:99:99.999Z', outcome: 'deadline' })
+    expect(waitIsExhausted(true, other, KEY, T0 + 10 * PROVISIONAL_DELIVERY_DEADLINE_MS)).toBe(false)
+  })
+
+  /** ⚠ FAIL-CLOSED AT EVERY ABSENCE. */
+  it('no record, no key, no run, or an unparseable stamp: never exhausted', () => {
+    const far = T0 + 10 * PROVISIONAL_DELIVERY_DEADLINE_MS
+    expect(waitIsExhausted(true, null, KEY, far)).toBe(false)
+    expect(waitIsExhausted(true, rec({ outcome: 'deadline' }), null, far)).toBe(false)
+    expect(waitIsExhausted(false, rec({ outcome: 'deadline' }), KEY, far)).toBe(false)
+    expect(waitIsExhausted(true, rec({ armed_at: 'not-a-date' }), KEY, far)).toBe(false)
   })
 })
 
@@ -161,7 +223,7 @@ describe('THE CONTROL — the busy state this file bounds really renders', () =>
 
 describe('once the client has stopped waiting, the panel stops claiming a run', () => {
   it('it says the analysis has not reached this page', () => {
-    draw({ isBusy: true, waitExhausted: true })
+    draw(EXHAUSTED)
     expect(block()).toHaveTextContent(COPY.status.waitExhausted)
     // The literal twin: a constant-only pin moves with the register, so it
     // cannot observe the register itself being edited (trap 12d).
@@ -174,14 +236,14 @@ describe('once the client has stopped waiting, the panel stops claiming a run', 
    * pre-run vs staleness, and the running sentence vs pre-run before it.
    */
   it('and stops saying a run is in flight', () => {
-    draw({ isBusy: true, waitExhausted: true })
+    draw(EXHAUSTED)
     expect(block()).not.toHaveTextContent(COPY.status.running)
     expect(block()).not.toHaveTextContent('Analysis is running.')
   })
 
   /** Nor does it fall back to denying a run was ever asked for. */
   it('and does not claim nothing was ever run', () => {
-    draw({ isBusy: true, waitExhausted: true })
+    draw(EXHAUSTED)
     expect(block()).not.toHaveTextContent(COPY.status.preRun)
   })
 
@@ -191,14 +253,14 @@ describe('once the client has stopped waiting, the panel stops claiming a run', 
    * because a run was supposedly in flight.
    */
   it('the way out is restored', () => {
-    draw({ isBusy: true, waitExhausted: true })
+    draw(EXHAUSTED)
     const act = screen.getByTestId('analysis-new-status-pre-run-act')
     expect(act).toBeInTheDocument()
     expect(act).toHaveTextContent(COPY.status.preRunRunAction)
   })
 
   it('and says why running again is worth doing', () => {
-    draw({ isBusy: true, waitExhausted: true })
+    draw(EXHAUSTED)
     expect(block()).toHaveTextContent(COPY.status.waitExhaustedWhy)
     expect(block()).toHaveTextContent('Olumi has stopped waiting for it.')
   })
@@ -227,7 +289,7 @@ describe('once the client has stopped waiting, the panel stops claiming a run', 
    * someone wrote a DIFFERENT false cause.
    */
   it('makes no claim about what happened to the run itself', () => {
-    draw({ isBusy: true, waitExhausted: true })
+    draw(EXHAUSTED)
     const said = block().textContent ?? ''
     expect(said).not.toMatch(/\bfailed\b|\bcrashed\b|\berror\b/i)
     expect(said).not.toMatch(/\bstill (?:running|going|analysing)\b/i)
@@ -244,22 +306,42 @@ describe('once the client has stopped waiting, the panel stops claiming a run', 
    * the contradiction being closed, relocated rather than fixed (trap 21).
    */
   it('the busy marker clears with the sentence', () => {
-    draw({ isBusy: true, waitExhausted: true })
+    draw(EXHAUSTED)
     expect(busyAttr()).toBeNull()
   })
 })
 
-describe('the flag cannot leak into a panel that was never waiting', () => {
+describe('a cold panel is not an abandoned run', () => {
   /**
-   * ⚠ THE OPPOSITE-DIRECTION TWIN (trap 22b). `waitExhausted` is computed from
-   * a run the host asserted; a cold panel that somehow receives it must read as
-   * an ordinary pre-run panel, not as an abandoned run.
+   * ⚠ THE OPPOSITE-DIRECTION TWIN (trap 22b). Both a cold panel and an
+   * abandoned run are "not busy"; only one of them has a run to report on, and
+   * conflating them would greet every first-time reader with a sentence about
+   * a run that never existed.
+   *
+   * ⭐ The guarantee behind it is the PREDICATE's, not this component's:
+   * `waitIsExhausted` returns false whenever no run is asserted, pinned above
+   * in "no record, no key, no run". This arm pins the component's half — that
+   * it renders the ordinary sentence when the host says there is nothing to
+   * report.
    */
-  it('exhausted but never busy reads as an ordinary pre-run panel', () => {
-    draw({ isBusy: false, waitExhausted: true })
+  it('nothing running and nothing abandoned reads as an ordinary pre-run panel', () => {
+    draw({ isBusy: false, waitExhausted: false })
     expect(block()).toHaveTextContent(COPY.status.preRun)
     expect(block()).not.toHaveTextContent(COPY.status.waitExhausted)
     expect(block()).not.toHaveTextContent('This analysis has not reached this page.')
     expect(busyAttr()).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ AND THE STATE THE HOST CANNOT PRODUCE IS STILL SAFE. `analysisStillAwaited`
+   * is `isRunning && !exhausted`, so `isBusy` and `waitExhausted` are never both
+   * true. If a future caller sends both anyway, the run claim wins — being wrong
+   * toward "still running" is recoverable, announcing an abandoned run over a
+   * live one is not.
+   */
+  it('if a caller sends both, the live run wins', () => {
+    draw({ isBusy: true, waitExhausted: true })
+    expect(block()).toHaveTextContent(COPY.status.running)
+    expect(block()).not.toHaveTextContent(COPY.status.waitExhausted)
   })
 })
