@@ -133,14 +133,24 @@ function rangelessOptions(): OptionResult[] {
  * behaviour under test.
  */
 function renderFor(allOptions: OptionResult[]) {
-  const vm = buildAnalysisNewViewModel(
-    makeData({
+  // ⚠ THE BUILDER TAKES AN INPUTS OBJECT, NOT THE DATA. I first passed
+  // `makeData(...)` straight in; `buildAnalysisNewViewModel(inputs:
+  // AnalysisNewViewModelInputs)` destructures `{ data, recommendations,
+  // isStale, … }`, so `data` arrived undefined and the typecheck ratchet
+  // caught it (TS2345). Shaped like the sibling specs, which is where the
+  // correct call already lived.
+  const vm = buildAnalysisNewViewModel({
+    data: makeData({
       recommendation: {
         allOptions,
         recommendedOption: allOptions.find((o) => o.isRecommended) ?? null,
       },
     }),
-  )
+    recommendations: [],
+    isPreRun: false,
+    isRunning: false,
+    isStale: false,
+  })
   const utils = render(<OptionsComparison options={vm.optionsComparison} />)
   fireEvent.click(screen.getByTestId(`${TESTID}-toggle`))
   return { vm, ...utils }
