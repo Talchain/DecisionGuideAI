@@ -76,7 +76,27 @@ import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
 import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
-import { action, icon } from '../panelSurfaces'
+/**
+ * ⛔ ALIASED, AND THE ALIAS IS THE FIX FOR A LIVE DEFECT IN THIS PR.
+ *
+ * This component destructures a prop named `icon` (`icon?: LucideIcon`, a
+ * ROW GLYPH), so a bare `icon` import is shadowed for the entire component
+ * body — which is the whole file. All FIVE bare `icon('inline')` calls added
+ * here resolved to the PROP: `Wrench('inline')` returns a React element, which
+ * template-interpolates to the literal string `[object Object]`, so five icons in
+ * the panel's most-used section lost their sizing and rendered at lucide's 24px
+ * default instead of 12px.
+ *
+ * ⭐ `SectionShell` has the same prop and is NOT affected, because it
+ * destructures `icon: Icon` — renaming on destructure is what saved it, and is
+ * the pattern to prefer.
+ *
+ * ⚠ Caught by independent review, not by me and not by a gate — CI had not
+ * completed on this head. The lesson is narrow and worth keeping: an import
+ * added to a file must be checked against that file's PARAMETER LIST, not
+ * only against its other imports.
+ */
+import { action, icon as iconSize } from '../panelSurfaces'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -1035,7 +1055,7 @@ export function StrengthenTheReasoning({
 
                     Both moves RED in `StrengthenSeveritySignals.spec.tsx`. */}
                 <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
-                  {markKind ? <NodeMark kind={markKind} className={`${icon('inline')} self-center`} /> : null}
+                  {markKind ? <NodeMark kind={markKind} className={`${iconSize('inline')} self-center`} /> : null}
                   <span className="min-w-0" data-testid={`${testId}-title`}>
                     {rec.title}
                   </span>
@@ -1152,7 +1172,7 @@ export function StrengthenTheReasoning({
                         data-method-id={method.id}
                         title={method.description}
                       >
-                        <Lightbulb className={`${icon('inline')}`} aria-hidden={true} />
+                        <Lightbulb className={`${iconSize('inline')}`} aria-hidden={true} />
                         {method.title}
                         {/* ⚠ `title` RENDERS ON MOUSE HOVER ONLY — no major
                             browser shows it on keyboard focus. So what the
@@ -1185,7 +1205,7 @@ export function StrengthenTheReasoning({
                           strengthLabel ? ` · ${strengthLabel}` : ''
                         }.`}
                       >
-                        <FlaskConical className={`${icon('inline')}`} aria-hidden={true} />
+                        <FlaskConical className={`${iconSize('inline')}`} aria-hidden={true} />
                         {strengthLabel ?? COPY.strengthen.groundedChip}
                         <span className="sr-only">
                           {`Grounded in the decision-science knowledge base${
@@ -1248,7 +1268,7 @@ export function StrengthenTheReasoning({
                     data-testid={`${testId}-action`}
                   >
                     {rec.action.label}
-                    <ArrowRight className={`${icon('inline')}`} aria-hidden={true} />
+                    <ArrowRight className={`${iconSize('inline')}`} aria-hidden={true} />
                   </button>
                   {rec.targetId ? (
                     <button
@@ -1277,7 +1297,7 @@ export function StrengthenTheReasoning({
                       className={`${typography.panelMeta} inline-flex items-center gap-1 rounded px-1 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-focus`}
                     >
-                      <Crosshair className={`${icon('inline')}`} aria-hidden={true} />
+                      <Crosshair className={`${iconSize('inline')}`} aria-hidden={true} />
                       Show on canvas
                     </button>
                   ) : null}
