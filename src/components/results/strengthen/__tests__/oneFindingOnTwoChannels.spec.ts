@@ -76,9 +76,21 @@ const BODY =
   'The link from Product Quality to churn assumes product gaps are the main mechanism, ' +
   'based on the three churned customers who cited missing integrations.'
 
+/**
+ * A stable id per BODY.
+ *
+ * ⚠ LOAD-BEARING, AND ITS ABSENCE COST A CI RED. `extractPhase3FromV5Response`
+ * dedupes by `id` (`seenIds`, :251). A helper that reuses one `block_id` whatever
+ * the body silently loses the second pair BEFORE the engine sees it — so the
+ * over-merge arm below read one row and blamed the merge for a drop that had
+ * happened two layers upstream. A fixture you wrote yourself is not evidence.
+ */
+const idFor = (body: string): string =>
+  `${body.length}-${body.replace(/[^a-z]/gi, '').slice(0, 12).toLowerCase()}`
+
 /** The explanation half: a review card, no action, no target. Rank band 10-99. */
 const reviewCard = (body = BODY): Record<string, unknown> => ({
-  block_id: 'blk-review-assumption-1',
+  block_id: `blk-review-${idFor(body)}`,
   type: 'review_card',
   card_kind: 'assumption',
   title: 'A load-bearing assumption',
@@ -92,7 +104,7 @@ const reviewCard = (body = BODY): Record<string, unknown> => ({
 
 /** The route half: coaching, with the action and the target. Rank band 100-199. */
 const coachingTwin = (body = BODY): Record<string, unknown> => ({
-  block_id: 'blk-coach-assumption-1',
+  block_id: `blk-coach-${idFor(body)}`,
   type: 'coaching',
   coaching_kind: 'assumption_check',
   title: 'An assumption to check',
@@ -157,7 +169,7 @@ describe('one finding on two channels', () => {
 
   it('keeps the row identity of the half that already sorted first — nothing moves', () => {
     const [rec] = phase3([reviewCard(), coachingTwin()])
-    expect(rec.id).toBe('strengthen:phase3:blk-review-assumption-1')
+    expect(rec.id).toBe(`strengthen:phase3:blk-review-${idFor(BODY)}`)
   })
 
   /**
@@ -167,7 +179,7 @@ describe('one finding on two channels', () => {
   it('⛔ a finding with no twin is untouched', () => {
     const alone = phase3([coachingTwin()])
     expect(alone).toHaveLength(1)
-    expect(alone[0].id).toBe('strengthen:phase3:blk-coach-assumption-1')
+    expect(alone[0].id).toBe(`strengthen:phase3:blk-coach-${idFor(BODY)}`)
     expect(alone[0].action?.label).toBe('Confirm this assumption')
     expect(alone[0].targetId).toBe('cc057894')
   })
@@ -183,7 +195,14 @@ describe('one finding on two channels', () => {
    */
   it('⛔ two DIFFERENT findings sharing a signal_code both render', () => {
     const other = 'The model assumes the competitor’s hiring does not shift expectations.'
-    const rows = phase3([reviewCard(), coachingTwin(), reviewCard(other), coachingTwin(other)])
+    const blocks = [reviewCard(), coachingTwin(), reviewCard(other), coachingTwin(other)]
+    // ⚠ PIN THE PRECONDITION IN-TEST. Without it this arm cannot tell an
+    // OVER-MERGE from an upstream DROP — which is exactly how it first went red.
+    expect(
+      toItems(blocks),
+      'all four producer blocks must reach the engine, or this arm measures extraction',
+    ).toHaveLength(4)
+    const rows = phase3(blocks)
     expect(rows, 'distinct bodies are distinct findings, whatever code they share').toHaveLength(2)
     const bodies = rows.map((r) => r.whyNow ?? '')
     expect(bodies.some((b) => b.includes('product gaps'))).toBe(true)
