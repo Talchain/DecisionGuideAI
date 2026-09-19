@@ -3316,6 +3316,13 @@ function dedupeAgainstGlance(
 function buildChecks(
   data: ResultsSectionDataReturn,
   producerWithholdReason: string | null | undefined,
+  /**
+   * ⚠ THREADED FOR `rerunWouldNotHelp` ONLY, and only the ASSERTING value is
+   * load-bearing: `'changed'` states that the model moved, while `'unconfirmed'`
+   * and absence both mean the freshness could not be established — which is not
+   * evidence either way and must not earn a suppression.
+   */
+  staleReason: 'changed' | 'unconfirmed' | null | undefined,
 ): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
@@ -3461,6 +3468,42 @@ function buildChecks(
      * So the fact gets its own field, from the same gate.
      */
     leaderWithheld: leaderCode === 'leader_not_assessed',
+    /**
+     * ⭐⭐⭐ A DIFFERENT QUESTION AGAIN: WOULD RUNNING IT AGAIN CHANGE THIS?
+     *
+     * ⛔ THE DEFECT THIS CLOSES, found by an independent seat on #1759.
+     * `AtAGlance` consumed `leaderWithheld` to decide whether to offer a
+     * re-run, i.e. it read "no leader could be named" as "another run cannot
+     * help". Those are not the same fact, and `leader_not_assessed` covers
+     * BOTH — an assessed durable limitation of the model AND a missing
+     * verdict, an unknown separation, an incomplete or failed result. The
+     * second group is exactly the retryable class the PR promised to preserve,
+     * and it lost its retry.
+     *
+     * ⭐ TWO CONJUNCTS, EACH EVIDENCED, because a suppression must be earned:
+     *
+     *  1. THE CAUSE IS NAMEABLE. `leaderWithholdCause` is non-null only for a
+     *     reason this surface can state — a property of the model or of the
+     *     run's separation. Where the producer named nothing, the cause is
+     *     UNKNOWN, and an unknown cause is not evidence of irrecoverability.
+     *     Fail-open: the retry stays.
+     *
+     *  2. THE MODEL HAS NOT CHANGED SINCE. A withheld result whose model has
+     *     been edited is the ribbon's own recovery case — re-running the edited
+     *     model is precisely what a reader should do. `staleReason === 'changed'`
+     *     is the only value that ASSERTS a change (`'unconfirmed'` and absence
+     *     both mean "we could not establish it", which is not evidence).
+     *
+     * ⚠ AND `leaderWithheld` STAYS, unchanged, because it answers the question
+     * it always answered: may this surface name a leading option? The fix is to
+     * name the questions apart and let each consumer bind to its own — never to
+     * align them, which this estate has already shipped a P1 through
+     * (#709/#737, CLAUDE.md trap 21).
+     */
+    rerunWouldNotHelp:
+      leaderCode === 'leader_not_assessed' &&
+      leaderWithholdCause(producerWithholdReason) !== null &&
+      staleReason !== 'changed',
   }
 }
 
@@ -3715,8 +3758,8 @@ export function buildAnalysisNewViewModel(
         // distinction matters downstream — the glance ribbon uses this to
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
-        { items: [], leaderWithholdCause: null, leaderWithheld: false }
-      : buildChecks(data, inputs.producerLeaderWithholdReason),
+        { items: [], leaderWithholdCause: null, leaderWithheld: false, rerunWouldNotHelp: false }
+      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }
 

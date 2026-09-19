@@ -1157,6 +1157,23 @@ export interface ChecksSection {
    * named — two different facts that one nullable string cannot carry.
    */
   leaderWithheld: boolean
+  /**
+   * ⭐⭐ WOULD RUNNING IT AGAIN CHANGE THIS? A THIRD QUESTION, and the one a
+   * re-run affordance must bind to.
+   *
+   * ⛔ `leaderWithheld` was used for it and that was wrong: `leader_not_assessed`
+   * covers an assessed durable limitation of the model AND a missing verdict,
+   * an unknown separation, an incomplete or failed result. Reading the first
+   * meaning over the whole set removed the retry from precisely the cases a
+   * retry serves.
+   *
+   * True only where BOTH hold: the cause is nameable (an unknown cause is not
+   * evidence of irrecoverability) and the model has not changed since (a
+   * changed model is the ribbon's own recovery case). Fail-open everywhere
+   * else — offering a run that turns out not to help costs a click; withholding
+   * one that would have helped strands the reader.
+   */
+  rerunWouldNotHelp: boolean
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
