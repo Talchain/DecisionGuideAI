@@ -246,6 +246,130 @@ function dedupeKey(title: string, body: string | undefined): string {
   return `${normaliseText(title)}\u0000${normaliseText(body ?? '')}`
 }
 
+/**
+ * ⭐⭐ ONE FINDING THAT ARRIVED ON TWO CHANNELS IS ONE FINDING.
+ *
+ * ## Measured on a real run (bundle `d9c4066c`, 19 Sep 2026)
+ *
+ * The producer emits each load-bearing assumption TWICE, from the same handler
+ * in the same millisecond, with **byte-identical bodies**:
+ *
+ * ```
+ *   signal_id "review:assumption:1:8ac55f86e2c168ef"  priority_rank  71
+ *     type review_card · title "A load-bearing assumption"
+ *     NO action, NO target_refs                      ← the explanation
+ *
+ *   signal_id "coach:assumption:1:8ac55f86e2c168ef"   priority_rank 101
+ *     type coaching · title "An assumption to check"
+ *     action_intent confirm_factor · target_refs [Product Quality]
+ *                                                    ← the route
+ * ```
+ *
+ * Three assumptions, so **six rows on screen** — each sentence read twice, and
+ * only the second copy of each could be acted on.
+ *
+ * ## ⚠ WHY THE EXISTING DEDUPE CANNOT SEE IT — it misses by exactly one field
+ *
+ * `dedupeKey` is `title + body`, and these twins have **different titles**. That
+ * conjunction is right for the case it was written for (the comment above it
+ * records it: one generic headline over distinct bodies is distinct findings)
+ * and blind to the mirror case — one body under two headlines.
+ *
+ * ## The key is the PRODUCER'S OWN, not a content sniff
+ *
+ * `signal_code` is `ASSUMPTION_CHECK` on both halves, and the rank bands are
+ * documented on `StrengthenPhase3Item.priorityRank`: **10-99 review cards,
+ * 100-199 coaching**. So `signal_code` + body is a channel-independent identity
+ * the producer already mints; body equality alone would be a sniff, and
+ * `signal_code` alone would collapse genuinely distinct findings of one kind.
+ *
+ * ## ⛔ IT MERGES, IT DOES NOT DROP — and that distinction is the whole fix
+ *
+ * A plain dedupe would keep the FIRST twin after sorting, which is the review
+ * card (rank 71) — **and silently delete the action and the target**, leaving
+ * an explanation the user cannot act on. That is the defect RC4 named, arrived
+ * at from the opposite direction. So the surviving row keeps its own copy and
+ * ADOPTS the action, the coaching kind and the targets from its twin.
+ *
+ * Consequences, each deliberate:
+ * - **the explanation survives verbatim** — the kept body is never rewritten;
+ * - **display order is unchanged** — the kept row is the one that already sorted
+ *   first, so nothing moves;
+ * - **the disagreement controls keep working**, because they hang off the row's
+ *   target and action, which are now present rather than on a second row;
+ * - **the single-finding case is untouched** — a finding with no twin folds to
+ *   itself and is returned unchanged;
+ * - **different bodies are never merged**, so a real pair of findings that share
+ *   a `signal_code` both render.
+ */
+function channelTwinKey(item: StrengthenPhase3Item): string | null {
+  const code = normaliseText(item.signalCode ?? '')
+  const body = normaliseText(item.body ?? '')
+  // Both halves required. A code with no body cannot be shown to be the same
+  // finding, and a body with no code is the content sniff this avoids.
+  return code !== '' && body !== '' ? `${code}\u0000${body}` : null
+}
+
+/**
+ * ⛔⛔ THE CHANNEL DISCRIMINATOR — AND ITS ABSENCE WAS A REAL DEFECT THE
+ * EXISTING SUITE CAUGHT.
+ *
+ * The first version keyed on `signal_code` + body alone. That is too loose:
+ * `biasMethodReachesTheProducersBias` mounts **six named bias cards that share
+ * one generic body** (`COGNITIVE_BIAS` / "Producer evidence quoting the brief.")
+ * and differ only by title. The loose key folded all six into one and spent the
+ * display budget on a row the producer never sent.
+ *
+ * ⭐ "One finding on two channels" means literally that, so the rule must test
+ * the CHANNEL. A `review_card` carries no `coaching_kind`; a `coaching` block
+ * always does. So a twin pair is one of each — and six coaching cards can never
+ * pair with one another however much text they share.
+ *
+ * ⚠ Derived from the capture, not assumed: `review:assumption:1:…` has no
+ * `coaching_kind`, `coach:assumption:1:…` has `assumption_check`, and all six
+ * bias cards carry `bias_signal`. The discriminator separates the real pair and
+ * refuses the false one on the same evidence.
+ */
+function isCrossChannelPair(a: StrengthenPhase3Item, b: StrengthenPhase3Item): boolean {
+  return (a.coachingKind == null) !== (b.coachingKind == null)
+}
+
+function mergeChannelTwins(items: StrengthenPhase3Item[]): StrengthenPhase3Item[] {
+  const out: StrengthenPhase3Item[] = []
+  const firstAt = new Map<string, number>()
+  for (const item of items) {
+    const key = channelTwinKey(item)
+    if (key === null) {
+      out.push(item)
+      continue
+    }
+    const at = firstAt.get(key)
+    if (at === undefined) {
+      firstAt.set(key, out.length)
+      out.push(item)
+      continue
+    }
+    const kept = out[at]
+    // ⛔ Same code and same body is NOT enough. Without the channel test, six
+    // bias cards sharing one generic body collapse into one row.
+    if (!isCrossChannelPair(kept, item)) {
+      out.push(item)
+      continue
+    }
+    // ⚠ `??` and a length check, never a spread of the twin: the kept row's own
+    // producer copy must win every field it already has. Adopting is for what
+    // it LACKS — which on the measured run is exactly the action and the target.
+    out[at] = {
+      ...kept,
+      actionIntent: kept.actionIntent ?? item.actionIntent,
+      actionLabel: kept.actionLabel ?? item.actionLabel,
+      coachingKind: kept.coachingKind ?? item.coachingKind,
+      targetIds: kept.targetIds.length > 0 ? kept.targetIds : item.targetIds,
+    }
+  }
+  return out
+}
+
 function pct(p: number): string {
   return `${Math.round(p * 100)}%`
 }
@@ -413,7 +537,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   const isProducerRanked = (i: StrengthenInputs['phase3Items'][number]): boolean =>
     typeof i.priorityRank === 'number'
   const seenPhase3Keys = new Set<string>()
-  const promotedPhase3 = [...inputs.phase3Items]
+  const dedupedPhase3 = [...inputs.phase3Items]
     .sort((a, b) => {
       // Stage 2 — SEVERITY-major: the producer's `category` is the primary
       // display order (must_fix → should_fix → could_fix → technique). It is
@@ -447,7 +571,11 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       seenPhase3Keys.add(key)
       return true
     })
-    .slice(0, MAX_PHASE3_PROMOTED)
+  // ⭐ ONE FINDING ON TWO CHANNELS, folded before the display budget is spent.
+  // Order matters: folding AFTER the cap would let a twin pair consume two of
+  // the budget's slots and push a distinct finding off the list entirely, which
+  // is the same harm the UI-SEM-085 ordering fix exists to prevent one level up.
+  const promotedPhase3 = mergeChannelTwins(dedupedPhase3).slice(0, MAX_PHASE3_PROMOTED)
   let promotedIndex = 0
   for (const item of promotedPhase3) {
     const biasCode = biasCodeFromPhase3Item(item)
