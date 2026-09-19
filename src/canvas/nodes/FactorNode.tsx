@@ -944,6 +944,46 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* ⭐⭐⭐ WHO PUT THE NUMBER THERE — SAID IN WORDS, ON THE CARD FACE.
+            The anatomy's second question is "what does the model record, AND WHO
+            PUT IT THERE", and every design board draws the second half as a
+            visible line beneath the value: "Your estimate · 12 Sep", "From your
+            brief · 12 Sep".
+
+            ⛔ SHIPPED ANSWERED IT WITH A PICTURE. `NodeProvenanceMark` renders a
+            14px icon inside a `<span role="img" aria-label=…>` with NO TEXT NODE,
+            in the HEADER row rather than beneath the value, wrapped in a tooltip.
+            So the words existed only on hover and in the accessibility tree: a
+            screen-reader user was told whose number it was and a sighted reader
+            was not, and on touch there is no hover at all. That is the same
+            asymmetry as the bare-number badge, one question over.
+
+            ⭐ NO NEW VOCABULARY. `VALUE_PROVENANCE_LABEL` already exists, is
+            already imported here, and already renders these exact words in the
+            POPOVER ("Current value: 0.3 scale · AI estimate"). This puts the
+            same string where a reader can see it without a pointer.
+
+            ⚠ `est.` IS DELIBERATELY KEPT, not folded in. The design rules that
+            "origin and basis are two facts and stay two facts": `est.` says the
+            number is an estimate rather than a measurement; this line says who
+            supplied it. They are different claims and a `brief` value carries the
+            second without the first.
+
+            ⚠ THE DATE THE BOARDS DRAW IS NOT HERE, and is not invented. A sweep
+            of `src/canvas/nodes` for `toLocaleDateString|formatDate|
+            Intl.DateTimeFormat` returns ZERO call sites (contrast: 15 across
+            `src`), and no producer field carries a per-value timestamp. Rowed
+            rather than fabricated — a date is exactly the kind of thing that
+            reads as authority and cannot be checked. */}
+        {valueDisplay !== null && currentValueOrigin != null && (
+          <p
+            data-testid="factor-value-basis"
+            className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}
+          >
+            {VALUE_PROVENANCE_LABEL[currentValueOrigin.kind]}
+          </p>
+        )}
+
         {/* External factor: prior range (if available) */}
         {nodeCategory === 'external' && priorRangeDisplay && (
           <div className={`${typography.edgeLabel} mt-0.5 text-text-light`}>{priorRangeDisplay}</div>
