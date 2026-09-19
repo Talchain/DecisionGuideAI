@@ -468,33 +468,37 @@ describe('rendered product copy carries no em dashes', () => {
     })
 
     /**
-     * ⛔ THE PARSE ITSELF, PINNED — because this guard's failure mode is to
-     * read PROSE as copy, and the only thing standing between it and that is
-     * which ScriptKind a `.tsx` file gets. A silent revert to `ScriptKind.TS`
-     * reds this rather than reding a docblock somewhere else next week.
+     * ⛔ THE PARSE ITSELF, PINNED — AND BOUND TO THE FILE THAT ACTUALLY BROKE.
+     *
+     * ⚠ MY FIRST VERSION OF THIS ARM WAS WRITTEN FROM MY MODEL OF THE DEFECT AND
+     * FAILED IN CI. It used a six-line synthetic snippet and asserted that
+     * reading it as plain TS would surface the em dash. It surfaced NOTHING:
+     * the quote mis-pairing needs a real parity context, which a minimal
+     * fixture does not reproduce. The fix was right and the discriminator was
+     * fiction — a fixture written from the author\'s head, which is precisely
+     * what this estate keeps paying for.
+     *
+     * ⭐ SO IT IS BOUND TO `SectionShell.tsx`, the file whose docblock actually
+     * RED\'d the shared gate. Read as TSX it is clean; read as TS the defect
+     * reappears. That pair is evidence rather than illustration, and it cannot
+     * pass while the parse silently reverts.
      */
-    it('⛔ a JSX comment is a COMMENT, not a string literal', () => {
-      const tsx = [
-        'export const X = () => (',
-        '  <div>',
-        '    {/* A docblock — with an em dash — that no user can see. */}',
-        '    <span className="min-w-0 flex-1">hello</span>',
-        '  </div>',
-        ')',
-      ].join('\n')
+    it('⛔ the real file that broke: clean as TSX, offending as TS', () => {
+      const REAL = 'src/components/results/analysisNew/sections/SectionShell.tsx'
+      const src = readFileSync(resolve(process.cwd(), REAL), 'utf8')
 
-      // Parsed as TSX (the real filename), the comment is invisible and the only
-      // literals are the className and the text.
       expect(
-        offendersIn(tsx, 'Fake.tsx'),
-        'prose in a JSX comment is not product copy and must never be reported',
+        src.includes(EM_DASH),
+        'PRECONDITION: this file must still carry an em dash in its PROSE, or the pair proves nothing',
+      ).toBe(true)
+
+      expect(
+        offendersIn(src, REAL),
+        'read as TSX, a JSX comment is a comment and its prose is not product copy',
       ).toEqual([])
 
-      // ⭐ THE DISCRIMINATOR: the SAME source read as plain TS does report it.
-      // Without this the arm above would pass on a scanner that found nothing
-      // at all, which is the vacuity this file exists to refuse.
       expect(
-        offendersIn(tsx, 'Fake.ts').length,
+        offendersIn(src, REAL.replace(/\.tsx$/, '.ts')).length,
         'read as TS the defect reappears — which is what made this worth fixing',
       ).toBeGreaterThan(0)
     })
