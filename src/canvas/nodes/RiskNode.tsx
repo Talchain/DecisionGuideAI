@@ -665,7 +665,7 @@ export const RiskNode = memo((props: NodeProps) => {
             what the design review objected to. */}
         {recordedValue && (
           <p
-            className={`${typography.nodeLabel} text-text-body m-0`}
+            className={`${typography.nodeValue} text-text-body m-0`}
             data-testid="risk-recorded-value"
           >
             {recordedValue}

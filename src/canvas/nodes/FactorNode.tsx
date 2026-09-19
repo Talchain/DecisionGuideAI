@@ -938,7 +938,7 @@ export const FactorNode = memo((props: NodeProps) => {
             the popover and the inspector keep the full string. A value the
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-baseline gap-1`}>
+          <div className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}>
             <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>

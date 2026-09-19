@@ -39,7 +39,25 @@ import {
  * scale must not match; the 13px regex must not match an 11px token) are
  * untouched, so this file still discriminates on the property it is about.
  */
-const DECLARED = { nodeTitle: 14, nodeLabel: 12, edgeLabel: 11 } as const
+/**
+ * ⚠ THIS IS A HAND-MAINTAINED MIRROR OF `CANVAS_TYPE_PX`, and it under-covers
+ * SILENTLY rather than failing. A token missing from here is simply never
+ * checked for the counter-scale — the arms below iterate this object, so an
+ * omission reads as a clean pass.
+ *
+ * `nodeValue` was added on 19 Sep and would have been invisible to this guard.
+ * Its sibling `tests/ci-guards/canvasTypeGeometryAgrees.spec.ts` iterates
+ * `Object.keys(CANVAS_TYPE_PX)` and is derived, so the px/class agreement was
+ * covered either way — but the COUNTER-SCALE question is only asked here, and
+ * text that misses it shrinks illegibly as the camera pulls back while every
+ * other string holds its size.
+ *
+ * Kept as a literal rather than derived, because the header above explains why
+ * these values are deliberately restated (the guard must not inherit the value
+ * it is checking). The completeness check belongs in the census, which asserts
+ * the exact token set.
+ */
+const DECLARED = { nodeTitle: 14, nodeValue: 14, nodeLabel: 12, edgeLabel: 11 } as const
 
 /** DS v5 §2.4: panel and canvas contexts bottom out at 10px. */
 const DS_CANVAS_FLOOR_PX = 10

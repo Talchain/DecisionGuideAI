@@ -37,6 +37,24 @@
  */
 export const CANVAS_TYPE_PX = {
   nodeTitle: 14,
+  /**
+   * ⭐⭐ THE NODE'S OWN RECORDED QUANTITY — question 2 of the card anatomy.
+   *
+   * The node design system's governing anatomy is "what is this -> WHAT DOES THE
+   * MODEL RECORD, AND WHO PUT IT THERE -> the useful next step", and every board
+   * draws that middle answer at the SAME class as the title on a compact card
+   * (`t14 num` beside `t14`), rising to 18px when expanded.
+   *
+   * Shipped inverted it: a 12px value under a 14px title, and 11px on the
+   * decision card. The card's own number was the smallest thing on it.
+   *
+   * ⚠ THIS IS THE MECHANISM BEHIND "THE CARDS LOOK EMPTY" and it is NOT a space
+   * problem. Main.dc.html's own density correction measured the deployed cards
+   * at 34px UNDER its height target at the camera the board actually opens at.
+   * They are not short of room; they were short of WEIGHT on the one element the
+   * anatomy exists to foreground.
+   */
+  nodeValue: 14,
   nodeLabel: 12,
   edgeLabel: 11,
 } as const
@@ -210,6 +228,12 @@ export const typography = {
   // and the fix would ship dark. `CANVAS_TYPE_PX` above is the number these must
   // agree with, and `canvasTypeGeometryAgrees.spec.ts` REDs if they drift.
   nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug',
+  // ⚠ 14px WRITTEN OUT, NOT INTERPOLATED FROM CANVAS_TYPE_PX. This file's own
+  // header records why: Tailwind's scanner reads SOURCE TEXT, so an
+  // arbitrary-value class built by template interpolation is never generated and
+  // the size silently falls back to inherited — the fix would ship dark. The
+  // mirror is deliberate and `canvasTypeTokensAgree` is what makes it fail loud.
+  nodeValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug tabular-nums',
   nodeLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-snug',
   edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
 
