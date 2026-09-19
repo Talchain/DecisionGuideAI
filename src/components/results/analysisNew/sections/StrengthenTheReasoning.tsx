@@ -1061,7 +1061,20 @@ export function StrengthenTheReasoning({
                           return next
                         })
                       }
-                      className={`${action('quiet')} ml-auto self-center shrink-0 px-1 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      /* ⛔ THE WIDTH FLOOR IS THE TIER'S, NOT THIS CALL SITE'S.
+                         This shipped 22px wide — `px-1` (4px a side) around a
+                         `w-3.5` icon — because `action('quiet')` carried
+                         `min-h-[24px]` and no `min-w`. My first fix hand-rolled
+                         `min-w-[24px]` here, which is the exact arrangement
+                         `everyInlineActIsReachableByTouch` exists to ban: *"if a
+                         later call site hand-rolls its own touch target, the
+                         tier is no longer the single owner and the next one
+                         added will miss it again."* That is also how the
+                         133×15 review-estimates control happened. So the floor
+                         went into the tier and only the CENTRING stays here,
+                         because centring is this control's business and the
+                         guarantee is not. */
+                      className={`${action('quiet')} ml-auto self-center shrink-0 px-1 justify-center no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       aria-expanded={rowOpen}
                       aria-controls={rowOpen ? `${testId}-body-${rec.id}` : undefined}
                       aria-label={
