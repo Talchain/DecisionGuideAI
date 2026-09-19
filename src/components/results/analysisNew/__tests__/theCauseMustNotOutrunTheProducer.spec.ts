@@ -107,3 +107,44 @@ describe('leaderWithholdCause — the cause may not outrun the producer', () => 
     expect(leaderWithholdCause(undefined)).toBeNull()
   })
 })
+
+/**
+ * ⭐ `separation_unavailable` EARNED ITS ENTRY — bundle `b3d5806d`, staging
+ * `fd65f971`, 19 Sep 2026 14:32Z, on a real user's run:
+ *
+ *   leader_claim: { permitted: false, withheld_reason: "separation_unavailable" }
+ *
+ * The map's own rule was "it grows when a capture earns the entry". This is that
+ * capture, and these arms pin the ONE hazard the old note named.
+ */
+describe('separation_unavailable, now wire-witnessed', () => {
+  it('⛔ states what THE RUN did, never what the OPTIONS are', () => {
+    const clause = leaderWithholdCause('separation_unavailable')
+    expect(clause, 'the producer token is mapped now that a capture earned it').not.toBeNull()
+
+    // ⚠ THE HAZARD THE OLD NOTE NAMED: "could not be told apart" sits too close
+    // to "the options are level", which the sentence beside this one DENIES.
+    // A withheld verdict is not entitled to a finding about the options.
+    for (const banned of ['level', 'equal', 'the same', 'tied', 'no difference', 'indistinguishable']) {
+      expect(
+        clause!.toLowerCase(),
+        `"${banned}" would make this a claim about the OPTIONS, not about this run`,
+      ).not.toContain(banned)
+    }
+  })
+
+  it('names the run as the subject, so the reader knows what is provisional', () => {
+    expect(leaderWithholdCause('separation_unavailable')!.toLowerCase()).toContain('this run')
+  })
+
+  it('⛔ an unseen token is still unmapped — the rule did not become "map everything"', () => {
+    expect(
+      leaderWithholdCause('some_reason_no_capture_has_shown'),
+      'a map that guessed at unseen tokens is the fabrication this panel refuses',
+    ).toBeNull()
+  })
+
+  it('the earlier entry is untouched', () => {
+    expect(leaderWithholdCause('constraint_verdict_withheld')).toContain('limits you set')
+  })
+})

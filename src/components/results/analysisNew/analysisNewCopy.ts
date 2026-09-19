@@ -166,13 +166,25 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
  * which leaves today's sentence exactly as it is. A map that guessed at unseen
  * tokens would be the fabrication this whole panel exists to avoid.
  *
- * ⚠ ONLY ONE ENTRY TODAY, DELIBERATELY. `constraint_verdict_withheld` is the
- * one reason observed on a real run. `separation_unavailable` appears in this
- * estate's own fixtures and store comments but has NOT been seen on a live
- * wire, so it is not mapped: a sentence about options that "could not be told
- * apart" is close enough to "the options are level" — which the sentence beside
- * it explicitly denies — that it must not ship on documentary evidence alone.
- * The map grows when a capture earns the entry.
+ * ⭐ TWO ENTRIES. `separation_unavailable` EARNED ITS PLACE ON 19 Sep 2026.
+ *
+ * This note used to say it had "NOT been seen on a live wire, so it is not
+ * mapped", and that the map would grow when a capture earned the entry.
+ * **A capture earned it**: bundle `b3d5806d`, staging `fd65f971`, 14:32Z —
+ * `leader_claim: { permitted: false, withheld_reason: "separation_unavailable" }`
+ * on a real user's run. The rule worked exactly as written, so the entry goes
+ * in and this paragraph records why it is no longer a refusal.
+ *
+ * ⛔⛔ AND THE OLD NOTE'S WARNING IS WHY THE CLAUSE READS AS IT DOES. It said a
+ * sentence about options that "could not be told apart" sits too close to "the
+ * options are level" — which the sentence beside it explicitly denies. That
+ * hazard is unchanged by having a capture.
+ *
+ * So the clause states what THE RUN did, never what the OPTIONS are: it did not
+ * separate them far enough to put one forward. That is a claim about this run's
+ * resolution. "They are level" would be a claim about the options themselves,
+ * which no withheld verdict is entitled to make — and which the standing
+ * sentence beside this one denies in as many words.
  *
  * ⛔⛔ THE CLAUSE IS DELIBERATELY BROAD, AND MY FIRST VERSION WAS NOT — CORRECTED
  * 16 Sep after an independent review, and the producer had written the rule down.
@@ -212,6 +224,13 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   constraint_verdict_withheld:
     'The check against the limits you set does not support putting one option forward.',
+  /**
+   * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. "This run did not separate them"
+   * is a statement about resolution; "they are level" would be a finding about
+   * the options, which a withheld verdict is not entitled to make.
+   */
+  separation_unavailable:
+    'This run did not separate the options far enough apart to put one forward.',
 }
 
 /**
