@@ -136,17 +136,23 @@ function negativeEdgeOnly(): { nodes: Node[]; edges: Edge[] } {
   }
 }
 
+/**
+ * A producer item, typed rather than cast, so a change to `GuidanceItem`'s
+ * required fields is a type error here instead of a cast quietly absorbing it.
+ * `source: 'structural'` is a real member of `GuidanceSource` — the same value
+ * `NodeCoachingMarker.spec.tsx` uses.
+ */
 function producerItemNaming(nodeId: string): GuidanceItem[] {
   return [
     {
       item_id: 'g1',
       category: 'should_fix',
-      source: 'cee',
+      source: 'structural',
       title: 'Anchoring on the current figure',
       priority: 50,
       primary_action: { type: 'discuss', prompt: 'Let us discuss.' },
       target_object: { type: 'node', id: nodeId },
-    } as GuidanceItem,
+    },
   ]
 }
 

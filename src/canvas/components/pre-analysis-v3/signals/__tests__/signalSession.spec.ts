@@ -2,6 +2,36 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { deriveSignalViews } from '../deriveSignalViews'
 import { useSignalSessionStore } from '../signalSessionStore'
 import type { SignalDetectionInput } from '../registry'
+import type {
+  StructuralAbsence,
+  StructuralAbsenceKind,
+} from '../../selectors/computeStructuralAbsence'
+
+/**
+ * A `StructuralAbsence` fixture whose `actionTargetIds` stays inside the
+ * SELECTOR'S OWN OUTPUT DOMAIN (CLAUDE.md trap 16-inverse: a fixture the
+ * producer could never emit proves nothing, and a self-authored one silently
+ * encodes the author's model of the producer instead of the producer).
+ *
+ * Derived from `computeStructuralAbsence`:
+ *   shared_mechanism   — ALWAYS at least one id. Its gate is
+ *                        `targetSets.every(s => s.size > 0)` plus an identical-set
+ *                        check, so an empty shared set is unreachable.
+ *   no_downside        — one or more risk ids on the risk-node limb, and `[]` on
+ *                        the negative-edge-only limb. The common case is used
+ *                        here; the empty limb is pinned in the selector's own spec.
+ *   no_external_factor — ALWAYS `[]`. The absence is of a node CLASS.
+ *
+ * These specs are about COPY and ORDERING and read no id, so the value only has
+ * to be domain-plausible. Typed rather than cast, so the NEXT required field is a
+ * type error here instead of being silently absent.
+ */
+function absence(kind: StructuralAbsenceKind, optionCount: number): StructuralAbsence {
+  const actionTargetIds =
+    kind === 'shared_mechanism' ? ['shared_1'] : kind === 'no_downside' ? ['risk_1'] : []
+  return { kind, optionCount, actionTargetIds }
+}
+
 
 function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionInput {
   return {
@@ -69,7 +99,7 @@ describe('deriveSignalViews — lifecycle', () => {
 
   it('puts a live structural gap ahead of lower-value count signals', () => {
     const derived = deriveSignalViews(
-      input({ structuralAbsence: { kind: 'shared_mechanism', optionCount: 2 } }),
+      input({ structuralAbsence: absence('shared_mechanism', 2) }),
       {},
     )
     expect(derived.sharpen.map(v => v.detection.signal_id)).toEqual([
