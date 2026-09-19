@@ -299,29 +299,37 @@ const isConsoleCall = (n: ts.Node): boolean =>
  * characters, so a cap in either direction would have missed one of them.
  */
 /**
- * ⚠⚠ KNOWN DEFECT, ROWED 19 Sep 2026 — `.tsx` IS PARSED AS `ScriptKind.TS`.
+ * ⛔⛔ `.tsx` IS PARSED AS TSX — FIXED 19 Sep 2026, AFTER IT BROKE THE SHARED GATE.
  *
- * With JSX off, `<span className="min-w-0 flex-1">` inside a JSX COMMENT is not
- * a comment to this parser: the tags read as comparison operators and the
- * attribute quotes pair across the comment, so a run of explanatory prose can
- * surface as a "string literal".
+ * This read `ts.ScriptKind.TS` for every file. With JSX off,
+ * `<span className="min-w-0 flex-1">` inside a JSX COMMENT is not a comment to
+ * the parser: the tags read as comparison operators, the attribute quotes pair
+ * ACROSS the comment, and a run of explanatory prose surfaces as a "string
+ * literal". An em dash in a docblock — text no user can ever see — then reads
+ * as product copy.
  *
- * **Measured:** on #1744, converting one `className="w-3.5 h-3.5 …"` to
- * `className={`${icon('row')} …`}` in `SectionShell.tsx` shifted that pairing
- * and this guard RED'd on an em dash inside a docblock — prose no user can ever
- * see. That comment was reworded to unblock; **the parse is the cause and is not
- * fixed here.**
+ * ⚠ IT WAS ROWED, NOT FIXED, AND THAT WAS THE WRONG CALL. On #1744 I reworded
+ * one comment to unblock and recorded the cause here, on the grounds that
+ * changing the parse needs its own census. **It came back**: once #1738's
+ * `SectionShell` docblock and #1744's className templates were both on
+ * `staging`, the pairing shifted again and shard 3/4 went RED on `staging`
+ * itself, then on every PR branched from it. A parity-sensitive guard does not
+ * stay rowed; it re-fires on the next edit anywhere near it.
  *
- * ⛔ NOT FIXED IN THIS PR ON PURPOSE. Switching to `ScriptKind.TSX` is correct
- * and changes what the scanner sees across the WHOLE corpus — it may surface new
- * offenders and drop ones currently caught. That is its own change with its own
- * before/after census, not a side effect of an icon-sizing PR.
+ * ⭐ THE PARSE IS NOW CORRECT FOR THE FILE IT IS READING, which is the only
+ * version of this that cannot drift: JSX comments are comments, JSX attributes
+ * are attributes, and neither can be mistaken for copy.
  *
- * Until then: a RED naming a `.tsx` file whose text is plainly a COMMENT is this
- * defect, not a product defect. Check the quoted span before rewording anything.
+ * ⚠ A CHANGE OF PARSE IS A CHANGE OF COVERAGE, so it does not go in unwatched
+ * — `PARSE COVERAGE` below asserts this scanner still sees a plausible number
+ * of real literals. A parser switch that quietly halved what it reads would
+ * otherwise look exactly like a fix.
  */
+const scriptKindFor = (fileName: string): ts.ScriptKind =>
+  fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+
 function literals(src: string, fileName = 'scan.ts'): string[] {
-  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, scriptKindFor(fileName))
   const out: string[] = []
   const visit = (n: ts.Node, inConsole: boolean): void => {
     const nowInConsole = inConsole || isConsoleCall(n)
@@ -457,6 +465,42 @@ describe('rendered product copy carries no em dashes', () => {
       for (const f of MUST_NOT_BE_IN_SCOPE) {
         expect(COVERED_FILES, `walk is over-broad: it reached ${f}`).not.toContain(f)
       }
+    })
+
+    /**
+     * ⛔ THE PARSE ITSELF, PINNED — AND BOUND TO THE FILE THAT ACTUALLY BROKE.
+     *
+     * ⚠ MY FIRST VERSION OF THIS ARM WAS WRITTEN FROM MY MODEL OF THE DEFECT AND
+     * FAILED IN CI. It used a six-line synthetic snippet and asserted that
+     * reading it as plain TS would surface the em dash. It surfaced NOTHING:
+     * the quote mis-pairing needs a real parity context, which a minimal
+     * fixture does not reproduce. The fix was right and the discriminator was
+     * fiction — a fixture written from the author\'s head, which is precisely
+     * what this estate keeps paying for.
+     *
+     * ⭐ SO IT IS BOUND TO `SectionShell.tsx`, the file whose docblock actually
+     * RED\'d the shared gate. Read as TSX it is clean; read as TS the defect
+     * reappears. That pair is evidence rather than illustration, and it cannot
+     * pass while the parse silently reverts.
+     */
+    it('⛔ the real file that broke: clean as TSX, offending as TS', () => {
+      const REAL = 'src/components/results/analysisNew/sections/SectionShell.tsx'
+      const src = readFileSync(resolve(process.cwd(), REAL), 'utf8')
+
+      expect(
+        src.includes(EM_DASH),
+        'PRECONDITION: this file must still carry an em dash in its PROSE, or the pair proves nothing',
+      ).toBe(true)
+
+      expect(
+        offendersIn(src, REAL),
+        'read as TSX, a JSX comment is a comment and its prose is not product copy',
+      ).toEqual([])
+
+      expect(
+        offendersIn(src, REAL.replace(/\.tsx$/, '.ts')).length,
+        'read as TS the defect reappears — which is what made this worth fixing',
+      ).toBeGreaterThan(0)
     })
 
     it('PRECONDITION: the scan reaches real copy — it is not reading empty files', () => {
