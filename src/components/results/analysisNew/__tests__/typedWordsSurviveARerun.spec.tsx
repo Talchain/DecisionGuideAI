@@ -19,7 +19,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { StrengthenTheReasoning } from '../sections/StrengthenTheReasoning'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
-import { readDissent } from '../../../../canvas/stores/dissentStore'
+import { readDissent, clearDurableDissent } from '../../../../canvas/stores/dissentStore'
 import { useCanvasStore } from '../../../../canvas/store'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -47,12 +47,34 @@ const WORDS = 'I disagree: churn is not the mechanism here, pricing is.'
 
 beforeEach(() => {
   useCanvasStore.setState({ currentScenarioId: SCENARIO } as never)
+  /**
+   * ⛔⛔ THE DISSENT STORE IS DURABLE BY DESIGN, SO IT SURVIVES BETWEEN ARMS —
+   * AND MY DISCRIMINATOR CAUGHT IT.
+   *
+   * `"nothing is saved when the finding is still there"` failed with the text
+   * from an EARLIER arm still in the store. The arm was right; the isolation was
+   * missing. Without this, the two negative arms can only ever pass when they
+   * happen to run first — order-dependent, and green for the wrong reason on any
+   * run where they do.
+   *
+   * ⚠ This is the point of a durable store: it outlives the tab. A spec about it
+   * must clear it explicitly, exactly as it must not assume `localStorage` is
+   * empty.
+   */
+  clearDurableDissent()
 })
 
 const openSection = () =>
   fireEvent.click(screen.getByTestId('analysis-new-strengthen-toggle'))
 
 describe('typed words survive a rerun that removes their row', () => {
+  it('CONTROL: the store really is empty at the start of each arm', () => {
+    // ⭐ The isolation itself, pinned. Without it the two NEGATIVE arms below
+    // can only pass when they happen to run first, and a later reordering turns
+    // them green for the wrong reason — which is how this file first went red.
+    expect(JSON.stringify(readDissent(SCENARIO))).not.toContain('pricing is')
+  })
+
   it('PRECONDITION: the dispute box opens and accepts text', () => {
     render(<StrengthenTheReasoning interventions={RUN_A} analysisHash="hash-a" />)
     openSection()
