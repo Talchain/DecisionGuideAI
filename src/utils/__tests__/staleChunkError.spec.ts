@@ -37,7 +37,11 @@ describe('a deploy under an open tab is recognised, and nothing else is', () => 
     it('walks `cause`, because the rejection is re-thrown by wrappers', () => {
       // `runLayoutWithProgress` wraps. A detector reading only the top-level
       // message answers about the wrapper, not the failure.
-      const wrapped = new Error('Layout step failed', { cause: new TypeError(FOUNDER_CAPTURE) })
+      // ⚠ `cause` is assigned, not passed to the constructor: the repo's
+      // tsconfig lib predates the ES2022 two-argument `Error`, so the option
+      // form is a type error the gate catches (it caught this one).
+      const wrapped = new Error('Layout step failed') as Error & { cause?: unknown }
+      wrapped.cause = new TypeError(FOUNDER_CAPTURE)
       expect(isStaleChunkError(wrapped)).toBe(true)
     })
 
