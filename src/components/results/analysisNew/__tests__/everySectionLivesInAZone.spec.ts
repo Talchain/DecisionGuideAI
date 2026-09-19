@@ -3,10 +3,42 @@
  *
  * ## Why this is missing, and why that matters
  *
- * The four zones are **lexical `<div>` wrappers**. There is no dispatcher, no
- * registry, and no rule that a section belongs to one — a section is in a zone
- * only because its JSX happens to sit between that zone's braces. `theZonesAreNamed`
- * iterates a hardcoded four-zone list and says nothing about their contents.
+ * ⛔⛔ THE CLAIM THIS FILE SHIPPED WITH WAS FALSE, AND IS WITHDRAWN HERE.
+ *
+ * Its first version said *"no rule of the form 'every section lives in a zone'
+ * exists anywhere"*. **One does.** `everySectionBelongsToAZone.spec.tsx` is a
+ * DOM-derived rule with the SAME headline, and on the axis it covers it is
+ * STRICTLY STRONGER than this file: it asks, of every child that actually
+ * rendered, whether it is in a zone, and so it carries no list of sections at
+ * all.
+ *
+ * ⚠ HOW THE MISS HAPPENED, because it is the estate's most expensive shape.
+ * The recon grepped the invariant's wording and read `theZonesAreNamed`. The
+ * existing rule is spelled **BelongsTo** where this one is spelled **LivesIn** —
+ * differently-named twins for one concept (CLAUDE.md trap 21), and this file
+ * CREATED the twin. Grepping for a name cannot find a file whose NAME is the
+ * answer.
+ *
+ * ## So what does each one answer? (named apart, not reconciled)
+ *
+ * - **`everySectionBelongsToAZone`** — *of the sections that RENDERED on this
+ *   fixture, is each one inside a zone?* DOM-derived, no section list, and the
+ *   authority on zone membership. Bound by what its fixtures mount.
+ * - **this file** — *of the components written at the top level of the body's
+ *   SOURCE, does any sit ABOVE the first zone without being named as furniture?*
+ *   State-independent, because it never renders: it sees a section whose data is
+ *   absent on every fixture, which is exactly the state where a misplacement is
+ *   easiest to miss.
+ *
+ * Neither supersedes the other and the overlap is real. Keeping both is a
+ * decision, recorded here rather than argued again next time.
+ *
+ * ## The rest of the original rationale, which stands
+ *
+ * The four zones are **lexical `<div>` wrappers**. There is no dispatcher and no
+ * registry — a section is in a zone only because its JSX happens to sit between
+ * that zone's braces. `theZonesAreNamed` iterates a hardcoded four-zone list and
+ * says nothing about their contents.
  *
  * ⛔ IT HAS ALREADY DRIFTED ONCE. The sensitivity section mounted OUTSIDE the
  * answer group while its own 36-line explaining comment sat INSIDE it — the
