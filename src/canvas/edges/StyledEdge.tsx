@@ -178,9 +178,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Escape closed the popover; do not re-open it until the user leaves and
   // comes back. Mirrors `dismissed` in `hooks/usePopoverHover.ts`.
   const keyboardDismissedRef = useRef(false)
-  // Whether the POINTER is currently over this edge. Read only by the focus
-  // handlers, so losing focus cannot close a popover the mouse still owns.
+  // Whether the POINTER is currently over a surface THIS edge owns — the edge
+  // itself or its own portalled popover. Read only by the focus handlers, so
+  // losing focus cannot close a popover the mouse still owns.
+  // ⚠ It covers the popover as well as the edge because the focus-out rule now
+  // observes departure FROM the popover too: without that, a keyboard focus
+  // leaving while the pointer rested on the popover would close it under the
+  // mouse. The 100ms leave timer stays the mouse path's own authority.
   const pointerWithinRef = useRef(false)
+  // The portalled popover element, so focus DEPARTURE from it can be observed.
+  // `EdgeLabelRenderer` mounts it in a sibling subtree, so it cannot be reached
+  // by a listener on the edge group — see the focus effect.
+  const popoverElRef = useRef<HTMLDivElement | null>(null)
   // `id` reaches this component as `unknown` through EdgeProps<EdgeData> in the
   // current TS setup (the two neighbouring `.has(id)` selectors below carry
   // baseline diagnostics for exactly that). The canvas contract is that edge
@@ -770,9 +779,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }, 100)
   }
   const handlePopoverEnter = () => {
+    pointerWithinRef.current = true
     if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
   }
   const handlePopoverLeave = () => {
+    pointerWithinRef.current = false
     leaveTimerRef.current = setTimeout(() => {
       setShowHoverPopover(false)
       setIsHovered(false)
@@ -909,31 +920,63 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       setShowHoverPopover(true)
     }
 
+    /**
+     * Does focus REMAIN on a surface this edge owns?
+     *
+     * ⚠ `contains()` ALONE WOULD BE WRONG. `EdgeLabelRenderer` portals the
+     * popover out of this edge's group, so the popover is NOT a DOM descendant
+     * of the element losing focus — closing on containment would destroy the
+     * popover the instant a keyboard user tabbed into the very content it was
+     * opened to show, including both coaching chips.
+     *
+     * ⭐⭐ AND `[data-edge-popover]` ALONE IS ALSO WRONG — it is a predicate
+     * ANOTHER OBJECT SATISFIES (CLAUDE.md trap 19). Every edge's popover
+     * carries that attribute, so with two edges on the canvas this edge's
+     * handler read the OTHER edge's popover as "inside mine" and held its own
+     * popover open while focus was demonstrably elsewhere — the same stale
+     * edge context, reached by a second route. The exception is therefore
+     * granted BY IDENTITY: the attribute carries this edge's id, and only the
+     * element stamped with THIS id qualifies.
+     */
+    const focusStaysWithinThisEdge = (next: EventTarget | null): boolean => {
+      if (!(next instanceof Element)) return false
+      if (rfEdge.contains(next)) return true
+      const owner = next.closest('[data-edge-popover]')
+      return owner !== null && owner.getAttribute('data-edge-popover') === edgeIdKey
+    }
+
     const focusOut = (event: FocusEvent) => {
-      const next = event.relatedTarget
-      // ⚠ `contains()` ALONE WOULD BE WRONG. `EdgeLabelRenderer` portals the
-      // popover out of this edge's group, so the popover is NOT a DOM
-      // descendant of the element losing focus — closing on containment would
-      // destroy the popover the instant a keyboard user tabbed into the very
-      // content it was opened to show, including both coaching chips.
-      if (
-        next instanceof Element &&
-        (rfEdge.contains(next) || next.closest('[data-edge-popover]'))
-      ) return
-      // The pointer still owns this edge; its own leave handler will close it.
+      if (focusStaysWithinThisEdge(event.relatedTarget)) return
+      // The pointer still owns this edge or its popover; the mouse path's own
+      // leave handler will close it.
       if (pointerWithinRef.current) return
       if (hoverPopoverTimerRef.current) { clearTimeout(hoverPopoverTimerRef.current); hoverPopoverTimerRef.current = null }
       setIsHovered(false)
       setShowHoverPopover(false)
     }
 
+    /**
+     * ⭐⭐ THE LISTENER IS BOUND TO BOTH SURFACES THIS EDGE OWNS.
+     *
+     * `focusout` bubbles, but only within its own tree. The popover is portalled
+     * into a SIBLING subtree, so once focus is inside it, tabbing onward emits
+     * `focusout` from the PORTAL — it never reaches the edge group, and a
+     * listener bound to the edge alone is never called. Nothing then closed the
+     * popover or the highlight, so stale edge context stayed on screen as the
+     * user moved on. Observing departure from the popover as well is what closes
+     * that leak, and it is why `showHoverPopover` is a dependency here: the
+     * element does not exist until the popover has mounted.
+     */
+    const popoverEl = popoverElRef.current
     rfEdge.addEventListener('focusin', focusIn as EventListener)
     rfEdge.addEventListener('focusout', focusOut as EventListener)
+    popoverEl?.addEventListener('focusout', focusOut as EventListener)
     return () => {
       rfEdge.removeEventListener('focusin', focusIn as EventListener)
       rfEdge.removeEventListener('focusout', focusOut as EventListener)
+      popoverEl?.removeEventListener('focusout', focusOut as EventListener)
     }
-  }, [isStructuralEdge])
+  }, [isStructuralEdge, edgeIdKey, showHoverPopover])
 
   /**
    * ⭐ DISMISSIBLE — the second of WCAG 1.4.13's three obligations, and the one
@@ -2302,9 +2345,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               /* A13: the identity handle the focus-out rule asks for. The
                  popover is portalled out of the edge's group, so `contains()`
                  cannot reach it and a containment test alone would close it the
-                 moment focus entered it. Mirrors `data-node-popover`, which
-                 exists on the node preview for exactly this question. */
-              data-edge-popover=""
+                 moment focus entered it.
+                 ⭐ IT CARRIES THIS EDGE'S ID, not a bare marker. A bare
+                 `[data-edge-popover]` is satisfied by EVERY edge's popover, so
+                 edge A's focus-out rule treated edge B's popover as its own
+                 (trap 19). The value is what makes the exception identifiable.
+                 `data-node-popover` on the node preview is the same idea and
+                 still carries the bare form — out of this lane's fence. */
+              data-edge-popover={edgeIdKey}
+              ref={popoverElRef}
               role="tooltip"
               style={causalPopoverStyle}
               className="bg-panel border border-panel-border rounded-lg shadow-panel px-3 py-2.5 space-y-1.5 nodrag nopan nowheel"

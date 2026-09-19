@@ -173,6 +173,11 @@ const characterisedEdge = {
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const HARNESS_ATTR = 'data-rf-edge-harness'
+/**
+ * A SECOND edge's id, never the edge under test. The identity case below needs
+ * an owner that is real, distinct, and not `characterisedEdge.id`.
+ */
+const FOREIGN_EDGE_ID = 'e2-another-edge'
 
 /**
  * Reproduces React Flow's own per-edge wrapper — the `<svg>`, the `<g>`, its
@@ -411,6 +416,140 @@ describe('StyledEdge — the edge popover can be opened without a mouse', () => 
     })
 
     expect(popover(), 'tabbing into the popover must not destroy it').not.toBeNull()
+  })
+
+  /**
+   * ⭐⭐⭐ THE EXIT STEP — the move the case above stops one short of, and the
+   * finding an independent review returned CHANGES_REQUIRED for at
+   * `c1f3649e`. Reproduced at that head before this test was written.
+   *
+   * `focusout` was bound to `.react-flow__edge` ONLY. The popover is portalled
+   * to a sibling subtree, so when focus is inside the popover and the user tabs
+   * onward, `focusout` is emitted from the PORTAL — it never reaches the edge
+   * group, and the edge's listener is never called. Nothing closed the popover
+   * or the highlight, so stale edge context stayed on screen as the user moved
+   * on. The entry case above cannot see this: it ends at entry.
+   *
+   * ⚠ WHY REAL `.focus()` CALLS AND NOT `fireEvent.focusOut` HERE. The cases
+   * above dispatch focusout synthetically at a chosen element, which is exactly
+   * what hid this defect — a synthetic dispatch AT THE EDGE tests the edge's
+   * listener whether or not the real event would have gone there. Driving real
+   * focus makes the DOM choose the emitting element, so the routing itself is
+   * under test rather than assumed.
+   *
+   * ⚠ STEP 2 IS ALSO THE `relatedTarget` CONTROL. If this jsdom did not supply
+   * `relatedTarget` on a real focus move, the guard would see `null`, the
+   * popover would close on entry, and step 2 would fail — so step 2 passing is
+   * what makes step 3's result meaningful rather than an artefact.
+   *
+   * ⚠ jsdom proves NOTHING about visibility or about the tab order a user
+   * experiences (see the header). Every assertion here is about presence in the
+   * DOM and about which element owns focus.
+   */
+  it('closes when focus leaves the portalled POPOVER for something unrelated', () => {
+    stubFocusVisible(true)
+    const { rfEdge } = renderEdgeInReactFlowWrapper()
+
+    const elsewhere = document.createElement('button')
+    elsewhere.setAttribute(HARNESS_ATTR, '')
+    document.body.appendChild(elsewhere)
+
+    // ── STEP 1 · POSITIVE CONTROL: departure straight from the edge ──────────
+    // This already worked at `c1f3649e`. It has to pass BEFORE the fix, or the
+    // fixture is wrong rather than the product.
+    focusEdge(rfEdge)
+    expect(popover(), 'PRECONDITION: keyboard focus opened it').not.toBeNull()
+    act(() => {
+      elsewhere.focus()
+    })
+    expect(
+      popover(),
+      'CONTROL 1: focus leaving the EDGE for something unrelated already closes it',
+    ).toBeNull()
+
+    // ── STEP 2 · REQUIRED CONTROL: entering our own popover keeps it open ────
+    focusEdge(rfEdge)
+    const open = popover()
+    expect(open, 'PRECONDITION: re-focusing the edge re-opens it').not.toBeNull()
+    const chip = open!.querySelector('button')
+    expect(chip, 'PRECONDITION: the popover really does carry a focusable chip').not.toBeNull()
+    expect(
+      rfEdge.contains(chip!),
+      'PRECONDITION: the chip is OUTSIDE the edge group — the portal is what makes this non-trivial',
+    ).toBe(false)
+    act(() => {
+      chip!.focus()
+    })
+    expect(
+      document.activeElement,
+      'PRECONDITION: focus must really be inside the popover now',
+    ).toBe(chip)
+    expect(
+      popover(),
+      'CONTROL 2: tabbing INTO our own popover must not destroy it',
+    ).not.toBeNull()
+
+    // ── STEP 3 · THE DEFECT: departure FROM the popover ──────────────────────
+    act(() => {
+      elsewhere.focus()
+    })
+    expect(
+      popover(),
+      'THE DEFECT: focus left the popover for something unrelated — the popover and its edge context must go with it',
+    ).toBeNull()
+  })
+
+  /**
+   * ⭐⭐⭐ THE IDENTITY DISCRIMINATION — CLAUDE.md trap 19: an assertion or a
+   * guard must bind to its object by IDENTITY, never by a value predicate
+   * another object could satisfy.
+   *
+   * At `c1f3649e` the exception was `next.closest('[data-edge-popover]')` — a
+   * predicate EVERY edge's popover satisfies. With two edges on the canvas,
+   * edge A's handler read edge B's popover as "inside mine" and held A's
+   * popover open while focus was demonstrably elsewhere. That is a second,
+   * independent leak of the same stale-context harm, and the exit case above
+   * cannot see it: its `elsewhere` is a bare button that matches no selector.
+   *
+   * The fixture PINS ITS OWN PRECONDITION (trap 13b): it asserts that the
+   * blanket selector DOES match the foreign popover, so this case cannot pass
+   * except by consulting identity. Without that assertion a fixture that had
+   * quietly stopped carrying the attribute would pass while proving nothing.
+   */
+  it('does NOT treat ANOTHER edge’s popover as its own', () => {
+    stubFocusVisible(true)
+    const { rfEdge } = renderEdgeInReactFlowWrapper()
+
+    // A second edge's popover: same attribute NAME, different OWNER.
+    const foreign = document.createElement('div')
+    foreign.setAttribute(HARNESS_ATTR, '')
+    foreign.setAttribute('data-edge-popover', FOREIGN_EDGE_ID)
+    const foreignChip = document.createElement('button')
+    foreign.appendChild(foreignChip)
+    document.body.appendChild(foreign)
+
+    focusEdge(rfEdge)
+    const open = popover()
+    expect(open, 'PRECONDITION: our own popover is open').not.toBeNull()
+
+    expect(
+      foreignChip.closest('[data-edge-popover]'),
+      'PRECONDITION: the BLANKET selector matches the foreign popover — otherwise identity is never tested',
+    ).toBe(foreign)
+    expect(foreign, 'PRECONDITION: the foreign popover is not ours').not.toBe(open)
+    expect(
+      open!.getAttribute('data-edge-popover'),
+      'PRECONDITION: our popover must not be stamped with the foreign edge’s id',
+    ).not.toBe(FOREIGN_EDGE_ID)
+
+    act(() => {
+      foreignChip.focus()
+    })
+
+    expect(
+      popover(),
+      'IDENTITY: another edge’s popover is not this edge’s popover — ours must close',
+    ).toBeNull()
   })
 
   /**
