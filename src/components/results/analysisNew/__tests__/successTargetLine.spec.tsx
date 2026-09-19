@@ -275,14 +275,29 @@ describe('with NO dispatcher mounted the write is local, and says so', () => {
     expect(onCommitOutcome).toHaveBeenCalledWith('not_encodable')
   })
 
-  it('a non-numeric entry writes nothing at all', async () => {
+  /**
+   * ⭐ THE PROPERTY IS UNCHANGED AND IS ASSERTED FIRST: nothing is written. Only
+   * the OUTCOME NAME moved, from `not_encodable` to `not_a_number`.
+   *
+   * ⛔ WHY IT MOVED. A witnessed reader typed `1.3 million` — the figure from
+   * their own brief, after the panel asked them to set a target — and got "That
+   * target could not be applied, so nothing changed." The draft is in hand and
+   * the only missing thing is the format, which is the most actionable refusal
+   * on this surface and deserves its own sentence.
+   *
+   * ⚠ AND THIS ARM NOW DISCRIMINATES AGAINST ITS NEIGHBOUR. The blank-field arm
+   * directly above still expects `not_encodable`: nothing was typed, so there is
+   * no format to correct. The pair is what pins the distinction — either alone
+   * would pass on an editor that collapsed them again.
+   */
+  it('a non-numeric entry writes nothing, and says it could not be read', async () => {
     const user = userEvent.setup()
     const onCommitOutcome = draw()
     await user.click(screen.getByTestId(`${TID}-edit`))
     await user.type(screen.getByTestId(`${TID}-input`), 'soon')
     await user.click(screen.getByTestId(`${TID}-save`))
     expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
-    expect(onCommitOutcome).toHaveBeenCalledWith('not_encodable')
+    expect(onCommitOutcome).toHaveBeenCalledWith('not_a_number')
   })
 })
 
