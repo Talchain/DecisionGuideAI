@@ -580,6 +580,31 @@ export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
 // edge stays on the canvas and the user learns of the refusal only from CEE's
 // own sentence" — so the honest reading is "the edge is SENT", never "SAVED".
 
+/**
+ * ⭐⭐ THE SERVER STATED A STRENGTH WE CANNOT CARRY — a DIFFERENT fact from
+ * having none, and the product reported both with the sentence below.
+ *
+ * Measured on the founder's board, 19 Sep 2026: a risk -> goal edge arrives as
+ * `strength_mean: 0.35` beside `effect_direction: 'negative'` — an unsigned
+ * magnitude with the direction in its own field. The contract requires a signed
+ * mean, so the edit is refused, correctly. **Every risk -> goal edge is
+ * affected**, because a risk is exactly the relationship that carries a
+ * negative direction.
+ *
+ * ⛔ THE OLD SENTENCE WAS FALSE HERE, not merely unhelpful. It said the
+ * connection "has no strength on record" while the canvas was drawing that
+ * strength, and it told the reader to "ask Olumi to set its strength" — when
+ * Olumi is what stated it, so asking cannot help. It sent a person back into
+ * the chat for something already on their screen.
+ *
+ * ⚠ IT NAMES WHAT IS WRONG WITHOUT BLAMING THE READER OR PROMISING A DATE.
+ * The magnitude and the direction are both real and both shown; what is missing
+ * is a form this client can send back. Saying so is the whole of the fix — the
+ * fence itself is unchanged and correct.
+ */
+export const INSPECTOR_EDGE_STRENGTH_SIGN_UNCARRIABLE_REASON =
+  'This connection\u2019s strength and direction are recorded separately, and this editor can only send them together \u2014 so edits here are not sent yet. The strength shown on the canvas is the model\u2019s own. Labels, details and coaching still work.'
+
 export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
   'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength. Labels, details and coaching still work.'
 

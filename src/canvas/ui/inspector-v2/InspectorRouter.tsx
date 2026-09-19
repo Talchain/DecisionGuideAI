@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
+import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_STRENGTH_SIGN_UNCARRIABLE_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -30,6 +30,7 @@ import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
+import { serverStatedStrengthDisagreesOnSign } from '../../conversation/edgeServerStatedStrength'
 import { typography } from '../../../styles/typography'
 
 // Entity colour map — used as fallback for inspector header entity colour
@@ -235,6 +236,19 @@ export const InspectorRouter = memo(function InspectorRouter({
     const edgeAwaitingStatedStrength =
       (edge.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
       'strength_not_stated'
+    /**
+     * ⛔⛔ THE FOURTH CASE, AND IT IS THE ONE THE FOUNDER HIT. The server DID
+     * state a strength — the canvas is drawing it — but as an unsigned
+     * magnitude beside a separate `effect_direction`, which the contract cannot
+     * carry. Saying "no strength on record" there is not vague, it is untrue,
+     * and "ask Olumi" is futile because Olumi is what stated it.
+     *
+     * Measured 19 Sep 2026: every risk -> goal edge on his board lands here,
+     * because a risk is exactly the relationship carrying a negative direction.
+     */
+    const edgeStrengthSignUncarriable =
+      !edgeStrengthReaches &&
+      serverStatedStrengthDisagreesOnSign(edge.data as Record<string, unknown> | undefined)
 
     return (
       <InspectorShell
@@ -267,11 +281,19 @@ export const InspectorRouter = memo(function InspectorRouter({
           data-testid="inspector-authority-notice"
           className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
         >
+          {/* ⭐ THREE STATES, NOT TWO. "the server stated nothing" and "the
+              server stated something this editor cannot carry" were one
+              sentence until 19 Sep 2026, and that sentence was FALSE for the
+              second: it claimed no strength was on record while the canvas drew
+              it, and sent the reader to ask Olumi for a figure Olumi had
+              already given. Every risk -> goal edge lands in that state. */}
           {edgeStrengthReaches
             ? INSPECTOR_EDGE_REASON
             : edgeAwaitingStatedStrength
               ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
-              : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
+              : edgeStrengthSignUncarriable
+                ? INSPECTOR_EDGE_STRENGTH_SIGN_UNCARRIABLE_REASON
+                : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
         </div>
         {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
             This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
