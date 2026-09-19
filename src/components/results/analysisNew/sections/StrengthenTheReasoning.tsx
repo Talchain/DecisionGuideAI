@@ -801,8 +801,39 @@ export function StrengthenTheReasoning({
    * silently refuse.
    */
   const firstRowId = plan.ordered.length > 0 ? plan.ordered[0].id : null
+
+  /**
+   * ⛔⭐ A RERUN MUST NOT LEAVE EVERY ROW CLOSED.
+   *
+   * `openRowIds` holds recommendation ids. A rerun after a graph EDIT changes
+   * the graph hash, the producer mints new `block_id`s, and every id in the
+   * reader's set stops existing — while the set itself is still non-null. The
+   * default above then cannot come back, because `null` is what licenses it.
+   *
+   * The result is the one state this component's own header rejects: **a
+   * section of entirely closed rows**, arrived at by a rerun the reader asked
+   * for, after they had opened something.
+   *
+   * ⚠ THE TEST IS INTERSECTION, NOT SIZE. A set the reader deliberately
+   * emptied (they closed the one open row) is THEIRS and must be honoured —
+   * that is the right this docblock already defends. What must not survive is a
+   * set whose every member has ceased to exist, which is not a choice they made
+   * but a consequence of the ids moving underneath them.
+   *
+   * ⚠ Scope, stated: this restores the DEFAULT, it does not restore their
+   * selection. Nothing can — the rows they opened are gone. Preserving a
+   * selection across a rerun would need ids stable across graph hashes, which
+   * is a producer question, not this one.
+   */
+  const readerSetIsStale =
+    openRowIds !== null &&
+    openRowIds.size > 0 &&
+    !plan.ordered.some((rec) => openRowIds.has(rec.id))
+
   const openRows: ReadonlySet<string> =
-    openRowIds ?? new Set(firstRowId === null ? [] : [firstRowId])
+    openRowIds === null || readerSetIsStale
+      ? new Set(firstRowId === null ? [] : [firstRowId])
+      : openRowIds
   const hidden = plan.ordered.length - visible.length
 
   return (
