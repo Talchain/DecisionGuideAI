@@ -564,11 +564,21 @@ export type LodRung = 'full' | 'quiet' | 'line'
  * legible by the DS's own definition, and not one notch earlier. Measured:
  * 0.41667, which renders `nodeLabel` at exactly 10.00px.
  *
- * ⭐ AND IT IS EXACTLY ONE TOOLBAR NOTCH BELOW THE PARKED CAMERA. The product's
- * auto-fit floors at `LABEL_LEGIBLE_ZOOM` = 0.5 and the zoom-out button steps by
- * 1.2, so 0.5 / 1.2 = 0.41667. One deliberate press crosses it — which is the
- * right amount of travel: the board reduces when the user asks to see more of
- * it, not when a trackpad jitters. The dead-band below handles the jitter.
+ * ⭐ AND IT LANDS EXACTLY ON THE TOOLBAR'S OWN STEP. The product's auto-fit
+ * floors at `LABEL_LEGIBLE_ZOOM` and the zoom-out button steps by 1.2, and
+ * `CLIFF`, `0.5 / 1.2` and `0.5 * (1 / 1.2)` — the last being what xyflow's
+ * `scaleBy` actually computes — are the SAME DOUBLE to full precision.
+ *
+ * ⚠ SO IT TAKES TWO PRESSES, NOT ONE, and an earlier version of this comment
+ * said one. The first press lands ON the cliff, where `zoom >= floor` holds, so
+ * the body stays and text is at exactly 10.00px. The behaviour is better than
+ * the claim was; the claim was still wrong and is corrected rather than quietly
+ * improved.
+ *
+ * ⛔ AND DO NOT LEAN ON THE COINCIDENCE. It holds only while body text is 12px:
+ * `nodeLabel` moved 11 -> 12 four days ago, and at 11 the cliff would be 0.4545
+ * and one press WOULD cross. The derivation is the load-bearing thing here — the
+ * alignment with the button step is a pleasant consequence, not a design.
  *
  * ⛔ WHY THE FLOOR ITSELF IS NOT MOVED. `fitBoundsFor('product')` floors the
  * product's own fit at `LABEL_LEGIBLE_ZOOM`, and it is clamped there exactly

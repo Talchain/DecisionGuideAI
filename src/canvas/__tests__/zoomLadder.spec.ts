@@ -50,6 +50,7 @@ import {
   labelCounterScale,
 } from '../utils/zoomLegibility'
 import { isLodZoom } from '../components/LodSync'
+import { CANVAS_TYPE_PX } from '../../styles/typography'
 
 describe('the ladder is ordered, and the order is the whole design', () => {
   it('runs floor → icon floor → magnification ceiling, strictly', () => {
@@ -236,6 +237,39 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
         seen.add(rung)
       }
       expect(seen.size, `the rung flapped across ${[...seen].join(' -> ')} on a jittering camera`).toBe(1)
+    })
+
+    /**
+     * ⚠ THE UPPER DEAD-BAND HAD ZERO COVERAGE AND THE CODE WAS CORRECT ANYWAY —
+     * which is the worst combination, because nothing would have noticed it
+     * going. Review deleted the branch outright and the suite came back
+     * IDENTICAL to the control: `resolveLodRung(…, 'full')` appeared 0 times in
+     * the whole suite against a contrast of 4 for `(…, 'line')`.
+     *
+     * "Both boundaries now hold" was true of the code and false of the tests.
+     */
+    it('holds `full` until the zoom drops clear of the icon re-entry point', () => {
+      const justBelow = ICON_LEGIBLE_ZOOM * 0.999
+      expect(
+        resolveLodRung(justBelow, 'full'),
+        'coming down from `full`, a zoom just below the icon floor must NOT drop to `quiet` — that is the dead-band',
+      ).toBe('full')
+      expect(
+        resolveLodRung(ICON_LEGIBLE_ZOOM * 0.9, 'full'),
+        'past the re-entry margin it must drop',
+      ).toBe('quiet')
+    })
+
+    it('the chips do not flap on a camera resting at the icon floor', () => {
+      // The founder-facing property, at the boundary `quiet` now actually
+      // spends: the action chips unmount there, so an alternation is visible.
+      let rung = resolveLodRung(ICON_LEGIBLE_ZOOM * 1.001, 'full')
+      const seen = new Set([rung])
+      for (const z of [ICON_LEGIBLE_ZOOM * 0.999, ICON_LEGIBLE_ZOOM * 1.001, ICON_LEGIBLE_ZOOM * 0.9995]) {
+        rung = resolveLodRung(z, rung)
+        seen.add(rung)
+      }
+      expect(seen.size, `the rung flapped across ${[...seen].join(' -> ')} at the icon floor`).toBe(1)
     })
 
     it('stateless callers are unaffected — the dead-band needs a previous rung', () => {
