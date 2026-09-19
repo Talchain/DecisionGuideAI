@@ -123,6 +123,28 @@ function openCard(items: Recommendation[] = [item], analysisHash: string | null 
 }
 
 async function disagree(words: string, index = 0) {
+  /*
+   * ⚠ OPEN THE ROW FIRST — rows now collapse, and only the first is open.
+   *
+   * This helper used to click straight through to the card's "I disagree",
+   * which worked while every row rendered expanded. Rows past the first are
+   * now a title, a chip and a one-line summary, so their controls are not
+   * mounted until the reader opens them.
+   *
+   * ⭐ THAT IS THE REAL FLOW, NOT A TEST WORKAROUND. A reader cannot sensibly
+   * dispute a finding they have not read, so the expand is a step the product
+   * genuinely asks for. Encoding it here keeps the case about DISSENT REACHING
+   * THE MODEL rather than about which rows happen to be open.
+   *
+   * ⚠ Guarded rather than unconditional: the row being disputed is FORCED open
+   * and hides its toggle, so a second `disagree()` on the same index must not
+   * assume a toggle is there to click.
+   */
+  const toggles = screen.queryAllByTestId('analysis-new-strengthen-row-toggle')
+  const toggle = toggles[index]
+  if (toggle && toggle.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(toggle)
+  }
   fireEvent.click(screen.getAllByTestId('analysis-new-strengthen-disagree')[index])
   fireEvent.change(screen.getAllByTestId('analysis-new-strengthen-disagree-input')[0], {
     target: { value: words },
