@@ -13,7 +13,7 @@
  *   node title   declared 26px -> RENDERED 13.00px   (the counter-scale works)
  *   edge pill    declared 10px -> RENDERED  5.00px   (it does not)
  *
- * The counter-scale reaches text through the three canvas tokens in
+ * The counter-scale reaches text through the four canvas tokens in
  * `typography.ts` and ONLY through them. Sites written as raw utilities or
  * inline styles instead — `text-[10px]`, `style={{ fontSize: 11 }}` — never see
  * it, and render at HALF their declared size on the first view of every model.

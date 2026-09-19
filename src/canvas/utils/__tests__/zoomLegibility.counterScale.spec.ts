@@ -10,6 +10,7 @@
  * thing that can witness legibility.
  */
 import { describe, it, expect } from 'vitest'
+import { CANVAS_TYPE_PX } from '../../../styles/typography'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
@@ -140,11 +141,27 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // is DERIVED instead. What the restated list genuinely bought is a positive
     // control — proof the floor check below is not passing over an empty or
     // truncated list — and that is kept, without the copy.
+    // ⛔ THE FIRST CONTROL I WROTE HERE COULD NOT FAIL, AND ITS MESSAGE NAMED THE
+    // CASE IT DID NOT CATCH. It was
+    //   expect(before.length).toBe(Object.keys(DECLARED).length)
+    // which reduces to `x.length === x.length` — `Object.keys` and
+    // `Object.values` have equal length by definition and `.map` preserves it.
+    // Measured: it passes on the EMPTY object, the exact state its own message
+    // claimed to guard against. Replacing a mirror with a tautology is not a
+    // repair.
+    //
+    // ⭐ THE REAL CONTROL IS AGREEMENT WITH THE AUTHORITY. `DECLARED` is this
+    // file's deliberate restatement of `CANVAS_TYPE_PX` — the header explains
+    // why a guard must not inherit the value it checks — so the honest check is
+    // that the two cover the SAME TOKENS. It stays green when a token is added
+    // to both (no re-arming), REDs when this map loses one, and REDs on the
+    // drift the header warns about.
+    expect(
+      Object.keys(DECLARED).sort(),
+      'DECLARED no longer covers the same tokens as CANVAS_TYPE_PX — this file would silently stop checking one',
+    ).toEqual(Object.keys(CANVAS_TYPE_PX).sort())
     const before = Object.values(DECLARED).map(px => px * LABEL_LEGIBLE_ZOOM)
-    expect(before.length, 'no declared sizes — the floor assertion below would pass over an empty list').toBe(
-      Object.keys(DECLARED).length,
-    )
-    expect(before.length).toBeGreaterThan(0)
+    expect(before.length, 'no declared sizes — the floor assertion below would pass over nothing').toBeGreaterThan(0)
     for (const px of before) expect(px).toBeLessThan(DS_CANVAS_FLOOR_PX)
   })
 
