@@ -473,6 +473,7 @@ export function StrengthenTheReasoning({
     if (disputingId) disputeInputRef.current?.focus()
   }, [disputingId])
 
+
   /**
    * ⭐⭐ THE PRIMARY DOES THE THING, WHERE THE ENGINE SAYS IT SHOULD.
    *
@@ -784,6 +785,47 @@ export function StrengthenTheReasoning({
   )
   const limit = preview ?? plan.ordered.length
   const visible = expanded ? plan.ordered : plan.ordered.slice(0, limit)
+  /**
+   * ⛔⛔ THE WORST OUTCOME AVAILABLE ON THIS SURFACE, AND IT HAPPENED SILENTLY.
+   *
+   * This file already names the standard, one screen down: *"Losing what someone
+   * typed because a POST failed is the worst outcome available on this surface"*
+   * — which is why the durable write happens BEFORE the send. The same loss had
+   * a second door.
+   *
+   * The dispute box renders only inside `plan.ordered.map`, gated on
+   * `disputingId === rec.id`. A rerun past a graph edit mints new `block_id`s,
+   * the disputed finding leaves the plan, and **the box goes with it, carrying
+   * whatever the reader had typed**. `draft` survives in state, unreachable,
+   * until the next close clears it. No error, no warning, no trace.
+   *
+   * ⭐ SO IT IS SAVED, NOT DISCARDED. `recordDissent` is exactly the home for
+   * these words, and it is purely local — no network, no send, nothing the
+   * reader has to confirm. Keeping what someone wrote is not a decision that
+   * needs their permission; throwing it away is.
+   *
+   * ⚠ STAMPED WITH THE CONTEXT CAPTURED AT OPEN TIME, never with the new run's.
+   * They composed the objection against the analysis they were reading, and
+   * `disputeContext.current` is what holds it — the same reasoning the submit
+   * path already documents for its own stamp.
+   *
+   * ⚠ SCOPE: this rescues the TEXT. The reader is not told it happened, because
+   * a toast about a row that has just disappeared would explain a thing they can
+   * no longer see. `readDissent` restores it into the box if that finding ever
+   * returns, which is the recovery this makes possible.
+   */
+  useEffect(() => {
+    if (disputingId === null) return
+    if (draft.trim() === '') return
+    if (plan.ordered.some((rec) => rec.id === disputingId)) return
+
+    const context = disputeContext.current
+    if (context?.scenarioId) {
+      recordDissent(context.scenarioId, disputingId, draft, context.analysisHash)
+      setDissentEpoch((n) => n + 1)
+    }
+    closeDispute()
+  }, [disputingId, draft, plan.ordered, closeDispute])
   /**
    * ⭐ THE FIRST ROW IS OPEN, THE REST ARE CLOSED — the shape Paul pointed at on
    * the Analysis tab, where "Define what success looks like" is expanded above
