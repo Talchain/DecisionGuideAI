@@ -69,17 +69,35 @@ describe('the measured case: a ratio renders its own figure and its own word', (
   })
 
   /**
-   * ⚠ BOUND BY A DISCRIMINATING VALUE, NOT BY THE WORD. `0.4` renders the same
-   * on the proportion path and the plain `other` path, so asserting it proves
-   * nothing about which path ran. `0.00001` renders `0` on the `other` path and
-   * its own value on the proportion path, so this assertion can only pass if the
-   * predicate matched a differently-cased spelling. The unit WORD keeps the
-   * producer's own casing — `classifyUnit` canonicalises case for ISO codes
-   * only, and echoing the producer is the existing convention for this class.
+   * ⚠ BOUND BY A DISCRIMINATING VALUE, NOT BY THE WORD. `0.4` renders the same on
+   * the proportion path and the plain `other` path, so asserting it proves nothing
+   * about which path ran.
+   *
+   * ⚠⚠ THE DISCRIMINATOR WAS REPLACED BY R9, BECAUSE R9 DESTROYED THE OLD ONE.
+   * This case used `0.00001`, on the stated grounds that it "renders `0` on the
+   * `other` path and its own value on the proportion path". That was true when
+   * written and is FALSE now: `formatNumber` no longer annihilates, so `0.00001`
+   * renders `0.00001` on BOTH paths and this assertion would have passed while
+   * proving nothing about the predicate — a guard that silently stopped
+   * discriminating, with no red anywhere.
+   *
+   * `0.000012345` discriminates against the CURRENT code: the proportion arm's
+   * FOUR significant digits give `0.00001235`, while the `other` arm's rescue
+   * gives TWO — `0.000012`. The precondition is asserted IN-TEST below, so if a
+   * later change collapses the two arms again this case REDs instead of quietly
+   * going vacuous.
+   *
+   * The unit WORD keeps the producer's own casing — `classifyUnit` canonicalises
+   * case for ISO codes only, and echoing the producer is the convention here.
    */
   it('case and whitespace in the unit reach the proportion path', () => {
-    expect(formatValueWithUnit(0.00001, ' Ratio ')).toBe('0.00001 Ratio')
-    expect(formatValueWithUnit(0.00001, 'RATIO')).toBe('0.00001 RATIO')
+    // PRECONDITION, PINNED: the two arms must still render this value
+    // differently, or the assertions below discriminate nothing.
+    expect(formatValueWithUnit(0.000012345, 'months')).toBe('0.000012 months')
+    expect(formatValueWithUnit(0.000012345, 'ratio')).toBe('0.00001235 ratio')
+
+    expect(formatValueWithUnit(0.000012345, ' Ratio ')).toBe('0.00001235 Ratio')
+    expect(formatValueWithUnit(0.000012345, 'RATIO')).toBe('0.00001235 RATIO')
   })
 })
 
@@ -129,11 +147,19 @@ describe('⛔ the two refused transforms', () => {
  * on every value on the founder's board and on every value pinned in this file
  * except the annihilating ones. That is the whole blast radius.
  *
- * ⚠ SCOPED TO PROPORTION UNITS, DELIBERATELY. The same latent annihilation
- * exists for every other unit class below 5e-5 (`0.00001 months` → `0 months`).
- * That is a real defect and it is NOT fixed here: it would move every unit class
- * on ~20 surfaces, which is a separate, reviewable change. It is pinned below as
- * UNCHANGED so this increment's scope is provable rather than asserted.
+ * ⚠⚠ THE PROPORTION-ONLY SCOPE IS SUPERSEDED — R9 CLOSED IT. This paragraph said
+ * the same annihilation for every other unit class (`0.00001 months` →
+ * `0 months`) was "a real defect … NOT fixed here … a separate, reviewable
+ * change", pinned below as UNCHANGED. That change has now been made in
+ * `formatNumber` itself: every class below 5e-5 falls back to TWO significant
+ * digits where the house bound erased the magnitude. The two pins were moved
+ * deliberately and still carry their history.
+ *
+ * ⚠ THE PROPORTION ARM IS STILL DIFFERENT, DELIBERATELY: FOUR significant digits
+ * UNCONDITIONALLY, not two on rescue. A proportion value's whole population lives
+ * where the fraction bound bites, so it gets the wider budget. Two budgets for one
+ * harm is correct here, not an inconsistency to reconcile — and it is what makes
+ * the discriminating case below able to tell the two arms apart at all.
  */
 describe('⭐ a proportion figure is never rounded into a different number', () => {
   it('0.00001 ratio renders its value, not "0"', () => {
@@ -258,11 +284,16 @@ describe('every other unit class is untouched', () => {
     [50, 'index', '50'],
     [0.4, undefined, 'moderate'],
     [250000, undefined, '250,000'],
-    // ⚠ THE SAME LATENT ANNIHILATION, OUT OF SCOPE AND PINNED AS-IS so this
-    // increment's boundary is provable. `months` is not a proportion unit, so it
-    // keeps the fraction-digit bound — including this defect. Reported, not fixed.
-    [0.00001, 'months', '0 months'],
-    [0.00001, '£', '£0'],
+    // ⚠⚠ THESE TWO ROWS WERE MOVED BY R9, ON PURPOSE. They pinned
+    // `'0 months'` / `'£0'` — the same latent annihilation, deliberately left
+    // out of #1747's scope so that its boundary was provable rather than
+    // asserted. That "separate reviewable change" has now been made in
+    // `formatNumber` itself, so these classes show their magnitude too. The rows
+    // are KEPT rather than deleted: they are the pins that prove the boundary
+    // moved, and the full enumerated blast radius lives in
+    // `formatNumber.smallMagnitudeRescue.spec.ts`.
+    [0.00001, 'months', '0.00001 months'],
+    [0.00001, '£', '£0.00001'],
   ]
 
   it.each(UNCHANGED)('formatValueWithUnit(%f, %s) === %s', (v, unit, expected) => {
