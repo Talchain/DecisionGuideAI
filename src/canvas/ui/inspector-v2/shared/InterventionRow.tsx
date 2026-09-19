@@ -358,6 +358,24 @@ export function InterventionRow({
    * would vanish on exactly the rows the producer had written prose for. `null`
    * is the honest answer for an unknown or absent stamp and renders nothing.
    */
+  /**
+   * ⛔⛔ THE DISABLED TARGET'S DISPLAY STRING. The house bound alone erases a
+   * non-zero magnitude below 5e-5 (and renders a negative one as `-0`, keeping
+   * the sign while losing the quantity). The full reasoning, the reason
+   * significant digits are reached for at all, and the reason large values must
+   * NOT take them, are stated once at `EdgePanel.tsx`
+   * `currentEstimatedWeightDisplay` — a back-reference rather than a fourth copy
+   * of the argument. All three readouts are pinned together by
+   * `inspectorRawFloatDisplay.spec.tsx`, so if one drifts from the others the
+   * spec REDs on that surface by name.
+   */
+  const targetDisplay = (() => {
+    const housed = formatNumber(currentValue)
+    return Number(housed) === 0 && currentValue !== 0
+      ? formatNumber(currentValue, 2)
+      : housed
+  })()
+
   const provenance = classifyInterventionProvenance(provenanceSource)
 
   return (
@@ -453,13 +471,15 @@ export function InterventionRow({
                   case is pinned in `inspectorRawFloatDisplay.spec.tsx` so the
                   objection cannot quietly stop being answered.
 
-                  ⚠ RESIDUAL, NAMED NOT FIXED: below 5e-5 the bound still
-                  collapses to `0`. The original objection therefore survives in
-                  a narrower band than it was written for. It is not closed here
-                  because closing it means choosing a significant-figures policy
-                  for every inspector readout, which is a wider decision than
-                  this defect — and `String` was not a fix for it either, it was
-                  a 17-figure raw double that the founder read on screen.
+                  ⚠⚠ AND THE BOUND ALONE IS NOT ENOUGH — THIS PARAGRAPH REPLACES A
+                  WRONG CLASSIFICATION. It previously called the sub-5e-5
+                  collapse a "RESIDUAL, NAMED NOT FIXED", reasoning that
+                  `String` was no fix for it either. That was wrong twice over:
+                  `String` printed `0.00001` FAITHFULLY, so the collapse is a
+                  regression introduced HERE, not something inherited; and a
+                  comment calling a new defect a residual does not make it one.
+                  The readout therefore goes through `targetDisplay` below, which
+                  keeps the house bound except where it would erase a magnitude.
 
                   ⛔ THE SECOND HALF OF THE OLD NOTE NO LONGER HOLDS, and this
                   is the substantive change. It argued `String` here keeps this
@@ -475,7 +495,7 @@ export function InterventionRow({
                   stays separate… Seed from the EXACT value, never a rounded
                   display string"*), so the editable branch below is deliberately
                   left on `String`. */}
-              {formatNumber(currentValue)}
+              {targetDisplay}
               {!displayValue && (
                 <span className={`${typography.panelMeta} text-text-light ml-1`}>
                   {INTERVENTION_ROW_STRINGS.modelValueQualifier}

@@ -151,7 +151,14 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
    */
   const formatValue = useCallback((v: number) => {
     if (unit === '\u00A3' || unit === '$' || unit === '\u20AC') return `${unit}${v.toLocaleString()}`
-    return unit ? `${v.toLocaleString()} ${unit}` : formatNumber(v)
+    if (unit) return `${v.toLocaleString()} ${unit}`
+    // ⛔ The house bound alone erases a non-zero magnitude below 5e-5 (and a
+    // negative one to `-0`, sign kept, quantity lost). Reasoning stated once at
+    // `EdgePanel.tsx` `currentEstimatedWeightDisplay`; the large-value case is
+    // why significant digits are NOT applied unconditionally, and it is pinned
+    // as a control in `inspectorRawFloatDisplay.spec.tsx`.
+    const housed = formatNumber(v)
+    return Number(housed) === 0 && v !== 0 ? formatNumber(v, 2) : housed
   }, [unit])
 
   // Outbound influences

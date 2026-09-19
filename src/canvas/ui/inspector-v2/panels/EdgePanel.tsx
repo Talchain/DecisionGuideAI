@@ -258,6 +258,72 @@ export const EdgePanel = memo(function EdgePanel({
       : null
   }, [edge?.data])
 
+  /**
+   * ⛔⛔ THE HOUSE BOUND ERASES SMALL MAGNITUDES, SO IT CANNOT BE USED ALONE.
+   * THIS IS THE CANONICAL EXPLANATION FOR ALL THREE READOUTS THIS CHANGE TOUCHES
+   * (`InterventionRow`'s disabled target and `FactorObservablePanel`'s unitless
+   * readout carry a back-reference rather than a copy of it).
+   *
+   * `formatNumber`'s bound is `maximumFractionDigits: 4`, which is right for the
+   * defect it was adopted to close (a 17-figure raw double reaching the founder)
+   * and WRONG below 5e-5, where it renders a real non-zero magnitude as `0` —
+   * and `-0.00001` as `-0`, which is worse, because the SIGN survives while the
+   * MAGNITUDE does not: the reader is given the direction of a quantity that is
+   * simultaneously reported as nothing.
+   *
+   * ⚠ THE PATH THIS REPLACED DID NOT HAVE THAT FAULT. `String(v)` printed
+   * `0.00001` faithfully. So the collapse is a REGRESSION INTRODUCED HERE, not a
+   * pre-existing behaviour of the estate — an earlier version of this comment
+   * called it a "residual", and that classification was wrong. Changing a caller
+   * makes that caller's behaviour yours.
+   *
+   * ⚠⚠ AND ON THIS SURFACE IT IS AN HONESTY DEFECT, NOT A COSMETIC ONE.
+   * `confirmCurrentStrength` commits the STORED magnitude. If the sentence reads
+   * `0` while the write carries 0.00001, the screen and the write disagree on
+   * the one control that asks the user to ratify a number.
+   *
+   * ── THE RULE ───────────────────────────────────────────────────────────────
+   * Keep the house bound; fall back to significant digits ONLY when the house
+   * bound has erased a non-zero magnitude. `Number(housed) === 0` is the test
+   * for "erased", and it also covers `'-0'` (`-0 === 0` is true in JS). A value
+   * at or above 1000 formats with thousand separators, so `Number('22,500.5')`
+   * is `NaN`, `NaN === 0` is false, and large values can never enter this
+   * branch — which matters, because applying significant digits to THEM would
+   * round 22,500.5 to 22,500, i.e. round a producer value to solve a display
+   * problem. That is banned here and is pinned as a control in the spec.
+   *
+   * ⚠ TWO significant digits, deliberately: enough to make the magnitude and
+   * its sign visible, few enough not to imply precision this class of value
+   * does not have.
+   *
+   * ⚠ THE `!== 0` CONJUNCT IS DEFENSIVE, NOT LOAD-BEARING, AND IS LABELLED THAT
+   * WAY BECAUSE A MUTANT PROVED IT. Removing it leaves all 27 spec cases green:
+   * `formatNumber(0, 2)` is also `'0'`, so it only ever routes a true zero to a
+   * formatter that returns the same string. It is kept because it states the
+   * intent — never substitute anything for a real zero — and would start
+   * mattering the moment the fallback stopped being a plain numeric format. It
+   * is NOT what makes the zero control pass; a mutant that returns `'<0.0001'`
+   * without it REDs on all three zero controls, which is the case that guards
+   * the actual risk. (A stored `-0` renders `-0` here, in both arms: that is the
+   * value the model holds, not an erased magnitude, so the guard leaves it be.)
+   *
+   * ⚠ IT PASSES `significantDigits`, WHOSE DOCBLOCK SAYS SINGLE-VALUE CALLERS
+   * MUST NOT. Named rather than hidden: that note reserves the parameter for
+   * CONTRAST callers on the grounds that the house bound is "the honest one" for
+   * everyone else — and for this value class the house bound is demonstrably NOT
+   * honest, it reports nothing where the model holds something. The durable fix
+   * is for `formatNumber` itself to stop erasing small magnitudes, which would
+   * fix every consumer in the estate at once; that file has a different owner,
+   * so this is the bounded display-only fix at the three callers changed here.
+   */
+  const currentEstimatedWeightDisplay = useMemo(() => {
+    if (currentEstimatedWeight === null) return null
+    const housed = formatNumber(currentEstimatedWeight)
+    return Number(housed) === 0 && currentEstimatedWeight !== 0
+      ? formatNumber(currentEstimatedWeight, 2)
+      : housed
+  }, [currentEstimatedWeight])
+
   // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
   const weight = edge?.data?.weight ?? 0.5
   const direction = edge?.data?.direction ?? 'positive'
@@ -723,7 +789,9 @@ export const EdgePanel = memo(function EdgePanel({
                         a CEE rescale (a raw float division) and is not stable
                         even in its ORDERING between two passes — the measured
                         argument is at `formatValueWithUnit.ts:41-60`, whose
-                        four-decimal house bound this now adopts.
+                        four-decimal house bound this now adopts — bounded
+                        against small-magnitude erasure, see
+                        `currentEstimatedWeightDisplay` above.
 
                         ⚠ DISPLAY ONLY, AND THAT IS LOAD-BEARING HERE.
                         `handleConfirmCurrentStrength` calls
@@ -737,7 +805,7 @@ export const EdgePanel = memo(function EdgePanel({
                         would make this sentence unable to name the number the
                         button ratifies. The number is the point of the
                         sentence. */}
-                    Olumi’s current estimate is <span className="font-mono">{formatNumber(currentEstimatedWeight)}</span>.
+                    Olumi’s current estimate is <span className="font-mono">{currentEstimatedWeightDisplay}</span>.
                   </p>
                   <button
                     type="button"

@@ -312,3 +312,149 @@ describe('FactorObservablePanel — the unitless readout is bounded', () => {
     expect(observableReadout()).toContain('£49,000')
   })
 })
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════
+ * THE COLLAPSE CLASS — A REAL NON-ZERO STORED VALUE MUST NEVER READ AS ZERO
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * ⛔⛔ THIS BLOCK EXISTS BECAUSE THE FIRST VERSION OF THIS CHANGE INTRODUCED A
+ * DEFECT WHILE CLOSING ONE, AND THEN MISCLASSIFIED IT IN A COMMENT.
+ *
+ * Adopting the four-fraction-digit house bound at these three readouts closed
+ * the 17-figure raw double — and, below 5e-5, started rendering a real non-zero
+ * magnitude as `0`. The paths it replaced (`String(v)`, `` `${v}` ``) did NOT:
+ * they printed `0.00001` faithfully. So this is a REGRESSION AT THESE CALLERS,
+ * not a pre-existing behaviour of the estate, and the original docblock calling
+ * it a "residual, named not fixed" was wrong on exactly that point. Changing a
+ * caller makes that caller's behaviour yours.
+ *
+ * ⚠ THE WORST INSTANCE, AND WHY THIS IS NOT COSMETIC. On the edge confirmation
+ * path the sentence would say the estimate is `0` while
+ * `confirmCurrentStrength` still commits the non-zero STORED magnitude. The
+ * screen and the write disagree, on the one surface that asks the user to
+ * ratify a number. The `-0` case is worse again: the sign survives while the
+ * magnitude does not, so the reader is told the direction of a quantity that is
+ * simultaneously reported as nothing.
+ *
+ * ⚠ WHY THE EARLIER GUARD DID NOT CATCH IT — the lesson worth keeping. The test
+ * named *"the bound never renders a real non-zero value as zero"* exercised
+ * ONLY `0.00049`, which the bound happens to survive (`0.0005`). A corpus drawn
+ * from the one example in hand certified the predicate over the very class it
+ * gets wrong. Extended here, not replaced.
+ *
+ * ⛔ TRUE ZERO IS THE CONTROL, and it is the reason this is a corpus rather than
+ * a single case: a fix that renders every small number visibly could satisfy
+ * every assertion above by INVENTING a magnitude where the model holds none.
+ * `0` must still read `0`.
+ */
+
+/** Smaller than the house bound's 5e-5 cliff, and a value the model can hold. */
+const TINY_POS = 0.00001
+const TINY_NEG = -0.00001
+
+/**
+ * ⭐ EXTRACTS THE NUMBER AT THE VALUE POSITION, so the assertion is an EXACT
+ * EQUALITY rather than a substring.
+ *
+ * ⚠ THE REASON IT EXISTS IS A DEFECT IN THIS SPEC'S OWN EARLIER ASSERTIONS, and
+ * it is the second time the same trap fired here. A `toMatch(/estimate is\s*0
+ * (?![.\d])/)` cannot express "the value is zero", because the SENTENCE ENDS IN
+ * A FULL STOP: the rendered text is `estimate is 0.` and the lookahead cannot
+ * tell that `.` from a decimal point. The first version of that regex matched
+ * the leading zero of `0.0005` (a false RED against correct output); this
+ * version failed to match a true `0` (a false RED against correct output, in
+ * the other direction). A substring probe over prose is the wrong instrument
+ * for "what number is displayed" — extract the number and compare it.
+ */
+function estimateValue(): string {
+  const box = screen.getByTestId('edge-confirm-current-strength').closest('div')
+  expect(box).not.toBeNull()
+  const m = (box!.textContent ?? '').match(/estimate is\s*(-?[\d,]*\.?\d+)/)
+  expect(m).not.toBeNull()
+  return m![1]
+}
+
+describe('COLLAPSE CLASS — EdgePanel estimate sentence', () => {
+  it('SELF-CHECK: the value extractor reads the value position, not the prose', () => {
+    // The extractor is now load-bearing for the two assertions below, so it is
+    // pinned against a value whose rendering is already settled by the tests
+    // further up. Without this, a broken extractor would make both look green.
+    seedCeeEstimate(FOUNDER_RAW)
+    render(<EdgePanel {...panelProps} />)
+    expect(estimateValue()).toBe('0.5429')
+  })
+
+  it('a tiny positive estimate keeps a visible non-zero magnitude', () => {
+    seedCeeEstimate(TINY_POS)
+    render(<EdgePanel {...panelProps} />)
+    expect(estimateValue()).toBe('0.00001')
+  })
+
+  it('CONTROL: a true zero estimate still reads 0 — the fix must not invent a magnitude', () => {
+    seedCeeEstimate(0)
+    render(<EdgePanel {...panelProps} />)
+    expect(estimateValue()).toBe('0')
+  })
+
+  it('SCOPE CONTROL: a negative weight cannot reach this sentence at all', () => {
+    // Pinned rather than assumed, and it is why there is no negative case for
+    // THIS surface: `currentEstimatedWeight` gates on `value >= 0`, so a
+    // negative-sign test here would pass vacuously on an absent element.
+    seedCeeEstimate(TINY_NEG)
+    render(<EdgePanel {...panelProps} />)
+    expect(screen.queryByTestId('edge-confirm-current-strength')).toBeNull()
+  })
+})
+
+describe('COLLAPSE CLASS — InterventionRow read-only target', () => {
+  it('a tiny positive target keeps a visible non-zero magnitude', () => {
+    render(<InterventionRow {...rowProps} currentValue={TINY_POS} disabled />)
+    expect(readonlyTarget()).toContain('0.00001')
+  })
+
+  it('a tiny NEGATIVE target keeps BOTH its magnitude and its sign', () => {
+    // Distinct from the positive case: the house bound renders this `-0`, which
+    // reports a direction for a quantity it simultaneously reports as nothing.
+    render(<InterventionRow {...rowProps} currentValue={TINY_NEG} disabled />)
+    const text = readonlyTarget()
+    expect(text).toContain('-0.00001')
+    expect(text).not.toMatch(/^\s*-0(?![.\d])/)
+  })
+
+  it('CONTROL: a true zero target still reads 0', () => {
+    render(<InterventionRow {...rowProps} currentValue={0} disabled />)
+    expect(readonlyTarget()).toMatch(/^\s*0(?![.\d])/)
+  })
+})
+
+describe('COLLAPSE CLASS — FactorObservablePanel unitless readout', () => {
+  it('a tiny positive value keeps a visible non-zero magnitude', () => {
+    seedObservable(TINY_POS)
+    render(<FactorObservablePanel {...factorPanelProps('factor-1')} />)
+    expect(observableReadout()).toContain('0.00001')
+  })
+
+  it('a tiny NEGATIVE value keeps BOTH its magnitude and its sign', () => {
+    seedObservable(TINY_NEG)
+    render(<FactorObservablePanel {...factorPanelProps('factor-1')} />)
+    const text = observableReadout()
+    expect(text).toContain('-0.00001')
+    expect(text).not.toMatch(/^\s*-0(?![.\d])\s*$/)
+  })
+
+  it('CONTROL: a true zero value still reads 0', () => {
+    seedObservable(0)
+    render(<FactorObservablePanel {...factorPanelProps('factor-1')} />)
+    expect(observableReadout()).toMatch(/^\s*0(?![.\d])\s*$/)
+  })
+
+  it('⛔ CONTROL: a LARGE value keeps its fractional part (no sig-digit truncation)', () => {
+    // The obvious one-line fix — passing `maximumSignificantDigits` for every
+    // value — would render 22,500.5 as "22,500", i.e. round a producer value to
+    // solve a display problem. That is banned in this lane, so it is pinned.
+    seedObservable(22500.5)
+    render(<FactorObservablePanel {...factorPanelProps('factor-1')} />)
+    expect(observableReadout()).toContain('22,500.5')
+  })
+})
