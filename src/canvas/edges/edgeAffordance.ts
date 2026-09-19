@@ -23,9 +23,28 @@
  *
  * ⛔ IT PROMISES ONLY WHERE THE EDIT CAN LAND. Same predicate the panel fences
  * on, CALLED rather than restated, so the label and the control cannot drift
- * into offering different things. Every risk -> goal edge is refused today
- * (an unsigned magnitude beside a separate direction, which the contract cannot
- * carry) and keeps the honest older word.
+ * into offering different things.
+ *
+ * ⚠⚠ THE CAUSE THIS BLOCK ORIGINALLY GAVE IS WITHDRAWN, AND IT IS STRUCK RATHER
+ * THAN DELETED. It read: *"Every risk -> goal edge is refused today (an unsigned
+ * magnitude beside a separate direction, which the contract cannot carry)."*
+ * That rested on reading `full_graph.edges[].strength_mean` in a debug bundle as
+ * a WIRE fact. It is not one: `applyDraftResult.ts:99` stores
+ * `Math.max(0, Math.min(2, Math.abs(rawWeight)))`, and `exportBundle.ts:2280`
+ * manufactures `strength_mean` back out of that absolute `weight` — so a server
+ * edge that arrived CORRECTLY SIGNED (`-0.35`, `direction: 'negative'`) is
+ * byte-identical in the export to one that did not. The evidence could not
+ * distinguish the two cases, so it never supported the claim.
+ *
+ * ⭐ WHAT IS TRUE, taken from the predicate itself rather than from a symptom:
+ * `edgeStrengthEditIsAssertable` returns whatever `buildEdgeStrengthEditEvent`
+ * can build, and that refuses on canonical endpoint ids, a server-stated
+ * `expected` tuple, and the magnitude bound — the rules that module owns. The
+ * MEASURED outcome on the founder's 19 Sep model stands unchanged and is what
+ * this change rests on: **24 of 26 edges assertable.** The two refusals are not
+ * attributed here, because attributing them needs the canvas `Edge` the
+ * predicate actually takes, and inferring them from an export-shaped tuple is
+ * precisely the mistake the struck sentence made.
  */
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 

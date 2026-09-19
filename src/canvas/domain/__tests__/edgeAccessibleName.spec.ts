@@ -18,6 +18,11 @@ import {
   UNTITLED_NODE_NAME,
   type NameableEdge,
 } from '../edgeAccessibleName'
+import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
+import {
+  EDGE_AFFORDANCE_EDITABLE,
+  EDGE_AFFORDANCE_READ_ONLY,
+} from '../../edges/edgeAffordance'
 
 const labels = new Map<string, string>([
   ['2891dabb', 'Outsource Overflow to a Third-Party Logistics Provider'],
@@ -131,5 +136,100 @@ describe('the seam that feeds <ReactFlow> actually applies it', () => {
   it('memoizedEdges names the edges before they reach React Flow', () => {
     expect(src).toContain('withEdgeAccessibleNames')
     expect(src).toContain("from './domain/edgeAccessibleName'")
+  })
+})
+
+
+/**
+ * ⭐⭐ THE OUTER GROUP IS WHERE THE AFFORDANCE HAS TO LAND — and #1782 put it on
+ * the inner element, which is the very defect THIS module was written to close.
+ *
+ * This file's header records the original finding: `StyledEdge` composes a
+ * careful accessible name, *"on an inner element that only exists while the
+ * edge's label is visible"*, so the probe found `edgesWithInnerAria: 0` while
+ * every outer group carried React Flow's hex default. `withEdgeAccessibleNames`
+ * exists because the outer group is the element assistive technology names.
+ *
+ * #1782 added the double-click affordance to `StyledEdge`'s sentence — the
+ * INNER one. So it reaches an edge only while that edge's label renders.
+ *
+ * ── MEASURED ON THE DEPLOYED BUILD (`7ec3fed2`, guest session, 20 Sep 2026) ──
+ *   · 39 connections on screen
+ *   · **39 of 39** outer groups carry an `aria-label` and announce a strength —
+ *     so every one is server-stated
+ *   · **3 of 39** render a label, and only those 3 carry the hover `title`
+ *   · **0 of 39** announce the affordance on the assistive channel
+ *
+ * And the three that DO carry a tooltip contradict themselves in two lines:
+ *
+ *   "Estimate not yet confirmed — the strength of this connection was filled in
+ *    for you. Open the details to set or confirm it.  …  Double-click to inspect"
+ *
+ * The double-click opens a panel whose strength control is NOT disabled —
+ * verified in the same session: `input[type=range]` "Effect on target", value
+ * 0.33, "Confirm this estimate" beside it. The edit worked; nothing said so.
+ *
+ * ⛔ SO THIS IS NOT A SECOND VOCABULARY. It is the SAME
+ * `edgeDoubleClickAffordance` derivation reaching the channel that has none —
+ * and putting it only on the tooltip would leave this module's two channels
+ * saying different things, which is the drift its header forbids by name.
+ *
+ * ⚠ AND IT IS ASSERTED BY EXECUTION. #1782's own assistive-channel test is
+ * `expect(SOURCE).toMatch(...)` — a source scan, which that PR's own docblock
+ * says cannot prove behaviour. These run the function.
+ */
+describe('the accessible name carries what a double-click does', () => {
+  /** Verbatim from the founder's capture — an edge that CAN take an edit. */
+  const CARRIABLE: NameableEdge = {
+    id: 'e-0',
+    source: '2891dabb',
+    target: 'c12af5de',
+    data: { strength_mean: 1, effect_direction: 'positive' },
+  }
+  /** Verbatim from the same capture — an edge the builder refuses. */
+  const REFUSED: NameableEdge = {
+    id: 'e-10',
+    source: '2a9eb771',
+    target: 'ac02582c',
+    data: { strength_mean: 0.35, effect_direction: 'negative' },
+  }
+
+  it('⭐ PRECONDITION: the two fixtures genuinely divide, or every claim below is vacuous', () => {
+    expect(edgeStrengthEditIsAssertable(CARRIABLE as never)).toBe(true)
+    expect(edgeStrengthEditIsAssertable(REFUSED as never)).toBe(false)
+    expect(EDGE_AFFORDANCE_EDITABLE).not.toBe(EDGE_AFFORDANCE_READ_ONLY)
+  })
+
+  it('an editable connection SAYS it can be set, on the assistive channel', () => {
+    const [named] = withEdgeAccessibleNames([CARRIABLE], labels, 'human')
+    expect(named.ariaLabel).toContain(EDGE_AFFORDANCE_EDITABLE)
+  })
+
+  it('CONTRAST: a connection whose edit cannot land keeps the read-only word', () => {
+    // The discriminating half. Without it, a function appending the editable
+    // sentence UNCONDITIONALLY passes the test above — and over-promising is the
+    // worse of the two failures, because the user acts on it.
+    const [named] = withEdgeAccessibleNames([REFUSED], labels, 'human')
+    expect(named.ariaLabel).toContain(EDGE_AFFORDANCE_READ_ONLY)
+    expect(named.ariaLabel).not.toContain(EDGE_AFFORDANCE_EDITABLE)
+  })
+
+  it('the affordance is ADDED, never substituted for the name or the description', () => {
+    const [named] = withEdgeAccessibleNames([CARRIABLE], labels, 'human')
+    expect(named.ariaLabel).toContain(
+      'Connection from Outsource Overflow to a Third-Party Logistics Provider to 3PL Overflow Capacity',
+    )
+    // The painted description still survives alongside it — the regression this
+    // module's "both channels agree" rule is really about.
+    expect(named.ariaLabel).toMatch(/boost|drag|raises|lowers/i)
+  })
+
+  it('⛔ a caller-supplied ariaLabel is STILL never overwritten', () => {
+    const [named] = withEdgeAccessibleNames(
+      [{ ...CARRIABLE, ariaLabel: 'A considered name' }],
+      labels,
+      'human',
+    )
+    expect(named.ariaLabel).toBe('A considered name')
   })
 })
