@@ -239,7 +239,8 @@ export const typography = {
   // header records why: Tailwind's scanner reads SOURCE TEXT, so an
   // arbitrary-value class built by template interpolation is never generated and
   // the size silently falls back to inherited — the fix would ship dark. The
-  // mirror is deliberate and `canvasTypeTokensAgree` is what makes it fail loud.
+  // mirror is deliberate and `canvasTypeGeometryAgrees.spec.ts` is what makes it
+  // fail loud — the same guard named six lines above, spelled correctly.
   nodeValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug tabular-nums',
   nodeLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-snug',
   edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
