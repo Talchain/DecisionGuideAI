@@ -320,10 +320,26 @@ const isConsoleCall = (n: ts.Node): boolean =>
  * version of this that cannot drift: JSX comments are comments, JSX attributes
  * are attributes, and neither can be mistaken for copy.
  *
- * ⚠ A CHANGE OF PARSE IS A CHANGE OF COVERAGE, so it does not go in unwatched
- * — `PARSE COVERAGE` below asserts this scanner still sees a plausible number
- * of real literals. A parser switch that quietly halved what it reads would
- * otherwise look exactly like a fix.
+ * ⚠ A CHANGE OF PARSE IS A CHANGE OF COVERAGE, so it does not go in unwatched.
+ * Three guards below watch it, and each is named for what it can actually
+ * prove: `PARSE KIND` pins the extension map itself (including `.jsx`, and
+ * anchored to the end of the name); `the real file that broke` pins the exact
+ * regression — clean as TSX, offending as TS; and `real .tsx copy with an em
+ * dash is STILL reported` proves the TSX parse has not stopped seeing copy.
+ *
+ * ⛔ WHAT IS DELIBERATELY *NOT* GUARDED, and why — the obvious guard here is a
+ * per-file count inequality (`asTsx >= asTs`), and it is WRONG. The motivating
+ * defect is that the JSX-off parse FABRICATES literals, so its count is not a
+ * lower bound on anything. MEASURED, not argued — `const Row = () => <div>"one"
+ * "two"</div>` parses to **0 string literals as TSX and 2 as TS**: the quoted
+ * words are JsxText under the correct parse and are not copy, while error
+ * recovery with JSX off invents two StringLiterals. `asTsx >= asTs` is
+ * therefore VIOLATED BY CORRECT CODE, and that guard would have REDded required
+ * CI on a legitimate JSX edit without one word of copy being removed. Tying the gate to
+ * `strictlyMore > 0` is worse still: it makes the continued PRESENCE of
+ * malformed-parse artefacts in product files a permanent law. The 19 Sep census
+ * (8 of 37 `.tsx` files, 5721 vs 5701) is retained as dated evidence at
+ * `evidence/emdash-guard-census-2026-09-19/CENSUS.md`, not as an invariant.
  */
 const scriptKindFor = (fileName: string): ts.ScriptKind =>
   /\.(tsx|jsx)$/.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS
@@ -549,41 +565,6 @@ describe('rendered product copy carries no em dashes', () => {
           `Your results stand ${EM_DASH} nothing downstream changed.`,
         ].sort(),
       )
-    })
-
-    it('PARSE COVERAGE: no `.tsx` file loses literals to the parse, and some gain', () => {
-      // ⚠⚠ THIS ASSERTION DID NOT EXIST. The header says "`PARSE COVERAGE` below
-      // asserts this scanner still sees a plausible number of real literals" —
-      // that string appeared exactly ONCE in this file, in the sentence promising
-      // it. The only live floor is `> 1000` in "the scan reaches real copy", and
-      // the corpus yields 5721: a parse that quietly HALVED coverage would clear
-      // it by nearly threefold. A docblock naming a guard that is not there is the
-      // hand-maintained mirror this estate pays for (CLAUDE.md trap 12), inside
-      // the fix written to end one.
-      //
-      // ⭐ DERIVED, SO THERE IS NO NUMBER TO KEEP IN STEP. Every `.tsx` file is
-      // parsed both ways and compared with ITSELF: the JSX parse must never see
-      // FEWER literals than the JSX-off parse. That is the coverage claim stated
-      // directly, and it reds if the kind map is reverted for any file.
-      const tsxFiles = COVERED_FILES.filter(f => f.endsWith('.tsx'))
-      expect(tsxFiles.length, 'no `.tsx` file in the corpus: this proves nothing').toBeGreaterThan(10)
-
-      let strictlyMore = 0
-      for (const rel of tsxFiles) {
-        const src = readFileSync(resolve(process.cwd(), rel), 'utf8')
-        const asTsx = literals(src, rel, ts.ScriptKind.TSX).length
-        const asTs = literals(src, rel, ts.ScriptKind.TS).length
-        expect(asTsx, `${rel}: the JSX parse sees FEWER literals than the JSX-off parse`).toBeGreaterThanOrEqual(asTs)
-        if (asTsx > asTs) strictlyMore++
-      }
-
-      // ANTI-VACUITY. `>=` is satisfied by two parses that agree everywhere, so
-      // without this the loop could pass while comparing nothing. Measured 19 Sep
-      // 2026: 8 of 37 `.tsx` files differ (5721 literals against 5701 — the
-      // JSX-off parse silently lost 20 real ones, e.g. 'warning', 'neutral',
-      // 'min-w-0 flex-1', while fabricating 12 spans in `SectionShell.tsx`).
-      // Working: `evidence/emdash-guard-census-2026-09-19/CENSUS.md`.
-      expect(strictlyMore, 'the two parses agree on every file: the comparison is not discriminating').toBeGreaterThan(0)
     })
 
     it('PRECONDITION: the scan reaches real copy — it is not reading empty files', () => {
