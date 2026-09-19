@@ -2052,3 +2052,38 @@ describe('useDebugData', () => {
     })
   })
 })
+
+
+describe('read-delivered analysis capture', () => {
+  it('keeps the draft/prompt as conversational capture while selecting the matching read as scientific evidence', () => {
+    const start = Date.parse('2026-09-19T18:16:01.789Z')
+    const terminal = {
+      id: 'terminal-trace', service: 'CEE', endpoint: '/proxy/v5/turn/stream',
+      capture: { kind: 'streamed_terminal_ingest', requestId: 'server-draft' },
+      timestamp: start, completedAt: start + 48980, duration: 48980,
+      completed: true, status: 200,
+      request: { body: { scenario_id: 'scn', kind: 'message', message: 'Brief' } },
+      response: { body: { assistant_text: 'Draft', blocks: [], _prompt_capture: [{ prompt: 'actual' }] } },
+    }
+    const read = {
+      id: 'read-trace', service: 'CEE', endpoint: '/bff/cee/scenarios/scn/graph',
+      capture: { kind: 'scenario_graph_read', scenarioId: 'scn', requestId: 'server-read', analysisResultHash: 'report-hash' },
+      timestamp: start + 90000, duration: 800, completed: true, status: 200,
+      request: { body: {} }, response: { body: { analysis_result: {
+        type: 'analysis_result', enrichment: { option_comparison: [{ option_id: 'a', win_probability: 0.6 }] },
+      } } },
+    }
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector({
+      ceePipelineTrace: null, nodes: [], edges: [], runMeta: null,
+      currentScenarioId: 'scn', results: { hash: 'report-hash' },
+    } as never))
+    vi.mocked(usePayloadTraceStore).mockImplementation((selector) => selector({ payloads: [read, terminal] } as never))
+    vi.mocked(useGateStore).mockImplementation((selector) => selector({ gates: {} } as never))
+    const { result } = renderHook(() => useDebugData())
+    expect(result.current.payloads.cee_response).toEqual(terminal.response.body)
+    expect(result.current.analysis_evidence_trace_source).toBe('scenario_graph_read')
+    expect(result.current.analysis_evidence_cee_response_body).toEqual(read.response.body)
+    expect(result.current.timing?.request_start).toBe('2026-09-19T18:16:01.789Z')
+    expect(result.current.timing?.cee_response).toBe('2026-09-19T18:16:50.769Z')
+  })
+})

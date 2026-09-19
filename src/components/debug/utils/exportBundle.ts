@@ -66,6 +66,7 @@ import {
 // Round-6 review (maintainability): import shared selection-diagnostic
 // union types so the DebugBundle interface mirrors DebugData without
 // re-declaring the same enum in two places.
+import { matchingScenarioAnalysisReads } from '../../../lib/analysisProducingCeeTurn'
 import type {
   SelectionReason,
   HashMatchStatus,
@@ -4008,7 +4009,7 @@ function resolveEmbeddedFactorSensitivityForDisplay(
 ): FactorSensitivityEntry[] | null {
   try {
     const useRecovered =
-      data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' &&
+      (data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' || data.analysis_evidence_trace_source === 'scenario_graph_read') &&
       data.analysis_evidence_cee_response_body !== null &&
       data.analysis_evidence_cee_response_body !== undefined
     const ceeBody = useRecovered
@@ -4451,6 +4452,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const latestV5TraceTyped = latestV5TracePre as
       | {
           id?: string
+          capture?: { requestId?: string }
           endpoint?: string
           status?: number
           duration?: number
@@ -4542,7 +4544,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         : {
             // Prefer the actual trace entry id when available; fall back
             // to the session-level request_id (the legacy behaviour).
-            request_id: latestV5TraceTyped?.id ?? data.overall.request_id,
+            request_id: latestV5TraceTyped?.capture?.requestId ?? latestV5TraceTyped?.id ?? data.overall.request_id,
             scenario_id: storeState.currentScenarioId,
             turn_id: fact?.analysisHash ?? null,
             // Real endpoint from the trace entry > service-metadata
@@ -4574,7 +4576,22 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
 
     const plotRequestCaptured = bundle.payloads.plot_request !== null
 
+    const resultRead = matchingScenarioAnalysisReads(
+      v5TraceStatePre.payloads, storeState.currentScenarioId ?? null, storeState.results?.hash ?? null,
+    )[0]
+    const analysisResultRead = resultRead?.capture?.analysisResultHash ? {
+      evidence_status: 'acquired' as const,
+      trace_id: resultRead.id ?? null,
+      request_id: resultRead.capture.requestId ?? null,
+      scenario_id: resultRead.capture.scenarioId!,
+      endpoint: resultRead.endpoint ?? null,
+      request_started_at: resultRead.timestamp ?? null,
+      response_completed_at: resultRead.completedAt ?? null,
+      response_hash: resultRead.capture.analysisResultHash,
+      response_body: resultRead.response?.body ?? null,
+    } : undefined
     bundle.v5_canonical_analysis = classifyV5CanonicalAnalysisDiagnostic({
+      analysisResultRead,
       canonicalFlagOn: isV5CanonicalAnalysisEnabled(),
       analysisStateSource: sourceResult.source,
       factPresentForScenario: sourceResult.factPresentForScenario,
@@ -4731,6 +4748,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const selectedIsV2 = isV2PlotEndpoint(selectedPlotProbe)
 
     const capturePipeline = classifyV5CapturePipelineStatus({
+      analysisResultRead: legacy.analysis_result_read,
       v5Capture: legacy.v5_cee_capture
         ? {
             request_present: legacy.v5_cee_capture.request_present,
@@ -5064,7 +5082,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // `payloads.plot_response` / `isl_response` are likewise never
     // touched here.
     const useRecoveredCeeBody =
-      data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' &&
+      (data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' || data.analysis_evidence_trace_source === 'scenario_graph_read') &&
       data.analysis_evidence_cee_response_body !== null &&
       data.analysis_evidence_cee_response_body !== undefined
     const ceeBodyForResolver = useRecoveredCeeBody
@@ -5149,6 +5167,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // analysis-producing V5 turn — safe to accept regardless of the
     // conversational provenance label.
     const ceeIsSelectedV5 =
+      data.analysis_evidence_trace_source === 'scenario_graph_read' ||
       data.analysis_evidence_trace_source === 'selected_cee_turn' ||
       data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' ||
       ceeProvenance === 'analysis_producing_v5_turn' ||
