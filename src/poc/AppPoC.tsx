@@ -3,11 +3,12 @@
 
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
 import type React from 'react'
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
 import DevRoutesGuard from '../components/auth/DevRoutesGuard'
+import { isE2EEnabled } from '../flags'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
@@ -997,21 +998,44 @@ export default function AppPoC() {
                   <Route path="/plc" element={<PlcLab />} />
                   <Route path="/sandbox-v1" element={<SandboxV1 />} />
                   <Route path="/test" element={<MainSandboxContent />} />
-                  {/* Catch-all. This used to render the POC sandbox, so a tester
-                      who mistyped a URL landed on developer scaffolding. It now
-                      lands on the scenario list — somewhere real, and read-only.
-                      The sandbox remains the catch-all only when `devRoutes` is
-                      on, which is what the Playwright suite runs with
-                      (playwright.config.ts webServer): a large share of the e2e
-                      specs reach a gated route, and `gotoSandbox()` plus
-                      `#/sandbox&scenario=<b64>` can ONLY be served by the
-                      catch-all — that hash is a single path segment, so no
-                      explicit route can ever match it.
+                  {/* ⛔⛔ THE CATCH-ALL ANSWERS A DIFFERENT QUESTION FROM THE
+                      ROUTES ABOVE IT, AND THEY WERE SHARING ONE FLAG.
 
-                      NESTING IT HERE DOES NOT CHANGE ITS PRECEDENCE: a pathless
-                      parent contributes no path segment, so the branch's joined
-                      path is `/*` either way and its rank score is unchanged. */}
-                  <Route path="*" element={<MainSandboxContent />} />
+                      "May I reach /dev/*?" and "what happens when someone
+                      mistypes a URL?" are two questions. `devRoutes` answered
+                      both, which was harmless only while it was off everywhere.
+
+                      ⛔ UI #1652 SET IT FOR STAGING on 18 Sep 2026, on Paul's
+                      explicit instruction, so a tester who mistypes a URL on
+                      staging now lands on the POC sandbox — the exact defect the
+                      comment below was written to record as FIXED. I merged that
+                      PR, having raised the doctrinal objection and then not
+                      enumerated what the flag exposes. This closes the half he
+                      did not ask for while keeping the half he did.
+
+                      ⭐ E2E IS THE RIGHT KEY, AND IT COSTS THE SUITE NOTHING.
+                      `playwright.config.ts` sets BOTH `VITE_E2E: '1'` (:26) and
+                      `VITE_ENABLE_DEV_ROUTES: '1'` (:33), so the sandbox
+                      catch-all is unchanged under test — `gotoSandbox()` and
+                      `#/sandbox&scenario=<b64>` still resolve. Staging has
+                      devRoutes ON and E2E unset, so it falls to the scenario
+                      list. Production has neither and is untouched.
+
+                      ORIGINAL NOTE, PRESERVED because it is the evidence:
+                      "This used to render the POC sandbox, so a tester who
+                      mistyped a URL landed on developer scaffolding. It now
+                      lands on the scenario list — somewhere real, and
+                      read-only." The `#/sandbox&scenario=<b64>` hash is a single
+                      path segment, so no explicit route can ever match it and
+                      only the catch-all can serve it.
+
+                      NESTING HERE DOES NOT CHANGE PRECEDENCE: a pathless parent
+                      contributes no path segment, so the joined path is `/*`
+                      either way and the rank score is unchanged. */}
+                  <Route
+                    path="*"
+                    element={isE2EEnabled() ? <MainSandboxContent /> : <Navigate to="/" replace />}
+                  />
                 </Route>
                 </Routes>
               </CanvasErrorBoundary>
