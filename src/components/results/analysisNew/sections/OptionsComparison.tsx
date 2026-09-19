@@ -210,6 +210,39 @@ export function OptionsComparison({
   const showToast = useShowToastSafe()
 
   /**
+   * ⭐⭐ THE LENS ARM — WHICH END OF EACH RANGE THE DOT MARKS.
+   *
+   * Paul's instruction was to bring the Analysis tab's lens onto this tab. What
+   * came across is the QUESTION it asks ("read this run cautiously or
+   * optimistically?"), not its implementation, because that implementation
+   * shipped two P1s: a control claiming a ranking `sortOptionsForDisplay` never
+   * performed (ROADMAP 2.237) and a crown rendered under a sentence declaring
+   * the lens had no data (2.238).
+   *
+   * ⛔ SO THIS ARM MOVES ONE DOT AND NOTHING ELSE. It does not reorder the
+   * rows, does not crown an option, does not change a readout, and makes no
+   * claim in units — the row order and every number on screen are byte-identical
+   * across the three arms. That is the whole difference between a lens that
+   * improves a reading and one that asserts a different answer.
+   *
+   * ⛔⛔ DECLARED HERE, ABOVE `if (options.totalCount === 0) return null`,
+   * BECAUSE I FIRST PUT IT BELOW AND CI WAS RIGHT TO REJECT IT.
+   * `react-hooks/rules-of-hooks` caught `useState` and `useId` called
+   * CONDITIONALLY: a render with no options returns before them, so the hook
+   * order differs between renders and React's state slots mis-align. It reads
+   * like a lint nit and it is a crash waiting for the first run that goes from
+   * some options to none. Hooks belong above every early return, always.
+   *
+   * ⚠ LOCAL, NOT LIFTED. Nothing else on the panel reads it and no producer
+   * supplies it, so a store would be a second authority over a presentational
+   * choice. If a sibling surface ever needs the same arm, lift it then — with a
+   * reason — rather than pre-building the seam.
+   */
+  const [rangeAppetite, setRangeAppetite] = useState<RangeLensArm>('middle')
+  const rangeLensId = useId()
+
+
+  /**
    * ⭐ THE ACT, AND IT FAILS LOUDLY OR NOT AT ALL.
    *
    * `focusModelTarget` is fail-CLOSED: it returns `false` and moves nothing when
@@ -415,30 +448,6 @@ export function OptionsComparison({
     return { lo, hi, span: hi - lo }
   })()
 
-  /**
-   * ⭐⭐ THE LENS ARM — WHICH END OF EACH RANGE THE DOT MARKS.
-   *
-   * Paul's instruction was to bring the Analysis tab's lens onto this tab. What
-   * came across is the QUESTION it asks ("read this run cautiously or
-   * optimistically?"), not its implementation, because that implementation
-   * shipped two P1s: a control claiming a ranking `sortOptionsForDisplay` never
-   * performed (ROADMAP 2.237) and a crown rendered under a sentence declaring
-   * the lens had no data (2.238).
-   *
-   * ⛔ SO THIS ARM MOVES ONE DOT AND NOTHING ELSE. It does not reorder the
-   * rows, does not crown an option, does not change a readout, and makes no
-   * claim in units — the row order and every number on screen are byte-identical
-   * across the three arms. That is the whole difference between a lens that
-   * improves a reading and one that asserts a different answer.
-   *
-   * ⚠ LOCAL, NOT LIFTED. Nothing else on the panel reads it and no producer
-   * supplies it, so a store would be a second authority over a presentational
-   * choice. If a sibling surface ever needs the same arm, lift it then — with a
-   * reason — rather than pre-building the seam.
-   */
-  const [rangeAppetite, setRangeAppetite] = useState<RangeLensArm>('middle')
-  const rangeLensId = useId()
-
   const partition = (() => {
     const analysed = options.rows.filter(
       (r): r is Extract<typeof r, { kind: 'analysed' }> => r.kind === 'analysed',
@@ -626,7 +635,16 @@ export function OptionsComparison({
                    the whole panel still under WCAG 2.2 AA's 24×24: 6 of 36
                    interactive targets, all of them this one.
 
-                   ⚠ `min-h` PLUS 2px OF PADDING, AND EXPLICITLY NOT
+                   ⛔ PADDING ALONE, AND NO `min-h-[24px]` HERE — the literal is
+                   BANNED in this file. `everyInlineActIsReachableByTouch` sweeps
+                   every section carrying `action('inline')` and fails on a
+                   hand-rolled touch target, because the tier is meant to be the
+                   single owner. This control cannot take a tier (it is the
+                   option's NAME, and `inline`'s underline + `text-info` would
+                   repaint it), so the 24px comes from padding, measured on the
+                   deployed DOM rather than asserted: 20 → 24 on all six.
+
+                   ⚠ 2px OF PADDING, AND EXPLICITLY NOT
                    `inline-flex items-center`. Centring the label that way was my
                    first draft and it is wrong here: this button is already a
                    flex ITEM (`flex-1`) whose CONTENTS are inline — a wrapping
@@ -639,7 +657,7 @@ export function OptionsComparison({
                    in the block this lane is otherwise trying to SHORTEN. `min-h`
                    rather than `h` because the label wraps: a fixed height would
                    clip the second line. */
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 min-h-[24px] cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
@@ -1204,7 +1222,17 @@ export function OptionsComparison({
                       ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
                       ?.focus()
                   }}
-                  className={`${typography.panelMeta} min-h-[24px] px-2 rounded inline-flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                  /* ⛔ THE TIER OWNS THE TOUCH TARGET. My first version spelled
+                     `min-h-[24px] … inline-flex items-center` out here, which is
+                     the exact arrangement `everyInlineActIsReachableByTouch`
+                     bans: *"if a later call site hand-rolls its own touch
+                     target, the tier is no longer the single owner and the next
+                     one added will miss it again."* That is how the 133×15
+                     review-estimates control happened, in this same directory.
+                     `no-underline` because an underline is `quiet`'s emphasis
+                     for a text link and reads wrong on a segmented control —
+                     the same override the Strengthen row toggle uses. */
+                  className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
                     selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
                   }`}
                   data-arm={arm}
