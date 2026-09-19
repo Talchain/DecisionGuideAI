@@ -27,34 +27,58 @@
  * DESIGNATION was withheld, and the remedy that works takes its place.
  */
 import '@testing-library/jest-dom/vitest'
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
 import { AtAGlance } from '../sections/AtAGlance'
-import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
+import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
+import { genuineDecision } from './analysisNewFixtures'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
-const glance = (): AtAGlanceModel =>
-  ({
-    headline: null,
-    showAnswer: false,
-    options: { totalCount: 0, rows: [] },
-    condition: null,
-    ribbon: [],
-  }) as unknown as AtAGlanceModel
+afterEach(() => cleanup())
 
+/**
+ * ⛔⛔ THE REAL BUILDER, NOT A HAND-ROLLED CAST — AND MY FIRST VERSION WAS THE CAST.
+ *
+ * It asserted an object literal `as unknown as AtAGlance` with five fields, and
+ * every arm died on `Cannot read properties of undefined (reading 'kind')`:
+ * the component reads more of the model than I had imagined. **A fixture written
+ * from the author's head is not evidence about the component** — the third time
+ * that class bit me in one day, and the cast is what silenced the type checker
+ * that would otherwise have said so.
+ *
+ * `buildAnalysisNewViewModel` is the one authority for this shape, so the
+ * fixture cannot drift from what the panel actually renders.
+ */
+const glanceOf = () =>
+  buildAnalysisNewViewModel({
+    data: genuineDecision(),
+    recommendations: [],
+    isPreRun: false,
+    isRunning: false,
+    isStale: false,
+  }).atAGlance
+
+/**
+ * ⚠ `isStale` + `staleKind` are the RIBBON'S OWN precondition, inherited from
+ * `ribbonReanalyseHonoursTheGate`: the strip these acts live on does not mount
+ * without them, so without this every arm below would assert over an absent
+ * ribbon and pass for the wrong reason.
+ */
 const draw = (over: Record<string, unknown>) =>
   render(
     <AtAGlance
-      glance={glance()}
+      glance={glanceOf()}
+      isStale
+      staleKind="unconfirmed"
       reanalyseBlocked={false}
       reanalyseBlockedReason={null}
       isRunning={false}
       missingResults={['win_probability']}
       isProvisional={true}
-      onReanalyse={() => {}}
-      onReviewEstimates={() => {}}
+      onReanalyse={vi.fn()}
+      onReviewEstimates={vi.fn()}
       {...over}
     />,
   )
@@ -63,6 +87,15 @@ const RERUN = 'analysis-new-glance-ribbon-reanalyse'
 const ESTIMATE = 'analysis-new-glance-ribbon-review-estimates'
 
 describe('a re-run is offered only where it helps', () => {
+  it('CONTROL: this fixture renders the ribbon at all', () => {
+    // ⭐ WITHOUT THIS, EVERY ARM BELOW PASSES OVER AN ABSENT RIBBON. My first
+    // version had no such control and died on a fixture too thin to render one;
+    // a thinner fixture that merely rendered NOTHING would have gone GREEN.
+    draw({ leaderWithheld: false })
+    expect(screen.getByTestId(RERUN), 'the strip must mount before any arm asserts about it')
+      .toBeInTheDocument()
+  })
+
   it('PRECONDITION: with nothing withheld, the re-run IS offered — the case that must survive', () => {
     draw({ leaderWithheld: false })
     expect(
