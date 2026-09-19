@@ -1985,6 +1985,36 @@ export const ANALYSIS_NEW_COPY = {
     preRunRunAction: 'Run the analysis',
     running: 'Analysis is running.',
     /**
+     * ⭐⭐ THE SENTENCE FOR A RUN THE CLIENT HAS STOPPED WAITING FOR.
+     *
+     * Witnessed (bundle `b3d5806d`, 19 Sep 2026): CEE started a run, committed
+     * its result 42s later, and suppressed the directive that would have
+     * delivered it. No later turn corrected `run_state`, so the wire said
+     * `running` for a run that had finished, with no bound on how long it would
+     * keep saying it. See `useAnalysisWaitExhausted.ts` for the full chain.
+     *
+     * ⚠ EVERY WORD IS TRUE UNDER ALL THREE POSSIBLE OUTCOMES, because the
+     * client cannot tell them apart. It knows only that it asked for the result
+     * until its own budget ran out and did not get one. So the subject of the
+     * sentence is THE RESULT ARRIVING, never the run finishing or failing:
+     * "has not reached this page" is observed, "failed" would be invented.
+     *
+     * ⚠ AND IT IS NOT A `stale` TWIN. Staleness is a property of a DISPLAYED
+     * run; there is nothing displayed here. Naming them apart is the same
+     * ruling `stale` and `unconfirmed` already carry two entries below.
+     */
+    waitExhausted: 'This analysis has not reached this page.',
+    /**
+     * ⚠ THE REMEDY IS NAMED, AND IT IS A DIFFERENT REMEDY FROM #1759's.
+     * Where a leading option is WITHHELD, re-running hits the same gate and the
+     * panel offers "Review or set an estimate" instead. Here the result was
+     * never delivered, so running again is the one act that can change the
+     * outcome. Two causes, two acts — the class fix, applied in the direction
+     * that happens to restore the button rather than remove it.
+     */
+    waitExhaustedWhy:
+      'It may have finished without being sent back. Running it again is the surest way to find out.',
+    /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is
      * the user's best available context and the Rerun control sits in the
      * shell's footer bar. Overstating this would make the honest thing to do

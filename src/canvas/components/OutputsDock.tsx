@@ -37,6 +37,7 @@ import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { useAnalysisState } from '../state/analysisStateSelector'
+import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
 // ── The workspace-shell contract ────────────────────────────────────────────
 // This dock IS the shell. `shellContract.ts` states what it owns and what a
@@ -1074,6 +1075,30 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // derives the fact. `requiresRerun` had NO product reader before this: CEE
   // composed its verdict on every turn and nothing consumed it.
   const composedAnalysisState = useAnalysisState()
+  /**
+   * ⭐⭐ ONE ANSWER TO "IS THIS CLIENT STILL WAITING?", READ BY BOTH SURFACES.
+   *
+   * `trust.isRunning` is `localRunning || wireRunning`, and only the local half
+   * has a clock: the wire half is a statement about the turn CEE composed and
+   * is cleared only by a later turn. Witnessed (bundle `b3d5806d`, 19 Sep 2026)
+   * that a later turn may never come — CEE committed a run's result and
+   * suppressed the directive that would have delivered it — so the wire said
+   * `running` indefinitely for a run that had finished 42 seconds in.
+   *
+   * ⚠ IT IS DERIVED ONCE AND THREADED, never computed at each call site. The
+   * cover and the tab body mount two lines apart and answer the same question;
+   * deriving it twice is how a shimmering skeleton ends up above a sentence
+   * saying nothing is coming (trap 21, the shape this dock has paid for before
+   * in `isRunning` vs the composed pair).
+   *
+   * See `useAnalysisWaitExhausted.ts` for the bound and why it is imported
+   * rather than written.
+   */
+  const analysisWaitExhausted = useAnalysisWaitExhausted(
+    composedAnalysisState.trust.isRunning,
+    composedAnalysisState.trust.runStartedAt,
+  )
+  const analysisStillAwaited = composedAnalysisState.trust.isRunning && !analysisWaitExhausted
   const displayedFreshness = composedAnalysisState.displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
   /**
@@ -3918,7 +3943,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   it here would have been two subscriptions to one authority in
                   the file whose comments argue against exactly that. */}
               <AnalysisRunStateCover
-                isRunning={composedAnalysisState.trust.isRunning}
+                isRunning={analysisStillAwaited}
                 startedAt={composedAnalysisState.trust.runStartedAt}
                 contentRetained={!isPreRun}
               />
@@ -3935,6 +3960,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                      left the tab telling the user a run was in flight while
                      leaving its content unmarked. */
                   isBusy={composedAnalysisState.trust.isRunning}
+                  /* The client's own answer, beside the producer's. See the
+                     derivation above and the prop's note on why it is not
+                     derived inside the body. */
+                  waitExhausted={analysisWaitExhausted}
                   nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
                   seedUsed={(report as any)?.meta?.seed}
                   responseHash={results?.hash}
