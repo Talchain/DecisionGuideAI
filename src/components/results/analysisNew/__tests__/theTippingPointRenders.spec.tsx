@@ -119,6 +119,14 @@ describe('the tipping point reaches the screen', () => {
       },
     } as ResultsSectionDataReturn
     renderBody(stripped)
+    // ⚠ PRECONDITION, PINNED IN-TEST. This arm's whole subject is the ZERO-row
+    // case; if the filter above ever stopped emptying the list, the assertions
+    // below would pass through the ordinary path and this test would go green
+    // while testing nothing (trap 13b).
+    expect(
+      screen.queryAllByTestId('analysis-new-sensitivity-row'),
+      'the fixture no longer strips every sensitivity finding — this arm is vacuous',
+    ).toHaveLength(0)
     const lines = screen.getAllByTestId('analysis-new-sensitivity-tipping-point')
     expect(lines).toHaveLength(1)
     expect(lines[0]).toHaveTextContent('Tech Lead Presence')
