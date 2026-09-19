@@ -28,6 +28,7 @@ import {
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { InlineNumberEditor } from '../shared/InlineNumberEditor'
+import { formatNumber } from '../../../utils/formatValueWithUnit'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
@@ -120,9 +121,37 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
     confirmEdit('value')
   }, [mutations, confirmEdit])
 
+  /**
+   * ⛔ ONLY THE UNITLESS FALLBACK CHANGED, AND THE OTHER TWO BRANCHES ARE LEFT
+   * ALONE DELIBERATELY.
+   *
+   * The fallback was a bare `${v}` — a raw IEEE-754 double straight onto
+   * the panel's headline value. It is the same defect the founder read on the
+   * edge panel (*"Olumi's current estimate is 0.5428571428571428"*), reached by
+   * a different route: here it fires on exactly the factors that carry NO unit,
+   * which is most of them (3 of 34 in the shipped starter corpus carry one).
+   * It now takes `formatNumber`, the canonical module's four-decimal house
+   * bound.
+   *
+   * ⚠ THE ['£','$','€'] PREFIX SET IS NOT A SCATTER TO CONSOLIDATE, AND IT IS
+   * NOT TOUCHED. `labelUtils.ts:347-355` names this file explicitly and rules
+   * it *"a narrower UX-intentional set for inline inspector-input prefix
+   * treatment… a structural UX choice, not a tech-debt scatter — leave it"*;
+   * `InspectorRouter.spec.tsx` asserts the paired behaviour that an ISO code
+   * renders as a TRAILING SPAN rather than a fused prefix glyph. Routing these
+   * two branches through `formatValueWithUnit` would move that grammar and
+   * would additionally replace a 0-1 value with a qualitative WORD. Both
+   * branches already bound their own output via `toLocaleString`, so neither
+   * carries the raw-double defect this change exists to close.
+   *
+   * ⚠ READOUT ONLY. `InlineNumberEditor` seeds its buffer from the `value`
+   * prop, never from this string — pinned by `InlineNumberEditor.precision.spec
+   * .tsx`, which exists because seeding from a rounded readout once destroyed
+   * producer precision on blur.
+   */
   const formatValue = useCallback((v: number) => {
     if (unit === '\u00A3' || unit === '$' || unit === '\u20AC') return `${unit}${v.toLocaleString()}`
-    return unit ? `${v.toLocaleString()} ${unit}` : `${v}`
+    return unit ? `${v.toLocaleString()} ${unit}` : formatNumber(v)
   }, [unit])
 
   // Outbound influences

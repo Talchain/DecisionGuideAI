@@ -53,6 +53,7 @@ import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
+import { formatNumber } from '../../../utils/formatValueWithUnit'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -712,7 +713,31 @@ export const EdgePanel = memo(function EdgePanel({
               {currentEstimatedWeight !== null && (
                 <div className="mt-2 rounded-md border border-accent/20 bg-panel px-2 py-1.5">
                   <p className={`${typography.panelMeta} text-text-body`}>
-                    Olumi’s current estimate is <span className="font-mono">{String(currentEstimatedWeight)}</span>.
+                    {/* ⛔⛔ `formatNumber`, NOT `String`. This printed the raw
+                        double: the founder read *"Olumi's current estimate is
+                        0.5428571428571428."* A sibling edge showed a clean
+                        `0.45` only because that value is short — the formatting
+                        was ABSENT, not inconsistent, so nothing would have
+                        caught it drifting. Seventeen significant figures assert
+                        a precision this quantity does not have: it is minted by
+                        a CEE rescale (a raw float division) and is not stable
+                        even in its ORDERING between two passes — the measured
+                        argument is at `formatValueWithUnit.ts:41-60`, whose
+                        four-decimal house bound this now adopts.
+
+                        ⚠ DISPLAY ONLY, AND THAT IS LOAD-BEARING HERE.
+                        `handleConfirmCurrentStrength` calls
+                        `mutations.confirmCurrentStrength()`, which reads the
+                        edge from the STORE — it never reads this string. So
+                        consent still lands on the exact stored magnitude; only
+                        the claim made to the reader about its precision changes.
+
+                        ⚠ NOT `formatValueWithUnit`: that entry point turns an
+                        unqualified 0-1 value into a WORD ("moderate"), which
+                        would make this sentence unable to name the number the
+                        button ratifies. The number is the point of the
+                        sentence. */}
+                    Olumi’s current estimate is <span className="font-mono">{formatNumber(currentEstimatedWeight)}</span>.
                   </p>
                   <button
                     type="button"
