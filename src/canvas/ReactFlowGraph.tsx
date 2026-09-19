@@ -2750,10 +2750,25 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             maxZoom={4}
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
-            {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN — immediately after the ground and
-                before every node, so the bands sit BEHIND the cards they hold.
-                Fed `memoizedNodes`, the same array React Flow is rendering, so a
-                lane cannot describe a board the user is not looking at. */}
+            {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN. Fed `memoizedNodes`, the same
+                array React Flow is rendering, so a lane cannot describe a board
+                the user is not looking at.
+
+                ⛔ THIS COMMENT USED TO SAY THE POSITION HERE PUT THE BANDS
+                BEHIND THE CARDS — "immediately after the ground and before every
+                node, so the bands sit BEHIND the cards they hold". THAT WAS
+                FALSE, and it is corrected in place rather than deleted because
+                the false version is why nobody looked (CLAUDE.md trap 14: an
+                honest label overwritten by a reassuring one).
+
+                `TierLanes` renders through `<ViewportPortal>`, and portalled
+                content leaves this call site's position entirely — it lands in
+                `.react-flow__viewport-portal`, the LAST of the viewport's five
+                children. So the bands painted ON TOP of every card, washing body
+                text from ~10.4:1 to ~2.66:1 contrast. Where the element is
+                WRITTEN says nothing about where it PAINTS; the stacking is now
+                declared explicitly in `TierLanes` itself, which is the only file
+                that can see the portal. */}
             <TierLanes nodes={memoizedNodes} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
