@@ -111,4 +111,50 @@ describe('the canvas breadcrumb ring reaches the exported bundle', () => {
       expect(out.entries.some(e => e.m === 'ok')).toBe(true)
     })
   })
+
+  describe('⛔ SECRETS DO NOT LEAVE THE PAGE IN A BREADCRUMB', () => {
+    // Independent review found this before it shipped: `redactPayload` masks
+    // values under SENSITIVE KEYS and truncates long strings, but does not
+    // scrub secret-shaped content inside an ORDINARY string value — which is
+    // exactly what this ring carries. Real producers put Error.message and
+    // Error.stack into plain `error`/`stack` keys, and `boot:start` captures
+    // `location.href`.
+    const SENTINEL = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.sentinel.sig'
+
+    it('a secret inside an ordinary error string is scrubbed', () => {
+      win().__SAFE_DEBUG__ = { logs: [{
+        t: 1,
+        m: 'canvas:trace:layout:failed',
+        data: { phase: 'rejected', error: `Request failed: authorization=${SENTINEL}` },
+      }] }
+      const out = collectCanvasBreadcrumbs()
+      const blob = JSON.stringify(out)
+      expect(blob, 'the sentinel secret left the page verbatim').not.toContain('sentinel.sig')
+    })
+
+    it('a secret in a NESTED string is scrubbed too', () => {
+      win().__SAFE_DEBUG__ = { logs: [{
+        t: 1, m: 'boot:start',
+        data: { detail: { stack: [`at fetch(authorization=${SENTINEL})`] } },
+      }] }
+      expect(JSON.stringify(collectCanvasBreadcrumbs())).not.toContain('sentinel.sig')
+    })
+
+    it('a secret in the MESSAGE itself is scrubbed', () => {
+      win().__SAFE_DEBUG__ = { logs: [{ t: 1, m: `canvas:trace:boot authorization=${SENTINEL}` }] }
+      expect(JSON.stringify(collectCanvasBreadcrumbs())).not.toContain('sentinel.sig')
+    })
+
+    it('⭐ AND THE DIAGNOSTIC SURVIVES — a redaction that destroyed the evidence would defeat the carrier', () => {
+      // The whole reason this file exists is to make a failure readable. The
+      // scrubber must remove the secret and nothing else.
+      win().__SAFE_DEBUG__ = { logs: [{
+        t: 1, m: 'canvas:trace:layout:failed',
+        data: { phase: 'rejected', error: 'TypeError: Failed to fetch dynamically imported module: /assets/elk.bundled-BgtF8tzk.js' },
+      }] }
+      const blob = JSON.stringify(collectCanvasBreadcrumbs())
+      expect(blob).toContain('Failed to fetch dynamically imported module')
+      expect(blob).toContain('elk.bundled-BgtF8tzk.js')
+    })
+  })
 })

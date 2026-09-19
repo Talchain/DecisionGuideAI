@@ -34,7 +34,7 @@
  * of that**, which is precisely why #1479 chose it — and precisely why an empty
  * `console_logs` must never again be read as "no diagnostics available".
  */
-import { redactPayload, DEBUG_BUNDLE_REDACTION_OPTIONS } from '../../../utils/payloadRedaction'
+import { redactPayload, scrubSecretsInString, DEBUG_BUNDLE_REDACTION_OPTIONS } from '../../../utils/payloadRedaction'
 
 /** One ring entry, as `logCanvasBreadcrumb` and `main.tsx` both write it. */
 export interface BreadcrumbEntry {
@@ -91,6 +91,49 @@ const RECENT_BUDGET = 150
 /** Hard ceiling on carried entries, failures included. */
 const MAX_ENTRIES = 400
 
+
+/**
+ * ⛔⛔ STRUCTURAL REDACTION IS NOT ENOUGH FOR THIS CARRIER, AND INDEPENDENT
+ * REVIEW CAUGHT IT BEFORE IT SHIPPED.
+ *
+ * `redactPayload` masks values under SENSITIVE KEYS and truncates long strings.
+ * It does not scrub secret-shaped content sitting INSIDE an ordinary string
+ * value — and that is exactly what this ring carries. Real producers put
+ * `Error.message` and `Error.stack` into plain `error` / `stack` keys
+ * (`canvas/ErrorBoundary.tsx:134-139`, and `main.tsx`'s unhandled-rejection
+ * path), and `boot:start` captures `location.href`. A captured error containing
+ * `authorization=Bearer <token>` would therefore have left the page verbatim.
+ *
+ * ⚠ THE KEY IS THE WRONG THING TO MATCH ON HERE. `payloadRedaction`'s own note
+ * already says so about the bundle's captured message text: *"it must scrub it
+ * by VALUE — there is no key to match on."* A diagnostic carrier is the same
+ * case, and a new export boundary is precisely where that distinction must be
+ * applied rather than assumed.
+ *
+ * ⭐ IT REUSES `scrubSecretsInString` RATHER THAN ADDING A POLICY. That module
+ * states the rule for its own existence — *"two scrubbers would drift, and the
+ * weaker one would be the one that shipped."* This is the third consumer and it
+ * introduces no redaction policy, no framework, and no new pattern list.
+ *
+ * ⚠ MEANINGFUL FAILURE EVIDENCE SURVIVES. The scrubber replaces only the
+ * matched secret, so `TypeError: Failed to fetch dynamically imported module …`
+ * is untouched and still names the cause. That is the whole point: a redaction
+ * that destroyed the diagnostic would defeat the carrier it protects.
+ */
+function scrubStrings(value: unknown, depth = 0): unknown {
+  if (depth > 8) return value
+  if (typeof value === 'string') return scrubSecretsInString(value)
+  if (Array.isArray(value)) return value.map(v => scrubStrings(v, depth + 1))
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = scrubStrings(v, depth + 1)
+    }
+    return out
+  }
+  return value
+}
+
 /**
  * Read the ring, keep what a diagnostician needs, and never throw.
  *
@@ -142,10 +185,10 @@ export function collectCanvasBreadcrumbs(): CanvasBreadcrumbCapture {
       // second policy that could drift from it.
       entries: kept.map(e => ({
         t: typeof e.t === 'number' ? e.t : 0,
-        m: e.m,
+        m: scrubSecretsInString(e.m),
         ...(e.data === undefined
           ? {}
-          : { data: redactPayload(e.data, DEBUG_BUNDLE_REDACTION_OPTIONS) }),
+          : { data: scrubStrings(redactPayload(e.data, DEBUG_BUNDLE_REDACTION_OPTIONS)) }),
       })),
     }
   } catch (err) {
