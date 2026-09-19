@@ -96,6 +96,7 @@ const DebugPanel = lazy(() => import('../components/DebugPanel'))
 const ScenarioListPage = lazyWithStallBound(() => import('../pages/ScenarioListPage'), 'Your scenarios')
 // Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
 const HeroGallery = lazyWithStallBound(() => import('../routes/HeroGallery'), 'The hero gallery')
+const CanvasFixture = lazyWithStallBound(() => import('../routes/CanvasFixture'), 'The canvas fixture')
 const ReasoningPrototype = lazyWithStallBound(() => import('../routes/ReasoningPrototype'), 'The reasoning prototype')
 const SharedBriefPage = lazyWithStallBound(() => import('../pages/SharedBriefPage'), 'The shared brief')
 const ParticipantPacketPage = lazyWithStallBound(() => import('../pages/ParticipantPacketPage'), 'The participant packet')
@@ -992,6 +993,16 @@ export default function AppPoC() {
                       panel); ALSO self-gated on `heroFixtureGallery`
                       (staging-on/prod-off) inside the component, and unlinked. */}
                   <Route path="/dev/hero-gallery" element={<HeroGallery />} />
+                  {/* ⭐ THE REAL CANVAS ON A REAL GRAPH, WITH NO PROVIDER CALL.
+                      Until this existed, seeing a node card or the inspector
+                      needed a draft, hence a paid call — so every canvas merge
+                      was DEPLOYED and never MOUNTED-witnessed. The fixture is a
+                      captured CEE draft, not a hand-written one. Self-gated in
+                      the component as well as here, never writes (skipAutosave
+                      + skipHistory), and carries a permanent FIXTURE banner so
+                      a screenshot taken here cannot pass as a live session. */}
+                  <Route path="/dev/canvas-fixture" element={<RouteContent><CanvasFixture /></RouteContent>} />
+                  <Route path="/dev/canvas-fixture/:name" element={<RouteContent><CanvasFixture /></RouteContent>} />
                   <Route path="/dev/reasoning-prototype" element={<ReasoningPrototype />} />
                   <Route path="/plot" element={<PlotWorkspace />} />
                   <Route path="/plot-legacy" element={<PlotShowcase />} />
