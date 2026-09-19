@@ -83,7 +83,29 @@ describe('every sanctioned glance string stands on its own', () => {
 })
 
 describe('the glance renders no fragments', () => {
-  const run = (): ResultsSectionDataReturn => genuineDecision()
+/**
+ * ⛔ THE PRODUCER CLAUSE HAD TO BE PUT INTO THE FIXTURE, AND THAT IS A FINDING
+ * ABOUT THE GUARD, NOT A CONVENIENCE.
+ *
+ * The first version of this census ran on `genuineDecision()` alone, and
+ * dropping `sentenceCase` at the render boundary left all eleven arms GREEN —
+ * because that fixture carries no `robustnessVerdictReason`, so the paragraph
+ * the defect lives in never rendered. A census blind to the one line that was
+ * actually witnessed lower case is a guard agreeing with itself (trap 13b).
+ *
+ * The clause is the wire fixture's own, verbatim from
+ * `leaderClaim.fixtures.ts:205` — lower case, exactly as the producer composes
+ * it for mid-sentence use.
+ */
+const PRODUCER_REASON = 'held up across the ranges we varied'
+
+const run = (): ResultsSectionDataReturn => {
+  const data = genuineDecision()
+  return {
+    ...data,
+    recommendation: { ...data.recommendation, robustnessVerdictReason: PRODUCER_REASON },
+  } as ResultsSectionDataReturn
+}
 
   const renderGlance = (data: ResultsSectionDataReturn, hash: string) => {
     render(
@@ -115,6 +137,13 @@ describe('the glance renders no fragments', () => {
       lines.some((l) => /scored highest in/i.test(l)),
       'the entitled fixture no longer renders a share — the case this arm exists for is gone',
     ).toBe(true)
+    // PRECONDITION: the producer's clause is on screen. Without it this census
+    // cannot observe the render-boundary case at all, and dropping
+    // `sentenceCase` leaves it green — measured, not supposed.
+    expect(
+      screen.queryByTestId('analysis-new-glance-verdict-reason')?.textContent ?? '',
+      'the producer reason paragraph did not render — the sentence-case case is unobserved',
+    ).toContain(PRODUCER_REASON.slice(1))
 
     for (const line of lines) {
       expect(
