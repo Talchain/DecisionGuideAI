@@ -58,27 +58,41 @@ import { GENERIC_PLACEHOLDER_UNITS } from '../unitClassifier'
 const FOUNDER_SCALE_VALUES = [0, 0.2, 0.3, 0.5, 0.55, 0.75, 0.8, 0.85] as const
 
 describe('placeholder magnitude summaries never render as if measured', () => {
-  describe('the founder\'s board: "<number> scale" is withheld, not reworded', () => {
-    it.each(FOUNDER_SCALE_VALUES.map(v => [`${v} scale`, v] as const))(
-      'display_value %s (value %s) is withheld', (displayValue, value) => {
+  describe('the founder\'s board: the FALSE UNIT goes, the figure stays', () => {
+    it.each(FOUNDER_SCALE_VALUES.map(v => [`${v} scale`, v, String(v)] as const))(
+      'display_value %s (value %s) renders %s', (displayValue, value, expected) => {
         expect(formatFactorDisplayValue({
           label: 'Team Capability',
           value,
           raw_value: null,
           unit: 'scale',
           display_value: displayValue,
-        })).toBeNull()
+        })).toBe(expected)
       })
 
-    it('not one of the founder\'s eight values leaves a placeholder figure on screen', () => {
+    it('⛔ not one of the founder\'s eight values leaves the word "scale" on screen', () => {
       for (const v of FOUNDER_SCALE_VALUES) {
-        expect(formatFactorDisplayValue({
+        const out = formatFactorDisplayValue({
           label: 'Team Capability',
           value: v,
           raw_value: null,
           unit: 'scale',
           display_value: `${v} scale`,
-        }), `value ${v}`).toBeNull()
+        })
+        expect(out, `value ${v}`).not.toBeNull()
+        expect(out!, `value ${v}`).not.toContain('scale')
+      }
+    })
+
+    it('⭐ AND NOTHING IS INVENTED — no band word ever appears', () => {
+      // The constraint independent review imposed, pinned so a later lane
+      // cannot quietly reintroduce a tier taxonomy over an undefined scale.
+      for (const v of FOUNDER_SCALE_VALUES) {
+        const out = formatFactorDisplayValue({
+          label: 'Team Capability', value: v, raw_value: null,
+          unit: 'scale', display_value: `${v} scale`,
+        })!
+        expect(out.toLowerCase()).not.toMatch(/very|low|medium|moderate|high/)
       }
     })
   })
@@ -108,8 +122,8 @@ describe('placeholder magnitude summaries never render as if measured', () => {
       })).toBe('Pursued')
     })
 
-    it('DISCRIMINATION: the SAME input with no map is withheld, not banded', () => {
-      // Pins that the map — not the suppression rule — is what produced the
+    it('DISCRIMINATION: the SAME input with no map renders the bare figure', () => {
+      // Pins that the map — not the unit-stripping rule — is what produced the
       // words above. Without this, both tests could pass on one mechanism.
       expect(formatFactorDisplayValue({
         label: 'Germany Market Entry',
@@ -117,7 +131,7 @@ describe('placeholder magnitude summaries never render as if measured', () => {
         raw_value: null,
         unit: 'scale',
         display_value: '0 scale',
-      })).toBeNull()
+      })).toBe('0')
     })
 
     it('the already-working parenthesised form is unchanged by the widening', () => {
@@ -140,24 +154,24 @@ describe('placeholder magnitude summaries never render as if measured', () => {
         unit: 'scale',
         display_value: '0.5 scale',
         encoding_map: { '0': 'Non-compliant', '1': 'Fully compliant' },
-      })).toBeNull()
+      })).toBe('0.5')
     })
   })
 
-  describe('out of the [0,1] range is withheld too — one rule, no boundary', () => {
-    it('"50 index" does not render', () => {
+  describe('out of the [0,1] range is the same rule — one rule, no boundary', () => {
+    it('"50 index" keeps its 50 and loses its "index"', () => {
       expect(GENERIC_PLACEHOLDER_UNITS.has('index')).toBe(true)
       expect(formatFactorDisplayValue({
         label: 'Market Index', value: 50, raw_value: null,
         unit: 'index', display_value: '50 index',
-      })).toBeNull()
+      })).toBe('50')
     })
 
-    it('a negative figure does not render', () => {
+    it('a negative figure keeps its sign and its magnitude', () => {
       expect(formatFactorDisplayValue({
         label: 'Drift', value: -0.4, raw_value: null,
         unit: 'score', display_value: '-0.4 score',
-      })).toBeNull()
+      })).toBe('-0.4')
     })
   })
 
@@ -233,7 +247,7 @@ describe('placeholder magnitude summaries never render as if measured', () => {
         observedState: { value: 0.3, unit: 'scale', raw_value: null },
       }
       const before = JSON.stringify(data)
-      expect(factorDisplayText(data)).toBeNull()
+      expect(factorDisplayText(data)).toBe('0.3')
       expect(JSON.stringify(data)).toBe(before)
       expect(data.observedState.value).toBe(0.3)
       expect(data.observedState.unit).toBe('scale')
