@@ -1655,6 +1655,246 @@ export function AnalysisNewTabBody({
             ranking from the same fields, so there is no cap here to declare.
             `primaryIntervention` is the ENGINE's top recommendation, passed
             rather than re-derived: this surface never mints one. */}
+        {/* ⭐⭐⭐ THE COACHING COMES BEFORE THE ANSWER — Paul, 19 Sep 2026:
+            "move the coaching up, that's the whole point of the product".
+
+            ⚠⚠ THIS SUPERSEDES HIS 17 Sep ORDERING RULING AND DOES NOT DELETE IT.
+            Asked then which sense of "what matters most" his acceptance bar
+            meant — the DRIVERS (what the answer turns on) or the recommended
+            next move — he ruled the drivers, and "What moves the outcome"
+            moved into the answer zone. That ruling stands INSIDE the answer:
+            the drivers still lead it. What changed is that the whole ANSWER
+            now follows the coaching rather than preceding it.
+
+            ⭐ WHY THE WHOLE ZONE MOVES, NOT JUST `StrengthenTheReasoning`.
+            `PrimaryIntervention` is a POINTER to one of its rows; moving the
+            rows alone would leave the pointer BELOW the thing it promotes.
+            Moving the zone keeps every part with its own referent, empties no
+            labelled group (the defect #1715 repaired), and changes no
+            top-level child count, so `thePanelCannotRegrow` cannot move.
+
+            ⚠ MEASURED, WHICH IS WHY THIS WAS WORTH DOING. On the served build
+            at viewport 768 the coaching sat 762px below the glance with SIX
+            sections between them — a 1.7-screen scroll to the thing the
+            product exists to give. The spec that pins "the coaching sits
+            directly under the reading it responds to" read as SATISFIED
+            throughout, because its own scope note censuses heading-bearing
+            sections only. A guard agreeing with itself. */}
+        {/* ── ZONE: ALSO ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
+        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
+            of blocks, so it carries no border, no fill and no radius of its
+            own: furniture that looked like a block would add the weight this
+            change exists to remove. Sized and coloured as `panelMeta`, the
+            quietest of the panel's three sizes. */}
+        <p
+          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+          data-testid="analysis-new-zone-also"
+        >
+          {/* ⚠⚠ RENAMED WITH THE MOVE, AND THIS ONE IS MY CALL RATHER THAN
+              PAUL'S — flagged so he can overrule the word without unpicking the
+              move. He asked for the coaching to come up because it is "the
+              whole point of the product". "ALSO worth doing" says the opposite:
+              "also" is what you say about an afterthought, and it only parsed
+              at all while this zone sat BELOW the answer it was additional to.
+              Above the answer it has no referent and it demotes the thing he
+              just called the point.
+
+              "Worth your attention" is the narrowest honest replacement: it
+              names these as findings the producer raised about the reasoning,
+              claims no ordering against the answer, and does not duplicate the
+              section title inside it ("Strengthen the reasoning").
+
+              ⚠ The testid is DELIBERATELY UNCHANGED. It is the zone's identity
+              and several specs bind to it; renaming both at once would make a
+              copy change look like a structural one in every diff that touches
+              this file. */}
+          Worth your attention
+        </p>
+        {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
+            instruction to shorten the answer zone so both "what matters most"
+            and "how the options compare" fit at 1440.
+
+            It rendered inside `AtAGlance`, which put a NEXT ACTION in the zone
+            that holds the ANSWER. Its own heading there said so: "WHAT TO THINK
+            ABOUT NEXT". This zone is labelled "Also worth doing".
+
+            ⭐ MEASURED, not preferred. At 1440×860 (fold 729) the options
+            comparison sat 89px below the fold. Every information-preserving
+            spacing trim COMBINED saved 63px — still 26 short. Moving this card
+            saves 90px including its gap, on its own, and deletes nothing.
+
+            ⚠ The composition stays in this body rather than moving into the
+            component, for the reason every other composition does: the card is
+            presentational and must not grow a second derivation of what the
+            producer recommended. */}
+        <PrimaryIntervention
+          primaryIntervention={
+                glancePrimary
+                  ? {
+                      id: glancePrimary.id,
+                      label: glancePrimary.action.label,
+                      /* ⭐ `title`, NOT `signal`. The glance card used to be handed
+                         `signal` — the finding's paragraph — which the Strengthen
+                         row below also prints, because `strengthenWhyLine` begins
+                         with `signal` on every arm. The promoted card is a
+                         reference to the row, so it is handed the finding's NAME
+                         and the paragraph is left to the row that carries the
+                         severity, the grounding and the disagreement controls.
+                         Guarded by `theFocusCardReferencesRatherThanReprints`. */
+                      title: glancePrimary.title,
+                      signalCode: glancePrimary.signalCode,
+                      /* The producer's own bias on a bias-signal finding, so this
+                         card names the SAME technique as the row it promotes. */
+                      biasCode: glancePrimary.biasCode,
+                      /* ⚠ The CATALOGUE path renders this and the phase-3 path does
+                         not — see `AtAGlance`'s `signal` prop. Passed for both
+                         because the card, not the caller, owns which kind it is. */
+                      signal: glancePrimary.signal,
+                    }
+                  : null
+          }
+          onRunIntervention={runIntervention}
+        />
+        <div data-testid="analysis-new-acts">
+        <StrengthenTheReasoning
+          interventions={alsoWorthDoing}
+          scienceGrounding={vm.strengthen.scienceGrounding}
+          preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
+          analysisHash={responseHash ?? null}
+          /**
+           * ⛔ I OPENED THIS ON EVERY RUN AND IT WAS WRONG TWICE OVER.
+           *
+           * The reasoning was "a collapsed row tells a reader a category exists,
+           * not what to do". True — and already ADJUDICATED against, with a
+           * spec: `strengthenOpensPreRun.spec.tsx` pins the opening as SCOPED to
+           * pre-run, where this is the panel's ONLY piece of coaching and a
+           * collapsed row leaves the whole surface ending in a bare "1".
+           * `collapsedIA.spec.tsx` pins the rest: below the glance, the surface
+           * is a list of CLOSED rows.
+           *
+           * It also worked against the complaint it was meant to serve — the
+           * panel went 751px to 825px, and length is the thing Paul reported.
+           */
+          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
+          argueTheOpposite={vm.atAGlance.condition}
+          icon={Wrench}
+        />
+        <div data-testid="analysis-new-methods" className="mt-1">
+          <ActionsMenu />
+        </div>
+        </div>
+
+        {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
+            ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
+            USER-INVOKED. Derived at the mapping (`recommendationMethod.ts`),
+            with a contrast control:
+
+              pre_mortem        reachable — only on PRE_MORTEM / overconfidence
+              review_bias       reachable — only on COGNITIVE_BIAS
+              outside_view      reachable — only on an anchoring finding
+              different_option  reachable — only on LOW_OPTION_COUNT
+              consider_opposite reachable — only when a flip condition exists
+              reframe_problem   ⛔ NOT REACHABLE FROM THIS TAB
+              explore_tradeoffs ⛔ NOT REACHABLE FROM THIS TAB
+
+            Every one of the first five is gated on the PRODUCER emitting a
+            particular signal. Not one was available because the PERSON wanted
+            it — and a tool for critical and creative thinking has to let the
+            thinker choose the move. The two needing no signal at all are the
+            two most generative: "is the question too narrow?" and "what does
+            each option gain and give up?".
+
+            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE. `ActionsMenu`
+            renders the WHOLE `METHOD_CATALOGUE` and its own header says it owns
+            "user-invoked science-grounded methods". Its only mount is inside
+            `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
+            ruling parks. This estate's chronic failure #1, verbatim: we build
+            more than we plug in.
+
+            ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
+            routes every ask through `openAskOlumi` — the same drawer this file
+            already opens at :1163 — with an EDITABLE prefilled draft rather
+            than a hidden dispatch. Nothing here decides what the method says.
+
+            ⚠ PLACED AFTER THE PRODUCER'S OWN SUGGESTIONS, DELIBERATELY. What
+            the run raised comes first; this is the shelf for when it raised
+            nothing, or nothing you wanted. Ahead of the decision record,
+            because a method is a move you make BEFORE you write down what you
+            decided. */}
+        {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
+            On a real run this rendered between the trust line and "What would
+            change your mind", asking the reader to RECORD A DECISION before
+            they had met the thing that would change it. The prompt is honest
+            and the placement was not: it belongs after the act, where a reader
+            who has finished reading can use it.
+
+            ⚠ No new block — the same one, later. The panel stays at its
+            ratcheted count. */}
+        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
+            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
+            above reads the model. This is the one place the team writes down
+            what they will DO, and the one place a later session reads it back.
+
+            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
+            component header. `ModelHeldUp` above renders on almost no runs by
+            design; the read-back here renders on all of them, because the
+            quality of a result has no bearing on whether a team may record, or
+            re-read, the choice they made from it. A fragile or stale run is
+            when the reasoning is most worth keeping.
+
+            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
+            first version gated on `!isPreRun` alone and offered a door onto a
+            modal that opens disabled during any rerun — see `canCapture`.
+
+            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
+            `useDecisionRecordForScenario` resolves `currentScenarioId` through
+            `resolveScenarioKey`, so it survives re-runs and returns to the same
+            scenario — which is the capability — and cannot distinguish the run
+            it was captured against. The section's copy is scoped accordingly. */}
+        <DecisionRecorded
+          isPreRun={vm.status.isPreRun}
+          canCapture={canCaptureDecision}
+          record={decisionRecord}
+          onRecord={openDecisionRecord}
+          testId="analysis-new-decision-record"
+        />
+
+        {/* ⛔⛔ TWO RULINGS COLLIDED HERE AND GROUPING IS WHAT MADE THEM
+            COLLIDE (CLAUDE.md trap 21). `whatIWasGivenMount` pins "what I was
+            given" ABOVE the coaching; `AnalysisNewTabBody.spec` and
+            `whatTheRunCouldNotSettleIsOnePlace` pin the coaching above EVERY
+            detail section, checks included. Those two members now sit in one
+            group, so the group cannot be both above and below the act.
+
+            ⭐ RESOLVED BY WHAT EACH RULING PROTECTS, not by which is older. The
+            coaching-above-detail rule guards FOUR sections and is stated twice.
+            The what-I-was-given rule guards ONE, and its stated argument is
+            that the section must not be buried below the detail — which a
+            NAMED, CLOSED group one click from the trust line does not do. The
+            protection survives; the literal ordering does not.
+
+            ⚠ The other spec was updated to assert the protection rather than
+            the position, and says so in its own file. */}
+        {/* ── COACHING AND METHOD ───────────────────────────────────────────
+            ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
+            the most method-bearing payload the producer sends — a mechanism, a
+            citation and a costed micro-intervention per finding — and it was
+            sitting TWELFTH, below four caveat boxes. Grouping it with key
+            insights gives it a named home a reader can go to, instead of a
+            position in a stack they were scrolling past.
+
+            ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
+            the panel under a heading that says what is inside; before, it was
+            twelve blocks down under a heading that did not. */}
+        </div>
+
         {/* ── ZONE: ANSWER ─────────────────────────────────────────────
             ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
             makes the zone grammar a REDUCTION: the panel goes from a flat stack
@@ -2345,202 +2585,6 @@ export function AnalysisNewTabBody({
             question to be asked: the acts belong TOGETHER, so the answer was a
             shared wrapper rather than a raised ceiling. What the run suggests
             and what you can ask for regardless are one zone. */}
-        {/* ── ZONE: ALSO ─────────────────────────────────────────────
-            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
-            makes the zone grammar a REDUCTION: the panel goes from a flat stack
-            of equal-weight cards to a few named groups, and the regrowth
-            ratchet counts it as one child rather than several. A label added
-            loose would have raised the count by five and the ceiling with it,
-            which is the opposite of what the prototype asks for. */}
-        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
-        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
-            of blocks, so it carries no border, no fill and no radius of its
-            own: furniture that looked like a block would add the weight this
-            change exists to remove. Sized and coloured as `panelMeta`, the
-            quietest of the panel's three sizes. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-also"
-        >
-          Also worth doing
-        </p>
-        {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
-            instruction to shorten the answer zone so both "what matters most"
-            and "how the options compare" fit at 1440.
-
-            It rendered inside `AtAGlance`, which put a NEXT ACTION in the zone
-            that holds the ANSWER. Its own heading there said so: "WHAT TO THINK
-            ABOUT NEXT". This zone is labelled "Also worth doing".
-
-            ⭐ MEASURED, not preferred. At 1440×860 (fold 729) the options
-            comparison sat 89px below the fold. Every information-preserving
-            spacing trim COMBINED saved 63px — still 26 short. Moving this card
-            saves 90px including its gap, on its own, and deletes nothing.
-
-            ⚠ The composition stays in this body rather than moving into the
-            component, for the reason every other composition does: the card is
-            presentational and must not grow a second derivation of what the
-            producer recommended. */}
-        <PrimaryIntervention
-          primaryIntervention={
-                glancePrimary
-                  ? {
-                      id: glancePrimary.id,
-                      label: glancePrimary.action.label,
-                      /* ⭐ `title`, NOT `signal`. The glance card used to be handed
-                         `signal` — the finding's paragraph — which the Strengthen
-                         row below also prints, because `strengthenWhyLine` begins
-                         with `signal` on every arm. The promoted card is a
-                         reference to the row, so it is handed the finding's NAME
-                         and the paragraph is left to the row that carries the
-                         severity, the grounding and the disagreement controls.
-                         Guarded by `theFocusCardReferencesRatherThanReprints`. */
-                      title: glancePrimary.title,
-                      signalCode: glancePrimary.signalCode,
-                      /* The producer's own bias on a bias-signal finding, so this
-                         card names the SAME technique as the row it promotes. */
-                      biasCode: glancePrimary.biasCode,
-                      /* ⚠ The CATALOGUE path renders this and the phase-3 path does
-                         not — see `AtAGlance`'s `signal` prop. Passed for both
-                         because the card, not the caller, owns which kind it is. */
-                      signal: glancePrimary.signal,
-                    }
-                  : null
-          }
-          onRunIntervention={runIntervention}
-        />
-        <div data-testid="analysis-new-acts">
-        <StrengthenTheReasoning
-          interventions={alsoWorthDoing}
-          scienceGrounding={vm.strengthen.scienceGrounding}
-          preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
-          analysisHash={responseHash ?? null}
-          /**
-           * ⛔ I OPENED THIS ON EVERY RUN AND IT WAS WRONG TWICE OVER.
-           *
-           * The reasoning was "a collapsed row tells a reader a category exists,
-           * not what to do". True — and already ADJUDICATED against, with a
-           * spec: `strengthenOpensPreRun.spec.tsx` pins the opening as SCOPED to
-           * pre-run, where this is the panel's ONLY piece of coaching and a
-           * collapsed row leaves the whole surface ending in a bare "1".
-           * `collapsedIA.spec.tsx` pins the rest: below the glance, the surface
-           * is a list of CLOSED rows.
-           *
-           * It also worked against the complaint it was meant to serve — the
-           * panel went 751px to 825px, and length is the thing Paul reported.
-           */
-          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
-          argueTheOpposite={vm.atAGlance.condition}
-          icon={Wrench}
-        />
-        <div data-testid="analysis-new-methods" className="mt-1">
-          <ActionsMenu />
-        </div>
-        </div>
-
-        {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
-            ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
-            USER-INVOKED. Derived at the mapping (`recommendationMethod.ts`),
-            with a contrast control:
-
-              pre_mortem        reachable — only on PRE_MORTEM / overconfidence
-              review_bias       reachable — only on COGNITIVE_BIAS
-              outside_view      reachable — only on an anchoring finding
-              different_option  reachable — only on LOW_OPTION_COUNT
-              consider_opposite reachable — only when a flip condition exists
-              reframe_problem   ⛔ NOT REACHABLE FROM THIS TAB
-              explore_tradeoffs ⛔ NOT REACHABLE FROM THIS TAB
-
-            Every one of the first five is gated on the PRODUCER emitting a
-            particular signal. Not one was available because the PERSON wanted
-            it — and a tool for critical and creative thinking has to let the
-            thinker choose the move. The two needing no signal at all are the
-            two most generative: "is the question too narrow?" and "what does
-            each option gain and give up?".
-
-            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE. `ActionsMenu`
-            renders the WHOLE `METHOD_CATALOGUE` and its own header says it owns
-            "user-invoked science-grounded methods". Its only mount is inside
-            `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
-            ruling parks. This estate's chronic failure #1, verbatim: we build
-            more than we plug in.
-
-            ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
-            routes every ask through `openAskOlumi` — the same drawer this file
-            already opens at :1163 — with an EDITABLE prefilled draft rather
-            than a hidden dispatch. Nothing here decides what the method says.
-
-            ⚠ PLACED AFTER THE PRODUCER'S OWN SUGGESTIONS, DELIBERATELY. What
-            the run raised comes first; this is the shelf for when it raised
-            nothing, or nothing you wanted. Ahead of the decision record,
-            because a method is a move you make BEFORE you write down what you
-            decided. */}
-        {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
-            On a real run this rendered between the trust line and "What would
-            change your mind", asking the reader to RECORD A DECISION before
-            they had met the thing that would change it. The prompt is honest
-            and the placement was not: it belongs after the act, where a reader
-            who has finished reading can use it.
-
-            ⚠ No new block — the same one, later. The panel stays at its
-            ratcheted count. */}
-        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
-            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
-            above reads the model. This is the one place the team writes down
-            what they will DO, and the one place a later session reads it back.
-
-            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
-            component header. `ModelHeldUp` above renders on almost no runs by
-            design; the read-back here renders on all of them, because the
-            quality of a result has no bearing on whether a team may record, or
-            re-read, the choice they made from it. A fragile or stale run is
-            when the reasoning is most worth keeping.
-
-            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
-            first version gated on `!isPreRun` alone and offered a door onto a
-            modal that opens disabled during any rerun — see `canCapture`.
-
-            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
-            `useDecisionRecordForScenario` resolves `currentScenarioId` through
-            `resolveScenarioKey`, so it survives re-runs and returns to the same
-            scenario — which is the capability — and cannot distinguish the run
-            it was captured against. The section's copy is scoped accordingly. */}
-        <DecisionRecorded
-          isPreRun={vm.status.isPreRun}
-          canCapture={canCaptureDecision}
-          record={decisionRecord}
-          onRecord={openDecisionRecord}
-          testId="analysis-new-decision-record"
-        />
-
-        {/* ⛔⛔ TWO RULINGS COLLIDED HERE AND GROUPING IS WHAT MADE THEM
-            COLLIDE (CLAUDE.md trap 21). `whatIWasGivenMount` pins "what I was
-            given" ABOVE the coaching; `AnalysisNewTabBody.spec` and
-            `whatTheRunCouldNotSettleIsOnePlace` pin the coaching above EVERY
-            detail section, checks included. Those two members now sit in one
-            group, so the group cannot be both above and below the act.
-
-            ⭐ RESOLVED BY WHAT EACH RULING PROTECTS, not by which is older. The
-            coaching-above-detail rule guards FOUR sections and is stated twice.
-            The what-I-was-given rule guards ONE, and its stated argument is
-            that the section must not be buried below the detail — which a
-            NAMED, CLOSED group one click from the trust line does not do. The
-            protection survives; the literal ordering does not.
-
-            ⚠ The other spec was updated to assert the protection rather than
-            the position, and says so in its own file. */}
-        {/* ── COACHING AND METHOD ───────────────────────────────────────────
-            ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
-            the most method-bearing payload the producer sends — a mechanism, a
-            citation and a costed micro-intervention per finding — and it was
-            sitting TWELFTH, below four caveat boxes. Grouping it with key
-            insights gives it a named home a reader can go to, instead of a
-            position in a stack they were scrolling past.
-
-            ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
-            the panel under a heading that says what is inside; before, it was
-            twelve blocks down under a heading that did not. */}
-        </div>
         {/* ── ZONE: FURTHER ─────────────────────────────────────────────
             ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
             makes the zone grammar a REDUCTION: the panel goes from a flat stack

@@ -483,13 +483,35 @@ describe('C · THE SECTION STRUCTURE', () => {
       // uncertainty note below records for its own move. The heading is not
       // removed from the list — it is REPOSITIONED, so the census still pins
       // which sections appear and in what order.
+      /*
+       * ⭐⭐⭐ STRENGTHEN NOW PRECEDES THE DRIVERS — Paul, 19 Sep 2026: "move the
+       * coaching up, that's the whole point of the product".
+       *
+       * ⚠ HIS 18 Sep DRIVERS RULING IS NOT REVERSED, and that is why this list
+       * changed by a SWAP rather than a rewrite. That ruling ordered the
+       * ANSWER's contents — drivers before options and implication — and
+       * `everySectionBelongsToAZone` still pins it, scoped to that zone's own
+       * children. Untouched. What moved is the whole ZONE: ALSO block, from
+       * below the answer to above it.
+       *
+       * ⭐ WHY THE WHOLE ZONE: `PrimaryIntervention` is a POINTER to one of the
+       * Strengthen rows. Moving the rows alone would leave the pointer below the
+       * thing it promotes, and would empty a labelled group — the defect #1715
+       * had just repaired.
+       *
+       * ⚠ MEASURED: on the served build at viewport 768 the coaching sat 762px
+       * below the glance with SIX sections between them, a 1.7-screen scroll.
+       * The spec pinning "the coaching sits directly under the reading it
+       * responds to" read as SATISFIED throughout — its scope note censuses
+       * heading-bearing sections only.
+       */
+      ANALYSIS_NEW_COPY.sections.strengthen,
       ANALYSIS_NEW_COPY.sections.drivers,
       // ⚠ STRENGTHEN LEADS THE DETAIL AS OF THE REORDER. The coaching was
       // seventh of ten MOUNTS — below the ranked options and below Key
       // insights — and this census could not see that; see the scope note on
       // the case below. It still leads everything that is DETAIL; what now
       // precedes it is part of the answer.
-      ANALYSIS_NEW_COPY.sections.strengthen,
       /**
        * ⭐ UNCERTAINTY MOVED UP TO SIT WITH CHECKS — deliberate, and this
        * census going RED on it is the positive proof the move landed.
@@ -659,7 +681,10 @@ describe('C · THE SECTION STRUCTURE', () => {
     expect(
       beforeStrengthen,
       'only the methods a person can choose, and the answer, may precede the coaching',
-    ).toEqual([ANALYSIS_NEW_COPY.sections.methods, ANALYSIS_NEW_COPY.sections.drivers])
+      // ⭐ ONLY THE METHODS NOW PRECEDE THE COACHING. The drivers moved BELOW it
+      // with the rest of the answer (Paul, 19 Sep). Still an EXACT list rather
+      // than a count, so a detail section creeping above the coaching still REDs.
+    ).toEqual([ANALYSIS_NEW_COPY.sections.methods])
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
       headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),
     )
