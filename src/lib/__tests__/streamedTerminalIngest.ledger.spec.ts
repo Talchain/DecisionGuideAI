@@ -32,7 +32,7 @@ import { usePayloadTraceStore } from '../payload-trace-store'
 import { selectRecentConversationTurns } from '../recentConversationTurns'
 import type { ConversationTurnSourcePayload } from '../recentConversationTurns'
 import { recordStreamedTerminalIngest } from '../../v5/streamedTurnTransport'
-import type { OrchestratorTurnPayload } from '../../v5/types'
+import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary'
 
 // Shape taken from the PRODUCER (`v5/buildPayload.ts` — `MessageTurnPayload`),
 // not from this file's model of it. `message` and `scenario_id` are the two
