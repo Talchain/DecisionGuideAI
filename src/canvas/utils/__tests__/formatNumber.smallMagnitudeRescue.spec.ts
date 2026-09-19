@@ -290,6 +290,24 @@ describe('nothing else moves', () => {
   })
 
   /**
+   * ⚠ ADDED AFTER A MUTANT EXPOSED THIS CORPUS'S OWN BLIND SPOT. Every explicit
+   * pin above is a POSITIVE ordinary value. A mutant widening the erased-test
+   * from `Number(housed) === 0` to `<= 0` therefore sends every ordinary
+   * NEGATIVE value into the rescue — `-0.24782608695652172` would render `-0.25`
+   * instead of `-0.2478` — and this spec did not see it. It was caught only by a
+   * sibling file (`formatNumber.precisionBound.spec.ts`, "preserves the sign of a
+   * negative coefficient"). A corpus that omits a sign the contract admits cannot
+   * certify the code over that sign, so the class is pinned here too.
+   */
+  it('ordinary NEGATIVE values keep the house bound, not the rescue', () => {
+    expect(formatNumber(-0.24782608695652172)).toBe('-0.2478')
+    expect(formatNumber(-0.6147829310112233)).toBe('-0.6148')
+    expect(formatNumber(-0.5)).toBe('-0.5')
+    expect(formatNumber(-12)).toBe('-12')
+    expect(formatValueWithUnit(-0.24782608695652172, 'months')).toBe('-0.2478 months')
+  })
+
+  /**
    * #1747's proportion arm passes an EXPLICIT significant-digit count, so it
    * early-returns before the rescue and is provably unaffected. Four digits, not
    * the rescue's two.
