@@ -844,8 +844,14 @@
 .canvas-mode-select .react-flow__pane.draggable {
   cursor: default;
 }
-.canvas-mode-hand .react-flow__node,
-.canvas-mode-hand .react-flow__node.selectable,
+/* ⭐ ONLY A CARD THAT CAN ACTUALLY BE DRAGGED MAY ADVERTISE A DRAG.
+   The two bare selectors that stood here matched EVERY node wrapper, including
+   in hand mode where `nodesDraggable` is false and React Flow therefore never
+   adds `.draggable`. A card showed `grab`, accepted the press, showed
+   `grabbing`, and moved nothing. Narrowed to the class React Flow only applies
+   when the gesture is real, so the cursor cannot promise what the mode refuses.
+   Kept (rather than deleted with the default flip) because hand mode is still
+   reachable by the V/H toggle and by space-hold. */
 .canvas-mode-hand .react-flow__node.draggable {
   cursor: grab;
 }
