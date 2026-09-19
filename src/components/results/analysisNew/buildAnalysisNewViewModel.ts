@@ -3448,6 +3448,19 @@ function buildChecks(
      */
     leaderWithholdCause:
       leaderCode === 'leader_not_assessed' ? leaderWithholdCause(producerWithholdReason) : null,
+    /**
+     * ⭐ THE FACT, SEPARATE FROM THE NAMEABLE CAUSE — AND THEY ARE DIFFERENT
+     * QUESTIONS.
+     *
+     * `leaderWithholdCause` is null both when the leader was NOT withheld and
+     * when it WAS withheld for a reason this surface cannot name. A consumer
+     * asking "was it withheld?" off that field gets the wrong answer on the
+     * second, and the second is the common case: `withheld_reason` is a
+     * free-form string at the contract and only two values are mapped.
+     *
+     * So the fact gets its own field, from the same gate.
+     */
+    leaderWithheld: leaderCode === 'leader_not_assessed',
   }
 }
 
