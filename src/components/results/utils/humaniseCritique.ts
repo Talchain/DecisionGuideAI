@@ -689,6 +689,16 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // template's `NO_ROUTE_EXISTS` set, which asserts this copy prescribes
   // nothing rather than merely permitting it.
   //
+  // ⚠ TWO COPY RULINGS SHAPE THESE TWO SENTENCES, AND CI CAUGHT BOTH AFTER A
+  // FULLY GREEN FOCUSED RUN. `noEmDashesInRenderedCopy.spec.ts` (Paul,
+  // 10 Sep: "no em dashes in product content — it is where a hedge gets bolted
+  // on") and `noWinnerVocabulary.spec.ts` (8 Sep: say "scored highest in N% of
+  // runs", never a placing) both scan this file through the Reasoning tab's
+  // DERIVED import closure. The first draft used an em dash and the phrase
+  // "this option wins this draw"; both were flagged. The second ruling
+  // improves the copy rather than constraining it: "scored highest" is exactly
+  // what the maximiser did, with none of the contest reading.
+  //
   // ⛔ AND IT NEVER NAMES A DIRECTION. Inferring "minimise" from a label like
   // "churn" is exactly what the contract forbids (`GoalDirection`'s block in
   // `olumi-schemas` PR #48: "PRODUCERS MUST NOT INFER THIS FROM A NODE
@@ -696,9 +706,9 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // replaced.
   GOAL_DIRECTION_UNATTESTED: () => ({
     title:
-      'Your options were ranked by which one produces the largest value at your goal. Nothing in this run said what the goal is for, so that is this version\'s default rather than your aim — and if the goal is a quantity to bring down, or one to land on a particular level, this ranking answers a different question.',
+      'Your options were ordered by which one produces the largest value at your goal. Nothing in this run said what the goal is for, so that ordering is this version\'s default rather than your aim. If the goal is a quantity to bring down, or one to land on a particular level, it answers a different question.',
     description:
-      'The comparison still ran and every other number stands. What is missing is the objective sense: on this run, "this option wins this draw" meant "this option produced the largest number at the goal on this draw", and nothing confirmed that is the question you are asking.',
+      'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.',
     // No suggestion — see the block above. There is no writer for this.
   }),
 
