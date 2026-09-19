@@ -73,6 +73,13 @@ afterEach(() => cleanup())
 
 const TESTID = 'analysis-new-options'
 const ARMS = ['cautious', 'middle', 'optimistic'] as const
+/**
+ * ⚠ NAMED, because `it.each` over a `readonly` tuple widens its callback
+ * parameter to `string` in some vitest typings — and a `string` key cannot index
+ * the per-arm literals below under `noImplicitAny`. Annotating the parameter is
+ * cheaper than discovering it in a gate.
+ */
+type Arm = (typeof ARMS)[number]
 
 /**
  * Three analysed options whose ranges OVERLAP, and whose p10 order
@@ -134,7 +141,7 @@ function rowIds(): (string | null)[] {
 }
 
 const markOf = (id: string) => screen.getByTestId(`${TESTID}-outcome-mid-${id}`)
-const arm = (a: (typeof ARMS)[number]) => screen.getByTestId(`${TESTID}-range-lens-${a}`)
+const arm = (a: Arm) => screen.getByTestId(`${TESTID}-range-lens-${a}`)
 
 describe('the outcome lens', () => {
   /**
@@ -145,11 +152,11 @@ describe('the outcome lens', () => {
    * only one of them is how the constant legend survived the dot becoming
    * movable in the first place.
    */
-  it.each(ARMS)('the legend names the percentile the dot is drawn at — %s', (appetite) => {
+  it.each(ARMS)('the legend names the percentile the dot is drawn at — %s', (appetite: Arm) => {
     renderFor(overlappingOptions())
     fireEvent.click(arm(appetite))
 
-    const expected = { cautious: 'p10', middle: 'p50', optimistic: 'p90' }[appetite]
+    const expected: string = { cautious: 'p10', middle: 'p50', optimistic: 'p90' }[appetite]
     expect(
       screen.getByTestId(`${TESTID}-outcome-range-legend`).textContent,
       'the sentence must name the percentile, so a reader can check the drawing against the claim',
@@ -160,9 +167,9 @@ describe('the outcome lens', () => {
 
     // The drawn coordinate, per option, from the option's OWN range.
     const wanted: Record<string, number> = {
-      opt_a: { cautious: 30, middle: 60, optimistic: 100 }[appetite],
-      opt_b: { cautious: 20, middle: 50, optimistic: 110 }[appetite],
-      opt_c: { cautious: 10, middle: 40, optimistic: 120 }[appetite],
+      opt_a: ({ cautious: 30, middle: 60, optimistic: 100 } as Record<Arm, number>)[appetite],
+      opt_b: ({ cautious: 20, middle: 50, optimistic: 110 } as Record<Arm, number>)[appetite],
+      opt_c: ({ cautious: 10, middle: 40, optimistic: 120 } as Record<Arm, number>)[appetite],
     }
     for (const [id, value] of Object.entries(wanted)) {
       const mark = markOf(id)
