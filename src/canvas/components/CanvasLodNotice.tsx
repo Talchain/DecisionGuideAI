@@ -152,7 +152,7 @@ export function CanvasLodNotice() {
         type="button"
         data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`}
         onClick={() => {
-          // ⭐⭐ OVERSHOOT THE CLIFF, DELIBERATELY — THIS USED TO LAND ON IT.
+          // ⭐⭐ LAND ON THE LEGIBILITY FLOOR, A FULL NOTCH CLEAR OF THE CLIFF.
           //
           // The remedy set the viewport to the boundary value EXACTLY, so a user
           // who pressed "Zoom in for detail" got detail and zero margin: one

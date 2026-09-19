@@ -587,11 +587,15 @@ export type LodRung = 'full' | 'quiet' | 'line'
  * travel. The counter-scale question (`isLodZoom`, `labelsRenderedAtZoom`) is a
  * DIFFERENT question and is untouched (trap 21).
  *
- * ⚠ WHAT THIS CHANGES, STATED: at 0.44-0.4999 a card now shows its body where it
- * previously did not. That band is where real fits park (0.4456, 0.4509, 0.488,
- * 0.49, 0.4935 are all recorded in this repo's own evidence) and body text there
- * renders 10.6-12.0px — legible. Hiding it was the over-eager half of the
- * founder's complaint. Below 0.4167 nothing changes.
+ * ⚠ WHAT THIS CHANGES, STATED: across the WHOLE band [0.41667, 0.5) a card now
+ * shows its body where it previously did not — body text renders 10.00px at the
+ * cliff and 12.00px at the floor, legible throughout. An earlier version of this
+ * sentence said "0.44-0.4999" and silently omitted [0.41667, 0.44), which also
+ * changes; the omission made the blast radius look smaller than it is.
+ *
+ * Real fits park inside it — 0.4456, 0.4509, 0.488, 0.49 and 0.4935 are all
+ * recorded in this repo's own evidence — so hiding the body there was the
+ * over-eager half of the founder's complaint. Below 0.41667 nothing changes.
  */
 export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeLabel * MAX_LABEL_COUNTER_SCALE)
 
@@ -608,7 +612,19 @@ export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeL
  *
  * Expressed as a ratio so it cannot drift from the cliff it guards.
  */
-const LOD_REENTRY_MARGIN = 1.08 // bounded by `zoomLadder.spec.ts`: re-entry must stay BELOW the legibility floor
+/**
+ * ⚠ ONE CONSTANT, TWO DEAD-BANDS, AND THEY DO NOT SHARE A SAFE RANGE.
+ * This margin now sets re-entry at BOTH the body cliff and the icon floor.
+ * Mutation-measured: at 1.30 a test on EACH boundary REDs, for different
+ * reasons. The harm is unreachable today because the body pin bites first, but
+ * a future change that relaxes the body pin would silently widen the icon
+ * dead-band too. Split it before that happens, not after.
+ *
+ * ⚠ AND THE SUITE BOUNDS THIS, IT DOES NOT PIN IT. The arms assert the
+ * dead-band EXISTS; the value survives anywhere in roughly [1.001, 1.111).
+ * Bounded is not pinned and should not be described as pinned.
+ */
+const LOD_REENTRY_MARGIN = 1.08
 
 /** The zoom at or above which a hidden body is restored. */
 export const LOD_BODY_RESTORED_ZOOM = LOD_BODY_HIDDEN_ZOOM * LOD_REENTRY_MARGIN

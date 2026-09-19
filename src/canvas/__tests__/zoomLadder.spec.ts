@@ -216,6 +216,13 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
     )
   })
 
+  /**
+   * Derived from the two exported boundaries rather than restated: the re-entry
+   * margin itself is module-private by design, and a second copy of the number
+   * here would be the mirror this file exists to prevent.
+   */
+  const LOD_REENTRY_MARGIN_FOR_TEST = LOD_BODY_RESTORED_ZOOM / LOD_BODY_HIDDEN_ZOOM
+
   describe('hysteresis — the rung must not flap on a camera resting at the boundary', () => {
     it('holds `line` until the zoom clears the re-entry point', () => {
       // Coming UP from a hidden body, a zoom just above the cliff must NOT
@@ -249,7 +256,16 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
      * "Both boundaries now hold" was true of the code and false of the tests.
      */
     it('holds `full` until the zoom drops clear of the icon re-entry point', () => {
+      // ⚠ PRECONDITION PINNED IN-TEST, matching the lower trio this mirrors. If
+      // the re-entry margin ever narrowed past this probe, `justBelow` would sit
+      // OUTSIDE the dead-band and the assertion would pass by testing nothing —
+      // a discriminator whose discrimination depends on an unpinned fixture
+      // (CLAUDE.md trap 13b).
       const justBelow = ICON_LEGIBLE_ZOOM * 0.999
+      expect(
+        justBelow,
+        'the probe is outside the dead-band, so this test would pass without discriminating',
+      ).toBeGreaterThan(ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN_FOR_TEST)
       expect(
         resolveLodRung(justBelow, 'full'),
         'coming down from `full`, a zoom just below the icon floor must NOT drop to `quiet` — that is the dead-band',
