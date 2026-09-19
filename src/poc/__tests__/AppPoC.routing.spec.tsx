@@ -113,10 +113,48 @@ describe('AppPoC routing — tester-safe surface', () => {
       expect(screen.queryByTestId('route-canvas')).not.toBeInTheDocument()
     })
 
+    /**
+     * ⭐⭐ THE CASE THE DEFECT NEEDED AND DID NOT HAVE.
+     *
+     * UI #1652 set `VITE_ENABLE_DEV_ROUTES = "1"` for staging, and the catch-all
+     * sat inside `DevRoutesGuard` — so from that merge a tester who mistyped a
+     * URL on staging landed on the POC sandbox again. The two cases above could
+     * not see it: they run with dev routes OFF, which is the posture staging no
+     * longer has.
+     *
+     * ⛔ The gap was not that the pin was weak. It is that "may I reach
+     * /dev/*?" and "what happens on an unknown URL?" were the same flag, so no
+     * posture existed in which one could be true and the other false. This case
+     * IS that posture, and it is the one staging runs in.
+     *
+     * ⚠ It must fail if the gate is reverted to `devRoutes` — that is the whole
+     * of its value, and it is why it sets the flag rather than leaving it unset.
+     */
+    it('dev routes ON still lands a mistyped URL on the scenario list', async () => {
+      localStorage.setItem('feature.devRoutes', '1')
+      renderAt('#/canvs')
+      await waitFor(() => expect(screen.getByTestId('route-scenarios')).toBeInTheDocument())
+      expect(screen.queryByTestId('poc-sandbox')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('route-canvas')).not.toBeInTheDocument()
+    })
+
     // POSITIVE CONTROL: the sandbox stub CAN render — so the assertions above
     // are absences the test is able to see, not vacuous passes.
-    it('still renders the POC sandbox on the catch-all when dev routes are on', async () => {
-      localStorage.setItem('feature.devRoutes', '1')
+    //
+    // ⚠⚠ THE KEY MOVED FROM `devRoutes` TO `e2e`, AND THE CONTROL'S POWER IS
+    // UNCHANGED BY IT. It set `feature.devRoutes` because the catch-all used to
+    // be gated on that flag. It no longer is: UI #1652 turned `devRoutes` ON
+    // for staging, which re-opened the very defect the two cases above pin —
+    // "a tester who mistyped a URL landed on developer scaffolding" — so the
+    // sandbox catch-all now answers to `e2e`, which only Playwright sets
+    // (playwright.config.ts sets BOTH flags, so the suite is unaffected).
+    //
+    // ⭐ THIS CASE IS WHY THE CHANGE IS SAFE TO MAKE. It is the only thing in
+    // the repo that could tell a deliberate re-gating from an accidental
+    // deletion of the sandbox route, and it went RED on the first push — which
+    // is the control doing its job, not a regression.
+    it('still renders the POC sandbox on the catch-all when E2E is on', async () => {
+      localStorage.setItem('e2e.enabled', '1')
       renderAt('#/canvs')
       await waitFor(() => expect(screen.getByTestId('poc-sandbox')).toBeInTheDocument())
       expect(screen.queryByTestId('route-scenarios')).not.toBeInTheDocument()
