@@ -23,6 +23,15 @@
  * asks the complementary question — *of every child that rendered, is it in a
  * zone?* — which is the only form that can see a section nobody remembered.
  *
+ * ⚠ THERE IS A SECOND, NARROWER RULE AND IT IS NOT A DUPLICATE OF THIS ONE.
+ * `everySectionLivesInAZone.spec.ts` reads the body's SOURCE and watches one
+ * boundary — components written above the first zone. It exists because this
+ * file is bound by what its fixtures mount, so a section whose data is absent
+ * on every fixture is invisible here and visible there. **This file is the
+ * authority on zone membership**; that one is a source-level tripwire above the
+ * grammar. Two questions, deliberately named apart (CLAUDE.md trap 21) after
+ * the second was written without its author finding this one.
+ *
  * ⚠ ONE NAMED EXCEPTION, AND IT IS NAMED RATHER THAN PREDICATED. The model
  * strip is the panel's subject header, not one of its sections: it names what
  * the run is about and hosts the census. Writing the exception as a PREDICATE
