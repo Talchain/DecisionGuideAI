@@ -4,7 +4,8 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('../../../styles/typography', () => ({
+vi.mock('../../../styles/typography', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../../styles/typography')>()),
   typography: { panelMeta: 'panelMeta' },
 }))
 
