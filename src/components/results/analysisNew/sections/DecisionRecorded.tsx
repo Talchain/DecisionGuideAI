@@ -67,6 +67,12 @@
  *    non-finite or unparseable `savedAt` and the line is withheld.
  */
 import { ClipboardCheck } from 'lucide-react'
+// ⭐ ADOPTED RATHER THAN DECLARED: these two buttons were already
+// `rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover`
+// — `ACTION_TIER.neutral` character for character. A hand-rolled copy of a
+// tier is the arrangement `everyActIsReachableByTouch` exists to end, and it is
+// how the 133x15 review-estimates control happened in this same directory.
+import { action } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -245,7 +251,7 @@ export function DecisionRecorded({
               <button
                 type="button"
                 onClick={onRecord}
-                className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} mt-1.5 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-open`}
               >
                 {COPY.decisionRecord.open}
@@ -325,7 +331,7 @@ export function DecisionRecorded({
                 <button
                   type="button"
                   onClick={onRecord}
-                  className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} mt-1.5 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-update`}
                 >
                   {COPY.decisionRecord.update}
