@@ -709,7 +709,7 @@ export interface CaptureOptions {
   /** Locator to clip to. Omit for the full viewport (graph + right-hand panel). */
   clip?: string
   /** Anchors that must be visible before the shutter opens. Bind by identity. */
-  anchors: string[]
+  anchors: readonly string[]
 }
 
 /**
@@ -722,6 +722,55 @@ export interface CaptureOptions {
  *   4. compare                               → Playwright writes expected/actual/diff
  *   5. record in the manifest                → the run cannot claim a capture it skipped
  */
+/**
+ * The identity anchors for the `fresh-draft` state.
+ *
+ * ⭐⭐ EXPORTED BECAUSE TWO CAPTURE PATHS MUST AGREE ON IT, AND FOR ELEVEN DAYS
+ * THEY DID NOT. The reference for `fresh-draft--1440x900` is written by
+ * `captureState`, which waits for these three to be VISIBLE before it freezes.
+ * The self-test's unmodified capture drove the same fixture through its own
+ * helper and waited for NONE of them, then compared the two — so the "drift
+ * from reference" number it reports carried a component that was never product
+ * drift at all. Measured 4 Sep 2026, immediately after a successful re-bless
+ * that moved drift 5.4851% -> 0.4060%: a residual 5,262 px floor remained, and
+ * the self-test's own assertion needs it below 64.8 px. 81x over, on a
+ * reference blessed that same day.
+ *
+ * ⚠ THE MECHANISM IS NOT "IT WAITS LESS", IT IS THAT QUIESCENCE CANNOT SEE AN
+ * EMPTY PAGE. `waitForVisualQuiescence` samples the bounding boxes of
+ * `[data-testid], .react-flow__node` and returns once N consecutive samples
+ * agree. On a page where the nodes have NOT MOUNTED the sample is empty, every
+ * sample agrees with the last, and it reports quiescence immediately. The
+ * anchor wait is what guarantees there is something to be quiet ABOUT — which
+ * is why `captureState` does it first and why doing it second would not help.
+ *
+ * A hand-copied list in the self-test would be the same defect one step later
+ * (CLAUDE.md trap 12), so both sides import THIS.
+ */
+export const FRESH_DRAFT_ANCHORS = [
+  '[data-testid="rf-root"]',
+  '[data-testid="outputs-dock"]',
+  '.react-flow__node',
+] as const
+
+/**
+ * Assert every named anchor is visible before a shutter opens anywhere.
+ *
+ * Extracted from `captureState` so the self-test can run the IDENTICAL wait
+ * rather than a lookalike. Binding by identity is the point: a capture taken
+ * against a screen that has not mounted is a photograph of a different state,
+ * and it is indistinguishable from product drift once it reaches a diff ratio.
+ */
+export async function waitForAnchors(page: Page, anchors: readonly string[]): Promise<void> {
+  expect(anchors.length, 'every state must name at least one identity anchor').toBeGreaterThan(0)
+  for (const anchor of anchors) {
+    await expect(
+      page.locator(anchor).first(),
+      `anchor ${anchor} not visible — this state did not mount, so the capture would be of a different screen`,
+    ).toBeVisible({ timeout: 20_000 })
+  }
+}
+
 export async function captureState(
   page: Page,
   testInfo: TestInfo,
@@ -729,13 +778,7 @@ export async function captureState(
   viewport: { width: number; height: number },
   opts: CaptureOptions,
 ): Promise<void> {
-  expect(opts.anchors.length, 'every state must name at least one identity anchor').toBeGreaterThan(0)
-  for (const anchor of opts.anchors) {
-    await expect(
-      page.locator(anchor).first(),
-      `anchor ${anchor} not visible — this state did not mount, so the capture would be of a different screen`,
-    ).toBeVisible({ timeout: 20_000 })
-  }
+  await waitForAnchors(page, opts.anchors)
 
   await freezeMotion(page)
   await waitForVisualQuiescence(page)

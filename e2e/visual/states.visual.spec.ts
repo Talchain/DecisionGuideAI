@@ -51,6 +51,7 @@ import { test, expect } from '@playwright/test'
 import {
   VIEWPORTS,
   captureState,
+  FRESH_DRAFT_ANCHORS,
   clearNotifications,
   minimiseFloatingOlumiPanel,
   openCanvas,
@@ -85,7 +86,10 @@ test.describe('visual regression — founder states', () => {
         // RELATIONSHIP between the graph and the dock, so they must share a
         // frame. A clipped dock shot cannot see a panel that has eaten the graph.
         await captureState(page, testInfo, `fresh-draft--${vp.name}`, vp, {
-          anchors: ['[data-testid="rf-root"]', '[data-testid="outputs-dock"]', '.react-flow__node'],
+          // Shared with the self-test's unmodified capture — see FRESH_DRAFT_ANCHORS.
+          // These two paths compare their outputs to each other, so the anchor
+          // list must have exactly one home.
+          anchors: FRESH_DRAFT_ANCHORS,
         })
       })
 

@@ -47,7 +47,9 @@ import {
   referencePath,
   seedStarterDraft,
   waitForVisualQuiescence,
+  waitForAnchors,
   freezeMotion,
+  FRESH_DRAFT_ANCHORS,
 } from './harness'
 import { repoRoot } from './repoRoot'
 
@@ -125,8 +127,51 @@ async function freshDraftPage(browser: import('@playwright/test').Browser) {
   await openCanvas(page)
   await seedStarterDraft(page, 'build-vs-buy')
   await clearNotifications(page)
+
+  /**
+   * ⭐⭐ THE SAME WAIT THE REFERENCE'S OWN CAPTURE PATH DOES, IN THE SAME PLACE.
+   *
+   * This function drives the state that `fresh-draft--1440x900` was captured
+   * from, and `compareToReference` below diffs the two. For that number to mean
+   * "how far the product has drifted", the two captures must differ ONLY in the
+   * product — and until now they also differed in HOW THEY WAITED.
+   *
+   * `captureState` waits for these anchors to be visible, then freezes, then
+   * waits for quiescence. This waited for quiescence alone, which is not the
+   * same thing and is weaker in a specific way: `waitForVisualQuiescence`
+   * samples the boxes of `[data-testid], .react-flow__node`, and on a page
+   * where those have not mounted the sample is EMPTY and therefore trivially
+   * stable. It returns immediately and reports quiescence on a page with
+   * nothing on it. The anchor wait is what guarantees there is something to be
+   * quiet about.
+   *
+   * ⚠ ORDER IS LOAD-BEARING: anchors BEFORE `freezeMotion`, exactly as
+   * `captureState` has it. Freezing first would pin the page mid-layout and the
+   * anchors would then pass against a frozen intermediate state.
+   *
+   * ⚠ THIS DOES NOT BY ITSELF TURN THE JOB GREEN, and must not be read as
+   * having failed if it does not. The committed references are ALSO stale by
+   * ~72,000 px of real UI change, which dominates this residual. Re-blessing is
+   * step 2 and is deliberately a separate, human-reviewed act.
+   */
+  await waitForAnchors(page, FRESH_DRAFT_ANCHORS)
+
   await freezeMotion(page)
   await waitForVisualQuiescence(page)
+
+  /**
+   * POSITIVE CONTROL ON THE WAIT ABOVE — without it, the anchor wait could pass
+   * on a single node and this helper would still hand back a near-empty board.
+   * The fixture is the `build-vs-buy` starter, which `states.visual.spec.ts`
+   * asserts renders 19 nodes; anything in single figures means the draft did
+   * not seed and the capture would be of a different screen.
+   */
+  const nodeCount = await page.locator('.react-flow__node').count()
+  expect(
+    nodeCount,
+    `only ${nodeCount} nodes rendered — the starter draft did not seed, so this capture is not the state the reference was taken from`,
+  ).toBeGreaterThan(3)
+
   return { page, context }
 }
 
