@@ -136,6 +136,15 @@ export function SectionShell({
   }
   const regionId = useId()
 
+  /**
+   * Does the subtitle already state the count? Word-boundary matched so "14"
+   * never suppresses a badge for "4".
+   */
+  const subtitleStatesCount =
+    count != null && subtitle != null
+      ? new RegExp(`(^|[^0-9])${count}([^0-9]|$)`).test(subtitle)
+      : false
+
   return (
     <section
       /* ⭐ A2 — CONTAINMENT BY FILL, BUT NOT AT THE COST OF THE DIVIDER.
@@ -227,7 +236,22 @@ export function SectionShell({
             </span>
           ) : null}
         </span>
-        {count != null && count > 0 ? (
+        {/* ⭐⭐ ONE FACT, SAID ONCE — AND THE SUBTITLE WINS.
+            Witnessed on the deployed build: the Strengthen header rendered a
+            count badge reading "4" beside a subtitle reading "0 addressed · 4
+            worth checking". The same number, twice, 40px apart, and the badge is
+            the copy that says LESS.
+
+            ⚠ DERIVED FROM THE SUBTITLE, NOT FROM A FLAG. A `showCount` prop
+            would let a caller pass a subtitle that states the count AND ask for
+            the badge anyway, which is the drift this is closing. Asking the
+            subtitle whether it already carries the number cannot go stale,
+            because the subtitle is the thing that carries it.
+
+            ⚠ WORD-BOUNDARY MATCHED, so a subtitle mentioning "14" does not
+            suppress a badge reading "4". A substring test here would hide a
+            count for the wrong reason, which is worse than showing it twice. */}
+        {count != null && count > 0 && !subtitleStatesCount ? (
           <span
             className={`${typography.panelMeta} text-text-light shrink-0`}
             data-testid={`${testId}-count`}
