@@ -145,6 +145,15 @@ export function SectionShell({
   }
   const regionId = useId()
 
+  /**
+   * Does the subtitle already state the count? Word-boundary matched so "14"
+   * never suppresses a badge for "4".
+   */
+  const subtitleStatesCount =
+    count != null && subtitle != null
+      ? new RegExp(`(^|[^0-9])${count}([^0-9]|$)`).test(subtitle)
+      : false
+
   return (
     <section
       /* ⭐ A2 — CONTAINMENT BY FILL, BUT NOT AT THE COST OF THE DIVIDER.
@@ -185,6 +194,24 @@ export function SectionShell({
       // navigating by landmark would otherwise meet four unnamed regions.
       aria-labelledby={`${testId}-heading`}
       data-section-open={open ? 'true' : 'false'}
+      /**
+       * ⭐ THE COUNT IS ALWAYS CARRIED HERE, WHETHER OR NOT THE BADGE DRAWS.
+       *
+       * Saying a fact once is a rule about what the READER meets, not about
+       * what the section KNOWS. Suppressing the badge when the subtitle
+       * already states the number is correct; letting the number leave the
+       * DOM entirely is not — it takes the fact away from assistive tech,
+       * from the debug bundle, and from every precondition that uses the
+       * count to prove a fixture still grounds what it claims to ground.
+       *
+       * ⚠ THIS IS THE DEFECT THIS CHANGE SHIPPED AND CI CAUGHT. Three
+       * preconditions in `strengthenOpensPreRun.spec.tsx` read the badge to
+       * assert "the engine really does ground exactly one finding". With the
+       * badge conditional on COPY, those preconditions would have gone
+       * vacuous the next time a subtitle was reworded — silently, and in the
+       * direction that makes a suite agree with itself.
+       */
+      data-section-count={count != null ? String(count) : undefined}
     >
       {/* ⚠ HEADING WRAPS BUTTON — the WAI-ARIA accordion pattern, and the
           reason is that BOTH facts are true at once: this is a heading in the
@@ -236,7 +263,22 @@ export function SectionShell({
             </span>
           ) : null}
         </span>
-        {count != null && count > 0 ? (
+        {/* ⭐⭐ ONE FACT, SAID ONCE — AND THE SUBTITLE WINS.
+            Witnessed on the deployed build: the Strengthen header rendered a
+            count badge reading "4" beside a subtitle reading "0 addressed · 4
+            worth checking". The same number, twice, 40px apart, and the badge is
+            the copy that says LESS.
+
+            ⚠ DERIVED FROM THE SUBTITLE, NOT FROM A FLAG. A `showCount` prop
+            would let a caller pass a subtitle that states the count AND ask for
+            the badge anyway, which is the drift this is closing. Asking the
+            subtitle whether it already carries the number cannot go stale,
+            because the subtitle is the thing that carries it.
+
+            ⚠ WORD-BOUNDARY MATCHED, so a subtitle mentioning "14" does not
+            suppress a badge reading "4". A substring test here would hide a
+            count for the wrong reason, which is worse than showing it twice. */}
+        {count != null && count > 0 && !subtitleStatesCount ? (
           <span
             className={`${typography.panelMeta} text-text-light shrink-0`}
             data-testid={`${testId}-count`}
