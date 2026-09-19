@@ -371,6 +371,33 @@ export function OptionsComparison({
    * runs silently unaccounted for.
    */
   const PARTITION_TOLERANCE = 0.01
+  /**
+   * ⭐⭐ ONE SCALE FOR EVERY BAR, OR THE BARS LIE.
+   *
+   * The whole point of drawing ranges is that a reader can see two of them
+   * OVERLAP. Per-row normalisation would give every option a full-width bar and
+   * destroy exactly the comparison the drawing exists to make — the same defect
+   * as the old tornado chart, which rescaled one option's spread per factor.
+   *
+   * ⚠ NULL UNLESS AT LEAST TWO ROWS CARRY A RANGE. A single bar has nothing to
+   * be compared against, and a lone full-width track reads as a measurement of
+   * something rather than as one option's spread.
+   *
+   * ⚠ A ZERO-WIDTH DOMAIN IS REFUSED rather than divided by. If every option
+   * shares one p10 and one p90 the denominator is 0; there is no honest bar for
+   * that, and `null` draws nothing.
+   */
+  const rangeScale = (() => {
+    const ranges = options.rows.flatMap((r) =>
+      r.kind === 'analysed' && r.outcomeRange !== null ? [r.outcomeRange] : [],
+    )
+    if (ranges.length < 2) return null
+    const lo = Math.min(...ranges.map((r) => r.p10))
+    const hi = Math.max(...ranges.map((r) => r.p90))
+    if (!(hi > lo)) return null
+    return { lo, hi, span: hi - lo }
+  })()
+
   const partition = (() => {
     const analysed = options.rows.filter(
       (r): r is Extract<typeof r, { kind: 'analysed' }> => r.kind === 'analysed',
@@ -720,6 +747,46 @@ export function OptionsComparison({
               </span>
             ) : null}
 
+            {/* ⭐⭐ THE RANGE THIS OPTION ACTUALLY PRODUCED.
+                The share above says how OFTEN this option came top. This says
+                how WIDE the outcome was when it did — and where two of these
+                overlap, the ordering the shares imply is not settled. Measured
+                on a real run: RudderStack p10 −0.163 / p90 0.211 against
+                Segment −0.235 / 0.188, printed as "56%" beside "36%".
+
+                ⚠ PRESENTATIONAL ONLY, AND IT MAKES NO CLAIM IN UNITS. No
+                number is printed from these percentiles: the goal target may be
+                in currency, a count or a normalised scale, and this section
+                does not know which. The bar says WHERE and HOW WIDE relative to
+                the other options, which is exactly what the reader needs to see
+                an overlap, and nothing more. */}
+            {o.kind === 'analysed' && o.outcomeRange !== null && rangeScale !== null ? (
+              <span
+                className="mt-1 block relative h-1.5 w-full rounded-pill bg-panel-hover"
+                data-testid={`${testId}-outcome-range-${o.id}`}
+                data-p10={o.outcomeRange.p10}
+                data-p90={o.outcomeRange.p90}
+                aria-hidden="true"
+              >
+                <span
+                  className="absolute top-0 h-1.5 rounded-pill bg-option"
+                  style={{
+                    left: `${((o.outcomeRange.p10 - rangeScale.lo) / rangeScale.span) * 100}%`,
+                    width: `${Math.max(((o.outcomeRange.p90 - o.outcomeRange.p10) / rangeScale.span) * 100, 1)}%`,
+                  }}
+                />
+                {o.outcomeRange.p50 !== null ? (
+                  <span
+                    className="absolute top-[-1px] w-1.5 h-[9px] rounded-pill bg-text-body"
+                    style={{
+                      left: `calc(${((o.outcomeRange.p50 - rangeScale.lo) / rangeScale.span) * 100}% - 3px)`,
+                    }}
+                    data-testid={`${testId}-outcome-mid-${o.id}`}
+                  />
+                ) : null}
+              </span>
+            ) : null}
+
             {/* ⭐⭐ THE OTHER QUESTION — "does this reach the target I set?"
                 — AND IT IS NOT A RE-CUT OF THE SHARE ABOVE.
 
@@ -953,6 +1020,28 @@ export function OptionsComparison({
         >
           <Sparkles className="w-3 h-3 shrink-0" aria-hidden="true" />
           {OPTION_ORIGIN_COPY[sharedOrigin]}
+        </p>
+      ) : null}
+
+      {/* ⭐⭐ THE SENTENCE THE BARS EXIST FOR.
+          Without it the ranges are decoration; with it they are an argument.
+          "Where ranges overlap, treat the order as unsettled" is the one line
+          on this section that tells a reader when NOT to trust the ordering the
+          percentages above imply — which is the difference between a tool that
+          ranks options and a tool that improves reasoning.
+
+          ⚠ Rendered only alongside the bars it describes. A legend for
+          something not on screen is furniture, the defect this panel has
+          adjudicated out twice (the empty zone label, "Nothing addressed yet").
+
+          ⚠ It describes the DRAWING, not the numbers. No units are claimed,
+          because this section does not know the goal's units — see the bar. */}
+      {rangeScale !== null ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+          data-testid={`${testId}-outcome-range-legend`}
+        >
+          {COPY.optionFigures.rangeLegend}
         </p>
       ) : null}
     </SectionShell>

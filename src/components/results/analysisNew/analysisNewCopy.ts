@@ -1476,6 +1476,20 @@ export const ANALYSIS_NEW_COPY = {
      * `noWinnerVocabulary.spec.ts` redded an earlier caption of mine for
      * exactly that.
      */
+    /**
+     * ⭐⭐ THE ONE LINE THAT TELLS A READER WHEN NOT TO TRUST THE ORDER.
+     *
+     * The share figures above it partition the runs and sum to 1, so they read
+     * as a ranking. The ranges frequently overlap. This sentence is what makes
+     * the bars an argument rather than decoration, and it is the difference
+     * between a surface that ranks options and one that improves reasoning.
+     *
+     * ⚠ "Mid-point", not "expected outcome": the dot is p50, the MEDIAN, and
+     * `OptionOutcome` carries `mean` separately. Calling a median an expected
+     * value is a claim about the distribution that this section cannot make.
+     */
+    rangeLegend:
+      'Dots show the mid-point. Lines show the range this run produced. Where ranges overlap, treat the order as unsettled.',
     partitionCaption: 'Every simulated scenario is accounted for above.',
   },
   modelStrip: {
