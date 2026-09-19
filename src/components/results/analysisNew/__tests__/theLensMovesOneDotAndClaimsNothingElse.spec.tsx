@@ -54,7 +54,20 @@
  * every arm implies the same order, a lens that secretly re-ranked would pass.
  *
  * ⚠ jsdom cannot prove visibility (trap 3). Nothing here claims the dot is
- * visible; it asserts the inline `left` coordinate and the arm attribute.
+ * visible; it asserts the marked VALUE (`data-mark-at`) and the arm attribute.
+ *
+ * ⛔ AND ONE PROPERTY IS DELIBERATELY NOT ASSERTED HERE, rather than asserted
+ * weakly. The marker's `left` is `clamp(0px, calc(N% - 3px), calc(100% - 6px))`
+ * because `rangeScale`'s domain is DEFINED BY the smallest p10 and the largest
+ * p90 — so on the cautious arm exactly one option marks at 0% and on the
+ * optimistic arm exactly one marks at 100%, every run, by construction, and
+ * `calc(0% - 3px)` would hang half of the 6px dot outside its own track.
+ * **Measured in a real browser: 3px of overhang at each extreme, 0px clamped.**
+ * jsdom's CSS parser may silently DROP a value it cannot parse, so an assertion
+ * on `style.left` here could fail — or pass — for reasons that have nothing to
+ * do with the code. A conditional assertion ("clamped OR empty") would be a
+ * guard agreeing with itself. The browser measurement is the evidence; this
+ * note is where it is recorded.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'

@@ -861,8 +861,21 @@ export function OptionsComparison({
                   return markAt != null ? (
                     <span
                       className="absolute top-[-1px] w-1.5 h-[9px] rounded-pill bg-text-body"
+                      /* ⛔⛔ CLAMPED, AND THE LENS IS WHAT MAKES THIS MANDATORY
+                         RATHER THAN DEFENSIVE.
+                         `rangeScale`'s domain is DEFINED BY the smallest p10 and
+                         the largest p90 across the rows. So on the cautious arm
+                         exactly one option's marker lands at 0%, and on the
+                         optimistic arm exactly one lands at 100% — every single
+                         run, by construction, not by bad luck.
+                         `calc(0% - 3px)` then puts half of the 6px dot outside
+                         its own track. **Measured in the browser: 3px of
+                         overhang at each extreme, 0px once clamped.**
+                         p50 almost never hits an endpoint, which is why #1726
+                         shipped without this and was right to — the lens is what
+                         turns a theoretical edge case into a guaranteed one. */
                       style={{
-                        left: `calc(${((markAt - rangeScale.lo) / rangeScale.span) * 100}% - 3px)`,
+                        left: `clamp(0px, calc(${((markAt - rangeScale.lo) / rangeScale.span) * 100}% - 3px), calc(100% - 6px))`,
                       }}
                       data-testid={`${testId}-outcome-mid-${o.id}`}
                       data-lens-arm={rangeAppetite}
