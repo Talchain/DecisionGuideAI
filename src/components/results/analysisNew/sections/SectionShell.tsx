@@ -48,6 +48,22 @@ export interface SectionShellProps {
   /**
    * How many items sit behind the row. `null` renders no count — used when the
    * section has nothing countable to promise (an empty state with a sentence).
+   *
+   * ⭐⭐ ZERO IS TREATED AS `null`, AND THE CONVENTION ALREADY EXISTED — it was
+   * just not encoded here, so every caller had to remember it. Two did
+   * (`AnalysisNewSection`, `StrengthenTheReasoning`, both `length > 0 ? length
+   * : null`); four did not, and Paul met one of them: "How this was worked out"
+   * rendered a badge of **0** on a row that still expands.
+   *
+   * That is this header's own rule failing in the other direction — "a
+   * collapsed row is a PROMISE about what is behind it, and a count that
+   * misreports reads as 'you have seen everything' when you have not". A `0`
+   * promises nothing is behind the row and then invites a press anyway.
+   *
+   * ⚠ ENCODED HERE RATHER THAN AT THE CALL SITES, because six callers each
+   * remembering the same coercion is the hand-maintained mirror this estate
+   * pays for (trap 12). The two existing guards are now redundant and harmless;
+   * they are left alone so this change touches one file.
    */
   count: number | null
   /** First-use explanation. Lives in the row's `title` attribute, never as a row. */
@@ -211,7 +227,7 @@ export function SectionShell({
             </span>
           ) : null}
         </span>
-        {count != null ? (
+        {count != null && count > 0 ? (
           <span
             className={`${typography.panelMeta} text-text-light shrink-0`}
             data-testid={`${testId}-count`}
