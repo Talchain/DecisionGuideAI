@@ -121,10 +121,61 @@ export function serverStatedStrengthOf(
     const impliedByMean = rawMean < 0 ? 'negative' : 'positive'
     if (impliedByMean !== rawDirection) return null
   }
+  // ⚠ THE `return null` ABOVE IS ONE OF TWO VERY DIFFERENT FACTS, and until
+  // 19 Sep 2026 the UI reported both as the same thing. See
+  // `serverStatedStrengthDisagreesOnSign` below.
+
 
   const parsed = ServerStatedStrengthSchema.safeParse({
     mean: rawMean,
     effect_direction: rawDirection,
   })
   return parsed.success ? parsed.data : null
+}
+
+/**
+ * ⭐⭐ DID THE SERVER STATE A STRENGTH WE CANNOT CARRY — as opposed to not
+ * stating one at all?
+ *
+ * `serverStatedStrengthOf` returns `null` for BOTH, and the two are not the
+ * same fact. Measured on the founder's own board, 19 Sep 2026:
+ *
+ *   e-10  Dilution and Control Risk -> goal   strength_mean 0.35  effect_direction 'negative'
+ *   e-19  Funding Shortfall Risk    -> goal   strength_mean 0.75  effect_direction 'negative'
+ *
+ * A POSITIVE magnitude beside a NEGATIVE direction. CEE encodes magnitude and
+ * direction separately; the shared contract requires a SIGNED mean (this
+ * module's sign rule mirrors `refineEdgeStrengthEdit`), so the tuple is refused
+ * — correctly, because building an event the contract rejects would fail the
+ * whole turn, not just the field.
+ *
+ * ⛔⛔ **EVERY RISK -> GOAL EDGE IS AFFECTED**, because a risk is exactly the
+ * kind of relationship that carries a negative direction. So the edge a person
+ * most wants to correct — *"how badly does this risk hurt my goal?"* — is
+ * precisely the one the strength editor will not take.
+ *
+ * ⚠ AND THE PRODUCT SAID SOMETHING FALSE WHILE REFUSING.
+ * `INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON` reads *"This connection has no
+ * strength on record… Ask Olumi to set its strength."* The server HAS stated
+ * one — the canvas is drawing it, at that magnitude, in that direction — and
+ * asking Olumi cannot help, because Olumi is what stated it. A person following
+ * that instruction is sent back into the chat for something already on their
+ * screen.
+ *
+ * ⭐ THIS PREDICATE CHANGES NO REFUSAL. The fence stays exactly where it is.
+ * It exists so the SENTENCE beside the fence can tell the truth, and so the
+ * condition has a name the producer fix can be measured against.
+ */
+export function serverStatedStrengthDisagreesOnSign(
+  data: Record<string, unknown> | undefined | null,
+): boolean {
+  if (!data) return false
+  // A recorded tuple has already been validated; this is only about the raw
+  // producer spellings, which is where the disagreement lives.
+  if (ServerStatedStrengthSchema.safeParse(data.serverStrength).success) return false
+  const rawMean = data.strength_mean
+  const rawDirection = data.effect_direction
+  if (typeof rawMean !== 'number' || !Number.isFinite(rawMean) || rawMean === 0) return false
+  if (rawDirection !== 'positive' && rawDirection !== 'negative') return false
+  return (rawMean < 0 ? 'negative' : 'positive') !== rawDirection
 }
