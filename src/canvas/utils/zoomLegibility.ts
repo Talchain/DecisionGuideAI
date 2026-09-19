@@ -533,6 +533,16 @@ export function lodBodyHiddenAt(rung: LodRung): boolean {
  * by hand, and a double that omits it must render an ORDINARY card rather than a
  * blanked one. Typed structurally so this module stays free of any store import.
  */
+/**
+ * The rung itself, for surfaces that need more than "is the body hidden".
+ *
+ * Defaults an absent rung to `full`, matching `selectLodBodyHidden` — a store
+ * double without the slice must render an ordinary card, never a reduced one.
+ */
+export function selectLodRung(state: { lodRung?: LodRung }): LodRung {
+  return state.lodRung ?? 'full'
+}
+
 export function selectLodBodyHidden(state: { lodRung?: LodRung }): boolean {
   return lodBodyHiddenAt(state.lodRung ?? 'full')
 }

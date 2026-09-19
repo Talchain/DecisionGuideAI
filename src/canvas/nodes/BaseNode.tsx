@@ -24,7 +24,7 @@ import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { tierInvitations } from '../utils/ghostTiers'
 import { TierInvitationRow } from './shared/TierInvitation'
-import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive, selectLodRung, cardControlsVisibleAt, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   NODE_CARD_MAX_W,
@@ -839,6 +839,37 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
 
   /**
+   * ⭐⭐⭐ SPENDING THE `quiet` RUNG — the middle step that existed and showed
+   * nothing.
+   *
+   * The ladder declares three rungs and the board rendered two states. `quiet`
+   * occupies [LOD_BODY_HIDDEN_ZOOM, ICON_LEGIBLE_ZOOM) — exactly the band a
+   * gentler intermediate presentation belongs in — and was visually identical to
+   * `full` unless the Graph Lens happened to be dimming nodes.
+   * `cardControlsVisibleAt`, the hook declared for thinning card controls at
+   * `quiet`, had ZERO non-test callers. This is its first one.
+   *
+   * Effect: the 12px action chips stop rendering at the icon floor, BEFORE card
+   * bodies vanish at the body cliff. One cliff becomes two smaller steps, and it
+   * costs no new constant — the band and the predicate both already existed.
+   *
+   * ⛔⛔ AND IT IS DELIBERATELY NOT `showQuickActions`, WHICH WOULD HAVE MOVED
+   * EVERY CARD. That flag has TWO readers with two roles, as the comment above
+   * records: it gates this MOUNT, and it is the first arm of the card's
+   * `padding` disjunction, which reserves `NODE_QUICK_ACTION_BAND_PX` of bottom
+   * band. Gating the shared flag on the rung would have changed card PADDING at
+   * a zoom boundary — so every card would resize mid-gesture, measure-then-layout
+   * would fire, and the board would re-arrange itself as the user zoomed. That is
+   * precisely the stale-height defect #1100 was merged to fix, re-introduced as a
+   * side effect of a presentation change.
+   *
+   * So the SPACE stays reserved at every rung and only the CONTENT goes. The card
+   * keeps its geometry; the chips fade from it. Two questions, two names (trap 21).
+   */
+  const lodRung = useCanvasStore(selectLodRung)
+  const quickActionsMounted = showQuickActions && cardControlsVisibleAt(lodRung)
+
+  /**
    * ⭐⭐⭐ THE KIND HUE STAYS. "NEEDS YOUR JUDGEMENT" IS A BADGE (Paul, 8 Sep 2026).
    *
    * `DESIGN_SYSTEM.md` §"Border vocabulary (ratified, wireframe v4)" named
@@ -1146,7 +1177,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           and the footer padding"; that was false at these bytes — the padding
           above is a disjunction that also fires on `factor` and `option` below
           the legibility floor, where this layer is unmounted. */}
-      {showQuickActions && (
+      {quickActionsMounted && (
         <NodeQuickActions
           nodeId={id}
           nodeType={nodeType}
