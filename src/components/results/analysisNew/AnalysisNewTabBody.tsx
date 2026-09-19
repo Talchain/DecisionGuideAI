@@ -63,6 +63,9 @@ import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
+// The act below takes its geometry from the tier, never from this call site —
+// `everyInlineActIsReachableByTouch` exists to keep that the single source.
+import { action } from './panelSurfaces'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import {
@@ -1435,6 +1438,40 @@ export function AnalysisNewTabBody({
             {isBusyNow ? null : (
               <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
             )}
+            {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
+                This block states the blocker — "No analysis has run yet" — and
+                until now offered no way past it, on the FIRST SCREEN a new user
+                meets. `onReanalyse` was already passed to this body
+                (`OutputsDock` hands it `handleRunAnalysis`) and reached only
+                `AtAGlance`, which ZONE: ANSWER gates off pre-run. So the handler
+                was present and unreachable in the one state that needs it.
+
+                ⛔ WITNESSED, which is why this is not a nicety: a user sent a
+                brief, read a substantial coaching reply, and concluded an
+                analysis had run. CEE was returning a `run_analysis` suggested
+                action on that very turn. The panel rendered seven "Methods you
+                can run" and no way to run the analysis.
+
+                ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. `blockedListing`
+                is null exactly when the gate does not block — `WhyNoAnalysisYet`
+                documents that contract — so when it is non-null the remedy is
+                resolving those blockers, which the listing above already offers
+                with focus targets. Offering a button that refuses is the defect
+                one level down, and this panel has adjudicated it out twice.
+
+                ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
+                renders nothing rather than a control that does nothing — the
+                same fail-closed shape `onSendMessage` uses one section over. */}
+            {!isBusyNow && blockedListing == null && onReanalyse ? (
+              <button
+                type="button"
+                onClick={onReanalyse}
+                className={`${typography.panelMeta} ${action('primary')} mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid="analysis-new-status-pre-run-act"
+              >
+                {COPY.status.preRunRunAction}
+              </button>
+            ) : null}
           </div>
         ) : null}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS

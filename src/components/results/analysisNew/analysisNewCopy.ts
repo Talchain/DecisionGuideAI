@@ -1935,6 +1935,23 @@ export const ANALYSIS_NEW_COPY = {
      */
     preRunWhatThisIs:
       'When one has, this panel reads it back around the reasoning: what to notice, how to strengthen it, what is driving it, and what is still uncertain.',
+    /**
+     * ⭐⭐⭐ THE REMEDY, BESIDE THE REFUSAL. A panel that names a blocker and
+     * offers no route past it is a dead end, and this one is the FIRST SCREEN a
+     * new user meets.
+     *
+     * ⛔ WITNESSED: a user sent a brief, read a substantial coaching reply, and
+     * concluded an analysis had run. It had not. The panel said so truthfully —
+     * "No analysis has run yet for this model" — and gave no way to change that,
+     * while CEE was returning a `run_analysis` suggested action on the same turn
+     * that this surface never rendered. The user re-ran manually 13 minutes
+     * later, spending a second full compute.
+     *
+     * ⚠ THE VERB IS THE USER'S, NOT THE PANEL'S. "Run the analysis" is what the
+     * person does; "Analyse" is a button label from the canvas toolbar and
+     * repeating it here would imply this is that same control.
+     */
+    preRunRunAction: 'Run the analysis',
     running: 'Analysis is running.',
     /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is
