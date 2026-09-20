@@ -30,7 +30,7 @@ import { applyAnalysisHold } from './footerGate'
 import { analysisHeldNotice } from '../../utils/analysisHeldOnInjectedModel'
 import { focusNodeById } from '../../utils/focusHelpers'
 // The canonical "open the editor for this node" seam — see handleSetValueForGap.
-import { openNodeInspector } from '../../nodes/shared/openNodeInspector'
+import { openModelValueEditor } from '../../nodes/shared/openModelValueEditor'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -1000,9 +1000,9 @@ export function PreAnalysisPanel({
   // Phase 2B: One-click fix — "Set value" opens the inspector for a factor (non-destructive)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
   /**
-   * THE CANONICAL RULE, shared with `TriageActionCardsBody.openValueEditor`:
-   * a control labelled "Edit value" opens the node's inspector. One owner,
-   * `openNodeInspector`; no per-consumer variant.
+   * THE CANONICAL RULE, shared with `TriageActionCardsBody`: a control
+   * labelled "Edit value" opens the Model tab's factors section on that node.
+   * One owner, `openModelValueEditor`; no per-consumer variant.
    *
    * ⚠ This handler's own comment claimed it "opens the inspector for a
    * factor" and it never did. `selectNodeWithoutHistory` writes the selection
@@ -1014,15 +1014,39 @@ export function PreAnalysisPanel({
    * different routes — which is exactly why the fix is one shared owner
    * rather than a second bespoke handler here.
    *
-   * `openNodeInspector` performs the selection itself (without history —
-   * opening an editor is not a graph change), so the explicit select is now
-   * redundant and is gone. It fail-closes silently on a factor that is not on
-   * the canvas, replacing the previous silent no-op with the same outcome.
+   * ⭐⭐ AND THE SHARED OWNER MOVED, BECAUSE THE INSPECTOR SERVES ONLY TWO OF
+   * THE THREE FACTOR CATEGORIES (20 Sep 2026).
+   *
+   * The intermediate fix pointed this at `openNodeInspector` on the grounds
+   * that "the inspector's factor panels own their own authority and reach
+   * `factor_value_edit`". That sentence names `factor-controllable` and
+   * `factor-external` — the two members of `AUTHORITY_OWNING_PANELS`
+   * (`ui/inspector-v2/InspectorRouter.tsx:441`). It does not name the third.
+   * An `observable` factor resolves to `'factor-observable'` (`:118`), falls
+   * outside the set, and renders inside `<fieldset disabled>` under
+   * `INSPECTOR_READ_ONLY_REASON` — *"…read-only… Use the Model tab for
+   * supported factor values"*. So the pencil landed that reader on a dead
+   * surface holding a sentence telling them to walk somewhere else.
+   *
+   * ⚠ AND NOTHING ON THE WAY HERE FILTERS BY CATEGORY:
+   * `hooks/deriveExpertiseGroups.ts` admits any node whose kind is `factor`,
+   * and `t1Handlers.onEdit` is one handler for every triage card. A real
+   * captured draft (`canvas/__fixtures__/realDraft.fundraising.json`) carries
+   * one observable factor among four.
+   *
+   * The Model tab has no such hole: `model-tab-v2/ModelTabV2Panel.tsx`
+   * derives `editConnectedIds` from `nodeKind(node) === 'factor'` with no
+   * category branch, because "a factor's value has a wire carrier for EVERY
+   * reachable value". One destination, all three categories.
+   *
+   * ⛔ STILL NOT A FLAG FLIP. `preAnalysisFactorValue` stays `'disabled'` and
+   * governs the INLINE editor below (`handleInlineEditValue`), which does one
+   * local `updateNode` and emits nothing. Only the destination moves.
    */
   const handleSetValueForGap = useCallback((factorId: string) => {
     // Note: FIX_CLICKED is also fired in GapRow.handleClick; PreAnalysisPanel is the
     // logical orchestrator so we skip double-firing here.
-    openNodeInspector(factorId)
+    openModelValueEditor(factorId)
   }, [])
 
   // Retry handler with toast feedback
@@ -1309,8 +1333,18 @@ export function PreAnalysisPanel({
      * (`handleInlineEditValue`), which does one local `updateNode` and emits
      * nothing, so that gate is correct and is untouched. Flipping the key would
      * assert a capability this surface does not have. Only the destination
-     * changes — and the destination now works, because the inspector's factor
-     * panels own their own authority and reach `factor_value_edit`.
+     * changes.
+     *
+     * ⚠⚠ AND THE SENTENCE THAT USED TO CLOSE THIS PARAGRAPH WAS TRUE OF TWO
+     * FACTOR CATEGORIES OUT OF THREE. It read: *"the destination now works,
+     * because the inspector's factor panels own their own authority and reach
+     * `factor_value_edit`"*. `AUTHORITY_OWNING_PANELS` holds
+     * `factor-controllable` and `factor-external`; an `observable` factor
+     * resolves to `'factor-observable'`, stays inside the blanket
+     * `<fieldset disabled>`, and meets a notice telling it to use the Model
+     * tab. It is corrected in place rather than deleted because it had already
+     * been cited as settled while nobody re-derived it. The destination is now
+     * the Model tab — see `handleSetValueForGap`.
      */
     onEdit: handleSetValueForGap,
     onUpdateEdgeStrength: PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED

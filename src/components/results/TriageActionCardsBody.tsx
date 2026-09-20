@@ -56,8 +56,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '@/canvas/mutations/mutationAuthority'
-import { focusModelTarget } from '@/canvas/utils/focusHelpers'
-import { useUIStore } from '@/stores/uiStore'
+import { openModelValueEditor } from '@/canvas/nodes/shared/openModelValueEditor'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
@@ -359,18 +358,20 @@ const POST_RUN_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
  * destination and identical for every existing Model-tab user; not introduced
  * here, and not witnessed live by this change.
  */
+/*
+ * ⭐ THE ROUTE ITSELF NOW LIVES IN ONE PLACE — `openModelValueEditor`.
+ *
+ * The three calls below were duplicated here and, until 20 Sep, NOT duplicated
+ * on the pre-analysis sibling, which still opened the Inspector. That is how
+ * one act came to have two destinations, only one of which is true for an
+ * `observable` factor (`InspectorRouter`'s `AUTHORITY_OWNING_PANELS` holds
+ * `factor-controllable` and `factor-external`, not the third). The scoping note
+ * above — "`PreAnalysisPanel` … still injects the Inspector helper … NOT in
+ * this change's scope" — is now discharged: both surfaces call one owner, and
+ * the order/section-key reasoning that used to sit here moved with it.
+ */
 const openValueEditor = (nodeId: string): void => {
-  useUIStore.getState().setActiveOutputTab('diagnostics')
-  // ⚠ PASS THE KEY, NOT THE VALUE. `MODEL_SECTION_TARGET`
-  // (`canvas/components/ModelTabBody.tsx:123`) maps section NAMES to testids,
-  // and the consumer at `:243` does `MODEL_SECTION_TARGET[pending] ?? 'model-tab-v2-panel'`.
-  // Passing the testid misses the lookup and the `??` SILENTLY lands the user at
-  // the panel top with nothing selected — exactly the failure this call exists to
-  // fix. Caught in review on the sibling PR after I wrote it there first; pinned
-  // below by `triageEditActRoutesToFactors.spec.ts`, which asserts the argument is
-  // a KEY of that map rather than any string that happens to look right.
-  useUIStore.getState().requestModelTabSection('factors')
-  focusModelTarget(nodeId)
+  openModelValueEditor(nodeId)
 }
 
 // ── Section 2: Result checks (Brief 5.8B D2c — flip-risk extracted) ─────────
