@@ -1,1022 +1,1023 @@
 {
- "_provenance": {
-  "source": "olumi-debug-4ce9cd49-20260919.json \u2014 the founder's own board",
-  "captured_at": "2026-09-19T18:17:55.393Z",
-  "client_build": "f22e15fd",
-  "why": "A REAL CEE draft, not a hand-written fixture. A fixture written from our own head encodes our model of the producer rather than the producer (CLAUDE.md trap 16). This one is the exact payload that was on screen when the layout failed.",
-  "node_count": 13,
-  "edge_count": 23
- },
- "nodes": [
-  {
-   "id": "0bcb0dd7",
-   "kind": "factor",
-   "label": "Round Closure Speed",
-   "observed_state": {
-    "value": 0.4,
-    "unit": "scale",
-    "source": "cee_inference",
-    "extractionType": "inferred",
-    "factor_type": "other",
-    "uncertainty_drivers": []
-   },
-   "category": "controllable",
-   "display_value": "0.4 scale",
-   "provenance": "ai_inferred"
+  "_provenance": {
+    "source": "A real CEE draft captured from a live board on 2026-09-19 (client build f22e15fd).",
+    "captured_at": "2026-09-19T18:17:55.393Z",
+    "client_build": "f22e15fd",
+    "sanitised": "LABELS AND QUOTED USER TEXT ARE SYNTHETIC. Every node kind, category, numeric field, validation block and producer-boilerplate reasoning string is the producer's own, byte-unchanged. The label strings were replaced because a route flag is not access control: this file is statically imported into a lazily-loaded chunk that is fetchable by anyone who knows its URL. The long-sentence option label is preserved AS a long sentence — that shape is load-bearing for the rendering evidence this fixture exists to give.",
+    "why": "A fixture written from our own head encodes our model of the producer rather than the producer (CLAUDE.md trap 16). The STRUCTURE and the NUMBERS here are the producer's.",
+    "node_count": 13,
+    "edge_count": 23
   },
-  {
-   "id": "31df38c6",
-   "kind": "factor",
-   "label": "Funding Amount Secured",
-   "observed_state": {
-    "value": 0,
-    "unit": "\u00a3",
-    "source": "cee_inference",
-    "extractionType": "inferred"
-   },
-   "category": "observable",
-   "display_value": "0 \u00a3",
-   "provenance": "ai_inferred"
-  },
-  {
-   "id": "3950c67d",
-   "kind": "factor",
-   "label": "Investor Pipeline Size",
-   "observed_state": {
-    "value": 0.25,
-    "unit": "active leads",
-    "source": "cee_inference",
-    "raw_value": 5,
-    "extractionType": "inferred",
-    "factor_type": "other",
-    "uncertainty_drivers": []
-   },
-   "category": "controllable",
-   "scale_frame": 20,
-   "display_value": "5 active leads",
-   "provenance": "ai_inferred"
-  },
-  {
-   "id": "403dbe7e",
-   "kind": "option",
-   "label": "Status Quo \u2014 No Active Fundraising",
-   "interventions": {
-    "0bcb0dd7": {
-     "value": 0.1,
-     "raw_value": 0.1,
-     "unit": "scale",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "0bcb0dd7",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge 4a73f031; this option\u2192factor effect is not bound to a stated option record"
+  "nodes": [
+    {
+      "id": "0bcb0dd7",
+      "kind": "factor",
+      "label": "Build Completion Speed",
+      "observed_state": {
+        "value": 0.4,
+        "unit": "scale",
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "other",
+        "uncertainty_drivers": []
+      },
+      "category": "controllable",
+      "display_value": "0.4 scale",
+      "provenance": "ai_inferred"
     },
-    "3950c67d": {
-     "value": 0.25,
-     "raw_value": 5,
-     "unit": "active leads",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "3950c67d",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge d354af7b; this option\u2192factor effect is not bound to a stated option record"
+    {
+      "id": "31df38c6",
+      "kind": "factor",
+      "label": "Growing Area Gained",
+      "observed_state": {
+        "value": 0,
+        "unit": "£",
+        "source": "cee_inference",
+        "extractionType": "inferred"
+      },
+      "category": "observable",
+      "display_value": "0 £",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "3950c67d",
+      "kind": "factor",
+      "label": "Contractor Availability",
+      "observed_state": {
+        "value": 0.25,
+        "unit": "available crews",
+        "source": "cee_inference",
+        "raw_value": 5,
+        "extractionType": "inferred",
+        "factor_type": "other",
+        "uncertainty_drivers": []
+      },
+      "category": "controllable",
+      "scale_frame": 20,
+      "display_value": "5 available crews",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "403dbe7e",
+      "kind": "option",
+      "label": "Status Quo — No Expansion This Year",
+      "interventions": {
+        "0bcb0dd7": {
+          "value": 0.1,
+          "raw_value": 0.1,
+          "unit": "scale",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "0bcb0dd7",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge 4a73f031; this option→factor effect is not bound to a stated option record"
+        },
+        "3950c67d": {
+          "value": 0.25,
+          "raw_value": 5,
+          "unit": "available crews",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "3950c67d",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge d354af7b; this option→factor effect is not bound to a stated option record"
+        }
+      },
+      "is_baseline": true,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "4118bf8f",
+      "kind": "outcome",
+      "label": "New Greenhouse Open",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "4170996e",
+      "kind": "option",
+      "label": "extend the current site to cover the whole planned growing area",
+      "interventions": {
+        "0bcb0dd7": {
+          "value": 0.7,
+          "raw_value": 0.7,
+          "unit": "scale",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "0bcb0dd7",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge da411509; no stated figure is cited for this option→factor effect"
+        },
+        "3950c67d": {
+          "value": 0.2,
+          "raw_value": 4,
+          "unit": "available crews",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "3950c67d",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge da6388e3; no stated figure is cited for this option→factor effect"
+        },
+        "812bb192": {
+          "value": 0.2,
+          "raw_value": 0.2,
+          "unit": "unit_interval",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "812bb192",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge e322e90d; no stated figure is cited for this option→factor effect"
+        }
+      },
+      "provenance": "from_brief",
+      "source_quote": "extend the current site to cover the whole planned growing area"
+    },
+    {
+      "id": "41f060df",
+      "kind": "option",
+      "label": "Lease the Adjacent Plot",
+      "interventions": {
+        "0bcb0dd7": {
+          "value": 0.35,
+          "raw_value": 0.35,
+          "unit": "scale",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "0bcb0dd7",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge 84685711; no stated figure is cited for this option→factor effect"
+        },
+        "3950c67d": {
+          "value": 0.6,
+          "raw_value": 12,
+          "unit": "available crews",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "3950c67d",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge 6c1ac43c; no stated figure is cited for this option→factor effect"
+        },
+        "812bb192": {
+          "value": 0.12,
+          "raw_value": 0.12,
+          "unit": "unit_interval",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "812bb192",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge 7ac92835; no stated figure is cited for this option→factor effect"
+        }
+      },
+      "provenance": "from_brief",
+      "source_quote": "lease the adjacent plot",
+      "label_authored": true
+    },
+    {
+      "id": "4c47c344",
+      "kind": "decision",
+      "label": "Lease the Adjacent Plot or Extend the Current Site",
+      "provenance": "ai_inferred",
+      "label_authored": true
+    },
+    {
+      "id": "812bb192",
+      "kind": "factor",
+      "label": "Ongoing Rent Burden",
+      "observed_state": {
+        "value": 0.15,
+        "unit": "unit_interval",
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "other",
+        "uncertainty_drivers": []
+      },
+      "category": "controllable",
+      "display_value": "0.15 unit_interval",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "86a9276f",
+      "kind": "risk",
+      "label": "Build Timeline Breach",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "bd4b2c9f",
+      "kind": "risk",
+      "label": "Unfavourable Lease Terms Risk",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "f4ab20b2",
+      "kind": "goal",
+      "label": "Open the Greenhouse Within Two Months",
+      "provenance": "from_brief",
+      "source_quote": "open the greenhouse within two months",
+      "label_authored": true
+    },
+    {
+      "id": "f892b18c",
+      "kind": "option",
+      "label": "Lease and Extend in Parallel",
+      "interventions": {
+        "0bcb0dd7": {
+          "value": 0.55,
+          "raw_value": 0.55,
+          "unit": "scale",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "0bcb0dd7",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge 68af056d; this option→factor effect is not bound to a stated option record"
+        },
+        "3950c67d": {
+          "value": 0.7,
+          "raw_value": 14,
+          "unit": "available crews",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "3950c67d",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge 6ad9c365; this option→factor effect is not bound to a stated option record"
+        },
+        "812bb192": {
+          "value": 0.16,
+          "raw_value": 0.16,
+          "unit": "unit_interval",
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "812bb192",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Olumi estimate via edge 02ae6ec4; this option→factor effect is not bound to a stated option record"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
     }
-   },
-   "is_baseline": true,
-   "provenance": "ai_inferred"
-  },
-  {
-   "id": "4118bf8f",
-   "kind": "outcome",
-   "label": "Pre-Seed Round Closed",
-   "provenance": "ai_inferred"
-  },
-  {
-   "id": "4170996e",
-   "kind": "option",
-   "label": "focus on funds that can give us the total amount for our pre-seed round",
-   "interventions": {
-    "0bcb0dd7": {
-     "value": 0.7,
-     "raw_value": 0.7,
-     "unit": "scale",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "0bcb0dd7",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge da411509; no stated figure is cited for this option\u2192factor effect"
+  ],
+  "edges": [
+    {
+      "from": "0bcb0dd7",
+      "to": "31df38c6",
+      "strength": {
+        "mean": 0.75,
+        "std": 0.17999999999999997
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": 0.75,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": 0.4,
+          "strength_std": 0.15,
+          "exists_probability": 0.9,
+          "reasoning": "Faster build completion generally allows a site to convert prepared ground into usable growing area more effectively.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.3750000000000001,
+          "strength_std": 0.15,
+          "exists_probability": 0.9
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 0.7499999999999998,
+        "distance_to_goal": 2,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
     },
-    "3950c67d": {
-     "value": 0.2,
-     "raw_value": 4,
-     "unit": "active leads",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "3950c67d",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge da6388e3; no stated figure is cited for this option\u2192factor effect"
+    {
+      "from": "0bcb0dd7",
+      "to": "86a9276f",
+      "strength": {
+        "mean": -0.65,
+        "std": 0.15599999999999997
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "agreed",
+        "contested_reasons": [],
+        "pass1": {
+          "strength_mean": -0.65,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": -0.7,
+          "strength_std": 0.15,
+          "exists_probability": 0.9,
+          "reasoning": "Increasing build speed directly reduces the probability of missing the build timeline.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.7249999999999999,
+          "strength_std": 0.15,
+          "exists_probability": 0.9
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 0.6666666666666666,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
     },
-    "812bb192": {
-     "value": 0.2,
-     "raw_value": 0.2,
-     "unit": "unit_interval",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "812bb192",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge e322e90d; no stated figure is cited for this option\u2192factor effect"
+    {
+      "from": "31df38c6",
+      "to": "4118bf8f",
+      "strength": {
+        "mean": 0.5767857142857143,
+        "std": 0.1384285714285714
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "agreed",
+        "contested_reasons": [],
+        "pass1": {
+          "strength_mean": 0.5767857142857143,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": 0.6,
+          "strength_std": 0.1,
+          "exists_probability": 0.95,
+          "reasoning": "More growing area gained strongly increases the likelihood of opening the new greenhouse.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.5750000000000001,
+          "strength_std": 0.1,
+          "exists_probability": 0.95
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "3950c67d",
+      "to": "4118bf8f",
+      "strength": {
+        "mean": 0.3732142857142858,
+        "std": 0.08957142857142857
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "agreed",
+        "contested_reasons": [],
+        "pass1": {
+          "strength_mean": 0.3732142857142858,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": 0.4,
+          "strength_std": 0.15,
+          "exists_probability": 0.9,
+          "reasoning": "Greater contractor availability raises the chances of securing enough crew time to finish the build.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.3750000000000001,
+          "strength_std": 0.15,
+          "exists_probability": 0.9
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 0.6666666666666666,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "403dbe7e",
+      "to": "0bcb0dd7",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "403dbe7e",
+      "to": "3950c67d",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "4118bf8f",
+      "to": "f4ab20b2",
+      "strength": {
+        "mean": 0.85,
+        "std": 0.20399999999999996
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": 0.85,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": 0.47368421052631576,
+          "strength_std": 0.05,
+          "exists_probability": 0.99,
+          "reasoning": "Once the new greenhouse is open, the goal of opening within two months is met by definition.",
+          "basis": "structural_inference",
+          "needs_user_input": false,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.4486842105263158,
+          "strength_std": 0.05,
+          "exists_probability": 0.99
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 0,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "4118bf8f->f4ab20b2",
+            "before": 0.9,
+            "after": 0.47368421052631576
+          }
+        ]
+      }
+    },
+    {
+      "from": "4170996e",
+      "to": "0bcb0dd7",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "4170996e",
+      "to": "3950c67d",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "4170996e",
+      "to": "812bb192",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "41f060df",
+      "to": "0bcb0dd7",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "41f060df",
+      "to": "3950c67d",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "41f060df",
+      "to": "812bb192",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "4c47c344",
+      "to": "403dbe7e",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Decision-to-option scaffold minted by the projector"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "default"
+    },
+    {
+      "from": "4c47c344",
+      "to": "4170996e",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Decision-to-option scaffold minted by the projector"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "default"
+    },
+    {
+      "from": "4c47c344",
+      "to": "41f060df",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Decision-to-option scaffold minted by the projector"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "default"
+    },
+    {
+      "from": "4c47c344",
+      "to": "f892b18c",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Decision-to-option scaffold minted by the projector"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "default"
+    },
+    {
+      "from": "812bb192",
+      "to": "bd4b2c9f",
+      "strength": {
+        "mean": 0.5,
+        "std": 0.11999999999999998
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": 0.5,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": 0.7,
+          "strength_std": 0.15,
+          "exists_probability": 0.9,
+          "reasoning": "Higher ongoing rent is often seen as an unfavourable lease term by owners, increasing that risk.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.675,
+          "strength_std": 0.15,
+          "exists_probability": 0.9
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 0.6666666666666666,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "86a9276f",
+      "to": "f4ab20b2",
+      "strength": {
+        "mean": -0.75,
+        "std": 0.17999999999999997
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": -0.75,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": -0.42105263157894735,
+          "strength_std": 0.1,
+          "exists_probability": 0.9,
+          "reasoning": "Missing the build timeline directly undermines the goal of opening within two months.",
+          "basis": "domain_prior",
+          "needs_user_input": false,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.44605263157894726,
+          "strength_std": 0.1,
+          "exists_probability": 0.9
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 0.6666666666666666,
+        "distance_to_goal": 0,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "86a9276f->f4ab20b2",
+            "before": -0.8,
+            "after": -0.42105263157894735
+          }
+        ]
+      }
+    },
+    {
+      "from": "bd4b2c9f",
+      "to": "f4ab20b2",
+      "strength": {
+        "mean": -0.35,
+        "std": 0.08399999999999998
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": -0.35,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": -0.10526315789473684,
+          "strength_std": 0.15,
+          "exists_probability": 0.4,
+          "reasoning": "Unfavourable lease-term risks may slightly threaten timely opening but the effect is speculative.",
+          "basis": "weak_guess",
+          "needs_user_input": true,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.13026315789473678,
+          "strength_std": 0.15,
+          "exists_probability": 0.4
+        },
+        "bias_correction": {
+          "strength_mean_offset": -0.02499999999999994,
+          "strength_std_offset": 0,
+          "exists_probability_offset": 0
+        },
+        "max_divergence": 0.4394736842105264,
+        "distance_to_goal": 0,
+        "sign_unstable": false,
+        "pass1_missing": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "bd4b2c9f->f4ab20b2",
+            "before": -0.2,
+            "after": -0.10526315789473684
+          },
+          {
+            "code": "LINT_STD_CLAMPED",
+            "edge_key": "bd4b2c9f->f4ab20b2",
+            "before": 0.2,
+            "after": 0.08421052631578947
+          },
+          {
+            "code": "LINT_STD_FLOORED_WEAK_GUESS",
+            "edge_key": "bd4b2c9f->f4ab20b2",
+            "before": 0.08421052631578947,
+            "after": 0.15
+          }
+        ]
+      }
+    },
+    {
+      "from": "f892b18c",
+      "to": "0bcb0dd7",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "f892b18c",
+      "to": "3950c67d",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "f892b18c",
+      "to": "812bb192",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis",
+        "reasoning": "Model-inferred causal link (records projector)"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
     }
-   },
-   "provenance": "from_brief",
-   "source_quote": "focus on funds that can give us the total amount for our pre-seed round"
-  },
-  {
-   "id": "41f060df",
-   "kind": "option",
-   "label": "Target Angel Investors",
-   "interventions": {
-    "0bcb0dd7": {
-     "value": 0.35,
-     "raw_value": 0.35,
-     "unit": "scale",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "0bcb0dd7",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge 84685711; no stated figure is cited for this option\u2192factor effect"
-    },
-    "3950c67d": {
-     "value": 0.6,
-     "raw_value": 12,
-     "unit": "active leads",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "3950c67d",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge 6c1ac43c; no stated figure is cited for this option\u2192factor effect"
-    },
-    "812bb192": {
-     "value": 0.12,
-     "raw_value": 0.12,
-     "unit": "unit_interval",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "812bb192",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge 7ac92835; no stated figure is cited for this option\u2192factor effect"
-    }
-   },
-   "provenance": "from_brief",
-   "source_quote": "target angel investors",
-   "label_authored": true
-  },
-  {
-   "id": "4c47c344",
-   "kind": "decision",
-   "label": "Target Angel Investors or Just Focus on Funds",
-   "provenance": "ai_inferred",
-   "label_authored": true
-  },
-  {
-   "id": "812bb192",
-   "kind": "factor",
-   "label": "Dilution Level",
-   "observed_state": {
-    "value": 0.15,
-    "unit": "unit_interval",
-    "source": "cee_inference",
-    "extractionType": "inferred",
-    "factor_type": "other",
-    "uncertainty_drivers": []
-   },
-   "category": "controllable",
-   "display_value": "0.15 unit_interval",
-   "provenance": "ai_inferred"
-  },
-  {
-   "id": "86a9276f",
-   "kind": "risk",
-   "label": "Funding Timeline Breach",
-   "provenance": "ai_inferred"
-  },
-  {
-   "id": "bd4b2c9f",
-   "kind": "risk",
-   "label": "Unfavourable Terms Risk",
-   "provenance": "ai_inferred"
-  },
-  {
-   "id": "f4ab20b2",
-   "kind": "goal",
-   "label": "Secure Funds in the Next Two Months",
-   "provenance": "from_brief",
-   "source_quote": "secure funds in the next two months",
-   "label_authored": true
-  },
-  {
-   "id": "f892b18c",
-   "kind": "option",
-   "label": "Parallel Angel and Fund Outreach",
-   "interventions": {
-    "0bcb0dd7": {
-     "value": 0.55,
-     "raw_value": 0.55,
-     "unit": "scale",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "0bcb0dd7",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge 68af056d; this option\u2192factor effect is not bound to a stated option record"
-    },
-    "3950c67d": {
-     "value": 0.7,
-     "raw_value": 14,
-     "unit": "active leads",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "3950c67d",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge 6ad9c365; this option\u2192factor effect is not bound to a stated option record"
-    },
-    "812bb192": {
-     "value": 0.16,
-     "raw_value": 0.16,
-     "unit": "unit_interval",
-     "source": "cee_hypothesis",
-     "target_match": {
-      "node_id": "812bb192",
-      "match_type": "exact_id",
-      "confidence": "high"
-     },
-     "value_confidence": "low",
-     "reasoning": "Olumi estimate via edge 02ae6ec4; this option\u2192factor effect is not bound to a stated option record"
-    }
-   },
-   "is_baseline": false,
-   "provenance": "ai_inferred"
-  }
- ],
- "edges": [
-  {
-   "from": "0bcb0dd7",
-   "to": "31df38c6",
-   "strength": {
-    "mean": 0.75,
-    "std": 0.17999999999999997
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "contested",
-    "contested_reasons": [
-     "strength_band_change"
-    ],
-    "pass1": {
-     "strength_mean": 0.75,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": 0.4,
-     "strength_std": 0.15,
-     "exists_probability": 0.9,
-     "reasoning": "Faster closing processes generally allow startups to convert negotiation momentum into secured funding more effectively.",
-     "basis": "domain_prior",
-     "needs_user_input": true,
-     "lint_corrected": false
-    },
-    "pass2_adjusted": {
-     "strength_mean": 0.3750000000000001,
-     "strength_std": 0.15,
-     "exists_probability": 0.9
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 0.7499999999999998,
-    "distance_to_goal": 2,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": []
-   }
-  },
-  {
-   "from": "0bcb0dd7",
-   "to": "86a9276f",
-   "strength": {
-    "mean": -0.65,
-    "std": 0.15599999999999997
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "negative",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "agreed",
-    "contested_reasons": [],
-    "pass1": {
-     "strength_mean": -0.65,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": -0.7,
-     "strength_std": 0.15,
-     "exists_probability": 0.9,
-     "reasoning": "Increasing closure speed directly reduces the probability of missing the fundraising timeline.",
-     "basis": "domain_prior",
-     "needs_user_input": true,
-     "lint_corrected": false
-    },
-    "pass2_adjusted": {
-     "strength_mean": -0.7249999999999999,
-     "strength_std": 0.15,
-     "exists_probability": 0.9
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 0.6666666666666666,
-    "distance_to_goal": 1,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": []
-   }
-  },
-  {
-   "from": "31df38c6",
-   "to": "4118bf8f",
-   "strength": {
-    "mean": 0.5767857142857143,
-    "std": 0.1384285714285714
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "agreed",
-    "contested_reasons": [],
-    "pass1": {
-     "strength_mean": 0.5767857142857143,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": 0.6,
-     "strength_std": 0.1,
-     "exists_probability": 0.95,
-     "reasoning": "Higher amounts committed by investors strongly increase the likelihood of closing the round.",
-     "basis": "domain_prior",
-     "needs_user_input": true,
-     "lint_corrected": false
-    },
-    "pass2_adjusted": {
-     "strength_mean": 0.5750000000000001,
-     "strength_std": 0.1,
-     "exists_probability": 0.95
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 1,
-    "distance_to_goal": 1,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": []
-   }
-  },
-  {
-   "from": "3950c67d",
-   "to": "4118bf8f",
-   "strength": {
-    "mean": 0.3732142857142858,
-    "std": 0.08957142857142857
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "agreed",
-    "contested_reasons": [],
-    "pass1": {
-     "strength_mean": 0.3732142857142858,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": 0.4,
-     "strength_std": 0.15,
-     "exists_probability": 0.9,
-     "reasoning": "A larger investor pipeline raises the chances of securing sufficient commitments to close the round.",
-     "basis": "domain_prior",
-     "needs_user_input": true,
-     "lint_corrected": false
-    },
-    "pass2_adjusted": {
-     "strength_mean": 0.3750000000000001,
-     "strength_std": 0.15,
-     "exists_probability": 0.9
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 0.6666666666666666,
-    "distance_to_goal": 1,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": []
-   }
-  },
-  {
-   "from": "403dbe7e",
-   "to": "0bcb0dd7",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "403dbe7e",
-   "to": "3950c67d",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "4118bf8f",
-   "to": "f4ab20b2",
-   "strength": {
-    "mean": 0.85,
-    "std": 0.20399999999999996
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "contested",
-    "contested_reasons": [
-     "strength_band_change"
-    ],
-    "pass1": {
-     "strength_mean": 0.85,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": 0.47368421052631576,
-     "strength_std": 0.05,
-     "exists_probability": 0.99,
-     "reasoning": "Once the pre-seed round is closed, the goal of securing funds within two months is met by definition.",
-     "basis": "structural_inference",
-     "needs_user_input": false,
-     "lint_corrected": true
-    },
-    "pass2_adjusted": {
-     "strength_mean": 0.4486842105263158,
-     "strength_std": 0.05,
-     "exists_probability": 0.99
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 1,
-    "distance_to_goal": 0,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": [
-     {
-      "code": "LINT_BUDGET_RESCALE",
-      "edge_key": "4118bf8f->f4ab20b2",
-      "before": 0.9,
-      "after": 0.47368421052631576
-     }
-    ]
-   }
-  },
-  {
-   "from": "4170996e",
-   "to": "0bcb0dd7",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "4170996e",
-   "to": "3950c67d",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "4170996e",
-   "to": "812bb192",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "41f060df",
-   "to": "0bcb0dd7",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "41f060df",
-   "to": "3950c67d",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "41f060df",
-   "to": "812bb192",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "4c47c344",
-   "to": "403dbe7e",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Decision-to-option scaffold minted by the projector"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "default"
-  },
-  {
-   "from": "4c47c344",
-   "to": "4170996e",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Decision-to-option scaffold minted by the projector"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "default"
-  },
-  {
-   "from": "4c47c344",
-   "to": "41f060df",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Decision-to-option scaffold minted by the projector"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "default"
-  },
-  {
-   "from": "4c47c344",
-   "to": "f892b18c",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Decision-to-option scaffold minted by the projector"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "default"
-  },
-  {
-   "from": "812bb192",
-   "to": "bd4b2c9f",
-   "strength": {
-    "mean": 0.5,
-    "std": 0.11999999999999998
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "contested",
-    "contested_reasons": [
-     "strength_band_change"
-    ],
-    "pass1": {
-     "strength_mean": 0.5,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": 0.7,
-     "strength_std": 0.15,
-     "exists_probability": 0.9,
-     "reasoning": "Higher dilution levels are often seen as an unfavorable term by founders, increasing that risk.",
-     "basis": "domain_prior",
-     "needs_user_input": true,
-     "lint_corrected": false
-    },
-    "pass2_adjusted": {
-     "strength_mean": 0.675,
-     "strength_std": 0.15,
-     "exists_probability": 0.9
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 0.6666666666666666,
-    "distance_to_goal": 1,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": []
-   }
-  },
-  {
-   "from": "86a9276f",
-   "to": "f4ab20b2",
-   "strength": {
-    "mean": -0.75,
-    "std": 0.17999999999999997
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "negative",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "contested",
-    "contested_reasons": [
-     "strength_band_change"
-    ],
-    "pass1": {
-     "strength_mean": -0.75,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": -0.42105263157894735,
-     "strength_std": 0.1,
-     "exists_probability": 0.9,
-     "reasoning": "Missing the fundraising timeline directly undermines the goal of securing funds within two months.",
-     "basis": "domain_prior",
-     "needs_user_input": false,
-     "lint_corrected": true
-    },
-    "pass2_adjusted": {
-     "strength_mean": -0.44605263157894726,
-     "strength_std": 0.1,
-     "exists_probability": 0.9
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 0.6666666666666666,
-    "distance_to_goal": 0,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": [
-     {
-      "code": "LINT_BUDGET_RESCALE",
-      "edge_key": "86a9276f->f4ab20b2",
-      "before": -0.8,
-      "after": -0.42105263157894735
-     }
-    ]
-   }
-  },
-  {
-   "from": "bd4b2c9f",
-   "to": "f4ab20b2",
-   "strength": {
-    "mean": -0.35,
-    "std": 0.08399999999999998
-   },
-   "exists_probability": 0.8,
-   "effect_direction": "negative",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai",
-   "validation": {
-    "status": "contested",
-    "contested_reasons": [
-     "strength_band_change"
-    ],
-    "pass1": {
-     "strength_mean": -0.35,
-     "strength_std": 0,
-     "exists_probability": 0
-    },
-    "pass2": {
-     "strength_mean": -0.10526315789473684,
-     "strength_std": 0.15,
-     "exists_probability": 0.4,
-     "reasoning": "Unfavorable term risks may slightly threaten timely funding but the effect is speculative.",
-     "basis": "weak_guess",
-     "needs_user_input": true,
-     "lint_corrected": true
-    },
-    "pass2_adjusted": {
-     "strength_mean": -0.13026315789473678,
-     "strength_std": 0.15,
-     "exists_probability": 0.4
-    },
-    "bias_correction": {
-     "strength_mean_offset": -0.02499999999999994,
-     "strength_std_offset": 0,
-     "exists_probability_offset": 0
-    },
-    "max_divergence": 0.4394736842105264,
-    "distance_to_goal": 0,
-    "sign_unstable": false,
-    "pass1_missing": false,
-    "pass2_missing": false,
-    "evoi_rank": null,
-    "evoi_impact": null,
-    "was_shown": false,
-    "user_action": "pending",
-    "resolved_value": null,
-    "resolved_by": "default",
-    "validation_lint_log": [
-     {
-      "code": "LINT_BUDGET_RESCALE",
-      "edge_key": "bd4b2c9f->f4ab20b2",
-      "before": -0.2,
-      "after": -0.10526315789473684
-     },
-     {
-      "code": "LINT_STD_CLAMPED",
-      "edge_key": "bd4b2c9f->f4ab20b2",
-      "before": 0.2,
-      "after": 0.08421052631578947
-     },
-     {
-      "code": "LINT_STD_FLOORED_WEAK_GUESS",
-      "edge_key": "bd4b2c9f->f4ab20b2",
-      "before": 0.08421052631578947,
-      "after": 0.15
-     }
-    ]
-   }
-  },
-  {
-   "from": "f892b18c",
-   "to": "0bcb0dd7",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "f892b18c",
-   "to": "3950c67d",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  },
-  {
-   "from": "f892b18c",
-   "to": "812bb192",
-   "strength": {
-    "mean": 1,
-    "std": 0.01
-   },
-   "exists_probability": 1,
-   "effect_direction": "positive",
-   "provenance": {
-    "source": "cee_hypothesis",
-    "reasoning": "Model-inferred causal link (records projector)"
-   },
-   "provenance_display": "ai_inferred",
-   "origin": "ai"
-  }
- ]
+  ]
 }

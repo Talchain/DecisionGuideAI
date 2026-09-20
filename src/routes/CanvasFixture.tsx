@@ -35,14 +35,43 @@
  * router's shape, the other about this surface — a route table is edited by
  * people who are not thinking about this file.
  *
- * ⛔ IT NEVER WRITES. `skipAutosave` and `skipHistory` are both set, so a
- * fixture can never reach a real scenario's persisted state. That is the one
- * hazard a seeded route carries and it is closed by construction, not by
- * convention.
+ * ⛔⛔ IT MUST NOT WRITE — AND THE FIRST VERSION OF THIS FILE CLAIMED THAT ON A
+ * FALSE PREMISE. It said *"`skipAutosave` and `skipHistory` are both set, so a
+ * fixture can never reach a real scenario's persisted state… closed by
+ * construction, not by convention."* An independent review refuted it and was
+ * right. `skipAutosave` is an argument to `applyDraftResult` ALONE — it
+ * suppresses one immediate write. `ReactFlowGraph:1293` then mounts
+ * `useAutosave()` with NO arguments, and its 30-second timer plus
+ * `pagehide`/`beforeunload` flush stamp the payload with `currentScenarioId`.
+ * A user who opened a real board and then came here could have this demo graph
+ * written into their own crash-recovery slot. That is data loss, and the
+ * docblock asserting it could not happen is exactly why nobody looked.
+ *
+ * ⭐ WHAT ACTUALLY CLOSES IT, in three parts, each with its own proof:
+ *
+ *  1. **Storage is suspended for the mounted lifetime** — at `Storage.prototype`,
+ *     so all 15 `saveAutosave` call sites and the other 70-odd storage writers in
+ *     `src/` are covered without a list anyone has to maintain. See
+ *     `persist/persistenceSuspension.ts`.
+ *  2. **The network path is closed by a DIFFERENT mechanism** —
+ *     `currentScenarioId` is cleared, which is the condition
+ *     `useServerGraphHydration:58` early-returns on. Named apart from (1)
+ *     deliberately: they answer different questions and must not be read as one
+ *     guarantee (trap 21).
+ *  3. **The user's model is restored on exit** — graph and scenario id are
+ *     snapshotted before the fixture is applied and put back on unmount, so
+ *     navigating away in the same SPA session does not leave the demo in place.
+ *
+ * ⚠ ORDERING IS LOAD-BEARING. React runs a CHILD's effects before its parent's,
+ * so suspending in this component's effect would fire AFTER `useAutosave`'s. The
+ * canvas is therefore not rendered at all until the suspension is installed —
+ * `CanvasMVP` is absent from the tree, not merely inert.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { applyDraftResult } from '../canvas/utils/applyDraftResult'
+import { useCanvasStore } from '../canvas/store'
+import { suspendPersistence, persistenceRefusals } from '../canvas/persist/persistenceSuspension'
 import CanvasMVP from './CanvasMVP'
 import realDraftFundraising from '../canvas/__fixtures__/realDraft.fundraising.json'
 
@@ -55,7 +84,7 @@ import realDraftFundraising from '../canvas/__fixtures__/realDraft.fundraising.j
  */
 const FIXTURES: Record<string, { label: string; graph: unknown }> = {
   fundraising: {
-    label: "Fundraising — the founder's board, 19 Sep 2026 (13 nodes, 23 edges)",
+    label: 'A real CEE draft, 19 Sep 2026 — labels sanitised (13 nodes, 23 edges)',
     graph: realDraftFundraising,
   },
 }
@@ -64,6 +93,11 @@ export default function CanvasFixture(): JSX.Element {
   const { name } = useParams<{ name: string }>()
   const [applied, setApplied] = useState<{ nodeCount: number; edgeCount: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // ⛔ THE CANVAS DOES NOT RENDER UNTIL THIS IS TRUE. See the ordering note in
+  // the docblock: a child's effects run before its parent's, so gating the
+  // MOUNT is the only way to get the suspension in first.
+  const [isolated, setIsolated] = useState(false)
+  const [refused, setRefused] = useState(0)
 
   const fixture = useMemo(() => (name ? FIXTURES[name] : undefined), [name])
 
@@ -74,6 +108,24 @@ export default function CanvasFixture(): JSX.Element {
 
   useEffect(() => {
     if (blockedInProduction || !fixture) return
+
+    // (1) STORAGE. Installed before anything else touches the store, and before
+    // the canvas exists in the tree at all.
+    const resumePersistence = suspendPersistence('canvas fixture')
+
+    // (3) THE USER'S MODEL. Snapshotted BEFORE the fixture is applied.
+    const before = useCanvasStore.getState()
+    const restoreModel = {
+      nodes: before.nodes,
+      edges: before.edges,
+      currentScenarioId: before.currentScenarioId,
+    }
+
+    // (2) NETWORK. `useServerGraphHydration:58` returns immediately on a null
+    // scenario id, so clearing it is what stops this route reaching the server —
+    // and it also means nothing downstream has a real scenario to stamp.
+    useCanvasStore.setState({ currentScenarioId: null })
+
     try {
       // ⚠ THE REAL INGEST PATH, DELIBERATELY. Seeding the store directly would
       // bypass `mapDraftNodeToCanvas`/`mapDraftEdgeToCanvas` — the very
@@ -87,6 +139,20 @@ export default function CanvasFixture(): JSX.Element {
       }
     } catch (err) {
       setError(String(err))
+    }
+
+    setIsolated(true)
+
+    // The banner shows this so the isolation is VISIBLE. A fixture session that
+    // reports zero refusals once the autosave timer has run is telling you the
+    // guard is not installed — not that the canvas is quiet (trap 13).
+    const meter = setInterval(() => setRefused(persistenceRefusals().length), 1000)
+
+    return () => {
+      clearInterval(meter)
+      useCanvasStore.setState(restoreModel)
+      resumePersistence()
+      setIsolated(false)
     }
   }, [fixture, blockedInProduction])
 
@@ -125,9 +191,10 @@ export default function CanvasFixture(): JSX.Element {
       >
         FIXTURE — {fixture.label}
         {applied ? ` · applied ${applied.nodeCount} nodes / ${applied.edgeCount} edges` : ' · applying…'}
+        {` · storage suspended, ${refused} write${refused === 1 ? '' : 's'} refused`}
         {error ? ` · ⛔ ${error}` : ''}
       </div>
-      <CanvasMVP />
+      {isolated ? <CanvasMVP /> : <div style={{ padding: 24 }} data-testid="canvas-fixture-isolating">Isolating this session…</div>}
     </div>
   )
 }

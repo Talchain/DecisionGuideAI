@@ -42,8 +42,35 @@ describe('the committed draft fixture is a real, mappable CEE graph', () => {
   it('⛔ it carries its own provenance, so nobody can mistake it for hand-written', () => {
     const meta = (fixture as { _provenance?: Record<string, unknown> })._provenance
     expect(meta, 'the fixture lost its provenance block').toBeTruthy()
-    expect(String(meta!.source)).toMatch(/olumi-debug/)
-    expect(meta!.client_build).toBeTruthy()
+    expect(meta!.client_build, 'the capture lost the build it came from').toBeTruthy()
+    expect(meta!.captured_at).toBeTruthy()
+  })
+
+  it('⛔⛔ THE LABELS ARE SANITISED — a route flag is not access control', () => {
+    // This file is statically imported into a lazily-loaded chunk. Anyone who
+    // knows the chunk's URL can fetch it: no auth, no flag evaluation. The
+    // capture came off a real board, so its labels and quoted user text were
+    // real business strategy until they were replaced.
+    const raw = JSON.stringify(fixture)
+    for (const term of ['fundrais', 'investor', 'angel', 'pre-seed', 'dilution']) {
+      expect(
+        raw.toLowerCase().includes(term),
+        `the fixture carries "${term}" — private capture text has come back into a public chunk`,
+      ).toBe(false)
+    }
+    // CONTRAST, in the same assertion block: the PRODUCER's own boilerplate is
+    // still here. Both readings matter — the first alone would also pass on an
+    // empty file (CLAUDE.md trap 13e).
+    expect(raw).toMatch(/Olumi estimate via edge/)
+    expect((fixture as { _provenance: Record<string, unknown> })._provenance.sanitised).toBeTruthy()
+  })
+
+  it('⛔ the long-sentence label survives sanitisation — that shape is the evidence', () => {
+    // A factor/option whose name is a whole sentence is a rendering case this
+    // lane has a live PR about. Replacing it with a tidy short label would have
+    // quietly removed the thing the fixture is for.
+    const longest = Math.max(...(fixture as { nodes: Array<{ label: string }> }).nodes.map(n => n.label.length))
+    expect(longest, 'the sanitised fixture lost its long-sentence label').toBeGreaterThan(40)
   })
 
   it('⛔ REAL EDGES, not a star — the layout is only exercised by real topology', () => {
