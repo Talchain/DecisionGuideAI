@@ -302,6 +302,50 @@ export function methodForRecommendation(
 }
 
 /**
+ * ⭐⭐ WHICH METHODS THIS RUN ACTUALLY RAISED — derived, never judged again.
+ *
+ * The shelf's own subtitle states the defect it was shipped with: *"whether or
+ * not this run raised them."* Seven equal chips in the panel's first screen,
+ * unconditioned by the model in front of the reader, while the genuinely
+ * run-specific coaching sits four sections further down. A reference list in
+ * the prime slot is not coaching.
+ *
+ * ⛔ AND THE FIX IS NOT A RANKING. Nothing on the wire orders these seven, so
+ * any ordering this surface invented would be a UI claim dressed as a finding —
+ * the same defect as re-sorting incommensurable driver metrics. This GROUPS,
+ * and the grouping is a membership test with an existing owner:
+ * `methodForRecommendation` already decides whether a finding and a technique
+ * are the SAME MOVE, and its own header records why that map is deliberately
+ * short ("attaching one by rough resemblance would put a fabricated scientific
+ * label on screen"). This asks that question and nothing else.
+ *
+ * ⚠ SO THE GAPS ARE INHERITED, ON PURPOSE. Three of the eight recommendation
+ * builders map to a method, so a run typically raises a handful and often none.
+ * An empty result is the honest answer and the caller renders exactly today's
+ * flat shelf for it — never a "Raised by this run" heading over nothing, which
+ * is the orphaned-heading shape `MethodsYouCanRun` already guards against.
+ *
+ * ⚠ ORDER IS THE CATALOGUE'S, NOT FIRST-ENCOUNTER ORDER. The caller partitions
+ * `METHOD_CATALOGUE` with this set, so both groups keep the catalogue's own
+ * sequence. Returning a `Set` rather than an array makes that structural: there
+ * is no order here to leak into the UI.
+ */
+export function methodIdsRaisedBy(
+  recommendations: readonly {
+    id: string
+    signalCode?: string
+    biasCode?: string
+  }[],
+): ReadonlySet<string> {
+  const raised = new Set<string>()
+  for (const rec of recommendations) {
+    const method = methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)
+    if (method !== null) raised.add(method.id)
+  }
+  return raised
+}
+
+/**
  * Exposed for the drift guard: every method id above must exist in the
  * catalogue. A rename in `actionsCatalogue.ts` would otherwise silently reduce
  * this module to returning `null` for everything — the failure would be a
