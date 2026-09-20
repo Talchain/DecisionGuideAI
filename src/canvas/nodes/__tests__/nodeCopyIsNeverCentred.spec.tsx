@@ -136,6 +136,7 @@ import { GhostTierNode } from '../GhostTierNode'
 import { GhostOptionNode } from '../GhostOptionNode'
 import { DecisionNode } from '../DecisionNode'
 import { BaseNode } from '../BaseNode'
+import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
 
 // ---------------------------------------------------------------------------
 // The walker
@@ -333,9 +334,37 @@ describe('the five walked components render no centred copy (see header: 9 of 14
       </BaseNode>,
     )
     expect(container.textContent).toContain('Developer headcount')
-    // The `#2` rank badge is mounted by the mocked metadata above, so the
-    // declared-glyph exemption is EXERCISED here rather than assumed.
-    expect(container.textContent).toContain('#2')
+    /**
+     * ⭐⭐ REPAIRED, AND THE REPAIR INVERTS WHAT THIS ARM PROVES.
+     *
+     * It read `toContain('#2')` and said the rank badge "EXERCISES the
+     * declared-glyph exemption". Both were true: the badge rendered a bare
+     * `#2`, centred, under `data-node-glyph`.
+     *
+     * ⛔ A bare `#2` in a card header reads as a PLACING. The rank means most
+     * SENSITIVE — on a factor card, usually the thing the team knows least
+     * about — so the glyph asserted the opposite of its meaning. The badge now
+     * renders `Key driver 2`.
+     *
+     * ⭐ WHICH MEANS THE EXEMPTION IS SURRENDERED, NOT MOVED. A numeral is a
+     * glyph by construction; a NOUN is copy, and copy under `data-node-glyph`
+     * is an alignment exemption held open over exactly the thing this file
+     * guards. The badge dropped both the attribute and its `justify-center`,
+     * so the walker's clean verdict below is now a REAL result about this
+     * copy rather than a skip — which is a strictly stronger claim than the
+     * one this arm used to make.
+     *
+     * Asserted in three parts so a re-added exemption REDs here, rather than
+     * silently restoring the skip.
+     */
+    expect(container.textContent).toContain(sensitivityRankBadgeLabel(2))
+    expect(container.textContent, 'the badge is back to a bare numeral').not.toContain('#2')
+    const rankBadge = container.querySelector('[data-testid^="sensitivity-rank-"]')!
+    expect(rankBadge, 'the rank badge did not mount — this arm proves nothing').not.toBeNull()
+    expect(
+      isDeclaredGlyph(rankBadge, container),
+      'the rank badge carries copy AND a glyph exemption again',
+    ).toBe(false)
     const found = centredCopy(container)
     expect(found, `BaseNode centres copy:\n${report(found)}`).toEqual([])
   })

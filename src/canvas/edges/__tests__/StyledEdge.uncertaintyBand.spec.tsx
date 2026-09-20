@@ -105,7 +105,6 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 // make every width assertion below a statement about the mock.
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
-  existenceCertaintyToLineStyle: () => undefined,
   calculateEdgeImportance: () => 0.5,
 }))
 vi.mock('../../theme/edges', () => ({ applyEdgeVisualProps: (_: any, props: any) => props }))

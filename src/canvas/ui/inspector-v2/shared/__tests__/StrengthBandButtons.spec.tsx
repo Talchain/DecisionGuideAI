@@ -2,6 +2,13 @@
  * StrengthBandButtons unit tests (B.4)
  * Verifies: rendering, disclosed numeric consequence, click behaviour, active
  * state detection, sign preservation.
+ *
+ * ⚠ THE "DISCLOSED NUMERIC CONSEQUENCE" IS NOW ASSERTED ON THE `title` AND
+ * `aria-label`, NOT ON THE FACE (19 Sep 2026). It is still asserted, in both
+ * channels and exactly — see `StrengthBandButtons.disclosure.spec.tsx`, which
+ * pins the whole property and states why the figure is NOT gated on `techMode`.
+ * Nothing about the value these buttons WRITE changed; the write assertions
+ * below are byte-unchanged and passed before and after.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
@@ -12,10 +19,17 @@ describe('StrengthBandButtons', () => {
     const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
     const buttons = container.querySelectorAll('button')
     expect(buttons).toHaveLength(4)
-    expect(buttons[0].textContent).toBe('Slight0.10')
-    expect(buttons[1].textContent).toBe('Moderate0.30')
-    expect(buttons[2].textContent).toBe('Strong0.55')
-    expect(buttons[3].textContent).toBe('Very strong0.85')
+    // The FACE carries the word only.
+    expect(buttons[0].textContent).toBe('Slight')
+    expect(buttons[1].textContent).toBe('Moderate')
+    expect(buttons[2].textContent).toBe('Strong')
+    expect(buttons[3].textContent).toBe('Very strong')
+    // The FIGURE is still disclosed, exactly, in both channels — the same
+    // information this test used to read off the face, not less of it.
+    expect(buttons[0].getAttribute('title')).toBe('Slight: set strength to 0.10')
+    expect(buttons[1].getAttribute('title')).toBe('Moderate: set strength to 0.30')
+    expect(buttons[2].getAttribute('title')).toBe('Strong: set strength to 0.55')
+    expect(buttons[3].getAttribute('title')).toBe('Very strong: set strength to 0.85')
     expect(buttons[2].getAttribute('aria-label')).toBe('Strong: set strength to 0.55')
   })
 

@@ -25,7 +25,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import {
-  decisionWithLeaderWithheld,
+  decisionWithLeaderWithheldAndReason,
   genuineDecision,
   highUncertainty,
   makeData,
@@ -150,7 +150,7 @@ describe('F · the three scenario classes (§24F)', () => {
     // unchanged: the leader is named here, and not restated below.
     renderBody(genuineDecision())
     openGroups()
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
     expect(screen.getByTestId('analysis-new-key-insights').textContent).not.toContain(
       'currently scores higher',
     )
@@ -187,7 +187,14 @@ describe('F · the three scenario classes (§24F)', () => {
    */
   it('LEADER WITHHELD — the same fixture with one boolean flipped says nothing about a leader', () => {
     // The discriminating twin of the case above.
-    renderBody(decisionWithLeaderWithheld())
+    //
+    // ⚠ THE FIXTURE CARRIES THE PRODUCER'S REFUSAL MESSAGE. Without it
+    // `designationWithheldReason` is null, the glance has nothing to render,
+    // and this arm was asserting about a labelled landmark with no content in
+    // it. With the message the glance renders its withheld sentence, so the
+    // claim "the name appears nowhere outside the comparison" is checked
+    // against a glance that actually has words in it.
+    renderBody(decisionWithLeaderWithheldAndReason())
     const body = screen.getByTestId('analysis-new-tab-body')
     expect(body.textContent).not.toContain('currently scores higher')
 
@@ -304,7 +311,7 @@ describe('staleness contextualises without dominating (§20)', () => {
     )
     // One line, not a banner stack: the read is still on screen.
     expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-glance-headline')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
   })
 })
 

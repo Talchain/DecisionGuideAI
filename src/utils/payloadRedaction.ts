@@ -61,7 +61,40 @@ const DEFAULT_OPTIONS: Required<RedactionOptions> = {
   maxDepth: 3,
   sensitiveKeys: ['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization'],
   // Keys that match sensitiveKeys patterns but are safe (e.g., LLM token metrics)
-  safeKeys: ['token_usage', 'prompt_tokens', 'completion_tokens', 'total_tokens'],
+  //
+  // ⭐⭐ THIS LIST WAS WRITTEN AGAINST ONE PROVIDER'S FIELD NAMES AND THE
+  // PRODUCER EMITS ANOTHER'S. The four original entries (`prompt_tokens`,
+  // `completion_tokens`, `total_tokens`) are OpenAI's vocabulary. CEE's
+  // `_diagnostic_trace.llm_calls[]` emits ANTHROPIC's — `input_tokens`,
+  // `output_tokens`, `cache_read_tokens`, `cache_creation_tokens` — so every
+  // one of them was caught by the `token` substring in `sensitiveKeys` and
+  // written out as `[REDACTED]`.
+  //
+  // MEASURED on a real support bundle (2026-09-18): all four appear in
+  // `debug_redaction_manifest.redacted` with `reason: "sensitive_key"`. The
+  // effect is that a debug bundle cannot answer how large a turn's context was,
+  // whether prompt caching is working, or whether a prompt change grew or shrank
+  // the request — which is what those bundles are collected to answer.
+  //
+  // ⚠ DELIBERATELY NAMES, NOT A PATTERN. A `*_tokens` suffix rule would be
+  // tidier and is the wrong trade in a redactor: it would also un-redact a key
+  // like `refresh_tokens`, and the cost of being wrong here is a leaked
+  // credential rather than a missing metric. The completeness problem is solved
+  // by the DRIFT TEST beside this file instead, which fails when the producer
+  // emits a count key this list does not name — so the list stays explicit and
+  // its staleness becomes loud rather than silent.
+  safeKeys: [
+    'token_usage',
+    // OpenAI vocabulary
+    'prompt_tokens',
+    'completion_tokens',
+    'total_tokens',
+    // Anthropic vocabulary — what CEE actually emits
+    'input_tokens',
+    'output_tokens',
+    'cache_read_tokens',
+    'cache_creation_tokens',
+  ],
   fieldArrayLimits: {
     // Diagnostic-critical fields with same limit as default
     option_comparison: 30,

@@ -170,7 +170,160 @@ export interface Edge {
  * rather than only through a filesystem walk where an alias bug looks exactly
  * like a file that legitimately was not reached.
  */
-export function parseEdges(src: string): Edge[] {
+/**
+ * ⭐⭐ COMMENTS ARE NOT CODE — AND THIS WALKER READ THEM AS CODE FOR THE WHOLE
+ * TIME IT HAS EXISTED.
+ *
+ * `parseEdges` is a regex over raw source. A docblock that WRITES OUT an import
+ * as prose — `lib/staleBuildRecovery.ts:222` carries the line
+ * `` `import('../routes/CanvasMVP')` `` explaining what React.lazy waits for —
+ * matched the dynamic-import arm and became a real edge in the closure.
+ *
+ * ⚠ MEASURED, not inferred. That ONE comment pulled
+ * `routes/CanvasMVP` → `canvas/ReactFlowGraph` → `canvas/components/OutputsDock`
+ * → `components/results/ResultsBody` into the Reasoning tab's swept corpus, and
+ * with it `OptionCards`, `TriageActionCardsBody`, `analysis-hero/heroCopy` and
+ * eleven more — 15 failing assertions, including the CONTRAST CONTROL that
+ * exists to prove the walk is not "everything under results/". The scope guard's
+ * own discriminator was defeated by a sentence in a comment.
+ *
+ * ⚠⚠ AND IT FIRED ON AN UNRELATED PR. `#1766` changed one import specifier in
+ * `handleLayoutWithRecovery.ts` so that a module carrying that comment entered
+ * the graph. Nothing about the change touched copy, the Reasoning tab, or any
+ * file this guard sweeps. **A guard that reds on prose teaches authors to
+ * disable it** (trap 7 — a broken alarm), and it cost a real deploy a cycle.
+ *
+ * ⛔ WHY A SCANNER AND NOT A REGEX. Stripping `//`…EOL and `/*`…`*\/` with a
+ * regex corrupts string literals that contain them, and this tree has 857 real
+ * dynamic imports to keep. The scanner tracks string state (`'`, `"`, and
+ * template literals) so a `//` inside a quoted path is preserved and a `'` inside
+ * a comment cannot open a phantom string.
+ *
+ * ⚠⚠ REGEX LITERALS ARE TRACKED, AND THE FIRST VERSION OF THIS DID NOT TRACK
+ * THEM. I shipped it with a note calling the gap exotic — *"`/[//]/`, an
+ * unescaped slash pair inside a character class"* — and reasoned that dropping
+ * an edge was the safe direction. **Both halves were wrong**, and an
+ * independent review found the real case, which is ordinary:
+ *
+ *     const url = /^https?:\/\//; import { A } from '../real-tail'
+ *
+ * That regex ENDS in `\/` `\/` `/`. The scanner saw `//` and read a line
+ * comment, so it returned `const url = /^https?:\/\` and **dropped the live
+ * import entirely** — proven by execution before the fix: `parseEdges` returned
+ * `[]`. A URL regex is not exotic; it is the commonest regex in a web codebase.
+ *
+ * ⛔ AND "DROPPING IS THE SAFE DIRECTION" WAS THE WORSE ERROR. A dropped edge
+ * SHRINKS the closure silently. The aggregate controls — `length > 40`, the
+ * historically-swept positive list, the copy-count floor — all still pass while
+ * an entire subtree goes unswept, because they measure the corpus as a whole and
+ * cannot see one missing branch. The same blindness reaches the stale-build
+ * singleton guard, which would stop seeing a duplicate detector declared after a
+ * regex on the same line. **A guard that quietly narrows its own scope is worse
+ * than one that fails loudly, and I had the direction backwards.**
+ */
+/**
+ * Tokens after which a `/` is DIVISION, not the start of a regex literal.
+ *
+ * The classic JS lexer ambiguity, and the cheapest correct discriminator: a
+ * regex may only appear where an expression may START. After an identifier, a
+ * number, or a closing `)` `]` `}`, the slash divides. Everywhere else — after
+ * `=` `(` `,` `:` `;` `[` `!` `&` `|` `?` `{` `}` `+` `-` `*` `%` `<` `>` `~`
+ * `^` `return` and friends — it opens a pattern.
+ *
+ * ⚠ ERRING TOWARD "REGEX" IS THE SAFE SIDE HERE, and that is deliberate:
+ * mis-reading a division as a regex consumes to the next `/` on the line, which
+ * a following import would survive; mis-reading a regex as division re-exposes
+ * the `//` bug this function exists to fix.
+ */
+const DIVISION_PRECEDES = /[\w$)\]]/
+const EXPRESSION_KEYWORDS = new Set([
+  'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void',
+  'case', 'do', 'else', 'yield', 'await', 'throw',
+])
+
+function slashOpensRegex(out: string): boolean {
+  const trimmed = out.replace(/\s+$/, '')
+  if (trimmed.length === 0) return true
+  const last = trimmed[trimmed.length - 1]!
+  if (!DIVISION_PRECEDES.test(last)) return true
+  // An identifier-looking tail may still be a keyword, after which a regex is
+  // legal (`return /x/.test(s)`).
+  const word = /[\w$]+$/.exec(trimmed)
+  return word !== null && EXPRESSION_KEYWORDS.has(word[0])
+}
+
+export function stripCommentsPreservingStrings(src: string): string {
+  let out = ''
+  let i = 0
+  const n = src.length
+  while (i < n) {
+    const c = src[i]!
+    const d = src[i + 1]
+    if (c === '/' && d === '/') {
+      while (i < n && src[i] !== '\n') i++
+      continue
+    }
+    // A regex literal, consumed WHOLE so its inner slashes cannot be read as
+    // comment openers. `[...]` is tracked because a `/` inside a character
+    // class does not close the pattern.
+    if (c === '/' && d !== '*' && slashOpensRegex(out)) {
+      out += c
+      i++
+      let inClass = false
+      while (i < n) {
+        const r = src[i]!
+        out += r
+        i++
+        if (r === '\\') {
+          if (i < n) { out += src[i]!; i++ }
+          continue
+        }
+        if (r === '[') inClass = true
+        else if (r === ']') inClass = false
+        else if (r === '/' && !inClass) break
+        // An unterminated regex cannot span a newline — bail rather than eat
+        // the rest of the file.
+        else if (r === '\n') break
+      }
+      continue
+    }
+    if (c === '/' && d === '*') {
+      i += 2
+      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) {
+        // Newlines are kept so line-anchored parts of the edge regex still see
+        // the same line structure they would in the original source.
+        if (src[i] === '\n') out += '\n'
+        i++
+      }
+      i += 2
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const quote = c
+      out += c
+      i++
+      while (i < n) {
+        const q = src[i]!
+        out += q
+        i++
+        if (q === '\\') {
+          if (i < n) { out += src[i]!; i++ }
+          continue
+        }
+        if (q === quote) break
+        // An unterminated single/double-quoted string cannot span a newline.
+        if (q === '\n' && quote !== '`') break
+      }
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+export function parseEdges(rawSrc: string): Edge[] {
+  const src = stripCommentsPreservingStrings(rawSrc)
   const re =
     /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?(?:([\s\S]*?)\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
   const out: Edge[] = []

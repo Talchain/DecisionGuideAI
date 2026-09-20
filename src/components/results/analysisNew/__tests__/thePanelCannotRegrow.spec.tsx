@@ -53,7 +53,36 @@ const CEILING: Record<string, number> = {
    * by name. Raising the ceiling to fit them would have recorded the panel
    * growing while the design brief asked it to shrink.
    */
-  genuineDecision: 3,
+  /*
+   * ⚠ RAISED 3 -> 4 ON 18 Sep 2026, AND THIS IS THE RAISE THIS FILE EXISTS TO
+   * MAKE SOMEBODY ARGUE. The docblock above says a raise "is a reviewer
+   * conversation"; here it is.
+   *
+   * WHAT CHANGED, derived rather than inferred: `topLevelBlockElements()`
+   * counts the content column's non-empty direct children. ZONE: FOCUS is one
+   * such child and its gate WAS `focusApplicableIds.length > 0`, which is false
+   * on all three fixtures — so the zone rendered on none of them. The gate is
+   * now `focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0`, and the
+   * catalogue is a module constant that is never empty, so ZONE: FOCUS now
+   * renders ALWAYS. Every fixture therefore gains EXACTLY ONE child, which is
+   * why all three ceilings move by exactly one and none by more.
+   *
+   * ⛔ WHY THIS IS NOT THE REGROWTH THE FILE FORBIDS — and the distinction is
+   * the whole point. The 17 Sep note above records the defect case: five labels
+   * added WITHOUT wrapping took the count 8 -> 13, and raising the ceiling then
+   * would have "recorded the panel growing while the design brief asked it to
+   * shrink". That was a LABEL bought at the cost of a block. This is a BLOCK
+   * that carries the seven science-grounded methods onto the first screen on
+   * Paul's explicit ruling ("make it first-screen — put it in ZONE: FOCUS"),
+   * replacing a dropdown nobody opens. The zone grammar is unchanged: still
+   * four zones, still one child each, no section outside a zone.
+   *
+   * ⚠ THE COST IS REAL AND I AM NOT HIDING IT. The panel measures 1,408px at
+   * rest and 4,164px expanded — 7.9 screens — and this adds to that. The honest
+   * trade is that the added block is the one section on the tab a person can
+   * act on without waiting for the producer to offer something.
+   */
+  genuineDecision: 4,
   /**
    * ⭐ LOWERED 5 -> 4 ON 17 Sep 2026, when the sensitivity section moved inside
    * the answer group (`everySectionBelongsToAZone`). The spec's own rule is
@@ -67,8 +96,14 @@ const CEILING: Record<string, number> = {
    * the same run against `origin/staging`'s copy of the body reports NO slack —
    * so the fall is this change's and not a fixture drifting underneath.
    */
-  highUncertainty: 4,
-  openStrategicChallenge: 3,
+  highUncertainty: 5,
+  /*
+   * ⚠ Both raised by exactly one on 18 Sep 2026, same cause as `genuineDecision`
+   * above — ZONE: FOCUS now renders unconditionally. Recorded per-key rather
+   * than as one shared note so that a future fall in ANY single fixture is
+   * still visible as slack by the sibling assertion below.
+   */
+  openStrategicChallenge: 4,
 }
 
 const FIXTURES: ReadonlyArray<[string, () => ResultsSectionDataReturn]> = [

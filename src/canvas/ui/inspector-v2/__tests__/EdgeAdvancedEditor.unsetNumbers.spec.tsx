@@ -120,8 +120,17 @@ function drawEdgeThroughProduct() {
 const edgeData = (): Record<string, unknown> =>
   (useCanvasStore.getState().edges.find(e => e.id === 'e1')?.data ?? {}) as Record<string, unknown>
 
+/**
+ * ⚠ `onSendSettled` IS REQUIRED, and it arrived on `staging` while this branch
+ * was open (the send-settlement channel). This spec is about the three numbers'
+ * PROVENANCE GATING, which no settlement can reach — so the callback is a
+ * deliberate no-op here rather than a spy: asserting on it would bind this file
+ * to a question it was not written to ask.
+ */
 const renderEditor = () =>
-  render(<EdgeAdvancedEditor edgeId="e1" linkKind="causal" />)
+  render(
+    <EdgeAdvancedEditor edgeId="e1" linkKind="causal" onSendSettled={() => {}} />,
+  )
 
 beforeEach(() => {
   useCanvasStore.setState(useCanvasStore.getState(), true)

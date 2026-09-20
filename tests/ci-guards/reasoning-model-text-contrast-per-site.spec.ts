@@ -271,11 +271,15 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
    * My first `--info-ink` value cleared the 6% tint and FAILED the 10% one; the
    * guard caught it, which is the whole point of a per-ground assertion.
    *
-   * ⛔ ICONS ARE DELIBERATELY NOT INCLUDED. `AtAGlance text-warning icon: 2` and
-   * `WhyNoAnalysisYet text-warning icon: 1` stay pinned. Ink would clear their
-   * 3:1 floor comfortably, but an icon's colour is its meaning and changing the
-   * signal hue of a warning glyph is a design judgement, not a contrast sweep —
-   * the same reasoning this file already applied to the `rounded-md` survivor.
+   * ⭐ AND THE ICONS ARE NOW INCLUDED TOO — Paul ruled on them, 18 Sep 2026.
+   * `AtAGlance text-warning icon: 2` and `WhyNoAnalysisYet text-warning icon: 1`
+   * are GONE. I had deferred them on the grounds that an icon's colour is its
+   * meaning, so changing the signal hue of a warning glyph is a design
+   * judgement rather than a contrast sweep. That was the right question to
+   * raise and the wrong one to sit on: they measured 1.92:1 against SC 1.4.11's
+   * 3:1 non-text floor, and `--warning-ink` is the SAME HUE, darker — a warning
+   * glyph still reads as a warning at 5.16:1. The judgement was Paul's to make
+   * and he made it.
    */
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-success text': 2,
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-warning text': 2,
@@ -288,7 +292,6 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
   'src/canvas/model-tab-v2/ModelRowView.tsx text-danger text': 1,
   'src/canvas/model-tab-v2/ModelRowView.tsx text-warning text': 1,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-success text': 1,
-  'src/components/results/analysisNew/sections/AtAGlance.tsx text-warning icon': 2,
   'src/components/results/analysisNew/sections/ModelHeldUp.tsx text-success icon': 1,
   /* ⭐ 1 -> 0, 18 Sep 2026. THE SURVIVOR IS REPAIRED, and the judgement it was
      owed is now cheap to make. The note above deferred it because it is a
@@ -299,7 +302,6 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
      site was one of the last two failures in the panel at 4.06:1. */
   'src/components/results/analysisNew/sections/WhatWeChecked.tsx text-danger text': 1,
   'src/components/results/analysisNew/sections/WhatWeChecked.tsx text-success text': 1,
-  'src/components/results/analysisNew/sections/WhyNoAnalysisYet.tsx text-warning icon': 1,
 }
 
 /** Every scannable source file under src/, for the coverage-honesty assertion. */

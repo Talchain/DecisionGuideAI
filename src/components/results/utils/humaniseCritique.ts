@@ -653,6 +653,65 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     suggestion: 'Connect the factors that drive your goal, or give the goal a range',
   }),
 
+  // ── The objective sense: WHAT "this option wins" MEANT on this run ──────
+  //
+  // Producer: ISL `services/robustness_analyzer_v2.py:4205` at `staging`
+  // c9ab543d93ef4fa3b760fe192dc36603bb05b41c. Fires whenever the request
+  // carried no `goal_direction` — i.e. on every run today, because no producer
+  // in the estate stamps that field yet (measured 2026-09-19 with contrast
+  // controls in the same sweep: `goal_direction` ZERO in this repo, ZERO in
+  // CEE `staging` 84abbb92 and ZERO in PLoT `staging` 350b0fb6, against
+  // `goal_threshold` 177 here and 76 in PLoT. The contract is `olumi-schemas`
+  // PR #48, open and CONFLICTING; the transport is PLoT PR #352, open).
+  //
+  // ISL's own model states what it means: `win_probability` has always been
+  // "the fraction of draws on which this option produced the largest goal-node
+  // value", while every surface renders it as "which option is best". Those
+  // are different sentences. `ObjectiveRanking.attested` is FALSE here, and
+  // ISL's field description is explicit that a surface presenting an unattested
+  // ranking as "the best option for your goal" is overstating what was
+  // computed.
+  //
+  // ⚠ THIS CODE POST-DATES THE AST WALK THAT BUILT THE MAP BELOW. That walk
+  // ran at ISL `staging` 28fe0c95 and the map's own header predicted this:
+  // "THIS IS A CROSS-REPO, CROSS-LANGUAGE MIRROR AND IT WILL DRIFT." It did.
+  // Until this template existed the sentence resolved to the generic fallback,
+  // measured on the Model card as the whole of what a reader saw:
+  //   "Inference warnings: Part of this analysis was limited
+  //    (GOAL_DIRECTION_UNATTESTED)"
+  //
+  // ⛔ NO SUGGESTION, AND THE OMISSION IS THE POINT. The producer's own remedy
+  // is "send goal_direction", which is an instruction to a CALLER, not to a
+  // reader — and this product offers no control, chat affordance or panel that
+  // records an objective sense. Telling the user to state their aim would be
+  // the same false prescription that was removed from
+  // `GOAL_THRESHOLD_NOT_CONVERTIBLE` above, one code over. It is pinned in that
+  // template's `NO_ROUTE_EXISTS` set, which asserts this copy prescribes
+  // nothing rather than merely permitting it.
+  //
+  // ⚠ TWO COPY RULINGS SHAPE THESE TWO SENTENCES, AND CI CAUGHT BOTH AFTER A
+  // FULLY GREEN FOCUSED RUN. `noEmDashesInRenderedCopy.spec.ts` (Paul,
+  // 10 Sep: "no em dashes in product content — it is where a hedge gets bolted
+  // on") and `noWinnerVocabulary.spec.ts` (8 Sep: say "scored highest in N% of
+  // runs", never a placing) both scan this file through the Reasoning tab's
+  // DERIVED import closure. The first draft used an em dash and the phrase
+  // "this option wins this draw"; both were flagged. The second ruling
+  // improves the copy rather than constraining it: "scored highest" is exactly
+  // what the maximiser did, with none of the contest reading.
+  //
+  // ⛔ AND IT NEVER NAMES A DIRECTION. Inferring "minimise" from a label like
+  // "churn" is exactly what the contract forbids (`GoalDirection`'s block in
+  // `olumi-schemas` PR #48: "PRODUCERS MUST NOT INFER THIS FROM A NODE
+  // LABEL"). A wrong inferred aim would be worse than the honest disclosure it
+  // replaced.
+  GOAL_DIRECTION_UNATTESTED: () => ({
+    title:
+      'Your options were ordered by which one produces the largest value at your goal. Nothing in this run said what the goal is for, so that ordering is this version\'s default rather than your aim. If the goal is a quantity to bring down, or one to land on a particular level, it answers a different question.',
+    description:
+      'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.',
+    // No suggestion — see the block above. There is no writer for this.
+  }),
+
   // ── Kind B (user-stated ranges): the closed RangeFitRefusalCode vocabulary ─
   // ⚠ THESE ARE NOT COMPUTE DEGRADATION, despite sitting beside it on the wire.
   // At `services/range_fit.py` each is a refusal of a range the USER stated,
@@ -788,7 +847,7 @@ export type InferenceWarningKind =
   | 'defaulting_notice'
 
 /**
- * The 26 ISL codes that reach this UI, classified.
+ * The 27 ISL codes that reach this UI, classified.
  *
  * ⚠ THIS IS A CROSS-REPO, CROSS-LANGUAGE MIRROR AND IT WILL DRIFT. ISL types
  * `code` as a bare `str` with no registry (a registry sweep over ISL reads
@@ -798,6 +857,28 @@ export type InferenceWarningKind =
  * (`STRENGTH_MEAN_CLAMPED`, `EXISTS_PROBABILITY_DEFAULT`) at `run.ts:3759`
  * because it requires a derivable message and those two carry only structured
  * numerics.
+ *
+ * ⚠⚠ RE-DERIVED 2026-09-19 AT ISL `staging`
+ * c9ab543d93ef4fa3b760fe192dc36603bb05b41c, BY THE SAME METHOD — AND THE
+ * MIRROR HAD DRIFTED, EXACTLY AS THE PARAGRAPH BELOW SAYS IT WOULD. The walk
+ * found two direct `InferenceWarning(...)` sites this map did not hold:
+ * `GOAL_DIRECTION_UNATTESTED` (`services/robustness_analyzer_v2.py:4205`) and
+ * `OBJECTIVE_RANKING_WITHHELD` (`:4239`). Both carry a `detail.message`, so
+ * PLoT forwards both (`run.ts:3967`) and both reach this UI's surfaces.
+ *
+ * `GOAL_DIRECTION_UNATTESTED` is classified below: it fires on EVERY run today
+ * and it fired on both of the 2026-09-19 founder sessions.
+ *
+ * ⛔ `OBJECTIVE_RANKING_WITHHELD` IS DELIBERATELY NOT CLASSIFIED YET, and the
+ * omission is a measurement rather than an oversight. ISL emits it ONLY on
+ * `goal_direction == "target"` (`:4232`), and its own comment records that
+ * this "today has zero live traffic (no producer sends the field yet)" —
+ * confirmed here: `goal_direction` reads ZERO in this repo, ZERO in CEE
+ * `staging` 84abbb92 and ZERO in PLoT `staging` 350b0fb6. Classifying it would
+ * be copy nobody can reach, unwitnessable at any rung, in a file where every
+ * template records the run it was derived from. It belongs with the producer
+ * train (`olumi-schemas` PR #48 + PLoT PR #352), which is where the argument
+ * for its wording can actually be tested.
  *
  * ⭐ SO THIS MAP IS NOT THE PROTECTION. A guard derived from it proves the map
  * and the templates agree; it can never prove the map is COMPLETE, and it is
@@ -824,6 +905,12 @@ export const ISL_INFERENCE_WARNING_KINDS: Readonly<Record<string, InferenceWarni
   CONSTRAINT_FRAME_UNSPECIFIED: 'model_shape',
   GOAL_ANCESTOR_DATA_GAP: 'model_shape',
   GOAL_NODE_ROOT_STATIC: 'model_shape',
+  // Added 2026-09-19: post-dates the 28fe0c95 AST walk (ISL
+  // `robustness_analyzer_v2.py:4205` at `staging` c9ab543d). `model_shape`
+  // because the limit is a fact about the request, not a compute failure —
+  // but it is in `NO_ROUTE_EXISTS`: the user CANNOT act, because nothing in
+  // the estate writes `goal_direction`.
+  GOAL_DIRECTION_UNATTESTED: 'model_shape',
   // Model shape — user-stated range refusals (compute is untouched)
   RANGE_OPEN_ENDED: 'model_shape',
   RANGE_INVALID_ORDER: 'model_shape',

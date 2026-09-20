@@ -94,7 +94,43 @@ export const CANONICAL_EDIT_AUTHORITY = {
   // assert a strength the user never stated. The user is told so —
   // `STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE`, via `topbar:show-toast`.
   canvasEdgeAddWithServerHash: 'server_graph',
-  priorRangeJudgement: 'disabled',
+  /**
+   * The external-factor prior RANGE — the quick-set buttons and the tech-mode
+   * Min/Max inputs in `FactorExternalPanel`.
+   *
+   * ⭐ `'server_fact'`, AND IT IS THE FIRST KEY TO USE THAT VALUE. It was
+   * `'disabled'`, which lumped this control in with `modelFactorConfirmation`
+   * and the rest of the carrier-less set. They are not the same state, and
+   * that is trap 21 in its quietest form: one name over two facts.
+   *   · `modelFactorConfirmation` reaches NOTHING that survives a server
+   *     rehydrate. There is no event to send.
+   *   · This control reaches `prior_range_edit` — a real contract member
+   *     (`turn-payload.d.ts`, vendored 0.55.0), adapted at
+   *     `v5/buildPayload.ts` `adaptPriorRangeEdit`, emitted at
+   *     `ui/inspector-v2/useInspectorMutations.ts` `setPriorRange`, which CEE
+   *     handles `'fact_and_commit'`: a typed turn fact the prior-facts loader
+   *     reads back. Durable and server-authoritative.
+   *
+   * ⛔⛔ AND IT IS NOT `'server_graph'`, WHICH IS THE WHOLE POINT OF THE VALUE.
+   * `prior_range_edit` writes NO graph. The range never reaches
+   * `scenarios.graph`, so it is not what this file means by a shared-model
+   * edit, and the `hasServerGraphAuthority` predicate below must keep reading
+   * FALSE for it. Flipping this key to `'server_graph'` would license the
+   * control to present itself as a saved shared-model edit, which is exactly
+   * the false promise the table exists to prevent.
+   *
+   * ⚠ THE FLIP CHANGES NO BEHAVIOUR, AND SAYING SO IS PART OF THE CHANGE.
+   * Swept 2026-09-18 with contrast controls: `priorRangeJudgement` has ZERO
+   * code consumers outside this file and its spec (contrast
+   * `canvasNodeAddWithServerHash`: 20 references and four live consumers), and
+   * `'server_fact'` had ZERO consumers of its own (contrast
+   * `'local_presentation'`: 4). Per this file's header that is UNENFORCED
+   * POLICY, not dead policy. What this flip buys is an honest ROW; the
+   * user-visible correction that rode with it is
+   * `INSPECTOR_FACTOR_EXTERNAL_REASON`, which was telling the reader the range
+   * "saves to the shared model" when no graph write exists.
+   */
+  priorRangeJudgement: 'server_fact',
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'server_graph',
   modelFactorConfirmation: 'disabled',

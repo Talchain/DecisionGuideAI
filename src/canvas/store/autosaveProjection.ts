@@ -49,6 +49,7 @@
  */
 
 import type { AutosaveData, PersistedAnalysis } from './scenarios'
+import { isSyntheticRestoreId } from './runIdentityPlaceholder'
 
 /**
  * What a caller must state in order to write an autosave.
@@ -174,7 +175,17 @@ export function analysisSnapshotFromStore(
     hash: r.hash,
     computedAt: new Date(r.finishedAt ?? Date.now()).toISOString(),
     resultsSource: r.resultsSource,
-    runId: r.runId,
+    // ⛔ A PLACEHOLDER IS NOT AN IDENTITY. `restoreAnalysisFromAutosave` mints
+    // `restored:<hash>` so the RESTORED run has something to be keyed by
+    // in-session; persisting that back writes it into the record as if it were
+    // the run's id, and the next reopen re-stamps it while `hash` moves on.
+    // Measured on deployed `ed9635cc`: one record carrying
+    // `runId: "restored:v5:1b52…"` beside `hash: "v5:4d59…"` — two identity
+    // fields naming different runs.
+    //
+    // ⚠ ASKED OF THE MINTING MODULE, never matched against a literal here. The
+    // prefix has one owner; a second spelling of it is the mirror (trap 12).
+    runId: isSyntheticRestoreId(r.runId) ? undefined : r.runId,
     seed: r.seed,
     drivers: r.drivers,
     report: r.report as PersistedAnalysis['report'],

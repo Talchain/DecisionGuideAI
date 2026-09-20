@@ -60,6 +60,28 @@ import { useEdgeMutations } from '../useInspectorMutations'
 import { useCanvasStore } from '../../../store'
 import { mapDraftEdgeToCanvas } from '../../../utils/applyDraftResult'
 
+/**
+ * ⛔ `onSendSettled` IS REQUIRED, AND THESE CALLS ARE WHY THAT IS WORTH THE CHURN.
+ *
+ * `setStrength` used to accept a bare `setStrength(v)`, and four product carriers
+ * took that form and swallowed every settlement — including the server saying no.
+ * Making the option required is what found the fourth one (`EdgeAdvancedEditor`'s
+ * β field); a grep had missed it three times.
+ *
+ * ⚠ These specs are the OTHER half of that lesson. I checked every PRODUCT caller
+ * before making it required and did not check the SPECS — and the repo's named
+ * local gate is blind to test files by config (`tsconfig.build.json` excludes
+ * them), so only the separate CI typecheck drift job could see it. CLAUDE.md
+ * trap 2's refinement, exactly.
+ *
+ * `noSettlementExpectedHere` is deliberately NAMED rather than an inline
+ * `() => {}`: these cases assert the WIRE EVENT and the STORE WRITE, not what any
+ * surface says about the outcome, so no settlement assertion belongs here. An
+ * anonymous no-op would be indistinguishable from the swallow this change removes.
+ */
+const noSettlementExpectedHere = () => {}
+
+
 const EDGE = 'e_price_revenue'
 const OTHER_EDGE = 'e_churn_revenue'
 
@@ -133,7 +155,7 @@ describe('`expected` is never built from a client-stamped value', () => {
     seed(draftedEdgeData(0.4))
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    expect(result.current.setStrength(0.75)).toBe('dispatched')
+    expect(result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })).toBe('dispatched')
     expect(dispatchedEvent()).toEqual({
       type: 'edge_strength_edit',
       payload: {
@@ -157,8 +179,8 @@ describe('`expected` is never built from a client-stamped value', () => {
     seed(draftedEdgeData(0.4))
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    result.current.setStrength(0.75)
-    result.current.setStrength(0.6)
+    result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
+    result.current.setStrength(0.6, { onSendSettled: noSettlementExpectedHere })
 
     expect(sendSystemEvent).toHaveBeenCalledTimes(2)
     const second = dispatchedEvent(1)
@@ -202,14 +224,14 @@ describe('`expected` is never built from a client-stamped value', () => {
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
     // 1.5 exceeds the contract's magnitude cap; nothing may be asserted for it.
-    const outOfRange = result.current.setStrength(1.5, { preserveDirection: true })
+    const outOfRange = result.current.setStrength(1.5, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
     expect(outOfRange).not.toBe('dispatched')
     expect(sendSystemEvent).toHaveBeenCalledTimes(0)
     // The local write lands regardless — #1287's deliberate choice, unchanged.
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: 1.5, weightSource: 'user' })
 
     // …and the NEXT edit, which is perfectly in range, must reach the server.
-    const backInRange = result.current.setStrength(0.6, { preserveDirection: true })
+    const backInRange = result.current.setStrength(0.6, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
     expect(backInRange).toBe('dispatched')
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
     expect(dispatchedEvent()).toEqual({
@@ -261,7 +283,7 @@ describe('`expected` is never built from a client-stamped value', () => {
     expect('strength_mean' in (readEdge(EDGE)?.data ?? {})).toBe(false)
 
     const { result } = renderHook(() => useEdgeMutations(EDGE))
-    const outcome = result.current.setStrength(0.5, { preserveDirection: true })
+    const outcome = result.current.setStrength(0.5, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
 
     expect(outcome).toBe('not_wire_encodable')
     expect(sendSystemEvent).toHaveBeenCalledTimes(0)

@@ -42,7 +42,11 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
+import {
+  decisionWithLeaderWithheld,
+  decisionWithLeaderWithheldAndReason,
+  genuineDecision,
+} from './analysisNewFixtures'
 
 const renderBody = (data: ResultsSectionDataReturn) =>
   render(
@@ -96,7 +100,11 @@ describe('the figures rise only when the glance said nothing', () => {
    */
   it.each([
     ['a glance that answered', genuineDecision],
-    ['a glance that withheld', decisionWithLeaderWithheld],
+    // ⚠ THE FIXTURE WITH THE PRODUCER'S MESSAGE. The bare
+    // `decisionWithLeaderWithheld` supplies no admission, so the glance has no
+    // withheld sentence to render and this ORDERING arm was measuring a
+    // labelled landmark with nothing inside it.
+    ['a glance that withheld', decisionWithLeaderWithheldAndReason],
   ])('the answer is above the coaching — %s', (_name, make) => {
     renderBody(make())
     const glance = screen.getByTestId('analysis-new-glance')

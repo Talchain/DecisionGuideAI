@@ -66,7 +66,16 @@ import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { canCaptureGoalTarget } from '../../../domain/goalTarget'
-import { goalNoTargetChannels } from '../../../nodes/GoalNode'
+import {
+  goalNoTargetChannels,
+  GOAL_NO_TARGET_STATE,
+  GOAL_TARGET_LIVE_ROUTE,
+  GOAL_TARGET_ROUTE_IS_LIVE,
+} from '../../../nodes/GoalNode'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../../../mutations/mutationAuthority'
 
 vi.mock('@xyflow/react', () => ({
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
@@ -170,6 +179,24 @@ function renderInspector() {
  */
 const REPAIR_PROMISE = /\b(add|set|enter|type)\s+(one|a target|it)\b/i
 
+/**
+ * ⭐ A REPAIR VERB BOUND TO THE INERT DESTINATION — asked PER CLAUSE, because a
+ * whole-string regex cannot tell "set one in the Model tab, or open this goal's
+ * details" from "open its details to add one".
+ *
+ * ⚠ THE FIRST VERSION OF THIS WAS `…\b[^.]*\bdetails\b`, and it flagged the
+ * legitimate sentence: `[^.]*` ran straight through the comma and joined the
+ * repair verb in one clause to `details` in the next. A predicate that cannot
+ * see a clause boundary is answering a different question from the one its name
+ * asks. Commas, semicolons and full stops are the boundaries; both controls
+ * below sit either side of this distinction.
+ */
+function promisesRepairAtDetails(text: string): boolean {
+  return text
+    .split(/[.,;]/)
+    .some(clause => REPAIR_PROMISE.test(clause) && /\bdetails\b/i.test(clause))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(useAuth).mockReturnValue(REAL_AUTH as unknown as ReturnType<typeof useAuth>)
@@ -225,19 +252,119 @@ describe('so the chip states the fact and promises no repair it cannot keep', ()
     expect(REPAIR_PROMISE.test('Target not captured')).toBe(false)
   })
 
+  /**
+   * ⭐⭐⭐ THE BAN IS NARROWED TO WHAT IT PROTECTS, AND THE NARROWING IS THE
+   * DELIBERATE RESTORATION THIS FILE INVITED — not a hollowing-out.
+   *
+   * `GoalNode`'s header wrote the invitation in terms: *"Naming a live route
+   * instead (the Model tab's own goal section) is the better answer and is
+   * deliberately NOT guessed at here: which of those surfaces is mounted under
+   * the deployed flag posture is UNMEASURED."* The measurement is now taken —
+   * deployed `7ec3fed2`, guest session, 20 Sep 2026: the Model tab's goal row
+   * value cell is a live `<button>` reading "Not set" that opens three ENABLED
+   * controls ("New value for <goal>", "Target bound for <goal>" = at least |
+   * at most, "Target unit for <goal>"), committing through `proposeGoalTarget`
+   * to a typed `add_constraint`.
+   *
+   * ⛔ WHAT STAYS BANNED IS UNCHANGED IN SUBSTANCE: a repair promise that names
+   * NO live route. That is the withdrawn sentence — `Target not captured — add
+   * one` — and the control below still REDs on it, on the exact string, so this
+   * narrowing cannot be satisfied by a guard that stopped discriminating.
+   *
+   * ⚠ AND THE PROMISE MAY NOT BE ATTACHED TO THE DETAILS ROUTE. That
+   * destination is still inert: `AUTHORITY_OWNING_PANELS` in `InspectorRouter`
+   * is `option | factor-controllable | factor-external`, `goal` is NOT in it, so
+   * `GoalPanel` keeps the blanket `<fieldset disabled>` — re-derived above
+   * through the REAL router, not inherited. The fence premise expired for the
+   * edge and factor panels; it has not expired here.
+   *
+   * ⭐ THE THREE ARMS FAIL ON DIFFERENT ASSERTIONS, which is what makes this a
+   * narrowing rather than a deletion: a promise with no route, a promise
+   * attached to the details, and a chip that says nothing at all are each caught
+   * by a different line.
+   */
   it.each([false, true])(
-    '⭐ no channel a reader can reach promises a repair (diagnostic arm: %s)',
+    '⭐ a repair promise must NAME A LIVE ROUTE, and never the inert one (diagnostic arm: %s)',
     (diagnostic) => {
       const channels = goalNoTargetChannels({ diagnostic })
       // Bound by identity to each named channel, so a failure says WHICH one.
       for (const [name, text] of Object.entries(channels)) {
+        const promises = REPAIR_PROMISE.test(text)
+        const namesLiveRoute = text.includes(GOAL_TARGET_LIVE_ROUTE)
         expect(
-          { channel: name, promises: REPAIR_PROMISE.test(text) },
-          `channel "${name}" reads: ${text}`,
-        ).toEqual({ channel: name, promises: false })
+          { channel: name, unroutedPromise: promises && !namesLiveRoute },
+          `channel "${name}" promises a repair but names no live route: ${text}`,
+        ).toEqual({ channel: name, unroutedPromise: false })
+
+        // The details route cannot accept a target, so no repair verb may be
+        // bound to it. Asserted separately from the route clause precisely so a
+        // sentence naming BOTH cannot smuggle the promise onto the wrong one.
+        expect(
+          { channel: name, promisesAtDetails: promisesRepairAtDetails(text) },
+          `channel "${name}" attaches a repair promise to the inert details route: ${text}`,
+        ).toEqual({ channel: name, promisesAtDetails: false })
       }
     },
   )
+
+  it('CONTROL — the narrowed ban still REDs on the exact sentence that was withdrawn', () => {
+    // Without this the narrowing is indistinguishable from removing the guard.
+    const withdrawn = 'Target not captured — add one'
+    expect(REPAIR_PROMISE.test(withdrawn)).toBe(true)
+    expect(withdrawn.includes(GOAL_TARGET_LIVE_ROUTE)).toBe(false)
+    // …so the predicate the arm above applies would flag it.
+    expect(REPAIR_PROMISE.test(withdrawn) && !withdrawn.includes(GOAL_TARGET_LIVE_ROUTE)).toBe(true)
+  })
+
+  it('CONTROL — and REDs on a promise bound to the details route even when a live route is also named', () => {
+    const smuggled = `Target not captured — set one in ${GOAL_TARGET_LIVE_ROUTE}, or open its details to add one`
+    expect(promisesRepairAtDetails(smuggled)).toBe(true)
+    // …and the legitimate sentence, which names BOTH routes, must NOT match —
+    // otherwise this control passes by flagging everything.
+    const legitimate = `Target not captured — set one in ${GOAL_TARGET_LIVE_ROUTE}, or open this goal's details`
+    expect(promisesRepairAtDetails(legitimate)).toBe(false)
+  })
+
+  /**
+   * ⚠⚠ THIS WAS AN `if (FLAG) … else …` AND A MUTANT WALKED THROUGH IT.
+   * Flipping `modelGoalMinimumTarget` to `'disabled'` SURVIVED: the else-branch
+   * simply ran and agreed with itself. A conditional assertion over the value it
+   * is conditioning on cannot fail on that value — it is a tautology wearing a
+   * control's clothes. Both branches are now driven BY EXECUTION.
+   */
+  it('⭐ the route clause is PRESENT when the route is live and ABSENT when it is not', () => {
+    for (const diagnostic of [false, true]) {
+      const live = goalNoTargetChannels({ diagnostic, routeIsLive: true })
+      const dead = goalNoTargetChannels({ diagnostic, routeIsLive: false })
+      for (const channel of ['aria-label', 'title'] as const) {
+        expect(live[channel], `live ${channel}`).toContain(GOAL_TARGET_LIVE_ROUTE)
+        expect(dead[channel], `dead ${channel}`).not.toContain(GOAL_TARGET_LIVE_ROUTE)
+      }
+      // And the dead arm must still state the fact and still say what the click
+      // does — the ban must not be satisfiable by falling silent.
+      expect(dead['aria-label']).toContain(GOAL_NO_TARGET_STATE)
+      expect(dead['aria-label']).toContain('details')
+      // The dead arm must also carry NO repair promise at all: with no live
+      // route to name, any repair verb is the withdrawn sentence again.
+      expect(REPAIR_PROMISE.test(dead['aria-label']), dead['aria-label']).toBe(false)
+    }
+  })
+
+  it('⭐ the default IS the derivation — the constant is read, not written', () => {
+    // Binds the exported constant to the authority. ⚠ This alone does NOT catch
+    // a hardcoded `true`, because `modelGoalMinimumTarget` IS `'server_graph'`
+    // today and the two agree — measured, not assumed: that mutant survived.
+    // The discriminating case is the PAIR (hardcode the constant AND regress the
+    // authority), which this assertion then fails. Stated because a mutant that
+    // needs a partner is a real result, not a gap to paper over.
+    expect(GOAL_TARGET_ROUTE_IS_LIVE).toBe(
+      hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget),
+    )
+    // The production call takes the default, so the shipped copy tracks it.
+    expect(goalNoTargetChannels({ diagnostic: false })).toEqual(
+      goalNoTargetChannels({ diagnostic: false, routeIsLive: GOAL_TARGET_ROUTE_IS_LIVE }),
+    )
+  })
 
   it('and still states the fact — the ban must not be satisfied by saying nothing', () => {
     for (const diagnostic of [false, true]) {

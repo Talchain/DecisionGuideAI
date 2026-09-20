@@ -185,9 +185,12 @@ describe('the goal withhold names its quantity, so it cannot deny the ranking be
     // (a) the withhold notice is on screen, selected by identity
     expect(goalEntry()).toBeInTheDocument()
     // (b) the comparative result is on screen, in the same document
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
-    // ...under the heading that frames it as serving the goal
-    expect(screen.getByText('Most likely to serve your goal')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
+    // ...and the heading that framed it as serving the goal went with it.
+    expect(
+      screen.queryByText('Most likely to serve your goal'),
+      'the eyebrow belonged to the deleted conclusion',
+    ).toBeNull()
   })
 
   /**

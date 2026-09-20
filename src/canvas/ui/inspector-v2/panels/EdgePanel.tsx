@@ -17,7 +17,8 @@ import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useEdgeMutations, type EdgeStrengthConfirmOutcome } from '../useInspectorMutations'
+import { useEdgeMutations, type EdgeStrengthConfirmOutcome, type EdgeStrengthCommitOutcome } from '../useInspectorMutations'
+import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -54,6 +55,7 @@ import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
+import { formatNumber } from '../../../utils/formatValueWithUnit'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -258,6 +260,72 @@ export const EdgePanel = memo(function EdgePanel({
       : null
   }, [edge?.data])
 
+  /**
+   * ⛔⛔ THE HOUSE BOUND ERASES SMALL MAGNITUDES, SO IT CANNOT BE USED ALONE.
+   * THIS IS THE CANONICAL EXPLANATION FOR ALL THREE READOUTS THIS CHANGE TOUCHES
+   * (`InterventionRow`'s disabled target and `FactorObservablePanel`'s unitless
+   * readout carry a back-reference rather than a copy of it).
+   *
+   * `formatNumber`'s bound is `maximumFractionDigits: 4`, which is right for the
+   * defect it was adopted to close (a 17-figure raw double reaching the founder)
+   * and WRONG below 5e-5, where it renders a real non-zero magnitude as `0` —
+   * and `-0.00001` as `-0`, which is worse, because the SIGN survives while the
+   * MAGNITUDE does not: the reader is given the direction of a quantity that is
+   * simultaneously reported as nothing.
+   *
+   * ⚠ THE PATH THIS REPLACED DID NOT HAVE THAT FAULT. `String(v)` printed
+   * `0.00001` faithfully. So the collapse is a REGRESSION INTRODUCED HERE, not a
+   * pre-existing behaviour of the estate — an earlier version of this comment
+   * called it a "residual", and that classification was wrong. Changing a caller
+   * makes that caller's behaviour yours.
+   *
+   * ⚠⚠ AND ON THIS SURFACE IT IS AN HONESTY DEFECT, NOT A COSMETIC ONE.
+   * `confirmCurrentStrength` commits the STORED magnitude. If the sentence reads
+   * `0` while the write carries 0.00001, the screen and the write disagree on
+   * the one control that asks the user to ratify a number.
+   *
+   * ── THE RULE ───────────────────────────────────────────────────────────────
+   * Keep the house bound; fall back to significant digits ONLY when the house
+   * bound has erased a non-zero magnitude. `Number(housed) === 0` is the test
+   * for "erased", and it also covers `'-0'` (`-0 === 0` is true in JS). A value
+   * at or above 1000 formats with thousand separators, so `Number('22,500.5')`
+   * is `NaN`, `NaN === 0` is false, and large values can never enter this
+   * branch — which matters, because applying significant digits to THEM would
+   * round 22,500.5 to 22,500, i.e. round a producer value to solve a display
+   * problem. That is banned here and is pinned as a control in the spec.
+   *
+   * ⚠ TWO significant digits, deliberately: enough to make the magnitude and
+   * its sign visible, few enough not to imply precision this class of value
+   * does not have.
+   *
+   * ⚠ THE `!== 0` CONJUNCT IS DEFENSIVE, NOT LOAD-BEARING, AND IS LABELLED THAT
+   * WAY BECAUSE A MUTANT PROVED IT. Removing it leaves all 27 spec cases green:
+   * `formatNumber(0, 2)` is also `'0'`, so it only ever routes a true zero to a
+   * formatter that returns the same string. It is kept because it states the
+   * intent — never substitute anything for a real zero — and would start
+   * mattering the moment the fallback stopped being a plain numeric format. It
+   * is NOT what makes the zero control pass; a mutant that returns `'<0.0001'`
+   * without it REDs on all three zero controls, which is the case that guards
+   * the actual risk. (A stored `-0` renders `-0` here, in both arms: that is the
+   * value the model holds, not an erased magnitude, so the guard leaves it be.)
+   *
+   * ⚠ IT PASSES `significantDigits`, WHOSE DOCBLOCK SAYS SINGLE-VALUE CALLERS
+   * MUST NOT. Named rather than hidden: that note reserves the parameter for
+   * CONTRAST callers on the grounds that the house bound is "the honest one" for
+   * everyone else — and for this value class the house bound is demonstrably NOT
+   * honest, it reports nothing where the model holds something. The durable fix
+   * is for `formatNumber` itself to stop erasing small magnitudes, which would
+   * fix every consumer in the estate at once; that file has a different owner,
+   * so this is the bounded display-only fix at the three callers changed here.
+   */
+  const currentEstimatedWeightDisplay = useMemo(() => {
+    if (currentEstimatedWeight === null) return null
+    const housed = formatNumber(currentEstimatedWeight)
+    return Number(housed) === 0 && currentEstimatedWeight !== 0
+      ? formatNumber(currentEstimatedWeight, 2)
+      : housed
+  }, [currentEstimatedWeight])
+
   // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
   const weight = edge?.data?.weight ?? 0.5
   const direction = edge?.data?.direction ?? 'positive'
@@ -284,6 +352,16 @@ export const EdgePanel = memo(function EdgePanel({
   // it must not invite a re-run.
   const [strengthConfirm, setStrengthConfirm] =
     useState<{ ts: number; outcome: EdgeStrengthConfirmOutcome } | null>(null)
+  /**
+   * ⭐ HOW THE LAST STRENGTH **EDIT** SETTLED. Separate state from
+   * `strengthConfirm` above, and deliberately so: confirming and editing are
+   * two acts with two carriers (CLAUDE.md trap 21), and pooling them under one
+   * name is how the confirm path's fix failed to reach the edit path at all.
+   * `null` means no settlement has arrived yet — which is the honest state for
+   * the window between the press and the server's answer.
+   */
+  const [strengthEditSend, setStrengthEditSend] =
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' } | null>(null)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -462,11 +540,48 @@ export const EdgePanel = memo(function EdgePanel({
   const origStrengthRef = useRef(signedValue)
 
   // Handlers
+  /**
+   * ⭐ ONE SETTLEMENT HANDLER FOR EVERY STRENGTH CONTROL ON THIS PANEL.
+   * The bands, the fine-tune slider and the Advanced β field all write the same
+   * edge through the same carrier, so they must all answer for it the same way.
+   * Three copies of this closure would be three chances to drift.
+   */
+  const handleStrengthSendSettled = useCallback(
+    (settlement: SystemEventSendSettlement) => setStrengthEditSend({ ts: Date.now(), settlement }),
+    [],
+  )
+
+  /**
+   * ⛔⛔ A SETTLEMENT DOES NOT ALWAYS ARRIVE, AND MY FIRST VERSION ASSUMED IT DID.
+   *
+   * `setStrength` returns BEFORE the send on two paths — `not_wire_encodable`
+   * (the edge has no assertable `expected`) and `local_only` (no conversation
+   * carrier at all). On both, the local write happens and `settleSystemEventSend`
+   * is never reached, so nothing ever resolves the pending state.
+   *
+   * Left as-is, the panel said **"Sending to Olumi…" forever** — which is itself
+   * a false statement, since nothing is being sent and nothing will be. I
+   * replaced one lie with a quieter one that never resolves.
+   *
+   * ⭐ The outcome token is the answer and it was already being returned and
+   * discarded. `dispatched` is the ONLY value that promises a settlement; every
+   * other one is terminal the moment it is returned.
+   */
+  const noteStrengthOutcome = useCallback((outcome: EdgeStrengthCommitOutcome) => {
+    if (outcome === 'dispatched') return
+    setStrengthEditSend({ ts: Date.now(), settlement: 'not_sent' })
+  }, [])
+
   const handleStrengthChange = useCallback((v: number) => {
     setLocalStrength(v)
-    mutations.setStrength(v)
+    // A drag is one gesture that fires repeatedly (`SignedStrengthSlider`
+    // debounces `onChange` by 120ms), so the settlement of the LATEST send is
+    // the one that describes where the value ended up. Clearing first means a
+    // stale "not recorded" can never survive over a later send that landed.
+    setStrengthEditSend(null)
+    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: handleStrengthSendSettled }))
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [mutations, edgeId, previewEdit])
+  }, [mutations, edgeId, previewEdit, handleStrengthSendSettled])
 
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
@@ -483,11 +598,15 @@ export const EdgePanel = memo(function EdgePanel({
     // Presets choose magnitude only. The sign is retained visually by
     // StrengthBandButtons, but retaining a sign is not the same as the user
     // stating it: preserve both direction and directionSource byte-for-byte.
-    mutations.setStrength(v, { preserveDirection: true })
+    setStrengthEditSend(null)
+    noteStrengthOutcome(mutations.setStrength(v, {
+      preserveDirection: true,
+      onSendSettled: handleStrengthSendSettled,
+    }))
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
-  }, [mutations, clearPreview, confirmEdit])
+  }, [mutations, clearPreview, confirmEdit, handleStrengthSendSettled])
 
   /**
    * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.
@@ -551,6 +670,37 @@ export const EdgePanel = memo(function EdgePanel({
    * renders disabled is a disclosure, while an editor whose write cannot land is
    * the lie this panel is being unfenced to stop.
    */
+  /**
+   * ⛔⛔ TWO HARMS, TWO PREDICATES — NEVER ONE (CLAUDE.md trap 22b).
+   *
+   * `blocked` and `refused` mean the statement is NOT in the model: `blocked`
+   * never reached the server, and on `refused` the server's own line certifies
+   * it wrote nothing. Saying "Updated" there is false, and offering a re-run
+   * there invites the person to SPEND AN ANALYSIS on a change that does not
+   * exist — the precise harm the ⛔⛔ banner on `handleConfirmCurrentStrength`
+   * records as wire-witnessed, closed for confirm and left open for edit.
+   *
+   * `unverified` is the OPPOSITE harm and must not share the predicate: the
+   * change MAY have landed, so suppressing the re-run would hide a real result
+   * and telling the person nothing was recorded would be a second false claim.
+   * It gets its own wording and KEEPS the affordance.
+   */
+  const strengthEditSettlement = strengthEditSend?.settlement
+  /**
+   * ⭐ THE PENDING WINDOW IS A THIRD STATE, NOT AN ABSENCE OF THE OTHER TWO.
+   * Every edit passes through it — a settlement cannot arrive in the same tick
+   * (`settleSystemEventSend` settles a promise), so `null` here is the NORMAL
+   * state at the instant of the press, not an edge case. Falling through to
+   * `EditConfirmation`'s defaults here is what kept the "Updated ✓ in success
+   * green" claim alive for the whole window this change was written to close.
+   */
+  const strengthEditIsPending = strengthEditSettlement === undefined
+  const strengthEditNotSent = strengthEditSettlement === 'not_sent'
+  const strengthEditIsQueued = strengthEditSettlement === 'queued'
+  const strengthEditDidNotLand =
+    strengthEditSettlement === 'blocked' || strengthEditSettlement === 'refused'
+  const strengthEditIsUnverified = strengthEditSettlement === 'unverified'
+
   const strengthReachesTheModel = edgeStrengthEditIsAssertable(edge)
 
   /**
@@ -796,7 +946,33 @@ export const EdgePanel = memo(function EdgePanel({
               {currentEstimatedWeight !== null && (
                 <div className="mt-2 rounded-md border border-accent/20 bg-panel px-2 py-1.5">
                   <p className={`${typography.panelMeta} text-text-body`}>
-                    Olumi’s current estimate is <span className="font-mono">{String(currentEstimatedWeight)}</span>.
+                    {/* ⛔⛔ `formatNumber`, NOT `String`. This printed the raw
+                        double: the founder read *"Olumi's current estimate is
+                        0.5428571428571428."* A sibling edge showed a clean
+                        `0.45` only because that value is short — the formatting
+                        was ABSENT, not inconsistent, so nothing would have
+                        caught it drifting. Seventeen significant figures assert
+                        a precision this quantity does not have: it is minted by
+                        a CEE rescale (a raw float division) and is not stable
+                        even in its ORDERING between two passes — the measured
+                        argument is at `formatValueWithUnit.ts:41-60`, whose
+                        four-decimal house bound this now adopts — bounded
+                        against small-magnitude erasure, see
+                        `currentEstimatedWeightDisplay` above.
+
+                        ⚠ DISPLAY ONLY, AND THAT IS LOAD-BEARING HERE.
+                        `handleConfirmCurrentStrength` calls
+                        `mutations.confirmCurrentStrength()`, which reads the
+                        edge from the STORE — it never reads this string. So
+                        consent still lands on the exact stored magnitude; only
+                        the claim made to the reader about its precision changes.
+
+                        ⚠ NOT `formatValueWithUnit`: that entry point turns an
+                        unqualified 0-1 value into a WORD ("moderate"), which
+                        would make this sentence unable to name the number the
+                        button ratifies. The number is the point of the
+                        sentence. */}
+                    Olumi’s current estimate is <span className="font-mono">{currentEstimatedWeightDisplay}</span>.
                   </p>
                   <button
                     type="button"
@@ -825,11 +1001,52 @@ export const EdgePanel = memo(function EdgePanel({
                   />
                 </div>
               )}
-              {/* Edit feedback */}
+              {/* Edit feedback — SETTLEMENT-AWARE. See the two predicates above. */}
               {lastConfirmed?.field === 'strength' && (
-                <div className="flex items-center gap-2 mt-1">
-                  <EditConfirmation trigger={lastConfirmed.ts} />
-                  <InlineRerunPrompt visible={isStaleAfterEdit} />
+                <div
+                  className="flex items-center gap-2 mt-1"
+                  data-testid="edge-strength-edit-feedback"
+                  data-settlement={strengthEditSettlement ?? 'pending'}
+                >
+                  {/* ⛔ NEVER `tone="success"`, NEVER "Updated". `settleSystemEventSend`'s
+                      own header: `'sent'` means a POST left and the server has not
+                      answered — "a row that rendered 'saved' on it would be an
+                      optimistic write wearing a receipt." Whether the MODEL changed
+                      arrives separately, on the turn. This mirrors
+                      `FactorControllablePanel:852-858`, which already states all
+                      three of its outcomes this way, rather than inventing a fourth
+                      spelling of one rule. */}
+                  <EditConfirmation
+                    trigger={strengthEditSend?.ts ?? lastConfirmed.ts}
+                    label={strengthEditIsPending
+                      ? ACTION_LABELS.strengthEditSending
+                      : strengthEditIsQueued
+                        ? ACTION_LABELS.strengthEditQueued
+                      : strengthEditNotSent
+                        ? ACTION_LABELS.strengthConfirmNotSent
+                        : strengthEditDidNotLand
+                          ? ACTION_LABELS.strengthEditNotRecorded
+                          : strengthEditIsUnverified
+                            ? ACTION_LABELS.strengthEditUnverified
+                            : ACTION_LABELS.strengthConfirmSent}
+                    tone="pending"
+                    hold={strengthEditIsPending}
+                  />
+                  {/* Withheld where the model provably does not hold the value, and
+                      while we do not yet know. `unverified` keeps it — it may have
+                      landed, and hiding a real result is the opposite harm. */}
+                  {/* ⛔ WITHHELD ONLY WHERE THE MODEL PROVABLY LACKS THE VALUE.
+                      My first version also withheld it while PENDING, and that
+                      was over-reach caught by `elicitationChain.spec.ts` — a
+                      journey test walking CTA → editor → canonical write →
+                      stale → rerun. During the pending window the LOCAL value
+                      has already changed, so the results genuinely ARE stale
+                      and offering the re-run is the honest thing. Staleness is
+                      a fact about the graph on screen; it does not wait on the
+                      server's answer. */}
+                  <InlineRerunPrompt
+                    visible={isStaleAfterEdit && !strengthEditDidNotLand}
+                  />
                 </div>
               )}
               {/* Fine-tune slider */}
@@ -867,9 +1084,41 @@ export const EdgePanel = memo(function EdgePanel({
                     {stdDisplay.show && strengthDisplay.show && (
                       <UncertaintyBand strength={localStrength} std={stdDisplay.value} />
                     )}
-                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={techMode} />
+                    {/* ⛔⛔ `techMode={true}` IS A LITERAL ON PURPOSE, AND IT IS NOT THE
+                        TECH TOGGLE. Measured 19 Sep 2026: this prop's ONLY consumer
+                        inside `SignedStrengthSlider` is its `{!techMode && …}` endpoint-
+                        caption block, so on that component the flag means *"SUPPRESS my
+                        own captions — my host renders its own scale"*. It does not reveal
+                        a figure; the slider renders no visible number at all. The name is
+                        backwards and #1751's prop doc says so, naming the honest spelling
+                        `hostRendersItsOwnScale` and leaving the rename to this file's
+                        owner because this is its ONLY caller.
+
+                        THIS PANEL ALWAYS RENDERS ITS OWN SCALE — the `EDGE_COPY` row
+                        immediately below is an unconditional sibling of the slider, in
+                        this same `<details>`. So the honest answer to *"does the host
+                        render its own scale?"* is a constant `true`, and passing the tech
+                        toggle answered a DIFFERENT QUESTION (CLAUDE.md trap 21). At the
+                        toggle's default — `useTechToggle` starts `false`, i.e. EVERY
+                        default user — it asserted "no scale here", the slider helpfully
+                        added its own, and the user read "Strong negative / No effect /
+                        Strong positive" TWICE. Measured at pristine `a40ca56a`: 2/2/2 at
+                        `techMode=false`, 1/1/1 at `techMode=true`.
+
+                        ⛔ NOT a `techMode` gate on the caption row itself — that would
+                        hide the scale from every default user, which is the trap #1751
+                        documents. The row below stays UNCONDITIONAL; only the slider's
+                        duplicate is suppressed. `endpointScaleIsNotDuplicated.spec.tsx`
+                        REDs if either state stops reading exactly one. */}
+                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
                   </div>
-                  <div className="flex justify-between">
+                  {/* The panel's OWN endpoint scale — direction anchors for the track
+                      above, never band words (`SignedStrengthSlider`'s header names them
+                      apart from `CANVAS_STRENGTH_BANDS` and that ruling is untouched
+                      here). `data-testid` so the spec can bind the surviving captions to
+                      THIS row by identity rather than by string value, which the slider
+                      could also satisfy. */}
+                  <div className="flex justify-between" data-testid="edge-strength-endpoint-scale">
                     <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderStrongNegative}</span>
                     <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderNoEffect}</span>
                     <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderStrongPositive}</span>
@@ -1023,7 +1272,7 @@ export const EdgePanel = memo(function EdgePanel({
                 organisational NOR an intervention, so its strength IS read by
                 the analysis. Passed explicitly rather than defaulted: the
                 class is stated at every call site, never inferred. */}
-            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" />
+            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" onSendSettled={handleStrengthSendSettled} />
           </TechnicalDisclosure>
         </>
       )}
@@ -1034,6 +1283,7 @@ export const EdgePanel = memo(function EdgePanel({
           <EdgeAdvancedEditor
             edgeId={edgeId}
             linkKind={isIntervention ? 'intervention' : 'organisational'}
+            onSendSettled={handleStrengthSendSettled}
           />
         </TechnicalDisclosure>
       )}

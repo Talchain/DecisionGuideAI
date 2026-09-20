@@ -58,6 +58,23 @@ interface NodeMetricRowCommon {
    * explanation when no phrase was supplied).
    */
   title?: string
+  /**
+   * ⭐ THE WHOLE ACCESSIBLE NAME, when the default composition would mangle it.
+   *
+   * The default below is `"{label}: {formatted}. {phrase}"`, which assumes the
+   * caption is a NOUN and the figure is its VALUE — true of "Ahead: 18%" and
+   * "Strength: 40%". The factor influence row breaks that assumption on
+   * purpose: its caption and figure are two halves of ONE sentence
+   * ("Most influential" / "of 5"), so the default renders
+   * "Most influential: of 5." — a colon between a phrase and its own tail.
+   *
+   * ⚠ OPTIONAL, AND THE DEFAULT IS UNCHANGED FOR EVERY EXISTING CALLER. This
+   * is an override, not a new requirement: omit it and the row composes its
+   * name exactly as it does today. It is deliberately NOT a general "aria-label"
+   * escape hatch — it is only read on the explained branch (`title` set), which
+   * is the only branch that publishes an accessible name at all.
+   */
+  accessibleName?: string
   testId?: string
 }
 
@@ -143,6 +160,7 @@ export function NodeMetricRow({
   phrase,
   trailing,
   title,
+  accessibleName,
   testId,
   unsetText,
 }: NodeMetricRowProps) {
@@ -150,7 +168,7 @@ export function NodeMetricRow({
   // phrase-only structure; absent measurements remain absent.
   const disclosureProps = title ? {
     role: 'img',
-    'aria-label': `${label}: ${formatted ?? unsetText ?? ''}. ${phrase || title}`,
+    'aria-label': accessibleName ?? `${label}: ${formatted ?? unsetText ?? ''}. ${phrase || title}`,
     tabIndex: 0,
     'data-node-tooltip': true,
   } : {}

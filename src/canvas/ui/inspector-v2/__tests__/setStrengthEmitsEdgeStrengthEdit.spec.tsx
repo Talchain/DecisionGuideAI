@@ -54,6 +54,28 @@ vi.mock('../../../conversation/ConversationContext', async (importOriginal) => {
 import { useEdgeMutations } from '../useInspectorMutations'
 import { useCanvasStore } from '../../../store'
 
+/**
+ * ⛔ `onSendSettled` IS REQUIRED, AND THESE CALLS ARE WHY THAT IS WORTH THE CHURN.
+ *
+ * `setStrength` used to accept a bare `setStrength(v)`, and four product carriers
+ * took that form and swallowed every settlement — including the server saying no.
+ * Making the option required is what found the fourth one (`EdgeAdvancedEditor`'s
+ * β field); a grep had missed it three times.
+ *
+ * ⚠ These specs are the OTHER half of that lesson. I checked every PRODUCT caller
+ * before making it required and did not check the SPECS — and the repo's named
+ * local gate is blind to test files by config (`tsconfig.build.json` excludes
+ * them), so only the separate CI typecheck drift job could see it. CLAUDE.md
+ * trap 2's refinement, exactly.
+ *
+ * `noSettlementExpectedHere` is deliberately NAMED rather than an inline
+ * `() => {}`: these cases assert the WIRE EVENT and the STORE WRITE, not what any
+ * surface says about the outcome, so no settlement assertion belongs here. An
+ * anonymous no-op would be indistinguishable from the swallow this change removes.
+ */
+const noSettlementExpectedHere = () => {}
+
+
 /** Flipped per-test so the SAME mocked module can present "no provider". */
 let providerMounted = true
 function mockContextValue() {
@@ -113,7 +135,7 @@ describe('setStrength reaches the server', () => {
     seed(PRODUCER_DATA)
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    const outcome = result.current.setStrength(0.75)
+    const outcome = result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
 
     expect(outcome).toBe('dispatched')
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
@@ -134,7 +156,7 @@ describe('setStrength reaches the server', () => {
     seed(PRODUCER_DATA)
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    result.current.setStrength(0.75)
+    result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
 
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.75, weightSource: 'user' })
     // The sibling is untouched — binding by id, not by value.
@@ -149,7 +171,7 @@ describe('setStrength reaches the server', () => {
     seed(PRODUCER_DATA)
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    result.current.setStrength(0.9)
+    result.current.setStrength(0.9, { onSendSettled: noSettlementExpectedHere })
 
     const payload = dispatchedEvent().payload as Record<string, unknown>
     expect(payload.expected).toEqual({ mean: 0.4, effect_direction: 'positive' })
@@ -161,7 +183,7 @@ describe('setStrength reaches the server', () => {
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
     // Zero on a NEGATIVE edge is the proven regression: `-0 >= 0` is `true`.
-    result.current.setStrength(0, { preserveDirection: true })
+    result.current.setStrength(0, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
 
     expect(dispatchedEvent().payload).toMatchObject({
       magnitude: 0,
@@ -177,7 +199,7 @@ describe('setStrength reaches the server', () => {
     seed(DEFAULTED_DATA)
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    const outcome = result.current.setStrength(0.75)
+    const outcome = result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
 
     expect(outcome).toBe('not_wire_encodable')
     expect(sendSystemEvent).not.toHaveBeenCalled()
@@ -193,7 +215,7 @@ describe('setStrength reaches the server', () => {
     seed(PRODUCER_DATA)
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    expect(result.current.setStrength(0.75)).toBe('local_only')
+    expect(result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })).toBe('local_only')
     expect(sendSystemEvent).not.toHaveBeenCalled()
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.75 })
   })
@@ -202,7 +224,7 @@ describe('setStrength reaches the server', () => {
     seed(PRODUCER_DATA)
     const { result } = renderHook(() => useEdgeMutations('e_does_not_exist'))
 
-    expect(result.current.setStrength(0.75)).toBe('not_encodable')
+    expect(result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })).toBe('not_encodable')
     expect(sendSystemEvent).not.toHaveBeenCalled()
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4 })
   })
@@ -211,7 +233,7 @@ describe('setStrength reaches the server', () => {
     seed(PRODUCER_DATA)
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    expect(result.current.setStrength(NaN)).toBe('not_encodable')
+    expect(result.current.setStrength(NaN, { onSendSettled: noSettlementExpectedHere })).toBe('not_encodable')
     expect(sendSystemEvent).not.toHaveBeenCalled()
     // ⚠ Fail CLOSED here, unlike the `not_wire_encodable` case above: there is
     // no honest local write for NaN either. `Math.abs(NaN)` is `NaN`, and
@@ -224,19 +246,19 @@ describe('setStrength reaches the server', () => {
     // different non-saves are never flattened into each other (trap 21).
     seed(PRODUCER_DATA)
     const producer = renderHook(() => useEdgeMutations(EDGE))
-    const dispatched = producer.result.current.setStrength(0.75)
+    const dispatched = producer.result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
 
     seed(DEFAULTED_DATA)
     const defaulted = renderHook(() => useEdgeMutations(EDGE))
-    const notWireEncodable = defaulted.result.current.setStrength(0.75)
+    const notWireEncodable = defaulted.result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
 
     providerMounted = false
     seed(PRODUCER_DATA)
     const noProvider = renderHook(() => useEdgeMutations(EDGE))
-    const localOnly = noProvider.result.current.setStrength(0.75)
+    const localOnly = noProvider.result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
 
     const missing = renderHook(() => useEdgeMutations('e_does_not_exist'))
-    const notEncodable = missing.result.current.setStrength(0.75)
+    const notEncodable = missing.result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
 
     expect([dispatched, notWireEncodable, localOnly, notEncodable]).toEqual([
       'dispatched',
@@ -252,7 +274,7 @@ describe('setStrength reaches the server', () => {
     sendSystemEvent.mockImplementationOnce(() => Promise.reject(new Error('network')))
     const { result } = renderHook(() => useEdgeMutations(EDGE))
 
-    expect(() => result.current.setStrength(0.75)).not.toThrow()
+    expect(() => result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })).not.toThrow()
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.75 })
   })
 })

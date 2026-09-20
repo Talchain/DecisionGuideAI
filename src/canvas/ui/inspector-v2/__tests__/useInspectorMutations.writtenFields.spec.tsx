@@ -72,7 +72,15 @@ const NODE_SETTER_ARGS: Record<string, unknown[]> = {
 }
 
 const EDGE_SETTER_ARGS: Record<string, unknown[]> = {
-  setStrength: [0.5],
+  // ⛔ THE SECOND ARGUMENT IS REQUIRED, AND THIS TABLE IS WHY IT NEEDS SAYING.
+  // `setStrength` now demands a settlement handler so no carrier can swallow a
+  // send (four did). This harness casts the setters to
+  // `Record<string, (...a: unknown[]) => void>`, so TYPESCRIPT NEVER SEES THESE
+  // CALLS — the cast is what makes the manifest guard generic, and it is also
+  // what let a one-argument call through the typecheck and into a shard.
+  // A no-op is correct HERE specifically: this test drives setters to observe
+  // which `data` fields they write, and asserts nothing about settlement.
+  setStrength: [0.5, { onSendSettled: () => {} }],
   setStd: [0.1],
   setExistsProbability: [0.8],
   setLabel: ['edge label'],

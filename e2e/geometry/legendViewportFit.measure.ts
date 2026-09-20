@@ -60,7 +60,7 @@
  * it printed was well-formed and every assertion passed, about nothing.
  *
  * So before any geometry is believed, this file asserts the popover is OPEN,
- * ATTACHED, NON-EMPTY, and carries a row it can name (`Weak effect` — a
+ * ATTACHED, NON-EMPTY, and carries a row it can name (`Slight effect` — a
  * phase-independent row present in every state this file drives). A measurement
  * taken on a closed or empty popover is a hard failure here, never a pass.
  *
@@ -113,8 +113,18 @@ const HEIGHTS = [800, 700, 600, 500, 420]
  */
 const VIEWPORT_GUTTER_PX = 12
 
-/** A row that renders in EVERY phase — the mount precondition names it. */
-const PHASE_INDEPENDENT_ROW = 'Weak effect'
+/**
+ * A row that renders in EVERY phase — the mount precondition names it.
+ *
+ * ⚠ WAS `'Weak effect'` UNTIL 18 Sep 2026, when the thickness key was rebuilt
+ * from the canonical strength vocabulary and that word was retired: it named a
+ * rung two bands wide and appeared nowhere else in the product. A literal is
+ * deliberate here, as with `VIEWPORT_GUTTER_PX` above — importing the
+ * component's own value would make the precondition agree with whatever the
+ * component happens to render (trap 13b), and this string's whole job is to be
+ * a name a human chose and a human must re-check.
+ */
+const PHASE_INDEPENDENT_ROW = 'Slight effect'
 
 interface PanelGeometry {
   readonly present: boolean

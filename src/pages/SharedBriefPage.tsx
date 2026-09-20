@@ -25,6 +25,20 @@
  * printed the raw stored record at an anonymous reader. Nothing here renders a
  * payload it has not recognised field by field: no ids, no provenance
  * internals, no raw dumps. An unrecognised shape says so and stops.
+ *
+ * ⭐ 18 Sep 2026 (later the same day) — IT NOW CARRIES THE ANALYSIS TOO.
+ * A recipient was seeing the model and none of the conclusions. CEE began
+ * writing `scenarios.brief` on every successful run that morning (39 of 14,252
+ * rows, all written between 01:48Z and 12:37Z), the share now carries it as
+ * `p_analysis`, and `AnalysisSection` renders the ranked options, the headline
+ * the producer was entitled to state, robustness, drivers and what would
+ * change. The allowlist applies to it field by field — see `readAnalysis`,
+ * which records what is deliberately excluded and the measurement behind it.
+ *
+ * Two rules from `src/lib/decisionVerdict.ts` bind this page and are cited at
+ * their call sites: RENDER the producer's owned claim and never DERIVE one
+ * (its silence is meaningful), and disclose robustness SEPARATELY from the
+ * leader claim rather than collapsing the two.
  */
 
 import { useEffect, useState } from 'react'
@@ -44,6 +58,15 @@ interface ReadNode {
   description?: string
   value?: string
   quote?: string
+  /**
+   * This number came from a blind panel round, not from the sender setting it.
+   *
+   * Present-or-absent, never `false`: absence means "not panel-elicited", which
+   * is both the ordinary case and the safe one. A tri-state would invite a
+   * "provenance unknown" rendering, and this page has no way to tell "the sender
+   * set it" from "nobody recorded how it got here" — so it claims neither.
+   */
+  fromPanel?: true
 }
 
 /**
@@ -110,7 +133,33 @@ function readNode(raw: unknown): ReadNode | null {
       ? n.source_quote.trim()
       : undefined
 
-  return { type, label, description, value, quote }
+  /**
+   * ⭐ THE ONE FACT THIS PAGE CARRIES ABOUT *WHO* PUT A NUMBER THERE.
+   *
+   * CEE stamps `observed_state.source = 'panel_elicited'` (plus an
+   * `elicited_from` id triple) when the owner applies a panellist's answer —
+   * `factor-value-edit.ts:369-383`, and every id in that stamp is read from the
+   * COLLAB STORE rather than from the client's claim, so a weakened lookup
+   * yields an ABSENT stamp, never a forged one. `createSharedSnapshot` passes
+   * the same server-held graph as `p_graph`, so the stamp was already arriving
+   * here intact and this page was the hop that dropped it.
+   *
+   * ⚠ MATCHED ON THE EXACT PRODUCER TOKEN, NOT ON THE PRESENCE OF
+   * `observed_state`. Most nodes carry an `observed_state` whose `source` is
+   * something else entirely; keying on the object would mark the whole model.
+   *
+   * ⛔ THE IDS THEMSELVES STAY OFF THIS PAGE. It is public and anonymous, and
+   * `elicited_from` is a triple of raw uuids naming a person, a round and one
+   * person's written note. The recipient is told THAT the model drew on a
+   * panel; who said what is the owner's reveal to share, not this link's.
+   */
+  const observedState =
+    n.observed_state !== null && typeof n.observed_state === 'object'
+      ? (n.observed_state as Record<string, unknown>)
+      : undefined
+  const fromPanel = observedState?.source === 'panel_elicited' ? (true as const) : undefined
+
+  return { type, label, description, value, quote, fromPanel }
 }
 
 function readNodes(graph: unknown): ReadNode[] {
@@ -124,6 +173,302 @@ function edgeCount(graph: unknown): number {
   if (!graph || typeof graph !== 'object') return 0
   const g = graph as Record<string, unknown>
   return Array.isArray(g.edges) ? g.edges.length : 0
+}
+
+// ---------------------------------------------------------------------------
+// Analysis reading — allowlisted fields only
+// ---------------------------------------------------------------------------
+
+/**
+ * What the run concluded, reduced to the fields this page is willing to show.
+ *
+ * ⭐ THE FIELD NAMES ARE DERIVED FROM THE PRODUCER. Measured at the deployed
+ * database on 18 Sep 2026 over every `scenarios.brief` CEE has written — 39
+ * rows, ALL of them written that day between 01:48Z and 12:37Z, which is why
+ * this page had nothing to show until now. Eighteen keys, present on all 39.
+ * Population of the parts that matter, and the shapes:
+ *
+ *   options            39/39   [{ rank, label, option_id, win_probability }]
+ *   headline           39/39   the producer's own sentence
+ *   robustness_caveat  39/39   { text, basis, doctrine, flip_evidence }
+ *   what_would_change  39/39   array of STRINGS ("A → B")
+ *   top_drivers        27/39   [{ factor_label, direction, sensitivity }]
+ *   key_assumptions    27/39   array of STRINGS (factor labels)
+ *
+ * `win_probability` over 131 option rows: min 0.000125, max 0.99595, none
+ * above 1 — a probability, so it is rendered as one.
+ *
+ * ⛔ WHAT IS DELIBERATELY LEFT OUT, AND WHY IT IS A DECISION RATHER THAN AN
+ * OVERSIGHT. `warnings` (35/39) and `defaulted_assumptions` (9/39) read like
+ * honesty signals and are the obvious thing to surface. They carry RAW
+ * INTERNAL IDENTIFIERS: measured over the same rows, 12 of 103 warning
+ * messages name node ids ("root node '6bb6259c'", 'factor node "ab78e513"')
+ * and one names the ISL service and its internal defaulting. They are
+ * operator diagnostics. Contrast control in the same sweep: every field in
+ * the allowlist below returned ZERO id-shaped matches across 40/188/56/135/
+ * 60/40 elements, so the probe could see ids and those zeros are real absence.
+ *
+ * Also out: `brief_id`, `lineage`, `graph_hash`, `seed`, `version`,
+ * `created_at` (provenance internals), `option_id` / `leader_option_id`
+ * (producer ids), and `headline_banded` / `analysis_summary`, whose readable
+ * content duplicates `headline` while carrying ids and a doctrine token.
+ *
+ * `sensitivity` is read but NOT rendered: 0.3077636585204695 is neither a
+ * probability nor a percentage and the producer does not disclose which, so
+ * showing it would mean inventing a presentation. Only the ordering it
+ * implies is used.
+ */
+interface ReadOption {
+  label: string
+  winProbability: number | null
+}
+
+interface ReadAnalysis {
+  headline?: string
+  options: ReadOption[]
+  robustnessNote?: string
+  drivers: string[]
+  whatWouldChange: string[]
+  keyAssumptions: string[]
+}
+
+function readString(raw: unknown): string | undefined {
+  return typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : undefined
+}
+
+/** Plain strings only — the shape `what_would_change` and `key_assumptions` use. */
+function readStringList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((v) => readString(v))
+    .filter((v): v is string => v !== undefined)
+}
+
+function readOptions(raw: unknown): ReadOption[] {
+  if (!Array.isArray(raw)) return []
+
+  const options = raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null
+      const o = entry as Record<string, unknown>
+      const label = readString(o.label)
+      if (label === undefined) return null
+
+      // A probability in [0,1] or nothing. Anything outside that range is a
+      // convention this page has not derived, and guessing at one is how a
+      // figure ends up 137x wrong on a screen the sender cannot see.
+      const wp = o.win_probability
+      const winProbability =
+        typeof wp === 'number' && Number.isFinite(wp) && wp >= 0 && wp <= 1
+          ? wp
+          : null
+
+      const rank = typeof o.rank === 'number' && Number.isFinite(o.rank) ? o.rank : null
+      return { label, winProbability, rank }
+    })
+    .filter((o): o is ReadOption & { rank: number | null } => o !== null)
+
+  // The producer ranks them; fall back to input order when it has not.
+  if (options.every((o) => o.rank !== null)) {
+    options.sort((a, b) => (a.rank as number) - (b.rank as number))
+  }
+
+  return options.map(({ label, winProbability }) => ({ label, winProbability }))
+}
+
+function readDrivers(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return undefined
+      return readString((entry as Record<string, unknown>).factor_label)
+    })
+    .filter((v): v is string => v !== undefined)
+}
+
+function readAnalysis(raw: unknown): ReadAnalysis | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const a = raw as Record<string, unknown>
+
+  const caveat =
+    a.robustness_caveat && typeof a.robustness_caveat === 'object'
+      ? readString((a.robustness_caveat as Record<string, unknown>).text)
+      : undefined
+
+  const result: ReadAnalysis = {
+    headline: readString(a.headline),
+    options: readOptions(a.options),
+    robustnessNote: caveat,
+    drivers: readDrivers(a.top_drivers),
+    whatWouldChange: readStringList(a.what_would_change),
+    keyAssumptions: readStringList(a.key_assumptions),
+  }
+
+  const hasContent =
+    result.headline !== undefined ||
+    result.options.length > 0 ||
+    result.robustnessNote !== undefined ||
+    result.drivers.length > 0 ||
+    result.whatWouldChange.length > 0 ||
+    result.keyAssumptions.length > 0
+
+  // Nothing recognised means no section at all — never an empty heading.
+  return hasContent ? result : null
+}
+
+/**
+ * A probability as a whole percentage. A non-zero probability that rounds to
+ * zero is shown as "<1%" rather than "0%", which would read as "impossible"
+ * about an option the model gave a real chance to.
+ */
+function formatProbability(p: number): string {
+  const pct = Math.round(p * 100)
+  if (pct === 0 && p > 0) return '<1%'
+  return `${pct}%`
+}
+
+// ---------------------------------------------------------------------------
+// Analysis renderer
+// ---------------------------------------------------------------------------
+
+/**
+ * ⚠ HEADINGS ARE SENTENCE CASE, AND THAT IS A RULING, NOT A STYLE PREFERENCE.
+ * The `uppercase` utility used by this page's older headings is a net-new
+ * violation under `ci:guard:ds:enforce` (`uppercase-text` — "styling-driven
+ * all-caps, sentence case required", DS v5 §2). The guard fired on this
+ * component and was taken at its word rather than re-pinned: new code follows
+ * the shipped design system. The older headings above are grandfathered in the
+ * ratchet baseline, so this section reads slightly differently from them until
+ * they migrate — which is what a ratchet is for.
+ */
+function AnalysisSection({ analysis }: { analysis: ReadAnalysis }) {
+  return (
+    <div
+      className="bg-white rounded-lg border border-gray-200 p-6 mb-4"
+      data-testid="shared-snapshot-analysis"
+    >
+      <h2 className="text-sm font-medium text-text-light mb-2">
+        What the analysis concluded
+      </h2>
+
+      {/*
+        The producer's own sentence, rendered as written.
+
+        ⭐ RENDER THE OWNED CLAIM — NEVER DERIVE ONE (src/lib/decisionVerdict.ts,
+        ROADMAP 1.223). CEE #711 made the producer's SILENCE meaningful: on a
+        turn whose verdict is withheld it deliberately drops `headline` while
+        the per-option win probabilities keep riding the wire, because the DATA
+        is not withheld — only the CLAIM. A consumer-side fallback that banded
+        those same numbers into a leader sentence is exactly the defect that
+        was deleted rather than gated, after the product asserted a leader in
+        nine places on the same screen as its own "no option can be put forward
+        yet". So: no headline, no claim. The options below still render.
+      */}
+      {analysis.headline && (
+        <p
+          className="text-text-body leading-relaxed"
+          data-testid="shared-analysis-headline"
+        >
+          {analysis.headline}
+        </p>
+      )}
+
+      {analysis.options.length > 0 && (
+        <section className="mt-5">
+          <h3 className="text-sm font-medium text-text-light mb-2">
+            How the options compared
+          </h3>
+          <ul className="space-y-2">
+            {analysis.options.map((o, i) => (
+              <li
+                key={i}
+                className="flex items-baseline justify-between gap-3 p-3 bg-gray-50 rounded-lg"
+                data-testid={`shared-option-${i}`}
+              >
+                <span className="font-medium text-text-header">{o.label}</span>
+                {o.winProbability !== null && (
+                  <span className="text-sm text-text-body whitespace-nowrap">
+                    {formatProbability(o.winProbability)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-text-light">
+            How often each option came out best across the runs of this model.
+          </p>
+        </section>
+      )}
+
+      {/*
+        Robustness is disclosed SEPARATELY and never folded into the leader
+        claim. decisionVerdict.ts: separation ("how far apart are the options")
+        and robustness ("does the ranking survive perturbation") are two facts,
+        and every contradictory string this product has shipped came from a
+        surface collapsing them into one. A lead that is not robust is still a
+        lead; what no surface may do is deny the lead because it is fragile, or
+        assert robustness because there is a lead. The producer writes a
+        band-appropriate sentence — measured: the `fragile` rows say "This run
+        was fragile under the changes we tested", the robust ones do not — so
+        it is rendered as written rather than re-derived from the band token.
+      */}
+      {analysis.robustnessNote && (
+        <section className="mt-5">
+          <h3 className="text-sm font-medium text-text-light mb-2">
+            How much to trust it
+          </h3>
+          <p className="text-sm text-text-body leading-relaxed">
+            {analysis.robustnessNote}
+          </p>
+        </section>
+      )}
+
+      {analysis.whatWouldChange.length > 0 && (
+        <section className="mt-5">
+          <h3 className="text-sm font-medium text-text-light mb-2">
+            What would change the outcome
+          </h3>
+          <ul className="space-y-1">
+            {analysis.whatWouldChange.map((w, i) => (
+              <li key={i} className="text-sm text-text-body leading-relaxed">
+                {w}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {analysis.drivers.length > 0 && (
+        <section className="mt-5" data-testid="shared-analysis-drivers">
+          <h3 className="text-sm font-medium text-text-light mb-2">
+            Most sensitive to
+          </h3>
+          <ul className="space-y-1">
+            {analysis.drivers.map((d, i) => (
+              <li key={i} className="text-sm text-text-body leading-relaxed">
+                {d}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {analysis.keyAssumptions.length > 0 && (
+        <section className="mt-5">
+          <h3 className="text-sm font-medium text-text-light mb-2">
+            Assumptions it rests on
+          </h3>
+          <ul className="space-y-1">
+            {analysis.keyAssumptions.map((k, i) => (
+              <li key={i} className="text-sm text-text-body leading-relaxed">
+                {k}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +502,22 @@ function NodeList({ nodes }: { nodes: ReadNode[] }) {
               <span className="text-sm text-text-body whitespace-nowrap">{n.value}</span>
             )}
           </div>
+          {/* ⛔ "THE TEAM", NOT "A COLLEAGUE" — AND THE DIFFERENCE IS TRUTH, NOT TONE.
+              The owner can sit on their own panel: `rounds-service.ts:154-172`
+              finds the closing owner on the roster and refuses the close until
+              they have answered or declined, because "seeing the others first
+              would anchor it". So the applied answer may be the SENDER'S OWN,
+              and "a colleague's estimate" is false on a designed, reachable arm.
+              "The team" is true whoever answered.
+
+              ⛔ AND IT STATES PROVENANCE, NEVER AGREEMENT. One panellist's value
+              was applied; that is all the stamp records. No mean, no consensus,
+              no "the team agreed" — the same rule `DisagreementBody` is held to
+              one surface away, and the temptation arrives at this call site too,
+              because a single calm badge reads more settled than the round was. */}
+          {n.fromPanel && (
+            <p className="mt-1 text-sm text-text-light">From the team</p>
+          )}
           {n.description && (
             <p className="mt-1 text-sm text-text-light leading-relaxed">{n.description}</p>
           )}
@@ -296,6 +657,7 @@ export default function SharedBriefPage() {
 
   const nodeTotal = readNodes(data.graph).length
   const edgeTotal = edgeCount(data.graph)
+  const analysis = readAnalysis(data.analysis)
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 sm:p-8">
@@ -319,6 +681,13 @@ export default function SharedBriefPage() {
             </p>
           </div>
         )}
+
+        {/* What the analysis concluded. Rendered ABOVE the model: a recipient
+            opens a link to find out what was decided, and the elements are the
+            supporting detail. Absent for most links — 39 of 14,252 scenarios
+            carried a brief when this was written — and absence is silence, not
+            an empty section. */}
+        {analysis && <AnalysisSection analysis={analysis} />}
 
         {/* The model */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">

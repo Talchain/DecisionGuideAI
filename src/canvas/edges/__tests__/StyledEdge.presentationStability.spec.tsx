@@ -19,6 +19,12 @@
  *
  * ⚠ jsdom cannot prove visibility and this file does not try. Everything here is
  * an assertion about the STYLE VALUES StyledEdge hands to BaseEdge.
+ *
+ * ⚠ UNRUN IN THE LANE THAT LAST EDITED THIS FILE (18 Sep 2026). No suite, no
+ * typecheck and no install were executed — the cost constraints for that lane
+ * forbade all three. The two fixture stamps below are derived at the bytes
+ * (`resolveEdgeValueDisplay` → `resolveExistenceDash` → `resolveEdgeDash`), not
+ * measured. CI at this head is the authority for whether they are green.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
@@ -86,7 +92,7 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 // importOriginal-SPREAD, never a hand-listed replacement (CLAUDE.md trap 12):
 // a `vi.mock` factory REPLACES the module, so a hand-written list silently drops
 // every export added after it was written. Only the two stubs below are
-// overridden, and `existenceCertaintyToLineStyle` keeps its REAL behaviour so
+// overridden, and `resolveExistenceDash` keeps its REAL behaviour so
 // the existence-dash twin is a genuine measurement.
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
@@ -213,13 +219,22 @@ describe('H2 — an edge\'s resting appearance is a function of the EDGE, not th
    * about an edge may change after analysis: label visibility deliberately does
    * (`shouldShowEdgeLabel` surfaces top-strength labels once results exist), and
    * that is a designed behaviour, not this defect.
+   *
+   * ⚠ THE TWO `beliefExists` CASES CARRY `beliefExistsSource` AND THE STAMP IS
+   * LOAD-BEARING — same reason as `StyledEdge.encoding.spec.tsx`'s fixture.
+   * `resolveEdgeValueDisplay` returns `{show:false, reason:'not_set'}` for an
+   * unstamped number, so an unstamped 0.3 resolves to `{kind:'unset'}` and draws
+   * SOLID. Without the stamp the case LABELLED "a low existence probability" was
+   * a byte-for-byte duplicate of `draftedEdge()` — it still passed, because two
+   * identically-unset renders are identically unset, and the one case in this
+   * table that can actually DASH was not in the table at all.
    */
   const cases: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['a plain drafted edge with no confidence set', draftedEdge()],
-    ['a drafted edge with a stated existence probability', draftedEdge({ beliefExists: 0.8 })],
+    ['a drafted edge with a stated existence probability', draftedEdge({ beliefExists: 0.8, beliefExistsSource: 'cee' })],
     ['a contested edge', draftedEdge({ validation: contestedValidation() })],
     ['a sign_flip contested edge', draftedEdge({ validation: contestedValidation({ contested_reasons: ['sign_flip'] }) })],
-    ['an edge with a low existence probability', draftedEdge({ beliefExists: 0.3 })],
+    ['an edge with a low existence probability', draftedEdge({ beliefExists: 0.3, beliefExistsSource: 'cee' })],
   ]
 
   it.each(cases)('%s renders identically before and after an analysis completes', (_label, data) => {
@@ -260,7 +275,29 @@ describe('H2b — "needs attention" is no longer the default treatment', () => {
 
   it('TWIN: an edge with a STATED low existence probability still dashes', () => {
     // Removing the fabricated uncertainty signal must not remove the real one.
-    const dash = renderEdge(draftedEdge({ beliefExists: 0.3 })).strokeDasharray
+    //
+    // ⚠⚠ `beliefExistsSource` IS WHAT MAKES THE WORD "STATED" IN THIS TEST'S OWN
+    // NAME TRUE, and without it this test COULD NOT PASS. The provenance gate
+    // landed in this PR: `resolveEdgeValueDisplay` returns
+    // `{show:false, reason:'not_set'}` for a number with no stamp, so an
+    // unstamped 0.3 reaches `resolveEdgeDash` as `{kind:'unset'}`, matches the
+    // `existence_unset` rule and returns `undefined` — a FALSY dash, against
+    // `toBeTruthy()` on the next line.
+    //
+    // The identical stamp was added to the sibling fixture at
+    // `StyledEdge.encoding.spec.tsx` in this same PR, under a docblock calling it
+    // load-bearing; this file was edited one line above and missed. Recorded
+    // rather than quietly fixed, because the shape is the lane's own defect
+    // class: an UNSTAMPED fixture asserting STAMPED-ONLY behaviour.
+    //
+    // Swept for the same shape (18 Sep 2026, fresh clone, `rg -a`, `src/**/*.spec.ts{,x}`):
+    // `resolveEdgeDash` has exactly one non-test consumer (`StyledEdge.tsx:1247`),
+    // 22 specs render `<StyledEdge`, and only the stamp-sensitive band
+    // (`beliefExists`/`belief` < `EDGE_VALUE_BAND_CUTS.high`) can change outcome —
+    // at or above it, stamped and unstamped both draw solid. Two files intersect:
+    // this one and `StyledEdge.encoding.spec.tsx`, which is already stamped and
+    // served as the contrast control. No other hit.
+    const dash = renderEdge(draftedEdge({ beliefExists: 0.3, beliefExistsSource: 'cee' })).strokeDasharray
     expect(dash).toBeTruthy()
     expect(dash).not.toBe('6 3')
   })

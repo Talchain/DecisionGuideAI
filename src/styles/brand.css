@@ -266,7 +266,8 @@
   --edge-neutral-dark: #A1A1AA;
 
   /* Canvas label counter-scale. NOT a colour and NOT a size — a unitless
-     multiplier the three canvas type tokens (nodeTitle / nodeLabel / edgeLabel)
+     multiplier the four canvas type tokens (nodeTitle / nodeValue / nodeLabel /
+     edgeLabel)
      apply to their DECLARED px, so DS v5 §2.3's 13/11/10 are the sizes actually
      rendered rather than the sizes before React Flow's viewport transform
      halves them. 1 is the identity and the correct value everywhere except

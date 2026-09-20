@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { LOCAL_SEMANTIC_CONTEXT_MENU_IDS, useMenuItems } from '../useMenuItems'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
 import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget, MenuItemDef, MenuEntry } from '../types'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { Node, Edge } from '@xyflow/react'
@@ -196,7 +197,16 @@ describe('factor node menu (full)', () => {
     // property asserted here is "not actionable", not "not present". Which ids
     // are surfaced vs hidden is pinned in `menuSaysWhyUnavailable.spec.ts`.
     expect(ids).not.toContain('set-value')
-    expect(ids).not.toContain('add-connected-factor')
+    // ⚠ INVERTED 18 Sep 2026, NOT DELETED, so the overturned claim stays
+    // visible. This asserted `add-connected-factor` ABSENT. It is now offered
+    // and ACTIONABLE: CEE #1443 shipped the `structural_add_edge` writer, the
+    // id moved out of `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` into
+    // `CONNECTED_NODE_ADD_MENU_IDS`, and `store.addNodeWithEdge` captures both
+    // halves. The property worth guarding here was never "absent" — it was
+    // "nothing carrierless is actionable", which the loop below still pins.
+    // Behaviour pinned in `connectedAddDurableDoor.spec.tsx`.
+    expect(ids).toContain('add-connected-factor')
+    expect(findItem(result.current, 'add-connected-factor')?.enabled).toBe(true)
     expect(ids).not.toContain('mark-assumption')
     for (const id of ['cut', 'duplicate']) {
       expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
@@ -280,12 +290,25 @@ describe('decision node menu (reduced)', () => {
     expect(challenge?.tooltip).not.toContain('current setup')
   })
 
-  it('withholds add connected factor without a receipt-bearing carrier', () => {
+  /**
+   * ⚠ INVERTED 18 Sep 2026, NOT DELETED. This read "withholds add connected
+   * factor without a receipt-bearing carrier" and was correct while there was
+   * no carrier: CEE held `structural_add_edge` at `'reader_only_refusal'`, so a
+   * durable emit would have saved the node and dropped the link. CEE #1443
+   * shipped the writer on 13 Sep 2026.
+   *
+   * ⭐ THE PRECONDITION IS PINNED IN-TEST rather than assumed (CLAUDE.md trap
+   * 13b): the presence assertion is evidence about a DURABLE door only while
+   * BOTH carriers really are `server_graph`. Flip either back and this REDs on
+   * the authority line, which is the honest place for it to fail.
+   */
+  it('offers add connected factor, on two carriers that both have a receipt', () => {
+    expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)).toBe(true)
+    expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)).toBe(true)
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
-    const ids = getItemIds(result.current)
-    expect(ids).not.toContain('add-connected-factor')
+    expect(getItemIds(result.current)).toContain('add-connected-factor')
   })
 })
 
@@ -433,6 +456,15 @@ describe('constraint node menu', () => {
     expect(subIds).toContain('ask-ai-challenge')
   })
 
+  /**
+   * ⚠ UNCHANGED ON 18 Sep 2026, AND FOR A DIFFERENT REASON THAN ITS SIBLINGS
+   * — named apart so a later lane does not read this as the authority gate
+   * still being shut (CLAUDE.md trap 21). `add-connected-*` is now offered and
+   * actionable on every other kind. Constraint is excluded STRUCTURALLY:
+   * `buildNodeMenu` guards the whole block with `if (kind !== 'constraint')`,
+   * and `constraint` is the single kind `WIRE_ADDABLE_NODE_KINDS` subtracts
+   * (`CEE_UNPERSISTABLE_NODE_KIND`). Nothing about carriers decides this case.
+   */
   it('does NOT include add connected factor or mark as assumption', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),

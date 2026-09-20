@@ -52,8 +52,14 @@ describe('the producer\'s reason for withholding the leader', () => {
    * edge case.
    */
   it('⛔ CONTRAST: an unmapped reason produces NOTHING, so today\'s sentence is unchanged', () => {
-    expect(leaderWithholdCause('separation_unavailable')).toBeNull()
+    // ⚠ `separation_unavailable` USED TO BE THIS ARM'S EXAMPLE, and it moved
+    // for the right reason: the map's rule was "it grows when a capture earns
+    // the entry", and bundle `b3d5806d` (staging `fd65f971`, 19 Sep 14:32Z)
+    // carried it on a real user's run. The arm keeps its job with tokens that
+    // genuinely have no capture — replacing the example rather than deleting
+    // the case, because what it discriminates is unchanged.
     expect(leaderWithholdCause('some_reason_nobody_has_seen')).toBeNull()
+    expect(leaderWithholdCause('a_token_no_run_has_produced')).toBeNull()
     expect(leaderWithholdCause('')).toBeNull()
     expect(leaderWithholdCause('   ')).toBeNull()
     expect(leaderWithholdCause(null)).toBeNull()

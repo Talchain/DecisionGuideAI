@@ -34,7 +34,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // Without this, a broken generator would leave every property below
     // passing over an empty or tiny set.
     expect(domain()).toHaveLength(CELLS)
-    expect(new Set(domain().map(figureTallySubtitle)).size).toBeGreaterThan(10)
+    expect(new Set(domain().map(t => figureTallySubtitle(t))).size).toBeGreaterThan(10)
   })
 
   it('a noun always agrees with the number immediately before it', () => {
@@ -149,7 +149,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // source and moves only who did the counting.
     const USER = /\byou (?:mentioned|gave|wrote|said|told|listed)\b/i
     const bad = domain()
-      .map(figureTallySubtitle)
+      .map(t => figureTallySubtitle(t))
       .filter(s => USER.test(s))
     expect([...new Set(bad)], `a count attributed to the user's own words:\n${bad.join('\n')}`).toEqual([])
   })
@@ -158,7 +158,7 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     // The other half, and without it the property above is satisfied by
     // deleting the attribution entirely — a sentence made true by saying less.
     const bad = domain()
-      .map(figureTallySubtitle)
+      .map(t => figureTallySubtitle(t))
       .filter(s => /\d|^All |^None /.test(s) && !s.includes('I found in your brief'))
     expect([...new Set(bad)], `a count with no attribution:\n${bad.join('\n')}`).toEqual([])
   })
@@ -199,9 +199,50 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
  * breaking the all-clear gate for n = 1 left all 58 cases green on a sentence
  * carrying the defect. An exact match cannot land on the wrong arm.
  */
+describe('a tally of zero is about the run, never about the brief', () => {
+  /**
+   * ⭐⭐ THE PROPERTY, NOT THE STRING. Asserting "does not equal the old
+   * sentence" would pass the moment someone wrote a DIFFERENT claim about the
+   * brief's contents.
+   *
+   * ⚠ THE PRECONDITION TWIN IS FIRST: without it every absence below is
+   * satisfied by an empty string, and this arm would pass on a deleted branch.
+   */
+  it('makes no claim about what the brief contains', () => {
+    const said = figureTallySubtitle({ total: 0, inModel: 0, proseOnly: 0, absent: 0 })
+    expect(said.length).toBeGreaterThan(20)
+    expect(said.toLowerCase()).toContain('your brief')
+
+    // Every phrasing that asserts the BRIEF has none, rather than reporting
+    // that this run extracted none.
+    for (const claim of ['no figures in', 'has no figures', 'contains no', 'there are no']) {
+      expect(
+        said.toLowerCase(),
+        `"${claim}" states a property of the brief; a zero tally cannot establish one`,
+      ).not.toContain(claim)
+    }
+  })
+
+  /** And it still says the run came up empty — an unreadable sentence is not a fix. */
+  it('still reports that this run extracted nothing', () => {
+    expect(
+      figureTallySubtitle({ total: 0, inModel: 0, proseOnly: 0, absent: 0 }).toLowerCase(),
+    ).toMatch(/didn't pick out any|did not pick out any/)
+  })
+})
+
 describe('figureTallySubtitle — the named states, by exact sentence', () => {
   it.each([
-    ['nothing recorded', { total: 0, inModel: 0, proseOnly: 0, absent: 0 }, 'I found no figures in your brief'],
+    // ⛔ WITNESSED FALSE, 19 Sep 2026, and the sentence moved rather than the
+    // arm. "I found no figures in your brief" asserts a property of THE BRIEF;
+    // it rendered directly beneath a brief reading "We're raising 1.3 million"
+    // and directly above this panel's own list of three estimated figures. A
+    // tally of zero establishes what THIS RUN extracted and nothing more.
+    //
+    // ⚠ Note the other rows already get this right — "figures I found" is a
+    // report of the run and is true wherever the tally is non-zero. Only the
+    // zero arm generalised from "I found none" to "there are none".
+    ['nothing recorded', { total: 0, inModel: 0, proseOnly: 0, absent: 0 }, "I didn't pick out any figures from your brief"],
     ['one figure, it landed', { total: 1, inModel: 1, proseOnly: 0, absent: 0 }, 'The figure I found in your brief is in the model'],
     ['one figure, it did not', { total: 1, inModel: 0, proseOnly: 0, absent: 1 }, "The figure I found in your brief isn't in the model yet"],
     ['all of many landed', { total: 5, inModel: 5, proseOnly: 0, absent: 0 }, 'All 5 figures I found in your brief are in the model'],
@@ -222,5 +263,63 @@ describe('figureTallySubtitle — the named states, by exact sentence', () => {
     ['no manifest at all', null, "I can't show this yet"],
   ])('%s', (_name, tally, expected) => {
     expect(figureTallySubtitle(tally as FigureTally | null)).toBe(expected)
+  })
+})
+
+/**
+ * ⛔⛔ A MISSING TALLY IS NOT A MISSING BRIEF.
+ *
+ * Witnessed in Paul's 19 Sep screenshots on staging `fd65f971`:
+ * *"What you gave me, and what I did with it — I can't show this yet"* — **above
+ * the brief it was rendering.**
+ *
+ * `tally === null` covers two states the section treats very differently:
+ * no manifest at all (CEE told us nothing), and a manifest that is not
+ * `derived` (`status: 'unavailable'` — *"CEE looked and could not"*). The
+ * section returns null only when `briefText === null && manifest === null`, so
+ * in the second state the user's own words are on screen under a sentence
+ * saying they cannot be shown.
+ */
+describe('a missing tally is not a missing brief', () => {
+  it('⛔ with a manifest that could not be counted, it does not claim the section is unavailable', () => {
+    const s = figureTallySubtitle(null, 'not_counted')
+    expect(s, 'the brief is rendered directly beneath this sentence').not.toBe(
+      "I can't show this yet",
+    )
+    // ⚠ The sentence must be about the FIGURES. "show" here is the word that
+    // made it read as a statement about the section.
+    expect(s.toLowerCase()).toContain('figures')
+  })
+
+  it('⛔ with NO manifest, the original sentence is unchanged — that state is correct', () => {
+    expect(
+      figureTallySubtitle(null, 'no_manifest'),
+      'CEE told us nothing, and the section header rules that this must be explicit',
+    ).toBe("I can't show this yet")
+  })
+
+  /**
+   * ⚠ THE DEFAULT IS THE STRICTER STATE. A caller that forgets to say which
+   * absence it has gets the sentence that claims LESS, never the one that
+   * quietly reassures.
+   */
+  it('defaults to the no-manifest sentence when the caller says nothing', () => {
+    expect(figureTallySubtitle(null)).toBe("I can't show this yet")
+  })
+
+  /**
+   * ⛔ THE DISCRIMINATOR. Without it, an implementation returning the same
+   * string for both absences would satisfy the "not unavailable" arm only by
+   * accident of wording.
+   */
+  it('⛔ the two absences produce DIFFERENT sentences', () => {
+    expect(figureTallySubtitle(null, 'not_counted')).not.toBe(
+      figureTallySubtitle(null, 'no_manifest'),
+    )
+  })
+
+  it('a real tally is unaffected by the new argument', () => {
+    const tally = { total: 2, inModel: 2, proseOnly: 0, absent: 0 }
+    expect(figureTallySubtitle(tally, 'not_counted')).toBe(figureTallySubtitle(tally))
   })
 })

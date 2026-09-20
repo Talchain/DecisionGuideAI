@@ -100,7 +100,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
             <span className="sr-only">{p.direction === 'up' ? 'Raises' : 'Lowers'}</span>
           )}
           {/* ⚠ ALL THREE GLYPHS CARRY THE CANVAS COUNTER-SCALE. The pill's TEXT
-              already did — `typography.edgeLabel` is one of the three canvas
+              already did — `typography.edgeLabel` is one of the four canvas
               tokens — so the number beside these marks rendered at its declared
               10px while the marks themselves rendered at **7.0px** (measured on
               the deployed board), because a `size` prop is not a token and the

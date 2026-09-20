@@ -1099,8 +1099,15 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   //   ENFORCE    → the write reaches `scenarios.graph`.
   //   OFF/SHADOW → a TYPED, non-retryable refusal that names THIS gesture
   //                (`FEATURE_NOT_ENABLED`, `edge_strength_edit_reader_only`).
-  // Both are honest; today's silence is not. That is why emitting is right here
-  // and wrong for `structural_add_edge`, which has NO writer at all.
+  // Both are honest; today's silence is not.
+  //
+  // ⚠ THE CONTRAST THAT CLOSED THIS SENTENCE HAS EXPIRED (18 Sep 2026). It
+  // read: "That is why emitting is right here and wrong for
+  // `structural_add_edge`, which has NO writer at all." CEE #1443 shipped that
+  // writer on 13 Sep and promoted the kind to `'mutating'` (`dispatch.ts:373`),
+  // so `structural_add_edge` is emitted today by `store.addEdge` and
+  // `store.addNodeWithEdge`. ⭐ The claim ABOUT `edge_strength_edit` is
+  // unaffected — it never rested on the comparison.
   //
   // ⚠ READER-FIRST is already satisfied and was DERIVED, not assumed: every
   // SystemEventSchema member is `.strict()` inside a discriminated union, so a

@@ -92,6 +92,28 @@ export type NotAnalysedReason =
    */
   | 'not_returned'
 
+/*
+ * ⛔ THE FOURTH VALUE WAS WITHDRAWN. A `graph_edited_since_run` member was added
+ * to a superset union here, meaning "the graph moved since the run, so we may
+ * not say the run considered this option". It is gone, and the withdrawal is
+ * recorded rather than silently reverted because the reasoning that minted it
+ * was sound and the FACT it named was not available.
+ *
+ * It was composed from `graphEditedSinceLastRun`, and that flag is reset to
+ * `false` by `resultsLoadHistorical` (`canvas/store.ts:6026`) and
+ * `resultsHydrateFromSupabase` (`:6097`) in the same `set()` that installs the
+ * restored result — so it reads "the graph has not moved" about a result
+ * computed on a graph the session has never seen. The honest signal
+ * (`canvas/hooks/useAnalysisResultsAreCurrent`) can only answer *"is this result
+ * confirmably about the current graph?"*, and its `false` pools 'changed' with
+ * 'cannot_confirm'. It therefore licenses WITHHOLDING a claim and never
+ * ASSERTING a change, which is what this value asserted.
+ *
+ * ⭐ The consequence for this file is that {@link NotAnalysedReason} is once
+ * more the whole vocabulary, {@link deriveNotAnalysedReason} is total over it,
+ * and `notAnalysedCopy.ts`'s argument from that totality stands unqualified.
+ */
+
 /** The shape this module needs off a canvas edge. */
 export interface OptionEdgeLike {
   readonly source: string

@@ -314,10 +314,19 @@ describe('WHAT THE REMOVED SURFACES WERE CARRYING', () => {
     expect(vm.atAGlance.headline).toContain('currently scores higher')
     expect(vm.atAGlance.leaderLabel).toBe('Raise price')
 
+    /**
+     * ⛔ THE DOM HALF OF THIS CASE IS GONE, THE DATA HALF IS NOT — and the split
+     * is the point. Paul ruled 18 Sep 2026 that the conclusion is deleted, so
+     * there is no answer line to prefer a label over a sentence. The producer
+     * still composes BOTH (asserted above), and that is still worth pinning:
+     * it is the upstream fact, and a later surface that wants a subject will
+     * find `leaderLabel` rather than having to strip tense out of `headline`.
+     */
     renderPanel(genuineDecision(), { isPreRun: false, isStale: true, staleReason: 'changed' })
-    const answer = screen.getByTestId('analysis-new-glance-headline')
-    expect(answer).toHaveTextContent('Raise price')
-    expect(answer).not.toHaveTextContent('currently scores higher')
+    expect(
+      screen.queryByTestId('analysis-new-glance-headline'),
+      'no answer line renders in any state now',
+    ).toBeNull()
   })
 
   /**
@@ -326,9 +335,16 @@ describe('WHAT THE REMOVED SURFACES WERE CARRYING', () => {
    * the role label was information the fresh reader got and the stale reader
    * did not. It is now the same in both states.
    */
-  it('the role label survives into the stale state', () => {
+  it('the role label is GONE in every state, stale included', () => {
+    /**
+     * ⛔ INVERTED, 18 Sep 2026. This asserted the "Most likely to serve your
+     * goal" eyebrow survived into the stale state. Paul ruled the conclusion is
+     * deleted entirely, and the eyebrow labelled it, so it went too. Kept
+     * inverted because "the stale path quietly renders a surface the fresh path
+     * does not" is exactly the asymmetry this file exists to catch.
+     */
     renderPanel(genuineDecision(), { isPreRun: false, isStale: true, staleReason: 'changed' })
-    expect(screen.getByTestId('analysis-new-glance')).toHaveTextContent(COPY.glance.eyebrowLeading)
+    expect(screen.getByTestId('analysis-new-glance')).not.toHaveTextContent(COPY.glance.eyebrowLeading)
   })
 
   /**

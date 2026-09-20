@@ -306,8 +306,8 @@ export function describeEdge(
   let claim: string
   if (absWeight !== null) {
     // Categorise the strength — DERIVED, never restated. `getStrengthLabel` is
-    // the canonical table (`./vocabulary`); the inspector panel, `ConnectionRow`,
-    // `InfluenceIndicator` and the `StrengthBandButtons` pills all read it, so
+    // the canonical table (`./vocabulary`); the inspector panel, `ConnectionRow`
+    // and the `StrengthBandButtons` pills all read it, so
     // the chip and the panel now name the same edge with the same adjective.
     const strengthLabel = getStrengthLabel(absWeight)
     // Absence stays absence: name the magnitude, and say plainly that the

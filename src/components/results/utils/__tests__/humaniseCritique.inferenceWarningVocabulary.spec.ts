@@ -62,14 +62,40 @@ function codesOfKind(kind: InferenceWarningKind): string[] {
 }
 
 describe('ISL inference-warning vocabulary — the derived code set', () => {
-  it('classifies exactly the 26 codes that reach the UI', () => {
+  it('classifies exactly the 27 codes that reach the UI and have a reachable run', () => {
     // Pinned as a COUNT plus a spot-check of one member per kind. The count is
     // the AST-derived 28 minus the two PLoT drops; if ISL grows the vocabulary
     // this number is expected to change deliberately, with the map.
-    expect(CODES).toHaveLength(26)
+    //
+    // ⭐ 26 → 27 on 2026-09-19. A re-derivation by the SAME AST method at ISL
+    // `staging` c9ab543d found two codes this map did not hold. One is added
+    // (`GOAL_DIRECTION_UNATTESTED`, which fires on every run today); the other
+    // is pinned as deliberately absent below.
+    expect(CODES).toHaveLength(27)
     expect(CODES).toContain('E_VALUES_UNAVAILABLE')
     expect(CODES).toContain('RANGE_OPEN_ENDED')
     expect(CODES).toContain('ROOT_NODE_DEFAULT_VALUE')
+    expect(CODES).toContain('GOAL_DIRECTION_UNATTESTED')
+  })
+
+  /**
+   * ⛔ THE DELIBERATE ABSENCE, PINNED AS A BEHAVIOUR RATHER THAN AS A COMMENT.
+   *
+   * `OBJECTIVE_RANKING_WITHHELD` is a real ISL code
+   * (`services/robustness_analyzer_v2.py:4239`) and it carries a
+   * `detail.message`, so PLoT would forward it. It is NOT classified because
+   * ISL emits it only on `goal_direction == 'target'`, and nothing in the
+   * estate sends `goal_direction` at all — measured 2026-09-19 with contrast
+   * controls in the same sweep: ZERO in this repo, ZERO in CEE `staging`
+   * 84abbb92, ZERO in PLoT `staging` 350b0fb6, against `goal_threshold` 177
+   * here and 76 in PLoT.
+   *
+   * When the producer train lands (`olumi-schemas` #48 + PLoT #352) this test
+   * is where the argument for adding it has to be made — with copy derived
+   * from a run that can actually happen.
+   */
+  it('does NOT classify the objective code that no producer can trigger yet', () => {
+    expect(CODES).not.toContain('OBJECTIVE_RANKING_WITHHELD')
   })
 
   it('does NOT classify the two codes PLoT drops for lacking a message', () => {
@@ -152,15 +178,56 @@ describe('ISL inference-warning vocabulary — honesty by kind', () => {
    * the set GROWS (someone else's copy quietly loses its route) or SHRINKS
    * (2.281 landed and the instruction is legitimate again — remove this block).
    */
-  const NO_ROUTE_EXISTS = ['GOAL_THRESHOLD_NOT_CONVERTIBLE'] as const
+  const NO_ROUTE_EXISTS = [
+    'GOAL_THRESHOLD_NOT_CONVERTIBLE',
+    // ⭐ ADDED 2026-09-19, and the licence is a MEASUREMENT. ISL's own remedy
+    // for `GOAL_DIRECTION_UNATTESTED` is "send goal_direction", an instruction
+    // to a CALLER. Nothing in this product records an objective sense:
+    // `goal_direction` reads ZERO here, ZERO in CEE `staging` 84abbb92 and
+    // ZERO in PLoT `staging` 350b0fb6, with `goal_threshold` (177 here, 76 in
+    // PLoT) as the contrast control in the same sweep. The only direction-
+    // bearing component in this repo, `canvas/components/ObjectiveBanner.tsx`,
+    // is `@deprecated`, takes the direction as a PROP and has no product
+    // importer. Telling a reader to state their aim would reinstate, one code
+    // over, the false prescription removed from the entry above it.
+    'GOAL_DIRECTION_UNATTESTED',
+  ] as const
 
-  it('the no-route exception set is EXACTLY the one code whose remedy has no writer', () => {
-    // Grows  -> a second code lost its route and is hiding behind this licence.
-    // Shrinks -> the exception is obsolete; delete it rather than carry it.
-    expect([...NO_ROUTE_EXISTS]).toEqual(['GOAL_THRESHOLD_NOT_CONVERTIBLE'])
-    // It must be a real member of the kind it is excepted from, or the
+  /**
+   * ⭐ THE POSITIVE HALF IS PER MEMBER, NOT SHARED.
+   *
+   * A predicate weak enough to hold of both members would assert almost
+   * nothing, and a licence to prescribe nothing that demands nothing in return
+   * is the vacuity this block exists to prevent (CLAUDE.md trap 13b). Each
+   * member therefore names the facts its own copy must carry.
+   */
+  const NO_ROUTE_MUST_CARRY: Record<(typeof NO_ROUTE_EXISTS)[number], RegExp[]> = {
+    // "Your goal's target WAS RECORDED ... the probability of reaching it was
+    // WITHHELD rather than guessed."
+    GOAL_THRESHOLD_NOT_CONVERTIBLE: [
+      /\b(was|were)\s+(recorded|captured|received|saved)\b/i,
+      /withheld|left out/i,
+    ],
+    // The two facts ISL states: WHAT the ranking used, and that it may be
+    // answering something other than what the reader asked.
+    GOAL_DIRECTION_UNATTESTED: [/largest value/i, /different question/i],
+  }
+
+  it('the no-route exception set is EXACTLY the codes whose remedy has no writer', () => {
+    // Grows  -> a third code lost its route and is hiding behind this licence.
+    // Shrinks -> an exception is obsolete; delete it rather than carry it.
+    expect([...NO_ROUTE_EXISTS]).toEqual([
+      'GOAL_THRESHOLD_NOT_CONVERTIBLE',
+      'GOAL_DIRECTION_UNATTESTED',
+    ])
+    // Each must be a real member of the kind it is excepted from, or the
     // exception is silently excepting nothing.
-    expect(codesOfKind('model_shape')).toContain('GOAL_THRESHOLD_NOT_CONVERTIBLE')
+    for (const code of NO_ROUTE_EXISTS) {
+      expect(codesOfKind('model_shape')).toContain(code)
+    }
+    // ...and every member must declare what its copy carries, so the licence
+    // cannot be extended to a code by listing it and nothing else.
+    expect(Object.keys(NO_ROUTE_MUST_CARRY).sort()).toEqual([...NO_ROUTE_EXISTS].sort())
   })
 
   it.each(NO_ROUTE_EXISTS)(
@@ -170,9 +237,10 @@ describe('ISL inference-warning vocabulary — honesty by kind', () => {
       // would let the instruction creep back and nothing would notice.
       const { title } = humaniseCode(code)
       expect(title).not.toMatch(/\b(state|restate|add|connect|give|record|move|try)\b/i)
-      // ...and the two facts are still on the rendered surface.
-      expect(title).toMatch(/\b(was|were)\s+(recorded|captured|received|saved)\b/i)
-      expect(title).toMatch(/withheld|left out/i)
+      // ...and this member's own facts are still on the rendered surface.
+      for (const must of NO_ROUTE_MUST_CARRY[code]) {
+        expect(title).toMatch(must)
+      }
     },
   )
 

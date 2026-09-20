@@ -7,12 +7,15 @@ import { typography } from '../../styles/typography'
 import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
 import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
+import { countOptionsReaching, optionsReachingLine } from '../domain/optionsReaching'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 
@@ -157,6 +160,31 @@ export const OutcomeNode = memo((props: NodeProps) => {
     return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
   }, [bridgeEdgeData])
 
+  /**
+   * ⭐⭐ WHAT THE READER CAME TO THE CARD FOR: HOW MUCH OF THEIR CHOICE LANDS
+   * HERE — and it is available BEFORE the run, which nothing else on this card
+   * was.
+   *
+   * ⚠ IT IS NOT `inboundConnections`, AND THE DIFFERENCE IS THE WHOLE POINT.
+   * That array is post-analysis only (`useNodeConnections.ts:35` returns `[]`
+   * until `results.status === 'complete'`) and it is one hop: the factors
+   * wired straight into this outcome. An option is never one hop away — the
+   * measured edge grammar has no `option → outcome` pair at all — so the count
+   * is derived by walking upstream. `domain/optionsReaching.ts` carries the
+   * measurement, the de-duplication rule and the reason the baseline option is
+   * counted.
+   *
+   * ⛔ NO PHASE GATE, DELIBERATELY. This is a fact about the structure the user
+   * and the drafter have drawn, not about a result, so it is as true at rest as
+   * it is after a run and it is withheld in neither. The card's other numbers
+   * are gated because they are CLAIMS ABOUT VALUES; this one counts lines on
+   * the board.
+   */
+  const optionsMovingThis = useMemo(
+    () => optionsReachingLine(countOptionsReaching(nodes, edges, props.id)),
+    [nodes, edges, props.id],
+  )
+
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
 
@@ -203,11 +231,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
           <p className={`${typography.edgeLabel} text-text-body m-0 mb-1 break-words`}>
             Test the connection from {factorLabel}
           </p>
-          <NodeChip
-            chipId="outcome_validate_assumption"
-            actionType={null}
-            label="Validate this assumption"
-            message={validateQuestion}
+          {/* ⚠ `className={null}` — pristine rendered this chip BARE beneath its
+              own <p>, with no flex row. See CoachingChipRow's docblock. */}
+          <CoachingChipRow
+            className={null}
+            chips={resolveNodeCoaching({
+              kind: 'outcome',
+              surface: 'validate',
+              state: { isPostAnalysis },
+              context: { label: cleanedLabel, outcomeContext, validateQuestion },
+            })}
           />
         </>
       )}
@@ -249,62 +282,34 @@ export const OutcomeNode = memo((props: NodeProps) => {
    * `Explore consequences` and `What affects this?` stay in the popover, so the
    * promoted question is never rendered twice. Detailed view is unchanged.
    */
+  const outcomeCoachingContext = useMemo(
+    () => ({ label: cleanedLabel, outcomeContext }),
+    [cleanedLabel, outcomeContext],
+  )
+  const outcomeCoachingState = useMemo(() => ({ isPostAnalysis }), [isPostAnalysis])
+
   const outcomeFaceChip = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip
-        chipId="outcome_what_would_falsify"
-        actionType={null}
-        label="What would falsify this?"
-        message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
-      />
-    </div>
-  ), [cleanedLabel, outcomeContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'outcome', surface: 'card', state: outcomeCoachingState, context: outcomeCoachingContext })}
+    />
+  ), [outcomeCoachingState, outcomeCoachingContext])
 
   const outcomePopoverChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip
-        chipId="outcome_explore_consequences"
-        actionType={null}
-        label="Explore consequences"
-        message={`What would ${cleanedLabel || 'this outcome'} mean for this model, including possible benefits and downsides?${outcomeContext}`}
-      />
-      {!isPostAnalysis && (
-        <NodeChip
-          chipId="outcome_what_strengthens"
-          actionType={null}
-          label="What affects this?"
-          message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
-        />
-      )}
-    </div>
-  ), [isPostAnalysis, cleanedLabel, outcomeContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'outcome', surface: 'popover', state: outcomeCoachingState, context: outcomeCoachingContext })}
+    />
+  ), [outcomeCoachingState, outcomeCoachingContext])
 
   // Detailed view keeps the full set inline. The falsification question is no
   // longer phase-gated here either — same reason as above.
   const outcomeChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip
-        chipId="outcome_explore_consequences"
-        actionType={null}
-        label="Explore consequences"
-        message={`What would ${cleanedLabel || 'this outcome'} mean for this model, including possible benefits and downsides?${outcomeContext}`}
-      />
-      {!isPostAnalysis && (
-        <NodeChip
-          chipId="outcome_what_strengthens"
-          actionType={null}
-          label="What affects this?"
-          message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
-        />
-      )}
-      <NodeChip
-        chipId="outcome_what_would_falsify"
-        actionType={null}
-        label="What would falsify this?"
-        message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
-      />
-    </div>
-  ), [isPostAnalysis, cleanedLabel, outcomeContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'outcome', surface: 'detailed', state: outcomeCoachingState, context: outcomeCoachingContext })}
+    />
+  ), [outcomeCoachingState, outcomeCoachingContext])
 
   /**
    * ⛔⛔ `Goal chance: N%` IS GONE FROM THE OUTCOME CARD (17 Sep 2026), AND THE
@@ -368,6 +373,11 @@ export const OutcomeNode = memo((props: NodeProps) => {
       style={{ position: 'relative' }}
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
+      /* The TAP path. A no-op on a pointer device (`usePopoverHover` gates it
+         on `hover: none`); on touch it is the only way this node preview can
+         be opened at all. It does not stopPropagation, so the tap still
+         selects the node. */
+      onClick={nodeHandlers.onClick}
     >
       <BaseNode
         {...props}
@@ -491,6 +501,24 @@ export const OutcomeNode = memo((props: NodeProps) => {
               phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
             />
           )
+        )}
+
+        {/* ⭐ "3 options move this" — the card's own scoped quantity, on the
+            face, in every view and both phases. Silent at zero (see
+            `optionsReachingLine`), which is why there is no `> 0` test here:
+            the silence rule lives with the sentence, so a second surface
+            reusing the line cannot get it wrong.
+
+            Styling is `FactorNode`'s "Linked to N outcomes." line verbatim
+            (`FactorNode.tsx:613`) — the same class of statement in the opposite
+            direction should not read as a different kind of thing. */}
+        {optionsMovingThis && (
+          <p
+            className={`${typography.edgeLabel} text-text-body m-0 mb-1`}
+            data-testid="outcome-options-moving"
+          >
+            {optionsMovingThis}
+          </p>
         )}
 
         {/* The falsification question rides the CARD in Standard view, in both

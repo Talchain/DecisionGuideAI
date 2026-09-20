@@ -599,11 +599,20 @@ export async function getSharedBriefBySlug(
 //
 // `create_shared_brief` (14 above) gates on `scenarios.brief` and
 // `scenarios.analysis_provenance`. Measured at the deployed database on
-// 18 Sep 2026: both are populated in 1 of 14,141 rows, and that row is a
+// 18 Sep 2026: both were populated in 1 of 14,141 rows, and that row was a
 // synthetic fixture — the live columns are `brief_text` and
 // `graph_identity_hash`. So every real owner is refused with P0001 "No brief
 // to share", and even a row that passed would reach the recipient without a
 // graph. Evidence: output/accelerate-20260918/SHARE-GATING-ITEM-SETTLED.md.
+//
+// ⚠ THAT MEASUREMENT WENT STALE THE SAME DAY, AND THE DIRECTION MATTERS.
+// Re-measured at the deployed database later on 18 Sep: `scenarios.brief` is
+// populated in 39 of 14,252 rows, and all 39 were written that day between
+// 01:48Z and 12:37Z — CEE began writing the column while the paragraph above
+// was being written. The conclusion above is unchanged (snapshots, not briefs,
+// are the share mechanism: `create_shared_brief` still carries no graph), but
+// "the column is dead" is no longer true, which is why the brief is now
+// carried as `p_analysis`. Re-derive before quoting either figure.
 //
 // We snapshot the row the SERVER holds rather than client state, so the link
 // carries what was actually persisted. Callers flush pending saves first, so
@@ -615,7 +624,7 @@ export async function createSharedSnapshot(
 ): Promise<{ id: string; slug: string }> {
   const { data: saved, error: readError } = await supabase
     .from('scenarios')
-    .select('graph, brief_text, graph_identity_hash')
+    .select('graph, brief, brief_text, graph_identity_hash')
     .eq('id', scenarioId)
     .single()
 
@@ -629,6 +638,7 @@ export async function createSharedSnapshot(
 
   const row = saved as {
     graph: unknown
+    brief: unknown
     brief_text: string | null
     graph_identity_hash: string | null
   } | null
@@ -643,10 +653,32 @@ export async function createSharedSnapshot(
     )
   }
 
+  // The analysis brief CEE persists on a successful run — the ranked options,
+  // the headline it was entitled to state, robustness, drivers and what would
+  // change. Sourced off the SERVER row exactly like `p_graph`, so the link
+  // carries the conclusions that were actually saved rather than whatever the
+  // sender's tab happened to be holding.
+  //
+  // ⚠ Measured at the deployed database 18 Sep 2026: `scenarios.brief` is
+  // populated in 39 of 14,252 rows, and every one of those 39 was written
+  // THAT DAY (01:48Z-12:37Z) — the column went live hours before this change.
+  // So the common case is still `null`, and it must stay a clean share of the
+  // model alone rather than a failure.
+  //
+  // A shape that is not a JSON object degrades to null rather than failing the
+  // share: `create_shared_snapshot` raises 22023 on a non-object p_analysis,
+  // which would cost the recipient the MODEL as well as the analysis.
+  const analysis =
+    row.brief !== null &&
+    typeof row.brief === 'object' &&
+    !Array.isArray(row.brief)
+      ? row.brief
+      : null
+
   const { data, error } = await supabase.rpc('create_shared_snapshot', {
     p_scenario_id: scenarioId,
     p_graph: row.graph,
-    p_analysis: null,
+    p_analysis: analysis,
     p_brief_text: row.brief_text ?? null,
     p_graph_hash: row.graph_identity_hash ?? null,
     p_seed: null,

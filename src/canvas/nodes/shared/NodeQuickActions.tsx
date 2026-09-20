@@ -250,19 +250,27 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    *
    * ## The gap this closes
    *
-   * ⚠ THIS LIST WAS WRONG WHEN FIRST WRITTEN, and the correction matters more
-   * than the list does. It named six invitations including "Add risk from
-   * this", "Add outcome from this" and "Add connected factor" — **none of which
-   * can render, for any node type, in any state.** All three are stripped by
-   * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` (`useMenuItems.ts:82-96`) because
-   * `mutationAuthority.ts:70` sets `canvasSemanticMutations: 'disabled'`, and
-   * that strip is test-locked as a permanent audit rather than a runtime
-   * toggle. No user was misled — the label is `More actions for {label}` and
-   * promises nothing specific — but the false claim sat in shipped source,
-   * which is where the next session inherits it. **A comment that overstates
-   * what a thing does teaches the next reader to stop checking.**
+   * ⚠ THIS LIST WAS WRONG WHEN FIRST WRITTEN, THEN THE CORRECTION WENT STALE,
+   * AND BOTH ARE KEPT BECAUSE THE PAIR IS THE LESSON. It first named six
+   * invitations including "Add risk from this", "Add outcome from this" and
+   * "Add connected factor". The correction said **none of which can render, for
+   * any node type, in any state** — all three stripped by
+   * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` because `canvasSemanticMutations` is
+   * `'disabled'`, "test-locked as a permanent audit rather than a runtime
+   * toggle". That was true when written and is **FALSE as of 18 Sep 2026**: the
+   * three ids moved to `CONNECTED_NODE_ADD_MENU_IDS`, judged by the node and
+   * edge add carriers, and they render and are actionable on every non-constraint
+   * node. **The original list was right about them all along; it was simply four
+   * months early.** ⭐ Note what "test-locked as a permanent audit" did here: it
+   * described a derived audit that ITERATES the set, which can only ever prove
+   * the filter agrees with the set — never that the set is right. Calling it
+   * permanent is what made this comment sound settled.
    *
-   * WHAT THIS BUTTON ACTUALLY UNBURIES, derived rather than recalled:
+   * WHAT THIS BUTTON ACTUALLY UNBURIES, derived rather than recalled — ⚠ and
+   * now SHORT BY THREE, for the reason above: "Add connected factor", "Add
+   * outcome from this" and "Add risk from this" rejoined the menu on 18 Sep 2026.
+   * Re-derive this list at your tip rather than quoting it; it has been wrong in
+   * both directions already.
    * "Challenge this" (gated `CHALLENGE_KINDS`), "Explore ▸ Trace to goal" and
    * "Select path to goal" (gated `isFull`), "Explain this", Copy and Delete —
    * plus two Graph Lens items, "Isolate this option's paths"

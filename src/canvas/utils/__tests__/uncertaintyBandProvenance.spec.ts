@@ -130,6 +130,31 @@ describe('the floor is DERIVED from the stroke ladder, not chosen beside it', ()
     expect(UNCERTAINTY_BAND_MIN_HALF_WIDTH).toBeGreaterThan(widestStrokeHalfWidth)
   })
 
+  /**
+   * ⭐⭐ BY EXACTLY ONE GRAPH UNIT, WHICH `toBeGreaterThan` ABOVE DOES NOT SAY
+   * (added 18 Sep 2026, when the stroke ladder gained a fifth rung).
+   *
+   * The floor moved 3 → 3.5 because the thickest line moved 4 → 5, and the
+   * docblock's stated rule is *"one graph unit clear of the thickest line"*.
+   * The assertion above would have stayed GREEN through a "restore the old
+   * floor" edit — 3 is still greater than 2.5 — while the clearance silently
+   * halved and the ribbon began reading as the line having got fatter. A guard
+   * that admits the defect it was written against is not a guard (trap 13b).
+   *
+   * ⚠ ITS LIMIT, STATED. This is a DERIVED guard: it proves the constant still
+   * equals the rule, never that the rule is the right one — that argument lives
+   * in the docblock, with the measured consequence for the spreads that fall
+   * below the floor. What it can do, and the reason it is here, is RED the
+   * moment someone re-pins the floor to a literal or drops the `+ 1`.
+   */
+  it('clears it by exactly the one graph unit the rule claims, not merely by something', () => {
+    const widestStrokeHalfWidth = Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS)) / 2
+    expect(
+      UNCERTAINTY_BAND_MIN_HALF_WIDTH - widestStrokeHalfWidth,
+      'the ribbon floor no longer clears the widest stroke by one graph unit — either the floor was pinned to a literal or the `+ 1` was dropped',
+    ).toBe(1)
+  })
+
   it('leaves the ceiling above the floor, so the channel has a range at all', () => {
     expect(UNCERTAINTY_BAND_MAX_HALF_WIDTH).toBeGreaterThan(UNCERTAINTY_BAND_MIN_HALF_WIDTH)
   })

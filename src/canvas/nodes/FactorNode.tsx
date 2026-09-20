@@ -10,6 +10,7 @@ import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domai
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
@@ -19,12 +20,14 @@ import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionS
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
-import { influenceExplanation, influenceBarAriaLabel, influenceBasisNoun } from '../../components/results/influenceScaleCopy'
+import { influenceExplanation, influenceBarAriaLabel, influenceBasisNoun, influenceRankReadout, influenceRankExplanation } from '../../components/results/influenceScaleCopy'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -340,6 +343,66 @@ export const FactorNode = memo((props: NodeProps) => {
   const outboundConnections = useNodeConnections(props.id, 'outbound')
 
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
+
+  /**
+   * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
+   * BOTH influence renders on this card (the Standard-view `NodeMetricRow` and
+   * the Detailed-view `DataBar`). They show the same figure, so they carry the
+   * same misread, and fixing one would have left `Relative influence … 100%`
+   * reachable one view away — four presentations of one idea, which is the
+   * inconsistency this card's rows were unified to remove.
+   *
+   * `null` whenever the claim is not licensed (see `influenceRankReadout`):
+   * both call sites then render EXACTLY what they render today.
+   *
+   * ## ⭐⭐ AND THE COUNTABLE HALF IS WITHHELD UNLESS THE RESULT IS CONFIRMABLY
+   * ABOUT THIS GRAPH — HERE, NOT AT THE PRODUCER.
+   *
+   * `of 5` is a COUNTABLE claim. Every other readout on this card carries
+   * staleness softly — once the graph moves, `80%` is wrong but unfalsifiable
+   * from the screen. A denominator is not: run over five factors, add three, and
+   * the canvas shows EIGHT factor cards beside a row still claiming `of 5`. The
+   * reader refutes the product by counting, which is a different and much more
+   * expensive kind of wrong.
+   *
+   * ⛔ IT WAS GATED IN `useNodeDisplayMetadata` ON `graphEditedSinceLastRun`,
+   * AND BOTH HALVES OF THAT WERE WRONG.
+   *
+   * THE FLAG: `resultsLoadHistorical` (`store.ts:6026`) and
+   * `resultsHydrateFromSupabase` (`:6097`) reset it to `false` in the SAME
+   * `set()` that writes `results.status: 'complete'`, so restoring a historical
+   * run re-published the denominator against a graph it was never computed on —
+   * exactly the harm the gate was written to prevent. It also over-fires the
+   * other way: `historyHash` (`:2025`) includes `position`, so a node DRAG — which
+   * changes no factor the run saw — dropped the caption. The gate is now
+   * {@link useAnalysisResultsAreCurrent}, whose header carries the measurement
+   * and the reason `analysisFreshnessDirty` is not the remedy either.
+   *
+   * THE PLACE: gating inside the producer made the assignment CONDITIONAL, which
+   * falsified the invariant that makes `influenceSetSize?` safe to leave optional
+   * — "rank present, denominator absent is unreachable from this producer". The
+   * commit that introduced the gate asserted that invariant in a docblock and
+   * DISPROVED it four tests later in the same spec file, where a gated fixture
+   * returns `sensitivityRank: 1` with `influenceSetSize: null`. Reading the gate
+   * HERE restores the implication at the producer — the assignment is once more
+   * unconditional inside the factor branch and runs before the rank gate — so the
+   * optionality is safe for the reason its docblock states, with no mock churn
+   * and no required-field change. The claim and the licence to make it are two
+   * questions, and they now live in two places (CLAUDE.md trap 21).
+   *
+   * ⚠ ONE GATE, ONE LOCAL, NO DIVERGENCE. Both influence renders read this
+   * `influenceRank`, and both `influenceRankExplanation` calls read it too, so
+   * the two views cannot disagree about whether the denominator is licensed.
+   *
+   * ⚠ THE RANK ITSELF IS UNTOUCHED, deliberately and narrowly. `sensitivityRank`
+   * is read by the `#N` badge, the inspector and the edge label; withdrawing it
+   * would change three surfaces this lane never argued for. What is withheld is
+   * only the half a reader can refute by counting.
+   */
+  const resultsAreCurrent = useAnalysisResultsAreCurrent()
+  const influenceRank = resultsAreCurrent
+    ? influenceRankReadout(displayMetadata.sensitivityRank, displayMetadata.influenceSetSize)
+    : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (pill, bar, AND the
@@ -445,37 +508,21 @@ export const FactorNode = memo((props: NodeProps) => {
    * A factor with an observed, owned value gets no question, deliberately —
    * there is no assumption to interrogate, and a chip on every card is wallpaper.
    */
-  const cardQuestion = useMemo(() => {
-    if (needsInput) {
-      return {
-        id: 'factor_help_estimate',
-        label: 'Help me estimate this',
-        message: `Help me estimate a reasonable value for ${cleanedLabel}`,
-      }
-    }
-    if (nodeCategory === 'external') {
-      return {
-        id: 'factor_what_if_changes',
-        label: 'What if this changes?',
-        message: `What if ${cleanedLabel} changes? How should I plan for that?`,
-      }
-    }
-    if (isInferred) {
-      return {
-        id: 'factor_evidence_supports',
-        // ⚠ THE LABEL IS SHORTER THAN THE QUESTION IT ASKS, DELIBERATELY.
-        // "What evidence supports this?" measured 156px inside a 168px card —
-        // the longest chip label on the canvas by four characters, where the
-        // house range is 21-24 ("What would falsify this?", "What would we see
-        // first?", "What if this changes?"). The chip is the affordance; the
-        // MESSAGE is the ask, and it is unchanged, so Olumi receives the same
-        // question it always did.
-        label: 'What’s the evidence?',
-        message: `What evidence supports my assumption about ${cleanedLabel}?`,
-      }
-    }
-    return null
-  }, [needsInput, nodeCategory, isInferred, cleanedLabel])
+  // ⚠ The three conditions and the deliberate `null` now live in
+  // `resolveNodeCoaching` — unchanged, including their precedence order and
+  // the short `factor_evidence_supports` label. The docblock above is the
+  // ruling that governs them and is repeated in the resolver's own docblock so
+  // it cannot be lost by whoever reads only one of the two files.
+  const cardQuestion = useMemo(
+    () =>
+      resolveNodeCoaching({
+        kind: 'factor',
+        surface: 'card',
+        state: { needsInput, isExternalCategory: nodeCategory === 'external', isInferred },
+        context: { label: cleanedLabel },
+      }),
+    [needsInput, nodeCategory, isInferred, cleanedLabel],
+  )
 
 
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
@@ -681,18 +728,31 @@ export const FactorNode = memo((props: NodeProps) => {
               this row cannot drift from the pill or the panel. Fail-closed: no
               provenance means no influence number is rendered. */}
           {influencePct != null && displayMetadata.influenceProvenance != null && (
-            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={influenceExplanation(
-              displayMetadata.influenceProvenance,
-              displayMetadata.influenceImportanceBasis,
-            )}>
+            /* ⭐ THE SAME RANKED READING AS THE STANDARD-VIEW ROW, from the
+               SAME `influenceRank`. This bar renders the same display-model
+               number one view away, so it carried the same misread; leaving it
+               on `Relative influence … 100%` would have made the fix a
+               per-view accident rather than a property of the card.
+               `value` is untouched here too — the fill is still the fraction. */
+            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={influenceRank
+              ? influenceRankExplanation(
+                  influenceRank,
+                  influencePct,
+                  displayMetadata.influenceProvenance,
+                  displayMetadata.influenceImportanceBasis,
+                )
+              : influenceExplanation(
+                  displayMetadata.influenceProvenance,
+                  displayMetadata.influenceImportanceBasis,
+                )}>
               <div
                 className="flex items-center gap-1.5"
                 role="group"
-                aria-label={influenceBasisNoun(displayMetadata.influenceProvenance)}
+                aria-label={influenceRank ? influenceRank.phrase : influenceBasisNoun(displayMetadata.influenceProvenance)}
                 tabIndex={0}
                 data-node-tooltip
               >
-                <span className={`${typography.edgeLabel} text-text-light min-w-[3.5rem] shrink-0`}>{influenceBasisNoun(displayMetadata.influenceProvenance)}</span>
+                <span className={`${typography.edgeLabel} text-text-light min-w-[3.5rem] shrink-0`}>{influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}</span>
                 <div className="flex-1 min-w-0">
                   <DataBar
                     value={influencePct / 100}
@@ -703,7 +763,14 @@ export const FactorNode = memo((props: NodeProps) => {
                     colour="info"
                   />
                 </div>
-                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
+                {/* ⚠ `min-w-7`, NOT `w-7`. The fixed width was measured for
+                    `100%`; `of 5` fits it but a two-digit set size ("of 12")
+                    does not, and a FIXED width in a flex row overflows its box
+                    rather than growing. A floor keeps today's alignment at the
+                    common case and lets the rare wider string take the space
+                    from the bar beside it — the same floor-not-fixed-width
+                    ruling `NodeMetricRow` records for its caption column. */}
+                <span className={`${typography.edgeLabel} text-text-light min-w-7 text-right shrink-0`}>{influenceRank ? influenceRank.setSizeText : `${influencePct}%`}</span>
               </div>
             </Tooltip>
           )}
@@ -785,6 +852,11 @@ export const FactorNode = memo((props: NodeProps) => {
       style={{ position: 'relative' }}
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
+      /* The TAP path. A no-op on a pointer device (`usePopoverHover` gates it
+         on `hover: none`); on touch it is the only way this node preview can
+         be opened at all. It does not stopPropagation, so the tap still
+         selects the node. */
+      onClick={nodeHandlers.onClick}
     >
       {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} escalation={gapEscalation} />}
       {constraintTooltip && <ConstraintBadge tooltip={constraintTooltip} />}
@@ -852,7 +924,7 @@ export const FactorNode = memo((props: NodeProps) => {
             the popover and the inspector keep the full string. A value the
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-baseline gap-1`}>
+          <div className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}>
             <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>
@@ -972,20 +1044,67 @@ export const FactorNode = memo((props: NodeProps) => {
             weight says neither is the headline. One row, one pill, is a
             hierarchy; two rows is a list. */}
         {isPostAnalysis && !isDetailed && influencePct != null && displayMetadata.influenceProvenance != null && (
+          /* ⭐ THE CAPTION IS THE RANKING; THE BAR STILL CARRIES THE MAGNITUDE.
+             Measured on deployed staging: this row reads `Relative influence
+             … 100%`. The noun is already right, and the number still reads as
+             certainty about the world. Ranked, it reads
+             `Most influential ▬▬▬▬ of 5` — a claim about THIS model's factor
+             set, which is a claim a team can push back on.
+
+             ⚠ `value` IS UNCHANGED, DELIBERATELY. The bar geometry is the
+             normalised fraction and stays the normalised fraction: the ranked
+             words replace the PRINTED figure, not the measurement driving the
+             fill. Removing the fraction here would have flattened every bar to
+             the same length and thrown away the one channel that still shows
+             HOW FAR ahead the leader is.
+
+             ⭐ AND THE TWO COLUMNS WERE CHOSEN AGAINST THIS COMPONENT'S OWN
+             MEASURED LAYOUT RULING, not for prose. `NodeMetricRow`'s caption
+             column is `shrink-0` with a 3.5rem floor, and its docblock records
+             that a caption sized to its content collapses the track to 0px on
+             the narrowest card — "the bar is the constant". So the ranked word
+             takes the caption column and the set size takes the figure column:
+             `Most influential` (16 chars) is SHORTER than the `Relative
+             influence` (18) it replaces, and `of 5` is the same width as
+             `100%`. At rank 1 the row is narrower than it is today, and at
+             ranks 2-3 it is two characters wider. A single long caption would
+             have bought the wording by destroying the bar.
+             ⚠ Those are CHARACTER counts, not pixels — I did not run the
+             visual harness (see the report). The pixel claim in that docblock
+             is the component author's, not re-derived here. */
           <NodeMetricRow
-            label={influenceBasisNoun(displayMetadata.influenceProvenance)}
+            label={influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}
             value={influencePct / 100}
-            formatted={`${influencePct}%`}
+            formatted={influenceRank ? influenceRank.setSizeText : `${influencePct}%`}
             fillClass="bg-info"
             testId="factor-influence-row"
-            title={influenceExplanation(
-              displayMetadata.influenceProvenance,
-              displayMetadata.influenceImportanceBasis,
-            )}
+            title={influenceRank
+              ? influenceRankExplanation(
+                  influenceRank,
+                  influencePct,
+                  displayMetadata.influenceProvenance,
+                  displayMetadata.influenceImportanceBasis,
+                )
+              : influenceExplanation(
+                  displayMetadata.influenceProvenance,
+                  displayMetadata.influenceImportanceBasis,
+                )}
             phrase={influenceBarAriaLabel(
               displayMetadata.influenceProvenance,
               displayMetadata.influenceImportanceBasis,
             )}
+            /* ⚠ THE RANKED ROW OWNS ITS WHOLE ACCESSIBLE NAME. The row's default
+               composition is `"{label}: {formatted}. {phrase}"`, which is right
+               for a noun-and-value row and wrong here: the caption and the
+               figure are two halves of one sentence, so the default would
+               announce "Most influential: of 5." Unranked rows pass nothing and
+               keep the default, unchanged. */
+            accessibleName={influenceRank
+              ? `${influenceRank.phrase}, at ${influencePct}% of the strongest factor. ${influenceBarAriaLabel(
+                  displayMetadata.influenceProvenance,
+                  displayMetadata.influenceImportanceBasis,
+                )}`
+              : undefined}
           />
         )}
         {isPostAnalysis && !isDetailed && (
@@ -1000,16 +1119,11 @@ export const FactorNode = memo((props: NodeProps) => {
             same treatment Risk, Outcome, Action and Goal already get. The
             fuller pre-analysis cluster stays in the popover; this is the one
             that must be reachable without hovering. */}
-        {cardQuestion && (
-          <div className="flex gap-1 flex-wrap mt-1.5" data-testid="factor-card-question">
-            <NodeChip
-              chipId={cardQuestion.id}
-              actionType={null}
-              label={cardQuestion.label}
-              message={cardQuestion.message}
-            />
-          </div>
-        )}
+        <CoachingChipRow
+          className="flex gap-1 flex-wrap mt-1.5"
+          testId="factor-card-question"
+          chips={cardQuestion}
+        />
 
         {/* ===== LAYER 2: Detailed inline ===== */}
         {isDetailed && layer2Content}

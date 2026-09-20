@@ -14,10 +14,116 @@ import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
+
+/**
+ * ⭐⭐⭐ A THIN CARD MUST SAY THAT THE MODEL IS THIN, NOT LOOK LIKE A THIN TOOL.
+ *
+ * Paul's product ruling: *"We are a reasoning enhancement tool. If it doesn't
+ * enhance critical and creative thinking, it has no value."* A board of cards
+ * carrying a name and nothing else reads as *"this tool is empty"* when the
+ * truth is *"this model is empty, and here is the next thing to put in it"*.
+ * That is a coaching moment the product was throwing away.
+ *
+ * ⭐ MEASURED, NOT ARGUED — AND IT IS THE MODAL STATE, NOT AN EDGE CASE.
+ * Across all five committed starters (`canvas/starters/data/*.draft.json`),
+ * **14 of 14 risk nodes carry exactly `id`, `kind`, `label`, `provenance` and
+ * nothing else.** No `probability`, no `impact`, no value of any kind. So the
+ * card this branch renders is not a hypothetical — it is what every shipped
+ * starter ships, on every risk.
+ *
+ *   ⚠ CONTRAST CONTROL, SAME SCAN, SAME FILES (an absence claim needs one —
+ *   CLAUDE.md trap 13e): the 34 FACTOR nodes in those files carry six content
+ *   keys between them — `category`, `display_value`, `encoding_map`,
+ *   `extractionType`, `observed_state`, `prior`. The probe discriminates; the
+ *   zero on risks is the data, not a blind instrument.
+ *
+ * ⭐⭐ WHY THE RISK CARD WAS THE ONE THAT SAID NOTHING. `BaseNode`'s
+ * `isIncomplete` has arms for `factor`, `goal`, `decision` and `option`, then
+ * `return false`. **`risk` and `outcome` have no arm at all**, so they can
+ * never reach the `Needs input` StatusPill. Every other kind already has a
+ * channel for this:
+ *
+ *     factor    `Needs input` pill + `Help me estimate this` chip
+ *     goal      `Target not captured` (GOAL_NO_TARGET_STATE)
+ *     option    `Not in this analysis` (CEE-stamped, selectOptionExclusionMessage)
+ *     decision  `Needs input` via the !hasOptions arm
+ *     risk      — nothing —
+ *
+ * And it is silent by CONSTRUCTION rather than by omission: `exposureReadout`
+ * joins the two halves with `.filter(Boolean)`, so when neither exists the join
+ * is `''`, `riskExposureLine` is `null`, and the card renders no row. The
+ * "honest absence" that refuses to fabricate a `0%` also refuses to say that
+ * nothing was recorded. This line is the second half of that honesty.
+ *
+ * ⛔ IT STATES A FACT ABOUT THE MODEL, NEVER A VERDICT ON THE RISK. *"Likelihood
+ * and impact not set yet"* is a claim about what Olumi holds. *"This risk is
+ * minor"* would be a claim about the world, and it is not ours to make — the
+ * same boundary `TierInvitation`'s header draws when it refuses to say *"your
+ * risks are thin"*. Nothing here reads the label, ranks the risk, or implies
+ * that an unsized risk matters less than a sized one.
+ *
+ * ⛔ AND IT MUST NOT MAKE THE CARD LOOK COMPLETE. The fix for a sparse board is
+ * NOT to fill cards with plausible-looking text; it is to say plainly that the
+ * model holds little here. No figure is invented, no bar is drawn, and the
+ * severity badge stays absent — `calculateRiskSeverity` still returns nothing,
+ * exactly as before.
+ *
+ * ⚠ `not set yet` IS DERIVED FROM `METRIC_UNSET.inline`, NEVER RE-TYPED, and
+ * that is load-bearing rather than tidiness. The same three words already
+ * declare an unset bridge strength two rows above this one on this very card.
+ * Two hand-typed copies on one card is the hand-maintained mirror this estate
+ * keeps paying for (CLAUDE.md trap 12), and `metricVocabulary.ts`'s own header
+ * spends a paragraph on why the word travels by reference. Re-word the register
+ * and this sentence follows; it cannot drift out of step with the row beside it.
+ *
+ * ⚠ AND WHY "yet" SURVIVES THE COMPOSITION. `METRIC_UNSET`'s header states the
+ * reason and it applies unchanged here: *"'Not set' is a deficit; 'not set yet'
+ * is an invitation… a card that reads as an apology for missing data teaches a
+ * reader to ignore it."*
+ *
+ * ⚠ TWO DIFFERENT ABSENCES, NAMED APART (CLAUDE.md trap 21). The strength row
+ * above says `Not set yet` about the CONNECTION from this risk to the goal —
+ * an edge property, settled by `strengthIsHumanSettled`. This line is about the
+ * risk's OWN size. A card can be in either state independently, and pooling
+ * them under one sentence is the reconciliation that keeps costing this estate
+ * real time.
+ *
+ * ⛔⛔ IT NAMES TWO FIELDS AND NEVER SAYS "NOTHING" — AND THIS CARD HAS ALREADY
+ * SHIPPED THE DEFECT THAT RULES OUT THE SHORTER SENTENCE. `lodMetric`'s header
+ * records it: a risk carrying a recorded `4 months` sat under **`Strength not
+ * set yet`**, and *"the card announced that nothing was recorded while holding
+ * the thing that was."* A risk can carry its own magnitude through
+ * `nodeRecordedValue`/`observed_state` independently of `probability` and
+ * `impact`, so *"Nothing recorded yet"* — the obvious phrasing, and the one the
+ * backlog reaches for — would be FALSE on exactly that card. Naming the two
+ * fields keeps the sentence true of every state the data admits, and it is
+ * still the useful thing to say: a reader who recorded a duration and no
+ * likelihood has a real gap, and the shorter sentence would have hidden it
+ * behind a falsehood.
+ *
+ * ⚠ NOT PHASE-GATED, ON THIS FILE'S NEIGHBOUR'S OWN RULING. `BaseNode`'s
+ * `isIncomplete` note: *"An analysis does not resolve an unknown; it proceeds
+ * despite one. Hiding the marker on completion tells the user the gap closed."*
+ * CEE writes neither field on a run — 14 of 14 starter risks arrive without
+ * them and stay that way — so a post-run risk with no likelihood still has no
+ * likelihood. The sentence follows the data, not the phase.
+ *
+ * ⚠ NO ROUTE IS PROMISED, AND THAT IS DERIVED. `RiskPanel` renders a real
+ * `risk-probability-input`, but `InspectorRouter` admits only
+ * `factor-controllable`, `factor-external` and `option` to `panelOwnsAuthority`
+ * — every other panel body is wrapped in `<fieldset disabled>`, which natively
+ * inerts it. So "open its details and set one" would be the exact promise
+ * `GoalNode` had to withdraw when its threshold editor turned out to be inert.
+ * The sentence states the fact; the CHIP beside it is the route, and it goes
+ * somewhere that demonstrably answers.
+ */
+export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.inline}.`
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -28,6 +134,38 @@ export const RiskNode = memo((props: NodeProps) => {
   const probability = probabilityInput.success ? probabilityInput.data : undefined
   const impact = impactInput.success ? impactInput.data : undefined
   const severity = calculateRiskSeverity(probability, impact)
+
+  // The defining probability × impact pair (P1.7). Honest absence: each half only
+  // renders when its value exists — never a fabricated 0% or default impact. The
+  // percentage is display formatting of the 0-1 probability (same untagged pattern
+  // as confidence display in lib/format.ts), not a semantic transform.
+  //
+  // ⚠ LIFTED ABOVE THE CHIP CLUSTER, UNCHANGED, AND THE MOVE IS THE POINT. The
+  // face chip below now has to know whether this card said anything about its
+  // own size, and the alternative was to re-derive that from `probability` and
+  // `impact` beside the chip — a second opinion about one question, which is how
+  // two surfaces on one card come to disagree. One join, read twice.
+  const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
+  const exposureReadout = [
+    probabilityPct != null ? `${probabilityPct}% likely` : null,
+    impact ? `${impact.charAt(0).toUpperCase()}${impact.slice(1)} impact` : null,
+  ].filter(Boolean).join(' · ')
+  /**
+   * ⭐ THE PREDICATE IS THE COMPONENT'S OWN JOIN, NOT A SECOND OPINION ABOUT IT.
+   *
+   * `exposureReadout` is already the authority for "what does this card have to
+   * say about its own size" — both halves feed it and `.filter(Boolean)` drops
+   * the absent ones. Reading its emptiness means the sentence and the readout
+   * cannot disagree: there is no state where a figure renders AND the card
+   * claims nothing is set, because they are two branches of one value.
+   *
+   * ⛔ DELIBERATELY NOT `severity == null`. `calculateRiskSeverity` needs BOTH
+   * halves, so it is null on a risk carrying a likelihood and no impact — a
+   * card which demonstrably HAS recorded something and must not be told it has
+   * not. That mutant is pinned in the spec; it is trap 19 in miniature (a
+   * predicate another population also satisfies).
+   */
+  const exposureUnstated = exposureReadout === ''
 
   /**
    * ⭐ THE RISK'S OWN SIZE, IN ITS OWN UNIT. The two lines above parse
@@ -280,27 +418,76 @@ export const RiskNode = memo((props: NodeProps) => {
    * never shows the same question twice. Detailed view still renders all three
    * inline and is unchanged.
    */
+  /**
+   * ⭐⭐ THE DIAGNOSIS IS HALF A COACHING MOMENT; THIS IS THE OTHER HALF.
+   *
+   * *"Likelihood and impact not set yet"* on its own is a diagnosis. Paired
+   * with a question the reader can actually ask, it is the thing this product
+   * claims to be. The sentence says what the model holds; this says what would
+   * be worth putting in it.
+   *
+   * ⛔ ADDED, NOT SWAPPED. Promoting the leading-indicator question to the card
+   * face was a reasoned decision with its own measurement (see the block above:
+   * *"without it a risk can reach a decision with no agreed trigger for acting
+   * on it"*,
+   * and it is deliberately phase-independent). Since 14 of 14 starter risks are
+   * unsized, swapping on this predicate would delete that question from every
+   * risk on every shipped starter — reversing a settled ruling by side effect,
+   * on evidence that says nothing about it.
+   *
+   * ⭐ IT REUSES `NodeChip` RATHER THAN INVENTING A CONTROL, and that buys the
+   * touch target for free: `NodeChip`'s `before:` pseudo-element expands it to
+   * the WCAG 2.2 AA 2.5.8 24px box without changing the painted size, and its
+   * chrome already recedes at rest. A hand-rolled button here would be an
+   * 18.5px target and a fourth amber-adjacent vocabulary.
+   *
+   * ⚠ IT ASKS; IT NEVER WRITES. `NodeChip` with a null `actionType` dispatches a
+   * coaching prompt into the conversation — the user reads the answer and
+   * decides. A control that silently wrote a probability onto the node would
+   * make the AI the author of the user's risk assessment, which is the line
+   * `TierInvitation`'s header draws and `CLAUDE.md` ratifies: *"Humans remain
+   * the authors and the decision-makers."*
+   *
+   * ⚠ DENSITY, STATED RATHER THAN HOPED. This puts a SECOND chip on the face of
+   * an unsized risk, and Paul's 15 Sep note — *"it looks an absolute mess"* —
+   * was about exactly this kind of accumulation. Three things bound it: the
+   * chips share one `flex-wrap` row rather than adding a block; the chrome is
+   * transparent at rest after #1061's quietening, so at rest this is one more
+   * short line of text, not one more bordered box; and it is gated on a card
+   * that currently renders NOTHING in that region, which is the emptiest card
+   * class on the board (median risk height 86px against option 250, factor
+   * 141 — `nodeLayoutConstants.ts`). If it is still too much, this chip can be
+   * withdrawn on its own and the sentence above stands without it.
+   */
+  // ⚠ The three surfaces ask for three DIFFERENT resolutions, and the card's
+  // order is deliberately not the Detailed order — see the resolver's docblock.
+  const riskCoachingState = useMemo(() => ({ exposureUnstated }), [exposureUnstated])
+  const riskCoachingContext = useMemo(
+    () => ({ label: cleanedLabel, riskContext }),
+    [cleanedLabel, riskContext],
+  )
+
   const riskFaceChip = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?${riskContext}`} />
-    </div>
-  ), [cleanedLabel, riskContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'risk', surface: 'card', state: riskCoachingState, context: riskCoachingContext })}
+    />
+  ), [riskCoachingState, riskCoachingContext])
 
   const riskPopoverChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
-      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Explore mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}, and explain what it would change.${riskContext}`} />
-    </div>
-  ), [cleanedLabel, riskContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'risk', surface: 'popover', state: riskCoachingState, context: riskCoachingContext })}
+    />
+  ), [riskCoachingState, riskCoachingContext])
 
   // Detailed view keeps all three inline, exactly as before.
   const riskChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
-      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Explore mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}, and explain what it would change.${riskContext}`} />
-      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?${riskContext}`} />
-    </div>
-  ), [cleanedLabel, riskContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'risk', surface: 'detailed', state: riskCoachingState, context: riskCoachingContext })}
+    />
+  ), [riskCoachingState, riskCoachingContext])
 
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
   // (the existing probability×impact derivation, reused not re-added). P1.7: now
@@ -317,18 +504,13 @@ export const RiskNode = memo((props: NodeProps) => {
     </div>
   ) : null
 
-  // The defining probability × impact pair (P1.7). Honest absence: each half only
-  // renders when its value exists — never a fabricated 0% or default impact. The
-  // percentage is display formatting of the 0-1 probability (same untagged pattern
-  // as confidence display in lib/format.ts), not a semantic transform.
-  const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
-  const exposureReadout = [
-    probabilityPct != null ? `${probabilityPct}% likely` : null,
-    impact ? `${impact.charAt(0).toUpperCase()}${impact.slice(1)} impact` : null,
-  ].filter(Boolean).join(' · ')
   const riskExposureLine = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light mt-1`}>Entered estimate · {exposureReadout}</div>
-  ) : null
+    <div className={`${typography.edgeLabel} text-text-light mt-1`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
+  ) : (
+    <div className={`${typography.edgeLabel} text-text-light mt-1`} data-testid="risk-exposure-unset">
+      {RISK_EXPOSURE_UNSET_LINE}
+    </div>
+  )
 
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
   const layer2ContentPost = isPostAnalysis ? (
@@ -403,6 +585,11 @@ export const RiskNode = memo((props: NodeProps) => {
       style={{ position: 'relative' }}
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
+      /* The TAP path. A no-op on a pointer device (`usePopoverHover` gates it
+         on `hover: none`); on touch it is the only way this node preview can
+         be opened at all. It does not stopPropagation, so the tap still
+         selects the node. */
+      onClick={nodeHandlers.onClick}
     >
       <BaseNode
         {...props}
@@ -485,7 +672,7 @@ export const RiskNode = memo((props: NodeProps) => {
             what the design review objected to. */}
         {recordedValue && (
           <p
-            className={`${typography.nodeLabel} text-text-body m-0`}
+            className={`${typography.nodeValue} text-text-body m-0`}
             data-testid="risk-recorded-value"
           >
             {recordedValue}

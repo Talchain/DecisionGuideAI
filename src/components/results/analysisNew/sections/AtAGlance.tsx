@@ -34,17 +34,16 @@
  */
 
 import { useState } from 'react'
+import { PanelFigure } from '../PanelFigure'
 import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
-import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList, sentenceCase } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
-import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
-import { conclusionLabel, panelHasConclusion } from '../panelLead'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
-import { inset, action } from '../panelSurfaces'
+import { inset, action, icon } from '../panelSurfaces'
 
 /**
  * How many parameter names fit before the line stops being readable. Four is a
@@ -275,6 +274,32 @@ export interface AtAGlanceProps {
    */
   reanalyseBlockedReason: string | null
   /** Which results did not come back, already named for this surface. */
+  /**
+   * ⭐ WOULD A RE-RUN CHANGE THIS? — the third question, and the one the
+   * ribbon's act was missing.
+   *
+   * Supplied by the caller from `vm.checks.leaderWithheld`; this component
+   * derives nothing, exactly as it does not re-derive the run gate.
+   *
+   * ⚠ THE WITHHELD FACT, NOT ITS NAMEABLE CAUSE. `leaderWithholdCause` is null
+   * both when nothing was withheld and when the reason cannot be named, and the
+   * second is the common case — `withheld_reason` is free-form at the contract.
+   */
+  leaderWithheld?: boolean
+  /**
+   * ⭐⭐⭐ WOULD A RE-RUN CHANGE THIS? The question this ribbon's act actually
+   * asks, and it is NOT `leaderWithheld`.
+   *
+   * ⛔ An independent seat found the conflation: `leader_not_assessed` includes
+   * a missing verdict, an unknown separation and an incomplete or failed
+   * result, so binding the act to it removed the retry from the retryable
+   * class. See `buildChecks` for the two evidenced conjuncts.
+   *
+   * Absent = false: a caller that has not been given it keeps the re-run, which
+   * is the fail-open direction — offering a run that turns out not to help
+   * costs a click; withholding one that would have helped strands the reader.
+   */
+  rerunWouldNotHelp?: boolean
   missingResults?: readonly string[]
   testId?: string
 }
@@ -312,6 +337,7 @@ export function AtAGlance({
   reanalyseBlocked,
   reanalyseBlockedReason,
   isRunning,
+  rerunWouldNotHelp = false,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -393,12 +419,9 @@ export function AtAGlance({
      show here, and keeping the disjunct would have rendered the section's
      wrapper and heading over empty space: the "heading promising content"
      defect `AnalysisNewSection` records at its own early return. */
-  const hasAnything =
-    glance.headline ||
-    glance.verdict ||
-    glance.condition ||
-    ribbon.length > 0
-  if (!hasAnything) return null
+  /* ⚠ `hasAnything` MOVED — it now sits directly above `return`, because it can
+     only ask the right question once every render predicate exists. See the
+     docblock there. */
 
   /**
    * ⛔ `driversDiscriminate` AND `conditionFirst` REMOVED WITH THE DRIVER LIST.
@@ -458,7 +481,6 @@ export function AtAGlance({
    * expression is how the estate's dominant defect starts: the copies drift,
    * and the panel renders two leads or none, with a red nowhere.
    */
-  const showAnswer = panelHasConclusion(glance)
 
   /**
    * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
@@ -516,9 +538,11 @@ export function AtAGlance({
    * ⭐ WHAT "NO READING" IS DERIVED TO MEAN — this is the claim, and it is the
    * WHOLE claim. In `buildAnalysisNewViewModel.ts`, `winShare` (:1732),
    * `winFraction` (:1740) and `leaderLabel` (:1763) are each non-null only
-   * where `headline` is, and `headline` implies `showAnswer` implies this
-   * gate. So the share, the win bar and the NAMED LEADING OPTION can never
-   * render while this line is suppressed. That is a derivation over three
+   * where `headline` is. (This clause used to continue "and `headline` implies
+   * `showAnswer`"; the conclusion `showAnswer` gated was DELETED on 18 Sep 2026
+   * by Paul's ruling, so the chain now ends at `headline` — the upstream
+   * derivation is unchanged, only the surface it fed is gone.) So the share and
+   * the win bar can never render while this line is suppressed. A derivation over three
    * fields — NOT a statement about everything this section can draw.
    *
    * ⚠⚠ AND IT IS NARROWER THAN IT FIRST READ. Until 9 Sep 2026 this paragraph
@@ -547,10 +571,11 @@ export function AtAGlance({
    * partial comparison scope or a computed flip threshold. If one lands,
    * re-open whether SCOPE and CONDITION count as readings for this gate.
    *
-   * ⚠ THE SECOND DISJUNCT IS CURRENTLY SUBSUMED — `winShare` is gated upstream
-   * on `headline`, which is what `showAnswer` reads — and is written anyway.
-   * This gate then states what THIS component renders rather than depending on
-   * an upstream coupling it cannot see and nothing here pins.
+   * ⚠ THIS IS NOW THE ONLY DISJUNCT. It was the second of two; the first read
+   * `showAnswer`, and the conclusion it gated was deleted on 18 Sep 2026. It was
+   * already written rather than inferred, which is why removing its sibling did
+   * not change what this gate means: it states what THIS component renders
+   * rather than depending on an upstream coupling it cannot see.
    */
   /**
    * ⭐⭐ THE PILL RENDERS ONLY WHERE THIS BLOCK CARRIES SOMETHING THE TRUST LINE
@@ -591,13 +616,75 @@ export function AtAGlance({
     glance.verdict && (glance.winShare || glance.verdict.reason || glance.winFraction !== null),
   )
 
-  const readingOnScreen = showAnswer || Boolean(glance.verdict && glance.winShare)
+  /* ⚠ THE ANSWER DISJUNCT WENT WITH THE ANSWER — the same rule recorded just
+     below for the drivers, applied again. This read `showAnswer || …`; the
+     conclusion it referred to no longer renders, so the disjunct would have kept
+     a qualifier on screen with nothing left on this surface to qualify. */
+  const readingOnScreen = Boolean(glance.verdict && glance.winShare)
+
+  /**
+   * The scope disclosure's own condition, NAMED so the emptiness guard can read
+   * the same expression the child renders on. Written here rather than inlined
+   * twice — two copies of one predicate is the mirror this file keeps paying
+   * for (trap 12), and the guard's whole job is to agree with the renderer.
+   *
+   * ⚠ IT BINDS THE NARROWED SCOPE, IT DOES NOT RESTATE THE TEST — and the first
+   * version got that wrong in a way the compiler caught. Extracting
+   * `comparisonScope.kind === 'partial'` into a BOOLEAN discards TypeScript's
+   * narrowing of the discriminated union, so the child below lost `.scope` and
+   * `.excluded` and produced 8 ratchet errors. Re-testing the discriminant at
+   * the child would have compiled and re-opened the mirror: two expressions,
+   * free to drift, which is the whole defect this const exists to close.
+   * Binding the narrowed value once gives the guard and the renderer ONE
+   * source that cannot disagree, and the compiler enforces it.
+   */
+  const partialScope = glance.comparisonScope.kind === 'partial' ? glance.comparisonScope : null
+  const scopeDisclosureOnScreen = partialScope !== null && glance.comparativeClaim !== 'none'
 
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
   const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
+
+  /**
+   * ⛔⛔ AN EMPTY LABELLED LANDMARK, AND THE GUARD WRITTEN TO PREVENT ONE WAS
+   * WHAT PERMITTED IT.
+   *
+   * This read `glance.headline || glance.verdict || glance.condition ||
+   * ribbon.length > 0`, and its own note states the question correctly: "have I
+   * anything to SHOW?". It answered with DATA presence, and two of its four
+   * disjuncts were wrong in opposite directions:
+   *
+   *   · `glance.headline` renders NOTHING since 18 Sep 2026 — Paul's ruling
+   *     deleted the conclusion it fed. A dead disjunct that keeps the section
+   *     alive over nothing.
+   *   · `glance.verdict` is far too broad. Every block a verdict feeds needs
+   *     more than the verdict, and on a leader-withheld run the view model
+   *     nulls `winShare` and `winFraction` and `mayExplainByRanking` deletes
+   *     `verdict.reason` — all three by design. Measured: the section emitted
+   *     `<section aria-label="At a glance"></section>`, a named landmark a
+   *     screen-reader user can navigate to and find empty.
+   *
+   * ⚠ AND THE FIRST REPAIR WAS WRONG TOO, WHICH IS WHY THIS ONE IS DERIVED.
+   * Rebinding the guard to `verdictCarriesItsOwnReading` alone RED 36 specs:
+   * it is ONE of FIVE things this section renders, and the withheld reason and
+   * the scope disclosure do not pass through it. An invariant written from the
+   * failure mode in hand is narrower than the thing it guards (trap 13d).
+   *
+   * ⭐ SO THE DISJUNCTION IS THE SECTION'S FIVE TOP-LEVEL CHILDREN, EACH READ
+   * FROM THE EXPRESSION THE CHILD ITSELF RENDERS ON — never a paraphrase of it.
+   * `scopeDisclosureOnScreen` was named above for exactly that reason. Guard
+   * and renderer now share their predicates and cannot drift apart silently.
+   */
+  const hasAnything =
+    ribbon.length > 0 ||
+    Boolean(glance.designationWithheldReason) ||
+    verdictCarriesItsOwnReading ||
+    showInputProvenance ||
+    scopeDisclosureOnScreen ||
+    Boolean(glance.condition)
+  if (!hasAnything) return null
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
@@ -613,7 +700,7 @@ export function AtAGlance({
           role="status"
           data-testid={`${testId}-ribbon`}
         >
-          <AlertTriangle className="w-3 h-3 mt-[3px] shrink-0 text-warning" aria-hidden="true" />
+          <AlertTriangle className={`${icon('inline')} mt-[3px] shrink-0 text-warning-ink`} aria-hidden="true" />
           {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
               had to go: `min-w-0` says "I will shrink to nothing", which is
               precisely the permission that let this sentence be squeezed to
@@ -647,7 +734,43 @@ export function AtAGlance({
 
               ⚠ FAIL-CLOSED. No handler, no button — never a dead affordance,
               the same pre-gate this panel uses for focus targets. */}
-          {onReanalyse && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
+          {/* ⛔⛔ A RE-RUN IS OFFERED ONLY WHERE A RE-RUN COULD HELP.
+              WITNESSED ON PAUL'S RUN, 19 Sep 14:32Z, staging `fd65f971`.
+
+              The ribbon read *"This analysis is partial. The win share and the
+              overall robustness rating did not come back"* with **Re-run to be
+              sure** beside it. Both sentences were TRUE. The act was not: CEE
+              had suppressed the result on
+              `reason=leading_option_claim_withheld`, downstream of
+              `CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED` — a property of the
+              MODEL, not of the run. Pressing it reaches the same gate, spends
+              the same compute, and returns the same partial answer.
+
+              ⭐ THE GATE BELOW ANSWERED "MAY I RE-RUN?" WHEN THE READER NEEDED
+              "WOULD RE-RUNNING CHANGE THIS?" — two questions under one control,
+              which is the same shape as the CEE suppression that caused it and
+              as trap 21 generally. The fix is to name them apart, never to
+              align them.
+
+              ⚠ SO THE RE-RUN IS NOT DELETED. Where results are missing by
+              FAILURE a re-run is exactly right, and removing it would trade one
+              wrong act for another. It is withheld only where the panel knows a
+              DESIGNATION was withheld, and the remedy that works — the estimate
+              route this component already owns — takes its place.
+
+              ⚠ `leaderWithheld`, NOT `leaderWithholdCause`: the cause is null
+              both when nothing was withheld and when the reason cannot be named,
+              and the second is the common case. */}
+          {onReanalyse && rerunWouldNotHelp && onReviewEstimates ? (
+            <button
+              type="button"
+              onClick={onReviewEstimates}
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80`}
+              data-testid={`${testId}-ribbon-review-estimates`}
+            >
+              {COPY.glance.reviewEstimates}
+            </button>
+          ) : onReanalyse && !rerunWouldNotHelp && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}
@@ -715,60 +838,32 @@ export function AtAGlance({
           stated once, in the ribbon directly above, where it scopes the whole
           panel instead of one line — three statements of one fact is noise, and
           noise crowds out the only useful response, which is to re-run. */}
-      {showAnswer ? (
-        <div>
-          <Eyebrow>{COPY.glance.eyebrowLeading}</Eyebrow>
-          {/* ── ⭐⭐ THE PANEL'S LARGEST TYPE, AND IT IS THE ANSWER ──────────
-              Paul's ruling, 17 Sep 2026: the 18px slot means "the most
-              important thing on this panel right now — the conclusion when
-              there is one, otherwise the question being worked on."
+      {/* ⛔⛔ THE CONCLUSION IS GONE. DELETED, NOT MOVED, NOT HIDDEN.
+          Paul's ruling, 18 Sep 2026, verbatim: "delete the conclusion entirely —
+          there shouldn't be a conclusion. We are a reasoning enhancement tool,
+          not a generic AI and analysis answering tool."
 
-              ⛔ WHAT IT REPLACED, censused on served `a147cfbb` (a run with a
-              named leader): this line sat at `panelHeader`, tied for size with
-              "What your model implies", "How robust is this?" and "How far this
-              held" — FOUR strings at 14px/600 — while the panel's one 18px slot
-              carried the GOAL. A reader scanning for the answer found the
-              context.
+          WHAT STOOD HERE: an eyebrow ("Most likely to serve your goal"), the
+          leading option's name, and beneath it the line disclosing that Olumi
+          invented that option. #1676 had already demoted the name from 18px to
+          14px; this removes it.
 
-              ⚠ IT IS A LOAN, NOT A SECOND LEAD. `ModelStrip` gives the slot up
-              for exactly as long as this renders; `theLargestTypeIsTheAnswer`
-              counts the elements at this size in both run states and REDs on
-              two as loudly as on none. */}
-          <p
-            className={`${typography.panelHeader} mt-1 mb-0 text-text-header text-balance`}
-            data-testid={`${testId}-headline`}
-          >
-            {conclusionLabel(glance)}
-          </p>
-          {/* ── ⭐⭐ WHOSE IDEA THIS WAS ────────────────────────────────────
-              IMMEDIATELY BENEATH THE NAME, NOT IN A DISCLOSURE AND NOT AT THE
-              FOOT OF THE PANEL — the same rule the scope note and the condition
-              line follow: it changes what the line above MEANS, so a reader who
-              sees one must see the other. A founder read "Raise Price to £54
-              (Soft Increase)" as the answer at 73% and had no way to learn that
-              the £54 was ours and not his.
+          ⭐ THE PROVENANCE DISCLOSURE IS NOT LOST, AND THAT WAS THE ONLY THING
+          THAT MADE DELETION RISKY. "Olumi suggested this option, you did not
+          name it" has a SECOND owner: `OptionsComparison` stamps
+          `option-origin-mark-<id>` on the rows themselves (`sharedOrigin`,
+          #1648). Checked at the bytes before deleting, because removing the one
+          place the product admits AI authorship would have been a worse defect
+          than the one being fixed.
 
-              ⛔ IT NEVER SUPPRESSES THE NAME. The leading option is still the
-              only large type on the surface; this adds a line, removes nothing,
-              and re-ranks nothing. Olumi inventing options is the product
-              working — the defect was the silence about it, not the invention.
+          ⚠ THE MODEL'S NUMBERS ARE UNTOUCHED. Every option, its win share and
+          its ranking still render in the comparison below. What is deleted is
+          the panel ANNOUNCING one of them as the answer — a verdict, not data.
 
-              ⚠ SILENT UNLESS THE CLAIM IS WARRANTED. `optionOrigin` is null for
-              the user's own option, for CEE's ambiguous `ai_inferred`-with-a-
-              quote case, for an unstamped node, and wherever no leader is named
-              at all. There is no fallback wording, because every other wording
-              attributes the idea to somebody. */}
-          {glance.optionOrigin ? (
-            <p
-              className={`${typography.panelMeta} text-text-light m-0 mt-1`}
-              data-testid={`${testId}-option-origin`}
-              data-option-origin={glance.optionOrigin}
-            >
-              {OPTION_ORIGIN_COPY[glance.optionOrigin]}
-            </p>
-          ) : null}
-        </div>
-      ) : glance.designationWithheldReason ? (
+          The withheld branch below STAYS, and is not the same thing: it does not
+          conclude, it explains why the model declined to, which is the reader's
+          cue to supply their own estimate. */}
+      {glance.designationWithheldReason ? (
         /* ── WHY THERE IS NO ANSWER ────────────────────────────────────────
            ⭐⭐ SILENCE IS NOT A DENIAL. Until this slot existed, a run whose
            model REFUSED to license a comparative claim rendered exactly what an
@@ -975,9 +1070,9 @@ export function AtAGlance({
                 >
                   {reassuranceIsStale(glance.verdict.tone, isStale) ? null : glance.verdict.tone ===
                     'stable' ? (
-                    <CheckCircle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                    <CheckCircle className={`inline ${icon('inline')} -mt-px mr-1`} aria-hidden="true" />
                   ) : (
-                    <AlertTriangle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                    <AlertTriangle className={`inline ${icon('inline')} -mt-px mr-1`} aria-hidden="true" />
                   )}
                   {glance.verdict.label}
                 </span>
@@ -1010,20 +1105,47 @@ export function AtAGlance({
                   className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
                   data-testid={`${testId}-verdict-reason`}
                 >
-                  {glance.verdict.reason}
+                  {/* ⛔ THE PRODUCER COMPOSED THIS MID-SENTENCE, AND THIS PANEL
+                      IS THE ONLY CONSUMER THAT OPENS ONE WITH IT. The wire
+                      fixture is `robustnessVerdictReason: 'held up across the
+                      ranges we varied'`, and `TriageActionCardsBody:946` spends
+                      it as a native tooltip where a bare clause reads fine.
+                      Here it is a standalone paragraph, so on the deployed
+                      build `7ec3fed2` the glance's second line began "varying
+                      any one of the factors we could test…" — lower case, mid
+                      air.
+
+                      ⚠ FIRST CHARACTER ONLY, AND THE PRECEDENT IS THIS PANEL'S
+                      OWN. `sentenceCase` exists because `missingResultLabels`
+                      hit the same boundary ("composed mid-sentence, behind a
+                      dash… moves them to the front of the second one. Only the
+                      first character is touched"). The producer stays the sole
+                      owner of the words; the panel owns only where a sentence
+                      begins. */}
+                  {sentenceCase(glance.verdict.reason)}
                 </p>
               ) : null}
               {glance.winFraction !== null ? (
-                <span
-                  className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
-                  aria-hidden="true"
-                  data-testid={`${testId}-win-bar`}
-                >
-                  <span
-                    className={`block h-full rounded-full ${glance.verdict.tone === 'stable' ? 'bg-success' : 'bg-warning'}`}
-                    style={{ width: `${Math.round(glance.winFraction * 100)}%` }}
-                  />
-                </span>
+                /* ⭐⭐ ADOPTED, AND THE ROUNDING DEFECT GOES WITH IT.
+                   This was `Math.round(winFraction * 100)` — the exact
+                   expression `OptionsComparison` removed after it shipped a
+                   measured non-zero share as a 0px fill on deployed `ce32426c`
+                   ("< 1%" beside an empty track). The same defect was still
+                   live HERE, in the glance, which is the first figure a reader
+                   meets. `PanelFigure` floors a strictly-positive fraction and
+                   leaves a genuine zero empty, so the fix arrives with the
+                   grammar rather than needing to be remembered a third time.
+
+                   ⚠ AND THE TRACK WAS `h-1` — the 4px hairline #1346 ruled out
+                   as "a comparison drawn at four pixels reads as no comparison
+                   at all". It survived here because nothing swept for it. */
+                <PanelFigure
+                  variant="share"
+                  tone={glance.verdict.tone === 'stable' ? 'stable' : 'caution'}
+                  className="mt-1.5"
+                  fraction={glance.winFraction}
+                  testId={`${testId}-win-bar`}
+                />
               ) : null}
 
             </div>
@@ -1076,17 +1198,17 @@ export function AtAGlance({
           Excluded options were two full prose paragraphs each repeating the
           same sentence. They are now rows in a list: same facts, same
           sanctioned copy, a fraction of the visual mass. */}
-      {glance.comparisonScope.kind === 'partial' && glance.comparativeClaim !== 'none' ? (
+      {scopeDisclosureOnScreen && partialScope ? (
         <div data-testid={`${testId}-scope`}>
           <ComparisonScopeNote
-            scope={glance.comparisonScope.scope}
+            scope={partialScope.scope}
             surface="analysisNew"
             withDetail={glance.comparativeClaim === 'value'}
           />
           <ul className="mt-1 space-y-0.5 list-none p-0 m-0">
             {(showAllExcluded
-              ? glance.comparisonScope.excluded
-              : glance.comparisonScope.excluded.slice(0, EXCLUDED_OPTION_VISIBLE_CAP)
+              ? partialScope.excluded
+              : partialScope.excluded.slice(0, EXCLUDED_OPTION_VISIBLE_CAP)
             ).map((o) => (
               <li
                 key={o.id}
@@ -1132,8 +1254,8 @@ export function AtAGlance({
                 the sentence just said 28. Same defect class as the two caps
                 this change bound together, one level out. */}
             {(() => {
-              const s = glance.comparisonScope.scope
-              const unnameable = s.total - s.analysed - glance.comparisonScope.excluded.length
+              const s = partialScope.scope
+              const unnameable = s.total - s.analysed - partialScope.excluded.length
               return unnameable > 0 ? (
                 <li
                   className={`${typography.panelMeta} text-text-light flex items-start gap-1.5`}
@@ -1147,7 +1269,7 @@ export function AtAGlance({
               ) : null
             })()}
           </ul>
-          {glance.comparisonScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
+          {partialScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
             <button
               type="button"
               onClick={() => setShowAllExcluded((v) => !v)}
@@ -1158,7 +1280,7 @@ export function AtAGlance({
               {showAllExcluded
                 ? COPY.disclosure.collapse
                 : COPY.disclosure.moreExcluded(
-                    glance.comparisonScope.excluded.length - EXCLUDED_OPTION_VISIBLE_CAP,
+                    partialScope.excluded.length - EXCLUDED_OPTION_VISIBLE_CAP,
                   )}
             </button>
           ) : null}
@@ -1203,7 +1325,7 @@ export function AtAGlance({
           const Row = (
             <>
               <AlertTriangle
-                className="w-3.5 h-3.5 mt-[3px] shrink-0 text-warning"
+                className={`${icon('row')} mt-[3px] shrink-0 text-warning-ink`}
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">
@@ -1211,7 +1333,7 @@ export function AtAGlance({
                 {glance.condition!.text}
               </span>
               {focusable ? (
-                <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+                <ChevronRight className={`${icon('row')} mt-0.5 shrink-0 text-text-light`} aria-hidden="true" />
               ) : null}
             </>
           )

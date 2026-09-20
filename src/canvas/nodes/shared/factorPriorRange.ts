@@ -218,9 +218,42 @@ function normalisedRangeHasNothingTrueToSayBeside(
   )
 }
 
-/** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros trimmed. */
+/**
+ * ⭐⭐ ONE FORMATTER PER FILE — AND THIS FILE WAS RENDERING TWO GRAMMARS.
+ *
+ * This was a local `Number.isInteger(v) ? String(v) : v.toFixed(2)…` — a fifth
+ * copy of the house number rule, sitting a hundred lines above the calibrated
+ * branch that already calls the shared `formatRawValueWithUnit`. Measured on
+ * the same function, same card, before this change:
+ *
+ *     calibrated arm      "Range: £20,000 to £80,000"   ← shared formatter
+ *     uncalibrated arm    "Range: 20000 to 80000"       ← this local one
+ *
+ * and the second arm is reachable with an ordinary currency factor that has no
+ * usable cap (the branch comment below says so). A reader met the same figure
+ * in two grammars depending on a cap they cannot see. That is the defect this
+ * adoption closes, and it is the directory's last hand-rolled formatter.
+ *
+ * ⚠ THE UNIT IS `null` ON PURPOSE, AND IT IS NOT A SHORTCUT. This arm has
+ * already decided the value CANNOT be shown as measured — a placeholder unit,
+ * or a real unit with no cap to calibrate against. `formatRawValueWithUnit`'s
+ * 'none' arm IS the bare-number rule, so passing the unit through here would
+ * re-attach the very suffix the branch exists to withhold.
+ *
+ * ⛔ AND IT IS NOT `canvas/utils/formatValueWithUnit`, THE FORMATTER NAMED AS
+ * CANONICAL. That one turns any 0-1 magnitude into a qualitative word, so a
+ * prior of 0.2 to 0.8 would render "Range: low to very high" — a range whose
+ * ends are words cannot be read as a range, and the numbers are the only thing
+ * this line has to say. Its rule is right for a single observed value and wrong
+ * for an interval endpoint; the two answer different questions.
+ *
+ * Behaviour is unchanged across [0,1], the contract domain: integers print
+ * bare, sub-1 values keep two decimal places with trailing zeros trimmed. It
+ * differs only at magnitude >= 1000, where it gains the en-GB thousand
+ * separator the calibrated arm already emits — which is the fix.
+ */
 function formatNormalisedRangeEnd(v: number): string {
-  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '')
+  return formatRawValueWithUnit(v, null)
 }
 
 export interface FactorPriorRangeInputs {

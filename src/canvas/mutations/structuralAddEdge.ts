@@ -129,10 +129,25 @@ export function buildStructuralAddEdgeEvent({
  * constant `formatNumericLabel`'s header records the canvas once printing as a
  * measurement (ROADMAP 2.950). Sending it would be that defect, server-side.
  *
- * ⭐ WHAT THIS DOES COVER, and it is most of the value: every gesture whose edge
- * arrives WITH a stated strength and direction — duplicate, paste, and the
- * "Add connected …" affordances that choose a direction. Those carry real
- * provenance from the edge they were copied from or the choice the user made.
+ * ⭐ WHAT THIS DOES COVER: every gesture whose edge arrives WITH a stated
+ * strength and direction — today, an edge COPIED from one that already had
+ * both (duplicate, paste), and any edge whose strength somebody states later,
+ * via `retryStructuralAddEdgeCapture`.
+ *
+ * ⚠⚠ CORRECTED 18 Sep 2026 — THIS PARAGRAPH NAMED THE "ADD CONNECTED …"
+ * AFFORDANCES AS COVERED, "carrying real provenance from … the choice the user
+ * made". **That is false, and it is two different things under one word.** The
+ * "direction" those items choose is `edgeDirection` — the TOPOLOGY, i.e. which
+ * end of the new link is the source (`getEdgeDirectionForKind` returns
+ * `'to-target'` or `'from-target'`). It is NOT `effect_direction`, the
+ * positive/negative SIGN this member requires. The gesture states neither a
+ * magnitude nor a sign: it builds the edge from `USER_EDGE_DEFAULTS`, which
+ * carries no `weightSource` and no `directionSource`. So an "Add connected …"
+ * link stands down here at `strength_not_stated`, exactly like a bare drag —
+ * which is the correct outcome and the reason `store.addNodeWithEdge` records
+ * the stand-down on the edge for `EdgePanel` to act on. ⭐ Two senses of
+ * "direction" under one name is CLAUDE.md trap 21, and it had already produced a
+ * false coverage claim in this file's own header.
  *
  * ⚠⚠ AND THE GAP THIS LEAVES, STATED RATHER THAN PAPERED OVER: a link drawn
  * with no strength CANNOT become durable under the current contract. It cannot

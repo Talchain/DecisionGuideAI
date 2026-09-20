@@ -200,21 +200,35 @@ describe('the condition line needs a reading to condition', () => {
     draw({ ...glanceOf(genuineDecision()), inputProvenance: 'undetermined' })
     const line = screen.getByTestId(PROVENANCE)
     expect(line).toHaveAttribute('data-input-provenance', 'undetermined')
-    expect(line).toHaveTextContent('On inputs whose source Olumi could not establish')
+    expect(line).toHaveTextContent(
+      'This reading rests on inputs whose source Olumi could not establish.',
+    )
     // The reading it qualifies is genuinely on screen — otherwise this twin
     // would be passing for the wrong reason.
     expect(screen.getByTestId('analysis-new-glance-win-share')).toBeInTheDocument()
   })
 
-  it('⭐ a NAMED LEADER is a reading, even with no percentage beside it', () => {
-    // The producer's documented case: a leader determined by expected outcome
-    // carries a null win probability. The option is named, so the qualifier has
-    // something to qualify and must stay. A gate keyed on the share ALONE would
-    // wrongly drop it here — the twin that stops this fix over-correcting.
+  it('⭐ a named leader is NO LONGER a reading, because it is no longer on screen', () => {
+    /**
+     * ⛔ INVERTED BY PAUL'S RULING, 18 Sep 2026: "delete the conclusion
+     * entirely." This case previously asserted the OPPOSITE — that a named
+     * leader with no win share still counted as a reading, so the provenance
+     * qualifier had to stay.
+     *
+     * ⭐ IT IS KEPT, INVERTED, RATHER THAN DELETED, because it now pins the
+     * thing most likely to be got wrong: `readingOnScreen` dropped its
+     * `showAnswer` disjunct when the conclusion went. A qualifier whose content
+     * has left the surface must leave with it — the rule this file's neighbour
+     * records for the drivers. If someone restores that disjunct, this REDs.
+     */
     const g = glanceOf(genuineDecision())
-    expect(g.headline, 'precondition: this fixture names a leader').not.toBeNull()
+    expect(g.headline, 'precondition: the producer still names a leader in the DATA').not.toBeNull()
     draw({ ...g, winShare: null, winFraction: null, inputProvenance: 'estimated' })
+    expect(screen.queryByTestId('analysis-new-glance-headline'), 'the leader is not rendered').toBeNull()
     expect(screen.queryByTestId('analysis-new-glance-win-share')).not.toBeInTheDocument()
-    expect(screen.getByTestId(PROVENANCE)).toHaveAttribute('data-input-provenance', 'estimated')
+    expect(
+      screen.queryByTestId(PROVENANCE),
+      'nothing on this surface for the qualifier to qualify, so it must not render',
+    ).toBeNull()
   })
 })

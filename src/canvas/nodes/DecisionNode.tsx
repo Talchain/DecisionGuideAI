@@ -29,9 +29,11 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
-import { METRIC_NOUN } from './shared/metricVocabulary'
+import { METRIC_NOUN, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
@@ -60,7 +62,16 @@ export const DECISION_RESTING_COPY = {
   unnamedCta: 'Name it',
   unnamedAsk: 'Suggest a clear name for this part of the model',
   unnamedAskLabel: 'Name this',
-  noOptionsLine: 'No options linked yet',
+  /**
+   * ⚠ A REFERENCE, NOT A COPY, AND THAT IS LOAD-BEARING — the same rule this
+   * record's own header states. `STRUCTURAL_UNSET.noOptions` is the canvas's
+   * one word for "not modelled", and the `StatusPill` in this card's corner
+   * reads the SAME constant (`BaseNode.tsx`). Re-typing the literal here would
+   * let the corner and the body drift back into disagreeing about one fact.
+   * The VALUE is unchanged, so every rendered assertion on this line still
+   * matches byte for byte.
+   */
+  noOptionsLine: STRUCTURAL_UNSET.noOptions,
   noOptionsCta: 'Add options',
   noOptionsAsk: 'Suggest options to compare here',
   noOptionsAskLabel: 'Add options',
@@ -111,6 +122,67 @@ export const DECISION_READINESS_COPY = {
   missing: 'missing',
   external: 'external',
 } as const
+
+/**
+ * \u2b50\u2b50 HOW MANY ALTERNATIVES ARE IN PLAY \u2014 SPELLED ONCE, FOR BOTH SURFACES.
+ *
+ * ## The defect this closes
+ *
+ * `optionCount` is derived correctly (de-duplicated by target, see its `useMemo`
+ * below) and reached exactly one piece of RENDERED TEXT: `lodMetric`, the single
+ * reduced line a card shows BELOW the legibility floor. So the anchor card of
+ * every model stated its option count only when zoomed out \u2014 the moment the
+ * reader can read least \u2014 and said nothing about it at normal reading zoom,
+ * where the whole point of the card is to frame the comparison. Its only other
+ * uses are a chip MESSAGE (never rendered) and a popover gated
+ * `!isPostAnalysis && optionCount > 0` (behind a hover, pre-analysis only).
+ *
+ * ## Why one function rather than two strings
+ *
+ * The card face and the reduced line state THE SAME FACT. Two spellings of one
+ * fact inside one component is the hand-maintained mirror this file argues
+ * against three times already (CLAUDE.md trap 12) \u2014 they would agree on the day
+ * they were written and nothing would go red when they stopped. The singular
+ * rule and the zero rule therefore live here, once, and both surfaces consume
+ * this.
+ *
+ * \u2b50 AND IDENTICAL IS THE RIGHT BEHAVIOUR, NOT A COMPROMISE. `zoomLegibility`'s
+ * own ruling is that zooming out must not make a card anonymous \u2014 "small text
+ * you can squint at is strictly better than a box that says nothing". A count
+ * that survives the zoom ladder VERBATIM is that promise kept: the card loses
+ * everything else and keeps the one fact, rather than changing its mind about
+ * how to say it.
+ *
+ * ## \u26d4 "OPTIONS", NOT "COMPARABLE" \u2014 and this is a deliberate refusal
+ *
+ * An option that EXISTS is not an option the run can COMPARE. CEE stamps
+ * `waived_by_exclusion` per option and this repo reads it through
+ * `selectOptionExclusionMessage` (`stores/readinessStore.ts:1398`), whose own
+ * header rules that *"'Not connected', 'no values set' and 'excluded from this
+ * calculation' are THREE different facts"* and that deriving admission on the
+ * canvas would put a second authority on screen disagreeing with CEE (trap 21).
+ * That verdict also lives in a DIFFERENT store, is per-option, and is withheld
+ * while `stale`.
+ *
+ * `optionCount` cannot see any of it. It counts distinct option nodes this
+ * decision has an outgoing edge to \u2014 a STRUCTURAL fact the canvas owns and can
+ * defend. So the word is "options". Upgrading a count into a claim about
+ * comparability that the data does not carry is exactly the fabrication this
+ * card's tombstones record removing twice already.
+ *
+ * ## Zero is not `0 options`
+ *
+ * Returns `null` at zero, so every caller falls through to
+ * `DECISION_RESTING_COPY.noOptionsLine` \u2014 "No options linked yet", which carries
+ * a working CTA. A decision with no options is a STRUCTURAL absence with an
+ * authoring act behind it, not a metric reading zero; stating "0 options" would
+ * delete that affordance and present an absence as a finding. This keeps the two
+ * apart rather than re-merging them.
+ */
+export function composeOptionCountLine(optionCount: number): string | null {
+  if (!Number.isFinite(optionCount) || optionCount <= 0) return null
+  return `${optionCount} option${optionCount === 1 ? '' : 's'}`
+}
 
 /** Same separator the inspector's guidance line already renders. */
 export const READINESS_SEPARATOR = ' \u00b7 '
@@ -463,42 +535,51 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * "Your options are too similar" would be a claim about the user's reasoning
    * and belongs to the producer.
    */
-  const exploreOptionsMessage =
-    `My model has ${optionCount} option${optionCount === 1 ? '' : 's'} so far.` +
-    ' What other options could answer this decision that I have not put on the board?'
-
+  // ⚠ The sentence itself now lives in the resolver, which composes it from
+  // `optionCount`. Counting only, never assessing — the pluralisation and the
+  // wording are unchanged.
   const preAnalysisCoachingChips = useMemo(() => (
-    <div className="flex items-center gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="decision_explore_more_options" actionType={null} label="Explore more options" message={exploreOptionsMessage} />
-      {!showRunAnalysis && (
-        <NodeChip chipId="decision_what_could_go_wrong" actionType={null} label="What could go wrong?" message="What could go wrong with this decision?" />
-      )}
-    </div>
-  ), [showRunAnalysis, exploreOptionsMessage])
+    <CoachingChipRow
+      className="flex items-center gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({
+        kind: 'decision',
+        surface: 'preAnalysis',
+        state: { showRunAnalysis },
+        context: { optionCount },
+      })}
+    />
+  ), [showRunAnalysis, optionCount])
 
   const postAnalysisCoachingChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
+    <>
       {/* ⭐⭐ THE QUESTION IS COMPARATIVE, BECAUSE THE ACTION IS.
-          `what_would_flip` asks what would change the ORDER of the options. The
-          sentence it sent asked what would make a different option "most likely
-          to hit my goal" — which fuses a comparative ranking with target
-          attainment, and those are two different questions with two different
-          answers. A model can rank first and still be unlikely to reach the
-          goal; the goal probability can move without any option changing place.
+      `what_would_flip` asks what would change the ORDER of the options. The
+      sentence it sent asked what would make a different option "most likely
+      to hit my goal" — which fuses a comparative ranking with target
+      attainment, and those are two different questions with two different
+      answers. A model can rank first and still be unlikely to reach the
+      goal; the goal probability can move without any option changing place.
 
-          ⚠ THIS IS THE CONFLATION PAUL HAS RULED ON REPEATEDLY, arriving through
-          a chat message rather than a badge — which is why repairing the visible
-          bar did not reach it. The typed route is unchanged and was never wrong;
-          only the natural-language question was, and it is the half that reaches
-          the model and comes back as an answer to a question nobody asked.
+      ⚠ THIS IS THE CONFLATION PAUL HAS RULED ON REPEATEDLY, arriving through
+      a chat message rather than a badge — which is why repairing the visible
+      bar did not reach it. The typed route is unchanged and was never wrong;
+      only the natural-language question was, and it is the half that reaches
+      the model and comes back as an answer to a question nobody asked.
 
-          ⚠ NO GOAL PREMISE AT ALL, deliberately. Asking "which assumptions could
-          change the comparison" needs no goal probability to be meaningful, so it
-          cannot smuggle the attainment claim back in through its own framing. */}
-      <NodeChip chipId="decision_challenge_result" actionType="what_would_flip" label="Challenge this result" message="Which assumptions could change the comparison between these options?" />
-      <NodeChip chipId="decision_compare_options" actionType="compare_options" label="Compare options" message="Compare the options side by side" />
-    </div>
-  ), [])
+      ⚠ NO GOAL PREMISE AT ALL, deliberately. Asking "which assumptions could
+      change the comparison" needs no goal probability to be meaningful, so it
+      cannot smuggle the attainment claim back in through its own framing. */}
+      <CoachingChipRow
+        className="flex gap-1 flex-wrap mt-1.5"
+        chips={resolveNodeCoaching({
+          kind: 'decision',
+          surface: 'postAnalysis',
+          state: { showRunAnalysis },
+          context: { optionCount },
+        })}
+      />
+    </>
+  ), [showRunAnalysis, optionCount])
 
   // Stability for post-analysis Detailed body and Standard popover.
   // Returns the underlying fraction (0-1) so the popover progress bar can use
@@ -840,15 +921,31 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     })
   }, [restingAsk, restingAskLabel, restingNodeId])
 
+  /**
+   * How many alternatives are in play — the card-face line and the reduced line
+   * are ONE string, resolved here.
+   *
+   * ⚠ THE `isUnnamed` GATE BELONGS TO THE REDUCED LINE ONLY, AND THAT IS WHY
+   * THIS IS COMPOSED IN TWO STEPS RATHER THAN ONE. Below the legibility floor a
+   * card gets ONE line, so an unnamed question must spend it on the authoring
+   * prompt — the count is worth less than knowing what the node is. At reading
+   * zoom nothing is being traded: the title, the prompt and the count all fit,
+   * and withholding the count from an unnamed question would hide a fact for no
+   * reason. `optionCountLineText` is the fact; `lodMetric` is the fact AFTER the
+   * one-line budget has been applied to it.
+   */
+  const optionCountLineText = useMemo(
+    () => composeOptionCountLine(optionCount),
+    [optionCount],
+  )
+
   // Keep the Question node structural at every zoom. A completed analysis
   // must not replace this count with the option verdict removed from its body.
   // Unnamed and empty nodes retain their existing authoring/wayfinding copy.
   const lodMetric = useMemo<string | null>(() => {
-    if (!isUnnamed && optionCount > 0) {
-      return `${optionCount} option${optionCount === 1 ? '' : 's'}`
-    }
+    if (!isUnnamed && optionCountLineText !== null) return optionCountLineText
     return resting.line
-  }, [isUnnamed, resting.line, optionCount])
+  }, [isUnnamed, resting.line, optionCountLineText])
 
   /**
    * ⚠⚠ ONE ARM, BECAUSE THE OTHER IS UNREACHABLE HERE — AND I WROTE TWO FIRST.
@@ -944,6 +1041,60 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   )
 
   /**
+   * ⭐⭐ THE COUNT, ON THE CARD FACE, AT READING ZOOM — the whole point of this
+   * change. Named ONCE and rendered at both body arms, for the same reason
+   * `bodyFallback` below is named: this file already records three render sites
+   * of one block starting to diverge.
+   *
+   * ## Which arms, and why not the third
+   *
+   * `null` at `optionCount === 0` (see `composeOptionCountLine`), so the THIRD
+   * arm never needs it — that arm's condition reduces to
+   * `!isPostAnalysisBranch && optionCount === 0`, derived from the two branch
+   * predicates rather than assumed, so the line would be `null` there in every
+   * reachable case. Rendering it there anyway would be a guard that cannot fire,
+   * which this file argues against sixty lines up about an `optionCount > 0`
+   * conjunct a mutant proved a no-op.
+   *
+   * ## ⛔ IT IS NOT A CONJUNCT OF `bodyHasContent`, AND THAT IS DELIBERATE
+   *
+   * `bodyHasContent`'s post arm is `showStabilityLine` — "the presence of an
+   * actual FINDING" — precisely so that invitations do not silence the resting
+   * copy. A structural count is not a finding any more than a chip is; feeding
+   * it in would suppress the resting state on every completed run in Standard,
+   * which is the exact mechanism the tombstone above this arm warns about and
+   * the one `showSupportShareAbsent` was deliberately kept out of. So the count
+   * and the resting block are SIBLING conditionals, each answering its own
+   * question, and every existing arm of `DecisionNode.restingState.spec.tsx`
+   * keeps its meaning.
+   *
+   * ## What renders where on the zoom ladder
+   *
+   * `full` and `quiet`: `BaseNode`'s `bodyReduced` is false, so `lodBodyLine` is
+   * `null` and there is NO reduced line in the tree at all — this card-face line
+   * is the only instance. `line` (and `quiet` on a card the active lens has set
+   * aside): `bodyReduced` is true, `BaseNode` wraps ALL children in
+   * `LOD_BLANKED_BODY_STYLE` (`visibility: hidden`, one-line height,
+   * `overflow: hidden`) and paints the reduced line as a visible sibling — so
+   * this line is inside the blanked wrapper and the count is painted exactly
+   * once at every rung. The number cannot appear twice on one card.
+   *
+   * ⚠ IN THE DOM IT DOES OCCUR TWICE AT THE `line` RUNG, and the spec says so
+   * rather than pretending otherwise: jsdom cannot prove visibility (CLAUDE.md
+   * trap 3), so what is asserted there is the BLANKING MECHANISM being engaged
+   * over this element — a structural fact jsdom can see — and not a claim about
+   * paint that only a browser can settle.
+   */
+  const optionCountLine = optionCountLineText === null ? null : (
+    <div
+      data-testid="decision-node-option-count"
+      className={`${typography.nodeValue} text-text-body mt-1`}
+    >
+      {optionCountLineText}
+    </div>
+  )
+
+  /**
    * What the body falls back to when neither branch put a child on screen.
    *
    * ⚠ IT IS NOW A PLAIN ALIAS, AND IT STAYS NAMED. The brief block used to
@@ -964,6 +1115,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       style={{ position: 'relative' }}
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
+      /* The TAP path. A no-op on a pointer device (`usePopoverHover` gates it
+         on `hover: none`); on touch it is the only way this node preview can
+         be opened at all. It does not stopPropagation, so the tap still
+         selects the node. */
+      onClick={nodeHandlers.onClick}
     >
       <BaseNode
         nodeType="decision"
@@ -988,6 +1144,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             claim would be the over-suppression half of this same defect. */}
         {isPostAnalysisBranch ? (
           <div className="mt-1">
+            {/* How many alternatives are in play. FIRST, because it is the frame
+                the rest of this body is read against — and a run completing does
+                not change how many options the model holds. */}
+            {optionCountLine}
             {/* ⛔ THE LEADER SENTENCE IS GONE FROM THE QUESTION NODE.
 
                 It read "{X} supported in N% of simulated scenarios" — the
@@ -1104,6 +1264,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         ) : isPreAnalysisBranch ? (
           <>
             {/* ===== PRE-ANALYSIS ===== */}
+
+            {/* How many alternatives are in play. Above the triage line on
+                purpose: the triage line names the next ACT, this names the SET
+                being built, and knowing the set is what lets a reader judge
+                whether it is complete. */}
+            {optionCountLine}
 
             {/* Triage line — single most important next action.
                 ⚠ IT MUST WRAP, NOT TRUNCATE, and that is not a style preference.

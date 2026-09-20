@@ -68,7 +68,8 @@ export interface AnalysisNewSectionProps {
   /**
    * What to say when there is nothing.
    *
-   * ⚠ ABSENT MEANS THE WHOLE SECTION DISAPPEARS — heading included. An earlier
+   * ⚠ ABSENT MEANS THE WHOLE SECTION DISAPPEARS — heading included — UNLESS a
+   * `header` is supplied, which is itself content. An earlier
    * version rendered the heading alone, on the reasoning that a heading costs
    * little. MOUNTED PRE-RUN, THAT WAS WRONG: three bare headings stacked up
    * ("Key insights", "Drivers and dynamics", "Uncertainty and gaps"), ~19px
@@ -87,16 +88,62 @@ export interface AnalysisNewSectionProps {
    * Rendered ABOVE the findings, inside the opened section — for a section
    * whose data has a visual form as well as a prose form.
    *
-   * ⚠ IT DOES NOT KEEP AN EMPTY SECTION ALIVE. The early return below still
-   * fires on no findings and no empty message, deliberately: a chart with no
-   * rows under a heading is the same "heading promising content" defect §19
-   * records, and the two are derived from ONE filtered list upstream, so they
-   * are empty together or not at all.
+   * ⚠⚠ THIS DOCBLOCK USED TO SAY THE OPPOSITE, AND IT WAS THE AUTHORITY A
+   * MAINTAINER WOULD READ. It said "IT DOES NOT KEEP AN EMPTY SECTION ALIVE",
+   * arguing that a chart and its rows come from ONE filtered list upstream and
+   * so are empty together. That is true of DRIVERS and false of SENSITIVITY,
+   * whose header carries producer statements (convergence, tipping points)
+   * built from a DIFFERENT array than its findings — which is exactly how a
+   * real threshold came to be deleted by a guard about findings.
+   *
+   * ⭐ A HEADER IS CONTENT. It keeps the section alive, and `sectionOpensItself`
+   * below decides whether the section may also hide it.
    */
   header?: ReactNode
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
   testId: string
+}
+
+/**
+ * ⭐⭐ A ROW THAT ADVERTISES NOTHING MAY NOT HIDE SOMETHING.
+ *
+ * `SectionShell` UNMOUNTS a closed region (`SectionShell.tsx`, `{open ? … :
+ * null}`), so content behind a closed section is not "one click away" — it is
+ * ABSENT FROM THE DOCUMENT. That is only honest where the collapsed row tells
+ * the reader what is behind it, and the count badge is that advertisement.
+ * `SectionShell` coerces a count of 0 to no badge at all, on its own stated
+ * grounds: "a 0 promises nothing is behind the row and then invites a press
+ * anyway".
+ *
+ * So NO FINDINGS + A HEADER is the one combination where the row promises
+ * nothing and the body is real producer output. Witnessed on the sensitivity
+ * section: a run that found a tipping point and no sensitivity rows rendered
+ * "What would change your mind" with no count, closed, and the threshold
+ * sentence nowhere in the document — the section guard was widened to keep it
+ * alive, and it still could not be read.
+ *
+ * ⚠ `emptyMessage` IS THE DISCRIMINATOR, AND IT ANSWERS A DIFFERENT QUESTION
+ * FROM `header` (trap 21). A header is CONTENT — something the run produced.
+ * An empty message is a STATEMENT ABOUT ABSENCE — true, worth keeping
+ * reachable, and not worth the height budget by default. Drivers passes an
+ * unconditional chart as its header AND an empty message on every post-run
+ * path, so it is untouched by this; without the `emptyMessage` conjunct it
+ * would auto-open on every driverless run to show an empty chart above a
+ * sentence explaining there is nothing to chart.
+ *
+ * ⚠ AND THE HEIGHT ARGUMENT IS WHY THIS ARM IS SAFE. `SectionShell`'s
+ * default-closed rule exists because this panel measured 1,584px against a
+ * 769px viewport. The findings arm stops at one row for that reason; a header
+ * with NO rows under it cannot spend that budget either.
+ */
+export function sectionOpensItself(
+  findingCount: number,
+  hasHeader: boolean,
+  hasEmptyMessage: boolean,
+): boolean {
+  if (findingCount === 1) return true
+  return findingCount === 0 && hasHeader && !hasEmptyMessage
 }
 
 export function AnalysisNewSection({
@@ -118,7 +165,20 @@ export function AnalysisNewSection({
 
   // Nothing to show, and nothing truthful to say about its absence: render
   // NOTHING, not a heading over empty space (§19, corrected at the mount).
-  if (findings.length === 0 && !emptyMessage) return null
+  /**
+   * ⛔ A HEADER IS CONTENT — and this predicate asked a narrower question than
+   * its job (trap 21). It answered *"are there FINDINGS?"* while the section's
+   * actual question is *"is there anything to show?"*.
+   *
+   * Found by independent review on #1625: the sensitivity section passes
+   * `emptyMessage={null}`, so a run that produced a real tipping point
+   * ("Tech Lead Presence would have to rise from 0.6 to 0.96 before Two
+   * Developers comes out ahead") and no sensitivity rows had that sentence
+   * DISCARDED here — a producer statement deleted by a guard about a different
+   * field. The convergence header cannot reach this case (it needs two rows),
+   * so nothing that renders today changes.
+   */
+  if (findings.length === 0 && !emptyMessage && !header) return null
 
   const limit = preview ?? findings.length
   const visible = expanded ? findings : findings.slice(0, limit)
@@ -134,21 +194,17 @@ export function AnalysisNewSection({
       // which is a claim about the run and must stay reachable.
       count={findings.length > 0 ? findings.length : null}
       /**
-       * ⭐ A SECTION HOLDING EXACTLY ONE ITEM OPENS ITSELF.
+       * THE LICENCE `SectionShell` ASKS EVERY CALLER TO STATE: this section
+       * opens itself where disclosure would hide something the collapsed row
+       * does not advertise — one finding, or a header with no findings under
+       * it. The argument for both arms, and the reason the second needs the
+       * `emptyMessage` conjunct, is on `sectionOpensItself` above.
        *
-       * Progressive disclosure earns its keep by hiding BULK. At one item it
-       * hides nothing worth hiding and charges a click for it: the collapsed
-       * row — heading, count, chevron — is about as tall as the single line it
-       * conceals, so the reader pays an interaction and gains no vertical
-       * space. A count of "1" is also the least informative label this panel
-       * produces; it tells you how many and never whether it matters.
-       *
-       * ⚠ THE HEIGHT ARGUMENT IS WHY IT STOPS AT ONE. `SectionShell`'s
-       * default-closed rule exists because this panel measured 1,584px against
-       * a 769px viewport — opening a section with several rows would spend that
-       * fix. One row cannot.
+       * ⚠ STATED ONCE, NOT TWICE. This used to carry the whole argument, which
+       * made it a second copy of a rule that now has a named home — the mirror
+       * this file's own header warns about (trap 12).
        */
-      defaultOpen={findings.length === 1}
+      defaultOpen={sectionOpensItself(findings.length, Boolean(header), Boolean(emptyMessage))}
       subtitle={subtitle}
       testId={testId}
     >
@@ -182,18 +238,21 @@ export function AnalysisNewSection({
                 onRunIntervention={onRunIntervention}
                 onAskOlumi={onAskOlumi}
                 testIdPrefix={testId}
-                /* ⭐ ONE FINDING, ONE DOOR. The section above already opens
-                   itself on `findings.length === 1`, for a reason it states:
-                   one row cannot spend the height budget. The row then stayed
-                   SHUT, so opening the section revealed a second closed door
-                   and the reader spent two clicks on one sentence — measured
-                   on deployed staging, "Key insights 1" open with its single
+                /* ⭐ ONE FINDING, ONE DOOR. The section above opens itself on
+                   a single finding, for a reason it states: one row cannot
+                   spend the height budget. The row then stayed SHUT, so
+                   opening the section revealed a second closed door and the
+                   reader spent two clicks on one sentence — measured on
+                   deployed staging, "Key insights 1" open with its single
                    insight collapsed beneath it.
 
-                   The same condition governs both, so it is written once and
-                   read twice rather than restated: with two or more findings
-                   this is false and every row opens on demand, because THEN
-                   the height argument the section cites actually bites. */
+                   ⚠ THIS IS THE FINDINGS ARM ONLY, and it no longer shares an
+                   expression with the section's. `sectionOpensItself` also
+                   opens a section whose only content is a HEADER — a case that
+                   by definition has no rows, so a row-level rule cannot speak
+                   to it. Two questions, written apart (trap 21). With two or
+                   more findings this is false and every row opens on demand,
+                   because THEN the height argument actually bites. */
                 defaultOpen={findings.length === 1}
               />
             ))}

@@ -40,6 +40,7 @@ import {
   shouldCaptureUserAuthoredText,
   USER_AUTHORED_TEXT_OMITTED_REASON,
 } from '../../../utils/payloadRedaction'
+import { collectCanvasBreadcrumbs, type CanvasBreadcrumbCapture } from './canvasBreadcrumbs'
 import {
   collectServiceBuilds,
   type ServiceBuildCapture,
@@ -66,6 +67,7 @@ import {
 // Round-6 review (maintainability): import shared selection-diagnostic
 // union types so the DebugBundle interface mirrors DebugData without
 // re-declaring the same enum in two places.
+import { matchingScenarioAnalysisReads } from '../../../lib/analysisProducingCeeTurn'
 import type {
   SelectionReason,
   HashMatchStatus,
@@ -151,6 +153,10 @@ import {
   type ParseFailureKind,
 } from '../../../v5/responseParser'
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import {
+  readDeliveryRecord,
+  type ProvisionalDeliveryRecord,
+} from '../../../canvas/hooks/provisionalDeliveryRecord'
 
 // =============================================================================
 // Feature Flag
@@ -1361,6 +1367,23 @@ interface DebugBundle {
     /** Present whenever `available` is false. */
     unavailable_reason?: string
   }
+  /**
+   * ⭐⭐ THE CANVAS BREADCRUMB RING — the channel that actually survives a
+   * production build, and which no bundle carried until this field existed.
+   *
+   * ⛔ READ THIS BEFORE CONCLUDING "no diagnostics available". `console_logs`
+   * is empty in every staging bundle ever exported and always will be: the
+   * `console.*()` call sites are stripped at build time and CI fails the build
+   * if any survive. That is a DIFFERENT channel. This one is an array push on
+   * `window.__SAFE_DEBUG__.logs`, is untouched by the strippers, and has 33
+   * write sites across the app including both layout-failure paths.
+   *
+   * It was added because "Layout failed. Try again." stayed open from 26 Aug to
+   * 19 Sep 2026 with two refuted theories, and the founder's own bundle from
+   * the failure carried no trace of it — the recorder existed and nothing read
+   * it back. See `canvasBreadcrumbs.ts` for the full account.
+   */
+  canvas_breadcrumbs: CanvasBreadcrumbCapture
   /** Diagnostic checks for troubleshooting */
   diagnostic_checks: DiagnosticChecks
   /**
@@ -1652,6 +1675,14 @@ interface DebugBundle {
 
   /** Display state snapshot — what the UI actually rendered at export time */
   display_state: DisplayState | null
+  /**
+   * What the client's provisional-delivery schedule did, written by the
+   * schedule itself rather than rebuilt from the store.
+   *
+   * `null` = never armed · `{ outcome: null }` = armed, still running at export
+   * · `{ outcome }` = armed and settled. See `provisionalDeliveryRecord.ts`.
+   */
+  provisional_delivery: ProvisionalDeliveryRecord | null
 
   // =========================================================================
   // V2.0 sections — present only when VITE_DEBUG_BUNDLE_V2 is ON
@@ -3730,6 +3761,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     console_logs: getBufferedLogs(),
     console_logs_capture: describeConsoleLogCapture(),
+    canvas_breadcrumbs: collectCanvasBreadcrumbs(),
     diagnostic_checks: data.diagnostics,
     // Track C Step 1 (D-5): always emitted; empty snapshot when nothing was
     // dropped this session. The getter never throws.
@@ -3837,6 +3869,26 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
 
     // Display state (provided by caller at export time)
     display_state: options.displayState ?? null,
+    /**
+     * ⭐ WHAT THE CLIENT'S DELIVERY SCHEDULE DID — an OBSERVATION, not a
+     * reconstruction.
+     *
+     * Every other `*_displayed` field in this bundle is rebuilt from the store.
+     * This one is written by the schedule itself at the moment it arms and
+     * again when it settles, so a reader can tell these three apart, which no
+     * field in this bundle could before:
+     *
+     *   null                          the schedule NEVER ARMED this session
+     *   { outcome: null }             armed and STILL RUNNING at export time
+     *   { outcome: '…' }             armed and settled, with its own verdict
+     *
+     * ⚠ THE FIRST OF THOSE WAS THE UNANSWERABLE ONE. On the 19 Sep run the
+     * server committed a result at 10:46:26 and the client still read
+     * `run_state: never_run` at 10:47:43 — and nothing in the bundle could say
+     * whether the client had even tried. Two conclusions were drawn from that
+     * silence and both were wrong.
+     */
+    provisional_delivery: readDeliveryRecord(),
 
     // V2.0 sections — CEE diagnostic trace (passthrough, only when flag is ON)
     //
@@ -3976,7 +4028,7 @@ function resolveEmbeddedFactorSensitivityForDisplay(
 ): FactorSensitivityEntry[] | null {
   try {
     const useRecovered =
-      data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' &&
+      (data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' || data.analysis_evidence_trace_source === 'scenario_graph_read') &&
       data.analysis_evidence_cee_response_body !== null &&
       data.analysis_evidence_cee_response_body !== undefined
     const ceeBody = useRecovered
@@ -4419,6 +4471,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const latestV5TraceTyped = latestV5TracePre as
       | {
           id?: string
+          capture?: { requestId?: string }
           endpoint?: string
           status?: number
           duration?: number
@@ -4510,7 +4563,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         : {
             // Prefer the actual trace entry id when available; fall back
             // to the session-level request_id (the legacy behaviour).
-            request_id: latestV5TraceTyped?.id ?? data.overall.request_id,
+            request_id: latestV5TraceTyped?.capture?.requestId ?? latestV5TraceTyped?.id ?? data.overall.request_id,
             scenario_id: storeState.currentScenarioId,
             turn_id: fact?.analysisHash ?? null,
             // Real endpoint from the trace entry > service-metadata
@@ -4542,7 +4595,22 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
 
     const plotRequestCaptured = bundle.payloads.plot_request !== null
 
+    const resultRead = matchingScenarioAnalysisReads(
+      v5TraceStatePre.payloads, storeState.currentScenarioId ?? null, storeState.results?.hash ?? null,
+    )[0]
+    const analysisResultRead = resultRead?.capture?.analysisResultHash ? {
+      evidence_status: 'acquired' as const,
+      trace_id: resultRead.id ?? null,
+      request_id: resultRead.capture.requestId ?? null,
+      scenario_id: resultRead.capture.scenarioId!,
+      endpoint: resultRead.endpoint ?? null,
+      request_started_at: resultRead.timestamp ?? null,
+      response_completed_at: resultRead.completedAt ?? null,
+      response_hash: resultRead.capture.analysisResultHash,
+      response_body: resultRead.response?.body ?? null,
+    } : undefined
     bundle.v5_canonical_analysis = classifyV5CanonicalAnalysisDiagnostic({
+      analysisResultRead,
       canonicalFlagOn: isV5CanonicalAnalysisEnabled(),
       analysisStateSource: sourceResult.source,
       factPresentForScenario: sourceResult.factPresentForScenario,
@@ -4699,6 +4767,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const selectedIsV2 = isV2PlotEndpoint(selectedPlotProbe)
 
     const capturePipeline = classifyV5CapturePipelineStatus({
+      analysisResultRead: legacy.analysis_result_read,
       v5Capture: legacy.v5_cee_capture
         ? {
             request_present: legacy.v5_cee_capture.request_present,
@@ -5032,7 +5101,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // `payloads.plot_response` / `isl_response` are likewise never
     // touched here.
     const useRecoveredCeeBody =
-      data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' &&
+      (data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' || data.analysis_evidence_trace_source === 'scenario_graph_read') &&
       data.analysis_evidence_cee_response_body !== null &&
       data.analysis_evidence_cee_response_body !== undefined
     const ceeBodyForResolver = useRecoveredCeeBody
@@ -5117,6 +5186,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // analysis-producing V5 turn — safe to accept regardless of the
     // conversational provenance label.
     const ceeIsSelectedV5 =
+      data.analysis_evidence_trace_source === 'scenario_graph_read' ||
       data.analysis_evidence_trace_source === 'selected_cee_turn' ||
       data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' ||
       ceeProvenance === 'analysis_producing_v5_turn' ||

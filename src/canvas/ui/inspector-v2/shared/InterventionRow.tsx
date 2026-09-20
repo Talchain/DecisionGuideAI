@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { typography } from '../../../../styles/typography'
+import { formatNumber } from '../../../utils/formatValueWithUnit'
 import {
   classifyInterventionProvenance,
   type ValueProvenanceKind,
@@ -357,6 +358,24 @@ export function InterventionRow({
    * would vanish on exactly the rows the producer had written prose for. `null`
    * is the honest answer for an unknown or absent stamp and renders nothing.
    */
+  /**
+   * ⛔⛔ THE DISABLED TARGET'S DISPLAY STRING. The house bound alone erases a
+   * non-zero magnitude below 5e-5 (and renders a negative one as `-0`, keeping
+   * the sign while losing the quantity). The full reasoning, the reason
+   * significant digits are reached for at all, and the reason large values must
+   * NOT take them, are stated once at `EdgePanel.tsx`
+   * `currentEstimatedWeightDisplay` — a back-reference rather than a fourth copy
+   * of the argument. All three readouts are pinned together by
+   * `inspectorRawFloatDisplay.spec.tsx`, so if one drifts from the others the
+   * spec REDs on that surface by name.
+   */
+  const targetDisplay = (() => {
+    const housed = formatNumber(currentValue)
+    return Number(housed) === 0 && currentValue !== 0
+      ? formatNumber(currentValue, 2)
+      : housed
+  })()
+
   const provenance = classifyInterventionProvenance(provenanceSource)
 
   return (
@@ -436,14 +455,47 @@ export function InterventionRow({
               data-testid={`intervention-target-readonly-${factorId}`}
               className={`${typography.panelBody} px-2 py-1 text-center text-text-body`}
             >
-              {/* ⚠⚠ `String`, NOT `toLocaleString`. I reached for the latter when
-                  this became text, and it defaults to THREE fractional digits:
-                  a model value of 0.00049 renders as `0` — a real non-zero
-                  quantity displayed as zero, which is the exact class of lie
-                  this whole change exists to remove, introduced by the change
-                  itself. `String(currentValue)` is also what seeds the editor's
-                  own buffer, so the two surfaces cannot disagree. */}
-              {String(currentValue)}
+              {/* ⚠⚠ `formatNumber`, AND THE NOTE THAT STOOD HERE IS KEPT RATHER
+                  THAN DELETED, BECAUSE ITS OBJECTION WAS RIGHT AND IS WHY THIS
+                  IS NOT `toLocaleString`. It read:
+
+                    *"`String`, NOT `toLocaleString`. I reached for the latter
+                    when this became text, and it defaults to THREE fractional
+                    digits: a model value of 0.00049 renders as `0` — a real
+                    non-zero quantity displayed as zero, which is the exact
+                    class of lie this whole change exists to remove, introduced
+                    by the change itself."*
+
+                  Correct, and `formatNumber` answers it: its bound is FOUR
+                  fractional digits, so 0.00049 renders `0.0005`. That exact
+                  case is pinned in `inspectorRawFloatDisplay.spec.tsx` so the
+                  objection cannot quietly stop being answered.
+
+                  ⚠⚠ AND THE BOUND ALONE IS NOT ENOUGH — THIS PARAGRAPH REPLACES A
+                  WRONG CLASSIFICATION. It previously called the sub-5e-5
+                  collapse a "RESIDUAL, NAMED NOT FIXED", reasoning that
+                  `String` was no fix for it either. That was wrong twice over:
+                  `String` printed `0.00001` FAITHFULLY, so the collapse is a
+                  regression introduced HERE, not something inherited; and a
+                  comment calling a new defect a residual does not make it one.
+                  The readout therefore goes through `targetDisplay` below, which
+                  keeps the house bound except where it would erase a magnitude.
+
+                  ⛔ THE SECOND HALF OF THE OLD NOTE NO LONGER HOLDS, and this
+                  is the substantive change. It argued `String` here keeps this
+                  surface identical to the editor's buffer, *"so the two surfaces
+                  cannot disagree"*. They are MUTUALLY EXCLUSIVE branches — this
+                  one renders only when `disabled` — so there is no moment at
+                  which both are on screen to disagree. And they answer different
+                  questions: this is a READOUT, the input is an EDIT BUFFER whose
+                  content is parsed and COMMITTED on blur. Rounding a buffer
+                  would write a rounded value into the model; rounding a readout
+                  changes only what precision is claimed. `InlineNumberEditor`
+                  draws exactly this line in its own header (*"Display formatting
+                  stays separate… Seed from the EXACT value, never a rounded
+                  display string"*), so the editable branch below is deliberately
+                  left on `String`. */}
+              {targetDisplay}
               {!displayValue && (
                 <span className={`${typography.panelMeta} text-text-light ml-1`}>
                   {INTERVENTION_ROW_STRINGS.modelValueQualifier}

@@ -293,31 +293,59 @@ const POST_RUN_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
  * ⭐ THE "EDIT" ACT — RE-POINTED FROM THE INSPECTOR TO THE ONE SURFACE THAT WRITES.
  *
  * It used to call `openNodeInspector`, which selects the node and raises
- * `InspectorModal`. The Inspector CANNOT SAVE: `InspectorRouter` wraps every
- * panel — node and edge — in an unconditional `<fieldset disabled>`, so
- * `setObservedValue` is inert along with every other setter.
+ * `InspectorModal`.
  *
- * ⚠ THIS PARAGRAPH USED TO REST ON TWO AUTHORITY MANIFESTS INSTEAD —
+ * ⚠⚠ THE REASON RECORDED HERE WAS FALSE AT THE TIP, IN BOTH OF ITS HALVES, and
+ * it is corrected in place rather than deleted because it has already been
+ * re-cited twice while nobody re-derived the claim underneath it. It read: "The
+ * Inspector CANNOT SAVE: `InspectorRouter` wraps every panel — node and edge —
+ * in an unconditional `<fieldset disabled>`, so `setObservedValue` is inert
+ * along with every other setter."
+ *
+ *  · The wrap is CONDITIONAL. `InspectorRouter.tsx:441` holds
+ *    `AUTHORITY_OWNING_PANELS = new Set(['option','factor-controllable','factor-external'])`
+ *    and `:541-551` picks `readOnly` over the fence for those three. The edge
+ *    branch early-returns at `:192` and carries no blanket fence at all — it
+ *    self-fences per edge. Four surfaces out, six node panels still wrapped.
+ *  · `setObservedValue` is NOT inert. `FactorControllablePanel.tsx:320` commits
+ *    through `buildFactorValueEditEvent` → `sendSystemEvent` — the SAME
+ *    `factor_value_edit` carrier the Model tab reaches — and that panel fences
+ *    only `description` (`:478`) and the advanced editor (`:929`).
+ *    `FactorControllablePanel.readOnlyFence.spec.tsx` is titled for it: the
+ *    panel "KEEPS THE ONE THAT SAVES".
+ *
+ * ⭐ THE DESTINATION IS UNCHANGED ANYWAY, FOR A REASON THE OLD SENTENCE NEVER
+ * GAVE. This act must serve EVERY factor a triage card can name, and
+ * `factor-observable` is NOT in the exempt set — its panel is still wrapped. So
+ * the Inspector would serve two of the three factor categories and fail
+ * silently on the third, which is the partial-reachability defect this estate
+ * keeps shipping rather than a fix for it. The Model tab serves all three
+ * through one authority (`useModelEditAuthority.proposeFactorValue`). Behaviour
+ * here is deliberately untouched; only the stated reason was wrong.
+ *
+ * ⚠ THE PARAGRAPH ALSO USED TO REST ON TWO AUTHORITY MANIFESTS —
  * `NODE_SETTER_AUTHORITY` (:119) and `EDGE_SETTER_AUTHORITY` (:143) in
  * `inspector-v2/useInspectorMutations.ts`. Both were DELETED on 27 Aug 2026
  * (PR #886): they had zero code consumers, so they RECORDED a decision the
- * fieldset MAKES. Those two line numbers now point at unrelated code. The
- * conclusion below is unchanged; only the citation is.
+ * fieldset MADE. Those two line numbers now point at unrelated code.
  *
- * The module says so in a mounted constant:
+ * The read-only notice is still mounted, and it too is CONDITIONAL —
+ * `InspectorRouter.tsx:519` renders it only where `!panelOwnsAuthority`:
  *
  *   INSPECTOR_READ_ONLY_REASON = 'This inspector is read-only because these
  *   changes cannot yet be saved to the shared model. Use the Model tab for
  *   supported factor values …'
  *
- * So this control advertised an edit and delivered a read-only panel. It is the
- * same dead end the resolve-next act was corrected for, on a different surface.
+ * On an OBSERVABLE factor that is still the sentence the user meets, which is
+ * exactly why the destination below does not move. On a controllable or
+ * external one the panel now carries its own narrower notice instead.
  *
  * ⚠ THIS IS NOT A FLAG FLIP, AND DELIBERATELY SO. `postRunFactorValue` stays
  * `'disabled'` below and that is HONEST: it governs the post-run INLINE editor
- * (`onSetValue`, which writes through a path with no working writer), and the
- * Inspector is read-only for a second, independent reason. Flipping it would
- * assert a capability neither surface has. What changes is the DESTINATION.
+ * (`onSetValue`, which writes through a path with no working writer). Flipping
+ * it would assert a capability THAT surface does not have, whatever the
+ * Inspector can now do for two of three categories. What changed is the
+ * DESTINATION's stated reason, not the destination.
  *
  * Navigation is not a mutation, so this is not governed by
  * `CANONICAL_EDIT_AUTHORITY` at all — the same reason the resolve-next act

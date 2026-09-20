@@ -44,6 +44,15 @@
  * Which magnitudes to display at all is a separate open question owned by
  * another lane.
  *
+ * ⚠⚠ AMENDED BY R9 — THE SENTENCE ABOVE NO LONGER DESCRIBES THE WHOLE HELPER.
+ * The 4dp bound it documents DID change which number is shown, for one class the
+ * author did not have in view: anything non-zero below 5e-5 rendered as `0`, and
+ * `-0.00001` as `-0`. That is now rescued to two significant digits inside
+ * `formatNumber`. The cases in THIS file are all above the threshold and are
+ * therefore byte-identical — which is why they still pass unchanged, and why they
+ * could not have caught it. The rescue and its enumerated blast radius live in
+ * `formatNumber.smallMagnitudeRescue.spec.ts`.
+ *
  * ── BINDING (CLAUDE.md trap 19) ─────────────────────────────────────────────
  * Each case binds to its own INPUT, and the inputs are chosen so no two share
  * an expected output — a value predicate satisfied by a neighbour would prove

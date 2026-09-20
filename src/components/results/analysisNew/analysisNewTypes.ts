@@ -611,6 +611,36 @@ export type ComparisonOption =
        */
       goalBasisIsModelled: boolean
       /**
+       * ⭐⭐ THE RANGE THIS RUN ACTUALLY PRODUCED, so a reader can see when an
+       * ordering is NOT settled.
+       *
+       * A win percentage is a scalar and reads as a ranking: "56%" beside "36%"
+       * looks decided. The distributions behind them frequently are not.
+       * Measured on a real staging run, 19 Sep 2026, at
+       * `results.report.option_comparison`:
+       *
+       *     RudderStack   p10 −0.163   p50  0.027   p90 0.211
+       *     Segment       p10 −0.235   p50 −0.017   p90 0.188
+       *
+       * The panel printed 56% and 36% beside each other while those two ranges
+       * overlap across almost their whole width. Neither percentage is wrong —
+       * each is the share of runs that option came top in — but presented alone
+       * they invite a confidence the spread does not support. Drawing the range
+       * lets the surface say so WITHOUT arguing with its own number.
+       *
+       * ⛔ NOT THE OLD TORNADO'S p10/p90, and the distinction is load-bearing
+       * (`DriverInfluenceRow` carries the full note). That chart took ONE
+       * option's range and rescaled it per factor, presenting per-factor
+       * outcome bounds the data does not contain. This is each option's OWN
+       * forward-propagated outcome distribution — the thing the producer
+       * computed, under its own name, for the option it belongs to.
+       *
+       * `null` whenever the producer sent no usable p10/p90. Nothing is drawn
+       * then — never a zero-width bar at the origin, which would read as a
+       * certainty rather than an absence.
+       */
+      outcomeRange: { p10: number; p50: number | null; p90: number } | null
+      /**
        * ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION —
        * `recommendation.storyHeadlines[option.id]`, sanitised at the data layer
        * and rendered VERBATIM. Never composed, never templated, never inferred
@@ -1121,6 +1151,29 @@ export interface ChecksSection {
    * cause, and load-bearing against reading a figure-less list as a tie.
    */
   leaderWithholdCause: string | null
+  /**
+   * Was a leading option withheld at all? Distinct from `leaderWithholdCause`,
+   * which is null BOTH when nothing was withheld AND when the reason cannot be
+   * named — two different facts that one nullable string cannot carry.
+   */
+  leaderWithheld: boolean
+  /**
+   * ⭐⭐ WOULD RUNNING IT AGAIN CHANGE THIS? A THIRD QUESTION, and the one a
+   * re-run affordance must bind to.
+   *
+   * ⛔ `leaderWithheld` was used for it and that was wrong: `leader_not_assessed`
+   * covers an assessed durable limitation of the model AND a missing verdict,
+   * an unknown separation, an incomplete or failed result. Reading the first
+   * meaning over the whole set removed the retry from precisely the cases a
+   * retry serves.
+   *
+   * True only where BOTH hold: the cause is nameable (an unknown cause is not
+   * evidence of irrecoverability) and the model has not changed since (a
+   * changed model is the ribbon's own recovery case). Fail-open everywhere
+   * else — offering a run that turns out not to help costs a click; withholding
+   * one that would have helped strands the reader.
+   */
+  rerunWouldNotHelp: boolean
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

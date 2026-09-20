@@ -145,6 +145,7 @@ export const RECENT_CONVERSATION_TURNS_CAP = 50
  */
 export type ConversationTurnTransportKind =
   | 'buffered_turn'
+  | 'streamed_terminal_ingest'
   | 'stream_open'
   | 'stop'
   | 'unknown'
@@ -200,6 +201,8 @@ export type ConversationTurnOutcome =
 export interface RecentConversationTurn {
   /** Trace-store id, when present. */
   trace_id: string | null
+  request_id?: string | null
+  completed_at?: number | null
   /** Request timestamp (ms epoch) from the trace entry, when present. */
   timestamp: number | null
   /** Turn/action-type discriminator (see `readTurnOrActionType`). */
@@ -324,7 +327,8 @@ export interface RecentConversationTurnsResult {
    */
   llm_authored_count: number
   /**
-   * Of the captured turns, how many carried a non-null `user_message`.
+   * How many captured user messages remain after pairing stream-open and
+   * terminal receipts with the same request and scenario identity.
    * The twin of `llm_authored_count`: a bundle from a real conversation
    * should read > 0 on BOTH, and a zero here is the specific defect this
    * field was added to make visible.
@@ -345,7 +349,7 @@ export interface RecentConversationTurnsResult {
    * posture.
    */
   user_message_omitted_reason?: string
-  /** Turn records (`transport_kind: 'buffered_turn'`) — the denominator for the five counts below. */
+  /** Buffered or streamed-terminal turn records — the denominator for the outcome counts. */
   turn_record_count: number
   /** `outcome: 'answered'`. */
   answered_count: number
@@ -503,6 +507,7 @@ const TURN_SUBPATH_RE = /\/turn\/([^/]+)\/?$/
 function readTransportKind(
   p: ConversationTurnSourcePayload,
 ): ConversationTurnTransportKind {
+  if (p.capture?.kind === 'streamed_terminal_ingest') return 'streamed_terminal_ingest'
   const path = typeof p.endpoint === 'string' ? extractPathname(p.endpoint) : null
   if (path === null) return 'unknown'
   const sub = TURN_SUBPATH_RE.exec(path)
@@ -543,7 +548,7 @@ function deriveOutcome(args: {
 }): { outcome: ConversationTurnOutcome; reason: string | null } {
   const { transportKind, completed, status, hasAssistantText, failureSource, errorName, refusalCode } =
     args
-  if (transportKind !== 'buffered_turn') {
+  if (transportKind !== 'buffered_turn' && transportKind !== 'streamed_terminal_ingest') {
     return { outcome: 'transport_leg', reason: transportKind }
   }
   if (!completed) {
@@ -620,6 +625,8 @@ export function selectRecentConversationTurns(
     })
     return {
       trace_id: typeof p.id === 'string' ? p.id : null,
+      request_id: p.capture?.requestId ?? null,
+      completed_at: p.completedAt ?? null,
       timestamp: typeof p.timestamp === 'number' ? p.timestamp : null,
       turn_kind: turnKind,
       is_analysis_producing:
@@ -647,17 +654,27 @@ export function selectRecentConversationTurns(
   const countOf = (outcome: ConversationTurnOutcome): number =>
     turns.filter((t) => t.outcome === outcome).length
 
+  // An open and its terminal receipt observe one request. Keep unpaired opens
+  // and actual buffered retries distinct; neither timing nor prose proves identity.
+  const terminalRequestKeys = new Set(turns
+    .filter((t) => t.transport_kind === 'streamed_terminal_ingest' && t.request_id)
+    .map((t) => JSON.stringify([t.scenario_id, t.request_id])))
+  const userAuthoredCount = turns.filter((t) => t.has_user_message && !(
+    t.transport_kind === 'stream_open' && t.request_id &&
+    terminalRequestKeys.has(JSON.stringify([t.scenario_id, t.request_id]))
+  )).length
+
   return {
     turns,
     total_available: v5Turns.length,
     truncated: v5Turns.length > turns.length,
     captured_count: turns.length,
     llm_authored_count: turns.filter((t) => t.has_assistant_text).length,
-    user_authored_count: turns.filter((t) => t.has_user_message).length,
+    user_authored_count: userAuthoredCount,
     ...(captureUserText
       ? {}
       : { user_message_omitted_reason: USER_AUTHORED_TEXT_OMITTED_REASON }),
-    turn_record_count: turns.filter((t) => t.transport_kind === 'buffered_turn').length,
+    turn_record_count: turns.filter((t) => t.transport_kind === 'buffered_turn' || t.transport_kind === 'streamed_terminal_ingest').length,
     answered_count: countOf('answered'),
     refused_count: countOf('refused'),
     no_text_count: countOf('no_text'),

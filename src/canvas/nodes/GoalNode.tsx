@@ -40,12 +40,18 @@ import {
   type GoalTargetSource,
 } from '../domain/goalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../mutations/mutationAuthority'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
 import { NodeChip, NodeMetricRow, NodePopover, ScienceIcon } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -135,13 +141,50 @@ const GOAL_TARGET_PREFIX = 'Target:'
  * that drives the PLoT request, attesting a target the reader never stated.
  *
  * So the chip now states the FACT and says only what the click actually does.
- * Naming a live route instead (the Model tab's own goal section) is the better
- * answer and is deliberately NOT guessed at here: which of those surfaces is
- * mounted under the deployed flag posture is unmeasured, and a third
- * unwitnessed promise is the defect, not the fix. ⚠ NOT YET IN THE REGISTER —
- * handed to the orchestrator with this PR rather than minted here, because a
- * mint-check that has not swept every tier is how this estate got fifteen
- * colliding ids. Do not read this sentence as a row.
+ *
+ * ⭐⭐⭐ THE DEFERRAL ABOVE IS NOW DISCHARGED, AND ONLY BECAUSE THE MEASUREMENT
+ * WAS TAKEN. It read: *"Naming a live route instead (the Model tab's own goal
+ * section) is the better answer and is deliberately NOT guessed at here: which
+ * of those surfaces is mounted under the deployed flag posture is UNMEASURED,
+ * and a third unwitnessed promise is the defect, not the fix."* That was exactly
+ * right, and it named the one thing standing in the way.
+ *
+ * MEASURED 20 Sep 2026 on DEPLOYED `7ec3fed2`, guest session, by driving the
+ * product — not by reading this tree:
+ *
+ *   Model tab -> Goal group -> the goal row's value cell (`Not set`, a real
+ *   `<button>`, `disabled: false`) -> opens THREE enabled controls:
+ *     · "New value for <goal>"            text
+ *     · "Target bound for <goal>"         select — at least | at most
+ *     · "Target unit for <goal>"          text
+ *
+ * That is `ModelTabV2Panel`'s goal editor, whose `confirmEdit` calls
+ * `proposeGoalTarget` -> a TYPED `add_constraint` through CEE's validated
+ * proposal path. It is `modelGoalMinimumTarget`, which is `'server_graph'`.
+ * So the route is mounted, operable, and receipt-bearing on the build a reader
+ * is looking at while this chip is on screen.
+ *
+ * ⚠ A SECOND LIVE ROUTE WAS WITNESSED IN THE SAME SESSION and is deliberately
+ * NOT named here: the Reasoning tab's "Set a target" (enabled; opens "Success
+ * target for this goal" + "Unit for this success target"). One destination
+ * vocabulary, not two — `pre-analysis-v3/constants.ts` `successAuthorityNote`
+ * already names the Model tab for this same fact, and a chip that named a third
+ * surface would be the trap-21 split this file exists to avoid.
+ *
+ * ⛔ AND THE CLAUSE IS DERIVED, NOT WRITTEN. It is gated on
+ * `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget)`,
+ * so if that authority ever regresses the sentence DISAPPEARS rather than
+ * becoming the fourth unwitnessed promise. A mutant flipping that key to
+ * `'disabled'` REDs.
+ *
+ * ⚠ WHAT IS STILL WITHDRAWN, AND STAYS WITHDRAWN: a repair promise pointing at
+ * THIS GOAL'S DETAILS. `AUTHORITY_OWNING_PANELS` (`InspectorRouter`) is
+ * `option | factor-controllable | factor-external` — `goal` IS NOT IN IT, so
+ * `GoalPanel` keeps the blanket `<fieldset disabled>` byte-for-byte, and
+ * `GoalThresholdEditor` writes only `setGoalThresholdAndUpdateNode` with no
+ * wire carrier. The fence premise has expired for the EDGE panel and for the
+ * two factor panels; it has NOT expired here, and I checked the set rather than
+ * generalising the other two strikes onto it.
  *
  * `goalChipPromiseVsDestination.spec.tsx` holds the rule, and holds it as a
  * CONDITIONAL: it derives the editor's inertness through the REAL router and
@@ -161,25 +204,71 @@ const GOAL_TARGET_PREFIX = 'Target:'
 export const GOAL_NO_TARGET_STATE = 'Target not captured'
 
 /**
+ * WHERE A TARGET CAN ACTUALLY BE CAPTURED — one name, the estate's existing one.
+ *
+ * `pre-analysis-v3/constants.ts` `successAuthorityNote` already sends a reader
+ * to the Model tab for this same fact. Spelling it a second way here would be
+ * two names for one destination, which is what this file's own history is
+ * about.
+ */
+export const GOAL_TARGET_LIVE_ROUTE = 'the Model tab'
+
+/**
+ * Whether that route can take the write, asked of the authority rather than
+ * asserted. The clause below is composed from THIS, so a regression deletes the
+ * sentence instead of leaving it lying.
+ */
+export const GOAL_TARGET_ROUTE_IS_LIVE = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget,
+)
+
+/**
  * Every channel a reader can reach the no-target chip through.
  *
  * ⚠ SAYS WHAT THE CLICK DOES, NOT WHAT THE READER CAN THEN FIX. "Open its
  * details" is a claim about behaviour that holds; "to add one" was a claim
  * about the destination that does not.
+ *
+ * ⭐ AND SINCE 20 Sep 2026 IT ALSO SAYS WHERE THE FIX LIVES — see the header.
+ * That is a claim about a DIFFERENT destination, measured on the deployed
+ * build, and it is composed from `GOAL_TARGET_ROUTE_IS_LIVE` so it cannot
+ * outlive its authority. The details clause is untouched: it still says only
+ * what the click does.
  */
-export function goalNoTargetChannels({ diagnostic }: { diagnostic: boolean }): {
+export function goalNoTargetChannels({
+  diagnostic,
+  routeIsLive = GOAL_TARGET_ROUTE_IS_LIVE,
+}: {
+  diagnostic: boolean
+  /**
+   * ⚠ INJECTABLE FOR ONE REASON: so BOTH branches of the composition can be
+   * driven BY EXECUTION. The spec previously asserted them behind
+   * `if (GOAL_TARGET_ROUTE_IS_LIVE) … else …`, which is a tautology — it passes
+   * whichever way the flag falls, so it can never fail ON the flag's value. A
+   * mutant regressing `modelGoalMinimumTarget` to `'disabled'` SURVIVED it, and
+   * the mutant kit is the only reason I know. Production never passes this: the
+   * default IS the derivation, and a test pins that the two agree.
+   */
+  routeIsLive?: boolean
+}): {
   visible: string
   'aria-label': string
   title: string
 } {
+  // One clause, composed once, so the three channels cannot drift — the
+  // property the header records as the reason this is a function at all.
+  const tail = routeIsLive
+    ? `set one in ${GOAL_TARGET_LIVE_ROUTE}, or open this goal's details`
+    : "open this goal's details"
+  const routeSentence = routeIsLive ? ` Set one in ${GOAL_TARGET_LIVE_ROUTE}.` : ''
   return {
     visible: GOAL_NO_TARGET_STATE,
     'aria-label': diagnostic
-      ? `${GOAL_NO_TARGET_STATE}, and this run produced no probability — open this goal's details`
-      : `${GOAL_NO_TARGET_STATE} — open this goal's details`,
+      ? `${GOAL_NO_TARGET_STATE}, and this run produced no probability — ${tail}`
+      : `${GOAL_NO_TARGET_STATE} — ${tail}`,
     title: diagnostic
-      ? "Olumi hasn't captured a measurable success target for this goal, and the analysis finished without producing a probability. Open its details to see what the model holds, and check the model for inputs that are still incomplete."
-      : "Olumi hasn't captured a measurable success target for this goal. Open its details to see what the model holds.",
+      ? `Olumi hasn't captured a measurable success target for this goal, and the analysis finished without producing a probability.${routeSentence} Open its details to see what the model holds, and check the model for inputs that are still incomplete.`
+      : `Olumi hasn't captured a measurable success target for this goal.${routeSentence} Open its details to see what the model holds.`,
   }
 }
 
@@ -636,17 +725,20 @@ export const GoalNode = memo((props: NodeProps) => {
           fires when the achievement probability is critically low; "Is my
           target realistic?" applies to every post-analysis goal with a
           threshold. */}
+      {/* ⛔ "Is this the real goal?" IS NOT HERE and must not be added back.
+          It is the only goal question that does not interrogate the NUMBER, so
+          `hasThreshold` was the wrong home for it — see the body render. The
+          resolver keeps the two apart as `threshold` and `card` surfaces. */}
       {hasThreshold && (
-        <div className="flex gap-1 flex-wrap mt-1.5">
-          {achievementIsCritical && (
-            <NodeChip chipId="goal_why_so_low" actionType="explain_results" label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
-          )}
-          <NodeChip chipId="goal_target_realistic" actionType={null} label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
-          {/* ⛔ "Is this the real goal?" HAS MOVED TO THE CARD BODY and out of
-              this gate. It is the only chip here that does not interrogate the
-              NUMBER, so `hasThreshold` was the wrong home for it — see the body
-              render for the measurement. */}
-        </div>
+        <CoachingChipRow
+          className="flex gap-1 flex-wrap mt-1.5"
+          chips={resolveNodeCoaching({
+            kind: 'goal',
+            surface: 'threshold',
+            state: { achievementIsCritical },
+            context: {},
+          })}
+        />
       )}
     </>
   ) : null
@@ -698,6 +790,11 @@ export const GoalNode = memo((props: NodeProps) => {
       style={{ position: 'relative' }}
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
+      /* The TAP path. A no-op on a pointer device (`usePopoverHover` gates it
+         on `hover: none`); on touch it is the only way this node preview can
+         be opened at all. It does not stopPropagation, so the tap still
+         selects the node. */
+      onClick={nodeHandlers.onClick}
     >
       <BaseNode
         {...props}
@@ -973,9 +1070,15 @@ export const GoalNode = memo((props: NodeProps) => {
             so it holds this card face precisely when the old gate suppressed
             this question. The two are complementary, and together they read as
             one thought: no target set yet, and is this even the right goal. */}
-        <div className="mt-1.5 flex gap-1 flex-wrap">
-          <NodeChip chipId="goal_is_this_the_real_goal" actionType={null} label="Is this the real goal?" message="Is this goal the outcome we actually want, or a measurable proxy for it? What would we be optimising away if we treated this as the objective?" />
-        </div>
+        <CoachingChipRow
+          className="mt-1.5 flex gap-1 flex-wrap"
+          chips={resolveNodeCoaching({
+            kind: 'goal',
+            surface: 'card',
+            state: { achievementIsCritical },
+            context: {},
+          })}
+        />
 
         {/* Coaching chip "Is my target realistic?" moved to popover (Standard)
             / Detailed inline layer-2. See `layer2Content` above. */}

@@ -122,6 +122,13 @@ describe('the Reasoning tab authors no banned term', () => {
       'modelStrip.toVerify',
       'modelStrip.toVerifyToggleName',
       'modelStrip.valueInputLabel',
+      // ⚠ NEW, AND THE GAP IT OPENS IS COVERED ELSEWHERE ON PURPOSE.
+      // `rangeLegend` became a function when the outcome lens made the dot
+      // movable: a constant would have named the mid-point while the drawing
+      // moved to p10 or p90. This scan cannot read it, so
+      // `theLensMovesOneDotAndClaimsNothingElse.spec.tsx` asserts its output
+      // per arm — including that each arm names the percentile it draws.
+      'optionFigures.rangeLegend',
       'status.provisionalNaming',
       'trustLine.counts',
     ])

@@ -84,7 +84,7 @@ const MISSING_LIST = { format: (items: readonly string[]) => getConjunctionList(
  * stays the single owner of what each result is CALLED and no label is
  * duplicated here in a different case.
  */
-const sentenceCase = (s: string): string =>
+export const sentenceCase = (s: string): string =>
   s === '' ? s : `${s.charAt(0).toUpperCase()}${s.slice(1)}`
 
 /**
@@ -166,13 +166,25 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
  * which leaves today's sentence exactly as it is. A map that guessed at unseen
  * tokens would be the fabrication this whole panel exists to avoid.
  *
- * ⚠ ONLY ONE ENTRY TODAY, DELIBERATELY. `constraint_verdict_withheld` is the
- * one reason observed on a real run. `separation_unavailable` appears in this
- * estate's own fixtures and store comments but has NOT been seen on a live
- * wire, so it is not mapped: a sentence about options that "could not be told
- * apart" is close enough to "the options are level" — which the sentence beside
- * it explicitly denies — that it must not ship on documentary evidence alone.
- * The map grows when a capture earns the entry.
+ * ⭐ TWO ENTRIES. `separation_unavailable` EARNED ITS PLACE ON 19 Sep 2026.
+ *
+ * This note used to say it had "NOT been seen on a live wire, so it is not
+ * mapped", and that the map would grow when a capture earned the entry.
+ * **A capture earned it**: bundle `b3d5806d`, staging `fd65f971`, 14:32Z —
+ * `leader_claim: { permitted: false, withheld_reason: "separation_unavailable" }`
+ * on a real user's run. The rule worked exactly as written, so the entry goes
+ * in and this paragraph records why it is no longer a refusal.
+ *
+ * ⛔⛔ AND THE OLD NOTE'S WARNING IS WHY THE CLAUSE READS AS IT DOES. It said a
+ * sentence about options that "could not be told apart" sits too close to "the
+ * options are level" — which the sentence beside it explicitly denies. That
+ * hazard is unchanged by having a capture.
+ *
+ * So the clause states what THE RUN did, never what the OPTIONS are: it did not
+ * separate them far enough to put one forward. That is a claim about this run's
+ * resolution. "They are level" would be a claim about the options themselves,
+ * which no withheld verdict is entitled to make — and which the standing
+ * sentence beside this one denies in as many words.
  *
  * ⛔⛔ THE CLAUSE IS DELIBERATELY BROAD, AND MY FIRST VERSION WAS NOT — CORRECTED
  * 16 Sep after an independent review, and the producer had written the rule down.
@@ -212,6 +224,40 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   constraint_verdict_withheld:
     'The check against the limits you set does not support putting one option forward.',
+  /**
+   * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
+   * could establish; "they are level" would be a finding about the options,
+   * which a withheld verdict is not entitled to make.
+   *
+   * ⛔⛔ AND THE FIRST VERSION OF THIS SENTENCE WAS FALSE ON A REAL RUN.
+   * It read: "This run did not separate the options far enough apart to put one
+   * forward." That is a MEASUREMENT — it asserts the gap was computed and found
+   * too small.
+   *
+   * Paul's capture refutes it. Bundle `84c8e210`, staging `c952cca3`,
+   * 19 Sep 18:56Z, `analysis_ready.status: "ready"`:
+   *
+   *     leader_claim = { permitted: false, withheld_reason: "separation_unavailable" }
+   *     win_probability = 0.639 / 0.300 / 0.047 / 0.015      ← a 34-point gap
+   *
+   * The options are separated by a wide margin and the panel told the reader
+   * they were not. An independent seat had already raised this as a [P2] on
+   * #1757; the capture settles it.
+   *
+   * ⭐ THE TELL IS IN THE PAYLOAD'S OWN VOCABULARY, and it is a contrast
+   * control rather than an argument. When the producer HAS assessed separation
+   * it says so in a sibling field: `5376e928` carries `"separation":
+   * "separated"`, `57555f97` carries `"separation": "near_tie"`. On this run
+   * that field is ABSENT. `separation_unavailable` means the assessment could
+   * not be MADE — it is the absence of a measurement, not a measurement of
+   * closeness.
+   *
+   * ⚠ Trap 21 at word level: `separation_unavailable` and a near-tie are two
+   * different facts, and the token reads like the second. The sentence must
+   * carry the difference, because nothing else on the surface does.
+   */
+  separation_unavailable:
+    'This run could not work out how far apart the options are, so it cannot put one forward.',
 }
 
 /**
@@ -275,6 +321,13 @@ export const ANALYSIS_NEW_COPY = {
     whatMovesTheOutcome: 'What moves the outcome',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
+    /**
+     * ⭐ THE ONLY SECTION A PERSON REACHES WITHOUT THE PRODUCER OFFERING IT.
+     * Named here rather than inline in the component so the section censuses
+     * bind to the constant, as they do for every peer — a census matching a
+     * string literal cannot tell a rename from a removal (trap 19).
+     */
+    methods: 'Methods you can run',
     /**
      * ⭐⭐ THE SECTION NAME IS THE READER'S QUESTION, NOT THE PRODUCER'S
      * CATEGORY. "Sensitive assumptions" is what the analysis calls these;
@@ -643,6 +696,27 @@ export const ANALYSIS_NEW_COPY = {
      */
     promptSendsToOlumi: 'Why? This stays on the card and is sent to Olumi.',
     notSaved: 'Not saved for next time. Your words are still here. Retry, or copy them before leaving.',
+    /**
+     * ⭐⭐⭐ THE ROW WENT AND THE SAVE FAILED — the one case where the composer
+     * cannot hold the words, because the composer is gone with the row.
+     *
+     * ⛔ WITNESSED IN REVIEW OF MY OWN #1752, on the SERVED commit. The rescue
+     * effect ignored `recordDissent`'s false result and skipped persistence
+     * entirely when there was no scenario id, then called `closeDispute()`
+     * unconditionally — so a rerun that removed the finding cleared what
+     * someone had typed after a FAILED save. The PR was titled "What someone
+     * typed must not vanish with the row it was typed in" and it still
+     * vanished on the failing path.
+     *
+     * ⚠ THE WORDS THEMSELVES ARE RENDERED, not merely referred to. An
+     * unmounted row holding state the reader cannot reach is not recovery —
+     * the reviewer's phrase, and the standard this copy is written to. So this
+     * sentence introduces the text rather than replacing it.
+     */
+    rescuedUnsaved: 'This could not be saved, so it is kept here. Copy it before you leave the page.',
+    /** Names the finding it was written about, so the words keep their context. */
+    rescuedAbout: 'You wrote this about',
+    rescuedDismiss: 'Dismiss',
     sessionOnly: 'Kept in this tab only.',
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
@@ -744,7 +818,40 @@ export const ANALYSIS_NEW_COPY = {
      * names the EFFECT (the answer changed) rather than a placing, which is
      * also what the section's own heading already says.
      */
-    flipCaption: 'Bars show how often each assumption changed the answer.',
+    /**
+     * ⛔⛔ AND IT DROPPED THE CONDITION, WHICH IS THE WHOLE MEASUREMENT.
+     *
+     * The bar draws `switch_probability`, and ISL declares what that is:
+     * *"Proportion of MC samples where alternative wins WHEN EDGE IS WEAK"*
+     * (`src/models/response_v2.py:569-575`). It is CONDITIONAL on the link
+     * being weak. "How often each assumption changed the answer" states an
+     * unconditional rate — it says the assumption DID change the answer this
+     * often, which is a claim about the assumption's own contribution and is
+     * exactly what `strengthElicitation/assumedStrengthCopy.ts` forbids in as
+     * many words: *"the measurement is about what happens IF the link is weak,
+     * not about what setting a number does."*
+     *
+     * ⭐ THE SIBLING SENTENCE HAD IT RIGHT ALL ALONG, which is how the defect
+     * became visible. The row beneath reads *"In the runs where that link came
+     * out weak, X was the stronger option 52% of the time"* — the same number,
+     * with its condition. A caption naming one quantity above a sentence naming
+     * another is two readings of one bar, and a reader cannot tell which is the
+     * bar's.
+     *
+     * ⚠ AND IT IS WHY TWO BARS READING 52% LOOKED LIKE A BROKEN INSTRUMENT.
+     * Two different relationships CAN carry the same conditional rate for the
+     * same alternative without anything being wrong; as an unconditional
+     * "how much this assumption mattered" they read as a suspicious uniformity.
+     * The caption was manufacturing the doubt.
+     *
+     * ⚠ EVERY EARLIER RULING ON THIS LINE IS KEPT. Past tense, because the runs
+     * already happened and "would change" would be a forecast. No placing and
+     * no contest framing — "was the stronger option" is the wording
+     * `noWinnerVocabulary.spec.ts` explicitly pins as PERMITTED, and it is the
+     * sibling's own. One caption for the whole column, not a label per row.
+     */
+    flipCaption:
+      'Bars show how often a different option was stronger in the runs where that assumption came out weak.',
     /**
      * ⭐ THE TIPPING POINT, IN THE PRODUCER'S OWN NUMBERS.
      *
@@ -915,17 +1022,29 @@ export const ANALYSIS_NEW_COPY = {
    */
   canvas: {
     /**
-     * What activating an option row does, per row, with the option NAMED.
+     * What activating an option row does, per row, with the option NAMED —
+     * BOTH halves of it, because the row now performs both.
      *
-     * ⚠ "Show … on the canvas" — NOT "open the inspector", which is what the
-     * old tab's tooltip promises. That promise is not kept anywhere: the click
-     * handler it sits beside toggles a graph LENS (`OptionCards.tsx:1444`
-     * → `handleLensClick`), and the estate's actual inspector helper
-     * (`openNodeInspector`) is not on that path — `OptionCards.tsx:1084-1098`
-     * says so in its own comment. Copying the sentence across would have
-     * imported a false promise into a second surface.
+     * ⚠ THIS SENTENCE USED TO STOP AT "Show … on the canvas", on the ground
+     * that "open the inspector" was a promise nothing kept. ONE HALF OF THAT IS
+     * STILL TRUE and is kept: the OLD TAB's tooltip sits beside a handler that
+     * toggles a graph LENS (`OptionCards.tsx:1444` → `handleLensClick`), not
+     * the inspector, so that surface still promises what it does not do.
+     *
+     * The other half — that the inspector could not serve an option AT ALL —
+     * rested on `InspectorRouter`'s blanket `<fieldset disabled>`, and that wrap
+     * is CONDITIONAL at the tip: `:441` exempts `option`, `factor-controllable`
+     * and `factor-external`, and `:541-551` chooses `readOnly` over the fence
+     * for them. An option's panel is operable, so this surface opens it and the
+     * name says so.
+     *
+     * ⛔ KEEP BOTH CLAUSES TRUE OR CHANGE THE HANDLER. `OptionsComparison`'s
+     * `activate` focuses AND raises the panel; a name covering one of two
+     * effects is the defect this constant was extracted to prevent, and
+     * `optionsComparisonOperable.spec.tsx` asserts the name BY CALLING THIS
+     * FUNCTION, so a reword moves the spec with it rather than past it.
      */
-    focusOption: (label: string) => `Show ${label} on the canvas`,
+    focusOption: (label: string) => `Show ${label} on the canvas and open its details`,
     /**
      * Fail-closed notice when the option's node is no longer on the canvas —
      * a recovered session with different ids, or a node deleted between render
@@ -1382,6 +1501,33 @@ export const ANALYSIS_NEW_COPY = {
       'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
     notEncodable: 'That target could not be applied, so nothing changed.',
     /**
+     * ⭐⭐⭐ A FIFTH OUTCOME, AND IT IS THE ONE PAUL ACTUALLY HIT.
+     *
+     * ⛔ WITNESSED 19 Sep 2026. The panel's own Strengthen row says "No
+     * measurable success target is set" and offers "Define success". Paul did
+     * exactly that and typed `1.3 million` — the figure from his own brief, in
+     * the words his brief used. `statedTargetNumber` is an anchored numeric
+     * literal predicate and does not read magnitude words, so it returned null
+     * and the whole answer was "That target could not be applied, so nothing
+     * changed."
+     *
+     * **The product asked for an input, the user supplied it, and it was
+     * refused without saying what was wrong with it.** That is the worst
+     * interaction available on this surface: it punishes the one act we most
+     * want.
+     *
+     * ⚠ THE PARSER IS NOT WIDENED HERE, DELIBERATELY. A magnitude alphabet is
+     * a known hazard in this estate — the canonical map was missing `thousand`
+     * while every derived guard agreed with it (CLAUDE.md trap 12d) — and it
+     * has an owner. Naming the cause is the bounded correction; teaching the
+     * parser to read "1.3 million" is a separate, larger piece of work.
+     *
+     * ⚠ SAYS WHAT TO TYPE, and shows it. A refusal that names a format without
+     * demonstrating it makes the reader guess twice.
+     */
+    notANumber:
+      'I could not read that as a number. Type the figure in digits, like 1300000, and put the unit in the box beside it.',
+    /**
      * ⭐⭐ NAMES THE CAUSE AND THE MOVE, because this is the one refusal a
      * reader can act on. `notEncodable` above covers three causes at once — no
      * unit, a target at or below zero, a scenario that moved — and a reader met
@@ -1469,6 +1615,65 @@ export const ANALYSIS_NEW_COPY = {
      * `noWinnerVocabulary.spec.ts` redded an earlier caption of mine for
      * exactly that.
      */
+    /**
+     * ⭐⭐ THE ONE LINE THAT TELLS A READER WHEN NOT TO TRUST THE ORDER.
+     *
+     * The share figures above it partition the runs and sum to 1, so they read
+     * as a ranking. The ranges frequently overlap. This sentence is what makes
+     * the bars an argument rather than decoration, and it is the difference
+     * between a surface that ranks options and one that improves reasoning.
+     *
+     * ⚠ "Mid-point", not "expected outcome": the dot is p50, the MEDIAN, and
+     * `OptionOutcome` carries `mean` separately. Calling a median an expected
+     * value is a claim about the distribution that this section cannot make.
+     */
+    /**
+     * ⭐⭐⭐ A FUNCTION OF THE ARM, BECAUSE THE SENTENCE NAMES WHAT THE DOT IS.
+     *
+     * This was a constant reading "Dots show the mid-point." The lens moves the
+     * dot to p10 or p90, so a constant would leave the panel drawing one
+     * percentile and naming another — the same number honest in one place and
+     * false in the other, which `formatPercent.ts`'s header documents by name
+     * (ROADMAP 2.236) and which this section has already shipped once (a "< 1%"
+     * readout beside a 0px fill).
+     *
+     * ⛔ THE PERCENTILE IS IN THE STRING ON PURPOSE. Naming it is what lets a
+     * reader check the drawing against the claim, and it is what makes the
+     * mutant bite: draw p90 under the mid-point wording and the spec REDs.
+     *
+     * ⚠ THE OVERLAP SENTENCE IS INVARIANT ACROSS THE ARMS. Overlapping ranges
+     * unsettle the order whichever end you read, so it is not the lens's to
+     * qualify — and dropping it on two arms of three is how a caveat quietly
+     * becomes conditional on the reader's mood.
+     */
+    rangeLegend: (appetite: 'cautious' | 'middle' | 'optimistic'): string =>
+      `Dots show ${
+        appetite === 'cautious'
+          ? 'the low end (p10)'
+          : appetite === 'optimistic'
+            ? 'the high end (p90)'
+            : 'the mid-point (p50)'
+      } of each range. Lines show the range this run produced. Where ranges overlap, treat the order as unsettled.`,
+    /**
+     * ⭐ THE CONTROL DESCRIBES THE DRAWING, NEVER A RECOMMENDATION.
+     *
+     * The Analysis tab's lens shipped two P1s (ROADMAP 2.237 / 2.238) because
+     * its control said "Rank by outcome" over a list ordered by something else,
+     * and crowned an option under a sentence saying the view had no data. Both
+     * are the same defect: the subject of the claim was not the source of the
+     * number. This control therefore claims exactly one thing — where the dot
+     * sits — and the rows keep the order they already had.
+     *
+     * ⚠ NO CONTEST VOCABULARY. `noWinnerVocabulary.spec.ts` has already redded
+     * a caption of mine on this section; "cautious" and "optimistic" describe
+     * the READING, not the option, and no arm names a leader.
+     */
+    rangeLensLabel: 'Read each range at',
+    rangeLensArms: {
+      cautious: 'Low end',
+      middle: 'Mid-point',
+      optimistic: 'High end',
+    },
     partitionCaption: 'Every simulated scenario is accounted for above.',
   },
   modelStrip: {
@@ -1869,7 +2074,81 @@ export const ANALYSIS_NEW_COPY = {
      */
     preRunWhatThisIs:
       'When one has, this panel reads it back around the reasoning: what to notice, how to strengthen it, what is driving it, and what is still uncertain.',
+    /**
+     * ⭐⭐⭐ THE REMEDY, BESIDE THE REFUSAL. A panel that names a blocker and
+     * offers no route past it is a dead end, and this one is the FIRST SCREEN a
+     * new user meets.
+     *
+     * ⛔ WITNESSED: a user sent a brief, read a substantial coaching reply, and
+     * concluded an analysis had run. It had not. The panel said so truthfully —
+     * "No analysis has run yet for this model" — and gave no way to change that,
+     * while CEE was returning a `run_analysis` suggested action on the same turn
+     * that this surface never rendered. The user re-ran manually 13 minutes
+     * later, spending a second full compute.
+     *
+     * ⚠ THE VERB IS THE USER'S, NOT THE PANEL'S. "Run the analysis" is what the
+     * person does; "Analyse" is a button label from the canvas toolbar and
+     * repeating it here would imply this is that same control.
+     */
+    preRunRunAction: 'Run the analysis',
     running: 'Analysis is running.',
+    /**
+     * ⭐⭐ THE SENTENCE FOR A RUN THE CLIENT HAS STOPPED WAITING FOR.
+     *
+     * Witnessed (bundle `b3d5806d`, 19 Sep 2026): CEE started a run, committed
+     * its result 42s later, and suppressed the directive that would have
+     * delivered it. No later turn corrected `run_state`, so the wire said
+     * `running` for a run that had finished, with no bound on how long it would
+     * keep saying it. See `useAnalysisWaitExhausted.ts` for the full chain.
+     *
+     * ⚠ EVERY WORD IS TRUE UNDER ALL THREE POSSIBLE OUTCOMES, because the
+     * client cannot tell them apart. It knows only that it asked for the result
+     * until its own budget ran out and did not get one. So the subject of the
+     * sentence is THE RESULT ARRIVING, never the run finishing or failing:
+     * "has not reached this page" is observed, "failed" would be invented.
+     *
+     * ⚠ AND IT IS NOT A `stale` TWIN. Staleness is a property of a DISPLAYED
+     * run; there is nothing displayed here. Naming them apart is the same
+     * ruling `stale` and `unconfirmed` already carry two entries below.
+     */
+    waitExhausted: 'This analysis has not reached this page.',
+    /**
+     * ⭐⭐⭐ WRITTEN AGAINST THE PREDICATE, NOT AGAINST THE RUN THAT PROMPTED IT
+     * — and the first draft was not, which is why this note exists.
+     *
+     * The flag this renders under is reachable by (at least) TWO outcomes of
+     * `runProvisionalDeliverySchedule`, and they are opposites:
+     *
+     *   `deadline`  nothing usable arrived inside the client's budget. The run
+     *               may still be going, or may have finished and not been sent.
+     *   `withheld`  a terminal verdict DID arrive and was declined, because it
+     *               describes a graph the user has since changed. The applier's
+     *               own words: "A divergent read writes NOTHING: no verdict, no
+     *               results" — so `run_state` stays `running` on this path too,
+     *               and the panel reaches exactly the same state.
+     *
+     * The first draft read "It may have finished without being sent back",
+     * which is TRUE of `deadline` and FALSE of `withheld` — there it was sent
+     * back and refused. CLAUDE.md trap 13d in one sentence: an invariant
+     * written with the same shape as the failure mode in hand.
+     *
+     * ⭐ So the line asserts only what holds on BOTH: this client has stopped
+     * waiting, and a fresh run is the way to get an answer about the model as
+     * it stands now. On `withheld` that is not a consolation — it is precisely
+     * the right remedy, because divergence is what made the answer unusable.
+     *
+     * ⚠ AND IT STAYS TRUE IF A THIRD OUTCOME REACHES HERE (`unreadable`,
+     * `aborted`). Five of the six outcomes are silent by design today; copy
+     * keyed on the flag must survive the ones not yet enumerated.
+     *
+     * ⚠ THE REMEDY IS THE OPPOSITE OF #1759's, FOR THE SAME REASON BOTH ARE
+     * RIGHT. Where a leading option is WITHHELD, re-running hits the same gate
+     * and the panel offers "Review or set an estimate" instead. Here no result
+     * has been applied at all, so running again is the one act that can change
+     * it. Two causes, two acts.
+     */
+    waitExhaustedWhy:
+      'Olumi has stopped waiting for it. Running the analysis again is the surest way to get a result that matches your model as it stands now.',
     /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is
      * the user's best available context and the Rerun control sits in the

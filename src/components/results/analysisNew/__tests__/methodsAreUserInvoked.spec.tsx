@@ -35,7 +35,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: () => true }))
 
@@ -85,15 +85,34 @@ describe('the thinking moves are user-invoked, not only producer-offered', () =>
 
   it('opening it offers every catalogue method, the two ungated ones included', () => {
     draw()
-    const trigger = screen.getByTestId('analysis-new-methods').querySelector('button')
+    const menu = screen.getByTestId('analysis-new-methods')
+    const trigger = menu.querySelector('button')
     expect(trigger, 'the menu must have a trigger a person can press').not.toBeNull()
     fireEvent.click(trigger as HTMLButtonElement)
 
+    /*
+     * ⭐ SCOPED TO THE MENU, AND THE REASON IS A PREMISE OF THIS FILE THAT HAS
+     * SINCE BECOME FALSE. This assertion read `screen.getByText`, which was
+     * unambiguous only while the dropdown was the sole place a method title
+     * appeared. `MethodsYouCanRun` now renders the same catalogue as a chip row
+     * in ZONE: FOCUS, so every title resolves TWICE and the global query throws
+     * "Found multiple elements" — the spec failed on the arrival of a second
+     * route, not on a defect.
+     *
+     * ⛔ THE STALE CLAIM IS THE MESSAGE BELOW, NOT THE ASSERTION. The old text
+     * said the menu is a method's "ONLY route". That was true when this file
+     * was written and is now wrong; left unedited it would teach the next
+     * reader that removing the chip row costs nothing. The ASSERTION is
+     * unchanged in strength — this file is about the MENU, so binding the query
+     * to the menu is the tighter claim, not the looser one (trap 19: bind by
+     * identity, never by a match another element could satisfy).
+     */
     for (const id of ALWAYS_VALID) {
       const entry = METHOD_CATALOGUE.find((m) => m.id === id)
       expect(
-        screen.getByText(entry!.title),
-        `"${entry!.title}" is reachable from no producer signal, so the menu is its ONLY route`,
+        within(menu).getByText(entry!.title),
+        `"${entry!.title}" is reachable from no producer signal, so the menu must carry it — ` +
+          'the ZONE: FOCUS chip row is a SECOND route and is pinned separately, not here',
       ).toBeInTheDocument()
     }
   })

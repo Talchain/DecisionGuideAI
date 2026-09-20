@@ -6,6 +6,7 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
+import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
@@ -22,7 +23,9 @@ import {
 } from '../utils/interventionDisplay'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { NodeChip, BriefIcon, NodePopover, ScienceIcon } from './shared'
+import { BriefIcon, NodePopover, ScienceIcon } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import {
@@ -30,7 +33,12 @@ import {
   basisWithholdsPossessive,
 } from '../../components/results/utils/selectGoalProbability'
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
-import { NOT_COMPUTED_BADGE, notComputedReasonCopy } from '../../components/results/utils/notAnalysedCopy'
+import {
+  NOT_ANALYSED_BADGE,
+  NOT_COMPUTED_BADGE,
+  notAnalysedReasonCopy,
+  notComputedReasonCopy,
+} from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
@@ -429,6 +437,12 @@ export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
   const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
+  /* ⭐ THE FOURTH ABSENCE — did the run that HAS happened leave this option out?
+     Distinct from `winComputationFailed` (it ran and could not compute) and
+     from the `excluded-from-analysis-pill` (CEE predicting the NEXT run will
+     hold it out). Read through the shared predicates, never re-derived here —
+     see `useOptionLeftOutOfRun` for the domain guard that makes it safe. */
+  const leftOutOfRunReason = useOptionLeftOutOfRun(props.id)
   const scienceIcons = useScienceIcons(props.id, 'option')
 
   const nodes = useCanvasStore(state => state.nodes)
@@ -1186,107 +1200,30 @@ export const OptionNode = memo((props: NodeProps) => {
 
   // ----- Coaching chip cluster (shared between Standard popover and Detailed inline) -----
   // All option AI chips live here. Body never renders chips directly.
-  const optionChips = useMemo(() => {
-    const optionLabel = (props.data?.label as string) ?? 'this option'
-    if (isPostAnalysis) {
-      if (isBaselineOption) {
-        // Baseline chips already pre-existed inside layer2Content; keep them.
-        return (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why does this do better or worse on your goal?" message={`Why does the baseline (${optionLabel}) do better or worse against my goal than the other options?`} />
-            <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of staying with the baseline?" />
-          </div>
-        )
-      }
-      if (isRecommended) {
-        return (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            {/* ROADMAP 2.724 — CONTRASTIVE, not a verdict. This chip composes a
-                sentence that lands in the user's OWN transcript, so the old
-                "…to no longer be the best choice?" made the system put a
-                crowning claim in the user's mouth and then answer it. The
-                product recommends what to INVESTIGATE, never what to CHOOSE.
-                Asking about the ALTERNATIVE keeps the whole what_would_flip
-                question while presupposing nothing about the leader. Same
-                register as the sibling chips and `winnerChipCopy.ts`
-                (ROADMAP 1.223). */}
-            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to be better supported than ${optionLabel}?`} />
-            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why is this best supported?" message={`Why is ${optionLabel} better supported than the other options?`} />
-            {/* ⭐ THE COUNTER-CASE — the reasoning frontier's one door on the
-                leading option, and the moment a team is most likely to stop
-                looking.
-
-                ⚠ IT IS NOT A FOURTH WAY OF ASKING THE TWO ABOVE, and that is
-                the objection worth answering before adding a chip to a row that
-                already has two. Both existing chips are questions about the
-                MODEL'S ARITHMETIC: "what would need to change for another
-                option to be better supported" asks which inputs the computed
-                figure is sensitive to, and "why is this best supported" asks it to explain the
-                numbers it already produced. Both are answerable entirely from
-                what the model contains.
-
-                This one asks what the model might be MISSING — the conditions
-                under which the whole exercise points the wrong way. A
-                pre-mortem, not a sensitivity sweep. That is the distinction the
-                frontier exists on: everything else on this canvas helps a team
-                interrogate the model they built, and nothing helps them notice
-                what they never put in it. A sensitivity analysis cannot tell
-                you about a factor nobody entered.
-
-                ⚠ IT ASSERTS NOTHING, WHICH IS WHY IT NEEDS NO PRODUCER. "What
-                would have to be true for X to be the wrong choice" presupposes
-                neither that it IS the wrong choice nor that the model is
-                deficient. Compare the sibling comment above: that chip is
-                deliberately phrased about the ALTERNATIVE to avoid putting a
-                crowning claim in the user's mouth. This one names the leader
-                but makes no claim about it — the question is well-formed
-                whatever the answer turns out to be.
-
-                ⚠ THE LEADER ENTITLEMENT IS INHERITED, NOT RE-DERIVED. This sits
-                inside the `isRecommended` arm, which is
-                `verdict.hasLeadingOption && verdict.leaderId === props.id` AND
-                requires `winRate !== null`. So on a withheld turn, an exact tie,
-                or an option the producer could not compute, this chip does not
-                render — because the arm does not. Naming the leader in copy
-                while the product is not entitled to name one is precisely the
-                permission seam CLAUDE.md trap 21 records, and the defence is to
-                reuse the single authority rather than mint a second reader of
-                the same question three lines from the first. */}
-            <NodeChip chipId="option_counter_case" actionType={null} label="What would make this wrong?" message={`Set aside the numbers for a moment. What would have to be true for ${optionLabel} to be the wrong choice here — what could this model be missing?`} />
-          </div>
-        )
-      }
-      // Non-winner, non-baseline
-      if (displayMetadata.winRate !== null) {
-        return (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            {closeCallGapPp != null && (
-              <NodeChip
-                chipId="option_what_would_change_close_call"
-                actionType="what_would_flip"
-                label="What would change this?"
-                message={`What would need to be true for ${optionLabel} to be the better choice?`}
-              />
-            )}
-            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this better supported?" message={`What would need to change for ${optionLabel} to be better supported?`} />
-          </div>
-        )
-      }
-      return null
-    }
-    /* ⭐ PRE-ANALYSIS: THE ONE QUESTION MOVED TO THE CARD FACE, so this arm is
-       now empty by design rather than by omission. It returned a single chip —
-       `option_what_could_go_wrong` — which lived in the Standard popover and
-       was therefore reachable only by hovering. Measured on deployed
-       `79866c44`: 4 of 4 option cards asked nothing on their face.
-
-       ⛔ IT IS RETURNED FROM ONE PLACE, NOT TWO. #1591 rendered the factor's
-       question on the card while the popover still rendered the same chip on
-       the same card, and CI caught it with `getMultipleElementsFoundError`.
-       "Exactly once" is structural here for the same reason: `cardQuestion`
-       below is the only render site, and this arm renders nothing. */
-    return null
-  }, [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
+  // ⚠ ALL FOUR ARMS, THEIR PRECEDENCE AND BOTH `null` RETURNS now live in
+  // `resolveNodeCoaching`, unchanged: baseline is still tested before
+  // recommended (so a baseline that also leads gets baseline copy), the
+  // pre-analysis arm is still empty by design because its one question was
+  // promoted to the card face, and an option whose win rate the producer could
+  // not compute still asks no comparative question. The reasons are carried in
+  // the resolver's docblock.
+  const optionChips = useMemo(() => (
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({
+        kind: 'option',
+        surface: 'cluster',
+        state: {
+          isPostAnalysis,
+          isBaselineOption,
+          isRecommended,
+          winRateIsKnown: displayMetadata.winRate !== null,
+          closeCallGapIsSet: closeCallGapPp != null,
+        },
+        context: { label: (props.data?.label as string) ?? 'this option' },
+      })}
+    />
+  ), [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
 
   /**
    * ⭐⭐ THE QUESTION THE CARD ASKS ON ITS OWN FACE.
@@ -1312,15 +1249,24 @@ export const OptionNode = memo((props: NodeProps) => {
    * choose staying as we are" is a question about a choice nobody is proposing
    * to make; the baseline's own coaching is its status-quo ScienceIcon.
    */
-  const cardQuestion = useMemo(() => {
-    if (isPostAnalysis || isBaselineOption) return null
-    const optionLabel = (props.data?.label as string) ?? 'this option'
-    return {
-      id: 'option_what_could_go_wrong',
-      label: 'What could go wrong?',
-      message: `What could go wrong if we choose ${optionLabel}?`,
-    }
-  }, [isPostAnalysis, isBaselineOption, props.data])
+  // ⚠ Pre-analysis only, and the baseline still gets nothing — both preserved
+  // in the resolver with their reasons.
+  const cardQuestion = useMemo(
+    () =>
+      resolveNodeCoaching({
+        kind: 'option',
+        surface: 'card',
+        state: {
+          isPostAnalysis,
+          isBaselineOption,
+          isRecommended: false,
+          winRateIsKnown: true,
+          closeCallGapIsSet: false,
+        },
+        context: { label: (props.data?.label as string) ?? 'this option' },
+      }),
+    [isPostAnalysis, isBaselineOption, props.data],
+  )
 
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
@@ -1564,6 +1510,124 @@ export const OptionNode = memo((props: NodeProps) => {
     }
   }, [isPostAnalysis, totalInterventionCount, totalFactorCount])
 
+  /**
+   * ⭐⭐⭐ DOES THE DIFFERENTIATOR FOOTER RENDER? ONE SPELLING, THREE READERS.
+   *
+   * The card's own comment at the render site already warns that this
+   * condition must "MATCH that render exactly rather than [be] re-derived —
+   * two spellings of one question is how these two lines would drift into
+   * contradicting each other". It said that about the Behind clause and then
+   * left the whole predicate inline, where a second reader had nowhere to read
+   * it from. This change adds two more readers (the recovery line, below, and
+   * its spec), so the predicate is hoisted rather than copied three times.
+   *
+   * ⚠ `differentiator &&` STAYS AT THE JSX SITE. This is a `boolean`, so it
+   * cannot narrow `differentiator` from `T | null` for the type checker. The
+   * duplication is a narrowing artefact, not a second authority: the boolean
+   * decides, the null-check only tells TypeScript what the boolean already
+   * guarantees.
+   */
+  const differentiatorRenders =
+    !isBaselineOption &&
+    !isDetailed &&
+    differentiator !== null &&
+    !(isPostAnalysis && !isRecommended && behindReason)
+
+  /**
+   * ⭐⭐⭐ THE SENTENCE A TOUCH USER COULD NOT READ.
+   *
+   * ─── WHAT WAS WRONG ─────────────────────────────────────────────────────
+   *
+   * The footer states which factor makes this option different — the product
+   * naming the reason, which is the whole of what this canvas is for. Its
+   * factor name is shortened in JAVASCRIPT (`compactFactorLabel`, :303), so
+   * the "…" is IN THE TEXT: there is no CSS overflow, and therefore nothing
+   * for a browser to recover. The only recovery was the native `title`
+   * attribute at the render site — i.e. HOVER.
+   *
+   * **A touch user has no hover. For them the subject of the claim was absent
+   * from the product entirely.** You cannot argue with a sentence you cannot
+   * read, and arguing with the model is the product.
+   *
+   * ─── HOW OFTEN IT BIT, MEASURED RATHER THAN ASSUMED ─────────────────────
+   *
+   * Every factor label in the five committed starter captures
+   * (`src/canvas/starters/data/*.draft.json`), pushed through this file's own
+   * pipeline — `sentenceCaseFactorLabel(cleanFactorLabel(raw))` then
+   * `compactFactorLabel(…, NODE_ROW_LABEL_MAX_CHARS)`:
+   *
+   *     build-vs-buy           4/8   cut
+   *     headcount-allocation   4/5   cut
+   *     market-entry           4/8   cut
+   *     pricing-model          5/5   cut
+   *     vendor-selection       6/8   cut
+   *     ────────────────────────────────
+   *     TOTAL                 23/34  cut   (68%)
+   *
+   * Between 5 and 21 characters hidden each time. **Not an edge case — the
+   * ordinary case, on every starter the product ships.** `pricing-model` cuts
+   * every label it has.
+   *
+   * ─── WHY THE POPOVER AND NOT A NEW SURFACE ──────────────────────────────
+   *
+   * Nothing in this repo arbitrates which surfaces may cover the board at once
+   * (a sweep for `overlayArbitr|exclusiveSurface|activeOverlayStore` returns
+   * zero files while 51 canvas files carry their own `zIndex`), so a new
+   * overlay layer would be a new unarbitrated claim on the canvas. This card
+   * ALREADY mounts the popover and that popover ALREADY declares itself the
+   * recovery surface for this card's compaction (:1479-1487). It needed to be
+   * reachable, and to carry this sentence. Both are now true; no layer was
+   * minted, and the card did not grow by a pixel.
+   *
+   * ⚠ NULL WHEN NOTHING WAS ELIDED — the same rule the `title` attribute
+   * already follows, for the same reason: a recovery line that merely repeats
+   * what is on the card is noise, and it teaches a user that opening the
+   * preview tells them nothing new.
+   *
+   * ⚠ AND ONE OVERLAP THE RATIONALE MUST NOT DENY: when the differentiating
+   * factor is also an intervention, this popover's chip list already carries
+   * that factor's FULL name a few lines below. What it does not carry is the
+   * CLAIM — "… is the key difference" / "… → 90%" is the sentence the product
+   * is asserting, and a bare label in a list is not that sentence. So the two
+   * are not duplicates; they are a name and an assertion about it. If a later
+   * pass decides the density is not worth it, that is a rendering decision to
+   * take deliberately, not a reason to think this line is redundant today.
+   *
+   * ⛔ IT DOES NOT TRUNCATE. The popover is portalled outside the React Flow
+   * transform into a 260px wrapping box, which is why this file already calls
+   * it the recovery surface — the same reasoning recorded at the intervention
+   * chips. A recovery surface that re-applied the card's budget would recover
+   * nothing.
+   */
+  const differentiatorRecovery =
+    differentiatorRenders && differentiator && differentiator.fullLabel !== differentiator.label
+      ? differentiator.fullLabel
+      : null
+
+  /**
+   * ⭐ ONE ELEMENT, MOUNTED AT BOTH POPOVERS — not two copies of a line.
+   *
+   * ⚠ IT IS BUILT HERE AND PLACED AT THE CALL SITES, NOT INSIDE
+   * `preAnalysisPopoverContent`, AND THAT IS DELIBERATE. That memo has THREE
+   * return branches (baseline-with-no-interventions, no-interventions, and the
+   * main one). Putting the line inside it would mean writing it three times,
+   * or writing it in one branch and quietly not covering the other two —
+   * exactly the hand-maintained mirror this file's other headers keep paying
+   * for. Placed beside `{layer2Content}` and `{preAnalysisPopoverContent}` it
+   * is one spelling that covers every branch either memo can return.
+   *
+   * ⚠ NOT A NEW LAYER. This renders INSIDE the `NodePopover` the card already
+   * mounts, above content that popover already carried.
+   */
+  const differentiatorRecoveryLine = differentiatorRecovery ? (
+    <p
+      className={`${typography.edgeLabel} text-text-body m-0 mb-1`}
+      data-testid={`option-differentiator-full-${props.id}`}
+    >
+      {differentiatorRecovery}
+    </p>
+  ) : null
+
   // Win-probability readout, derived ONCE.
   //
   // The visible number, the hover text and the text announced to assistive
@@ -1600,6 +1664,12 @@ export const OptionNode = memo((props: NodeProps) => {
         handleMouseLeave()
         nodeHandlers.onMouseLeave()
       }}
+      /* The TAP path. A no-op on a pointer device (`usePopoverHover` gates it
+         on `hover: none`); on touch it is the only way this node preview can
+         be opened at all — and on THIS card the preview is where the full
+         differentiator sentence lives. It does not stopPropagation, so the tap
+         still selects the node. */
+      onClick={nodeHandlers.onClick}
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
       <BaseNode
@@ -1972,6 +2042,107 @@ export const OptionNode = memo((props: NodeProps) => {
             only through `title`, because a `title` is unreachable by KEYBOARD
             (this row is not focusable) and absent on TOUCH — the same reason
             the win anchor was restored as visible text on 31 Aug. */}
+        {/* ⭐⭐ THE OPTION THE RUN LEFT OUT — THE FOURTH ABSENCE, AND THE ONE
+            THIS CARD DID NOT DRAW.
+
+            ## What was on screen before, and why it was not enough
+
+            An option with no `option_probabilities` entry left
+            `winComputationFailed` false and `winRate` null, so it fell through
+            to `option-result-unavailable-*` below: *"On the data so far, no
+            support percentage for this option"*. That sentence is TRUE and it
+            POOLS two states whose next steps point in opposite directions —
+            the engine scored this option and could not resolve a share (wait,
+            or re-run) and the engine never scored it at all (say what it
+            changes). A reader who cannot tell them apart takes the wrong
+            action or none, which is the whole reason the ratified design draws
+            four absences rather than one.
+
+            ## It is READ, not derived here
+
+            `useOptionLeftOutOfRun` calls the same three functions the results
+            panel calls (`useResultsSectionData.ts:2056/2085/2272`) on the same
+            inputs, including the DOMAIN GUARD that refuses to mark anything
+            when the run produced no per-option output at all. A second
+            spelling of "was this option in the analysis" is how the canvas and
+            the panel come to contradict each other about one run.
+
+            ## Mutually exclusive with the not-computed row below, by construction
+
+            `winComputationFailed` requires an ENTRY; this requires the ENTRY to
+            be absent. Neither needs a second condition to exclude the other,
+            and the two sentences are deliberately different: "the analysis ran
+            on this option and could not produce a usable result" is a fact
+            about the simulation, "it was left out" is a fact about the
+            submission. Re-badging either as the other is a lie about whose
+            fault it is — the argument `notAnalysedCopy.ts` makes at
+            `NOT_COMPUTED_BADGE`.
+
+            ⛔ IT IS NOT THE `excluded-from-analysis-pill`, AND MUST NOT BE
+            RECONCILED WITH IT. That pill reads CEE's readiness stamp
+            `waived_by_exclusion` — *"the run WILL hold this option out"*, a
+            claim about a run that has not happened, suppressed while the
+            verdict is stale. This row reports what a run that HAS happened
+            did. Different producer, different tense, different question; named
+            apart rather than aligned (CLAUDE.md trap 21).
+
+            ## No action offered, deliberately
+
+            The results panel already carries the resolve route
+            (`notAnalysedActionLabel` / `resolveOptionPrompt`), which reproduces
+            the sentence CEE itself tells users to say. Minting a second route
+            to one capability on the canvas would give the assistant two strings
+            to be trained on and only one of them would be the documented one —
+            the argument `notAnalysedCopy.ts` makes in its own header. The row
+            discloses; the panel acts. Same division the not-computed row keeps.
+
+            ## ⭐⭐ AND THE ROW SAYS NOTHING AT ALL WHEN THE RESULT CANNOT BE
+            VOUCHED FOR
+
+            `results.status` survives a graph edit and survives a reload, so an
+            option added once a run has finished — or simply looked at after a
+            restore — reaches this card with no entry and, if it is wired, the
+            derived reason `not_returned`, whose sentence says the analysis
+            RETURNED nothing for it. It returned nothing because it was never
+            asked. `useOptionLeftOutOfRun` therefore WITHHOLDS that arm unless
+            `useAnalysisResultsAreCurrent` can vouch for the result on screen,
+            and it withholds by returning `null` rather than by substituting a
+            fourth sentence: the currency signal's `false` pools "the graph
+            changed" with "cannot confirm", so no sentence naming a change is
+            licensed by it. The card then falls back to the pooled-but-true line
+            below. `no_interventions` is ungated — it reports the graph as it is
+            now. See the hook's docblock for the measurement.
+
+            ⭐ THE PILL IS DELIBERATELY THE SAME ONE. `NOT_ANALYSED_BADGE` is
+            the GENUS — "this card carries no rank and no probability" — and it
+            already serves two reasons whose next steps differ; the four-absence
+            ruling draws its lines in the SENTENCE, which is where a reader
+            finds the action. A third visible string would also have to dodge
+            "Not in this analysis", which `BaseNode.tsx:1394` already owns for
+            CEE's prediction about the NEXT run — minting a near-synonym beside
+            it is the two-things-under-one-name defect this row exists to avoid.
+
+            The sentence is given to assistive technology directly rather than
+            only through `title`, because a `title` is unreachable by KEYBOARD
+            (this row is not focusable) and absent on TOUCH. */}
+        {displayMetadata.isResultsMode && leftOutOfRunReason !== null && (
+          <div
+            className="mt-1.5 mb-1 flex items-center gap-1.5"
+            title={notAnalysedReasonCopy(leftOutOfRunReason)}
+            data-testid={`option-not-analysed-${props.id}`}
+          >
+            <span
+              className={`${typography.edgeLabel} text-text-light shrink-0`}
+              aria-hidden="true"
+            >
+              {NOT_ANALYSED_BADGE}
+            </span>
+            <span className={typography.screenReaderOnly}>
+              {notAnalysedReasonCopy(leftOutOfRunReason)}
+            </span>
+          </div>
+        )}
+
         {displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true && (
           <div
             className="mt-1.5 mb-1 flex items-center gap-1.5"
@@ -2024,9 +2195,26 @@ export const OptionNode = memo((props: NodeProps) => {
             ⛔ The copy no longer opens with the missing quantity's name. It
             conditions on the data ("On the data so far…"), because what this
             run produced is a fact about this run and not a property of the
-            option. */}
+            option.
+
+            ⭐⭐ AND IT NOW YIELDS TO `leftOutOfRunReason` TOO — a THIRD conjunct,
+            stated here rather than left to be inferred from the gate.
+
+            This line's own subject is an option the run HAD and could not
+            resolve a share for. An option the run never had is a different
+            state with a different next step, and before the row above existed
+            this line was the only thing said about it: one sentence pooling
+            two absences, which is the defect the four-absence ruling exists to
+            prevent. So the yield is not silence and it is not a move either —
+            the sibling row above states the MORE SPECIFIC true sentence in the
+            same position on the same card, and names the ground it rests on.
+
+            ⚠ Deleting the row above turns this into the pooled sentence again,
+            not into a rendering gap — which is why this conjunct must be read
+            WITH it and never tidied away on its own. */}
         {displayMetadata.isResultsMode && displayMetadata.winRate === null &&
           displayMetadata.winComputationFailed !== true &&
+          leftOutOfRunReason === null &&
           !supportShareRunWideAbsent && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
@@ -2138,10 +2326,14 @@ export const OptionNode = memo((props: NodeProps) => {
             or a label shared with another option and deduped away). The
             universal quantifier was doing rhetorical work the code does not
             do. */}
-        {!isBaselineOption && !isDetailed && differentiator
-          /* Paul's ruling 10 Sep 2026 — "both stay". Was
-             `&& !differentiatorDuplicatesChip`. See the predicate's header. */
-          && !(isPostAnalysis && !isRecommended && behindReason) && (
+        {/* Paul's ruling 10 Sep 2026 — "both stay". The predicate was
+            `!isBaselineOption && !isDetailed && differentiator &&
+            !(isPostAnalysis && !isRecommended && behindReason)`, spelled
+            inline. It is now `differentiatorRenders`, hoisted above so the
+            recovery line in the popover is decided by the SAME expression
+            rather than by a second copy of it. See that constant's header for
+            why `differentiator &&` still appears here. */}
+        {differentiatorRenders && differentiator && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
             /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
@@ -2154,8 +2346,36 @@ export const OptionNode = memo((props: NodeProps) => {
                the canvas-node tooltip idiom in this repo — see the
                structuredDeltas `<li>` above and `nodes/shared/MetricPills.tsx`.
                Undefined when nothing was elided, so hover never merely repeats
-               what is already on screen. */
+               what is already on screen.
+
+               ⚠ IT IS NO LONGER THE ONLY RECOVERY, AND IT WAS NEVER A
+               SUFFICIENT ONE. A native `title` is a MOUSE affordance: it does
+               not exist on a touch device, and on a non-focusable `<p>` it is
+               announced to nobody. It stays because it is the cheapest
+               recovery for the user who does have a mouse — but the sentence
+               now also rides the node preview, which a tap and a keyboard
+               focus can both open (`usePopoverHover`).
+
+               ⛔ WHAT WAS DELIBERATELY *NOT* DONE HERE, AND WHY IT IS ROWED
+               RATHER THAN HALF-DONE. `completeness` below carries its full
+               sentence in a SECOND, `sr-only` span beside an `aria-hidden`
+               visible one, so a screen-reader user gets the whole thing with
+               no interaction at all — and its header states the principle this
+               `<p>` ought to follow too: "Compaction buys space for a sighted
+               reader; it does not license saying less to everyone else."
+               Applying that shape here splits this element's single text node
+               in two, which changes `p.textContent` to the CONCATENATION of
+               both spans and changes what `getByText` resolves to. FIVE spec
+               files assert on this sentence — `OptionNode.spec`,
+               `OptionNode.differentiatorRecoverable.spec`,
+               `OptionNode.differentiatorSurvivesTheRun.spec`,
+               `OptionNode.oneFactorOneName.spec`, `cardCopyCensus.canvas.spec`
+               — and this lane is under a hard no-test-execution constraint, so
+               it could edit all five and verify none of them. A change that
+               greens or reds five suites nobody ran is not a smaller risk than
+               the gap it closes. ROWED. */
             title={differentiator.fullLabel !== differentiator.label ? differentiator.fullLabel : undefined}
+            data-testid={`option-differentiator-${props.id}`}
           >
             {differentiator.label}
           </p>
@@ -2189,16 +2409,11 @@ export const OptionNode = memo((props: NodeProps) => {
             ⚠ It renders in BOTH views. The Detailed view's layer-2 carries the
             post-analysis chips, and `cardQuestion` is null there, so nothing
             doubles. */}
-        {cardQuestion && (
-          <div className="flex gap-1 flex-wrap mt-1.5" data-testid="option-card-question">
-            <NodeChip
-              chipId={cardQuestion.id}
-              actionType={null}
-              label={cardQuestion.label}
-              message={cardQuestion.message}
-            />
-          </div>
-        )}
+        <CoachingChipRow
+          className="flex gap-1 flex-wrap mt-1.5"
+          testId="option-card-question"
+          chips={cardQuestion}
+        />
 
         {/* Post-analysis coaching chips live in the popover (Standard) /
             Detailed inline layer-2. See `optionChips` useMemo above and the
@@ -2335,7 +2550,12 @@ export const OptionNode = memo((props: NodeProps) => {
         
       </BaseNode>
 
-      {/* ===== LAYER 2: Popover (Standard view, hover) ===== */}
+      {/* ===== LAYER 2: Popover (Standard view — hover, tap or keyboard focus) =====
+          ⚠ THE PARENTHETICAL USED TO READ "(Standard view, hover)" AND THAT WAS
+          THE WHOLE DEFECT IN FOUR WORDS. `usePopoverHover` now opens this on a
+          tap and on keyboard focus as well; the comment is corrected here
+          rather than left to teach the next reader that hover is the only
+          door. */}
       {!isDetailed && isPostAnalysis && (
         <NodePopover
           visible={showPopover}
@@ -2344,6 +2564,7 @@ export const OptionNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {differentiatorRecoveryLine}
           {layer2Content}
         </NodePopover>
       )}
@@ -2358,6 +2579,7 @@ export const OptionNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {differentiatorRecoveryLine}
           {preAnalysisPopoverContent}
         </NodePopover>
       )}

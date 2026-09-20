@@ -896,7 +896,11 @@ export const WhatIWasGivenSection = forwardRef<
    * domain in its own spec. Three passes of patching it inline each shipped a
    * defect while closing one; that file's header records all three.
    */
-  const subtitle = figureTallySubtitle(tally)
+  // ⚠ WHICH ABSENCE, NAMED BY THE CALLER — it is the only place that knows.
+  // `manifest === null` is "CEE told us nothing"; a manifest that is not
+  // `derived` means the figures could not be counted while the brief itself is
+  // rendered right below this line.
+  const subtitle = figureTallySubtitle(tally, manifest === null ? 'no_manifest' : 'not_counted')
 
   /**
    * ⭐⭐ WHAT "Not modelled yet" CAN SAY WHEN THE MANIFEST SAYS NOTHING.

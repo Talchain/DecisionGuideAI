@@ -603,21 +603,36 @@ export function AnalysisHeroPanel({
         This card sits at panel top level — zero clicks, outside the evidence
         collapse — and says the most specific thing Olumi produces. Its button was
         gated on `analysisAssumedEdgeStrength` and pointed at
-        `openEdgeStrengthEditor`, which raises the Inspector. The Inspector CANNOT
-        SAVE: `InspectorRouter` wraps every panel in an unconditional
-        `<fieldset disabled>`, and its own mounted copy says these changes
-        "cannot yet be saved to the shared model". (This cited
-        `inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY (:143);
-        that manifest was deleted 27 Aug 2026, PR #886, as an unenforced mirror
-        with zero code consumers, and the line number now points at unrelated
-        code. The claim itself is unchanged.)
+        `openEdgeStrengthEditor`, which raises the Inspector.
 
-        ⚠ THE FLAG IS UNCHANGED AND STILL HONEST. `analysisAssumedEdgeStrength`
-        stays `'disabled'` because the DIRECT-manipulation route genuinely is dead.
-        What changed is the destination, not the permission — and asking the
-        assistant is not a graph mutation by this surface, so no key here governs
-        it. Flipping the flag would assert a capability that does not exist;
-        building a second edge editor would create a fourth editing authority.
+        ⚠⚠ THE REASON RECORDED HERE WAS FALSE AT THE TIP AND IS CORRECTED IN
+        PLACE. It read: "The Inspector CANNOT SAVE: `InspectorRouter` wraps every
+        panel in an unconditional `<fieldset disabled>`". The wrap is
+        CONDITIONAL — `InspectorRouter.tsx:441` exempts `option`,
+        `factor-controllable` and `factor-external`, `:541-551` chooses
+        `readOnly` over the fence for them — and the EDGE branch never reaches
+        it at all, early-returning at `:192` with no blanket fence.
+        (It also cited `inspector-v2/useInspectorMutations.ts`
+        EDGE_SETTER_AUTHORITY (:143); that manifest was deleted 27 Aug 2026,
+        PR #886, as an unenforced mirror with zero code consumers, and the line
+        number now points at unrelated code. So both of the old authorities for
+        this sentence are gone.)
+
+        ⚠ AND THE SECOND CLAIM IN THIS BLOCK WAS FALSE TOO: "the
+        DIRECT-manipulation route genuinely is dead". `EdgePanel.tsx:699` renders
+        the strength control ENABLED whenever `strengthReachesTheModel` —
+        `edgeStrengthEditIsAssertable(edge)` — so it is alive for any edge whose
+        strength the server can already state, and dead only for the ones it
+        cannot (no assertable `expected` tuple, which is this card's `'missing'`
+        population).
+
+        ⭐ THE FLAG AND THE DESTINATION BOTH STAND, ON THE NARROWER TRUE READING.
+        `analysisAssumedEdgeStrength` stays `'disabled'` because this SURFACE
+        performs no graph mutation — asking the assistant is not one, so no key
+        here governs it, and flipping it would assert an authority this panel
+        does not hold. Building a second edge editor would still create a fourth
+        editing authority. Behaviour is deliberately untouched; only the reasons
+        were wrong.
 
         WHERE IT GOES INSTEAD: Olumi can change an edge even though the user
         cannot. `update_edge` is first-class in the model-facing tool schema and

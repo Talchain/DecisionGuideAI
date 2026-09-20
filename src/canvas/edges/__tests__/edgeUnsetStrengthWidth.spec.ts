@@ -66,8 +66,8 @@ describe('an unset strength is not drawn as a measurement', () => {
     // assertion below passes by testing nothing (trap 13).
     expect(
       widths.length,
-      'the magnitude sampler produced fewer than 3 distinct widths — it is not reaching the bands, so the ordering assertions below are vacuous',
-    ).toBeGreaterThanOrEqual(3)
+      `the magnitude sampler produced ${widths.length} distinct widths against ${Object.keys(EDGE_STROKE_WIDTH_BANDS).length} bands — it is not reaching them all, so the ordering assertions below are vacuous`,
+    ).toBeGreaterThanOrEqual(Object.keys(EDGE_STROKE_WIDTH_BANDS).length)
   })
 
   /**
@@ -83,7 +83,7 @@ describe('an unset strength is not drawn as a measurement', () => {
    */
   it('agrees with the bands-derived floor — the function and the table describe one encoding', () => {
     expect(Math.min(...measuredWidths())).toBe(MEASURED_EDGE_STROKE_WIDTH_FLOOR)
-    expect(MEASURED_EDGE_STROKE_WIDTH_FLOOR).toBe(EDGE_STROKE_WIDTH_BANDS.weak)
+    expect(MEASURED_EDGE_STROKE_WIDTH_FLOOR).toBe(EDGE_STROKE_WIDTH_BANDS.slight)
   })
 
   it('draws strictly THINNER than every width a measurement can produce', () => {
@@ -95,14 +95,24 @@ describe('an unset strength is not drawn as a measurement', () => {
     }
   })
 
-  it('is distinguishable from the WEAKEST measurement specifically', () => {
-    // The named collision, bound by identity to the weakest band rather than to
-    // "some width": |mean| = 0.2 is a real, stated, weak strength.
-    const weakest = weightMagnitudeToStrokeWidth(0.2)
+  it('is distinguishable from the THINNEST measurement specifically', () => {
+    // The named collision, bound by identity to the thinnest band rather than
+    // to "some width": |mean| = 0.1 is a real, stated, Slight strength.
+    //
+    // ⚠ WAS 0.2 UNTIL 18 Sep 2026. That magnitude used to sit in the thinnest
+    // band; the fourth rung cut at exactly 0.20 moved it up to *Moderate*, so
+    // the old value would still have passed this test while no longer
+    // exercising the band it names — a guard quietly pointed at the wrong
+    // object (trap 19). Moved deliberately, not left to pass by luck.
+    const thinnest = weightMagnitudeToStrokeWidth(0.1)
+    expect(
+      thinnest,
+      'the |mean| 0.1 sample is not in the thinnest band — this test has drifted off the collision it names',
+    ).toBe(MEASURED_EDGE_STROKE_WIDTH_FLOOR)
     expect(
       UNSET_EDGE_STROKE_WIDTH,
-      `an unset strength and a stated weak strength (|mean| 0.2) both draw at ${weakest}px — the reader cannot tell "we set this to weak" from "nobody has said"`,
-    ).not.toBe(weakest)
+      `an unset strength and a stated slight strength (|mean| 0.1) both draw at ${thinnest}px — the reader cannot tell "we set this to slight" from "nobody has said"`,
+    ).not.toBe(thinnest)
   })
 
   it('CAUSAL LENS: the stroke rule is blind to magnitude, so width is the only discriminator', () => {
@@ -124,7 +134,7 @@ describe('an unset strength is not drawn as a measurement', () => {
       // if `lens_causal` ever started falling through to polarity, these two
       // would diverge and this test REDs.
       polarityStroke: 'var(--edge-negative)',
-      existenceDash: null,
+      existence: { kind: 'stated', dash: undefined },
       visualPropsDash: undefined,
     }
     const sameDirectionOtherPolarity: EdgePresentationState = {
@@ -153,7 +163,7 @@ describe('an unset strength is not drawn as a measurement', () => {
     // weak one" in this lens. Width must, and now does.
     expect(
       UNSET_EDGE_STROKE_WIDTH,
-      'in the causal lens an unset strength and a weak measured strength render at the same colour AND the same width — indistinguishable on the lens built to show strength',
-    ).not.toBe(weightMagnitudeToStrokeWidth(0.2))
+      'in the causal lens an unset strength and a slight measured strength render at the same colour AND the same width — indistinguishable on the lens built to show strength',
+    ).not.toBe(weightMagnitudeToStrokeWidth(0.1))
   })
 })

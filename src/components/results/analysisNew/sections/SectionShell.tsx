@@ -36,7 +36,17 @@
  * count that misreports reads as "you have seen everything" when you have not.
  */
 
+/**
+ * @panel-act-opt-out a FULL-WIDTH disclosure header; `min-w` is meaningless on a
+ * `w-full` control and a tier's inline padding would fight `py-3`
+ *
+ * ⚠ DECLARED, NOT SILENT. The height came from `py-3` alone — true today and a
+ * property of the padding rather than a guarantee. `min-h-[24px]` makes it one.
+ * The width dimension is satisfied by `w-full` BY CONSTRUCTION, which is why this
+ * file is the one legitimate exception to the both-dimensions rule and says so.
+ */
 import { useId, useState, type ReactNode } from 'react'
+import { icon } from '../panelSurfaces'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
@@ -48,6 +58,22 @@ export interface SectionShellProps {
   /**
    * How many items sit behind the row. `null` renders no count — used when the
    * section has nothing countable to promise (an empty state with a sentence).
+   *
+   * ⭐⭐ ZERO IS TREATED AS `null`, AND THE CONVENTION ALREADY EXISTED — it was
+   * just not encoded here, so every caller had to remember it. Two did
+   * (`AnalysisNewSection`, `StrengthenTheReasoning`, both `length > 0 ? length
+   * : null`); four did not, and Paul met one of them: "How this was worked out"
+   * rendered a badge of **0** on a row that still expands.
+   *
+   * That is this header's own rule failing in the other direction — "a
+   * collapsed row is a PROMISE about what is behind it, and a count that
+   * misreports reads as 'you have seen everything' when you have not". A `0`
+   * promises nothing is behind the row and then invites a press anyway.
+   *
+   * ⚠ ENCODED HERE RATHER THAN AT THE CALL SITES, because six callers each
+   * remembering the same coercion is the hand-maintained mirror this estate
+   * pays for (trap 12). The two existing guards are now redundant and harmless;
+   * they are left alone so this change touches one file.
    */
   count: number | null
   /** First-use explanation. Lives in the row's `title` attribute, never as a row. */
@@ -120,6 +146,15 @@ export function SectionShell({
   }
   const regionId = useId()
 
+  /**
+   * Does the subtitle already state the count? Word-boundary matched so "14"
+   * never suppresses a badge for "4".
+   */
+  const subtitleStatesCount =
+    count != null && subtitle != null
+      ? new RegExp(`(^|[^0-9])${count}([^0-9]|$)`).test(subtitle)
+      : false
+
   return (
     <section
       /* ⭐ A2 — CONTAINMENT BY FILL, BUT NOT AT THE COST OF THE DIVIDER.
@@ -160,6 +195,24 @@ export function SectionShell({
       // navigating by landmark would otherwise meet four unnamed regions.
       aria-labelledby={`${testId}-heading`}
       data-section-open={open ? 'true' : 'false'}
+      /**
+       * ⭐ THE COUNT IS ALWAYS CARRIED HERE, WHETHER OR NOT THE BADGE DRAWS.
+       *
+       * Saying a fact once is a rule about what the READER meets, not about
+       * what the section KNOWS. Suppressing the badge when the subtitle
+       * already states the number is correct; letting the number leave the
+       * DOM entirely is not — it takes the fact away from assistive tech,
+       * from the debug bundle, and from every precondition that uses the
+       * count to prove a fixture still grounds what it claims to ground.
+       *
+       * ⚠ THIS IS THE DEFECT THIS CHANGE SHIPPED AND CI CAUGHT. Three
+       * preconditions in `strengthenOpensPreRun.spec.tsx` read the badge to
+       * assert "the engine really does ground exactly one finding". With the
+       * badge conditional on COPY, those preconditions would have gone
+       * vacuous the next time a subtitle was reworded — silently, and in the
+       * direction that makes a suite agree with itself.
+       */
+      data-section-count={count != null ? String(count) : undefined}
     >
       {/* ⚠ HEADING WRAPS BUTTON — the WAI-ARIA accordion pattern, and the
           reason is that BOTH facts are true at once: this is a heading in the
@@ -176,16 +229,16 @@ export function SectionShell({
         // UNMOUNTED rather than CSS-hidden (the rule `DisclosureRow` already
         // follows), so a resting `aria-controls` would reference nothing.
         aria-controls={open ? regionId : undefined}
-        className={`w-full flex items-center gap-2.5 py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        className={`w-full flex items-center gap-2.5 min-h-[24px] py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         data-testid={`${testId}-toggle`}
       >
         {Icon ? (
           <span className="shrink-0 w-6 h-6 rounded-full bg-panel-hover flex items-center justify-center">
-            <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden={true} />
+            <Icon className={`${icon('row')} text-text-light`} aria-hidden={true} />
           </span>
         ) : null}
         {/* ⭐ THE SUBTITLE IS A LINE, NOT A TOOLTIP.
-            It was `title={subtitle}` on the toggle — present in the DOM,
+            It was `title={subtitle}` on the toggle: present in the DOM,
             unreachable by touch and by keyboard, and supplied by no mount, so
             it never rendered at all. The design pack draws it on every
             collapsed row for a reason: a title plus a count is a container name
@@ -211,7 +264,22 @@ export function SectionShell({
             </span>
           ) : null}
         </span>
-        {count != null ? (
+        {/* ⭐⭐ ONE FACT, SAID ONCE — AND THE SUBTITLE WINS.
+            Witnessed on the deployed build: the Strengthen header rendered a
+            count badge reading "4" beside a subtitle reading "0 addressed · 4
+            worth checking". The same number, twice, 40px apart, and the badge is
+            the copy that says LESS.
+
+            ⚠ DERIVED FROM THE SUBTITLE, NOT FROM A FLAG. A `showCount` prop
+            would let a caller pass a subtitle that states the count AND ask for
+            the badge anyway, which is the drift this is closing. Asking the
+            subtitle whether it already carries the number cannot go stale,
+            because the subtitle is the thing that carries it.
+
+            ⚠ WORD-BOUNDARY MATCHED, so a subtitle mentioning "14" does not
+            suppress a badge reading "4". A substring test here would hide a
+            count for the wrong reason, which is worse than showing it twice. */}
+        {count != null && count > 0 && !subtitleStatesCount ? (
           <span
             className={`${typography.panelMeta} text-text-light shrink-0`}
             data-testid={`${testId}-count`}
@@ -220,9 +288,9 @@ export function SectionShell({
           </span>
         ) : null}
         {open ? (
-          <ChevronDown className="w-4 h-4 shrink-0 text-text-light" aria-hidden={true} />
+          <ChevronDown className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
         ) : (
-          <ChevronRight className="w-4 h-4 shrink-0 text-text-light" aria-hidden={true} />
+          <ChevronRight className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
         )}
       </button>
       </h3>

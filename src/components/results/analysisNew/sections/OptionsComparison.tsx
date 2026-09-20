@@ -104,13 +104,41 @@
  *    mouse hover alone.
  *
  * So the act here is `focusModelTarget` — the fail-closed panel→canvas primitive
- * the shipped Strengthen panel and `ModelStrip` already use, whose behaviour
- * ("centre this option in the model") is what the row's `aria-label` states.
- * ⛔ `openNodeInspector` was considered and rejected on evidence: `InspectorRouter`
- * wraps every panel in an unconditional `<fieldset disabled>`, and this estate has
- * ALREADY re-pointed one act away from it for exactly that reason
- * (`TriageActionCardsBody.tsx:278-305`). Honouring the old tab's literal wording
- * would have imported a promise the destination cannot keep.
+ * the shipped Strengthen panel and `ModelStrip` already use — AND
+ * `openNodeInspector`, which is the half this section refused to wire.
+ *
+ * ⭐⭐ THE REFUSAL RESTED ON A PREMISE THAT IS NO LONGER TRUE, AND WHAT IT COST
+ * WAS A WORKING AFFORDANCE. This paragraph used to read: "`openNodeInspector` was
+ * considered and rejected on evidence: `InspectorRouter` wraps every panel in an
+ * unconditional `<fieldset disabled>`". Re-derived at the tip rather than
+ * inherited:
+ *
+ *  · The wrap is CONDITIONAL. `InspectorRouter.tsx:441` declares
+ *    `AUTHORITY_OWNING_PANELS = new Set(['option','factor-controllable','factor-external'])`
+ *    and `:541-551` renders `panelOwnsAuthority ? <PanelComponent readOnly />`
+ *    against the fence. Six node panels are still wrapped; three are not, and
+ *    the edge branch early-returns at `:192` with no blanket fence at all.
+ *  · `'option'` is IN that set — and every row here resolves to exactly that
+ *    panel type, because every row id is a canvas option node id by
+ *    construction (`useResultsSectionData.ts:1726`, `:1783`).
+ *  · What the unfenced panel gives a reader is what a comparison row cannot:
+ *    the intervention rows, the connection rows, the coaching card and the
+ *    "Add a change" trigger, all live. `OptionPanel.readOnlyFence.spec.tsx`
+ *    pins that as a PAIR — every writer fenced, every non-writer reachable —
+ *    so the panel cannot satisfy it by fencing everything or nothing.
+ *
+ * So the old tab's literal wording is now a promise the destination CAN keep,
+ * and the row makes it: the camera settles on the option and its panel opens
+ * onto it. The `aria-label` names BOTH halves, because a control whose name
+ * covers one of its two effects is this same defect one size down.
+ *
+ * ⚠ THE SIBLING RE-POINT IS NOT REVERSED BY THIS, and citing it as though it
+ * were would repeat the inherited-premise error in the other direction.
+ * `TriageActionCardsBody`'s act is a FACTOR VALUE EDIT and its destination is
+ * the Model tab; that decision stands on grounds its own comment never gave (it
+ * must serve `factor-observable`, which is still fenced), and only its stated
+ * reason was wrong. Two surfaces, two questions — CLAUDE.md trap 21. Do not
+ * align them.
  *
  * ⚠ AND THE AFFORDANCE IS NOT NARRATED. No hint line was added: the dock floor is
  * 280px, and a sentence telling the reader what hovering does is one more thing to
@@ -118,11 +146,12 @@
  * self-teaching, and the sentence a screen reader needs is the button's name.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useId, useState } from 'react'
 import { Scale, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { openNodeInspector } from '../../../../canvas/nodes/shared/openNodeInspector'
 import { clearHighlight, highlightNode } from '../../../../canvas/utils/highlightHelpers'
 import {
   BRING_INTO_COMPARISON_LABEL,
@@ -139,8 +168,19 @@ import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import type { OptionOrigin } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
-import { action } from '../panelSurfaces'
+import { PanelFigure } from '../PanelFigure'
+import { action, icon } from '../panelSurfaces'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+
+/**
+ * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
+ *
+ * The control maps it, the arrow keys index it, and the order IS the semantics —
+ * low to high across the same range. A second literal would let the keyboard
+ * traverse an order the eye does not see.
+ */
+const RANGE_LENS_ARMS = ['cautious', 'middle', 'optimistic'] as const
+type RangeLensArm = (typeof RANGE_LENS_ARMS)[number]
 
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
@@ -200,6 +240,39 @@ export function OptionsComparison({
   const showToast = useShowToastSafe()
 
   /**
+   * ⭐⭐ THE LENS ARM — WHICH END OF EACH RANGE THE DOT MARKS.
+   *
+   * Paul's instruction was to bring the Analysis tab's lens onto this tab. What
+   * came across is the QUESTION it asks ("read this run cautiously or
+   * optimistically?"), not its implementation, because that implementation
+   * shipped two P1s: a control claiming a ranking `sortOptionsForDisplay` never
+   * performed (ROADMAP 2.237) and a crown rendered under a sentence declaring
+   * the lens had no data (2.238).
+   *
+   * ⛔ SO THIS ARM MOVES ONE DOT AND NOTHING ELSE. It does not reorder the
+   * rows, does not crown an option, does not change a readout, and makes no
+   * claim in units — the row order and every number on screen are byte-identical
+   * across the three arms. That is the whole difference between a lens that
+   * improves a reading and one that asserts a different answer.
+   *
+   * ⛔⛔ DECLARED HERE, ABOVE `if (options.totalCount === 0) return null`,
+   * BECAUSE I FIRST PUT IT BELOW AND CI WAS RIGHT TO REJECT IT.
+   * `react-hooks/rules-of-hooks` caught `useState` and `useId` called
+   * CONDITIONALLY: a render with no options returns before them, so the hook
+   * order differs between renders and React's state slots mis-align. It reads
+   * like a lint nit and it is a crash waiting for the first run that goes from
+   * some options to none. Hooks belong above every early return, always.
+   *
+   * ⚠ LOCAL, NOT LIFTED. Nothing else on the panel reads it and no producer
+   * supplies it, so a store would be a second authority over a presentational
+   * choice. If a sibling surface ever needs the same arm, lift it then — with a
+   * reason — rather than pre-building the seam.
+   */
+  const [rangeAppetite, setRangeAppetite] = useState<RangeLensArm>('middle')
+  const rangeLensId = useId()
+
+
+  /**
    * ⭐ THE ACT, AND IT FAILS LOUDLY OR NOT AT ALL.
    *
    * `focusModelTarget` is fail-CLOSED: it returns `false` and moves nothing when
@@ -223,7 +296,24 @@ export function OptionsComparison({
    */
   const activate = useCallback(
     (optionId: string) => {
-      if (!focusModelTarget(optionId)) showToast(COPY.canvas.focusFailed)
+      if (!focusModelTarget(optionId)) {
+        showToast(COPY.canvas.focusFailed)
+        return
+      }
+      /*
+       * ⭐ THE PANEL, RAISED ONTO A SETTLED SELECTION — the ordering is
+       * `openNodeInspector`'s own stated rule and it holds across this seam too.
+       *
+       * ⚠ ITS RETURN IS NOT DISCARDED CARELESSLY, which the paragraph above
+       * rightly bans. It is fail-closed on the SAME question the line above just
+       * answered: `focusModelTarget`'s first branch is
+       * `nodes.some(n => n.id === targetId)` and `openNodeInspector`'s guard is
+       * that identical predicate, so a second notice here could only fire on a
+       * divergence the resolver cannot produce for these ids — an option row's
+       * id is a canvas option node id by construction. One act, one notice; two
+       * notices for one stale click would be the louder defect.
+       */
+      openNodeInspector(optionId)
     },
     [showToast],
   )
@@ -371,6 +461,40 @@ export function OptionsComparison({
    * runs silently unaccounted for.
    */
   const PARTITION_TOLERANCE = 0.01
+  /**
+   * ⭐⭐ ONE SCALE FOR EVERY BAR, OR THE BARS LIE.
+   *
+   * The whole point of drawing ranges is that a reader can see two of them
+   * OVERLAP. Per-row normalisation would give every option a full-width bar and
+   * destroy exactly the comparison the drawing exists to make — the same defect
+   * as the old tornado chart, which rescaled one option's spread per factor.
+   *
+   * ⚠ NULL UNLESS AT LEAST TWO ROWS CARRY A RANGE. A single bar has nothing to
+   * be compared against, and a lone full-width track reads as a measurement of
+   * something rather than as one option's spread.
+   *
+   * ⚠ A ZERO-WIDTH DOMAIN IS REFUSED rather than divided by. If every option
+   * shares one p10 and one p90 the denominator is 0; there is no honest bar for
+   * that, and `null` draws nothing.
+   */
+  const rangeScale = (() => {
+    const ranges = options.rows.flatMap((r) =>
+      // ⚠ `!= null`, LOOSE, AND IT IS NOT A STYLE CHOICE. `outcomeRange` is
+      // REQUIRED on the type, but fixtures across the suite build these rows
+      // without it, so at runtime the value is `undefined` — which passes a
+      // strict `!== null` and then throws on `.p10`. CI caught exactly that:
+      // "Cannot read properties of undefined (reading 'p10')", six times.
+      // A field being required in TypeScript is not a guarantee about a value
+      // arriving from a fixture, a cast, or an older cached view model.
+      r.kind === 'analysed' && r.outcomeRange != null ? [r.outcomeRange] : [],
+    )
+    if (ranges.length < 2) return null
+    const lo = Math.min(...ranges.map((r) => r.p10))
+    const hi = Math.max(...ranges.map((r) => r.p90))
+    if (!(hi > lo)) return null
+    return { lo, hi, span: hi - lo }
+  })()
+
   const partition = (() => {
     const analysed = options.rows.filter(
       (r): r is Extract<typeof r, { kind: 'analysed' }> => r.kind === 'analysed',
@@ -480,18 +604,11 @@ export function OptionsComparison({
           and still a clear break between the bar and the rows it partitions. */}
       {mayDrawMagnitude && partition !== null ? (
         <div className="mb-2" data-testid={`${testId}-partition`}>
-          <span
-            className="flex h-2 w-full gap-[2px] rounded-full overflow-hidden bg-panel-hover"
-            aria-hidden="true"
-          >
-            {partition.map((p) => (
-              <span
-                key={p.id}
-                className="block h-full bg-info first:rounded-l-full last:rounded-r-full"
-                style={{ width: `${p.fraction * 100}%`, ...(p.fraction > 0 ? { minWidth: '2px' } : {}) }}
-              />
-            ))}
-          </span>
+          <PanelFigure
+            variant="partition"
+            segments={partition}
+            testId={`${testId}-partition-bar`}
+          />
           <p
             className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
             data-testid={`${testId}-partition-caption`}
@@ -550,7 +667,37 @@ export function OptionsComparison({
                    claim about the model. */
                 onFocus={() => highlightNode(o.id)}
                 onBlur={clearHighlight}
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                /* ⭐ 24px MINIMUM, MEASURED ON THE DEPLOYED BUILD RATHER THAN
+                   ASSUMED. `62879fc1`, prototype route: this control rendered
+                   **20px high, six of six** — and after #1668 and #1708 repaired
+                   `trust-line-open-method` (131×15 → 147×24) and
+                   `model-strip-target-edit` (→ 76×24), it was the ONLY target on
+                   the whole panel still under WCAG 2.2 AA's 24×24: 6 of 36
+                   interactive targets, all of them this one.
+
+                   ⛔ PADDING ALONE, AND NO `min-h-[24px]` HERE — the literal is
+                   BANNED in this file. `everyInlineActIsReachableByTouch` sweeps
+                   every section carrying `action('inline')` and fails on a
+                   hand-rolled touch target, because the tier is meant to be the
+                   single owner. This control cannot take a tier (it is the
+                   option's NAME, and `inline`'s underline + `text-info` would
+                   repaint it), so the 24px comes from padding, measured on the
+                   deployed DOM rather than asserted: 20 → 24 on all six.
+
+                   ⚠ 2px OF PADDING, AND EXPLICITLY NOT
+                   `inline-flex items-center`. Centring the label that way was my
+                   first draft and it is wrong here: this button is already a
+                   flex ITEM (`flex-1`) whose CONTENTS are inline — a wrapping
+                   label and an inline origin mark. Making it a flex CONTAINER
+                   turns those into flex items side by side, which changes how a
+                   long option name wraps. Padding reaches the same 24px and
+                   leaves inline flow exactly as it was.
+
+                   ⚠ 4px PER ROW IS THE WHOLE COST, and it is paid deliberately
+                   in the block this lane is otherwise trying to SHORTEN. `min-h`
+                   rather than `h` because the label wraps: a fixed height would
+                   clip the second line. */
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
@@ -566,7 +713,7 @@ export function OptionsComparison({
                     data-option-origin={o.origin}
                     className="ml-1 inline-flex align-[-2px] text-text-light"
                   >
-                    <Sparkles className="w-3 h-3" aria-hidden="true" />
+                    <Sparkles className={`${icon('inline')}`} aria-hidden="true" />
                   </span>
                 ) : null}
               </button>
@@ -642,82 +789,57 @@ export function OptionsComparison({
                 THIS RUN may put a comparative magnitude on screen. Either one
                 alone would be the wrong gate. */}
             {mayDrawMagnitude && o.kind === 'analysed' && o.winFraction !== null ? (
-              <span
-                /**
-                 * ⭐⭐ 8px, NOT 4px — AND THE HEIGHT IS THE DEFECT, NOT A TASTE.
-                 *
-                 * This was `h-1`. Four pixels of track behind a fill the same
-                 * colour weight as the panel's furniture is not a figure a
-                 * reader can measure; it is a rule with a tint on it. Paul,
-                 * 2026-09-11, on the deployed tab: the lower half is *"just a
-                 * big lump of text"* and *"not an actual tool for enhancing
-                 * critical creative thinking or visualising information"* — and
-                 * for this section that is a geometry finding, because the
-                 * comparison it is named for WAS being drawn, at a size that
-                 * reads as absent.
-                 *
-                 * ⚠⚠ `h-2` IS DERIVED FROM THIS SURFACE, NOT IMPORTED FROM THE
-                 * OTHER TAB. `DriverInfluenceChart.tsx:227` is the Reasoning
-                 * tab's own bar figure and it is `h-2`; it mounts in this very
-                 * body (`AnalysisNewTabBody.tsx:1493`), one section away. So the
-                 * two bar figures on one surface now agree, and the number came
-                 * from a sibling rather than from preference.
-                 *
-                 * ⛔ THE ANALYSIS TAB'S TREATMENT WAS DELIBERATELY NOT COPIED.
-                 * `WinGauge` is the reference for the SHAPE — a proportional
-                 * fill on a shared baseline — and its radii, paddings and
-                 * container styling stay where they are. #1346 removed seven
-                 * container treatments that carried one meaning between them and
-                 * ruled GEOMETRY IS GRAMMAR AND IS FIXED, TONE IS MEANING AND
-                 * VARIES (`panelSurfaces.ts:23`); importing a second tab's
-                 * geometry to fix a figure would re-open that drift two days
-                 * after it was closed. The shape is borrowed, the grammar is
-                 * this surface's.
-                 *
-                 * ⚠ NOT TALLER THAN THE SIBLING, EITHER. A bar bigger than the
-                 * driver chart's would make this section the loudest thing on
-                 * the panel, and the file header's own rule is that the NAME
-                 * leads and the share qualifies it — the same anchoring argument
-                 * that keeps the readout at `panelMeta`.
-                 */
-                className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
-                aria-hidden="true"
-                data-testid={`${testId}-bar`}
-              >
-                <span
-                  className="block h-full rounded-full bg-info"
-                  /**
-                   * ⭐⭐ THE GEOMETRY IS FLOORED BECAUSE THE READOUT IS.
-                   *
-                   * This was `Math.round(winFraction * 100)`, and it shipped a
-                   * measured non-zero share as a 0px fill. Browser-witnessed on
-                   * deployed `ce32426c`, guest, real 4-option run: the row read
-                   * "< 1%" beside a 371px track with `width: 0%`. One row, one
-                   * quantity, two contradictory claims — and precisely what the
-                   * comment above says this component refuses.
-                   *
-                   * `formatProbabilityWithResolution` floors the READOUT so a
-                   * measured tiny share never prints as "0%". Rounding the
-                   * WIDTH re-opened that exact falsehood in the one channel the
-                   * eye reads first — the defect `formatPercent.ts`'s own header
-                   * documents by name (ROADMAP 2.236): the same number honest in
-                   * one place and "0%" in another.
-                   *
-                   * ⚠ TWO DIRECTIONS, AND THEY MUST NOT COLLAPSE. A genuine
-                   * measured zero MUST render an empty track — "came out ahead
-                   * in 0% of simulated scenarios" is true, and the floor exists
-                   * to stop a non-zero value reading as zero, never to stop zero
-                   * reading as zero. So the minimum is applied ONLY when the
-                   * fraction is strictly positive, and the rounding is gone so a
-                   * small share keeps its own width rather than borrowing the
-                   * floor's.
-                   */
-                  style={{
-                    width: `${o.winFraction * 100}%`,
-                    ...(o.winFraction > 0 ? { minWidth: '2px' } : {}),
-                  }}
-                />
-              </span>
+              <PanelFigure
+                variant="share"
+                className="mt-1"
+                fraction={o.winFraction}
+                testId={`${testId}-bar`}
+              />
+            ) : null}
+
+            {/* ⭐⭐ THE RANGE THIS OPTION ACTUALLY PRODUCED.
+                The share above says how OFTEN this option came top. This says
+                how WIDE the outcome was when it did — and where two of these
+                overlap, the ordering the shares imply is not settled. Measured
+                on a real run: RudderStack p10 −0.163 / p90 0.211 against
+                Segment −0.235 / 0.188, printed as "56%" beside "36%".
+
+                ⚠ PRESENTATIONAL ONLY, AND IT MAKES NO CLAIM IN UNITS. No
+                number is printed from these percentiles: the goal target may be
+                in currency, a count or a normalised scale, and this section
+                does not know which. The bar says WHERE and HOW WIDE relative to
+                the other options, which is exactly what the reader needs to see
+                an overlap, and nothing more. */}
+            {o.kind === 'analysed' && o.outcomeRange != null && rangeScale !== null ? (
+              (() => {
+                // ⭐ THE ONLY ARITHMETIC THAT STAYS HERE: turning this option's
+                // percentiles into positions on the SHARED domain. `PanelFigure`
+                // is handed fractions and never sees a p10 — which is what keeps
+                // its "claims nothing in units" rule true by construction rather
+                // than by every call site remembering it.
+                const toFraction = (v: number) => (v - rangeScale.lo) / rangeScale.span
+                const markAt =
+                  rangeAppetite === 'cautious'
+                    ? o.outcomeRange.p10
+                    : rangeAppetite === 'optimistic'
+                      ? o.outcomeRange.p90
+                      : o.outcomeRange.p50
+                return (
+                  <PanelFigure
+                    variant="range"
+                    className="mt-1"
+                    band={{
+                      start: toFraction(o.outcomeRange.p10),
+                      end: toFraction(o.outcomeRange.p90),
+                      // `!= null`, loose: p50 is `number | null` on the producer
+                      // path but `undefined` from hand-built fixtures.
+                      marker: markAt != null ? toFraction(markAt) : null,
+                    }}
+                    markerData={{ 'data-lens-arm': rangeAppetite, 'data-mark-at': String(markAt) }}
+                    testId={`${testId}-outcome-range-${o.id}`}
+                  />
+                )
+              })()
             ) : null}
 
             {/* ⭐⭐ THE OTHER QUESTION — "does this reach the target I set?"
@@ -767,31 +889,12 @@ export function OptionsComparison({
                     {o.goalReadout}
                   </span>
                 </div>
-                <span
-                  /* The sibling's geometry exactly — same height, same track,
-                     same radius. Two figures of the same weight read as two
-                     answers to two questions; a different treatment would read
-                     as one of them mattering more, which is a claim neither the
-                     producer nor this panel makes. */
-                  className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
-                  aria-hidden="true"
-                  data-testid={`${testId}-goal-bar`}
-                >
-                  <span
-                    className="block h-full rounded-full bg-info"
-                    /* The floor rule the sibling derives, applied for the same
-                       reason: `formatGoalProbability` floors the READOUT so a
-                       measured tiny probability never prints as "0%", and
-                       rounding the WIDTH would re-open that falsehood in the
-                       channel the eye reads first. Applied only when the
-                       fraction is strictly positive — a measured zero must draw
-                       an empty track, because that is true. */
-                    style={{
-                      width: `${o.goalFraction * 100}%`,
-                      ...(o.goalFraction > 0 ? { minWidth: '2px' } : {}),
-                    }}
-                  />
-                </span>
+                <PanelFigure
+                  variant="goal"
+                  className="mt-1"
+                  fraction={o.goalFraction}
+                  testId={`${testId}-goal-bar`}
+                />
                 {/* Display-honesty (ROADMAP 1.6b / PLoT #204): the figure is
                     scored from a modelled forward-propagated outcome
                     distribution rather than a directly-set starting value, and
@@ -951,8 +1054,122 @@ export function OptionsComparison({
           data-testid={`${testId}-option-origin-legend`}
           data-option-origin={sharedOrigin}
         >
-          <Sparkles className="w-3 h-3 shrink-0" aria-hidden="true" />
+          <Sparkles className={`${icon('inline')} shrink-0`} aria-hidden="true" />
           {OPTION_ORIGIN_COPY[sharedOrigin]}
+        </p>
+      ) : null}
+
+      {/* ⭐⭐ THE SENTENCE THE BARS EXIST FOR.
+          Without it the ranges are decoration; with it they are an argument.
+          "Where ranges overlap, treat the order as unsettled" is the one line
+          on this section that tells a reader when NOT to trust the ordering the
+          percentages above imply — which is the difference between a tool that
+          ranks options and a tool that improves reasoning.
+
+          ⚠ Rendered only alongside the bars it describes. A legend for
+          something not on screen is furniture, the defect this panel has
+          adjudicated out twice (the empty zone label, "Nothing addressed yet").
+
+          ⚠ It describes the DRAWING, not the numbers. No units are claimed,
+          because this section does not know the goal's units — see the bar. */}
+      {/* ⭐⭐ THE CONTROL AND ITS LEGEND SHARE ONE GATE, because they describe
+          the same drawing. `rangeScale === null` means fewer than two rows carry
+          a range, or the domain has no width — in both states there are no dots
+          to read, so an arm control would offer three views of nothing. That is
+          the 2.238 defect in its general form: an affordance live while the view
+          it governs is unavailable. Absent, never disabled, never defaulted. */}
+      {rangeScale !== null ? (
+        <div className="mt-1 flex items-center gap-1 flex-wrap">
+          <span
+            id={`${rangeLensId}-label`}
+            className={`${typography.panelMeta} text-text-light mr-1`}
+          >
+            {COPY.optionFigures.rangeLensLabel}
+          </span>
+          {/* ⚠⚠ THE ARROW KEYS ARE IMPLEMENTED, NOT ASSUMED. `role="radio"` is a
+              PROMISE to a screen-reader user about how the control behaves; ARIA
+              supplies the announcement and none of the behaviour. A radiogroup
+              without roving tabindex and arrow traversal tells an assistive-tech
+              user to press the arrow keys and then ignores them — a control that
+              announces an affordance it does not have, which is the same defect
+              class this section already polices in its figures.
+
+              ⚠ ONE TAB STOP, WHICH IS THE OTHER HALF OF THE PATTERN. Three
+              separately-tabbable arms would make a keyboard user traverse the
+              lens to reach the rows; the selected arm holds the only `tabIndex`
+              of 0, exactly as a native radio group does.
+
+              ⚠ 24px MINIMUM. The panel carries a measured finding that 7 of 17
+              interactive targets were under WCAG 2.2 AA's 24×24; a new control
+              arriving under it would re-open a defect this lane is mid-way
+              through closing. */}
+          <div
+            role="radiogroup"
+            aria-labelledby={`${rangeLensId}-label`}
+            className="flex items-center gap-1"
+            data-testid={`${testId}-range-lens`}
+          >
+            {RANGE_LENS_ARMS.map((arm, i) => {
+              const selected = rangeAppetite === arm
+              return (
+                <button
+                  key={arm}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setRangeAppetite(arm)}
+                  onKeyDown={(e) => {
+                    const step =
+                      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                        ? 1
+                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                          ? -1
+                          : 0
+                    if (step === 0) return
+                    e.preventDefault()
+                    // Wraps, as a native radio group does.
+                    const next =
+                      RANGE_LENS_ARMS[
+                        (i + step + RANGE_LENS_ARMS.length) % RANGE_LENS_ARMS.length
+                      ]
+                    setRangeAppetite(next)
+                    // Selection FOLLOWS focus here, so focus must follow with
+                    // it — otherwise the arm a screen reader announces and the
+                    // arm the group considers current diverge after one press.
+                    e.currentTarget.parentElement
+                      ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
+                      ?.focus()
+                  }}
+                  /* ⛔ THE TIER OWNS THE TOUCH TARGET. My first version spelled
+                     `min-h-[24px] … inline-flex items-center` out here, which is
+                     the exact arrangement `everyInlineActIsReachableByTouch`
+                     bans: *"if a later call site hand-rolls its own touch
+                     target, the tier is no longer the single owner and the next
+                     one added will miss it again."* That is how the 133×15
+                     review-estimates control happened, in this same directory.
+                     `no-underline` because an underline is `quiet`'s emphasis
+                     for a text link and reads wrong on a segmented control —
+                     the same override the Strengthen row toggle uses. */
+                  className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                  }`}
+                  data-arm={arm}
+                  data-testid={`${testId}-range-lens-${arm}`}
+                >
+                  {COPY.optionFigures.rangeLensArms[arm]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+      {rangeScale !== null ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+          data-testid={`${testId}-outcome-range-legend`}
+        >
+          {COPY.optionFigures.rangeLegend(rangeAppetite)}
         </p>
       ) : null}
     </SectionShell>

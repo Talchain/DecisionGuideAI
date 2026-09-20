@@ -42,6 +42,46 @@ function getConfidenceBand(std: number | undefined): { label: string; color: str
   return { label: 'Low confidence', color: 'bg-danger' }
 }
 
+/**
+ * ⛔⛔ ONE OF THREE UNRECONCILED STRENGTH VOCABULARIES — LEFT IN PLACE BECAUSE
+ * THIS COMPONENT IS DARK (18 Sep 2026, during the one-vocabulary
+ * consolidation).
+ *
+ * ⚠⚠ THIS NOTE SAID "A FIFTH", AND THAT WAS WITHDRAWN BEFORE MERGE. "A fifth"
+ * asserts this was the only table left over. It is one of THREE — the others
+ * are `shared/TriageCard.tsx:195` and `shared/ScientificEditor.tsx:21`, both
+ * also dark, on different cuts again. A count minted from a partial sweep is
+ * CLAUDE.md trap 20: the over-read happens in the act of RECORDING, and a
+ * number in a comment is what the next lane inherits. **The full manifest, its
+ * probe, its contrast control and its exclusions live in ONE place** — the
+ * closing block of `domain/vocabulary.ts`, beside the canonical table. Do not
+ * keep a second copy of it here.
+ *
+ * WHY THIS ONE IS DARK, measured with the instrument's own contrast control:
+ * `KeyRelationships` has ZERO product call sites — the only `import` and the
+ * only ten `<KeyRelationships` usages in `src/` and `e2e/` are in its own spec.
+ * The probe is not blind: the same greps returned those eleven hits. So nothing
+ * below reaches a user, and changing it would spend a change on code the
+ * product does not render.
+ *
+ * WHAT IS WRONG WITH IT, so the gap is recorded rather than lost. Three
+ * disagreements with the canonical table (`CANVAS_STRENGTH_BANDS`,
+ * `domain/vocabulary.ts`):
+ *   · WORDS  — "Weakly / Moderately / Strongly". The product retired "weak" and
+ *     speaks four adjectives, Slight / Moderate / Strong / Very strong.
+ *   · CUTS   — `getBand` cuts at 0.25 / 0.60 against the contract's
+ *     0.20 / 0.40 / 0.70, so `|0.22|` reads "Weakly" where the inspector beside
+ *     it says "Moderate", and `|0.45|` reads "Moderately" against "Strong".
+ *   · WRITES — the buttons write 0.15 / 0.40 / 0.70, not the canonical
+ *     midpoints, so "Weakly" would stamp a number the inspector calls "Slight".
+ *
+ * ⚠ IF THIS COMPONENT IS EVER MOUNTED, IT MUST BE REBUILT ON THE CANONICAL
+ * TABLE FIRST — import `CANVAS_STRENGTH_BANDS` and `getCanvasStrengthBand`,
+ * render `band.label`, write `band.midpoint`, and delete both constants below.
+ * It is a strength-SETTING surface, which is the one kind that cannot be
+ * allowed a private vocabulary: a divergent cut here does not merely mislabel,
+ * it attributes a fabricated number to the user.
+ */
 const STRENGTH_BANDS = [
   { key: 'weak' as const, label: 'Weakly', value: 0.15 },
   { key: 'moderate' as const, label: 'Moderately', value: 0.40 },

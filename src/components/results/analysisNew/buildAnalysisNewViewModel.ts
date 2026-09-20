@@ -87,6 +87,7 @@ import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
+import { DRIVER_FINDING_ID_PREFIX } from './driverSubjectCount'
 import type { OptionOrigin } from './optionOriginDisclosure'
 import {
   ANALYSIS_NEW_COPY as COPY,
@@ -577,7 +578,7 @@ function driverFinding(
    */
 
   return {
-    id: `driver:${d.factorKey}`,
+    id: `${DRIVER_FINDING_ID_PREFIX}${d.factorKey}`,
     headline: d.factorLabel,
     // ⚠ Rule 2. Under a set-relative basis this says "among the strongest in
     // this run" — a RANK claim. It never says "drives N% of the outcome",
@@ -2391,7 +2392,21 @@ function buildAtAGlance(
   const word = rec.robustnessVerdict ? VERDICT_WORD[rec.robustnessVerdict] : undefined
   // The single most informative number on the surface, and it is only licensed
   // alongside an entitled leader — so it is gated on the SAME condition as the
-  // headline, never rendered on its own.
+  // headline.
+  //
+  // ⛔⛔ THIS COMMENT USED TO END "never rendered on its own", AND THAT
+  // GUARANTEE NO LONGER HOLDS. The gate is unchanged and still correct; what
+  // changed is the renderer. Paul's ruling of 18 Sep 2026 deleted the headline
+  // from `AtAGlance` ("delete the conclusion entirely — there shouldn't be a
+  // conclusion"), so the share now renders with nothing above it. Witnessed on
+  // deployed `7ec3fed2`: the glance's entire first line read "Scored highest in
+  // 56% of simulated futures" — a predicate whose subject had been removed.
+  //
+  // ⭐ THE REPAIR IS IN THE SENTENCE, NOT IN THE GATE. Restoring a subject that
+  // NAMES the option would reinstate the conclusion the ruling deleted, so the
+  // sentence below supplies a subject that identifies nobody. The number, its
+  // meaning and its two gates are untouched.
+  //
   // Gated twice: on the leader entitlement AND on scope being establishable.
   const winPct =
     headline && comparisonScope.kind !== 'unresolved'
@@ -2403,7 +2418,7 @@ function buildAtAGlance(
   // probability of reaching the goal. "Achieves your goal in 99%" would have
   // been a worse claim than the contest framing it replaced, so the wording
   // keeps the ranking meaning and drops the contest metaphor only.
-  const winShare = winPct ? `Scored highest in ${winPct} of simulated futures` : null
+  const winShare = winPct ? `One option scored highest in ${winPct} of simulated futures.` : null
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.
@@ -3115,6 +3130,19 @@ function buildOptionsComparison(
         : null,
       goalFraction: goalOnScreen && goalValue !== null ? Math.max(0, Math.min(1, goalValue)) : null,
       goalBasisIsModelled: o.goalFitIsModelledBasis === true,
+      // ⭐ THE RANGE, READ FROM THE OPTION'S OWN OUTCOME DISTRIBUTION.
+      // `o.outcome` is `OptionOutcome` on `OptionResult` — the producer's
+      // forward-propagated percentiles for THIS option, not a rescaling of
+      // somebody else's (see the type's note on the old tornado chart).
+      //
+      // ⚠ BOTH BOUNDS OR NOTHING. A bar needs a start and an end; one bound
+      // present and the other null cannot be drawn honestly, and coalescing
+      // the missing side to 0 would invent a bound at the origin. p50 is
+      // allowed to be absent on its own — the dot is then simply not placed.
+      outcomeRange:
+        typeof o.outcome?.p10 === 'number' && typeof o.outcome?.p90 === 'number'
+          ? { p10: o.outcome.p10, p50: typeof o.outcome.p50 === 'number' ? o.outcome.p50 : null, p90: o.outcome.p90 }
+          : null,
       why,
     })
   }
@@ -3303,6 +3331,13 @@ function dedupeAgainstGlance(
 function buildChecks(
   data: ResultsSectionDataReturn,
   producerWithholdReason: string | null | undefined,
+  /**
+   * ⚠ THREADED FOR `rerunWouldNotHelp` ONLY, and only the ASSERTING value is
+   * load-bearing: `'changed'` states that the model moved, while `'unconfirmed'`
+   * and absence both mean the freshness could not be established — which is not
+   * evidence either way and must not earn a suppression.
+   */
+  staleReason: 'changed' | 'unconfirmed' | null | undefined,
 ): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
@@ -3435,6 +3470,55 @@ function buildChecks(
      */
     leaderWithholdCause:
       leaderCode === 'leader_not_assessed' ? leaderWithholdCause(producerWithholdReason) : null,
+    /**
+     * ⭐ THE FACT, SEPARATE FROM THE NAMEABLE CAUSE — AND THEY ARE DIFFERENT
+     * QUESTIONS.
+     *
+     * `leaderWithholdCause` is null both when the leader was NOT withheld and
+     * when it WAS withheld for a reason this surface cannot name. A consumer
+     * asking "was it withheld?" off that field gets the wrong answer on the
+     * second, and the second is the common case: `withheld_reason` is a
+     * free-form string at the contract and only two values are mapped.
+     *
+     * So the fact gets its own field, from the same gate.
+     */
+    leaderWithheld: leaderCode === 'leader_not_assessed',
+    /**
+     * ⭐⭐⭐ A DIFFERENT QUESTION AGAIN: WOULD RUNNING IT AGAIN CHANGE THIS?
+     *
+     * ⛔ THE DEFECT THIS CLOSES, found by an independent seat on #1759.
+     * `AtAGlance` consumed `leaderWithheld` to decide whether to offer a
+     * re-run, i.e. it read "no leader could be named" as "another run cannot
+     * help". Those are not the same fact, and `leader_not_assessed` covers
+     * BOTH — an assessed durable limitation of the model AND a missing
+     * verdict, an unknown separation, an incomplete or failed result. The
+     * second group is exactly the retryable class the PR promised to preserve,
+     * and it lost its retry.
+     *
+     * ⭐ TWO CONJUNCTS, EACH EVIDENCED, because a suppression must be earned:
+     *
+     *  1. THE CAUSE IS NAMEABLE. `leaderWithholdCause` is non-null only for a
+     *     reason this surface can state — a property of the model or of the
+     *     run's separation. Where the producer named nothing, the cause is
+     *     UNKNOWN, and an unknown cause is not evidence of irrecoverability.
+     *     Fail-open: the retry stays.
+     *
+     *  2. THE MODEL HAS NOT CHANGED SINCE. A withheld result whose model has
+     *     been edited is the ribbon's own recovery case — re-running the edited
+     *     model is precisely what a reader should do. `staleReason === 'changed'`
+     *     is the only value that ASSERTS a change (`'unconfirmed'` and absence
+     *     both mean "we could not establish it", which is not evidence).
+     *
+     * ⚠ AND `leaderWithheld` STAYS, unchanged, because it answers the question
+     * it always answered: may this surface name a leading option? The fix is to
+     * name the questions apart and let each consumer bind to its own — never to
+     * align them, which this estate has already shipped a P1 through
+     * (#709/#737, CLAUDE.md trap 21).
+     */
+    rerunWouldNotHelp:
+      leaderCode === 'leader_not_assessed' &&
+      leaderWithholdCause(producerWithholdReason) !== null &&
+      staleReason !== 'changed',
   }
 }
 
@@ -3684,8 +3768,13 @@ export function buildAnalysisNewViewModel(
     // `buildDeeper` states; the failure mode here is worse because the
     // unassessed states are exactly what this section is FOR.
     checks: preRun
-      ? { items: [], leaderWithholdCause: null }
-      : buildChecks(data, inputs.producerLeaderWithholdReason),
+      ? // ⚠ `leaderWithheld: false` PRE-RUN, and it is a fact rather than a
+        // default: nothing was withheld because nothing was assessed. The
+        // distinction matters downstream — the glance ribbon uses this to
+        // decide whether a re-run could help, and pre-run there is no result
+        // for it to be about.
+        { items: [], leaderWithholdCause: null, leaderWithheld: false, rerunWouldNotHelp: false }
+      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }
 

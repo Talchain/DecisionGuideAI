@@ -51,6 +51,7 @@ import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
 import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { distinctDriverSubjects } from './driverSubjectCount'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewTypes'
@@ -63,6 +64,9 @@ import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
+// The act below takes its geometry from the tier, never from this call site —
+// `everyInlineActIsReachableByTouch` exists to keep that the single source.
+import { action } from './panelSurfaces'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import {
@@ -86,6 +90,8 @@ import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
+import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
+import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -146,6 +152,27 @@ export interface AnalysisNewTabBodyProps {
    * that has not been given the composed value, never a silent "not running".
    */
   isBusy?: boolean
+  /**
+   * ⭐⭐ THE CLIENT HAS STOPPED WAITING FOR THIS RUN — a DIFFERENT fact from
+   * `isBusy`, and the reason it is a third prop rather than a swap.
+   *
+   * `isBusy` reports what the producer last said. This reports what THIS CLIENT
+   * has done about it: its delivery schedule reached
+   * `PROVISIONAL_DELIVERY_DEADLINE_MS` and, in the hook's own words, "past this
+   * the hook stops and writes nothing". A surface cannot derive that from
+   * `isBusy` alone, because `isBusy`'s wire half never expires.
+   *
+   * ⚠ COMPUTED BY THE HOST, NOT HERE, AND CI PROVED IT LOAD-BEARING.
+   * `OutputsDock` subtracts it from ONE identifier that feeds both this body's
+   * `isBusy` and the `AnalysisRunStateCover` mounted directly above it. An
+   * earlier cut bounded only this side; `busyMarkerSharesTheCoversAuthority`
+   * RED'd, and it was right — a skeleton would have kept shimmering over a
+   * sentence saying nothing is coming (trap 21).
+   *
+   * Absent = false: a caller that has not been given it keeps today's
+   * behaviour, never a silent "given up".
+   */
+  waitExhausted?: boolean
   /** The displayed report predates the current model. Freshness only. */
   isStale: boolean
   /**
@@ -611,6 +638,7 @@ export function AnalysisNewTabBody({
   isPreRun,
   isRunning,
   isBusy,
+  waitExhausted,
   isStale,
   staleReason = 'unconfirmed',
   nSamples,
@@ -672,7 +700,37 @@ export function AnalysisNewTabBody({
    * local one; swapping it would test a different run than the one that
    * produced the verdict. Two questions, two flags — see that comment.
    */
+  /**
+   * ⭐⭐ ONE EXPRESSION, EVERY READER — which is why the bound lives HERE and
+   * not beside the sentence it produces.
+   *
+   * Four things downstream ask "is a run in flight?": the `aria-busy` marker,
+   * the running sentence, the suppression of `WhyNoAnalysisYet`, and the
+   * suppression of the run affordance. Bounding only the sentence would leave a
+   * panel that says the analysis never arrived while still marked busy, with
+   * its explanation and its only way out both withheld — i.e. it would move the
+   * contradiction rather than close it.
+   *
+   * ⚠ THE REPORTED VALUE IS KEPT SEPARATELY, because the new sentence needs to
+   * distinguish "no run was ever asserted" from "a run was asserted and this
+   * client gave up on it". Collapsing them would make the exhausted state
+   * indistinguishable from a cold panel.
+   */
   const isBusyNow = isBusy ?? isRunning
+  /**
+   * ⚠ NOT BOUNDED AGAIN HERE, AND CI PROVED WHY. The first cut subtracted the
+   * exhaustion from `isBusyNow` in this file while the host still handed the
+   * COVER the unbounded value, and `busyMarkerSharesTheCoversAuthority` — a
+   * source scan that exists for exactly this pair — RED'd with "the marker and
+   * the cover must read ONE authority". The host now bounds both with one
+   * identifier, so `isBusy` arrives already correct and this line is unchanged
+   * from before the fix.
+   *
+   * `waitExhausted` therefore says only WHY the panel is not busy, which is the
+   * one thing `isBusy` cannot carry: a cold panel and an abandoned run are both
+   * "not busy" and need different sentences.
+   */
+  const runWaitExhausted = !isBusyNow && waitExhausted === true
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -1422,8 +1480,27 @@ export function AnalysisNewTabBody({
         {vm.status.isPreRun ? (
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
             <p className={`${typography.panelBody} text-text-body`}>
-              {isBusyNow ? COPY.status.running : COPY.status.preRun}
+              {isBusyNow
+                ? COPY.status.running
+                : runWaitExhausted
+                  ? COPY.status.waitExhausted
+                  : COPY.status.preRun}
             </p>
+            {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
+                "This analysis has not reached this page." on its own reads as a
+                fault the reader caused. This line says what the client actually
+                knows — that the run may well have completed somewhere it could
+                not be sent from — and names the one act that can change it.
+
+                ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
+                stays in every state and describes what the panel is FOR; this
+                describes what happened to one run, and only in the state where
+                something did. */}
+            {runWaitExhausted ? (
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {COPY.status.waitExhaustedWhy}
+              </p>
+            ) : null}
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
             {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
                 sentences above orient a reader who has not run one yet; neither
@@ -1433,6 +1510,40 @@ export function AnalysisNewTabBody({
             {isBusyNow ? null : (
               <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
             )}
+            {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
+                This block states the blocker — "No analysis has run yet" — and
+                until now offered no way past it, on the FIRST SCREEN a new user
+                meets. `onReanalyse` was already passed to this body
+                (`OutputsDock` hands it `handleRunAnalysis`) and reached only
+                `AtAGlance`, which ZONE: ANSWER gates off pre-run. So the handler
+                was present and unreachable in the one state that needs it.
+
+                ⛔ WITNESSED, which is why this is not a nicety: a user sent a
+                brief, read a substantial coaching reply, and concluded an
+                analysis had run. CEE was returning a `run_analysis` suggested
+                action on that very turn. The panel rendered seven "Methods you
+                can run" and no way to run the analysis.
+
+                ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. `blockedListing`
+                is null exactly when the gate does not block — `WhyNoAnalysisYet`
+                documents that contract — so when it is non-null the remedy is
+                resolving those blockers, which the listing above already offers
+                with focus targets. Offering a button that refuses is the defect
+                one level down, and this panel has adjudicated it out twice.
+
+                ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
+                renders nothing rather than a control that does nothing — the
+                same fail-closed shape `onSendMessage` uses one section over. */}
+            {!isBusyNow && blockedListing == null && onReanalyse ? (
+              <button
+                type="button"
+                onClick={onReanalyse}
+                className={`${typography.panelMeta} ${action('primary')} mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid="analysis-new-status-pre-run-act"
+              >
+                {COPY.status.preRunRunAction}
+              </button>
+            ) : null}
           </div>
         ) : null}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
@@ -1568,7 +1679,23 @@ export function AnalysisNewTabBody({
             label = 0 characters, every one). A zone label is a heading like any
             other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
             it was breaking, and the fix is the gate, not a wider ceiling. */}
-        {focusApplicableIds.length > 0 ? (
+        {/* ⛔⛔ THE GATE WIDENED, AND THE RULE IT PROTECTS IS UNCHANGED.
+            This read `focusApplicableIds.length > 0`, because the comment above
+            is right that a zone label over nothing is the defect. `Focus now`
+            now heads something on EVERY run: `MethodsYouCanRun` renders the
+            static `METHOD_CATALOGUE`, which is never empty. So the heading still
+            claims something that is under it — the gate moved, the rule did not.
+
+            ⭐ PAUL'S INSTRUCTION, 18 Sep 2026: "make it first-screen — put it in
+            ZONE: FOCUS." It was in ZONE: ALSO, below the fold. This zone renders
+            above the answer, so the methods are now the first thing under the
+            decision itself.
+
+            ⚠ THE NUDGES KEEP THEIR OWN GATE, inside. They are run-specific and
+            frequently absent; the methods are not. Two different questions, and
+            folding them into one gate is what would bring the heading-over-
+            nothing defect back. */}
+        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
           <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
@@ -1581,7 +1708,15 @@ export function AnalysisNewTabBody({
             >
               Focus now
             </p>
-            <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
+                specific to THIS model; the methods are always available. A
+                reader who has a run-specific prompt should meet it before the
+                general shelf — prominence for the shelf was the instruction,
+                not precedence over the run. */}
+            {focusApplicableIds.length > 0 ? (
+              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            ) : null}
+            <MethodsYouCanRun />
           </div>
         ) : null}
 
@@ -1611,6 +1746,35 @@ export function AnalysisNewTabBody({
             requires each zone to be strictly tighter than the column and on the
             sanctioned scale; it does NOT require the zones to match, and 8px
             satisfies both. Worth 16px of fold margin across four gaps. */}
+        {/* ⛔⛔ A ZONE LABEL NEEDS A ZONE — AND I CREATED THIS DEFECT YESTERDAY.
+            #1711 gated `TrustLine` off the pre-run state, correctly: it was
+            claiming "How far this holds was not established · 0 checks ran ·
+            0 open questions" about a result that did not exist. What I did not
+            check is that `TrustLine` was this zone's ONLY pre-run occupant, so
+            removing it left "What your model shows" heading nothing, running
+            straight into "Also worth doing".
+
+            ⛔ WITNESSED BY PAUL ON THE SERVED BUILD within an hour of that merge,
+            in the screenshot he took to confirm the fix worked. The fix DID work;
+            it opened this beside it. A change that removes the last child of a
+            labelled group has to be checked against the GROUP, not only against
+            the child — the guard I wrote for ZONE: FOCUS in #1694 says exactly
+            this ("a zone label over nothing is the defect") and I did not apply
+            my own rule one zone over.
+
+            ⭐ THE PREDICATE IS SEMANTIC, NOT A CONTENT SNIFF. This zone is
+            "What your model shows" — every child of it is analysis output
+            (`AtAGlance`, `WhatsChanged`, drivers, options, robustness, the
+            sensitivity section). A pre-run state has no analysis, so the zone
+            has nothing to show BY DEFINITION rather than by coincidence. Gating
+            on `isPreRun` therefore cannot go stale the way a hand-listed
+            "does any child render?" conjunction would (trap 12).
+
+            ⚠ EVERY POST-RUN PATH IS UNTOUCHED, including a withheld run — which
+            is the one that matters most here, because that is where `AtAGlance`
+            carries "no option can be called the leader until you have set at
+            least one". */}
+        {vm.status.isPreRun ? null : (
         <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
@@ -1642,6 +1806,10 @@ export function AnalysisNewTabBody({
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
+          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
+             passed because they answer different questions and the section uses
+             each for its own. */
+          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
           onReanalyse={onReanalyse}
           /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
              IT — and not the verdict itself. `reanalyseBlocked` is
@@ -1770,7 +1938,14 @@ export function AnalysisNewTabBody({
             icon={Activity}
             title={COPY.sections.whatMovesTheOutcome}
             subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
-            count={vm.drivers.findings.length + vm.drivers.influenceRows.length}
+            /* ⛔ A COUNT IS A PROMISE. This read
+               `findings.length + influenceRows.length` and so advertised 4 while
+               holding TWO factors — witnessed on deployed `219209ad`. The two
+               lists are one-to-one by this codebase's own stated invariant ("a
+               row can never appear without its bar"), so adding them double-counts
+               every driver. Counted as SUBJECTS, by union, so a future divergence
+               grows the number honestly instead of hiding inside it. */
+            count={distinctDriverSubjects(vm.drivers.findings, vm.drivers.influenceRows)}
             testId="analysis-new-what-moves-the-outcome"
           >
           {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
@@ -1907,6 +2082,31 @@ export function AnalysisNewTabBody({
             producer's verdict and routes to the method; it combines nothing and
             scores nothing. See `TrustLine` for why a single "trust score" is
             the one thing this must never render. */}
+        {/* ⭐⭐ NO TRUST READOUT BEFORE A RUN — AND THIS IS NOT A REVERSAL OF
+            "ABSENCE IS A STATE". `TrustLine`'s own header rules that a missing
+            verdict must SAY the basis was never established rather than render
+            nothing, and that ruling stands untouched for the case it was written
+            about: a run that HAPPENED and returned no verdict. That is a fact
+            about the analysis and the reader deserves it.
+
+            ⛔ IT WAS ALSO FIRING WHERE NO RUN HAD HAPPENED AT ALL, and there the
+            same words make a statement about a result that does not exist.
+            Witnessed by Paul on his own manual test, 18 Sep 2026: the panel said
+            "No analysis has run yet for this model" and then, on the same first
+            screen, "How far this holds was not established · 0 checks ran ·
+            0 open questions". "How far this holds" has no referent there, and
+            the two zeros are the shape this estate's own rule refuses — a count
+            of nothing read as a measurement of nothing.
+
+            ⚠ TWO QUESTIONS UNDER ONE ABSENCE (trap 21). "The producer sent no
+            verdict" and "there is no producer output" are different facts with
+            different honest answers; `verdict === null` cannot tell them apart,
+            so the caller — which knows the run state — makes the distinction and
+            the component stays presentational, as every other section here is.
+
+            ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
+            it, including the no-verdict one. */}
+        {vm.status.isPreRun ? null : (
         <TrustLine
           verdict={vm.atAGlance.verdict}
           checksRan={vm.checks.items.length}
@@ -1914,6 +2114,7 @@ export function AnalysisNewTabBody({
           methodOpen={methodOpen}
           onOpenMethod={() => setMethodOpen(true)}
         />
+        )}
 
         <WhatsChanged view={vm.whatsChanged} />
 
@@ -2085,6 +2286,7 @@ export function AnalysisNewTabBody({
           testId="analysis-new-sensitivity"
         />
         </div>
+        )}
 
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.
