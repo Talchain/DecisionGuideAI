@@ -639,9 +639,16 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
     // so a future merge back into one string REDs rather than quietly
     // reinstating the repetition.
     expect(COPY.checks.leader_not_assessed.meaning).toBe(
-      'Olumi could not confirm which option is most likely on this run.',
+      'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.',
     )
-    expect(caveat).not.toHaveTextContent('Olumi could not confirm which option is most likely on this run.')
+    // ⚠ THE ORDERING CLAUSE BELONGS TO `meaning`, NOT HERE, AND THE REASON IS A
+    // POPULATION. `orderingCaveat` renders only where `noneNumbered` holds;
+    // `meaning` renders on the checklist row for EVERY withheld run. So the
+    // clause that tells a reader what a visible ordering is worth has to sit in
+    // the half that the run WITH figures renders — the first attempt at this
+    // split moved it here and deleted it for that population, and
+    // `withheldIsNotUnassessed.spec.ts` caught it.
+    expect(caveat).not.toHaveTextContent('Olumi could not confirm which option is most likely')
 
     // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
     // 15 Sep 2026, and this case now PINS that independence rather than the
