@@ -1388,4 +1388,72 @@ describe('joinInterventionDetails', () => {
     )
     expect(unwrapInterventionValue(joined)).toMatchObject({ value: 0, displayValue: '£0' })
   })
+
+  /**
+   * ⭐⭐ THE SECOND WIRE SHAPE, AND THE ONE THIS FUNCTION WAS WRITTEN BLIND TO.
+   *
+   * This function's docblock asserts *"CEE does not send a nested intervention"*.
+   * That is FALSE of what the UI receives. Two shapes arrive:
+   *
+   *   FLAT    `interventions = { "<id>": 0.9 }`  + sibling `intervention_details`
+   *           — Paul's live bundles `a039817e` / `d41770fd`.
+   *   NESTED  `interventions = { "<id>": { value: 1, source: "brief_extraction",
+   *           display_value: "Very high (1)" } }`
+   *           — every one of the FIVE committed starters, 70 interventions in
+   *           total, and the shape `src/types/options.ts:79` (`UIInterventionValue`)
+   *           actually declares.
+   *
+   * ⛔ On the nested shape the old body wrote `{ ...detail, value: rawValue }`
+   * where `rawValue` is the whole OBJECT, so `.value` became an object,
+   * `interventionNumericValue` (a finite number, bare or at `.value`) returned
+   * `null` for all 70, and `OptionNode`'s baseline resolver — which drops any
+   * entry whose `value == null` — emptied. That is what took
+   * `e2e/geometry/restoredOldSaveWidth.measure.ts` from 0 to 6 overlapping pairs.
+   *
+   * ⚠ AND WHY NO SPEC SAW IT: the PR's own new spec deliberately used ONLY the
+   * flat shape, on the stated grounds that the nested one is *"the shape the
+   * producer never emits"*. It deleted its own coverage of the shape it then
+   * broke — CLAUDE.md trap 22: a corpus that shares the code's blind spot.
+   */
+  it('keeps the numeric half when interventions carry the NESTED shape (all five starters)', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { fac_build_indicator: { value: 1, source: 'brief_extraction', display_value: 'Very high (1)' } },
+      { fac_build_indicator: { display_value: 'Very high (1)', normalised_value: 1 } },
+    )
+    // The defect: `value` became `{ value: 1, ... }`, so this read `null`.
+    expect(unwrapInterventionValue(joined)).toMatchObject({
+      value: 1,
+      displayValue: 'Very high (1)',
+      source: 'brief_extraction',
+    })
+  })
+
+  it('keeps a NESTED intervention usable when no detail is joined to it', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { fac_dev_time: { value: 0.85, source: 'brief_extraction', display_value: 'Very high (0.85)' } },
+      {},
+    )
+    expect(unwrapInterventionValue(joined)).toMatchObject({ value: 0.85, displayValue: 'Very high (0.85)' })
+  })
+
+  it('a nested value of 0 survives the join — falsy is not absent', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { fac_build_indicator: { value: 0, source: 'brief_extraction', display_value: 'No in-house build pursued' } },
+      { fac_build_indicator: { display_value: 'No in-house build pursued', normalised_value: 0 } },
+    )
+    expect(unwrapInterventionValue(joined)).toMatchObject({
+      value: 0,
+      displayValue: 'No in-house build pursued',
+    })
+  })
+
+  it("the DETAIL's authored string wins over the nested intervention's own, when they differ", () => {
+    // `intervention_details` is the map CEE authors for display; when both
+    // carry a string the detail is the one the producer intends to be printed.
+    const [[, joined]] = joinInterventionDetails(
+      { f1: { value: 18000, display_value: '0.9' } },
+      { f1: { display_value: '£18k', normalised_value: 0.9, raw_value: 18000, unit: '£' } },
+    )
+    expect(unwrapInterventionValue(joined)).toMatchObject({ value: 18000, displayValue: '£18k' })
+  })
 })
