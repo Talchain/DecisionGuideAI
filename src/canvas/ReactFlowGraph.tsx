@@ -100,9 +100,6 @@ import { loadRuns, generateGraphHash } from './store/runHistory'
 import { generateGraphHash as uiGraphHashSeedless } from './utils/graphHash'
 import { useGuidanceStore, setGuidancePersistenceContext } from './stores/guidanceStore'
 import { restoreAnalysisFromAutosave } from './store/restoreAnalysisFromAutosave'
-import { upgradeRestoredRunIdentity } from './store/upgradeRestoredRunIdentity'
-import { listPersistedAnalysisRuns } from '../services/analysisRunHistoryService'
-import { getSessionIdentity } from '../lib/supabase'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
@@ -2178,28 +2175,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             console.warn('[canvas] Failed to restore results via graphHash matching:', e)
           }
         }
-
-        /* ⭐ "CONSUME EXISTING SAVED RUN FACTS" — the plan's Panel line, for the
-           one thing a fact can supply that this path lacks.
-           
-           A `run_analysis` fact carries enrichment, `computed_at` and
-           `graph_hash_at_run` and NO renderable report, so it cannot restore
-           what the panel draws — the three attempts above remain the only
-           restorers. Its row id IS the run's durable identity, and the restore
-           above has just stamped a PLACEHOLDER in that field because
-           `resultsConnecting` has no callers.
-           
-           ⚠ FIRE-AND-FORGET, AFTER the result is already on screen. This is a
-           provenance upgrade the reader never asked for: it must not delay the
-           restore, and every failure path inside leaves the result untouched.
-           A guest skips the read entirely — RLS returns them nothing. */
-        void upgradeRestoredRunIdentity({
-          scenarioId: autosave.scenarioId,
-          computedAt: autosave.analysis?.computedAt,
-          hasSession: async () => (await getSessionIdentity()).userId !== null,
-          readFacts: (id) => listPersistedAnalysisRuns(id),
-          stamp: (runId) => useCanvasStore.getState().resultsStampRunIdentity(runId),
-        })
 
         console.warn('[SCENARIO_STATE]', {
           source: 'autosave',

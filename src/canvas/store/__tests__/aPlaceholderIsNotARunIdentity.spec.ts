@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { analysisSnapshotFromStore } from '../autosaveProjection'
-import { isSyntheticRestoreId, syntheticRestoreId } from '../resolveRunIdentityFromFacts'
+import { isSyntheticRestoreId, syntheticRestoreId } from '../runIdentityPlaceholder'
 
 const complete = (over: Record<string, unknown> = {}) =>
   ({

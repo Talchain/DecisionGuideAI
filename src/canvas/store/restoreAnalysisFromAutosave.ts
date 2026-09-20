@@ -19,7 +19,7 @@
  * evidenced only by the live leave-and-return acceptance recorded in the PR.
  */
 
-import { syntheticRestoreId } from './resolveRunIdentityFromFacts'
+import { syntheticRestoreId } from './runIdentityPlaceholder'
 import type { AutosaveData } from './scenarios'
 import type { RestorableRun } from './runHistory'
 
