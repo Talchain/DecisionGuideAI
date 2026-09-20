@@ -21,7 +21,6 @@
  * destroying a graph that arrived while the chunk was in flight.
  */
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // --- mocks -----------------------------------------------------------------
@@ -61,7 +60,7 @@ vi.mock('../../ToastContext', () => ({
   useShowToastSafe: () => (unstableToastIdentity ? (...a: unknown[]) => showToastMock(...a) : showToastMock),
 }))
 
-import { StarterDecisions, STARTER_LOAD_FAILED_MESSAGE } from '../StarterDecisions'
+import { StarterDecisions } from '../StarterDecisions'
 import { useCanvasStore } from '../../store'
 import { STARTERS } from '../../starters/loadStarter'
 
