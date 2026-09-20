@@ -14,7 +14,7 @@ import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN, optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
-import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, joinInterventionDetails, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../utils/nodeLayoutConstants'
 import {
   describeInterventionDirection,
@@ -642,7 +642,13 @@ export const OptionNode = memo((props: NodeProps) => {
     let interventionEntries: [string, unknown][] = []
 
     if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
-      interventionEntries = Object.entries(ceeOption.interventions)
+      // ⭐ CEE authors the display string for every intervention; print it.
+      // See `joinInterventionDetails` for the measured defects this closes and
+      // why BOTH sides of a comparison must be joined the same way.
+      interventionEntries = joinInterventionDetails(
+        ceeOption.interventions as Record<string, unknown>,
+        (ceeOption as { intervention_details?: Record<string, unknown> }).intervention_details,
+      )
     } else {
       // Fallback: option node data.interventions (pre-CEE state)
       const optionNode = nodes.find(n => n.id === props.id)
@@ -738,10 +744,17 @@ export const OptionNode = memo((props: NodeProps) => {
     )
     if (candidates.length !== 1) return null
     const baselineNode = candidates[0]
-    const raw = ceeAnalysisReady?.options?.find(opt => opt.id === baselineNode.id)?.interventions
-      ?? baselineNode.data?.interventions
+    const baselineCeeOption = ceeAnalysisReady?.options?.find(opt => opt.id === baselineNode.id)
+    const raw = baselineCeeOption?.interventions ?? baselineNode.data?.interventions
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-    const values = Object.fromEntries(Object.entries(raw).flatMap(([factorId, entry]) => {
+    // ⭐ The SAME join as the chip builder. `structuredDeltas` drops any pair
+    // where one side carries an authored string and the other does not, so
+    // joining only the target's map empties the card. One owner, both sides.
+    const rawEntries = joinInterventionDetails(
+      raw as Record<string, unknown>,
+      (baselineCeeOption as { intervention_details?: Record<string, unknown> } | undefined)?.intervention_details,
+    )
+    const values = Object.fromEntries(rawEntries.flatMap(([factorId, entry]) => {
       const unwrapped = unwrapInterventionValue(entry)
       return unwrapped.value == null ? [] : [[factorId, unwrapped] as const]
     }))

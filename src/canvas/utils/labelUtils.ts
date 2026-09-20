@@ -714,6 +714,64 @@ export interface UnwrappedIntervention {
   source: string | null
 }
 
+/**
+ * ⭐⭐ JOIN CEE'S TWO INTERVENTION MAPS INTO THE ONE SHAPE THE CHAIN EXPECTS.
+ *
+ * The producer sends the number and its authored rendering as SIBLINGS:
+ *
+ *   options[i].interventions        = { "<factorId>": 0.9 }        ← flat number
+ *   options[i].intervention_details = { "<factorId>": { display_value: "£18k", … } }
+ *
+ * `unwrapInterventionValue` reads `display_value` off a NESTED intervention and
+ * `formatInterventionTargetText` opens with the F.6 passthrough that renders it
+ * verbatim — but nothing joined the two maps, so on the served path
+ * `displayValue` was always `undefined`, the passthrough could never fire, and
+ * the UI re-derived a native value it cannot know.
+ *
+ * ⚠ MEASURED ON PAUL'S MODEL TWICE IN ONE DAY (20 Sep 2026):
+ *   - `a039817e`: CEE authored `"£18k"`; the card rendered **"£0.9"**, because
+ *     Advertising Spend's baseline is `0` and `inferInterventionScaleBase`
+ *     requires `observedValue > 0`, so the normalised value was printed with
+ *     the unit stuck on it.
+ *   - `d41770fd`: the "Warm Intro via Network" card captioned itself
+ *     *"Investor relationship… is the key difference"* and then did NOT show
+ *     it — CEE had authored `"0.8 scale"`, and with no factor `raw_value` to
+ *     anchor, the UI suppressed the whole intervention.
+ *
+ * ⚠⚠ THIS MUST BE APPLIED TO BOTH SIDES OF A COMPARISON OR IT MAKES THINGS
+ * WORSE. `OptionNode`'s delta chips drop any pair where one side has an
+ * authored string and the other does not (*"a labelled target and an
+ * unlabelled reference may use different frames"*) — so joining only the
+ * target's map deleted every chip on the card. Measured, not reasoned: the
+ * first cut of this fix rendered an empty option card.
+ *
+ * ⭐ ONE OWNER. Both the chip builder and the baseline-reference resolver call
+ * this, so the two sides of a "from → to" can never be built from different
+ * shapes. Do not inline a second copy — that divergence is exactly what
+ * `interventionNumericValue`'s docblock exists to prevent one level down.
+ *
+ * `value` is written LAST so the authoritative numeric half always comes from
+ * `interventions` — the same map the PLoT request edge reads — and a display
+ * can never disagree with the wire, whatever `normalised_value` says.
+ *
+ * @param interventions  the flat `interventions` map (or any object form)
+ * @param details        the sibling `intervention_details` map, when present
+ * @returns entries safe to pass to `unwrapInterventionValue`, unchanged when
+ *          there is no detail to join
+ */
+export function joinInterventionDetails(
+  interventions: Record<string, unknown>,
+  details?: Record<string, unknown> | null,
+): [string, unknown][] {
+  return Object.entries(interventions).map(([factorId, rawValue]) => {
+    const detail = details?.[factorId]
+    if (detail == null || typeof detail !== 'object' || Array.isArray(detail)) {
+      return [factorId, rawValue]
+    }
+    return [factorId, { ...(detail as Record<string, unknown>), value: rawValue }]
+  })
+}
+
 export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
   // The numeric half is NOT decided here. `interventionNumericValue`
   // (src/utils/interventionValue.ts) is the one predicate shared with
