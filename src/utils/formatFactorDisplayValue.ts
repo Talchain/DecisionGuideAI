@@ -458,7 +458,47 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // card rendered nothing. The product may decline to assert its OWN estimate;
   // it may not hide his.
   const userStatedThisValue = input.value_source === 'user' || input.value_source === 'user_confirmed'
-  if (raw_value != null && unit && (unitKind !== 'placeholder' || userStatedThisValue)) {
+
+  /**
+   * ⛔⛔ THE RESCUE FIRES ONLY WHERE NOTHING HAS ALREADY BEEN SAID — AND THE
+   * FIRST VERSION OF IT DID NOT, WHICH DELETED MEANING A PRODUCER HAD DECLARED.
+   *
+   * Pattern 1 sits ABOVE `display_value` and above `encoding_map` in the
+   * precedence documented at :427. Opening it to a PLACEHOLDER unit therefore
+   * jumped the whole ladder, and a value the producer had already given words to
+   * lost them the moment the user confirmed it:
+   *
+   *   {display_value:"0 scale", encoding_map:{"0":"Not pursued"},
+   *    observedState:{value:0, raw_value:0, unit:"scale", source:"user_confirmed"}}
+   *     → "0"   instead of   "Not pursued"
+   *
+   * ⭐ AND THE PREMISE STILL HOLDS, WHICH IS WHY THIS NARROWS RATHER THAN
+   * REVERTS. The rescue exists because *"the product may decline to assert its
+   * OWN estimate; it may not hide his"*. **A declared `encoding_map` is not a
+   * hidden value — it IS that value, said in words.** Replacing it with a bare
+   * digit is the same loss the rescue was written to prevent, pointed the other
+   * way. The founder's UNMAPPED `4 scale` has no such declaration and still
+   * renders; that case is the positive control in the spec, because a narrowing
+   * that swallowed it would pass every other assertion.
+   *
+   * ⚠ BOTH LIMBS REUSE THE DOWNSTREAM OWNERS — `encodingMapPhrase` and
+   * `isPlaceholderMagnitudeSummary` — rather than restating their rules. A
+   * second copy agrees on the day it is written and drifts after (trap 12), and
+   * the copy here would decide the OPPOSITE branch from the original, so the
+   * drift would be silent in both directions.
+   */
+  const placeholderMeaningAlreadyDeclared =
+    unitKind === 'placeholder'
+    && (encodingMapPhrase(input.encoding_map, value) !== null
+      || (display_value != null
+        && display_value !== ''
+        && !isPlaceholderMagnitudeSummary(display_value)))
+
+  if (
+    raw_value != null
+    && unit
+    && (unitKind !== 'placeholder' || (userStatedThisValue && !placeholderMeaningAlreadyDeclared))
+  ) {
     const numericRaw = typeof raw_value === 'number' ? raw_value : Number(raw_value)
     if (!isNaN(numericRaw)) {
       // Cost factor at zero → contextual
