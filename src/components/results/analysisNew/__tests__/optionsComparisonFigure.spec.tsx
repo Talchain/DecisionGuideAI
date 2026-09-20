@@ -618,19 +618,37 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
     const caveat = screen.getByTestId(`${TESTID}-no-figures`)
 
     // ⚠⚠ THE LITERAL SENTENCE, NOT THE CONSTANT THE COMPONENT EMITS. Asserting
-    // `COPY.checks.leader_not_assessed.meaning` would pass against ANY future
+    // `COPY.checks.leader_not_assessed.orderingCaveat` would pass against ANY future
     // rewording, including one that dropped the denial — the component and the
     // assertion would simply agree with each other. This is the string a reader
     // meets, typed out, so a reword REDs here and has to be a decision.
     expect(caveat).toHaveTextContent(
-      'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.',
+      'A list with no figures beside it is not a finding that the options are level.',
     )
 
     // And the owning constant still IS that sentence — so this file cannot rot
     // into asserting a string the product no longer uses.
-    expect(COPY.checks.leader_not_assessed.meaning).toBe(
-      'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.',
+    expect(COPY.checks.leader_not_assessed.orderingCaveat).toBe(
+      'A list with no figures beside it is not a finding that the options are level.',
     )
+
+    // ⭐⭐ AND THE OTHER HALF IS SOMEWHERE ELSE, WHICH IS THE POINT OF THE SPLIT.
+    // This section used to render the compound sentence that "What we checked"
+    // also renders, so the same paragraph appeared twice in one scroll. The
+    // check-inventory clause is asserted here as an ABSENCE from this section,
+    // so a future merge back into one string REDs rather than quietly
+    // reinstating the repetition.
+    expect(COPY.checks.leader_not_assessed.meaning).toBe(
+      'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.',
+    )
+    // ⚠ THE ORDERING CLAUSE BELONGS TO `meaning`, NOT HERE, AND THE REASON IS A
+    // POPULATION. `orderingCaveat` renders only where `noneNumbered` holds;
+    // `meaning` renders on the checklist row for EVERY withheld run. So the
+    // clause that tells a reader what a visible ordering is worth has to sit in
+    // the half that the run WITH figures renders — the first attempt at this
+    // split moved it here and deleted it for that population, and
+    // `withheldIsNotUnassessed.spec.ts` caught it.
+    expect(caveat).not.toHaveTextContent('Olumi could not confirm which option is most likely')
 
     // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
     // 15 Sep 2026, and this case now PINS that independence rather than the
