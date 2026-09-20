@@ -832,7 +832,10 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
   })
 
   it('an absent server graph is not a recovery either, and is read only once', async () => {
-    mockFetchScenarioGraph.mockResolvedValue({ status: 'absent' })
+    // `requestId` is part of the producer's `absent` variant
+    // (`scenarioGraph.ts`: `return { status: 'absent', requestId }`), not
+    // optional — carried here so the fixture matches the wire shape.
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'absent', requestId: 'req-absent-1' })
     const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
 
     expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
