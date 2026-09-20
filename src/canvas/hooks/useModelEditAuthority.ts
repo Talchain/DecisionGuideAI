@@ -128,6 +128,7 @@ import {
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent, buildEdgeStrengthConfirmEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
+import { USER_VALUE_STAMP } from '../domain/valueProvenance'
 import {
   buildManualGoalTarget,
   goalTargetBoundPhrase,
@@ -507,15 +508,47 @@ export function useModelEditAuthority(
         raw_value?: number
       }
 
-      // Undo BEFORE the write, from the same pre-write data.
-      const undo = captureOptimisticFactorEdit(activeNodeId, modelValue, data)
+      // Undo BEFORE the write, from the same pre-write data — and it now CARRIES
+      // the authorship claim, so `confirmOptimisticFactorEdit` can write the
+      // stamp against CEE's applied receipt instead of this seam asserting it up
+      // front (ROADMAP 2.304).
+      const undo = captureOptimisticFactorEdit(activeNodeId, modelValue, data, USER_VALUE_STAMP)
 
-      // Local write first, in ONE update: value + raw_value + provenance stamp.
-      mutations.setObservedValue(modelValue, rawMagnitude, { source: 'user' })
+      // ⭐⭐ THE STAMP IS WRITTEN LOCALLY ONLY WHERE NOTHING ELSE WILL EVER OWN IT.
+      //
+      // This seam used to pass `{ source: 'user' }` on BOTH paths, so a dispatched
+      // edit was stamped "checked by you" before the engine had seen it. That is
+      // the fabricated provenance `SuccessTargetLine`'s header already adjudicated
+      // for this authority's sibling, and the ruling is quoted rather than
+      // re-decided here: *"An optimistic `threshold_source: 'user'` stamp
+      // alongside the dispatch is exactly the fabricated provenance that produced
+      // the reversion above — the label would claim authorship the shared model
+      // had not accepted. The local write SURVIVES on the `local_only` path only,
+      // where there is no dispatcher to own it and the copy says so plainly."*
+      //
+      // ⚠ THE CONVERSE IS NOT SILENCE. On `local_only` there IS no receipt coming,
+      // so withholding would lose a claim only this client holds — the mirror
+      // defect, and a real one. The path decides, which is why the flag is read
+      // ONCE, before the write, rather than inferred twice.
+      //
+      // The literal moves from `'user'` to `USER_VALUE_STAMP` (`'user_override'`),
+      // which is CEE's own `USER_EDIT_SOURCE`. Both classify `'edited'`
+      // (`valueProvenance.ts:148-149`), so no pill, label or counter moves; what
+      // changes is that the client and the server now name the same act the same
+      // way, instead of leaving the boot merge two user-owned literals on one value.
+      // ⚠ BOUND TO A CONST, NOT `Boolean(sendSystemEvent)` — the typecheck gate
+      // caught the first spelling: a boolean derived from an optional does not
+      // NARROW it, so the call below was `possibly undefined`. Binding the
+      // function itself both narrows and guarantees the write and the send read
+      // the SAME value, which a second read of the closure variable would not.
+      const dispatch = sendSystemEvent
 
-      if (!sendSystemEvent) return 'local_only'
+      // Local write first, in ONE update: value + raw_value (+ stamp, when local).
+      mutations.setObservedValue(modelValue, rawMagnitude, dispatch ? undefined : USER_VALUE_STAMP)
+
+      if (!dispatch) return 'local_only'
       void Promise.resolve(
-        sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
+        dispatch(event, undo ? { optimisticFactorEdit: undo } : undefined),
       ).catch(() => {
         // Swallowed deliberately — a genuine send failure is recorded by the
         // conversation's own failure channel, and a server REFUSAL is not a
