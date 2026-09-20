@@ -119,6 +119,23 @@ export function MethodsYouCanRun({
       >
         {ANALYSIS_NEW_COPY.sections.methods}
       </h3>
+      {/* ⛔⛔ THE EM DASH CAME OUT, AND THIS CHANGE IS WHY IT COULD BE SEEN.
+          The ruling is "no em dashes in product content".
+          `noEmDashesInRenderedCopy.spec.ts` scans STRING LITERALS — and until
+          this change the sentence was JSX TEXT CONTENT, which that scan does
+          not reach. It had been rendering with an em dash, unseen, since the
+          section shipped. Lifting it into a ternary made it a literal and the
+          guard fired on its first sight of it.
+
+          ⚠ SO THE GUARD HAS A BLIND SPOT WORTH KNOWING: JSX text is invisible
+          to it. That is not fixed here — it is recorded so the next author does
+          not read a green run as proof the ruling holds on this surface.
+
+          Split into two sentences, which is what the guard's own failure
+          message prescribes ("Split it into two sentences, or cut the clause.
+          Do not add an exemption."). Both facts survive: these are yours to
+          run, and they do not wait to be offered.
+       */}
       {/* ⚠ THE SUBTITLE IS THE POINT OF THE SECTION, not decoration: it says
           these do not wait to be offered. Five of the seven used to appear only
           when the run raised a matching signal, and two were unreachable.
@@ -133,7 +150,7 @@ export function MethodsYouCanRun({
       <p className={`${typography.panelMeta} text-text-light m-0 mt-0.5`}>
         {grouped
           ? 'Science-grounded moves you can make yourself.'
-          : 'Science-grounded moves you can make yourself — whether or not this run raised them.'}
+          : 'Science-grounded moves you can make yourself. Run any of them, whether or not this run raised them.'}
       </p>
       {/* ⭐⭐ CHIPS, NOT A SEVEN-ROW LIST, AND THE REASON IS THE FOLD.
           Paul asked for these to be first-screen (ZONE: FOCUS), which puts them
