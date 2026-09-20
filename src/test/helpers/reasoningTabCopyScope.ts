@@ -199,13 +199,59 @@ export interface Edge {
  * template literals) so a `//` inside a quoted path is preserved and a `'` inside
  * a comment cannot open a phantom string.
  *
- * ⚠ THE LIMIT, STATED: regex LITERALS are not tracked. A `/` that opens one is
- * emitted verbatim, so `/[//]/` — an unescaped slash pair inside a character
- * class — would be read as a line comment and over-strip to end of line. That
- * direction DROPS an edge rather than inventing one, and a dropped edge shrinks
- * the closure, which `PRECONDITION: the scope is derived, non-trivial` and the
- * positive controls both fail on. Erring toward the failure your guards can see.
+ * ⚠⚠ REGEX LITERALS ARE TRACKED, AND THE FIRST VERSION OF THIS DID NOT TRACK
+ * THEM. I shipped it with a note calling the gap exotic — *"`/[//]/`, an
+ * unescaped slash pair inside a character class"* — and reasoned that dropping
+ * an edge was the safe direction. **Both halves were wrong**, and an
+ * independent review found the real case, which is ordinary:
+ *
+ *     const url = /^https?:\/\//; import { A } from '../real-tail'
+ *
+ * That regex ENDS in `\/` `\/` `/`. The scanner saw `//` and read a line
+ * comment, so it returned `const url = /^https?:\/\` and **dropped the live
+ * import entirely** — proven by execution before the fix: `parseEdges` returned
+ * `[]`. A URL regex is not exotic; it is the commonest regex in a web codebase.
+ *
+ * ⛔ AND "DROPPING IS THE SAFE DIRECTION" WAS THE WORSE ERROR. A dropped edge
+ * SHRINKS the closure silently. The aggregate controls — `length > 40`, the
+ * historically-swept positive list, the copy-count floor — all still pass while
+ * an entire subtree goes unswept, because they measure the corpus as a whole and
+ * cannot see one missing branch. The same blindness reaches the stale-build
+ * singleton guard, which would stop seeing a duplicate detector declared after a
+ * regex on the same line. **A guard that quietly narrows its own scope is worse
+ * than one that fails loudly, and I had the direction backwards.**
  */
+/**
+ * Tokens after which a `/` is DIVISION, not the start of a regex literal.
+ *
+ * The classic JS lexer ambiguity, and the cheapest correct discriminator: a
+ * regex may only appear where an expression may START. After an identifier, a
+ * number, or a closing `)` `]` `}`, the slash divides. Everywhere else — after
+ * `=` `(` `,` `:` `;` `[` `!` `&` `|` `?` `{` `}` `+` `-` `*` `%` `<` `>` `~`
+ * `^` `return` and friends — it opens a pattern.
+ *
+ * ⚠ ERRING TOWARD "REGEX" IS THE SAFE SIDE HERE, and that is deliberate:
+ * mis-reading a division as a regex consumes to the next `/` on the line, which
+ * a following import would survive; mis-reading a regex as division re-exposes
+ * the `//` bug this function exists to fix.
+ */
+const DIVISION_PRECEDES = /[\w$)\]]/
+const EXPRESSION_KEYWORDS = new Set([
+  'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void',
+  'case', 'do', 'else', 'yield', 'await', 'throw',
+])
+
+function slashOpensRegex(out: string): boolean {
+  const trimmed = out.replace(/\s+$/, '')
+  if (trimmed.length === 0) return true
+  const last = trimmed[trimmed.length - 1]!
+  if (!DIVISION_PRECEDES.test(last)) return true
+  // An identifier-looking tail may still be a keyword, after which a regex is
+  // legal (`return /x/.test(s)`).
+  const word = /[\w$]+$/.exec(trimmed)
+  return word !== null && EXPRESSION_KEYWORDS.has(word[0])
+}
+
 export function stripCommentsPreservingStrings(src: string): string {
   let out = ''
   let i = 0
@@ -215,6 +261,30 @@ export function stripCommentsPreservingStrings(src: string): string {
     const d = src[i + 1]
     if (c === '/' && d === '/') {
       while (i < n && src[i] !== '\n') i++
+      continue
+    }
+    // A regex literal, consumed WHOLE so its inner slashes cannot be read as
+    // comment openers. `[...]` is tracked because a `/` inside a character
+    // class does not close the pattern.
+    if (c === '/' && d !== '*' && slashOpensRegex(out)) {
+      out += c
+      i++
+      let inClass = false
+      while (i < n) {
+        const r = src[i]!
+        out += r
+        i++
+        if (r === '\\') {
+          if (i < n) { out += src[i]!; i++ }
+          continue
+        }
+        if (r === '[') inClass = true
+        else if (r === ']') inClass = false
+        else if (r === '/' && !inClass) break
+        // An unterminated regex cannot span a newline — bail rather than eat
+        // the rest of the file.
+        else if (r === '\n') break
+      }
       continue
     }
     if (c === '/' && d === '*') {
