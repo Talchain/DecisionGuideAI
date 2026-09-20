@@ -1494,10 +1494,26 @@ function EditorActionLine({
                {raw_value: 70, source: 'user', value: 70}`;
             3. Analyse then refused, every time and correctly: "recorded as a
                bare amount with no range for me to measure it against";
-            4. no range editor is reachable anywhere in the product (all four
-               `prior_range_edit` mount paths are dead, and
-               `model-tab-v2/contracts.ts:143` declares `proposePriorRange` with
-               zero implementations);
+            4. ⚠⚠ CORRECTED 20 Sep 2026 — THIS READ "no range editor is
+               reachable anywhere in the product (all four `prior_range_edit`
+               mount paths are dead)" AND IT WAS ALREADY FALSE WHEN WRITTEN, BY
+               NINE MINUTES. `d720f551` (#1454, "the external-factor range
+               becomes operable") landed 2026-09-10T22:19:53; the commit
+               carrying that sentence landed 22:28:39, and #1515 copied it into
+               `FactorControllablePanel.tsx` two days later. What is true:
+               `model-tab-v2/contracts.ts:235` declares `proposePriorRange` with
+               zero implementations, so THE MODEL TAB cannot set a range and
+               this notice's own refusal to name one stands. But the canvas
+               inspector CAN, for a factor whose `category` is `'external'`:
+               `FactorExternalPanel`'s quick-set buttons call `setPriorRange` →
+               `prior_range_edit`, which `mutationAuthority` classes
+               `server_fact`. Every other category routes to
+               `factor-controllable`, which has zero `setPriorRange` call sites,
+               so for those factors the original sentence remains true.
+               ⛔ Do not restore the general claim: it is the reason a live
+               coaching card on the Reasoning tab still tells the reader to set
+               a range, and the reason two sessions re-derived this from
+               scratch;
             5. the applied value CANNOT BE CLEARED. Emptying the input disables
                `Review change`, and there is no unset affordance because there is
                nothing for one to send: derived by EXECUTION against the vendored
