@@ -33,19 +33,29 @@
  * range editor exists unless its `category` is `'external'` (the canvas
  * inspector's `FactorExternalPanel` is the only one in the product).
  *
- * ── WHY THE DEFECT IS PINNED RATHER THAN FIXED HERE ────────────────────────
- * The honest fix branches on `category`, and the engine cannot see it:
- * `StrengthenInputs.factors` is built from `data.drivers.drivers`, a
- * sensitivity projection that carries no category. Reaching it means resolving
- * the node in the canvas store from inside a pure builder, in both mirrored
- * builders. That crosses out of panel copy, so it is written up and routed
- * rather than taken unilaterally (`output/panel-lane/LEHI-DEAD-END-20260920.md`).
+ * ── THE SET IS NOW EMPTY, AND THAT IS THE PIN DOING ITS JOB ────────────────
+ * This file shipped with `strengthen:lehi — "Set a range"` pinned, under a
+ * `toEqual` that REDs if the set grows OR SHRINKS. The fix that followed
+ * emptied it, and this RED is how the pin announced that its own exemption had
+ * become stale prose describing a state the product had left. That is exactly
+ * the exit CLAUDE.md trap 22f prescribes: *"pin it in an explicit KNOWN set
+ * with a test asserting EXACTLY that set — so the suite stays green for the
+ * right reason."*
  *
- * ⭐ THE EXIT IS THE ESTATE'S OWN, from CLAUDE.md trap 22f: *"pin it in an
- * explicit KNOWN set with a test asserting EXACTLY that set — so the suite stays
- * green for the right reason and REDs if the set grows OR shrinks."* A gap
- * recorded in the suite is honest; a gap invisible to it is how this one
- * survived since the card shipped.
+ * ⛔ THE EMPTY SET IS NOT A WEAKER GUARD. `toEqual([])` is the strongest state
+ * this file can be in: every `canvas-focus` card's label must now name an act
+ * its route performs, with no exemptions at all. Adding a row back is a
+ * decision someone has to write down.
+ *
+ * ⚠ AND THE DEFECT WAS LATENT, NOT LIVE, which is the argument for a SOURCE
+ * guard rather than a DOM one. `strengthen:lehi` cannot render today: its gate
+ * opens with `confidenceDisplay.show`, and `resolveFactorConfidenceDisplay`
+ * returns `{show: false}` for every production caller
+ * (`DISPLAY_SAFE_DRIVER_CONFIDENCE` is `false`; only test files pass the seam).
+ * No screenshot, journey witness or DOM census could ever have found this copy.
+ * The constant's own note promises everything gated on it *"lights up
+ * together"*, so the day it flips is the day all of it reaches a reader at
+ * once.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -110,7 +120,7 @@ const LOCATES = /^(Show|See|View|Find|Open|Go|Take|Reveal)\b/i
  * SHRINKS (lehi is fixed and this pin is now stale prose describing a state the
  * product has left). A `.filter()` would catch only the first.
  */
-const KNOWN_UNROUTED_ACTS: readonly string[] = ['strengthen:lehi — "Set a range"']
+const KNOWN_UNROUTED_ACTS: readonly string[] = []
 
 describe('every act the panel names is one its route can perform', () => {
   const cards = cardsInBuilder()

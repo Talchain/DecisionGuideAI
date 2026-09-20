@@ -124,6 +124,31 @@ export interface StrengthenFactor {
   factorId: string
   label: string
   /**
+   * ⭐⭐ CAN A RANGE ACTUALLY BE SET FOR THIS FACTOR — the CAPABILITY, not the
+   * canvas category it happens to be derived from.
+   *
+   * The LEHI card ("High influence, low evidence") shipped telling every reader
+   * to *"Give {factor} a realistic range"*, with a button labelled **"Set a
+   * range"**. Measured: a range editor exists on exactly one surface — the
+   * canvas inspector's `FactorExternalPanel` — and only for a factor whose
+   * `category` is `'external'`. On two real captures that was **1 of 7**
+   * categorised factors. For the rest the button moved the camera to a node
+   * where the act does not exist, on any surface.
+   *
+   * ⛔ THE ENGINE MUST NOT LEARN WHAT A CANVAS CATEGORY IS. It asks whether an
+   * act exists; `strengthen/factorRangeCapability.ts` owns the answer and the
+   * derivation. If the capability moves — a range editor for controllable
+   * factors, a real implementation behind `model-tab-v2`'s dead
+   * `proposePriorRange` contract — one predicate changes and every caller
+   * follows. (CLAUDE.md trap 21: name the question, not the implementation.)
+   *
+   * ⚠ ABSENT MEANS UNKNOWN AND IS READ AS "NO". A legacy caller that does not
+   * supply it gets the branch that promises nothing, because a wrongly-named
+   * act spends the trust the finding just earned while an unnamed one costs
+   * only wording.
+   */
+  rangeIsSettable?: boolean
+  /**
    * The driver DISPLAY-POLICY value (driverDisplayModel via the stamped
    * DriverItem.displayInfluence) — NOT raw producer influence_score. Named
    * `influence` so a raw-metric read cannot hide behind the field name

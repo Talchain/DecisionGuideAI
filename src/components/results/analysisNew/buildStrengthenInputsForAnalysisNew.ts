@@ -41,6 +41,7 @@ import type { StrengthenInputs } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { ScenarioStage } from '../../../types/scenario'
+import { rangeIsSettableForFactor } from '../strengthen/factorRangeCapability'
 
 export interface StrengthenInputSources {
   data: ResultsSectionDataReturn
@@ -95,6 +96,13 @@ export function buildStrengthenInputsForAnalysisNew({
     factors: data.drivers.drivers.map((d) => ({
       factorId: d.matchedNodeId ?? d.factorKey,
       label: d.factorLabel,
+      // ⭐ WHETHER THE ACT EXISTS, asked through the ONE owner of that question
+      // (`strengthen/factorRangeCapability.ts`). Read NON-REACTIVELY and from the
+      // same store at the same instant as its mirror, so the two builders cannot
+      // disagree — which is the divergence `strengthenInputsMirror.drift.spec.tsx`
+      // exists to catch. A subscription here would re-render this panel on every
+      // node drag to track a field that moves only on a structural graph edit.
+      rangeIsSettable: rangeIsSettableForFactor(d.matchedNodeId ?? d.factorKey),
       // The engine ranks on the SAME display value the bars show.
       influence: d.displayInfluence ?? d.influenceScore,
       // Resolved through THE policy module — the engine never sees the raw

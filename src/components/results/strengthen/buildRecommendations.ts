@@ -757,18 +757,64 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       )
       .sort((a, b) => (b.influence ?? 0) - (a.influence ?? 0))[0]
     if (lehi) {
+      /**
+       * ⛔⛔ THIS CARD TOLD ROUGHLY SIX FACTORS IN SEVEN TO DO SOMETHING THE
+       * PRODUCT CANNOT DO.
+       *
+       * As shipped: titled *"Give {factor} a realistic range"*, button **"Set a
+       * range"**, action `canvas-focus`. That route resolves to `focusNodeById`
+       * — it selects the node, dims its neighbours and moves the camera. It
+       * opens no editor and switches no tab.
+       *
+       * A range editor exists on exactly ONE surface, the canvas inspector's
+       * `FactorExternalPanel`, and only for a factor whose category is
+       * `'external'`. Measured across two real captures: **1 of 7** categorised
+       * factors. For the rest the button led to a node where the act does not
+       * exist anywhere.
+       *
+       * ⭐ THE RULING THIS APPLIES ALREADY EXISTED, on the surface where it was
+       * discovered and nowhere else — `noScaleRemedyIsTheUnitPath`: *"The
+       * remedy this panel names must be one the assistant can actually
+       * perform."* It was written after a journey witness asked Olumi, in
+       * natural language, twice, to do what a disclosure told them to do, and
+       * was declined both times.
+       *
+       * ── WHAT CHANGES, AND WHAT DELIBERATELY DOES NOT ──────────────────────
+       * The FINDING is kept on both branches. "High influence, low evidence" is
+       * worth telling someone whatever they can do about it, and dropping the
+       * card would hide something true. Only the ACT moves.
+       *
+       *  · settable → the range coaching stands, and the button now says what
+       *    pressing it DOES. The control is on the node's own panel, one step
+       *    beyond the camera, so "Set a range" was over-promising even here.
+       *  · not settable → no range is named at all. The act becomes one the
+       *    assistant genuinely performs: saying what evidence would move the
+       *    figure. `ai-dialogue` is the route that can carry any act.
+       *
+       * ⚠ IT DOES NOT EXPLAIN THE LIMITATION. "Olumi cannot record a range for
+       * this kind of factor" is product internals, and the ruling asks for a
+       * remedy that works, not a confession about one that does not.
+       */
+      const rangeSettable = lehi.rangeIsSettable === true
       recs.push({
         id: `strengthen:lehi:${lehi.factorId}`,
         helpType: 'clarify',
-        title: `Give ${lehi.label} a realistic range`,
+        title: rangeSettable
+          ? `Give ${lehi.label} a realistic range`
+          : `Weigh the evidence behind ${lehi.label}`,
         signal: 'High influence, low evidence.',
         whyNow: 'A single figure hides uncertainty in an important input.',
-        tryThis: 'Use a plausible low and high based on what you have seen before.',
+        tryThis: rangeSettable
+          ? 'Use a plausible low and high based on what you have seen before.'
+          : 'Say what would move this figure, and by how much.',
         sourceLine: 'Source: sensitivity and evidence-quality signals.',
-        action: {
-          kind: 'canvas-focus',
-          label: 'Set a range',
-        },
+        action: rangeSettable
+          ? { kind: 'canvas-focus', label: 'Show me this factor' }
+          : {
+              kind: 'ai-dialogue',
+              label: 'Weigh this estimate',
+              prompt: `What evidence would move the estimate for ${lehi.label}, and by how much?`,
+            },
         targetId: lehi.factorId,
         priority: PRIORITY.lehi,
       })

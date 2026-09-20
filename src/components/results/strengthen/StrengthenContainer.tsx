@@ -56,6 +56,7 @@ import { resolveFactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { ScenarioStage } from '../../../types/scenario'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../canvas/mutations/mutationAuthority'
+import { rangeIsSettableForFactor } from './factorRangeCapability'
 
 /**
  * UI-SEM-076: producer stage → strengthen adaptive-priority taxonomy bridge.
@@ -161,6 +162,13 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       factors: data.drivers.drivers.map((d) => ({
         factorId: d.matchedNodeId ?? d.factorKey,
         label: d.factorLabel,
+        // ⭐ WHETHER THE ACT EXISTS, asked through the ONE owner of that question
+        // (`strengthen/factorRangeCapability.ts`). ⚠ MIRRORED IN
+        // `analysisNew/buildStrengthenInputsForAnalysisNew.ts` and deep-equalled by
+        // `strengthenInputsMirror.drift.spec.tsx`; both read the same store at the
+        // same instant, non-reactively, so they cannot disagree and neither pays a
+        // re-render on every node drag.
+        rangeIsSettable: rangeIsSettableForFactor(d.matchedNodeId ?? d.factorKey),
         // Lane 2 (policy): the engine ranks/gates on the SAME display value
         // the panel bars show — displayInfluence is stamped by
         // selectDriverDisplayModel; raw influenceScore only as legacy
