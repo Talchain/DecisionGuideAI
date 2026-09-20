@@ -18,16 +18,32 @@
  * path here would be the two-`generateGraphHash`-twins defect all over again.
  *
  * WHAT "RECOVERED" MEANS, precisely: `hydrateCanvasFromServer` returned
- * `'merged'` — the server answered with a graph for this scenario and the
- * merge APPLIED it (or found the canvas already byte-identical, which is the
- * same licence: the server's committed values are what is on screen). Every
- * other outcome is `'notRecovered'`:
+ * `'merged'` AND the merge actually MOVED the canvas. Every other outcome is
+ * `'notRecovered'`:
  *   - `'notReadable'` (404) — CEE's deliberate "no readable graph". The
  *     standing unsettled/start-new-draft behaviour is correct and stands.
  *   - `'absent'` — the scenario exists with no graph: nothing was committed.
- *   - `'unchanged'` — the server graph is the one a PREVIOUS hydration already
- *     applied, i.e. this draft committed nothing new. Claiming recovery on it
- *     would present pre-draft state as the recovered draft.
+ *   - `'unchanged'` — CEE's identity token says the server graph is the one a
+ *     PREVIOUS hydration already applied. ⛔ THIS GUARD CANNOT FIRE ON THIS
+ *     PATH, which is why the zero-delta check below exists. It keys on
+ *     `serverGraphIdentity`, whose ONLY non-test writer is the accepted exit of
+ *     `serverGraphHydration` itself; boot returns `'notReadable'` ~230 lines
+ *     above that setter on a fresh scenario, `/graph/register`'s
+ *     `graph_identity_hash` is consumed for telemetry only, and a turn never
+ *     writes it. So in the session where drafting happens the token is null,
+ *     `isSameServerGraph` fails closed, and `'unchanged'` is unreachable. The
+ *     spec that covered it SEEDS the token by hand — a guard pinned against a
+ *     state no production path reaches.
+ *   - ⛔ A ZERO-DELTA MERGE — `'merged'` with `changed: false`. This is the case
+ *     `'unchanged'` was written to catch, arriving through the door that is
+ *     actually open. This module is only ever called when the turn ended with
+ *     NO graph anywhere: no preview survived and the response carried none. So
+ *     the canvas cannot be holding THIS turn's draft, and a merge that moves
+ *     nothing means the server is handing back the graph that was already on
+ *     screen before the turn — pre-draft state, which would be narrated as the
+ *     recovered draft. Measured: the server holds a readable graph within
+ *     seconds of opening any model, because registration runs at boot, so this
+ *     is the COMMON case rather than a corner one.
  *   - `'mergeRefused'` / `'refused'` / `'unavailable'` / `'unusable'` /
  *     `'skipped'` — nothing landed on the canvas, so nothing may be claimed.
  *
@@ -71,17 +87,31 @@ export interface RecoverDraftArgs {
 export async function recoverDraftFromServer(
   args: RecoverDraftArgs,
 ): Promise<DraftRecoveryOutcome> {
+  let mergeChanged: boolean | null = null
   const hydration = await hydrateCanvasFromServer(args.scenarioId, {
     userId: args.userId,
     accessToken: args.accessToken,
     signal: args.signal,
     canApply: args.canApply,
+    onMergeApplied: (merge) => {
+      mergeChanged = merge.changed
+    },
   })
   logger.debug('draft_recovery.outcome', {
     scenarioId: args.scenarioId,
     hydration,
+    mergeChanged,
   })
   if (hydration !== 'merged') return 'notRecovered'
+
+  // `!== true` rather than `=== false`, so an unreported merge claims nothing.
+  // ⚠ Stated honestly: `null` is UNREACHABLE today — the callback fires
+  // immediately before the `'merged'` return — so this is a shape choice, not a
+  // guard, and no test pins the null arm because none can. It is written this
+  // way so that if the callback ever becomes conditional, the failure is a
+  // missed recovery (recoverable, the user retries) rather than a claimed one
+  // (a sentence about the user's model that is not true).
+  if (mergeChanged !== true) return 'notRecovered'
 
   // The merge applied the server's committed graph, so the unsettled state is
   // settled. Ownership-guarded release, same rule as sendTurn's finally: only
