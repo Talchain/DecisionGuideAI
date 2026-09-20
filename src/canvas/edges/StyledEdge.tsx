@@ -16,7 +16,12 @@
  */
 
 import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { edgeDoubleClickAffordance, EDGE_AFFORDANCE_EDITABLE } from './edgeAffordance'
+import {
+  edgeDoubleClickAffordance,
+  EDGE_AFFORDANCE_EDITABLE,
+  EDGE_AFFORDANCE_DIRECT_ACTION,
+  EDGE_AFFORDANCE_CHAT_ALTERNATIVE,
+} from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
@@ -2489,10 +2494,46 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       : `What evidence supports the relationship between ${srcTitle} and ${tgtTitle}?`
                   }
                 />
+                {/*
+                  * ⭐⭐ THE ROUTE THAT WORKS, OFFERED FIRST.
+                  *
+                  * MEASURED on the founder's session (19 Sep 2026): the strength
+                  * write was assertable on 24 of his 26 edges — it worked the whole
+                  * time — and he spent 34 minutes and 27 actions in chat without
+                  * one direct edit. This popover was open over those edges and its
+                  * only action for the task was the chat chip below. The product
+                  * was offering the slow route and hiding the fast one.
+                  *
+                  * ⛔ GATED ON `strengthIsEditable`, which is
+                  * `edgeStrengthEditIsAssertable` CALLED — the same predicate the
+                  * panel fences on and the accessible name reads — so the three
+                  * cannot drift into offering different things. Where the write is
+                  * refused this is absent and the chat chip below keeps its plain
+                  * name, because there it is not the slow route, it is the only one.
+                  *
+                  * A native <button>, matching `NodeQuickActions`: this canvas's
+                  * answer to "how does an object offer its own editing affordance"
+                  * already exists for nodes and did not for edges.
+                  */}
+                {strengthIsEditable && (
+                  <button
+                    type="button"
+                    data-testid="edge-direct-strength-edit"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      openEdgeStrengthEditor(edgeIdKey)
+                      if (showEdgeHint) dismissEdgeHint()
+                    }}
+                    aria-label={`Set the strength of the relationship between ${srcTitle} and ${tgtTitle}`}
+                    className={`${typography.edgeLabel} w-full text-left px-2 py-1 rounded-md border border-info/40 bg-info/10 text-text-body hover:bg-info/20 focus:outline-none focus:ring-2 focus:ring-info`}
+                  >
+                    {EDGE_AFFORDANCE_DIRECT_ACTION}
+                  </button>
+                )}
                 <NodeChip
                   chipId="edge_adjust_strength"
                   actionType="adjust_edge_strength"
-                  label="Adjust strength"
+                  label={strengthIsEditable ? EDGE_AFFORDANCE_CHAT_ALTERNATIVE : 'Adjust strength'}
                   message={
                     strengthPct !== null
                       ? `I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`
