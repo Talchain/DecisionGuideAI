@@ -78,7 +78,7 @@ export function buildStrengthenInputsForAnalysisNew({
     analysisComplete: data.recommendation.analysisStatus === 'computed',
     // CEE's own blocking set, read through the ONE structural reader of an
     // untyped wire field. Mirrored verbatim in `StrengthenContainer.tsx`.
-    materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.analysisAdmission),
+    materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.recommendation.analysisAdmission),
     analysisIdentityIsCurrent: analysisIdentityIsCurrent === true,
     // The OWNED leader entitlement, quoted from the single verdict and never
     // re-derived. A completed analysis is not an entitlement to name a leader.

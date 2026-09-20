@@ -137,7 +137,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // ⚠ MIRRORED in `analysisNew/buildStrengthenInputsForAnalysisNew.ts` and
       // deep-equalled by `strengthenInputsMirror.drift.spec.tsx`. Both read the
       // SAME single structural reader of the untyped `semantic_signals` field.
-      materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.analysisAdmission),
+      materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.recommendation.analysisAdmission),
       analysisIdentityIsCurrent: analysisIdentityIsCurrent === true,
       // ROADMAP 1.243: the OWNED leader entitlement, quoted from the single
       // verdict (`deriveDecisionVerdict`, the same instance the canvas and the
