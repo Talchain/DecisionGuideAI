@@ -25,7 +25,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import {
-  decisionWithLeaderWithheld,
+  decisionWithLeaderWithheldAndReason,
   genuineDecision,
   highUncertainty,
   makeData,
@@ -187,7 +187,14 @@ describe('F · the three scenario classes (§24F)', () => {
    */
   it('LEADER WITHHELD — the same fixture with one boolean flipped says nothing about a leader', () => {
     // The discriminating twin of the case above.
-    renderBody(decisionWithLeaderWithheld())
+    //
+    // ⚠ THE FIXTURE CARRIES THE PRODUCER'S REFUSAL MESSAGE. Without it
+    // `designationWithheldReason` is null, the glance has nothing to render,
+    // and this arm was asserting about a labelled landmark with no content in
+    // it. With the message the glance renders its withheld sentence, so the
+    // claim "the name appears nowhere outside the comparison" is checked
+    // against a glance that actually has words in it.
+    renderBody(decisionWithLeaderWithheldAndReason())
     const body = screen.getByTestId('analysis-new-tab-body')
     expect(body.textContent).not.toContain('currently scores higher')
 

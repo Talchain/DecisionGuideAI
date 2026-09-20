@@ -84,7 +84,7 @@ const MISSING_LIST = { format: (items: readonly string[]) => getConjunctionList(
  * stays the single owner of what each result is CALLED and no label is
  * duplicated here in a different case.
  */
-const sentenceCase = (s: string): string =>
+export const sentenceCase = (s: string): string =>
   s === '' ? s : `${s.charAt(0).toUpperCase()}${s.slice(1)}`
 
 /**

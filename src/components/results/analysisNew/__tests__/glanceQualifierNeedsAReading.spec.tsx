@@ -200,7 +200,9 @@ describe('the condition line needs a reading to condition', () => {
     draw({ ...glanceOf(genuineDecision()), inputProvenance: 'undetermined' })
     const line = screen.getByTestId(PROVENANCE)
     expect(line).toHaveAttribute('data-input-provenance', 'undetermined')
-    expect(line).toHaveTextContent('On inputs whose source Olumi could not establish')
+    expect(line).toHaveTextContent(
+      'This reading rests on inputs whose source Olumi could not establish.',
+    )
     // The reading it qualifies is genuinely on screen — otherwise this twin
     // would be passing for the wrong reason.
     expect(screen.getByTestId('analysis-new-glance-win-share')).toBeInTheDocument()

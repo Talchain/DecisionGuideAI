@@ -473,7 +473,18 @@ describe("the producer's reason is rendered whole, never clipped", () => {
     const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
     const line = screen.getByTestId('analysis-new-glance-verdict-line')
 
-    expect(reason.textContent).toBe(withReason().verdict.reason)
+    // ⚠ WHOLE, NOT BYTE-IDENTICAL — and the difference is exactly one character.
+    // The producer composes this clause MID-SENTENCE (wire fixture: "held up
+    // across the ranges we varied"), and this panel is the only consumer that
+    // OPENS a sentence with it, so it is sentence-cased at the render boundary.
+    // The property this arm protects is that nothing is CLIPPED, so it is
+    // asserted as: the tail is untouched, and only the first character moved.
+    const produced = withReason().verdict.reason as string
+    expect(reason.textContent).toBe(
+      `${produced.charAt(0).toUpperCase()}${produced.slice(1)}`,
+    )
+    expect(reason.textContent?.slice(1)).toBe(produced.slice(1))
+    expect(reason.textContent).toHaveLength(produced.length)
     // The defect in one assertion: the reason must not live inside the row that
     // is constrained to one line.
     expect(line.contains(reason)).toBe(false)

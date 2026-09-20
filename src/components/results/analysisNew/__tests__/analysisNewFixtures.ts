@@ -225,6 +225,58 @@ export function decisionWithLeaderWithheld(): ResultsSectionDataReturn {
   }
 }
 
+/**
+ * ⭐⭐ THE WITHHELD RUN AS IT ACTUALLY ARRIVES — with the producer's refusal
+ * message, which is what makes the glance render anything at all.
+ *
+ * ⛔ WHY THIS EXISTS BESIDE `decisionWithLeaderWithheld`. That one flips
+ * `leaderDesignationPermitted` and supplies NO admission, so
+ * `designationWithheldReason` — read from `designationWithheldConjunct?.message`
+ * — is null, and the glance has nothing to render. Both states are real (the
+ * producer is not obliged to send a message), but the one WITH the message is
+ * the one Paul meets, and three specs were exercising the other one without
+ * meaning to: an ordering guard that exists because of Paul's own complaint,
+ * the drivers-seam positive control, and the leader-withheld class arm.
+ *
+ * The admission is a CAPTURE, not an illustration:
+ * `CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED`, the code behind the
+ * `leading_option_claim_withheld` on Paul's own run. Kept verbatim.
+ */
+const CAPTURED_MACHINE_AUTHORED_REFUSAL = {
+  structurally_analysable: true,
+  missing_important_inputs: [],
+  semantic_quality_sufficient: false,
+  permitted_analysis_mode: 'quantified_provisional',
+  reasons: [
+    {
+      field: 'structurally_analysable',
+      code: 'READY_TO_COMPARE',
+      message: 'Analysis can run on this model as it stands.',
+    },
+    {
+      field: 'semantic_quality_sufficient',
+      code: 'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
+      message: 'Every estimate this comparison rests on is Olumi’s, not yours. Figures can be shown as provisional, but no option can be called the leader and no result can be called stable or robust until you have set at least one of them.',
+    },
+    {
+      field: 'permitted_analysis_mode',
+      code: 'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
+      message: 'Every estimate this comparison rests on is Olumi’s, not yours. Figures can be shown as provisional, but no option can be called the leader and no result can be called stable or robust until you have set at least one of them.',
+    },
+  ],
+}
+
+export function decisionWithLeaderWithheldAndReason(): ResultsSectionDataReturn {
+  const data = decisionWithLeaderWithheld()
+  return {
+    ...data,
+    recommendation: {
+      ...data.recommendation,
+      analysisAdmission: CAPTURED_MACHINE_AUTHORED_REFUSAL,
+    },
+  } as ResultsSectionDataReturn
+}
+
 // ── 3. HIGH UNCERTAINTY ─────────────────────────────────────────────────────
 // Consequential uncertainty everywhere, incomplete coverage — and STILL a valid
 // analysis. Nothing here may read as "the analysis is blocked".

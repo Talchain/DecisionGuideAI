@@ -212,13 +212,19 @@ describe('the sanctioned sentences', () => {
   // only prove the map agrees with itself and could never notice a missing or
   // reworded kind (CLAUDE.md trap 12d).
   it('states each kind exactly, and states no number', () => {
-    expect(GLANCE_PROVENANCE_COPY.estimated).toBe('On inputs Olumi estimated')
-    expect(GLANCE_PROVENANCE_COPY.partly_estimated).toBe('Partly on inputs Olumi estimated')
-    expect(GLANCE_PROVENANCE_COPY.mixed).toBe("On a mix of your figures and Olumi's estimates")
-    expect(GLANCE_PROVENANCE_COPY.user_supplied).toBe('On figures you supplied')
-    expect(GLANCE_PROVENANCE_COPY.partly_user_supplied).toBe('Partly on figures you supplied')
+    expect(GLANCE_PROVENANCE_COPY.estimated).toBe('This reading rests on inputs Olumi estimated.')
+    expect(GLANCE_PROVENANCE_COPY.partly_estimated).toBe(
+      'This reading rests partly on inputs Olumi estimated.',
+    )
+    expect(GLANCE_PROVENANCE_COPY.mixed).toBe(
+      "This reading rests on a mix of your figures and Olumi's estimates.",
+    )
+    expect(GLANCE_PROVENANCE_COPY.user_supplied).toBe('This reading rests on figures you supplied.')
+    expect(GLANCE_PROVENANCE_COPY.partly_user_supplied).toBe(
+      'This reading rests partly on figures you supplied.',
+    )
     expect(GLANCE_PROVENANCE_COPY.undetermined).toBe(
-      'On inputs whose source Olumi could not establish',
+      'This reading rests on inputs whose source Olumi could not establish.',
     )
   })
 
@@ -283,7 +289,7 @@ describe('the condition line on screen', () => {
   reanalyseBlockedReason={null} glance={glanceModel('estimated')} />)
     const line = screen.getByTestId(PROVENANCE_TESTID)
     expect(line).toHaveAttribute('data-input-provenance', 'estimated')
-    expect(line).toHaveTextContent('On inputs Olumi estimated')
+    expect(line).toHaveTextContent('This reading rests on inputs Olumi estimated.')
   })
 
   it('renders the mixed sentence under its own kind', () => {
@@ -294,7 +300,7 @@ describe('the condition line on screen', () => {
   reanalyseBlockedReason={null} glance={glanceModel('mixed')} />)
     const line = screen.getByTestId(PROVENANCE_TESTID)
     expect(line).toHaveAttribute('data-input-provenance', 'mixed')
-    expect(line).toHaveTextContent("On a mix of your figures and Olumi's estimates")
+    expect(line).toHaveTextContent("This reading rests on a mix of your figures and Olumi's estimates.")
   })
 
   it('⭐ renders the undetermined sentence beside the share it conditions', () => {
@@ -306,7 +312,9 @@ describe('the condition line on screen', () => {
   reanalyseBlockedReason={null} glance={glanceModel('undetermined')} />)
     const line = screen.getByTestId(PROVENANCE_TESTID)
     expect(line).toHaveAttribute('data-input-provenance', 'undetermined')
-    expect(line).toHaveTextContent('On inputs whose source Olumi could not establish')
+    expect(line).toHaveTextContent(
+      'This reading rests on inputs whose source Olumi could not establish.',
+    )
     expect(screen.getByTestId('analysis-new-glance-win-share')).toBeVisible()
     expect(line).toBeVisible()
   })

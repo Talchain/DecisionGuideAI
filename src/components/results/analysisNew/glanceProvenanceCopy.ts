@@ -39,22 +39,41 @@ import type { GlanceInputProvenance } from './analysisNewTypes'
 /**
  * One sentence per provenance kind. British English.
  *
- * The "Partly" forms are EXISTENTIAL claims and are the honest reading when the
- * producer asserted provenance for some factors and stayed silent on others:
- * at least one factor is known to be what the sentence says, and the sentence
- * claims nothing about the rest. The unqualified forms are UNIVERSAL and are
- * used only when the producer settled every factor.
+ * ⛔⛔ THEY WERE NOT SENTENCES, AND THIS DOCBLOCK CLAIMED THEY WERE. All six
+ * opened "On …" / "Partly on …" — prepositional phrases composed to hang off a
+ * lead sentence that is no longer on this surface. Paul's ruling of 18 Sep 2026
+ * deleted the conclusion the glance used to open with ("delete the conclusion
+ * entirely — there shouldn't be a conclusion"), and the ruling is right; what
+ * nobody checked afterwards is what its dependants render once it is gone.
+ * Witnessed on the deployed build `7ec3fed2`, guest, saved starter: this line
+ * rendered as a standalone 15px paragraph reading "On inputs whose source Olumi
+ * could not establish", with no sentence anywhere near it to attach to.
+ *
+ * ⭐ "This reading" HAS A GUARANTEED REFERENT, and it is derived rather than
+ * hoped for: `AtAGlance` gates this line on `showInputProvenance =
+ * Boolean(glance.inputProvenance) && readingOnScreen`, and `readingOnScreen`
+ * is `Boolean(glance.verdict && glance.winShare)`. So the share sentence is on
+ * screen whenever this one is, by construction. Pinned in-test rather than
+ * trusted from this paragraph.
+ *
+ * ⚠ THE SEMANTICS ARE UNCHANGED, WHICH IS THE WHOLE CONSTRAINT. The "Partly"
+ * forms are EXISTENTIAL claims and are the honest reading when the producer
+ * asserted provenance for some factors and stayed silent on others: at least
+ * one factor is known to be what the sentence says, and the sentence claims
+ * nothing about the rest. The unqualified forms are UNIVERSAL and are used only
+ * when the producer settled every factor. Each sentence below carries its own
+ * quantifier in the same position it carried it before.
  */
 export const GLANCE_PROVENANCE_COPY: Record<GlanceInputProvenance, string> = {
-  estimated: 'On inputs Olumi estimated',
-  partly_estimated: 'Partly on inputs Olumi estimated',
-  mixed: "On a mix of your figures and Olumi's estimates",
-  user_supplied: 'On figures you supplied',
-  partly_user_supplied: 'Partly on figures you supplied',
+  estimated: 'This reading rests on inputs Olumi estimated.',
+  partly_estimated: 'This reading rests partly on inputs Olumi estimated.',
+  mixed: "This reading rests on a mix of your figures and Olumi's estimates.",
+  user_supplied: 'This reading rests on figures you supplied.',
+  partly_user_supplied: 'This reading rests partly on figures you supplied.',
   // ⚠ A STATEMENT ABOUT OUR KNOWLEDGE, NOT ABOUT THE USER — which is exactly
   // why it is safe to render where the other five are not. It attributes the
   // figures to nobody, so it cannot commit the authorship claim this module
   // exists to prevent, and it leaves the reading above it visibly conditional
   // instead of silently unconditioned.
-  undetermined: 'On inputs whose source Olumi could not establish',
+  undetermined: 'This reading rests on inputs whose source Olumi could not establish.',
 }

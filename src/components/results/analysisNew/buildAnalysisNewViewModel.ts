@@ -2391,7 +2391,21 @@ function buildAtAGlance(
   const word = rec.robustnessVerdict ? VERDICT_WORD[rec.robustnessVerdict] : undefined
   // The single most informative number on the surface, and it is only licensed
   // alongside an entitled leader — so it is gated on the SAME condition as the
-  // headline, never rendered on its own.
+  // headline.
+  //
+  // ⛔⛔ THIS COMMENT USED TO END "never rendered on its own", AND THAT
+  // GUARANTEE NO LONGER HOLDS. The gate is unchanged and still correct; what
+  // changed is the renderer. Paul's ruling of 18 Sep 2026 deleted the headline
+  // from `AtAGlance` ("delete the conclusion entirely — there shouldn't be a
+  // conclusion"), so the share now renders with nothing above it. Witnessed on
+  // deployed `7ec3fed2`: the glance's entire first line read "Scored highest in
+  // 56% of simulated futures" — a predicate whose subject had been removed.
+  //
+  // ⭐ THE REPAIR IS IN THE SENTENCE, NOT IN THE GATE. Restoring a subject that
+  // NAMES the option would reinstate the conclusion the ruling deleted, so the
+  // sentence below supplies a subject that identifies nobody. The number, its
+  // meaning and its two gates are untouched.
+  //
   // Gated twice: on the leader entitlement AND on scope being establishable.
   const winPct =
     headline && comparisonScope.kind !== 'unresolved'
@@ -2403,7 +2417,7 @@ function buildAtAGlance(
   // probability of reaching the goal. "Achieves your goal in 99%" would have
   // been a worse claim than the contest framing it replaced, so the wording
   // keeps the ranking meaning and drops the contest metaphor only.
-  const winShare = winPct ? `Scored highest in ${winPct} of simulated futures` : null
+  const winShare = winPct ? `One option scored highest in ${winPct} of simulated futures.` : null
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.
