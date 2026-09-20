@@ -44,7 +44,22 @@ vi.mock('../../starters/loadStarter', async (importOriginal) => {
 })
 
 const showToastMock = vi.fn()
-vi.mock('../../ToastContext', () => ({ useShowToastSafe: () => showToastMock }))
+/**
+ * ⚠ THE TOAST HOOK'S IDENTITY IS CONTROLLABLE HERE ON PURPOSE.
+ *
+ * `handlePick` is `useCallback(..., [showToast])` and the auto-open effect
+ * depends on `handlePick`. Today `useShowToastSafe` is permanently stable
+ * (`ToastContext.tsx:41,56` — both `useCallback(..., [])`), so the effect can
+ * never re-run inside one mount and the once-only latch is UNREACHABLE. A
+ * mutant deleting that latch therefore survived every other test here.
+ *
+ * Rather than ship a guard no test can see, this flag reproduces the one future
+ * change that makes it load-bearing: a `showToast` that is no longer memoised.
+ */
+let unstableToastIdentity = false
+vi.mock('../../ToastContext', () => ({
+  useShowToastSafe: () => (unstableToastIdentity ? (...a: unknown[]) => showToastMock(...a) : showToastMock),
+}))
 
 import { StarterDecisions, STARTER_LOAD_FAILED_MESSAGE } from '../StarterDecisions'
 import { useCanvasStore } from '../../store'
@@ -113,6 +128,29 @@ describe('a shared link can open straight onto a worked model', () => {
     render(<StarterDecisions />)
     await new Promise(r => setTimeout(r, 50))
     expect(applyStarterMock).not.toHaveBeenCalled()
+  })
+
+  it('⛔⛔ THE LATCH: it still applies once when the toast hook stops being memoised', async () => {
+    // With an unstable `showToast`, `handlePick` gets a new identity on every
+    // render, so the auto-open effect re-runs. Only the once-only latch stops a
+    // second apply. Without this case the latch is unreachable and a mutant
+    // deleting it survives — which is exactly what happened.
+    unstableToastIdentity = true
+    try {
+      setHash('#/canvas?starter=vendor-selection')
+      const { rerender } = render(<StarterDecisions />)
+      await waitFor(() => expect(applyStarterMock).toHaveBeenCalledTimes(1))
+      clearGraph()          // a failed/partial apply leaves the canvas empty
+      rerender(<StarterDecisions />)
+      rerender(<StarterDecisions />)
+      await new Promise(r => setTimeout(r, 60))
+      expect(
+        applyStarterMock,
+        'the link re-applied after its effect re-ran — the once-only latch is gone',
+      ).toHaveBeenCalledTimes(1)
+    } finally {
+      unstableToastIdentity = false
+    }
   })
 
   it('⛔ it applies ONCE, not on every render', async () => {
