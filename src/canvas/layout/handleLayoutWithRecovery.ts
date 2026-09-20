@@ -1,5 +1,11 @@
 import { useLayoutProgressStore } from '../layoutProgressStore'
 import { logCanvasBreadcrumb, describeError } from '../utils/canvasBreadcrumb'
+import {
+  isChunkLoadErrorWithCause,
+  STALE_BUILD_NOTICE_COPY,
+  STALE_BUILD_ACTION_COPY,
+  reloadForCurrentBuild,
+} from '../../lib/staleBuildRecovery'
 
 /**
  * What a layout attempt reports back. `laidOut: false` means the call RESOLVED
@@ -74,6 +80,43 @@ export function handleLayoutWithRecovery(
       if (import.meta.env.DEV) {
         console.warn('[layout] failure:', err)
       }
+
+      // ⭐⭐ AND THE LINE THAT ANSWERED IT. Measured on the founder's tab,
+      // 19 Sep 2026: the rejection was
+      // `TypeError: Failed to fetch dynamically imported module .../elk.bundled-BgtF8tzk.js`,
+      // a 404 — staging had deployed new hashed assets at 18:12:44Z while his
+      // page, built at f22e15fd, was open. `utils/layout.ts:618` fetches ELK
+      // lazily at first use, so the layout engine's own code was simply gone
+      // from the origin.
+      //
+      // ⛔ "Try again" CANNOT WORK IN THAT STATE, and offering it is the real
+      // harm: the chunk is permanently absent, so every retry re-requests the
+      // same dead URL. He pressed Retry, then Auto-arrange, and reported
+      // neither helped — the product had told him to do both. A reload is the
+      // only cure, so in this one state it is the only thing offered, and the
+      // message says the version changed rather than implying his model broke.
+      // ⛔⛔ THIS DELEGATES TO `lib/staleBuildRecovery`, WHICH ALREADY OWNS THE
+      // QUESTION — and the first version of this change did not. It shipped a
+      // competing detector with its own corpus, which MISSED the MIME/SPA-
+      // fallback shape (`Failed to load module script: … MIME type of
+      // "text/html"`) that the existing authority has witnessed, so the same
+      // retired-asset failure still fell through to the futile Retry path.
+      // `stale-build-recovery-single-writer.spec.ts` exists to forbid exactly
+      // that and caught it in CI, independently of review.
+      //
+      // ⚠ THE NOTICE IS ITS COPY, NOT A NEW SENTENCE. Mine promised "nothing in
+      // your model is lost"; `reloadForCurrentBuild` verifies no such thing —
+      // the crash flush can decline or fail, and the main error boundary
+      // conditions its save assurance on that result. The existing line names
+      // the cause and the way forward and claims nothing about saved state.
+      if (isChunkLoadErrorWithCause(err)) {
+        logCanvasBreadcrumb('layout:failed', { phase: 'stale-build', err: describeError(err) })
+        useLayoutProgressStore
+          .getState()
+          .fail(STALE_BUILD_NOTICE_COPY, reloadForCurrentBuild, STALE_BUILD_ACTION_COPY)
+        return
+      }
+
       failWithRetry()
     })
 }
