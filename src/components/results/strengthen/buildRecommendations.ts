@@ -840,6 +840,16 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
            */
           'Until at least one of the values this comparison turns on is yours, no option can be put forward.',
         /**
+         * ⚠ NO EM DASH, AND THE GUARD CANNOT SEE THIS FILE. The ruling is
+         * "no em dashes in product content"; `noEmDashesInRenderedCopy.spec.ts`
+         * enforces it over a HAND-LIST of four files
+         * (`analysisNewCopy`, `buildAnalysisNewViewModel`, `humaniseCritique`,
+         * `goalAnchorCopy`) and `strengthen/buildRecommendations.ts` is not one
+         * of them, although it renders straight onto the same tab. An em dash
+         * here would have shipped unseen. Honouring a ruling only where a guard
+         * can observe it is how the ruling stops meaning anything — the same
+         * hand-list shape `noWinnerVocabulary.spec.ts` records about itself.
+         *
          * ⚠ THE ROUTE MUTATES NOTHING, AND THAT IS WHY THIS ROW IS SAFE TO SHOW.
          * `canvas-focus` takes the reader to the factor; it types no number and
          * writes nothing. The one genuinely dangerous act — committing a bare
@@ -850,7 +860,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
          * when it has one, so the reader is not surprised by it later.
          */
         tryThis: next.declaresNoRange
-          ? 'This one records no range yet, so a single figure has nothing to be measured against — worth settling the range at the same time.'
+          ? 'This one records no range yet, so a single figure has nothing to be measured against. Worth settling the range at the same time.'
           : 'Use the figure you would defend in the room, not a cautious one.',
         sourceLine:
           "Source: the inputs Olumi reports this comparison is waiting on, in this run's own influence order.",
