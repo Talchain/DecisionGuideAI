@@ -157,6 +157,15 @@ import {
   readDeliveryRecord,
   type ProvisionalDeliveryRecord,
 } from '../../../canvas/hooks/provisionalDeliveryRecord'
+// The ONE id resolver the mapper and the driver policy feed both use. Imported
+// rather than restated so this bundle's factor matching cannot drift from what
+// the canvas renders (see `matchFactor`).
+import { normaliseFactorFields } from '../../../lib/mappers/mapFactorSensitivity'
+import { useUIStore } from '@/stores/uiStore'
+// The panels' own content check — "a populated report is not a result unless
+// something in it is renderable". Imported, not restated, so `analysis_gate`
+// records the same fork the panels act on (see `analysis_gate`).
+import { selectHasRenderableAnalysisResult } from '../../../canvas/ui/inspector-v2/useAnalysisResults'
 
 // =============================================================================
 // Feature Flag
@@ -1004,6 +1013,24 @@ export interface DisplayState {
   }> | null
   analysis_status_displayed: string | null
   hero_headline_displayed: string | null
+  /**
+   * ⭐ THE PREDICATES A CANVAS NODE RENDERS ITS RUN COPY FROM.
+   *
+   * `DecisionNode` puts its post-run body on screen when
+   * `results.status === 'complete'` AND a report exists. The PANELS additionally
+   * require `hasRenderableResult` — a populated report is not a result unless
+   * something in it is renderable (`deriveAnalysisDisplayState`). The two
+   * surfaces therefore answer "did a run happen?" differently, and a bundle
+   * recording only `results.status` cannot tell a reader which answer a
+   * screenshot was taken under.
+   *
+   * Derived from the store at capture time; never stamped.
+   */
+  analysis_gate: {
+    results_status: string | null
+    has_report: boolean
+    has_renderable_result: boolean
+  }
   /**
    * Canonical analysis display state from `deriveAnalysisDisplayState`:
    * not_ready / ready_to_analyse / ran_without_result / complete /
@@ -2905,8 +2932,14 @@ function normaliseLabel(value: unknown): string {
 }
 
 interface FactorSensitivityEntry {
+  /** Ranked FIRST by `normaliseFactorFields`, and the field this matcher used
+   *  to ignore — see `matchFactor`. */
+  node_id?: unknown
   factor_id?: unknown
+  /** Third in the canonical priority. Present here so the resolver can read it. */
+  id?: unknown
   factor_label?: unknown
+  /** Legacy label field the canonical resolver does not know; see `matchFactor`. */
   factor?: unknown
   influence_score?: unknown
   sensitivity_score?: unknown
@@ -2934,14 +2967,49 @@ function extractRenderedFactors(
   })
   if (factorNodes.length === 0) return null
 
+  /**
+   * ⭐⭐ RESOLVED THE WAY THE CANVAS RESOLVES IT, AND THAT IS THE WHOLE FIX
+   * (20 Sep 2026).
+   *
+   * This used to check `factor_id` and the normalised label, and nothing else.
+   * `FactorNode` reads `useNodeDisplayMetadata`, which keys rows through the
+   * SHARED driver policy feed, whose key is `getFactorKey` →
+   * `normaliseFactorFields`, documented priority:
+   *
+   *     node_id > factor_id > id > normalised(label)
+   *
+   * So a row carrying `node_id` and no `factor_id` MATCHED on the canvas and
+   * MISSED here. Measured on Paul's manual test of 20 Sep (bundle `478129ba`):
+   * all four factors exported `influence_source: "unmatched"` while the canvas
+   * drew `Relative influence … 22% / 33% / 60% / 100%` on the same four cards.
+   *
+   * ⛔ AND THE REPAIR IS NOT "ADD `node_id` AND `id` TO THE LIST". That would be
+   * a second copy of a producer rule that has already moved once — trap 12, the
+   * defect class this estate pays for most. `normaliseFactorFields` IS the
+   * resolver both the mapper and the feed use; calling it means this matcher
+   * cannot drift from them again.
+   *
+   * ⚠ The label arm stays, and stays SECOND. The canonical resolver falls back
+   * to the normalised label only when no id field is present, so trying the id
+   * first and the label after is the same order, not a widening. `fs.factor` is
+   * a legacy label field the resolver does not know, kept here because the
+   * bundle has always accepted it and dropping it would silently lose matches
+   * on old captures.
+   *
+   * ⚠ WHY THIS IS NOT A COSMETIC DEBUG FIELD. A silent `unmatched` does not
+   * read as "the export could not see it". It reads as "the product displayed
+   * nothing" — a different and false claim about the product, made by the one
+   * artefact a manual tester reasons from.
+   */
   const matchFactor = (
     nodeId: string,
     nodeLabel: unknown,
   ): FactorSensitivityEntry | undefined => {
     const norm = normaliseLabel(nodeLabel)
     return factorSensitivity.find((fs) => {
-      if (typeof fs.factor_id === 'string' && fs.factor_id === nodeId) return true
-      const fsLabel = normaliseLabel(fs.factor_label ?? fs.factor)
+      const { node_id, label } = normaliseFactorFields(fs as Record<string, unknown>)
+      if (node_id) return node_id === nodeId
+      const fsLabel = normaliseLabel(label ?? fs.factor)
       return Boolean(norm) && norm === fsLabel
     })
   }
@@ -3246,6 +3314,29 @@ export async function captureDisplayState(
         }))
       : null
 
+    /**
+     * The UI store, read defensively. It is a separate store from the canvas
+     * one and a bundle must never fail to export because a surface store is
+     * unavailable (tests, SSR, a torn-down app). `null` here means "not
+     * readable", never "the reader was nowhere".
+     */
+    const uiSnapshot: { activeOutputTab: string | null; pendingModelTabSection: string | null } =
+      (() => {
+        try {
+          const ui = useUIStore.getState() as {
+            activeOutputTab?: unknown
+            pendingModelTabSection?: unknown
+          }
+          return {
+            activeOutputTab: typeof ui?.activeOutputTab === 'string' ? ui.activeOutputTab : null,
+            pendingModelTabSection:
+              typeof ui?.pendingModelTabSection === 'string' ? ui.pendingModelTabSection : null,
+          }
+        } catch {
+          return { activeOutputTab: null, pendingModelTabSection: null }
+        }
+      })()
+
     // Determine active panel
     const activePanel = state.showResultsPanel
       ? 'results'
@@ -3304,8 +3395,20 @@ export async function captureDisplayState(
 
     return {
       active_panel: activePanel,
-      active_tab: null, // Tab state is local to components, not in store
-      active_section: null,
+      /**
+       * ⭐ WHICH SURFACE THE READER WAS ON. These were hardcoded `null` under the
+       * comment *"Tab state is local to components, not in store"* — which was
+       * FALSE at the time it was written and is the reason this session read a
+       * chat panel's rows against a pre-analysis panel's predicates.
+       * `uiStore` holds both (`activeOutputTab`, `pendingModelTabSection`).
+       * With both null, nothing in a bundle binds a screenshot to a component.
+       *
+       * ⚠ FAIL-OPEN TO NULL rather than throwing: a bundle that cannot read the
+       * UI store must still export. `null` now means "not readable", which is
+       * what it always claimed to mean.
+       */
+      active_tab: uiSnapshot.activeOutputTab,
+      active_section: uiSnapshot.pendingModelTabSection,
       canvas_node_count: nodes.length,
       canvas_edge_count: edges.length,
       canvas_node_types: nodeTypes,
@@ -3327,6 +3430,16 @@ export async function captureDisplayState(
       hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length, optionComparison),
       analysis_display_state: displayView.state,
       analysis_display_headline: displayView.headline,
+      analysis_gate: {
+        results_status: analysisStatus,
+        has_report: hasReport,
+        // The CONTENT check, not the envelope check — the same selector the
+        // panels consume, so the bundle records the fork rather than one side
+        // of it.
+        has_renderable_result: selectHasRenderableAnalysisResult(
+          state as { results?: { report?: unknown } },
+        ),
+      },
     }
   } catch {
     return {
@@ -3342,6 +3455,7 @@ export async function captureDisplayState(
       hero_headline_displayed: null,
       analysis_display_state: null,
       analysis_display_headline: null,
+      analysis_gate: { results_status: null, has_report: false, has_renderable_result: false },
     }
   }
 }
