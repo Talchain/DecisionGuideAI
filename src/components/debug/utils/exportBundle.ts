@@ -40,6 +40,7 @@ import {
   shouldCaptureUserAuthoredText,
   USER_AUTHORED_TEXT_OMITTED_REASON,
 } from '../../../utils/payloadRedaction'
+import { collectCanvasBreadcrumbs, type CanvasBreadcrumbCapture } from './canvasBreadcrumbs'
 import {
   collectServiceBuilds,
   type ServiceBuildCapture,
@@ -1366,6 +1367,23 @@ interface DebugBundle {
     /** Present whenever `available` is false. */
     unavailable_reason?: string
   }
+  /**
+   * ⭐⭐ THE CANVAS BREADCRUMB RING — the channel that actually survives a
+   * production build, and which no bundle carried until this field existed.
+   *
+   * ⛔ READ THIS BEFORE CONCLUDING "no diagnostics available". `console_logs`
+   * is empty in every staging bundle ever exported and always will be: the
+   * `console.*()` call sites are stripped at build time and CI fails the build
+   * if any survive. That is a DIFFERENT channel. This one is an array push on
+   * `window.__SAFE_DEBUG__.logs`, is untouched by the strippers, and has 33
+   * write sites across the app including both layout-failure paths.
+   *
+   * It was added because "Layout failed. Try again." stayed open from 26 Aug to
+   * 19 Sep 2026 with two refuted theories, and the founder's own bundle from
+   * the failure carried no trace of it — the recorder existed and nothing read
+   * it back. See `canvasBreadcrumbs.ts` for the full account.
+   */
+  canvas_breadcrumbs: CanvasBreadcrumbCapture
   /** Diagnostic checks for troubleshooting */
   diagnostic_checks: DiagnosticChecks
   /**
@@ -3743,6 +3761,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     console_logs: getBufferedLogs(),
     console_logs_capture: describeConsoleLogCapture(),
+    canvas_breadcrumbs: collectCanvasBreadcrumbs(),
     diagnostic_checks: data.diagnostics,
     // Track C Step 1 (D-5): always emitted; empty snapshot when nothing was
     // dropped this session. The getter never throws.
