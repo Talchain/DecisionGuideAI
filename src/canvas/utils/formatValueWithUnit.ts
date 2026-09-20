@@ -11,6 +11,10 @@
  *   CORRECT, NOT A GAP. See "THE PERCENT ARM DOES NOT SCALE" below.
  * - Time/generic units suffix with a space: 3 months, 500 users
  * - Numbers ≥ 1000 get thousand separators (en-GB locale)
+ * - A magnitude the four-fraction-digit bound would render as `0` (anything
+ *   non-zero below 5e-5) falls back to two SIGNIFICANT digits instead, so no
+ *   real value is ever reported as nothing. A true zero stays `0`. See
+ *   `formatNumber`.
  * - Placeholder units (scale/score/index/norm/normalised/unit/units) + 0–1
  *   value → qualitative label. Outside that range, the unit is suppressed
  *   and the bare number is rendered — placeholder units carry no real-world
@@ -41,13 +45,26 @@
  * identically (`0.24782608695652172` → `0.2478`) and cannot annihilate
  * (`0.00001` → `0.00001`). Two questions under one name — trap 21.
  *
- * ⚠ SCOPED TO PROPORTION UNITS, AND THE SCOPE IS THE POINT. The same latent
- * annihilation exists for every other class below 5e-5 (`0.00001 months` →
- * `0 months`; `0.00001 £` → `£0`). That is a real defect and it is NOT fixed
- * here: widening the instrument would move every unit class across ~20 surfaces,
- * which is a separate reviewable change. Both are pinned as UNCHANGED in
- * `__tests__/formatValueWithUnitProportionUnit.spec.ts` so this boundary is
- * provable rather than asserted.
+ * ⚠⚠ THE PROPORTION-ONLY SCOPE ABOVE IS SUPERSEDED — R9 CLOSED IT. The paragraph
+ * that stood here said the same annihilation for every OTHER class below 5e-5
+ * (`0.00001 months` → `0 months`; `0.00001 £` → `£0`) was "a real defect and it
+ * is NOT fixed here … a separate reviewable change", and pinned both as UNCHANGED
+ * so the boundary would be provable. That separate change has now been made, in
+ * `formatNumber` itself, and those two pins were MOVED deliberately — see
+ * `formatNumber`'s own docblock for the rule and
+ * `__tests__/formatNumber.smallMagnitudeRescue.spec.ts` for the enumerated blast
+ * radius. This note is kept rather than deleted because the sentence it replaces
+ * described behaviour that is no longer the code's, and a stale scope claim in the
+ * paragraph every reader starts from is exactly the hand-maintained mirror this
+ * estate keeps paying for.
+ *
+ * ⚠ THE TWO INSTRUMENTS ARE STILL DIFFERENT, AND THAT IS DELIBERATE. A proportion
+ * unit takes FOUR significant digits UNCONDITIONALLY (#1747, because a proportion
+ * value lives where the fraction bound bites). Every other class keeps the
+ * four-fraction-digit house bound and falls back to TWO significant digits ONLY
+ * where that bound erased the magnitude (#1742's reviewed pattern). Same harm,
+ * two budgets, because the value populations differ — not an inconsistency to
+ * reconcile.
  *
  * ⚠ MEASURED BLAST RADIUS: byte-identical on every value on the founder's board
  * (0.4 / 0.55 / 0.65 / 0.85) and on every other pinned value. Only the
@@ -184,20 +201,89 @@ function significantFmt(digits: number): Intl.NumberFormat {
 export const DOUBLE_ROUND_TRIP_SIGNIFICANT_DIGITS = 17
 
 /**
+ * The resolution a rescued magnitude is rendered at, in SIGNIFICANT digits, when
+ * the house bound has erased it entirely. TWO, deliberately: enough to make the
+ * magnitude and its sign visible, few enough not to imply precision this class of
+ * value does not have. Adopted unchanged from the reviewed fix at #1742's three
+ * call sites, so the centre and the edges cannot give two answers to one
+ * question.
+ */
+export const ERASED_MAGNITUDE_SIGNIFICANT_DIGITS = 2
+
+/**
  * Render one number for display.
+ *
+ * ⭐⭐ THE HOUSE BOUND MAY NOT REPORT A REAL MAGNITUDE AS NOTHING — R9, the
+ * durable version of a fix previously made twice at the edges.
+ *
+ * `BOUNDED_FMT` is `maximumFractionDigits: 4`, which is right for the over-claim
+ * it was adopted to close (a 17-figure raw double reaching the founder) and WRONG
+ * below 5e-5, where it renders a real non-zero magnitude as `0` — and `-0.00001`
+ * as `-0`, which is worse, because the SIGN survives while the MAGNITUDE does
+ * not: the reader is given the direction of a quantity that is simultaneously
+ * reported as nothing.
+ *
+ * ── HISTORY, BECAUSE IT DECIDES THE SHAPE OF THIS FIX ───────────────────────
+ * #1742 fixed three `ui/inspector-v2` callers and recorded that "the durable fix
+ * is for `formatNumber` itself to stop erasing small magnitudes, which would fix
+ * every consumer in the estate at once; that file has a different owner". #1747
+ * then fixed it for PROPORTION units here, and scoped itself explicitly: the
+ * remaining classes "NOT fixed here … a separate reviewable change", with
+ * `0.00001 months → "0 months"` pinned UNCHANGED so the boundary was provable.
+ * This is that change, and it moves those pins deliberately.
+ *
+ * ── THE RULE ────────────────────────────────────────────────────────────────
+ * Keep the house bound; fall back to significant digits ONLY when the house bound
+ * has erased a non-zero magnitude. `Number(housed) === 0` is the test for
+ * "erased", and it also covers `'-0'` (`-0 === 0` is true in JS).
+ *
+ * ⚠ A STORED `-0` IS LEFT ALONE, in both arms. `-0 !== 0` is FALSE, so the second
+ * conjunct excludes it — correctly: `-0` is the value the model holds, not an
+ * erased magnitude.
+ *
+ * ⚠ THE `>= 1000` BRANCH IS EXCLUDED STRUCTURALLY, not by luck. The rescue lives
+ * inside the sub-1000 arm, so a grouped value can never reach it. That matters
+ * because two significant digits would round `22,500.5` to `22,000` — rounding a
+ * PRODUCER value to solve a DISPLAY problem, which is banned. (It is doubly
+ * excluded: `Number('22,500.5')` is `NaN` and `NaN === 0` is false, which is the
+ * argument the three merged call sites rely on. Placing the branch inside the
+ * sub-1000 arm makes it independent of locale grouping as well.)
+ *
+ * ⚠ NON-FINITE INPUT PASSES THROUGH. `BOUNDED_FMT.format(NaN)` is `'NaN'`, which
+ * parses back to `NaN`, and `NaN === 0` is false — so no rescue is attempted on a
+ * value that has no magnitude to preserve.
+ *
+ * ⚠ KNOWN, REPORTED BOUND: two-significant-digit DECIMAL notation grows with the
+ * exponent (1e-8 → 10 characters, 1e-17 → 19, 1e-30 → 32, 5e-324 → 326).
+ * Realistic producer values sit in the first band. This is inherited unchanged
+ * from the pattern already merged at #1742's three call sites; widening it into an
+ * exponential arm would be a new display grammar and a second answer to one
+ * question, so it is pinned in the spec as a known width set and reported rather
+ * than fixed here.
+ *
+ * ⚠ AND WHAT THIS DOES NOT FIX, MEASURED: just ABOVE the threshold the house
+ * bound OVER-claims by up to 66% (`0.00006 → "0.0001"`). That is a property of
+ * `maximumFractionDigits: 4` itself, is untouched here, and is pinned UNCHANGED.
  *
  * @param n
  * @param significantDigits - OPTIONAL, and it is not a style knob. Supplying it
  *   says "I am rendering this number as part of a CONTRAST and I require this
  *   much resolution", and it overrides BOTH house bounds — the four-fraction
  *   -digit bound below 1000 and en-GB's three-fraction-digit default at and
- *   above it. Callers rendering a single value must not pass it; the house
- *   bound is the honest one for them.
+ *   above it — AND the rescue below, because a caller that has stated its own
+ *   resolution has already answered this question. Callers rendering a single
+ *   value must not pass it; the house bound, rescued, is the honest one for them.
+ *   This is what keeps #1747's proportion arm (which passes an explicit four) and
+ *   `describeRebaseDivergence`'s precision ladder byte-identical.
  */
 export function formatNumber(n: number, significantDigits?: number): string {
   if (significantDigits !== undefined) return significantFmt(significantDigits).format(n)
   if (Math.abs(n) >= 1000) return NUMBER_FMT.format(n)
-  return BOUNDED_FMT.format(n)
+  const housed = BOUNDED_FMT.format(n)
+  if (Number(housed) === 0 && n !== 0) {
+    return significantFmt(ERASED_MAGNITUDE_SIGNIFICANT_DIGITS).format(n)
+  }
+  return housed
 }
 
 /**
