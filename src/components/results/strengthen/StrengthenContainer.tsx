@@ -47,6 +47,8 @@ import { attentionNoteForRecommendation } from './recommendationAttention'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openDefineSuccess, openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import { openAskOlumi } from '../coaching/askOlumiStore'
+import { useAnalysisResultsAreCurrent } from '../../../canvas/hooks/useAnalysisResultsAreCurrent'
+import { materialParametersAwaitingUserIds } from '../analysisNew/materialParametersAwaitingUser'
 import { buildRecommendations, toStrengthenPhase3Item } from './buildRecommendations'
 import { mergeBiasFindingTypes } from './biasTypesFromGuidance'
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
@@ -116,6 +118,15 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     [records],
   )
 
+  /*
+   * MAY A ROW CLAIM THIS RESULT IS ABOUT THE GRAPH IN FRONT OF THE READER?
+   * The same authority the canvas factor card's influence ordinal is licensed
+   * by, imported rather than re-derived — `graphEditedSinceLastRun` and
+   * `analysisFreshnessDirty` both fail OPEN on reload and historical restore,
+   * and this hook's header records the measurement.
+   */
+  const analysisIdentityIsCurrent = useAnalysisResultsAreCurrent()
+
   const inputs: StrengthenInputs = useMemo(() => {
     const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
     const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
@@ -123,6 +134,11 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       goalThreshold: data.recommendation.goalThreshold ?? null,
       hasStatedGoalTarget: data.recommendation.hasGoalTarget,
       analysisComplete: data.recommendation.analysisStatus === 'computed',
+      // ⚠ MIRRORED in `analysisNew/buildStrengthenInputsForAnalysisNew.ts` and
+      // deep-equalled by `strengthenInputsMirror.drift.spec.tsx`. Both read the
+      // SAME single structural reader of the untyped `semantic_signals` field.
+      materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.analysisAdmission),
+      analysisIdentityIsCurrent: analysisIdentityIsCurrent === true,
       // ROADMAP 1.243: the OWNED leader entitlement, quoted from the single
       // verdict (`deriveDecisionVerdict`, the same instance the canvas and the
       // option cards read) and never re-derived. `analysisComplete` above is a
@@ -206,7 +222,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // is what collapsed the coaching band. Never reintroduce a local map.
       phase3Items,
     }
-  }, [data, guidanceItems, biasSignals, currentStage])
+  }, [data, guidanceItems, biasSignals, currentStage, analysisIdentityIsCurrent])
 
   // Reconcile on each COMPLETED analysis (identified by the results hash).
   useEffect(() => {

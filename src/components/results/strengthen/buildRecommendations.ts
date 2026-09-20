@@ -31,6 +31,8 @@ import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 import { biasCodeFromPhase3Item } from './biasTypesFromGuidance'
 import { SUCCESS_TARGET_PROMPT } from './successTargetPrompt'
 import { strongerOptionInWeakRuns } from '../strengthElicitation/assumedStrengthCopy'
+import { selectNextInputToSet } from './nextInputToSet'
+import { influenceRankReadout } from '../influenceScaleCopy'
 
 /**
  * The deterministic "define a success measure" recommendation's id.
@@ -226,6 +228,7 @@ export function helpTypeForPhase3Item(item: StrengthenPhase3Item): HelpType {
 // carries only ORDER — the dense index preserves it exactly.
 const PRIORITY = {
   successMeasure: 0,
+  nextInput: 5,
   phase3Base: 10, // + dense promoted-list index (producer-ranked only)
   flip: 100,
   lehi: 110,
@@ -781,6 +784,64 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       targetId: top.edgeId,
       priority: PRIORITY.flip,
     })
+  }
+
+  // ── Clarify: the next input this run turns on ────────────────────────────
+  //
+  // ⭐⭐ THE PRODUCT ALREADY COMPUTES THIS AND NEVER SAYS IT. On a
+  // `quantified_provisional` run CEE publishes the exact set of parameters the
+  // comparison is waiting on, and the surface already publishes an ordinal over
+  // the factors. Joining them names ONE next input instead of rendering the set
+  // as an untruncatable roll-call. Both post-result captures on served
+  // `fd992149` are in exactly this state.
+  //
+  // ⛔ IT PROMISES NOTHING ABOUT THE NEXT RUN, AND A CAPTURE IS WHY. `52383f4b`
+  // carries `confidence_parameters_user_stated: 1` — the user had already set
+  // Monthly Churn Rate — and the refusal persisted on
+  // `USER_STATED_PARAMETERS_NOT_MATERIAL`. Three further gates sit behind this
+  // one. So every sentence below states what IS true now; none says "and then I
+  // will name the leader".
+  //
+  // ⚠ NO GATE ON `leaderClaimPermitted`. This row exists precisely BECAUSE the
+  // claim is withheld, and it designates no option — the subject is an input of
+  // the reader's own model, not a comparative standing.
+  if (inputs.analysisComplete) {
+    const next = selectNextInputToSet(
+      inputs.factors,
+      inputs.materialParametersAwaitingUserIds,
+      inputs.analysisIdentityIsCurrent === true,
+    )
+    // The ordinal's words are the copy owner's, never re-spelled here; it
+    // refuses any rank it cannot publish, so a null readout is a null row.
+    const readout = next ? influenceRankReadout(1, next.setSize) : null
+    if (next && readout) {
+      recs.push({
+        id: `strengthen:next-input:${next.factorId}`,
+        helpType: 'clarify',
+        title: `Give ${next.label} a value of your own`,
+        signal: `${readout.phrase}, and the estimate behind it is Olumi's.`,
+        whyNow:
+          'Until at least one of the values this comparison turns on is yours, no option can be put forward as the leader.',
+        /**
+         * ⚠ THE ROUTE MUTATES NOTHING, AND THAT IS WHY THIS ROW IS SAFE TO SHOW.
+         * `canvas-focus` takes the reader to the factor; it types no number and
+         * writes nothing. The one genuinely dangerous act — committing a bare
+         * amount on a factor that records no prior range, which leaves the model
+         * unanalysable with no route back (`ModelRowView.tsx`, 10 Sep witness) —
+         * is owned and stated by the Model tab at the point of commit. This row
+         * must not reproduce that judgement; it only carries the fact forward
+         * when it has one, so the reader is not surprised by it later.
+         */
+        tryThis: next.declaresNoRange
+          ? 'This one records no range yet, so a single figure has nothing to be measured against — worth settling the range at the same time.'
+          : 'Use the figure you would defend in the room, not a cautious one.',
+        sourceLine:
+          "Source: the inputs Olumi reports this comparison is waiting on, in this run's own influence order.",
+        action: { kind: 'canvas-focus', label: 'Show me this factor' },
+        targetId: next.factorId,
+        priority: PRIORITY.nextInput,
+      })
+    }
   }
 
   // ── Clarify: low-evidence, high-influence factor (path-conditional) ──────

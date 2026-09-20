@@ -42,6 +42,7 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { ScenarioStage } from '../../../types/scenario'
 import { rangeIsSettableForFactor } from '../strengthen/factorRangeCapability'
+import { materialParametersAwaitingUserIds } from './materialParametersAwaitingUser'
 
 export interface StrengthenInputSources {
   data: ResultsSectionDataReturn
@@ -49,6 +50,17 @@ export interface StrengthenInputSources {
   /** CEE draft-coaching bias signals. Producer-owned; never locally derived. */
   biasSignals: Array<{ type: string }> | null
   currentStage: ScenarioStage | null
+  /**
+   * `useAnalysisResultsAreCurrent()` — may a row claim this result is about the
+   * graph in front of the reader? Threaded rather than read here because this
+   * builder is pure and the authority is a store-reading hook.
+   *
+   * ⚠ OPTIONAL AND FAIL-CLOSED. A caller that does not supply it gets `false`,
+   * which suppresses the one row that depends on it. The opposite default would
+   * let a fixture or a legacy call site license a claim about a graph nobody
+   * checked.
+   */
+  analysisIdentityIsCurrent?: boolean
 }
 
 export function buildStrengthenInputsForAnalysisNew({
@@ -56,6 +68,7 @@ export function buildStrengthenInputsForAnalysisNew({
   guidanceItems,
   biasSignals,
   currentStage,
+  analysisIdentityIsCurrent,
 }: StrengthenInputSources): StrengthenInputs {
   const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
   const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
@@ -63,6 +76,10 @@ export function buildStrengthenInputsForAnalysisNew({
     goalThreshold: data.recommendation.goalThreshold ?? null,
     hasStatedGoalTarget: data.recommendation.hasGoalTarget,
     analysisComplete: data.recommendation.analysisStatus === 'computed',
+    // CEE's own blocking set, read through the ONE structural reader of an
+    // untyped wire field. Mirrored verbatim in `StrengthenContainer.tsx`.
+    materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.analysisAdmission),
+    analysisIdentityIsCurrent: analysisIdentityIsCurrent === true,
     // The OWNED leader entitlement, quoted from the single verdict and never
     // re-derived. A completed analysis is not an entitlement to name a leader.
     // ⚠ THE COMPOSED ANSWER, matching `StrengthenContainer` exactly. Passing raw
