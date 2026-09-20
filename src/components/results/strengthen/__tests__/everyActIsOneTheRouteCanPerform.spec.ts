@@ -148,6 +148,40 @@ describe('every act the panel names is one its route can perform', () => {
     ).toBeGreaterThan(1)
   })
 
+  /**
+   * ⛔⛔ THE BLOCK PARSE READS ONE ACTION PER CARD, AND A CARD CAN NOW EMIT TWO.
+   *
+   * `strengthen:lehi` branches its action on whether a range can be set, so its
+   * block contains a `canvas-focus` pairing AND an `ai-dialogue` one. A parser
+   * that takes the FIRST `kind:`/`label:` in the block sees one of them and
+   * silently blesses the other — an instrument that stops discriminating
+   * without erroring, which is this estate's signature failure.
+   *
+   * So the constrained route is swept PAIR-WISE over the whole builder, and the
+   * sweep asserts its own COMPLETENESS: the number of pairings it read must
+   * equal the number of `kind: 'canvas-focus'` occurrences in the file. If
+   * somebody writes `{ kind: 'canvas-focus', prompt: x, label: y }` the
+   * adjacency breaks, the counts diverge, and this fails LOUD rather than
+   * reading a label it never found.
+   */
+  it('EVERY canvas-focus pairing is read, not just the first in each card', () => {
+    const src = readFileSync(SOURCE, 'utf8')
+    const pairs = [...src.matchAll(/kind:\s*'([a-z-]+)',\s*label:\s*[`']([^`']+)['`]/g)].map(
+      (m) => ({ kind: m[1], label: m[2] }),
+    )
+    const focusPairs = pairs.filter((p) => p.kind === 'canvas-focus')
+    const focusDeclarations = [...src.matchAll(/kind:\s*'canvas-focus'/g)].length
+
+    expect(focusDeclarations, 'no canvas-focus route left — this test now proves nothing').toBeGreaterThan(0)
+    expect(
+      focusPairs.length,
+      'a canvas-focus action declared its label somewhere this sweep cannot read — put `label` immediately after `kind`, or widen this parser deliberately',
+    ).toBe(focusDeclarations)
+
+    const offenders = focusPairs.filter((p) => !LOCATES.test(p.label)).map((p) => `"${p.label}"`)
+    expect(offenders, `a camera move labelled as a mutation:\n${offenders.join('\n')}`).toEqual([])
+  })
+
   it('a camera move is never labelled as a mutation — except the one known gap', () => {
     const unrouted = cards
       .filter((c) => c.kind === 'canvas-focus')
