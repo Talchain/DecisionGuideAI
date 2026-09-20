@@ -537,17 +537,35 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
    * that swallowed it would pass every other assertion.
    *
    * ⚠ BOTH LIMBS REUSE THE DOWNSTREAM OWNERS — `encodingMapPhrase` and
-   * `isPlaceholderMagnitudeSummary` — rather than restating their rules. A
+   * `placeholderMagnitudeNumber` — rather than restating their rules. A
    * second copy agrees on the day it is written and drifts after (trap 12), and
    * the copy here would decide the OPPOSITE branch from the original, so the
    * drift would be silent in both directions.
+   *
+   * ⚠⚠ THE OWNER WAS RENAMED UNDER THIS BRANCH, AND ONLY THE INTEGRATION SAW IT.
+   * Staging replaced the boolean `isPlaceholderMagnitudeSummary` with
+   * `placeholderMagnitudeNumber`, which returns the producer's own figure or
+   * `null`. This line still called the removed name: TS2552 at typecheck and a
+   * ReferenceError in the unit shard, neither visible on the branch alone.
+   *
+   * ⚠ `=== null` RATHER THAN FALSINESS, AND THE REASON IS NOT THE ONE THIS
+   * BLOCK FIRST GAVE. It claimed `!placeholderMagnitudeNumber(...)` would flip
+   * the branch on `"0 scale"`. **That is false and a mutant proved it**:
+   * substituting the falsy test left all 36 cases green, because the function
+   * returns the figure as TEXT and `"0"` is truthy. Executed against the regex,
+   * group 1 is `[-+]?\d[\d,]*(?:\.\d+)?` — it cannot match empty — so every
+   * return is `null` or a non-empty string and the two forms are EQUIVALENT.
+   * An equivalent mutant has to be demonstrated, never asserted (CLAUDE.md
+   * trap 13c), and this one is. `=== null` stays because it states the
+   * function's contract instead of relying on a coincidence of JS truthiness,
+   * but it is a legibility choice and nothing here depends on it.
    */
   const placeholderMeaningAlreadyDeclared =
     unitKind === 'placeholder'
     && (encodingMapPhrase(input.encoding_map, value) !== null
       || (display_value != null
         && display_value !== ''
-        && !isPlaceholderMagnitudeSummary(display_value)))
+        && placeholderMagnitudeNumber(display_value) === null))
 
   if (
     raw_value != null
