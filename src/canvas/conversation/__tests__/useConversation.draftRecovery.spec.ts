@@ -600,6 +600,59 @@ describe('stream loss + fallback decline — the server HOLDS the draft', () => 
     expect(contents).not.toContain(DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE)
   })
 
+  /**
+   * ⛔ THE DOOR `'unchanged'` CANNOT COVER, AND IT IS THE COMMON CASE.
+   *
+   * The test above pins `'unchanged'`, which keys on `serverGraphIdentity` —
+   * and that field has exactly ONE non-test writer: the accepted exit of
+   * `serverGraphHydration` itself. Boot returns `'notReadable'` on a fresh
+   * scenario ~230 lines above that setter, `/graph/register`'s
+   * `graph_identity_hash` is read for telemetry only, and a turn never writes
+   * it. So in the session where drafting happens the token is null,
+   * `isSameServerGraph` fails closed, and the guard above CANNOT FIRE — the
+   * test passes only because it SEEDS the token by hand, which is a
+   * fabricated precondition.
+   *
+   * The reachable shape is this one: the token is absent, the merge runs, and
+   * the server hands back exactly the graph the preview already put on the
+   * canvas — i.e. this draft's values were never committed. The old code read
+   * that as `'merged'` and narrated it as a recovery over the user's own
+   * zeroed values.
+   *
+   * The DISCRIMINATING TWIN is the first test in this block: same drive, same
+   * single read, server holding the TERMINAL graph → recovery IS claimed.
+   * Neither alone shows anything; the pair is what proves the outcome tracks
+   * the server's contents rather than a constant.
+   */
+  it('a ZERO-DELTA merge is NOT a recovery: the server handing back what is already on the canvas claims nothing', async () => {
+    // Identity token deliberately NOT seeded — this is the production state.
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+    // The server holds the PREVIEW's graph: same identities, values still
+    // zeroed. Nothing this turn produced ever committed.
+    // One cast, at the producer's own result type: `READY_GRAPH` is derived
+    // from the wire fixture so its element types are widened, and
+    // `ScenarioGraphResult` is a union on which `graph` is variant-specific.
+    mockFetchScenarioGraph.mockResolvedValue({
+      ...serverGraphResult(),
+      graph: READY_GRAPH,
+    } as unknown as ScenarioGraphResult)
+    const result = await driveStreamLossDecline()
+
+    // The read WAS attempted and DID merge — this is about the claim, not the
+    // fetch, and not about short-circuiting before the merge.
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // The preview's zeroed values are untouched, because there was nothing to
+    // replace them with.
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+
+    // Standing unsettled behaviour, and no recovery claim in either voice.
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE)
+  })
+
   it('a transport-dead recovery read is a failure, not a recovery — same standing behaviour', async () => {
     // The read leg itself can die (the 2.1251 class). `unusable` must route
     // exactly like 404: no claim, standing notice, chip present.
@@ -829,6 +882,45 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
     expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
     // The user is still told something went wrong — a real failure still says so.
     expect(result.current.messages.some((m) => m.role === 'assistant' && m.synthetic)).toBe(true)
+  })
+
+  /**
+   * ⛔ EVERY EXIT FROM THE WIDENED BRANCH MUST RESOLVE THE USER'S OWN BUBBLE.
+   *
+   * The widening made `deliveryState: 'sent'` conditional on
+   * `v5Result.kind === 'response'`, with the recovery read supplying the other
+   * proof. But the read has three exits that write nothing — ownership lost
+   * before it, ownership lost after it, and a read that finds nothing — and on
+   * the newly-covered arms none of them reached a write at all. The bubble was
+   * left `'pending'`, which renders as still-sending on a turn that has
+   * definitively ended, and `useThreadPersistence` commits a deferred user
+   * message only once it resolves to `'sent'`.
+   *
+   * `'unconfirmed'` is this estate's existing name for the fact (ROADMAP
+   * 2.665): the request reached the server — an OPENED stream witnesses that —
+   * and no reply came back. It renders "Sent — reply not received" with no
+   * retry chip, because a retry duplicates.
+   */
+  it("resolves the user's bubble to 'unconfirmed' when the fallback died and nothing was recovered", async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble, 'the user bubble must still exist').toBeDefined()
+    expect(userBubble?.deliveryState).toBe('unconfirmed')
+  })
+
+  /**
+   * THE OPPOSITE-DIRECTION TWIN. A recovery upgrades the same bubble to
+   * `'sent'` — so the assertion above is about the OUTCOME, not about a
+   * constant that happens to be written on every path.
+   */
+  it("CONTRAST: a recovered draft upgrades the same bubble to 'sent'", async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble?.deliveryState).toBe('sent')
   })
 
   it('an absent server graph is not a recovery either, and is read only once', async () => {
