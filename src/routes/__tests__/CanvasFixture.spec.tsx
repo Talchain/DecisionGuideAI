@@ -46,22 +46,63 @@ describe('the committed draft fixture is a real, mappable CEE graph', () => {
     expect(meta!.captured_at).toBeTruthy()
   })
 
-  it('⛔⛔ THE LABELS ARE SANITISED — a route flag is not access control', () => {
+  it('⛔⛔ THE LABELS ARE EXACTLY THE SANITISED SET — a route flag is not access control', () => {
     // This file is statically imported into a lazily-loaded chunk. Anyone who
-    // knows the chunk's URL can fetch it: no auth, no flag evaluation. The
+    // knows that chunk's URL can fetch it: no auth, no flag evaluation. The
     // capture came off a real board, so its labels and quoted user text were
     // real business strategy until they were replaced.
-    const raw = JSON.stringify(fixture)
-    for (const term of ['fundrais', 'investor', 'angel', 'pre-seed', 'dilution']) {
-      expect(
-        raw.toLowerCase().includes(term),
-        `the fixture carries "${term}" — private capture text has come back into a public chunk`,
-      ).toBe(false)
+    //
+    // ⚠ THIS PINS THE SET, NOT A VOCABULARY. The first version of this guard
+    // banned five words ('fundrais', 'investor', 'angel', 'pre-seed',
+    // 'dilution') and a mutant walked straight through it by restoring the
+    // label "Round Closure Speed" — real capture text, on none of the five.
+    // A denylist of words a human has to keep current is the hand-maintained
+    // mirror this estate keeps paying for (CLAUDE.md trap 12); pinning the set
+    // catches ANY reintroduction, including text nobody thought to ban.
+    const labels = (fixture as { nodes: Array<{ label: string }> }).nodes.map(n => n.label).sort()
+    expect(labels).toEqual([
+    "Build Completion Speed",
+    "Build Timeline Breach",
+    "Contractor Availability",
+    "Growing Area Gained",
+    "Lease and Extend in Parallel",
+    "Lease the Adjacent Plot",
+    "Lease the Adjacent Plot or Extend the Current Site",
+    "New Greenhouse Open",
+    "Ongoing Rent Burden",
+    "Open the Greenhouse Within Two Months",
+    "Status Quo — No Expansion This Year",
+    "Unfavourable Lease Terms Risk",
+    "extend the current site to cover the whole planned growing area",
+    ])
+  })
+
+  it('⛔⛔ and so is every quoted user utterance — those were the founder’s own words', () => {
+    const quotes: string[] = []
+    const walk = (o: unknown): void => {
+      if (Array.isArray(o)) { o.forEach(walk); return }
+      if (o && typeof o === 'object') {
+        for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+          if (k === 'source_quote' && typeof v === 'string') quotes.push(v)
+          walk(v)
+        }
+      }
     }
-    // CONTRAST, in the same assertion block: the PRODUCER's own boilerplate is
-    // still here. Both readings matter — the first alone would also pass on an
-    // empty file (CLAUDE.md trap 13e).
+    walk(fixture)
+    expect(quotes.sort()).toEqual([
+    "extend the current site to cover the whole planned growing area",
+    "lease the adjacent plot",
+    "open the greenhouse within two months",
+    ])
+  })
+
+  it('⭐ CONTRAST: the producer’s own output is still here, byte-unchanged', () => {
+    // The set assertions above would also pass on a file emptied of content.
+    // This is the discrimination that proves the fixture is still a real
+    // capture and not a husk (CLAUDE.md trap 13e).
+    const raw = JSON.stringify(fixture)
     expect(raw).toMatch(/Olumi estimate via edge/)
+    expect(raw).toMatch(/records projector/)
     expect((fixture as { _provenance: Record<string, unknown> })._provenance.sanitised).toBeTruthy()
   })
 
