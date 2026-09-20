@@ -402,3 +402,147 @@ describe('the cross-section census discriminates', () => {
     expect(across(el)).toEqual([])
   })
 })
+
+/**
+ * SENTENCE-LEVEL, ACROSS SECTIONS — the arm that catches Paul's 20 Sep instance.
+ *
+ * ⛔ WHY THE ARM ABOVE CANNOT. Every census up to here compares whole normalised
+ * ELEMENT text. `WhatWeChecked.meaningFor()` returns `${base} ${cause}` in ONE
+ * element while the options-comparison caveat renders the same `base` on its
+ * own, so the repeated claim is a SENTENCE INSIDE a longer paragraph. Element
+ * equality cannot see it, and widening to substring matching would fire on
+ * every short claim that happens to be a prefix of a longer one.
+ *
+ * ⭐ THE UNIT THAT WORKS IS THE SENTENCE, and that is not a compromise between
+ * the two — it is the unit the defect is actually in. "The same thing said
+ * twice" was always about sentences; the element was only ever a proxy for one,
+ * and the proxy broke the moment a component concatenated two.
+ *
+ * ⚠ SAME FLOOR, APPLIED PER SENTENCE. The ≥25 chars / ≥5 words rule that keeps
+ * labels out of the element census keeps sentence fragments out of this one,
+ * for the same reason and with the same precedent. A noun phrase is not a
+ * claim at either granularity.
+ *
+ * ⚠ AND THE SAME CROSS-SECTION SCOPE. A section is entitled to repeat its own
+ * per-row caption (adjudicated one arm above, on measured evidence). This asks
+ * only whether one section states another section's claim.
+ */
+function claimSentencesBySection(root: HTMLElement): Array<{ text: string; section: string }> {
+  const out: Array<{ text: string; section: string }> = []
+  root.querySelectorAll('p, span, h3, li, dd, dt, button').forEach((el) => {
+    if (el.querySelector('p, span, h3, li, dd, dt, button')) return
+    const whole = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+    const section = owningSection(el)
+    // Keep the terminator on each sentence so "…is unconfirmed." and a clause
+    // that merely starts the same way are different strings.
+    for (const raw of whole.split(/(?<=[.!?])\s+/)) {
+      const t = raw.trim()
+      if (t.length >= 25 && t.split(' ').length >= 5) out.push({ text: t.toLowerCase(), section })
+    }
+  })
+  return out
+}
+
+function sentencesStatedInTwoSections(root: HTMLElement): string[] {
+  const where = new Map<string, Set<string>>()
+  for (const r of claimSentencesBySection(root)) {
+    const s = where.get(r.text) ?? new Set<string>()
+    s.add(r.section)
+    where.set(r.text, s)
+  }
+  return [...where.entries()]
+    .filter(([, s]) => s.size > 1)
+    .map(([text, s]) => `${text}  [${[...s].join(' + ')}]`)
+}
+
+/**
+ * ⛔ THE ONE REPEAT THAT IS RULED, NOT BROKEN — and it must stay visible.
+ *
+ * The promoted recommendation is rendered TWICE by design: once as the glance
+ * focus card (which sits outside every `SectionShell`, hence `root`) and once
+ * in the "Strengthen the reasoning" list beneath. `selectAlsoWorthDoing`
+ * returns its input UNCHANGED at every arity, and that is a ruling with a spec
+ * of its own — `theFocusCardIsDeliberatelyRepeatedBelow.spec.tsx`.
+ *
+ * ⚠ IT WAS "FIXED" ONCE AND THE FIX WAS WORSE. Excluding the promoted card
+ * from the list below makes its DISMISS unreachable, and retiring a
+ * recommendation is the only thing that advances `glancePrimary` — so one
+ * recommendation would pin itself to the top of the panel for the life of the
+ * run. An independent review refuted the exclusion and was right.
+ *
+ * So this census may not demand the product stop doing it. What it CAN do, and
+ * what trap 22f's ruling on known gaps requires, is name the gap exactly: the
+ * suite stays green for the right reason, and REDs if the set grows OR shrinks.
+ */
+const KNOWN_ADJUDICATED_REPEATS: readonly string[] = ['no measurable success target is set.']
+
+/** Drops the `[section + section]` annotation so the set can be compared by claim. */
+const withoutSections = (row: string): string => row.split('  [')[0]
+
+describe('no section states another section\'s SENTENCE, once every section is open', () => {
+  for (const [name, make] of Object.entries({
+    'a genuine decision': genuineDecision,
+    'an open strategic challenge': openStrategicChallenge,
+    'a high-uncertainty run': highUncertainty,
+    'a run whose leader is withheld with a reason': decisionWithLeaderWithheldAndReason,
+  })) {
+    it(`states each claim once — ${name}`, () => {
+      const { container } = renderSurface(make())
+      const body = container.querySelector<HTMLElement>('[data-testid="analysis-new-tab-body"]')!
+      const pressed = expandEverything(body)
+      expect(pressed, 'nothing was collapsed — this case cannot be wider than the viewport census').toBeGreaterThan(0)
+
+      const rows = claimSentencesBySection(body)
+      expect(new Set(rows.map((r) => r.section)).size, 'claims landed in fewer than two sections — cannot discriminate').toBeGreaterThan(1)
+
+      const repeated = sentencesStatedInTwoSections(body)
+
+      // ⭐⭐ THE ADJUDICATED REPEAT IS PINNED AS AN EXACT SET, NOT FILTERED OUT.
+      // `toEqual` on the whole list means this REDs if the set GROWS (a new
+      // defect) and equally if it SHRINKS (the ruling changed and this
+      // exemption is now stale prose asserting a state the product left). A
+      // `.filter()` would only catch the first, and a gap invisible to the
+      // suite is how the duplication that prompted this file shipped.
+      expect(
+        repeated.map(withoutSections),
+        `these CLAIMS are stated in more than one section:\n${repeated.join('\n')}`,
+      ).toEqual(KNOWN_ADJUDICATED_REPEATS)
+    })
+  }
+
+  /**
+   * ⭐ THE DISCRIMINATING PAIR, and the first case is the one that matters: it
+   * reproduces the exact shape of Paul's instance — one section carrying the
+   * sentence alone, another carrying it concatenated with a second sentence.
+   * The element census above is GREEN on this input, which is the whole reason
+   * this arm exists.
+   */
+  const BASE =
+    'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.'
+  const CAUSE = 'This run could not work out how far apart the options are, so it cannot put one forward.'
+
+  it("FIRES on a sentence that one section states alone and another states inside a longer paragraph", () => {
+    const el = document.createElement('div')
+    el.innerHTML =
+      `<div data-testid="compare-region"><p>${BASE}</p></div>` +
+      `<div data-testid="checks-region"><p>${BASE} ${CAUSE}</p></div>`
+    expect(sentencesStatedInTwoSections(el).length).toBe(1)
+    // …and the ELEMENT census stays silent on the same input, which is the
+    // measured gap this arm closes. If this ever goes red the arm is redundant.
+    const elementLevel = new Map<string, Set<string>>()
+    for (const r of sentencesBySection(el)) {
+      const s = elementLevel.get(r.text) ?? new Set<string>()
+      s.add(r.section)
+      elementLevel.set(r.text, s)
+    }
+    expect([...elementLevel.values()].some((s) => s.size > 1)).toBe(false)
+  })
+
+  it('STAYS SILENT when the two sentences are merely similar', () => {
+    const el = document.createElement('div')
+    el.innerHTML =
+      `<div data-testid="a-region"><p>${BASE}</p></div>` +
+      '<div data-testid="b-region"><p>Olumi could not confirm which option is most likely on this run.</p></div>'
+    expect(sentencesStatedInTwoSections(el)).toEqual([])
+  })
+})
