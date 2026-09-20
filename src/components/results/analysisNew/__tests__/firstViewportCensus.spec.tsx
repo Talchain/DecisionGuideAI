@@ -474,10 +474,27 @@ function sentencesStatedInTwoSections(root: HTMLElement): string[] {
  * what trap 22f's ruling on known gaps requires, is name the gap exactly: the
  * suite stays green for the right reason, and REDs if the set grows OR shrinks.
  */
-const KNOWN_ADJUDICATED_REPEATS: readonly string[] = ['no measurable success target is set.']
-
-/** Drops the `[section + section]` annotation so the set can be compared by claim. */
-const withoutSections = (row: string): string => row.split('  [')[0]
+/**
+ * ⛔⛔ THE SECTION IDENTITIES ARE PART OF THE PIN — corrected 20 Sep 2026 after
+ * an independent review caught the first version of this stripping them.
+ *
+ * That version asserted only the SENTENCE and compared it after dropping the
+ * `[a + b]` annotation. The ruling permits this recommendation in `root` PLUS
+ * `analysis-new-strengthen-region` and nowhere else — but a set keyed on the
+ * sentence alone stays green if the same claim also appears in a THIRD section,
+ * or if it moves to two entirely unrelated ones: the map still holds one key and
+ * the expected array is unchanged. The exemption would have licensed every
+ * future placement of that sentence, which is the opposite of what an exact pin
+ * is for.
+ *
+ * ⭐ This is trap 13b in the guard written to close trap 22f: the discrimination
+ * was real on the day and pinned by nothing at rest. The rows below therefore
+ * carry the owning sections verbatim, in the order `sentencesStatedInTwoSections`
+ * emits them, so a move REDs as loudly as an addition.
+ */
+const KNOWN_ADJUDICATED_REPEATS: readonly string[] = [
+  'no measurable success target is set.  [root + analysis-new-strengthen-region]',
+]
 
 describe('no section states another section\'s SENTENCE, once every section is open', () => {
   for (const [name, make] of Object.entries({
@@ -504,7 +521,7 @@ describe('no section states another section\'s SENTENCE, once every section is o
       // `.filter()` would only catch the first, and a gap invisible to the
       // suite is how the duplication that prompted this file shipped.
       expect(
-        repeated.map(withoutSections),
+        repeated,
         `these CLAIMS are stated in more than one section:\n${repeated.join('\n')}`,
       ).toEqual(KNOWN_ADJUDICATED_REPEATS)
     })
@@ -544,5 +561,49 @@ describe('no section states another section\'s SENTENCE, once every section is o
       `<div data-testid="a-region"><p>${BASE}</p></div>` +
       '<div data-testid="b-region"><p>Olumi could not confirm which option is most likely on this run.</p></div>'
     expect(sentencesStatedInTwoSections(el)).toEqual([])
+  })
+})
+
+/**
+ * ⭐ THE SOURCE WITNESS FOR THE EXEMPTION'S SCOPE — asked for by review, and it
+ * is the case the first version of `KNOWN_ADJUDICATED_REPEATS` passed wrongly.
+ *
+ * The ruling licenses ONE placement pair. A third section carrying the same
+ * sentence is a new defect, and must RED even though the sentence itself is on
+ * the known list. Its twin proves the allowed pair still passes, so the pin is
+ * discriminating rather than merely strict.
+ */
+describe('the adjudicated exemption is bound to its section pair, not to the sentence', () => {
+  const CLAIM = 'No measurable success target is set.'
+  const build = (sections: readonly string[]) => {
+    const el = document.createElement('div')
+    el.innerHTML = sections
+      .map((id) => `<div data-testid="${id}-region"><p>${CLAIM}</p></div>`)
+      .join('')
+    return el
+  }
+
+  it('the allowed pair matches the pin exactly', () => {
+    // `root` is prose outside every section, so it is rendered bare here.
+    const el = document.createElement('div')
+    el.innerHTML =
+      `<p>${CLAIM}</p>` +
+      `<div data-testid="analysis-new-strengthen-region"><p>${CLAIM}</p></div>`
+    expect(sentencesStatedInTwoSections(el)).toEqual(KNOWN_ADJUDICATED_REPEATS)
+  })
+
+  it('a THIRD section carrying the same sentence does NOT match the pin', () => {
+    const el = document.createElement('div')
+    el.innerHTML =
+      `<p>${CLAIM}</p>` +
+      `<div data-testid="analysis-new-strengthen-region"><p>${CLAIM}</p></div>` +
+      `<div data-testid="analysis-new-checks-region"><p>${CLAIM}</p></div>`
+    expect(sentencesStatedInTwoSections(el)).not.toEqual(KNOWN_ADJUDICATED_REPEATS)
+  })
+
+  it('the same sentence in two UNRELATED sections does NOT match the pin', () => {
+    expect(sentencesStatedInTwoSections(build(['alpha', 'beta']))).not.toEqual(
+      KNOWN_ADJUDICATED_REPEATS,
+    )
   })
 })
