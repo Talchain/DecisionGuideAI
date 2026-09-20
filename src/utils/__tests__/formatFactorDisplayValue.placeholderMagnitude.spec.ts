@@ -255,3 +255,121 @@ describe('placeholder magnitude summaries never render as if measured', () => {
     })
   })
 })
+
+/**
+ * ⭐⭐ CONFIRMING A CATEGORICAL STATE MUST NOT DELETE ITS DECLARED MEANING.
+ *
+ * ⚠⚠ THIS IS A REGRESSION THIS PR INTRODUCED, found by independent review, not
+ * by this file. The user-stated rescue opened Pattern 1 to a PLACEHOLDER unit —
+ * correctly, for the founder's unmapped `4 scale` — but Pattern 1 sits ABOVE
+ * `display_value` and above `encoding_map` in the precedence this module
+ * documents at its own line 427. So a value the producer had already GIVEN A
+ * MEANING lost it the moment the user confirmed it:
+ *
+ *   {display_value:"0 scale", encoding_map:{"0":"Not pursued"},
+ *    observedState:{value:0, raw_value:0, unit:"scale", source:"user_confirmed"}}
+ *
+ *   before this PR → "Not pursued"      (the exact-encoding rule)
+ *   at cfc8ad63     → "0"               ← the meaning is gone
+ *
+ * The rescue's premise is *"the product may decline to assert its OWN estimate;
+ * it may not hide his"*. A declared `encoding_map` is not a hidden value — it is
+ * that value, said in words. Rescuing it into a bare digit is the same loss the
+ * rescue was written to prevent, pointed the other way.
+ *
+ * ⛔ SO THE RESCUE IS NARROWED, NOT REVERTED: it fires only where NO declared
+ * meaning applies. The founder's `4 scale` with no map and no contextual prose
+ * still renders — that case is asserted below as the positive control, because
+ * a narrowing that quietly swallowed it would pass every test here.
+ */
+describe('a confirmed categorical value keeps the meaning the producer declared', () => {
+  const germany = (source: string) => ({
+    label: 'Germany Market Entry',
+    display_value: '0 scale',
+    encoding_map: { '0': 'Not pursued', '1': 'Pursued' },
+    observedState: { value: 0, raw_value: 0, unit: 'scale', source },
+  })
+
+  it.each(['user_confirmed', 'user'])(
+    'an encoded 0 keeps its phrase when the user states it (source: %s)',
+    (source) => {
+      expect(factorDisplayText(germany(source))).toBe('Not pursued')
+    },
+  )
+
+  it('CONTROL — the machine-sourced arm is unchanged, so this is not a blanket revert', () => {
+    expect(factorDisplayText(germany('cee_estimate'))).toBe('Not pursued')
+  })
+
+  it('contextual prose survives a user-stated value too', () => {
+    // `display_value` that is NOT a magnitude summary keeps its place above the
+    // numeric fallback — the `fac_acquisition` shape this module's header names.
+    expect(
+      factorDisplayText({
+        label: 'Acquisition',
+        display_value: 'No acquisition pursued',
+        observedState: { value: 0, raw_value: 0, unit: 'scale', source: 'user_confirmed' },
+      }),
+    ).toBe('No acquisition pursued')
+  })
+
+  it('⭐ POSITIVE CONTROL — the founder’s UNMAPPED stated value is still visible', () => {
+    expect(
+      factorDisplayText({
+        label: 'Team Capability',
+        observedState: { value: 4, raw_value: 4, unit: 'scale', source: 'user' },
+      }),
+    ).toBe('4')
+  })
+
+  /**
+   * ⭐⭐⭐ THE ASSERTION THAT ACTUALLY BINDS TO THE RESCUE — and the file did not
+   * have it until a mutant proved so.
+   *
+   * ⚠ HOW THIS WAS FOUND. A mutant deleting the Pattern-1 rescue outright left
+   * ALL 31 assertions here green, and all 410 in `src/utils/__tests__`. The
+   * obvious reading was that the limb is redundant — Pattern 2's own
+   * `value_source` awareness returns "4" for the case above, so the control
+   * above passes either way and proves nothing about the code it was written for.
+   *
+   * ⛔ THE OBVIOUS READING WAS WRONG, and the only reason I know is that I
+   * enumerated the whole class the rescue can reach (placeholder unit +
+   * raw_value + user-stated) and DIFFED the two builds across it. 282 cases,
+   * and they differ on exactly one shape — the one that matters:
+   *
+   *   {display_value:"0 scale", observedState:{value:V, raw_value:V,
+   *    unit:"scale", source:"user"}}
+   *     with the rescue → "V"     ← the user's own number
+   *     without it      → null    ← THE CARD RENDERS NOTHING
+   *
+   * `isPlaceholderMagnitudeSummary` suppresses the stale "0 scale" summary — it
+   * must, that is its job — and with the rescue gone nothing remains to show.
+   * That is PRECISELY the defect this PR exists to close, re-opened. CEE sends a
+   * placeholder magnitude summary alongside a raw value routinely, so this is
+   * not a corner.
+   *
+   * The lesson is the kit's: a surviving mutant is a claim about the SPEC first.
+   * Here it was right about the spec and wrong about the code.
+   */
+  it.each([0, 0.5, 1, 4])(
+    'a user-stated %s still shows when a placeholder magnitude summary is all CEE sent',
+    (v) => {
+      expect(
+        factorDisplayText({
+          label: 'Team Capability',
+          display_value: '0 scale',
+          observedState: { value: v, raw_value: v, unit: 'scale', source: 'user' },
+        }),
+      ).toBe(String(v))
+    },
+  )
+
+  it('CONTROL — an unmapped MACHINE value is still suppressed, as before', () => {
+    expect(
+      factorDisplayText({
+        label: 'Team Capability',
+        observedState: { value: 4, raw_value: 4, unit: 'scale', source: 'cee_estimate' },
+      }),
+    ).not.toBe('4')
+  })
+})
