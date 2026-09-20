@@ -46,16 +46,38 @@ import { resolve } from 'node:path'
 
 const ROOT = process.cwd()
 
-/** Every tracked source file, from git — never a hand-listed set. */
-const trackedSources = (): string[] =>
-  execFileSync('git', ['ls-files', '*.ts', '*.tsx'], { cwd: ROOT, encoding: 'utf8' })
-    .split('\n')
-    .filter((f) => f.length > 0)
-
-const callSitesOf = (rel: string, symbol: string): number => {
-  const src = readFileSync(resolve(ROOT, rel), 'utf8')
-  return src.split(`.${symbol}(`).length - 1
+/**
+ * ⚠⚠ EVERY SWEEP HERE IS A `git` CALL, AND THAT IS A CORRECTION, NOT A STYLE
+ * CHOICE. The first version of this guard read EVERY tracked `src/` file in
+ * Node to run its ban regex. It worked, and it cost about **54 seconds** —
+ * which took `Full Test Suite (shard 2/4)` from 853s to **906.81s** against a
+ * **900s** step timeout, and the shard was killed before it could write its
+ * artifact. The failure surfaced as "vitest-output.txt missing", i.e. it did
+ * not look like a slow test at all.
+ *
+ * ⭐ The shard was already 5% from its limit (853 / 846 / 830 seconds measured
+ * across three other PRs the same night). A guard that walks the tree in JS is
+ * affordable exactly once; `git grep` and `git ls-files` do the same work in
+ * one process and cost milliseconds. **The instrument must be cheap enough that
+ * nobody is tempted to delete it.**
+ */
+function git(args: readonly string[]): string[] {
+  try {
+    return execFileSync('git', [...args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
+      .split('\n')
+      .filter((l) => l.length > 0)
+  } catch (e) {
+    // `git grep` exits 1 when it matches nothing. That is a RESULT, not a
+    // failure — but any other status is a broken instrument and must not read
+    // as a clean sweep.
+    const status = (e as { status?: number }).status
+    if (status === 1) return []
+    throw e
+  }
 }
+
+const callSitesOf = (rel: string, symbol: string): number =>
+  readFileSync(resolve(ROOT, rel), 'utf8').split(`.${symbol}(`).length - 1
 
 describe('the prior-range capability, measured rather than remembered', () => {
   /**
@@ -66,24 +88,24 @@ describe('the prior-range capability, measured rather than remembered', () => {
     const sites = callSitesOf('src/canvas/ui/inspector-v2/panels/FactorExternalPanel.tsx', 'setPriorRange')
     expect(
       sites,
-      'FactorExternalPanel no longer calls setPriorRange — if the external route has gone, the general claim is true again and the ban below must be retired, not kept',
+      'FactorExternalPanel no longer calls setPriorRange — if the external route has gone, the general claim is true again and the ban below must be RETIRED, not kept',
     ).toBeGreaterThan(0)
   })
 
   /**
    * ⛔ CONTRAST CONTROL. This is what makes the claim "external ONLY" rather
-   * than "somewhere". Without it the positive above is consistent with every
-   * surface being able to set a range.
+   * than "somewhere". Without it the positive above is satisfied by a tree in
+   * which every panel can set a range.
    */
   it('CONTROLLABLE factors cannot, and neither can the Model tab', () => {
     expect(
       callSitesOf('src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx', 'setPriorRange'),
       'a controllable factor gained a range editor — the notices that refuse one are now the stale claim',
     ).toBe(0)
-    const modelTab = trackedSources().filter(
-      (f) => f.startsWith('src/canvas/model-tab-v2/') && !f.includes('__tests__'),
-    )
-    expect(modelTab.length, 'the model-tab-v2 sweep found no files — the glob went blind').toBeGreaterThan(3)
+
+    const modelTab = git(['ls-files', 'src/canvas/model-tab-v2/*.ts', 'src/canvas/model-tab-v2/*.tsx'])
+      .filter((f) => !f.includes('__tests__'))
+    expect(modelTab.length, 'the model-tab-v2 listing went blind').toBeGreaterThan(3)
     for (const f of modelTab) {
       expect(callSitesOf(f, 'setPriorRange'), `${f} now sets a prior range`).toBe(0)
     }
@@ -93,26 +115,24 @@ describe('the prior-range capability, measured rather than remembered', () => {
    * ⛔ THE BAN. Bound to the general form only: a file may still say the route
    * is absent FOR ITS OWN SURFACE, which is true and load-bearing in three of
    * them. What may not return is the unqualified scope.
+   *
+   * ⚠ SCOPED TO PRODUCT SOURCE, AND THE EXCLUSION IS A RULING, NOT A GAP. A
+   * spec header QUOTING the sentence the product once carried is a historic
+   * record, and such records are append-only here — rewriting one falsifies the
+   * evidence of what was believed and when (CLAUDE.md trap 14b). Three spec
+   * headers quote it for exactly that reason. What may not exist is the
+   * sentence ASSERTED, in a file that ships.
+   *
+   * ⛔ NOT A QUOTATION DETECTOR. This estate spent five rounds proving that
+   * distinguishing a verdict from a quotation of one by pattern is unwinnable;
+   * the same applies here. Position — which tree the file is in — is a property
+   * that cannot be argued with.
    */
   it('no source file claims a range editor is reachable NOWHERE', () => {
-    const banned = /no range editor is reachable (anywhere|nowhere)/i
-    /*
-     * ⚠ SCOPED TO PRODUCT SOURCE, AND THE EXCLUSION IS A RULING, NOT A GAP. A
-     * spec header QUOTING the sentence the product once carried is a historic
-     * record, and this estate's rule is that such records are append-only —
-     * rewriting one falsifies the evidence of what was believed and when
-     * (CLAUDE.md trap 14b). Three spec headers quote it for exactly that
-     * reason. What may not exist is the sentence ASSERTED, in a file that
-     * ships, which is what this scope catches.
-     *
-     * ⛔ NOT A QUOTATION DETECTOR. This estate spent five rounds proving that
-     * distinguishing a verdict from a quotation of one by pattern is
-     * unwinnable; the same applies here. Position — which tree the file is in
-     * — is a property that cannot be argued with.
-     */
-    const offenders = trackedSources()
-      .filter((f) => f.startsWith('src/') && !f.includes('__tests__'))
-      .filter((f) => banned.test(readFileSync(resolve(ROOT, f), 'utf8')))
+    const offenders = git([
+      'grep', '-lIiE', 'no range editor is reachable (anywhere|nowhere)',
+      '--', 'src/*.ts', 'src/*.tsx',
+    ]).filter((f) => !f.includes('__tests__'))
     expect(
       offenders,
       'this sentence was false by nine minutes once already; say which SURFACE cannot set a range',
@@ -120,14 +140,19 @@ describe('the prior-range capability, measured rather than remembered', () => {
   })
 
   /**
-   * ⛔ CONTRAST CONTROL FOR THE BAN ITSELF. A regex that matched nothing would
-   * pass the test above on any tree, including one where the sentence had come
-   * back. This proves it still bites.
+   * ⛔ CONTRAST CONTROL FOR THE BAN ITSELF, and it is load-bearing twice over:
+   * a regex that matched nothing would pass the test above on any tree, AND a
+   * `git grep` invocation that silently matched nothing — a bad pathspec, a
+   * wrong flag — would look identical to a clean sweep.
    */
-  it('PRECONDITION: the ban pattern can still see the sentence it bans', () => {
+  it('PRECONDITION: the pattern still bites, and the sweep can still see files', () => {
     const banned = /no range editor is reachable (anywhere|nowhere)/i
     expect(banned.test('It is not a model failing: no range editor is reachable anywhere in the product.')).toBe(true)
     // …and is narrow enough to permit the per-surface form the files now use.
     expect(banned.test('no range editor is reachable FOR A CONTROLLABLE FACTOR')).toBe(false)
+    // A same-shape sweep for a phrase that IS present, proving the pathspec and
+    // the flags reach the tree at all.
+    const control = git(['grep', '-lIi', 'setPriorRange', '--', 'src/*.ts', 'src/*.tsx'])
+    expect(control.length, 'the git grep pathspec reaches nothing — the ban above proves nothing').toBeGreaterThan(2)
   })
 })
