@@ -87,6 +87,7 @@ import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
+import { DRIVER_FINDING_ID_PREFIX } from './driverSubjectCount'
 import type { OptionOrigin } from './optionOriginDisclosure'
 import {
   ANALYSIS_NEW_COPY as COPY,
@@ -577,7 +578,7 @@ function driverFinding(
    */
 
   return {
-    id: `driver:${d.factorKey}`,
+    id: `${DRIVER_FINDING_ID_PREFIX}${d.factorKey}`,
     headline: d.factorLabel,
     // ⚠ Rule 2. Under a set-relative basis this says "among the strongest in
     // this run" — a RANK claim. It never says "drives N% of the outcome",

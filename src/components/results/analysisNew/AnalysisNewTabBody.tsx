@@ -51,6 +51,7 @@ import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
 import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { distinctDriverSubjects } from './driverSubjectCount'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewTypes'
@@ -1937,7 +1938,14 @@ export function AnalysisNewTabBody({
             icon={Activity}
             title={COPY.sections.whatMovesTheOutcome}
             subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
-            count={vm.drivers.findings.length + vm.drivers.influenceRows.length}
+            /* ⛔ A COUNT IS A PROMISE. This read
+               `findings.length + influenceRows.length` and so advertised 4 while
+               holding TWO factors — witnessed on deployed `219209ad`. The two
+               lists are one-to-one by this codebase's own stated invariant ("a
+               row can never appear without its bar"), so adding them double-counts
+               every driver. Counted as SUBJECTS, by union, so a future divergence
+               grows the number honestly instead of hiding inside it. */
+            count={distinctDriverSubjects(vm.drivers.findings, vm.drivers.influenceRows)}
             testId="analysis-new-what-moves-the-outcome"
           >
           {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
