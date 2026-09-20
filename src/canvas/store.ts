@@ -199,8 +199,7 @@ import {
   wouldExceedLimits,
   type LimitExceeded,
 } from './validation/graphGuardrails'
-import { stampedRunIdentity } from './store/resolveRunIdentityFromFacts'
-import { isSyntheticRestoreId } from './store/restoreAnalysisFromAutosave'
+import { isSyntheticRestoreId, stampedRunIdentity } from './store/resolveRunIdentityFromFacts'
 // Task C: Panel coordination — opening one right panel closes others
 import { useUIStore } from '../stores/uiStore'
 

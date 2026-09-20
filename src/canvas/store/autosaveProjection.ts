@@ -49,7 +49,7 @@
  */
 
 import type { AutosaveData, PersistedAnalysis } from './scenarios'
-import { isSyntheticRestoreId } from './restoreAnalysisFromAutosave'
+import { isSyntheticRestoreId } from './resolveRunIdentityFromFacts'
 
 /**
  * What a caller must state in order to write an autosave.
