@@ -296,16 +296,30 @@ describe('a streamed cold draft settles the turn in the payload trace store', ()
     expect(cap.user_content_sha256).toBe('b'.repeat(64))
   })
 
-  it('files the terminal record where the ledger reads a TURN, not a transport leg', async () => {
+  it('stamps the record the ledger classifies a TURN on, via the DEPLOYED path', async () => {
     await runStreamedColdDraft(TERMINAL_PAYLOAD)
     const ingest = terminalIngestRecord()
     const req = traceSpies.recordRequestPayload.mock.calls
       .map((c) => c[0])
       .find((c) => c.id === ingest.id)
-    // `deriveOutcome` short-circuits ANY `/turn/<sub>` endpoint to
-    // `transport_leg` before it reads assistant_text, so a record filed on the
-    // stream sibling leaves `turn_record_count` at zero for an answered turn.
-    expect(req.endpoint).not.toMatch(/\/turn\/stream\/?$/)
+
+    // ⚠ THIS ASSERTION USED TO PIN THE ENDPOINT STRING
+    // (`not.toMatch(/\/turn\/stream\/?$/)`), because the disclosure used to be
+    // endpoint-borne: `readTransportKind` matched `/turn/<sub>$` and
+    // `deriveOutcome` short-circuited anything that was not `buffered_turn` to
+    // `transport_leg`, so the stream sibling left `turn_record_count` at ZERO
+    // for an answered turn. DRAFT-CAPTURE-0919 replaced that with a STRUCTURED
+    // discriminator which `readTransportKind` now reads FIRST, and filed the
+    // record at its real stream endpoint — the accurate transport fact.
+    //
+    // The old assertion pinned the MECHANISM, not the property (trap 19): it
+    // passed for any endpoint that was not the stream sibling, including one
+    // the ledger drops entirely. What this file can prove is that the DEPLOYED
+    // path stamps the discriminator. That the ledger then counts it is proved
+    // BY EXECUTION in `src/lib/__tests__/streamedTerminalIngest.ledger.spec.ts`
+    // — real recorder → real store → real selector. Neither half alone is the
+    // property; both are asserted, and this comment is the pointer between them.
+    expect(req.capture).toMatchObject({ kind: 'streamed_terminal_ingest' })
     expect(ingest.status).toBe(200)
   })
 })

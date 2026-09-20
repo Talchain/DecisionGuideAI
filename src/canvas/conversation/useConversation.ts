@@ -865,8 +865,7 @@ async function runStreamedDraftTurn(args: {
   // turn returned was absent from the export. That includes
   // `_prompt_capture`, the verbatim served system prompt, which CEE returns
   // ONLY on a cold draft: the one turn shape that takes this route. See
-  // `recordStreamedTerminalIngest` for why the record is filed under the
-  // buffered endpoint and how the transport truth is disclosed.
+  // `recordStreamedTerminalIngest` for the explicit stream receipt identity.
   //
   // Placed AFTER the parse and OUTSIDE any try: a throw from a diagnostic
   // write must never be readable as a turn failure, which is the scoping
@@ -875,7 +874,8 @@ async function runStreamedDraftTurn(args: {
     payload,
     parsed: result,
     statusCode: outcome.statusCode,
-    durationMs: Date.now() - streamStartedAt,
+    startedAt: streamStartedAt,
+    completedAt: Date.now(),
     headers,
   })
 

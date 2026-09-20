@@ -17,7 +17,23 @@
 import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
 import type { ParseFailureKind } from '../v5/responseParser'
 
-export type AnalysisFactStatus = 'present' | 'missing' | 'unknown_not_checked'
+export type AnalysisFactStatus = 'present' | 'missing' | 'unknown_not_checked' | 'not_applicable_read_capture'
+
+export type DiagnosticAnalysisSource = AnalysisStateSource | 'scenario_graph_read'
+
+/** A captured read result is evidence, not a synthetic conversational fact. */
+export interface ScenarioAnalysisReadCapture {
+  /** Acquisition only; does not assert applier admission, hydration, or freshness. */
+  evidence_status: 'acquired'
+  trace_id: string | null
+  request_id: string | null
+  scenario_id: string
+  endpoint: string | null
+  request_started_at: number | null
+  response_completed_at: number | null
+  response_hash: string
+  response_body: unknown
+}
 
 export type DebugCaptureStatus =
   | 'complete'
@@ -84,7 +100,8 @@ export interface V5CeeCapture {
 
 export interface V5CanonicalAnalysisDiagnostic {
   v5_cee_capture: V5CeeCapture | null
-  analysis_state_source: AnalysisStateSource
+  analysis_state_source: DiagnosticAnalysisSource
+  analysis_result_read?: ScenarioAnalysisReadCapture
   analysis_fact_status: AnalysisFactStatus
   debug_capture_status: DebugCaptureStatus
   /** Whether the canonical-analysis flag was on at export time. */
@@ -104,6 +121,7 @@ export interface ClassifyInputs {
   hasResultsReport: boolean
   /** True when a PLoT direct request was captured. */
   plotRequestCaptured: boolean
+  analysisResultRead?: ScenarioAnalysisReadCapture
 }
 
 /**
@@ -120,6 +138,8 @@ export function classifyV5CanonicalAnalysisDiagnostic(
   let analysis_fact_status: AnalysisFactStatus
   if (inputs.factPresentForScenario) {
     analysis_fact_status = 'present'
+  } else if (inputs.analysisResultRead) {
+    analysis_fact_status = 'not_applicable_read_capture'
   } else if (inputs.canonicalFlagOn) {
     analysis_fact_status = 'missing'
   } else {
@@ -135,7 +155,9 @@ export function classifyV5CanonicalAnalysisDiagnostic(
   //   request_failed: V5 CEE request fired but did not produce a usable response
   let debug_capture_status: DebugCaptureStatus
   if (inputs.v5Capture === null) {
-    if (inputs.plotRequestCaptured && inputs.hasResultsReport) {
+    if (inputs.analysisResultRead) {
+      debug_capture_status = 'complete'
+    } else if (inputs.plotRequestCaptured && inputs.hasResultsReport) {
       debug_capture_status = 'plot_only_capture'
     } else if (inputs.hasResultsReport) {
       debug_capture_status = 'cee_capture_missing'
@@ -159,7 +181,9 @@ export function classifyV5CanonicalAnalysisDiagnostic(
 
   return {
     v5_cee_capture: inputs.v5Capture,
-    analysis_state_source: inputs.analysisStateSource,
+    analysis_state_source: inputs.analysisResultRead && !inputs.factPresentForScenario
+      ? 'scenario_graph_read' : inputs.analysisStateSource,
+    ...(inputs.analysisResultRead ? { analysis_result_read: inputs.analysisResultRead } : {}),
     analysis_fact_status,
     debug_capture_status,
     canonical_flag_on: inputs.canonicalFlagOn,

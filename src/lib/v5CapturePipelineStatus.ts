@@ -11,7 +11,7 @@
  * snapshot and pass them in. The legacy field is NOT modified.
  */
 
-import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
+import type { DiagnosticAnalysisSource, ScenarioAnalysisReadCapture } from './v5CanonicalAnalysisDiagnostics'
 // Round-3 + Round-4 review (P1 + IMP): shared V5 CEE detection
 // helpers now live in `v5TraceMatching` so selector / fallback /
 // failed-record detection / latest-turn lookup / provenance
@@ -78,6 +78,8 @@ export interface FailedHttpRecord {
 }
 
 export interface V5CapturePipelineStatusInputs {
+  /** Matched acquired read evidence; not a V5 turn or product admission. */
+  analysisResultRead?: ScenarioAnalysisReadCapture
   /**
    * Slim view of the v5_cee_capture block already assembled by
    * exportBundle. Null when no V5 CEE call was captured at all.
@@ -103,7 +105,7 @@ export interface V5CapturePipelineStatusInputs {
    */
   serviceMetadataV5Failure: boolean
   /** From the existing AnalysisStateSource classifier. */
-  analysisStateSource: AnalysisStateSource
+  analysisStateSource: DiagnosticAnalysisSource
   /** Existing bundle field. */
   effectiveCeeResponseSource: 'direct' | 'downstream' | 'none' | null
   /** Whether the canvas store has a populated v5AnalysisFact for the scenario. */
@@ -165,9 +167,10 @@ const PROXY_NETWORK_SOURCES: ReadonlySet<string> = new Set([
  *   1. No V5 request captured:
  *        a. Failed HTTP record (proxy/network) → proxy_or_network_failure
  *        b. Failed HTTP record (other)         → request_failed
- *        c. Results present + rawV2Response    → results_rendered_from_store_without_capture
- *        d. Results present, no rawV2Response  → hydrated_only
- *        e. Nothing                            → capture_missing
+ *        c. Matching captured analysis read    → complete (capture only)
+ *        d. Results present + rawV2Response    → results_rendered_from_store_without_capture
+ *        e. Results present, no rawV2Response  → hydrated_only
+ *        f. Nothing                            → capture_missing
  *   2. Request present, no response:
  *        a. Failed HTTP record (proxy/network) → proxy_or_network_failure
  *        b. Otherwise                          → request_failed
@@ -197,6 +200,8 @@ export function classifyV5CapturePipelineStatus(
       // evidence. Distinct from `request_failed` (trace-confirmed)
       // and `proxy_or_network_failure` (network/proxy source).
       status = 'request_failed_from_service_metadata'
+    } else if (inputs.analysisResultRead) {
+      status = 'complete'
     } else if (inputs.hasResultsReport) {
       status = inputs.rawV2ResponsePresent
         ? 'results_rendered_from_store_without_capture'
@@ -242,6 +247,7 @@ export function classifyV5CapturePipelineStatus(
   // issues regardless of which status enum was selected.
   const resultsWithoutLiveCapture =
     inputs.hasResultsReport &&
+    !inputs.analysisResultRead &&
     (inputs.v5Capture === null ||
       !inputs.v5Capture.request_present ||
       !inputs.v5Capture.response_present) &&
