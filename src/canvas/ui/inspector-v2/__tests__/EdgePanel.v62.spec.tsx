@@ -11,6 +11,20 @@ import { EdgePanel } from '../panels/EdgePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 
+const STATED_STRENGTH_EDGE = {
+  edges: [
+    {
+      id: 'e1', source: 'fac1', target: 'out1',
+      data: {
+        weight: 0.35, weightSource: 'cee',
+        direction: 'positive',
+        beliefExists: 0.82, beliefExistsSource: 'cee',
+        strengthStd: 0.15, strengthStdSource: 'cee',
+      },
+    },
+  ],
+}
+
 function setStore(overrides: Record<string, unknown> = {}) {
   const state = useCanvasStore.getState()
   useCanvasStore.setState({
@@ -31,6 +45,14 @@ function setStore(overrides: Record<string, unknown> = {}) {
          unstamped case keeps its own dedicated specs:
          `EdgePanel.unsetColour.spec.tsx` (colour) and
          `EdgePanel.unsetNumber.spec.tsx` (number, aria and techMode). */
+      /* ⚠ AND `weightSource` / `strengthStdSource` are DELIBERATELY ABSENT here,
+         one channel over from the note above. The β and σ fields are now
+         provenance-gated too, so this DEFAULT edge is an unstamped one on every
+         channel — which is exactly what the coaching test below needs
+         ("claims NO origin for an unstamped edge"). The two tech-mode tests pass
+         their own stamped override instead of stamping this shared fixture,
+         because stamping it would silently delete that test's precondition.
+         One fixture cannot be both the stamped and the unstamped case. */
     ],
     results: { status: 'none', report: null },
     ...overrides,
@@ -96,8 +118,16 @@ describe('EdgePanel v6.2 — your input group', () => {
     expect(screen.getByText('Very likely')).toBeTruthy()
   })
 
+  /* ⚠ STAMPED FIXTURE, and the reason is the subject. These two ask whether TECH
+     MODE EXPOSES THE FIELDS — not whether an uncharacterised edge shows numbers.
+     Since the β and σ fields became provenance-gated, the default fixture has no
+     stated strength and so has no field to expose, and these tests were pinning a
+     fabricated default rather than the behaviour they are named for. Same
+     correction the `beliefExistsSource` note above records for the existence
+     channel. Measured on the deployed board: 37 of 37 real edges carry
+     `weightSource`, so the stamped edge is the ordinary case, not a contrivance. */
   it('shows editable β input in tech mode', () => {
-    setStore()
+    setStore(STATED_STRENGTH_EDGE)
     render(<EdgePanel {...panelProps} techMode={true} />)
     expect(screen.getByText('β =')).toBeTruthy()
   })
@@ -109,7 +139,7 @@ describe('EdgePanel v6.2 — your input group', () => {
   })
 
   it('shows editable σ input in tech mode', () => {
-    setStore()
+    setStore(STATED_STRENGTH_EDGE)
     render(<EdgePanel {...panelProps} techMode={true} />)
     expect(screen.getByText('σ =')).toBeTruthy()
   })

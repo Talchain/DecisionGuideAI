@@ -103,6 +103,30 @@ function drawEdgeThroughProduct() {
  * none stamped `'user'`, values spanning 0.01–0.22. A 0.10 spread on a 0.45
  * strength is an ordinary member of that census, not a contrived one.
  */
+/**
+ * ⭐ A SERVER-HELD EDGE WHOSE WEIGHT CARRIES NO SOURCE — and it exists because
+ * TWO different controls serve "nobody has stated a strength", not one.
+ *
+ * `drawEdgeThroughProduct()` produces an edge that STOOD DOWN during its
+ * structural add, so `EdgePanel` routes it to the dedicated add control
+ * (`edge-state-strength-for-save`) — which asks for a strength outright and is
+ * the better answer for that population. The EDIT fieldset, and therefore the
+ * `edge-strength-unset` disclosures this file pins, serves the OTHER shape: an
+ * edge the model already holds whose `weight` has no stated provenance.
+ *
+ * Both are real and they are not interchangeable, so each assertion below names
+ * the population it is about (CLAUDE.md trap 21). Asserting the edit arm's copy
+ * against a drawn edge is what made these two tests red: they were pointed at a
+ * control the fixture never reaches.
+ */
+const HELD_BUT_UNSTATED_EDGE = {
+  weight: 0.3,
+  direction: 'positive',
+  // ⛔ NO `weightSource` — that absence IS the subject.
+  strengthStd: 0.1,
+  strengthStdSource: 'cee',
+}
+
 const SPANNING_EDGE = {
   weight: 0.45,
   direction: 'positive',
@@ -347,10 +371,19 @@ describe('EdgePanel — an unassessed strength proposes nothing', () => {
   })
 
   it('withholds the beta field rather than pre-filling it with a default', () => {
-    drawEdgeThroughProduct()
+    seedEdge(HELD_BUT_UNSTATED_EDGE)
     render(<EdgePanel {...expertProps} />)
     expect(screen.queryByText('β =')).toBeNull()
     expect(screen.getByTestId('edge-strength-unset').textContent ?? '').toContain('Not set')
+  })
+
+  it('and a DRAWN edge shows no beta field either — by a different route', () => {
+    drawEdgeThroughProduct()
+    render(<EdgePanel {...expertProps} />)
+    expect(screen.queryByText('β =')).toBeNull()
+    // Not the edit arm's disclosure: this edge never reaches the edit arm.
+    expect(screen.queryByTestId('edge-strength-unset')).toBeNull()
+    expect(screen.getByTestId('edge-state-strength-for-save')).toBeTruthy()
   })
 
   it('DISCRIMINATING PAIR: a stated strength still shows its beta field', () => {
@@ -369,10 +402,23 @@ describe('EdgePanel — an unassessed strength proposes nothing', () => {
    * later tidy-up silently removing it.
    */
   it('tells the reader the slider handle is a starting point, not a reading', () => {
-    drawEdgeThroughProduct()
+    // The EDIT arm's population: held by the model, no stated provenance.
+    seedEdge(HELD_BUT_UNSTATED_EDGE)
     render(<EdgePanel {...panelProps} />)
     const notice = screen.getByTestId('edge-strength-slider-unset-notice').textContent ?? ''
     expect(notice).toContain('not a reading')
+  })
+
+  it('and a DRAWN edge is asked for one outright, rather than shown a disclaimer', () => {
+    // The other population, and the reason the test above had to name its own.
+    // A drawn edge stood down during its structural add, so it reaches the
+    // dedicated add control — which proposes nothing either, but says so by
+    // ASKING rather than by captioning a slider the user should not read.
+    drawEdgeThroughProduct()
+    render(<EdgePanel {...panelProps} />)
+    expect(screen.getByTestId('edge-state-strength-for-save')).toBeTruthy()
+    expect(screen.queryByTestId('edge-strength-slider-unset-notice')).toBeNull()
+    expect(pressed()).toEqual([])
   })
 
   it('DISCRIMINATING PAIR: no such notice where a strength IS stated', () => {
