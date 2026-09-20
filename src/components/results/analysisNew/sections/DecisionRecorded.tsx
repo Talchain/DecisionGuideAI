@@ -67,10 +67,16 @@
  *    non-finite or unparseable `savedAt` and the line is withheld.
  */
 import { ClipboardCheck } from 'lucide-react'
+// ⭐ ADOPTED RATHER THAN DECLARED: these two buttons were already
+// `rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover`
+// — `ACTION_TIER.neutral` character for character. A hand-rolled copy of a
+// tier is the arrangement `everyActIsReachableByTouch` exists to end, and it is
+// how the 133x15 review-estimates control happened in this same directory.
+import { action } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { surface } from '../panelSurfaces'
+import { surface, icon } from '../panelSurfaces'
 
 export interface DecisionRecordedProps {
   /** Pre-run there is no decision to record — the options are not analysed. */
@@ -227,7 +233,7 @@ export function DecisionRecorded({
       aria-label={record ? COPY.decisionRecord.recorded : COPY.decisionRecord.open}
     >
       <div className="flex items-start gap-2">
-        <ClipboardCheck className="w-4 h-4 mt-[1px] shrink-0 text-text-light" aria-hidden="true" />
+        <ClipboardCheck className={`${icon('section')} mt-[1px] shrink-0 text-text-light`} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           {record === null ? (
             <>
@@ -245,7 +251,7 @@ export function DecisionRecorded({
               <button
                 type="button"
                 onClick={onRecord}
-                className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} mt-1.5 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-open`}
               >
                 {COPY.decisionRecord.open}
@@ -325,7 +331,7 @@ export function DecisionRecorded({
                 <button
                   type="button"
                   onClick={onRecord}
-                  className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} mt-1.5 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-update`}
                 >
                   {COPY.decisionRecord.update}

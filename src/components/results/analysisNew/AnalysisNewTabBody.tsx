@@ -63,6 +63,9 @@ import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
+// The act below takes its geometry from the tier, never from this call site —
+// `everyInlineActIsReachableByTouch` exists to keep that the single source.
+import { action } from './panelSurfaces'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import {
@@ -148,6 +151,27 @@ export interface AnalysisNewTabBodyProps {
    * that has not been given the composed value, never a silent "not running".
    */
   isBusy?: boolean
+  /**
+   * ⭐⭐ THE CLIENT HAS STOPPED WAITING FOR THIS RUN — a DIFFERENT fact from
+   * `isBusy`, and the reason it is a third prop rather than a swap.
+   *
+   * `isBusy` reports what the producer last said. This reports what THIS CLIENT
+   * has done about it: its delivery schedule reached
+   * `PROVISIONAL_DELIVERY_DEADLINE_MS` and, in the hook's own words, "past this
+   * the hook stops and writes nothing". A surface cannot derive that from
+   * `isBusy` alone, because `isBusy`'s wire half never expires.
+   *
+   * ⚠ COMPUTED BY THE HOST, NOT HERE, AND CI PROVED IT LOAD-BEARING.
+   * `OutputsDock` subtracts it from ONE identifier that feeds both this body's
+   * `isBusy` and the `AnalysisRunStateCover` mounted directly above it. An
+   * earlier cut bounded only this side; `busyMarkerSharesTheCoversAuthority`
+   * RED'd, and it was right — a skeleton would have kept shimmering over a
+   * sentence saying nothing is coming (trap 21).
+   *
+   * Absent = false: a caller that has not been given it keeps today's
+   * behaviour, never a silent "given up".
+   */
+  waitExhausted?: boolean
   /** The displayed report predates the current model. Freshness only. */
   isStale: boolean
   /**
@@ -613,6 +637,7 @@ export function AnalysisNewTabBody({
   isPreRun,
   isRunning,
   isBusy,
+  waitExhausted,
   isStale,
   staleReason = 'unconfirmed',
   nSamples,
@@ -674,7 +699,37 @@ export function AnalysisNewTabBody({
    * local one; swapping it would test a different run than the one that
    * produced the verdict. Two questions, two flags — see that comment.
    */
+  /**
+   * ⭐⭐ ONE EXPRESSION, EVERY READER — which is why the bound lives HERE and
+   * not beside the sentence it produces.
+   *
+   * Four things downstream ask "is a run in flight?": the `aria-busy` marker,
+   * the running sentence, the suppression of `WhyNoAnalysisYet`, and the
+   * suppression of the run affordance. Bounding only the sentence would leave a
+   * panel that says the analysis never arrived while still marked busy, with
+   * its explanation and its only way out both withheld — i.e. it would move the
+   * contradiction rather than close it.
+   *
+   * ⚠ THE REPORTED VALUE IS KEPT SEPARATELY, because the new sentence needs to
+   * distinguish "no run was ever asserted" from "a run was asserted and this
+   * client gave up on it". Collapsing them would make the exhausted state
+   * indistinguishable from a cold panel.
+   */
   const isBusyNow = isBusy ?? isRunning
+  /**
+   * ⚠ NOT BOUNDED AGAIN HERE, AND CI PROVED WHY. The first cut subtracted the
+   * exhaustion from `isBusyNow` in this file while the host still handed the
+   * COVER the unbounded value, and `busyMarkerSharesTheCoversAuthority` — a
+   * source scan that exists for exactly this pair — RED'd with "the marker and
+   * the cover must read ONE authority". The host now bounds both with one
+   * identifier, so `isBusy` arrives already correct and this line is unchanged
+   * from before the fix.
+   *
+   * `waitExhausted` therefore says only WHY the panel is not busy, which is the
+   * one thing `isBusy` cannot carry: a cold panel and an abandoned run are both
+   * "not busy" and need different sentences.
+   */
+  const runWaitExhausted = !isBusyNow && waitExhausted === true
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -1424,8 +1479,27 @@ export function AnalysisNewTabBody({
         {vm.status.isPreRun ? (
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
             <p className={`${typography.panelBody} text-text-body`}>
-              {isBusyNow ? COPY.status.running : COPY.status.preRun}
+              {isBusyNow
+                ? COPY.status.running
+                : runWaitExhausted
+                  ? COPY.status.waitExhausted
+                  : COPY.status.preRun}
             </p>
+            {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
+                "This analysis has not reached this page." on its own reads as a
+                fault the reader caused. This line says what the client actually
+                knows — that the run may well have completed somewhere it could
+                not be sent from — and names the one act that can change it.
+
+                ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
+                stays in every state and describes what the panel is FOR; this
+                describes what happened to one run, and only in the state where
+                something did. */}
+            {runWaitExhausted ? (
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {COPY.status.waitExhaustedWhy}
+              </p>
+            ) : null}
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
             {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
                 sentences above orient a reader who has not run one yet; neither
@@ -1435,6 +1509,40 @@ export function AnalysisNewTabBody({
             {isBusyNow ? null : (
               <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
             )}
+            {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
+                This block states the blocker — "No analysis has run yet" — and
+                until now offered no way past it, on the FIRST SCREEN a new user
+                meets. `onReanalyse` was already passed to this body
+                (`OutputsDock` hands it `handleRunAnalysis`) and reached only
+                `AtAGlance`, which ZONE: ANSWER gates off pre-run. So the handler
+                was present and unreachable in the one state that needs it.
+
+                ⛔ WITNESSED, which is why this is not a nicety: a user sent a
+                brief, read a substantial coaching reply, and concluded an
+                analysis had run. CEE was returning a `run_analysis` suggested
+                action on that very turn. The panel rendered seven "Methods you
+                can run" and no way to run the analysis.
+
+                ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. `blockedListing`
+                is null exactly when the gate does not block — `WhyNoAnalysisYet`
+                documents that contract — so when it is non-null the remedy is
+                resolving those blockers, which the listing above already offers
+                with focus targets. Offering a button that refuses is the defect
+                one level down, and this panel has adjudicated it out twice.
+
+                ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
+                renders nothing rather than a control that does nothing — the
+                same fail-closed shape `onSendMessage` uses one section over. */}
+            {!isBusyNow && blockedListing == null && onReanalyse ? (
+              <button
+                type="button"
+                onClick={onReanalyse}
+                className={`${typography.panelMeta} ${action('primary')} mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid="analysis-new-status-pre-run-act"
+              >
+                {COPY.status.preRunRunAction}
+              </button>
+            ) : null}
           </div>
         ) : null}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
@@ -1697,6 +1805,10 @@ export function AnalysisNewTabBody({
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
+          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
+             passed because they answer different questions and the section uses
+             each for its own. */
+          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
           onReanalyse={onReanalyse}
           /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
              IT — and not the verdict itself. `reanalyseBlocked` is

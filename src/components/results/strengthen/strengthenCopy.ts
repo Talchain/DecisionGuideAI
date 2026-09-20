@@ -8,6 +8,18 @@ export const STRENGTHEN_COPY = {
   summary: (addressed: number, worth: number) => `${addressed} addressed · ${worth} worth checking`,
   showMore: (n: number) => `Show ${n} more`,
   showFewer: 'Show fewer',
+  /**
+   * ⭐ PER-ROW DISCLOSURE, NAMED BY ITS SUBJECT. Added for the Reasoning tab's
+   * collapsed rows, in this SHARED module because both surfaces already import
+   * it — a second copy of "Expand"/"Collapse" would be the mirror this estate
+   * pays for, and these are the only two strings the new control needs.
+   *
+   * ⚠ THE TITLE IS INTERPOLATED because the label is the control's only name:
+   * a row of identical "Expand" buttons tells a screen-reader user nothing
+   * about WHICH finding each one opens.
+   */
+  rowExpand: (title: string) => `Expand ${title}`,
+  rowCollapse: (title: string) => `Collapse ${title}`,
   expandAll: 'Expand all',
   collapseAll: 'Collapse all',
   // Deliberate deviation from the prototype's icon-button aria ('Show

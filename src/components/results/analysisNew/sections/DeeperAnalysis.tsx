@@ -29,7 +29,17 @@
  * merely unlikely.
  */
 
+/**
+ * @panel-act-opt-out a multi-line block act; `items-start` and a tier's `items-center` contradict
+ *
+ * ⚠ DECLARED, NOT SILENT. This file renders an interactive element without an
+ * `action()` tier. The geometry is therefore carried HERE and must be BOTH
+ * dimensions — WCAG 2.2 AA is 24x24, and a control that passes the height and
+ * fails the width is the exact shape the Strengthen row toggle shipped (22px).
+ * `everyActIsReachableByTouch` reads this marker; removing it REDs the guard.
+ */
 import { useState } from 'react'
+import { icon } from '../panelSurfaces'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -92,13 +102,13 @@ export function DeeperAnalysis({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls={open ? `${testId}-region` : undefined}
-            className={`${typography.panelBody} text-text-light flex items-start gap-1.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            className={`${typography.panelBody} text-text-light flex items-start gap-1.5 min-h-[24px] min-w-[24px] rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-toggle`}
           >
             {open ? (
-              <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
+              <ChevronDown className={`${icon('row')} mt-0.5 shrink-0`} aria-hidden="true" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
+              <ChevronRight className={`${icon('row')} mt-0.5 shrink-0`} aria-hidden="true" />
             )}
             {/* ⚠ THIS ROW IS THE ODD ONE OUT AND IS NOT MIGRATED HERE. Every
                 other collapsed row on the panel is a `SectionShell` — icon,

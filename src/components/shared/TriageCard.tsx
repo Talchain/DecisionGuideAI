@@ -17,6 +17,7 @@ import type { ScientificEditorProps } from './ScientificEditor'
 import { ExpandableCoachingText } from './ExpandableCoachingText'
 import Tooltip from '@/components/Tooltip'
 import { classifyUnit } from '@/utils/unitClassifier'
+import { CANVAS_STRENGTH_BANDS } from '@/canvas/domain/vocabulary'
 import type { ResolvedAnalysisMetric } from '@/components/results/driverDisplayModel'
 import {
   analysisMetricPercent,
@@ -192,11 +193,52 @@ function IconActionButton({
 
 // ── Edge strength bands ────────────────────────────────────────────────────
 
-const STRENGTH_BANDS = [
-  { label: 'Weak', value: 0.3 },
-  { label: 'Moderate', value: 0.7 },
-  { label: 'Strong', value: 1.2 },
-] as const
+/**
+ * ⭐⭐ DERIVED FROM `CANVAS_STRENGTH_BANDS`. THE LOCAL TABLE WAS A LANDMINE.
+ *
+ * What stood here, and what each pill would have written:
+ *
+ *   label        wrote   canonical band for that number
+ *   ──────────────────────────────────────────────────
+ *   "Weak"        0.3    Moderate   (0.20–0.40)
+ *   "Moderate"    0.7    Very strong (0.70+)
+ *   "Strong"      1.2    Very strong — AND OFF THE SCALE ENTIRELY
+ *
+ * **All three labels were wrong, two of them wrote the same band, and one
+ * wrote a magnitude the model has no room for** — canvas strengths live in
+ * |0..1| and 1.2 is outside it.
+ *
+ * ⛔⛔ AND THESE PILLS **WRITE**. That is what made this different in kind from
+ * the other divergent tables, and `domain/vocabulary.ts` says so in terms:
+ * *"a divergent cut on a WRITING control does not merely mislabel, it
+ * attributes a fabricated number to the user."* A reader misled by a label can
+ * re-read it; a value stamped into the model as the user's own stated strength
+ * cannot be un-stamped, and every downstream consumer then treats a number the
+ * user never chose as their judgement.
+ *
+ * ⚠ IT WAS DARK, NOT SAFE, AND THE DIFFERENCE IS A SINGLE FLAG. Measured
+ * 18 Sep 2026: both hosts gate the render on `onUpdateEdgeStrength &&` —
+ * `PreAnalysisPanel.tsx:1316` passes it only when
+ * `CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength` has server-graph
+ * authority, and that is `'disabled'`; `results/TriageActionCardsBody.tsx`
+ * never passes it at all. So nothing mounts today. **A defect whose only
+ * protection is a flag somebody else owns is a defect with a trigger, not a
+ * defect that has been handled** — and the flag's whole purpose is to be
+ * flipped on one day.
+ *
+ * ⭐ THE FIX IS NOT A CORRECTED LOCAL COPY. A second table with the right
+ * numbers in it is the hand-maintained mirror at the top of CLAUDE.md, and it
+ * would drift again the next time the canonical cuts move. The pills are now
+ * READ from the one table, label and midpoint together, so they cannot disagree
+ * with the canvas about what a word means or what a click writes.
+ *
+ * ⚠ THERE ARE NOW FOUR, NOT THREE. `CANVAS_STRENGTH_BANDS` has four bands and
+ * the old list had three, so "Very strong" was unreachable here — a user could
+ * not state the strongest relationship at all. Deriving the row restores it
+ * rather than choosing a subset, because choosing a subset is how a private
+ * vocabulary starts.
+ */
+const STRENGTH_BANDS = CANVAS_STRENGTH_BANDS.map(b => ({ label: b.label, value: b.midpoint }))
 
 /** Inline edge-strength quick-select: three pill buttons with a "Strength:" lead-in. */
 function EdgeStrengthQuickSelect({

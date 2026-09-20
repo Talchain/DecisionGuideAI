@@ -58,7 +58,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { readDecisionBriefViewModel } from '../../decision-brief/decisionBriefViewModel'
 import { robustnessCaveatOnScreen } from '../robustnessStanding'
 import { typography } from '../../../../styles/typography'
-import { surface } from '../panelSurfaces'
+import { surface, icon } from '../panelSurfaces'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 
 export interface RobustnessCaveatProps {
@@ -154,7 +154,7 @@ export function RobustnessCaveat({
       aria-label={COPY.robustnessCaveat.title}
     >
       <div className="flex items-start gap-2">
-        <ShieldQuestion className="w-4 h-4 mt-[1px] shrink-0 text-text-light" aria-hidden="true" />
+        <ShieldQuestion className={`${icon('section')} mt-[1px] shrink-0 text-text-light`} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className={`${typography.panelHeader} text-text-header m-0`} data-testid={`${testId}-title`}>
             {COPY.robustnessCaveat.title}

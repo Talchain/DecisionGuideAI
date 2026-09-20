@@ -57,6 +57,48 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
               // is on the compliance ratchet and a new use is a net-new
               // violation, so it is not available to this file.
               opacity: 0.5,
+              /**
+               * ⭐⭐⭐ THE BANDS WERE PAINTING ON TOP OF THE CARDS. This one
+               * property is the whole fix, and the reason it was needed is that
+               * JSX ORDER DOES NOT DECIDE IT.
+               *
+               * `ReactFlowGraph` mounts `<TierLanes>` "immediately after the
+               * ground and before every node" and its comment concludes the
+               * bands therefore "sit BEHIND the cards they hold". That was false
+               * the moment this component reached for `<ViewportPortal>`: the
+               * portal's target is `.react-flow__viewport-portal`, which React
+               * Flow renders as the LAST of the viewport's five children
+               * (EdgeRenderer → ConnectionLineWrapper → edge labels →
+               * NodeRenderer → viewport-portal, derived at the installed
+               * @xyflow/react 12.10.2). Portalled content leaves the call site's
+               * position entirely, so where the element is written says nothing
+               * about where it paints.
+               *
+               * ⛔ WHAT IT COST, MEASURED RATHER THAN CALLED UGLY. The band's box
+               * is the union of its tier's card boxes plus padding, so it covers
+               * 100% of every card it holds. A 50%-alpha #FEFEFE sheet leaves the
+               * card FACE unchanged (also #FEFEFE) while washing everything drawn
+               * ON it halfway to white: body text #3F3F3E composites to ~#9E9E9E
+               * and contrast falls from ~10.4:1 to ~2.66:1 — under WCAG SC 1.4.3's
+               * 4.5:1, and under even the 3:1 large-text floor. It is an
+               * accessibility regression, not a matter of taste. The founder
+               * reported it as "all of the nodes are still dulled out because
+               * they're behind the panels of the different node type rows",
+               * which is precisely what the DOM was doing.
+               *
+               * ⚠ NOT A LOWER OPACITY. At any opacity above zero the band still
+               * tints every card; opacity is the AMPLITUDE of the defect and the
+               * stacking order is the defect.
+               *
+               * ⚠ NOT ON THE WRAPPER EITHER. The parent div is `position: static`,
+               * so a z-index there is silently ignored, and making it `relative`
+               * to fix that would change the containing block for these
+               * absolutely-positioned bands.
+               *
+               * A negative z-index cannot escape the viewport's stacking context,
+               * so the bands still paint above `.react-flow__background`.
+               */
+              zIndex: -1,
             }}
           >
             <span

@@ -92,7 +92,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../../../../canvas/mutations/mutationAuthority'
-import { action } from '../panelSurfaces'
+import { action, icon } from '../panelSurfaces'
 
 /**
  * ⭐ THE KEY THAT NAMES THIS SURFACE'S OPERATION, read exactly as
@@ -141,7 +141,16 @@ export interface SuccessTargetLineProps {
    * could. Collapsing it into `not_encodable` is what left a reader looking at
    * "could not be applied" with no cause and no move — see `commit`.
    */
-  onCommitOutcome: (outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit') => void
+  /**
+   * ⭐ `not_a_number` IS A FIFTH OUTCOME FOR THE SAME REASON `no_unit` IS A
+   * FOURTH: it is a different sentence. An unparseable draft is the ONE refusal
+   * where the reader has already acted and only needs to know the format — and
+   * it was the whole of what a witnessed user got for typing the figure from
+   * their own brief.
+   */
+  onCommitOutcome: (
+    outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit' | 'not_a_number',
+  ) => void
   testId: string
 }
 
@@ -313,7 +322,18 @@ export function SuccessTargetLine({
      */
     const parsed = statedTargetNumber(typed)
     if (parsed === null) {
-      onCommitOutcome('not_encodable')
+      /**
+       * ⛔ NOT `not_encodable`. Folding this in gave a witnessed reader "That
+       * target could not be applied, so nothing changed." for typing
+       * `1.3 million` — the figure from their own brief, after the panel had
+       * asked them for it. The draft is in hand and the only missing thing is
+       * the format, which is the most actionable refusal on this surface.
+       *
+       * ⚠ A BLANK DRAFT IS NOT THIS. Nothing was typed, so there is no format
+       * to correct and "I could not read that as a number" would be answering a
+       * question the reader did not ask.
+       */
+      onCommitOutcome(typed === '' ? 'not_encodable' : 'not_a_number')
       return
     }
 
@@ -405,7 +425,7 @@ export function SuccessTargetLine({
       className="flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2"
       data-testid={testId}
     >
-      <Target className="w-3 h-3 self-center shrink-0 text-text-light" aria-hidden="true" />
+      <Target className={`${icon('inline')} self-center shrink-0 text-text-light`} aria-hidden="true" />
       <span className={`${typography.panelMeta} text-text-light shrink-0`}>
         {COPY.successTarget.label}
       </span>

@@ -3115,6 +3115,19 @@ function buildOptionsComparison(
         : null,
       goalFraction: goalOnScreen && goalValue !== null ? Math.max(0, Math.min(1, goalValue)) : null,
       goalBasisIsModelled: o.goalFitIsModelledBasis === true,
+      // ⭐ THE RANGE, READ FROM THE OPTION'S OWN OUTCOME DISTRIBUTION.
+      // `o.outcome` is `OptionOutcome` on `OptionResult` — the producer's
+      // forward-propagated percentiles for THIS option, not a rescaling of
+      // somebody else's (see the type's note on the old tornado chart).
+      //
+      // ⚠ BOTH BOUNDS OR NOTHING. A bar needs a start and an end; one bound
+      // present and the other null cannot be drawn honestly, and coalescing
+      // the missing side to 0 would invent a bound at the origin. p50 is
+      // allowed to be absent on its own — the dot is then simply not placed.
+      outcomeRange:
+        typeof o.outcome?.p10 === 'number' && typeof o.outcome?.p90 === 'number'
+          ? { p10: o.outcome.p10, p50: typeof o.outcome.p50 === 'number' ? o.outcome.p50 : null, p90: o.outcome.p90 }
+          : null,
       why,
     })
   }
@@ -3303,6 +3316,13 @@ function dedupeAgainstGlance(
 function buildChecks(
   data: ResultsSectionDataReturn,
   producerWithholdReason: string | null | undefined,
+  /**
+   * ⚠ THREADED FOR `rerunWouldNotHelp` ONLY, and only the ASSERTING value is
+   * load-bearing: `'changed'` states that the model moved, while `'unconfirmed'`
+   * and absence both mean the freshness could not be established — which is not
+   * evidence either way and must not earn a suppression.
+   */
+  staleReason: 'changed' | 'unconfirmed' | null | undefined,
 ): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
@@ -3435,6 +3455,55 @@ function buildChecks(
      */
     leaderWithholdCause:
       leaderCode === 'leader_not_assessed' ? leaderWithholdCause(producerWithholdReason) : null,
+    /**
+     * ⭐ THE FACT, SEPARATE FROM THE NAMEABLE CAUSE — AND THEY ARE DIFFERENT
+     * QUESTIONS.
+     *
+     * `leaderWithholdCause` is null both when the leader was NOT withheld and
+     * when it WAS withheld for a reason this surface cannot name. A consumer
+     * asking "was it withheld?" off that field gets the wrong answer on the
+     * second, and the second is the common case: `withheld_reason` is a
+     * free-form string at the contract and only two values are mapped.
+     *
+     * So the fact gets its own field, from the same gate.
+     */
+    leaderWithheld: leaderCode === 'leader_not_assessed',
+    /**
+     * ⭐⭐⭐ A DIFFERENT QUESTION AGAIN: WOULD RUNNING IT AGAIN CHANGE THIS?
+     *
+     * ⛔ THE DEFECT THIS CLOSES, found by an independent seat on #1759.
+     * `AtAGlance` consumed `leaderWithheld` to decide whether to offer a
+     * re-run, i.e. it read "no leader could be named" as "another run cannot
+     * help". Those are not the same fact, and `leader_not_assessed` covers
+     * BOTH — an assessed durable limitation of the model AND a missing
+     * verdict, an unknown separation, an incomplete or failed result. The
+     * second group is exactly the retryable class the PR promised to preserve,
+     * and it lost its retry.
+     *
+     * ⭐ TWO CONJUNCTS, EACH EVIDENCED, because a suppression must be earned:
+     *
+     *  1. THE CAUSE IS NAMEABLE. `leaderWithholdCause` is non-null only for a
+     *     reason this surface can state — a property of the model or of the
+     *     run's separation. Where the producer named nothing, the cause is
+     *     UNKNOWN, and an unknown cause is not evidence of irrecoverability.
+     *     Fail-open: the retry stays.
+     *
+     *  2. THE MODEL HAS NOT CHANGED SINCE. A withheld result whose model has
+     *     been edited is the ribbon's own recovery case — re-running the edited
+     *     model is precisely what a reader should do. `staleReason === 'changed'`
+     *     is the only value that ASSERTS a change (`'unconfirmed'` and absence
+     *     both mean "we could not establish it", which is not evidence).
+     *
+     * ⚠ AND `leaderWithheld` STAYS, unchanged, because it answers the question
+     * it always answered: may this surface name a leading option? The fix is to
+     * name the questions apart and let each consumer bind to its own — never to
+     * align them, which this estate has already shipped a P1 through
+     * (#709/#737, CLAUDE.md trap 21).
+     */
+    rerunWouldNotHelp:
+      leaderCode === 'leader_not_assessed' &&
+      leaderWithholdCause(producerWithholdReason) !== null &&
+      staleReason !== 'changed',
   }
 }
 
@@ -3684,8 +3753,13 @@ export function buildAnalysisNewViewModel(
     // `buildDeeper` states; the failure mode here is worse because the
     // unassessed states are exactly what this section is FOR.
     checks: preRun
-      ? { items: [], leaderWithholdCause: null }
-      : buildChecks(data, inputs.producerLeaderWithholdReason),
+      ? // ⚠ `leaderWithheld: false` PRE-RUN, and it is a fact rather than a
+        // default: nothing was withheld because nothing was assessed. The
+        // distinction matters downstream — the glance ribbon uses this to
+        // decide whether a re-run could help, and pre-run there is no result
+        // for it to be about.
+        { items: [], leaderWithholdCause: null, leaderWithheld: false, rerunWouldNotHelp: false }
+      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }
 

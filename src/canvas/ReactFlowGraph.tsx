@@ -1165,9 +1165,52 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [showLimits, setShowLimits] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
-  // Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode (like Figma V/H)
-  // Default to 'hand' mode for easier canvas navigation on load
-  const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('hand')
+  /**
+   * Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode
+   * (like Figma V/H).
+   *
+   * ⭐⭐⭐ THE DEFAULT WAS 'hand', AND IT MADE THE BOARD UNAUTHORABLE ON ARRIVAL.
+   *
+   * `nodesDraggable={effectiveMode === 'select'}`, so booting in hand mode meant
+   * NO CARD COULD BE MOVED until the user found the V/H toolbar toggle. The
+   * founder hit it immediately, 19 Sep: *"you can't move the nodes around at the
+   * moment"* — reported as a defect, not as a mode, which is the tell that the
+   * mode was never discoverable.
+   *
+   * ⛔ AND IT WAS WORSE THAN INERT, IT WAS A LIE. `src/index.css` gives every
+   * node `cursor: grab` in hand mode and `cursor: grabbing` on press — so the
+   * card advertised a drag, accepted the press, and did nothing. A promise the
+   * product refuses is worse than an absent affordance.
+   *
+   * ⚠ THIS IS A REAL TRADE AND IT IS STATED RATHER THAN BURIED. In 'select',
+   * left-drag on empty canvas draws a marquee instead of panning; panning moves
+   * to middle-button or space-hold (`panOnDrag` below already encodes both).
+   * That is the Figma/FigJam convention and it is the right default for a
+   * surface whose whole purpose is that **humans remain the authors** of the
+   * model — but it is the founder's call, and reversing it is this one word.
+   *
+   * ⛔ AND THE SHARPEST FORM OF THE COUNTER-ARGUMENT, NAMED RATHER THAN OMITTED:
+   * `SELECT_MODE_PAN_BUTTONS` is `[1]` — MIDDLE BUTTON ONLY. On a trackpad there
+   * is no middle button, so the only pointer pan left in select mode is
+   * space-hold. A laptop user who never discovers the space bar has traded
+   * "cannot move a card" for "cannot pan by dragging", which is a smaller loss
+   * (the viewport still moves by wheel/trackpad scroll, and hand mode is one
+   * toolbar click away) but it is a loss, and it is the strongest reason someone
+   * might want this reverted. Raised by review; recorded so the next reader
+   * weighs the real trade and not a flattering version of it.
+   *
+   * ⭐ WHY 'select' STILL WINS, in one line: a default should be chosen by what
+   * it makes IMPOSSIBLE. Hand mode removed the only way to move a card; select
+   * mode removes one of several ways to move the viewport.
+   *
+   * ⚠ NOT PERSISTED, DELIBERATELY. This is component-local `useState` with no
+   * store or localStorage writer anywhere in the repo (swept: only the type
+   * declaration and the toolbar toggle reference it). A remembered mode would
+   * mean a user who once pressed H gets an unauthorable board on every future
+   * visit with nothing on screen explaining why. The toolbar toggle remains the
+   * way to switch, per session.
+   */
+  const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('select')
 
 
   // Spacebar hold-to-pan: temporarily switches to hand mode while held (like Figma)
@@ -2750,10 +2793,35 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             maxZoom={4}
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
-            {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN — immediately after the ground and
-                before every node, so the bands sit BEHIND the cards they hold.
-                Fed `memoizedNodes`, the same array React Flow is rendering, so a
-                lane cannot describe a board the user is not looking at. */}
+            {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN. Fed `memoizedNodes`, the same
+                array React Flow is rendering, so a lane cannot describe a board
+                the user is not looking at.
+
+                ⛔ THIS COMMENT USED TO SAY THE POSITION HERE PUT THE BANDS
+                BEHIND THE CARDS — "immediately after the ground and before every
+                node, so the bands sit BEHIND the cards they hold". THAT WAS
+                FALSE, and it is corrected in place rather than deleted because
+                the false version is why nobody looked (CLAUDE.md trap 14: an
+                honest label overwritten by a reassuring one).
+
+                `TierLanes` renders through `ViewportPortal` (angle brackets
+                omitted deliberately — see below), and portalled
+                content leaves this call site's position entirely — it lands in
+                `.react-flow__viewport-portal`, the LAST of the viewport's five
+                children. So the bands painted ON TOP of every card, washing body
+                text from ~10.4:1 to ~2.66:1 contrast. Where the element is
+                WRITTEN says nothing about where it PAINTS; the stacking is now
+                declared explicitly in `TierLanes` itself, which is the only file
+                that can see the portal.
+
+                ⚠ AND THE ANGLE BRACKETS ARE OMITTED ON PURPOSE, WHICH IS ITSELF
+                WORTH KNOWING. `canvasTextCounterScale.census.spec.ts` sweeps
+                `src/` for `/<ViewportPortal[\s/>]/` against RAW SOURCE TEXT and
+                asserts the declared set is exactly `['src/canvas/nodes/TierLanes
+                .tsx']`. Writing the JSX spelling in this COMMENT added a second
+                entry and failed a gate-required job — the census cannot tell code
+                from prose describing code. Same defect class as the stripper in
+                the guard this PR adds, one level up; rowed, not fixed here. */}
             <TierLanes nodes={memoizedNodes} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}

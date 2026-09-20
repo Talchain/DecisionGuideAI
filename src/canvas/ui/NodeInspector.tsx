@@ -2,6 +2,53 @@
  * Node property inspector — 3-section accordion layout
  * B.I.4: Summary (always open), Assumptions, Advanced
  * Brief v2.2: FactorValueEditor for observed_state editing
+ *
+ * ── ⛔⛔ THIS FILE HAS NO LIVE RENDERER. MEASURED 19 Sep 2026. ─────────────
+ * A raw-float census (SHA `bc1c3b89`) ranked the `utility` read-out — the
+ * `aria-valuetext={node.data.utility.toFixed(2)}` on the `role="meter"` bar and
+ * the visible `{utility >= 0 ? '+' : ''}{utility.toFixed(2)}` beside it — as its
+ * **4th** highest-value fix, on mount evidence *"CanvasMVP → ReactFlowGraph →
+ * InspectorModal.tsx → NodeInspector (depth 5)"*. **That import chain is real
+ * and the render is dead.** (Sites named by EXPRESSION, not by line: a line
+ * number in a comment is a mirror, and mine went stale inside one edit.)
+ * Both renderers were enumerated:
+ *
+ *   · `canvas/components/InspectorModal.tsx:226` — sits in the LEGACY branch
+ *     BELOW `:160 if (USE_INSPECTOR_V2) { return <InspectorRouter …> }`, and
+ *     `:17` is the module literal `const USE_INSPECTOR_V2 = true` — not an env
+ *     read, not a flag lookup. The branch is statically unreachable.
+ *   · `canvas/components/PropertiesPanel.tsx:31` — `PropertiesPanel` has
+ *     exactly ONE importer in the whole tree and it is a spec
+ *     (`components/__tests__/PropertiesPanel.leak.spec.tsx`); no barrel
+ *     re-exports it.
+ *
+ * Controls, so the zero is the code's and not the probe's: `InspectorModal`
+ * importers = 1 (`ReactFlowGraph.tsx:57`); a fabricated symbol = 0.
+ * Corroborated independently by `results/driverConfidenceDisplayPolicy.ts:18`
+ * (*"bar + % (dead at runtime today)"*) and by
+ * `inspector-v2/panels/GoalPanel.tsx:465-466`, neither written for this.
+ *
+ * ⭐ WHY THE CENSUS MISSED IT, because the mechanism generalises: its mount
+ * probe was an IMPORT-GRAPH closure over value edges. `InspectorModal` imports
+ * this component as a VALUE, so the edge is genuine — what kills the render is
+ * an early `return` the closure cannot see. The census says so itself in its
+ * §7.1/§7.2 limitations (*"MOUNTED is NOT a render witness"*, *"will miss a
+ * gate implemented via an early return"*). **Reachability of a module is not
+ * reachability of its JSX.**
+ *
+ * ⛔ CONSEQUENCE FOR ANY DISPLAY WORK HERE: banding or disclosing `utility`
+ * reaches NO user, and the live v2 inspector renders no `utility` at all
+ * (measured: zero non-spec `utility` references under `ui/inspector-v2/`), so
+ * there is no live counterpart to fix either. If `USE_INSPECTOR_V2` ever flips
+ * or `PropertiesPanel` gains an importer, the raw floats here become
+ * user-facing and this note is what should be re-derived first.
+ * `inspector-v2/__tests__/inspectorMountChain.spec.ts` already REDs if that
+ * constant becomes conditional.
+ *
+ * ⛔ DO NOT COMMISSION WORK AGAINST THIS FILE ON THE STRENGTH OF THIS COMMENT
+ * either — re-derive the two renderers above. A false "this is live" note is
+ * how a PR gets spent on a surface nothing mounts; `ui/EdgeInspector.tsx`
+ * carries the same warning because it nearly happened there.
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'

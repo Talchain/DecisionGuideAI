@@ -238,7 +238,7 @@ export const ACTION_TIER = {
    * +0.39%). Fully expanded, fixing EVERY sub-24 control would cost +48px on
    * 5305 (+0.9%) — an upper bound this change does not spend.
    */
-  primary: 'inline-flex items-center min-h-[24px] px-2 py-0.5 rounded bg-primary text-text-on-color',
+  primary: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2 py-0.5 rounded bg-primary text-text-on-color',
   /**
    * A NAMED ACT beside the reading it belongs to. An OUTLINED pill: the shape
    * is the affordance, so the hue is doing no load-bearing work.
@@ -312,7 +312,7 @@ export const ACTION_TIER = {
    * `--info-ink` is the same hue, dark enough to clear BOTH: 4.83:1 on the 6%
    * tint, 4.59:1 on 10%, 5.21:1 bare.
    */
-  secondary: 'inline-flex items-center min-h-[24px] px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info-ink',
+  secondary: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2 py-0.5 rounded-full border border-info/80 hover:border-info text-info-ink',
   /**
    * AN ACT INSIDE PROSE. Underlined AT REST, never on hover alone — see the
    * contrast note above.
@@ -335,7 +335,7 @@ export const ACTION_TIER = {
    * +1.2%) at rest. The other ten sites are inside collapsed sections and
    * cost nothing until opened.
    */
-  inline: 'inline-flex items-center min-h-[24px] px-2 py-1 rounded text-info underline',
+  inline: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2 py-1 rounded text-info underline',
   /**
    * A TERTIARY ACT — present, reachable, and not competing. Also underlined at
    * rest: "quiet" is a claim about emphasis, never a licence to drop the
@@ -347,14 +347,67 @@ export const ACTION_TIER = {
    * missing it is discovered by its FIRST user shipping a 15px control, and
    * that is how `inline` shipped eleven of them.
    */
-  quiet: 'inline-flex items-center min-h-[24px] rounded text-text-light underline',
+  /**
+   * ⛔⛔ `min-w` ADDED 19 Sep 2026, AND THE DOCBLOCK ABOVE PREDICTED THIS
+   * EXACTLY — through the one dimension it did not include.
+   *
+   * It says a tier missing the geometry "is discovered by its FIRST user
+   * shipping a 15px control". `quiet` was then given `min-h-[24px]` and nothing
+   * else, so its first ICON-ONLY user — the Strengthen row toggle (#1724) —
+   * shipped `px-1` (4px a side) around a `w-3.5` icon: **4 + 14 + 4 = 22px
+   * wide**, passing the height and failing the width.
+   *
+   * WCAG 2.2 AA §2.5.8 is 24×24, BOTH dimensions. A text control already
+   * exceeds 24px by its content, so this is a no-op at every other call site —
+   * it bites only the icon-only case, which is exactly the case that failed.
+   */
+  quiet: 'inline-flex items-center min-h-[24px] min-w-[24px] rounded text-text-light underline',
   /**
    * A NON-DIRECTIVE ACT — an outlined pill for something the panel offers
    * without recommending, e.g. recording a decision. Carries a border rather
    * than a fill so it reads as available, not urged.
    */
-  neutral: 'inline-flex items-center min-h-[24px] px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
+  neutral: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
 } as const
+
+/**
+ * ⭐⭐ THE ICON SCALE — THREE STEPS, KEYED TO DEPTH, NOT TO TASTE.
+ *
+ * Measured across `analysisNew`: FOUR square icon sizes (`w-3` x22, `w-3.5` x9,
+ * `w-4` x8, `w-6` x1) with no rule, and **the same disclosure chevron rendering
+ * at THREE of them** — `ChevronDown`/`ChevronRight` appear at `w-3`, `w-3.5` and
+ * `w-4`. Four files use more than one size internally.
+ *
+ * ⚠ THE SIZES ARE MOSTLY RIGHT ALREADY, WHICH IS THE POINT. This is not a resize
+ * — it is naming what was being chosen ad hoc, so the next icon inherits a
+ * decision instead of guessing from whatever is nearest on screen. That is how
+ * the four accumulated: each one was reasonable beside its neighbour.
+ *
+ * ⭐ DEPTH IS THE AXIS, and it is a real one. A section's own icon should not be
+ * the same weight as an icon inside a sentence three levels into that section;
+ * the hierarchy the panel draws with headings and zones should be drawn by its
+ * icons too. So the scale encodes WHERE an icon sits, and a caller picks by
+ * position rather than by size.
+ *
+ * ⛔ `w-6` IS NOT ON THIS SCALE AND MUST NOT JOIN IT. `SectionShell`'s 24px
+ * circle is a CONTAINER that holds an icon, not an icon — sizing it from here
+ * would make a badge and a glyph the same kind of thing.
+ */
+export const ICON_SCALE = {
+  /** A section's own leading icon, and the disclosure chevron beside it. */
+  section: 'w-4 h-4',
+  /** A row inside a section — its chevron, its status mark. */
+  row: 'w-3.5 h-3.5',
+  /** Inside a line of text, where the glyph must not outweigh the words. */
+  inline: 'w-3 h-3',
+} as const
+
+export type IconDepth = keyof typeof ICON_SCALE
+
+/** `icon('row')` reads at the call site the way `action('quiet')` does. */
+export function icon(depth: IconDepth): string {
+  return ICON_SCALE[depth]
+}
 
 export type ActionTier = keyof typeof ACTION_TIER
 

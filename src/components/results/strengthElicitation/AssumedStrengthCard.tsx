@@ -26,16 +26,26 @@
  * sent until the user clicks Send: opening the drawer dispatches nothing, and
  * neither does Enter, Cmd-Enter, Ctrl-Enter or blur.
  *
- * ⚠ IT USED TO CALL `openEdgeStrengthEditor`, AND THAT IS WHY THIS PARAGRAPH
- * CHANGED. That seam selects the edge, stands the dock down, centres the canvas
- * and raises the Inspector — which is read-only, because `InspectorRouter`
- * wraps every panel in an unconditional `<fieldset disabled>`, with the
- * panel's own mounted copy saying the value "cannot yet be saved to the shared
- * model". (This cited the `EDGE_SETTER_AUTHORITY` manifest in
+ * ⚠⚠ IT USED TO CALL `openEdgeStrengthEditor`, AND THE REASON RECORDED FOR THE
+ * RE-POINT IS NO LONGER TRUE. That seam selects the edge, stands the dock down,
+ * centres the canvas and raises the Inspector, and this paragraph said the
+ * Inspector "is read-only, because `InspectorRouter` wraps every panel in an
+ * unconditional `<fieldset disabled>`". Re-derived at the tip: the wrap is
+ * CONDITIONAL on `AUTHORITY_OWNING_PANELS` (`InspectorRouter.tsx:441`,
+ * `:541-551`), and the EDGE branch never reaches it — it early-returns at
+ * `:192` with no blanket fence, `EdgePanel` self-fencing per edge instead.
+ * (The old text also leaned on the `EDGE_SETTER_AUTHORITY` manifest in
  * `inspector-v2/useInspectorMutations.ts`; deleted 27 Aug 2026, PR #886, as an
- * unenforced mirror. The re-point stands on the fieldset, which is what
- * actually enforces it.) So the product's most prominent intervention arrived at a read-only
- * panel. There is no user-facing edge editor to route to.
+ * unenforced mirror — so BOTH of its authorities are now gone.)
+ *
+ * ⭐ THE DESTINATION STANDS, ON THE PREDICATE THAT ACTUALLY DECIDES IT.
+ * `EdgePanel.tsx:699` disables the strength control on `!strengthReachesTheModel`
+ * — `edgeStrengthEditIsAssertable`, which returns false for an edge with no
+ * server-stated `expected` tuple. That is exactly this card's `'missing'`
+ * population, so for those edges the Inspector still has nothing to offer.
+ * For the `'ai_inferred'` half it now does; re-pointing on that split is a
+ * design decision with its own blast radius and is NOT taken here. See
+ * `assumedStrengthCopy`'s note for the evidence whoever takes it will need.
  *
  * But OLUMI can change an edge: `update_edge` is a first-class op in the
  * model-facing tool schema and CEE applies it through the canonical commit path.

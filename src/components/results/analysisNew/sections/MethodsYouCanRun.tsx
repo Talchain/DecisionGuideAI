@@ -30,6 +30,15 @@
  * brief), which are not methods and do not belong in a list headed "methods you
  * can run". Removing it would take those with it.
  */
+/**
+ * @panel-act-opt-out seven of them in a row would claim seven secondary acts on the first screen; a shelf reads as one
+ *
+ * ⚠ DECLARED, NOT SILENT. This file renders an interactive element without an
+ * `action()` tier. The geometry is therefore carried HERE and must be BOTH
+ * dimensions — WCAG 2.2 AA is 24x24, and a control that passes the height and
+ * fails the width is the exact shape the Strengthen row toggle shipped (22px).
+ * `everyActIsReachableByTouch` reads this marker; removing it REDs the guard.
+ */
 import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 import { typography } from '../../../../styles/typography'
 import { METHOD_CATALOGUE } from '../../decision-overview/actionsCatalogue'
@@ -88,7 +97,7 @@ export function MethodsYouCanRun({
                  own rule. These are a SHELF, so they read as one. The 24px
                  minimum is carried explicitly because that is geometry, not
                  emphasis, and WCAG 2.2 AA §2.5.8 applies either way. */
-              className="inline-flex min-h-[24px] items-center rounded-full border border-panel-border px-2 py-0.5 text-text-body hover:border-info hover:text-info-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+              className="inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-panel-border px-2 py-0.5 text-text-body hover:border-info hover:text-info-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
               data-testid={`${testId}-method`}
               data-method-id={m.id}
               title={m.description}

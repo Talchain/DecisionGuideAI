@@ -37,6 +37,7 @@ import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { useAnalysisState } from '../state/analysisStateSelector'
+import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
 // ── The workspace-shell contract ────────────────────────────────────────────
 // This dock IS the shell. `shellContract.ts` states what it owns and what a
@@ -1074,6 +1075,26 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // derives the fact. `requiresRerun` had NO product reader before this: CEE
   // composed its verdict on every turn and nothing consumed it.
   const composedAnalysisState = useAnalysisState()
+  /**
+   * ⭐⭐ ONE ANSWER TO "IS THIS CLIENT STILL WAITING?", READ BY BOTH SURFACES.
+   *
+   * `trust.isRunning` is `localRunning || wireRunning`, and only the local half
+   * has a clock: the wire half is a statement about the turn CEE composed and
+   * is cleared only by a later turn. Witnessed (bundle `b3d5806d`, 19 Sep 2026)
+   * that a later turn may never come — CEE committed a run's result and
+   * suppressed the directive that would have delivered it — so the wire said
+   * `running` indefinitely for a run that had finished 42 seconds in.
+   *
+   * ⚠ IT IS DERIVED ONCE AND THREADED, never computed at each call site. The
+   * cover and the tab body mount two lines apart and answer the same question;
+   * deriving it twice is how a shimmering skeleton ends up above a sentence
+   * saying nothing is coming (trap 21, the shape this dock has paid for before
+   * in `isRunning` vs the composed pair).
+   *
+   * See `useAnalysisWaitExhausted.ts` for the bound and why it is imported
+   * rather than written.
+   */
+  const provisionalWaitExhausted = useAnalysisWaitExhausted(composedAnalysisState.trust.isRunning)
   const displayedFreshness = composedAnalysisState.displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
   /**
@@ -1261,6 +1282,34 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+  /**
+   * ⭐⭐⭐ ONLY THE WIRE HALF EXPIRES. A LOCAL RUN IS FIRST-HAND KNOWLEDGE.
+   *
+   * ⛔ THE REGRESSION THIS CLOSES, found by an independent seat before merge.
+   * `trust.isRunning` is `localRunning || wireRunning`, and an earlier cut
+   * subtracted the exhaustion from the COMBINED value. The sequence that breaks
+   * it is the one this very change creates:
+   *
+   *   an old record settles `deadline`/`withheld`  ->  the restored "Run the
+   *   analysis" act is pressed  ->  `resultsAnalysing` sets `preparing`, so
+   *   `localRunning` is TRUE  ->  but the WIRE still carries the old
+   *   `started_at`, so the old record still matches and exhaustion is still
+   *   TRUE  ->  the combined subtraction hides the cover for the run that is
+   *   ACTIVE RIGHT NOW and says it stopped waiting, mid-retry.
+   *
+   * The recovery affordance would have broken the recovery.
+   *
+   * ⭐ The rule: a record may only expire the wait it describes. `isRunning`
+   * here is the dock's LOCAL flag — a request this client issued and is
+   * watching — and no record about an earlier run may speak for it.
+   *
+   * ⚠ `waitExhausted` is subtracted too, not only the cover, so the panel
+   * cannot say "this analysis has not reached this page" while a run it
+   * dispatched is in flight. One expression, every reader.
+   */
+  const analysisWaitExhausted = provisionalWaitExhausted && !isRunning
+  const analysisStillAwaited =
+    isRunning || (composedAnalysisState.trust.isRunning && !analysisWaitExhausted)
 
   // Wave1-L2 (seam D-M): exactly ONE run-status region, now mounted for
   // EVERY in-flight run rather than only when a previous report is on
@@ -3918,7 +3967,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   it here would have been two subscriptions to one authority in
                   the file whose comments argue against exactly that. */}
               <AnalysisRunStateCover
-                isRunning={composedAnalysisState.trust.isRunning}
+                isRunning={analysisStillAwaited}
                 startedAt={composedAnalysisState.trust.runStartedAt}
                 contentRetained={!isPreRun}
               />
@@ -3934,7 +3983,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                      `localRunning || wireRunning`. Passing the local one here
                      left the tab telling the user a run was in flight while
                      leaving its content unmarked. */
-                  isBusy={composedAnalysisState.trust.isRunning}
+                  isBusy={analysisStillAwaited}
+                  /* The client's own answer, beside the producer's. See the
+                     derivation above and the prop's note on why it is not
+                     derived inside the body. */
+                  waitExhausted={analysisWaitExhausted}
                   nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
                   seedUsed={(report as any)?.meta?.seed}
                   responseHash={results?.hash}

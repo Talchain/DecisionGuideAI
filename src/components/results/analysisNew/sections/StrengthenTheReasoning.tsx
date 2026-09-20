@@ -44,7 +44,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
+import { PanelActRow } from '../PanelActRow'
+import { ArrowRight, ChevronDown, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
@@ -76,7 +77,27 @@ import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
 import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
-import { action } from '../panelSurfaces'
+/**
+ * ⛔ ALIASED, AND THE ALIAS IS THE FIX FOR A LIVE DEFECT IN THIS PR.
+ *
+ * This component destructures a prop named `icon` (`icon?: LucideIcon`, a
+ * ROW GLYPH), so a bare `icon` import is shadowed for the entire component
+ * body — which is the whole file. All FIVE bare `icon('inline')` calls added
+ * here resolved to the PROP: `Wrench('inline')` returns a React element, which
+ * template-interpolates to the literal string `[object Object]`, so five icons in
+ * the panel's most-used section lost their sizing and rendered at lucide's 24px
+ * default instead of 12px.
+ *
+ * ⭐ `SectionShell` has the same prop and is NOT affected, because it
+ * destructures `icon: Icon` — renaming on destructure is what saved it, and is
+ * the pattern to prefer.
+ *
+ * ⚠ Caught by independent review, not by me and not by a gate — CI had not
+ * completed on this head. The lesson is narrow and worth keeping: an import
+ * added to a file must be checked against that file's PARAMETER LIST, not
+ * only against its other imports.
+ */
+import { action, icon as iconSize } from '../panelSurfaces'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -279,10 +300,57 @@ export function StrengthenTheReasoning({
    * two open composers in a 278px column is not a thing anyone can use.
    */
   const showToast = useShowToastSafe()
+  /**
+   * ⭐⭐ ROWS COLLAPSE, AND NOTHING UNMOUNTS WHEN THEY DO.
+   *
+   * The rows render fully expanded, so two findings cost ~670px and the reader
+   * meets one at a time. The Analysis tab's twin collapses each to a line and
+   * fits five in ~400px. This section's own header already argues for the
+   * denser shape — "SectionShell's default is CLOSED and that is the collapsed
+   * IA the design asks for … a budget, not a preference" — and the panel
+   * measures 4,164px fully open against a viewport a third of that.
+   *
+   * ⭐ THE BODY UNMOUNTS, matching `DisclosureRow` and `SectionShell` — whose
+   * own note gives the reason a CSS-hidden region is wrong here: a resting
+   * `aria-controls` would reference something that is not in the document.
+   *
+   * ⚠ I FIRST WROTE THIS AS `hidden` ON A FALSE PREMISE, and the premise is
+   * worth recording because it was nearly shipped as a docblock. The reasoning
+   * was that the "I disagree" composer holds unsaved text and a keyed remount
+   * had already discarded a reader's draft once. The draft is real and that
+   * incident is real — but the text lives in this SECTION's `draft` state and
+   * the textarea is CONTROLLED (`value={draft}`), so it is not in the row's DOM
+   * and unmounting the row cannot lose it. A true fact about the past attached
+   * to the wrong mechanism.
+   *
+   * ⚠ AND THE ROW BEING DISPUTED CANNOT BE COLLAPSED AT ALL. Even with the
+   * body mounted, hiding a focused composer mid-sentence is its own defect.
+   * `disputingId` is single-valued, so this is one conjunct rather than a set.
+   */
+  const [openRowIds, setOpenRowIds] = useState<ReadonlySet<string> | null>(null)
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [dissentSaveError, setDissentSaveError] = useState<string | null>(null)
-  const disputeContext = useRef<{ scenarioId: string | null; analysisHash: string | null } | null>(null)
+  const disputeContext = useRef<{
+    scenarioId: string | null
+    analysisHash: string | null
+    /**
+     * ⚠ CAPTURED AT OPEN, because the rescue path runs precisely when the row
+     * has LEFT `plan.ordered` — at that moment its title cannot be looked up.
+     * Without this the rescued words lose the one thing that makes them
+     * intelligible later: what they were about.
+     */
+    title: string
+  } | null>(null)
+  /**
+   * ⭐⭐⭐ WORDS THAT COULD NOT BE SAVED AND HAVE NOWHERE TO SIT.
+   *
+   * The composer holds a failed save on the ordinary path (`commitDispute`
+   * returns without closing). That does not work here: this path fires BECAUSE
+   * the row vanished, so the composer unmounts with it. Section-level state is
+   * the only place left that is still on screen.
+   */
+  const [rescuedUnsaved, setRescuedUnsaved] = useState<{ text: string; about: string } | null>(null)
   /**
    * ⭐ THE DURABLE DISSENT FOR THE SCENARIO ON SCREEN.
    *
@@ -406,9 +474,9 @@ export function StrengthenTheReasoning({
   const undoButtonRef = useRef<HTMLButtonElement | null>(null)
 
   const openDispute = useCallback(
-    (id: string, existing: string, trigger: HTMLButtonElement | null) => {
+    (id: string, existing: string, trigger: HTMLButtonElement | null, title: string) => {
       disputeTriggerRef.current = trigger
-      disputeContext.current = { scenarioId: activeScenarioId, analysisHash: analysisHash ?? null }
+      disputeContext.current = { scenarioId: activeScenarioId, analysisHash: analysisHash ?? null, title }
       setDissentSaveError(null)
       setDisputingId(id)
       setDraft(existing)
@@ -423,6 +491,7 @@ export function StrengthenTheReasoning({
   useEffect(() => {
     if (disputingId) disputeInputRef.current?.focus()
   }, [disputingId])
+
 
   /**
    * ⭐⭐ THE PRIMARY DOES THE THING, WHERE THE ENGINE SAYS IT SHOULD.
@@ -735,6 +804,112 @@ export function StrengthenTheReasoning({
   )
   const limit = preview ?? plan.ordered.length
   const visible = expanded ? plan.ordered : plan.ordered.slice(0, limit)
+  /**
+   * ⛔⛔ THE WORST OUTCOME AVAILABLE ON THIS SURFACE, AND IT HAPPENED SILENTLY.
+   *
+   * This file already names the standard, one screen down: *"Losing what someone
+   * typed because a POST failed is the worst outcome available on this surface"*
+   * — which is why the durable write happens BEFORE the send. The same loss had
+   * a second door.
+   *
+   * The dispute box renders only inside `plan.ordered.map`, gated on
+   * `disputingId === rec.id`. A rerun past a graph edit mints new `block_id`s,
+   * the disputed finding leaves the plan, and **the box goes with it, carrying
+   * whatever the reader had typed**. `draft` survives in state, unreachable,
+   * until the next close clears it. No error, no warning, no trace.
+   *
+   * ⭐ SO IT IS SAVED, NOT DISCARDED. `recordDissent` is exactly the home for
+   * these words, and it is purely local — no network, no send, nothing the
+   * reader has to confirm. Keeping what someone wrote is not a decision that
+   * needs their permission; throwing it away is.
+   *
+   * ⚠ STAMPED WITH THE CONTEXT CAPTURED AT OPEN TIME, never with the new run's.
+   * They composed the objection against the analysis they were reading, and
+   * `disputeContext.current` is what holds it — the same reasoning the submit
+   * path already documents for its own stamp.
+   *
+   * ⚠ SCOPE: this rescues the TEXT. The reader is not told it happened, because
+   * a toast about a row that has just disappeared would explain a thing they can
+   * no longer see. `readDissent` restores it into the box if that finding ever
+   * returns, which is the recovery this makes possible.
+   */
+  useEffect(() => {
+    if (disputingId === null) return
+    if (draft.trim() === '') return
+    if (plan.ordered.some((rec) => rec.id === disputingId)) return
+
+    const context = disputeContext.current
+    /**
+     * ⛔ THE RESULT IS READ. It was ignored, and `closeDispute()` ran anyway —
+     * so on a FAILED save this effect did exactly what the PR exists to
+     * prevent. Two paths lost the words: `recordDissent` returning false, and
+     * no scenario id at all, which skipped persistence entirely.
+     *
+     * ⭐ The ordinary path already had this right (`commitDispute`: "Do not
+     * close/clear the user's new words"). It keeps them in the composer, which
+     * is impossible here — this effect fires BECAUSE the row has gone. So the
+     * words move somewhere still on screen instead.
+     */
+    const saved =
+      context?.scenarioId != null &&
+      recordDissent(context.scenarioId, disputingId, draft, context.analysisHash)
+    if (saved) {
+      setDissentEpoch((n) => n + 1)
+    } else {
+      setRescuedUnsaved({ text: draft, about: context?.title ?? '' })
+    }
+    closeDispute()
+  }, [disputingId, draft, plan.ordered, closeDispute])
+  /**
+   * ⭐ THE FIRST ROW IS OPEN, THE REST ARE CLOSED — the shape Paul pointed at on
+   * the Analysis tab, where "Define what success looks like" is expanded above
+   * four collapsed assumptions.
+   *
+   * It is the right default for a reason beyond matching: a section of closed
+   * rows is the "told a number, asked to guess whether it is worth a click"
+   * state this component's own header rejects, while a section of open rows is
+   * the 670px-for-two-findings state that sent me here. One open row shows what
+   * a finding CONTAINS, and the rest say what they are about in a line.
+   *
+   * ⚠ `null` MEANS UNTOUCHED, not empty. Once the reader toggles anything the
+   * set becomes theirs and the default stops applying — including their right
+   * to close the first row, which a `has(id) || index === 0` predicate would
+   * silently refuse.
+   */
+  const firstRowId = plan.ordered.length > 0 ? plan.ordered[0].id : null
+
+  /**
+   * ⛔⭐ A RERUN MUST NOT LEAVE EVERY ROW CLOSED.
+   *
+   * `openRowIds` holds recommendation ids. A rerun after a graph EDIT changes
+   * the graph hash, the producer mints new `block_id`s, and every id in the
+   * reader's set stops existing — while the set itself is still non-null. The
+   * default above then cannot come back, because `null` is what licenses it.
+   *
+   * The result is the one state this component's own header rejects: **a
+   * section of entirely closed rows**, arrived at by a rerun the reader asked
+   * for, after they had opened something.
+   *
+   * ⚠ THE TEST IS INTERSECTION, NOT SIZE. A set the reader deliberately
+   * emptied (they closed the one open row) is THEIRS and must be honoured —
+   * that is the right this docblock already defends. What must not survive is a
+   * set whose every member has ceased to exist, which is not a choice they made
+   * but a consequence of the ids moving underneath them.
+   *
+   * ⚠ Scope, stated: this restores the DEFAULT, it does not restore their
+   * selection. Nothing can — the rows they opened are gone. Preserving a
+   * selection across a rerun would need ids stable across graph hashes, which
+   * is a producer question, not this one.
+   */
+  const readerSetIsStale =
+    openRowIds !== null &&
+    openRowIds.size > 0 &&
+    !plan.ordered.some((rec) => openRowIds.has(rec.id))
+
+  const openRows: ReadonlySet<string> =
+    openRowIds === null || readerSetIsStale
+      ? new Set(firstRowId === null ? [] : [firstRowId])
+      : openRowIds
   const hidden = plan.ordered.length - visible.length
 
   return (
@@ -742,9 +917,88 @@ export function StrengthenTheReasoning({
       title={COPY.sections.strengthen}
       icon={icon}
       count={interventions.length > 0 ? interventions.length : null}
+      // ⭐⭐ PROGRESS THROUGH THE WORK, ON THE COLLAPSED HEADER.
+      //
+      // `SectionShell` has taken a `subtitle` all along and this section has
+      // never passed one, so the collapsed header read as a name and a number.
+      // Its own docblock says why that is not enough: "a title plus a count is
+      // a container name and a number, and the subtitle is the part that tells
+      // a reader whether the row is worth a click."
+      //
+      // ⭐ AND THE NUMBER IT SHOULD CARRY IS THE READER'S OWN WORK. Until now
+      // the only acknowledgement that any of it had happened arrived when the
+      // list emptied completely — `completedAllAddressed` renders ONLY on the
+      // succeeded state — so a reader four findings into eight saw no evidence
+      // they had done anything. "2 addressed · 6 worth checking" is the tool
+      // showing the work back, which is the point of the surface.
+      //
+      // ⚠ COPY AND COUNTS COME FROM WHERE THEY ALREADY LIVED. The string is the
+      // SHARED `STRENGTHEN_COPY.summary`, which the Analysis twin already
+      // renders, so the two cannot drift into two phrasings of one fact.
+      // `addressedCount` is read BY STATUS, never by subtraction — its own
+      // `useMemo` records why: `selectHistory` may retire a status this
+      // component does not know about, and `addressed = total − dismissed`
+      // would silently credit it as work the team did.
+      //
+      // ⚠ UNDEFINED WHEN NOTHING IS LIVE. With the list empty the section
+      // already renders its succeeded state, and a subtitle counting "0 worth
+      // checking" above it is furniture over a finished room — the defect this
+      // panel adjudicated out as "Nothing addressed yet".
+      subtitle={
+        interventions.length > 0
+          ? STRENGTHEN_COPY.summary(addressedCount, interventions.length)
+          : undefined
+      }
       defaultOpen={defaultOpen}
       testId={testId}
     >
+      {/* ⭐⭐⭐ WORDS THE PRODUCT COULD NOT SAVE ARE STILL THE USER'S WORDS.
+          Placed FIRST in the section, above everything, because it is the one
+          thing here the reader cannot reconstruct.
+
+          ⚠ THE TEXT IS RENDERED, not described. A notice saying "something was
+          not saved" over state the reader cannot reach is not recovery — it is
+          the same loss with an apology attached. It sits in a readonly
+          textarea so it can be selected and copied, and it names the finding it
+          was written about, because words without their subject are not much
+          use an hour later.
+
+          ⚠ ROLE=ALERT, matching the composer's own save-error treatment: this
+          appears without the reader doing anything, on a surface that has just
+          changed under them. */}
+      {rescuedUnsaved ? (
+        <div
+          className="rounded-md border border-panel-border bg-panel-hover px-2 py-2"
+          role="alert"
+          data-testid={`${testId}-rescued-unsaved`}
+        >
+          <p className={`${typography.panelMeta} text-text-body mt-0 mb-1`}>
+            {COPY.dissent.rescuedUnsaved}
+          </p>
+          {rescuedUnsaved.about ? (
+            <p className={`${typography.panelMeta} text-text-light mt-0 mb-1`}>
+              {COPY.dissent.rescuedAbout} {rescuedUnsaved.about}
+            </p>
+          ) : null}
+          <textarea
+            readOnly
+            value={rescuedUnsaved.text}
+            rows={3}
+            className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel px-2 py-1 text-text-body`}
+            data-testid={`${testId}-rescued-unsaved-text`}
+          />
+          <PanelActRow className="mt-1">
+            <button
+              type="button"
+              onClick={() => setRescuedUnsaved(null)}
+              className={`${typography.panelMeta} ${action('inline')}`}
+              data-testid={`${testId}-rescued-unsaved-dismiss`}
+            >
+              {COPY.dissent.rescuedDismiss}
+            </button>
+          </PanelActRow>
+        </div>
+      ) : null}
       {/* ⚠ THE UNDO IS NOT OPTIONAL FURNITURE. Dismissing removes the card on
           the next render (the view model treats `dismissed` as retired), so
           without this the only feedback for a misclick is a finding silently
@@ -851,6 +1105,9 @@ export function StrengthenTheReasoning({
             // bias rather than the one generic "review a possible bias" every
             // one of the sixteen shared. Absent on every non-bias finding.
             const method = methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)
+            // Open when the reader opened it, and ALWAYS while it is being
+            // disputed — see the note on `openRowIds`.
+            const rowOpen = openRows.has(rec.id) || disputingId === rec.id
             /**
              * ⭐ THE MARK MOVES WORK OUT OF THE SENTENCE AND INTO THE FORM.
              * A card about a Risk now carries the risk shape, in the risk
@@ -953,10 +1210,61 @@ export function StrengthenTheReasoning({
 
                     Both moves RED in `StrengthenSeveritySignals.spec.tsx`. */}
                 <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
-                  {markKind ? <NodeMark kind={markKind} className="w-3 h-3 self-center" /> : null}
+                  {markKind ? <NodeMark kind={markKind} className={`${iconSize('inline')} self-center`} /> : null}
                   <span className="min-w-0" data-testid={`${testId}-title`}>
                     {rec.title}
                   </span>
+                  {/* ⭐ THE TOGGLE IS ITS OWN CONTROL, NOT THE TITLE.
+                      Making the whole header pressable is the obvious move and
+                      it is wrong here: the header already carries the method
+                      chip, which IS a button, and a button inside a button is
+                      invalid markup that browsers resolve by dropping one of
+                      them. A trailing disclosure keeps both acts reachable.
+
+                      ⚠ IT DISAPPEARS WHILE THE ROW IS BEING DISPUTED rather
+                      than rendering disabled: a control that is present and
+                      refuses is worse than one that is absent, and the reader
+                      has an explicit Cancel on the composer. */}
+                  {disputingId === rec.id ? null : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenRowIds((prev) => {
+                          const next = new Set(prev ?? openRows)
+                          if (next.has(rec.id)) next.delete(rec.id)
+                          else next.add(rec.id)
+                          return next
+                        })
+                      }
+                      /* ⛔ THE WIDTH FLOOR IS THE TIER'S, NOT THIS CALL SITE'S.
+                         This shipped 22px wide — `px-1` (4px a side) around a
+                         `w-3.5` icon — because `action('quiet')` carried
+                         `min-h-[24px]` and no `min-w`. My first fix hand-rolled
+                         `min-w-[24px]` here, which is the exact arrangement
+                         `everyInlineActIsReachableByTouch` exists to ban: *"if a
+                         later call site hand-rolls its own touch target, the
+                         tier is no longer the single owner and the next one
+                         added will miss it again."* That is also how the
+                         133×15 review-estimates control happened. So the floor
+                         went into the tier and only the CENTRING stays here,
+                         because centring is this control's business and the
+                         guarantee is not. */
+                      className={`${action('quiet')} ml-auto self-center shrink-0 px-1 justify-center no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      aria-expanded={rowOpen}
+                      aria-controls={rowOpen ? `${testId}-body-${rec.id}` : undefined}
+                      aria-label={
+                        rowOpen
+                          ? STRENGTHEN_COPY.rowCollapse(rec.title)
+                          : STRENGTHEN_COPY.rowExpand(rec.title)
+                      }
+                      data-testid={`${testId}-row-toggle`}
+                    >
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${rowOpen ? '' : '-rotate-90'}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  )}
                 </p>
 
                 {rec.category || grounding || method ? (
@@ -1019,7 +1327,7 @@ export function StrengthenTheReasoning({
                         data-method-id={method.id}
                         title={method.description}
                       >
-                        <Lightbulb className="w-3 h-3" aria-hidden={true} />
+                        <Lightbulb className={`${iconSize('inline')}`} aria-hidden={true} />
                         {method.title}
                         {/* ⚠ `title` RENDERS ON MOUSE HOVER ONLY — no major
                             browser shows it on keyboard focus. So what the
@@ -1052,7 +1360,7 @@ export function StrengthenTheReasoning({
                           strengthLabel ? ` · ${strengthLabel}` : ''
                         }.`}
                       >
-                        <FlaskConical className="w-3 h-3" aria-hidden={true} />
+                        <FlaskConical className={`${iconSize('inline')}`} aria-hidden={true} />
                         {strengthLabel ?? COPY.strengthen.groundedChip}
                         <span className="sr-only">
                           {`Grounded in the decision-science knowledge base${
@@ -1064,6 +1372,25 @@ export function StrengthenTheReasoning({
                   </div>
                 ) : null}
 
+                {/* ⭐ THE COLLAPSED LINE. One clamped sentence so the row still
+                    says what it is about — a title and a chip alone is the
+                    "told a number, asked to guess whether it is worth a click"
+                    shape this section's own header rejects. Rendered as its own
+                    element rather than by clamping the body, because the body
+                    must stay mounted and a clamp that toggles would fight the
+                    hidden state. */}
+                {rowOpen ? null : (
+                  <p
+                    className={`${typography.panelBody} text-text-light mt-1 mb-0 line-clamp-1`}
+                    data-testid={`${testId}-summary`}
+                  >
+                    {strengthenWhyLine(rec.signal, rec.whyNow)}
+                  </p>
+                )}
+                {/* Unmounted when closed, per `DisclosureRow`'s rule. The
+                    dispute draft is section state, not row DOM. */}
+                {rowOpen ? (
+                <div data-testid={`${testId}-body`} id={`${testId}-body-${rec.id}`}>
                 <p
                   className={`${typography.panelBody} text-text-body mt-1 mb-0`}
                   data-testid={`${testId}-why`}
@@ -1088,7 +1415,7 @@ export function StrengthenTheReasoning({
 
                 {/* The action is the point of the card, so it reads as a
                     control rather than as a fourth line of prose. */}
-                <div className="flex flex-wrap items-center gap-2 mt-2">
+                <PanelActRow className="mt-2" testId={`${testId}-acts-row`}>
                   <button
                     type="button"
                     onClick={() => runPrimaryAction(rec)}
@@ -1096,7 +1423,7 @@ export function StrengthenTheReasoning({
                     data-testid={`${testId}-action`}
                   >
                     {rec.action.label}
-                    <ArrowRight className="w-3 h-3" aria-hidden={true} />
+                    <ArrowRight className={`${iconSize('inline')}`} aria-hidden={true} />
                   </button>
                   {rec.targetId ? (
                     <button
@@ -1125,7 +1452,7 @@ export function StrengthenTheReasoning({
                       className={`${typography.panelMeta} inline-flex items-center gap-1 rounded px-1 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-focus`}
                     >
-                      <Crosshair className="w-3 h-3" aria-hidden={true} />
+                      <Crosshair className={`${iconSize('inline')}`} aria-hidden={true} />
                       Show on canvas
                     </button>
                   ) : null}
@@ -1172,7 +1499,7 @@ export function StrengthenTheReasoning({
                       the defect the tier system exists to stop. */}
                   <button
                     type="button"
-                    onClick={(e) => openDispute(rec.id, standingDispute ?? '', e.currentTarget)}
+                    onClick={(e) => openDispute(rec.id, standingDispute ?? '', e.currentTarget, rec.title)}
                     // It is a disclosure, so it says so. `aria-expanded` is
                     // already used twice in this file (show-more, history) —
                     // the author knew the attribute; this control was the
@@ -1204,7 +1531,7 @@ export function StrengthenTheReasoning({
                   >
                     {STRENGTHEN_COPY.notRelevant}
                   </button>
-                </div>
+                </PanelActRow>
 
                 {/* ⭐ THE OBJECTION STAYS ON THE CARD. It is not a note filed
                     elsewhere and it is not a chat message that scrolls away —
@@ -1253,7 +1580,11 @@ export function StrengthenTheReasoning({
                         {dissentSaveError}
                       </p>
                     ) : null}
-                    <div className="mt-1 flex items-center gap-3">
+                    {/* ⛔ THIS ROW COULD NOT WRAP. It was `flex items-center gap-3` with no
+                        `flex-wrap`, so at a narrowed dock its two buttons overflowed rather
+                        than moving to a second line — a shared constant copied minus one
+                        class, which is exactly why this is a component and not a string. */}
+                    <PanelActRow className="mt-1">
                       <button
                         type="button"
                         onClick={() => commitDispute(rec)}
@@ -1270,7 +1601,7 @@ export function StrengthenTheReasoning({
                       >
                         {COPY.dissent.cancel}
                       </button>
-                    </div>
+                    </PanelActRow>
                   </div>
                 ) : standingDispute ? (
                   <p
@@ -1336,6 +1667,8 @@ export function StrengthenTheReasoning({
                   >
                     {rec.sourceLine}
                   </p>
+                ) : null}
+                </div>
                 ) : null}
               </li>
             )

@@ -14,7 +14,9 @@ import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
@@ -457,30 +459,35 @@ export const RiskNode = memo((props: NodeProps) => {
    * 141 — `nodeLayoutConstants.ts`). If it is still too much, this chip can be
    * withdrawn on its own and the sentence above stands without it.
    */
+  // ⚠ The three surfaces ask for three DIFFERENT resolutions, and the card's
+  // order is deliberately not the Detailed order — see the resolver's docblock.
+  const riskCoachingState = useMemo(() => ({ exposureUnstated }), [exposureUnstated])
+  const riskCoachingContext = useMemo(
+    () => ({ label: cleanedLabel, riskContext }),
+    [cleanedLabel, riskContext],
+  )
+
   const riskFaceChip = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?${riskContext}`} />
-      {exposureUnstated && (
-        <NodeChip chipId="risk_size_exposure" actionType={null} label="How likely is this?" message={`How likely is ${cleanedLabel || 'this risk'}, and how serious would it be if it happened? Help me put a first estimate on both, and tell me what I would need to know to sharpen them.${riskContext}`} />
-      )}
-    </div>
-  ), [cleanedLabel, riskContext, exposureUnstated])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'risk', surface: 'card', state: riskCoachingState, context: riskCoachingContext })}
+    />
+  ), [riskCoachingState, riskCoachingContext])
 
   const riskPopoverChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
-      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Explore mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}, and explain what it would change.${riskContext}`} />
-    </div>
-  ), [cleanedLabel, riskContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'risk', surface: 'popover', state: riskCoachingState, context: riskCoachingContext })}
+    />
+  ), [riskCoachingState, riskCoachingContext])
 
   // Detailed view keeps all three inline, exactly as before.
   const riskChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
-      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Explore mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}, and explain what it would change.${riskContext}`} />
-      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?${riskContext}`} />
-    </div>
-  ), [cleanedLabel, riskContext])
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({ kind: 'risk', surface: 'detailed', state: riskCoachingState, context: riskCoachingContext })}
+    />
+  ), [riskCoachingState, riskCoachingContext])
 
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
   // (the existing probability×impact derivation, reused not re-added). P1.7: now
@@ -665,7 +672,7 @@ export const RiskNode = memo((props: NodeProps) => {
             what the design review objected to. */}
         {recordedValue && (
           <p
-            className={`${typography.nodeLabel} text-text-body m-0`}
+            className={`${typography.nodeValue} text-text-body m-0`}
             data-testid="risk-recorded-value"
           >
             {recordedValue}

@@ -34,6 +34,7 @@
  */
 
 import { useState } from 'react'
+import { PanelFigure } from '../PanelFigure'
 import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
@@ -42,7 +43,7 @@ import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
-import { inset, action } from '../panelSurfaces'
+import { inset, action, icon } from '../panelSurfaces'
 
 /**
  * How many parameter names fit before the line stops being readable. Four is a
@@ -273,6 +274,32 @@ export interface AtAGlanceProps {
    */
   reanalyseBlockedReason: string | null
   /** Which results did not come back, already named for this surface. */
+  /**
+   * ⭐ WOULD A RE-RUN CHANGE THIS? — the third question, and the one the
+   * ribbon's act was missing.
+   *
+   * Supplied by the caller from `vm.checks.leaderWithheld`; this component
+   * derives nothing, exactly as it does not re-derive the run gate.
+   *
+   * ⚠ THE WITHHELD FACT, NOT ITS NAMEABLE CAUSE. `leaderWithholdCause` is null
+   * both when nothing was withheld and when the reason cannot be named, and the
+   * second is the common case — `withheld_reason` is free-form at the contract.
+   */
+  leaderWithheld?: boolean
+  /**
+   * ⭐⭐⭐ WOULD A RE-RUN CHANGE THIS? The question this ribbon's act actually
+   * asks, and it is NOT `leaderWithheld`.
+   *
+   * ⛔ An independent seat found the conflation: `leader_not_assessed` includes
+   * a missing verdict, an unknown separation and an incomplete or failed
+   * result, so binding the act to it removed the retry from the retryable
+   * class. See `buildChecks` for the two evidenced conjuncts.
+   *
+   * Absent = false: a caller that has not been given it keeps the re-run, which
+   * is the fail-open direction — offering a run that turns out not to help
+   * costs a click; withholding one that would have helped strands the reader.
+   */
+  rerunWouldNotHelp?: boolean
   missingResults?: readonly string[]
   testId?: string
 }
@@ -310,6 +337,7 @@ export function AtAGlance({
   reanalyseBlocked,
   reanalyseBlockedReason,
   isRunning,
+  rerunWouldNotHelp = false,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -617,7 +645,7 @@ export function AtAGlance({
           role="status"
           data-testid={`${testId}-ribbon`}
         >
-          <AlertTriangle className="w-3 h-3 mt-[3px] shrink-0 text-warning-ink" aria-hidden="true" />
+          <AlertTriangle className={`${icon('inline')} mt-[3px] shrink-0 text-warning-ink`} aria-hidden="true" />
           {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
               had to go: `min-w-0` says "I will shrink to nothing", which is
               precisely the permission that let this sentence be squeezed to
@@ -651,7 +679,43 @@ export function AtAGlance({
 
               ⚠ FAIL-CLOSED. No handler, no button — never a dead affordance,
               the same pre-gate this panel uses for focus targets. */}
-          {onReanalyse && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
+          {/* ⛔⛔ A RE-RUN IS OFFERED ONLY WHERE A RE-RUN COULD HELP.
+              WITNESSED ON PAUL'S RUN, 19 Sep 14:32Z, staging `fd65f971`.
+
+              The ribbon read *"This analysis is partial. The win share and the
+              overall robustness rating did not come back"* with **Re-run to be
+              sure** beside it. Both sentences were TRUE. The act was not: CEE
+              had suppressed the result on
+              `reason=leading_option_claim_withheld`, downstream of
+              `CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED` — a property of the
+              MODEL, not of the run. Pressing it reaches the same gate, spends
+              the same compute, and returns the same partial answer.
+
+              ⭐ THE GATE BELOW ANSWERED "MAY I RE-RUN?" WHEN THE READER NEEDED
+              "WOULD RE-RUNNING CHANGE THIS?" — two questions under one control,
+              which is the same shape as the CEE suppression that caused it and
+              as trap 21 generally. The fix is to name them apart, never to
+              align them.
+
+              ⚠ SO THE RE-RUN IS NOT DELETED. Where results are missing by
+              FAILURE a re-run is exactly right, and removing it would trade one
+              wrong act for another. It is withheld only where the panel knows a
+              DESIGNATION was withheld, and the remedy that works — the estimate
+              route this component already owns — takes its place.
+
+              ⚠ `leaderWithheld`, NOT `leaderWithholdCause`: the cause is null
+              both when nothing was withheld and when the reason cannot be named,
+              and the second is the common case. */}
+          {onReanalyse && rerunWouldNotHelp && onReviewEstimates ? (
+            <button
+              type="button"
+              onClick={onReviewEstimates}
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80`}
+              data-testid={`${testId}-ribbon-review-estimates`}
+            >
+              {COPY.glance.reviewEstimates}
+            </button>
+          ) : onReanalyse && !rerunWouldNotHelp && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}
@@ -951,9 +1015,9 @@ export function AtAGlance({
                 >
                   {reassuranceIsStale(glance.verdict.tone, isStale) ? null : glance.verdict.tone ===
                     'stable' ? (
-                    <CheckCircle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                    <CheckCircle className={`inline ${icon('inline')} -mt-px mr-1`} aria-hidden="true" />
                   ) : (
-                    <AlertTriangle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                    <AlertTriangle className={`inline ${icon('inline')} -mt-px mr-1`} aria-hidden="true" />
                   )}
                   {glance.verdict.label}
                 </span>
@@ -990,16 +1054,26 @@ export function AtAGlance({
                 </p>
               ) : null}
               {glance.winFraction !== null ? (
-                <span
-                  className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
-                  aria-hidden="true"
-                  data-testid={`${testId}-win-bar`}
-                >
-                  <span
-                    className={`block h-full rounded-full ${glance.verdict.tone === 'stable' ? 'bg-success' : 'bg-warning'}`}
-                    style={{ width: `${Math.round(glance.winFraction * 100)}%` }}
-                  />
-                </span>
+                /* ⭐⭐ ADOPTED, AND THE ROUNDING DEFECT GOES WITH IT.
+                   This was `Math.round(winFraction * 100)` — the exact
+                   expression `OptionsComparison` removed after it shipped a
+                   measured non-zero share as a 0px fill on deployed `ce32426c`
+                   ("< 1%" beside an empty track). The same defect was still
+                   live HERE, in the glance, which is the first figure a reader
+                   meets. `PanelFigure` floors a strictly-positive fraction and
+                   leaves a genuine zero empty, so the fix arrives with the
+                   grammar rather than needing to be remembered a third time.
+
+                   ⚠ AND THE TRACK WAS `h-1` — the 4px hairline #1346 ruled out
+                   as "a comparison drawn at four pixels reads as no comparison
+                   at all". It survived here because nothing swept for it. */
+                <PanelFigure
+                  variant="share"
+                  tone={glance.verdict.tone === 'stable' ? 'stable' : 'caution'}
+                  className="mt-1.5"
+                  fraction={glance.winFraction}
+                  testId={`${testId}-win-bar`}
+                />
               ) : null}
 
             </div>
@@ -1179,7 +1253,7 @@ export function AtAGlance({
           const Row = (
             <>
               <AlertTriangle
-                className="w-3.5 h-3.5 mt-[3px] shrink-0 text-warning-ink"
+                className={`${icon('row')} mt-[3px] shrink-0 text-warning-ink`}
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">
@@ -1187,7 +1261,7 @@ export function AtAGlance({
                 {glance.condition!.text}
               </span>
               {focusable ? (
-                <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+                <ChevronRight className={`${icon('row')} mt-0.5 shrink-0 text-text-light`} aria-hidden="true" />
               ) : null}
             </>
           )

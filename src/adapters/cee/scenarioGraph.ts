@@ -56,6 +56,10 @@
  * locally; see `canvas/utils/mergeServerGraph.ts`.
  */
 
+import { recordRequestPayload, recordResponsePayload, getPayloadInspectionStatus } from '../../lib/payload-trace-store'
+import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
+import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
+
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
@@ -409,6 +413,7 @@ export async function fetchScenarioGraph(
     const timer =
       timeoutMs > 0 ? setTimeout(() => attemptController.abort(), timeoutMs) : null
 
+    const startedAt = Date.now()
     let response: Response
     try {
       response = await fetch(url, {
@@ -477,7 +482,30 @@ export async function fetchScenarioGraph(
     }
 
     try {
-      return parseOk(await response.json())
+      const raw: unknown = await response.json()
+      const result = parseOk(raw)
+      if (result.status === 'graph' && result.analysisResult != null && getPayloadInspectionStatus().enabled) {
+        // Capture only result-bearing reads: empty polling must not evict the
+        // original draft/prompt from the bounded trace store.
+        try {
+          const completedAt = Date.now()
+          const id = crypto.randomUUID()
+          const responseHeaders = Object.fromEntries(response.headers?.entries() ?? [])
+          const hash = mapV5AnalysisToReport(result.analysisResult as AnalysisResultBlock).model_card.response_hash
+          recordRequestPayload({
+            id, endpoint: url, method: 'POST', timestamp: startedAt,
+            headers: { 'Content-Type': 'application/json', ...authHeaders }, body,
+            capture: { kind: 'scenario_graph_read', scenarioId,
+              requestId: result.requestId ?? undefined, analysisResultHash: hash },
+          })
+          recordResponsePayload({ id, status: response.status,
+            headers: responseHeaders, body: raw,
+            duration: completedAt - startedAt, completedAt })
+        } catch {
+          // Diagnostic capture must never turn a usable read into a failure.
+        }
+      }
+      return result
     } catch {
       return { status: 'unusable' }
     }

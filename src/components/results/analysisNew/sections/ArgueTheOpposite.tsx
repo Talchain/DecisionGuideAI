@@ -29,7 +29,17 @@
  * as in what it showed.
  */
 
+/**
+ * @panel-act-opt-out underlines on hover rather than at rest, which `inline` forbids
+ *
+ * ⚠ DECLARED, NOT SILENT. This file renders an interactive element without an
+ * `action()` tier. The geometry is therefore carried HERE and must be BOTH
+ * dimensions — WCAG 2.2 AA is 24x24, and a control that passes the height and
+ * fails the width is the exact shape the Strengthen row toggle shipped (22px).
+ * `everyActIsReachableByTouch` reads this marker; removing it REDs the guard.
+ */
 import { Lightbulb } from 'lucide-react'
+import { icon } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { buildArgueTheOppositeAsk } from '../considerTheOppositeAsk'
@@ -101,14 +111,14 @@ export function ArgueTheOpposite({
            file's OTHER, compliant sibling pattern (`:595`, `:651`, `:951`, `:1044`,
            `:1192`): bare `text-info` with `hover:underline` carrying the hover
            affordance, which costs no contrast at all. */
-        className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 min-h-[24px] min-w-[24px] rounded-md px-2 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         data-testid={testId}
         /* ⚠ THE FORM IS ON THE CONTROL, NOT INFERRED FROM THE COPY. It is what
            lets the honesty rule be asserted by identity rather than by reading
            the sentence back. */
         data-argue-the-opposite-form={ask.form}
       >
-        <Lightbulb className="w-3 h-3" aria-hidden={true} />
+        <Lightbulb className={`${icon('inline')}`} aria-hidden={true} />
         {ask.label}
       </button>
     </div>

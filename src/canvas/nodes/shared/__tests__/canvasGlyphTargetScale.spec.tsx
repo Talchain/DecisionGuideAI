@@ -430,7 +430,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
 
       // The "?" is TEXT, so its size rides the canvas type scale rather than a
       // w-/h- class. `text-[length:calc(Npx*var(--canvas-label-scale,1))]` is
-      // the spelling `typography.ts` uses for all three canvas tokens.
+      // the spelling `typography.ts` uses for all four canvas tokens.
       const glyph = circle.querySelector('span')
       expect(glyph, 'evidence-gap-badge: no "?" span').not.toBeNull()
       const font = /text-\[length:calc\((\d+(?:\.\d+)?)px\*var\(--canvas-label-scale/.exec(

@@ -26,7 +26,7 @@
 import { ShieldCheck, ShieldAlert, ShieldQuestion } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { action, surface } from '../panelSurfaces'
+import { action, surface, icon } from '../panelSurfaces'
 import type { GlanceVerdict } from '../analysisNewTypes'
 
 export interface TrustLineProps {
@@ -85,7 +85,7 @@ export function TrustLine({
   return (
     <section className={surface('neutral')} data-testid={testId} role="status">
       <div className="flex items-start gap-2">
-        <Icon className="w-4 h-4 mt-[2px] shrink-0 text-text-light" aria-hidden="true" />
+        <Icon className={`${icon('section')} mt-[2px] shrink-0 text-text-light`} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span

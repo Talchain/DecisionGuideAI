@@ -25,7 +25,9 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -506,37 +508,21 @@ export const FactorNode = memo((props: NodeProps) => {
    * A factor with an observed, owned value gets no question, deliberately —
    * there is no assumption to interrogate, and a chip on every card is wallpaper.
    */
-  const cardQuestion = useMemo(() => {
-    if (needsInput) {
-      return {
-        id: 'factor_help_estimate',
-        label: 'Help me estimate this',
-        message: `Help me estimate a reasonable value for ${cleanedLabel}`,
-      }
-    }
-    if (nodeCategory === 'external') {
-      return {
-        id: 'factor_what_if_changes',
-        label: 'What if this changes?',
-        message: `What if ${cleanedLabel} changes? How should I plan for that?`,
-      }
-    }
-    if (isInferred) {
-      return {
-        id: 'factor_evidence_supports',
-        // ⚠ THE LABEL IS SHORTER THAN THE QUESTION IT ASKS, DELIBERATELY.
-        // "What evidence supports this?" measured 156px inside a 168px card —
-        // the longest chip label on the canvas by four characters, where the
-        // house range is 21-24 ("What would falsify this?", "What would we see
-        // first?", "What if this changes?"). The chip is the affordance; the
-        // MESSAGE is the ask, and it is unchanged, so Olumi receives the same
-        // question it always did.
-        label: 'What’s the evidence?',
-        message: `What evidence supports my assumption about ${cleanedLabel}?`,
-      }
-    }
-    return null
-  }, [needsInput, nodeCategory, isInferred, cleanedLabel])
+  // ⚠ The three conditions and the deliberate `null` now live in
+  // `resolveNodeCoaching` — unchanged, including their precedence order and
+  // the short `factor_evidence_supports` label. The docblock above is the
+  // ruling that governs them and is repeated in the resolver's own docblock so
+  // it cannot be lost by whoever reads only one of the two files.
+  const cardQuestion = useMemo(
+    () =>
+      resolveNodeCoaching({
+        kind: 'factor',
+        surface: 'card',
+        state: { needsInput, isExternalCategory: nodeCategory === 'external', isInferred },
+        context: { label: cleanedLabel },
+      }),
+    [needsInput, nodeCategory, isInferred, cleanedLabel],
+  )
 
 
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
@@ -938,7 +924,7 @@ export const FactorNode = memo((props: NodeProps) => {
             the popover and the inspector keep the full string. A value the
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-baseline gap-1`}>
+          <div className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}>
             <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>
@@ -1133,16 +1119,11 @@ export const FactorNode = memo((props: NodeProps) => {
             same treatment Risk, Outcome, Action and Goal already get. The
             fuller pre-analysis cluster stays in the popover; this is the one
             that must be reachable without hovering. */}
-        {cardQuestion && (
-          <div className="flex gap-1 flex-wrap mt-1.5" data-testid="factor-card-question">
-            <NodeChip
-              chipId={cardQuestion.id}
-              actionType={null}
-              label={cardQuestion.label}
-              message={cardQuestion.message}
-            />
-          </div>
-        )}
+        <CoachingChipRow
+          className="flex gap-1 flex-wrap mt-1.5"
+          testId="factor-card-question"
+          chips={cardQuestion}
+        />
 
         {/* ===== LAYER 2: Detailed inline ===== */}
         {isDetailed && layer2Content}

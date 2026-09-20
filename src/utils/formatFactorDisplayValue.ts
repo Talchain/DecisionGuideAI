@@ -132,6 +132,28 @@ export interface FactorDisplayInput {
   unit?: string | null
   factor_type?: string | null
   cap?: number | null
+  /**
+ * Who stated this value — the producer's own `observed_state.source`.
+ *
+ * ⭐⭐ IT EXISTS FOR EXACTLY ONE DECISION, and that decision was being made
+ * wrongly. Pattern 1 skips a placeholder unit on a stated premise: *"raw_value
+ * is just the denormalised normalised value (value x cap) — not a real-world
+ * measurement."* **That premise is false when the person typed the number.**
+ *
+ * Measured on the founder's board, 19 Sep 2026 (`olumi-debug-12928b8c`):
+ * `Round Oversubscription Likelihood` holds `value: 4`, `raw_value: 4`,
+ * `unit: 'scale'`, **`source: 'user'`**, and no `cap` at all — so `raw_value`
+ * is not `value x cap`, it IS what he stated, and `value: 4` is outside [0,1]
+ * so it is not a normalised value either. **The card rendered nothing.**
+ *
+ * ⛔ HIDING A PERSON'S OWN NUMBER IS A DIFFERENT ACT FROM DECLINING TO ASSERT
+ * A MACHINE'S. The suppression exists so the product does not present an
+ * uncalibrated inference as a measurement — a claim about what OLUMI may say.
+ * It was also answering *"may I hide what the user told me?"*, which nobody
+ * asked and whose answer is always no. One predicate, two questions
+ * (CLAUDE.md trap 21).
+ */
+value_source?: string | null
   category?: string | null
   /**
    * CEE-provided contextual display text. Returned verbatim when none of the
@@ -220,6 +242,7 @@ export function factorDisplayText(
     unit: unit ?? null,
     factor_type: (observedState?.factor_type as string | null | undefined) ?? null,
     cap: unwrapInterventionValue(observedState?.cap).value,
+    value_source: (observedState?.source as string | null | undefined) ?? null,
     category,
     display_value: displayValue,
     // Top-level on node data (`mapDraftNodeToCanvas` spreads the wire node's
@@ -313,8 +336,138 @@ export function encodingMapPhrase(
  */
 function displayValueRestatesValue(displayValue: string | null | undefined, value: number | null | undefined): boolean {
   if (typeof displayValue !== 'string' || typeof value !== 'number' || !Number.isFinite(value)) return false
-  const m = /\(\s*(-?\d+(?:\.\d+)?)\s*\)/.exec(displayValue)
-  return m !== null && Number(m[1]) === value
+  const parenthesised = /\(\s*(-?\d+(?:\.\d+)?)\s*\)/.exec(displayValue)
+  if (parenthesised !== null) return Number(parenthesised[1]) === value
+  // ⭐ SECOND SURFACE FORM OF THE SAME SUMMARY, and it must be recognised here
+  // or the encoding map silently loses to it. `"0 scale"` restates the node's
+  // own number just as `"Low (0)"` does — it simply spells the scale instead of
+  // naming a band. Independent review found the consequence: with
+  // `encoding_map {0: "Not pursued"}`, a rule reading `"0 scale"` before this
+  // one returned a MAGNITUDE for a categorical state, which is precisely the
+  // category error `encodingMapPhrase` above exists to refuse.
+  const bare = BARE_MAGNITUDE_SUMMARY.exec(displayValue)
+  if (bare === null) return false
+  if (classifyUnit(bare[2]).kind !== 'placeholder') return false
+  return Number(bare[1].replace(/,/g, '')) === value
+}
+
+/**
+ * ⭐⭐ A PLACEHOLDER UNIT SPELLED INTO `display_value` — THE THIRD PATH.
+ *
+ * THE DEFECT, on the founder's own board (debug bundle
+ * `olumi-debug-b3d5806d-20260919`, `client_build: fd65f971`): a `scale`-dominated
+ * graph — 54 raw occurrences over 8 distinct values — whose factor cards read
+ * `0.3 scale est.` and `0.5 scale est.` on their faces. *"Things like a 0.4
+ * ratio aren't something that most onboarding users will understand."*
+ *
+ * ⭐ WHY TWO CORRECT GUARDS DID NOT CATCH IT, which is the only interesting part.
+ * `scale` is in `GENERIC_PLACEHOLDER_UNITS`, and this module already suppresses
+ * it on BOTH numeric paths — Pattern 1 skips placeholder units outright, Pattern 2
+ * calls them `isMeaningless` and returns `null`. Measured at this tip by rendering
+ * `FactorNode` with `{ value: 0.3, unit: 'scale' }` and no `display_value`: the
+ * card body is EMPTY. Both gates hold.
+ *
+ * They guard what this module COMPOSES. Nothing guarded what it FORWARDS. The
+ * `display_value` passthrough below returns the producer's string verbatim, and
+ * its docblock justifies that with CONTEXTUAL PROSE ("No dedicated tech lead") —
+ * it never contemplated a magnitude summary wearing a placeholder unit. So the
+ * header's promise, *"Never returns generic placeholders"*, was true of every
+ * string this module builds and false of the one it passes on.
+ *
+ * That is trap 21's shape: one predicate answering *"may I compose this?"* while
+ * no predicate answered *"may I forward this?"*. Two authorities, different
+ * questions, and the gap between them is what the user reads.
+ *
+ * ⛔⛔ IT SUPPRESSES. IT DOES NOT BAND — AND THE FIRST VERSION OF THIS FIX DID,
+ * WHICH WAS WRONG. It mapped the number to a qualitative word ("0.3 scale" →
+ * "Low"). Independent review refused it, on this module's OWN ruling: naming
+ * `scale` a defined PLACEHOLDER does not define what "Low" MEANS. The
+ * consequential case it derived — `value: 0`, `display_value: "0 scale"`,
+ * `encoding_map {0: "Not pursued", 1: "Pursued"}` — resolved to "Very low",
+ * manufacturing a magnitude for a categorical state, the exact category error
+ * `encodingMapPhrase` above was written to refuse. Both halves are fixed:
+ * `displayValueRestatesValue` now recognises this surface form, so the declared
+ * encoding wins wherever one exists; and where none does, the treatment is the
+ * one the other two paths already give an uncalibrated placeholder — nothing.
+ *
+ * ⛔ NARROW BY CONSTRUCTION, AND THE NARROWNESS IS THE DESIGN:
+ *   · the unit word is classified through the shared `classifyUnit`, never a
+ *     local list — a unit added to `GENERIC_PLACEHOLDER_UNITS` is covered here
+ *     the same day, and nothing else can ever match;
+ *   · `ratio` is NOT a placeholder (it is a proportion unit) and is untouched.
+ *     Its frame is an open producer question and it renders exactly as today;
+ *   · the whole string must be `<number> <single word>`. Prose, ranges,
+ *     parenthesised summaries ("Moderate (0.5)"), real units ("42 days") and
+ *     bare numbers all fail to match and keep today's behaviour byte-for-byte;
+ *   · no number is rounded, rescaled or invented anywhere on this path. The
+ *     stored value is untouched; only an unreadable RENDERING is withheld.
+ *
+ * @returns `true` when the string is a magnitude summary wearing a placeholder
+ *          unit and must not be shown as it stands.
+ */
+/**
+ * ⚠⚠ THE SUFFIX CLASS WAS `[A-Za-z]+` AND THAT SILENTLY EXCLUDED THE UNIT THIS
+ * RULE WAS EXTENDED FOR. `unit_interval` contains an underscore, so
+ * `"0.15 unit_interval"` did not match, the forwarding branch returned the
+ * producer's string verbatim, and the founder's card went on printing
+ * `0.15 unit_interval est.` **after the PR that added that spelling to
+ * `GENERIC_PLACEHOLDER_UNITS`.** Classification succeeded; the formatter never
+ * asked it. Found by independent review, not by the corpus written to prevent
+ * exactly this — that corpus exercised the CLASSIFIER and shared the
+ * FORMATTER's blind spot (CLAUDE.md trap 13d: a corpus that shares the code's
+ * blind spot cannot see the code's defect).
+ *
+ * ⭐ THE CLASS NOW MATCHES WHAT `classifyUnit` CAN ACCEPT — letters, plus the
+ * inner separators a producer uses for a multi-word unit (`unit_interval`,
+ * `unit interval`, `unit-interval`). It is still anchored, still requires a
+ * leading number and a single trailing token, and `classifyUnit` remains the
+ * only thing that decides whether the token is a placeholder — so widening the
+ * SHAPE cannot widen the POLICY.
+ */
+const BARE_MAGNITUDE_SUMMARY = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s+([A-Za-z][A-Za-z_\- ]*[A-Za-z]|[A-Za-z])\s*$/
+
+/**
+ * The producer's own figure, with the false unit removed — or `null` when this
+ * is not that shape.
+ *
+ * ⭐⭐ WHY THE NUMBER SURVIVES AND ONLY THE UNIT GOES. The first version of this
+ * fix returned `null` and blanked the card. That was wrong, and this module had
+ * already said so: ROADMAP 2.1003 below is a whole paragraph about the same
+ * mistake — *"without it, suppressing the lie renders BLANK … the user went
+ * from a wrong '20%' to nothing. Killing the symptom while never measuring the
+ * outcome (what the user actually sees) is the defect class this lane exists to
+ * stop."* I killed "0.3 scale" and shipped exactly the blank it warns about.
+ *
+ * ⚠ AND THE OUTCOME IS WORSE THAN AN EMPTY LINE, which is the part that decides
+ * it. `FactorNode.tsx:928` gates the value and the `est.` marker on ONE
+ * condition — `valueDisplay !== null`. Blank the value and the marker goes with
+ * it, so the card no longer discloses that the figure was INFERRED at all. The
+ * user cannot challenge an assumption they cannot see, and this product's whole
+ * claim is that they remain the author. Measured on nine of the founder's
+ * boards from 19 Sep: 47 of 133 display values are this shape, so a third of
+ * his factor cards silently stopped admitting they were guesses.
+ *
+ * ⛔ IT STILL INVENTS NOTHING, which is the constraint independent review
+ * imposed and it is unchanged: no band, no tier, no qualitative word, no
+ * rescaling, no rounding. `0.3 scale` renders `0.3` — the producer's own
+ * figure, minus a unit word that asserts a scale nobody defined. The estate's
+ * existing policy for a placeholder unit says exactly this: drop the unit,
+ * keep the number, *"because placeholder units carry no real-world scale, so
+ * '0 score' / '50 index' are misleading"*.
+ *
+ * ⚠ A DECLARED `encoding_map` STILL WINS, above this line. Nothing here reaches
+ * a factor whose producer stated what its levels mean.
+ */
+function placeholderMagnitudeNumber(displayValue: string): string | null {
+  const m = BARE_MAGNITUDE_SUMMARY.exec(displayValue)
+  if (m === null) return null
+  // Shared classifier — never a local unit list (the hand-maintained mirror).
+  if (classifyUnit(m[2]).kind !== 'placeholder') return null
+  const n = Number(m[1].replace(/,/g, ''))
+  if (!Number.isFinite(n)) return null
+  // The producer's own text for the figure, not a re-rendering of it: reaching
+  // for `value` here would silently change WHICH number is being shown.
+  return m[1]
 }
 
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
@@ -354,7 +507,71 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   const { kind: unitKind, canonical: unitCanonical } = unit
     ? classifyUnit(unit)
     : { kind: null as null, canonical: '' }
-  if (raw_value != null && unit && unitKind !== 'placeholder') {
+  // ⭐⭐ A VALUE THE USER STATED IS NEVER A DENORMALISED GUESS, so the skip
+  // above does not apply to it. See `value_source` on the input type for the
+  // measurement: the founder stated 4 on a `scale` factor with no cap, and the
+  // card rendered nothing. The product may decline to assert its OWN estimate;
+  // it may not hide his.
+  const userStatedThisValue = input.value_source === 'user' || input.value_source === 'user_confirmed'
+
+  /**
+   * ⛔⛔ THE RESCUE FIRES ONLY WHERE NOTHING HAS ALREADY BEEN SAID — AND THE
+   * FIRST VERSION OF IT DID NOT, WHICH DELETED MEANING A PRODUCER HAD DECLARED.
+   *
+   * Pattern 1 sits ABOVE `display_value` and above `encoding_map` in the
+   * precedence documented at :427. Opening it to a PLACEHOLDER unit therefore
+   * jumped the whole ladder, and a value the producer had already given words to
+   * lost them the moment the user confirmed it:
+   *
+   *   {display_value:"0 scale", encoding_map:{"0":"Not pursued"},
+   *    observedState:{value:0, raw_value:0, unit:"scale", source:"user_confirmed"}}
+   *     → "0"   instead of   "Not pursued"
+   *
+   * ⭐ AND THE PREMISE STILL HOLDS, WHICH IS WHY THIS NARROWS RATHER THAN
+   * REVERTS. The rescue exists because *"the product may decline to assert its
+   * OWN estimate; it may not hide his"*. **A declared `encoding_map` is not a
+   * hidden value — it IS that value, said in words.** Replacing it with a bare
+   * digit is the same loss the rescue was written to prevent, pointed the other
+   * way. The founder's UNMAPPED `4 scale` has no such declaration and still
+   * renders; that case is the positive control in the spec, because a narrowing
+   * that swallowed it would pass every other assertion.
+   *
+   * ⚠ BOTH LIMBS REUSE THE DOWNSTREAM OWNERS — `encodingMapPhrase` and
+   * `placeholderMagnitudeNumber` — rather than restating their rules. A
+   * second copy agrees on the day it is written and drifts after (trap 12), and
+   * the copy here would decide the OPPOSITE branch from the original, so the
+   * drift would be silent in both directions.
+   *
+   * ⚠⚠ THE OWNER WAS RENAMED UNDER THIS BRANCH, AND ONLY THE INTEGRATION SAW IT.
+   * Staging replaced the boolean `isPlaceholderMagnitudeSummary` with
+   * `placeholderMagnitudeNumber`, which returns the producer's own figure or
+   * `null`. This line still called the removed name: TS2552 at typecheck and a
+   * ReferenceError in the unit shard, neither visible on the branch alone.
+   *
+   * ⚠ `=== null` RATHER THAN FALSINESS, AND THE REASON IS NOT THE ONE THIS
+   * BLOCK FIRST GAVE. It claimed `!placeholderMagnitudeNumber(...)` would flip
+   * the branch on `"0 scale"`. **That is false and a mutant proved it**:
+   * substituting the falsy test left all 36 cases green, because the function
+   * returns the figure as TEXT and `"0"` is truthy. Executed against the regex,
+   * group 1 is `[-+]?\d[\d,]*(?:\.\d+)?` — it cannot match empty — so every
+   * return is `null` or a non-empty string and the two forms are EQUIVALENT.
+   * An equivalent mutant has to be demonstrated, never asserted (CLAUDE.md
+   * trap 13c), and this one is. `=== null` stays because it states the
+   * function's contract instead of relying on a coincidence of JS truthiness,
+   * but it is a legibility choice and nothing here depends on it.
+   */
+  const placeholderMeaningAlreadyDeclared =
+    unitKind === 'placeholder'
+    && (encodingMapPhrase(input.encoding_map, value) !== null
+      || (display_value != null
+        && display_value !== ''
+        && placeholderMagnitudeNumber(display_value) === null))
+
+  if (
+    raw_value != null
+    && unit
+    && (unitKind !== 'placeholder' || (userStatedThisValue && !placeholderMeaningAlreadyDeclared))
+  ) {
     const numericRaw = typeof raw_value === 'number' ? raw_value : Number(raw_value)
     if (!isNaN(numericRaw)) {
       // Cost factor at zero → contextual
@@ -364,6 +581,12 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // Polish 4 review follow-up: classifyUnit handles symbol/ISO/%/other
       // with case + whitespace normalisation. 'CHF' now renders as the
       // ISO-style prefix "CHF 500" instead of the old suffix "500 CHF".
+      // ⚠ A PLACEHOLDER UNIT STILL PRINTS NO UNIT WORD, only the figure. The
+      // word asserts a scale nobody defined; the figure is the person's own.
+      // Reached only when `userStatedThisValue` opened the gate above.
+      if (unitKind === 'placeholder') {
+        return formatNumber(numericRaw)
+      }
       if (unitKind === 'symbol') {
         return `${unitCanonical}${formatNumber(numericRaw)}`
       }
@@ -432,6 +655,16 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     && isDisplayValueContradicted(display_value, { value, raw_value })
 
   if (display_value != null && display_value !== '' && !displayValueContradicted) {
+    // ⭐ THE FORWARDING GATE. Everything above decides whether this string may be
+    // TRUSTED; this decides whether it may be SHOWN AS IT STANDS. A magnitude
+    // summary wearing a placeholder unit ("0.3 scale") is the one shape the
+    // module's own header forbids it to return — so the UNIT goes and the
+    // producer's own figure stays. See `placeholderMagnitudeNumber` for why
+    // blanking it was worse than the lie: the `est.` marker rides the same
+    // condition, so a blank card stops admitting the value was inferred.
+    // By this line any declared `encoding_map` has already won.
+    const withoutFalseUnit = placeholderMagnitudeNumber(display_value)
+    if (withoutFalseUnit !== null) return withoutFalseUnit
     return display_value
   }
 
@@ -510,6 +743,13 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     // as binary-like zero and produce contextual "No X in place" text.
     // When factor_type IS set to something non-binary (e.g. 'continuous'),
     // suppress — the explicit type indicates this isn't binary.
+    // ⭐ THE SAME RULE ON THE SECOND PATH. Pattern 1 covers a user-stated value
+    // that arrives with a `raw_value`; this covers one that does not. Both
+    // paths suppressed, so fixing one would have left the other hiding the
+    // person's own number for a shape nobody would think to test.
+    if (isMeaningless && !isExplicitlyBinary && userStatedThisValue && typeof value === 'number') {
+      return formatNumber(value)
+    }
     if (isMeaningless && !isExplicitlyBinary) {
       if (value === 0 && factorTypeUnset) {
         const stripped = stripSuffixes(label).toLowerCase()

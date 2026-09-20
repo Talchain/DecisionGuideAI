@@ -13,7 +13,7 @@
  *   node title   declared 26px -> RENDERED 13.00px   (the counter-scale works)
  *   edge pill    declared 10px -> RENDERED  5.00px   (it does not)
  *
- * The counter-scale reaches text through the three canvas tokens in
+ * The counter-scale reaches text through the four canvas tokens in
  * `typography.ts` and ONLY through them. Sites written as raw utilities or
  * inline styles instead — `text-[10px]`, `style={{ fontSize: 11 }}` — never see
  * it, and render at HALF their declared size on the first view of every model.
@@ -542,10 +542,25 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     }
   })
 
-  it('the counter-scale reaches text ONLY through the three canvas tokens', () => {
+  /**
+   * ⚠ FOUR TOKENS NOW, NOT THREE — and this assertion is why the fourth is safe.
+   *
+   * `nodeValue` was added so the card's own recorded quantity renders at the
+   * weight the design anatomy gives it, instead of 12px under a 14px title (11px
+   * on the decision card). The census is what makes that a real addition rather
+   * than a token that LOOKS scaled: text reached through a token outside this
+   * list is not counter-scaled, so it would shrink illegibly as the camera pulls
+   * back while every other string held its size.
+   *
+   * Listing it here is not a formality — it is the assertion that the new token
+   * carries the same `calc(<px>*var(--canvas-label-scale,1))` machinery as its
+   * three siblings. If someone adds a canvas type token and forgets that, this
+   * REDs rather than shipping a string that silently stops counter-scaling.
+   */
+  it('the counter-scale reaches text ONLY through the four canvas tokens', () => {
     const scaled = new Set(hits.filter(h => h.counterScaled && h.mechanism === 'token')
       .map(h => h.key.split(':').pop()))
-    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeLabel', 'typography.nodeTitle'])
+    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeLabel', 'typography.nodeTitle', 'typography.nodeValue'])
   })
 
   it('every font size inside the viewport transform is counter-scaled, except the pinned set', () => {

@@ -11,9 +11,37 @@ import { describe, it, expect } from 'vitest'
 import { SIGNAL_REGISTRY, type SignalDetectionInput } from '../registry'
 import { deriveSignalViews } from '../deriveSignalViews'
 import { SIGNAL_COPY } from '../../constants'
-import type { StructuralAbsence } from '../../selectors/computeStructuralAbsence'
+import type {
+  StructuralAbsence,
+  StructuralAbsenceKind,
+} from '../../selectors/computeStructuralAbsence'
 
 const SIGNAL_ID = 'sig_structural_absence' as const
+/**
+ * A `StructuralAbsence` fixture whose `actionTargetIds` stays inside the
+ * SELECTOR'S OWN OUTPUT DOMAIN (CLAUDE.md trap 16-inverse: a fixture the
+ * producer could never emit proves nothing, and a self-authored one silently
+ * encodes the author's model of the producer instead of the producer).
+ *
+ * Derived from `computeStructuralAbsence`:
+ *   shared_mechanism   — ALWAYS at least one id. Its gate is
+ *                        `targetSets.every(s => s.size > 0)` plus an identical-set
+ *                        check, so an empty shared set is unreachable.
+ *   no_downside        — one or more risk ids on the risk-node limb, and `[]` on
+ *                        the negative-edge-only limb. The common case is used
+ *                        here; the empty limb is pinned in the selector's own spec.
+ *   no_external_factor — ALWAYS `[]`. The absence is of a node CLASS.
+ *
+ * These specs are about COPY and ORDERING and read no id, so the value only has
+ * to be domain-plausible. Typed rather than cast, so the NEXT required field is a
+ * type error here instead of being silently absent.
+ */
+function absence(kind: StructuralAbsenceKind, optionCount: number): StructuralAbsence {
+  const actionTargetIds =
+    kind === 'shared_mechanism' ? ['shared_1'] : kind === 'no_downside' ? ['risk_1'] : []
+  return { kind, optionCount, actionTargetIds }
+}
+
 
 function baseInput(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionInput {
   return {
@@ -71,8 +99,8 @@ describe('sig_structural_absence — detection', () => {
   ] as const)(
     'maps %s to its own entity channel and rationale',
     (kind, entityKind, rationale) => {
-      const absence = { kind, optionCount: 2 } as StructuralAbsence
-      const detection = def().detect(baseInput({ structuralAbsence: absence }))
+      const a = absence(kind, 2)
+      const detection = def().detect(baseInput({ structuralAbsence: a }))
       expect(detection).not.toBeNull()
       expect(detection!.signal_id).toBe(SIGNAL_ID)
       expect(detection!.entityKind).toBe(entityKind)
@@ -84,7 +112,7 @@ describe('sig_structural_absence — detection', () => {
     const kinds = ['no_downside', 'shared_mechanism', 'no_external_factor'] as const
     for (const kind of kinds) {
       const detection = def().detect(
-        baseInput({ structuralAbsence: { kind, optionCount: 2 } as StructuralAbsence }),
+        baseInput({ structuralAbsence: absence(kind, 2) }),
       )
       expect(detection!.copy.lead.length, `${kind} lead`).toBeGreaterThan(0)
       expect(detection!.copy.emphasis.length, `${kind} emphasis`).toBeGreaterThan(0)
@@ -93,14 +121,14 @@ describe('sig_structural_absence — detection', () => {
 
   it('names the real option count in the copy — never a fabricated quantity', () => {
     const detection = def().detect(
-      baseInput({ structuralAbsence: { kind: 'shared_mechanism', optionCount: 4 } }),
+      baseInput({ structuralAbsence: absence('shared_mechanism', 4) }),
     )
     expect(detection!.copy.lead).toContain('4')
   })
 
   it('describes shared targets without claiming they are factors', () => {
     const detection = def().detect(
-      baseInput({ structuralAbsence: { kind: 'shared_mechanism', optionCount: 2 } }),
+      baseInput({ structuralAbsence: absence('shared_mechanism', 2) }),
     )
     expect(`${detection!.copy.lead} ${detection!.rationale}`).not.toMatch(/\bfactors?\b/i)
     expect(detection!.copy.lead).toContain('parts of the model')
@@ -108,7 +136,7 @@ describe('sig_structural_absence — detection', () => {
 
   it('attaches a live spark action — no dead-end intents', () => {
     const detection = def().detect(
-      baseInput({ structuralAbsence: { kind: 'no_downside', optionCount: 2 } }),
+      baseInput({ structuralAbsence: absence('no_downside', 2) }),
     )
     expect(detection!.action).toBeDefined()
     expect(detection!.action!.type).toBe('send_prompt')
@@ -120,7 +148,7 @@ describe('sig_structural_absence — detection', () => {
 describe('sig_structural_absence — reaches the rendered row list', () => {
   it('appears as a LIVE sharpen row when an absence is detected', () => {
     const derived = deriveSignalViews(
-      baseInput({ structuralAbsence: { kind: 'no_downside', optionCount: 2 } }),
+      baseInput({ structuralAbsence: absence('no_downside', 2) }),
       {},
     )
     const row = derived.sharpen.find(v => v.detection.signal_id === SIGNAL_ID)

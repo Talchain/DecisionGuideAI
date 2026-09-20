@@ -178,6 +178,10 @@ export function usePopoverHover() {
     if (!wrapper) return
     const rfNode = wrapper.closest('.react-flow__node')
     if (!rfNode) return
+    // React Flow stamps this (`@xyflow/react@12.10.2` `dist/esm/index.mjs`:
+    // `"data-id": id`). It is the same id `NodePopover` derives from the anchor
+    // this hook handed it, so the two sides cannot drift.
+    const ownerId = rfNode.getAttribute('data-id') ?? ''
 
     const isKeyboardFocus = (el: Element): boolean => {
       try {
@@ -200,27 +204,83 @@ export function usePopoverHover() {
       setShowPopover(true)
     }
 
+    /**
+     * Is this element a surface THIS node owns — its own React Flow node, or its
+     * OWN popover?
+     *
+     * ⚠ `contains()` ALONE WOULD BE WRONG. `NodePopover` portals to
+     * `document.body`, so the popover is not a DOM descendant of the node;
+     * closing on containment would destroy the popover the instant a keyboard
+     * user tabbed into the very content it was opened to show.
+     *
+     * ⭐⭐ AND `[data-node-popover]` ALONE IS ALSO WRONG — it is a predicate
+     * ANOTHER OBJECT SATISFIES (CLAUDE.md trap 19), which is what this guard
+     * used to be. Every node's popover carries that attribute, so with two of
+     * them mounted this node's handler read the OTHER node's popover as "inside
+     * mine" and held its own popover open while focus sat in the other one.
+     * MEASURED, not inferred: keyboard focus on node A opens A's popover, a
+     * pointer hovering node B opens B's, nothing coordinates the two states, and
+     * focusing a control in B's popover left A's open. The exception is
+     * therefore granted BY IDENTITY, exactly as `StyledEdge.tsx` grants it.
+     *
+     * ⚠ AN EMPTY `ownerId` OWNS NOTHING. Without this the valueless attribute of
+     * a popover rendered outside React Flow would satisfy `'' === ''` and
+     * recreate the defect for any node that also had no id. Fail closed.
+     */
+    const ownsFocus = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false
+      if (rfNode.contains(target)) return true
+      if (!ownerId) return false
+      const owner = target.closest('[data-node-popover]')
+      return owner !== null && owner.getAttribute('data-node-popover') === ownerId
+    }
+
+    /**
+     * ⭐⭐ BOUND TO `document`, AND THAT IS NOT THE EDGE'S MECHANISM — THE
+     * DIFFERENCE WAS MEASURED.
+     *
+     * The second half of the same defect is a MISSING EXIT: `focusout` bubbles
+     * only within its own tree, so once focus is inside the portalled popover,
+     * moving it onward emits `focusout` from the PORTAL and a listener bound to
+     * the node alone is never called. Nothing then closed the popover, and stale
+     * node context stayed on screen as the user moved on.
+     *
+     * `StyledEdge.tsx` closes that by holding a ref to its portalled popover and
+     * listening there, with the popover in the effect's deps. ⚠ THAT CANNOT BE
+     * COPIED HERE. `EdgeLabelRenderer` portals immediately; `NodePopover` gates
+     * its portal on a position it derives in an rAF (`if (!pos) return null`), so
+     * the element does not exist on the tick `showPopover` flips. Measured at
+     * this tip: an effect keyed on `[showPopover]` fires exactly once and reads
+     * NO popover in the DOM — a ref-and-deps listener here would attach to
+     * nothing, permanently and silently.
+     *
+     * A `document` listener has no such precondition: `focusout` from the portal
+     * reaches it by bubbling, so there is no element to hold and no mount to
+     * race. `ownsFocus` is what makes it this node's business and not every
+     * node's — the predicate does the scoping the binding used to do. The
+     * listener exists only while the popover is open, which is why `showPopover`
+     * is a dependency.
+     */
     const focusOut = (event: FocusEvent) => {
-      const next = event.relatedTarget
-      // The popover is PORTALLED to document.body, so it is not a DOM
-      // descendant of the node — `rfNode.contains()` alone would close it the
-      // instant focus moved into the very content it was opened to show.
-      // `data-node-popover` is the attribute that component already carries
-      // for exactly this kind of cross-portal question.
-      if (
-        next instanceof Element &&
-        (rfNode.contains(next) || next.closest('[data-node-popover]'))
-      ) return
+      // Focus must have DEPARTED a surface we own, or this is another node's
+      // event and none of our business.
+      if (!ownsFocus(event.target)) return
+      // Still on a surface we own — the popover is the content it moved into.
+      if (ownsFocus(event.relatedTarget)) return
+      // The pointer still owns this node; its own leave handler closes it, and
+      // closing here would leave the popover shut while the cursor sits on the
+      // card that is meant to be showing it.
+      if (pointerWithin.current) return
       setShowPopover(false)
     }
 
     rfNode.addEventListener('focusin', focusIn as EventListener)
-    rfNode.addEventListener('focusout', focusOut as EventListener)
+    if (showPopover) document.addEventListener('focusout', focusOut as EventListener)
     return () => {
       rfNode.removeEventListener('focusin', focusIn as EventListener)
-      rfNode.removeEventListener('focusout', focusOut as EventListener)
+      document.removeEventListener('focusout', focusOut as EventListener)
     }
-  }, [cancelEnter, cancelLeave])
+  }, [cancelEnter, cancelLeave, showPopover])
 
   useEffect(() => {
     if (!showPopover) return

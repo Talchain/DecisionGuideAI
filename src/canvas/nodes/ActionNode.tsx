@@ -1,7 +1,8 @@
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
-import { NodeChip } from './shared'
+import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
@@ -59,14 +60,15 @@ export const ActionNode = memo((props: NodeProps) => {
    */
   const actionLabel = resolveElementLabel(props.data)
   const actionChips = useMemo(() => (
-    <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip
-        chipId="action_what_must_be_true"
-        actionType={null}
-        label="What has to be true?"
-        message={`What has to be true for ${actionLabel || 'this action'} to work, and how would we know if it were not?`}
-      />
-    </div>
+    <CoachingChipRow
+      className="flex gap-1 flex-wrap mt-1.5"
+      chips={resolveNodeCoaching({
+        kind: 'action',
+        surface: 'card',
+        state: {},
+        context: { label: actionLabel ?? '' },
+      })}
+    />
   ), [actionLabel])
 
   return (
