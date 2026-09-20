@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useShowToastSafe } from '../ToastContext'
@@ -124,6 +124,58 @@ export function StarterDecisions() {
     },
     [showToast],
   )
+
+  /**
+   * ⭐⭐ A SHARED LINK OPENS ON A WORKED MODEL — `#/canvas?starter=<id>`.
+   *
+   * The founder's ask was that someone opening a shared link meets a working
+   * model rather than a chooser. This carries that on the LINK and leaves the
+   * default front door exactly as it is.
+   *
+   * ⛔ WHY NOT AUTO-OPEN FOR EVERYONE, which was the first instinct: it would
+   * TRAP a guest. Measured on the deployed build — the only route off a starter
+   * board is "Olumi home", and that returns to the SIGN-IN page, not to the
+   * first-run screen. A visitor who auto-opened a starter would re-enter onto
+   * the same starter and could never reach "describe your own decision". The
+   * no-param case is pinned in the spec for exactly that reason.
+   *
+   * ⚠ IT CALLS `handlePick`, NOT A SECOND APPLY PATH. Every guard that matters
+   * lives there — the in-flight latch, `confirmReplaceCanvas`, and the
+   * load-then-re-check-emptiness ordering that stops a stale apply destroying a
+   * graph which arrived while the fixture chunk was in flight. A parallel path
+   * would agree today and drift after (trap 12), and that ordering guard is the
+   * one it would most likely lose.
+   *
+   * ⚠ THE HASH IS READ HERE RATHER THAN THROUGH A SHARED HELPER, and that is a
+   * known wart: `store.ts:3019` and `ReactFlowGraph.tsx:223` already hold two
+   * copies of this four-line parse. I did not add a third by hand — this reads
+   * the same shape deliberately and is the place to converge them from. Not
+   * converged in this change because it would put two unrelated debug paths in
+   * a diff that touches the product's front door.
+   */
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (autoOpened.current) return
+    let requested: string | null = null
+    try {
+      const hash = typeof window === 'undefined' ? '' : window.location.hash
+      const queryIndex = hash.indexOf('?')
+      if (queryIndex !== -1) {
+        requested = new URLSearchParams(hash.slice(queryIndex + 1)).get('starter')
+      }
+    } catch {
+      requested = null
+    }
+    if (requested === null || requested === '') return
+    // An id nobody ships is a typo in a link, not a reason to blank the screen:
+    // fall through and let the chooser stand.
+    if (!STARTERS.some((s) => s.id === requested)) return
+    // Never replace work. `handlePick` re-checks this after the chunk loads too;
+    // this is the cheap check before we start.
+    if (useCanvasStore.getState().nodes.length > 0) return
+    autoOpened.current = true
+    void handlePick(requested)
+  }, [handlePick])
 
   // A graph exists → the starters are not the user's way in any more.
   if (hasGraph) return null
