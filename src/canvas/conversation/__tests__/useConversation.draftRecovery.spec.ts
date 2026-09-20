@@ -701,3 +701,147 @@ describe('recovery is failure-path-only', () => {
     expect(contents).not.toContain(DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE)
   })
 })
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.1257 round 2 — the gap 2.1257 left open
+// ---------------------------------------------------------------------------
+
+/**
+ * THE MEASURED DEFECT (Render router logs, 16–20 Sep 2026: n=1,030 draft
+ * commits / 835 stream turns; 61–69% of streamed turns per day truncated,
+ * 6 of 7 Mac-browser turns on 18 Sep).
+ *
+ * The draft is computed and PERSISTED server-side 100% of the time — zero
+ * commit failures in the window. What is lost is the ~85 KB `GRAPH_READY`
+ * frame: the router logs a 200 carrying 12–29 KB where the whole turn is
+ * 92–202 KB. So the stream is abandoned with NO preview on the canvas.
+ *
+ * WHY 2.1257 DID NOT COVER IT. `runStreamedDraftTurn` falls back to one
+ * buffered turn, and only ever asked for the recovery read when THAT fallback
+ * returned a parsed `response`:
+ *
+ *     missingGraphAfterFallback: result.kind === 'response'
+ *
+ * But the buffered fallback rides the SAME transport that just cut the stream.
+ * When it fails, `callV5Turn` does not throw — it returns
+ * `{ kind: 'parse_error', reason: 'network error: …' }` (derived at the
+ * producer, `v5Adapter.ts`, not from this file's imagination), and a CEE-side
+ * failure returns `boundary_error`. Both fail the `=== 'response'` gate, so the
+ * recovery read was SKIPPED in exactly the conditions that produce the defect:
+ * a broken socket. The user was told the draft failed while the graph sat in
+ * the database one ~1 s idempotent read away.
+ *
+ * These tests pin the widened gate. The recovery itself is unchanged — same
+ * `recoverDraftFromServer`, same `hydrateCanvasFromServer` ingestion
+ * authority, same one-attempt bound.
+ */
+describe('stream truncated before GRAPH_READY, and the buffered fallback dies on the same transport', () => {
+  /**
+   * The literal producer shape. `callV5Turn` converts a network failure into
+   * this RESULT rather than throwing (`v5Adapter.ts`, the `catch` around
+   * `fetchFn`) — quoted from the producer so the fixture cannot encode this
+   * file's guess about the wire (trap 16-inverse).
+   */
+  const NETWORK_PARSE_ERROR = {
+    kind: 'parse_error' as const,
+    reason: 'network error: Failed to fetch',
+  }
+
+  /** CEE answered, but with an error envelope rather than a turn body. */
+  const BOUNDARY_ERROR = {
+    kind: 'boundary_error' as const,
+    error: {
+      code: 'UPSTREAM_TIMEOUT',
+      message: 'upstream timed out',
+      retryable: true,
+    } as never,
+  }
+
+  /**
+   * Drive the measured defect: DRAFTING lands, the socket dies BEFORE
+   * GRAPH_READY (so `renderedGraph` is null and no preview exists), and the
+   * buffered fallback returns a non-`response` result.
+   */
+  async function driveTruncatedBeforeGraphReady(fallbackResult: unknown) {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    mockCallV5Turn.mockResolvedValue(fallbackResult)
+    const hook = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = hook.result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    // DRAFTING only — the graph frame never arrives. This IS the defect.
+    await stream.push(F_DRAFTING)
+    await stream.fail()
+    await act(async () => {
+      await sent
+    })
+    return hook.result
+  }
+
+  it('recovers the persisted graph when the fallback returns a network parse_error', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
+
+    // The read was attempted, exactly once (bounded, no loop).
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // Identity-bound (trap 19): this exact edge, from the SERVER's committed
+    // values — not "some edge with weight 1".
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    // No second generation request: one streamed open + one buffered fallback.
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    // Quiet recovery, and NOT the failure copy.
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain(DRAFT_DELIVERY_UNRESOLVED_NOTICE)
+  })
+
+  it('recovers the persisted graph when the fallback returns a boundary_error', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveTruncatedBeforeGraphReady(BOUNDARY_ERROR)
+
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    expect(result.current.messages.map((m) => m.content)).toContain(
+      DRAFT_DELIVERY_RECOVERED_NOTICE,
+    )
+  })
+
+  /**
+   * THE DISCRIMINATING TWIN of the two above. Same drive, same transport
+   * failure, same single read — but the server has NO graph. Nothing may be
+   * claimed, and the standing failure behaviour must be untouched.
+   *
+   * Without this pair a mutant that hard-codes 'recovered' passes every test
+   * above while making the product lie.
+   */
+  it('a genuinely failed draft still fails: 404 from the read claims nothing and keeps the failure surface', async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
+
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // Nothing invented on the canvas.
+    expect(useCanvasStore.getState().nodes).toEqual([])
+    const contents = result.current.messages.map((m) => m.content)
+    // No recovery claim of any spelling.
+    expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    // The user is still told something went wrong — a real failure still says so.
+    expect(result.current.messages.some((m) => m.role === 'assistant' && m.synthetic)).toBe(true)
+  })
+
+  it('an absent server graph is not a recovery either, and is read only once', async () => {
+    // `requestId` is part of the producer's `absent` variant
+    // (`scenarioGraph.ts`: `return { status: 'absent', requestId }`), not
+    // optional — carried here so the fixture matches the wire shape.
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'absent', requestId: 'req-absent-1' })
+    const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
+
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().nodes).toEqual([])
+    expect(result.current.messages.map((m) => m.content)).not.toContain(
+      DRAFT_DELIVERY_RECOVERED_NOTICE,
+    )
+  })
+})

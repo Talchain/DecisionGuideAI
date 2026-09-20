@@ -148,6 +148,7 @@ import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
+import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { buildRequestIdHeaders, generateRequestId } from '../../types/requestId'
 import {
@@ -481,7 +482,18 @@ function discardStreamedPreview(preview: { nodes?: unknown[]; edges?: unknown[] 
 }
 
 export interface StreamedDraftTurnResult {
-  /** A successful buffered fallback supplied neither a preview nor a draft. */
+  /**
+   * The turn ended with NO graph anywhere: none on the canvas (no preview
+   * survived) and none in the buffered fallback's body. The caller must read
+   * the canonical scenario graph before asserting any failure.
+   *
+   * Set for EVERY graphless no-preview outcome, including the ones where the
+   * fallback itself failed (`parse_error` on a dead transport,
+   * `boundary_error` from CEE). It deliberately no longer requires a
+   * successful fallback — that requirement silenced the recovery precisely
+   * when the transport was broken, which is the measured dominant failure.
+   * See the return site for the router-log measurement.
+   */
   missingGraphAfterFallback?: boolean
   /** The SAME shape the buffered path produces. Ingested identically. */
   result: V5CallResult
@@ -580,6 +592,22 @@ async function runStreamedDraftTurn(args: {
   const fallbackToBuffered = async (
     reason: string,
     previewOnCanvas: boolean,
+    /**
+     * Did the SSE response actually open? The distinction decides whether a
+     * persisted graph can exist at all, and it is not cosmetic.
+     *
+     * `false` — `openV5TurnStream` threw, so nothing ran server-side and
+     * nothing committed. There is no graph to read back, and issuing the read
+     * anyway would spend a request to learn nothing — worse, on a scenario
+     * that already held an older graph it invites a stale read being narrated
+     * as this turn's recovery.
+     *
+     * `true` — the stream opened and was then ABANDONED. CEE lets the turn
+     * finish when the client hangs up (#751) and the 2.709 first-write
+     * exemption makes the commit the common case, so the graph is very likely
+     * persisted. This is the arm the truncation defect lands on.
+     */
+    streamOpened: boolean,
   ): Promise<StreamedDraftTurnResult> => {
     if (import.meta.env.DEV) {
       console.warn(`[sendTurn V5] streamed draft abandoned (${reason}); falling back to the buffered turn`)
@@ -649,11 +677,34 @@ async function runStreamedDraftTurn(args: {
     // No browser preview does not prove no server commit: frames can be lost
     // before the original draft finishes. The caller must read the canonical
     // scenario graph before accepting a graphless fallback as a completed turn.
+    //
+    // ⚠ THIS FLAG USED TO READ `result.kind === 'response'`, AND THAT GATE
+    // SWITCHED THE RECOVERY OFF IN EXACTLY THE CONDITIONS THAT NEED IT.
+    // Measured 16–20 Sep 2026 on the Render router logs (n=1,030 draft
+    // commits / 835 stream turns): the draft is persisted server-side 100% of
+    // the time — ZERO commit failures — while 61–69% of streamed turns per day
+    // are truncated in transit (a 200 carrying 12–29 KB where the turn is
+    // 92–202 KB), losing the ~85 KB GRAPH_READY frame. So the dominant shape
+    // is: socket dies, no preview, and this buffered fallback rides THE SAME
+    // BROKEN TRANSPORT. When it fails, `callV5Turn` does not throw — it
+    // returns `{ kind: 'parse_error', reason: 'network error: …' }`
+    // (`v5Adapter.ts`, the catch around `fetchFn`), and a CEE-side failure
+    // returns `boundary_error`. Both failed `=== 'response'`, so the caller
+    // never issued the ~1 s idempotent read and the user was told the draft
+    // failed while their graph sat in the database.
+    //
+    // The flag now means what the caller actually needs to know: THIS TURN
+    // ENDED WITH NO GRAPH ANYWHERE — none on the canvas, none in the response
+    // — so the canonical scenario-graph read must be attempted before any
+    // failure is asserted. It is a question ("is there a persisted graph?"),
+    // never a claim; the caller still chooses its copy strictly from the
+    // read's RESULT, and a read that finds nothing leaves the standing
+    // failure behaviour byte-for-byte unchanged.
     useDraftStore.getState().setDraftStreamPhase('idle', null, null)
     return {
       result,
       previewOwnsCanvas: false,
-      missingGraphAfterFallback: result.kind === 'response',
+      missingGraphAfterFallback: result.kind === 'response' || streamOpened,
     }
   }
 
@@ -670,7 +721,13 @@ async function runStreamedDraftTurn(args: {
       throw e
     }
     // Nothing streamed, so no preview can exist.
-    return fallbackToBuffered(`open failed: ${(e as Error)?.message ?? 'unknown'}`, false)
+    return fallbackToBuffered(
+      `open failed: ${(e as Error)?.message ?? 'unknown'}`,
+      false,
+      // The stream never opened: nothing ran server-side, so no graph exists
+      // to read back and the recovery read is deliberately not attempted.
+      false,
+    )
   }
 
   const outcome = await consumeStreamedDraftTurn(streamStageFrames(res), {
@@ -799,7 +856,13 @@ async function runStreamedDraftTurn(args: {
       abort.name = 'AbortError'
       throw abort
     }
-    return fallbackToBuffered(`${outcome.reason}: ${outcome.detail}`, outcome.renderedGraph !== null)
+    return fallbackToBuffered(
+      `${outcome.reason}: ${outcome.detail}`,
+      outcome.renderedGraph !== null,
+      // The stream OPENED and was then abandoned — the turn ran server-side and
+      // very likely committed. This is the truncation defect's arm.
+      true,
+    )
   }
 
   // `renderedGraph` is non-null only when the render callback ACCEPTED the frame
@@ -4440,7 +4503,16 @@ export function useConversation(): UseConversationReturn {
         }
 
         if (missingGraphAfterFallback) {
-          if (userBubbleIdForTurn) updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
+          // ⚠ EVIDENCE-GATED, because this branch now also carries turns whose
+          // fallback FAILED. `sent` is a claim that the turn reached the
+          // server. A parsed response is that evidence; a `parse_error` from a
+          // dead socket is not — marking those `sent` would assert delivery
+          // this client cannot witness. The recovery read below supplies the
+          // other honest proof (a persisted graph for this scenario can only
+          // exist if the turn arrived), and sets it THERE, after it returns.
+          if (userBubbleIdForTurn && v5Result.kind === 'response') {
+            updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
+          }
           // A graphless answer can be a valid clarification or coaching turn.
           // Only an explicit completed-run claim warrants holding this failed
           // draft delivery unresolved. Options alone also accompany questions;
@@ -4483,6 +4555,28 @@ export function useConversation(): UseConversationReturn {
             reading = false
             if (!ownsRecovery()) return
             recovered = recovery === 'recovered'
+            // ═══ THE RECOVERY-RATE INSTRUMENT ═══════════════════════════════
+            // Emitted on BOTH outcomes, from the one place that knows which
+            // this was. A one-sided log measures nothing: the rate this fix
+            // exists to move is recovered / (recovered + notRecovered), so a
+            // success-only line would report a denominator of its own
+            // successes. `fallbackKind` separates the newly-covered arms
+            // (parse_error / boundary_error — the broken-transport shapes)
+            // from the pre-existing `response` arm, so the gap this change
+            // closed can be measured on its own rather than inferred from a
+            // total that mixes both.
+            logger.warn('draft_recovery.stream_loss_readback', {
+              outcome: recovery,
+              fallbackKind: v5Result.kind,
+              scenarioId: scenarioIdAtDispatch,
+              turnClientId,
+            })
+            if (recovered && userBubbleIdForTurn) {
+              // The honest proof deferred from the top of this branch: a
+              // persisted graph for this scenario cannot exist unless the turn
+              // reached the server, so delivery is now witnessed.
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
+            }
             if ((recovered || fallbackClaimsCompletedRun) && mode === 'user' && !hidden) {
               const notice = {
                 content: recovered
