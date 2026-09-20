@@ -20,6 +20,7 @@
  * (CLAUDE.md trap 12).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type React from 'react'
 import { render, fireEvent, act, within } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
@@ -145,7 +146,7 @@ const NOT_ASSERTABLE = {
 }
 
 function hoverToPopover(props: Record<string, unknown>) {
-  const r = render(<StyledEdge {...(props as never)} />)
+  const r = render(<StyledEdge {...(props as unknown as React.ComponentProps<typeof StyledEdge>)} />)
   const hit = r.container.querySelector('path[stroke="transparent"]')!
   fireEvent.mouseEnter(hit)
   act(() => { vi.advanceTimersByTime(400) })
@@ -181,7 +182,7 @@ describe('a hovered edge offers the direct edit where the write can land', () =>
   })
 
   it('⛔ IT IS ABSENT where the write cannot land — no promise the product cannot keep', () => {
-    const { queryByTestId, getByTestId } = hoverToPopover(NOT_ASSERTABLE)
+    const { queryByTestId } = hoverToPopover(NOT_ASSERTABLE)
     expect(queryByTestId('edge-hover-popover')).not.toBeNull()
     expect(
       queryByTestId('edge-direct-strength-edit'),
