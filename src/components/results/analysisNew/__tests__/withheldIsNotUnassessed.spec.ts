@@ -32,7 +32,7 @@ import { describe, expect, it } from 'vitest'
 import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 
 const checks = (ANALYSIS_NEW_COPY as unknown as {
-  checks: Record<string, { label: string; meaning?: string }>
+  checks: Record<string, { label: string; meaning?: string; orderingCaveat?: string }>
 }).checks
 
 const row = checks.leader_not_assessed
@@ -69,9 +69,35 @@ describe('⛔ it may not assert that the run did not assess the comparison', () 
 })
 
 describe('⭐ it still blocks BOTH original misreadings', () => {
-  it('does not imply the options are level', () => {
-    const m = (row.meaning ?? '').toLowerCase()
-    expect(m).toContain('not a finding that the options are level')
+  /**
+   * ⚠⚠ THIS ASSERTION MOVED, AND THE MOVE IS THE FINDING — read it before
+   * loosening anything else here.
+   *
+   * When this file was written one string served both sections, so "the row's
+   * meaning" and "what the reader is told" were the same thing and binding to
+   * `meaning` was binding to the surface. The question-split (20 Sep) ended
+   * that: the level-options denial now lives in `orderingCaveat`, which
+   * `OptionsComparison` renders and `WhatWeChecked` does not.
+   *
+   * ⛔ THE FIRST ATTEMPT AT THAT SPLIT WAS A REGRESSION AND THIS FILE CAUGHT
+   * IT. It moved BOTH clauses out of `meaning`, which silently dropped the
+   * ordering caveat on every withheld run whose options DO carry figures —
+   * `orderingCaveat` is gated on `noneNumbered` and does not render there. The
+   * repair put the ordering clause back in `meaning` (asserted below,
+   * unchanged) and left only the level denial in the comparison's half.
+   *
+   * ⭐ SO THE BINDING IS RE-POINTED, NOT RELAXED: the denial must still exist,
+   * and it must still be in the string whose render site is the silent list —
+   * the only run that can be misread as a tie. Asserting it over the PAIR
+   * alone would pass if it were parked in a constant nothing renders, which is
+   * why the second expectation names the key.
+   */
+  it('does not imply the options are level — and the denial is where a silent list renders', () => {
+    const pair = `${row.meaning ?? ''} ${row.orderingCaveat ?? ''}`.toLowerCase()
+    expect(pair).toContain('not a finding that the options are level')
+    expect((row.orderingCaveat ?? '').toLowerCase()).toContain(
+      'not a finding that the options are level',
+    )
   })
 
   it('does not read as an all-clear — it says the ordering is unconfirmed', () => {

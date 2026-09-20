@@ -83,3 +83,69 @@ describe('the checklist and the comparison answer different questions', () => {
     )
   })
 })
+
+/**
+ * ⛔⛔ THE POPULATION THE FIRST SPLIT FORGOT — and the only reason it is written
+ * down is that a pre-existing guard REDed on it in CI.
+ *
+ * `orderingCaveat` renders at ONE site, gated on `noneNumbered`: every option
+ * analysed and not one of them numbered. `meaning` renders on the checklist row
+ * for every withheld run, numbered or not. So the two strings do NOT cover the
+ * same population, and a clause moved from `meaning` into `orderingCaveat` is
+ * not relocated — on a run that prints figures it is DELETED.
+ *
+ * That run is real and captured: `0db2eb0a` (17:50Z, `complete_current`) has
+ * separation `separated`, robustness `high`, four win probabilities on the
+ * wire, and `leader_claim.permitted: false` with `constraint_verdict_withheld`.
+ * Four bars draw and no leader may be named. If the panel says nothing about
+ * the standing of that ordering, the bars are the only claim on screen.
+ *
+ * ⚠ CLAUDE.md trap 23 in one change: the metric the fix was written against
+ * (the same paragraph twice in one scroll) would have read as fixed, while the
+ * honesty the paragraph existed for was gone on the other half of the domain.
+ */
+describe('the split is by population, so neither run loses a fact', () => {
+  const { meaning, orderingCaveat } = COPY.checks.leader_not_assessed
+
+  it('the string that renders WITH figures still says the ordering is unconfirmed', () => {
+    expect(meaning.toLowerCase()).toContain('unconfirmed')
+  })
+
+  it('the string that renders WITHOUT figures still denies they are level', () => {
+    expect(orderingCaveat.toLowerCase()).toContain('not a finding that the options are level')
+  })
+
+  /**
+   * ⭐ AND THE TWO SHARE NO CLAUSE, which is what stops the repair reinstating
+   * the repetition. On a silent list BOTH render, so any clause in both is a
+   * fact stated twice on exactly the run Paul screenshotted. Compared on
+   * five-word shingles rather than on whole strings, because the defect that
+   * started this was a shared SENTENCE inside two different paragraphs — an
+   * equality check could not see it.
+   */
+  it('shares no clause, so the silent-list run never reads one fact twice', () => {
+    const shingles = (s: string) => {
+      const w = s.toLowerCase().replace(/[.,—]/g, '').split(/\s+/).filter(Boolean)
+      return new Set(w.slice(0, Math.max(0, w.length - 4)).map((_, i) => w.slice(i, i + 5).join(' ')))
+    }
+    const a = shingles(meaning)
+    const b = shingles(orderingCaveat)
+    const shared = [...a].filter((g) => b.has(g))
+    expect(shared).toEqual([])
+  })
+
+  /**
+   * ⛔ THE CONTRAST CONTROL for the shingle check — without it a bug that made
+   * `shingles()` return an empty set would pass this describe block silently,
+   * which is the guard-agreeing-with-itself shape (CLAUDE.md trap 13).
+   */
+  it('PRECONDITION: the shingle instrument can see a repeat when there is one', () => {
+    const shingles = (s: string) => {
+      const w = s.toLowerCase().replace(/[.,—]/g, '').split(/\s+/).filter(Boolean)
+      return new Set(w.slice(0, Math.max(0, w.length - 4)).map((_, i) => w.slice(i, i + 5).join(' ')))
+    }
+    const a = shingles(AS_SHIPPED_20260920)
+    const b = shingles(`Something else entirely. ${AS_SHIPPED_20260920}`)
+    expect([...a].filter((g) => b.has(g)).length).toBeGreaterThan(0)
+  })
+})

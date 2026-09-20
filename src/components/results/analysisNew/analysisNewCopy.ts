@@ -2621,12 +2621,28 @@ export const ANALYSIS_NEW_COPY = {
        * a compound sentence served to both is how a correctly-divided surface
        * still reads as a repetition.
        *
-       * ⚠ NOTHING IS DROPPED. Every clause of the original survives, under the
-       * section that owns it. Both misreadings the original was written to
-       * block stay blocked: `meaning` keeps "could not confirm" so its row
-       * cannot read as an all-clear (the load-bearing half its own note names),
-       * and `orderingCaveat` keeps the level-options denial so a list with no
-       * figures cannot read as a tie.
+       * ⚠ NOTHING IS DROPPED — AND THE FIRST ATTEMPT AT THIS SPLIT DID DROP
+       * SOMETHING, ON A POPULATION IT NEVER CONSIDERED. It moved BOTH denials
+       * out of `meaning`, leaving the row reading only "could not confirm".
+       * `withheldIsNotUnassessed.spec.ts` REDed and was right to: `meaning` is
+       * the ONLY one of these two strings that renders on a run whose options
+       * DO carry figures, because `orderingCaveat`'s render site is gated on
+       * `noneNumbered`. So on a withheld run with four bars on screen — capture
+       * `0db2eb0a`, separation established, constraint verdict withheld — the
+       * panel would have drawn the ordering and said nothing about its standing.
+       * Trap 23 exactly: the duplication metric would have read as fixed while
+       * the honesty the sentence existed for was gone on the other half of the
+       * domain.
+       *
+       * ⭐ SO THE CLAUSES ARE SPLIT BY WHICH RUN NEEDS THEM, NOT BY LENGTH:
+       *   · "any ordering you see is unconfirmed" → `meaning`, because a run
+       *     that DOES print figures is exactly the one that needs it, and
+       *     `meaning` is the string that run renders.
+       *   · the level-options denial → `orderingCaveat`, because only a list
+       *     with NO figures can be misread as a tie, and that is the only run
+       *     where it renders.
+       * Both misreadings stay blocked on both populations, and the two strings
+       * now share no clause — so neither run reads the same fact twice.
        *
        * ⚠ STILL TRUE IN BOTH POPULATIONS this state covers — a run that
        * assessed nothing, and a run that assessed and was withheld. "Could not
@@ -2638,15 +2654,22 @@ export const ANALYSIS_NEW_COPY = {
        * opened one. With that blind spot closed the honest remedy is to stop
        * saying it twice, not to record an exemption for saying it twice.
        */
-      meaning: 'Olumi could not confirm which option is most likely on this run.',
+      meaning:
+        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.',
       /**
-       * The comparison's half: how to read the list, not what was checked.
+       * The comparison's half: how to read THIS list, not what was checked.
        * Rendered ONLY by `OptionsComparison`, and only where no row carries a
-       * figure — a silent list invites the false reading that the options are
-       * level, which the second clause denies outright.
+       * figure — which is why it names that condition itself rather than
+       * relying on its position. A silent list invites the false reading that
+       * the options came out level, and this denies it outright.
+       *
+       * ⚠ IT DOES NOT REPEAT `meaning`'s ordering clause. `meaning` renders on
+       * every withheld run including this one; anything said in both would be
+       * a fact stated twice in one scroll, which is the defect this split
+       * exists to remove.
        */
       orderingCaveat:
-        'The ordering you see is unconfirmed, and it is not a finding that the options are level.',
+        'A list with no figures beside it is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**

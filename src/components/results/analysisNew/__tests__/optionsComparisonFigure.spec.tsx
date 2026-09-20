@@ -623,13 +623,13 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
     // assertion would simply agree with each other. This is the string a reader
     // meets, typed out, so a reword REDs here and has to be a decision.
     expect(caveat).toHaveTextContent(
-      'The ordering you see is unconfirmed, and it is not a finding that the options are level.',
+      'A list with no figures beside it is not a finding that the options are level.',
     )
 
     // And the owning constant still IS that sentence — so this file cannot rot
     // into asserting a string the product no longer uses.
     expect(COPY.checks.leader_not_assessed.orderingCaveat).toBe(
-      'The ordering you see is unconfirmed, and it is not a finding that the options are level.',
+      'A list with no figures beside it is not a finding that the options are level.',
     )
 
     // ⭐⭐ AND THE OTHER HALF IS SOMEWHERE ELSE, WHICH IS THE POINT OF THE SPLIT.

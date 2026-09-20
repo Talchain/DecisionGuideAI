@@ -562,9 +562,14 @@ export function OptionsComparison({
           rendering the compound original here put the same paragraph on screen
           twice in one scroll (witnessed on served `fd992149`).
 
-          The clause that matters most here is retained verbatim: a silent or
-          unnumbered list invites the false reading that the options are level,
-          and this denies it outright. The cause below is still appended. */}
+          ⚠ THIS SECTION GETS THE LEVEL-OPTIONS DENIAL AND NOT THE ORDERING
+          ONE, and the division is by POPULATION rather than by length. This
+          paragraph renders only where `noneNumbered` holds, so it is the only
+          string that reaches a reader who can be misled into reading a silent
+          list as a tie. The ordering clause stays in `meaning`, which is the
+          half that renders on a withheld run whose options DO carry figures —
+          the run this section says nothing on at all. The cause is still
+          appended below. */}
       {noneNumbered ? (
         <p
           className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
