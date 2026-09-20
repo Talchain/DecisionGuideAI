@@ -196,10 +196,21 @@ describe('a hovered edge offers the direct edit where the write can land', () =>
   })
 
   it('⛔ the two routes are never named the same thing side by side', () => {
+    // ⚠ THIS ASSERTS THE PROPERTY, NOT A STRING. Its first version searched for
+    // a literal "Adjust strength" twice, and a mutant renaming the chat chip
+    // walked straight through it — the two labels differed, so the count was 1
+    // and the guard passed while proving nothing about collision in general.
+    // A guard watching one spelling of a class is the hand-maintained mirror
+    // (CLAUDE.md trap 12); this one compares whatever the two controls say.
     const { getByTestId } = hoverToPopover(ASSERTABLE)
     const popover = getByTestId('edge-hover-popover')
-    // A user facing "Adjust strength" twice cannot tell the fast route from the
-    // slow one, which is the defect one level up from the one being fixed.
-    expect(within(popover).queryAllByText(/^adjust strength$/i).length).toBeLessThanOrEqual(1)
+    const direct = getByTestId('edge-direct-strength-edit').textContent?.trim() ?? ''
+    expect(direct, 'the direct control has no visible label at all').not.toBe('')
+    const everyLabel = Array.from(popover.querySelectorAll('button'))
+      .map(b => b.textContent?.trim() ?? '')
+    expect(
+      everyLabel.filter(l => l === direct).length,
+      `two controls a pixel apart both read "${direct}" — the user cannot tell the fast route from the slow one`,
+    ).toBe(1)
   })
 })
