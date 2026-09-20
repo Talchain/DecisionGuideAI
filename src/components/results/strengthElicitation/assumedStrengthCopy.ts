@@ -124,10 +124,24 @@ export function strongerOptionInWeakRuns(
     /*
      * ⚠ "came out ahead" WAS RETIRED BY PAUL'S 8 SEP 2026 NO-CONTEST RULING AND
      * SURVIVED HERE, IN THE UNNAMED BRANCH ONLY. Its twin above was reframed to
-     * "was the stronger option"; this one was not, and no guard could see it:
-     * `noWinnerVocabulary.spec.ts` swept a hand-list of four files and this is
-     * not one of them, though `buildAnalysisNewViewModel.ts:52` imports this
-     * very function. One fix, one branch — the estate's signature defect.
+     * "was the stronger option"; this one was not, and at the time no guard
+     * could see it: `noWinnerVocabulary.spec.ts` swept a HAND-LIST of four
+     * files and this was not one of them, though `buildAnalysisNewViewModel.ts`
+     * imports this very function. One fix, one branch — the estate's signature
+     * defect.
+     *
+     * ⚠⚠ THAT LAST CLAUSE IS NOW FALSE, AND IT IS THE KIND THAT TEACHES THE
+     * NEXT AUTHOR THE WRONG THING (corrected 20 Sep 2026). The guard was
+     * rebuilt: its scope is `REACHED_COPY_FILES`, a DERIVED import closure from
+     * the tab's render root filtered to `src/components/results/`, and the old
+     * hand-list survives only as `HISTORICALLY_SWEPT`, a positive control that
+     * REDs if the walk ever stops reaching one of them. This file is imported
+     * by `buildAnalysisNewViewModel.ts` (lines 49-51), which is itself in that
+     * control, so **this file is swept today**.
+     *
+     * The history is kept because it is the reason the defect survived; the
+     * present tense is corrected because a file wrongly believed to be
+     * unguarded is a file where the next careless string goes unchallenged.
      *
      * The wording is its own twin's, so the two branches now differ only in
      * whether they can name the alternative. The rate is unchanged and still
