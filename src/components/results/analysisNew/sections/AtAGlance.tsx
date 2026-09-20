@@ -627,9 +627,19 @@ export function AtAGlance({
    * the same expression the child renders on. Written here rather than inlined
    * twice — two copies of one predicate is the mirror this file keeps paying
    * for (trap 12), and the guard's whole job is to agree with the renderer.
+   *
+   * ⚠ IT BINDS THE NARROWED SCOPE, IT DOES NOT RESTATE THE TEST — and the first
+   * version got that wrong in a way the compiler caught. Extracting
+   * `comparisonScope.kind === 'partial'` into a BOOLEAN discards TypeScript's
+   * narrowing of the discriminated union, so the child below lost `.scope` and
+   * `.excluded` and produced 8 ratchet errors. Re-testing the discriminant at
+   * the child would have compiled and re-opened the mirror: two expressions,
+   * free to drift, which is the whole defect this const exists to close.
+   * Binding the narrowed value once gives the guard and the renderer ONE
+   * source that cannot disagree, and the compiler enforces it.
    */
-  const scopeDisclosureOnScreen =
-    glance.comparisonScope.kind === 'partial' && glance.comparativeClaim !== 'none'
+  const partialScope = glance.comparisonScope.kind === 'partial' ? glance.comparisonScope : null
+  const scopeDisclosureOnScreen = partialScope !== null && glance.comparativeClaim !== 'none'
 
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
@@ -1188,17 +1198,17 @@ export function AtAGlance({
           Excluded options were two full prose paragraphs each repeating the
           same sentence. They are now rows in a list: same facts, same
           sanctioned copy, a fraction of the visual mass. */}
-      {scopeDisclosureOnScreen ? (
+      {scopeDisclosureOnScreen && partialScope ? (
         <div data-testid={`${testId}-scope`}>
           <ComparisonScopeNote
-            scope={glance.comparisonScope.scope}
+            scope={partialScope.scope}
             surface="analysisNew"
             withDetail={glance.comparativeClaim === 'value'}
           />
           <ul className="mt-1 space-y-0.5 list-none p-0 m-0">
             {(showAllExcluded
-              ? glance.comparisonScope.excluded
-              : glance.comparisonScope.excluded.slice(0, EXCLUDED_OPTION_VISIBLE_CAP)
+              ? partialScope.excluded
+              : partialScope.excluded.slice(0, EXCLUDED_OPTION_VISIBLE_CAP)
             ).map((o) => (
               <li
                 key={o.id}
@@ -1244,8 +1254,8 @@ export function AtAGlance({
                 the sentence just said 28. Same defect class as the two caps
                 this change bound together, one level out. */}
             {(() => {
-              const s = glance.comparisonScope.scope
-              const unnameable = s.total - s.analysed - glance.comparisonScope.excluded.length
+              const s = partialScope.scope
+              const unnameable = s.total - s.analysed - partialScope.excluded.length
               return unnameable > 0 ? (
                 <li
                   className={`${typography.panelMeta} text-text-light flex items-start gap-1.5`}
@@ -1259,7 +1269,7 @@ export function AtAGlance({
               ) : null
             })()}
           </ul>
-          {glance.comparisonScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
+          {partialScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
             <button
               type="button"
               onClick={() => setShowAllExcluded((v) => !v)}
@@ -1270,7 +1280,7 @@ export function AtAGlance({
               {showAllExcluded
                 ? COPY.disclosure.collapse
                 : COPY.disclosure.moreExcluded(
-                    glance.comparisonScope.excluded.length - EXCLUDED_OPTION_VISIBLE_CAP,
+                    partialScope.excluded.length - EXCLUDED_OPTION_VISIBLE_CAP,
                   )}
             </button>
           ) : null}

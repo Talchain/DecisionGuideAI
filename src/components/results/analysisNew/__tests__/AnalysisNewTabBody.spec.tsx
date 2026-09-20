@@ -25,7 +25,6 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import {
-  decisionWithLeaderWithheld,
   decisionWithLeaderWithheldAndReason,
   genuineDecision,
   highUncertainty,
