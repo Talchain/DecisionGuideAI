@@ -51,6 +51,7 @@
 
 import {
   ANALYSIS_PRODUCING_ACTION_TYPES,
+  matchingScenarioAnalysisReads,
   readResponseHashWithSource,
   readScenarioId,
   readTurnOrActionType,
@@ -92,6 +93,7 @@ export type { SelectorTracedPayload, ResponseHashSource, HashMatchStatus }
  * single source of truth.
  */
 export type AnalysisEvidenceTraceSource =
+  | 'scenario_graph_read'
   | 'selected_cee_turn'
   | 'recovered_earlier_cee_turn'
   | 'unavailable'
@@ -428,6 +430,10 @@ export function hasEvidenceBearingEnrichment(p: SelectorTracedPayload): boolean 
   //    regardless of enrichment quality. If found here, we DO NOT
   //    fall through to `raw.blocks` even if this block's enrichment
   //    is non-evidence-bearing — the resolver wouldn't either.
+  if (p.capture?.kind === 'scenario_graph_read') {
+    const block = body.analysis_result
+    return isPlainObject(block) && block.type === 'analysis_result' && blockEnrichmentIsEvidenceBearing(block)
+  }
   const top = findFirstAnalysisResultBlock(body.blocks)
   if (top !== null) return blockEnrichmentIsEvidenceBearing(top)
   // 2. Parse-error wrapper — `body.raw.blocks[*]`. Only reached when
@@ -542,19 +548,23 @@ export function findLatestEvidenceBearingCeeTurn(
     return emptyResult('no_cee_candidate')
   }
 
-  // (2) V5 turn endpoint scoping.
+  // V5 turns and explicitly captured reads matching BOTH the current scenario
+  // and displayed report. Reads never enter the conversational selector.
   const v5Turns = ceeTurns.filter(isV5TurnEndpoint)
-  if (v5Turns.length === 0) {
+  const reads = matchingScenarioAnalysisReads(ceeTurns, currentScenarioId, resultsHash)
+  if (v5Turns.length === 0 && reads.length === 0) {
     return emptyResult('no_v5_endpoint_candidate', {
       cee_candidate_count: ceeTurns.length,
       v5_endpoint_candidate_count: 0,
     })
   }
 
-  // (3) Analysis-producing filter.
-  const analysisProducing = v5Turns
+  // Turn action types establish analysis production; reads carry an actual
+  // matching analysis block, without manufacturing an action or turn fact.
+  const analysisProducing = ceeTurns.filter((p) => isV5TurnEndpoint(p) || reads.includes(p))
     .map((p, idx) => ({ p, idx }))
     .filter(({ p }) => {
+      if (reads.includes(p)) return true
       const t = readTurnOrActionType(p)
       return t !== null && ANALYSIS_PRODUCING_ACTION_TYPES.has(t)
     })

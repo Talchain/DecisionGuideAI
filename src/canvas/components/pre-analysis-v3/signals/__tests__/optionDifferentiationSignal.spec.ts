@@ -17,6 +17,36 @@
 import { describe, it, expect } from 'vitest'
 import { SIGNAL_REGISTRY, type SignalDetectionInput } from '../registry'
 import { deriveSignalViews } from '../deriveSignalViews'
+import type {
+  StructuralAbsence,
+  StructuralAbsenceKind,
+} from '../../selectors/computeStructuralAbsence'
+
+/**
+ * A `StructuralAbsence` fixture whose `actionTargetIds` stays inside the
+ * SELECTOR'S OWN OUTPUT DOMAIN (CLAUDE.md trap 16-inverse: a fixture the
+ * producer could never emit proves nothing, and a self-authored one silently
+ * encodes the author's model of the producer instead of the producer).
+ *
+ * Derived from `computeStructuralAbsence`:
+ *   shared_mechanism   — ALWAYS at least one id. Its gate is
+ *                        `targetSets.every(s => s.size > 0)` plus an identical-set
+ *                        check, so an empty shared set is unreachable.
+ *   no_downside        — one or more risk ids on the risk-node limb, and `[]` on
+ *                        the negative-edge-only limb. The common case is used
+ *                        here; the empty limb is pinned in the selector's own spec.
+ *   no_external_factor — ALWAYS `[]`. The absence is of a node CLASS.
+ *
+ * These specs are about COPY and ORDERING and read no id, so the value only has
+ * to be domain-plausible. Typed rather than cast, so the NEXT required field is a
+ * type error here instead of being silently absent.
+ */
+function absence(kind: StructuralAbsenceKind, optionCount: number): StructuralAbsence {
+  const actionTargetIds =
+    kind === 'shared_mechanism' ? ['shared_1'] : kind === 'no_downside' ? ['risk_1'] : []
+  return { kind, optionCount, actionTargetIds }
+}
+
 
 function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionInput {
   return {
@@ -142,7 +172,7 @@ describe('sig_option_differentiation — one answer per question at the surface'
       def.detect(
         input({
           optionDifferentiation: finding,
-          structuralAbsence: { kind: 'shared_mechanism', optionCount: 4 },
+          structuralAbsence: absence('shared_mechanism', 4),
         }),
       ),
     ).toBeNull()
@@ -151,7 +181,7 @@ describe('sig_option_differentiation — one answer per question at the surface'
   it('still fires alongside the OTHER structural findings — they ask different things', () => {
     for (const kind of ['no_downside', 'no_external_factor'] as const) {
       const detection = def.detect(
-        input({ optionDifferentiation: finding, structuralAbsence: { kind, optionCount: 4 } }),
+        input({ optionDifferentiation: finding, structuralAbsence: absence(kind, 4) }),
       )
       expect(detection, `should fire alongside ${kind}`).not.toBeNull()
     }
@@ -161,7 +191,7 @@ describe('sig_option_differentiation — one answer per question at the surface'
     const views = deriveSignalViews(
       input({
         optionDifferentiation: finding,
-        structuralAbsence: { kind: 'shared_mechanism', optionCount: 4 },
+        structuralAbsence: absence('shared_mechanism', 4),
       }),
       {},
     )

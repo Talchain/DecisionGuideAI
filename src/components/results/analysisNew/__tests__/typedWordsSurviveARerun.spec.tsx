@@ -158,3 +158,94 @@ describe('typed words survive a rerun that removes their row', () => {
     expect(JSON.stringify(readDissent(SCENARIO))).not.toContain('a1')
   })
 })
+
+/**
+ * ⛔⛔⛔ AND WHEN THE SAVE ITSELF FAILS — the path this file's own PR left open.
+ *
+ * An independent seat read the SERVED commit and found the rescue effect
+ * ignoring `recordDissent`'s false result, skipping persistence entirely when
+ * there was no scenario id, and calling `closeDispute()` regardless. So on the
+ * failing path the words vanished — under a PR titled "What someone typed must
+ * not vanish with the row it was typed in".
+ *
+ * ⭐ THE STANDARD IS THE REVIEWER'S, AND IT IS THE RIGHT ONE: *"a hidden
+ * unmounted row holding inaccessible state is not recovery."* So these arms
+ * assert the words are ON SCREEN and READABLE, never merely that some state
+ * somewhere still holds them.
+ */
+describe('words the product could not save are still the user’s words', () => {
+  /** No scenario id at all — persistence cannot even be attempted. */
+  const withoutAScenario = () => useCanvasStore.setState({ currentScenarioId: null } as never)
+
+  it('CONTROL: with a scenario, the rescue saves and NO unsaved notice appears', () => {
+    const { rerender } = render(
+      <StrengthenTheReasoning interventions={RUN_A} analysisHash="hash-a" />,
+    )
+    openSection()
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: WORDS },
+    })
+    rerender(<StrengthenTheReasoning interventions={RUN_B} analysisHash="hash-b" />)
+
+    // ⭐ Without this arm, "the notice appears" below could pass on a component
+    // that shows it unconditionally — which would be a worse defect wearing the
+    // fix's clothes.
+    expect(screen.queryByTestId('analysis-new-strengthen-rescued-unsaved')).toBeNull()
+    expect(JSON.stringify(readDissent(SCENARIO))).toContain('pricing is')
+  })
+
+  it('⛔ with no scenario to save to, the words are kept ON SCREEN', () => {
+    withoutAScenario()
+    const { rerender } = render(
+      <StrengthenTheReasoning interventions={RUN_A} analysisHash="hash-a" />,
+    )
+    openSection()
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: WORDS },
+    })
+    rerender(<StrengthenTheReasoning interventions={RUN_B} analysisHash="hash-b" />)
+
+    const notice = screen.getByTestId('analysis-new-strengthen-rescued-unsaved')
+    expect(notice).toBeInTheDocument()
+    // ⭐⭐ THE WORDS THEMSELVES, not a reference to them. This is the assertion
+    // that distinguishes recovery from an apology.
+    expect(screen.getByTestId('analysis-new-strengthen-rescued-unsaved-text')).toHaveValue(WORDS)
+  })
+
+  it('and it names the finding they were written about', () => {
+    withoutAScenario()
+    const { rerender } = render(
+      <StrengthenTheReasoning interventions={RUN_A} analysisHash="hash-a" />,
+    )
+    openSection()
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: WORDS },
+    })
+    rerender(<StrengthenTheReasoning interventions={RUN_B} analysisHash="hash-b" />)
+
+    // The title is captured at OPEN, because by the time this fires the row has
+    // left `plan.ordered` and cannot be looked up.
+    expect(screen.getByTestId('analysis-new-strengthen-rescued-unsaved')).toHaveTextContent(
+      'First finding',
+    )
+  })
+
+  it('the reader can dismiss it once they have the words', () => {
+    withoutAScenario()
+    const { rerender } = render(
+      <StrengthenTheReasoning interventions={RUN_A} analysisHash="hash-a" />,
+    )
+    openSection()
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: WORDS },
+    })
+    rerender(<StrengthenTheReasoning interventions={RUN_B} analysisHash="hash-b" />)
+
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-rescued-unsaved-dismiss'))
+    expect(screen.queryByTestId('analysis-new-strengthen-rescued-unsaved')).toBeNull()
+  })
+})

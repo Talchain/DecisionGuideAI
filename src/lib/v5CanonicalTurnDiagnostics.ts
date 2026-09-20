@@ -18,7 +18,7 @@
  * Pure module. No React, no zustand subscriptions.
  */
 
-import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
+import type { DiagnosticAnalysisSource } from './v5CanonicalAnalysisDiagnostics'
 import type { ParseFailureKind } from '../v5/responseParser'
 import type { ScenarioIdReconciliation } from './scenarioIdReconciliation'
 import type {
@@ -247,7 +247,7 @@ export interface V5CanonicalTurnDiagnostics {
   }
   results: {
     present: boolean
-    source: AnalysisStateSource
+    source: DiagnosticAnalysisSource
     option_count: number
     factor_sensitivity_count: number
     /**
@@ -294,7 +294,7 @@ export interface AssembleV5CanonicalTurnDiagnosticsInputs {
     source: 'env' | 'localStorage' | 'default'
   } | null
   /** From the existing AnalysisStateSource classifier. */
-  analysisStateSource: AnalysisStateSource
+  analysisStateSource: DiagnosticAnalysisSource
   hasResultsReport: boolean
   /** Mirror of bundle.effective_cee_response_source. */
   effectiveCeeResponseSource: 'direct' | 'downstream' | 'none' | null

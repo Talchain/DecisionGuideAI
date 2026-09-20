@@ -32,6 +32,7 @@ import { resolve, dirname, join, basename } from 'node:path'
 // to the two check codes BY IDENTITY (trap 19); a value predicate over the
 // extracted literals could be satisfied by a different string in the file.
 import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
+import { stripCommentsPreservingStrings } from '../../../../test/helpers/reasoningTabCopyScope'
 
 // cwd-relative: `import.meta.url` is not a file: URL under this vitest config,
 // and a spec that cannot read its subject reports a clean sweep of nothing.
@@ -249,9 +250,23 @@ function resolveSpec(spec: string, fromFile: string): string | null | undefined 
 
 interface Edge { spec: string; names: string[] | null; wildcard: boolean }
 
-/** Every import/export edge out of a file, WITH the names it carries. */
+/**
+ * Every import/export edge out of a file, WITH the names it carries.
+ *
+ * ⚠ THE SOURCE IS STRIPPED OF COMMENTS FIRST, and that is not tidiness — this
+ * walker used to read a docblock's prose example of an import as a real edge.
+ * One such line in `lib/staleBuildRecovery.ts` pulled `routes/CanvasMVP` and the
+ * whole canvas below it into this corpus and failed 15 assertions here, the
+ * CONTRAST CONTROL included, on a PR that touched no copy at all.
+ *
+ * ⛔ THE STRIPPER IS IMPORTED, NOT COPIED. `src/test/helpers/reasoningTabCopyScope.ts`
+ * owns it, because this file and that helper ALREADY carry two copies of this
+ * walker and the duplication is why the same defect shipped in both. A third
+ * spelling of the fix is exactly the hand-maintained mirror (trap 12) that made
+ * this expensive.
+ */
 function edgesOf(file: string): Edge[] {
-  const src = readFileSync(file, 'utf8')
+  const src = stripCommentsPreservingStrings(readFileSync(file, 'utf8'))
   const re =
     /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?(?:([\s\S]*?)\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
   const out: Edge[] = []

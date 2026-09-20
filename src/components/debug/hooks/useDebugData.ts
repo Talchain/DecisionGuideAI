@@ -3058,7 +3058,7 @@ function extractServiceTiming(
   return {
     request_start: toIso(ceePayload?.timestamp ?? plotPayload?.timestamp),
     cee_response: ceePayload?.completed && ceePayload.duration
-      ? toIso(ceePayload.timestamp + ceePayload.duration)
+      ? toIso(ceePayload.completedAt ?? (ceePayload.timestamp + ceePayload.duration))
       : null,
     plot_request: toIso(plotPayload?.timestamp),
     plot_response: plotPayload?.completed && plotPayload.duration
@@ -3931,7 +3931,7 @@ export function useDebugData(): DebugData {
     // V5 turns still surface honestly.
     const fallbackCeePayload =
       analysisProducing.selected === undefined
-        ? findBestPayload(tracedPayloads, 'CEE')
+        ? findBestPayload(tracedPayloads.filter((p) => p.capture?.kind !== 'scenario_graph_read'), 'CEE')
         : undefined
     const ceePayload =
       (analysisProducing.selected as TracedPayload | undefined) ??
@@ -4021,6 +4021,7 @@ export function useDebugData(): DebugData {
     //     inspect the EXACT evidence used by scientific validation;
     //   - analysisEvidenceTraceSource: trichotomy describing the
     //     relationship to the conversational trace:
+    //       'scenario_graph_read'      — matching acquired analysis read
     //       'unavailable'              — no evidence-bearing trace found
     //       'selected_cee_turn'        — evidence trace IS the
     //                                    conversational trace (no
@@ -4042,6 +4043,8 @@ export function useDebugData(): DebugData {
     let analysisEvidenceTraceSource: AnalysisEvidenceTraceSource
     if (evidenceBearing.selected === undefined) {
       analysisEvidenceTraceSource = 'unavailable'
+    } else if (evidenceBearing.selected.capture?.kind === 'scenario_graph_read') {
+      analysisEvidenceTraceSource = 'scenario_graph_read'
     } else if (
       // Reference identity FIRST — both selectors operate on the
       // same `tracedPayloads` array, so when they pick the same
@@ -4277,7 +4280,7 @@ export function useDebugData(): DebugData {
     const conversationalCeeBody =
       ceePayload?.response?.body ?? ceeFromPlot?.[0]?.response ?? null
     const ceeBodyForEvidenceLift =
-      analysisEvidenceTraceSource === 'recovered_earlier_cee_turn' &&
+      (analysisEvidenceTraceSource === 'recovered_earlier_cee_turn' || analysisEvidenceTraceSource === 'scenario_graph_read') &&
       analysisEvidenceCeeResponseBody !== null &&
       analysisEvidenceCeeResponseBody !== undefined
         ? analysisEvidenceCeeResponseBody

@@ -913,7 +913,9 @@ export function ModelStrip({
                 ? COPY.successTarget.changedLocally
                 : outcome === 'no_unit'
                   ? COPY.successTarget.noUnit
-                  : COPY.successTarget.notEncodable,
+                  : outcome === 'not_a_number'
+                    ? COPY.successTarget.notANumber
+                    : COPY.successTarget.notEncodable,
           )
         }
         testId={`${testId}-target`}

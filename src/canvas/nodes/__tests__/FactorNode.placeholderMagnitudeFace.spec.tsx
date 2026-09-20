@@ -120,16 +120,16 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
     expect(withoutDv).not.toContain('scale')
 
     // Arm 2 — identical state PLUS the producer's string. This is the path that
-    // used to leak. It must now read the SAME as arm 1: the fix does not invent
-    // a word, it withholds a rendering the other two paths already withhold.
+    // used to leak. The false unit is gone and the figure — with its `est.`
+    // marker — stays, so the reader can still see an assumption was made.
     const withDv = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
-    expect(withDv).toBe(withoutDv)
+    expect(withDv).not.toBe(withoutDv)
+    expect(withDv).toContain('0.3')
+    expect(withDv).not.toContain('scale')
 
-    // ⭐ PRECONDITION PINNED, AND IT CANNOT BE THE EQUALITY ABOVE. Two arms that
-    // agree prove nothing on their own — a FactorNode that rendered no body at
-    // all would satisfy it. So a third arm on the SAME passthrough must still
-    // differ, which proves the passthrough is live and only this shape is
-    // withheld.
+    // ⭐ PRECONDITION PINNED. A third arm on the SAME passthrough must behave
+    // differently again, which proves the passthrough is live and only this one
+    // shape is rewritten.
     const prose = faceText(renderFactor({
       label: 'Team Capability', type: 'factor',
       display_value: 'No dedicated tech lead',
@@ -140,12 +140,23 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
   })
 
   it.each([0, 0.2, 0.3, 0.5, 0.55, 0.75, 0.8, 0.85])(
-    'a card at value %s shows no placeholder unit and no bare figure', (value) => {
+    'a card at value %s keeps its figure and loses the placeholder unit', (value) => {
       const text = faceText(renderFactor(founderFactor(value, `${value} scale`)).container)
       expect(text).toContain('Team Capability')
       expect(text).not.toContain('scale')
-      expect(text).not.toContain(`${value} scale`)
+      expect(text).toContain(String(value))
     })
+
+  it('⭐⭐ THE `est.` MARKER SURVIVES — an assumption must be visible to be challenged', () => {
+    // THE REGRESSION THIS PINS. `FactorNode.tsx:928` gates the value and the
+    // marker on ONE condition. Blanking the value took the marker with it, so a
+    // third of the founder's cards silently stopped admitting they were
+    // inferred. Bound by identity, not by reading the text.
+    const { container } = renderFactor(founderFactor(0.3, '0.3 scale'))
+    const marker = container.querySelector('[data-testid="estimate-marker"]')
+    expect(marker, 'the est. marker vanished with the value — the guess is now invisible').toBeTruthy()
+    expect(marker!.textContent).toBe('est.')
+  })
 
   it("THE FOUNDER'S EXACT FACE: \"0.3 scale est.\" no longer reads as a measurement", () => {
     // The card he is looking at. The unreadable figure is withheld; nothing is
@@ -155,13 +166,13 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
     expect(text).toContain('Team Capability')
     expect(text).not.toContain('0.3 scale')
     expect(text).not.toContain('scale')
+    expect(text).toContain('0.3')
   })
 
   it('the expert view is equally free of the placeholder', () => {
     viewMode = 'expert'
     const text = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
     expect(text).not.toContain('scale')
-    expect(text).not.toContain('0.3')
   })
 
   it('⛔ REGRESSION: a declared encoding still speaks on the face', () => {

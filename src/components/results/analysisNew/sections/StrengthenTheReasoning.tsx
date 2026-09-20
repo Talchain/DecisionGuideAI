@@ -331,7 +331,26 @@ export function StrengthenTheReasoning({
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [dissentSaveError, setDissentSaveError] = useState<string | null>(null)
-  const disputeContext = useRef<{ scenarioId: string | null; analysisHash: string | null } | null>(null)
+  const disputeContext = useRef<{
+    scenarioId: string | null
+    analysisHash: string | null
+    /**
+     * ⚠ CAPTURED AT OPEN, because the rescue path runs precisely when the row
+     * has LEFT `plan.ordered` — at that moment its title cannot be looked up.
+     * Without this the rescued words lose the one thing that makes them
+     * intelligible later: what they were about.
+     */
+    title: string
+  } | null>(null)
+  /**
+   * ⭐⭐⭐ WORDS THAT COULD NOT BE SAVED AND HAVE NOWHERE TO SIT.
+   *
+   * The composer holds a failed save on the ordinary path (`commitDispute`
+   * returns without closing). That does not work here: this path fires BECAUSE
+   * the row vanished, so the composer unmounts with it. Section-level state is
+   * the only place left that is still on screen.
+   */
+  const [rescuedUnsaved, setRescuedUnsaved] = useState<{ text: string; about: string } | null>(null)
   /**
    * ⭐ THE DURABLE DISSENT FOR THE SCENARIO ON SCREEN.
    *
@@ -455,9 +474,9 @@ export function StrengthenTheReasoning({
   const undoButtonRef = useRef<HTMLButtonElement | null>(null)
 
   const openDispute = useCallback(
-    (id: string, existing: string, trigger: HTMLButtonElement | null) => {
+    (id: string, existing: string, trigger: HTMLButtonElement | null, title: string) => {
       disputeTriggerRef.current = trigger
-      disputeContext.current = { scenarioId: activeScenarioId, analysisHash: analysisHash ?? null }
+      disputeContext.current = { scenarioId: activeScenarioId, analysisHash: analysisHash ?? null, title }
       setDissentSaveError(null)
       setDisputingId(id)
       setDraft(existing)
@@ -820,9 +839,24 @@ export function StrengthenTheReasoning({
     if (plan.ordered.some((rec) => rec.id === disputingId)) return
 
     const context = disputeContext.current
-    if (context?.scenarioId) {
+    /**
+     * ⛔ THE RESULT IS READ. It was ignored, and `closeDispute()` ran anyway —
+     * so on a FAILED save this effect did exactly what the PR exists to
+     * prevent. Two paths lost the words: `recordDissent` returning false, and
+     * no scenario id at all, which skipped persistence entirely.
+     *
+     * ⭐ The ordinary path already had this right (`commitDispute`: "Do not
+     * close/clear the user's new words"). It keeps them in the composer, which
+     * is impossible here — this effect fires BECAUSE the row has gone. So the
+     * words move somewhere still on screen instead.
+     */
+    const saved =
+      context?.scenarioId != null &&
       recordDissent(context.scenarioId, disputingId, draft, context.analysisHash)
+    if (saved) {
       setDissentEpoch((n) => n + 1)
+    } else {
+      setRescuedUnsaved({ text: draft, about: context?.title ?? '' })
     }
     closeDispute()
   }, [disputingId, draft, plan.ordered, closeDispute])
@@ -918,6 +952,53 @@ export function StrengthenTheReasoning({
       defaultOpen={defaultOpen}
       testId={testId}
     >
+      {/* ⭐⭐⭐ WORDS THE PRODUCT COULD NOT SAVE ARE STILL THE USER'S WORDS.
+          Placed FIRST in the section, above everything, because it is the one
+          thing here the reader cannot reconstruct.
+
+          ⚠ THE TEXT IS RENDERED, not described. A notice saying "something was
+          not saved" over state the reader cannot reach is not recovery — it is
+          the same loss with an apology attached. It sits in a readonly
+          textarea so it can be selected and copied, and it names the finding it
+          was written about, because words without their subject are not much
+          use an hour later.
+
+          ⚠ ROLE=ALERT, matching the composer's own save-error treatment: this
+          appears without the reader doing anything, on a surface that has just
+          changed under them. */}
+      {rescuedUnsaved ? (
+        <div
+          className="rounded-md border border-panel-border bg-panel-hover px-2 py-2"
+          role="alert"
+          data-testid={`${testId}-rescued-unsaved`}
+        >
+          <p className={`${typography.panelMeta} text-text-body mt-0 mb-1`}>
+            {COPY.dissent.rescuedUnsaved}
+          </p>
+          {rescuedUnsaved.about ? (
+            <p className={`${typography.panelMeta} text-text-light mt-0 mb-1`}>
+              {COPY.dissent.rescuedAbout} {rescuedUnsaved.about}
+            </p>
+          ) : null}
+          <textarea
+            readOnly
+            value={rescuedUnsaved.text}
+            rows={3}
+            className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel px-2 py-1 text-text-body`}
+            data-testid={`${testId}-rescued-unsaved-text`}
+          />
+          <PanelActRow className="mt-1">
+            <button
+              type="button"
+              onClick={() => setRescuedUnsaved(null)}
+              className={`${typography.panelMeta} ${action('inline')}`}
+              data-testid={`${testId}-rescued-unsaved-dismiss`}
+            >
+              {COPY.dissent.rescuedDismiss}
+            </button>
+          </PanelActRow>
+        </div>
+      ) : null}
       {/* ⚠ THE UNDO IS NOT OPTIONAL FURNITURE. Dismissing removes the card on
           the next render (the view model treats `dismissed` as retired), so
           without this the only feedback for a misclick is a finding silently
@@ -1418,7 +1499,7 @@ export function StrengthenTheReasoning({
                       the defect the tier system exists to stop. */}
                   <button
                     type="button"
-                    onClick={(e) => openDispute(rec.id, standingDispute ?? '', e.currentTarget)}
+                    onClick={(e) => openDispute(rec.id, standingDispute ?? '', e.currentTarget, rec.title)}
                     // It is a disclosure, so it says so. `aria-expanded` is
                     // already used twice in this file (show-more, history) —
                     // the author knew the attribute; this control was the

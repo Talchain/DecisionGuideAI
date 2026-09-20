@@ -151,6 +151,27 @@ export interface AnalysisNewTabBodyProps {
    * that has not been given the composed value, never a silent "not running".
    */
   isBusy?: boolean
+  /**
+   * ⭐⭐ THE CLIENT HAS STOPPED WAITING FOR THIS RUN — a DIFFERENT fact from
+   * `isBusy`, and the reason it is a third prop rather than a swap.
+   *
+   * `isBusy` reports what the producer last said. This reports what THIS CLIENT
+   * has done about it: its delivery schedule reached
+   * `PROVISIONAL_DELIVERY_DEADLINE_MS` and, in the hook's own words, "past this
+   * the hook stops and writes nothing". A surface cannot derive that from
+   * `isBusy` alone, because `isBusy`'s wire half never expires.
+   *
+   * ⚠ COMPUTED BY THE HOST, NOT HERE, AND CI PROVED IT LOAD-BEARING.
+   * `OutputsDock` subtracts it from ONE identifier that feeds both this body's
+   * `isBusy` and the `AnalysisRunStateCover` mounted directly above it. An
+   * earlier cut bounded only this side; `busyMarkerSharesTheCoversAuthority`
+   * RED'd, and it was right — a skeleton would have kept shimmering over a
+   * sentence saying nothing is coming (trap 21).
+   *
+   * Absent = false: a caller that has not been given it keeps today's
+   * behaviour, never a silent "given up".
+   */
+  waitExhausted?: boolean
   /** The displayed report predates the current model. Freshness only. */
   isStale: boolean
   /**
@@ -616,6 +637,7 @@ export function AnalysisNewTabBody({
   isPreRun,
   isRunning,
   isBusy,
+  waitExhausted,
   isStale,
   staleReason = 'unconfirmed',
   nSamples,
@@ -677,7 +699,37 @@ export function AnalysisNewTabBody({
    * local one; swapping it would test a different run than the one that
    * produced the verdict. Two questions, two flags — see that comment.
    */
+  /**
+   * ⭐⭐ ONE EXPRESSION, EVERY READER — which is why the bound lives HERE and
+   * not beside the sentence it produces.
+   *
+   * Four things downstream ask "is a run in flight?": the `aria-busy` marker,
+   * the running sentence, the suppression of `WhyNoAnalysisYet`, and the
+   * suppression of the run affordance. Bounding only the sentence would leave a
+   * panel that says the analysis never arrived while still marked busy, with
+   * its explanation and its only way out both withheld — i.e. it would move the
+   * contradiction rather than close it.
+   *
+   * ⚠ THE REPORTED VALUE IS KEPT SEPARATELY, because the new sentence needs to
+   * distinguish "no run was ever asserted" from "a run was asserted and this
+   * client gave up on it". Collapsing them would make the exhausted state
+   * indistinguishable from a cold panel.
+   */
   const isBusyNow = isBusy ?? isRunning
+  /**
+   * ⚠ NOT BOUNDED AGAIN HERE, AND CI PROVED WHY. The first cut subtracted the
+   * exhaustion from `isBusyNow` in this file while the host still handed the
+   * COVER the unbounded value, and `busyMarkerSharesTheCoversAuthority` — a
+   * source scan that exists for exactly this pair — RED'd with "the marker and
+   * the cover must read ONE authority". The host now bounds both with one
+   * identifier, so `isBusy` arrives already correct and this line is unchanged
+   * from before the fix.
+   *
+   * `waitExhausted` therefore says only WHY the panel is not busy, which is the
+   * one thing `isBusy` cannot carry: a cold panel and an abandoned run are both
+   * "not busy" and need different sentences.
+   */
+  const runWaitExhausted = !isBusyNow && waitExhausted === true
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -1427,8 +1479,27 @@ export function AnalysisNewTabBody({
         {vm.status.isPreRun ? (
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
             <p className={`${typography.panelBody} text-text-body`}>
-              {isBusyNow ? COPY.status.running : COPY.status.preRun}
+              {isBusyNow
+                ? COPY.status.running
+                : runWaitExhausted
+                  ? COPY.status.waitExhausted
+                  : COPY.status.preRun}
             </p>
+            {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
+                "This analysis has not reached this page." on its own reads as a
+                fault the reader caused. This line says what the client actually
+                knows — that the run may well have completed somewhere it could
+                not be sent from — and names the one act that can change it.
+
+                ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
+                stays in every state and describes what the panel is FOR; this
+                describes what happened to one run, and only in the state where
+                something did. */}
+            {runWaitExhausted ? (
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {COPY.status.waitExhaustedWhy}
+              </p>
+            ) : null}
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
             {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
                 sentences above orient a reader who has not run one yet; neither
@@ -1734,7 +1805,10 @@ export function AnalysisNewTabBody({
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
-          leaderWithheld={vm.checks.leaderWithheld}
+          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
+             passed because they answer different questions and the section uses
+             each for its own. */
+          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
           onReanalyse={onReanalyse}
           /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
              IT — and not the verdict itself. `reanalyseBlocked` is

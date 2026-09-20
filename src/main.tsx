@@ -126,7 +126,13 @@ const AppPoC = lazyWithStallBound(() => import('./poc/AppPoC'), 'Olumi');
     // arrives in the URL, and the very next line captures `location.href` into
     // window.__SAFE_DEBUG__.logs — which is persisted to localStorage under
     // ENABLE_DEBUG_PERSISTENCE, and re-read by the error boundary, the
-    // diagnostic bundle and the sandbox banner. Stripping the token anywhere
+    // diagnostic bundle (`debug/utils/canvasBreadcrumbs.ts`) and the sandbox
+    // banner. ⚠ THAT LIST NAMED THE BUNDLE FOR MONTHS BEFORE IT WAS TRUE —
+    // measured at `f22e15fd`: 33 writers, zero reads under
+    // `src/components/debug/`. The sentence is why nobody checked, and it is
+    // why "Layout failed. Try again." stayed undiagnosable from 26 Aug to
+    // 19 Sep 2026. The wire now exists and `breadcrumbsReachTheBundle.spec.ts`
+    // reds if it is removed. Stripping the token anywhere
     // later (a React effect, a route component) is far too late: React has not
     // mounted yet. See src/collab/participantToken.ts for why the URL fragment
     // is not a hiding place in a HashRouter app.

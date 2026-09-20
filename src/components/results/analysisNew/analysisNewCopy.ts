@@ -225,12 +225,39 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   constraint_verdict_withheld:
     'The check against the limits you set does not support putting one option forward.',
   /**
-   * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. "This run did not separate them"
-   * is a statement about resolution; "they are level" would be a finding about
-   * the options, which a withheld verdict is not entitled to make.
+   * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
+   * could establish; "they are level" would be a finding about the options,
+   * which a withheld verdict is not entitled to make.
+   *
+   * ⛔⛔ AND THE FIRST VERSION OF THIS SENTENCE WAS FALSE ON A REAL RUN.
+   * It read: "This run did not separate the options far enough apart to put one
+   * forward." That is a MEASUREMENT — it asserts the gap was computed and found
+   * too small.
+   *
+   * Paul's capture refutes it. Bundle `84c8e210`, staging `c952cca3`,
+   * 19 Sep 18:56Z, `analysis_ready.status: "ready"`:
+   *
+   *     leader_claim = { permitted: false, withheld_reason: "separation_unavailable" }
+   *     win_probability = 0.639 / 0.300 / 0.047 / 0.015      ← a 34-point gap
+   *
+   * The options are separated by a wide margin and the panel told the reader
+   * they were not. An independent seat had already raised this as a [P2] on
+   * #1757; the capture settles it.
+   *
+   * ⭐ THE TELL IS IN THE PAYLOAD'S OWN VOCABULARY, and it is a contrast
+   * control rather than an argument. When the producer HAS assessed separation
+   * it says so in a sibling field: `5376e928` carries `"separation":
+   * "separated"`, `57555f97` carries `"separation": "near_tie"`. On this run
+   * that field is ABSENT. `separation_unavailable` means the assessment could
+   * not be MADE — it is the absence of a measurement, not a measurement of
+   * closeness.
+   *
+   * ⚠ Trap 21 at word level: `separation_unavailable` and a near-tie are two
+   * different facts, and the token reads like the second. The sentence must
+   * carry the difference, because nothing else on the surface does.
    */
   separation_unavailable:
-    'This run did not separate the options far enough apart to put one forward.',
+    'This run could not work out how far apart the options are, so it cannot put one forward.',
 }
 
 /**
@@ -669,6 +696,27 @@ export const ANALYSIS_NEW_COPY = {
      */
     promptSendsToOlumi: 'Why? This stays on the card and is sent to Olumi.',
     notSaved: 'Not saved for next time. Your words are still here. Retry, or copy them before leaving.',
+    /**
+     * ⭐⭐⭐ THE ROW WENT AND THE SAVE FAILED — the one case where the composer
+     * cannot hold the words, because the composer is gone with the row.
+     *
+     * ⛔ WITNESSED IN REVIEW OF MY OWN #1752, on the SERVED commit. The rescue
+     * effect ignored `recordDissent`'s false result and skipped persistence
+     * entirely when there was no scenario id, then called `closeDispute()`
+     * unconditionally — so a rerun that removed the finding cleared what
+     * someone had typed after a FAILED save. The PR was titled "What someone
+     * typed must not vanish with the row it was typed in" and it still
+     * vanished on the failing path.
+     *
+     * ⚠ THE WORDS THEMSELVES ARE RENDERED, not merely referred to. An
+     * unmounted row holding state the reader cannot reach is not recovery —
+     * the reviewer's phrase, and the standard this copy is written to. So this
+     * sentence introduces the text rather than replacing it.
+     */
+    rescuedUnsaved: 'This could not be saved, so it is kept here. Copy it before you leave the page.',
+    /** Names the finding it was written about, so the words keep their context. */
+    rescuedAbout: 'You wrote this about',
+    rescuedDismiss: 'Dismiss',
     sessionOnly: 'Kept in this tab only.',
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
@@ -1420,6 +1468,33 @@ export const ANALYSIS_NEW_COPY = {
       'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
     notEncodable: 'That target could not be applied, so nothing changed.',
     /**
+     * ⭐⭐⭐ A FIFTH OUTCOME, AND IT IS THE ONE PAUL ACTUALLY HIT.
+     *
+     * ⛔ WITNESSED 19 Sep 2026. The panel's own Strengthen row says "No
+     * measurable success target is set" and offers "Define success". Paul did
+     * exactly that and typed `1.3 million` — the figure from his own brief, in
+     * the words his brief used. `statedTargetNumber` is an anchored numeric
+     * literal predicate and does not read magnitude words, so it returned null
+     * and the whole answer was "That target could not be applied, so nothing
+     * changed."
+     *
+     * **The product asked for an input, the user supplied it, and it was
+     * refused without saying what was wrong with it.** That is the worst
+     * interaction available on this surface: it punishes the one act we most
+     * want.
+     *
+     * ⚠ THE PARSER IS NOT WIDENED HERE, DELIBERATELY. A magnitude alphabet is
+     * a known hazard in this estate — the canonical map was missing `thousand`
+     * while every derived guard agreed with it (CLAUDE.md trap 12d) — and it
+     * has an owner. Naming the cause is the bounded correction; teaching the
+     * parser to read "1.3 million" is a separate, larger piece of work.
+     *
+     * ⚠ SAYS WHAT TO TYPE, and shows it. A refusal that names a format without
+     * demonstrating it makes the reader guess twice.
+     */
+    notANumber:
+      'I could not read that as a number. Type the figure in digits, like 1300000, and put the unit in the box beside it.',
+    /**
      * ⭐⭐ NAMES THE CAUSE AND THE MOVE, because this is the one refusal a
      * reader can act on. `notEncodable` above covers three causes at once — no
      * unit, a target at or below zero, a scenario that moved — and a reader met
@@ -1984,6 +2059,63 @@ export const ANALYSIS_NEW_COPY = {
      */
     preRunRunAction: 'Run the analysis',
     running: 'Analysis is running.',
+    /**
+     * ⭐⭐ THE SENTENCE FOR A RUN THE CLIENT HAS STOPPED WAITING FOR.
+     *
+     * Witnessed (bundle `b3d5806d`, 19 Sep 2026): CEE started a run, committed
+     * its result 42s later, and suppressed the directive that would have
+     * delivered it. No later turn corrected `run_state`, so the wire said
+     * `running` for a run that had finished, with no bound on how long it would
+     * keep saying it. See `useAnalysisWaitExhausted.ts` for the full chain.
+     *
+     * ⚠ EVERY WORD IS TRUE UNDER ALL THREE POSSIBLE OUTCOMES, because the
+     * client cannot tell them apart. It knows only that it asked for the result
+     * until its own budget ran out and did not get one. So the subject of the
+     * sentence is THE RESULT ARRIVING, never the run finishing or failing:
+     * "has not reached this page" is observed, "failed" would be invented.
+     *
+     * ⚠ AND IT IS NOT A `stale` TWIN. Staleness is a property of a DISPLAYED
+     * run; there is nothing displayed here. Naming them apart is the same
+     * ruling `stale` and `unconfirmed` already carry two entries below.
+     */
+    waitExhausted: 'This analysis has not reached this page.',
+    /**
+     * ⭐⭐⭐ WRITTEN AGAINST THE PREDICATE, NOT AGAINST THE RUN THAT PROMPTED IT
+     * — and the first draft was not, which is why this note exists.
+     *
+     * The flag this renders under is reachable by (at least) TWO outcomes of
+     * `runProvisionalDeliverySchedule`, and they are opposites:
+     *
+     *   `deadline`  nothing usable arrived inside the client's budget. The run
+     *               may still be going, or may have finished and not been sent.
+     *   `withheld`  a terminal verdict DID arrive and was declined, because it
+     *               describes a graph the user has since changed. The applier's
+     *               own words: "A divergent read writes NOTHING: no verdict, no
+     *               results" — so `run_state` stays `running` on this path too,
+     *               and the panel reaches exactly the same state.
+     *
+     * The first draft read "It may have finished without being sent back",
+     * which is TRUE of `deadline` and FALSE of `withheld` — there it was sent
+     * back and refused. CLAUDE.md trap 13d in one sentence: an invariant
+     * written with the same shape as the failure mode in hand.
+     *
+     * ⭐ So the line asserts only what holds on BOTH: this client has stopped
+     * waiting, and a fresh run is the way to get an answer about the model as
+     * it stands now. On `withheld` that is not a consolation — it is precisely
+     * the right remedy, because divergence is what made the answer unusable.
+     *
+     * ⚠ AND IT STAYS TRUE IF A THIRD OUTCOME REACHES HERE (`unreadable`,
+     * `aborted`). Five of the six outcomes are silent by design today; copy
+     * keyed on the flag must survive the ones not yet enumerated.
+     *
+     * ⚠ THE REMEDY IS THE OPPOSITE OF #1759's, FOR THE SAME REASON BOTH ARE
+     * RIGHT. Where a leading option is WITHHELD, re-running hits the same gate
+     * and the panel offers "Review or set an estimate" instead. Here no result
+     * has been applied at all, so running again is the one act that can change
+     * it. Two causes, two acts.
+     */
+    waitExhaustedWhy:
+      'Olumi has stopped waiting for it. Running the analysis again is the surest way to get a result that matches your model as it stands now.',
     /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is
      * the user's best available context and the Rerun control sits in the
