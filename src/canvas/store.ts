@@ -199,6 +199,8 @@ import {
   wouldExceedLimits,
   type LimitExceeded,
 } from './validation/graphGuardrails'
+import { stampedRunIdentity } from './store/resolveRunIdentityFromFacts'
+import { isSyntheticRestoreId } from './store/restoreAnalysisFromAutosave'
 // Task C: Panel coordination — opening one right panel closes others
 import { useUIStore } from '../stores/uiStore'
 
@@ -1631,6 +1633,15 @@ interface CanvasState {
     run: RestorableRun,
     restoredForScenarioId?: string | null,
   ) => void
+  /**
+   * Replace a RESTORED run's placeholder id with the durable identity from the
+   * saved run fact. Identity only — never the report, never freshness.
+   *
+   * ⛔ IT CANNOT OVERWRITE A REAL ID. `stampedRunIdentity` allows exactly one
+   * transition, placeholder → durable, which is the only direction that cannot
+   * lose information. A no-op returns without touching the store at all.
+   */
+  resultsStampRunIdentity: (runId: string) => void
   /** Hydrate results from Supabase row.analysis (V2RunResponse already mapped to store shape) */
   resultsHydrateFromSupabase: (hydrated: {
     results: Partial<ResultsState>
@@ -6059,6 +6070,35 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
   },
 
+  /**
+   * ⭐ "CONSUME EXISTING SAVED RUN FACTS" — for the one thing a fact can supply
+   * that the reopen path lacks.
+   *
+   * Measured at the bytes: a `v5_handler_facts` `run_analysis` row carries
+   * `result.enrichment`, `computed_at` and `graph_hash_at_run` and NO
+   * renderable report, so a fact cannot restore what this panel draws. Its
+   * `id` IS "the durable identity of this run"
+   * (`analysisRunHistoryService.PersistedAnalysisRunRow`), and that is the
+   * field the restored result is missing: on deployed `ed9635cc` the result
+   * carried `runId: "restored:v5:1b52…"` beside `hash: "v5:4d59…"`.
+   *
+   * ⚠ IT AUTHORISES THE RESTORE STAMP, AND IT MUST. Every `results` write that
+   * does not is stripped of `restoredForScenarioId` by
+   * `createRestoreStampGuard` — so stamping an identity without this would
+   * silently delete the stamp that stops the Supabase leg clearing results on
+   * every load. Checked at the guard, not assumed.
+   *
+   * ⚠ NO-OP RETURNS EARLY rather than writing an identical object: a `set`
+   * here would re-render every results subscriber to change nothing, and would
+   * spend the authorisation token on a write that does not need it.
+   */
+  resultsStampRunIdentity: (runId: string) => {
+    const current = get().results
+    const next = stampedRunIdentity(current.runId, runId, isSyntheticRestoreId)
+    if (next === current.runId) return
+    authoriseRestoreStampOnNextSet()
+    set(s => ({ results: { ...s.results, runId: next } }))
+  },
   resultsLoadHistorical: (run: RestorableRun, restoredForScenarioId?: string | null) => {
     if (typeof window !== 'undefined') {
       try {
