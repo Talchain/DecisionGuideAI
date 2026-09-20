@@ -818,7 +818,40 @@ export const ANALYSIS_NEW_COPY = {
      * names the EFFECT (the answer changed) rather than a placing, which is
      * also what the section's own heading already says.
      */
-    flipCaption: 'Bars show how often each assumption changed the answer.',
+    /**
+     * ⛔⛔ AND IT DROPPED THE CONDITION, WHICH IS THE WHOLE MEASUREMENT.
+     *
+     * The bar draws `switch_probability`, and ISL declares what that is:
+     * *"Proportion of MC samples where alternative wins WHEN EDGE IS WEAK"*
+     * (`src/models/response_v2.py:569-575`). It is CONDITIONAL on the link
+     * being weak. "How often each assumption changed the answer" states an
+     * unconditional rate — it says the assumption DID change the answer this
+     * often, which is a claim about the assumption's own contribution and is
+     * exactly what `strengthElicitation/assumedStrengthCopy.ts` forbids in as
+     * many words: *"the measurement is about what happens IF the link is weak,
+     * not about what setting a number does."*
+     *
+     * ⭐ THE SIBLING SENTENCE HAD IT RIGHT ALL ALONG, which is how the defect
+     * became visible. The row beneath reads *"In the runs where that link came
+     * out weak, X was the stronger option 52% of the time"* — the same number,
+     * with its condition. A caption naming one quantity above a sentence naming
+     * another is two readings of one bar, and a reader cannot tell which is the
+     * bar's.
+     *
+     * ⚠ AND IT IS WHY TWO BARS READING 52% LOOKED LIKE A BROKEN INSTRUMENT.
+     * Two different relationships CAN carry the same conditional rate for the
+     * same alternative without anything being wrong; as an unconditional
+     * "how much this assumption mattered" they read as a suspicious uniformity.
+     * The caption was manufacturing the doubt.
+     *
+     * ⚠ EVERY EARLIER RULING ON THIS LINE IS KEPT. Past tense, because the runs
+     * already happened and "would change" would be a forecast. No placing and
+     * no contest framing — "was the stronger option" is the wording
+     * `noWinnerVocabulary.spec.ts` explicitly pins as PERMITTED, and it is the
+     * sibling's own. One caption for the whole column, not a label per row.
+     */
+    flipCaption:
+      'Bars show how often a different option was stronger in the runs where that assumption came out weak.',
     /**
      * ⭐ THE TIPPING POINT, IN THE PRODUCER'S OWN NUMBERS.
      *
