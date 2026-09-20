@@ -107,7 +107,12 @@ describe('the flip risk gets a bar', () => {
      * moved to the section's `caveat` slot and is asserted there.
      */
     expect(screen.queryAllByTestId(`${S}-flip-label`), 'the per-row label is gone').toHaveLength(0)
-    expect(screen.getByTestId(`${S}-caveat`).textContent).toContain('how often each assumption changed the answer')
+    // ⚠ THE CONDITION IS THE ASSERTION. The bar draws `switch_probability`,
+    // which ISL declares as the proportion of samples where the alternative
+    // wins WHEN THE EDGE IS WEAK. A caption that states an unconditional rate
+    // describes a quantity the producer never sent, so this pins the clause
+    // that carries the condition rather than the whole sentence.
+    expect(screen.getByTestId(`${S}-caveat`).textContent).toContain('in the runs where that assumption came out weak')
   })
 
   it('⭐ RANKED by the measured risk — the producer sends these ascending', () => {
