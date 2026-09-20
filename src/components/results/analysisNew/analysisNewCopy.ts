@@ -2603,8 +2603,50 @@ export const ANALYSIS_NEW_COPY = {
        * shorten this. Without it the row reads as an all-clear.
        */
       label: 'Most likely option not confirmed',
-      meaning:
-        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.',
+      /**
+       * ⭐⭐ SPLIT BY QUESTION, because ONE SENTENCE WAS ANSWERING TWO — and the
+       * two sections that rendered it answer two.
+       *
+       * ⛔ THE DEFECT, READ OFF THE DEPLOYED SURFACE (Paul's manual test,
+       * 20 Sep 2026, served `fd992149`). The same paragraph appeared twice in
+       * one scroll: once under "How the options compare" and once under "What
+       * we checked", byte for byte. The comment on the second site called that
+       * a virtue — *"one wording covers one fact and the two cannot drift"* —
+       * and it was half right. The wording could not drift. **It was not one
+       * fact.**
+       *
+       * `WhatWeChecked`'s own header states the division and this follows it:
+       * that section answers WHAT THE RUN CHECKED; the comparison answers HOW
+       * TO READ THIS LIST. Two questions named apart (CLAUDE.md trap 21) — and
+       * a compound sentence served to both is how a correctly-divided surface
+       * still reads as a repetition.
+       *
+       * ⚠ NOTHING IS DROPPED. Every clause of the original survives, under the
+       * section that owns it. Both misreadings the original was written to
+       * block stay blocked: `meaning` keeps "could not confirm" so its row
+       * cannot read as an all-clear (the load-bearing half its own note names),
+       * and `orderingCaveat` keeps the level-options denial so a list with no
+       * figures cannot read as a tie.
+       *
+       * ⚠ STILL TRUE IN BOTH POPULATIONS this state covers — a run that
+       * assessed nothing, and a run that assessed and was withheld. "Could not
+       * confirm" holds for both; "did not assess" would hold only for the first.
+       *
+       * ⭐ AND THE CENSUS SHOULD NOW SEE NO REPEAT. `firstViewportCensus`
+       * exists to catch one claim stated twice; it could not see this pair
+       * because `SectionShell` unmounts a closed section and the census never
+       * opened one. With that blind spot closed the honest remedy is to stop
+       * saying it twice, not to record an exemption for saying it twice.
+       */
+      meaning: 'Olumi could not confirm which option is most likely on this run.',
+      /**
+       * The comparison's half: how to read the list, not what was checked.
+       * Rendered ONLY by `OptionsComparison`, and only where no row carries a
+       * figure — a silent list invites the false reading that the options are
+       * level, which the second clause denies outright.
+       */
+      orderingCaveat:
+        'The ordering you see is unconfirmed, and it is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**

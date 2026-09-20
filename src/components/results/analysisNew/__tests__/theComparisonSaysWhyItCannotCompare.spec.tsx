@@ -81,7 +81,7 @@ describe('a comparison with no figures says so', () => {
     ])
     const caveat = screen.getByTestId(CAVEAT)
     expect(caveat).toBeVisible()
-    expect(caveat).toHaveTextContent(COPY.checks.leader_not_assessed.meaning)
+    expect(caveat).toHaveTextContent(COPY.checks.leader_not_assessed.orderingCaveat)
     // ⚠ The sentence must keep its own denial. A shorter paraphrase that drops
     // "it is not a finding that the options are level" would invite exactly the
     // reading the silent list already invited.

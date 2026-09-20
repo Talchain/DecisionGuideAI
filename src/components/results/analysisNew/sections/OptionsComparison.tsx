@@ -556,17 +556,21 @@ export function OptionsComparison({
       defaultOpen={defaultOpen}
       testId={testId}
     >
-      {/* ⚠ THE SENTENCE IS `checks.leaderMeaning`, NOT A NEW ONE. It already
-          states exactly this fact, is already licensed, and is already on this
-          surface in "What we checked" — so one wording covers one fact and the
-          two cannot drift. It is also deliberately not a claim that the options
-          are level, which is the false reading a silent list invites. */}
+      {/* ⚠ THIS SECTION'S OWN HALF OF A SENTENCE THAT USED TO SERVE TWO.
+          `checks.leader_not_assessed.meaning` is "What we checked"'s — it
+          answers what the run CHECKED. This answers HOW TO READ THIS LIST, and
+          rendering the compound original here put the same paragraph on screen
+          twice in one scroll (witnessed on served `fd992149`).
+
+          The clause that matters most here is retained verbatim: a silent or
+          unnumbered list invites the false reading that the options are level,
+          and this denies it outright. The cause below is still appended. */}
       {noneNumbered ? (
         <p
           className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
           data-testid={`${testId}-no-figures`}
         >
-          {COPY.checks.leader_not_assessed.meaning}
+          {COPY.checks.leader_not_assessed.orderingCaveat}
           {/* ⭐ THE PRODUCER'S CAUSE, where it named one this surface can state.
               A withheld claim is not a missing one, and without the cause the
               sentence above reads as "something did not come back" — which on
