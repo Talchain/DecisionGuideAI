@@ -199,9 +199,50 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
  * breaking the all-clear gate for n = 1 left all 58 cases green on a sentence
  * carrying the defect. An exact match cannot land on the wrong arm.
  */
+describe('a tally of zero is about the run, never about the brief', () => {
+  /**
+   * ⭐⭐ THE PROPERTY, NOT THE STRING. Asserting "does not equal the old
+   * sentence" would pass the moment someone wrote a DIFFERENT claim about the
+   * brief's contents.
+   *
+   * ⚠ THE PRECONDITION TWIN IS FIRST: without it every absence below is
+   * satisfied by an empty string, and this arm would pass on a deleted branch.
+   */
+  it('makes no claim about what the brief contains', () => {
+    const said = figureTallySubtitle({ total: 0, inModel: 0, proseOnly: 0, absent: 0 })
+    expect(said.length).toBeGreaterThan(20)
+    expect(said.toLowerCase()).toContain('your brief')
+
+    // Every phrasing that asserts the BRIEF has none, rather than reporting
+    // that this run extracted none.
+    for (const claim of ['no figures in', 'has no figures', 'contains no', 'there are no']) {
+      expect(
+        said.toLowerCase(),
+        `"${claim}" states a property of the brief; a zero tally cannot establish one`,
+      ).not.toContain(claim)
+    }
+  })
+
+  /** And it still says the run came up empty — an unreadable sentence is not a fix. */
+  it('still reports that this run extracted nothing', () => {
+    expect(
+      figureTallySubtitle({ total: 0, inModel: 0, proseOnly: 0, absent: 0 }).toLowerCase(),
+    ).toMatch(/didn't pick out any|did not pick out any/)
+  })
+})
+
 describe('figureTallySubtitle — the named states, by exact sentence', () => {
   it.each([
-    ['nothing recorded', { total: 0, inModel: 0, proseOnly: 0, absent: 0 }, 'I found no figures in your brief'],
+    // ⛔ WITNESSED FALSE, 19 Sep 2026, and the sentence moved rather than the
+    // arm. "I found no figures in your brief" asserts a property of THE BRIEF;
+    // it rendered directly beneath a brief reading "We're raising 1.3 million"
+    // and directly above this panel's own list of three estimated figures. A
+    // tally of zero establishes what THIS RUN extracted and nothing more.
+    //
+    // ⚠ Note the other rows already get this right — "figures I found" is a
+    // report of the run and is true wherever the tally is non-zero. Only the
+    // zero arm generalised from "I found none" to "there are none".
+    ['nothing recorded', { total: 0, inModel: 0, proseOnly: 0, absent: 0 }, "I didn't pick out any figures from your brief"],
     ['one figure, it landed', { total: 1, inModel: 1, proseOnly: 0, absent: 0 }, 'The figure I found in your brief is in the model'],
     ['one figure, it did not', { total: 1, inModel: 0, proseOnly: 0, absent: 1 }, "The figure I found in your brief isn't in the model yet"],
     ['all of many landed', { total: 5, inModel: 5, proseOnly: 0, absent: 0 }, 'All 5 figures I found in your brief are in the model'],

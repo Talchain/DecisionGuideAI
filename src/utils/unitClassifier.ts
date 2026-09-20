@@ -18,9 +18,37 @@
  * Generic placeholder units that should render as "scale" / "index" /
  * "score" labels rather than concrete units. Drives the qualitative-tier
  * branch in formatters.
+ *
+ * ⭐⭐ THE TEST IS WHETHER THE WORD NAMES A QUANTITY OR NAMES A RANGE. `months`
+ * and `active leads` name a quantity — a reader knows what 5 of them is.
+ * `scale`, `index` and `unit_interval` name a RANGE and say nothing about what
+ * is being measured, so `0.15 unit_interval` tells a reader only that the
+ * number is between nought and one, which they could already see.
+ *
+ * ⚠ `unit_interval` WAS MISSING AND IT IS LIVE — added 19 Sep 2026. Measured
+ * across nine of the founder's own debug bundles from that day: **18
+ * occurrences**, rendering on his factor cards as `0.15 unit_interval est.`
+ * beside the `0.3 scale` this set already caught. It is the mathematical name
+ * for [0,1] and is therefore the purest member of this set — more obviously a
+ * placeholder than `unit`, which was already here.
+ *
+ * ⛔ `ratio` IS DELIBERATELY ABSENT and must stay absent. It classifies as a
+ * PROPORTION unit, its frame is an open producer question (does a `ratio`
+ * between 0 and 1 assert a percentage?), and independent review has ruled the
+ * UI must not convert until that is answered. 27 occurrences on the same
+ * boards. Adding it here would silently change what a quarter of his edges
+ * claim.
+ *
+ * ⚠ THIS LIST NEEDS A COMPLETENESS CHECK THAT IS NOT DERIVED FROM IT
+ * (CLAUDE.md trap 12d): deriving consumers from a list stops them drifting from
+ * it, and can never notice the list is SHORT — which is exactly how
+ * `unit_interval` survived. `unitClassifier.realUnitCorpus.spec.ts` holds a
+ * corpus of units measured off real wire captures, with both directions
+ * asserted, and is the only thing that can catch the next missing member.
  */
 export const GENERIC_PLACEHOLDER_UNITS: ReadonlySet<string> = new Set([
   'scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units',
+  'unit_interval', 'unitinterval', 'unit interval',
 ])
 
 /**

@@ -261,6 +261,11 @@ function findAnalysisResultBlock(
       pathPrefix: `${ceeResponseBasePath}.blocks[${top.index}]`,
     }
   }
+  // Scenario graph reads return the block directly, not inside turn blocks[].
+  const readBlock = ceeResponse.analysis_result
+  if (isPlainObject(readBlock) && readBlock.type === 'analysis_result') {
+    return { block: readBlock, index: 0, pathPrefix: `${ceeResponseBasePath}.analysis_result` }
+  }
   // 2. Fall back to the parse-error wrapper. We don't require
   //    `kind === 'parse_error'` explicitly — the structural test
   //    (`.raw.blocks[*]` carries an analysis_result) is sufficient

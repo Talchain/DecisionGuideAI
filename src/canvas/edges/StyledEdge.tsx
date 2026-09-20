@@ -16,6 +16,7 @@
  */
 
 import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { edgeDoubleClickAffordance, EDGE_AFFORDANCE_EDITABLE } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
@@ -736,12 +737,41 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * name has exactly one consumer and that consumer already requires
    * `showLabel` (`aria-label={showLabel ? ariaLabel : fragileSentence}`).
    */
+  /**
+   * Can a double-click here actually change the model?
+   *
+   * ⭐ THE SAME DERIVATION THE PANEL FENCES ON, called rather than restated, so
+   * the label and the control cannot drift into promising different things
+   * (CLAUDE.md trap 12 — a second copy agrees on the day it is written).
+   */
+  const affordanceSentence = edgeDoubleClickAffordance(
+    { id, source, target, data } as unknown as Parameters<typeof edgeDoubleClickAffordance>[0],
+  )
+  const strengthIsEditable = affordanceSentence === EDGE_AFFORDANCE_EDITABLE
+
   const ariaLabel =
     `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}` +
-    (strengthUnconfirmed ? `. ${ESTIMATE_SUBJECT_TITLE.strength}` : '')
+    (strengthUnconfirmed ? `. ${ESTIMATE_SUBJECT_TITLE.strength}` : '') +
+    // ⭐ THE SAME PROMISE ON THE ASSISTIVE CHANNEL. A `title` is not reachable
+    // by keyboard focus and is absent on touch, so a sighted keyboard user and
+    // a screen-reader user would otherwise never learn the edge is editable at
+    // all — the gap R13 records one level down, on the strength pills.
+    (strengthIsEditable ? `. ${affordanceSentence}` : '')
 
-  // Inspect the relationship without claiming a local React-Flow write is a
-  // shared-model edit. Inspector v2 owns the visible read-only authority copy.
+  // Open the relationship's panel.
+  //
+  // ⚠⚠ THE COMMENT HERE READ *"Inspect the relationship… Inspector v2 owns the
+  // visible READ-ONLY authority copy"* UNTIL 19 Sep 2026, AND IT HAD STOPPED
+  // BEING TRUE. It was written when `InspectorRouter` wrapped the edge branch
+  // in an unconditional `<fieldset disabled>` — the fence whose own removal
+  // note records that "the strength slider rendered, and `setStrength` was
+  // uncallable for every user". That fence is gone: the panel now edits the
+  // strength on any edge the server has stated one for, and
+  // `edgeStrengthEditIsAssertable` says which.
+  //
+  // ⛔ A STALE COMMENT IS CHEAP; THE WORD IT JUSTIFIED IS NOT. The hover text
+  // below still said "Double-click to inspect", so the product's only standing
+  // affordance for its edge editor described that editor as read-only.
   const handleLabelDoubleClick = (event: React.MouseEvent) => {
     event.stopPropagation()
     openEdgeStrengthEditor(edgeIdKey)
@@ -2062,7 +2092,27 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 ...(showLabel && strengthUnconfirmed ? [ESTIMATE_SUBJECT_TITLE.strength] : []),
                 ...(showFragileRow ? [fragileSentence] : []),
               ]
-              return `${parts.join('\n')}\n\nDouble-click to inspect`
+              // ⭐⭐ SAY WHAT THE DOUBLE-CLICK ACTUALLY DOES.
+              //
+              // THE COST OF THE OLD WORD, measured on the founder's own
+              // session (19 Sep 2026): 27 actions over 34 minutes, EVERY ONE a
+              // chat message or a chip click, and not one direct edit — while
+              // `edgeStrengthEditIsAssertable` returns true for 24 of his 26
+              // edges. The control worked the whole time. The product's only
+              // standing word for it was "inspect", which says read-only.
+              //
+              // ⚠ THE FIRST-RUN PULSE CANNOT CARRY THIS. `useEdgeEditHint`
+              // shows a WORDLESS animation, on `isFirstEdge` ONLY, for five
+              // seconds, and dismisses itself on a timer whether or not anyone
+              // saw it — then persists `edgeEditShown` to localStorage, ONCE
+              // EVER. For anyone who has opened this product before, that hint
+              // was spent months ago and this sentence is all there is.
+              //
+              // ⛔ IT PROMISES ONLY WHERE THE EDIT CAN LAND. Same predicate the
+              // panel fences on, so the two cannot disagree — an edge whose
+              // strength the server states in a shape the contract cannot carry
+              // (every risk -> goal edge today) keeps the honest older word.
+              return `${parts.join('\n')}\n\n${affordanceSentence}`
             })()}
             onDoubleClick={handleLabelDoubleClick}
             onMouseEnter={handleMouseEnter}

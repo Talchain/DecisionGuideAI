@@ -11,7 +11,8 @@
  *     and only the target label in the truncating span.
  */
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { CANVAS_STRENGTH_BANDS } from '../../../canvas/domain/vocabulary'
 import { describe, it, expect } from 'vitest'
 import { TriageCard } from '../TriageCard'
 // Brief 5.7 close-out follow-up: test no longer imports from `@/canvas/` so
@@ -487,7 +488,7 @@ describe('TriageCard — default variant stacks subtitle above value controls', 
 })
 
 describe('TriageCard — edge strength pills carry a "Strength:" lead-in', () => {
-  it('renders the Strength: label before the Weak / Moderate / Strong group', () => {
+  it('renders the Strength: lead-in before the CANONICAL band group', () => {
     render(
       <TriageCard
         cardKey="k-edge-strength"
@@ -501,10 +502,43 @@ describe('TriageCard — edge strength pills carry a "Strength:" lead-in', () =>
       />,
     )
     expect(screen.getByText('Strength:')).toBeInTheDocument()
-    // All three band labels still render
-    expect(screen.getByText('Weak')).toBeInTheDocument()
-    expect(screen.getByText('Moderate')).toBeInTheDocument()
-    expect(screen.getByText('Strong')).toBeInTheDocument()
+    // ⚠ DERIVED, NOT LISTED. This assertion used to name "Weak / Moderate /
+    // Strong" — the component's own private table, which wrote 0.3 / 0.7 / 1.2
+    // against canonical cuts, mislabelling all three and putting two in the
+    // same band. A spec that restates a component's local list cannot notice
+    // the list is wrong; it only notices the component changed. Reading the
+    // canonical table means a moved cut moves this expectation with it.
+    for (const band of CANVAS_STRENGTH_BANDS) {
+      expect(screen.getByText(band.label), `the "${band.label}" pill is missing`).toBeInTheDocument()
+    }
+    // And the old vocabulary is genuinely gone, not merely joined.
+    expect(screen.queryByText('Weak'), '"Weak" is not a canvas strength band').toBeNull()
+  })
+
+  it('a pill click writes the midpoint the canvas agrees with', () => {
+    // The consequential half: these pills WRITE, and a divergent cut attributes
+    // a fabricated number to the user. Asserted for every band, by derivation.
+    const written: number[] = []
+    render(
+      <TriageCard
+        cardKey="k-edge-strength-write"
+        ordinal={3}
+        title="Budget Constraint Severity → Budget Overrun Risk"
+        detail="Edge coaching"
+        subtitle="How strongly does Budget Constraint Severity affect Budget Overrun Risk?"
+        category="verify"
+        action={{ kind: 'edit', label: 'Edit', targetId: 'e1', targetType: 'edge' }}
+        onUpdateEdgeStrength={(_id, value) => { written.push(value) }}
+      />,
+    )
+    for (const band of CANVAS_STRENGTH_BANDS) {
+      fireEvent.click(screen.getByText(band.label))
+    }
+    expect(written).toEqual(CANVAS_STRENGTH_BANDS.map(b => b.midpoint))
+    // Every one inside the model's range — 1.2 was not merely mislabelled.
+    for (const v of written) {
+      expect(Math.abs(v), `${v} is outside |0..1|`).toBeLessThanOrEqual(1)
+    }
   })
 })
 

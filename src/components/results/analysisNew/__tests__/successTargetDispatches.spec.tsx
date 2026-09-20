@@ -322,3 +322,79 @@ describe('the sentence is the one the outcome earned', () => {
     expect(PROMISES_AN_ANALYSIS.test(COPY.successTarget.notEncodable)).toBe(false)
   })
 })
+
+/**
+ * ⛔⛔⛔ THE FIGURE FROM THE READER'S OWN BRIEF, REFUSED WITHOUT A REASON.
+ *
+ * WITNESSED 19 Sep 2026. The panel's Strengthen row says "No measurable success
+ * target is set" and offers "Define success". Paul did exactly that and typed
+ * `1.3 million` — the figure from his brief, in the words his brief used:
+ *
+ *     "We're raising 1.3 million, and we need all of it."
+ *
+ * `statedTargetNumber` is an anchored numeric-literal predicate and does not
+ * read magnitude words, so the commit answered `not_encodable` and the whole of
+ * what he was told was:
+ *
+ *     "That target could not be applied, so nothing changed."
+ *
+ * ⭐ THE PRODUCT ASKED FOR AN INPUT, THE USER SUPPLIED IT, AND IT WAS REFUSED
+ * WITHOUT SAYING WHAT WAS WRONG. That is the worst interaction on this surface:
+ * it punishes the one act the panel is trying to produce.
+ *
+ * ⚠ THE PARSER IS NOT WIDENED. A magnitude alphabet is a known hazard here —
+ * the canonical map was missing `thousand` while every derived guard agreed
+ * with it (trap 12d) — and it has an owner. Naming the cause is the bounded
+ * correction; reading "1.3 million" is separate, larger work.
+ */
+describe('an unreadable amount says what to type, not just that it failed', () => {
+  /**
+   * ⭐⭐ THE CONTROL. Every arm below is vacuous unless a VALID amount still
+   * dispatches from this same harness — otherwise "the refusal is specific"
+   * could pass on an editor that refuses everything.
+   */
+  it('CONTROL: a digit amount still dispatches', () => {
+    typeTarget('1300000')
+    expect(proposeGoalTarget).toHaveBeenCalledWith('1300000', '%', 'scenario-7', 'at_least')
+  })
+
+  it('⛔ the witnessed input is not sent, and is not reported as a generic failure', () => {
+    typeTarget('1.3 million')
+    // Nothing is dispatched — the draft never became a number.
+    expect(proposeGoalTarget).not.toHaveBeenCalled()
+    // And the reader is told WHY, not merely that nothing happened.
+    expect(showToast).toHaveBeenCalledWith(COPY.successTarget.notANumber)
+    expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.notEncodable)
+  })
+
+  /**
+   * ⭐ THE SENTENCE SHOWS THE FORMAT RATHER THAN NAMING IT. A refusal that says
+   * "use a number" without demonstrating one makes the reader guess twice.
+   */
+  it('and the sentence demonstrates what a readable amount looks like', () => {
+    typeTarget('1.3 million')
+    const said = showToast.mock.calls.at(-1)?.[0] ?? ''
+    expect(said).toMatch(/\d{4,}/)
+  })
+
+  /**
+   * ⚠ THE OPPOSITE-DIRECTION TWIN. A BLANK draft is not a format problem —
+   * nothing was typed, so "I could not read that as a number" would answer a
+   * question the reader did not ask. It stays on the generic refusal.
+   */
+  it('a blank draft is still the generic refusal, not a format complaint', () => {
+    typeTarget('   ')
+    expect(proposeGoalTarget).not.toHaveBeenCalled()
+    expect(showToast).toHaveBeenCalledWith(COPY.successTarget.notEncodable)
+    expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.notANumber)
+  })
+
+  /** Other unreadable shapes reach the same sentence — the class, not the case. */
+  it.each(['one point three million', '£1.3m', 'about 1.3', 'lots'])(
+    '%s is reported as unreadable, not as a generic failure',
+    (draft) => {
+      typeTarget(draft)
+      expect(showToast).toHaveBeenCalledWith(COPY.successTarget.notANumber)
+    },
+  )
+})

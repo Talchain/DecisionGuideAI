@@ -23,6 +23,7 @@ import {
   RANK_LABEL_COPY,
   SIGNAL_COPY,
   SPARK_PROMPTS,
+  STRUCTURAL_MARKER_COPY,
 } from '../../constants'
 import { findBannedTerm } from '../../../../../test/glossaryBannedTerms'
 import { BLOCKED_REASON_COPY } from '../../../../utils/composeBlockedReason'
@@ -250,6 +251,16 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   push('HERO_COPY', HERO_COPY)
   push('ACTIONS_MENU', ACTIONS_MENU)
   push('SPARK_PROMPTS', SPARK_PROMPTS)
+  /**
+   * The on-canvas structural marker's accessible names. They never appear as
+   * text on screen — the marker is icon-only — but they are read aloud and shown
+   * as a tooltip, so they are user-facing copy and pass the same scan as
+   * everything else on this surface. Unswept, they would be the one sentence set
+   * this panel's own selector produces that no copy rule governed, which is how a
+   * second set of conventions gets in. `push` skips the deliberate `null` for
+   * `no_external_factor`, which names no node and never reaches the marker.
+   */
+  push('STRUCTURAL_MARKER_COPY', STRUCTURAL_MARKER_COPY)
   for (const def of SIGNAL_REGISTRY) {
     push(`resolved.${def.signal_id}`, def.resolvedCopy ?? '')
   }

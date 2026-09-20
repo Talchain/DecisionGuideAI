@@ -149,6 +149,71 @@ describe('separation_unavailable, now wire-witnessed', () => {
     ).toBeNull()
   })
 
+  /**
+   * ⛔⛔⛔ THE SECOND DOOR, AND THE FIRST SENTENCE WALKED THROUGH IT.
+   *
+   * The arms above watch ONE hazard — a claim about the OPTIONS rather than
+   * about the run. The shipped sentence passed all of them and was still false:
+   *
+   *     "This run did not separate the options far enough apart to put one
+   *      forward."
+   *
+   * That is about the run, contains none of the banned words, and asserts a
+   * MEASUREMENT: that the gap was computed and found too small.
+   *
+   * ⭐ REFUTED BY CAPTURE. Bundle `84c8e210`, staging `c952cca3`, 19 Sep 18:56Z,
+   * `analysis_ready.status: "ready"`:
+   *
+   *     leader_claim = { permitted: false, withheld_reason: "separation_unavailable" }
+   *     win_probability = 0.639 / 0.300 / 0.047 / 0.015        ← a 34-point gap
+   *
+   * ⭐⭐ AND THE CONTRAST CONTROL IS IN THE PRODUCER'S OWN VOCABULARY. Where
+   * separation HAS been assessed, a sibling field says so: `5376e928` carries
+   * `"separation": "separated"`, `57555f97` carries `"separation": "near_tie"`.
+   * On this run the field is ABSENT. `separation_unavailable` is the ABSENCE of
+   * an assessment, not an assessment of closeness — and the token reads like the
+   * second, which is precisely why the sentence must carry the difference
+   * (trap 21 at word level).
+   *
+   * ⚠ ASSERTED AS A PROPERTY, not as "does not contain the old sentence". That
+   * would pass the moment someone wrote a DIFFERENT measurement claim.
+   */
+  it('⛔ claims no MEASUREMENT of the gap — the run could not assess it at all', () => {
+    const clause = leaderWithholdCause('separation_unavailable')!.toLowerCase()
+
+    // Any phrasing that implies the distance was computed and judged.
+    for (const measured of [
+      'far enough',
+      'too close',
+      'not far',
+      'close together',
+      'narrow',
+      'too small',
+      'within',
+    ]) {
+      expect(
+        clause,
+        `"${measured}" asserts the gap was measured; this token means it could not be`,
+      ).not.toContain(measured)
+    }
+
+    // ⭐ The precondition twin: without it every absence above is satisfied by
+    // an empty string, and this arm would pass on a deleted entry.
+    expect(clause).toContain('this run')
+    expect(clause.length).toBeGreaterThan(20)
+  })
+
+  /**
+   * ⚠ AND THE INABILITY IS STATED, not merely implied by what is absent. A
+   * reader needs to know the run could not work it out — otherwise the missing
+   * leader reads as a finding.
+   */
+  it('says the run could not work it out', () => {
+    expect(leaderWithholdCause('separation_unavailable')!.toLowerCase()).toMatch(
+      /could not|cannot|was unable/,
+    )
+  })
+
   it('the earlier entry is untouched', () => {
     expect(leaderWithholdCause('constraint_verdict_withheld')).toContain('limits you set')
   })

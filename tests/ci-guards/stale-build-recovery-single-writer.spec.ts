@@ -32,6 +32,8 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve as resolvePath } from 'node:path'
 
+import { stripCommentsPreservingStrings } from '../../src/test/helpers/reasoningTabCopyScope'
+
 const REPO_ROOT = resolvePath(__dirname, '../..')
 const SRC = join(REPO_ROOT, 'src')
 
@@ -70,8 +72,37 @@ const CORPUS: ReadonlyArray<readonly [string, string]> = walk(SRC).map((file) =>
   return [rel, readFileSync(file, 'utf8')] as const
 })
 
+/**
+ * ⚠⚠ SEARCHES CODE, NOT PROSE — and the distinction is not pedantic, it cost a
+ * deploy a cycle.
+ *
+ * This read raw source, and this file's own docblock states the premise it was
+ * resting on: *"If this string appears in a module, that module is deciding for
+ * itself what a chunk error looks like."* **That is false for a comment.**
+ *
+ * `canvas/layout/handleLayoutWithRecovery.ts:86` quotes the browser's actual
+ * message — `TypeError: Failed to fetch dynamically imported module
+ * .../elk.bundled-BgtF8tzk.js` — as the WITNESS for why the delegation below it
+ * exists. That line is the most valuable one in the file: it is the error the
+ * founder actually saw on 19 Sep 2026. The guard counted it as a second
+ * detector and REDed the PR that fixed the incident it documents.
+ *
+ * ⭐ THE GUARD KEEPS ITS TEETH. String LITERALS survive the strip, so a real
+ * second detector — a regex or a comparison against the message in CODE — is
+ * still caught — proven by mutant (a literal detector planted in a second
+ * module REDs this guard), and the stripper's own both-directions pair is
+ * pinned in `src/test/helpers/__tests__/parseEdgesIgnoresComments.spec.ts`:
+ * prose must not count, a quoted literal must survive verbatim.
+ *
+ * ⛔ THE STRIPPER IS IMPORTED. `src/test/helpers/reasoningTabCopyScope.ts` owns
+ * it. The SAME comments-as-code defect shipped in that helper's import walker
+ * and in `noWinnerVocabulary.spec.ts`'s copy of it, and all three were fixed
+ * together; a fourth spelling here would be the mirror that caused it.
+ */
 function filesContaining(needle: string): string[] {
-  return CORPUS.filter(([, code]) => code.includes(needle)).map(([rel]) => rel)
+  return CORPUS.filter(([, code]) => stripCommentsPreservingStrings(code).includes(needle)).map(
+    ([rel]) => rel,
+  )
 }
 
 describe('stale-build recovery — one detector, one sentence, one reload guard', () => {

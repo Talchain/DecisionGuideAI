@@ -15,6 +15,10 @@ import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 // rather than restating its members is what makes a sixth settlement fail RED here
 // instead of rendering an empty sentence at a control the user just pressed.
 import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
+// TYPE ONLY, for the same reason: `STRUCTURAL_MARKER_COPY` below is keyed by this
+// union so a FOURTH structural kind is a type error here rather than an on-canvas
+// marker with no sentence behind it.
+import type { StructuralAbsenceKind } from './selectors/computeStructuralAbsence'
 
 export type { SparkPrompt } from './types'
 
@@ -282,6 +286,41 @@ export const SIGNAL_COPY = {
   structuralNoExternalFactorRationale:
     'Controllability (Howard): separating what you decide from what you merely endure shows where choice actually operates, and stops a model that quietly assumes the world holds still.',
 } as const
+
+/**
+ * ⭐⭐ THE ON-CANVAS STRUCTURAL MARKER'S ONLY WORDS — and they are an
+ * ACCESSIBLE NAME, not text on screen.
+ *
+ * `NodeStructuralMarker` renders an icon-only glyph, so these sentences reach a
+ * reader through `aria-label` + `title` and nowhere else. That is a constraint,
+ * not a preference: `__tests__/canvasTextCounterScale.census.spec.ts` asserts its
+ * derived `KNOWN_FIXED` set EXACTLY over the directories React Flow renders from,
+ * and `nodes/shared/` is one of them, so a declared font size in that component
+ * would RED the census and demand an entry in a hand-maintained set. No text
+ * means no size to declare. It is also why there is no "+N" count.
+ *
+ * ⚠ THEY STATE WHAT WAS OBSERVED HERE. THEY DO NOT ADVISE, PREDICT, OR
+ * ATTRIBUTE THEMSELVES TO OLUMI. This is the same rule `useScienceIcons`'s
+ * header sets for the other client-derived channel, and it is the whole reason
+ * this marker is allowed on the board at all: the finding is computed in the
+ * browser from the model's shape, with no producer stamp behind it, so the
+ * sentence says so. The ACTION stays where it already lives — the panel row owns
+ * `send_prompt` and the spark; a glyph that advised would be a dead-end intent.
+ *
+ * ⚠ KEYED BY THE UNION, AND `no_external_factor` IS DELIBERATELY `null`. That
+ * finding names no node (`actionTargetIds` is always `[]` for it), so it can
+ * never reach this surface. `null` records that as a decision instead of an
+ * omission, and a fourth kind cannot be added without making one.
+ */
+export const STRUCTURAL_MARKER_COPY: Readonly<
+  Record<StructuralAbsenceKind, string | null>
+> = {
+  no_downside:
+    'Observed from the shape of your model: no option reaches this risk.',
+  shared_mechanism:
+    'Observed from the shape of your model: every option acts directly on this part.',
+  no_external_factor: null,
+}
 
 /**
  * One sentence per settlement, keyed by the union itself so a new member is a

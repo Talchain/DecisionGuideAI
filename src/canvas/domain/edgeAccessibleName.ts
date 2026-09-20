@@ -51,6 +51,7 @@ import {
   resolveEdgeDirectionDisplay,
 } from './edgeValueProvenance'
 import { getEdgeLabel, type EdgeLabelMode } from './edgeLabels'
+import { edgeDoubleClickAffordance } from '../edges/edgeAffordance'
 
 /** What the estate already calls a node with no label. Not re-invented here. */
 export const UNTITLED_NODE_NAME = 'Untitled'
@@ -65,6 +66,15 @@ export interface EdgeAccessibleNameInput {
    * when this edge says nothing. NEVER synthesised in this module.
    */
   description?: string | null
+  /**
+   * What a double-click on this edge actually does, from
+   * `edgeDoubleClickAffordance`. Absent or empty adds no clause.
+   *
+   * ⛔ IT IS PASSED IN, RESOLVED, for the same reason `description` is: this
+   * module never decides whether an edit can land. The one derivation lives
+   * beside the predicate the panel fences on, and both channels CALL it.
+   */
+  affordance?: string | null
 }
 
 function nameOrUntitled(label: string | null | undefined): string {
@@ -88,10 +98,15 @@ export function buildEdgeAccessibleName({
   sourceLabel,
   targetLabel,
   description,
+  affordance,
 }: EdgeAccessibleNameInput): string {
   const base = `Connection from ${nameOrUntitled(sourceLabel)} to ${nameOrUntitled(targetLabel)}`
   const said = typeof description === 'string' ? description.trim() : ''
-  return said.length > 0 ? `${base}. ${said}` : base
+  const offered = typeof affordance === 'string' ? affordance.trim() : ''
+  // Clauses in the order a listener needs them: WHAT it is, WHAT it says, and
+  // only then what can be done about it. The affordance last because it is the
+  // only clause that is about the interface rather than about the model.
+  return [base, said, offered].filter(c => c.length > 0).join('. ')
 }
 
 /* ------------------------------------------------------------------------- */
@@ -147,6 +162,14 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
         sourceLabel: nodeLabelById.get(edge.source),
         targetLabel: nodeLabelById.get(edge.target),
         description: describeEdgeForSpeech(edge.data, mode),
+        // ⭐ THE OUTER GROUP IS WHERE THIS HAS TO LAND. `StyledEdge` carries the
+        // same sentence, but on an INNER element that exists only while the
+        // edge's label renders — the exact asymmetry this module's header was
+        // written about. Measured on deployed `7ec3fed2`: 39 connections, 39
+        // announcing a strength, 3 rendering a label, and 0 announcing the
+        // affordance. Passed through `edgeDoubleClickAffordance` so the spoken
+        // word and the hovered word cannot drift apart.
+        affordance: edgeDoubleClickAffordance(edge as never),
       }),
     }
   })

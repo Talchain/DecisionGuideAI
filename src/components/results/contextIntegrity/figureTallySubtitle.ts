@@ -171,7 +171,31 @@ export function figureTallySubtitle(
   const notYet = tally.absent + tally.proseOnly
 
   if (tally.total === 0 && tally.inModel === 0 && notYet === 0) {
-    return 'I found no figures in your brief'
+    /**
+     * ⛔⛔ WITNESSED FALSE, 19 Sep 2026. The panel rendered "I found no figures
+     * in your brief" directly beneath the reader's own brief, which read:
+     *
+     *     "We're raising 1.3 million, and we need all of it."
+     *
+     * and directly ABOVE its own "What I estimated" list of three figures. The
+     * producer's tally was all zeros and this arm reported it faithfully — but
+     * the sentence asserts a property of THE BRIEF, and the brief was on the
+     * same screen saying otherwise.
+     *
+     * ⭐ THE FIX IS THE SAME ONE `separation_unavailable` NEEDED: say what the
+     * RUN did, not what the WORLD is. "I found no figures" is a claim about the
+     * text; "I didn't pick out any figures" is a report of this run's own
+     * extraction, which is exactly what a tally of zero establishes and all it
+     * establishes.
+     *
+     * ⚠ AND IT NEEDS NO NEW INPUT, WHICH IS WHY IT IS A SENTENCE AND NOT A
+     * BRANCH. The weaker claim is true over the WHOLE domain — a brief with no
+     * numbers in it, and a brief whose numbers this run missed. A conditional
+     * on "does the brief contain a numeral" would be a second predicate over
+     * the same fact, and this file already records what four passes of that
+     * cost (trap 22f).
+     */
+    return "I didn't pick out any figures from your brief"
   }
 
   if (notYet > 0) {
