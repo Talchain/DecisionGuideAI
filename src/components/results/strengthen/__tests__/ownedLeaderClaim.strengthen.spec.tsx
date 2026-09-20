@@ -168,6 +168,14 @@ const DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   // kept so a return to the retired wording is still red, which is the same
   // union rule `FRAGILE_CLAIM_RE` states in `withheldProse.spec.tsx:255-258`.
   ['<option> scores highest instead', /\bscores highest instead\b/i],
+  // ⭐ THE SAME CLAIM AGAIN, IN THE WORDS THE COPY NOW USES (20 Sep 2026). The
+  // flip signal stopped stating ISL's `switch_probability` as an unconditional
+  // forecast and now states the measured conditional: "{alt} was the stronger
+  // option NN% of the time". The designation is identical — it names one option
+  // as ahead of the others — so the withheld arm must still catch it.
+  // ADDED, not swapped, on this table's own standing rule: every retired form
+  // stays, so a return to any of them is still red.
+  ['<option> was the stronger option', /\bwas the stronger option\b/i],
   ['topic: challenge_leader', /challenge_leader/],
 ]
 
@@ -206,13 +214,20 @@ const PERMITTED_DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   // power. Narrowing a control further than the change requires is the quiet way
   // a guard stops proving anything — the reviewer proved 27/27 with it present.
   ['the ranking', /\bthe ranking\b/i],
-  // ⚠ RE-POINTED, NOT DROPPED (11 Sep 2026). The permitted flip signal read
-  // "NN% chance the result flips to {alt}" and now reads "NN% chance {alt}
-  // scores highest instead" — the oracle referent went, the designation did
-  // not. Deleting this row instead of re-pointing it would leave the withheld
-  // sweep unable to prove it can SEE a presence, which this file's own header
-  // calls the real hazard.
-  ['<option> scores highest instead', /\bscores highest instead\b/i],
+  // ⚠ RE-POINTED TWICE NOW, AND NEVER DROPPED. 11 Sep: the permitted flip signal
+  // read "NN% chance the result flips to {alt}" and became "NN% chance {alt}
+  // scores highest instead" — the oracle referent went, the designation did not.
+  // 20 Sep: it became "{alt} was the stronger option NN% of the time", because
+  // the previous wording stated ISL's `switch_probability` as an unconditional
+  // forecast when the field is a proportion of the runs in which that edge came
+  // out weak. The designation survived both rewrites intact.
+  //
+  // ⛔ THIS ROW IS WHY THE REWRITE COULD NOT SHIP SILENTLY: it went RED the
+  // moment the phrase left the product, which is a positive control doing
+  // exactly its job. Deleting it instead of re-pointing it would leave the
+  // withheld sweep unable to prove it can SEE a presence — a net that passes
+  // because it is blind, which this file's header calls the real hazard.
+  ['<option> was the stronger option', /\bwas the stronger option\b/i],
   ['topic: challenge_leader', /challenge_leader/],
 ]
 

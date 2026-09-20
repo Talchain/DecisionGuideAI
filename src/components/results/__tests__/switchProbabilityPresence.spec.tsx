@@ -17,7 +17,9 @@
  *      Defect at tip: `fe.switch_probability ?? fe.marginal_switch_probability`
  *      renders a percentage for a marginal-only edge.
  *   B. StrengthenContainer fragileEdges mapping → buildRecommendations flip
- *      trigger "NN% chance {alt} scores highest instead…" + the action wire param
+ *      trigger (⚠ reworded 20 Sep 2026: it read "NN% chance {alt} scores
+ *      highest instead…" and now reads "…{alt} was the stronger option NN% of
+ *      the time", because the field is conditional) + the action wire param
  *      literally named `switch_probability`. Defect at tip: the mapping
  *      PREFERRED marginal over a PRESENT measured switch_probability.
  *
@@ -227,7 +229,17 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('20% chance Plan B scores highest instead')
+    /*
+     * ⚠ RE-POINTED, NOT WEAKENED (20 Sep 2026). The signal read "20% chance
+     * Plan B scores highest instead" and now reads "…Plan B was the stronger
+     * option 20% of the time", because the old wording stated ISL's
+     * `switch_probability` — a proportion of runs in which the edge came out
+     * weak — as an unconditional forecast. THE DISCRIMINATION THIS TEST EXISTS
+     * FOR IS UNTOUCHED: it still binds the alternative BY NAME and still pins
+     * the MEASURED 20% against the marginal 60% on the line below, which is the
+     * whole point of the fixture carrying both.
+     */
+    expect(flip!.snapshot.signal).toContain('Plan B was the stronger option 20% of the time')
     expect(flip!.snapshot.signal).not.toContain('60%')
     // The wire param named switch_probability must carry the measured value.
     expect((flip!.snapshot.action as any).parameters.switch_probability).toBe(0.2)
@@ -235,7 +247,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     // panel's "Show N more" fold — expand before asserting).
     const showMore = screen.queryByText(/Show \d+ more/)
     if (showMore) fireEvent.click(showMore)
-    expect(screen.getByText(/20% chance Plan B scores highest instead/)).toBeTruthy()
+    expect(screen.getByText(/Plan B was the stronger option 20% of the time/)).toBeTruthy()
   })
 
   it('PIN: an edge WITHOUT a measured switch_probability produces NO flip recommendation (absence renders nothing)', () => {
@@ -271,7 +283,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('45% chance Plan B scores highest instead')
+    expect(flip!.snapshot.signal).toContain('Plan B was the stronger option 45% of the time')
   })
 
   it('CONTROL: a measured switch_probability of 0 still renders (0% is a measurement, not absence)', () => {
@@ -290,7 +302,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('0% chance Plan B scores highest instead')
+    expect(flip!.snapshot.signal).toContain('Plan B was the stronger option 0% of the time')
   })
 })
 
