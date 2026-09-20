@@ -821,7 +821,24 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         title: `Give ${next.label} a value of your own`,
         signal: `${readout.phrase}, and the estimate behind it is Olumi's.`,
         whyNow:
-          'Until at least one of the values this comparison turns on is yours, no option can be put forward as the leader.',
+          /**
+           * ⚠ "as the leader" CAME OUT — `noWinnerVocabulary.spec.ts` REDDED IT
+           * and was right. The 8 Sep no-contest ruling retires placings from
+           * UI-AUTHORED copy, and "the leader" is one.
+           *
+           * ⭐ CEE's own admission message says "no option can be called the
+           * leader" and is NOT caught, because producer prose renders verbatim
+           * and is exempt by design. That asymmetry is correct and is exactly
+           * why the guard sweeps this file: a sentence this surface AUTHORS is
+           * held to the ruling even where the producer's neighbouring sentence
+           * is not.
+           *
+           * "put one forward" is the phrasing the estate already permits —
+           * `checks.leader_not_assessed.orderingCaveat`'s sibling uses it and
+           * passes the same sweep — so this states the same fact in the
+           * vocabulary that survived the ruling.
+           */
+          'Until at least one of the values this comparison turns on is yours, no option can be put forward.',
         /**
          * ⚠ THE ROUTE MUTATES NOTHING, AND THAT IS WHY THIS ROW IS SAFE TO SHOW.
          * `canvas-focus` takes the reader to the factor; it types no number and
