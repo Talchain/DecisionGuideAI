@@ -382,7 +382,26 @@ function displayValueRestatesValue(displayValue: string | null | undefined, valu
  * @returns `true` when the string is a magnitude summary wearing a placeholder
  *          unit and must not be shown as it stands.
  */
-const BARE_MAGNITUDE_SUMMARY = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s+([A-Za-z]+)\s*$/
+/**
+ * ⚠⚠ THE SUFFIX CLASS WAS `[A-Za-z]+` AND THAT SILENTLY EXCLUDED THE UNIT THIS
+ * RULE WAS EXTENDED FOR. `unit_interval` contains an underscore, so
+ * `"0.15 unit_interval"` did not match, the forwarding branch returned the
+ * producer's string verbatim, and the founder's card went on printing
+ * `0.15 unit_interval est.` **after the PR that added that spelling to
+ * `GENERIC_PLACEHOLDER_UNITS`.** Classification succeeded; the formatter never
+ * asked it. Found by independent review, not by the corpus written to prevent
+ * exactly this — that corpus exercised the CLASSIFIER and shared the
+ * FORMATTER's blind spot (CLAUDE.md trap 13d: a corpus that shares the code's
+ * blind spot cannot see the code's defect).
+ *
+ * ⭐ THE CLASS NOW MATCHES WHAT `classifyUnit` CAN ACCEPT — letters, plus the
+ * inner separators a producer uses for a multi-word unit (`unit_interval`,
+ * `unit interval`, `unit-interval`). It is still anchored, still requires a
+ * leading number and a single trailing token, and `classifyUnit` remains the
+ * only thing that decides whether the token is a placeholder — so widening the
+ * SHAPE cannot widen the POLICY.
+ */
+const BARE_MAGNITUDE_SUMMARY = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s+([A-Za-z][A-Za-z_\- ]*[A-Za-z]|[A-Za-z])\s*$/
 
 /**
  * The producer's own figure, with the false unit removed — or `null` when this

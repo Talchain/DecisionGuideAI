@@ -43,7 +43,12 @@
  * full Zustand store and so the contract is explicit at the call
  * site.
  */
+import type { TraceCapture } from './payload-trace-store'
+
 export interface SelectorTracedPayload {
+  capture?: TraceCapture
+  timestamp?: number
+  completedAt?: number
   /** Trace store id. */
   id?: string
   /** Service classification. Matched case-insensitively for safety. */
@@ -115,6 +120,7 @@ export type ResponseHashSource =
   | 'body_lineage_response_hash'
   | 'body_blocks_analysis_result_response_hash'
   | 'header_x_olumi_response_hash'
+  | 'scenario_read_mapped_report_hash'
 
 export interface ResponseHashReading {
   readonly hash: string
@@ -199,7 +205,7 @@ export {
   isCeeService,
   isV5TurnEndpoint,
 } from './v5TraceMatching'
-import { isCeeService, isV5TurnEndpoint } from './v5TraceMatching'
+import { isCeeService, isV5TurnEndpoint, extractPathname } from './v5TraceMatching'
 
 /**
  * Defensive turn / action type read. Looks at every documented
@@ -281,6 +287,9 @@ export function readTurnOrActionType(
 export function readResponseHashWithSource(
   p: SelectorTracedPayload,
 ): ResponseHashReading | null {
+  if (p.capture?.kind === 'scenario_graph_read' && p.capture.analysisResultHash) {
+    return { hash: p.capture.analysisResultHash, source: 'scenario_read_mapped_report_hash' }
+  }
   const body = p.response?.body
   if (body && typeof body === 'object' && !Array.isArray(body)) {
     const root = body as Record<string, unknown>
@@ -382,6 +391,7 @@ export function readResponseHash(p: SelectorTracedPayload): string | null {
  * only — that's the wire shape (`buildPayload.ts`).
  */
 export function readScenarioId(p: SelectorTracedPayload): string | null {
+  if (p.capture?.kind === 'scenario_graph_read') return p.capture.scenarioId ?? null
   const body = p.request?.body
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
   const sid = (body as Record<string, unknown>).scenario_id
@@ -568,4 +578,24 @@ export function findLatestAnalysisProducingCeeTurn(
       hash_match_status,
     },
   }
+}
+
+/** A read may explain a report only when BOTH scenario and report identity match. */
+export function matchingScenarioAnalysisReads(
+  payloads: ReadonlyArray<SelectorTracedPayload>,
+  scenarioId: string | null,
+  resultsHash: string | null,
+): SelectorTracedPayload[] {
+  if (!scenarioId || !resultsHash) return []
+  return payloads.filter((p) => {
+    const path = p.endpoint ? extractPathname(p.endpoint) : null
+    const pathScenario = path?.match(/\/(?:bff\/cee|assist\/v1)\/scenarios\/([^/]+)\/graph\/?$/)?.[1]
+    if (pathScenario !== encodeURIComponent(scenarioId)) return false
+    if (p.capture?.kind !== 'scenario_graph_read' || !isCeeService(p) || !isCompletedTwoXx(p)) return false
+    if (p.capture.scenarioId !== scenarioId || p.capture.analysisResultHash !== resultsHash) return false
+    const body = p.response?.body as Record<string, unknown> | null | undefined
+    if (typeof body?.scenario_id === 'string' && body.scenario_id !== scenarioId) return false
+    const block = body?.analysis_result as Record<string, unknown> | null | undefined
+    return block?.type === 'analysis_result'
+  })
 }

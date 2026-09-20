@@ -65,7 +65,8 @@ function ingest(parsed = parsedResponseWithPromptCapture()) {
     payload: PAYLOAD,
     parsed: parsed as never,
     statusCode: 200,
-    durationMs: 61_000,
+    startedAt: 1_000,
+    completedAt: 62_000,
     headers: { 'x-request-id': 'req-abc' },
   })
   const req = traceSpies.recordRequestPayload.mock.calls[0]?.[0]
@@ -106,15 +107,14 @@ describe('recordStreamedTerminalIngest', () => {
     expect(sidecar._prompt_capture[0].prompt_version).toBe('v21')
   })
 
-  it('files the record under the BUFFERED endpoint, which is what the ledger classifies as a turn', () => {
-    const { req } = ingest()
-    const buffered = adapterInternals.resolveEndpoint()
-    expect(req.endpoint).toBe(buffered)
-    // The discriminating property: a `/turn/stream` endpoint is scored
-    // `transport_leg` by `deriveOutcome` BEFORE assistant_text is read, so a
-    // record filed there leaves `turn_record_count` at zero.
-    expect(req.endpoint).not.toMatch(/\/turn\/stream\/?$/)
+  it('records the actual stream endpoint, original start/end and propagated request identity', () => {
+    const { req, res } = ingest()
+    expect(req.endpoint).toBe(`${adapterInternals.resolveEndpoint()}/stream`)
     expect(isV5TurnEndpoint({ service: 'CEE', endpoint: req.endpoint })).toBe(true)
+    expect(req.capture).toEqual({ kind: 'streamed_terminal_ingest', requestId: 'req-abc' })
+    expect(req.timestamp).toBe(1_000)
+    expect(res.completedAt).toBe(62_000)
+    expect(req.timestamp + res.duration).toBe(res.completedAt)
   })
 
   it('discloses the real transport on the response headers rather than hiding it', () => {

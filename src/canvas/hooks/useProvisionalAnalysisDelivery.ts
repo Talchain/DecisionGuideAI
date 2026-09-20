@@ -690,7 +690,11 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
     // which `drop_console` removes from the production bundle entirely — so on
     // a deployed build there was NO record that this schedule ever armed, and a
     // delivery failure could only be reasoned about from what the SERVER said.
-    recordDeliveryArmed(runKey)
+    // ⚠ THE TOKEN IS KEPT, because `runKey` does not identify an ATTEMPT. This
+    // effect re-arms on the same `${scenarioId}:${started_at}` whenever `userId`
+    // resolves, so A's late abort would otherwise settle B's record — and that
+    // record is now read as product authority by `useAnalysisWaitExhausted`.
+    const attempt = recordDeliveryArmed(runKey)
 
     const controller = new AbortController()
     let settled = false
@@ -713,7 +717,7 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
         wait: waitFor,
       })
       settled = true
-      recordDeliverySettled(runKey, String(outcome))
+      recordDeliverySettled(runKey, attempt, String(outcome))
       logger.debug('provisional_analysis_delivery.outcome', { scenarioId, outcome })
     })()
 

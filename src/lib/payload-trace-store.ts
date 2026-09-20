@@ -33,6 +33,15 @@ const PAYLOAD_REDACTION_OPTIONS = DEBUG_BUNDLE_REDACTION_OPTIONS
 // Types
 // ============================================================================
 
+/** Diagnostic transport identity; never an invented conversational turn. */
+export interface TraceCapture {
+  kind: 'stream_open' | 'streamed_terminal_ingest' | 'scenario_graph_read'
+  requestId?: string
+  scenarioId?: string
+  /** Derived by the same mapper used for the displayed report, before redaction. */
+  analysisResultHash?: string
+}
+
 export interface TracedPayload {
   /** Request ID (correlates with debug-state) */
   id: string
@@ -44,6 +53,8 @@ export interface TracedPayload {
   method: string
   /** Request timestamp */
   timestamp: number
+  completedAt?: number
+  capture?: TraceCapture
   /** Request duration in ms (set after response) */
   duration?: number
   /** HTTP status code (set after response) */
@@ -115,6 +126,8 @@ export interface PayloadTraceStore {
     headers: Record<string, string>
     body: unknown
     turnType?: string
+    timestamp?: number
+    capture?: TraceCapture
   }) => void
 
   recordResponsePayload: (params: {
@@ -123,6 +136,7 @@ export interface PayloadTraceStore {
     headers: Record<string, string>
     body: unknown
     duration: number
+    completedAt?: number
     error?: string
     /** Native Error.name (e.g. "TypeError", "AbortError") when fetch threw. */
     errorName?: string
@@ -355,7 +369,8 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
       service,
       endpoint: params.endpoint,
       method: params.method,
-      timestamp: Date.now(),
+      timestamp: params.timestamp ?? Date.now(),
+      ...(params.capture ? { capture: params.capture } : {}),
       ...(params.turnType ? { turnType: params.turnType } : {}),
       request: {
         headers: redactPayload(params.headers, PAYLOAD_REDACTION_OPTIONS) as Record<string, string>,
@@ -460,6 +475,7 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
           ...p,
           status: params.status,
           duration: params.duration,
+          completedAt: params.completedAt ?? Date.now(),
           error: params.error,
           ...(params.errorName ? { errorName: params.errorName } : {}),
           ...(redactedErrorCause ? { errorCause: redactedErrorCause } : {}),
@@ -645,6 +661,8 @@ export function recordRequestPayload(params: {
   headers: Record<string, string>
   body: unknown
   turnType?: string
+  timestamp?: number
+  capture?: TraceCapture
 }): void {
   usePayloadTraceStore.getState().recordRequestPayload(params)
 }
@@ -658,6 +676,7 @@ export function recordResponsePayload(params: {
   headers: Record<string, string>
   body: unknown
   duration: number
+  completedAt?: number
   error?: string
   errorName?: string
   errorCause?: string

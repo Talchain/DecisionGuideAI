@@ -49,8 +49,8 @@ describe('the client can say what its delivery schedule did', () => {
   })
 
   it('records the outcome verbatim when it settles', () => {
-    recordDeliveryArmed(KEY)
-    recordDeliverySettled(KEY, 'delivered')
+    const tok_delivered = recordDeliveryArmed(KEY)
+    recordDeliverySettled(KEY, tok_delivered, 'delivered')
     const r = readDeliveryRecord()!
     expect(r.outcome).toBe('delivered')
     expect(Date.parse(r.settled_at!)).not.toBeNaN()
@@ -64,10 +64,10 @@ describe('the client can say what its delivery schedule did', () => {
    * run the user is actually looking at.
    */
   it('⛔ a settle for a superseded run is ignored', () => {
-    recordDeliveryArmed(KEY)
+    const first = recordDeliveryArmed(KEY)
     const NEXT = 'scenario-abc:2026-09-19T10:52:00.000Z'
     recordDeliveryArmed(NEXT)
-    recordDeliverySettled(KEY, 'aborted')
+    recordDeliverySettled(KEY, first, 'aborted')
 
     const r = readDeliveryRecord()!
     expect(r.run_key, 'the current run is the one that armed last').toBe(NEXT)
@@ -79,8 +79,8 @@ describe('the client can say what its delivery schedule did', () => {
    * settle would satisfy the arm above.
    */
   it('⛔ and a settle for the CURRENT run is not ignored', () => {
-    recordDeliveryArmed(KEY)
-    recordDeliverySettled(KEY, 'delivered')
+    const tok_delivered = recordDeliveryArmed(KEY)
+    recordDeliverySettled(KEY, tok_delivered, 'delivered')
     expect(readDeliveryRecord()!.outcome).toBe('delivered')
   })
 
@@ -93,16 +93,31 @@ describe('the client can say what its delivery schedule did', () => {
 
   /**
    * ⛔ NO USER TEXT. This rides an exhaust channel that gets pasted into chats.
-   * The record's whole shape is four fields and this pins that it stays four.
+   * The record's whole shape is five fields and this pins that it stays five.
+   *
+   * ⚠ IT WAS FOUR, AND `attempt` IS THE ONE ADDED — a monotonic counter of
+   * arms in this tab. It is an identifier in the same sense `run_key` is:
+   * derived from nothing the user typed, and meaningless outside this session.
+   * It exists because `run_key` is NOT unique per attempt (the effect re-arms
+   * under the same key), and a product surface now reads this record — see
+   * `aSupersededAttemptMayNotSettle.spec.ts`.
+   *
+   * ⭐ The guard is UNCHANGED IN KIND: it still fails loud on any sixth field,
+   * which is the whole point. Widening it to a subset check would have made it
+   * blind to exactly the leak it exists to catch.
    */
   it('⛔ carries identifiers and timestamps only', () => {
-    recordDeliveryArmed(KEY)
-    recordDeliverySettled(KEY, 'delivered')
+    const t = recordDeliveryArmed(KEY)
+    recordDeliverySettled(KEY, t, 'delivered')
     expect(Object.keys(readDeliveryRecord()!).sort()).toEqual([
       'armed_at',
+      'attempt',
       'outcome',
       'run_key',
       'settled_at',
     ])
+    // ⛔ And the added field carries no user-authored content, asserted rather
+    // than argued: a number cannot hold a label, a brief or an option name.
+    expect(typeof readDeliveryRecord()!.attempt).toBe('number')
   })
 })

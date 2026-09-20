@@ -120,8 +120,11 @@ export async function openV5TurnStream(
   // SSE response opened.
   const traceId = crypto.randomUUID()
   const requestedAt = Date.now()
+  const requestId = new Headers(opts.headers).get('x-request-id') ?? undefined
   recordRequestPayload({
     id: traceId,
+    timestamp: requestedAt,
+    capture: { kind: 'stream_open', requestId },
     endpoint: url,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(opts.headers ?? {}) },
@@ -199,75 +202,37 @@ export async function openV5TurnStream(
   return res
 }
 
-/**
- * Header stamped on the terminal-ingest trace record, so a bundle reader can
- * tell it from a genuinely buffered turn. The record is deliberately filed
- * under the BUFFERED endpoint (see `recordStreamedTerminalIngest`); this is
- * where that choice is disclosed rather than hidden.
- */
+/** The terminal receipt is explicitly distinguished from the HTTP open. */
 export const STREAM_TERMINAL_INGEST_HEADER = 'x-olumi-trace-record-kind'
 export const STREAM_TERMINAL_INGEST_KIND = 'streamed_terminal_ingest'
 
-/**
- * Record the streamed turn's TERMINAL FRAME as a settled trace entry.
- *
- * ── WHY THIS EXISTS ──────────────────────────────────────────────────────
- * `openV5TurnStream` records the SSE OPEN and, by design, nothing else: its
- * body is `STREAM_OPEN_TRACE_BODY` and its own spec pins that BY REFERENCE,
- * because a record that never observed the turn must not claim a turn
- * outcome. The consequence, unnoticed until 2026-09-10, is that a streamed
- * cold draft that SUCCEEDS leaves the trace store with no record of the
- * response body at all. `payloads.cee_response` in the debug bundle is
- * `findBestPayload(..., 'CEE')?.response?.body` — so on the streamed path it
- * resolved to the OPEN MARKER, and every top-level key CEE returned was
- * simply absent from the bundle. `_prompt_capture` — the verbatim served
- * system prompt — is returned ONLY on a cold draft, which is exactly and
- * only the turn shape that takes this route (`streamedDraftEligible`). The
- * one turn carrying the prompt was the one turn whose body was never
- * recorded.
- *
- * ── WHY THE BUFFERED ENDPOINT, NOT THE STREAM ENDPOINT ───────────────────
- * `detectService` derives the service FROM the endpoint, so the record must
- * carry a CEE endpoint to be reachable at all. Given that, the choice is
- * between the stream sibling and the buffered original, and it is NOT
- * cosmetic: `readTransportKind` in `recentConversationTurns.ts` matches
- * `/turn/<sub>$`, and `deriveOutcome`'s FIRST branch short-circuits anything
- * that is not `buffered_turn` to `outcome: 'transport_leg'` — before it ever
- * looks at `assistant_text`. Filed under `.../turn/stream`, this record
- * would score as a second transport leg and `turn_record_count` would stay
- * ZERO for a turn that was answered.
- *
- * The buffered endpoint is also the ACCURATE description of what this record
- * holds. This module's header states the property: the terminal frame's
- * `payload` IS the buffered body, handed to the buffered path's own parser,
- * byte-equivalent by construction. And it makes the streamed SUCCESS path
- * produce the same ledger shape the streamed FALLBACK path already produces
- * — where the buffered re-send writes exactly this record itself. The
- * transport truth is not lost: it is stamped on the response headers.
- *
- * ── SETTLED IN ONE CALL ──────────────────────────────────────────────────
- * Request and response are recorded together, synchronously. A request-only
- * entry would be read by `detectFailedHttpRecord` as a FAILED V5 HTTP record
- * for the whole session — the exact defect this module's header documents
- * removing, reintroduced one record over.
+/** Record the parsed terminal response at its actual stream endpoint and times.
+ * This receipt does not issue a second request. Its propagated request ID joins
+ * the open receipt and server logs; its store ID identifies this capture stage.
  */
 export function recordStreamedTerminalIngest(params: {
   payload: OrchestratorTurnPayload
   parsed: V5CallResult
   statusCode: number
-  durationMs: number
+  startedAt: number
+  completedAt: number
   headers?: Record<string, string>
 }): void {
   const id = crypto.randomUUID()
-  const endpoint = adapterInternals.resolveEndpoint()
+  const endpoint = getV5StreamEndpoint()
 
   recordRequestPayload({
     id,
+    timestamp: params.startedAt,
+    capture: {
+      kind: 'streamed_terminal_ingest',
+      requestId: new Headers(params.headers).get('x-request-id') ?? undefined,
+    },
     endpoint,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Accept: 'application/json',
+      Accept: 'text/event-stream',
       ...(params.headers ?? {}),
     },
     // The turn payload VERBATIM, exactly as the buffered adapter records it.
@@ -303,7 +268,8 @@ export function recordStreamedTerminalIngest(params: {
       [STREAM_TERMINAL_INGEST_HEADER]: STREAM_TERMINAL_INGEST_KIND,
     },
     body: traceBody,
-    duration: params.durationMs,
+    duration: params.completedAt - params.startedAt,
+    completedAt: params.completedAt,
   })
 }
 
