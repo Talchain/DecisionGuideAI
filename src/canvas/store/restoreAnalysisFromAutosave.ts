@@ -19,6 +19,7 @@
  * evidenced only by the live leave-and-return acceptance recorded in the PR.
  */
 
+import { syntheticRestoreId } from './runIdentityPlaceholder'
 import type { AutosaveData } from './scenarios'
 import type { RestorableRun } from './runHistory'
 
@@ -56,7 +57,7 @@ export function restoreAnalysisFromAutosave(
   const ts = Date.parse(analysis.computedAt ?? '')
   restoreFn(
     {
-      id: analysis.runId ?? `restored:${analysis.hash ?? 'unknown'}`,
+      id: analysis.runId ?? syntheticRestoreId(analysis.hash),
       ts: Number.isFinite(ts) ? ts : Date.now(),
       // Absent on the V5 path and never invented — see PersistedAnalysis.
       seed: analysis.seed,
