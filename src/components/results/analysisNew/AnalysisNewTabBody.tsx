@@ -92,6 +92,7 @@ import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
 import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
+import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -1163,6 +1164,22 @@ export function AnalysisNewTabBody({
   )
 
   /**
+   * ⭐ WHICH METHODS THIS RUN RAISED — the engine's own findings, asked through
+   * the ONE owner of "is this finding and this technique the same move?"
+   * (`methodForRecommendation`). Nothing is judged here and nothing is ranked:
+   * `MethodsYouCanRun` partitions the catalogue with this set and keeps the
+   * catalogue's order in both groups.
+   *
+   * ⚠ READS THE SAME `vm.strengthen.interventions` the Strengthen section
+   * renders — already filtered against the lifecycle store — so a dismissed
+   * finding cannot keep promoting its method after the reader retired it.
+   */
+  const raisedMethodIds = useMemo(
+    () => methodIdsRaisedBy(vm.strengthen.interventions),
+    [vm.strengthen.interventions],
+  )
+
+  /**
    * ⭐⭐ THE GLANCE ANSWERED NOTHING, SO THE FIGURES COME UP TO FILL THE GAP.
    *
    * ⚠ THIS DOES NOT OVERTURN THE ORDERING RULING, AND THE DISTINCTION IS THE
@@ -1716,7 +1733,7 @@ export function AnalysisNewTabBody({
             {focusApplicableIds.length > 0 ? (
               <FocusNowContainer applicableStaticIds={focusApplicableIds} />
             ) : null}
-            <MethodsYouCanRun />
+            <MethodsYouCanRun raisedMethodIds={raisedMethodIds} />
           </div>
         ) : null}
 

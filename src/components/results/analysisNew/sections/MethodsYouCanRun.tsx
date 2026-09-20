@@ -46,8 +46,20 @@ import { runMethod } from '../runMethod'
 
 export function MethodsYouCanRun({
   testId = 'analysis-new-methods-you-can-run',
+  raisedMethodIds,
 }: {
   testId?: string
+  /**
+   * ⭐ THE METHODS THIS RUN ACTUALLY RAISED — `methodIdsRaisedBy`, the existing
+   * owner of "is this finding and this technique the same move?".
+   *
+   * ⚠ OPTIONAL, AND ABSENCE RENDERS TODAY'S FLAT SHELF. A host that cannot say
+   * which methods the run raised must not get a "Raised by this run" heading
+   * over a guess — that is the orphaned-heading shape this file already guards
+   * against one gate up, and the empty SET has the same reading as the absent
+   * prop by construction.
+   */
+  raisedMethodIds?: ReadonlySet<string>
 }): JSX.Element | null {
   /**
    * ⛔ AN EMPTY CATALOGUE RENDERS NOTHING, rather than a heading over a void.
@@ -57,6 +69,46 @@ export function MethodsYouCanRun({
    * panel have shipped at least once.
    */
   if (METHOD_CATALOGUE.length === 0) return null
+
+  /**
+   * ⚠ PARTITION, NOT SORT. Both groups keep `METHOD_CATALOGUE`'s own order —
+   * nothing on the wire ranks these seven, so an ordering invented here would
+   * be a UI claim wearing a finding's clothes.
+   */
+  const raised = raisedMethodIds ?? new Set<string>()
+  const thisRun = METHOD_CATALOGUE.filter((m) => raised.has(m.id))
+  const others = METHOD_CATALOGUE.filter((m) => !raised.has(m.id))
+  /**
+   * ⛔ ONE GROUP OR TWO, DECIDED ONCE. Two headings are only honest when BOTH
+   * have members: a "Raised by this run" heading over nothing is the orphaned
+   * heading, and an "Other methods" heading over all seven says less than the
+   * plain shelf did while taking a line to say it.
+   */
+  const grouped = thisRun.length > 0 && others.length > 0
+
+  const chips = (entries: typeof METHOD_CATALOGUE, listTestId: string): JSX.Element => (
+    <ul className="m-0 mt-1.5 flex list-none flex-wrap gap-1 p-0" data-testid={listTestId}>
+      {entries.map((m) => (
+        <li key={m.id}>
+          <button
+            type="button"
+            onClick={() => runMethod(m)}
+            /* ⚠ NOT AN `action()` TIER — unchanged, and the reason is unchanged:
+               seven of them in a row would claim seven secondary acts on the
+               panel's first screen. The 24px minimum stays carried explicitly
+               because that is geometry, not emphasis (WCAG 2.2 AA §2.5.8). */
+            className="inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-panel-border px-2 py-0.5 text-text-body hover:border-info hover:text-info-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            data-testid={`${testId}-method`}
+            data-method-id={m.id}
+            data-raised={raised.has(m.id) ? 'true' : undefined}
+            title={m.description}
+          >
+            <span className={typography.panelMeta}>{m.title}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
 
   return (
     <section data-testid={testId} aria-labelledby={`${testId}-title`}>
@@ -69,9 +121,19 @@ export function MethodsYouCanRun({
       </h3>
       {/* ⚠ THE SUBTITLE IS THE POINT OF THE SECTION, not decoration: it says
           these do not wait to be offered. Five of the seven used to appear only
-          when the run raised a matching signal, and two were unreachable. */}
+          when the run raised a matching signal, and two were unreachable.
+
+          ⭐ AND IT IS NOW TRUE OF THE SECOND GROUP RATHER THAN THE SECTION.
+          "whether or not this run raised them" was an honest disclaimer while
+          the shelf was one undifferentiated list, and it is exactly the
+          sentence that made the panel's prime slot read as reference material.
+          Where the run DID raise methods, the groups carry that fact and the
+          disclaimer would contradict the heading above it, so it renders only
+          on the flat shelf — the state it was written for, unchanged. */}
       <p className={`${typography.panelMeta} text-text-light m-0 mt-0.5`}>
-        Science-grounded moves you can make yourself — whether or not this run raised them.
+        {grouped
+          ? 'Science-grounded moves you can make yourself.'
+          : 'Science-grounded moves you can make yourself — whether or not this run raised them.'}
       </p>
       {/* ⭐⭐ CHIPS, NOT A SEVEN-ROW LIST, AND THE REASON IS THE FOLD.
           Paul asked for these to be first-screen (ZONE: FOCUS), which puts them
@@ -83,30 +145,33 @@ export function MethodsYouCanRun({
           Titles alone carry the move: "Reframe the problem", "Consider the
           opposite", "Run a pre-mortem" are each a complete instruction. The
           description is not lost — it rides into the drawer as `context` the
-          moment a chip is pressed, which is when a reader actually needs it. */}
-      <ul className="m-0 mt-1.5 flex list-none flex-wrap gap-1 p-0" data-testid={`${testId}-list`}>
-        {METHOD_CATALOGUE.map((m) => (
-          <li key={m.id}>
-            <button
-              type="button"
-              onClick={() => runMethod(m)}
-              /* ⚠ NOT AN `action()` TIER. `secondary` is the visual match, but
-                 seven of them in a row would claim seven secondary acts on the
-                 panel's first screen — the emphasis every control shares is the
-                 emphasis none of them has, which `panelSurfaces` states as its
-                 own rule. These are a SHELF, so they read as one. The 24px
-                 minimum is carried explicitly because that is geometry, not
-                 emphasis, and WCAG 2.2 AA §2.5.8 applies either way. */
-              className="inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-panel-border px-2 py-0.5 text-text-body hover:border-info hover:text-info-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-              data-testid={`${testId}-method`}
-              data-method-id={m.id}
-              title={m.description}
-            >
-              <span className={typography.panelMeta}>{m.title}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+          moment a chip is pressed, which is when a reader actually needs it.
+
+          ⚠ THE GROUP LABELS COST ONE LINE EACH AND ONLY WHERE BOTH EXIST. They
+          are `panelMeta`, the quietest of the panel's three sizes and the same
+          grammar as the "Focus now" zone label one level up — furniture that
+          looked like a block would add the weight this section fought to
+          avoid. */}
+      {grouped ? (
+        <>
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mt-2`}
+            data-testid={`${testId}-group-this-run`}
+          >
+            Raised by this run
+          </p>
+          {chips(thisRun, `${testId}-list-this-run`)}
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mt-2`}
+            data-testid={`${testId}-group-other`}
+          >
+            Other methods
+          </p>
+          {chips(others, `${testId}-list-other`)}
+        </>
+      ) : (
+        chips(METHOD_CATALOGUE, `${testId}-list`)
+      )}
     </section>
   )
 }
