@@ -463,7 +463,9 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
   // up) and asserting the verdict honestly.
   // -------------------------------------------------------------------------
 
-  it('analysis_ready.status="needs_user_input" on 200 → analysis_failed (envelope wins over HTTP success)', () => {
+  // ⚠ CORRECTED 2026-09-21: was `analysis_failed`. A readiness precondition is
+  // not an attempted-and-failed run — see derivePipelineStatus branch 5b.
+  it('analysis_ready.status="needs_user_input" on 200 → analysis_not_run (envelope wins over HTTP success)', () => {
     const bundle = buildDebugBundle(
       makeDebugData({
         payloads: {
@@ -478,14 +480,14 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
         },
       }),
     )
-    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_not_run')
     expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe(
       'needs_user_input',
     )
     expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
   })
 
-  it('analysis_ready.status="needs_user_mapping" → analysis_failed', () => {
+  it('analysis_ready.status="needs_user_mapping" → analysis_not_run', () => {
     const bundle = buildDebugBundle(
       makeDebugData({
         payloads: {
@@ -500,7 +502,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
         },
       }),
     )
-    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_not_run')
   })
 
   it('analysis_ready absent + analysis_inputs in request → analysis_inputs_present signal', () => {
@@ -658,7 +660,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
       }),
     )
     expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
-    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_not_run')
   })
 
   it('direct CEE response wins over downstream when both present', () => {
@@ -801,7 +803,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
         ],
       }),
     )
-    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_not_run')
     expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
     expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe(
       'needs_user_input',
