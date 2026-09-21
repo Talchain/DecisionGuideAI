@@ -665,12 +665,65 @@ export function useNodeMutations(nodeId: string) {
         // one. Clearing is right and re-deriving here would be wrong: this
         // string is the server's to author.
         display_value: undefined,
+        // ⭐⭐ THE TOP-LEVEL `extractionType`, FOR THE REASON THE LINE ABOVE
+        // ALREADY GIVES — and this is the SECOND half of "clearing both
+        // locations", which that comment names but only `display_value` got.
+        //
+        // `extractionType` has TWO storage locations in this codebase and they
+        // are both live on a real board (measured on deployed `b6673341`,
+        // usage-based-billing starter):
+        //   · `observedState.extractionType` — the CEE-derived spelling,
+        //     cleared inside the nested object below.
+        //   · `data.extractionType` — what `setExtractionType` (:806) writes,
+        //     and what `fac_vendor_cost` on that starter actually carries.
+        // `usePreAnalysisData.ts:763-766` enumerates both in prose, so this is
+        // the estate's own documented pair, not a new claim.
+        //
+        // ⚠⚠ WHY THIS LINE IS NOT OPTIONAL ONCE #1811 LANDS — the two PRs are
+        // each correct ALONE and the pair is not (CLAUDE.md trap 21 / the
+        // #1096-#1097 split-predicate shape). #1811 widens the READER to
+        // `factorValueIsUnconfirmedEstimate`, which returns true on EITHER
+        // spelling. Clearing only the nested one would leave a factor carrying
+        // the `data` spelling still labelled Olumi's estimate after the user
+        // typed a value — the exact defect this PR exists to close, reopened by
+        // its neighbour. Fixed HERE rather than in #1811 so this setter is
+        // complete on its own and the two are safe in EITHER merge order.
+        //
+        // ⚠ Cleared, not re-authored — same ruling as `display_value`.
+        extractionType: undefined,
         observedState: {
           ...existing,
           value,
           ...(typeof rawValue === 'number' && Number.isFinite(rawValue) ? { raw_value: rawValue } : {}),
           ...(opts?.source ? { source: opts.source } : {}),
           display_value: undefined,
+          // ⭐⭐ AND `extractionType`, FOR EXACTLY THE REASON ABOVE — it described
+          // the PREVIOUS value's origin, and the previous value is gone.
+          //
+          // CEE writes `extractionType: 'inferred'` beside `source:
+          // 'cee_inference'` (`observedStateHelpers.ts:186-187`), and
+          // `FactorNode.tsx:199` reads THAT field — not `source` — to decide
+          // whether to print the `est.` marker. So without this line a user
+          // typed a number and the card went on labelling it Olumi's estimate,
+          // indefinitely: the spread preserved the stale marker while every
+          // other trace of the old value was replaced.
+          //
+          // Measured on deployed `fd992149`: 5 of 5 valued factors on a starter
+          // board carry `extractionType: 'inferred'` (contrast control: the same
+          // 5 carry `source`), so this reached EVERY factor a user could edit.
+          //
+          // ⚠ CLEARED, NOT RE-AUTHORED, and that is the same ruling
+          // `display_value` above is under: this field is the SERVER's to write.
+          // Setting it to `'explicit'` here would be the client asserting an
+          // extraction it did not perform. Clearing drops the card to its honest
+          // fallback until the server's `graph_patch` re-authors it.
+          //
+          // ⚠ NOT A PROVENANCE CLAIM, so it is NOT receipt-gated (ROADMAP 2.304
+          // stands). Withdrawing a statement that is now FALSE is not the same
+          // act as asserting a new one — and a refusal restores it anyway, because
+          // `revertOptimisticFactorEdit` puts back the whole captured
+          // `observedState`, including the absence of keys that were absent.
+          extractionType: undefined,
         },
       },
     })
