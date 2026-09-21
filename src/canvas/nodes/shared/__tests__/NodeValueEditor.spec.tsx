@@ -1,0 +1,120 @@
+/**
+ * You can edit a value ON THE GRAPH.
+ *
+ * FOUNDER REPORT, four times: *"I still can't edit the graph."* Measured on
+ * served `e6551858`, the factor card had **zero editable fields** — every edit
+ * required opening the side panel first. The earlier repair made the panel's
+ * transparent field visible, which is a different surface. A panel is not the
+ * graph.
+ *
+ * ⛔ THE OUTCOME IS NEVER FLATTENED TO "SAVED". `proposeFactorValue` answers
+ * `dispatched` / `local_only` / `not_encodable`, and `ModelTabV2Panel` learned
+ * the expensive way that throwing them away makes a refusal indistinguishable
+ * from a save — a confirmed edit evaporated with no message and zero network
+ * calls. These tests pin all three apart.
+ */
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { NodeValueEditor } from '../NodeValueEditor'
+
+const setup = (outcome: 'dispatched' | 'local_only' | 'not_encodable', value: number | null = 60000) => {
+  const onCommit = vi.fn(() => outcome)
+  render(
+    <NodeValueEditor
+      value={value}
+      readout="£60,000"
+      onCommit={onCommit}
+      ariaLabel="Value for Annual Platform Cost"
+      testId="nve"
+    />,
+  )
+  return { onCommit }
+}
+
+describe('editing a value on the card', () => {
+  it('⭐ shows the readout as a real, visible control at rest', () => {
+    setup('dispatched')
+    const rest = screen.getByTestId('nve')
+    expect(rest.textContent).toContain('£60,000')
+    // The box is the same one the inspector's fields use, so "editable" looks
+    // the same everywhere. `border-field` is 3.70:1; the old 1.23:1 token is
+    // what made the panel's field invisible.
+    expect(rest.className).toContain('border-field')
+    expect(rest.getAttribute('aria-label')).toMatch(/click to edit/i)
+  })
+
+  it('⭐ opens an input seeded with the EXACT value, not the formatted readout', () => {
+    setup('dispatched', 0.376)
+    fireEvent.click(screen.getByTestId('nve'))
+    // Seeding from a rounded display string once committed 0.38 for a 0.376.
+    expect((screen.getByTestId('nve-input') as HTMLInputElement).value).toBe('0.376')
+  })
+
+  it('commits on Enter and closes when the authority DISPATCHED it', () => {
+    const { onCommit } = setup('dispatched')
+    fireEvent.click(screen.getByTestId('nve'))
+    fireEvent.change(screen.getByTestId('nve-input'), { target: { value: '70000' } })
+    fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Enter' })
+    expect(onCommit).toHaveBeenCalledWith(70000)
+    expect(screen.queryByTestId('nve-input')).toBeNull()
+  })
+
+  it('⛔ a LOCAL_ONLY outcome keeps the field open and says so — it must not read as saved', () => {
+    const { onCommit } = setup('local_only')
+    fireEvent.click(screen.getByTestId('nve'))
+    fireEvent.change(screen.getByTestId('nve-input'), { target: { value: '70000' } })
+    fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Enter' })
+    expect(onCommit).toHaveBeenCalledWith(70000)
+    expect(screen.getByTestId('nve-input')).toBeDefined()
+    expect(screen.getByTestId('nve-refusal').textContent).toMatch(/not sent to the model/i)
+  })
+
+  it('⛔ a NOT_ENCODABLE outcome also keeps it open, with a different reason', () => {
+    setup('not_encodable')
+    fireEvent.click(screen.getByTestId('nve'))
+    fireEvent.change(screen.getByTestId('nve-input'), { target: { value: '70000' } })
+    fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Enter' })
+    expect(screen.getByTestId('nve-input')).toBeDefined()
+    expect(screen.getByTestId('nve-refusal').textContent).toMatch(/cannot be sent/i)
+  })
+
+  it('⛔ CONTROL: the three outcomes are DISTINGUISHABLE, which is the whole point', () => {
+    // Without this, the two tests above could both pass on one generic message
+    // and the distinction that killed a Model-tab edit would be unguarded.
+    const seen = new Set<string>()
+    for (const outcome of ['local_only', 'not_encodable'] as const) {
+      const { unmount } = render(
+        <NodeValueEditor value={1} readout="1" onCommit={() => outcome}
+          ariaLabel="v" testId={`t-${outcome}`} />,
+      )
+      fireEvent.click(screen.getByTestId(`t-${outcome}`))
+      fireEvent.change(screen.getByTestId(`t-${outcome}-input`), { target: { value: '2' } })
+      fireEvent.keyDown(screen.getByTestId(`t-${outcome}-input`), { key: 'Enter' })
+      seen.add(screen.getByTestId(`t-${outcome}-refusal`).textContent ?? '')
+      unmount()
+    }
+    expect(seen.size, 'the two non-dispatched outcomes must not share one message').toBe(2)
+  })
+
+  it('an unchanged value is a no-op — it never dispatches', () => {
+    const { onCommit } = setup('dispatched', 60000)
+    fireEvent.click(screen.getByTestId('nve'))
+    fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Enter' })
+    expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  it('Escape abandons the edit without committing', () => {
+    const { onCommit } = setup('dispatched')
+    fireEvent.click(screen.getByTestId('nve'))
+    fireEvent.change(screen.getByTestId('nve-input'), { target: { value: '99' } })
+    fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Escape' })
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('nve-input')).toBeNull()
+  })
+
+  it('carries nodrag/nopan so React Flow does not swallow the gesture', () => {
+    setup('dispatched')
+    expect(screen.getByTestId('nve').className).toContain('nodrag')
+    expect(screen.getByTestId('nve').className).toContain('nopan')
+  })
+})
