@@ -367,13 +367,41 @@ export function classifyNodeProvenance(
  * marker's existing gate, unchanged, and a caller that only wants marked
  * NUMBERS must ask whether it has one. The reduced line asks.
  *
- * ⚠ BOTH SPELLINGS, for the reason the two functions below read both: canvas
- * stores `observedState`, the CEE/PLoT wire uses `observed_state`.
+ * ⚠ BOTH SPELLINGS OF THE CONTAINER, for the reason the two functions below
+ * read both: canvas stores `observedState`, the CEE/PLoT wire uses
+ * `observed_state`.
+ *
+ * ⭐⭐ AND BOTH STORAGE LOCATIONS OF `extractionType`, WHICH THE CARD'S OWN
+ * GATE DID NOT READ — MEASURED ON A SHIPPED STARTER, NOT REASONED ABOUT.
+ * Driven as a guest on the deployed build, `usage-based-billing`, 8 factors:
+ *
+ *   · 5 factors  `observedState.extractionType: 'inferred'`  → marked ✓
+ *   · **`Vendor Licensing Cost`  `data.extractionType: 'inferred'`, an EMPTY
+ *     `observedState`** → its inferred range `0.25 to 0.75` rendered with NO
+ *     mark, beside five marked estimates. **The unattributed number looked
+ *     more settled than the attributed ones.**
+ *   · `Platform Migration Competing Demand` — top-level `'explicit'`, which is
+ *     the CONTRAST: it must stay unmarked, so a fix that merely looked at the
+ *     top level without reading its VALUE would be wrong here.
+ *
+ * `usePreAnalysisData.ts:769-772` has read both locations all along and says
+ * why in its own comment — `observedState.extractionType` is CEE-derived,
+ * `data.extractionType` is what `setExtractionType` writes. One question, two
+ * surfaces, and the CARD was the one under-claiming.
+ *
+ * ⛔ AND `data.provenance` IS NOT A THIRD LOCATION — IT ANSWERS A DIFFERENT
+ * QUESTION (trap 21). It is who put the NODE here (`'ai_inferred'`,
+ * `'from_brief'`), which `NodeProvenanceMark` renders; this asks who put the
+ * NUMBER here. On the same board `Usage-Based Billing Complexity` carries
+ * `provenance: 'ai_inferred'` and no `extractionType` anywhere — so it stays
+ * unmarked, correctly, because nothing in the record says who authored its
+ * range. That absence is a PRODUCER gap and is routed as one; inventing the
+ * answer here would put a claim on screen the model does not contain.
  */
 export function factorValueIsUnconfirmedEstimate(data: unknown): boolean {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
-  return obs?.extractionType === 'inferred'
+  return obs?.extractionType === 'inferred' || d?.extractionType === 'inferred'
 }
 
 export function factorNeedsVerification(data: unknown): boolean {
