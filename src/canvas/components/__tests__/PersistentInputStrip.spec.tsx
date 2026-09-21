@@ -98,11 +98,11 @@ describe('PersistentInputStrip', () => {
       })
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
       // LINE_HEIGHT_PX (18, the jsdom fallback — a real browser measures 19.5
-      // from `panelBody`'s `leading-relaxed`) * 1 line + 16px padding = 34.
-      expect(textarea.style.minHeight).toBe('34px')
-      // 18 * 10 + 16 = 196. The ceiling ROSE (was 160) while the rest state
+      // from `panelBody`'s `leading-relaxed`) * 1 line + TEXTAREA_PAD_PX (12).
+      expect(textarea.style.minHeight).toBe('30px')
+      // 18 * 10 + 12 = 192. The ceiling ROSE (was 160) while the rest state
       // SHRANK: the box is now smaller when empty and larger when full.
-      expect(textarea.style.maxHeight).toBe('196px')
+      expect(textarea.style.maxHeight).toBe('192px')
     })
 
     it('puts the controls in a row BENEATH the text, not floating over it', () => {

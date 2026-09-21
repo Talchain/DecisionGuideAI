@@ -115,8 +115,42 @@ const MAX_LINES = 2
  * `lineHeight`, so specs continue to see whole multiples of this number).
  */
 const LINE_HEIGHT_PX = 18
-/** Vertical padding the textarea adds around its text (`py-2` = 8px x 2). */
+/**
+ * Vertical padding the textarea adds around its text.
+ *
+ * ⚠ MEASURED, NOT ASSUMED — and the first cut of the action-row layout got the
+ * space ACCOUNTING wrong, which a browser caught and the arithmetic did not.
+ * Shrinking the rest state from three lines to one saved 43px of textarea, and
+ * the new control row gave 36px of it straight back: the composer came out
+ * TALLER at rest than the thing it replaced (94px against 97px is a 3px win for
+ * a change made to reclaim space). A layout that exists to give the
+ * conversation its room back cannot spend most of what it saves.
+ *
+ * ⛔ AND THE MODEL OF WHY WAS ALSO WRONG. Adding the padding classes up by hand
+ * predicted 84px for the old composer; the browser said 97. The numbers in this
+ * file are measurements from `e2e/geometry/composerLook.measure.ts` driving the
+ * real 416px dock, not sums of Tailwind steps — which is the only reason the
+ * 3px-versus-11px difference was visible at all.
+ *
+ * The fix is the DEAD BAND between the text and the controls, not the controls.
+ * `py-2` put 8px under the last line of text and the row added its own 8px
+ * beneath the buttons — 16px of nothing in a 416px panel footer. The textarea
+ * now pads 8px above and 4px below (`pt-2 pb-1`) and the row pads 4px, so the
+ * pair reads as one block instead of two stacked ones.
+ *
+ * MEASURED, rest state, real dock: strip 97px -> 86px, textarea 75px -> 32px,
+ * and the textarea's right padding 56px -> 12px. That last one is the change
+ * nobody would have asked for: 56px of a 416px panel — one seventh of the
+ * width, on every line — was held open for a single 28px button drawn on top
+ * of the text.
+ *
+ * ⚠ SCOPED TO THE ACTION-ROW VARIANTS. The hero composers keep `py-2` and 16:
+ * their send disc is absolutely positioned inside a deliberately generous box,
+ * they have no dead band to reclaim, and a 4px shift there would be a change to
+ * a surface this work has no reason to touch.
+ */
 const TEXTAREA_PAD_PX = 16
+const TEXTAREA_PAD_ACTION_ROW_PX = 12
 /**
  * Welcome hero variant: the rest-state textarea is THREE lines tall so the
  * absolutely-positioned send control sits comfortably INSIDE the textarea
@@ -353,13 +387,14 @@ export const AIInputBar = memo(
       if (!el) return
       const measured = Number.parseFloat(window.getComputedStyle(el).lineHeight)
       const line = Number.isFinite(measured) && measured > 0 ? measured : LINE_HEIGHT_PX
-      const min = line * minLines + TEXTAREA_PAD_PX
-      const max = line * maxLines + TEXTAREA_PAD_PX
+      const pad = hasActionRow ? TEXTAREA_PAD_ACTION_ROW_PX : TEXTAREA_PAD_PX
+      const min = line * minLines + pad
+      const max = line * maxLines + pad
       el.style.minHeight = `${min}px`
       el.style.maxHeight = `${max}px`
       el.style.height = 'auto'
       el.style.height = `${Math.min(Math.max(el.scrollHeight, min), max)}px`
-    }, [draft, minLines, maxLines])
+    }, [draft, minLines, maxLines, hasActionRow])
 
     // --- add-option interception ------------------------------------------
     // A typed "add an option called X" is routed into CEE's zero-LLM
@@ -552,6 +587,8 @@ export const AIInputBar = memo(
      */
     const stackInset = isWelcome ? 'right-2 bottom-2' : 'right-1.5 bottom-1'
     const textareaRightPad = hasActionRow ? 'pr-3' : 'pr-12'
+    /** Paired with `TEXTAREA_PAD_ACTION_ROW_PX` / `TEXTAREA_PAD_PX` above — change both or neither. */
+    const textareaVerticalPad = hasActionRow ? 'pt-2 pb-1' : 'py-2'
 
     /* ── THE CONTROLS ────────────────────────────────────────────────────────
        Defined ONCE and placed ONCE, so the two layouts cannot drift into two
@@ -589,7 +626,15 @@ export const AIInputBar = memo(
     )
 
     /* Float-out. Strip only — the floating composer is already floating, and
-       the hero surfaces have nowhere to float to. */
+       the hero surfaces have nowhere to float to.
+
+       ⚠ 24x24, NOT 28x28 like send. The two SECONDARY controls in this row are
+       24px — WCAG 2.2 SC 2.5.8 (Target Size Minimum, AA) to the pixel — while
+       send keeps its 28px disc, because send is the act this surface exists for
+       and a row of three identical discs says they are three equals. DS v5
+       §26.1 currently states 44x44 for every target, which is SC 2.5.5
+       (Enhanced, AAA) and a bar this dense panel already fails; that conflict is
+       reported for §26.1 to resolve, not silently decided here. */
     const chevronControl =
       variant === 'strip' && !hideChevron && onChevronClick ? (
         <button
@@ -597,7 +642,7 @@ export const AIInputBar = memo(
           onClick={onChevronClick}
           disabled={inputDisabled}
           aria-disabled={inputDisabled}
-          className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
           aria-label="Open Olumi in floating panel"
           data-testid={`${base}-chevron`}
           title="Open in floating window"
@@ -627,7 +672,7 @@ export const AIInputBar = memo(
               onClick={analysisAction.onRun}
               disabled={runDisabled}
               aria-disabled={runDisabled}
-              className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-light"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-light"
               aria-label={analysisAction.label}
               title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label}
               data-testid={`${base}-analyse`}
@@ -658,13 +703,13 @@ export const AIInputBar = memo(
         data-testid={`${base}-textarea`}
         className={typo(
           'panelBody',
-          `w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light py-2 pl-3 ${textareaRightPad}`,
+          `w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${textareaVerticalPad} pl-3 ${textareaRightPad}`,
         )}
       />
     )
 
     // In-composer generation status: a gently-pulsing, time-escalating line
-    // sitting exactly where the placeholder text would (py-2 pl-3 mirrors the
+    // sitting exactly where the placeholder text would (pt-2 pb-1 pl-3 mirrors the
     // textarea's text inset). pointer-events-none — the textarea underneath is
     // disabled during generation anyway.
     const generatingOverlay = isGenerating ? (
@@ -672,7 +717,7 @@ export const AIInputBar = memo(
         role="status"
         aria-live="polite"
         data-testid={`${base}-generating`}
-        className={`pointer-events-none absolute left-0 top-0 py-2 pl-3 ${textareaRightPad}`}
+        className={`pointer-events-none absolute left-0 top-0 ${textareaVerticalPad} pl-3 ${textareaRightPad}`}
       >
         <span className={typo('panelBody', 'text-text-light animate-gentle-text-flash')}>
           {generatingMessage}
@@ -706,7 +751,7 @@ export const AIInputBar = memo(
               {generatingOverlay}
             </div>
             <div
-              className="flex items-center justify-end gap-1 px-2 pb-2"
+              className="flex items-center justify-end gap-1 px-2 pb-1"
               data-testid={`${base}-actions`}
             >
               {analysisControl}
