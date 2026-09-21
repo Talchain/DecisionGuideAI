@@ -72,6 +72,25 @@ const LINK_RE = /\[([^\]\n]+)\]\(([^)\s]+)\)/g
 const SAFE_URL_RE = /^(?:https?:\/\/|mailto:)[^\s<>"]+$/i
 
 /**
+ * The same scheme gate, exported so a SECOND renderer cannot grow a second
+ * copy of it.
+ *
+ * `richTextNodes` re-checks every href it turns into an anchor. That check is
+ * defence in depth — by construction the URL already passed on the way in —
+ * but a renderer that trusts its input because "the other one validated" is
+ * exactly the coupling that rots. What it must NOT become is a hand-maintained
+ * mirror of this regex (CLAUDE.md trap 12), so the predicate is shared rather
+ * than restated, and widening the scheme set stays a one-line change in ONE
+ * place.
+ */
+export function isSafeLinkUrl(url: string): boolean {
+  return SAFE_URL_RE.test(url)
+}
+
+/** The tags `safeRichText` may emit — exported for the same one-copy reason. */
+export const SAFE_RICH_TEXT_TAGS: ReadonlySet<string> = ALLOWED_TAGS
+
+/**
  * Placeholder sentinels for lifted links. Distinct from EMOJI_SENTINEL (\x00).
  *
  * ⚠ THE `L` IS LOAD-BEARING, and leaving it out cost a round of red. The slot
