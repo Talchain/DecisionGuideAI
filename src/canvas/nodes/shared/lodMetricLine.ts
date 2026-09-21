@@ -136,6 +136,7 @@ import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
+import { factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
 import { METRIC_NOUN } from './metricVocabulary'
 
 /**
@@ -194,7 +195,55 @@ function factorStatedValue(data: Record<string, unknown>, label: string): string
   return text && text.trim().length > 0 ? text : null
 }
 
-export function resolveLodMetricLine({
+/**
+ * What the reduced line says, AND whether the figure in it is an unconfirmed
+ * estimate.
+ *
+ * ⭐⭐ WHY THE MARK RIDES WITH THE TEXT INSTEAD OF BEING ASKED FOR SEPARATELY.
+ * A second function answering "is this factor an estimate?" would be right
+ * about the FACTOR and wrong about the LINE: this resolver has three factor
+ * arms, and only the first states the factor's own value. The other two state
+ * an INFLUENCE SCORE and a PRIOR RANGE — different objects, neither of them
+ * the thing `est.` speaks about. Marking those would be trap 21 with the mark
+ * pointed at the wrong number, which is worse than the omission being fixed.
+ * So the arm that produces the string is the arm that decides the mark, and
+ * they cannot be asked apart.
+ */
+export function resolveLodMetricLineDetail({
+  nodeType,
+  data,
+  label,
+  displayMetadata,
+  facts,
+}: LodMetricLineInputs): { text: string | null; unconfirmedEstimate: boolean } {
+  const text = resolveText({ nodeType, data, label, displayMetadata, facts })
+  if (text === null || nodeType !== 'factor' || !data) return { text, unconfirmedEstimate: false }
+
+  /**
+   * ⭐ BOUND BY CONTROL FLOW, NOT BY STRING EQUALITY (trap 19). The factor case
+   * tries its stated value FIRST and returns it the moment it is non-null, so
+   * a non-null `stated` is proof that `text` IS that value and that neither
+   * the influence arm nor the prior-range arm was reached. Comparing the two
+   * strings instead would be a value predicate another arm could satisfy.
+   *
+   * The precondition is pinned in-test rather than trusted here: the spec
+   * asserts `text === stated` on the marked case, so a reordering of the
+   * factor arms REDs instead of silently marking the wrong number.
+   */
+  const stated = factorStatedValue(data, label)
+  return { text, unconfirmedEstimate: stated !== null && factorValueIsUnconfirmedEstimate(data) }
+}
+
+/**
+ * The string alone. Kept because four owner components and every existing spec
+ * ask this question and nothing else; it is `resolveLodMetricLineDetail().text`
+ * by construction, so the two can never state different lines.
+ */
+export function resolveLodMetricLine(inputs: LodMetricLineInputs): string | null {
+  return resolveLodMetricLineDetail(inputs).text
+}
+
+function resolveText({
   nodeType,
   data,
   label,

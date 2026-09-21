@@ -343,6 +343,39 @@ export function classifyNodeProvenance(
  * gesture is the thing that produces the transition, and a reader of the button
  * needs to know the badge will clear with it.
  */
+/**
+ * Does this factor's value wear the `est.` marker?
+ *
+ * ⭐⭐ THE SPELLING WAS IN THREE PLACES AND ONE OF THEM FORGOT — which is how a
+ * number came to look MORE authoritative the further out you zoomed.
+ *
+ * `FactorNode:199` gates the marker on it. `CanvasLegendPopover:929` re-types
+ * it to decide whether the glossary may promise a marker, and SAYS SO in its
+ * own comment (*"read from the marker's surviving gate … and from nothing
+ * else"*) — an honest mirror, and still a mirror. The reduced line, which is
+ * the whole card below the legibility floor, had no copy at all: it printed
+ * `0.4` where the card printed `0.4 est.`
+ *
+ * ⛔ IT IS NOT `factorNeedsVerification`, AND MERGING THEM WOULD BE TRAP 21.
+ * That one asks *who supplied this number* (`source`); this asks *how it got
+ * here* (`extractionType`). A value a user typed over an inferred one clears
+ * `source` and — since the extraction marker is withdrawn on the same write —
+ * clears this too, but they are answers to two questions and a factor can
+ * satisfy one without the other.
+ *
+ * ⚠ IT DOES NOT REQUIRE A VALUE TO BE PRESENT, deliberately: this is the
+ * marker's existing gate, unchanged, and a caller that only wants marked
+ * NUMBERS must ask whether it has one. The reduced line asks.
+ *
+ * ⚠ BOTH SPELLINGS, for the reason the two functions below read both: canvas
+ * stores `observedState`, the CEE/PLoT wire uses `observed_state`.
+ */
+export function factorValueIsUnconfirmedEstimate(data: unknown): boolean {
+  const d = data as Record<string, unknown> | undefined
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  return obs?.extractionType === 'inferred'
+}
+
 export function factorNeedsVerification(data: unknown): boolean {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined

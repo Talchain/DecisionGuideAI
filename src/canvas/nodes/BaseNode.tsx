@@ -40,7 +40,9 @@ import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
-import { resolveLodMetricLine } from './shared/lodMetricLine'
+import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
+import { ESTIMATE_SUBJECT_TITLE } from './shared/EstimateMarker'
+import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
 import { resolveLodMetricFacts } from './shared/lodMetricFacts'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
@@ -437,8 +439,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     })
   }, [bodyReduced, nodeType, id, ceeAnalysisReady, data])
 
-  const lodBodyLine = useMemo<string | null>(() => {
-    if (!bodyReduced) return null
+  const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
+    if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
     /**
      * ⛔ THE OWNER'S OWN LINE WINS, AND AS OF 1 SEP 2026 THAT IS A SETTLED
      * OWNERSHIP SPLIT RATHER THAN A FALLBACK ORDER (see the map in
@@ -457,8 +459,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
      * component spec staying GREEN. If you are about to add one, add it to the
      * owning component instead.
      */
-    if (lodMetric != null && lodMetric.length > 0) return lodMetric
-    return resolveLodMetricLine({
+    /**
+     * ⚠ AN OWNER'S OWN LINE CARRIES NO `est.` MARK, AND THAT IS NOT AN
+     * OVERSIGHT. The four owners are risk, outcome, goal and decision; the
+     * mark speaks about a FACTOR'S VALUE, and risk/outcome already carry
+     * their own unconfirmed-strength disclosure through `METRIC_UNSET`. A
+     * mark added here would name an object these lines are not about.
+     */
+    if (lodMetric != null && lodMetric.length > 0) {
+      return { text: lodMetric, unconfirmedEstimate: false }
+    }
+    return resolveLodMetricLineDetail({
       nodeType,
       data: data as Record<string, unknown> | undefined,
       label,
@@ -466,6 +477,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       facts: lodFacts,
     })
   }, [bodyReduced, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
+  const lodBodyLine = lodBody.text
 
   /**
    * ⛔ A CARD'S CONTENT IS NEVER REMOVED WITHOUT SOMETHING PUT IN ITS PLACE.
@@ -2222,12 +2234,34 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               treatment the node title gets when its clamp ellipsises it. */}
           {lodBodyLine !== null && (
             <div
-              data-testid="node-lod-line"
-              title={lodBodyLine}
-              className={`${typography.nodeLabel} text-text-body truncate absolute left-0 right-0 top-0`}
+              className="absolute left-0 right-0 top-0 flex items-baseline gap-1"
               style={{ visibility: 'visible' }}
             >
-              {lodBodyLine}
+              <span
+                data-testid="node-lod-line"
+                title={lodBodyLine}
+                className={`${typography.nodeLabel} text-text-body truncate`}
+              >
+                {lodBodyLine}
+              </span>
+              {/* ⭐⭐ THE MARK IS `shrink-0`, AND THAT IS THE WHOLE POINT OF
+                  PUTTING IT IN ITS OWN ELEMENT RATHER THAN IN THE STRING.
+                  This line is `truncate`d, so a marker appended to the text
+                  is the FIRST thing an ellipsis eats — the number survives
+                  and the disclosure does not, which is the exact defect being
+                  closed, rebuilt by its own fix. Here the number is what
+                  gives way and the mark cannot.
+                  ⚠ `est.` keeps the card's word order (value, then mark) so
+                  the two zoom rungs read as one sentence rather than two. */}
+              {lodBody.unconfirmedEstimate && (
+                <span
+                  data-testid="node-lod-estimate-mark"
+                  title={ESTIMATE_SUBJECT_TITLE.value}
+                  className={`${typography.nodeLabel} text-text-light italic shrink-0`}
+                >
+                  {UNCONFIRMED_ESTIMATE_TOKEN}
+                </span>
+              )}
             </div>
           )}
         </div>

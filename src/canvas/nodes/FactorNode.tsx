@@ -32,7 +32,7 @@ import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
-import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
@@ -196,7 +196,14 @@ export const FactorNode = memo((props: NodeProps) => {
     [nodeCategory, observedState, props.data, valueDisplay],
   )
 
-  const isInferred = observedState?.extractionType === 'inferred'
+  /**
+   * ⭐ THE MARKER'S GATE, NOW READ FROM ITS OWNER. The spelling used to live
+   * here, and the two other surfaces that ask the same question copied it —
+   * one of them (`CanvasLegendPopover:929`) with a comment naming this line as
+   * the source. The third, the reduced line, had no copy at all and printed
+   * the number without the mark. One owner, three readers.
+   */
+  const isInferred = factorValueIsUnconfirmedEstimate(props.data)
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
