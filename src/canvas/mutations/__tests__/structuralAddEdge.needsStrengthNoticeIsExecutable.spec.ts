@@ -6,7 +6,6 @@ import {
   resolveEdgeDirectionDisplay,
 } from '../../domain/edgeValueProvenance'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
-import { CANONICAL_EDIT_AUTHORITY } from '../mutationAuthority'
 import {
   STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
   captureStructuralAddEdge,
