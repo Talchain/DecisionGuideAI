@@ -52,13 +52,62 @@ describe('a normalised threshold with no anchor is a constant, and is withheld',
     expect(out).toEqual({ value: 20000, unit: '£' })
   })
 
-  it('a normalised magnitude WITH an anchor is shown, but never wearing the raw unit', () => {
-    // "≥ 0.8 £" is the defect GoalPanel already documents: the unit describes
-    // the raw scale, not the normalised one.
+  /**
+   * ⭐⭐ CORRECTED 22 Sep 2026 BY THE PRODUCER, and the old expectation was the
+   * worst of both answers.
+   *
+   * This case used to assert `{ value: 0.8, unit: null }` — it painted the
+   * meaningless constant AND stripped the unit. CEE measured the seam and
+   * answered the ask directly: `goal_threshold_raw` + `goal_threshold_unit` are
+   * declared in the `analysis_ready` schema and ship on **24 of 24**
+   * goal-threshold-bearing nodes, and the schema's own comment instructs
+   * exactly this rendering — *"Render the user's figure from
+   * `goal_threshold_raw` + `goal_threshold_unit`."*
+   *
+   * So when an anchor exists there is no reason to show the normalised scale at
+   * all: show the figure the person actually set, in the unit they set it in.
+   * The "≥ 0.8 £" defect `GoalPanel` documents is avoided not by dropping the
+   * unit but by dropping the NORMALISED MAGNITUDE — the number the unit never
+   * described.
+   */
+  it('⭐ a normalised magnitude WITH an anchor shows the RAW figure and its unit', () => {
     const out = resolveDisplayableGoalTarget({
       goalThreshold: 0.8, representation: 'normalised', thresholdRaw: 20000, thresholdUnit: '£',
     })
-    expect(out).toEqual({ value: 0.8, unit: null })
+    expect(out).toEqual({ value: 20000, unit: '£' })
+  })
+
+  /**
+   * ⛔ THE 12 BOARDS. CEE found `goal_threshold` OUTSIDE [0,1] on 12 of 24 live
+   * nodes — `1.1` where `raw/cap` is `110/140 = 0.7857` — all from the goal
+   * *"Achieve NRR Above 110%"*. A percentage target above 100% normalised
+   * against an implicit 0–100 scale. ⚠ CEE WITHDREW its first reading that this
+   * is a live mint defect: the current resolver bounds the rule at `raw <= 100`
+   * and could not have produced `cap = 140` with no provenance. It is residue
+   * from one 70-minute window on 20 Sep, and it is UNTRIGGERED rather than
+   * proven fixed — so the rows are still in the database today.
+   *
+   * ⭐ Showing the RAW is what rescues these boards: 110% is the user's real
+   * goal and is worth stating, while the normalised 1.1 is incoherent. This
+   * case is therefore a POSITIVE one, not a withholding — and it only works
+   * because the rule above changed.
+   */
+  it('⛔ a normalised value outside [0,1] still yields the raw target, not the incoherent scalar', () => {
+    const out = resolveDisplayableGoalTarget({
+      goalThreshold: 1.1, representation: 'normalised', thresholdRaw: 110, thresholdUnit: '%',
+    })
+    expect(out, 'the reader deserves their own 110%').toEqual({ value: 110, unit: '%' })
+  })
+
+  /**
+   * The anchor may arrive as a STRING — `hasRawAnchor` already accepts one, so
+   * the value path must too or the module accepts an anchor it cannot return.
+   */
+  it('a string anchor is returned as a number', () => {
+    const out = resolveDisplayableGoalTarget({
+      goalThreshold: 0.8, representation: 'normalised', thresholdRaw: '20000', thresholdUnit: '£',
+    })
+    expect(out).toEqual({ value: 20000, unit: '£' })
   })
 
   it.each([null, Number.NaN, Number.POSITIVE_INFINITY])('a non-finite threshold (%p) yields nothing', (t) => {

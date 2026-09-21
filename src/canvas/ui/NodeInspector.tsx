@@ -521,8 +521,12 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isGoalNode && displayableTarget != null && (
         <p className={`${typography.panelBody} text-text-body mt-2`}>
           Target: \u2265 {(() => {
-            // ⚠ THE UNIT COMES FROM THE OWNER, which returns `null` for a
-            // normalised magnitude — the "≥ 0.8 £" defect `GoalPanel` documents.
+            // ⚠ THE UNIT COMES FROM THE OWNER. It used to return `null` here,
+            // because the value was a normalised magnitude no unit described —
+            // the "≥ 0.8 £" defect `GoalPanel` documents. Since 22 Sep the owner
+            // returns the RAW figure instead (CEE confirmed `goal_threshold_raw`
+            // + `_unit` ship on 24 of 24 such nodes), so a unit arriving here now
+            // genuinely describes the number beside it.
             const unit = displayableTarget.unit
             const unitStr = typeof unit === 'string' ? unit.toLowerCase() : ''
             // U2: percent recognition routed through classifyUnit (the single

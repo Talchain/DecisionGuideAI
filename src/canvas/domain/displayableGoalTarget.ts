@@ -88,10 +88,20 @@ export function resolveDisplayableGoalTarget(
     // ⛔ THE CONSTANT. No raw anchor means this magnitude is `target / (target *
     // 1.25)` and is 0.8 whatever the decision. Withhold it rather than paint it.
     if (!hasRawAnchor(thresholdRaw)) return null
-    // With an anchor the magnitude is still on the NORMALISED scale, so the
-    // producer's unit describes the raw and must not be pinned to it — the
-    // "≥ 0.8 £" defect `GoalPanel` already documents.
-    return { value: goalThreshold, unit: null }
+    // ⭐⭐ WITH AN ANCHOR, SHOW THE ANCHOR — corrected 22 Sep 2026 by CEE, which
+    // measured the seam and answered this module's own ask. `goal_threshold_raw`
+    // and `goal_threshold_unit` are declared in the `analysis_ready` schema and
+    // ship on 24 of 24 goal-threshold-bearing nodes; the schema's comment
+    // instructs exactly this: "Render the user's figure from `goal_threshold_raw`
+    // + `goal_threshold_unit`."
+    //
+    // ⛔ This module previously returned `{ value: goalThreshold, unit: null }`
+    // here — the worst available answer. It painted the 0.8 constant this file
+    // exists to suppress AND dropped the unit, so the screen showed a meaningless
+    // magnitude wearing no label at all. The "≥ 0.8 £" defect `GoalPanel`
+    // documents is cured by dropping the NORMALISED MAGNITUDE, not the unit: the
+    // unit was always honest, it simply never described that number.
+    return { value: Number(thresholdRaw), unit: thresholdUnit ?? null }
   }
 
   // A raw representation is a number somebody actually stated. Show it, with
