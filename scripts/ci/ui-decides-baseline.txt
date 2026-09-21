@@ -38,13 +38,13 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:903
+src/canvas/contextMenu/actions.ts:912
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
-src/canvas/hooks/useScienceIcons.ts:128
-src/canvas/hooks/useScienceIcons.ts:143
-src/canvas/store.ts:7695
+src/canvas/hooks/useScienceIcons.ts:135
+src/canvas/hooks/useScienceIcons.ts:150
+src/canvas/store.ts:7817
 src/canvas/stores/readinessStore.ts:744
 src/canvas/stores/readinessStore.ts:840
 src/canvas/utils/briefValidation.ts:43
