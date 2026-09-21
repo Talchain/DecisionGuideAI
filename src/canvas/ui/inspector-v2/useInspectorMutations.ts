@@ -56,7 +56,20 @@ export const NODE_SETTER_FIELDS = {
   setThreshold: ['goal_threshold_raw', 'goal_threshold_unit'],
   // Also clears the top-level `display_value` — CEE writes that key at either
   // level, and a value commit invalidates BOTH copies of the old prose.
-  setObservedValue: ['observedState', 'display_value'],
+  // ⚠ THREE FIELDS, AND THE THIRD IS A WITHDRAWAL RATHER THAN A WRITE.
+  // `extractionType` is cleared at the TOP LEVEL here for the same reason
+  // `display_value` is: it described the PREVIOUS value, and the previous value
+  // is gone. The field has two storage locations in this codebase
+  // (`observedState.extractionType`, and `data.extractionType`, which is what
+  // `setExtractionType` below writes and what a real starter carries); clearing
+  // only the nested one leaves a card calling a typed value Olumi's estimate as
+  // soon as a reader consults either spelling.
+  //
+  // ⭐ THIS MANIFEST CAUGHT THAT CHANGE IN CI AND IT WAS RIGHT TO. The entry is
+  // updated because the setter's behaviour genuinely changed — never to quiet
+  // the guard. Trap 12 exists because a list a human must remember to sync
+  // drifts silently; this one failed loud instead, which is the whole point.
+  setObservedValue: ['observedState', 'display_value', 'extractionType'],
   setIntervention: ['interventions'],
   removeIntervention: ['interventions'],
   setPriorRange: ['prior'],
