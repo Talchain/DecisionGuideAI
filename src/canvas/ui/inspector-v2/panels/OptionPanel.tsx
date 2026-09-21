@@ -143,16 +143,18 @@ export const OptionPanel = memo(function OptionPanel({
    * this panel at all, and `OptionPanel.readOnlyFence.spec.tsx` pins exactly
    * that.
    *
-   * ⭐ SO WHAT DOES THIS CHANGE DELIVER? It removes the REASON for the fence.
+   * ⭐ AND THE FENCE IS NOW LIFTED FOR THIS ONE WRITER — see the `disabled`
+   * prop below, which carries the argument in full. In short:
    * `FactorControllablePanel` is in the same `AUTHORITY_OWNING_PANELS` set and
-   * fences only two things — its description and its advanced editor, both
-   * local-only writers — while its VALUE control stays live, because
-   * `proposeFactorValue` reaches the server. That is the estate's rule, stated
-   * by its own code: fence the writers with no carrier, leave live the ones
-   * that reach the model. This row had no carrier; it has one now. Lifting the
-   * fence is therefore the completion of this change and not a widening of it —
-   * but it moves a user-visible control, so it is its own increment with its
-   * own review, and until it lands THIS CHANGE IS CORRECT AND UNREACHABLE.
+   * fences only its description and its advanced editor, both local-only
+   * writers, while its VALUE control stays live because `proposeFactorValue`
+   * reaches the server. Fence the writers with no carrier; leave live the ones
+   * that reach the model. This row had no carrier; it has one now.
+   *
+   * ⛔ PER WRITER, NEVER PER PANEL. The other three fences are untouched, and
+   * `OptionPanel.readOnlyFence.spec.tsx` asserts every one of them is still
+   * disabled — so unfencing the panel wholesale, which is what the Router's
+   * blanket did, REDs rather than passing as a generalisation of this.
    *
    * ⛔ Compare `factor-observable`, which is absent from the set entirely and
    * is inert for a different reason — no carrier at all. That one is not a
@@ -552,7 +554,40 @@ export const OptionPanel = memo(function OptionPanel({
                 provenanceSource={iv.provenanceSource}
                 onChange={v => commitIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
-                disabled={readOnly}
+                /**
+                 * ⭐⭐ THE ONE WRITER ON THIS PANEL WITH A SERVER CARRIER, AND
+                 * THEREFORE THE ONE THAT IS NOT FENCED.
+                 *
+                 * This is the estate's own rule, stated by its own code rather
+                 * than invented here. `FactorControllablePanel` is in the same
+                 * `AUTHORITY_OWNING_PANELS` set and receives the same
+                 * `readOnly`; it fences exactly two things — its description
+                 * and its advanced editor, both local-only writers — and
+                 * leaves its VALUE control live, because `proposeFactorValue`
+                 * reaches the server. Fence the writers with no carrier; leave
+                 * live the ones that reach the model.
+                 *
+                 * Until the commit above, this row had no carrier: it called
+                 * `mutations.setIntervention`, a pure local write, and the
+                 * fence was correct. `option_intervention_edit` gives it one,
+                 * so the fence now withholds a connected write — which is the
+                 * state that produced the founder's board, where 3 of 5
+                 * options carried no effect at all.
+                 *
+                 * ⚠ `false`, NOT `readOnly`, AND NOT SIMPLY OMITTED. Written
+                 * out so the next reader sees a DECISION rather than a missing
+                 * prop, and so the diff that ever restores `readOnly` has to
+                 * delete this paragraph to do it.
+                 *
+                 * ⛔ THE OTHER THREE FENCES STAY. `description`, `add-factor`
+                 * and `advanced-editor` are unchanged: the first two write
+                 * locally and the third's own intervention rows already route
+                 * through this same owner while its remaining fields do not.
+                 * Unfencing per PANEL rather than per WRITER is what the
+                 * Router's blanket did, and this panel exists to be finer than
+                 * that.
+                 */
+                disabled={false}
                 techMode={techMode}
                 /* normalisedValue intentionally omitted — raw system values
                    live in TechnicalDisclosure via OptionAdvancedEditor. */
