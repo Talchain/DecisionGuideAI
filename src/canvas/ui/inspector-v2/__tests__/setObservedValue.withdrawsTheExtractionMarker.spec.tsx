@@ -72,6 +72,12 @@ function observed(): Record<string, unknown> {
   return (n!.data as { observedState: Record<string, unknown> }).observedState
 }
 
+function nodeData(): Record<string, unknown> {
+  const n = useCanvasStore.getState().nodes.find((x) => x.id === NODE_ID)
+  expect(n).toBeTruthy()
+  return n!.data as Record<string, unknown>
+}
+
 describe('setObservedValue withdraws the producer’s extraction marker', () => {
   beforeEach(seed)
 
@@ -114,5 +120,94 @@ describe('setObservedValue withdraws the producer’s extraction marker', () => 
     })
     expect(observed().source).toBe('user_override')
     expect(observed().extractionType).toBeUndefined()
+  })
+
+  /**
+   * ⭐⭐ THE SECOND STORAGE LOCATION — and this case is why the fix is two lines.
+   *
+   * `extractionType` has TWO homes and both are live on a real board (deployed
+   * `b6673341`, usage-based-billing starter): the CEE-derived
+   * `observedState.extractionType`, and `data.extractionType`, which is what
+   * `setExtractionType` (`useInspectorMutations.ts:806`) writes and what
+   * `fac_vendor_cost` on that starter actually carries.
+   * `usePreAnalysisData.ts:763-766` enumerates the pair in prose.
+   *
+   * ⚠⚠ SCOPE, STATED EXACTLY. On THIS branch `FactorNode` still reads only the
+   * nested spelling, so the top-level clear changes nothing a user can see YET.
+   * It becomes load-bearing the moment #1811 lands, because that PR widens the
+   * reader to `factorValueIsUnconfirmedEstimate`, which returns true on EITHER
+   * spelling. Each PR is correct alone and the PAIR is not — the #1096/#1097
+   * split-predicate shape. Closing it in the WRITER makes the two safe in
+   * either merge order, which is why it is here and not there.
+   *
+   * The assertion is on the field rather than through the reader because the
+   * reader does not exist on this branch; the binding is restored when #1811
+   * lands and its own specs cover it.
+   */
+  it('⭐ clears the TOP-LEVEL data.extractionType too — the spelling a real starter carries', () => {
+    // A factor shaped like `fac_vendor_cost`: the marker lives at data level,
+    // NOT inside observedState.
+    useCanvasStore.setState(
+      {
+        nodes: [
+          {
+            id: NODE_ID,
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Vendor Licensing Cost',
+              kind: 'factor',
+              extractionType: 'inferred',
+              observedState: { value: null, source: 'cee_inference' },
+            },
+          },
+        ],
+        edges: [],
+      } as never,
+      false,
+    )
+    // PRECONDITION pinned in-test (trap 13b): the marker really is at the top
+    // level and really is absent from observedState, so a later `undefined` is
+    // the setter's doing and not the fixture's shape.
+    expect(nodeData().extractionType).toBe('inferred')
+    expect((nodeData().observedState as Record<string, unknown>).extractionType).toBeUndefined()
+
+    const { result } = renderHook(() => useNodeMutations(NODE_ID))
+    act(() => {
+      result.current.setObservedValue(0.8, 0.8)
+    })
+
+    expect(nodeData().extractionType).toBeUndefined()
+  })
+
+  it('CONTRAST — the top-level clear does not disturb a neighbouring data field', () => {
+    // Discriminates "the setter clears extractionType" from "the setter wipes
+    // the data object": `category` must survive untouched.
+    useCanvasStore.setState(
+      {
+        nodes: [
+          {
+            id: NODE_ID,
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Vendor Licensing Cost',
+              kind: 'factor',
+              extractionType: 'inferred',
+              category: 'external',
+              observedState: { value: null },
+            },
+          },
+        ],
+        edges: [],
+      } as never,
+      false,
+    )
+    const { result } = renderHook(() => useNodeMutations(NODE_ID))
+    act(() => {
+      result.current.setObservedValue(0.8, 0.8)
+    })
+    expect(nodeData().extractionType).toBeUndefined()
+    expect(nodeData().category).toBe('external')
   })
 })

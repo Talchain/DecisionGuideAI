@@ -665,6 +665,32 @@ export function useNodeMutations(nodeId: string) {
         // one. Clearing is right and re-deriving here would be wrong: this
         // string is the server's to author.
         display_value: undefined,
+        // ⭐⭐ THE TOP-LEVEL `extractionType`, FOR THE REASON THE LINE ABOVE
+        // ALREADY GIVES — and this is the SECOND half of "clearing both
+        // locations", which that comment names but only `display_value` got.
+        //
+        // `extractionType` has TWO storage locations in this codebase and they
+        // are both live on a real board (measured on deployed `b6673341`,
+        // usage-based-billing starter):
+        //   · `observedState.extractionType` — the CEE-derived spelling,
+        //     cleared inside the nested object below.
+        //   · `data.extractionType` — what `setExtractionType` (:806) writes,
+        //     and what `fac_vendor_cost` on that starter actually carries.
+        // `usePreAnalysisData.ts:763-766` enumerates both in prose, so this is
+        // the estate's own documented pair, not a new claim.
+        //
+        // ⚠⚠ WHY THIS LINE IS NOT OPTIONAL ONCE #1811 LANDS — the two PRs are
+        // each correct ALONE and the pair is not (CLAUDE.md trap 21 / the
+        // #1096-#1097 split-predicate shape). #1811 widens the READER to
+        // `factorValueIsUnconfirmedEstimate`, which returns true on EITHER
+        // spelling. Clearing only the nested one would leave a factor carrying
+        // the `data` spelling still labelled Olumi's estimate after the user
+        // typed a value — the exact defect this PR exists to close, reopened by
+        // its neighbour. Fixed HERE rather than in #1811 so this setter is
+        // complete on its own and the two are safe in EITHER merge order.
+        //
+        // ⚠ Cleared, not re-authored — same ruling as `display_value`.
+        extractionType: undefined,
         observedState: {
           ...existing,
           value,
