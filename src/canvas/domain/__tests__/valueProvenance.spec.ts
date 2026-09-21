@@ -12,6 +12,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  factorValueIsUnconfirmedEstimate,
   classifyValueProvenance,
   classifyNodeProvenance,
   isUserOwnedKind,
@@ -113,5 +114,82 @@ describe('2.638 S2 · completeness (trap 12d)', () => {
         `'${s}' is written by a producer but is unclassified`,
       ).toContain(s)
     }
+  })
+})
+
+/**
+ * ⭐⭐ THE CORPUS IS A REAL CAPTURE, NOT A FIXTURE I INVENTED.
+ *
+ * Every shape below was read from `window.useCanvasStore` on the DEPLOYED
+ * build, driving `usage-based-billing` as a guest — because a fixture written
+ * from a type definition encodes the author's model of the producer rather
+ * than the producer, and that is how this estate's last several blind spots
+ * were certified rather than caught (trap 16-inverse).
+ *
+ * The board's 8 factors carry THREE different shapes, and the third is the
+ * defect this closes.
+ */
+describe('factorValueIsUnconfirmedEstimate — the three shapes a real board sends', () => {
+  it('marks the canonical CEE shape — 5 of 8 factors on the board', () => {
+    expect(
+      factorValueIsUnconfirmedEstimate({
+        label: 'Engineering Capacity Allocated to Billing',
+        provenance: 'ai_inferred',
+        observedState: { value: 0.62, source: 'cee_inference', extractionType: 'inferred' },
+      }),
+    ).toBe(true)
+  })
+
+  it('⭐ marks the TOP-LEVEL shape — `Vendor Licensing Cost`, which shipped unmarked', () => {
+    // An inferred range of 0.25 to 0.75 rendered with no mark, beside five
+    // marked estimates, so the unattributed number looked the most settled.
+    expect(
+      factorValueIsUnconfirmedEstimate({
+        label: 'Vendor Licensing Cost',
+        category: 'external',
+        extractionType: 'inferred',
+        provenance: 'ai_inferred',
+        prior: { distribution: 'uniform', range_min: 0.25, range_max: 0.75 },
+        display_value: '0.25 to 0.75',
+        observedState: {},
+      }),
+    ).toBe(true)
+  })
+
+  it('⛔ CONTRAST — top-level `explicit` stays unmarked, so the fix reads the VALUE and not the location', () => {
+    // `Platform Migration Competing Demand`. A change that merely looked at the
+    // top level would mark this, and it is not an estimate.
+    expect(
+      factorValueIsUnconfirmedEstimate({
+        label: 'Platform Migration Competing Demand',
+        category: 'external',
+        extractionType: 'explicit',
+        provenance: 'from_brief',
+        prior: { distribution: 'uniform', range_min: 0.4, range_max: 1 },
+        observedState: {},
+      }),
+    ).toBe(false)
+  })
+
+  it('⛔ CONTRAST — a NODE stamped `ai_inferred` with no extractionType stays unmarked', () => {
+    // `Usage-Based Billing Complexity`. `provenance` answers "who put this NODE
+    // here"; this asks "who put this NUMBER here". Reading the node's stamp as
+    // the number's would be trap 21, and it would put a claim on screen that
+    // the record does not contain. The absence is a producer gap, routed as one.
+    expect(
+      factorValueIsUnconfirmedEstimate({
+        label: 'Usage-Based Billing Complexity',
+        category: 'external',
+        provenance: 'ai_inferred',
+        prior: { distribution: 'uniform', range_min: 0.4, range_max: 0.9 },
+        display_value: '0.4 to 0.9',
+      }),
+    ).toBe(false)
+  })
+
+  it('reads the WIRE spelling of the container too', () => {
+    expect(
+      factorValueIsUnconfirmedEstimate({ observed_state: { extractionType: 'inferred' } }),
+    ).toBe(true)
   })
 })
