@@ -511,7 +511,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             placeholder={DESCRIPTION_PLACEHOLDERS.factor}
             rows={2}
             maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+            className={`${typography.panelBody} ${controls.editableTextarea}`}
           />
         ) : (
           <EmptyDescriptionPrompt
