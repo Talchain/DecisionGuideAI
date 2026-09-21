@@ -94,10 +94,15 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
   })
 
   describe('Unsupported markdown (passed through as escaped/literal text)', () => {
-    it('does NOT convert italic — single asterisks remain as literal text', () => {
-      const result = sanitizeMarkdown('*italic text*')
-      expect(result).not.toContain('<em>')
-      expect(result).toContain('*italic text*')
+    // UPDATED 21 Sep 2026 — asterisk italic is now supported. Underscore
+    // italic is not, and that half is a ruling, not an omission: producer field
+    // names print in prose here and `_x_` would render
+    // `goal<em>threshold</em>unit`.
+    it('DOES convert *italic* — and leaves _italic_ literal', () => {
+      expect(sanitizeMarkdown('*italic text*')).toContain('<em>italic text</em>')
+      const underscored = sanitizeMarkdown('_italic text_')
+      expect(underscored).not.toContain('<em>')
+      expect(underscored).toContain('_italic text_')
     })
 
     it('does NOT convert inline code — backticks remain as literal text', () => {
@@ -134,10 +139,18 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toBe('<ol><li>First</li><li>Second</li></ol>')
     })
 
-    it('does NOT convert markdown links — brackets/parentheses remain literal', () => {
-      const result = sanitizeMarkdown('[text](https://example.com)')
-      expect(result).not.toContain('<a ')
-      expect(result).toContain('[text](https://example.com)')
+    // UPDATED 21 Sep 2026 — http/https/mailto links now render. Every other
+    // scheme FAILS CLOSED to its literal markdown, which is the security
+    // boundary now that <a> is on the allowlist.
+    it('DOES convert an https link, and fails closed on any other scheme', () => {
+      expect(sanitizeMarkdown('[text](https://example.com)')).toContain(
+        '<a href="https://example.com" target="_blank" rel="noopener noreferrer">text</a>',
+      )
+      for (const hostile of ['javascript:alert(1)', 'data:text/html,x', '//evil.com', 'evil']) {
+        const out = sanitizeMarkdown(`[text](${hostile})`)
+        expect(out, `${hostile} became a link`).not.toContain('<a ')
+        expect(out, `${hostile} lost its text`).toContain('[text]')
+      }
     })
   })
 
@@ -217,11 +230,12 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('<li>a</li>')
     })
 
-    it('does NOT produce <em>, <code>, <pre>, <blockquote>, or <h*> tags', () => {
+    // UPDATED 21 Sep 2026 — <em> moved onto the allowlist with asterisk
+    // italics. The rest of this list is unchanged and still load-bearing.
+    it('does NOT produce <code>, <pre>, <blockquote>, or <h*> tags', () => {
       const result = sanitizeMarkdown(
         '*italic* `code` \n```\nblock\n```\n> quote\n# heading',
       )
-      expect(result).not.toContain('<em>')
       expect(result).not.toContain('<code>')
       expect(result).not.toContain('<pre>')
       expect(result).not.toContain('<blockquote>')

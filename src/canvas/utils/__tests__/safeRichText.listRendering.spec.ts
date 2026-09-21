@@ -41,9 +41,12 @@ describe('safeRichText — unordered lists', () => {
   })
 
   it('does NOT treat "*italic*" as a bullet', () => {
+    // The point of this test is that a lone `*x*` is NOT a bullet. That still
+    // holds. What changed on 21 Sep 2026 is what it becomes instead: <em>
+    // rather than literal text.
     const result = safeRichText('*italic*')
     expect(result).not.toContain('<ul>')
-    expect(result).toContain('*italic*')
+    expect(result).toContain('<em>italic</em>')
   })
 
   it('does NOT treat a horizontal rule "***" as a bullet', () => {

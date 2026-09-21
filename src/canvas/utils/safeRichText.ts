@@ -3,6 +3,8 @@
  *
  * Supports ONLY the subset used by the orchestrator:
  *   - Bold:    **text** → <strong>text</strong>
+ *   - Italic:  *text*   → <em>text</em>   (asterisks ONLY — see below)
+ *   - Links:   [text](url) → <a>  (http/https/mailto ONLY — see below)
  *   - Bullets: - item / * item  → <ul><li>item</li></ul>
  *   - Numbered: 1. item / 1) item → <ol><li>item</li></ol>
  *   - Line breaks: single newline → <br>
@@ -14,7 +16,7 @@
  *   - Emoji characters → stripped (conservative allowlist)
  *
  * XSS safety:
- *   - Allowlist: <strong>, <br>, <ul>, <ol>, <li>, <span> only
+ *   - Allowlist: <strong>, <em>, <a>, <br>, <ul>, <ol>, <li>, <span> only
  *     (<span> is emitted with class="md-number" for tabular-nums styling on
  *     standalone integers / decimals / percentages per DS v5 §2 prose rhythm)
  *   - All other HTML is escaped before processing
@@ -25,12 +27,64 @@
  *   - These are decoded to & < > before rendering so the
  *     text reads correctly to the user.
  *
+ * ⚠ ITALICS ARE ASTERISK-ONLY, DELIBERATELY. `_text_` is NOT supported and
+ * must not be added: this product renders producer field names in prose —
+ * `goal_threshold_unit`, `probability_of_joint_goal`, `opt_raise_59` — and an
+ * underscore rule turns `goal_threshold_unit` into `goal<em>threshold</em>unit`.
+ * The asterisk form carries no such collision, so the two are not equivalent
+ * choices and the safer one is the only one taken.
+ *
+ * ⚠ LINK SAFETY RESTS ON THREE THINGS, in this order:
+ *   1. Every character is escaped (step 2) BEFORE any transform runs, so a
+ *      `<a>` in the output is one this module generated and never one the
+ *      producer supplied.
+ *   2. The URL must match `SAFE_URL_RE` — `http://`, `https://` or `mailto:`.
+ *      Anything else (`javascript:`, `data:`, a bare word) FAILS CLOSED and the
+ *      link renders as its literal markdown, which is exactly today's
+ *      behaviour. An entity-obfuscated scheme cannot pass either: escaping
+ *      turns a source `&` into `&amp;`, so `&#x6a;avascript:` never reconstructs.
+ *   3. Links are lifted into placeholders FIRST, so the numeric, bold and
+ *      italic transforms cannot reach inside an `href`. Without this the
+ *      number rule alone would rewrite `https://x.com/123` into a URL
+ *      containing a `<span>`.
+ *
+ * Link labels render as plain text — no nested bold/italic inside a link. That
+ * is a simplification, not an oversight: the label is already escaped, and
+ * keeping transforms out of the anchor is what makes (3) hold.
+ *
  * Does NOT use a full markdown engine. The tiny supported subset
  * does not warrant the weight and attack surface of one.
  */
 
 /** Allowlisted HTML tag names. Nothing else may appear in the output. */
-const ALLOWED_TAGS = new Set(['strong', 'br', 'ul', 'ol', 'li', 'span'])
+const ALLOWED_TAGS = new Set(['strong', 'em', 'a', 'br', 'ul', 'ol', 'li', 'span'])
+
+/**
+ * A markdown link, with the URL barred from containing whitespace or a closing
+ * paren. Label may not span lines.
+ */
+const LINK_RE = /\[([^\]\n]+)\]\(([^)\s]+)\)/g
+
+/**
+ * The ONLY schemes that become an anchor. Everything else falls through to its
+ * literal markdown — fail closed, never a link nobody vetted.
+ */
+const SAFE_URL_RE = /^(?:https?:\/\/|mailto:)[^\s<>"]+$/i
+
+/**
+ * Placeholder sentinels for lifted links. Distinct from EMOJI_SENTINEL (\x00).
+ *
+ * ⚠ THE `L` IS LOAD-BEARING, and leaving it out cost a round of red. The slot
+ * index is digits, and the numeric transform below runs while the placeholder
+ * is in the string — so `\u00010\u0002` had its `0` rewritten to
+ * `<span class="md-number">0</span>`, the restore pattern stopped matching, and
+ * every link came out as a mangled sentinel. The numeric rule's own lookbehind
+ * excludes a digit preceded by a letter (`(?<![A-Za-z_\d])`), so one letter in
+ * front makes the placeholder opaque to it. The transform this whole mechanism
+ * exists to hide from had been eating the mechanism itself.
+ */
+const LINK_OPEN = '\u0001L'
+const LINK_CLOSE = '\u0002'
 
 /**
  * Conservative emoji strip pattern.
@@ -95,19 +149,51 @@ function stripDisallowedTags(html: string): string {
  * digits inside identifiers (e.g. "opt_raise_59" stays untouched).
  */
 function convertInline(text: string): string {
+  // ⭐ LINKS COME OUT FIRST, and the order is the safety property. Every
+  // transform below rewrites substrings; if an anchor existed by the time they
+  // ran, the numeric rule alone would turn `https://x.com/123` into an href
+  // containing a `<span>`. Lifting links into placeholders makes the rest of
+  // this function structurally unable to reach inside one.
+  const links: string[] = []
+  const withLinkSlots = text.replace(LINK_RE, (whole, label: string, url: string) => {
+    // Fail closed: an unvetted scheme keeps its literal markdown, which is
+    // exactly the behaviour before links were supported at all.
+    if (!SAFE_URL_RE.test(url)) return whole
+    const slot = links.length
+    links.push(
+      `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`,
+    )
+    return `${LINK_OPEN}${slot}${LINK_CLOSE}`
+  })
+
   // Numeric: \d+(.\d+)?%? — applied first so bold markers don't interfere.
   // Lookbehind excludes:
   //   · mid-identifier digits ([A-Za-z_\d])
   //   · HTML numeric entities (&#123;, &#x1F;) which contain digits that
   //     must not be wrapped — the entity sequence is produced by escapeHtml.
   // Lookahead excludes semicolon (tail of a numeric entity) and identifier chars.
-  const withNumbers = text.replace(
+  const withNumbers = withLinkSlots.replace(
     /(?<![A-Za-z_\d]|&#[xX]?)(\d+(?:\.\d+)?%?)(?![A-Za-z_;])/g,
     '<span class="md-number">$1</span>',
   )
   // Bold: **text** → <strong>text</strong>
   // Non-greedy to handle multiple bold spans per line.
-  return withNumbers.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  const withBold = withNumbers.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+
+  // Italic: *text* → <em>text</em>. Runs AFTER bold, so every `**` pair is
+  // already consumed and any asterisk still standing is a single one.
+  //   · `(?!\s)` / `(?<!\s)` keep arithmetic out: `2 * 3 * 4` has a space
+  //     after the opening marker and never matches.
+  //   · `[^*\n]+?` keeps a match on one line and off any remaining marker.
+  // No `_text_` rule — see the module header; underscores collide with the
+  // producer field names this product prints in prose.
+  const withItalics = withBold.replace(/\*(?!\s)([^*\n]+?)(?<!\s)\*/g, '<em>$1</em>')
+
+  // Put the anchors back, untouched by anything above.
+  return withItalics.replace(
+    new RegExp(`\u0001L(\\d+)${LINK_CLOSE}`, 'g'),
+    (_m, slot: string) => links[Number(slot)] ?? '',
+  )
 }
 
 /**
