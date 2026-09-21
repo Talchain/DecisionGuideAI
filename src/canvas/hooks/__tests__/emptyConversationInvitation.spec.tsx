@@ -45,7 +45,9 @@ beforeEach(() => {
   nodes = []
   resultsStatus = undefined
 })
-afterEach(() => vi.clearAllMocks())
+afterEach(() => {
+  vi.clearAllMocks()
+})
 
 /** Put the ladder into a named stage, using only its real inputs. */
 function enter(stage: ConversationStage) {

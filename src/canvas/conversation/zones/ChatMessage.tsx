@@ -9,6 +9,14 @@
  * no band to reserve and no hover state to discover. The `group` class stays:
  * inner surfaces still use it.
  *
+ * ⛔ AND `isFirst` IS GONE WITH IT, because it was already dead and this file
+ * was the only thing keeping it alive. `MessageActions` had carried
+ * `/** @deprecated No longer used — kept for caller compatibility. *\/` on that
+ * prop; this component still threaded it down, and `ChatThread` still computed
+ * `i === 0` to supply it. A prop nobody reads, passed through one hop, reads to
+ * the next person as a live positioning input. Removing the bar made it
+ * UNUSED rather than merely pointless, and the typecheck ratchet said so.
+ *
  * Messages are categorised (action, research, error, answer) via
  * data-message-category for test/automation selectors.
  */
@@ -41,7 +49,6 @@ const CATEGORY_BORDER: Record<MessageCategory, string> = {
 
 interface ChatMessageProps {
   message: ConversationMessage
-  isFirst: boolean
   onChipClick: (chip: ActionChip) => Promise<void>
   onRetry: () => void
   patchBlockStates?: Map<string, PatchBlockState>
@@ -78,7 +85,6 @@ interface ChatMessageProps {
 
 export const ChatMessage = memo(function ChatMessage({
   message,
-  isFirst,
   onChipClick,
   onRetry,
   patchBlockStates,

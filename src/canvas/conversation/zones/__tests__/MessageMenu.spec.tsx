@@ -51,7 +51,9 @@ beforeEach(() => {
     writable: true,
   })
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 // ---------------------------------------------------------------------------
 // Which acts exist — the role asymmetry, carried from MessageActions
