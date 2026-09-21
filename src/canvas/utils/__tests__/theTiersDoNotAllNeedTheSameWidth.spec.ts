@@ -42,10 +42,12 @@ import { layoutGraph, solveLayoutCardWidths } from '../layout'
 import {
   NODE_CARD_MAX_W,
   CARD_W_CAP_BY_TIER,
+  CARD_W_READABLE_MAX,
   TIER_BY_KIND,
   LAYOUT_NODE_GAP,
   LAYOUT_PADDING_X,
 } from '../nodeLayoutConstants'
+import { MAX_LABEL_COUNTER_SCALE } from '../zoomLegibility'
 
 import capture from '../../__tests__/__fixtures__/starter-node-heights.browser-capture-2026-08-18.json'
 import vendorSelection from '../../starters/data/vendor-selection.draft.json'
@@ -205,5 +207,71 @@ describe('a tier may use width the board is already paying for', () => {
 
   it('an empty graph reports no widths rather than a guess', () => {
     expect(solveLayoutCardWidths([])).toEqual({})
+  })
+})
+
+/**
+ * ⛔⛔ THE READABLE MAXIMUM IS BUDGETED AT THE SMALLEST RENDERED TEXT, AND THE
+ * FIRST CUT OF IT WAS BUDGETED AT THE LARGEST.
+ *
+ * `nodeLayoutConstants` holds two character budgets over the same typeface that
+ * take the scale term at OPPOSITE extremes, because they answer different
+ * questions (CLAUDE.md trap 21):
+ *
+ *   NODE_ROW_LABEL_MAX_CHARS  "will this label still FIT at the biggest it ever
+ *                              renders?"  -> x MAX_LABEL_COUNTER_SCALE
+ *   CARD_W_READABLE_MAX       "is this line TOO LONG to read?"  -> x 1.0,
+ *                              because a line holds the MOST characters when
+ *                              the text is at its SMALLEST.
+ *
+ * Copying the neighbouring formula produced **1066px** — a card that holds ~180
+ * characters per line at normal zoom, double the readable bound, and wide enough
+ * that a lone goal card would have stretched most of the board. The tell was the
+ * number, not the reasoning, which is why this is pinned by CONSEQUENCE.
+ */
+describe('the readable maximum is a measure bound, not a fit bound', () => {
+  const charsPerLineAt = (widthPx: number, scale: number) =>
+    widthPx / (CARD_BODY_PX * scale * AVG_CHAR_EM_FROM_MEASURE)
+
+  // Re-derived here from the same measurement the source uses (296px of 24px
+  // type held 25 characters), rather than imported — so a change to the source
+  // constant has to be made in two places that were derived independently, and
+  // a silent edit to one REDs against the other.
+  const AVG_CHAR_EM_FROM_MEASURE = 296 / 25 / 24
+  const CARD_BODY_PX = 12
+  const READABLE_CHARS = 90
+
+  it('holds no more than the readable character count at NORMAL zoom', () => {
+    expect(charsPerLineAt(CARD_W_READABLE_MAX, 1)).toBeLessThanOrEqual(READABLE_CHARS + 1)
+  })
+
+  it('⛔ MUTANT: the fit-bound formula would BREACH that count — so the two are not interchangeable', () => {
+    // The discriminating half. Without this, the assertion above passes for any
+    // sufficiently small number and says nothing about which formula produced
+    // it. `MAX_LABEL_COUNTER_SCALE` is > 1, so the wrong budget is strictly
+    // wider and strictly less readable.
+    expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
+    const fitBound = Math.round(READABLE_CHARS * CARD_BODY_PX * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM_FROM_MEASURE)
+    expect(fitBound).toBeGreaterThan(CARD_W_READABLE_MAX)
+    expect(charsPerLineAt(fitBound, 1)).toBeGreaterThan(READABLE_CHARS)
+  })
+
+  it('⛔ never narrower than what shipped — a measure bound must not revert a founder call', () => {
+    // The decision card ships at 560, ABOVE the 533 measure. Applying the
+    // ceiling uniformly would have silently narrowed the Question after Paul
+    // asked for it to be "a lot wider".
+    expect(CARD_W_CAP_BY_TIER[0]).toBeGreaterThanOrEqual(560)
+    expect(CARD_W_CAP_BY_TIER[1]).toBeGreaterThanOrEqual(440)
+    expect(CARD_W_CAP_BY_TIER[5]).toBeGreaterThanOrEqual(480)
+  })
+
+  it('⭐ the tiers that wrap did actually gain width, and the ones that do not did not', () => {
+    // Non-vacuity, both directions: the change must be observable, and its
+    // deliberate refusal to widen the short-content tiers must be observable
+    // too — otherwise "we raised the caps" and "we raised everything" are
+    // indistinguishable here.
+    expect(CARD_W_CAP_BY_TIER[1]).toBeGreaterThan(440)
+    expect(CARD_W_CAP_BY_TIER[5]).toBeGreaterThan(480)
+    expect(CARD_W_CAP_BY_TIER[3]).toBe(NODE_CARD_MAX_W)
   })
 })

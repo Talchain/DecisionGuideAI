@@ -633,12 +633,36 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * this literal — five same-shaped strings in one object is exactly where a
    * transcription puts the right hash on the wrong starter.
    */
+  /**
+   * ⚠ RE-RECORDED 21 Sep 2026 — DELIBERATELY, AND HERE IS THE EVIDENCE, because
+   * a re-recorded digest is the one moment this guard proves nothing.
+   *
+   * `CARD_W_CAP_BY_TIER` was raised for the content-heavy tiers (option
+   * 440 -> 533, goal 480 -> 533; decision unchanged at 560, factor and
+   * outcome/risk unchanged at 336), so every starter's card widths move and
+   * every position digest moves with them.
+   *
+   * WHAT WAS CHECKED BEFORE RE-RECORDING — the run that produced these hashes
+   * failed on the five digest tripwires and NOTHING ELSE:
+   *   · R1 structural, 4/4 pass — no runtime dimension reaches the layout;
+   *   · **R1 acceptance, 5/5 pass — ONE canonical layout across
+   *     1280/1440/1512/1600/1668/1920.** The ruling itself is intact; a cap is
+   *     a constant, not a viewport, so the shape is stable across widths as
+   *     before — it is simply a different stable shape;
+   *   · the CONTRAST CONTROL passes, so the signature still discriminates;
+   *   · the readable property (every risk and outcome on ONE shared
+   *     consequence row) passes on all five.
+   *
+   * A digest that moved while those held is a shape change, not a regression.
+   * The block below pins what the change was FOR, so the new hashes are not the
+   * only thing standing behind it.
+   */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '3c2e3ad2c525b607', nodes: 19 },
-    'market-entry': { digest: '899d3f0d5a81fa0e', nodes: 18 },
-    'build-vs-buy': { digest: 'c8ecbb11c30ac473', nodes: 19 },
-    'headcount-allocation': { digest: '5c99476037d50074', nodes: 16 },
-    'pricing-model': { digest: '87272681d95fac2e', nodes: 15 },
+    'vendor-selection': { digest: 'c44997cad572e1f1', nodes: 19 },
+    'market-entry': { digest: '8d423672b59113ba', nodes: 18 },
+    'build-vs-buy': { digest: 'cc85459db848efe8', nodes: 19 },
+    'headcount-allocation': { digest: '9e6635f4abc0b537', nodes: 16 },
+    'pricing-model': { digest: 'a6af68f41bc53770', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

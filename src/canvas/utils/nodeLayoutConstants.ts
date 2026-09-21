@@ -772,12 +772,96 @@ export const TIER_BY_KIND: Record<string, number> = {
  * IS a tier (`TIER_BY_KIND`). `factor`/`action`/`constraint` share tier 2 and
  * `outcome`/`risk` share tier 3, so they necessarily share a cap.
  */
+/**
+ * ⭐⭐ THE READABLE MAXIMUM — ONE DERIVED CEILING IN PLACE OF THREE TASTE NUMBERS.
+ *
+ * Founder report, 21 Sep 2026: *"the graph is almost unusable on a standard
+ * laptop screen"*, and then the direction that rules out the obvious fix —
+ * *"Not a fan of losing valuable content on the nodes. I'm more interested in
+ * increasing the width where possible and better spacing."*
+ *
+ * MEASURED ACROSS ALL FIVE SHIPPED STARTERS (`solveLayoutCardWidths`, caps
+ * lifted to 9999 to expose what the fair share alone permits):
+ *
+ *   tier                       shipped      fair share allows
+ *   decision                     560        1904 - 3080
+ *   option                       440         434 -  989
+ *   factor / action / constraint 336         336            <- AT THE BOUND
+ *   outcome / risk               336         336 -  571
+ *   goal                         480        1904 - 3080
+ *
+ * ⭐ THE FACTOR TIER SETS THE BOARD EXTENT ON 5 OF 5 BOARDS — it is the widest
+ * tier every time, so its fair share equals `elkBoxW` exactly and it can never
+ * grow. Every OTHER tier has slack against that same extent by construction,
+ * and `tierBoxWidth` already spends it: `min(cap, shareOfWidestRow)`. **So the
+ * mechanism to use this space has been shipped all along; only these ceilings
+ * held it back, and raising them cannot widen the board** — the `min` against
+ * the widest tier's row is what guarantees it.
+ *
+ * ⚠ AND THE SHIPPED CAP OF 380 FOR TIER 2 WAS NEVER REACHABLE. The factor tier
+ * is the widest on every starter, so it solves to 336 and the 380 was dead. It
+ * is dropped rather than tidied up, because a constant that cannot bind reads as
+ * an active decision to the next person.
+ *
+ * WHY A CHARACTER MEASURE AND NOT A PIXEL TASTE CALL. Unbounded fair share gives
+ * a lone goal card 3,080px — one line of text three thousand pixels wide, which
+ * is unreadable however much room there is. Line length, not available space, is
+ * what bounds a card's width, so the ceiling is derived the same way this file's
+ * other text budgets are: from `AVG_CHAR_EM`, measured on this typeface, at the
+ * LARGEST size the card ever renders (`MAX_LABEL_COUNTER_SCALE`).
+ *
+ * 90 characters is the upper end of the readable range for SHORT BLOCKS — these
+ * cards hold label/value rows and a sentence, not continuous prose, for which
+ * the range would be 45-75.
+ *
+ * ⛔⛔ AND THE SCALE TERM GOES THE OTHER WAY FROM EVERY OTHER BUDGET IN THIS
+ * FILE — the first cut of this constant got it wrong and produced **1066px**,
+ * which is the tell.
+ *
+ * `NODE_ROW_LABEL_MAX_CHARS` above multiplies by `MAX_LABEL_COUNTER_SCALE`
+ * because it asks a FIT question — *will this label still fit at the biggest it
+ * ever renders?* — and the binding case is the LARGEST text.
+ *
+ * This constant asks a MEASURE question — *is this line too long to read?* — and
+ * a line holds the MOST characters when the text is at its SMALLEST, i.e. at
+ * counter-scale 1.0. Budgeting it at `MAX_LABEL_COUNTER_SCALE` (2.0) licenses a
+ * card twice as wide as the measure permits: at normal zoom that same card holds
+ * ~180 characters per line, more than double the readable bound.
+ *
+ * ⚠ Two constants, one file, one typeface, opposite extremes of the same scale —
+ * because they answer different questions (CLAUDE.md trap 21). Copying the
+ * neighbouring formula is precisely how the wrong one gets used.
+ */
+const CARD_MEASURE_MAX_CHARS = 90
+
+/** The declared size of the card body text these blocks use. */
+const CARD_BODY_DECLARED_PX = 12
+
+export const CARD_W_READABLE_MAX = Math.round(
+  CARD_MEASURE_MAX_CHARS * CARD_BODY_DECLARED_PX * AVG_CHAR_EM,
+)
+
+/**
+ * ⚠ ONLY THE TIERS WHOSE CONTENT ACTUALLY WRAPS ARE RAISED, and that is a
+ * deliberate refusal to apply the ceiling uniformly.
+ *
+ * Outcome and risk cards carry a median of 86 and 73 characters. At 336px they
+ * already fit; widening them to their 571px fair share would buy no height back
+ * and would draw a mostly-empty card — stretched, not premium. Spending slack
+ * is only a gain where text is WRAPPING, so the content-volume reasoning that
+ * produced the original per-tier split is kept. What changes is that the three
+ * tiers which do wrap now share ONE derived number instead of three invented
+ * ones (560 / 440 / 480), which is also the consistency the board was missing.
+ */
 export const CARD_W_CAP_BY_TIER: Readonly<Record<number, number>> = {
-  0: 560, // decision — the Question. Paul: "a lot wider". Always alone in its row.
-  1: 440, // option — the heaviest content of any populated tier (median 250 chars).
-  2: 380, // factor / action / constraint — median 141, and it carries a value row.
-  3: NODE_CARD_MAX_W, // outcome / risk — median 86/73. Widening these buys nothing.
-  5: 480, // goal — alone in its row, and it carries the target sentence.
+  // ⛔ NEVER NARROWER THAN TODAY. The decision card already ships at 560, ABOVE
+  // the 533 measure — a founder call ("a lot wider"), and lowering it to the
+  // derived number would be this change silently reverting his. `Math.max`
+  // states that rather than leaving the next reader to notice 560 > 533.
+  0: Math.max(560, CARD_W_READABLE_MAX), // decision — the Question.
+  1: Math.max(440, CARD_W_READABLE_MAX), // option — heaviest content of any populated tier (median 250 chars).
+  3: NODE_CARD_MAX_W, // outcome / risk — median 86/73. Widening these buys whitespace, not height.
+  5: Math.max(480, CARD_W_READABLE_MAX), // goal — alone in its row, and it carries the target sentence.
 }
 
 /** The cap for a tier, defaulting to today's single width for any tier absent
