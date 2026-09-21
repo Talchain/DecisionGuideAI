@@ -488,7 +488,19 @@ describe('resolveNodeCoaching — behaviour parity with the pristine per-node se
   const factorReq = (
     state: { needsInput: boolean; isExternalCategory: boolean; isInferred: boolean },
     label = 'Unit cost',
-  ): NodeCoachingRequest => ({ kind: 'factor', surface: 'card', state, context: { label } })
+    // ⚠ DEFAULTS TO FALSE ON PURPOSE. Every assertion below was written before
+    // the resolver could see the analysis, and `leadsInfluence: false` is the
+    // state they were describing — so they keep testing exactly what they were
+    // written to test. The new arm has its own spec
+    // (`theChipReadsTheAnalysis.spec.ts`); widening these silently would have
+    // rewritten a historic guard to agree with a change it never reviewed.
+    leadsInfluence = false,
+  ): NodeCoachingRequest => ({
+    kind: 'factor',
+    surface: 'card',
+    state: { ...state, leadsInfluence },
+    context: { label },
+  })
 
   it('factor / needsInput → help-me-estimate, and it WINS over the other two conditions', () => {
     expect(

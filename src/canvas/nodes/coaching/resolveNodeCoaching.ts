@@ -146,8 +146,44 @@ export type NodeCoachingRequest =
   | {
       kind: 'factor'
       surface: 'card'
-      state: { needsInput: boolean; isExternalCategory: boolean; isInferred: boolean }
-      context: { label: string }
+      state: {
+        needsInput: boolean
+        isExternalCategory: boolean
+        isInferred: boolean
+        /**
+         * ⭐⭐ THE ONLY ANALYSIS FACT THIS RESOLVER HAS EVER BEEN GIVEN, and the
+         * reason this field exists.
+         *
+         * Measured on deployed `b6673341`: 23 chips across 16 of 19 nodes, 12
+         * distinct strings, keyed on node KIND plus "does a scalar value
+         * exist" — nothing else. `fac_eng_capacity` is the most influential
+         * factor in the model AND an unconfirmed estimate, and it drew the
+         * IDENTICAL chip to `fac_build_indicator` at 5% influence. The science
+         * was computed and the coaching could not see it: every other request
+         * variant here carries post-analysis state (`option` has four such
+         * fields), and `factor` — the kind that CARRIES the influence ranking —
+         * carried none.
+         *
+         * ⚠ IT IS A BOOLEAN, NOT A RANK, DELIBERATELY. `influenceScaleCopy.ts`
+         * forbids minting a rival rank notion, caps badged ranks at 3 and
+         * withholds entirely on ties. The caller derives this from the LICENSED
+         * readout (`influenceRankReadout(...) !== null`) AND the raw
+         * `sensitivityRank === 1`, so a withheld readout collapses to `false`
+         * and this chip simply does not fire. The licence stays where it is
+         * owned; no threshold is re-decided here.
+         */
+        leadsInfluence: boolean
+      }
+      context: {
+        label: string
+        /**
+         * The licensed readout's OWN `phrase`, quoted verbatim into the message
+         * so the rank is stated by its single owner. Re-wording it here ("more
+         * influential than any other factor") would be a second vocabulary for
+         * one fact — the estate's trap 12 (a hand-maintained mirror) in prose.
+         */
+        influencePhrase?: string
+      }
     }
   | {
       kind: 'option'
@@ -410,6 +446,33 @@ const resolveFactor = (r: Extract<NodeCoachingRequest, { kind: 'factor' }>): Res
       },
     ]
   }
+  // ⭐⭐⭐ THE SAME POPULATION AS THE CHIP BELOW, ASKED A SHARPER QUESTION.
+  //
+  // This arm NEVER displaces `needsInput` or `isExternalCategory` — it only
+  // ever refines the generic evidence chip, so the change is bounded to one
+  // pre-existing branch. A factor that is BOTH the model's top influence AND an
+  // unconfirmed estimate is the highest-value thing a reader can act on: the
+  // number that moves the answer most is the one nobody has confirmed.
+  //
+  // ⚠ Both conjuncts are load-bearing and each is someone else's fact. Drop
+  // `isInferred` and this fires on a confirmed value, where there is nothing to
+  // confirm. Drop `leadsInfluence` and it is the wallpaper chip again.
+  if (r.state.isInferred && r.state.leadsInfluence) {
+    return [
+      {
+        id: 'factor_confirm_top_influence',
+        // ⚠ SHORT FOR THE SAME REASON AS THE CHIP BELOW — the caption column is
+        // content-sized on a 168px card, which is why "What evidence supports
+        // this?" was already cut to "What’s the evidence?". The MESSAGE carries
+        // the ask; the chip is only the affordance.
+        label: 'Confirm this first?',
+        message:
+          (r.context.influencePhrase ? `${r.context.influencePhrase} — and ` : '') +
+          `${label}'s value is still an unconfirmed estimate. What would it take to confirm it?`,
+        actionType: null,
+      },
+    ]
+  }
   if (r.state.isInferred) {
     return [
       {
@@ -613,12 +676,16 @@ export const ALL_COACHING_REQUESTS_FOR_TEST: readonly NodeCoachingRequest[] = ((
   for (const needsInput of bools)
     for (const isExternalCategory of bools)
       for (const isInferred of bools)
-        out.push({
-          kind: 'factor',
-          surface: 'card',
-          state: { needsInput, isExternalCategory, isInferred },
-          context: { label: 'A factor' },
-        })
+        // The new analysis axis is enumerated like every other one, so the
+        // parity guard covers the `factor_confirm_top_influence` arm rather
+        // than only the three that predate it.
+        for (const leadsInfluence of bools)
+          out.push({
+            kind: 'factor',
+            surface: 'card',
+            state: { needsInput, isExternalCategory, isInferred, leadsInfluence },
+            context: { label: 'A factor', influencePhrase: 'Most influential of 8 factors compared in this model' },
+          })
 
   for (const surface of ['card', 'cluster'] as const)
     for (const isPostAnalysis of bools)
