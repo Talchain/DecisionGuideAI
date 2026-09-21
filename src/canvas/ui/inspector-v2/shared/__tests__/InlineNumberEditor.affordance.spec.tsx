@@ -121,7 +121,7 @@ describe('a fenced writer is visibly fenced', () => {
     // invisible field, because the user would act on it.
     for (const token of [controls.editableField, controls.editableTextarea]) {
       expect(token).toContain('disabled:bg-panel')
-      expect(token).toContain('disabled:border-default')
+      expect(token).toContain('disabled:border-panel-border')
       expect(token).toContain('disabled:cursor-not-allowed')
     }
   })

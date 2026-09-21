@@ -64,7 +64,13 @@
  * the control often does not know it is fenced.
  */
 const DISABLED_FENCE =
-  ' disabled:bg-panel disabled:border-default disabled:text-text-light disabled:cursor-not-allowed'
+  // ⚠ `border-panel-border`, NOT `border-default`. The low-contrast token
+  // `--border-default-rgb` is registered as `colors.panel.border`, so Tailwind
+  // generates `border-panel-border`; `border-default` resolves to NOTHING and
+  // emitted no CSS, so the fenced state's border silently did not render either.
+  // Caught by `controls.classesResolve.spec.ts` — the same class of defect as
+  // `border-field`, in the same file, found by the guard written for the first.
+  ' disabled:bg-panel disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed'
 
 export const controls = {
   /**
@@ -131,7 +137,7 @@ export const controls = {
     // A pencil on a fenced control is a promise, so the cue goes with the box.
     // `group-disabled:` because the cue is a CHILD of the button that carries
     // both the `group` marker and the disabled state.
-    ' disabled:hover:border-default',
+    ' disabled:hover:border-panel-border',
 
   /**
    * The pencil cue beside a resting editable value.

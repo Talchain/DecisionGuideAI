@@ -46,7 +46,12 @@ export default {
           DEFAULT: 'rgb(var(--bg-panel-rgb) / <alpha-value>)',
           hover: 'rgb(var(--bg-panel-hover-rgb) / <alpha-value>)',
           border: 'rgb(var(--border-default-rgb) / <alpha-value>)',
-          field: 'rgb(var(--border-field-rgb) / <alpha-value>)',
+          // ⛔ `field` DELIBERATELY DOES NOT LIVE HERE — see `borderColor` at the
+          // foot of this file. A colour under `colors` generates the whole
+          // utility family (`text-*`, `bg-*`, `border-*`); this token is a
+          // BORDER colour at 3.70:1, which clears the 3.00:1 non-text floor and
+          // fails the 4.5:1 normal-text floor, so a `text-panel-field` utility
+          // would be a colour the product must never paint as text.
         },
 
         // Border emphasis
@@ -262,6 +267,43 @@ export default {
       animation: {
         slideDown: 'slideDown 0.2s ease-out',
         fadeOut:   'fadeOut 0.2s ease-out forwards',
+      },
+
+      /**
+       * ⭐⭐ BORDER-ONLY COLOURS — and `field` is here for TWO measured reasons,
+       * not for tidiness.
+       *
+       * It was first added as `colors.panel.field`, which was wrong twice over:
+       *
+       * 1. ⛔ IT DID NOT RENDER. Tailwind flattens a NESTED colour key with a
+       *    dash, so `colors.panel.field` generates `border-panel-field` — while
+       *    `styles/controls.ts` and `EditableLabel.tsx` ship the class
+       *    `border-field`. That utility was defined NOWHERE, so Tailwind emitted
+       *    nothing and the 3.70:1 border never appeared. Confirmed by running
+       *    tailwindcss over the committed config: `.border-panel-field` emitted,
+       *    `.border-field` absent, with `border-[#ff0000]` in the same pass as a
+       *    positive control and `.border-panel-border` (556 uses) as the
+       *    contrast. A TOP-LEVEL key under `borderColor` yields the bare
+       *    `border-field`, which is the class the source already uses.
+       *
+       * 2. ⛔ AND AS A `colors` ENTRY IT WAS A TEXT COLOUR IT MUST NEVER BE.
+       *    `tests/ci-guards/reasoning-model-text-contrast-per-site.spec.ts`
+       *    enumerates `theme.extend.colors` and pins the set of colours sitting
+       *    between the 3:1 and 4.5:1 floors. `panel-field` at 3.70:1 landed in
+       *    that band and the guard REDed — correctly, because a `text-*`
+       *    utility existed for a colour that fails normal-text contrast.
+       *
+       * ⭐ Declaring it here fixes both at once: the class resolves, and the
+       * colour leaves the text guard's enumeration because there is no longer
+       * any way to paint it as text. The guard stops reporting it because the
+       * risk was removed, not hidden.
+       *
+       * ⚠ `extend` MERGES, so every borderColor key Tailwind derives from
+       * `colors` survives — `border-panel-border` and the other 332 are
+       * untouched. `brand.css` remains the single source of the value.
+       */
+      borderColor: {
+        field: 'rgb(var(--border-field-rgb) / <alpha-value>)',
       },
     },
   },

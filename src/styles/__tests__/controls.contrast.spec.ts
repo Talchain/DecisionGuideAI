@@ -71,8 +71,22 @@ describe('an editable field is visibly a field', () => {
   })
 
   it('the field style uses the field token and NOT the container token', () => {
-    expect(controls.editableField).toContain('border-field')
-    expect(controls.editableField).not.toContain('border-panel-border')
+    // ⚠ ASSERTED ON THE BASE STATE ONLY, and that is a sharpening rather than a
+    // relaxation. The claim is about what an ENABLED field is marked with: the
+    // 3.70:1 token, never the 1.23:1 container token.
+    //
+    // A FENCED field legitimately uses the low-contrast token — `disabled:` is
+    // how the product says "this cannot be edited", and the flat `not.toContain`
+    // could not tell that state apart from the defect. It fired on
+    // `disabled:border-panel-border`, which is the correct fenced treatment.
+    const base = controls.editableField
+      .split(/\s+/)
+      .filter((c) => !c.includes(':'))
+    expect(base).toContain('border-field')
+    expect(base).not.toContain('border-panel-border')
+
+    // And the fenced state is still pinned, positively, so dropping it REDs.
+    expect(controls.editableField).toContain('disabled:border-panel-border')
   })
 
   it('the field is a box with a fill, not a bare underline', () => {
