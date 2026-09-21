@@ -4102,6 +4102,17 @@ export function useConversation(): UseConversationReturn {
       // Capture it once after lazy UUID allocation; never re-derive it from
       // the live store when this request eventually settles.
       const scenarioIdAtDispatch = currentScenarioId
+      // ⭐ THE PRE-TURN FACT RECOVERY ATTRIBUTION NEEDS, AND THE ONLY PLACE IT
+      // IS STILL TRUE. `lastServerGraphHash === null` answers two questions at
+      // once — "this scenario has no server graph yet" and "this canvas was
+      // RESTORED, so no turn has stamped a hash though the server holds a
+      // graph" — and a restored canvas is indistinguishable from a fresh one by
+      // that field alone (`structuralAdd.ts:74`, `structuralRename.ts:168`,
+      // `structuralDelete.ts:522` all record the null). Read HERE, at dispatch,
+      // it separates them: a restore has already put nodes on the canvas, and a
+      // first draft has not. Read any later and a streamed PREVIEW has already
+      // moved it, which is why the recovery module cannot derive this itself.
+      const canvasHadGraphAtDispatch = useCanvasStore.getState().nodes.length > 0
 
       const resolvedTurnType: TurnType = isSystemEvent
         ? 'system_event'
@@ -4572,6 +4583,7 @@ export function useConversation(): UseConversationReturn {
               userId: v5UserId,
               accessToken: v5Identity.accessToken,
               turnClientId,
+              hadGraphBeforeTurn: canvasHadGraphAtDispatch,
               signal: controller.signal,
               canApply: () =>
                 ownsRecovery() &&
@@ -5655,6 +5667,7 @@ export function useConversation(): UseConversationReturn {
             // attributed to a different session than the turn it recovers.
             accessToken: v5Identity.accessToken,
             turnClientId,
+            hadGraphBeforeTurn: canvasHadGraphAtDispatch,
           })
           if (recovery === 'recovered') {
             // The merge applied the server's committed values and released

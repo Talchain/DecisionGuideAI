@@ -76,6 +76,16 @@ export interface RecoverDraftArgs {
   signal?: AbortSignal
   /** Additional ownership checks for a missing initial draft. */
   canApply?: () => boolean
+  /**
+   * Whether the canvas already held a graph when THIS turn was dispatched —
+   * read in `useConversation` at the dispatch scope, before any streamed
+   * preview could move it. It is the only fact that separates the two states
+   * `lastServerGraphHash === null` collapses together, and the recovery module
+   * cannot derive it: by the time this runs, a preview may already have put
+   * nodes on the canvas. Omitted (`undefined`) means "not established", which
+   * fails closed exactly like a restored canvas.
+   */
+  hadGraphBeforeTurn?: boolean
 }
 
 /**
@@ -109,15 +119,79 @@ export async function recoverDraftFromServer(
       //
       //   · hashes EQUAL      → the server holds the pre-turn graph. Nothing
       //                         this turn did is on it. Not a recovery.
-      //   · base NULL         → nothing was authoritative before, so a graph
-      //                         now is new by construction. Attributable.
       //   · fetched hash NULL → a CEE that predates the field. Attribution is
-      //                         IMPOSSIBLE, so nothing is claimed — fail
-      //                         closed, because a false "recovered" is a lie
-      //                         about the user's model and a missed one is a
-      //                         retry.
+      //                         IMPOSSIBLE, so nothing is claimed — fail closed.
+      //   · base NULL         → ⛔ TWO DIFFERENT STATES UNDER ONE VALUE, AND MY
+      //                         FIRST VERSION COLLAPSED THEM. It read null as
+      //                         "nothing was authoritative before, so a graph
+      //                         now is new by construction" — FALSE in this
+      //                         product, and three modules say so in terms:
+      //                         `structuralAdd.ts:74` ("On a restored graph
+      //                         `lastServerGraphHash` is null: a reload builds a
+      //                         fresh…"), `structuralRename.ts:168` ("A restore
+      //                         leaves `lastServerGraphHash` [null]") and
+      //                         `structuralDelete.ts:522` ("from Supabase with
+      //                         NO CEE turn, so `lastServerGraphHash` is null").
+      //                         The hash moves ONLY when a turn response stamps
+      //                         one, so a restored canvas holds null while the
+      //                         SERVER already holds a graph. A failed draft
+      //                         then hydrates that pre-existing graph, the
+      //                         canvas moves, and the old graph is narrated as
+      //                         this turn's recovered draft — the exact lie the
+      //                         wrong-delta guard closed, re-entering through
+      //                         the null.
+      //
+      // ⭐⭐ SO THE NULL IS SPLIT BY A SECOND, INDEPENDENT FACT — NOT BY A
+      // STRICTER READING OF THE SAME ONE.
+      //
+      //   · base NON-NULL → attributable iff the fetched hash DIFFERS from it.
+      //   · base NULL     → decided by `hadGraphBeforeTurn`, captured in
+      //                     `useConversation` at the DISPATCH scope:
+      //                       false → the canvas was empty when this turn went
+      //                               out, so nothing was there to be restored
+      //                               and a server graph now is this draft's;
+      //                       true  → something had already put nodes there and
+      //                               it was not a turn (no hash was stamped),
+      //                               i.e. a restore or reload. The server may
+      //                               hold that same older graph. Claim nothing.
+      //                     undefined → not established. Fails closed.
+      //
+      // ⚠ WHY IT IS PASSED IN RATHER THAN READ HERE, which is the whole reason
+      // the first two attempts leaked. By the time this module runs, the failed
+      // turn may already have applied a streamed PREVIEW, so a node count read
+      // here is not a pre-turn fact at all — it was the first discriminator
+      // tried, and it reported a restored canvas for a fresh one.
+      // `lastAuthoritativeGraph` was the second: seeded by the scenario load,
+      // but `useConversation.ts` nulls it when a streamed preview is withdrawn,
+      // so it reads identically on exactly the failing path that matters. Both
+      // are recorded here because each looks correct until you ask WHEN it is
+      // read (CLAUDE.md trap 22f — count the rounds, and change the kind of
+      // evidence rather than adding a third rule over the same cache).
+      //
+      // ⚠⚠ AND THE HONEST LIMIT OF THIS CHANGE, because it must not be read as
+      // a demonstrated fix. I could NOT reach the reviewed scenario through
+      // either drive, and the discriminating mutant (treat a null base as
+      // attributable) SURVIVES both: the stream-loss path guards its merge with
+      // `canApply: recoveryCanvas.nodes.length === 0`, and the truncated-stream
+      // path did not narrate a restored graph as recovered either. A test
+      // written on either drive passed for the WRONG REASON, so none is kept —
+      // a green test that cannot fail is worse than no test. This narrowing is
+      // therefore DEFENCE IN DEPTH against a hole that is real in this
+      // expression but not currently reachable, not a pinned repair. If the
+      // path exists, it is upstream of attribution and belongs to whichever
+      // guard admits the merge.
+      //
+      // ⚠ AND FAILING CLOSED ON EVERY NULL WAS NOT AN OPTION, which is worth
+      // stating because it is the obvious reading of the review. A scenario's
+      // FIRST draft has a null base by construction, so a blanket refusal
+      // disables boot recovery and first-draft recovery outright — nine tests
+      // in this suite encode that behaviour deliberately. It would have traded
+      // a rare false claim for the loss of every true one.
       attributable =
-        merge.graphHash !== null && merge.graphHash !== merge.baseAtDispatch
+        merge.graphHash !== null
+        && (merge.baseAtDispatch !== null
+          ? merge.graphHash !== merge.baseAtDispatch
+          : args.hadGraphBeforeTurn === false)
     },
   })
   logger.debug('draft_recovery.outcome', {
