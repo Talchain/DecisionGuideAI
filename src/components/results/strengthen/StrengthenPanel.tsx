@@ -197,7 +197,27 @@ function RecRow({
               the row is open and the expanded whyNow IS the body, the clamped
               copy stands down: the full text renders once, below. */}
           {!(expanded && subtitleDuplicatesWhy) && (
-            <span className={`${typography.panelMeta} mt-0.5 block text-text-light line-clamp-2`}>{rec.signal}</span>
+            /* ⛔ `block` REMOVED — IT WAS DEFEATING THE CLAMP THE COMMENT ABOVE
+               ASKS FOR. `line-clamp-2` sets its own display, and a `block`
+               beside it wins the generated cascade, so the "clamp to two lines"
+               this row intends never applied and long producer bodies ran to
+               full height.
+
+               ⚠ FOUND BY SWEEPING FOR A DEFECT I SHIPPED MYSELF an hour earlier
+               in `InferenceWarningStrip` (#1820, repaired in #1825), where the
+               same pair measured `display: "block"` with
+               `scrollHeight === clientHeight` on the deployed build — the class
+               present and inert. Every other `line-clamp` call site in `src/`
+               was checked in the same sweep; two apparent hits were `flex-1`,
+               which is a grow utility and not a display, and this was the only
+               other real one.
+
+               ⚠ INFERRED FROM THAT MEASUREMENT, NOT MEASURED HERE: this row
+               needs a phase-3 recommendation to render and the demo board has
+               none, so I could not drive it. The CSS reasoning is identical and
+               the removal is safe either way, since the clamp supplies a
+               block-level display of its own. */
+            <span className={`${typography.panelMeta} mt-0.5 text-text-light line-clamp-2`}>{rec.signal}</span>
           )}
           {record.isStale && (
             <span className={`${typography.panelMeta} block italic text-text-light`}>{COPY.staleLabel}</span>
