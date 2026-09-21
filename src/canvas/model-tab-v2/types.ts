@@ -407,6 +407,31 @@ export interface DetailField {
  * display string can never be silently reinterpreted as a number the user then
  * appears to have typed.
  */
+/**
+ * A factor this option COULD change and does not yet — one row of the picker
+ * that turns "no change values are set yet" from a report into a route.
+ *
+ * ⭐⭐ WIRED-ONLY, AND THAT IS THE AUTHORITY'S RULE RATHER THAN A UI TASTE.
+ * `useModelEditAuthority.proposeOptionIntervention` says it in terms: *"The
+ * SERVER additionally requires the option to be WIRED to it and refuses
+ * otherwise"*. Offering an unwired factor would put a live control in front of
+ * a reader that the server declines — preamble P8, an enabled button that does
+ * nothing, which is the exact defect class this whole increment is closing.
+ *
+ * So the candidate set is the option's OUTGOING EDGES to factors, minus the
+ * factors it already intervenes on. The product's own copy already describes
+ * that set — *"Linked to 3 factors below, but no change values are set yet"* —
+ * so this projects the thing the sentence is about.
+ *
+ * ⚠ A FACTOR THE MODEL CANNOT NAME IS DROPPED, NOT RENAMED, for the reason
+ * `buildOptionInterventions` gives: asking a reader to set a value for
+ * something that is not in their model is a worse offer than making none.
+ */
+export interface OptionInterventionCandidate {
+  factorId: string
+  factorLabel: string
+}
+
 export interface OptionInterventionField {
   factorId: string
   factorLabel: string
@@ -446,6 +471,13 @@ export interface OptionInterventionField {
  */
 export interface ModelRowDetail {
   rowId: string
+  /**
+   * Factors this option is wired to and does not yet change.
+   *
+   * ⚠ `[]` FOR EVERY OTHER KIND, and for an option with nothing left to add.
+   * Empty means "no route to offer here", never "we could not work it out".
+   */
+  interventionCandidates: OptionInterventionCandidate[]
   /**
    * ⭐ THE FACTOR'S STATED CLASSIFICATION — `Controllable` / `Observable` /
    * `External`, or `null`.

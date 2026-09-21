@@ -50,6 +50,8 @@ const detail = (over: Partial<ModelRowDetail> = {}): ModelRowDetail => ({
   secondaryValues: [],
   basis: 'Inferred from model structure',
   adjustments: [],
+  // Nothing to offer: this fixture is not an option.
+  interventionCandidates: [],
   affects: [TARGET],
   interventions: [],
   advancedParameters: [],

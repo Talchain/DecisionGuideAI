@@ -37,6 +37,8 @@ function detail(over: Partial<ModelRowDetail> = {}): ModelRowDetail {
     basis: 'Inferred from model structure',
     adjustments: [],
     affects: [],
+    // Nothing to offer: this fixture is not an option.
+    interventionCandidates: [],
     // A FACTOR has none. Interventions belong to options, so the honest default
     // here is the empty list, not an omission — `ModelRowDetail` requires the
     // field precisely so a producer cannot forget it.
