@@ -2403,6 +2403,25 @@ describe('OptionNode — display coherence (audit §8)', () => {
     expect(badge).toHaveAttribute('aria-label', 'Option 2 — the order the options were first laid out in, not a ranking')
 
     /**
+     * ⭐⭐ AND THE SIGHTED READER GETS THE SAME SENTENCE, FROM THE SAME BUILDER.
+     *
+     * Measured on the deployed board: of 358 `aria-label`s, 9 carry an
+     * explanatory disclosure and 5 had no hover text — four of them this badge,
+     * one per option. The reader who was told this is not a ranking was the one
+     * using a screen reader; a sighted reader hovering it got nothing.
+     *
+     * ⚠ AND THE BOARD MAKES IT CONCRETE: the badge reading `1` sits on the
+     * option with 24% support and `3` on the option with 56%, so taking it for
+     * a placing reads the order backwards — while the Reasoning tab for the
+     * same run says in terms that no option may be called the leader.
+     *
+     * ⛔ ASSERTED EQUAL TO THE `aria-label` RATHER THAN TO A LITERAL, so the two
+     * audiences cannot be given different sentences by a later edit — the same
+     * coupling the block below makes between this element and the builder.
+     */
+    expect(badge.getAttribute('title')).toBe(badge.getAttribute('aria-label'))
+
+    /**
      * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
      * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
      * legend row; it cannot see this component dropping the builder and
