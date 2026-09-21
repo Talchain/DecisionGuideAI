@@ -66,7 +66,7 @@ import {
   minimiseFloatingOlumiPanel, freezeMotion, waitForVisualQuiescence,
 } from '../visual/harness'
 
-const STARTER = 'build-vs-buy' as const
+const STARTER = (process.env.STARTER ?? 'build-vs-buy') as 'build-vs-buy'
 const VP = { width: 1280, height: 900 }
 
 /**
@@ -75,7 +75,7 @@ const VP = { width: 1280, height: 900 }
  * floor question: if the atoms fit at 280 they fit at 416, and running the wide
  * arm would double the wall-clock to re-prove the easy case.
  */
-const DOCK = 280
+const DOCK = Number(process.env.DOCK_PX ?? 280)
 
 /** Sub-pixel: anti-aliased boxes routinely share a hairline without colliding. */
 const EPSILON_PX = 0.5
@@ -83,7 +83,7 @@ const EPSILON_PX = 0.5
 type Tier = 'plain' | 'advanced'
 
 interface Pair { readonly row: string; readonly a: string; readonly b: string; readonly overlapX: number; readonly overlapY: number }
-interface Reading { readonly rows: number; readonly atoms: number; readonly pairs: readonly Pair[] }
+interface Reading { readonly rows: number; readonly atoms: number; readonly pairs: readonly Pair[]; readonly viewport: { w: number; h: number } }
 
 async function mountModelTab(page: Page, tier: Tier): Promise<void> {
   await preparePage(page, VP)
@@ -93,7 +93,7 @@ async function mountModelTab(page: Page, tier: Tier): Promise<void> {
 
   await openCanvas(page)
   const seeded = await seedStarterDraft(page, STARTER)
-  expect(seeded.nodeCount, 'build-vs-buy is 19 nodes; a different count means the fixture drifted').toBe(19)
+  expect(seeded.nodeCount, `${STARTER} seeded no nodes — the fixture is missing or drifted`).toBeGreaterThan(0)
 
   await clearNotifications(page)
   await minimiseFloatingOlumiPanel(page)
@@ -170,7 +170,7 @@ async function readOverlaps(page: Page, eps: number): Promise<Reading> {
         }
       }
     }
-    return { rows: rows.length, atoms, pairs }
+    return { rows: rows.length, atoms, pairs, viewport: { w: window.innerWidth, h: window.innerHeight } }
   }, eps)
 }
 
@@ -188,6 +188,25 @@ test.describe('model row cell overlap', () => {
       const reading = await readOverlaps(page, EPSILON_PX)
 
       // ── VACUITY CONTROL ──────────────────────────────────────────────────
+      /**
+       * ⛔⛔ THE VIEWPORT FIRST, AND THIS ONE COST A RETRACTED FINDING.
+       *
+       * 21 Sep 2026: I measured this surface through a browser pane reporting
+       * `innerWidth = 0`. A 0x0 viewport makes the whole layout degenerate —
+       * `getBoundingClientRect()` still returns numbers, the dock still reported
+       * a plausible 361px, and the probe returned **0 overlapping pairs** on a
+       * model the harness reads 8 for. Nothing in that output said "this is not
+       * a rendered page", so I published it as a correction to a TRUE finding
+       * and took a real defect off the board with an argument attached.
+       *
+       * A layout measurement's first vacuity control is its own viewport. Rows
+       * and atoms being non-zero does not cover it: both were correct (36/189)
+       * in the degenerate reading.
+       */
+      expect(
+        Math.min(reading.viewport.w, reading.viewport.h),
+        `viewport is ${reading.viewport.w}x${reading.viewport.h} — a degenerate layout cannot be measured`,
+      ).toBeGreaterThan(0)
       expect(reading.rows, 'no rows mounted — a zero overlap count would be vacuous').toBeGreaterThan(0)
       expect(reading.atoms, 'rows mounted but no atoms inside them — the selector is wrong').toBeGreaterThan(reading.rows)
 
