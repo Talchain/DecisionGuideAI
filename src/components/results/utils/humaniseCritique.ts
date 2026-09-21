@@ -593,6 +593,44 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
       'Per-factor value of information could not be computed for every factor requested. The factors that did compute are ranked against each other correctly.',
   }),
 
+  /**
+   * ⭐⭐ THE THIRD EVPPI MEMBER, AND IT IS A DIFFERENT FACT FROM BOTH SIBLINGS.
+   *
+   * Witnessed on Paul's run `95b92672` (21 Sep 2026), where it arrived
+   * UNMAPPED and rendered as the generic fallback — so the producer's actual
+   * sentence never reached the screen:
+   *
+   *   "Value-of-information ran but produced no rows. The reason is not known
+   *    at this layer and has deliberately not been inferred."
+   *
+   * ⛔ IT MUST NOT BORROW EITHER SIBLING'S CAUSE, which is the whole reason it
+   * gets its own entry rather than an alias (CLAUDE.md trap 21 — two questions
+   * under one name). `FACTOR_EVPPI_UNAVAILABLE` is an estimator FAILURE;
+   * `FACTOR_EVPPI_PARTIAL` is some rows computed. This one RAN, completed, and
+   * returned NOTHING — and the producer explicitly declines to say why.
+   *
+   * ⛔ SO NO RE-RUN IS PRESCRIBED. The siblings can honestly say "re-run"
+   * because their reasons are known to be transient or model-fixed. Here the
+   * reason is stated as unknown, so promising a retry would help is exactly the
+   * futile instruction this module exists to refuse.
+   *
+   * ⚠⚠ IT DOES SAY THE REST STANDS, AND MY FIRST VERSION WITHHELD THAT — the
+   * vocabulary guard refused it and was right. My reasoning was "the producer
+   * does not assert it here, so neither may we." That confuses the AUTHORITY
+   * for the claim with its SOURCE: value of information is a separate phase,
+   * every sibling in this family states it, and `FACTOR_EVPPI_UNAVAILABLE`
+   * carries it on a strictly WORSE event (the estimator failing outright). A
+   * reader told only that a step returned nothing, with no word on the rest,
+   * reasonably fears their comparison is compromised — so withholding the
+   * clause is not caution, it is a new and worse implication.
+   */
+  FACTOR_EVPPI_NOT_COMPUTED: () => ({
+    title:
+      'Nothing was ranked as most worth learning next. That step ran and returned no rows, and the engine did not say why. Your results stand.',
+    description:
+      'Per-factor value of information completed without producing a ranking. Olumi\'s engine reported no reason for the empty result, and none has been inferred here.',
+  }),
+
   // Reason: compute_error. Same posture as FACTOR_EVPPI_UNAVAILABLE.
   FACTOR_EVPC_UNAVAILABLE: () => ({
     title:
@@ -710,6 +748,62 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description:
       'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.',
     // No suggestion — see the block above. There is no writer for this.
+  }),
+
+  /**
+   * ⭐⭐ A SHORTER LIST IS NOT A FAILED ONE — and the producer says so plainly.
+   *
+   * Witnessed UNMAPPED on Paul's run `95b92672` (21 Sep 2026), where it fell to
+   * the generic fallback. Its message:
+   *
+   *   "... carried no finite E-value from the analysis engine (an unflippable
+   *    edge, whose current and flip means coincide, has no evidence ratio).
+   *    ... shorter because those entries could not be represented, not because
+   *    they were computed empty. All other analyses are unaffected."
+   *
+   * ⭐ THE LOAD-BEARING HALF IS THE SECOND SENTENCE. Absent it, a reader meets
+   * a short evidence list and concludes the analysis dropped something it
+   * should have had. The true reason is a property of the MODEL — reversing
+   * that relationship lands on the same mean, so there is no ratio to form —
+   * which is a finding in its own right, not a degradation.
+   *
+   * ⚠ CLASSIFIED `compute_degradation`, beside `E_VALUES_UNAVAILABLE`. The
+   * REASON is a model property, but the EVENT is an E-value output that could
+   * not be represented — and `model_shape` obliges copy to name a user route,
+   * which nothing honest can do here.
+   *
+   * ⚠ NO COUNT IS GIVEN. The producer states one, but this template factory
+   * takes no arguments and the number lives only in the raw message. Naming a
+   * count this signature cannot see would be a fabrication; the sentence is
+   * true for any number of such edges.
+   *
+   * ⭐ "Every other part of this analysis stands" IS carried, unlike the EVPPI
+   * entry above, because THIS producer message asserts it in terms.
+   */
+  EDGE_E_VALUE_NON_FINITE_DROPPED: () => ({
+    title:
+      'Some relationships have no evidence ratio, because reversing them would land on the same answer. Your results stand.',
+    description:
+      'Where a relationship\'s current and reversed strength come out the same, there is no ratio to weigh, so those entries are absent from the evidence list rather than empty. Every other part of this analysis stands.',
+  }),
+
+  /**
+   * ⭐ ABSENT BY CONTRACT, NOT BY FAILURE — the distinction is the whole message.
+   *
+   * The producer: "edge_sensitivity is empty by wire contract, not by
+   * computation failure. Factor-level sensitivity is unaffected." A reader who
+   * meets an empty relationship-sensitivity area and no explanation concludes
+   * something broke.
+   *
+   * ⚠ NO WIRE TOKEN AND NO FORMAT VERSION REACHES THE COPY. "the ISL V2
+   * response format" and `edge_sensitivity` are internals; the reader needs the
+   * consequence, not the mechanism.
+   */
+  EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE: () => ({
+    title:
+      'Sensitivity for individual relationships is not carried by this analysis format, so it is absent by design rather than missing. Your results stand.',
+    description:
+      'Factor-level sensitivity is unaffected and is shown as usual. Nothing failed to compute here.',
   }),
 
   // ── Kind B (user-stated ranges): the closed RangeFitRefusalCode vocabulary ─
@@ -897,6 +991,13 @@ export const ISL_INFERENCE_WARNING_KINDS: Readonly<Record<string, InferenceWarni
   EVPI_UNAVAILABLE: 'compute_degradation',
   FACTOR_EVPPI_UNAVAILABLE: 'compute_degradation',
   FACTOR_EVPPI_PARTIAL: 'compute_degradation',
+  // Added 2026-09-21: code 29, witnessed live on run `95b92672`. It post-dates
+  // the 28fe0c95 AST walk this map was built from — the drift the vocabulary
+  // spec's property (4) predicted, arriving exactly as described.
+  FACTOR_EVPPI_NOT_COMPUTED: 'compute_degradation',
+  // Added 2026-09-21: code 32. Absent BY WIRE CONTRACT, not by failure — which
+  // is why the copy says the results stand rather than describing a shortfall.
+  EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE: 'compute_degradation',
   FACTOR_EVPC_UNAVAILABLE: 'compute_degradation',
   // Model shape
   GOAL_THRESHOLD_NOT_CONVERTIBLE: 'model_shape',
@@ -911,6 +1012,15 @@ export const ISL_INFERENCE_WARNING_KINDS: Readonly<Record<string, InferenceWarni
   // but it is in `NO_ROUTE_EXISTS`: the user CANNOT act, because nothing in
   // the estate writes `goal_direction`.
   GOAL_DIRECTION_UNATTESTED: 'model_shape',
+  // Added 2026-09-21: code 30, witnessed live on run `95b92672`. Sits beside
+  // its direct sibling `E_VALUES_UNAVAILABLE` — the EVENT is an E-value output
+  // that could not be represented, even though the REASON is a model property.
+  // ⚠ I first classified it `model_shape` and the vocabulary guard refused it:
+  // `model_shape` copy must name a route the user can take, and there is none
+  // here that is honest. Telling someone to change a relationship's strength so
+  // that a diagnostic appears is prescribing a model edit to produce a number,
+  // which is the futile-instruction defect one level up.
+  EDGE_E_VALUE_NON_FINITE_DROPPED: 'compute_degradation',
   // Model shape — user-stated range refusals (compute is untouched)
   RANGE_OPEN_ENDED: 'model_shape',
   RANGE_INVALID_ORDER: 'model_shape',

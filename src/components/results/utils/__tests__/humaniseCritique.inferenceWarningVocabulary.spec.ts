@@ -71,7 +71,28 @@ describe('ISL inference-warning vocabulary — the derived code set', () => {
     // `staging` c9ab543d found two codes this map did not hold. One is added
     // (`GOAL_DIRECTION_UNATTESTED`, which fires on every run today); the other
     // is pinned as deliberately absent below.
-    expect(CODES).toHaveLength(27)
+    //
+    // ⭐ 27 → 29 on 2026-09-21, and this RED is the pin doing its job. Two codes
+    // arrived on a real run (`olumi-debug-95b92672`) that this map did not hold —
+    // `FACTOR_EVPPI_NOT_COMPUTED` and `EDGE_E_VALUE_NON_FINITE_DROPPED` — so BOTH
+    // rendered the generic fallback and the user read "Part of this analysis was
+    // limited" twice, with the producer's actual explanations discarded. This is
+    // exactly the cross-repo drift this file's header predicts; the count is meant
+    // to move deliberately, with the map, which is what happened here.
+    //
+    // ⭐ 27 → 30 on 2026-09-21, from a SWEEP plus a DERIVATION rather than a
+    // sighting. All 945 captured debug bundles were read for
+    // `inference_warnings[].code` (12 distinct codes emitted in the wild), and
+    // then `humaniseCritique` was CALLED for each — because a text grep over
+    // this file truncates at an inner brace and misses the label-aware map
+    // entirely, which is how a first pass wrongly scored two codes as unmapped.
+    // Measured at pristine `origin/staging`, exactly three land on the generic
+    // fallback: EDGE_E_VALUE_NON_FINITE_DROPPED, FACTOR_EVPPI_NOT_COMPUTED and
+    // EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE. Those three, and only those three.
+    expect(CODES).toHaveLength(30)
+    expect(CODES).toContain('EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE')
+    expect(CODES).toContain('FACTOR_EVPPI_NOT_COMPUTED')
+    expect(CODES).toContain('EDGE_E_VALUE_NON_FINITE_DROPPED')
     expect(CODES).toContain('E_VALUES_UNAVAILABLE')
     expect(CODES).toContain('RANGE_OPEN_ENDED')
     expect(CODES).toContain('ROOT_NODE_DEFAULT_VALUE')
