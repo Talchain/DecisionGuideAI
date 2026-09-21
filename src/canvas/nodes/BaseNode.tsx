@@ -40,7 +40,10 @@ import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
-import { resolveLodMetricLine } from './shared/lodMetricLine'
+import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
+import { useInfluenceRank } from '../hooks/useInfluenceRank'
+import { ESTIMATE_SUBJECT_TITLE } from './shared/EstimateMarker'
+import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
 import { resolveLodMetricFacts } from './shared/lodMetricFacts'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
@@ -427,18 +430,36 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * goal and decision need nothing here — each formats its own line and passes
    * it as `lodMetric` below.
    */
+  /**
+   * ⭐ THE RANK IS A FACT THE RESOLVER CANNOT SEE, exactly as an option's
+   * change count is. It depends on analysis FRESHNESS — a store question — so
+   * a pure function handed `data` and `displayMetadata` can never answer it,
+   * and the reduced line therefore always fell through to the bare percentage
+   * while the card beside it named a rank.
+   *
+   * ⚠ CALLED UNCONDITIONALLY BECAUSE IT IS A HOOK. It resolves to `null` for
+   * every non-factor card and for every card at full zoom, and it adds no
+   * traversal — `useAnalysisResultsAreCurrent` reads three scalars.
+   */
+  const influenceRank = useInfluenceRank(
+    displayMetadata.sensitivityRank,
+    displayMetadata.influenceSetSize,
+  )
+
   const lodFacts = useMemo(() => {
-    if (!bodyReduced || nodeType !== 'option') return undefined
+    if (!bodyReduced) return undefined
+    if (nodeType === 'factor') return { influenceRank }
+    if (nodeType !== 'option') return undefined
     return resolveLodMetricFacts({
       nodeType,
       nodeId: id,
       data: data as Record<string, unknown> | undefined,
       ceeOptions: ceeAnalysisReady?.options,
     })
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank])
 
-  const lodBodyLine = useMemo<string | null>(() => {
-    if (!bodyReduced) return null
+  const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
+    if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
     /**
      * ⛔ THE OWNER'S OWN LINE WINS, AND AS OF 1 SEP 2026 THAT IS A SETTLED
      * OWNERSHIP SPLIT RATHER THAN A FALLBACK ORDER (see the map in
@@ -457,8 +478,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
      * component spec staying GREEN. If you are about to add one, add it to the
      * owning component instead.
      */
-    if (lodMetric != null && lodMetric.length > 0) return lodMetric
-    return resolveLodMetricLine({
+    /**
+     * ⚠ AN OWNER'S OWN LINE CARRIES NO `est.` MARK, AND THAT IS NOT AN
+     * OVERSIGHT. The four owners are risk, outcome, goal and decision; the
+     * mark speaks about a FACTOR'S VALUE, and risk/outcome already carry
+     * their own unconfirmed-strength disclosure through `METRIC_UNSET`. A
+     * mark added here would name an object these lines are not about.
+     */
+    if (lodMetric != null && lodMetric.length > 0) {
+      return { text: lodMetric, unconfirmedEstimate: false }
+    }
+    return resolveLodMetricLineDetail({
       nodeType,
       data: data as Record<string, unknown> | undefined,
       label,
@@ -466,6 +496,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       facts: lodFacts,
     })
   }, [bodyReduced, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
+  const lodBodyLine = lodBody.text
 
   /**
    * ⛔ A CARD'S CONTENT IS NEVER REMOVED WITHOUT SOMETHING PUT IN ITS PLACE.
@@ -2224,10 +2255,48 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             <div
               data-testid="node-lod-line"
               title={lodBodyLine}
-              className={`${typography.nodeLabel} text-text-body truncate absolute left-0 right-0 top-0`}
+              /*
+               * ⚠⚠ THE TESTID AND THE VISIBILITY STAY ON THE OUTER ELEMENT, and
+               * two specs outside this file are why. `BaseNode.lodBodyLine`
+               * asserts that `node-lod-line`'s PARENT is the hidden body and
+               * that the element itself re-declares `visibility: visible`;
+               * `DecisionNode.optionCount` asserts the same override. Moving
+               * the id onto the inner text span — which a first cut did —
+               * breaks both, because the id's parent becomes this wrapper
+               * rather than the body.
+               *
+               * ⭐ AND IT IS THE RIGHT SHAPE ANYWAY: this element IS the
+               * reduced line. The truncation belongs to the TEXT inside it, not
+               * to the line, which is exactly why the mark beside it can escape
+               * the ellipsis.
+               */
+              className="absolute left-0 right-0 top-0 flex items-baseline gap-1"
               style={{ visibility: 'visible' }}
             >
-              {lodBodyLine}
+              <span
+                data-testid="node-lod-line-text"
+                className={`${typography.nodeLabel} text-text-body truncate`}
+              >
+                {lodBodyLine}
+              </span>
+              {/* ⭐⭐ THE MARK IS `shrink-0`, AND THAT IS THE WHOLE POINT OF
+                  PUTTING IT IN ITS OWN ELEMENT RATHER THAN IN THE STRING.
+                  This line is `truncate`d, so a marker appended to the text
+                  is the FIRST thing an ellipsis eats — the number survives
+                  and the disclosure does not, which is the exact defect being
+                  closed, rebuilt by its own fix. Here the number is what
+                  gives way and the mark cannot.
+                  ⚠ `est.` keeps the card's word order (value, then mark) so
+                  the two zoom rungs read as one sentence rather than two. */}
+              {lodBody.unconfirmedEstimate && (
+                <span
+                  data-testid="node-lod-estimate-mark"
+                  title={ESTIMATE_SUBJECT_TITLE.value}
+                  className={`${typography.nodeLabel} text-text-light italic shrink-0`}
+                >
+                  {UNCONFIRMED_ESTIMATE_TOKEN}
+                </span>
+              )}
             </div>
           )}
         </div>

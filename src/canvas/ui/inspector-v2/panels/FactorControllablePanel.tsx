@@ -16,6 +16,7 @@ import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
@@ -58,6 +59,8 @@ import {
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
 import { USER_VALUE_STAMP } from '../../../domain/valueProvenance'
+import { classifyUnit } from '../../../../utils/unitClassifier'
+import { isSuppressedUnit } from '../../../utils/labelUtils'
 import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
 import {
   BeliefElicitationField,
@@ -175,7 +178,52 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const rawValue = unwrapInterventionValue(obs?.raw_value).value ?? undefined
   const value = unwrapInterventionValue(obs?.value).value ?? undefined
   const cap = unwrapInterventionValue(obs?.cap).value ?? undefined
-  const unit = obs?.unit as string | undefined
+  /**
+   * ⛔⛔ THE UNIT THE READER SEES, NOT THE TOKEN THE WIRE CARRIES.
+   *
+   * Measured in the founder's own session bundle `95b92672` (21 Sep): CEE sent
+   * `unit: 'unit_interval'` on `Founder Time Commitment` and `unit: 'scale'` on
+   * `Campaign Strategic Quality`, and this panel printed them verbatim — the
+   * value read **`0.2 unit_interval`** on screen. `unit_interval` is the
+   * mathematical name for [0,1]; it names a RANGE, not a quantity, so it tells
+   * a reader only that the number is between nought and one, which they could
+   * already see.
+   *
+   * ⭐ THE CARD ALREADY GETS THIS RIGHT, WHICH IS THE WHOLE POINT. The node
+   * card's chain routes every unit through `classifyUnit` — 10 references in
+   * `formatFactorDisplayValue.ts` — and drops `kind: 'placeholder'`, which is
+   * why the same factor reads `0.4 est.` on the board and `0.4 scale` nowhere.
+   * The inspector never asked: **0 references** to `classifyUnit`,
+   * `GENERIC_PLACEHOLDER_UNITS` or `isSuppressedUnit` across the whole of
+   * `inspector-v2` (contrast control in the same sweep: 10 in the card chain).
+   * So one surface classified the token and the surface beside it printed it.
+   *
+   * ⚠ TWO PREDICATES, BECAUSE THERE ARE GENUINELY TWO WAYS A UNIT FIELD GOES
+   * WRONG, and collapsing them would be the trap-21 error one level down:
+   *   · `classifyUnit(...).kind === 'placeholder'` — the word names a RANGE
+   *     (`scale`, `index`, `unit_interval`). Owned by `utils/unitClassifier`.
+   *   · `isSuppressedUnit(...)` — a factor TYPE descriptor (`binary`, `cost`,
+   *     `time`, `quality`) that leaked into the unit field. A different defect
+   *     with a different table, owned by `labelUtils`.
+   * Neither set contains the other and both must be asked. ⛔ Do not merge the
+   * two tables: `ratio` is deliberately absent from the placeholder set pending
+   * a producer ruling, and a merge would silently convert it.
+   *
+   * ⚠ HOISTED ONCE, for the reason `GoalPanel:191-196` already states about its
+   * own `scaleSafeUnit`: this panel has THREE readers (the value readout, its
+   * meta line, and the cap line) and *"one expression, both consumers — never
+   * two copies of the tag check"*.
+   *
+   * ⛔ THE RAW TOKEN IS STILL AVAILABLE AS `wireUnit` and is deliberately NOT
+   * deleted — `buildFactorValueEditEvent` and the scale contract reason about
+   * what CEE actually sent, and must keep seeing it. This narrows what is
+   * RENDERED, never what is sent.
+   */
+  const wireUnit = obs?.unit as string | undefined
+  const unit =
+    wireUnit && (classifyUnit(wireUnit).kind === 'placeholder' || isSuppressedUnit(wireUnit))
+      ? undefined
+      : wireUnit
   const source = obs?.source as string | undefined
   /**
    * D1 — resolve a `panel_elicited` value's AUTHOR to a name, at render.
@@ -510,7 +558,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             placeholder={DESCRIPTION_PLACEHOLDERS.factor}
             rows={2}
             maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+            className={`${typography.panelBody} ${controls.editableTextarea}`}
           />
         ) : (
           <EmptyDescriptionPrompt
@@ -658,7 +706,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               onBlur={handleValueBlur}
               onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
               placeholder="Enter value"
-              className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
+              className={`${typography.panelHeader} text-xl ${controls.editableField}`}
             />
             {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
               <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>

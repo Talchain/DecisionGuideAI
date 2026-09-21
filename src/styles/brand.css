@@ -104,6 +104,34 @@
   --border-default-rgb: 238 230 216;
   --border-default: rgb(var(--border-default-rgb));
 
+  /* ⭐⭐ THE ONLY BORDER TOKEN THAT CAN MARK AN EDITABLE FIELD.
+   *
+   * MEASURED on the deployed build, against the panel background
+   * `--bg-panel-rgb` (254 254 254):
+   *
+   *     --border-default-rgb   238 230 216   ->  1.23 : 1
+   *     --border-emphasis-rgb  221 212 196   ->  1.46 : 1
+   *     WCAG 1.4.11 non-text minimum         ->  3.00 : 1
+   *
+   * NEITHER existing border token reaches the floor, so before this token there
+   * was no way to draw a field that reads as a field. The factor value input
+   * was `bg-transparent border-b border-panel-border`, i.e. a transparent box
+   * with a 1.23:1 underline — it rendered as plain text, and the only visible
+   * affordance (`focus:border-primary`) arrived AFTER the user had already
+   * found and clicked it. Paul could not find the control that edits the graph,
+   * which is the whole product.
+   *
+   * 140 131 118 is in the same warm family as its siblings and measures
+   * 3.70 : 1 against the panel — clear of the floor with headroom, rather than
+   * sitting on it where a later palette nudge would silently drop below.
+   *
+   * ⚠ NOT a general-purpose border. Containers keep `--border-default`; this is
+   * for controls that ACCEPT INPUT, where failing to look interactive is a
+   * functional defect and not a stylistic one.
+   */
+  --border-field-rgb: 140 131 118;
+  --border-field: rgb(var(--border-field-rgb));
+
   /* Legacy aliases */
   --canvas-25: var(--bg-canvas);
   --paper-50: var(--bg-panel);

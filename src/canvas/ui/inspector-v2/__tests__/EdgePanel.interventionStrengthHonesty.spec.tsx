@@ -78,7 +78,12 @@ function seedEdge(sourceKind: Kind, targetKind: Kind) {
         id: 'edge-under-test',
         source: 'src-1',
         target: 'tgt-1',
-        data: { weight: 0.35, direction: 'positive', beliefExists: 0.82, strengthStd: 0.15 },
+        /* ⚠ `weightSource: 'cee'` — FIXTURE CORRECTION, same class as the one
+           `EdgePanel.v62.spec.tsx` documents for `beliefExistsSource`. This file
+           asks whether the β control CARRIES ITS CAVEAT, which presupposes a β
+           worth caveating; an edge with no stated weight has none to render, so
+           without this the test pinned a fabricated default. */
+        data: { weight: 0.35, weightSource: 'cee', direction: 'positive', beliefExists: 0.82, beliefExistsSource: 'cee', strengthStd: 0.15, strengthStdSource: 'cee' },
       },
     ],
     results: { status: 'none', report: null },

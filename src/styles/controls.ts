@@ -1,0 +1,129 @@
+/**
+ * Olumi control surfaces — the one place that decides what an INTERACTIVE
+ * control looks like.
+ *
+ * Usage:
+ *   import { controls } from '@/styles/controls'
+ *   <input className={`${typography.panelHeader} ${controls.editableField}`} />
+ *
+ * ⭐⭐ WHY THIS MODULE EXISTS — a measured, founder-reported functional defect,
+ * not a styling preference.
+ *
+ * On the deployed build (21 Sep 2026) the factor value input — the control that
+ * edits the model, which is the entire product — was:
+ *
+ *     bg-transparent border-b border-panel-border focus:border-primary
+ *
+ * i.e. a transparent box whose only marking was a 1px underline measuring
+ * **1.23 : 1** against the panel background. WCAG 1.4.11 asks 3.00 : 1 for a
+ * non-text indicator, so it failed by 2.4x and rendered as plain text. The one
+ * visible state (`focus:border-primary`) arrives only AFTER the user has found
+ * and clicked it — the field announces itself exclusively to people who already
+ * knew it was there.
+ *
+ * The founder's words, having built the product himself: *"I still can't edit
+ * the graph."* The capability worked — an edit made through that control saved
+ * to the shared model and survived a reload. **It was invisible, not absent.**
+ *
+ * ⛔ AND IT IS NOT ONE INPUT. `border-panel-border` has **548 uses estate-wide**
+ * (55 in `inspector-v2` alone) and 21 files in that folder style inputs
+ * `bg-transparent`. Neither existing border token can mark a field:
+ *
+ *     --border-default-rgb    238 230 216  ->  1.23 : 1
+ *     --border-emphasis-rgb   221 212 196  ->  1.46 : 1
+ *
+ * So this could not be fixed by swapping a token — `--border-field` was minted
+ * for it (see `styles/brand.css`, which carries the derivation).
+ *
+ * ⚠ ONE OWNER, DELIBERATELY. The alternative was editing 21 files, which is how
+ * a hand-maintained mirror starts (CLAUDE.md trap 12): the next input added
+ * copies whichever neighbour it was pasted from, and the drift is invisible
+ * because every copy still "looks fine" in isolation. A constant here means the
+ * next field is correct by construction, and one edit moves all of them.
+ *
+ * ⚠ THE CONTRAST IS GUARDED, NOT ASSERTED. `controls.contrast.spec.ts` parses
+ * the RGB triples out of `brand.css` and COMPUTES the ratio, so it fails loud if
+ * the palette moves — rather than re-typing a number here that would go stale
+ * exactly the way `LABEL_DECLARED_FONT_PX` did.
+ */
+/**
+ * ⭐⭐ A FENCED FIELD MUST LOOK FENCED — the regression that `editableField`
+ * would otherwise have introduced.
+ *
+ * Several inspector writers sit inside `<fieldset disabled={readOnly}>` writer
+ * fences (`data-writer-fence="..."`), because this estate's rule is *fence the
+ * writers with no server carrier; leave live the ones that reach the model* —
+ * decided per WRITER, never per panel. Giving those controls the same warm fill
+ * and 3.7:1 border as a live field would advertise an edit the product will
+ * refuse: a MORE convincing lie than the invisible field it replaced, because
+ * the user would now act on it.
+ *
+ * ⚠ `:disabled` propagates from a disabled `<fieldset>` to the form controls
+ * inside it, so this fires on a fenced writer without the panel having to pass
+ * anything down — which matters, since the fence is applied at the fieldset and
+ * the control often does not know it is fenced.
+ */
+const DISABLED_FENCE =
+  ' disabled:bg-panel disabled:border-default disabled:text-text-light disabled:cursor-not-allowed'
+
+export const controls = {
+  /**
+   * A control that accepts typed input.
+   *
+   * A visible box on all four sides, not an underline: an underline reads as
+   * decoration under text, while a box reads as somewhere to put something. The
+   * fill (`bg-panel-hover`, a warm tint) separates the field from the panel even
+   * where a border is missed, so the affordance does not rest on one 1px line.
+   *
+   * `focus:border-primary` is KEPT — it was never the problem. The defect was
+   * that focus was the FIRST visible state, not that it was the wrong one.
+   */
+  editableField:
+    'w-full rounded-md bg-panel-hover border border-field focus:border-primary outline-none px-2 py-1 transition-colors' +
+    DISABLED_FENCE,
+
+  /**
+   * A control that accepts typed prose.
+   *
+   * Identical box to `editableField`; `resize-none` because the inspector is a
+   * fixed-width column and a user-dragged corner reflows the panel.
+   */
+  editableTextarea:
+    'w-full rounded-md bg-panel-hover border border-field focus:border-primary outline-none px-2.5 py-1.5 resize-none transition-colors' +
+    DISABLED_FENCE,
+
+  /**
+   * ⭐ THE RESTING HALF OF A CLICK-TO-EDIT VALUE — and the defect that
+   * `editableField` alone did NOT fix.
+   *
+   * `InlineNumberEditor` is the primary control on the observable-factor and
+   * risk panels: the number a user clicks to change what the model records. In
+   * its resting state it was a bare `<button>` carrying
+   *
+   *     text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5
+   *
+   * — no border, no fill, no cue. Its ONLY visible affordance was `hover:`,
+   * which requires the pointer to already be on it. So the field a user must
+   * find in order to edit anything announced itself exclusively to someone who
+   * had already found it. That is the same defect as the transparent input one
+   * layer earlier, and fixing the input left it untouched, because on these two
+   * panels **the input does not exist until the button has been clicked.**
+   *
+   * ⚠ THE BOX MATCHES `editableField` DELIBERATELY. Same radius, same padding,
+   * same border token — so clicking swaps the readout for a cursor with **no
+   * layout shift**, and a person reading the panel sees one consistent shape
+   * meaning "you can change this". The old pair shifted the number by ~6px on
+   * click, which reads as a glitch rather than as entering a field.
+   */
+  editableResting:
+    'w-full text-left rounded-md bg-panel-hover border border-field hover:border-primary cursor-text px-2 py-1 transition-colors',
+
+  /**
+   * The pencil cue beside a resting editable value.
+   *
+   * Kept as an idiom rather than reinvented: `EditableLabel`'s rename trigger
+   * already uses a pencil, and two different cues for one meaning is exactly
+   * the inconsistency this module exists to stop.
+   */
+  editableCue: 'shrink-0 text-text-light group-hover:text-info transition-colors',
+} as const

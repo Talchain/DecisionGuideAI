@@ -1818,7 +1818,38 @@ export const OptionNode = memo((props: NodeProps) => {
                    carries the legend row's own clause (agreement), and the
                    render specs assert THIS element's accessible name equals
                    the builder's output (so re-inlining a literal here REDs).
-                   The rendered string is unchanged. */
+                   The rendered string is unchanged.
+
+                   ⭐⭐ AND `title` FROM THE SAME BUILDER, BECAUSE THE SENTENCE
+                   WAS REACHING ONLY HALF ITS AUDIENCE. Measured on the deployed
+                   board: of 358 `aria-label`s, 9 carry an explanatory
+                   disclosure and 5 of those had no hover text — four of them
+                   THIS badge, one per option. So the one reader who is told
+                   this is not a ranking was the one using a screen reader, and
+                   the sighted reader hovering the badge got nothing.
+                   ⚠ The comment above already names the harm in exactly those
+                   terms ("indistinguishable from the ranking badge to anyone
+                   using a screen reader") — it simply stopped one audience
+                   short.
+
+                   ⚠ AND THE BOARD MAKES IT CONCRETE. On `usage-based-billing`
+                   the badge reading `1` sits on the option with 24% support and
+                   the badge reading `3` on the option with 56%, so a reader who
+                   takes it for a placing reads the order backwards. The
+                   Reasoning tab for the same run says in terms that "no option
+                   can be called the leader" — the badge must not imply one.
+
+                   ⭐ THE PATTERN IS THE ESTATE'S OWN, EIGHT LINES UP: the
+                   robustness badge at :1773 carries `title` and `aria-label`
+                   built from ONE string for exactly this reason. This is that
+                   pattern applied, not a new convention — and it is the same
+                   builder, so the two audiences cannot be told different
+                   things. ⛔ NOT a second string, and NOT a new tooltip
+                   component: a `title` is unreachable by keyboard and absent on
+                   touch (`EstimateMarker`'s own ruling), which is why the
+                   `aria-label` stays and is not replaced by it. Both, or the
+                   disclosure keeps missing somebody. */
+                title={optionOrdinalBadgeAccessibleName(stableOptionNumber)}
                 aria-label={optionOrdinalBadgeAccessibleName(stableOptionNumber)}
                 className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >

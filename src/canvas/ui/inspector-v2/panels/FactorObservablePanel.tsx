@@ -11,6 +11,7 @@ import type { NodeType, ObservedState, FactorNodeData } from '../../../domain/no
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useEditConfirmation } from '../useEditConfirmation'
 import { EditConfirmation } from '../shared/EditConfirmation'
@@ -215,7 +216,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
             placeholder="Describe this observable factor..."
             rows={2}
             maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+            className={`${typography.panelBody} ${controls.editableTextarea}`}
           />
         ) : (
           <EmptyDescriptionPrompt

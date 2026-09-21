@@ -49,7 +49,9 @@
  * directory were answering one question two ways.
  */
 import { useState, useCallback, useMemo } from 'react'
+import { Pencil } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { admitNumericField } from './numericFieldAdmission'
 
 interface InlineNumberEditorProps {
@@ -158,7 +160,10 @@ export function InlineNumberEditor({
       <button
         type="button"
         data-testid={displayTestId}
-        className={`${typography.panelHeader} text-xl text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
+        // ⭐ A VISIBLE FIELD AT REST, not a bare string with a hover state. The
+        // box is `controls.editableResting` — the same geometry and border
+        // token as the input it swaps to, so the click costs no layout shift.
+        className={`${typography.panelHeader} text-xl group flex items-center gap-1.5 ${controls.editableResting}`}
         onClick={() => {
           // Seed from the EXACT value, never a rounded display string.
           setDraft(value != null ? String(value) : '')
@@ -166,11 +171,18 @@ export function InlineNumberEditor({
           setIsEditing(true)
         }}
         title={title}
+        aria-label={ariaLabel ? `${ariaLabel} — click to edit` : undefined}
       >
-        {readout != null
-          ? readout
-          : <span className={`${typography.panelMeta} text-text-light italic`}>{placeholder}</span>
-        }
+        <span className="min-w-0 flex-1 truncate">
+          {readout != null
+            ? readout
+            : <span className={`${typography.panelMeta} text-text-light italic`}>{placeholder}</span>
+          }
+        </span>
+        {/* The same pencil idiom `EditableLabel`'s rename trigger uses. One cue
+            for one meaning — two different cues would be the inconsistency the
+            controls module exists to prevent. */}
+        <Pencil size={12} aria-hidden="true" data-testid={`${displayTestId}-cue`} className={controls.editableCue} />
       </button>
     )
   }
@@ -194,7 +206,16 @@ export function InlineNumberEditor({
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
         aria-invalid={refusal != null}
         aria-describedby={refusal != null ? `${inputTestId}-refusal` : undefined}
-        className={`${typography.panelHeader} text-xl w-full bg-transparent border-b ${refusal ? 'border-danger' : 'border-panel-border'} focus:border-primary outline-none py-0.5 transition-colors`}
+        // ⚠ The refusal state REPLACES `border-field` rather than appending
+        // `border-danger` beside it: two border-colour utilities of equal
+        // specificity are resolved by stylesheet order, not by class-list
+        // order, so appending would leave the winner up to Tailwind's emit
+        // order — green in a jsdom className assertion and wrong on screen.
+        className={`${typography.panelHeader} text-xl ${
+          refusal
+            ? controls.editableField.replace('border-field', 'border-danger')
+            : controls.editableField
+        }`}
       />
       {refusal && (
         // `role="alert"` because the message appears in response to the

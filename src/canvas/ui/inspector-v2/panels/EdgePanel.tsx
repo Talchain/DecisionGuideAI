@@ -46,6 +46,8 @@ import {
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
 import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
+import { resolveStrengthSpread, inlineStrengthLabel } from '../../../domain/strengthBandSpan'
+import { getStrengthLabel } from '../../../domain/vocabulary'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
@@ -329,6 +331,18 @@ export const EdgePanel = memo(function EdgePanel({
   const direction = edge?.data?.direction ?? 'positive'
   const signedValue = direction === 'negative' ? -weight : weight
   const beliefExists = edge?.data?.beliefExists ?? EDGE_CONSTRAINTS.beliefExists.default
+  /**
+   * ⛔ THE SLIDER'S POSITION, AND NOTHING ELSE. This is the ONE remaining raw
+   * read of `strengthStd`, and it is deliberate: a range input's thumb has to
+   * sit somewhere even when the panel is refusing to say where. It seeds
+   * `localStd` below, and `localStd` now reaches NO rendered number — every
+   * channel that used to speak it reads `stdDisplay` instead.
+   *
+   * ⚠ DO NOT RENDER THIS, and do not reintroduce a channel that does. The 0.15
+   * is `USER_EDGE_DEFAULTS.strengthStd`, fabricated on every hand-drawn edge.
+   * If you need the spread as a FACT rather than as a pixel offset, take
+   * `stdDisplay` — which cannot represent an unstamped value at all.
+   */
   const strengthStd = edge?.data?.strengthStd ?? 0.15
 
   // Local slider state
@@ -394,6 +408,102 @@ export const EdgePanel = memo(function EdgePanel({
   const existenceBand: EdgeValueBand = useMemo(
     () => edgeValueBand(existenceDisplay),
     [existenceDisplay],
+  )
+
+  /**
+   * ⭐⭐ THE SAME ONE UNION, FOR THE SPREAD — and it closes the same defect
+   * #1677 closed for the likelihood, on the field beside it.
+   *
+   * `strengthStd` was read RAW at `:264` (`edge?.data?.strengthStd ?? 0.15`) and
+   * that number reached FOUR channels: the translucent band over the fine-tune
+   * slider, the `SignedStrengthSlider`'s own band, the uncertainty slider's
+   * thumb and its `aria-valuenow`, and — loudest — an `ExpertAnnotation`
+   * printing a literal `σ = 0.15`. `USER_EDGE_DEFAULTS` writes that 0.15 with
+   * NO stamp, so an edge the user had just drawn showed them a precise-looking
+   * standard deviation nobody had ever supplied.
+   *
+   * ⛔ AND THE LINE ON THE BOARD ALREADY REFUSED IT. `StyledEdge.tsx:1228` routes
+   * the SAME field through this SAME gate before drawing its ribbon, and its
+   * docblock names the hazard exactly: *"a raw read would paint a ribbon on every
+   * hand-drawn edge announcing an uncertainty nobody stated."* So the canvas
+   * withheld the number and the panel printed it — one quantity, one edge, two
+   * verdicts, which is CLAUDE.md trap 21 with the two surfaces a foot apart.
+   *
+   * ⚠ 0.15 IS NOT ITSELF THE TELL, and a value check would have been the wrong
+   * fix. Measured across the eight captured canvas fixtures in this repo: 240
+   * edges carry `strengthStd`, 201 stamped `'cee'`, 0 stamped `'user'` — and two
+   * of the CEE-stamped ones state exactly 0.15. A real producer estimate and the
+   * fabricated default are the same number; only the STAMP separates them, which
+   * is precisely why the discriminator has to be provenance and not arithmetic.
+   *
+   * `withLiveEdgeValue` preserves `show: false`, so dragging cannot fake a
+   * source — and does not need to, because `setStd` writes `strengthStdSource:
+   * 'user'` alongside the value (`useInspectorMutations.ts:791`).
+   */
+  const stdDisplay = useMemo(
+    () =>
+      withLiveEdgeValue(
+        resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'strengthStd'),
+        localStd,
+      ),
+    [edge?.data, localStd],
+  )
+
+  /**
+   * ⭐⭐ HOW MUCH OF THIS ANSWER IS STILL OPEN.
+   *
+   * Gated on BOTH values, by the resolver's signature: an unstamped magnitude
+   * makes the band words fabrications just as surely as an unstamped spread,
+   * because both ends of the interval are functions of both numbers.
+   *
+   * The magnitude comes from the SIGNED strength resolver — the same one the
+   * band pills consult for their own `unset` — so the sentence and the
+   * highlighted pill cannot disagree about whether this edge has a strength.
+   * `resolveStrengthSpread` takes `Math.abs` itself; the sign is direction, not
+   * strength.
+   *
+   * ⚠ BOTH ENDS TRACK THE LIVE CONTROLS, for the reason the existence colour
+   * does: the pills highlight `localStrength`, so a sentence banded on the
+   * STORE's value would name a range that disagrees with the pill lit beside it
+   * for one debounce tick. Neither `withLiveEdgeValue` can open a closed union,
+   * so tracking the live value cannot manufacture a source.
+   */
+  /**
+   * ⭐⭐ ONE UNION FOR THE STRENGTH — A DIFFERENT QUESTION FROM `stdDisplay`,
+   * AND NAMED APART ON PURPOSE (CLAUDE.md trap 21).
+   *
+   * `stdDisplay` answers *how uncertain is this?*. This answers *how big, and
+   * which way?*. They default independently, they are stamped independently
+   * (`weightSource` vs `strengthStdSource`), and an edge can genuinely have one
+   * without the other — which is why they are two unions and not one gate.
+   *
+   * ⚠ THE GATE ALREADY EXISTED AND WAS WIRED TO ONE CALL SITE OF TWO.
+   * `StrengthBandButtons` carries an `unset` prop whose own docblock names this
+   * exact defect: *"the UI would PROPOSE a number nobody supplied, with
+   * `aria-pressed="true"` on it. Accepting the highlighted band would then stamp
+   * `weightSource: 'user'` and turn a fabricated default into a stated fact."*
+   * It was passed on the stand-down branch (`awaitingStatedStrength`) and NOT on
+   * the ORDINARY branch below — the one a user reaches by selecting any edge
+   * they drew. So the guard was correct, present, and pointed at the rarer path.
+   *
+   * Two fabrications reach it, and they are different numbers:
+   *   · 0.3 — `USER_EDGE_DEFAULTS.weight` (`domain/edges.ts:562`), what an edge
+   *     the user DRAGS is born with. Lights the "Moderate" pill.
+   *   · 0.5 — this component's own `?? 0.5` fallback when `weight` is absent
+   *     entirely. Lights "Strong".
+   */
+  const strengthDisplay = useMemo(
+    () =>
+      withLiveEdgeValue(
+        resolveEdgeSignedStrengthDisplay(edge?.data as Record<string, unknown> | undefined),
+        localStrength,
+      ),
+    [edge?.data, localStrength],
+  )
+
+  const strengthSpread = useMemo(
+    () => resolveStrengthSpread(strengthDisplay, stdDisplay),
+    [strengthDisplay, stdDisplay],
   )
 
   // Fragility check
@@ -774,8 +884,65 @@ export const EdgePanel = memo(function EdgePanel({
               <p className={`${typography.panelBody} text-text-body mb-1.5`}>
                 {INLINE_LABELS.strengthQuestion}
               </p>
-              <StrengthBandButtons value={localStrength} onChange={handleStrengthPresetChange} />
-              <ExpertAnnotation techMode={techMode} editable value={localStrength} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
+              {/* ⛔ `unset` WAS MISSING HERE AND PRESENT ON THE STAND-DOWN
+                  BRANCH ABOVE — the guard existed and was wired to the rarer of
+                  its two call sites. This is the branch a user reaches by
+                  selecting any connection they drew, so it is the one that was
+                  lighting a band nobody chose. Same reader as the other site. */}
+              <StrengthBandButtons
+                value={localStrength}
+                onChange={handleStrengthPresetChange}
+                unset={!strengthDisplay.show}
+              />
+              {/* ⭐⭐ HOW MUCH OF THIS ANSWER IS STILL OPEN.
+                  Renders ONLY where both the magnitude and the spread are
+                  stamped — `resolveStrengthSpread` returns `known: false`
+                  otherwise and this whole block disappears. Withholding is the
+                  more useful answer: "we do not know how uncertain this is"
+                  beats a fabricated spread, and it is the truth about every
+                  edge a user has drawn by hand. */}
+              {strengthSpread.known && (
+                <div className="mt-1.5" data-testid="edge-strength-spread">
+                  <p
+                    className={`${typography.panelMeta} text-text-body font-mono`}
+                    aria-label={EDGE_COPY.strengthSpreadReadoutLabel}
+                  >
+                    {EDGE_COPY.strengthSpreadReadout(
+                      strengthSpread.magnitude.toFixed(2),
+                      strengthSpread.spread.toFixed(2),
+                    )}
+                  </p>
+                  {/* ⭐ THE SENTENCE. It appears only when the stated spread
+                      reaches across a cut point — i.e. only when the adjective
+                      highlighted immediately above is under-determined. A team
+                      reading "Strong" learns, in the same glance, that moderate
+                      would have fitted too. Where the interval stays inside one
+                      band the word IS earned, and saying so would be noise. */}
+                  {strengthSpread.crossesBand && (
+                    <p
+                      className={`${typography.panelMeta} text-text-body mt-1`}
+                      data-testid="edge-strength-spans-bands"
+                    >
+                      {EDGE_COPY.strengthSpansBands(
+                        inlineStrengthLabel(strengthSpread.lowLabel),
+                        inlineStrengthLabel(strengthSpread.highLabel),
+                        getStrengthLabel(strengthSpread.magnitude),
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
+              {/* The same fabricated magnitude in a second channel, and this one
+                  prints it as a NUMBER in an editable field. Gated on the same
+                  union, exactly as #1677 gated `P(exists) =`, so techMode cannot
+                  reveal a figure the pills above now refuse to light. */}
+              {strengthDisplay.show ? (
+                <ExpertAnnotation techMode={techMode} editable value={strengthDisplay.value} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
+              ) : techMode ? (
+                <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="edge-strength-unset">
+                  {METRIC_UNSET.standalone}
+                </p>
+              ) : null}
               {currentEstimatedWeight !== null && (
                 <div className="mt-2 rounded-md border border-accent/20 bg-panel px-2 py-1.5">
                   <p className={`${typography.panelMeta} text-text-body`}>
@@ -888,8 +1055,35 @@ export const EdgePanel = memo(function EdgePanel({
                   {INLINE_LABELS.fineTune}
                 </summary>
                 <div className="mt-1.5">
+                  {/* ⭐⭐ THE HANDLE HAS TO SIT SOMEWHERE, SO THE PANEL SAYS WHAT
+                      ITS POSITION MEANS. A range input cannot express "unset"
+                      geometrically, and every position available to it is a
+                      claim — so the honest move is words, not geometry.
+                      See `strengthUnsetSliderNotice` for why the centre was
+                      rejected rather than overlooked. */}
+                  {!strengthDisplay.show && (
+                    <p
+                      className={`${typography.panelMeta} text-text-light mb-1.5`}
+                      data-testid="edge-strength-slider-unset-notice"
+                    >
+                      {EDGE_COPY.strengthUnsetSliderNotice}
+                    </p>
+                  )}
                   <div className="relative mb-2">
-                    <UncertaintyBand strength={localStrength} std={localStd} />
+                    {/* Both marks are the SPREAD drawn, so both are gated on the
+                        spread's provenance. `UncertaintyBand` takes a required
+                        `number` and `SignedStrengthSlider` draws its own band
+                        whenever `std > 0`, so the only way to withhold from
+                        either is not to supply the number — which is what these
+                        two do, rather than passing a 0 that would read as "this
+                        effect is known exactly".
+                        ⚠ ALSO GATED ON THE STRENGTH, because a ribbon is drawn
+                        CENTRED on the magnitude: a real spread hung on a
+                        fabricated centre is a fabricated interval. Both numbers
+                        have to be stated for the mark to mean anything. */}
+                    {stdDisplay.show && strengthDisplay.show && (
+                      <UncertaintyBand strength={localStrength} std={stdDisplay.value} />
+                    )}
                     {/* ⛔⛔ `techMode={true}` IS A LITERAL ON PURPOSE, AND IT IS NOT THE
                         TECH TOGGLE. Measured 19 Sep 2026: this prop's ONLY consumer
                         inside `SignedStrengthSlider` is its `{!techMode && …}` endpoint-
@@ -916,7 +1110,7 @@ export const EdgePanel = memo(function EdgePanel({
                         documents. The row below stays UNCONDITIONAL; only the slider's
                         duplicate is suppressed. `endpointScaleIsNotDuplicated.spec.tsx`
                         REDs if either state stops reading exactly one. */}
-                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={true} />
+                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
                   </div>
                   {/* The panel's OWN endpoint scale — direction anchors for the track
                       above, never band words (`SignedStrengthSlider`'s header names them
@@ -1011,10 +1205,26 @@ export const EdgePanel = memo(function EdgePanel({
                       max={0.5}
                       step={0.01}
                       onChange={handleStdChange}
+                      /* The slider THUMB has to sit somewhere, so the control
+                         keeps its raw position — but `aria-valuenow` would
+                         announce the very figure the visible surface withholds.
+                         `aria-valuetext` is announced in preference to it, which
+                         is the seam #1677 added for exactly this. */
+                      valueText={stdDisplay.show ? undefined : METRIC_UNSET.standalone}
                       aria-label="Strength uncertainty"
                     />
                   </div>
-                  <ExpertAnnotation techMode={techMode} editable value={localStd} onChange={handleStdChange} suffix="σ =" step={0.01} min={0.01} max={0.5} />
+                  {/* The loudest channel of the four: this printed a literal
+                      `σ = 0.15` for an edge nobody had characterised. Gated on
+                      the same union, so techMode cannot reveal what the rest of
+                      the panel refuses to say. */}
+                  {stdDisplay.show ? (
+                    <ExpertAnnotation techMode={techMode} editable value={stdDisplay.value} onChange={handleStdChange} suffix="σ =" step={0.01} min={0.01} max={0.5} />
+                  ) : (
+                    <span className={`${typography.panelMeta} text-text-light`} data-testid="edge-std-unset">
+                      {METRIC_UNSET.standalone}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
