@@ -2173,7 +2173,25 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
     return unit === '%' ? `${v}%` : `${unit}${v}`
   }
   const flip = fmt(usable.flip_value as number)
-  const current = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
+  const currentRaw = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
+  // ⛔ A CURRENT THAT RENDERS IDENTICALLY TO THE FLIP IS NOT A REFERENCE POINT.
+  // Measured on the deployed build `3e4c4231`, guest board `build-vs-buy`:
+  // "Could change if Vendor Solution Adoption moves from 0.66 to 0.66" — the
+  // surface instructing a move to where the reader already is, on the tab whose
+  // whole claim is a five-to-ten-second read.
+  //
+  // ⚠ THE COMPARISON IS ON THE FORMATTED STRINGS, DELIBERATELY. `fmt` caps at
+  // two decimals, so 0.661 and 0.664 are different floats that print one
+  // identical sentence; a raw `current_value !== flip_value` guard would pass
+  // both through and ship the same no-op. The reader sees the rendering, so the
+  // rendering is what has to differ.
+  //
+  // Nulling `current` is the whole fix: the sentence falls to `changes
+  // materially` — THIS function's own stated rule for when no usable reference
+  // point exists — and `quantity` falls with it through the `unit || current`
+  // gate below, so the structure cannot claim a figure the sentence dropped.
+  // One local, both sites, no second spelling of the condition.
+  const current = currentRaw !== null && currentRaw !== flip ? currentRaw : null
   const text = unit
     ? `${usable.label} passes ${flip}`
     : current
