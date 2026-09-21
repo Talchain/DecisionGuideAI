@@ -283,15 +283,29 @@ describe('through the mounted inspector, on the live capture', () => {
     )
     expect(container.querySelector(NODE_INSPECTOR)).not.toBeNull()
 
-    // ⚠⚠ READS THE VALUE, NOT AN INPUT — and it read an input until O08 landed.
-    // The mounted inspector is read-only now, so the target renders as text and
-    // `querySelector('input')` returns null; this arm failed on the locator, not
-    // on the property. The property is unchanged: switching options must replace
-    // the displayed target.
-    const readTarget = () =>
-      screen
-        .getByTestId(`intervention-target-readonly-${FACTOR_PRICE}`)
-        .textContent?.trim() ?? ''
+    // ⚠⚠ READS THE INPUT AGAIN — AND THE LOCATOR HAS NOW MOVED TWICE, WHICH IS
+    // WHY BOTH MOVES ARE RECORDED RATHER THAN OVERWRITTEN.
+    //
+    //   · originally an input;
+    //   · O08 fenced the mounted inspector, so the target rendered as TEXT and
+    //     this read `intervention-target-readonly-*`;
+    //   · the fence is now lifted for this ONE writer, because
+    //     `option_intervention_edit` gives it a server carrier, so it is an
+    //     input once more.
+    //
+    // ⭐ THE PROPERTY HAS NOT MOVED AT ALL: switching options must replace the
+    // displayed target. Each time, this arm failed on the LOCATOR and never on
+    // the property — which is the signature of a test bound to the mounted
+    // posture rather than to a fixture, and the reason it is worth repairing
+    // instead of loosening. A locator-agnostic version ("the row contains
+    // 0.59") would have survived all three moves and would also survive the
+    // row rendering nothing at all.
+    const readTarget = () => {
+      const row = screen.getByTestId(`inspector-intervention-${FACTOR_PRICE}`)
+      const input = row.querySelector('input')
+      expect(input, 'the mounted row offers no editable target').not.toBeNull()
+      return (input as HTMLInputElement).value.trim()
+    }
 
     expect(readTarget()).toContain('0.59')
 

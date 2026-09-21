@@ -1005,6 +1005,39 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       }
       setState((prev) => ({ ...prev, activeTab: fallback }))
       useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
+      /**
+       * ⭐ THE REQUEST WAITS ONE FRAME, AND THAT IS THE WHOLE FIX FOR A
+       * TWO-CLICK FLOAT-OUT.
+       *
+       * The swap above is bookkeeping — it exists so `yieldToDockedOlumi` does
+       * not suppress the panel mount. But writing `setActiveOutputTab` also
+       * moves `externalTab`, which is a dependency of the external-tab sync
+       * effect, and THAT effect reads a closed dock as a state to correct:
+       * `if (prev.activeTab === resolvedTab && prev.isOpen) return prev` —
+       * otherwise `isOpen: true`.
+       *
+       * Issued synchronously, the order was: bookkeeping → shell collapses the
+       * dock (`isOpen: false`) → commit → sync effect runs, sees the tab it
+       * asked for but a CLOSED dock, and re-opens it. The float-out's own
+       * bookkeeping woke the effect that undid the float-out's collapse, and
+       * the composition reconciler then minimised the panel the user had just
+       * asked for. Measured at four viewports: the chevron took TWO clicks at
+       * 1280 and 1440 (where the constrained rule makes the shell collapse the
+       * dock) and one at 1680 and 1920 (where it does not, so no collapse
+       * existed to undo).
+       *
+       * Deferred by one frame, the sync effect runs FIRST, against an open dock
+       * already on the fallback tab — so its guard returns `prev` untouched,
+       * exactly as designed — and the collapse that follows has no pending
+       * dependency change left to wake it. No predicate is widened and no
+       * ownership rule is reinterpreted; two steps that were racing are
+       * sequenced. The sessionStorage write above stays synchronous, because
+       * the reason for THAT is a first-render read, not this ordering.
+       */
+      const request = () => requestFloatingOlumiSurface(() => openFloatingByUser('user'))
+      if (typeof window === 'undefined') request()
+      else window.requestAnimationFrame(request)
+      return
     }
     requestFloatingOlumiSurface(() => openFloatingByUser('user'))
   }
@@ -4237,6 +4270,39 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
+              /* ⭐ THE AI TAB'S RUN CONTROL, AND THE GAP IT CLOSES.
+                 `AnalysisReadinessBar` — the bar this surface declares in
+                 `shellContract.ts` — returns null the moment the pre-run window
+                 ends (`if (!preRunWithModel) return null`). After a completed
+                 analysis the Olumi tab therefore had NO way to run another: the
+                 Re-analyse controls live on the Analysis and Model surfaces, a
+                 tab away, and the composer sat under a placeholder reading
+                 "Ask about the latest analysis…" with nothing to re-run it.
+
+                 ⚠ ONE CONTROL, NOT TWO. The condition is the COMPLEMENT of the
+                 bar's own `preRunWithModel`, built from the same two
+                 expressions rather than a second opinion about them — so the
+                 foot of this tab carries the bar's prominent Analyse before a
+                 run and this quiet one after, never both.
+
+                 ⚠ THE RUNNER AND THE GATE ARE THE ONES ALREADY COMPUTED HERE.
+                 `handleRunAnalysis` is the canonical runner registered in
+                 `canonicalRunRegistry`; `canRunAnalysis` / `runBlockedTooltip`
+                 are the gate's own verdict and sentence. Nothing is re-derived
+                 for this control (CLAUDE.md trap 21) — the retired
+                 `StaleAnalysisBadge`, whose rerun bypassed the canonical
+                 runner, is the counter-example this avoids. */
+              analysisAction={
+                nodes.length > 0 && !isPreRun
+                  ? {
+                      onRun: handleRunAnalysis,
+                      canRun: canRunAnalysis,
+                      isRunning,
+                      blockedReason: runBlockedTooltip,
+                      label: 'Re-run analysis',
+                    }
+                  : undefined
+              }
             />
           </div>
         ) : null}

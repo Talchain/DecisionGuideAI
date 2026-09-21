@@ -6,6 +6,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useNodeMutations } from '../useInspectorMutations'
+import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
@@ -20,6 +21,17 @@ export function OptionAdvancedEditor({ nodeId }: OptionAdvancedEditorProps) {
   const node = useCanvasStore(s => s.nodes.find(n => n.id === nodeId))
   const nodes = useCanvasStore(s => s.nodes)
   const mutations = useNodeMutations(nodeId)
+
+  /**
+   * ⭐ THE SAME OWNER THE PANEL ABOVE USES. These tech-mode rows are the same
+   * gesture on the same data as the option panel's intervention rows, and
+   * before this they were a SECOND call to `mutations.setIntervention` — a pure
+   * local write. Sharing the hook is what stops a fix landing on one surface
+   * and not the other, which is how 3 of 5 options on the founder's board came
+   * to carry no effect at all.
+   */
+  const { commit: commitIntervention, notice: interventionNotice } =
+    useOptionInterventionCommit(nodeId)
 
   const data = node?.data as Record<string, unknown> | undefined
   // Map values may be plain numbers or UIInterventionValue/CEEInterventionV3
@@ -63,7 +75,7 @@ export function OptionAdvancedEditor({ nodeId }: OptionAdvancedEditorProps) {
                 <AdvancedField
                   label="Normalised value"
                   value={row.value}
-                  onChange={v => mutations.setIntervention(row.factorId, v as number)}
+                  onChange={v => commitIntervention(row.factorId, v as number)}
                   type="number"
                   min={0}
                   max={1}
@@ -71,6 +83,20 @@ export function OptionAdvancedEditor({ nodeId }: OptionAdvancedEditorProps) {
                 />
               </div>
             ))}
+            {/* ⛔ THE REFUSAL, SAID OUT LOUD HERE TOO. A tech-mode surface is
+                still a surface: a control that silently does nothing is the
+                defect this change closes, wearing a different face. The copy is
+                the hook's, not this file's, so the two surfaces cannot drift
+                into describing one refusal two ways. */}
+            {interventionNotice !== null && (
+              <p
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid="option-advanced-intervention-notice"
+                role="status"
+              >
+                {interventionNotice}
+              </p>
+            )}
           </div>
         )}
       </AdvancedFieldGroup>

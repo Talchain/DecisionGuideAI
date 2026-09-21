@@ -477,6 +477,19 @@ export interface DeliberateExclusion {
 
 export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
   {
+    what: 'modelRowCellOverlap.measure.ts — both tier arms and the controlled experiment',
+    why:
+      'IT IS RED AT THE BASE, DELIBERATELY, AND A GATE ARM MUST BE GREEN TO JOIN. This file\'s own '
+      + 'admission rule is "show it GREEN at the base, twice"; measured 21 Sep at a 280px dock over '
+      + '38 rows it reads 33 overlapping atom pairs on the PLAIN tier and 45 on ADVANCED, so it '
+      + 'cannot satisfy that rule until the shedding decision lands. It is committed RED on purpose: '
+      + 'the invariant (no two of a row\'s atoms intersect) is what any chosen answer has to satisfy, '
+      + 'and pinning it BEFORE the answer is picked is the point. ADMIT IT the moment the count '
+      + 'reaches zero — it needs no new evidence beyond its own green, and it already carries a '
+      + 'vacuity control (rows and atoms non-zero) and an injected positive control (a deliberately '
+      + 'overlapped pair the detector must find, at the right magnitude).',
+  },
+  {
     what: "nodeKeyboardBleed.measure.ts — 'census: focusable controls inside .react-flow__node, all five starters'",
     why:
       'IT IS A MEASURE, NOT AN ASSERTION. It enumerates 390 focusable elements across five ' +
@@ -587,6 +600,109 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       'test edit, and inventing one here would be an oracle written from the author\'s head ' +
       '(CLAUDE.md trap 13c). Rowed in the PR.',
   },
+  /*
+   * ── THE AI-PANEL REDESIGN'S THREE INSTRUMENTS (#1813) ─────────────────────
+   * Same claim-type test as the block above, applied honestly: two of the
+   * three emit a report and assert nothing a PRODUCT change can redden, and
+   * the third asserts only what arithmetic cannot settle about itself.
+   *
+   * ⭐ WHY THEY EXIST AT ALL, since the lane they served is finished: each one
+   * refuted something already written down. That is the whole argument for
+   * keeping a measure file in the tree, and it is recorded per entry below.
+   */
+  {
+    what:
+      'composerLook.measure.ts (4 cells, ~1m) — the docked Olumi composer at rest, grown, ' +
+      'pasted-into, and post-run',
+    why:
+      'It carries `expect`s and is still excluded, which needs saying rather than hiding: they ' +
+      'assert the INSTRUMENT is not lying to itself (a numeric line-height actually resolves; ' +
+      'the pasted value arrived), that the action row sits below the textarea, and — in the ' +
+      'post-run cell — that the run control is 24px, inside the row, and that the readiness ' +
+      'bar has GONE as it arrived, which is the one-control-never-two contract. None of them ' +
+      'encodes a ruling about what the composer OUGHT to measure — ' +
+      'inventing one here would be an oracle written from the author\'s head (trap 13c), and ' +
+      'the geometry it reports is exactly the kind that a legitimate design change moves. The ' +
+      'BEHAVIOUR is pinned in the main suite by `PersistentInputStrip.spec.tsx`, which binds ' +
+      'the bounds in jsdom. ⭐ WHAT ONLY THIS COULD DO, and it did it: the hand model of the ' +
+      'composer\'s rest height — adding the Tailwind padding steps up — predicted 84px where ' +
+      'the browser measured 97, and the first cut of the redesign came out 94px, i.e. a 3px ' +
+      '"win" for a change made to reclaim space. Modelled rather than measured, it would have ' +
+      'shipped as a regression described in the PR as a saving. jsdom cannot produce either ' +
+      'number: it resolves no line-height at all, which is why the growth maths now MEASURES. ' +
+      '⭐ ITS FOURTH CELL IS THE ONLY THING IN THE TREE THAT CAN SEE THE NEW RUN CONTROL AT ' +
+      'ALL: it is gated on a COMPLETED run, a completed run needs CEE/PLoT, and no seeded ' +
+      'capture has keys — so the control was about to ship unseen. Driving the store to the ' +
+      'post-run state also found that `hasCompletedFirstRun` lives in BOTH `resultsStore` ' +
+      'and `canvasStore`, and the dock reads the canvas one; setting the other changes ' +
+      'nothing the dock can see, which is worth knowing before the next fixture.',
+  },
+  {
+    what: 'wholeAppLook.measure.ts (3 cells, ~40s) — the canvas and the dock in one frame',
+    why:
+      "Same claim-type test: `grep -c 'expect('` returns 1, and that one is a visibility check " +
+      'on the dock so a capture cannot silently photograph an empty page. It asserts nothing ' +
+      'about composition, so gating it would add an arm that cannot go red for a product ' +
+      'reason. ⭐ WHAT ONLY IT CAN DO: every other instrument here photographs a CROP of the ' +
+      'thing being changed, which is how a surface improves component by component while the ' +
+      'SCREEN gets busier — and that is not a hypothetical. It caught the Olumi tab inviting ' +
+      'the user to "describe the decision you\'re working through" twenty pixels above a ' +
+      'composer already saying "Ask about this model…", on a canvas full of that model. Every ' +
+      'spec on both surfaces was green; each was correct about its own component, and nothing ' +
+      'had ever asserted they AGREED. The fix is pinned in the main suite by ' +
+      '`emptyConversationInvitation.spec.tsx`, mutation-proven; this is what saw it.',
+  },
+  {
+    what: 'canvasFit.measure.ts (2 cells, ~35s) — does the graph fit the space left beside the dock?',
+    why:
+      "Same claim-type test: `grep -c 'expect('` returns 0. It reports viewport, pane, dock, " +
+      'node extent, transform and a clipped count, and asserts nothing about any of them — ' +
+      'deliberately, because at the time it was written the four plausible causes of the thing ' +
+      'it was pointed at had four INCOMPATIBLE fixes, and an assertion would have picked one ' +
+      'before the evidence did. ⭐ WHAT ONLY IT COULD DO: it WITHDREW a finding that had ' +
+      'already been written into a PR body. "The canvas does not fit beside the dock" is not a ' +
+      'defect — both starters need zoom 0.329/0.379 and land at exactly 0.500, which is ' +
+      '`LABEL_LEGIBLE_ZOOM`, a ruled floor that exists because unfloored fits hid 16 of 18 node ' +
+      'titles. And the second half of the claim — "the fit ignores the 416px dock" — is false ' +
+      'too: the painted extent centres at 536/566 against a free-strip centre of 506 and a pane ' +
+      'centre of 720, so `computeFitPadding()` frames on the unoccluded box even when the zoom ' +
+      'is clamped. One of the fixes it prevented (lower the floor) would have re-broken the ' +
+      'defect that floor exists to prevent.',
+  },
+  {
+    what:
+      'floatingComposerLook.measure.ts (7 cells, ~1m40s) — the floating Olumi panel: its ' +
+      'composer at rest and grown, the docked strip for contrast, and how many clicks the ' +
+      'float-out chevron actually takes at four viewports',
+    why:
+      "It carries `expect`s and is still excluded, so say which: most assert the INSTRUMENT is " +
+      'sound (a starter really seeded nodes, the composer it measured exists, the box grew on ' +
+      'type). TWO are product oracles and both are narrow. The first requires the floating ' +
+      "panel's EMPTY conversation to carry a non-empty invitation — presence and " +
+      'non-emptiness, never wording, because the sentence is resolved by ' +
+      '`useConversationStage` and a second authority on its text is the drift this change ' +
+      'exists to remove. The second records, per viewport, how many clicks the float-out ' +
+      'chevron takes. Neither encodes a ruling about what the composer OUGHT to measure; the ' +
+      'geometry it reports is the kind a legitimate design change moves, and the BEHAVIOUR is ' +
+      'pinned in the main suite by `emptyInvitationBothHosts.spec.tsx` (9 tests, positive ' +
+      'control included). ⭐ WHAT ONLY THIS COULD DO, and it did two things. (1) The composer ' +
+      'rework of 20 Sep keyed its layout on `hasActionRow = isStrip || isFloating`, so it ' +
+      'changed the FLOATING composer exactly as much as the strip — and only the strip was ' +
+      'ever photographed. Opened here, the floating panel showed a blank 400x550 box above its ' +
+      'composer while the docked tab, same frame and same empty conversation, showed an ' +
+      'invitation: a fix shipped the night before as "the empty Olumi surface now knows there ' +
+      'is a model" was true of one surface out of two. No unit test could see it, because each ' +
+      "host's specs were correct about their own host. (2) It measured the float-out chevron " +
+      'at four widths and found ONE click opens the panel at 1680/1920 and TWO at 1280/1440 — ' +
+      'the panel opens and is immediately minimised to the pill. The first reading was "the ' +
+      'control is dead"; driving the pill afterwards refuted that (the panel opens and stays), ' +
+      'which is the difference between a dead affordance and an unkept one-click promise, and ' +
+      'between two different fixes. Three mechanisms for the bounce were tested against the ' +
+      'trace and ALL THREE were refuted — recorded in the file, because each looked obviously ' +
+      'right and any fix built on one would have changed dock navigation for a reason that is ' +
+      'not true.',
+  },
+
   {
     what: 'coachingLineDensity.measure.ts (3 cells, ~43s) — the compact coaching line (#1450)',
     why:

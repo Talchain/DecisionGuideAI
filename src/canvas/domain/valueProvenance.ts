@@ -343,6 +343,67 @@ export function classifyNodeProvenance(
  * gesture is the thing that produces the transition, and a reader of the button
  * needs to know the badge will clear with it.
  */
+/**
+ * Does this factor's value wear the `est.` marker?
+ *
+ * ⭐⭐ THE SPELLING WAS IN THREE PLACES AND ONE OF THEM FORGOT — which is how a
+ * number came to look MORE authoritative the further out you zoomed.
+ *
+ * `FactorNode:199` gates the marker on it. `CanvasLegendPopover:929` re-types
+ * it to decide whether the glossary may promise a marker, and SAYS SO in its
+ * own comment (*"read from the marker's surviving gate … and from nothing
+ * else"*) — an honest mirror, and still a mirror. The reduced line, which is
+ * the whole card below the legibility floor, had no copy at all: it printed
+ * `0.4` where the card printed `0.4 est.`
+ *
+ * ⛔ IT IS NOT `factorNeedsVerification`, AND MERGING THEM WOULD BE TRAP 21.
+ * That one asks *who supplied this number* (`source`); this asks *how it got
+ * here* (`extractionType`). A value a user typed over an inferred one clears
+ * `source` and — since the extraction marker is withdrawn on the same write —
+ * clears this too, but they are answers to two questions and a factor can
+ * satisfy one without the other.
+ *
+ * ⚠ IT DOES NOT REQUIRE A VALUE TO BE PRESENT, deliberately: this is the
+ * marker's existing gate, unchanged, and a caller that only wants marked
+ * NUMBERS must ask whether it has one. The reduced line asks.
+ *
+ * ⚠ BOTH SPELLINGS OF THE CONTAINER, for the reason the two functions below
+ * read both: canvas stores `observedState`, the CEE/PLoT wire uses
+ * `observed_state`.
+ *
+ * ⭐⭐ AND BOTH STORAGE LOCATIONS OF `extractionType`, WHICH THE CARD'S OWN
+ * GATE DID NOT READ — MEASURED ON A SHIPPED STARTER, NOT REASONED ABOUT.
+ * Driven as a guest on the deployed build, `usage-based-billing`, 8 factors:
+ *
+ *   · 5 factors  `observedState.extractionType: 'inferred'`  → marked ✓
+ *   · **`Vendor Licensing Cost`  `data.extractionType: 'inferred'`, an EMPTY
+ *     `observedState`** → its inferred range `0.25 to 0.75` rendered with NO
+ *     mark, beside five marked estimates. **The unattributed number looked
+ *     more settled than the attributed ones.**
+ *   · `Platform Migration Competing Demand` — top-level `'explicit'`, which is
+ *     the CONTRAST: it must stay unmarked, so a fix that merely looked at the
+ *     top level without reading its VALUE would be wrong here.
+ *
+ * `usePreAnalysisData.ts:769-772` has read both locations all along and says
+ * why in its own comment — `observedState.extractionType` is CEE-derived,
+ * `data.extractionType` is what `setExtractionType` writes. One question, two
+ * surfaces, and the CARD was the one under-claiming.
+ *
+ * ⛔ AND `data.provenance` IS NOT A THIRD LOCATION — IT ANSWERS A DIFFERENT
+ * QUESTION (trap 21). It is who put the NODE here (`'ai_inferred'`,
+ * `'from_brief'`), which `NodeProvenanceMark` renders; this asks who put the
+ * NUMBER here. On the same board `Usage-Based Billing Complexity` carries
+ * `provenance: 'ai_inferred'` and no `extractionType` anywhere — so it stays
+ * unmarked, correctly, because nothing in the record says who authored its
+ * range. That absence is a PRODUCER gap and is routed as one; inventing the
+ * answer here would put a claim on screen the model does not contain.
+ */
+export function factorValueIsUnconfirmedEstimate(data: unknown): boolean {
+  const d = data as Record<string, unknown> | undefined
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  return obs?.extractionType === 'inferred' || d?.extractionType === 'inferred'
+}
+
 export function factorNeedsVerification(data: unknown): boolean {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
@@ -422,3 +483,54 @@ export function factorHasConfirmableValue(data: unknown): boolean {
 export function factorIsConfirmable(data: unknown): boolean {
   return factorNeedsVerification(data) && factorHasConfirmableValue(data)
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE WRITE VOCABULARY — the stamps that PRODUCE the classes above
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Until now these two literals were private to `CalibrateDrillIn.tsx` (137-138),
+ * the one surface that had been taught to claim authorship. Every OTHER value
+ * editor therefore claimed nothing: `FactorControllablePanel` sent the number,
+ * got an applied receipt back, and `confirmOptimisticFactorEdit` returned
+ * `'no_stamp'` because there was no stamp to write. Measured on deployed
+ * `fd992149`: a factor the user typed read back `source: 'cee_inference'`.
+ *
+ * They live HERE, beside the classification that reads them, because a write
+ * vocabulary kept apart from the predicate that interprets it is the
+ * hand-maintained mirror this module was created to abolish (trap 12). A second
+ * surface copying the literal is how `getExtractionLabel` came to print
+ * "Estimated by Olumi" over a value a person had confirmed.
+ *
+ * ⚠ THESE ARE RECEIPT-GATED, NOT OPTIMISTIC (ROADMAP 2.304). Neither is passed
+ * to `setObservedValue`. They travel on the undo snapshot handed to
+ * `captureOptimisticFactorEdit` and are applied by `confirmOptimisticFactorEdit`
+ * only once CEE's `graph_patch` receipt has landed. The number moves
+ * immediately; the CLAIM waits for the engine. Passing either into a setter
+ * would re-open 2.304 in reverse — an optimistic write wearing a confirmation.
+ *
+ * ⚠ WHY `user_override` IS RIGHT FOR A TYPED VALUE, and it is not a UI choice.
+ * It is the SERVER's own `USER_EDIT_SOURCE` — the single literal CEE's
+ * `set_factor_value` merges into the persisted `observed_state`
+ * (`canonicalise-value-ops.ts:280`, `set-factor-value.ts:421`, read at CEE
+ * staging `d5b64246`). Writing anything else here would make the client stamp
+ * and the server stamp disagree about the same act, and the boot merge would
+ * then have two user-owned literals to reconcile on one value.
+ *
+ * Membership is not asserted in prose: `valueProvenance.stamps.spec.ts` derives
+ * it, so a literal that stops classifying as `edited`/`confirmed`, or that
+ * leaves `isReviewedByUser`'s set, REDs rather than degrading a pill silently.
+ */
+
+/** The human supplied the number. Earned by an applied `factor_value_edit`. */
+export const USER_VALUE_STAMP = Object.freeze({ source: 'user_override' } as const)
+
+/**
+ * The human read the number that was there and endorsed it. `extractionType`
+ * is part of the claim, not decoration — it is what distinguishes an explicit
+ * endorsement from the producer's own `'inferred'` marker on the same field.
+ */
+export const USER_CONFIRMATION_STAMP = Object.freeze({
+  source: 'user_confirmed',
+  extractionType: 'explicit',
+} as const)

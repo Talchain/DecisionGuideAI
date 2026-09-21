@@ -1,6 +1,9 @@
-import { useCanvasStore, selectResultsStatus } from '../store'
-import { useMayStalenessVoiceSpeak } from '../conversation/stalenessVoice'
-import { useAnalysisTrust } from './useAnalysisTrust'
+// ⭐ THE LADDER IS NOT HERE, AND THAT IS THE POINT. `useConversationStage`
+// derives the state once and lives in its own module so a spec mocking THIS
+// one — roughly twenty-five do, wholesale — does not have to learn the name of
+// every other voice that reads the same state. Its header carries the RED that
+// put it there.
+import { useConversationStage } from './useConversationStage'
 
 /**
  * Returns the placeholder text the persistent input strip / floating composer
@@ -39,23 +42,20 @@ import { useAnalysisTrust } from './useAnalysisTrust'
  * the higher surfaces' claim.
  */
 export function useStageAwarePlaceholder(): string {
-  const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const resultsStatus = useCanvasStore(selectResultsStatus)
-  const freshness = useAnalysisTrust().semantic
-  const mayNagAboutStaleness = useMayStalenessVoiceSpeak('placeholder')
+  const stage = useConversationStage()
 
-  if (freshness === 'changed' && mayNagAboutStaleness) {
+  if (stage === 'changed') {
     return 'Model changed. Ask or rerun…'
   }
-  if (freshness === 'current') {
+  if (stage === 'current') {
     return 'Ask about the latest analysis…'
   }
   // Analysis ran but freshness is cannot-confirm or absent → acknowledge the
   // analysis without claiming it is current.
-  if (resultsStatus === 'complete') {
+  if (stage === 'analysed') {
     return 'Ask about this analysis…'
   }
-  if (nodeCount > 0) {
+  if (stage === 'modelled') {
     return 'Ask about this model…'
   }
   // ⭐ "OR CHALLENGE" — the empty-canvas line.
@@ -73,3 +73,4 @@ export function useStageAwarePlaceholder(): string {
   // undegraded, and this copy must not cost what that change protected.
   return 'Describe your decision or challenge…'
 }
+

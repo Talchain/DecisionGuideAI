@@ -774,7 +774,23 @@ export const GoalNode = memo((props: NodeProps) => {
       type="button"
       onClick={(e) => { e.stopPropagation(); openNodeInspector(props.id) }}
       onPointerDown={(e) => e.stopPropagation()}
-      className={`nodrag mt-1 inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      // ⭐ TWO MEASURED FAILURES IN ONE CONTROL, both fixed here.
+      //
+      // 1. `border-warning/40` rendered **1.92 : 1** against the panel on the
+      //    served build, under WCAG 1.4.11's 3.00:1 floor for a non-text
+      //    indicator. `--warning-ink` is **5.36 : 1** and is still a WARNING
+      //    colour, so the semantic survives where `border-field` would have
+      //    flattened it to a neutral. The `bg-warning/10` fill is untouched.
+      // 2. The box rendered **110 x 18** and carried NO hit slop, so it was the
+      //    only node control on the board under the 24px target floor that is
+      //    not a priced, documented shortfall — the 57 quick actions reach 28px
+      //    through `CANVAS_HIT_SLOP_CLASSES`, and `ScienceIcon`'s own comment
+      //    rules out slop there because 6px per side would overlap its
+      //    neighbour and open the WRONG popover. This chip has no neighbour:
+      //    it sits alone under the target line, so 3px per side is free.
+      //    `relative` is required or the `::before` positions against an
+      //    ancestor instead of the button.
+      className={`nodrag relative mt-1 inline-flex items-center gap-1 rounded-full border border-warning-ink bg-warning/10 px-1.5 py-0.5 before:absolute before:-inset-[3px] before:content-[''] ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       aria-label={noTargetChannels['aria-label']}
       title={noTargetChannels.title}
       data-testid="goal-node-no-target-chip"

@@ -150,7 +150,18 @@ describe('SURFACE 2 — the Strengthen flip rec consults the flip authority', ()
   it('ANTI-VACUITY: with flip-bearing evidence the rec IS produced, carrying the claim', () => {
     const r = flipRec({ ...strengthenBase, flipThresholds: FLIPPING_ROWS, hasLeadingOption: true })
     expect(r).toBeDefined()
-    expect(r!.signal).toContain('scores highest instead')
+    /*
+     * ⚠ RE-POINTED 20 Sep 2026, and the ANTI-VACUITY property is untouched.
+     * The signal read "NN% chance {alt} scores highest instead if {factor}
+     * shifts" and now reads "In the runs where that assumption came out weak,
+     * {alt} was the stronger option NN% of the time" — the earlier wording
+     * stated ISL's `switch_probability` as an unconditional forecast when the
+     * field is a proportion of the runs in which that edge came out weak.
+     * What this test exists to prove is that the rec IS produced and CARRIES
+     * THE CLAIM; both assertions still do that, and the `ALT` binding below is
+     * the identity one, which no reword can weaken.
+     */
+    expect(r!.signal).toContain('was the stronger option')
     expect(r!.signal).toContain(ALT)
   })
 

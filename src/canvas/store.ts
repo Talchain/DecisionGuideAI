@@ -92,6 +92,7 @@ import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun
 // `hooks/useScenario`. See that module's header for why it is not defined here.
 import { createIdleResults } from './store/idleResults'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
+import { rowEndPositionForNewNode } from './utils/newNodePlacement'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
 import {
   captureStructuralDelete,
@@ -3402,7 +3403,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const created: Node = {
       id,
       type,
-      position: pos || { x: 200, y: 200 },
+      // ⭐ THE END OF ITS OWN ROW, not the click point. Founder, 21 Sep:
+      // *"I added a new factor, but it was still put in the wrong row. It moves
+      // it to the right row when I perform analysis."* Nothing here laid the
+      // graph out, so the card sat where it was dropped until `applyLayout`
+      // ran — and the lane bands, being bounding boxes over their members,
+      // dragged the row LABEL up with it. `null` (an empty tier) keeps the
+      // previous fallback exactly, so a first node on a blank canvas is
+      // unchanged. See `utils/newNodePlacement.ts` for why a pointer position
+      // is not worth honouring: no node position survives the next layout.
+      position: rowEndPositionForNewNode(nodes, type) ?? pos ?? { x: 200, y: 200 },
       data: { label: resolvedLabel },
     }
 
@@ -3544,7 +3554,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         {
           id: nodeId,
           type,
-          position: pos,
+          // Same rule as `addNode` above, and this is the path the context
+          // menu uses — `contextMenu/actions.ts:311` passes the POINTER for a
+          // factor, which is the exact gesture the founder reported.
+          position: rowEndPositionForNewNode(nodes, type) ?? pos,
           data: { label: `New ${type}`, kind: type },
         },
       ]

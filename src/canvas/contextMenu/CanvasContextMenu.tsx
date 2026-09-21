@@ -20,9 +20,19 @@ interface CanvasContextMenuProps {
   target: ContextTarget
   onClose: () => void
   screenToFlowPosition: (pos: { x: number; y: number }) => { x: number; y: number }
+  /** The mode the canvas is ACTUALLY in (`effectiveMode`), not the raw stored value. */
+  interactionMode?: 'select' | 'hand'
+  /** Omitted by hosts with no mode to switch; the menu row is then absent. */
+  onSetInteractionMode?: (mode: 'select' | 'hand') => void
 }
 
-export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: CanvasContextMenuProps) {
+export function CanvasContextMenu({
+  target,
+  onClose,
+  screenToFlowPosition,
+  interactionMode,
+  onSetInteractionMode,
+}: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const showToast = useShowToast()
   const [position, setPosition] = useState(target.screenPos)
@@ -45,6 +55,8 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
     screenToFlowPosition,
     onClose,
     onOpenCustomValue: handleOpenCustomValue,
+    interactionMode,
+    onSetInteractionMode,
   })
 
   const actionableItems = items.filter(isMenuItem)

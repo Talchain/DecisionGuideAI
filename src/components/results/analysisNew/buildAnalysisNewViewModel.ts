@@ -41,6 +41,7 @@
  *     caught exactly that here before it shipped.
  */
 
+import { applyUnitPlacement, classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
@@ -2161,19 +2162,39 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   // applied to a unit that is unprintable rather than only to one that is
   // absent. The reference point is what makes the number placeable.
   const rawUnit = typeof usable.unit === 'string' ? usable.unit : ''
-  const CURRENCY_SYMBOLS = ['£', '$', '€', '¥']
-  const unit = rawUnit === '%' || CURRENCY_SYMBOLS.includes(rawUnit) ? rawUnit : ''
+  // ⚠ THE PRINTABLE SET IS NO LONGER RE-SPELLED HERE. `classifyUnit` owns which
+  // units render and how, and `applyUnitPlacement` owns where the glyph sits.
+  // A placeholder ('scale', 'index') still prints nothing — that is its OWN
+  // classification, not a list maintained in this file, which is what let
+  // "index0.361111" ship.
+  const unitKind = classifyUnit(rawUnit).kind
+  const unit = unitKind === 'placeholder' || unitKind === 'none' ? '' : rawUnit
   // ⚠ THE RULE THAT USED TO BE INLINE HERE NOW LIVES IN `formatThresholdValue`,
   // AND THAT MOVE IS THE POINT. It was written for THIS field, the sibling
   // conditional-winner split never got it, and the identical defect shipped a
   // second time. A rule that only one of two threshold sites can reach is a
   // rule this surface does not have.
-  const fmt = (n: number) => {
-    const v = formatThresholdValue(n)
-    return unit === '%' ? `${v}%` : `${unit}${v}`
-  }
+  const fmt = (n: number) => applyUnitPlacement(formatThresholdValue(n), unit)
   const flip = fmt(usable.flip_value as number)
-  const current = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
+  const currentRaw = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
+  // ⛔ A CURRENT THAT RENDERS IDENTICALLY TO THE FLIP IS NOT A REFERENCE POINT.
+  // Measured on the deployed build `3e4c4231`, guest board `build-vs-buy`:
+  // "Could change if Vendor Solution Adoption moves from 0.66 to 0.66" — the
+  // surface instructing a move to where the reader already is, on the tab whose
+  // whole claim is a five-to-ten-second read.
+  //
+  // ⚠ THE COMPARISON IS ON THE FORMATTED STRINGS, DELIBERATELY. `fmt` caps at
+  // two decimals, so 0.661 and 0.664 are different floats that print one
+  // identical sentence; a raw `current_value !== flip_value` guard would pass
+  // both through and ship the same no-op. The reader sees the rendering, so the
+  // rendering is what has to differ.
+  //
+  // Nulling `current` is the whole fix: the sentence falls to `changes
+  // materially` — THIS function's own stated rule for when no usable reference
+  // point exists — and `quantity` falls with it through the `unit || current`
+  // gate below, so the structure cannot claim a figure the sentence dropped.
+  // One local, both sites, no second spelling of the condition.
+  const current = currentRaw !== null && currentRaw !== flip ? currentRaw : null
   const text = unit
     ? `${usable.label} passes ${flip}`
     : current

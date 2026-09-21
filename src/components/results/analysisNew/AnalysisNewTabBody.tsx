@@ -92,6 +92,7 @@ import { SectionShell } from './sections/SectionShell'
 import { ActionsMenu } from '../decision-overview/ActionsMenu'
 import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
+import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -1163,6 +1164,22 @@ export function AnalysisNewTabBody({
   )
 
   /**
+   * ⭐ WHICH METHODS THIS RUN RAISED — the engine's own findings, asked through
+   * the ONE owner of "is this finding and this technique the same move?"
+   * (`methodForRecommendation`). Nothing is judged here and nothing is ranked:
+   * `MethodsYouCanRun` partitions the catalogue with this set and keeps the
+   * catalogue's order in both groups.
+   *
+   * ⚠ READS THE SAME `vm.strengthen.interventions` the Strengthen section
+   * renders — already filtered against the lifecycle store — so a dismissed
+   * finding cannot keep promoting its method after the reader retired it.
+   */
+  const raisedMethodIds = useMemo(
+    () => methodIdsRaisedBy(vm.strengthen.interventions),
+    [vm.strengthen.interventions],
+  )
+
+  /**
    * ⭐⭐ THE GLANCE ANSWERED NOTHING, SO THE FIGURES COME UP TO FILL THE GAP.
    *
    * ⚠ THIS DOES NOT OVERTURN THE ORDERING RULING, AND THE DISTINCTION IS THE
@@ -1716,7 +1733,7 @@ export function AnalysisNewTabBody({
             {focusApplicableIds.length > 0 ? (
               <FocusNowContainer applicableStaticIds={focusApplicableIds} />
             ) : null}
-            <MethodsYouCanRun />
+            <MethodsYouCanRun raisedMethodIds={raisedMethodIds} />
           </div>
         ) : null}
 
@@ -2541,12 +2558,42 @@ export function AnalysisNewTabBody({
             two most generative: "is the question too narrow?" and "what does
             each option gain and give up?".
 
-            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE. `ActionsMenu`
-            renders the WHOLE `METHOD_CATALOGUE` and its own header says it owns
-            "user-invoked science-grounded methods". Its only mount is inside
+            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE — AND THAT WAS
+            ALREADY FALSE BY THREE DAYS WHEN THIS BLOCK WAS WRITTEN.
+
+            The sentence here read: *"Its only mount is inside
             `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
-            ruling parks. This estate's chronic failure #1, verbatim: we build
-            more than we plug in.
+            ruling parks."* That was the whole argument for adding a second
+            surface, and it was untrue at the time. Derived at the history:
+
+              15 Sep  #1590 `9dc8cf47`  mounts `<ActionsMenu />` on THIS tab
+              18 Sep  #1694 `c522af9e`  adds this shelf, arguing from the
+                                        pre-#1590 state
+
+            `<ActionsMenu />` sits 25 lines ABOVE this comment. So the premise
+            was refutable by reading the same file, and every session since has
+            inherited it.
+
+            ⚠ THE SHELF IS NOT WITHDRAWN AND MUST NOT BE. Paul's 18 Sep ruling
+            was "make it first-screen", and a collapsed menu near the foot of
+            the panel does not satisfy that whatever its reachability. The shelf
+            earns its place on the RULING; it never needed the false premise.
+
+            ⚠ WHAT THE TAB ACTUALLY SHIPS, measured on deployed `b6673341` via
+            the guest path: the `Actions` menu carries TEN items — all seven
+            methods verbatim, plus `Edit decision brief`, `Review all inputs`
+            and `Rerun analysis`. Seven of ten duplicate the shelf above.
+            `ActionsMenu.tsx` knows this and resolves the part that matters:
+            both surfaces build their payload through one `runMethod`, so there
+            is no second answer to "what does this method ask?".
+
+            ⛔ WHETHER TWO SURFACES SHOULD CARRY THE SAME SEVEN IS A DESIGN CALL
+            AND IS PAUL'S, NOT THIS FILE'S. It is recorded, not acted on: he has
+            ruled on this placement twice, an approved prototype governs it, and
+            no measurement here shows the duplication costs a reader anything.
+            Do not "reconcile" it by deleting either surface on a tidiness
+            argument. This estate's chronic failure #1 is real — but the cure is
+            not a third mount minted from a stale sentence.
 
             ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
             routes every ask through `openAskOlumi` — the same drawer this file

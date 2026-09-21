@@ -65,6 +65,27 @@ const INVOCATIONS: Record<string, () => Array<string | null>> = {
   assumedStrengthAsk: () => matrix().map(assumedStrengthAsk),
   assumedStrengthOthers: () => [0, 1, 2, 5].map(assumedStrengthOthers),
   assumedStrengthAskDraft: () => matrix().map(copyModule.assumedStrengthAskDraft),
+  /**
+   * ⭐ THE SENTENCE ITSELF, now that two surfaces share it. It was extracted
+   * from `assumedStrengthWhy` so the Strengthen card could stop describing
+   * `switch_probability` as an unconditional forecast, and the COMPLETENESS
+   * assertion above REDed the moment it became an export — correctly, because
+   * an export absent from this table is an export no prohibition below applies
+   * to, and this one now emits copy on a SECOND surface.
+   *
+   * ⚠ ENUMERATED OVER BOTH SUBJECTS AND BOTH NAMING BRANCHES, not over one
+   * representative call. The caller chooses the referent, so a prohibition
+   * proved only for "that link" would say nothing about the sentence the
+   * Strengthen card actually renders.
+   */
+  strongerOptionInWeakRuns: () =>
+    (['that link', 'that assumption'] as const).flatMap((subject) =>
+      [0.52, 0].flatMap((p) =>
+        ['Consolidate', null].map((alt) =>
+          copyModule.strongerOptionInWeakRuns(p, alt, subject),
+        ),
+      ),
+    ),
 }
 
 /** The full input matrix the templated sentences can be generated over. */

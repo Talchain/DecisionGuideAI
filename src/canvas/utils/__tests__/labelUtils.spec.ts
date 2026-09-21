@@ -16,12 +16,12 @@ import {
   formatRawValueWithUnit,
   qualitativeTierLabel,
   denormaliseInterventionValue,
+  joinInterventionDetails,
   isCurrencyUnit,
   formatFactorValue,
   unwrapInterventionValue,
   formatWinProbability,
 } from '../labelUtils'
-import { describeEdgeInfluence } from '../../domain/edges'
 
 // ---------------------------------------------------------------------------
 // cleanFactorLabel (T2)
@@ -751,29 +751,19 @@ describe('observed value formatting (no raw data)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// describeEdgeInfluence (Fix 2 — brief test requirement)
+// ⛔ `describeEdgeInfluence` WAS DELETED, 15 Sep 2026, and its five tests went
+// with it. It banded a producer's edge coefficient into seven sentences at
+// cutoffs this UI chose — the founder's ruling's central case — and it had NO
+// production consumer: swept repo-wide with `rg -uu`, three files mentioned it
+// (its definition, this spec, and the comment in `InfluenceIndicator.tsx`
+// superseding it), against contrast controls NodeChip 22 and BaseNode 105.
+//
+// ⭐ THE TESTS ARE THE PART WORTH NOTING. Five green tests over dead code are
+// the most convincing possible evidence of a live path, and they are exactly
+// why `git grep` on a symbol is not a reachability answer: the hits look like
+// use. Deleting the function without them would have left a suite asserting the
+// behaviour of nothing.
 // ---------------------------------------------------------------------------
-describe('describeEdgeInfluence', () => {
-  it('returns "Strong positive influence on goal" for strength 0.5', () => {
-    expect(describeEdgeInfluence(0.5)).toBe('Strong positive influence on goal')
-  })
-
-  it('returns "Moderate negative influence on goal" for strength -0.3', () => {
-    expect(describeEdgeInfluence(-0.3)).toBe('Moderate negative influence on goal')
-  })
-
-  it('returns "Weak positive influence on goal" for strength 0.1', () => {
-    expect(describeEdgeInfluence(0.1)).toBe('Weak positive influence on goal')
-  })
-
-  it('returns "Minimal influence on goal" for near-zero strength', () => {
-    expect(describeEdgeInfluence(0.02)).toBe('Minimal influence on goal')
-  })
-
-  it('returns "Strong negative influence on goal" for strength -0.5', () => {
-    expect(describeEdgeInfluence(-0.5)).toBe('Strong negative influence on goal')
-  })
-})
 
 // ---------------------------------------------------------------------------
 // P1.6: isCurrencyUnit — multi-char currency symbol detection
@@ -1304,5 +1294,155 @@ describe('formatWinProbability', () => {
 
   it('treats negative values as "0%"', () => {
     expect(formatWinProbability(-0.1)).toBe('0%')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// joinInterventionDetails — CEE's two sibling maps, joined into one shape
+// ---------------------------------------------------------------------------
+
+describe('joinInterventionDetails', () => {
+  it('attaches the authored display_value so the F.6 passthrough can fire', () => {
+    const [[factorId, joined]] = joinInterventionDetails(
+      { f1: 0.9 },
+      { f1: { display_value: '£18k', normalised_value: 0.9, raw_value: 18000, unit: '£' } },
+    )
+    expect(factorId).toBe('f1')
+    expect(unwrapInterventionValue(joined)).toMatchObject({ value: 0.9, displayValue: '£18k' })
+  })
+
+  /**
+   * ⭐⭐ THE PRECEDENCE DECISION, PINNED — and the FIRST version of this test
+   * was VACUOUS, caught by a mutant rather than by reading it.
+   *
+   * `joinInterventionDetails` writes `value` LAST so the numeric half always
+   * comes from `interventions` — the map `flattenInterventions` sends on the
+   * PLoT request edge — and a display can never disagree with the wire.
+   *
+   * ⚠ MY FIRST FIXTURE ASSERTED THIS AGAINST `normalised_value` AND PROVED
+   * NOTHING. Reordering the spread to `{ value: rawValue, ...detail }` left it
+   * GREEN, because `interventionNumericValue` reads `.value` and a detail
+   * object carries `normalised_value`, never `value` — so the two keys never
+   * compete and the ordering was a no-op. A test that passes under the mutation
+   * it exists to forbid is not a test (CLAUDE.md trap 13b / trap 4).
+   *
+   * ⚠ MEASURED ON THE REAL PAYLOAD (bundle `d41770fd`, 4 options / 16
+   * interventions): `interventions[fid]` and `normalised_value` agree 16 of 16,
+   * and NO detail object carries a `value` key. So no capture can express this
+   * hazard at all; the fixture below constructs the one shape that makes the
+   * ordering load-bearing — a detail that carries its own `value`.
+   *
+   * THE REAL GUARANTEE, stated narrowly: if CEE ever adds `value` to
+   * `intervention_details`, the number on the card still comes from
+   * `interventions`. This test REDs the moment the spread is reordered.
+   */
+  it('a `value` inside the detail cannot displace the one from interventions', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { f1: 0.9 },
+      // The hazard shape: a detail carrying its OWN `value`, which a
+      // detail-last spread would let win over the wire's number.
+      { f1: { value: 0.1, display_value: '£18k', normalised_value: 0.1, unit: '£' } },
+    )
+    expect(unwrapInterventionValue(joined).value).toBe(0.9)
+    expect(unwrapInterventionValue(joined).value).not.toBe(0.1)
+    // The authored string still rides along.
+    expect(unwrapInterventionValue(joined).displayValue).toBe('£18k')
+  })
+
+  it('does not read `normalised_value` as the numeric half', () => {
+    // Narrow companion: `normalised_value` is NOT a source for the number,
+    // whatever it says, because `interventionNumericValue` only reads `.value`.
+    const [[, joined]] = joinInterventionDetails(
+      { f1: 0.9 },
+      { f1: { display_value: '£18k', normalised_value: 0.1, unit: '£' } },
+    )
+    expect(unwrapInterventionValue(joined).value).toBe(0.9)
+  })
+
+  it('passes a bare number through untouched when there is no detail to join', () => {
+    expect(joinInterventionDetails({ f1: 0.4 }, undefined)).toEqual([['f1', 0.4]])
+    expect(joinInterventionDetails({ f1: 0.4 }, null)).toEqual([['f1', 0.4]])
+    expect(joinInterventionDetails({ f1: 0.4 }, { f1: null })).toEqual([['f1', 0.4]])
+  })
+
+  it('does not treat an array detail as a wrapper', () => {
+    // An array would spread into numeric keys and silently lose the value.
+    expect(joinInterventionDetails({ f1: 0.4 }, { f1: [1, 2] })).toEqual([['f1', 0.4]])
+  })
+
+  it('keeps a zero intervention joinable — 0 is a value, not an absence', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { f1: 0 },
+      { f1: { display_value: '£0', normalised_value: 0, raw_value: 0, unit: '£' } },
+    )
+    expect(unwrapInterventionValue(joined)).toMatchObject({ value: 0, displayValue: '£0' })
+  })
+
+  /**
+   * ⭐⭐ THE SECOND WIRE SHAPE, AND THE ONE THIS FUNCTION WAS WRITTEN BLIND TO.
+   *
+   * This function's docblock asserts *"CEE does not send a nested intervention"*.
+   * That is FALSE of what the UI receives. Two shapes arrive:
+   *
+   *   FLAT    `interventions = { "<id>": 0.9 }`  + sibling `intervention_details`
+   *           — Paul's live bundles `a039817e` / `d41770fd`.
+   *   NESTED  `interventions = { "<id>": { value: 1, source: "brief_extraction",
+   *           display_value: "Very high (1)" } }`
+   *           — every one of the FIVE committed starters, 70 interventions in
+   *           total, and the shape `src/types/options.ts:79` (`UIInterventionValue`)
+   *           actually declares.
+   *
+   * ⛔ On the nested shape the old body wrote `{ ...detail, value: rawValue }`
+   * where `rawValue` is the whole OBJECT, so `.value` became an object,
+   * `interventionNumericValue` (a finite number, bare or at `.value`) returned
+   * `null` for all 70, and `OptionNode`'s baseline resolver — which drops any
+   * entry whose `value == null` — emptied. That is what took
+   * `e2e/geometry/restoredOldSaveWidth.measure.ts` from 0 to 6 overlapping pairs.
+   *
+   * ⚠ AND WHY NO SPEC SAW IT: the PR's own new spec deliberately used ONLY the
+   * flat shape, on the stated grounds that the nested one is *"the shape the
+   * producer never emits"*. It deleted its own coverage of the shape it then
+   * broke — CLAUDE.md trap 22: a corpus that shares the code's blind spot.
+   */
+  it('keeps the numeric half when interventions carry the NESTED shape (all five starters)', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { fac_build_indicator: { value: 1, source: 'brief_extraction', display_value: 'Very high (1)' } },
+      { fac_build_indicator: { display_value: 'Very high (1)', normalised_value: 1 } },
+    )
+    // The defect: `value` became `{ value: 1, ... }`, so this read `null`.
+    expect(unwrapInterventionValue(joined)).toMatchObject({
+      value: 1,
+      displayValue: 'Very high (1)',
+      source: 'brief_extraction',
+    })
+  })
+
+  it('keeps a NESTED intervention usable when no detail is joined to it', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { fac_dev_time: { value: 0.85, source: 'brief_extraction', display_value: 'Very high (0.85)' } },
+      {},
+    )
+    expect(unwrapInterventionValue(joined)).toMatchObject({ value: 0.85, displayValue: 'Very high (0.85)' })
+  })
+
+  it('a nested value of 0 survives the join — falsy is not absent', () => {
+    const [[, joined]] = joinInterventionDetails(
+      { fac_build_indicator: { value: 0, source: 'brief_extraction', display_value: 'No in-house build pursued' } },
+      { fac_build_indicator: { display_value: 'No in-house build pursued', normalised_value: 0 } },
+    )
+    expect(unwrapInterventionValue(joined)).toMatchObject({
+      value: 0,
+      displayValue: 'No in-house build pursued',
+    })
+  })
+
+  it("the DETAIL's authored string wins over the nested intervention's own, when they differ", () => {
+    // `intervention_details` is the map CEE authors for display; when both
+    // carry a string the detail is the one the producer intends to be printed.
+    const [[, joined]] = joinInterventionDetails(
+      { f1: { value: 18000, display_value: '0.9' } },
+      { f1: { display_value: '£18k', normalised_value: 0.9, raw_value: 18000, unit: '£' } },
+    )
+    expect(unwrapInterventionValue(joined)).toMatchObject({ value: 18000, displayValue: '£18k' })
   })
 })

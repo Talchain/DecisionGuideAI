@@ -903,6 +903,19 @@ export interface ActionChip {
   /** Action classification for deterministic routing */
   action_type?: string
   /**
+   * ⭐ The producer's own longer sentence for this chip (`Action.detail`,
+   * `@talchain/schemas` `ActionSchema`). NOT decoration: for CEE's readiness
+   * repair offer it is the ONLY place the list of changes an APPLY would make
+   * to the user's model appears — the label only counts them.
+   *
+   * `buildReadinessRepairOffer` emits it solely when it is LONGER than the
+   * label, so a `detail` on the wire always carries something the label does
+   * not. `V5HeldProposalBlock` already honours the same field on the
+   * held-proposal card; this makes the generic chip row stop discarding it, so
+   * one wire field has one meaning on both surfaces.
+   */
+  detail?: string
+  /**
    * ⭐ The producer-declared TYPED WIRE INTENT (`chip.intent` on the 0.22+
    * schema: `add_option`, `elicit_options`, `challenge_frame`, …).
    *

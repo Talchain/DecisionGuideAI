@@ -624,8 +624,98 @@ export function ModelOutline({
 
   const { groups } = outlineLayout(rows, filter, openGroups, searchClosed, pressedClause)
 
+  /**
+   * ⭐ THE WHOLE MODEL IN ONE ACT. Five groups meant five clicks to read the
+   * model, every time the panel mounted closed — Paul, 21 Sep: *"having to do
+   * it individually is a pain, and sometimes users just want to see all of the
+   * model expanded."*
+   *
+   * ⚠ THE LABEL IS DERIVED, NOT FIXED. A button that always read "Expand all"
+   * would be lying the moment everything was open, and the reader would have no
+   * way to close them again without five more clicks. It names the act it will
+   * perform, which is the same contract `YourDecisionSection`'s toggle has
+   * carried since pre-analysis-v3 — reused rather than re-designed.
+   *
+   * ⚠ `searchClosed` IS CLEARED TOO, DELIBERATELY. That set holds closes made
+   * BY HAND during a search; leaving it populated would let "Expand all" run
+   * and leave a group shut, which is the one outcome the control must never
+   * produce.
+   */
+  /**
+   * ⛔⛔ IT WRITES THE SET THAT GOVERNS THE OUTLINE ON SCREEN, AND THE FIRST HEAD
+   * OF THIS CHANGE DID NOT. It wrote `closed` unconditionally and cleared
+   * `searchClosed`, which is precisely the thing `toggle` above was repaired to
+   * stop doing: *"during a search the reader is acting on the SEARCH's outline,
+   * not on their resting one, so the click must not silently rewrite the state
+   * they return to when the needle clears."* A whole-outline control is not
+   * exempt from its own file's rule.
+   *
+   * Measured, mounted fully open with a needle matching one group and one other
+   * group hand-closed: pressing the control **labelled "Expand all" left 1 of 5
+   * groups open**, and clearing the needle returned the reader to **0 of 5**.
+   *
+   * ⛔⛔ AND THE LABEL AND THE ACT NOW READ ONE PREDICATE. They read two: the
+   * label came off the derived `open` (which folds in `searchClosed`) while the
+   * act branched on `closed.size`. Two spellings of one question is trap 12, and
+   * here it let the button announce an act and perform its opposite.
+   *
+   * ⚠ `governed` EXCLUDES WHAT THE CONTROL IS POWERLESS OVER. While searching, a
+   * group that is closed at rest AND has no match cannot be opened by any value
+   * of `searchClosed` — counting it would pin the label to "Expand all" over a
+   * button that cannot move it, which is the inert-control defect `outlineLayout`
+   * above records being caught on merged staging. Empty ⇒ nothing to govern ⇒ the
+   * control is absent rather than inert, on the same rule.
+   */
+  const governed = groups.filter(
+    g => !searching || openGroups.has(g.id) || g.headingRows.length > 0,
+  )
+  const allOpen = governed.length > 0 && governed.every(g => g.open)
+  const toggleAll = useCallback(() => {
+    const next: ReadonlySet<ModelGroupId> = allOpen ? new Set(MODEL_GROUP_IDS) : new Set()
+    if (searching) setSearchClosed(next)
+    else setClosed(next)
+  }, [allOpen, searching])
+
   return (
     <div data-testid="model-outline-v2" data-tier={tier} className="flex flex-col">
+      {/* Right-aligned, link-styled, focus-visible ring only — the same
+          affordance shape as `pre-analysis-v3-groups-toggle-all`, so the two
+          model surfaces do not teach the reader two different controls for one
+          act. */}
+      {governed.length > 0 && (
+      <div className="flex justify-end px-2 pb-1">
+        <button
+          type="button"
+          onClick={toggleAll}
+          /* ⛔⛔ THE TYPOGRAPHY TOKEN, NEVER A RAW TAILWIND SIZE CLASS — AND
+             THIS FILE WARNED ME 400 LINES DOWN. The DS v5 scoped-typography
+             ratchet counts raw Tailwind type classes on this surface; my first
+             head shipped one and CI read `panel-typography-scoped: 16 (baseline
+             15, Δ+1)`, which is the whole of why #1839's first run was RED.
+
+             ⚠⚠ AND THE SCANNER READS COMMENTS. My first repair NAMED the
+             offending class in this very docblock to explain the fix, and the
+             count went to 17 — the repair scored worse than the defect. The
+             class is described here rather than spelled for that reason.
+
+             ⚠ AND `py-1.5` IS NOT DECORATION. This file records the measurement:
+             moving the vertical padding off a control took its border box from
+             **31.25px to 19.25px**, under the **24px** of WCAG 2.2 AA 2.5.8 that
+             the estate already holds on the canvas. My first head had no `py` at
+             all, so it would have shipped a control below the touch-target floor
+             — a defect the ratchet red happened to expose, not one it was
+             looking for.
+
+             Matched to the clause link above rather than styled afresh: same
+             token, same padding, same underline-offset. One affordance, one
+             look. */
+          className={`${typography.panelMeta} rounded-sm py-1.5 text-text-light underline-offset-2 outline-none transition-colors hover:text-text-header hover:underline focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40`}
+          data-testid="model-outline-v2-toggle-all"
+        >
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
+      )}
       {groups.map(group => {
         /* ⚠ COMPUTED ONCE. It was called twice — once to decide whether to
            render and once to render — so the heading asked the same question of

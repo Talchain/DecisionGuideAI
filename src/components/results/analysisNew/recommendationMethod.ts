@@ -282,10 +282,60 @@ function methodIdForBiasCode(biasCode: string | undefined): string | undefined {
  * generic chip. The two deliberate changes are pinned by name in
  * `biasMethodReachesTheProducersBias.spec.ts`, so neither can drift silently.
  */
+/**
+ * ⭐⭐ THE PRODUCER'S OWN TECHNIQUE, BY CLAIM ID — the only carrier that names
+ * WHICH decision-science move a coaching block is.
+ *
+ * ── WHY `signal_code` CANNOT DO THIS, MEASURED ─────────────────────────────
+ * On both real captures the producer raises two different techniques under ONE
+ * code:
+ *
+ *   signal_code CALIBRATION_PROMPT · claim DSK-T-001 · "Pre-mortem and
+ *                                     prospective hindsight prompt"
+ *   signal_code CALIBRATION_PROMPT · claim DSK-T-002 · "Outside view and
+ *                                     reference class forecasting"
+ *
+ * The code is a KIND; the claim id is the TECHNIQUE. Mapping the code would
+ * claim both methods for both blocks, and the only other discriminator is the
+ * TITLE — prose, which this estate forbids parsing (the `GOAL_ANCESTOR_DATA_GAP`
+ * lesson: an id that appears only inside a message is not a carrier).
+ *
+ * ⚠ WHY IT MATTERS ON THE RUN THAT MATTERS. On a withheld run the engine's own
+ * cards are gated off almost entirely and these producer blocks are the only
+ * coaching the panel has. Without this the shelf lists all seven methods
+ * unconditioned, and cannot tell the reader that their run raised a pre-mortem.
+ *
+ * ⛔ SCOPE, STATED HONESTLY. Two claim ids observed in two captures. This is a
+ * hand-maintained table over a producer vocabulary whose full membership I have
+ * not seen, so it FAILS CLOSED: an id that is not listed resolves to no method
+ * and the block simply raises nothing, exactly as it does today. Adding a row
+ * is a decision someone writes down; guessing a mapping is not.
+ */
+const METHOD_BY_DSK_CLAIM: ReadonlyArray<readonly [string, string]> = [
+  // `pre_mortem`'s own catalogue entry already says "A pre-mortem IS
+  // `pre_mortem` — name-identical", and the claim's title is "Pre-mortem and
+  // prospective hindsight". Same move, named by the producer.
+  ['DSK-T-001', 'pre_mortem'],
+  // `outside_view` is "Apply the outside view — compare with a relevant
+  // reference class"; the claim is "Outside view and reference class
+  // forecasting". Name-identical in both halves.
+  ['DSK-T-002', 'outside_view'],
+  // ⭐ ADDED 21 Sep 2026 — and it is the THIRD technique under `CALIBRATION_PROMPT`,
+  // which is the whole argument for this table restated with more evidence.
+  // Derived from a sweep of 945 captured bundles: `DSK-T-003` occurs 83 times,
+  // 4 of them stamped `CALIBRATION_PROMPT` alongside T-001 and T-002. Its
+  // producer-authored `claim_title` is "Consider-the-opposite as a debiasing
+  // strategy"; the catalogue entry is `consider_opposite`, titled "Consider the
+  // opposite". Name-identical in both halves — the same standard the two rows
+  // above were admitted on, not a looser one.
+  ['DSK-T-003', 'consider_opposite'],
+]
+
 export function methodForRecommendation(
   recommendationId: string,
   signalCode?: string,
   biasCode?: string,
+  dskClaimId?: string,
 ): MethodEntry | null {
   if (!recommendationId) return null
   const byPrefix = METHOD_BY_RECOMMENDATION_PREFIX.find(([prefix]) =>
@@ -294,11 +344,64 @@ export function methodForRecommendation(
   const methodId =
     byPrefix?.[1] ??
     methodIdForBiasCode(biasCode) ??
+    // ⚠ BEFORE `signalCode`, DELIBERATELY. The claim id is the SPECIFIC carrier
+    // and the code is the general one; on a `CALIBRATION_PROMPT` block the code
+    // resolves nothing today, but if a row were ever added for it the specific
+    // answer must still win. Ordering a general fallback ahead of a precise
+    // identity is how a correct table starts giving wrong answers.
+    (dskClaimId
+      ? METHOD_BY_DSK_CLAIM.find(([claim]) => claim === dskClaimId)?.[1]
+      : undefined) ??
     (signalCode
       ? METHOD_BY_SIGNAL_CODE.find(([code]) => code === signalCode)?.[1]
       : undefined)
   if (!methodId) return null
   return METHOD_CATALOGUE.find((m) => m.id === methodId) ?? null
+}
+
+/**
+ * ⭐⭐ WHICH METHODS THIS RUN ACTUALLY RAISED — derived, never judged again.
+ *
+ * The shelf's own subtitle states the defect it was shipped with: *"whether or
+ * not this run raised them."* Seven equal chips in the panel's first screen,
+ * unconditioned by the model in front of the reader, while the genuinely
+ * run-specific coaching sits four sections further down. A reference list in
+ * the prime slot is not coaching.
+ *
+ * ⛔ AND THE FIX IS NOT A RANKING. Nothing on the wire orders these seven, so
+ * any ordering this surface invented would be a UI claim dressed as a finding —
+ * the same defect as re-sorting incommensurable driver metrics. This GROUPS,
+ * and the grouping is a membership test with an existing owner:
+ * `methodForRecommendation` already decides whether a finding and a technique
+ * are the SAME MOVE, and its own header records why that map is deliberately
+ * short ("attaching one by rough resemblance would put a fabricated scientific
+ * label on screen"). This asks that question and nothing else.
+ *
+ * ⚠ SO THE GAPS ARE INHERITED, ON PURPOSE. Three of the eight recommendation
+ * builders map to a method, so a run typically raises a handful and often none.
+ * An empty result is the honest answer and the caller renders exactly today's
+ * flat shelf for it — never a "Raised by this run" heading over nothing, which
+ * is the orphaned-heading shape `MethodsYouCanRun` already guards against.
+ *
+ * ⚠ ORDER IS THE CATALOGUE'S, NOT FIRST-ENCOUNTER ORDER. The caller partitions
+ * `METHOD_CATALOGUE` with this set, so both groups keep the catalogue's own
+ * sequence. Returning a `Set` rather than an array makes that structural: there
+ * is no order here to leak into the UI.
+ */
+export function methodIdsRaisedBy(
+  recommendations: readonly {
+    id: string
+    signalCode?: string
+    biasCode?: string
+    dskClaimId?: string
+  }[],
+): ReadonlySet<string> {
+  const raised = new Set<string>()
+  for (const rec of recommendations) {
+    const method = methodForRecommendation(rec.id, rec.signalCode, rec.biasCode, rec.dskClaimId)
+    if (method !== null) raised.add(method.id)
+  }
+  return raised
 }
 
 /**

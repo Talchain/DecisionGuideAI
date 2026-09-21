@@ -1,0 +1,94 @@
+{
+  "0db2eb0a": {
+    "_source": "olumi-debug-0db2eb0a-20260920.json",
+    "_captured_at": "2026-09-20T17:50:19.556Z",
+    "_ui_build": "fd992149",
+    "_permitted_analysis_mode": "quantified_provisional",
+    "_reason_code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+    "_graph_hash_at_run": "8ee8f6d612c1e690",
+    "_current_graph_hash": "8ee8f6d612c1e690",
+    "_freshness": "fresh",
+    "awaitingUserIds": [
+      "0b0bc160",
+      "215323b5",
+      "58dddc81",
+      "97a25b46",
+      "b3c9f8a6",
+      "bfca3b91",
+      "c4f243aa",
+      "cec045df",
+      "dc983232"
+    ],
+    "factors": [
+      {
+        "factorId": "c4f243aa",
+        "label": "Pitch Quality",
+        "influence": 1,
+        "producerInfluenceRank": 1
+      },
+      {
+        "factorId": "b3c9f8a6",
+        "label": "Investor Relationship Strength",
+        "influence": 0.7647058823529411,
+        "producerInfluenceRank": 2
+      },
+      {
+        "factorId": "58dddc81",
+        "label": "Time to First Meeting",
+        "influence": 0.5546218487394958,
+        "producerInfluenceRank": 3
+      },
+      {
+        "factorId": "0b0bc160",
+        "label": "Outreach Volume",
+        "influence": 0.11764705882352941,
+        "producerInfluenceRank": 4
+      }
+    ]
+  },
+  "52383f4b": {
+    "_source": "olumi-debug-52383f4b-20260920.json",
+    "_captured_at": "2026-09-20T18:23:45.763Z",
+    "_ui_build": "fd992149",
+    "_permitted_analysis_mode": "quantified_provisional",
+    "_reason_code": "USER_STATED_PARAMETERS_NOT_MATERIAL",
+    "_graph_hash_at_run": "c878424d2eb8d67e",
+    "_current_graph_hash": "c878424d2eb8d67e",
+    "_freshness": "fresh",
+    "awaitingUserIds": [
+      "04f0e5b4",
+      "19011de0",
+      "72495f86",
+      "94fa174b",
+      "b4014d90",
+      "c2413bb5",
+      "ed5b5711"
+    ],
+    "factors": [
+      {
+        "factorId": "c2413bb5",
+        "label": "New Customer Conversion Rate",
+        "influence": 1,
+        "producerInfluenceRank": 1
+      },
+      {
+        "factorId": "ab78e513",
+        "label": "Monthly Churn Rate",
+        "influence": 0.6770833333333334,
+        "producerInfluenceRank": 2
+      },
+      {
+        "factorId": "04f0e5b4",
+        "label": "Pro Feature Release Readiness",
+        "influence": 0.45,
+        "producerInfluenceRank": 3
+      },
+      {
+        "factorId": "ed5b5711",
+        "label": "Pro Plan Price",
+        "influence": 0.24923245614035114,
+        "producerInfluenceRank": 4
+      }
+    ]
+  }
+}

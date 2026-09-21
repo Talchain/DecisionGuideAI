@@ -77,23 +77,85 @@ export function assumedStrengthLead(s: AssumedStrengthSelection): string {
  * producer may omit `alternative_winner_label`, and a sentence that names an
  * alternative it does not have would be inventing the most persuasive part.
  */
-export function assumedStrengthWhy(s: AssumedStrengthSelection): string {
-  const pct = Math.round(s.switchProbability * 100)
-  const measured = s.alternativeWinnerLabel !== null
-    ? `In the runs where that link came out weak, ${s.alternativeWinnerLabel} was the stronger option ${pct}% of the time.`
+/**
+ * ⭐⭐ THE ONE SENTENCE FOR `switch_probability`, WITH ITS CONDITION ATTACHED —
+ * exported so a second surface cannot write a second reading of one number.
+ *
+ * ── WHY IT IS EXTRACTED, AND WHAT IT CAUGHT ────────────────────────────────
+ * This file's MAY SAY list has carried the conditional since it was written,
+ * and the sentence below was correct. **Two other surfaces describing the same
+ * field were not.** `analysisNew`'s column caption said *"how often each
+ * assumption changed the answer"* (#1798), and the Strengthen card's flip
+ * signal said *"NN% chance {alt} scores highest instead if {factor} shifts"* —
+ * a FORECAST about a movement, over a measurement of runs that already
+ * happened.
+ *
+ * ── THE PRODUCER, FETCHED RATHER THAN INHERITED ────────────────────────────
+ * `Talchain/Inference-Service-Layer` `staging`, `src/models/response_v2.py`:
+ *
+ *   :569-575  switch_probability
+ *             "Proportion of MC samples where alternative wins WHEN EDGE IS
+ *              WEAK. 0.0 if same option wins (stable), null only if no data
+ *              available."
+ *   :576-580  marginal_switch_probability
+ *             "Probability of decision flip when ONLY this edge varies …"
+ *
+ * ⛔ THE TWO WRONG SENTENCES WERE NOT VAGUE — THEY DESCRIBED THE ADJACENT
+ * FIELD. `marginal_switch_probability` is exactly "how much this one
+ * assumption moved the answer", the UI reads it NOWHERE, and both surfaces had
+ * the pair swapped. That is why one number could look like two quantities on
+ * one scroll, and why a reader could not tell which the bar was.
+ *
+ * ⚠ THE SUBJECT IS A PARAMETER because the two callers name it differently and
+ * both are right: the elicitation card's own lead names a relationship
+ * (`{from} → {to}`), so it says "that link"; the Strengthen card's title names
+ * "the assumption about {factor}", so it says "that assumption". One sentence,
+ * one condition, the caller's own referent — rather than two sentences that
+ * can drift.
+ */
+export function strongerOptionInWeakRuns(
+  switchProbability: number,
+  alternativeWinnerLabel: string | null,
+  subject: 'that link' | 'that assumption',
+): string {
+  const pct = Math.round(switchProbability * 100)
+  return alternativeWinnerLabel !== null
+    ? `In the runs where ${subject} came out weak, ${alternativeWinnerLabel} was the stronger option ${pct}% of the time.`
     /*
      * ⚠ "came out ahead" WAS RETIRED BY PAUL'S 8 SEP 2026 NO-CONTEST RULING AND
      * SURVIVED HERE, IN THE UNNAMED BRANCH ONLY. Its twin above was reframed to
-     * "was the stronger option"; this one was not, and no guard could see it:
-     * `noWinnerVocabulary.spec.ts` swept a hand-list of four files and this is
-     * not one of them, though `buildAnalysisNewViewModel.ts:52` imports this
-     * very function. One fix, one branch — the estate's signature defect.
+     * "was the stronger option"; this one was not, and at the time no guard
+     * could see it: `noWinnerVocabulary.spec.ts` swept a HAND-LIST of four
+     * files and this was not one of them, though `buildAnalysisNewViewModel.ts`
+     * imports this very function. One fix, one branch — the estate's signature
+     * defect.
+     *
+     * ⚠⚠ THAT LAST CLAUSE IS NOW FALSE, AND IT IS THE KIND THAT TEACHES THE
+     * NEXT AUTHOR THE WRONG THING (corrected 20 Sep 2026). The guard was
+     * rebuilt: its scope is `REACHED_COPY_FILES`, a DERIVED import closure from
+     * the tab's render root filtered to `src/components/results/`, and the old
+     * hand-list survives only as `HISTORICALLY_SWEPT`, a positive control that
+     * REDs if the walk ever stops reaching one of them. This file is imported
+     * by `buildAnalysisNewViewModel.ts` (lines 49-51), which is itself in that
+     * control, so **this file is swept today**.
+     *
+     * The history is kept because it is the reason the defect survived; the
+     * present tense is corrected because a file wrongly believed to be
+     * unguarded is a file where the next careless string goes unchallenged.
      *
      * The wording is its own twin's, so the two branches now differ only in
      * whether they can name the alternative. The rate is unchanged and still
      * conditional: the ruling retired the PLACING, never the measurement.
      */
-    : `In the runs where that link came out weak, a different option was the stronger one ${pct}% of the time.`
+    : `In the runs where ${subject} came out weak, a different option was the stronger one ${pct}% of the time.`
+}
+
+export function assumedStrengthWhy(s: AssumedStrengthSelection): string {
+  const measured = strongerOptionInWeakRuns(
+    s.switchProbability,
+    s.alternativeWinnerLabel,
+    'that link',
+  )
   return `${measured} Of the unconfirmed relationship strengths you can resolve here, this had the highest such rate in this run.`
 }
 

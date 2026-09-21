@@ -41,6 +41,8 @@ import type { StrengthenInputs } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { ScenarioStage } from '../../../types/scenario'
+import { rangeIsSettableForFactor } from '../strengthen/factorRangeCapability'
+import { materialParametersAwaitingUserIds } from './materialParametersAwaitingUser'
 
 export interface StrengthenInputSources {
   data: ResultsSectionDataReturn
@@ -48,6 +50,17 @@ export interface StrengthenInputSources {
   /** CEE draft-coaching bias signals. Producer-owned; never locally derived. */
   biasSignals: Array<{ type: string }> | null
   currentStage: ScenarioStage | null
+  /**
+   * `useAnalysisResultsAreCurrent()` — may a row claim this result is about the
+   * graph in front of the reader? Threaded rather than read here because this
+   * builder is pure and the authority is a store-reading hook.
+   *
+   * ⚠ OPTIONAL AND FAIL-CLOSED. A caller that does not supply it gets `false`,
+   * which suppresses the one row that depends on it. The opposite default would
+   * let a fixture or a legacy call site license a claim about a graph nobody
+   * checked.
+   */
+  analysisIdentityIsCurrent?: boolean
 }
 
 export function buildStrengthenInputsForAnalysisNew({
@@ -55,6 +68,7 @@ export function buildStrengthenInputsForAnalysisNew({
   guidanceItems,
   biasSignals,
   currentStage,
+  analysisIdentityIsCurrent,
 }: StrengthenInputSources): StrengthenInputs {
   const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
   const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
@@ -62,6 +76,10 @@ export function buildStrengthenInputsForAnalysisNew({
     goalThreshold: data.recommendation.goalThreshold ?? null,
     hasStatedGoalTarget: data.recommendation.hasGoalTarget,
     analysisComplete: data.recommendation.analysisStatus === 'computed',
+    // CEE's own blocking set, read through the ONE structural reader of an
+    // untyped wire field. Mirrored verbatim in `StrengthenContainer.tsx`.
+    materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.recommendation.analysisAdmission),
+    analysisIdentityIsCurrent: analysisIdentityIsCurrent === true,
     // The OWNED leader entitlement, quoted from the single verdict and never
     // re-derived. A completed analysis is not an entitlement to name a leader.
     // ⚠ THE COMPOSED ANSWER, matching `StrengthenContainer` exactly. Passing raw
@@ -95,8 +113,53 @@ export function buildStrengthenInputsForAnalysisNew({
     factors: data.drivers.drivers.map((d) => ({
       factorId: d.matchedNodeId ?? d.factorKey,
       label: d.factorLabel,
-      // The engine ranks on the SAME display value the bars show.
-      influence: d.displayInfluence ?? d.influenceScore,
+      // ⭐ WHETHER THE ACT EXISTS, asked through the ONE owner of that question
+      // (`strengthen/factorRangeCapability.ts`). Read NON-REACTIVELY and from the
+      // same store at the same instant as its mirror, so the two builders cannot
+      // disagree — which is the divergence `strengthenInputsMirror.drift.spec.tsx`
+      // exists to catch. A subscription here would re-render this panel on every
+      // node drag to track a field that moves only on a structural graph edit.
+      rangeIsSettable: rangeIsSettableForFactor(d.matchedNodeId ?? d.factorKey),
+      /**
+       * ⛔⛔ THE `?? d.influenceScore` TAIL IS GONE, AND IT WAS THE BANNED
+       * PATTERN NAMED VERBATIM IN THE CONTRACT.
+       *
+       * Found by an independent reviewer (Canvas lane, 21 Sep) against #1795 at
+       * `6b149be5`, and confirmed at the bytes rather than accepted: `types.ts`
+       * (quoted in `buildAnalysisNewViewModel.ts:533`) says *"Consumers must
+       * render/sort this, NOT `influenceScore ?? normalisedInfluence`, which
+       * mixes bases under partial producer coverage."* This line was that
+       * expression, one identifier apart.
+       *
+       * ⚠ WHY IT MATTERED EVEN THOUGH IT NEVER FIRED. Both bases are
+       * set-relative normalisations whose top row is 1.0 by construction, so
+       * they agree on SCALE and differ on QUANTITY — the producer's structural
+       * score versus this app's normalisation of the magnitude chain. Sorting
+       * across the two ranks unlike things while looking entirely plausible,
+       * which is why no fixture caught it.
+       *
+       * ⚠ AND IT CONTRADICTED THIS PR'S OWN ARGUMENT. `nextInputToSet.ts` is
+       * built on "ONE RANK AUTHORITY, NOT TWO" and refuses the wire's
+       * `influence_rank` for exactly that reason. Reaching for the raw producer
+       * metric here was the second authority arriving through the back door of
+       * a `??`, inside the change that forbids it.
+       *
+       * ⭐ FAIL CLOSED, WHICH IS WHAT THE SIBLING ALREADY DOES. The view model
+       * uses `displayInfluence` or nothing (`:553`, `:721`), and its own comment
+       * rules: *"Absent, the honest render is no number."* An undefined
+       * influence here flows to `selectNextInputToSet`, whose
+       * `determinedRankDepth` withholds rather than guessing — so the row goes
+       * quiet instead of naming a factor ranked on a different basis.
+       *
+       * ⚠ Reachability NOT claimed either way. The pipeline comment says
+       * `displayInfluence` is always set live and the chain existed for legacy
+       * fixtures. A debug bundle cannot settle it — `displayInfluence` is
+       * computed in this app and appears on no wire, so a capture sweep reads
+       * zero for the wrong reason (measured: 0 of 500 runs, with no contrast
+       * control available). The fix is warranted by the CONTRACT, not by a
+       * frequency.
+       */
+      influence: d.displayInfluence,
       // Resolved through THE policy module — the engine never sees the raw
       // producer number.
       confidenceDisplay: resolveFactorConfidenceDisplay({

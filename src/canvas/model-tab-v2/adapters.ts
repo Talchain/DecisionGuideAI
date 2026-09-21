@@ -181,6 +181,7 @@ import type {
   ModelRow,
   ModelRowDetail,
   OptionInterventionField,
+  OptionInterventionCandidate,
   RepairQueue,
   RepairQueueItem,
 } from './types'
@@ -1107,6 +1108,12 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
         .filter(e => e.source === rowId)
         .map(e => ({ id: e.id, label: endpointLabel(e.target, nodeLabels) })),
       interventions: buildOptionInterventions(node, nodeLabels),
+      interventionCandidates: buildOptionInterventionCandidates(
+        node,
+        input.edges,
+        nodeLabels,
+        new Map(input.nodes.map(n => [n.id, n])),
+      ),
       advancedParameters: buildAdvancedForNode(node.id, obs),
     }
   }
@@ -1129,6 +1136,8 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       { id: edge.target, label: endpointLabel(edge.target, nodeLabels) },
     ],
     interventions: [],
+    // A relationship is not an option, so there is nothing it could change.
+    interventionCandidates: [],
     advancedParameters: buildAdvancedForEdge(edge.id, data),
   }
 }
@@ -1149,6 +1158,59 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
  * model (preamble P8). The write authority refuses these for the same reason,
  * so the projection and the authority agree by construction.
  */
+/**
+ * The factors this option COULD change and does not yet.
+ *
+ * ⭐⭐ WHY IT EXISTS: THE PRODUCT REPORTED THE GAP ELEVEN TIMES AND OFFERED ONE
+ * ROUTE, WHICH POINTED AT CHAT. Measured on the founder's board, 3 of 5 options
+ * carried zero interventions, so the analysis could not tell them apart — and
+ * every surface that said so described the gap without being able to close it.
+ * `ModelDetailRegion`'s section 2b rendered only when `interventions.length >
+ * 0`, so the one connected editor in the product was invisible on exactly the
+ * options that needed it.
+ *
+ * ⛔ WIRED-ONLY, AND IT IS THE AUTHORITY'S RULE. `proposeOptionIntervention`:
+ * *"The SERVER additionally requires the option to be WIRED to it and refuses
+ * otherwise."* A picker offering an unwired factor would be a live control the
+ * server declines. The set is therefore the option's OUTGOING EDGES to factors,
+ * which is also the set the panel's own sentence already describes ("Linked to
+ * 3 factors below, but no change values are set yet").
+ *
+ * ⚠ DEDUPED BY FACTOR ID. Two edges to one factor is a well-formed graph; two
+ * identical rows in a picker is a defect.
+ *
+ * ⚠ AN UNNAMEABLE FACTOR IS DROPPED, NOT RENAMED — `buildOptionInterventions`'
+ * rule, for its reason: asking a reader to set a value for something that is
+ * not in their model is a worse offer than making none.
+ */
+function buildOptionInterventionCandidates(
+  node: Node,
+  edges: readonly Edge[],
+  labels: ReadonlyMap<string, string>,
+  nodesById: ReadonlyMap<string, Node>,
+): OptionInterventionCandidate[] {
+  if (nodeKind(node) !== 'option') return []
+  const already = new Set(
+    Object.keys(
+      ((node.data as Record<string, unknown> | undefined)?.interventions as
+        | Record<string, unknown>
+        | undefined) ?? {},
+    ),
+  )
+  const seen = new Set<string>()
+  return edges.flatMap(e => {
+    if (e.source !== node.id) return []
+    const factorId = e.target
+    if (already.has(factorId) || seen.has(factorId)) return []
+    const target = nodesById.get(factorId)
+    if (!target || nodeKind(target) !== 'factor') return []
+    const factorLabel = resolveCanvasLabel(factorId, labels)
+    if (factorLabel === null) return []
+    seen.add(factorId)
+    return [{ factorId, factorLabel }]
+  })
+}
+
 function buildOptionInterventions(
   node: Node,
   labels: ReadonlyMap<string, string>,

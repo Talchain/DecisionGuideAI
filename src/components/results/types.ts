@@ -811,7 +811,11 @@ export interface DriverItem {
   valueOfInformation?: number
   /** Fragile edge info if this factor can flip the decision */
   fragileEdgeInfo?: {
-    /** Probability decision flips to alternative winner (0-1, higher = more likely to flip) */
+    /**
+     * Proportion of MC samples in which the alternative wins WHEN THIS EDGE IS
+     * WEAK (0-1). ⚠ Conditional — see the full quote and the reason this
+     * wording matters on `CritiqueItem.switchProbability` below.
+     */
     switchProbability?: number
     /** Alternative option that would win if flipped */
     alternativeWinnerLabel?: string
@@ -922,9 +926,31 @@ export interface UncertaintyItem {
   /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */
   factorConfidence?: number | null
   /**
-   * ⭐ The producer's MEASURED `switch_probability` — *"P(flipping this edge
-   * switches the recommended option)"*. Higher means more fragile; the producer
-   * derives `severity` from this same number (>0.7 critical, >0.5 error).
+   * ⭐ The producer's MEASURED `switch_probability`, QUOTED FROM ISL rather
+   * than paraphrased (`Talchain/Inference-Service-Layer` `staging`,
+   * `src/models/response_v2.py:569-575`):
+   *
+   *   *"Proportion of MC samples where alternative wins WHEN EDGE IS WEAK.
+   *    0.0 if same option wins (stable), null only if no data available."*
+   *
+   * It is **CONDITIONAL**: the denominator is the runs in which this link came
+   * out weak (`:566` — "bottom quartile"), not all runs. Higher means more
+   * fragile; the producer derives `severity` from this same number
+   * (>0.7 critical, >0.5 error).
+   *
+   * ⛔⛔ THIS COMMENT USED TO READ *"P(flipping this edge switches the
+   * recommended option)"* — WHICH IS THE FIELD NEXT DOOR. `response_v2.py:576-580`
+   * declares `marginal_switch_probability`, *"Probability of decision flip when
+   * ONLY this edge varies"*, and the UI reads it **nowhere**. The paraphrase
+   * dropped the condition and described the unconditional twin, and it did not
+   * stay in the comment: the uncertainty column's caption shipped as *"how
+   * often each assumption changed the answer"* (#1798) and the Strengthen
+   * card's flip signal as *"NN% chance {alt} scores highest instead if {factor}
+   * shifts"* — both the same swap, on screen, in front of users.
+   *
+   * ⚠ SO A CONSUMER MAY NOT DESCRIBE THIS NUMBER WITHOUT ITS CONDITION, and
+   * the sentence is already written once: `strengthElicitation/assumedStrengthCopy.ts`
+   * exports `strongerOptionInWeakRuns`. Import it; do not spell a third one.
    *
    * ⛔ ABSENT MEANS NOT COMPUTED, never 0 and never 1. `0` is a genuine
    * measurement. Branch on presence; never coalesce.

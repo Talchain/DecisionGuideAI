@@ -22,6 +22,11 @@ import {
   type FloatingPanelSize,
 } from '../hooks/useFloatingPanelState'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
+import {
+  EmptyConversationInvitation,
+  INVITATION_TESTID_FLOATING,
+  conversationIsEmpty,
+} from './EmptyConversationInvitation'
 import { clearanceCandidates, COMFORT_OCCLUSION_GAP, type Box } from '../utils/cameraComfort'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { useUIStore } from '../../stores/uiStore'
@@ -597,6 +602,9 @@ export function measureTopInset(): number {
  */
 export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: FloatingOlumiPanelProps) {
   const conversation = useConversationContext()
+  // Same predicate as the docked tab, from the same module — see the note
+  // beside `conversationIsEmpty`.
+  const isEmptyConversation = conversationIsEmpty(conversation.messages)
   // Subscribe to primitive slices to avoid re-render churn (returning a new
   // object from a selector breaks Zustand's referential equality check).
   const isOpen = useFloatingPanelState((s) => s.isOpen)
@@ -1355,20 +1363,48 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
         className="floating-density flex flex-1 min-h-0 flex-col"
         style={{ marginTop: DRAG_HANDLE_HEIGHT }}
       >
-        <ConversationPanel
-          conversation={conversation}
-          onCollapse={close}
-          /* Staging's ConversationPanel has no ChatTopBar render, so
-             onAttach is never invoked at runtime here — pass no-op. */
-          onAttach={noop}
-          hideComposer
-          compact
-          /* Mount identity: this host and the docked Olumi tab can both be
-             mounted at once, so they must not answer to one `data-testid`.
-             The rationale and the canonical assignment live in one place —
-             the note beside these constants in `zones/ChatThread.tsx`. */
-          threadTestId={THREAD_TESTID_FLOATING}
-        />
+        {/*
+          ⭐ AN EMPTY CONVERSATION IS NOT A BLANK PANEL, AND HERE IT WAS ONE.
+          The docked tab swaps its thread out for an invitation when there are
+          no real messages. This host renders `ConversationPanel` directly, so
+          the identical state rendered a ~400×550 white void above the composer
+          — measured side by side with the docked tab, same seeded canvas, same
+          empty conversation (`e2e/geometry/floatingComposerLook.measure.ts`).
+
+          ⚠ AN OVERLAY, DELIBERATELY, RATHER THAN THE DOCKED TAB'S SWAP.
+          `OlumiTabBody` can return early because it re-registers the guidance
+          callbacks itself, with `realMessageCount` in the dep array, precisely
+          so unmounting `ConversationPanel` does not strip them (the note at its
+          effect records the load-order defect that taught it). This host has no
+          such effect, so unmounting the panel here would take the callbacks
+          with it and fix a blank panel by breaking the sparkles. The overlay
+          changes no mount at all; `pointer-events-none` keeps it out of the way
+          of anything the thread puts underneath.
+        */}
+        <div className="relative flex flex-1 min-h-0 flex-col">
+          <ConversationPanel
+            conversation={conversation}
+            onCollapse={close}
+            /* Staging's ConversationPanel has no ChatTopBar render, so
+               onAttach is never invoked at runtime here — pass no-op. */
+            onAttach={noop}
+            hideComposer
+            compact
+            /* Mount identity: this host and the docked Olumi tab can both be
+               mounted at once, so they must not answer to one `data-testid`.
+               The rationale and the canonical assignment live in one place —
+               the note beside these constants in `zones/ChatThread.tsx`. */
+            threadTestId={THREAD_TESTID_FLOATING}
+          />
+          {isEmptyConversation && (
+            <div
+              className="absolute inset-0 flex items-center justify-center px-6 py-6 pointer-events-none"
+              data-testid="floating-olumi-panel-empty"
+            >
+              <EmptyConversationInvitation testId={INVITATION_TESTID_FLOATING} />
+            </div>
+          )}
+        </div>
         <AIInputBar ref={inputBarRef} variant="floating" hideChevron />
       </div>
 

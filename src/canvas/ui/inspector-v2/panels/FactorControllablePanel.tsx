@@ -16,6 +16,7 @@ import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
@@ -57,6 +58,7 @@ import {
   type ValueInputSeedBasis,
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
+import { USER_VALUE_STAMP } from '../../../domain/valueProvenance'
 import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
 import {
   BeliefElicitationField,
@@ -311,7 +313,28 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // is the same fire-and-forget shape against the same endpoint: a refusal
       // leaves the panel showing a number the engine declined. Fixing one twin and
       // leaving the other armed is how this class keeps coming back.
-      const undo = captureOptimisticFactorEdit(nodeId ?? '', modelValue, node?.data)
+      //
+      // ⭐ AND IT CARRIES THE AUTHORSHIP CLAIM, which until now it did not.
+      // `captureOptimisticFactorEdit`'s 4th argument is the receipt-gated
+      // provenance stamp (ROADMAP 2.304): it rides the snapshot and is written
+      // by `confirmOptimisticFactorEdit` ONLY once CEE's applied `graph_patch`
+      // receipt lands. `CalibrateDrillIn` was the sole caller passing one, so
+      // this panel's accepted edits returned `'no_stamp'` and wrote nothing —
+      // the user typed the number and the model recorded it as Olumi's.
+      // Measured on deployed `fd992149`: `observedState.source` read
+      // `'cee_inference'` after a hand-typed value that had round-tripped.
+      //
+      // ⚠ STILL NOT OPTIMISTIC. The stamp is NOT passed to `setObservedValue`
+      // below — that setter's call is unchanged, which is what keeps 2.304's
+      // ruling intact. The number moves now; the claim waits for the engine.
+      // The comment above is about the UNDO twin; this is its provenance twin,
+      // and leaving it armed is the same way the class keeps coming back.
+      const undo = captureOptimisticFactorEdit(
+        nodeId ?? '',
+        modelValue,
+        node?.data,
+        USER_VALUE_STAMP,
+      )
 
       // Local store write first, so the canvas and the freshness overlay reflect
       // the edit immediately even if the turn is slow or fails. Note this writes
@@ -488,7 +511,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             placeholder={DESCRIPTION_PLACEHOLDERS.factor}
             rows={2}
             maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+            className={`${typography.panelBody} ${controls.editableTextarea}`}
           />
         ) : (
           <EmptyDescriptionPrompt
@@ -636,7 +659,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               onBlur={handleValueBlur}
               onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
               placeholder="Enter value"
-              className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
+              className={`${typography.panelHeader} text-xl ${controls.editableField}`}
             />
             {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
               <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>
@@ -752,13 +775,24 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               witness asked exactly that, twice, in natural language, and the
               deployed assistant declined both times — "I can't currently store
               a movable range". It is not a model failing: no range editor is
-              reachable anywhere in the product, and `model-tab-v2/contracts.ts`
-              declares `proposePriorRange` with ZERO implementations. The
-              sibling surface for this same defect class
-              (`model-tab-v2/ModelRowView.tsx`'s `NO_RANGE_NOTICE`) had already
-              reached that conclusion and WITHHOLDS a remedy on exactly this
-              ground, its spec banning the literals 'add a range' and 'set a
-              range'. This panel was the unsupported side of that disagreement.
+              reachable FOR A CONTROLLABLE FACTOR, which is the only kind this
+              panel renders. `model-tab-v2/contracts.ts` declares
+              `proposePriorRange` with ZERO implementations, and
+              `InspectorRouter` sends every non-external category here, to a
+              panel with zero `setPriorRange` call sites.
+              ⚠⚠ NARROWED 20 Sep 2026. This said "anywhere in the product",
+              inherited from `ModelRowView.tsx`'s notice, and THAT SENTENCE WAS
+              ALREADY FALSE BY NINE MINUTES when it was written — #1454 made the
+              EXTERNAL factor's range operable the same evening, and
+              `FactorExternalPanel`'s quick-set buttons reach `prior_range_edit`
+              today. The conclusion below is unchanged, because this panel never
+              renders an external factor; only the scope of the claim was wrong,
+              and a claim that overstates its scope is how the next surface
+              inherits a falsehood. The sibling surface
+              (`model-tab-v2/ModelRowView.tsx`'s `NO_RANGE_NOTICE`) WITHHOLDS a
+              remedy on this ground, its spec banning the literals 'add a range'
+              and 'set a range'. This panel was the unsupported side of that
+              disagreement.
 
               ⭐ WHY A STATED UNIT, AND WHY "PERCENTAGE" SPECIFICALLY. Derived
               in CEE at `staging` d9b06ea8, not guessed. The analysis gate is

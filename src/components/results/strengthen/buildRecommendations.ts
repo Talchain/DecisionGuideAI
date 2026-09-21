@@ -30,6 +30,9 @@ import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item }
 import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 import { biasCodeFromPhase3Item } from './biasTypesFromGuidance'
 import { SUCCESS_TARGET_PROMPT } from './successTargetPrompt'
+import { strongerOptionInWeakRuns } from '../strengthElicitation/assumedStrengthCopy'
+import { selectNextInputToSet } from './nextInputToSet'
+import { influenceRankReadout } from '../influenceScaleCopy'
 
 /**
  * The deterministic "define a success measure" recommendation's id.
@@ -72,6 +75,13 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     // the engine had no way to tell a producer pre-mortem from a producer
     // assumption check and minted `clarify` for both.
     ...(item.signal_code ? { signalCode: item.signal_code } : {}),
+    // ⭐ AND `dsk_claim_id` DIED HERE TOO, for the same reason and with the same
+    // consequence one layer on. `signal_code` is `CALIBRATION_PROMPT` for both a
+    // pre-mortem and an outside-view prompt; the claim id is `DSK-T-001` and
+    // `DSK-T-002`. Dropping it left the methods shelf unable to tell the reader
+    // that this run raised a pre-mortem — on the withheld run, where these
+    // producer blocks are the only coaching the panel has.
+    ...(item.dsk_claim_id ? { dskClaimId: item.dsk_claim_id } : {}),
     ...(item.coaching_kind ? { coachingKind: item.coaching_kind } : {}),
     /**
      * ⭐⭐ `target_object` FIRST, THEN `related_elements` — AND THE SECOND HALF
@@ -218,6 +228,7 @@ export function helpTypeForPhase3Item(item: StrengthenPhase3Item): HelpType {
 // carries only ORDER — the dense index preserves it exactly.
 const PRIORITY = {
   successMeasure: 0,
+  nextInput: 5,
   phase3Base: 10, // + dense promoted-list index (producer-ranked only)
   flip: 100,
   lehi: 110,
@@ -370,9 +381,15 @@ function mergeChannelTwins(items: StrengthenPhase3Item[]): StrengthenPhase3Item[
   return out
 }
 
-function pct(p: number): string {
-  return `${Math.round(p * 100)}%`
-}
+/*
+ * ⚠ `pct()` LIVED HERE AND IS GONE WITH ITS ONLY CALLER. The flip signal was
+ * the single use of it; the sentence that replaces that signal formats its own
+ * percentage inside `strongerOptionInWeakRuns`, beside the condition it belongs
+ * to, so a second formatter in this file would be a percentage waiting to
+ * disagree with the one the reader sees. Removed rather than left unused,
+ * because the required check's FIRST step is lint and an unused local fails it
+ * before a single test runs.
+ */
 
 export function buildRecommendations(inputs: StrengthenInputs): Recommendation[] {
   const recs: Recommendation[] = []
@@ -581,6 +598,10 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     const biasCode = biasCodeFromPhase3Item(item)
     recs.push({
       id: `strengthen:phase3:${item.id}`,
+      // Producer-owned passthrough, exactly as `signalCode` and `biasCode` are:
+      // `methodForRecommendation` needs an IDENTITY to resolve a technique, and
+      // this is the only one a coaching block carries.
+      ...(item.dskClaimId ? { dskClaimId: item.dskClaimId } : {}),
       // Stage 3: the producer's own `signal_code`, where it names a move we can
       // independently classify. Falls through to 'clarify' — today's
       // unconditional value — for every code we cannot. See
@@ -721,9 +742,35 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       // {factor} shifts"), and `whyNow` carries the urgency. The title was
       // restating the selection rule; now it states the subject.
       title: `Test the assumption about ${top.factorLabel}`,
-      signal: alt
-        ? `${pct(top.switchProbability)} chance ${alt} scores highest instead if ${top.factorLabel} shifts.`
-        : `${pct(top.switchProbability)} chance a different option scores highest if ${top.factorLabel} shifts.`,
+      /**
+       * ⛔⛔ THIS SAID THE WRONG QUANTITY, AND IT SAID IT AS A FORECAST.
+       *
+       * As shipped: *"NN% chance {alt} scores highest instead if {factor}
+       * shifts."* Two faults in one sentence, and the second is the one no
+       * guard could see:
+       *
+       *  1 · CONDITION DROPPED. ISL declares the field (`staging`,
+       *      `src/models/response_v2.py:569-575`): *"Proportion of MC samples
+       *      where alternative wins WHEN EDGE IS WEAK."* It is conditional on
+       *      the link being in its bottom quartile — not on the factor
+       *      "shifting", which is any movement in either direction.
+       *  2 · TENSE. "chance … if … shifts" is a forecast about something that
+       *      might happen. The number counts runs that ALREADY happened.
+       *
+       * ⛔ AND THE SENTENCE WAS AN ACCURATE DESCRIPTION OF THE ADJACENT FIELD.
+       * `response_v2.py:576-580` declares `marginal_switch_probability` —
+       * *"Probability of decision flip when ONLY this edge varies"* — which is
+       * precisely "how much this one assumption moved the answer". The UI reads
+       * it nowhere. Two neighbouring producer fields, and this card had them
+       * swapped. #1798 found the identical swap in the uncertainty column's
+       * caption; this is the same defect on the card the panel leads with.
+       *
+       * ⚠ THE REPLACEMENT IS IMPORTED, NOT WRITTEN. `strongerOptionInWeakRuns`
+       * is the elicitation card's own sentence, which has carried the condition
+       * correctly since it was written. A second spelling here is how one
+       * measurement acquires two readings, which is the defect being closed.
+       */
+      signal: strongerOptionInWeakRuns(top.switchProbability, alt ?? null, 'that assumption'),
       whyNow: 'This single relationship carries the most decision risk right now.',
       tryThis: 'Plan one check that would confirm or correct this assumption before you rely on the ranking.',
       sourceLine: 'Source: robustness analysis (fragile relationships).',
@@ -737,6 +784,154 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       targetId: top.edgeId,
       priority: PRIORITY.flip,
     })
+  }
+
+  // ── Clarify: the next input this run turns on ────────────────────────────
+  //
+  // ⭐⭐ THE PRODUCT ALREADY COMPUTES THIS AND NEVER SAYS IT. On a
+  // `quantified_provisional` run CEE publishes the exact set of parameters the
+  // comparison is waiting on, and the surface already publishes an ordinal over
+  // the factors. Joining them names ONE next input instead of rendering the set
+  // as an untruncatable roll-call. Both post-result captures on served
+  // `fd992149` are in exactly this state.
+  //
+  // ⛔ IT PROMISES NOTHING ABOUT THE NEXT RUN, AND A CAPTURE IS WHY. `52383f4b`
+  // carries `confidence_parameters_user_stated: 1` — the user had already set
+  // Monthly Churn Rate — and the refusal persisted on
+  // `USER_STATED_PARAMETERS_NOT_MATERIAL`. Three further gates sit behind this
+  // one. So every sentence below states what IS true now; none says "and then I
+  // will name the leader".
+  //
+  // ⚠ NO GATE ON `leaderClaimPermitted`. This row exists precisely BECAUSE the
+  // claim is withheld, and it designates no option — the subject is an input of
+  // the reader's own model, not a comparative standing.
+  if (inputs.analysisComplete) {
+    const next = selectNextInputToSet(
+      inputs.factors,
+      inputs.materialParametersAwaitingUserIds,
+      inputs.analysisIdentityIsCurrent === true,
+    )
+    // The ordinal's words are the copy owner's, never re-spelled here; it
+    // refuses any rank it cannot publish, so a null readout is a null row.
+    const readout = next ? influenceRankReadout(1, next.setSize) : null
+    /**
+     * ⛔⛔ CAN A RANGE BE SET FOR THIS FACTOR AT ALL — a DIFFERENT QUESTION from
+     * `next.declaresNoRange`, which asks only whether it records one today.
+     *
+     * The branch below used to turn on `declaresNoRange` alone and told the
+     * reader to settle a range. `factorRangeCapability.ts` exists because that
+     * act is available for roughly ONE FACTOR IN SEVEN: a range editor lives on
+     * exactly one surface, the canvas inspector's `FactorExternalPanel`, and
+     * only for `category === 'external'`. So on the other six this card named an
+     * act that does not exist on any surface — the defect
+     * `noScaleRemedyIsTheUnitPath` ruled on ("the remedy this panel names must
+     * be one the assistant can actually perform") and the one the LEHI card
+     * below was already fixed for.
+     *
+     * ⚠ IT WENT ELEVEN DAYS BECAUSE THE GUARD WAS HAND-SCOPED.
+     * `theRangeActExistsOrIsNotNamed.spec.ts` selects its card with
+     * `id.startsWith('strengthen:lehi:')`, so the ruling was enforced exactly
+     * where a guard could observe it and nowhere else — the shape this file's
+     * own em-dash docblock records, forty lines down.
+     *
+     * ⛔ FAIL-CLOSED, per `StrengthenFactor.rangeIsSettable`'s own rule: absent
+     * means UNKNOWN and is read as NO. A wrongly-named act spends the trust the
+     * finding just earned; an unnamed one costs only wording.
+     */
+    const nextRangeIsSettable =
+      next !== null &&
+      inputs.factors.find((f) => f.factorId === next.factorId)?.rangeIsSettable === true
+    if (next && readout) {
+      recs.push({
+        id: `strengthen:next-input:${next.factorId}`,
+        helpType: 'clarify',
+        title: `Give ${next.label} a value of your own`,
+        signal: `${readout.phrase}, and the estimate behind it is Olumi's.`,
+        whyNow:
+          /**
+           * ⛔⛔ THIS NO LONGER RESTATES THE REFUSAL, AND A LIVE CAPTURE IS WHY.
+           *
+           * It previously read *"Until at least one of the values this
+           * comparison turns on is yours, no option can be put forward."*
+           * Measured on the deployed build (manual test 21 Sep, bundle
+           * `olumi-debug-95b92672`): `AtAGlance` renders CEE's admission
+           * VERBATIM on the same tab, a few centimetres above this card —
+           * *"Every estimate this comparison rests on is Olumi's, not yours
+           * … no option can be called the leader … until you have set at least
+           * one of them."* Both sections are rendered by
+           * `AnalysisNewTabBody`, and `strengthenWhyLine` concatenates
+           * `signal` + `whyNow` into the card BODY, so this was on screen even
+           * with the row collapsed. The panel was answering, in its own voice,
+           * a question the producer had just answered directly above it.
+           *
+           * ⭐ WHAT REPLACES IT IS THE ONE FACT NOTHING ELSE ON THE SCREEN
+           * CARRIES, and it is the fact that stops this card becoming a false
+           * promise. Capture `52383f4b` has
+           * `confidence_parameters_user_stated: 1` — the user HAD set a value —
+           * and the refusal persisted on `USER_STATED_PARAMETERS_NOT_MATERIAL`.
+           * Necessary, not proven sufficient. Saying so is not a hedge; it is
+           * the difference between this row and an instruction that fails.
+           *
+           * ⚠ "as the leader" CAME OUT — `noWinnerVocabulary.spec.ts` REDDED IT
+           * and was right. The 8 Sep no-contest ruling retires placings from
+           * UI-AUTHORED copy, and "the leader" is one.
+           *
+           * ⭐ CEE's own admission message says "no option can be called the
+           * leader" and is NOT caught, because producer prose renders verbatim
+           * and is exempt by design. That asymmetry is correct and is exactly
+           * why the guard sweeps this file: a sentence this surface AUTHORS is
+           * held to the ruling even where the producer's neighbouring sentence
+           * is not.
+           *
+           * "put one forward" is the phrasing the estate already permits —
+           * `checks.leader_not_assessed.orderingCaveat`'s sibling uses it and
+           * passes the same sweep — so this states the same fact in the
+           * vocabulary that survived the ruling.
+           */
+          'Setting it is necessary for a comparison you own, and may not be all this run needs.',
+        /**
+         * ⚠ NO EM DASH, AND THE GUARD CANNOT SEE THIS FILE. The ruling is
+         * "no em dashes in product content"; `noEmDashesInRenderedCopy.spec.ts`
+         * enforces it over a HAND-LIST of four files
+         * (`analysisNewCopy`, `buildAnalysisNewViewModel`, `humaniseCritique`,
+         * `goalAnchorCopy`) and `strengthen/buildRecommendations.ts` is not one
+         * of them, although it renders straight onto the same tab. An em dash
+         * here would have shipped unseen. Honouring a ruling only where a guard
+         * can observe it is how the ruling stops meaning anything — the same
+         * hand-list shape `noWinnerVocabulary.spec.ts` records about itself.
+         *
+         * ⚠ THE ROUTE MUTATES NOTHING, AND THAT IS WHY THIS ROW IS SAFE TO SHOW.
+         * `canvas-focus` takes the reader to the factor; it types no number and
+         * writes nothing. The one genuinely dangerous act — committing a bare
+         * amount on a factor that records no prior range, which leaves the model
+         * unanalysable with no route back (`ModelRowView.tsx`, 10 Sep witness) —
+         * is owned and stated by the Model tab at the point of commit. This row
+         * must not reproduce that judgement; it only carries the fact forward
+         * when it has one, so the reader is not surprised by it later.
+         */
+        /**
+         * ⭐ THE FINDING SURVIVES EVERY BRANCH; ONLY THE ACT MOVES. Dropping the
+         * card, or dropping the fact, would hide something true — this is still
+         * the input the run turns on most and the estimate behind it is still
+         * Olumi's. The third arm therefore keeps the reason a lone figure is
+         * weak here and names only the act the reader can actually perform.
+         *
+         * ⚠ IT DOES NOT EXPLAIN THE LIMITATION. "Olumi cannot record a range for
+         * this kind of factor" is product internals; the ruling asks for a
+         * remedy that works, not a confession about one that does not.
+         */
+        tryThis: !next.declaresNoRange
+          ? 'Use the figure you would defend in the room, not a cautious one.'
+          : nextRangeIsSettable
+            ? 'This one records no range yet, so a single figure has nothing to be measured against. Worth settling the range at the same time.'
+            : 'A single figure here has nothing to be measured against, so use the one you would defend in the room, not a cautious one.',
+        sourceLine:
+          "Source: the inputs Olumi reports this comparison is waiting on, in this run's own influence order.",
+        action: { kind: 'canvas-focus', label: 'Show me this factor' },
+        targetId: next.factorId,
+        priority: PRIORITY.nextInput,
+      })
+    }
   }
 
   // ── Clarify: low-evidence, high-influence factor (path-conditional) ──────
@@ -757,18 +952,64 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       )
       .sort((a, b) => (b.influence ?? 0) - (a.influence ?? 0))[0]
     if (lehi) {
+      /**
+       * ⛔⛔ THIS CARD TOLD ROUGHLY SIX FACTORS IN SEVEN TO DO SOMETHING THE
+       * PRODUCT CANNOT DO.
+       *
+       * As shipped: titled *"Give {factor} a realistic range"*, button **"Set a
+       * range"**, action `canvas-focus`. That route resolves to `focusNodeById`
+       * — it selects the node, dims its neighbours and moves the camera. It
+       * opens no editor and switches no tab.
+       *
+       * A range editor exists on exactly ONE surface, the canvas inspector's
+       * `FactorExternalPanel`, and only for a factor whose category is
+       * `'external'`. Measured across two real captures: **1 of 7** categorised
+       * factors. For the rest the button led to a node where the act does not
+       * exist anywhere.
+       *
+       * ⭐ THE RULING THIS APPLIES ALREADY EXISTED, on the surface where it was
+       * discovered and nowhere else — `noScaleRemedyIsTheUnitPath`: *"The
+       * remedy this panel names must be one the assistant can actually
+       * perform."* It was written after a journey witness asked Olumi, in
+       * natural language, twice, to do what a disclosure told them to do, and
+       * was declined both times.
+       *
+       * ── WHAT CHANGES, AND WHAT DELIBERATELY DOES NOT ──────────────────────
+       * The FINDING is kept on both branches. "High influence, low evidence" is
+       * worth telling someone whatever they can do about it, and dropping the
+       * card would hide something true. Only the ACT moves.
+       *
+       *  · settable → the range coaching stands, and the button now says what
+       *    pressing it DOES. The control is on the node's own panel, one step
+       *    beyond the camera, so "Set a range" was over-promising even here.
+       *  · not settable → no range is named at all. The act becomes one the
+       *    assistant genuinely performs: saying what evidence would move the
+       *    figure. `ai-dialogue` is the route that can carry any act.
+       *
+       * ⚠ IT DOES NOT EXPLAIN THE LIMITATION. "Olumi cannot record a range for
+       * this kind of factor" is product internals, and the ruling asks for a
+       * remedy that works, not a confession about one that does not.
+       */
+      const rangeSettable = lehi.rangeIsSettable === true
       recs.push({
         id: `strengthen:lehi:${lehi.factorId}`,
         helpType: 'clarify',
-        title: `Give ${lehi.label} a realistic range`,
+        title: rangeSettable
+          ? `Give ${lehi.label} a realistic range`
+          : `Weigh the evidence behind ${lehi.label}`,
         signal: 'High influence, low evidence.',
         whyNow: 'A single figure hides uncertainty in an important input.',
-        tryThis: 'Use a plausible low and high based on what you have seen before.',
+        tryThis: rangeSettable
+          ? 'Use a plausible low and high based on what you have seen before.'
+          : 'Say what would move this figure, and by how much.',
         sourceLine: 'Source: sensitivity and evidence-quality signals.',
-        action: {
-          kind: 'canvas-focus',
-          label: 'Set a range',
-        },
+        action: rangeSettable
+          ? { kind: 'canvas-focus', label: 'Show me this factor' }
+          : {
+              kind: 'ai-dialogue',
+              label: 'Weigh this estimate',
+              prompt: `What evidence would move the estimate for ${lehi.label}, and by how much?`,
+            },
         targetId: lehi.factorId,
         priority: PRIORITY.lehi,
       })

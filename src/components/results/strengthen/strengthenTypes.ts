@@ -41,6 +41,13 @@ export interface Recommendation {
   /** Stable, namespaced, entity-scoped id, e.g. 'strengthen:flip:edge_9'. */
   id: string
   helpType: HelpType
+  /**
+   * ⭐ THE PRODUCER'S DECISION-SCIENCE CLAIM ID, carried through from the
+   * coaching block so `methodForRecommendation` can resolve a TECHNIQUE from an
+   * IDENTITY rather than from prose. Producer-owned passthrough, exactly as
+   * `signalCode` and `biasCode` are: absent stays absent, never invented.
+   */
+  dskClaimId?: string
   title: string
   /** §8.4 short signal — why it appeared. */
   signal: string
@@ -124,6 +131,31 @@ export interface StrengthenFactor {
   factorId: string
   label: string
   /**
+   * ⭐⭐ CAN A RANGE ACTUALLY BE SET FOR THIS FACTOR — the CAPABILITY, not the
+   * canvas category it happens to be derived from.
+   *
+   * The LEHI card ("High influence, low evidence") shipped telling every reader
+   * to *"Give {factor} a realistic range"*, with a button labelled **"Set a
+   * range"**. Measured: a range editor exists on exactly one surface — the
+   * canvas inspector's `FactorExternalPanel` — and only for a factor whose
+   * `category` is `'external'`. On two real captures that was **1 of 7**
+   * categorised factors. For the rest the button moved the camera to a node
+   * where the act does not exist, on any surface.
+   *
+   * ⛔ THE ENGINE MUST NOT LEARN WHAT A CANVAS CATEGORY IS. It asks whether an
+   * act exists; `strengthen/factorRangeCapability.ts` owns the answer and the
+   * derivation. If the capability moves — a range editor for controllable
+   * factors, a real implementation behind `model-tab-v2`'s dead
+   * `proposePriorRange` contract — one predicate changes and every caller
+   * follows. (CLAUDE.md trap 21: name the question, not the implementation.)
+   *
+   * ⚠ ABSENT MEANS UNKNOWN AND IS READ AS "NO". A legacy caller that does not
+   * supply it gets the branch that promises nothing, because a wrongly-named
+   * act spends the trust the finding just earned while an unnamed one costs
+   * only wording.
+   */
+  rangeIsSettable?: boolean
+  /**
    * The driver DISPLAY-POLICY value (driverDisplayModel via the stamped
    * DriverItem.displayInfluence) — NOT raw producer influence_score. Named
    * `influence` so a raw-metric read cannot hide behind the field name
@@ -152,11 +184,46 @@ export interface StrengthenFactor {
   worthInvestigating?: boolean
   /** EVPI in percentage points when provided. */
   canFocus: boolean
+  /**
+   * ⛔ Whether the node records NO prior range — `factorDeclaresNoRange`, the
+   * one owner, read off the node's own `prior`. Spread conditionally by the
+   * Model tab's adapter, so absence of the fact and absence of a claim are the
+   * same shape; absent/`false` here means "no claim", never "it has a range".
+   *
+   * LOAD-BEARING, not cosmetic. Witnessed end to end on the served build
+   * (10 Sep 2026, `canvas/model-tab-v2/ModelRowView.tsx`): on a factor that
+   * declares no prior range the value editor accepts a bare amount, reports
+   * `Applied`, and the analysis then refuses EVERY TIME — *"recorded as a bare
+   * amount with no range for me to measure it against"*. No range editor is
+   * reachable anywhere in the product and the value cannot be cleared, so an
+   * instruction to set a value there can leave the model unanalysable with no
+   * route back. Any row that routes a user to the editor must read this first.
+   */
+  declaresNoRange?: boolean
 }
 
 export interface StrengthenPhase3Item {
   id: string
   title: string
+  /**
+   * ⭐⭐ THE PRODUCER'S OWN DECISION-SCIENCE CLAIM ID — the only field on a
+   * coaching block that names WHICH TECHNIQUE it is.
+   *
+   * Measured on both real captures: the producer raises `Pre-mortem and
+   * prospective hindsight prompt` and `Outside view and reference class
+   * forecasting`, and the ONLY field distinguishing them is
+   * `dsk_claim_provenance.claim_id` — `DSK-T-001` and `DSK-T-002`. Their
+   * `signal_code` is `CALIBRATION_PROMPT` for BOTH, so the code cannot tell
+   * them apart, and the technique's name appears only in the TITLE, which this
+   * estate forbids parsing.
+   *
+   * ⚠ IT SURVIVED ONTO `GuidanceItem` AND DIED IN THE MAPPER — the same
+   * sentence `signalCode` carries a few lines below, one field over. Without it
+   * `methodIdsRaisedBy` cannot see that a run raised a pre-mortem, so the
+   * methods shelf lists all seven unconditioned on exactly the run where the
+   * producer's blocks are the only coaching there is.
+   */
+  dskClaimId?: string
   body?: string
   actionIntent?: string
   actionLabel?: string
@@ -229,6 +296,28 @@ export interface StrengthenInputs {
   hasStatedGoalTarget?: boolean
   /** Whether a completed analysis exists (most triggers need one). */
   analysisComplete: boolean
+  /**
+   * CEE's own set of the parameters this comparison is waiting on the user for
+   * — `analysis_admission.semantic_signals.material_parameters_awaiting_user_node_ids`,
+   * VERBATIM. Membership is the producer's; nothing here re-derives or
+   * re-filters it. Absent on any producer that predates the field, which is
+   * indistinguishable from an empty set and deliberately so: both leave the
+   * existing copy standing.
+   */
+  materialParametersAwaitingUserIds?: readonly string[]
+  /**
+   * Whether the admission, the run and the current graph are ONE identity —
+   * `useAnalysisResultsAreCurrent()`, the same authority that licenses the
+   * canvas factor card's influence ordinal.
+   *
+   * ⚠ NOT A CONVENIENCE. `invalidateAnalysisReady` clears the admission on
+   * every analytical edit and `resolveEffectiveAdmission` falls back to the
+   * RETAINED one, so a blocking set and an influence order can arrive from two
+   * different graphs and look like one answer. A row naming a parameter from a
+   * graph the user has since changed is the futile-instruction defect with a
+   * stale cause.
+   */
+  analysisIdentityIsCurrent?: boolean
   /**
    * ROADMAP 1.243 — the ONE boolean any surface must hold before asserting OR
    * presupposing a leading option. Never re-derived in `buildRecommendations`,

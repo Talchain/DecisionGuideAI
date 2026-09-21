@@ -78,7 +78,10 @@ describe('the producer\'s reason for withholding the leader', () => {
    * cause and is what stops a figure-less list reading as a tie.
    */
   it('does not duplicate or contradict the sentence it qualifies', () => {
-    const base = COPY.checks.leader_not_assessed.meaning
+    // ⚠ THE BASE IS THE CLAUSE THE CAUSE IS APPENDED TO, which since the
+    // question-split is `orderingCaveat` — the comparison's own half. `meaning`
+    // is "What we checked"'s and no cause is appended there.
+    const base = COPY.checks.leader_not_assessed.orderingCaveat
     const cause = leaderWithholdCause(REAL) as string
     expect(base).toContain('not a finding that the options are level')
     expect(base).not.toContain(cause)

@@ -81,7 +81,15 @@
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  border: 1px solid var(--border-default);
+  /* ⭐ `--border-field` (3.70:1), not `--border-default` (1.24:1). Measured on
+     the served build: these twelve toolbar controls — Add to model, Undo, Redo,
+     Graph lens and their siblings — rendered a 1.24:1 outline against white,
+     against WCAG 1.4.11's 3.00:1 floor for a non-text indicator. The container
+     border at the top of this file and the divider below it are SURFACES, not
+     controls, and keep the quieter token deliberately: the floor applies to
+     "visual information required to identify a user interface component", and
+     a panel edge is not one. */
+  border: 1px solid var(--border-field);
   background: white;
   display: inline-flex;
   align-items: center;

@@ -102,6 +102,7 @@ import {
   type ValueInputSeedBasis,
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
+import { USER_VALUE_STAMP, USER_CONFIRMATION_STAMP } from '../../../domain/valueProvenance'
 import { withdrawUserConfirmation } from '../../../utils/hydrateProvenance'
 import { useNodeMutations } from '../../../ui/inspector-v2/useInspectorMutations'
 import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
@@ -129,13 +130,14 @@ interface CalibrateDrillInProps {
 /**
  * The provenance stamps this surface earns on a receipt.
  *
- * Same two values the legacy handlers wrote, unchanged — only their TIMING
- * moves. `user_override` for a typed value, `user_confirmed` +
- * `extractionType: 'explicit'` for "Confirm as is", both members of
- * `isReviewedByUser`'s REVIEWED_SOURCES set, so the pill copy is untouched.
+ * ⚠ NO LONGER DECLARED HERE. Same two values, same timing — but the literals
+ * moved to `canvas/domain/valueProvenance`, beside the classification that
+ * reads them, because this surface was not the only one that needed them and a
+ * second copy is the trap-12 mirror. `FactorControllablePanel` had no stamp at
+ * all, so an inspector edit earned a receipt and claimed nothing.
  */
-const VALUE_STAMP = { source: 'user_override' } as const
-const CONFIRM_STAMP = { source: 'user_confirmed', extractionType: 'explicit' } as const
+const VALUE_STAMP = USER_VALUE_STAMP
+const CONFIRM_STAMP = USER_CONFIRMATION_STAMP
 
 /**
  * Range guard for normalised-scale-only factors — journey-walk 2026-08-03

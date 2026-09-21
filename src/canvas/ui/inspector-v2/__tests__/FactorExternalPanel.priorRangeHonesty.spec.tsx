@@ -70,9 +70,15 @@
  *     claim, never a per-run effect.
  *
  * ── Q2 DERIVED AT THE BYTES ────────────────────────────────────────────────
- *   · `InspectorRouter` wraps EVERY panel in an unconditional
- *     `<fieldset disabled data-authority="disabled">`
- *     (InspectorRouter.tsx:334-340), beneath INSPECTOR_READ_ONLY_REASON.
+ *   · ⚠⚠ SUPERSEDED — READ THE LIVE DESCRIBE AT THE FOOT OF THIS FILE, NOT
+ *     THIS BULLET. It said `InspectorRouter` wraps EVERY panel in an
+ *     unconditional `<fieldset disabled data-authority="disabled">`. It no
+ *     longer does: `AUTHORITY_OWNING_PANELS` holds `factor-external`, the
+ *     blanket is gone for it, and this file's own later assertions prove the
+ *     quick-set affordance is OPERABLE. Left in place with this note rather
+ *     than deleted, because the bullet is why the panel was built the way it
+ *     was and a reader meeting only the conclusion would not know the wrap once
+ *     existed.
  *   ⚠ A second bullet stood here: "`NODE_SETTER_AUTHORITY.setPriorRange` is
  *     `'disabled'` (useInspectorMutations.ts:127) — the repo's own authority
  *     manifest". That manifest was DELETED on 27 Aug 2026 (PR #886) — zero

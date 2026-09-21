@@ -4,7 +4,7 @@ import { typo } from '../../styles/typography'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 import { registerDockedOlumiFocus } from '../conversation/dockedOlumiFocus'
-import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
+import { AIInputBar, type AIInputBarHandle, type AIInputBarProps } from './AIInputBar'
 
 interface PersistentInputStripProps {
   /** True when the docked Olumi tab is the active dock tab. When true and
@@ -19,7 +19,18 @@ interface PersistentInputStripProps {
   /** Called when the user clicks the strip while floating is open. The host
    *  should focus the floating panel's textarea. */
   onFocusFloating?: () => void
-  /** Click handler for the cog icon (Attach / Voice / Depth menu). */
+  /**
+   * The dock's run-analysis control, forwarded verbatim into the composer's
+   * action row. See `AIInputBarProps.analysisAction` for the three things it
+   * deliberately is not — in particular, THIS COMPONENT DECIDES NOTHING about
+   * whether a run may start or whether a second control would collide with
+   * `AnalysisReadinessBar`'s. It is a conduit; `OutputsDock` is the owner.
+   *
+   * Only reaches the composer in composer mode: the redirect and status modes
+   * below render no textarea, and a run control on a surface whose whole job is
+   * "click me to go somewhere else" would be a second meaning for one click.
+   */
+  analysisAction?: AIInputBarProps['analysisAction']
 }
 
 /**
@@ -45,6 +56,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   isOlumiTabActive,
   onOpenFloating,
   onFocusFloating,
+  analysisAction,
 }: PersistentInputStripProps) {
   const floatingIsOpen = useFloatingPanelState((s) => s.isOpen)
   // Round-15: when the floating panel is collapsed to a pill, isOpen
@@ -143,6 +155,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
         ref={inputBarRef}
         variant="strip"
         onChevronClick={onOpenFloating}
+        analysisAction={analysisAction}
       />
     </div>
   )

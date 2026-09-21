@@ -13,6 +13,7 @@
  * describing the analysis, that is the fabrication boundary being crossed.
  */
 
+import { applyUnitPlacement } from '../../../utils/unitClassifier'
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 
 /**
@@ -871,8 +872,26 @@ export const ANALYSIS_NEW_COPY = {
       alternativeLabel: string,
       unit: string,
     ): string => {
+      // ⛔ A PERCENT IS A SUFFIX. This interpolated `unit` as an unconditional
+      // PREFIX, so the deployed build `e6551858` rendered, from a producer row
+      // carrying `unit: '%'`:
+      //
+      //     "Monthly Churn Rate would have to rise from %0.03 to %0.04 …"
+      //
+      // ⚠ AND THE SAME RUN SPELLED THE SAME DATUM CORRECTLY EIGHT INCHES AWAY:
+      // At-a-Glance said "passes 0.04%". One producer unit, two renderings on
+      // one screen — the defect `flipThresholdDisplay`'s header was written
+      // about.
+      //
+      // The rule is `glanceCondition`'s, reproduced rather than re-decided:
+      // percent suffixes, everything else keeps the prefix that is right for a
+      // currency (`£53.86`, never `53.86£`). That function's header already
+      // named why this happened — *"a rule that only one of two threshold sites
+      // can reach is a rule this surface does not have"* — after the identical
+      // class shipped as "Customer demand passes index0.361111". This is the
+      // site that could not reach it, and it is the third outing of the class.
       const n = (v: number) =>
-        `${unit}${v.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
+        applyUnitPlacement(v.toLocaleString('en-GB', { maximumFractionDigits: 2 }), unit)
       const verb = flipValue > currentValue ? 'rise' : 'fall'
       const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} comes out ahead.`
       /**
@@ -2636,8 +2655,73 @@ export const ANALYSIS_NEW_COPY = {
        * shorten this. Without it the row reads as an all-clear.
        */
       label: 'Most likely option not confirmed',
+      /**
+       * ⭐⭐ SPLIT BY QUESTION, because ONE SENTENCE WAS ANSWERING TWO — and the
+       * two sections that rendered it answer two.
+       *
+       * ⛔ THE DEFECT, READ OFF THE DEPLOYED SURFACE (Paul's manual test,
+       * 20 Sep 2026, served `fd992149`). The same paragraph appeared twice in
+       * one scroll: once under "How the options compare" and once under "What
+       * we checked", byte for byte. The comment on the second site called that
+       * a virtue — *"one wording covers one fact and the two cannot drift"* —
+       * and it was half right. The wording could not drift. **It was not one
+       * fact.**
+       *
+       * `WhatWeChecked`'s own header states the division and this follows it:
+       * that section answers WHAT THE RUN CHECKED; the comparison answers HOW
+       * TO READ THIS LIST. Two questions named apart (CLAUDE.md trap 21) — and
+       * a compound sentence served to both is how a correctly-divided surface
+       * still reads as a repetition.
+       *
+       * ⚠ NOTHING IS DROPPED — AND THE FIRST ATTEMPT AT THIS SPLIT DID DROP
+       * SOMETHING, ON A POPULATION IT NEVER CONSIDERED. It moved BOTH denials
+       * out of `meaning`, leaving the row reading only "could not confirm".
+       * `withheldIsNotUnassessed.spec.ts` REDed and was right to: `meaning` is
+       * the ONLY one of these two strings that renders on a run whose options
+       * DO carry figures, because `orderingCaveat`'s render site is gated on
+       * `noneNumbered`. So on a withheld run with four bars on screen — capture
+       * `0db2eb0a`, separation established, constraint verdict withheld — the
+       * panel would have drawn the ordering and said nothing about its standing.
+       * Trap 23 exactly: the duplication metric would have read as fixed while
+       * the honesty the sentence existed for was gone on the other half of the
+       * domain.
+       *
+       * ⭐ SO THE CLAUSES ARE SPLIT BY WHICH RUN NEEDS THEM, NOT BY LENGTH:
+       *   · "any ordering you see is unconfirmed" → `meaning`, because a run
+       *     that DOES print figures is exactly the one that needs it, and
+       *     `meaning` is the string that run renders.
+       *   · the level-options denial → `orderingCaveat`, because only a list
+       *     with NO figures can be misread as a tie, and that is the only run
+       *     where it renders.
+       * Both misreadings stay blocked on both populations, and the two strings
+       * now share no clause — so neither run reads the same fact twice.
+       *
+       * ⚠ STILL TRUE IN BOTH POPULATIONS this state covers — a run that
+       * assessed nothing, and a run that assessed and was withheld. "Could not
+       * confirm" holds for both; "did not assess" would hold only for the first.
+       *
+       * ⭐ AND THE CENSUS SHOULD NOW SEE NO REPEAT. `firstViewportCensus`
+       * exists to catch one claim stated twice; it could not see this pair
+       * because `SectionShell` unmounts a closed section and the census never
+       * opened one. With that blind spot closed the honest remedy is to stop
+       * saying it twice, not to record an exemption for saying it twice.
+       */
       meaning:
-        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.',
+        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.',
+      /**
+       * The comparison's half: how to read THIS list, not what was checked.
+       * Rendered ONLY by `OptionsComparison`, and only where no row carries a
+       * figure — which is why it names that condition itself rather than
+       * relying on its position. A silent list invites the false reading that
+       * the options came out level, and this denies it outright.
+       *
+       * ⚠ IT DOES NOT REPEAT `meaning`'s ordering clause. `meaning` renders on
+       * every withheld run including this one; anything said in both would be
+       * a fact stated twice in one scroll, which is the defect this split
+       * exists to remove.
+       */
+      orderingCaveat:
+        'A list with no figures beside it is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**

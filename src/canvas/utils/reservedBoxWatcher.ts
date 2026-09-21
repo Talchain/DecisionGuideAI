@@ -56,6 +56,37 @@
  * test ("the padding self-corrects after the rect appears"), and the difference
  * is exactly what would be missed.
  *
+ * ⚠⚠ AND THE `resize` TRIGGER BELOW WAS LISTENED TO AND THEN DISCARDED — the
+ * live half of "the graph does not fit on a laptop screen", fixed 21 Sep 2026.
+ * The trigger fired correctly; the DECISION threw it away. The signature being
+ * compared was `reservedBoxSignature`, four px strings describing the PANELS,
+ * and no panel changes when a window is resized. So `next === last` and the
+ * function returned without re-fitting.
+ *
+ * That is CLAUDE.md trap 21 — two questions under one name. The caller needs
+ * "has THE FRAME THE FIT TARGETS changed?". That frame is `pane MINUS
+ * reservation`, and only the reservation term was in the signal. The pane is
+ * now in it too, which is why this file compares `fitFrameSignature` and not
+ * `reservedBoxSignature`; the latter is kept, unchanged, because it still
+ * answers its own question correctly and two questions get two names.
+ *
+ * MEASURED, real Chromium, render loop asserted live (38 frames),
+ * `e2e/geometry/viewportRestoreFit.measure.ts`, reload once then resize across
+ * 1280x800 / 1440x900 / 1512x982 — ONE distinct transform,
+ * `matrix(0.5, 0, 0, 0.5, -326, 61)`, three times. The contrast control in the
+ * same run is what makes it this watcher's defect and not the camera's:
+ * ARRIVING at each size does re-frame (-326 / -246 / -210), so the fit works
+ * and was simply never asked to run again.
+ *
+ * ⚠ THE DERIVED-NOT-MIRRORED PROPERTY IS PRESERVED, which is the only reason
+ * this is a safe change to make here. The pane is MEASURED at check time, the
+ * same way the padding is; nothing keeps a list of what might move it. An
+ * absent pane is a distinct value rather than a skipped check, so the named
+ * hole above — a signal baselined before the box is real — now self-corrects
+ * instead of latching. That recovery is pinned as a test, because this file
+ * already records that the difference between a VALUE test and a RECOVERY test
+ * is exactly what gets missed.
+ *
  * The trigger set, each with its reason:
  *  - `resize` on window — the viewport itself changed.
  *  - `transitionend` (capture) — the dock's collapse/expand animates its width.
@@ -86,9 +117,41 @@ export function reservedBoxSignature(padding: FitPadding): string {
   return `${padding.top}|${padding.right}|${padding.bottom}|${padding.left}`
 }
 
+/** The box the fit frames into, or `null` when the pane is not measurable yet. */
+export interface PaneBox {
+  readonly width: number
+  readonly height: number
+}
+
+/**
+ * The comparable form of THE FRAME THE FIT TARGETS — the reservation AND the
+ * pane it is subtracted from. Either term moving changes the frame, so either
+ * term moving must change this string.
+ *
+ * ⚠ An absent pane is `pane:absent`, a VALUE, not a skip. A pane that becomes
+ * measurable therefore reads as a change and re-arms the fit, which is the
+ * recovery the header describes. Rounded to whole pixels so sub-pixel layout
+ * noise cannot fire the camera on its own.
+ */
+export function fitFrameSignature(padding: FitPadding, pane: PaneBox | null): string {
+  const frame = pane ? `pane:${Math.round(pane.width)}x${Math.round(pane.height)}` : 'pane:absent'
+  return `${reservedBoxSignature(padding)}|${frame}`
+}
+
+/** The live pane measurement. Injected in tests; `.react-flow` is the fit's own pane. */
+function measurePaneBox(): PaneBox | null {
+  if (typeof document === 'undefined') return null
+  const el = document.querySelector('.react-flow')
+  if (!el) return null
+  const r = el.getBoundingClientRect()
+  return { width: r.width, height: r.height }
+}
+
 export interface ReservedBoxWatcherOptions {
   /** Injected in tests; defaults to the live measurement. */
   readonly measure?: () => FitPadding
+  /** Injected in tests; defaults to measuring `.react-flow`. `null` = not measurable yet. */
+  readonly measurePane?: () => PaneBox | null
   readonly settleMs?: number
 }
 
@@ -103,16 +166,17 @@ export function watchReservedBox(
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {}
 
   const measure = options.measure ?? (() => computeFitPadding())
+  const measurePane = options.measurePane ?? measurePaneBox
   const settleMs = options.settleMs ?? RESERVED_BOX_SETTLE_MS
 
-  let last = reservedBoxSignature(measure())
+  let last = fitFrameSignature(measure(), measurePane())
   let frame: number | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
   let disposed = false
 
   const check = () => {
     if (disposed) return
-    const next = reservedBoxSignature(measure())
+    const next = fitFrameSignature(measure(), measurePane())
     if (next === last) return
     last = next
     onChange(next)

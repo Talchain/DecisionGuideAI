@@ -31,8 +31,16 @@ vi.mock('../../utils/markdown', () => ({
 // Canvas store mock — tests flip `canvasMockState.nodes` between empty
 // (generating) and populated.
 const canvasMockState: { nodes: Array<{ id: string }> } = { nodes: [{ id: 'n1' }] }
+// ⚠ `selectResultsStatus` IS PART OF WHAT THIS TREE READS, and leaving it out
+// of a WHOLESALE module mock is a red, not a saving. `OlumiTabBody`'s empty
+// branch asks `useConversationStage` what the user has, so the invitation can
+// name their model instead of asking them to describe one — and that ladder
+// reads the canonical results-status selector from this module. A wholesale
+// factory must name every export the tree reaches; this is the fixture
+// tracking reality, not a mirror of it.
 vi.mock('../../store', () => ({
   useCanvasStore: (selector: (s: any) => any) => selector(canvasMockState),
+  selectResultsStatus: () => undefined,
 }))
 
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({

@@ -43,7 +43,13 @@ import { typography } from '../../styles/typography'
 
 export const CHIP_CLASS = [
   'inline-flex items-center gap-1.5',
-  'bg-panel border border-panel-border rounded-full',
+  // ⭐ `border-field` (3.70:1), not `border-panel-border` (1.24:1). Measured on
+  // served `e6551858`: 29 of 178 interactive controls on one screen rendered a
+  // 1.24:1 outline, under WCAG 1.4.11's 3.00:1 floor for a non-text indicator,
+  // and `selection-ask-chip` was one of them. Changed HERE because this file is
+  // already the single authority for a chip's look — the alternative was the
+  // same edit at every call site, which is how the authority stops being one.
+  'bg-panel border border-field rounded-full',
   'px-3 py-1.5 min-h-[44px]',
   'hover:bg-panel-hover active:bg-panel-border/30',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',

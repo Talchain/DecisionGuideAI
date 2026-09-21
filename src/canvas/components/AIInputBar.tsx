@@ -7,13 +7,15 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ClipboardEvent,
   type KeyboardEvent,
 } from 'react'
-import { ArrowUp, ChevronUp, Square } from 'lucide-react'
+import { ArrowUp, ChevronUp, RefreshCw, Square } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
+import { normalisePastedText } from '../conversation/normalisePastedText'
 import { AddOptionPanel } from '../conversation/AddOptionPanel'
 import {
   buildAddOptionDispatch,
@@ -63,44 +65,132 @@ export interface AIInputBarProps {
    *  from message-count effects, which can mis-fire under thread hydration
    *  if historic non-synthetic messages are restored before graph nodes. */
   onAfterSend?: (text: string) => void
+  /**
+   * ⭐ THE ONE DISCREET RUN CONTROL AT THE BOTTOM OF THE AI TAB.
+   *
+   * MEASURED GAP: the Olumi surface declares `footerBar: 'readiness'`
+   * (`shellContract.ts`), and `AnalysisReadinessBar` renders NULL outside the
+   * pre-run window — `if (!preRunWithModel) return null`. So once an analysis
+   * has completed, the AI tab has no way to run one: the only Re-analyse
+   * controls live on the Analysis and Model surfaces, a tab away.
+   *
+   * ⚠ NOT A SECOND RUNNER AND NOT A SECOND GATE — the same two refusals
+   * `AnalysisReadinessBar`'s own header makes. `onRun` must be the host's
+   * canonical runner and `canRun` / `blockedReason` its existing gate values,
+   * passed down rather than re-derived here (CLAUDE.md trap 21). This component
+   * decides nothing about whether a run may start; it only draws the control.
+   *
+   * ⚠ AND NOT A SECOND CONTROL. The host is responsible for omitting this while
+   * `AnalysisReadinessBar` is showing its own Analyse button, so the AI tab
+   * offers exactly one run affordance in every state rather than two stacked
+   * 40px apart. Omit the prop ⇒ no control is rendered at all.
+   */
+  analysisAction?: {
+    /** The host's canonical runner. */
+    onRun: () => void
+    /** The host's run gate. False ⇒ the control is disabled, never hidden. */
+    canRun: boolean
+    /** The host's in-flight flag. */
+    isRunning: boolean
+    /** The gate's own refusal sentence, shown as the disabled control's title. */
+    blockedReason?: string
+    /** Accessible name, e.g. 'Re-run analysis'. Also the resting title. */
+    label: string
+  }
 }
 
 const MAX_LINES = 2
+/**
+ * ⚠ A FALLBACK, NOT THE TRUTH — and it had already drifted.
+ *
+ * This was the only line-height the auto-grow maths knew, and it is a HAND-COPY
+ * of a value that lives somewhere else: the textarea renders at
+ * `typography.panelBody` = `text-xs leading-relaxed` = 12px x 1.625 = **19.5px**.
+ * Every "N lines" bound computed from 18 was therefore ~8% short, so a composer
+ * advertised as growing to eight lines began scrolling inside itself at seven
+ * and a bit — the exact stale-mirror class CLAUDE.md calls trap 12.
+ *
+ * The layout effect below now MEASURES the rendered line-height and uses this
+ * only when the measurement is unavailable (jsdom reports an empty
+ * `lineHeight`, so specs continue to see whole multiples of this number).
+ */
 const LINE_HEIGHT_PX = 18
 /**
- * Welcome hero variant: the rest-state textarea is THREE lines tall
- * (≈70px = 18*3 + 16) so the absolutely-positioned cog + send icon
- * stack (32px + 4px gap + 32px = 68px) fits comfortably INSIDE the
- * textarea border. Grows on type up to 12 lines.
+ * Vertical padding the textarea adds around its text.
+ *
+ * ⚠ MEASURED, NOT ASSUMED — and the first cut of the action-row layout got the
+ * space ACCOUNTING wrong, which a browser caught and the arithmetic did not.
+ * Shrinking the rest state from three lines to one saved 43px of textarea, and
+ * the new control row gave 36px of it straight back: the composer came out
+ * TALLER at rest than the thing it replaced (94px against 97px is a 3px win for
+ * a change made to reclaim space). A layout that exists to give the
+ * conversation its room back cannot spend most of what it saves.
+ *
+ * ⛔ AND THE MODEL OF WHY WAS ALSO WRONG. Adding the padding classes up by hand
+ * predicted 84px for the old composer; the browser said 97. The numbers in this
+ * file are measurements from `e2e/geometry/composerLook.measure.ts` driving the
+ * real 416px dock, not sums of Tailwind steps — which is the only reason the
+ * 3px-versus-11px difference was visible at all.
+ *
+ * The fix is the DEAD BAND between the text and the controls, not the controls.
+ * `py-2` put 8px under the last line of text and the row added its own 8px
+ * beneath the buttons — 16px of nothing in a 416px panel footer. The textarea
+ * now pads 8px above and 4px below (`pt-2 pb-1`) and the row pads 4px, so the
+ * pair reads as one block instead of two stacked ones.
+ *
+ * MEASURED, rest state, real dock: strip 97px -> 86px, textarea 75px -> 32px,
+ * and the textarea's right padding 56px -> 12px. That last one is the change
+ * nobody would have asked for: 56px of a 416px panel — one seventh of the
+ * width, on every line — was held open for a single 28px button drawn on top
+ * of the text.
+ *
+ * ⚠ SCOPED TO THE ACTION-ROW VARIANTS. The hero composers keep `py-2` and 16:
+ * their send disc is absolutely positioned inside a deliberately generous box,
+ * they have no dead band to reclaim, and a 4px shift there would be a change to
+ * a surface this work has no reason to touch.
+ */
+const TEXTAREA_PAD_PX = 16
+const TEXTAREA_PAD_ACTION_ROW_PX = 12
+/**
+ * Welcome hero variant: the rest-state textarea is THREE lines tall so the
+ * absolutely-positioned send control sits comfortably INSIDE the textarea
+ * border. Grows on type up to 12 lines. The hero keeps the overlay layout
+ * deliberately — it is a centred, generous first-use surface with room to
+ * spare, and the problem the action row below solves is a problem of a
+ * 416px-wide panel footer.
  */
 const WELCOME_MIN_LINES = 3
 const WELCOME_MAX_LINES = 12
 
 /**
- * Floating Olumi panel variant: round-13 UX. The floating panel's footer
- * composer (variant='floating') previously inherited the default 1-line
- * min and 2-line max, so the cog + send icon stack (28px + 2px gap + 28px
- * = 58px) overflowed the textarea and the composer felt cramped during
- * follow-up questions. Bump the rest state to 3 lines (≈70px) so the
- * icon stack fits with breathing room, and allow growth up to 8 lines
- * (≈160px) before internal scroll engages — generous enough for a
- * multi-sentence follow-up without crowding the conversation history
- * above.
+ * ⭐ THE PANEL-FOOTER COMPOSERS CARRY THEIR CONTROLS IN A ROW BENEATH THE TEXT,
+ * AND THAT IS WHAT LETS THE REST STATE SHRINK.
+ *
+ * `STRIP_MIN_LINES` and `FLOATING_MIN_LINES` were both 3, and NEITHER was about
+ * the text. Their own comments said so: three lines "so the cog + send icon
+ * stack (28px + 2px gap + 28px = 58px) fits inside the textarea border". The
+ * composer was reserving a 70px box to make room for a control cluster drawn on
+ * top of it — and the cog was removed on 29 Aug 2026, leaving ONE 28px button
+ * and a 70px reservation that nothing needed.
+ *
+ * Both costs were paid in the tightest place in the product: the docked panel
+ * is 416px wide, the conversation above it is the thing people came for, and
+ * the composer was taking ~70px of it to hold an empty two-thirds of a box.
+ *
+ * With the controls on their OWN row the reservation has no reason to exist, so
+ * the rest state is ONE line and the ceiling rises from 8 lines to 10. The box
+ * is now smaller when there is nothing in it and larger when there is, which is
+ * the opposite of what it did. Three further things fall out of the same move,
+ * none of which needed their own fix:
+ *   - the textarea no longer reserves `pr-14` for controls floating over it, so
+ *     typed text uses the panel's full width;
+ *   - the `right-4` inset that existed so the buttons would not sit on top of
+ *     the browser's internal scrollbar has nothing left to avoid;
+ *   - the float-out chevron joins the same row instead of sitting outside the
+ *     border as a fourth, differently-shaped thing.
  */
-const FLOATING_MIN_LINES = 3
-const FLOATING_MAX_LINES = 8
-
-/**
- * Strip variant (docked Olumi tab composer): round-16 UX. Same fix as the
- * floating variant — 3-line rest so the cog + send stack (58px) fits
- * inside the textarea border, and grows on type up to 8 lines before
- * internal scroll engages. The icon-stack inset is also bumped from
- * `right-1.5` to `right-4` for THIS variant so that when the textarea
- * hits its 8-line ceiling and the browser draws an internal scrollbar,
- * the buttons leave room for the scrollbar instead of overlapping it.
- */
-const STRIP_MIN_LINES = 3
-const STRIP_MAX_LINES = 8
+const PANEL_FOOTER_MIN_LINES = 1
+const PANEL_FOOTER_MAX_LINES = 10
 
 /**
  * AIInputBar — single shared composer used by the persistent strip, the docked
@@ -132,6 +222,7 @@ export const AIInputBar = memo(
       testId,
       ariaLabel,
       onAfterSend,
+      analysisAction,
     },
     ref,
   ) {
@@ -243,37 +334,67 @@ export const AIInputBar = memo(
       [draft],
     )
 
-    // Auto-grow up to the variant's max line count, then scroll inside.
-    // - welcome: 3-line rest, grows to 12 lines (hero composer).
-    // - floating: 3-line rest, grows to 8 lines (panel footer composer).
-    //   Round-13: needs ≥ 3 lines so cog + send icons fit inside without
-    //   overflowing the textarea border; grows on type for follow-ups.
-    // - strip: 3-line rest, grows to 8 lines (docked Olumi tab composer).
-    //   Round-16: same fix as round-13 for the floating variant.
-    // - docked-tab / first-use: 1-line rest, grows to 2 lines (compact
-    //   surfaces — not currently exercised by AI Panel v2 callers).
+    /**
+     * ⭐ ONE DISCRIMINATOR FOR THE WHOLE LAYOUT, NOT A LIST OF VARIANT TESTS.
+     *
+     * The two PANEL FOOTER composers — the docked Olumi strip and the floating
+     * panel — put their controls in a row beneath the text. The hero surfaces
+     * (welcome, first-use) and the unused `docked-tab` keep the overlay layout,
+     * where the send disc sits inside a deliberately generous box.
+     *
+     * Everything that used to be decided variant-by-variant now hangs off this
+     * one boolean: the line bounds, the textarea's right padding, where the
+     * chevron lives, and whether the send control is absolutely positioned.
+     * Previously those were four separate ternaries over `isWelcome` /
+     * `isStrip` / `isFloating`, which is how the strip ended up with a 70px
+     * rest state justified by a control cluster that had been deleted.
+     */
+    const hasActionRow = isStrip || isFloating
+
+    // Auto-grow between the variant's rest and ceiling, then scroll inside.
+    // - welcome:            3-line rest, grows to 12 (hero composer).
+    // - strip / floating:   1-line rest, grows to 10 (panel footers — see
+    //                       PANEL_FOOTER_MIN_LINES on why the rest shrank).
+    // - docked-tab / first-use: 1-line rest, grows to 2 (compact surfaces —
+    //                       not currently exercised by AI Panel v2 callers).
     const minLines = isWelcome
       ? WELCOME_MIN_LINES
-      : isFloating
-        ? FLOATING_MIN_LINES
-        : isStrip
-          ? STRIP_MIN_LINES
-          : 1
+      : hasActionRow
+        ? PANEL_FOOTER_MIN_LINES
+        : 1
     const maxLines = isWelcome
       ? WELCOME_MAX_LINES
-      : isFloating
-        ? FLOATING_MAX_LINES
-        : isStrip
-          ? STRIP_MAX_LINES
-          : MAX_LINES
-    const minHeightPx = LINE_HEIGHT_PX * minLines + 16
-    const maxHeightPx = LINE_HEIGHT_PX * maxLines + 16
+      : hasActionRow
+        ? PANEL_FOOTER_MAX_LINES
+        : MAX_LINES
+
+    /**
+     * ⚠ THE LINE HEIGHT IS MEASURED, NOT ASSUMED — see `LINE_HEIGHT_PX`.
+     *
+     * The bounds are written onto the element here rather than through a
+     * `style` prop because the measurement is only available once the element
+     * is rendered and its class-driven line-height has resolved. React would
+     * overwrite an imperative value on the next render if the prop still
+     * carried one, so the effect owns both bounds outright.
+     *
+     * `getComputedStyle` returns `''` or `'normal'` where no numeric
+     * line-height resolves (jsdom, and a real browser before styles load), so
+     * the parse fails closed to the declared fallback and the box is never
+     * given a NaN height.
+     */
     useLayoutEffect(() => {
       const el = textareaRef.current
       if (!el) return
+      const measured = Number.parseFloat(window.getComputedStyle(el).lineHeight)
+      const line = Number.isFinite(measured) && measured > 0 ? measured : LINE_HEIGHT_PX
+      const pad = hasActionRow ? TEXTAREA_PAD_ACTION_ROW_PX : TEXTAREA_PAD_PX
+      const min = line * minLines + pad
+      const max = line * maxLines + pad
+      el.style.minHeight = `${min}px`
+      el.style.maxHeight = `${max}px`
       el.style.height = 'auto'
-      el.style.height = `${Math.min(Math.max(el.scrollHeight, minHeightPx), maxHeightPx)}px`
-    }, [draft, minHeightPx, maxHeightPx])
+      el.style.height = `${Math.min(Math.max(el.scrollHeight, min), max)}px`
+    }, [draft, minLines, maxLines, hasActionRow])
 
     // --- add-option interception ------------------------------------------
     // A typed "add an option called X" is routed into CEE's zero-LLM
@@ -371,24 +492,99 @@ export const AIInputBar = memo(
       [addOption, closeAddOption, dispatchAction, clearDraft, onAfterSend],
     )
 
+    /**
+     * ⭐ ESCAPE HANDS THE KEYBOARD BACK TO THE CANVAS, which is what the estate
+     * already told itself this key did.
+     *
+     * `useKeyboardShortcuts.ts` explains the historic "Escape was needed"
+     * workaround: the composer is a `<textarea>`, it keeps focus once it has
+     * it, and single-key canvas shortcuts are deliberately suppressed inside
+     * text fields — so `V`/`H` go inert. The recorded remedy was to release
+     * focus when the user engages the canvas, and that works: a pointer-down on
+     * the graph pane revives the keys.
+     *
+     * ⚠ BUT IT IS THE ONLY ROUTE, AND IT IS NOT THE ONE PEOPLE REACH FOR.
+     * Measured 21 Sep 2026 at 1440x900: on a fresh load `first-use-input-bar-
+     * textarea` AUTOFOCUSES, so `V`/`H` are dead from the first moment of the
+     * session; pressing Escape left focus exactly where it was (this component
+     * bound no Escape handler at all), and the keys stayed dead. So the one
+     * gesture users actually try did nothing, on every surface, from load.
+     *
+     * Escape now blurs. It does not preventDefault and does not stop
+     * propagation: anything above that also treats Escape as dismiss — a modal,
+     * a popover — still sees it, because this claims only the focus, not the
+     * key. Enter/Shift+Enter are untouched, and no LETTER gains a canvas
+     * meaning inside the box, which is the rule the suppression exists to keep:
+     * typing "have" must never flip the canvas into hand mode.
+     */
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault()
           handleSend()
+          return
+        }
+        if (e.key === 'Escape') {
+          e.currentTarget.blur()
         }
       },
       [handleSend],
     )
 
+    /**
+     * ⭐ PASTE KEEPS ITS SHAPE (UI-SEM-096).
+     *
+     * A list copied out of a document arrives as lines beginning with a literal
+     * bullet GLYPH, which `safeRichText` — the estate's tiny markdown dialect —
+     * does not recognise, so the list rendered in the transcript as run-on
+     * prose with stray glyphs in it. `normalisePastedText` rewrites the glyph to
+     * the `- ` marker that means the same thing here, in the user's own box,
+     * where they can see and undo it.
+     *
+     * ⚠ IT DEFERS TO THE BROWSER WHENEVER THERE IS NOTHING TO DO — the helper
+     * returns its input BY IDENTITY in that case, and this returns without
+     * calling `preventDefault`, so an ordinary paste keeps native undo. Only a
+     * paste that actually needed rewriting loses that one undo step, which is
+     * the trade the rewrite is worth and not a trade taken on every paste.
+     */
+    const handlePaste = useCallback(
+      (e: ClipboardEvent<HTMLTextAreaElement>) => {
+        const raw = e.clipboardData?.getData('text/plain') ?? ''
+        if (!raw) return
+        const normalised = normalisePastedText(raw)
+        if (normalised === raw) return
+
+        e.preventDefault()
+        const el = e.currentTarget
+        const from = el.selectionStart ?? el.value.length
+        const to = el.selectionEnd ?? from
+        setDraft(el.value.slice(0, from) + normalised + el.value.slice(to))
+        // The caret is restored on the next frame because React has not yet
+        // committed the new value; setting it now would put it back where the
+        // browser left it the moment the re-render lands.
+        const caret = from + normalised.length
+        window.requestAnimationFrame(() => {
+          if (textareaRef.current) textareaRef.current.setSelectionRange(caret, caret)
+        })
+      },
+      [setDraft],
+    )
+
+    const base = testId ?? `ai-input-bar-${variant}`
+
+    /**
+     * Outer padding only. The composer's bordered box is a full-width block in
+     * every variant now — the chevron used to sit OUTSIDE it as a flex sibling,
+     * which is why this was a flex row.
+     */
     const containerClasses = (() => {
       switch (variant) {
         case 'strip':
-          return 'flex items-end gap-1 px-2 pb-2 pt-1'
+          return 'px-2 pb-2 pt-1'
         case 'docked-tab':
           return 'flex items-end gap-1 px-3 pb-3 pt-2'
         case 'floating':
-          return 'flex items-end gap-1 px-3 pb-3 pt-2 border-t border-panel-border'
+          return 'px-3 pb-3 pt-2 border-t border-panel-border'
         case 'first-use':
           return 'flex items-end gap-1 px-3 pb-3 pt-2'
         case 'welcome':
@@ -397,7 +593,7 @@ export const AIInputBar = memo(
     })()
 
     // While generating, the composer must not invite a new decision: disable
-    // typing, cog, chevron and send, and clear the placeholder so the
+    // typing, chevron, run and send, and clear the placeholder so the
     // gently-pulsing status overlay (rendered below) owns the text box.
     // Chat-mode thinking (nodeCount > 0) keeps the existing behaviour — Enter
     // blocked via handleSend, typing allowed so follow-ups can be composed.
@@ -411,27 +607,152 @@ export const AIInputBar = memo(
     // hero composer feels generous; other variants stay compact.
     const sendBtnSize = isWelcome ? 'w-8 h-8' : 'w-7 h-7'
     const sendIconSize = isWelcome ? 'w-4 h-4' : 'w-3.5 h-3.5'
-    // Stack inset: the cog/send cluster sits inside the right edge of the
-    // textarea. Welcome variant gives more breathing room. Strip variant
-    // (round-16) bumps the right inset from 6px to 16px so that when the
-    // textarea hits its 8-line ceiling and a vertical scrollbar appears,
-    // the icon stack leaves room for the scrollbar instead of overlapping
-    // it. Other variants keep their original 6px inset (the floating
-    // variant's auto-grow ceiling rarely engages internal scroll in
-    // practice; if it ever does, we can extend this).
-    const stackInset = isWelcome
-      ? 'right-2 bottom-2'
-      : isStrip
-        ? 'right-4 bottom-2'
-        : 'right-1.5 bottom-1'
-    const stackGap = isWelcome ? 'gap-1' : 'gap-0.5'
-    // Right padding on textarea reserves JUST enough room for the cog+send
-    // cluster plus a minimal gap, so the placeholder/typed text uses as much
-    // width as possible (desktop space is tight). The cluster sits at
-    // right-2/right-4/right-1.5 + a w-8/w-7 button ≈ 40/44/34px from the right
-    // edge; the pad leaves ~8–12px of breathing room beyond that. Strip keeps a
-    // touch more so text never drifts under the icons or an internal scrollbar.
-    const textareaRightPad = isWelcome ? 'pr-12' : isStrip ? 'pr-14' : 'pr-12'
+    /**
+     * Overlay-layout geometry — read ONLY when `hasActionRow` is false. The
+     * `right-4` strip inset that used to live here existed so the buttons would
+     * clear the textarea's internal scrollbar; with the controls on their own
+     * row there is no overlap to avoid, and no right padding to reserve, so the
+     * text now uses the panel's full width.
+     */
+    const stackInset = isWelcome ? 'right-2 bottom-2' : 'right-1.5 bottom-1'
+    const textareaRightPad = hasActionRow ? 'pr-3' : 'pr-12'
+    /** Paired with `TEXTAREA_PAD_ACTION_ROW_PX` / `TEXTAREA_PAD_PX` above — change both or neither. */
+    const textareaVerticalPad = hasActionRow ? 'pt-2 pb-1' : 'py-2'
+
+    /* ── THE CONTROLS ────────────────────────────────────────────────────────
+       Defined ONCE and placed ONCE, so the two layouts cannot drift into two
+       different sets of controls — the same discipline `AnalysisReadinessBar`
+       uses for its own two layouts. Only WHERE they sit branches. */
+
+    /* Send / Stop — ONE control in this slot, never two (ROADMAP 2.134).
+       Mirrors `ChatComposer`'s own swap, which is the shape PR 525's abort path
+       was written against. Send is `disabled` for the whole of this window
+       anyway (`canSend` requires `!isThinking`), so the swap costs the user
+       nothing and removes the chance of reading a live Stop as a live Send. */
+    const sendControl = showStopControl ? (
+      <button
+        type="button"
+        onClick={cancelTurn}
+        className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-panel-hover text-text-body border border-panel-border hover:bg-panel-border focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        aria-label="Stop drafting"
+        title="Stop drafting"
+        data-testid={`${base}-stop`}
+      >
+        <Square className={sendIconSize} fill="currentColor" aria-hidden="true" />
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={handleSend}
+        disabled={!canSend}
+        aria-disabled={!canSend}
+        className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30 disabled:hover:opacity-30`}
+        aria-label="Send"
+        data-testid={`${base}-send`}
+      >
+        <ArrowUp className={sendIconSize} aria-hidden="true" />
+      </button>
+    )
+
+    /* Float-out. Strip only — the floating composer is already floating, and
+       the hero surfaces have nowhere to float to.
+
+       ⚠ 24x24, NOT 28x28 like send. The two SECONDARY controls in this row are
+       24px — WCAG 2.2 SC 2.5.8 (Target Size Minimum, AA) to the pixel — while
+       send keeps its 28px disc, because send is the act this surface exists for
+       and a row of three identical discs says they are three equals. DS v5
+       §26.1 currently states 44x44 for every target, which is SC 2.5.5
+       (Enhanced, AAA) and a bar this dense panel already fails; that conflict is
+       reported for §26.1 to resolve, not silently decided here. */
+    const chevronControl =
+      variant === 'strip' && !hideChevron && onChevronClick ? (
+        <button
+          type="button"
+          onClick={onChevronClick}
+          disabled={inputDisabled}
+          aria-disabled={inputDisabled}
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
+          aria-label="Open Olumi in floating panel"
+          data-testid={`${base}-chevron`}
+          title="Open in floating window"
+        >
+          <ChevronUp className="w-4 h-4" aria-hidden="true" />
+        </button>
+      ) : null
+
+    /* ⭐ THE RUN CONTROL. Rendered only where there IS an action row to put it
+       in, and only when the host supplied one — see `analysisAction` on the
+       props for the three things it deliberately is not.
+
+       ⚠ DISABLED, NEVER HIDDEN, WHILE THE GATE IS SHUT, and it carries the
+       gate's own sentence as its `title`. `AnalysisReadinessBar` states that
+       rule for the pre-run bar ("It must never look pressable while the gate is
+       shut"); this is the same control on a different surface, so it obeys the
+       same rule rather than quietly vanishing and leaving the user with no
+       account of why they cannot run. */
+    const analysisControl =
+      hasActionRow && analysisAction ? (
+        (() => {
+          const blocked = !analysisAction.canRun && !analysisAction.isRunning
+          const runDisabled = analysisAction.isRunning || !analysisAction.canRun || inputDisabled
+          return (
+            <button
+              type="button"
+              onClick={analysisAction.onRun}
+              disabled={runDisabled}
+              aria-disabled={runDisabled}
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-light"
+              aria-label={analysisAction.label}
+              title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label}
+              data-testid={`${base}-analyse`}
+              data-blocked={blocked ? 'true' : 'false'}
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`}
+                aria-hidden="true"
+              />
+            </button>
+          )
+        })()
+      ) : null
+
+    const textarea = (
+      <textarea
+        ref={textareaRef}
+        id={textareaId}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        placeholder={effectivePlaceholder}
+        rows={minLines}
+        disabled={inputDisabled}
+        aria-disabled={inputDisabled}
+        aria-label={ariaLabel ?? 'Chat message'}
+        data-testid={`${base}-textarea`}
+        className={typo(
+          'panelBody',
+          `w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${textareaVerticalPad} pl-3 ${textareaRightPad}`,
+        )}
+      />
+    )
+
+    // In-composer generation status: a gently-pulsing, time-escalating line
+    // sitting exactly where the placeholder text would (pt-2 pb-1 pl-3 mirrors the
+    // textarea's text inset). pointer-events-none — the textarea underneath is
+    // disabled during generation anyway.
+    const generatingOverlay = isGenerating ? (
+      <div
+        role="status"
+        aria-live="polite"
+        data-testid={`${base}-generating`}
+        className={`pointer-events-none absolute left-0 top-0 ${textareaVerticalPad} pl-3 ${textareaRightPad}`}
+      >
+        <span className={typo('panelBody', 'text-text-light animate-gentle-text-flash')}>
+          {generatingMessage}
+        </span>
+      </div>
+    ) : null
 
     return (
       <>
@@ -447,89 +768,40 @@ export const AIInputBar = memo(
           onCancel={closeAddOption}
         />
       )}
-      <div className={containerClasses} data-testid={testId ?? `ai-input-bar-${variant}`}>
-        <div className="relative flex-1 bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
-          <textarea
-            ref={textareaRef}
-            id={textareaId}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={effectivePlaceholder}
-            rows={minLines}
-            disabled={inputDisabled}
-            aria-disabled={inputDisabled}
-            aria-label={ariaLabel ?? 'Chat message'}
-            data-testid={`${testId ?? `ai-input-bar-${variant}`}-textarea`}
-            className={typo(
-              'panelBody',
-              `w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light py-2 pl-3 ${textareaRightPad}`,
-            )}
-            style={{ minHeight: minHeightPx, maxHeight: maxHeightPx }}
-          />
-          {/* In-composer generation status: a gently-pulsing, time-escalating
-              line sitting exactly where the placeholder text would (py-2 pl-3
-              mirrors the textarea's text inset). pointer-events-none — the
-              textarea underneath is disabled during generation anyway. */}
-          {isGenerating && (
-            <div
-              role="status"
-              aria-live="polite"
-              data-testid={`${testId ?? `ai-input-bar-${variant}`}-generating`}
-              className={`pointer-events-none absolute left-0 top-0 py-2 pl-3 ${textareaRightPad}`}
-            >
-              <span className={typo('panelBody', 'text-text-light animate-gentle-text-flash')}>
-                {generatingMessage}
-              </span>
+      <div className={containerClasses} data-testid={base}>
+        {hasActionRow ? (
+          /* PANEL-FOOTER LAYOUT — one bordered box holding the text and, beneath
+             it, a right-aligned row of quiet controls. The box is the only
+             border on this surface: the chevron used to sit outside it, giving
+             the footer two separate frames to read. */
+          <div className="relative bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
+            <div className="relative">
+              {textarea}
+              {generatingOverlay}
             </div>
-          )}
-          <div className={`absolute ${stackInset} flex flex-col items-center ${stackGap}`}>
-            {/* Send / Stop — ONE control in this slot, never two (ROADMAP
-                2.134). Mirrors `ChatComposer`'s own swap, which is the shape
-                PR 525's abort path was written against. Send is `disabled` for
-                the whole of this window anyway (`canSend` requires
-                `!isThinking`), so the swap costs the user nothing and removes
-                the chance of reading a live Stop as a live Send. */}
-            {showStopControl ? (
-              <button
-                type="button"
-                onClick={cancelTurn}
-                className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-panel-hover text-text-body border border-panel-border hover:bg-panel-border focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                aria-label="Stop drafting"
-                title="Stop drafting"
-                data-testid={`${testId ?? `ai-input-bar-${variant}`}-stop`}
-              >
-                <Square className={sendIconSize} fill="currentColor" aria-hidden="true" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!canSend}
-                aria-disabled={!canSend}
-                className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30 disabled:hover:opacity-30`}
-                aria-label="Send"
-                data-testid={`${testId ?? `ai-input-bar-${variant}`}-send`}
-              >
-                <ArrowUp className={sendIconSize} aria-hidden="true" />
-              </button>
-            )}
+            <div
+              className="flex items-center justify-end gap-1 px-2 pb-1"
+              data-testid={`${base}-actions`}
+            >
+              {analysisControl}
+              {chevronControl}
+              {sendControl}
+            </div>
           </div>
-        </div>
-        {variant === 'strip' && !hideChevron && onChevronClick ? (
-          <button
-            type="button"
-            onClick={onChevronClick}
-            disabled={inputDisabled}
-            aria-disabled={inputDisabled}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
-            aria-label="Open Olumi in floating panel"
-            data-testid={`${testId ?? `ai-input-bar-${variant}`}-chevron`}
-            title="Open in floating window"
-          >
-            <ChevronUp className="w-4 h-4" aria-hidden="true" />
-          </button>
-        ) : null}
+        ) : (
+          /* OVERLAY LAYOUT — the hero surfaces, where the send disc sits inside
+             a deliberately generous box and there is room for it to. */
+          <>
+            <div className="relative flex-1 bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
+              {textarea}
+              {generatingOverlay}
+              <div className={`absolute ${stackInset} flex flex-col items-center gap-0.5`}>
+                {sendControl}
+              </div>
+            </div>
+            {chevronControl}
+          </>
+        )}
       </div>
       </>
     )

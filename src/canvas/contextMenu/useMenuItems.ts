@@ -10,7 +10,7 @@ import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
-  Undo2, Redo2, LayoutGrid, PanelRight,
+  Undo2, Redo2, LayoutGrid, PanelRight, MousePointer2, Hand,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -459,6 +459,15 @@ export interface UseMenuItemsOptions {
   onClose: () => void
   /** Callback to open the Set value custom popover */
   onOpenCustomValue?: (nodeId: string) => void
+  /**
+   * The mode the canvas is ACTUALLY in — `effectiveMode`, not the raw stored
+   * value. The toolbar learned this the hard way (see the A-1 note at its
+   * `onSelectClick`): a control that displays one value and toggles off
+   * another is a click with no visible result during a spacebar hold.
+   */
+  interactionMode?: 'select' | 'hand'
+  /** Omitted by hosts that have no mode to switch; the item is then absent. */
+  onSetInteractionMode?: (mode: 'select' | 'hand') => void
 }
 
 export function useMenuItems({
@@ -467,6 +476,8 @@ export function useMenuItems({
   screenToFlowPosition,
   onClose,
   onOpenCustomValue,
+  interactionMode,
+  onSetInteractionMode,
 }: UseMenuItemsOptions): MenuEntry[] {
   const clipboard = useCanvasStore((s) => s.clipboard)
   const hasClipboard = clipboard !== null && clipboard.nodes.length > 0
@@ -476,7 +487,7 @@ export function useMenuItems({
 
     if (target.kind === 'pane') {
       return applyContextMenuMutationAuthority(
-        buildPaneMenu(target, showToast, screenToFlowPosition, hasClipboard, wrap),
+        buildPaneMenu(target, showToast, screenToFlowPosition, hasClipboard, wrap, interactionMode, onSetInteractionMode),
       )
     }
     if (target.kind === 'node') {
@@ -504,8 +515,49 @@ function buildPaneMenu(
   screenToFlowPosition: (pos: { x: number; y: number }) => { x: number; y: number },
   hasClipboard: boolean,
   wrap: (action: () => void | Promise<void>) => () => void,
+  interactionMode: 'select' | 'hand' | undefined,
+  onSetInteractionMode: ((mode: 'select' | 'hand') => void) | undefined,
 ): MenuEntry[] {
   const flowPos = screenToFlowPosition(target.screenPos)
+
+  /**
+   * ⭐ THE POINTER MODE IS REACHABLE FROM THE CANVAS ITSELF, not only from the
+   * toolbar — because the keyboard route is inert exactly when people reach
+   * for it.
+   *
+   * Measured 21 Sep 2026 in a real browser: with focus in the Olumi composer,
+   * `H` and `V` do nothing, and Escape does NOT restore them (contrary to the
+   * note at `useKeyboardShortcuts.ts:83` — Escape left focus on the textarea).
+   * Only a click on the graph pane releases focus and revives the keys. So a
+   * user working in the panel who wants to pan has no working keyboard route
+   * and must travel to the toolbar. Right-click is already where they are.
+   *
+   * ⚠ TOGGLES OFF THE MODE IT DISPLAYS. `interactionMode` here is the caller's
+   * `effectiveMode`, so during a spacebar hold the label and the action agree —
+   * the same rule the toolbar's A-1 note records, applied at the second
+   * control rather than rediscovered at it.
+   *
+   * Absent, not disabled, when the host passes no setter: a menu row that
+   * cannot act is worse than no row.
+   */
+  const modeEntries: MenuEntry[] =
+    interactionMode && onSetInteractionMode
+      ? [
+          {
+            id: 'interaction-mode',
+            label: interactionMode === 'select' ? 'Hand (pan) mode' : 'Select mode',
+            icon: interactionMode === 'select' ? Hand : MousePointer2,
+            shortcut: interactionMode === 'select' ? 'H' : 'V',
+            tooltip:
+              interactionMode === 'select'
+                ? 'Drag the canvas to move around'
+                : 'Click and drag to select nodes',
+            enabled: true,
+            action: wrap(() => onSetInteractionMode(interactionMode === 'select' ? 'hand' : 'select')),
+          },
+          DIV,
+        ]
+      : []
 
   // ⚠ ONE DERIVATION, SHARED WITH THE AUTHORITY SET — see
   // `ADDABLE_NODE_TYPE_ITEMS`.
@@ -523,6 +575,7 @@ function buildPaneMenu(
   const store = useCanvasStore.getState()
 
   return [
+    ...modeEntries,
     {
       id: 'add-node',
       label: 'Add node',

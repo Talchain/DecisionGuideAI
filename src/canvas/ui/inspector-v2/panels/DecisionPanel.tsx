@@ -10,6 +10,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import { detectBaseline } from '../../../utils/baselineDetection'
 import { formatWinProbability } from '../../../utils/labelUtils'
@@ -160,7 +161,7 @@ export const DecisionPanel = memo(function DecisionPanel({
             placeholder={DESCRIPTION_PLACEHOLDERS.decision}
             rows={2}
             maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+            className={`${typography.panelBody} ${controls.editableTextarea}`}
           />
         ) : (
           <EmptyDescriptionPrompt

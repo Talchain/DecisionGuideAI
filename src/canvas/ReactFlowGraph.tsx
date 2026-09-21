@@ -2870,7 +2870,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <HighlightLayer isResultsOpen={showResultsPanel} />
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
-      {contextMenuTarget && <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />}
+      {contextMenuTarget && (
+        <CanvasContextMenu
+          target={contextMenuTarget}
+          onClose={handleCloseContextMenu}
+          screenToFlowPosition={screenToFlowPosition}
+          /* `effectiveMode`, matching the toolbar: the row must toggle off the
+             same value it names, or a spacebar hold makes it a no-op click. */
+          interactionMode={effectiveMode}
+          onSetInteractionMode={setInteractionMode}
+        />
+      )}
       {reconnecting && <ReconnectBanner />}
 
       <LeftSidebar

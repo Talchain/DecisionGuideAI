@@ -4,10 +4,13 @@ import { memo, useCallback, useEffect, useMemo } from 'react'
 // while `FirstUseComposer` passes it as a placeholder ATTRIBUTE, so a grep for
 // one shape does not find the other. Bound to the shared constant so the two
 // cannot drift apart again.
-import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 import { ExternalLink } from 'lucide-react'
-import { typo } from '../../styles/typography'
 import { useConversationContext } from '../conversation/ConversationContext'
+import {
+  EmptyConversationInvitation,
+  INVITATION_TESTID_DOCKED,
+  conversationIsEmpty,
+} from './EmptyConversationInvitation'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 // Type-only: erased at compile time, so this adds no runtime edge to a module
@@ -39,6 +42,7 @@ interface OlumiTabBodyProps {
 export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabBodyProps) {
   const conversation = useConversationContext()
   const realMessageCount = conversation.messages.filter((m) => !m.synthetic).length
+  const isEmptyConversation = conversationIsEmpty(conversation.messages)
 
   // pre-analysis-power-v2 fix: register guidance-store callbacks at the
   // OlumiTabBody level so consumers like `DiscussWithAiButton` (the
@@ -159,14 +163,25 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     </div>
   ) : null
 
-  if (realMessageCount === 0) {
+  if (isEmptyConversation) {
     return (
       <div className="flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-empty">
         {floatOutIcon}
         <div className="flex flex-1 items-center justify-center px-6 py-6">
-          <p className={typo('panelBody', 'text-text-light text-center max-w-xs')}>
-            {FIRST_USE_PLACEHOLDER}
-          </p>
+          {/*
+            ⭐ THE INVITATION KNOWS WHETHER THERE IS A MODEL, AND IT DID NOT.
+            This rendered `FIRST_USE_PLACEHOLDER` on the sole condition that the
+            conversation was empty — so a canvas full of options, opened from a
+            template or after a cleared history, was met with "Describe the
+            decision or challenge you're working through", twenty pixels above a
+            composer already saying "Ask about this model…". One frame, one
+            state, two surfaces disagreeing about what the user had.
+
+            The sentence, and the state behind it, now live in one component so
+            the FLOATING host shows the same thing — see
+            `EmptyConversationInvitation`, which records why it moved.
+          */}
+          <EmptyConversationInvitation testId={INVITATION_TESTID_DOCKED} />
         </div>
       </div>
     )
