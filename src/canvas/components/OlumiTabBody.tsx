@@ -7,7 +7,7 @@ import { memo, useCallback, useEffect, useMemo } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useConversationContext } from '../conversation/ConversationContext'
-import { useEmptyConversationInvitation } from '../hooks/useStageAwarePlaceholder'
+import { useEmptyConversationInvitation } from '../hooks/useConversationStage'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 // Type-only: erased at compile time, so this adds no runtime edge to a module

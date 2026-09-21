@@ -19,10 +19,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import {
   useConversationStage,
-  useStageAwarePlaceholder,
   useEmptyConversationInvitation,
   type ConversationStage,
-} from '../useStageAwarePlaceholder'
+} from '../useConversationStage'
+import { useStageAwarePlaceholder } from '../useStageAwarePlaceholder'
 import { FIRST_USE_PLACEHOLDER } from '../../components/firstUsePlaceholder'
 
 vi.mock('../useAnalysisTrust', () => ({ useAnalysisTrust: () => ({ semantic: trust }) }))
