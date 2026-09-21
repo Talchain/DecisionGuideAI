@@ -559,14 +559,56 @@ export function useModelEditAuthority(
       mutations.setObservedValue(modelValue, rawMagnitude, dispatch ? undefined : USER_VALUE_STAMP)
 
       if (!dispatch) return 'local_only'
-      void Promise.resolve(
+
+      // ⭐⭐ A DISPATCHER THAT EXISTS IS NOT A SEND THAT HAPPENED.
+      //
+      // The old shape was `void Promise.resolve(dispatch(...)).catch(...)` then
+      // an unconditional `return 'dispatched'` — the presence of a dispatcher
+      // read as the fact of a send. `sendSystemEvent` can RESOLVE
+      // `SEND_BLOCKED`: its first line is
+      // `if (!isOrchestratorV2Enabled()) return SEND_BLOCKED`, and it also
+      // blocks any event `serializeSystemEvent` cannot put on the wire. The
+      // `.catch()` could never see either, because the promise resolves with a
+      // sentinel rather than rejecting.
+      //
+      // ⛔ WHAT THAT COST — a truthfulness defect, not a cosmetic one. The local
+      // write above deliberately omits `USER_VALUE_STAMP` whenever a dispatcher
+      // exists, because on a real dispatch the stamp is the server's to grant
+      // (the 2.304 fabricated-provenance rule). So on a BLOCKED send the value
+      // landed with NO authorship at all — not the user's on record, not CEE's,
+      // never sent, and never settled by confirm or revert because `sendTurn`
+      // was never reached. The caller was told `'dispatched'` and closed its
+      // editor over it, and for an unanchored `scale` factor the projection then
+      // suppressed the orphaned number and the card went blank.
+      //
+      // Found by instrumenting a real browser, not by reading: `AUTH dispatch?
+      // true undo? true modelValue 0.77` with no downstream mark, ever.
+      //
+      // ⚠ THE CLASSIFIER IS THE ESTATE'S OWN, NOT A NEW READING OF THE SENTINEL.
+      // `settleSystemEventSend` already owns this question and already documents
+      // `'blocked'` as "the ONLY settlement entitled to say NOT SENT". Re-deriving
+      // it here from `=== SEND_BLOCKED` would be a fourth copy of a rule whose
+      // two previous copies were both wrong in opposite directions.
+      //
+      // ⚠ AND `'queued'` IS NOT A FAILURE. A deferred send is owned by the flush
+      // queue and WILL be sent, retried and settled; the pending readout keeps
+      // the number on screen meanwhile. Only `'blocked'` is a non-event.
+      //
+      // ⚠ STAYS SYNCHRONOUS. Three surfaces read this outcome synchronously to
+      // decide whether to close their editor; making it async to await the
+      // settlement would change all three for a correction that is better
+      // applied as a store write the cards already re-render on.
+      settleSystemEventSend(
         dispatch(event, undo ? { optimisticFactorEdit: undo } : undefined),
-      ).catch(() => {
-        // Swallowed deliberately — a genuine send failure is recorded by the
-        // conversation's own failure channel, and a server REFUSAL is not a
-        // failure: the dispatcher's central revert handles it. Identical to the
-        // reference surface's catch, for the identical reason.
-      })
+        (settlement) => {
+          if (settlement !== 'blocked') return
+          // Never admitted, so the receipt that would have earned the stamp is
+          // never coming. Apply the local stamp this write withheld, so the
+          // number is at least truthfully the user's own — the same branch the
+          // no-dispatcher case above takes, for the same reason.
+          mutations.setObservedValue(modelValue, rawMagnitude, USER_VALUE_STAMP)
+        },
+      )
       return 'dispatched'
     },
     [activeNodeId, mutations, sendSystemEvent],

@@ -544,7 +544,24 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // measurement: the founder stated 4 on a `scale` factor with no cap, and the
   // card rendered nothing. The product may decline to assert its OWN estimate;
   // it may not hide his.
-  const userStatedThisValue = input.value_source === 'user' || input.value_source === 'user_confirmed'
+  /**
+   * ⚠⚠ ENUMERATE THE MEMBERS. This read `'user' || 'user_confirmed'` and MISSED
+   * `'user_override'` — which is the literal `USER_VALUE_STAMP` writes
+   * (`valueProvenance.ts`: `USER_VALUE_STAMP = { source: 'user_override' }`,
+   * classified `user_override: 'edited'`, i.e. the person typed it). So the one
+   * spelling produced by a LOCAL user edit was the one the rescue could not see,
+   * and every local-only factor value edit on an unanchored `scale` factor
+   * rendered a blank card — the exact defect the docblock above this describes
+   * and was written to fix. Two of three limbs covered is how a predicate over a
+   * small enum passes review: the missing member is invisible in the diff.
+   *
+   * Witnessed 21 Sep 2026, headed, with `orchestratorV2` off: the value wrote
+   * `source: "user_override"` and the card still showed nothing.
+   */
+  const userStatedThisValue =
+    input.value_source === 'user'
+    || input.value_source === 'user_confirmed'
+    || input.value_source === 'user_override'
   /**
    * ⭐ THE SAME VISIBILITY RULE, ONE STATE EARLIER — and deliberately a separate
    * name from `userStatedThisValue` rather than another arm of it.

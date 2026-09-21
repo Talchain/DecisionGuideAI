@@ -217,3 +217,36 @@ describe('⭐ resolve the SAME edit both ways — the second half of the require
     expect(pendingFactorEditValue('fac_ops')).toBeNull()
   })
 })
+
+describe('⚠ the rescue must enumerate EVERY spelling of "the person stated it"', () => {
+  /**
+   * `valueProvenance` has three literals for user authorship and the rescue
+   * covered two. The missed one, `user_override`, is the one a LOCAL edit
+   * writes (`USER_VALUE_STAMP`), so the case the rescue exists for was the case
+   * it could not see. Enumerated rather than sampled — a predicate over a small
+   * enum is exactly where "I tested one limb and concluded about the rung"
+   * happens.
+   */
+  const SPELLINGS = ['user', 'user_confirmed', 'user_override'] as const
+
+  it.each(SPELLINGS)('a value stated by the person as "%s" is VISIBLE', (source) => {
+    const out = factorDisplayText({
+      label: 'Operational Overhead on Data Team',
+      observedState: { value: 0.77, unit: 'scale', source, factor_type: 'other' },
+    })
+    expect(out, `a value the user stated (source: ${source}) is being hidden`).not.toBeNull()
+    expect(String(out)).toContain('0.77')
+  })
+
+  it('⛔ CONTRAST: a machine source is still suppressed on the same shape', () => {
+    for (const source of ['cee_inference', 'plot', 'isl', undefined]) {
+      expect(
+        factorDisplayText({
+          label: 'Operational Overhead on Data Team',
+          observedState: { value: 0.77, unit: 'scale', source, factor_type: 'other' },
+        }),
+        `source "${String(source)}" was treated as user authorship — the suppression has been widened past the person's own number`,
+      ).toBeNull()
+    }
+  })
+})
