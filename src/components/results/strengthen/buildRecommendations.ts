@@ -822,6 +822,29 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         signal: `${readout.phrase}, and the estimate behind it is Olumi's.`,
         whyNow:
           /**
+           * ⛔⛔ THIS NO LONGER RESTATES THE REFUSAL, AND A LIVE CAPTURE IS WHY.
+           *
+           * It previously read *"Until at least one of the values this
+           * comparison turns on is yours, no option can be put forward."*
+           * Measured on the deployed build (manual test 21 Sep, bundle
+           * `olumi-debug-95b92672`): `AtAGlance` renders CEE's admission
+           * VERBATIM on the same tab, a few centimetres above this card —
+           * *"Every estimate this comparison rests on is Olumi's, not yours
+           * … no option can be called the leader … until you have set at least
+           * one of them."* Both sections are rendered by
+           * `AnalysisNewTabBody`, and `strengthenWhyLine` concatenates
+           * `signal` + `whyNow` into the card BODY, so this was on screen even
+           * with the row collapsed. The panel was answering, in its own voice,
+           * a question the producer had just answered directly above it.
+           *
+           * ⭐ WHAT REPLACES IT IS THE ONE FACT NOTHING ELSE ON THE SCREEN
+           * CARRIES, and it is the fact that stops this card becoming a false
+           * promise. Capture `52383f4b` has
+           * `confidence_parameters_user_stated: 1` — the user HAD set a value —
+           * and the refusal persisted on `USER_STATED_PARAMETERS_NOT_MATERIAL`.
+           * Necessary, not proven sufficient. Saying so is not a hedge; it is
+           * the difference between this row and an instruction that fails.
+           *
            * ⚠ "as the leader" CAME OUT — `noWinnerVocabulary.spec.ts` REDDED IT
            * and was right. The 8 Sep no-contest ruling retires placings from
            * UI-AUTHORED copy, and "the leader" is one.
@@ -838,7 +861,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
            * passes the same sweep — so this states the same fact in the
            * vocabulary that survived the ruling.
            */
-          'Until at least one of the values this comparison turns on is yours, no option can be put forward.',
+          'Setting it is necessary for a comparison you own, and may not be all this run needs.',
         /**
          * ⚠ NO EM DASH, AND THE GUARD CANNOT SEE THIS FILE. The ruling is
          * "no em dashes in product content"; `noEmDashesInRenderedCopy.spec.ts`
