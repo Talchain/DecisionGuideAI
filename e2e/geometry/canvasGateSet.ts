@@ -477,6 +477,19 @@ export interface DeliberateExclusion {
 
 export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
   {
+    what: 'modelRowCellOverlap.measure.ts — both tier arms and the controlled experiment',
+    why:
+      'IT IS RED AT THE BASE, DELIBERATELY, AND A GATE ARM MUST BE GREEN TO JOIN. This file\'s own '
+      + 'admission rule is "show it GREEN at the base, twice"; measured 21 Sep at a 280px dock over '
+      + '38 rows it reads 33 overlapping atom pairs on the PLAIN tier and 45 on ADVANCED, so it '
+      + 'cannot satisfy that rule until the shedding decision lands. It is committed RED on purpose: '
+      + 'the invariant (no two of a row\'s atoms intersect) is what any chosen answer has to satisfy, '
+      + 'and pinning it BEFORE the answer is picked is the point. ADMIT IT the moment the count '
+      + 'reaches zero — it needs no new evidence beyond its own green, and it already carries a '
+      + 'vacuity control (rows and atoms non-zero) and an injected positive control (a deliberately '
+      + 'overlapped pair the detector must find, at the right magnitude).',
+  },
+  {
     what: "nodeKeyboardBleed.measure.ts — 'census: focusable controls inside .react-flow__node, all five starters'",
     why:
       'IT IS A MEASURE, NOT AN ASSERTION. It enumerates 390 focusable elements across five ' +
