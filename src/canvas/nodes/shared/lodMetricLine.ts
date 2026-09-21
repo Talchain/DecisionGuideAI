@@ -166,6 +166,16 @@ export interface LodMetricFacts {
   optionInterventionCount?: number | null
   /** `OptionNode.isBaselineOption` — checked BEFORE any count, as it is there. */
   optionIsBaseline?: boolean | null
+  /**
+   * The factor's ranked influence readout, from `useInfluenceRank` — the SAME
+   * owner and the same two conditions `FactorNode` renders at full zoom.
+   *
+   * ⚠ ABSENT MEANS WITHHOLD THE RANK, NOT WITHHOLD THE ROW. The percentage
+   * below it is a licensed rendering in its own right and is what the card
+   * itself shows on the same branch; what was wrong was showing it where a
+   * rank existed, so one number carried two claims at two zoom levels.
+   */
+  influenceRank?: { caption: string; setSizeText: string } | null
 }
 
 export interface LodMetricLineInputs {
@@ -267,6 +277,24 @@ function resolveText({
       // reason.
       const { influence, influenceProvenance } = displayMetadata
       if (influence != null && influenceProvenance != null) {
+        /**
+         * ⭐ THE RANK FIRST, BECAUSE IT IS WHAT THE CARD SAYS. At full zoom
+         * `FactorNode:762,780` renders `influenceRank.caption` beside
+         * `influenceRank.setSizeText` — "Most influential · of 5" — and falls
+         * back to the bare percentage only when the rank is unlicensed. This
+         * line had no rank arm at all, so it ALWAYS took the fallback: the
+         * same datum read as a RANK on one rung and as a PERCENTAGE on the
+         * other, and a bare percentage invites "62% of the answer", which is
+         * not what it measures.
+         *
+         * ⛔ THE SET SIZE RIDES WITH THE CAPTION AND IS NOT DROPPED FOR WIDTH.
+         * "Most influential" alone is the claim a reader cannot check; the
+         * denominator is the half that makes it checkable, and
+         * `influenceRankReadout` composes its own `phrase` from both for
+         * exactly that reason.
+         */
+        const rank = facts?.influenceRank
+        if (rank) return `${rank.caption} · ${rank.setSizeText}`
         // ⚠ THE REGISTER, for the same reason as the `ahead` arm below — and
         // this line is why round 3 of #1209 was not enough. That round fixed
         // ONE hardcoded noun in this function and its body then claimed "every

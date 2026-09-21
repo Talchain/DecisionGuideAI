@@ -10,7 +10,6 @@ import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domai
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
-import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
@@ -20,7 +19,8 @@ import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionS
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
-import { influenceExplanation, influenceBarAriaLabel, influenceBasisNoun, influenceRankReadout, influenceRankExplanation } from '../../components/results/influenceScaleCopy'
+import { influenceExplanation, influenceBarAriaLabel, influenceBasisNoun, influenceRankExplanation } from '../../components/results/influenceScaleCopy'
+import { useInfluenceRank } from '../hooks/useInfluenceRank'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -406,10 +406,15 @@ export const FactorNode = memo((props: NodeProps) => {
    * would change three surfaces this lane never argued for. What is withheld is
    * only the half a reader can refute by counting.
    */
-  const resultsAreCurrent = useAnalysisResultsAreCurrent()
-  const influenceRank = resultsAreCurrent
-    ? influenceRankReadout(displayMetadata.sensitivityRank, displayMetadata.influenceSetSize)
-    : null
+  /**
+   * ⭐ THE PAIR MOVED TO ITS OWN OWNER, unchanged. The reduced line needs the
+   * identical answer and had neither half of it; a second spelling here would
+   * be the mirror that always reads green while it drifts.
+   */
+  const influenceRank = useInfluenceRank(
+    displayMetadata.sensitivityRank,
+    displayMetadata.influenceSetSize,
+  )
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (pill, bar, AND the

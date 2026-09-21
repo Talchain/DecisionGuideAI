@@ -41,6 +41,7 @@ import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
+import { useInfluenceRank } from '../hooks/useInfluenceRank'
 import { ESTIMATE_SUBJECT_TITLE } from './shared/EstimateMarker'
 import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
 import { resolveLodMetricFacts } from './shared/lodMetricFacts'
@@ -429,15 +430,33 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * goal and decision need nothing here — each formats its own line and passes
    * it as `lodMetric` below.
    */
+  /**
+   * ⭐ THE RANK IS A FACT THE RESOLVER CANNOT SEE, exactly as an option's
+   * change count is. It depends on analysis FRESHNESS — a store question — so
+   * a pure function handed `data` and `displayMetadata` can never answer it,
+   * and the reduced line therefore always fell through to the bare percentage
+   * while the card beside it named a rank.
+   *
+   * ⚠ CALLED UNCONDITIONALLY BECAUSE IT IS A HOOK. It resolves to `null` for
+   * every non-factor card and for every card at full zoom, and it adds no
+   * traversal — `useAnalysisResultsAreCurrent` reads three scalars.
+   */
+  const influenceRank = useInfluenceRank(
+    displayMetadata.sensitivityRank,
+    displayMetadata.influenceSetSize,
+  )
+
   const lodFacts = useMemo(() => {
-    if (!bodyReduced || nodeType !== 'option') return undefined
+    if (!bodyReduced) return undefined
+    if (nodeType === 'factor') return { influenceRank }
+    if (nodeType !== 'option') return undefined
     return resolveLodMetricFacts({
       nodeType,
       nodeId: id,
       data: data as Record<string, unknown> | undefined,
       ceeOptions: ceeAnalysisReady?.options,
     })
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
