@@ -814,6 +814,33 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     // The ordinal's words are the copy owner's, never re-spelled here; it
     // refuses any rank it cannot publish, so a null readout is a null row.
     const readout = next ? influenceRankReadout(1, next.setSize) : null
+    /**
+     * ⛔⛔ CAN A RANGE BE SET FOR THIS FACTOR AT ALL — a DIFFERENT QUESTION from
+     * `next.declaresNoRange`, which asks only whether it records one today.
+     *
+     * The branch below used to turn on `declaresNoRange` alone and told the
+     * reader to settle a range. `factorRangeCapability.ts` exists because that
+     * act is available for roughly ONE FACTOR IN SEVEN: a range editor lives on
+     * exactly one surface, the canvas inspector's `FactorExternalPanel`, and
+     * only for `category === 'external'`. So on the other six this card named an
+     * act that does not exist on any surface — the defect
+     * `noScaleRemedyIsTheUnitPath` ruled on ("the remedy this panel names must
+     * be one the assistant can actually perform") and the one the LEHI card
+     * below was already fixed for.
+     *
+     * ⚠ IT WENT ELEVEN DAYS BECAUSE THE GUARD WAS HAND-SCOPED.
+     * `theRangeActExistsOrIsNotNamed.spec.ts` selects its card with
+     * `id.startsWith('strengthen:lehi:')`, so the ruling was enforced exactly
+     * where a guard could observe it and nowhere else — the shape this file's
+     * own em-dash docblock records, forty lines down.
+     *
+     * ⛔ FAIL-CLOSED, per `StrengthenFactor.rangeIsSettable`'s own rule: absent
+     * means UNKNOWN and is read as NO. A wrongly-named act spends the trust the
+     * finding just earned; an unnamed one costs only wording.
+     */
+    const nextRangeIsSettable =
+      next !== null &&
+      inputs.factors.find((f) => f.factorId === next.factorId)?.rangeIsSettable === true
     if (next && readout) {
       recs.push({
         id: `strengthen:next-input:${next.factorId}`,
@@ -882,9 +909,22 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
          * must not reproduce that judgement; it only carries the fact forward
          * when it has one, so the reader is not surprised by it later.
          */
-        tryThis: next.declaresNoRange
-          ? 'This one records no range yet, so a single figure has nothing to be measured against. Worth settling the range at the same time.'
-          : 'Use the figure you would defend in the room, not a cautious one.',
+        /**
+         * ⭐ THE FINDING SURVIVES EVERY BRANCH; ONLY THE ACT MOVES. Dropping the
+         * card, or dropping the fact, would hide something true — this is still
+         * the input the run turns on most and the estimate behind it is still
+         * Olumi's. The third arm therefore keeps the reason a lone figure is
+         * weak here and names only the act the reader can actually perform.
+         *
+         * ⚠ IT DOES NOT EXPLAIN THE LIMITATION. "Olumi cannot record a range for
+         * this kind of factor" is product internals; the ruling asks for a
+         * remedy that works, not a confession about one that does not.
+         */
+        tryThis: !next.declaresNoRange
+          ? 'Use the figure you would defend in the room, not a cautious one.'
+          : nextRangeIsSettable
+            ? 'This one records no range yet, so a single figure has nothing to be measured against. Worth settling the range at the same time.'
+            : 'A single figure here has nothing to be measured against, so use the one you would defend in the room, not a cautious one.',
         sourceLine:
           "Source: the inputs Olumi reports this comparison is waiting on, in this run's own influence order.",
         action: { kind: 'canvas-focus', label: 'Show me this factor' },

@@ -47,11 +47,19 @@ const lowEvidenceHighInfluence = (
   label: LABEL,
   influence: 0.9,
   confidenceDisplay: { show: true, value: 0.2, isDefaulted: false, isProvisional: false },
-  // ⚠ REQUIRED on `StrengthenFactor`, and omitting it was a real TS error the
-  // `Typecheck Gate Self-Test` caught — `tsconfig.app.json` EXCLUDES tests, so
-  // the ordinary `pnpm typecheck` is blind to spec files and this is the gate
-  // that is not. Its value is irrelevant to every assertion here; its presence
+  // ⚠ REQUIRED on `StrengthenFactor`, and omitting it was a real TS error a
+  // gate caught. Its value is irrelevant to every assertion here; its presence
   // is not optional.
+  //
+  // ⚠⚠ AND THE REASON RECORDED HERE WAS FALSE, MEASURED 21 Sep 2026 BY POSITIVE
+  // CONTROL. It read "`tsconfig.app.json` EXCLUDES tests, so the ordinary
+  // `pnpm typecheck` is blind to spec files". At this tip `tsconfig.app.json`
+  // is `include: ["src"]` with `exclude: ["**/* 2.ts", "**/* 2.tsx"]` — Finder
+  // cruft only — so SPEC FILES ARE IN THE GATE. Settled by execution, not by
+  // reading: a deliberate `const x: number = 'bad'` in a sibling spec moved
+  // `scripts/ci/typecheck-gate.sh` from 2081 to 2082 errors and RED. A comment
+  // telling a lane the gate cannot see its specs is how a lane stops running
+  // it (CLAUDE.md trap 2, which is itself a note about this exact defect).
   canFocus: true,
   ...(rangeIsSettable === undefined ? {} : { rangeIsSettable }),
 })
