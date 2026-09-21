@@ -2253,12 +2253,28 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               treatment the node title gets when its clamp ellipsises it. */}
           {lodBodyLine !== null && (
             <div
+              data-testid="node-lod-line"
+              title={lodBodyLine}
+              /*
+               * ⚠⚠ THE TESTID AND THE VISIBILITY STAY ON THE OUTER ELEMENT, and
+               * two specs outside this file are why. `BaseNode.lodBodyLine`
+               * asserts that `node-lod-line`'s PARENT is the hidden body and
+               * that the element itself re-declares `visibility: visible`;
+               * `DecisionNode.optionCount` asserts the same override. Moving
+               * the id onto the inner text span — which a first cut did —
+               * breaks both, because the id's parent becomes this wrapper
+               * rather than the body.
+               *
+               * ⭐ AND IT IS THE RIGHT SHAPE ANYWAY: this element IS the
+               * reduced line. The truncation belongs to the TEXT inside it, not
+               * to the line, which is exactly why the mark beside it can escape
+               * the ellipsis.
+               */
               className="absolute left-0 right-0 top-0 flex items-baseline gap-1"
               style={{ visibility: 'visible' }}
             >
               <span
-                data-testid="node-lod-line"
-                title={lodBodyLine}
+                data-testid="node-lod-line-text"
                 className={`${typography.nodeLabel} text-text-body truncate`}
               >
                 {lodBodyLine}

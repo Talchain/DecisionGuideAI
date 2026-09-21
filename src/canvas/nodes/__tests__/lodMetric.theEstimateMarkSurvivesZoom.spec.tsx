@@ -140,7 +140,7 @@ describe('the est. mark survives the zoom that hides the card body', () => {
 
   it('⭐ marks an inferred value at the reduced rung — RED at pristine, where only the number showed', () => {
     renderAtLineRung(INFERRED)
-    expect(screen.getByTestId('node-lod-line').textContent).toContain('0.4')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toContain('0.4')
     expect(screen.getByTestId('node-lod-estimate-mark').textContent?.trim()).toBe(
       UNCONFIRMED_ESTIMATE_TOKEN,
     )
@@ -148,22 +148,31 @@ describe('the est. mark survives the zoom that hides the card body', () => {
 
   it('CONTRAST — a value the reader typed is never marked, so the mark is not simply always on', () => {
     renderAtLineRung(USER_STATED)
-    expect(screen.getByTestId('node-lod-line').textContent).toContain('0.4')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toContain('0.4')
     expect(screen.queryByTestId('node-lod-estimate-mark')).toBeNull()
   })
 
   it('⛔ the mark is OUTSIDE the truncating element, so an ellipsis eats the number and never the disclosure', () => {
     renderAtLineRung(INFERRED)
-    const line = screen.getByTestId('node-lod-line')
+    /*
+     * ⚠ THE TRUNCATING ELEMENT IS THE TEXT SPAN, NOT `node-lod-line`. A first
+     * cut put the id on the text and the mark beside it, which broke two specs
+     * outside this file: `BaseNode.lodBodyLine` and `DecisionNode.optionCount`
+     * both assert that `node-lod-line`'s PARENT is the hidden body and that it
+     * re-declares `visibility: visible`. `node-lod-line` IS the reduced line;
+     * the truncation belongs to the text inside it, which is precisely why the
+     * mark can escape the ellipsis.
+     */
+    const text = screen.getByTestId('node-lod-line-text')
     const mark = screen.getByTestId('node-lod-estimate-mark')
     // Putting the token in the STRING would make it the first thing truncated —
     // the number surviving and the disclosure vanishing, which is the defect
     // this file closes, rebuilt by its own fix.
-    expect(line.textContent).not.toContain(UNCONFIRMED_ESTIMATE_TOKEN)
-    expect(line.className).toContain('truncate')
+    expect(text.textContent).not.toContain(UNCONFIRMED_ESTIMATE_TOKEN)
+    expect(text.className).toContain('truncate')
     expect(mark.className).toContain('shrink-0')
     expect(mark.className).not.toContain('truncate')
-    expect(line.contains(mark)).toBe(false)
+    expect(text.contains(mark)).toBe(false)
   })
 })
 
