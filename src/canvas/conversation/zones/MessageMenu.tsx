@@ -56,7 +56,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MoreHorizontal, Copy, RefreshCw, ListPlus, AlignLeft } from 'lucide-react'
+import { MoreVertical, Copy, RefreshCw, ListPlus, AlignLeft } from 'lucide-react'
 import { ICON_DENSE, ICON_STROKE } from '../panelIcons'
 import { typography } from '../../../styles/typography'
 
@@ -168,7 +168,25 @@ export function MessageMenu({ role, content, onRetry, onSendFollowUp }: MessageM
           transition-colors
         "
       >
-        <MoreHorizontal size={ICON_DENSE} strokeWidth={ICON_STROKE} aria-hidden="true" />
+        {/*
+          ⚠ VERTICAL, NOT HORIZONTAL, AND THE GLYPH IS THE WHOLE FIX.
+
+          This trigger rendered `MoreHorizontal` — a horizontal ellipsis, which
+          is the typographic mark for ELIDED TEXT. Sitting on its own line
+          directly beneath a message, with no resting background or border, it
+          read as "this message is truncated" rather than as a control: in a
+          manual pass over four panel screenshots it was the single most
+          frequent unexplained element, appearing under nearly every turn.
+
+          A vertical ellipsis carries no such reading — it is not a punctuation
+          mark, so it cannot be mistaken for content, and it is the conventional
+          overflow-menu affordance. Nothing else changes: same hit area, same
+          accessible name, same menu.
+
+          Do not flip this back to the horizontal form for visual symmetry with
+          another surface; the ambiguity is the defect, and it returns with it.
+        */}
+        <MoreVertical size={ICON_DENSE} strokeWidth={ICON_STROKE} aria-hidden="true" />
       </button>
 
       {open && (
