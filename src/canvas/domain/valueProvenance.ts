@@ -343,6 +343,67 @@ export function classifyNodeProvenance(
  * gesture is the thing that produces the transition, and a reader of the button
  * needs to know the badge will clear with it.
  */
+/**
+ * Does this factor's value wear the `est.` marker?
+ *
+ * ⭐⭐ THE SPELLING WAS IN THREE PLACES AND ONE OF THEM FORGOT — which is how a
+ * number came to look MORE authoritative the further out you zoomed.
+ *
+ * `FactorNode:199` gates the marker on it. `CanvasLegendPopover:929` re-types
+ * it to decide whether the glossary may promise a marker, and SAYS SO in its
+ * own comment (*"read from the marker's surviving gate … and from nothing
+ * else"*) — an honest mirror, and still a mirror. The reduced line, which is
+ * the whole card below the legibility floor, had no copy at all: it printed
+ * `0.4` where the card printed `0.4 est.`
+ *
+ * ⛔ IT IS NOT `factorNeedsVerification`, AND MERGING THEM WOULD BE TRAP 21.
+ * That one asks *who supplied this number* (`source`); this asks *how it got
+ * here* (`extractionType`). A value a user typed over an inferred one clears
+ * `source` and — since the extraction marker is withdrawn on the same write —
+ * clears this too, but they are answers to two questions and a factor can
+ * satisfy one without the other.
+ *
+ * ⚠ IT DOES NOT REQUIRE A VALUE TO BE PRESENT, deliberately: this is the
+ * marker's existing gate, unchanged, and a caller that only wants marked
+ * NUMBERS must ask whether it has one. The reduced line asks.
+ *
+ * ⚠ BOTH SPELLINGS OF THE CONTAINER, for the reason the two functions below
+ * read both: canvas stores `observedState`, the CEE/PLoT wire uses
+ * `observed_state`.
+ *
+ * ⭐⭐ AND BOTH STORAGE LOCATIONS OF `extractionType`, WHICH THE CARD'S OWN
+ * GATE DID NOT READ — MEASURED ON A SHIPPED STARTER, NOT REASONED ABOUT.
+ * Driven as a guest on the deployed build, `usage-based-billing`, 8 factors:
+ *
+ *   · 5 factors  `observedState.extractionType: 'inferred'`  → marked ✓
+ *   · **`Vendor Licensing Cost`  `data.extractionType: 'inferred'`, an EMPTY
+ *     `observedState`** → its inferred range `0.25 to 0.75` rendered with NO
+ *     mark, beside five marked estimates. **The unattributed number looked
+ *     more settled than the attributed ones.**
+ *   · `Platform Migration Competing Demand` — top-level `'explicit'`, which is
+ *     the CONTRAST: it must stay unmarked, so a fix that merely looked at the
+ *     top level without reading its VALUE would be wrong here.
+ *
+ * `usePreAnalysisData.ts:769-772` has read both locations all along and says
+ * why in its own comment — `observedState.extractionType` is CEE-derived,
+ * `data.extractionType` is what `setExtractionType` writes. One question, two
+ * surfaces, and the CARD was the one under-claiming.
+ *
+ * ⛔ AND `data.provenance` IS NOT A THIRD LOCATION — IT ANSWERS A DIFFERENT
+ * QUESTION (trap 21). It is who put the NODE here (`'ai_inferred'`,
+ * `'from_brief'`), which `NodeProvenanceMark` renders; this asks who put the
+ * NUMBER here. On the same board `Usage-Based Billing Complexity` carries
+ * `provenance: 'ai_inferred'` and no `extractionType` anywhere — so it stays
+ * unmarked, correctly, because nothing in the record says who authored its
+ * range. That absence is a PRODUCER gap and is routed as one; inventing the
+ * answer here would put a claim on screen the model does not contain.
+ */
+export function factorValueIsUnconfirmedEstimate(data: unknown): boolean {
+  const d = data as Record<string, unknown> | undefined
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  return obs?.extractionType === 'inferred' || d?.extractionType === 'inferred'
+}
+
 export function factorNeedsVerification(data: unknown): boolean {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined

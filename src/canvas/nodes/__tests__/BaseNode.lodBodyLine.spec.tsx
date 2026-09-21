@@ -225,7 +225,16 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
     for (const entry of CORPUS) {
       it(`states the factor's own value — ${entry.name}`, () => {
         const { unmount } = renderFactor(entry.data, true)
-        expect(screen.getByTestId('node-lod-line').textContent).toBe(entry.expected)
+        /*
+         * ⚠ READS `node-lod-line-text`, NOT `node-lod-line`. This block's
+         * subject is WHAT THE LINE STATES — the resolver's string — and that is
+         * now the inner span. `node-lod-line` is the line itself: it carries
+         * the positioning, the visibility override and the hover title, and it
+         * also holds the `est.` mark, which is a separate fact rendered beside
+         * the string rather than part of it. Comparing the whole element's
+         * `textContent` to the resolver's output would fold the two together.
+         */
+        expect(screen.getByTestId('node-lod-line-text').textContent).toBe(entry.expected)
         unmount()
       })
 
@@ -240,7 +249,8 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
 
         // The reduced line at level-of-detail zoom.
         const atLodZoom = renderFactor(entry.data, true)
-        expect(screen.getByTestId('node-lod-line').textContent).toBe(entry.expected)
+        // Same reason as above: the STRING is the inner span.
+        expect(screen.getByTestId('node-lod-line-text').textContent).toBe(entry.expected)
         atLodZoom.unmount()
       })
     }

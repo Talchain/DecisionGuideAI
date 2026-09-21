@@ -96,6 +96,24 @@ export const DECISION_NODE_DEFINITION =
 export const UNCONFIRMED_ESTIMATE_LABEL = 'Estimate not yet confirmed'
 
 /**
+ * The four characters the board actually prints for the label above.
+ *
+ * ⭐ IT IS HERE BECAUSE THERE ARE NOW THREE SURFACES SAYING IT, NOT ONE.
+ * `EstimateMarker` renders it on a factor card at rest; the reduced line
+ * renders it when the card is too small to carry a body; and
+ * `CanvasLegendPopover` keys its glossary row on the same four characters. A
+ * product word re-typed per surface is the mirror this file exists to abolish
+ * (see the header) — and the reduced line is the surface that PROVED it, by
+ * printing the number with the marker silently dropped.
+ *
+ * ⚠ IT IS THE TOKEN, NOT THE MEANING. `UNCONFIRMED_ESTIMATE_LABEL` above is
+ * what it MEANS and is what hover text is built from. This is only what the
+ * ink says, and it is short because the caption column on a 230px card is
+ * content-sized: a longer word costs the bar beside it.
+ */
+export const UNCONFIRMED_ESTIMATE_TOKEN = 'est.'
+
+/**
  * The goal node, as a user reads it.
  *
  * ⚠ WHY THIS EXISTS NOW. `ghostTiers` needs to name the KIND of node a model's
