@@ -5,9 +5,12 @@ import { memo, useCallback, useEffect, useMemo } from 'react'
 // one shape does not find the other. Bound to the shared constant so the two
 // cannot drift apart again.
 import { ExternalLink } from 'lucide-react'
-import { typo } from '../../styles/typography'
 import { useConversationContext } from '../conversation/ConversationContext'
-import { useEmptyConversationInvitation } from '../hooks/useConversationStage'
+import {
+  EmptyConversationInvitation,
+  INVITATION_TESTID_DOCKED,
+  conversationIsEmpty,
+} from './EmptyConversationInvitation'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 // Type-only: erased at compile time, so this adds no runtime edge to a module
@@ -39,9 +42,7 @@ interface OlumiTabBodyProps {
 export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabBodyProps) {
   const conversation = useConversationContext()
   const realMessageCount = conversation.messages.filter((m) => !m.synthetic).length
-  // Read unconditionally — the empty branch below is an early return, and a
-  // hook behind it would change call order between the two states.
-  const invitation = useEmptyConversationInvitation()
+  const isEmptyConversation = conversationIsEmpty(conversation.messages)
 
   // pre-analysis-power-v2 fix: register guidance-store callbacks at the
   // OlumiTabBody level so consumers like `DiscussWithAiButton` (the
@@ -162,7 +163,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     </div>
   ) : null
 
-  if (realMessageCount === 0) {
+  if (isEmptyConversation) {
     return (
       <div className="flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-empty">
         {floatOutIcon}
@@ -176,19 +177,11 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
             composer already saying "Ask about this model…". One frame, one
             state, two surfaces disagreeing about what the user had.
 
-            ⚠ THE STATE IS NOT RE-DERIVED HERE. `useEmptyConversationInvitation`
-            reads the SAME ladder the composer's placeholder reads
-            (`useConversationStage`), so the two cannot drift apart again — a
-            second predicate in this file is exactly how they came apart in the
-            first place. The genuinely-first-use case still gets the sentence it
-            always did; four states that had no voice now have one.
+            The sentence, and the state behind it, now live in one component so
+            the FLOATING host shows the same thing — see
+            `EmptyConversationInvitation`, which records why it moved.
           */}
-          <p
-            className={typo('panelBody', 'text-text-light text-center max-w-xs')}
-            data-testid="olumi-tab-empty-invitation"
-          >
-            {invitation}
-          </p>
+          <EmptyConversationInvitation testId={INVITATION_TESTID_DOCKED} />
         </div>
       </div>
     )

@@ -656,6 +656,39 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       'is clamped. One of the fixes it prevented (lower the floor) would have re-broken the ' +
       'defect that floor exists to prevent.',
   },
+  {
+    what:
+      'floatingComposerLook.measure.ts (7 cells, ~1m40s) — the floating Olumi panel: its ' +
+      'composer at rest and grown, the docked strip for contrast, and how many clicks the ' +
+      'float-out chevron actually takes at four viewports',
+    why:
+      "It carries `expect`s and is still excluded, so say which: most assert the INSTRUMENT is " +
+      'sound (a starter really seeded nodes, the composer it measured exists, the box grew on ' +
+      'type). TWO are product oracles and both are narrow. The first requires the floating ' +
+      "panel's EMPTY conversation to carry a non-empty invitation — presence and " +
+      'non-emptiness, never wording, because the sentence is resolved by ' +
+      '`useConversationStage` and a second authority on its text is the drift this change ' +
+      'exists to remove. The second records, per viewport, how many clicks the float-out ' +
+      'chevron takes. Neither encodes a ruling about what the composer OUGHT to measure; the ' +
+      'geometry it reports is the kind a legitimate design change moves, and the BEHAVIOUR is ' +
+      'pinned in the main suite by `emptyInvitationBothHosts.spec.tsx` (9 tests, positive ' +
+      'control included). ⭐ WHAT ONLY THIS COULD DO, and it did two things. (1) The composer ' +
+      'rework of 20 Sep keyed its layout on `hasActionRow = isStrip || isFloating`, so it ' +
+      'changed the FLOATING composer exactly as much as the strip — and only the strip was ' +
+      'ever photographed. Opened here, the floating panel showed a blank 400x550 box above its ' +
+      'composer while the docked tab, same frame and same empty conversation, showed an ' +
+      'invitation: a fix shipped the night before as "the empty Olumi surface now knows there ' +
+      'is a model" was true of one surface out of two. No unit test could see it, because each ' +
+      "host's specs were correct about their own host. (2) It measured the float-out chevron " +
+      'at four widths and found ONE click opens the panel at 1680/1920 and TWO at 1280/1440 — ' +
+      'the panel opens and is immediately minimised to the pill. The first reading was "the ' +
+      'control is dead"; driving the pill afterwards refuted that (the panel opens and stays), ' +
+      'which is the difference between a dead affordance and an unkept one-click promise, and ' +
+      'between two different fixes. Three mechanisms for the bounce were tested against the ' +
+      'trace and ALL THREE were refuted — recorded in the file, because each looked obviously ' +
+      'right and any fix built on one would have changed dock navigation for a reason that is ' +
+      'not true.',
+  },
 
   {
     what: 'coachingLineDensity.measure.ts (3 cells, ~43s) — the compact coaching line (#1450)',
