@@ -33,6 +33,7 @@
  * drawn: direction is a line colour plus a + or - marker. Every row here is now
  * derived from what StyledEdge actually paints.
  */
+import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, type ReactNode } from 'react'
 import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
@@ -909,9 +910,11 @@ export function CanvasLegendPopover() {
    * ⭐ THE `est.` ROW'S OWN PREDICATE — read from the marker's surviving gate,
    * `FactorNode:911` `isInferred && !isDetailed`, and from nothing else.
    *
-   * `isInferred` is `data.observedState?.extractionType === 'inferred'`
-   * (`FactorNode:304`) and `isDetailed` is `viewMode === 'expert'`
-   * (`FactorNode:47`) — the SAME store field the card reads, not a proxy for it.
+   * ⚠ IT NO LONGER RE-TYPES THAT GATE. `factorValueIsUnconfirmedEstimate` is
+   * the one owner both this and `FactorNode` read, so the glossary cannot
+   * promise a marker the card does not draw, or stay silent about one it does.
+   * `isDetailed` is `viewMode === 'expert'` and is still read here directly,
+   * because that is a property of the VIEW rather than of the factor.
    *
    * ⚠ Intersected with mounted `nodes`, exactly as `ordinalsOnScreen` is, so an
    * inferred factor that is no longer on the board cannot make this key promise
@@ -923,11 +926,14 @@ export function CanvasLegendPopover() {
    */
   const estimateMarkersOnScreen = useCanvasStore(s => {
     if (s.viewMode === 'expert') return false
-    return s.nodes.some(n => {
-      if (n.type !== 'factor') return false
-      const observed = (n.data as { observedState?: { extractionType?: unknown } } | undefined)?.observedState
-      return observed?.extractionType === 'inferred'
-    })
+    // ⭐ THE OWNER, NOT A COPY OF IT. This block used to re-type the card's
+    // gate — honestly, and with a comment naming `FactorNode` as its source —
+    // and it therefore inherited the card's blind spot: a factor carrying
+    // `extractionType` at the TOP LEVEL is marked on screen while this said
+    // there was nothing to explain. Measured on the deployed
+    // `usage-based-billing` starter, where `Vendor Licensing Cost` is exactly
+    // that shape. An honest mirror is still a mirror (CLAUDE.md trap 12).
+    return s.nodes.some(n => n.type === 'factor' && factorValueIsUnconfirmedEstimate(n.data))
   })
   const board: LegendBoardState = { isPostAnalysis, ordinalsOnScreen, estimateMarkersOnScreen }
 
