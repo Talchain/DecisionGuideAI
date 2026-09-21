@@ -537,10 +537,31 @@ export const FactorNode = memo((props: NodeProps) => {
       resolveNodeCoaching({
         kind: 'factor',
         surface: 'card',
-        state: { needsInput, isExternalCategory: nodeCategory === 'external', isInferred },
-        context: { label: cleanedLabel },
+        state: {
+          needsInput,
+          isExternalCategory: nodeCategory === 'external',
+          isInferred,
+          /*
+           * ⭐⭐ THE LICENCE AND THE RANK, READ FROM THEIR EXISTING OWNERS.
+           *
+           * `influenceRank` is already this component's licensed readout — it
+           * is `null` whenever the claim is not permitted (withheld on ties,
+           * capped at `MAX_BADGED_RANK`, and gated on the results being
+           * CURRENT). Requiring it to be non-null means this chip inherits
+           * every one of those rules for free and cannot outlive a stale run.
+           * `sensitivityRank === 1` then supplies the value. Nothing new is
+           * decided here, which is what `influenceScaleCopy.ts:347-361`
+           * requires.
+           */
+          leadsInfluence: influenceRank !== null && displayMetadata.sensitivityRank === 1,
+        },
+        context: {
+          label: cleanedLabel,
+          // The readout's own sentence, never a re-wording of it.
+          influencePhrase: influenceRank?.phrase,
+        },
       }),
-    [needsInput, nodeCategory, isInferred, cleanedLabel],
+    [needsInput, nodeCategory, isInferred, cleanedLabel, influenceRank, displayMetadata.sensitivityRank],
   )
 
 
