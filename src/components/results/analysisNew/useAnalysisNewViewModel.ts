@@ -27,6 +27,7 @@ import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { buildStrengthenInputsForAnalysisNew } from './buildStrengthenInputsForAnalysisNew'
+import { useAnalysisResultsAreCurrent } from '../../../canvas/hooks/useAnalysisResultsAreCurrent'
 import { buildAnalysisNewViewModel } from './buildAnalysisNewViewModel'
 import { buildRunDeltaView } from './runDeltaView'
 import { runDeltaDescribesDisplayedAnalysis } from '../../../canvas/state/storedRunDelta'
@@ -146,12 +147,20 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
     return buildRunDeltaView(storedRunDelta!.delta, (id) => nodeLabels.get(id) ?? null)
   }, [storedRunDelta, responseHash, currentScenarioId, nodeLabels])
 
+  const analysisIdentityIsCurrent = useAnalysisResultsAreCurrent()
+
   const recommendations: Recommendation[] = useMemo(() => {
     const inputs = buildStrengthenInputsForAnalysisNew({
       data,
       guidanceItems,
       biasSignals,
       currentStage,
+      // ⚠ ONE IDENTITY, OR THE ROW NAMES A PARAMETER FROM A GRAPH THAT MOVED.
+      // `invalidateAnalysisReady` clears the admission on every analytical edit
+      // and the reader falls back to a RETAINED one, so the blocking set and
+      // the influence order can arrive from two different graphs and look like
+      // one answer.
+      analysisIdentityIsCurrent,
     })
     // The engine is the authority on what a grounded intervention is. This
     // surface runs it and renders it; it never adds one of its own, and it
@@ -160,7 +169,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       const record = strengthenRecords[recordKey(currentScenarioId, rec.id)]
       return !record || !RETIRED_STATUSES.has(record.status)
     })
-  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords, currentScenarioId])
+  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords, currentScenarioId, analysisIdentityIsCurrent])
 
   /**
    * Re-join the producer's DSK attestation onto the engine's phase-3

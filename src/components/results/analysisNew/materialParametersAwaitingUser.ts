@@ -47,8 +47,17 @@ export interface NamedMaterialParameter {
   readonly label: string
 }
 
-/** Structural, unknown-safe read of one string array off an untyped object. */
-function readIds(admission: unknown): readonly string[] {
+/**
+ * Structural, unknown-safe read of one string array off an untyped object.
+ *
+ * ⭐ EXPORTED SO THERE IS ONE READER OF THIS FIELD, NOT TWO. `semantic_signals`
+ * is DELIBERATELY untyped on `AnalysisAdmissionV1` (`adapters/cee/types.ts`),
+ * so every consumer must read it structurally — and a second consumer spelling
+ * its own read is how one subsystem ends up with two answers to one question.
+ * The Strengthen engine's "next input" row consumes this; the labelled path
+ * below consumes it too.
+ */
+export function materialParametersAwaitingUserIds(admission: unknown): readonly string[] {
   if (admission === null || typeof admission !== 'object') return []
   const signals = (admission as { semantic_signals?: unknown }).semantic_signals
   if (signals === null || typeof signals !== 'object') return []
@@ -79,7 +88,7 @@ export function namedMaterialParametersAwaitingUser(
   admission: unknown,
   nodeLabels: ReadonlyMap<string, string> | undefined,
 ): readonly NamedMaterialParameter[] {
-  const ids = readIds(admission)
+  const ids = materialParametersAwaitingUserIds(admission)
   if (ids.length === 0) return []
   if (nodeLabels === undefined) return []
 
