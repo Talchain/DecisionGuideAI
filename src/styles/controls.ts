@@ -46,6 +46,26 @@
  * the palette moves — rather than re-typing a number here that would go stale
  * exactly the way `LABEL_DECLARED_FONT_PX` did.
  */
+/**
+ * ⭐⭐ A FENCED FIELD MUST LOOK FENCED — the regression that `editableField`
+ * would otherwise have introduced.
+ *
+ * Several inspector writers sit inside `<fieldset disabled={readOnly}>` writer
+ * fences (`data-writer-fence="..."`), because this estate's rule is *fence the
+ * writers with no server carrier; leave live the ones that reach the model* —
+ * decided per WRITER, never per panel. Giving those controls the same warm fill
+ * and 3.7:1 border as a live field would advertise an edit the product will
+ * refuse: a MORE convincing lie than the invisible field it replaced, because
+ * the user would now act on it.
+ *
+ * ⚠ `:disabled` propagates from a disabled `<fieldset>` to the form controls
+ * inside it, so this fires on a fenced writer without the panel having to pass
+ * anything down — which matters, since the fence is applied at the fieldset and
+ * the control often does not know it is fenced.
+ */
+const DISABLED_FENCE =
+  ' disabled:bg-panel disabled:border-default disabled:text-text-light disabled:cursor-not-allowed'
+
 export const controls = {
   /**
    * A control that accepts typed input.
@@ -59,5 +79,51 @@ export const controls = {
    * that focus was the FIRST visible state, not that it was the wrong one.
    */
   editableField:
-    'w-full rounded-md bg-panel-hover border border-field focus:border-primary outline-none px-2 py-1 transition-colors',
+    'w-full rounded-md bg-panel-hover border border-field focus:border-primary outline-none px-2 py-1 transition-colors' +
+    DISABLED_FENCE,
+
+  /**
+   * A control that accepts typed prose.
+   *
+   * Identical box to `editableField`; `resize-none` because the inspector is a
+   * fixed-width column and a user-dragged corner reflows the panel.
+   */
+  editableTextarea:
+    'w-full rounded-md bg-panel-hover border border-field focus:border-primary outline-none px-2.5 py-1.5 resize-none transition-colors' +
+    DISABLED_FENCE,
+
+  /**
+   * ⭐ THE RESTING HALF OF A CLICK-TO-EDIT VALUE — and the defect that
+   * `editableField` alone did NOT fix.
+   *
+   * `InlineNumberEditor` is the primary control on the observable-factor and
+   * risk panels: the number a user clicks to change what the model records. In
+   * its resting state it was a bare `<button>` carrying
+   *
+   *     text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5
+   *
+   * — no border, no fill, no cue. Its ONLY visible affordance was `hover:`,
+   * which requires the pointer to already be on it. So the field a user must
+   * find in order to edit anything announced itself exclusively to someone who
+   * had already found it. That is the same defect as the transparent input one
+   * layer earlier, and fixing the input left it untouched, because on these two
+   * panels **the input does not exist until the button has been clicked.**
+   *
+   * ⚠ THE BOX MATCHES `editableField` DELIBERATELY. Same radius, same padding,
+   * same border token — so clicking swaps the readout for a cursor with **no
+   * layout shift**, and a person reading the panel sees one consistent shape
+   * meaning "you can change this". The old pair shifted the number by ~6px on
+   * click, which reads as a glitch rather than as entering a field.
+   */
+  editableResting:
+    'w-full text-left rounded-md bg-panel-hover border border-field hover:border-primary cursor-text px-2 py-1 transition-colors',
+
+  /**
+   * The pencil cue beside a resting editable value.
+   *
+   * Kept as an idiom rather than reinvented: `EditableLabel`'s rename trigger
+   * already uses a pencil, and two different cues for one meaning is exactly
+   * the inconsistency this module exists to stop.
+   */
+  editableCue: 'shrink-0 text-text-light group-hover:text-info transition-colors',
 } as const
