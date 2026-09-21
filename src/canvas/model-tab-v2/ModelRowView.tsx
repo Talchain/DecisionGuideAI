@@ -884,7 +884,47 @@ export function ModelRowView({
           data-testid={`model-row-v2-${row.id}-rename-start`}
           title="Rename this element"
           aria-label={`Rename ${row.label}`}
-          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
+          /*
+           * ⛔⛔ `min-w-0 truncate`, NOT `shrink-0 whitespace-nowrap` — AN ACTION
+           * MUST NOT DRAW OVER THE MODEL.
+           *
+           * `shrink-0` meant this control could not yield, so when the row ran
+           * out of room it OVERFLOWED and painted across the value. Measured on
+           * the deployed build (guest, 1024x768, dock 317px): **8 overlapping
+           * atom pairs, and every single one of them `rename-start x value`** —
+           * the word "Rename" drawn through the number. That is the
+           * `Ren£20,000` in Paul's manual-test screenshot, 21 Sep.
+           *
+           * ⭐ IT IS UNIVERSAL, NOT ONE MODEL'S. `modelRowCellOverlap.measure.ts`
+           * swept all five starters at three dock widths: 10-16 pairs at 320px,
+           * 5-8 at 361px, 0 at 392px — the same monotone curve on every one.
+           *
+           * ⭐ CONTROLLED EXPERIMENT ON THE LIVE BUILD, base -> shrinkable ->
+           * base: **8 -> 0 -> 8**. Hiding the control entirely also gives 0, so
+           * letting it YIELD is sufficient and removing it is unnecessary.
+           *
+           * ⚠ THE TARGET SURVIVES, MEASURED RATHER THAN ASSUMED. Across 19
+           * controls the rendered width goes from a uniform 46.91px to a range
+           * of 30-46.91px: the narrowest is **30px**, still clear of WCAG 2.2 AA
+           * 2.5.8's 24px, and `under24w` is 0 both before and after. The
+           * accessible name is `aria-label` (the full "Rename <label>") and the
+           * hover text is `title`, so neither is affected by visual truncation.
+           *
+           * ⛔⛔ `min-w-[2rem]`, NOT `min-w-0`, AND THE FLOOR IS THE POINT. With
+           * unbounded shrink the measure read **0 overlapping pairs and 181
+           * atoms** at a 320px dock, against 189 at 361px: EIGHT Rename controls
+           * had shrunk to zero width and vanished from the layout entirely. A
+           * zero-area control is invisible AND unclickable, so that trade swaps
+           * a visible defect for a worse invisible one — and the overlap count
+           * would have reported it as a clean pass. 2rem = 32px keeps it clear
+           * of the 24px target at every width the dock allows.
+           *
+           * ⚠ ROWED, NOT FIXED: this button's BOX HEIGHT measures 12px, which is
+           * under the same 24px bar — before this change as well as after. It is
+           * pre-existing and out of scope here, but it is real and nothing else
+           * records it.
+           */
+          className={`${typography.buttonSmall} text-info underline decoration-dotted min-w-[2rem] truncate`}
           onClick={e => {
             /* The row is `role="option"` with its own `onClick`; without this,
                starting a rename would also select the row. Same reason, same
@@ -1125,6 +1165,20 @@ export function ModelRowView({
           data-testid={`model-row-v2-${row.id}-confirm-as-is`}
           title={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].title}
           aria-label={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].label(row.label)}
+          /*
+           * ⚠ NOT CHANGED, AND THE RULING IS WHY. I made this yield too, and
+           * `rowAtomsDoNotWrap.spec.tsx` REDDED it by name: *"Confirm never
+           * shrinks and never wraps — a truncated affordance is a fake one."*
+           * That argument is sound and it is not mine to overturn on a layout
+           * measurement, so this reverted.
+           *
+           * ⚠ BUT THE TENSION IS REAL AND NOBODY HAS RULED ON IT. At a 280px
+           * dock `value x confirm-as-is` is the largest collision class —
+           * measured 17 pairs — so today this control does not truncate, it
+           * OVERLAPS the value. A fake affordance and an affordance painted
+           * across the number are both bad, and the ruling was written before
+           * anything measured the second one. Raised, not resolved.
+           */
           className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
           onClick={e => {
             e.stopPropagation()
