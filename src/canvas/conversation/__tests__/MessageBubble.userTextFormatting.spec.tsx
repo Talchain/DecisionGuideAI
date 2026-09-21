@@ -18,11 +18,12 @@
  *
  *   · supported subset  — bold, bullets, numbered lists, line breaks render as
  *     the corresponding ELEMENT inside the user's own bubble;
- *   · literal subset    — italic (`*x*` / `_x_`) is DELIBERATELY unsupported
- *     (`safeRichText`'s documented allowlist contract, 2d88c8cf, which removed
- *     DOMPurify + `marked` on purpose). Pinned so that re-adding it is a
- *     deliberate contract change with a failing test to answer, not a silent
- *     drift;
+ *   · literal subset    — UPDATED 21 Sep 2026. Asterisk italic (`*x*`) is now
+ *     SUPPORTED; this pin fired on the change and was answered rather than
+ *     flipped, which is what it existed for. UNDERSCORE italic (`_x_`) stays
+ *     unsupported on purpose — producer field names print in prose here and an
+ *     `_x_` rule renders `goal<em>threshold</em>unit`. Backticks, blockquotes
+ *     and headings remain literal;
  *   · injection         — `<script>`, `<b>`, `<img onerror>` render as VISIBLE
  *     TEXT and create NO corresponding element node.
  *
@@ -103,18 +104,42 @@ describe("MessageBubble — the user's own words", () => {
   })
 
   describe('deliberately unsupported syntax stays literal', () => {
-    // Pins safeRichText's documented allowlist. If italic is ever added this
-    // test MUST be updated deliberately — that is the point of pinning it.
-    it('leaves *italic* as literal text and creates no <em>', () => {
+    /**
+     * ⭐ THIS PIN WAS ANSWERED, 21 Sep 2026 — asterisk italics ARE now
+     * supported, and this test is updated deliberately because that is exactly
+     * what it was written to force.
+     *
+     * The change was requested for ASSISTANT prose (`*important*` was rendering
+     * with visible asterisks). The user bubble shares ONE body path with the
+     * assistant bubble, so it follows here too — and that is consistent rather
+     * than incidental: bold, bullets, numbered lists and line breaks ALREADY
+     * rendered in the user's own words at this tip (the three tests above).
+     * Italic was the odd one out because it was unimplemented, not because
+     * anyone ruled that a user's asterisks must stay literal.
+     */
+    it('renders *italic* as <em> — the pin above was deliberately answered', () => {
       const body = renderUserBody('an *urgent* decision')
-      expect(body.textContent).toContain('*urgent*')
-      expect(body.querySelector('em')).toBeNull()
+      expect(body.querySelector('em')?.textContent).toBe('urgent')
+      expect(body.textContent).toContain('urgent')
       expect(body.querySelector('i')).toBeNull()
     })
 
-    it('leaves _italic_ as literal text and creates no <em>', () => {
+    /**
+     * UNDERSCORE italics remain UNSUPPORTED, and this one is a ruling rather
+     * than an omission: this product prints producer field names in prose
+     * (`goal_threshold_unit`, `probability_of_joint_goal`), and an `_x_` rule
+     * renders `goal<em>threshold</em>unit`. The asterisk form carries no such
+     * collision, so the two are not equivalent and only one was taken.
+     */
+    it('leaves _italic_ as literal text and creates no <em> — snake_case safety', () => {
       const body = renderUserBody('an _urgent_ decision')
       expect(body.textContent).toContain('_urgent_')
+      expect(body.querySelector('em')).toBeNull()
+    })
+
+    it('does not shred a snake_case field name', () => {
+      const body = renderUserBody('set goal_threshold_unit now')
+      expect(body.textContent).toContain('goal_threshold_unit')
       expect(body.querySelector('em')).toBeNull()
     })
 
