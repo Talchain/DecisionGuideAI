@@ -127,6 +127,46 @@ const PERCENT_UNIT_SPELLINGS: ReadonlySet<string> = new Set(['%', 'percent', 'pe
 export type UnitClass = 'none' | 'symbol' | 'iso' | 'percent' | 'placeholder' | 'other'
 
 /**
+ * ⭐⭐ WHERE A UNIT GOES, SAID ONCE. Takes an ALREADY-FORMATTED figure.
+ *
+ * Placement and precision are two concerns, and every defect in this class came
+ * from tangling them. Each caller owns how many digits its surface shows — the
+ * threshold sentences cap at two decimals after `passes 0.361111%` shipped,
+ * `formatValueWithUnit` uses significant digits, proportion units use four —
+ * but NONE of them should own where the glyph sits. This function owns that,
+ * and only that.
+ *
+ * ⛔ IT EXISTS BECAUSE THE RULE WAS RE-SPELLED AT EVERY SITE AND THE SITES
+ * DISAGREED, on screen, on the same datum:
+ *
+ *   21 Sep, deployed `e6551858`, one Reasoning tab, eight inches apart:
+ *     At-a-Glance        "Could change if Monthly Churn Rate passes 0.04%"   ✓
+ *     the same threshold "would have to rise from %0.03 to %0.04"            ✗
+ *
+ *   and earlier, from the same class: "Customer demand passes index0.361111"
+ *   and "Price increase for new customers passes 1".
+ *
+ * `glanceCondition`'s header had already named the cause — *"a rule that only
+ * one of two threshold sites can reach is a rule this surface does not have"* —
+ * and the fix at the time was to re-spell it at the second site, which is why
+ * it came back a third time at the third.
+ *
+ * ⚠ A SYMBOL PREFIXES AND A PERCENT SUFFIXES, and neither is a style choice:
+ * `£49` and `49%` are how the glyphs are read. An ISO code and a unit word take
+ * a space (`USD 49`, `53.86 £/month`) because they are words, not glyphs.
+ * `none` and `placeholder` render the bare figure — a placeholder NAMES a scale
+ * rather than measuring in one, so printing it gives "0.36 index".
+ */
+export function applyUnitPlacement(figure: string, unit: string | null | undefined): string {
+  const { kind, canonical } = classifyUnit(unit)
+  if (kind === 'none' || kind === 'placeholder') return figure
+  if (kind === 'symbol') return `${canonical}${figure}`
+  if (kind === 'iso') return `${canonical} ${figure}`
+  if (kind === 'percent') return `${figure}%`
+  return `${figure} ${canonical}`
+}
+
+/**
  * Unit classification used by every value formatter.
  *
  * Returns:
