@@ -41,6 +41,13 @@ export interface Recommendation {
   /** Stable, namespaced, entity-scoped id, e.g. 'strengthen:flip:edge_9'. */
   id: string
   helpType: HelpType
+  /**
+   * ⭐ THE PRODUCER'S DECISION-SCIENCE CLAIM ID, carried through from the
+   * coaching block so `methodForRecommendation` can resolve a TECHNIQUE from an
+   * IDENTITY rather than from prose. Producer-owned passthrough, exactly as
+   * `signalCode` and `biasCode` are: absent stays absent, never invented.
+   */
+  dskClaimId?: string
   title: string
   /** §8.4 short signal — why it appeared. */
   signal: string
@@ -182,6 +189,25 @@ export interface StrengthenFactor {
 export interface StrengthenPhase3Item {
   id: string
   title: string
+  /**
+   * ⭐⭐ THE PRODUCER'S OWN DECISION-SCIENCE CLAIM ID — the only field on a
+   * coaching block that names WHICH TECHNIQUE it is.
+   *
+   * Measured on both real captures: the producer raises `Pre-mortem and
+   * prospective hindsight prompt` and `Outside view and reference class
+   * forecasting`, and the ONLY field distinguishing them is
+   * `dsk_claim_provenance.claim_id` — `DSK-T-001` and `DSK-T-002`. Their
+   * `signal_code` is `CALIBRATION_PROMPT` for BOTH, so the code cannot tell
+   * them apart, and the technique's name appears only in the TITLE, which this
+   * estate forbids parsing.
+   *
+   * ⚠ IT SURVIVED ONTO `GuidanceItem` AND DIED IN THE MAPPER — the same
+   * sentence `signalCode` carries a few lines below, one field over. Without it
+   * `methodIdsRaisedBy` cannot see that a run raised a pre-mortem, so the
+   * methods shelf lists all seven unconditioned on exactly the run where the
+   * producer's blocks are the only coaching there is.
+   */
+  dskClaimId?: string
   body?: string
   actionIntent?: string
   actionLabel?: string
