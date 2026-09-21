@@ -16,6 +16,7 @@ import { typography } from '../../../../styles/typography'
 import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
+import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -116,6 +117,69 @@ export const OptionPanel = memo(function OptionPanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
+
+  /**
+   * ⭐⭐ AN EFFECT YOU SET HERE NOW REACHES THE MODEL.
+   *
+   * Measured on the founder's board (bundle `95b92672`, 21 Sep): **3 of his 5
+   * options carried ZERO interventions**, and the analysis could not tell them
+   * apart. This control was the reason. It called
+   * `mutations.setIntervention` — a pure `updateNode`, **0 dispatch symbols** —
+   * so an effect the reader set landed in their browser and nowhere else, while
+   * the SAME edit made in the Model tab reached CEE through
+   * `useModelEditAuthority.proposeOptionIntervention`.
+   *
+   * ⚠⚠ A CLAIM OF MINE THAT WAS HERE AND IS WITHDRAWN. It read: *"AND THE
+   * CONTROL IS LIVE, WHICH IS WHAT MAKES IT A DEFECT RATHER THAN A FENCE …
+   * `InspectorRouter:542` passes `readOnly` only on the NON-authority branch …
+   * so `readOnly` defaults false here."* **That is false.** `:542` is
+   * `<PanelComponent key={nodeId} {...panelProps} readOnly />` — a BARE
+   * attribute, i.e. `readOnly={true}`, on the AUTHORITY branch. The panel opted
+   * out of the Router's blanket in order to fence its OWN writers, which is the
+   * opposite of what I read it as (CLAUDE.md trap 21: opting in to fencing
+   * yourself is not opting in to writing). `InterventionRow` receives
+   * `disabled={readOnly}` at :532 and, when disabled, renders the value as TEXT
+   * rather than an input — so today a reader cannot edit an option effect from
+   * this panel at all, and `OptionPanel.readOnlyFence.spec.tsx` pins exactly
+   * that.
+   *
+   * ⭐ AND THE FENCE IS NOW LIFTED FOR THIS ONE WRITER — see the `disabled`
+   * prop below, which carries the argument in full. In short:
+   * `FactorControllablePanel` is in the same `AUTHORITY_OWNING_PANELS` set and
+   * fences only its description and its advanced editor, both local-only
+   * writers, while its VALUE control stays live because `proposeFactorValue`
+   * reaches the server. Fence the writers with no carrier; leave live the ones
+   * that reach the model. This row had no carrier; it has one now.
+   *
+   * ⛔ PER WRITER, NEVER PER PANEL. The other three fences are untouched, and
+   * `OptionPanel.readOnlyFence.spec.tsx` asserts every one of them is still
+   * disabled — so unfencing the panel wholesale, which is what the Router's
+   * blanket did, REDs rather than passing as a generalisation of this.
+   *
+   * ⛔ Compare `factor-observable`, which is absent from the set entirely and
+   * is inert for a different reason — no carrier at all. That one is not a
+   * defect and must not be "fixed" by this pattern.
+   *
+   * ⚠ THE CARRIER WAS ALREADY BUILT AND THIS PANEL WAS NOT ASKING FOR IT.
+   * `option_intervention_edit` (schemas 0.54.0) ships end to end —
+   * `conversation/optionInterventionEdit.ts`, `v5/buildPayload.ts:1143`, and the
+   * authority's own guards. Nothing new is invented here; one surface is
+   * pointed at the owner the other already used.
+   *
+   * ⛔ NO LOCAL STORE WRITE, and that is the authority's ruling, not a choice
+   * made here: *"the goal draft never changes the store before a real applied
+   * response"*. The applied `graph_patch` owns the write.
+   *
+   * ⭐ SO THE ROW NEEDS A PENDING VALUE OF ITS OWN — the same shape `EdgePanel`
+   * uses for `localStrength`. Without it the number would visibly snap back to
+   * its old value on every edit, which reads as the control being broken and is
+   * a worse lie than the one this fixes.
+   */
+  const {
+    commit: commitIntervention,
+    pending: pendingIntervention,
+    notice: interventionNotice,
+  } = useOptionInterventionCommit(nodeId ?? null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
@@ -480,18 +544,71 @@ export const OptionPanel = memo(function OptionPanel({
                    test passed because they hand the prop in themselves; only the
                    mounted InspectorModal test could see it, and it did. */
                 recordedBaseline={iv.recordedBaseline}
-                currentValue={iv.value}
+                currentValue={
+                  pendingIntervention?.factorId === iv.factorId
+                    ? pendingIntervention.value
+                    : iv.value
+                }
                 displayValue={iv.displayValue}
                 unit={iv.unit}
                 provenanceSource={iv.provenanceSource}
-                onChange={v => mutations.setIntervention(iv.factorId, v)}
+                onChange={v => commitIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
-                disabled={readOnly}
+                /**
+                 * ⭐⭐ THE ONE WRITER ON THIS PANEL WITH A SERVER CARRIER, AND
+                 * THEREFORE THE ONE THAT IS NOT FENCED.
+                 *
+                 * This is the estate's own rule, stated by its own code rather
+                 * than invented here. `FactorControllablePanel` is in the same
+                 * `AUTHORITY_OWNING_PANELS` set and receives the same
+                 * `readOnly`; it fences exactly two things — its description
+                 * and its advanced editor, both local-only writers — and
+                 * leaves its VALUE control live, because `proposeFactorValue`
+                 * reaches the server. Fence the writers with no carrier; leave
+                 * live the ones that reach the model.
+                 *
+                 * Until the commit above, this row had no carrier: it called
+                 * `mutations.setIntervention`, a pure local write, and the
+                 * fence was correct. `option_intervention_edit` gives it one,
+                 * so the fence now withholds a connected write — which is the
+                 * state that produced the founder's board, where 3 of 5
+                 * options carried no effect at all.
+                 *
+                 * ⚠ `false`, NOT `readOnly`, AND NOT SIMPLY OMITTED. Written
+                 * out so the next reader sees a DECISION rather than a missing
+                 * prop, and so the diff that ever restores `readOnly` has to
+                 * delete this paragraph to do it.
+                 *
+                 * ⛔ THE OTHER THREE FENCES STAY. `description`, `add-factor`
+                 * and `advanced-editor` are unchanged: the first two write
+                 * locally and the third's own intervention rows already route
+                 * through this same owner while its remaining fields do not.
+                 * Unfencing per PANEL rather than per WRITER is what the
+                 * Router's blanket did, and this panel exists to be finer than
+                 * that.
+                 */
+                disabled={false}
                 techMode={techMode}
                 /* normalisedValue intentionally omitted — raw system values
                    live in TechnicalDisclosure via OptionAdvancedEditor. */
               />
             ))
+          )}
+
+          {/* ⛔ THE REFUSAL, SAID OUT LOUD. The authority returns two of them and
+              its header instructs the caller to disclose rather than swallow;
+              a control that silently does nothing is the defect this change
+              exists to close, wearing a different face. Rendered here, below
+              the rows it is about, so it cannot be mistaken for a notice about
+              the option as a whole. */}
+          {interventionNotice !== null && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1.5`}
+              data-testid="option-intervention-notice"
+              role="status"
+            >
+              {interventionNotice}
+            </p>
           )}
 
           {/* Add a change — inside PrimaryControlCard as the list footer */}

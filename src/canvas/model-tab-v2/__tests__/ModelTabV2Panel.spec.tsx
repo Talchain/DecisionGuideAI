@@ -55,6 +55,7 @@ import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { useCanvasStore } from '../../store'
 import { normaliseRawFactorValue } from '../../utils/observedStateHelpers'
 import { openOutlineGroups } from './openOutlineGroups'
+import { USER_VALUE_STAMP } from '../../domain/valueProvenance'
 
 const FACTOR_ID = 'fac_monthly_eng_cost'
 const CAP = 30000
@@ -268,11 +269,25 @@ describe('ModelTabV2Panel — factor value edits ride the canonical transaction'
     proposeFactorValue(String(NEW_RAW))
     fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-confirm`))
 
-    // The sanctioned-setter write: value + raw_value + stamp, one update.
+    // The sanctioned-setter write: value + raw_value, one update.
     const obs = observed(FACTOR_ID)
     expect(obs.value).toBe(normaliseRawFactorValue(NEW_RAW, CAP))
     expect(obs.raw_value).toBe(NEW_RAW)
-    expect(obs.source).toBe('user')
+
+    /**
+     * ⚠⚠ THIS ARM REVERSED, AND THE REVERSAL IS THE POINT OF THE CHANGE ABOVE.
+     * It asserted `obs.source === 'user'` — the stamp written OPTIMISTICALLY,
+     * at the moment of the click. That is the claim this branch withdraws: it
+     * says "checked by you" about a number the engine has not accepted, and on
+     * a refusal the dispatcher reverts the VALUE while the authorship claim
+     * stays behind.
+     *
+     * ⭐ THE CLAIM IS NOT DELETED, IT IS MOVED TO WHERE IT CAN BE HONOURED.
+     * It rides the undo snapshot asserted below, and the dispatcher applies it
+     * on the applied `graph_patch` — ROADMAP 2.304's receipt gate. So the
+     * source stays whatever the producer wrote until a receipt says otherwise.
+     */
+    expect(obs.source).toBe('cee_inference')
 
     // The wire event — the SAME shape the reference surface emits.
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
@@ -292,6 +307,19 @@ describe('ModelTabV2Panel — factor value edits ride the canonical transaction'
     expect(opts?.optimisticFactorEdit).toBeDefined()
     expect(opts.optimisticFactorEdit.nodeId).toBe(FACTOR_ID)
     expect(opts.optimisticFactorEdit.sentValue).toBe(normaliseRawFactorValue(NEW_RAW, CAP))
+
+    /**
+     * ⭐ AND THE AUTHORSHIP CLAIM IS ON IT — the other half of the reversal
+     * above. Asserting only that the store was NOT stamped would be satisfied
+     * by a change that simply dropped the claim, which is the opposite defect:
+     * the reader types a number and is never credited for it. Both arms, or
+     * the pair proves nothing (trap 22b).
+     */
+    // ⚠ THE FIELD IS `reviewedStamp`. My first spelling was `provenance` and it
+    // read `undefined` — which for a moment looked like this branch dropping the
+    // claim altogether. Read at `captureOptimisticFactorEdit:129` rather than
+    // guessed the second time.
+    expect(opts.optimisticFactorEdit.reviewedStamp).toMatchObject(USER_VALUE_STAMP)
   })
 
   it('Discard reverts to idle: store untouched, nothing sent, original value shown', () => {
