@@ -96,8 +96,36 @@ describe('nextInputToSet — on the real captures', () => {
     expect(reversed).toEqual(forward)
   })
 
+  /**
+   * ⛔⛔ THIS PINS ITS OWN PRECONDITION, AND THE FIRST VERSION DID NOT.
+   *
+   * It asserted only that `identityIsCurrent: false` yields `null`. That passes
+   * for the RIGHT reason today and would keep passing for the WRONG one: if a
+   * capture ever stopped yielding a result at all — a label blanked, the
+   * blocking set stopped intersecting, a tie appeared inside
+   * `INFLUENCE_TIE_EPSILON` — the `null` would be the fixture's failure rather
+   * than the identity flag's doing, and nothing here could tell the difference.
+   *
+   * ⚠ IT WAS NOT VACUOUS, AND THAT IS EXACTLY WHY IT WAS WORTH FIXING. Sibling
+   * tests in this file do assert a non-null result on the same captures, so the
+   * discrimination WAS preserved — by COUPLING TO ANOTHER TEST. Narrow or move
+   * those and this one hollows out silently, with no red anywhere. A guard whose
+   * power lives in a different `it()` block is one refactor from a tautology
+   * (CLAUDE.md trap 13b).
+   *
+   * The pair below is the whole point: the SAME inputs, differing ONLY in the
+   * identity flag, must give a result and then withhold it.
+   */
   it.each(Object.keys(CAPTURES))('%s names nothing when the identity is not current', (name) => {
     const c = CAPTURES[name]
+
+    // PRECONDITION, asserted rather than assumed: these inputs DO name something
+    // when the identity is current. Without this line the expectation below can
+    // be satisfied by a fixture that names nothing under any conditions.
+    const whenCurrent = selectNextInputToSet(c.factors, c.awaitingUserIds, true)
+    expect(whenCurrent).not.toBeNull()
+    expect(whenCurrent!.label.trim().length).toBeGreaterThan(0)
+
     expect(selectNextInputToSet(c.factors, c.awaitingUserIds, false)).toBeNull()
   })
 
