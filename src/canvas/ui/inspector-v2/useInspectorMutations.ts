@@ -671,6 +671,33 @@ export function useNodeMutations(nodeId: string) {
           ...(typeof rawValue === 'number' && Number.isFinite(rawValue) ? { raw_value: rawValue } : {}),
           ...(opts?.source ? { source: opts.source } : {}),
           display_value: undefined,
+          // ⭐⭐ AND `extractionType`, FOR EXACTLY THE REASON ABOVE — it described
+          // the PREVIOUS value's origin, and the previous value is gone.
+          //
+          // CEE writes `extractionType: 'inferred'` beside `source:
+          // 'cee_inference'` (`observedStateHelpers.ts:186-187`), and
+          // `FactorNode.tsx:199` reads THAT field — not `source` — to decide
+          // whether to print the `est.` marker. So without this line a user
+          // typed a number and the card went on labelling it Olumi's estimate,
+          // indefinitely: the spread preserved the stale marker while every
+          // other trace of the old value was replaced.
+          //
+          // Measured on deployed `fd992149`: 5 of 5 valued factors on a starter
+          // board carry `extractionType: 'inferred'` (contrast control: the same
+          // 5 carry `source`), so this reached EVERY factor a user could edit.
+          //
+          // ⚠ CLEARED, NOT RE-AUTHORED, and that is the same ruling
+          // `display_value` above is under: this field is the SERVER's to write.
+          // Setting it to `'explicit'` here would be the client asserting an
+          // extraction it did not perform. Clearing drops the card to its honest
+          // fallback until the server's `graph_patch` re-authors it.
+          //
+          // ⚠ NOT A PROVENANCE CLAIM, so it is NOT receipt-gated (ROADMAP 2.304
+          // stands). Withdrawing a statement that is now FALSE is not the same
+          // act as asserting a new one — and a refusal restores it anyway, because
+          // `revertOptimisticFactorEdit` puts back the whole captured
+          // `observedState`, including the absence of keys that were absent.
+          extractionType: undefined,
         },
       },
     })
