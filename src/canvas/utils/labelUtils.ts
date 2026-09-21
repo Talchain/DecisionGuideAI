@@ -714,6 +714,107 @@ export interface UnwrappedIntervention {
   source: string | null
 }
 
+/**
+ * ⭐⭐ THE ONE BOUNDARY WHERE CEE'S INTERVENTION SHAPES BECOME ONE SHAPE.
+ *
+ * ⚠⚠ THERE ARE **TWO** WIRE SHAPES, NOT ONE. This docblock asserted that CEE
+ * *"does not send a nested intervention"*. That was FALSE of what the UI
+ * receives, and the code written from it destroyed the numeric half of every
+ * intervention on every committed starter — 70 of them — which is what took
+ * `e2e/geometry/restoredOldSaveWidth.measure.ts` from 0 to 6 overlapping pairs.
+ *
+ *   FLAT    options[i].interventions        = { "<factorId>": 0.9 }
+ *           options[i].intervention_details = { "<factorId>": { display_value: "£18k", … } }
+ *           — Paul's live bundles `a039817e` and `d41770fd`.
+ *
+ *   NESTED  options[i].interventions        = { "<factorId>": { value: 1,
+ *             source: "brief_extraction", display_value: "Very high (1)" } }
+ *           — all FIVE committed starters (70 interventions; 19 of 20 options
+ *           also carry a `intervention_details` sibling), and the shape
+ *           `src/types/options.ts:79` (`UIInterventionValue`) declares.
+ *
+ * ⛔ SO THIS FUNCTION IS A COMPATIBILITY ADAPTER, NOT A MERGE. It is the single
+ * named place where the two become one; do not inline a second copy, and do not
+ * let either representation past it. Its corpus must keep BOTH shapes — the
+ * first version of this fix was tested only against the flat one, on the stated
+ * grounds that the nested one was fictional, so its suite could not see the
+ * defect it shipped (CLAUDE.md trap 22: a corpus that shares the code's blind
+ * spot). Retire the adapter when the shared schema converges on one shape —
+ * which is an open question with the producer, not something to guess here.
+ *
+ * `unwrapInterventionValue` reads `display_value` off a NESTED intervention and
+ * `formatInterventionTargetText` opens with the F.6 passthrough that renders it
+ * verbatim — but nothing joined the two maps, so on the served path
+ * `displayValue` was always `undefined`, the passthrough could never fire, and
+ * the UI re-derived a native value it cannot know.
+ *
+ * ⚠ MEASURED ON PAUL'S MODEL TWICE IN ONE DAY (20 Sep 2026):
+ *   - `a039817e`: CEE authored `"£18k"`; the card rendered **"£0.9"**, because
+ *     Advertising Spend's baseline is `0` and `inferInterventionScaleBase`
+ *     requires `observedValue > 0`, so the normalised value was printed with
+ *     the unit stuck on it.
+ *   - `d41770fd`: the "Warm Intro via Network" card captioned itself
+ *     *"Investor relationship… is the key difference"* and then did NOT show
+ *     it — CEE had authored `"0.8 scale"`, and with no factor `raw_value` to
+ *     anchor, the UI suppressed the whole intervention.
+ *
+ * ⚠⚠ THIS MUST BE APPLIED TO BOTH SIDES OF A COMPARISON OR IT MAKES THINGS
+ * WORSE. `OptionNode`'s delta chips drop any pair where one side has an
+ * authored string and the other does not (*"a labelled target and an
+ * unlabelled reference may use different frames"*) — so joining only the
+ * target's map deleted every chip on the card. Measured, not reasoned: the
+ * first cut of this fix rendered an empty option card.
+ *
+ * ⭐ ONE OWNER. Both the chip builder and the baseline-reference resolver call
+ * this, so the two sides of a "from → to" can never be built from different
+ * shapes. Do not inline a second copy — that divergence is exactly what
+ * `interventionNumericValue`'s docblock exists to prevent one level down.
+ *
+ * `value` is written LAST on BOTH arms, so the authoritative numeric half always
+ * comes from `interventions` — the same map the PLoT request edge reads — and a
+ * display can never disagree with the wire, whatever `normalised_value` says.
+ * On the nested arm that means `nested.value`, restored after the detail spread;
+ * on the flat arm the entry itself. `display_value` goes the other way: the
+ * detail's authored string wins, because that map is the one CEE writes for
+ * display.
+ *
+ * @param interventions  the flat `interventions` map (or any object form)
+ * @param details        the sibling `intervention_details` map, when present
+ * @returns entries safe to pass to `unwrapInterventionValue`, unchanged when
+ *          there is no detail to join
+ */
+export function joinInterventionDetails(
+  interventions: Record<string, unknown>,
+  details?: Record<string, unknown> | null,
+): [string, unknown][] {
+  return Object.entries(interventions).map(([factorId, rawValue]) => {
+    const detail = details?.[factorId]
+    if (detail == null || typeof detail !== 'object' || Array.isArray(detail)) {
+      // No detail to join. The entry is already whatever shape it arrived in,
+      // and `unwrapInterventionValue` reads both — so pass it through untouched
+      // rather than wrapping it and inventing a shape neither producer sends.
+      return [factorId, rawValue]
+    }
+
+    const nested =
+      rawValue != null && typeof rawValue === 'object' && !Array.isArray(rawValue)
+        ? (rawValue as Record<string, unknown>)
+        : null
+
+    if (nested) {
+      // NESTED. The intervention already carries its own fields (`source`,
+      // `value_confidence`, `reasoning`, often its own `display_value`). Keep
+      // them, let the DETAIL's authored string win where both have one — that
+      // map is what CEE writes for display — and restore the numeric half from
+      // the intervention, which the spread would otherwise have overwritten.
+      return [factorId, { ...nested, ...(detail as Record<string, unknown>), value: nested.value }]
+    }
+
+    // FLAT. The entry IS the number, so it becomes the `value`.
+    return [factorId, { ...(detail as Record<string, unknown>), value: rawValue }]
+  })
+}
+
 export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
   // The numeric half is NOT decided here. `interventionNumericValue`
   // (src/utils/interventionValue.ts) is the one predicate shared with
