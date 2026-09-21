@@ -154,6 +154,31 @@ export interface FactorDisplayInput {
  * (CLAUDE.md trap 21).
  */
 value_source?: string | null
+  /**
+   * ⭐⭐ THE NUMBER A PERSON HAS JUST TYPED THAT THE ENGINE HAS NOT ACKNOWLEDGED.
+   * Model-scale, from `conversation/pendingFactorEdit`. `null` normally.
+   *
+   * ⛔ IT IS NOT PROVENANCE AND MUST NEVER BE TREATED AS ANY. It is delivery
+   * state: this node was given this value by a person and no receipt has come
+   * back. `observedState.source` is deliberately withheld until CEE returns an
+   * applied receipt, because stamping it at dispatch asserts a review the
+   * engine has not acknowledged — the 2.304 defect verbatim. So this field
+   * exists to answer a DIFFERENT question from `value_source`: not *"who is on
+   * record as stating this?"* but *"is the product currently hiding something
+   * the user can see themselves typing?"* (CLAUDE.md trap 21 — one predicate
+   * must not answer two questions; that is why this is a second field and not
+   * a third value of `value_source`.)
+   *
+   * ⚠ IT ONLY EVER RESCUES ITS OWN NUMBER. Every use below requires
+   * `pending_user_value === value`, so a stale in-flight figure can never make
+   * a DIFFERENT number visible. Without that identity bind this would be a
+   * value predicate another object could satisfy.
+   *
+   * Witnessed defect it closes (#1837, 21 Sep 2026): typing `0.77` into a
+   * `unit: "scale"` factor moved the canonical store 0.5 → 0.77 and the card
+   * then showed **nothing**, unmounting the editor with it.
+   */
+  pending_user_value?: number | null
   category?: string | null
   /**
    * CEE-provided contextual display text. Returned verbatim when none of the
@@ -243,6 +268,13 @@ export function factorDisplayText(
     factor_type: (observedState?.factor_type as string | null | undefined) ?? null,
     cap: unwrapInterventionValue(observedState?.cap).value,
     value_source: (observedState?.source as string | null | undefined) ?? null,
+    // ⭐ Read from the TOP LEVEL, never from `observedState`. The canonical
+    // observed state is the persisted model; an unacknowledged keystroke is not
+    // part of it and must never be written there (see
+    // `conversation/pendingFactorEdit`). The card passes it in alongside the
+    // node data, so this projection stays the single owner of the decision.
+    pending_user_value:
+      typeof data.pending_user_value === 'number' ? (data.pending_user_value as number) : null,
     category,
     display_value: displayValue,
     // Top-level on node data (`mapDraftNodeToCanvas` spreads the wire node's
@@ -513,6 +545,24 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // card rendered nothing. The product may decline to assert its OWN estimate;
   // it may not hide his.
   const userStatedThisValue = input.value_source === 'user' || input.value_source === 'user_confirmed'
+  /**
+   * ⭐ THE SAME VISIBILITY RULE, ONE STATE EARLIER — and deliberately a separate
+   * name from `userStatedThisValue` rather than another arm of it.
+   *
+   * `userStatedThisValue` answers *"who is on record as stating this?"*. This
+   * answers *"is a person watching a number they just typed?"*. They coincide
+   * on the visibility decision and differ on every provenance claim, so fusing
+   * them into one predicate would be exactly the trap this file's own
+   * `value_source` docblock names.
+   *
+   * ⚠ Bound to the number being formatted, never merely to the node.
+   */
+  const pendingUserValueIsThisNumber =
+    typeof input.pending_user_value === 'number'
+    && typeof value === 'number'
+    && input.pending_user_value === value
+  /** The person's own number, acknowledged or not. Visibility only. */
+  const doNotHideThePersonsNumber = userStatedThisValue || pendingUserValueIsThisNumber
 
   /**
    * ⛔⛔ THE RESCUE FIRES ONLY WHERE NOTHING HAS ALREADY BEEN SAID — AND THE
@@ -570,7 +620,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   if (
     raw_value != null
     && unit
-    && (unitKind !== 'placeholder' || (userStatedThisValue && !placeholderMeaningAlreadyDeclared))
+    && (unitKind !== 'placeholder' || (doNotHideThePersonsNumber && !placeholderMeaningAlreadyDeclared))
   ) {
     const numericRaw = typeof raw_value === 'number' ? raw_value : Number(raw_value)
     if (!isNaN(numericRaw)) {
@@ -583,7 +633,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // ISO-style prefix "CHF 500" instead of the old suffix "500 CHF".
       // ⚠ A PLACEHOLDER UNIT STILL PRINTS NO UNIT WORD, only the figure. The
       // word asserts a scale nobody defined; the figure is the person's own.
-      // Reached only when `userStatedThisValue` opened the gate above.
+      // Reached only when `doNotHideThePersonsNumber` opened the gate above.
       if (unitKind === 'placeholder') {
         return formatNumber(numericRaw)
       }
@@ -747,7 +797,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     // that arrives with a `raw_value`; this covers one that does not. Both
     // paths suppressed, so fixing one would have left the other hiding the
     // person's own number for a shape nobody would think to test.
-    if (isMeaningless && !isExplicitlyBinary && userStatedThisValue && typeof value === 'number') {
+    if (isMeaningless && !isExplicitlyBinary && doNotHideThePersonsNumber && typeof value === 'number') {
       return formatNumber(value)
     }
     if (isMeaningless && !isExplicitlyBinary) {

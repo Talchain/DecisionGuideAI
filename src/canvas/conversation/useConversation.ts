@@ -164,6 +164,7 @@ import {
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
+import { markFactorEditInFlight, settleFactorEditInFlight } from './pendingFactorEdit'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -3905,6 +3906,26 @@ export function useConversation(): UseConversationReturn {
         opts.mode === 'system' && systemEvent?.type === 'factor_value_edit'
           ? (opts.optimisticFactorEdit ?? null)
           : null
+      // ⭐⭐ AND THE CARD IS TOLD THE NUMBER IS IN FLIGHT, at this same moment
+      // and for the same reason: this is where the dispatch is ADMITTED, so it
+      // is the earliest point at which "a person typed this and the engine has
+      // not answered" is true. Marking at composition time would claim a send
+      // that may never happen.
+      //
+      // Placed here rather than in the three writer surfaces because all of
+      // them — the on-graph editor, the inspector panel and the pre-analysis
+      // drill-in — reach the wire through this one function, and a deferred
+      // flush arrives here too. One owner, so the immediate and deferred paths
+      // cannot drift (the mistake the 2.304 stamp was written to avoid).
+      //
+      // ⛔ Delivery state only. Nothing here writes provenance; the stamp is
+      // still `confirmOptimisticFactorEdit`'s alone, against a receipt.
+      if (inFlightOptimisticFactorEditRef.current) {
+        markFactorEditInFlight(
+          inFlightOptimisticFactorEditRef.current.nodeId,
+          inFlightOptimisticFactorEditRef.current.sentValue,
+        )
+      }
       // Stop-fence: capture the stop identity HERE, at the point every turn kind
       // passes through, not only in the V5 branch. The V5 branch refines it below
       // once `currentScenarioId` is definitively resolved (it can MINT a scenario
@@ -5800,6 +5821,35 @@ export function useConversation(): UseConversationReturn {
         // under `cancelTurn`. Same ownership rule as the run slot below.
         if (inFlightOptimisticFactorEditRef.current === opts.optimisticFactorEdit) {
           inFlightOptimisticFactorEditRef.current = null
+        }
+        // ⭐⭐ EVERY-EXIT SETTLE FOR THE PENDING READOUT, and it belongs in THIS
+        // `finally` rather than at the four resolution sites.
+        //
+        // Acceptance (`confirmOptimisticFactorEdit`), refusal
+        // (`resolveFailedOptimisticFactorEdit`), a non-applied reply
+        // (`revertOptimisticFactorEdit`) and interruption
+        // (`resolveInterruptedOptimisticFactorEdit`) all end the pending state
+        // and differ only in what the CANONICAL graph then holds. Settling at
+        // each of them is four chances to miss one, and a missed settle leaves
+        // a card permanently claiming a value is in flight — a worse lie than
+        // the blank it replaced. A `finally` also covers the exits none of them
+        // name: an abort, a timeout, a thrown dispatch.
+        //
+        // ⚠ Ordering is load-bearing and is already correct: the resolution
+        // sites run BEFORE this finally, so by the time pending clears the
+        // canonical state is settled and the card transitions straight from
+        // "pending 0.77" to either the stamped value or the restored previous
+        // one — never through a blank frame.
+        //
+        // ⚠ `settleFactorEditInFlight` stands down on a superseded value
+        // (see its header), so a preempted turn's late finally cannot blank a
+        // newer edit the user can still see — the same ownership rule as the
+        // reference-identity clear above.
+        if (opts.optimisticFactorEdit) {
+          settleFactorEditInFlight(
+            opts.optimisticFactorEdit.nodeId,
+            opts.optimisticFactorEdit.sentValue,
+          )
         }
         useDraftStore.getState().setIsGenerating(false)
         // ROADMAP 2.122 — every-exit settle for the streamed draft phase

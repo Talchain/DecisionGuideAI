@@ -12,6 +12,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { NodeValueEditor } from './shared/NodeValueEditor'
+import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
@@ -75,6 +76,20 @@ export const FactorNode = memo((props: NodeProps) => {
    * model — which is the trap-21 shape this estate keeps paying for.
    */
   const editAuthority = useModelEditAuthority(props.id)
+  /**
+   * ⭐⭐ THE NUMBER THIS CARD WOULD OTHERWISE BE HIDING.
+   *
+   * Witnessed on this PR before the fix: typing `0.77` into a `unit: "scale"`
+   * factor moved the canonical store 0.5 -> 0.77 and the card then rendered
+   * NOTHING, unmounting its own editor with it. Two correct rules composing
+   * wrongly — the projection suppresses an unanchored bare number so it cannot
+   * read as measured, and the edit authority rightly withholds `source: 'user'`
+   * until CEE returns a receipt, so the projection's rescue could never fire.
+   *
+   * ⛔ Delivery state, not provenance: it paints no pill, moves no "to verify"
+   * count, and is never persisted. See `conversation/pendingFactorEdit`.
+   */
+  const pendingEditValue = usePendingFactorEditValue(props.id)
   const controllability = useMemo(() => {
     if (!isPostAnalysis) return undefined
     return deriveControllability(props.id, ceeAnalysisReady?.options, edges, nodeCategory)
@@ -178,12 +193,15 @@ export const FactorNode = memo((props: NodeProps) => {
     () => factorDisplayText({
       ...props.data,
       label: cleanedLabel,
+      // Top level, never inside observedState: the observed state is the
+      // persisted model and an unacknowledged keystroke must not reach it.
+      pending_user_value: pendingEditValue,
       observedState: observedState && {
         ...observedState,
         unit: isSuppressedUnit(observedState.unit ?? undefined) ? undefined : observedState.unit,
       },
     }),
-    [props.data, cleanedLabel, observedState],
+    [props.data, cleanedLabel, observedState, pendingEditValue],
   )
 
   // Prior range for external factors (only the range values, no "Variable"
