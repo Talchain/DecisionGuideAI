@@ -259,27 +259,64 @@ describe('every writer is fenced, and every non-writer is not', () => {
   })
 })
 
-describe('a read-only target reads as a value, not a broken input', () => {
+/**
+ * ⚠⚠ THIS BLOCK REVERSED, AND THE REVERSAL IS THE POINT OF THE CHANGE ABOVE IT.
+ *
+ * It used to assert the target renders as TEXT, because this row wrote LOCALLY
+ * and a control that cannot save should not look like one. That reasoning was
+ * right and its premise has gone: the row now dispatches
+ * `option_intervention_edit`, so the value it shows is one the reader can
+ * actually change.
+ *
+ * ⭐ WHAT IS KEPT VERBATIM IS THE HALF THAT SURVIVES THE REVERSAL: the number
+ * still says WHICH SCALE IT IS ON. `InterventionRow`'s editable branch carries
+ * the same qualifier as its read-only one, in its own words — *"THE BOX NEEDS
+ * THE SAME TRUTH THE VALUE DOES. Being editable never made an unlabelled
+ * number scientifically valid."* Enabling an edit while dropping a disclosure
+ * would be a worse trade than the fence ever was, so that is asserted here
+ * rather than assumed.
+ *
+ * ⛔ AND THE READ-ONLY BRANCH IS NOT DELETED. `InterventionRow` still honours
+ * `disabled`; this panel simply no longer passes it for this row. A component
+ * keeping a capability no current caller uses is not dead code to tidy — it is
+ * what makes the next fenced caller possible.
+ */
+describe('the connected target is editable and still says which scale it is on', () => {
   beforeEach(seed)
 
-  it('renders the target as text with no disabled input in its place', () => {
+  it('⭐ offers a real input where it used to offer text — the fence lifted with the carrier', () => {
     openOption()
     const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
 
-    const target = within(row).getByTestId(`intervention-target-readonly-${FACTOR_ID}`)
-    expect(target).toHaveTextContent('0.49')
+    const input = row.querySelector('input')
+    expect(input, 'the connected writer is still fenced').toBeTruthy()
+    expect((input as HTMLInputElement).disabled, 'the input is rendered but inert').toBe(false)
+    expect(
+      within(row).queryByTestId(`intervention-target-readonly-${FACTOR_ID}`),
+      'the read-only readout is still rendered beside an editable input',
+    ).toBeNull()
+    // ⚠ THE VALUE MOVED FROM textContent INTO THE BUFFER, which is what an
+    // editable row means. Asserting it on the element would pass vacuously on
+    // an empty input sitting beside the label.
+    expect((input as HTMLInputElement).value).toBe('0.49')
     // ⚠⚠ THE UNIT DOES NOT EXEMPT IT, and this fixture is the reason. The factor
     // carries `unit: '£'` — belonging to the recorded raw 59 — while the target
     // is the normalised 0.49. My first condition was `!displayValue && !unit`,
     // so the one row that most needed the qualifier was the only row denied it,
     // because a unit describing a DIFFERENT quantity suppressed it.
-    expect(target).toHaveTextContent('model value')
-    // A greyed box invites a click, absorbs it, and teaches the reader the
-    // product is broken rather than that this surface does not edit.
-    expect(
-      row.querySelector('input'),
-      'a disabled input is still rendered where the value should be',
-    ).toBeNull()
+    expect(row).toHaveTextContent('model value')
+  })
+
+  it('⛔ CONTRAST — the panel\'s OTHER writers stay fenced, so this is per-WRITER and not per-panel', () => {
+    openOption()
+    // Unfencing the panel wholesale is what the Router's blanket did. The two
+    // writers with no server carrier must still be inert, or the pair above
+    // proves nothing about the boundary.
+    const fences = Array.from(document.querySelectorAll('[data-writer-fence]'))
+    expect(fences.length, 'the panel declares no writer fences at all').toBeGreaterThan(0)
+    for (const f of fences) {
+      expect((f as HTMLFieldSetElement).disabled, `${f.getAttribute('data-writer-fence')} is not fenced`).toBe(true)
+    }
   })
 })
 
@@ -336,7 +373,10 @@ describe('the numeric fallback says which scale it is on', () => {
     openOption()
     const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
     // `observedState.unit` is '£' here and the target is still qualified.
-    expect(within(row).getByTestId(`intervention-target-readonly-${FACTOR_ID}`)).toHaveTextContent('model value')
+    // The row is editable now; the qualifier rides the INPUT, which is where
+    // `InterventionRow` puts it and why the box carries the same truth.
+    expect(row).toHaveTextContent('model value')
+    expect(row.querySelector('input'), 'the paired case lost its editor').toBeTruthy()
   })
 
   it('does NOT qualify a target the producer framed itself — the twin', () => {
@@ -379,7 +419,17 @@ describe('the permitted controls are exercised, not merely enabled', () => {
     // No description and no editor: the pane must still say something rather
     // than rendering an empty region that reads as a loading state.
     expect(screen.queryByTestId('option-description-readonly')).toBeNull()
-    expect(screen.queryByRole('textbox'), 'a read-only pane offered an editor').toBeNull()
+    // ⚠ SCOPED TO THE DESCRIPTION FENCE, and it had to be. This read
+    // `queryByRole('textbox')` over the WHOLE pane, which was a true statement
+    // only while every control on the panel was fenced; the intervention row is
+    // an input now. Widening the assertion back would make this test fail for a
+    // reason that has nothing to do with the description.
+    const descriptionFence = document.querySelector('[data-writer-fence="description"]')
+    expect(descriptionFence, 'the description fence is gone').toBeTruthy()
+    expect(
+      descriptionFence!.querySelector('textarea, input[type="text"]'),
+      'a read-only description offered an editor',
+    ).toBeNull()
     // ⚠⚠ AND THE ASSERTION THAT ACTUALLY DISCRIMINATES. "No textarea exists"
     // passed on a dead button — `EmptyDescriptionPrompt` with a no-op
     // `onStartEditing` still rendered `role="button"` and a tab stop, so the
