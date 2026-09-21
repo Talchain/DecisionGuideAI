@@ -492,11 +492,40 @@ export const AIInputBar = memo(
       [addOption, closeAddOption, dispatchAction, clearDraft, onAfterSend],
     )
 
+    /**
+     * ⭐ ESCAPE HANDS THE KEYBOARD BACK TO THE CANVAS, which is what the estate
+     * already told itself this key did.
+     *
+     * `useKeyboardShortcuts.ts` explains the historic "Escape was needed"
+     * workaround: the composer is a `<textarea>`, it keeps focus once it has
+     * it, and single-key canvas shortcuts are deliberately suppressed inside
+     * text fields — so `V`/`H` go inert. The recorded remedy was to release
+     * focus when the user engages the canvas, and that works: a pointer-down on
+     * the graph pane revives the keys.
+     *
+     * ⚠ BUT IT IS THE ONLY ROUTE, AND IT IS NOT THE ONE PEOPLE REACH FOR.
+     * Measured 21 Sep 2026 at 1440x900: on a fresh load `first-use-input-bar-
+     * textarea` AUTOFOCUSES, so `V`/`H` are dead from the first moment of the
+     * session; pressing Escape left focus exactly where it was (this component
+     * bound no Escape handler at all), and the keys stayed dead. So the one
+     * gesture users actually try did nothing, on every surface, from load.
+     *
+     * Escape now blurs. It does not preventDefault and does not stop
+     * propagation: anything above that also treats Escape as dismiss — a modal,
+     * a popover — still sees it, because this claims only the focus, not the
+     * key. Enter/Shift+Enter are untouched, and no LETTER gains a canvas
+     * meaning inside the box, which is the rule the suppression exists to keep:
+     * typing "have" must never flip the canvas into hand mode.
+     */
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault()
           handleSend()
+          return
+        }
+        if (e.key === 'Escape') {
+          e.currentTarget.blur()
         }
       },
       [handleSend],
