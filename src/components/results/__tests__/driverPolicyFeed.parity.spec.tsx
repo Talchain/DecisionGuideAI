@@ -197,7 +197,46 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     }
   })
 
-  it('producer basis: an exact tie yields no rendered ordinal, and the values still agree across surfaces', () => {
+  /**
+   * ⛔⛔ THIS TEST INVERTED ON 2026-09-22, AND THE INVERSION IS THE POINT.
+   *
+   * It used to assert that this fixture prints NO canvas ordinal, because the
+   * two factors carry the SAME `influence_score` (0.5) and — at the time — the
+   * canvas badge ranked on that number. A tie in the ranked quantity cannot
+   * support a comparative claim, so the gate fired and both ranks read `null`.
+   *
+   * ⭐ #1628 changed WHICH QUANTITY THE ORDINAL CLAIMS, and the fixture stopped
+   * being a tie in it. The badge's accessible name is built from
+   * `SENSITIVITY_RANK_CLAUSE` — *"the factors the result is most sensitive to"*
+   * — and it now ranks on `|rawElasticity|`, the answer to that sentence,
+   * instead of `displayModel.value`, which under complete producer coverage IS
+   * `influence_score`: PLoT's STRUCTURAL weight, computed from authored edge
+   * strengths before the simulation runs. On a real board (Paul's run
+   * `olumi-debug-1dd2133d-20260916`) the two diverge, and the product badged
+   * *"the result is most sensitive to this"* onto a factor whose `elasticity`
+   * and `sensitivity_score` were both `0`.
+   *
+   * On THIS fixture the elasticities are `0.3` and `-0.9`. Those factors are
+   * not equally sensitive — one moves the result three times as much — so an
+   * ordinal is a claim the data now supports, and suppressing it would hide a
+   * true comparison. **The old `null` was correct about the old quantity and
+   * would be wrong about the new one.**
+   *
+   * ⛔ #964's ruling is NOT relaxed — it is enforced against the right number.
+   * The test below this one holds it, on a fixture that ties in the quantity
+   * the ordinal actually claims. Read the two together; neither is complete
+   * alone, and that pair is what stops a future change re-coupling the badge
+   * to a quantity its own words do not describe.
+   *
+   * ⚠ ORDERING ROWS AND ASSERTING A RANK ARE STILL DIFFERENT QUESTIONS (trap
+   * 21) and the panel's behaviour here is UNTOUCHED. The panel's `rank` is an
+   * internal SORT KEY — its only non-test reader is
+   * `useResultsSectionData.ts:2698` (`.sort((a, b) => a.rank - b.rank)`) — and
+   * rows must come out in *some* deterministic order, so a tie-break is a
+   * correct use there. The panel prints no ordinal to a user at all; its
+   * user-visible tie signal is the "These factors have similar influence" note.
+   */
+  it('producer basis: a producer-score tie no longer suppresses the ordinal, because the ordinal no longer claims that quantity', () => {
     setCompleteReport(baseReport({
       factor_sensitivity: [
         { node_id: 'a_pos', label: 'Alpha uplift', influence_score: 0.5, elasticity: 0.3 },
@@ -208,43 +247,74 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     const panel = renderHook(() => useResultsSectionData())
     const rowsByKey = new Map(panel.result.current.drivers.drivers.map(d => [d.factorKey, d]))
 
-    // Both rows carry a producer score, and the SAME one — so the ORDER is
-    // decided purely by the elasticity tie-break.
+    // PRECONDITION, and the thing that makes this fixture discriminating: the
+    // producer VALUE is an exact tie. If this ever stops being true the test
+    // below proves nothing, because there would be no divergence to detect.
     expect(rowsByKey.get('a_pos')?.displayProvenance).toBe('influence_score')
     expect(rowsByKey.get('a_pos')?.displayInfluence).toBeCloseTo(0.5)
     expect(rowsByKey.get('b_neg')?.displayInfluence).toBeCloseTo(0.5)
 
-    // ⚠⚠ THIS FIXTURE IS AN EXACT TIE, AND THE ASSERTION BELOW CHANGED ON
-    // 2026-08-30. It used to read
-    //     expect(canvas.result.current.sensitivityRank).toBe(rowsByKey.get(key)!.rank)
-    // — i.e. it pinned the canvas badge printing "#1" and "#2" for two factors
-    // the producer scored IDENTICALLY, with the order coming from the hidden
-    // elasticity tie-break. That is the defect #964 exists to remove: an
-    // ordinal is a COMPARATIVE claim and a tie cannot support one.
-    //
-    // ⚠ ORDERING ROWS AND ASSERTING A RANK ARE DIFFERENT QUESTIONS (trap 21),
-    // which is why the two surfaces legitimately answer differently here and
-    // this is NOT a re-opened fork. The panel's `rank` is an internal SORT KEY
-    // — its only non-test reader is `useResultsSectionData.ts:2698`
-    // (`.sort((a, b) => a.rank - b.rank)`) — and rows must come out in *some*
-    // deterministic order, so the tie-break is a correct use there. The canvas
-    // value is RENDERED to the user as "#N" (`NodeInspector`, `BaseNode`'s
-    // "Key driver #N", `EdgeInspector`'s "ranked #N in influence"), and there
-    // the tie-break would be a claim the data cannot support. The panel prints
-    // no ordinal at all; its user-visible tie signal is the "These factors have
-    // similar influence" note, which already fires on this fixture.
+    // The canvas ordinal follows |elasticity|: 0.9 beats 0.3, sign ignored.
+    // Bound BY FACTOR ID, never by a value predicate — the two rows are
+    // byte-identical on the producer metric, so nothing else could tell them
+    // apart, and a comparator-level assertion would pass against either order.
+    const canvasRank = (key: string) =>
+      renderHook(() => useNodeDisplayMetadata(key, 'factor')).result.current.sensitivityRank
+    expect(canvasRank('b_neg')).toBe(1)
+    expect(canvasRank('a_pos')).toBe(2)
+
+    // ⭐ AND THE PARITY THIS SPEC EXISTS TO PROTECT IS UNCHANGED. The surfaces
+    // still resolve the same VALUE on the same BASIS; only the ORDINAL moved,
+    // which is a different question asked of the same feed.
     for (const key of ['a_pos', 'b_neg']) {
       const canvas = renderHook(() => useNodeDisplayMetadata(key, 'factor'))
-      expect(canvas.result.current.sensitivityRank).toBeNull()
-      // …and the parity this spec exists to protect is UNCHANGED: the two
-      // surfaces still resolve the same VALUE on the same BASIS.
       expect(canvas.result.current.influence).toBeCloseTo(rowsByKey.get(key)!.displayInfluence!)
+      expect(canvas.result.current.influenceProvenance).toBe(rowsByKey.get(key)!.displayProvenance)
     }
 
     // The larger MAGNITUDE still wins the tie in the panel's row ORDER,
     // negative or not — that behaviour is untouched.
     expect(rowsByKey.get('b_neg')?.rank).toBe(1)
     expect(rowsByKey.get('a_pos')?.rank).toBe(2)
+  })
+
+  /**
+   * ⭐⭐ #964's RULING, HELD AGAINST THE QUANTITY THE ORDINAL NOW CLAIMS.
+   *
+   * Identical to the fixture above in every respect except the one that
+   * matters: the elasticities are equal in magnitude, so the two factors ARE
+   * equally sensitive and no ordinal is supportable. Without this test the
+   * change above would read as "the tie gate was removed", which is not what
+   * happened and is not what the code does.
+   *
+   * ⚠ This is deliberately the PRODUCER-BASIS twin of the set-relative tie
+   * test earlier in this file. That one ties on elasticity with NO
+   * `influence_score`, so it exercises `normalised_elasticity`; this one
+   * carries a producer score, so `displayProvenance` is `influence_score` and
+   * the value and the ordinal are resolved from different fields. The gate has
+   * to fire on both paths, and only one of them was covered.
+   */
+  it('producer basis: an exact tie IN ELASTICITY still yields no rendered ordinal', () => {
+    setCompleteReport(baseReport({
+      factor_sensitivity: [
+        { node_id: 'a_pos', label: 'Alpha uplift', influence_score: 0.5, elasticity: 0.3 },
+        { node_id: 'b_neg', label: 'Beta drag', influence_score: 0.5, elasticity: -0.3 },
+      ],
+    }))
+
+    const panel = renderHook(() => useResultsSectionData())
+    const rowsByKey = new Map(panel.result.current.drivers.drivers.map(d => [d.factorKey, d]))
+    expect(rowsByKey.get('a_pos')?.displayProvenance).toBe('influence_score')
+
+    for (const key of ['a_pos', 'b_neg']) {
+      const canvas = renderHook(() => useNodeDisplayMetadata(key, 'factor'))
+      expect(canvas.result.current.sensitivityRank).toBeNull()
+      // VACUITY CONTROL: the row IS in the analysis and DOES carry a number, so
+      // the null above is the gate firing and not an absent or unscored row.
+      // Without this the assertion passes on a fixture the hook never saw.
+      expect(canvas.result.current.inSensitivityAnalysis).toBe(true)
+      expect(canvas.result.current.influence).toBeCloseTo(rowsByKey.get(key)!.displayInfluence!)
+    }
   })
 
   it('feed contract: policyRows carry an unsigned magnitude, as the field documents', () => {
