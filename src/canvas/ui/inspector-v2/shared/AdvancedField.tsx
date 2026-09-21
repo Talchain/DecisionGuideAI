@@ -127,6 +127,37 @@ export function AdvancedField({
     if (type === 'readonly' || !onChange) return
 
     if (type === 'number') {
+      /**
+       * ⭐⭐ AN EMPTY NUMERIC FIELD IS "NO ENTRY", NOT "A BAD ENTRY" — AND THIS
+       * IS WHAT MAKES *UNSET* A STATE AN EDITABLE NUMBER CAN BE IN.
+       *
+       * ⚠ THE COMMIT BEHAVIOUR IS UNCHANGED, AND THAT IS THE POINT OF PUTTING
+       * THE GUARD HERE RATHER THAN IN `admitNumericField`. An empty string was
+       * already refused — `parseFloat('')` is `NaN`, so `NOT_FINITE` fired and
+       * `onChange` was never called. What changes is ONLY the message: the
+       * field no longer says "Must be a finite number" about a value nobody
+       * typed. Nothing that used to commit stops committing, and nothing that
+       * used to be refused starts committing, so the blast radius across the
+       * ten editors that share this component is one string that stops
+       * appearing on a blur of an empty box.
+       *
+       * ⛔ WHY IT IS NEEDED AT ALL. A provenance-gated field renders `undefined`
+       * when nobody has set the number (`EdgeAdvancedEditor`'s three), which
+       * `:46` turns into an empty `localValue`. Without this guard, TABBING
+       * THROUGH an honestly-unset field accuses the reader of a typo — so the
+       * fix for a fabricated number would have shipped a false refusal in its
+       * place. The refusal messages are for what a person TYPED; silence is the
+       * correct answer to an entry they did not make.
+       *
+       * ⚠ `setError(null)` RATHER THAN A BARE `return`: clearing the box after
+       * a refused entry must retract the refusal, or the field keeps accusing
+       * on a value that is no longer there.
+       */
+      if (localValue.trim() === '') {
+        setError(null)
+        return
+      }
+
       // ⚠ ONE CALL, ONE ANSWER — the strongest form of the note this replaced.
       // It said the commit guard "MOVES IN STEP WITH `validate`, AND MUST",
       // because leaving one on `isNaN` would make the two disagree about what a
