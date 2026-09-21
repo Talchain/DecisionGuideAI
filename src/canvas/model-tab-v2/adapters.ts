@@ -123,7 +123,7 @@
  */
 
 import type { Edge, Node } from '@xyflow/react'
-import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
+import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
 import { resolveGoalTarget } from '../domain/goalTarget'
 import { isUnquantifiedPrior } from '../domain/nodes'
@@ -575,18 +575,36 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         group: KIND_GROUP[kind],
         label,
         primaryValue: value,
-        // ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`.
-        // Read through `readFactorDisplayValue`, the SHARED reader that already
-        // honours CEE's wire shape (top-level `display_value` first, then
-        // `observedState.display_value`). Measured on the live journey: 11 of 11
-        // occurrences are TOP-LEVEL and zero are nested, so a nested-only read
-        // would have found nothing. Not re-implemented here — `FactorNode`, the
-        // inspector-v2 panels and the debug bundle already share it, and the
-        // Model tab was the one surface not on it.
+        /*
+         * ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`.
+         *
+         * ⛔⛔ `factorDisplayText`, NOT `readFactorDisplayValue`, AND THE
+         * DIFFERENCE IS A LIVE DEFECT. This comment used to say it had joined
+         * "the SHARED reader" that `FactorNode`, the inspector panels and the
+         * debug bundle use — but it named the wrong one. `readFactorDisplayValue`
+         * only decides WHICH `display_value` field to read (top level before
+         * `observedState`); it returns the producer's string verbatim and
+         * applies no unit policy at all. `factorDisplayText` is the entry point
+         * those three surfaces actually share, and it is the one that runs the
+         * value through `formatFactorDisplayValue`.
+         *
+         * MEASURED on the deployed build `13371bc4`, guest, saved example
+         * *Customer Data Platform Selection*: a whole-page text scan found the
+         * placeholder unit rendered exactly once —
+         * `model-row-v2-fac_ops_overhead-value-estimate` reading **"0.5 scale"**
+         * — with canvas cards at **zero**. So the estate's own policy
+         * (*"`0.3 scale` renders `0.3`, minus a unit word that asserts a scale
+         * nobody defined"*) was applied everywhere EXCEPT this field, because
+         * this field alone bypassed the formatter.
+         *
+         * ⚠ `0.5` is a NORMALISED model number. Printing it beside a pseudo-unit
+         * invites the reader to argue with a figure that has no real-world scale,
+         * on the tab whose whole job is to be a true representation.
+         */
         ...(value === null
           ? (() => {
-              const text = readFactorDisplayValue(data)
-              return text === undefined ? {} : { estimateText: text }
+              const text = factorDisplayText(data, label)
+              return text === null ? {} : { estimateText: text }
             })()
           : {}),
         /*

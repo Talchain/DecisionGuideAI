@@ -222,3 +222,68 @@ describe('⭐ the Model tab goal row prints no unit that names no scale', () => 
     expect(rows.find(r => r.id === GOAL_ID)?.primaryValue).toBe('2,000,000')
   })
 })
+
+/**
+ * ⛔⛔ THE ESTIMATE HINT WAS THE ONE FIELD OFF THE POLICY — and every assertion
+ * above is blind to it, because they all read the GOAL TARGET.
+ *
+ * Measured on the deployed build `13371bc4`, guest, saved example *Customer Data
+ * Platform Selection*: a whole-page text scan found a placeholder unit rendered
+ * exactly ONCE on the Model tab —
+ * `model-row-v2-fac_ops_overhead-value-estimate` reading **"0.5 scale"** — while
+ * canvas cards rendered **zero**. Same policy, same repo, one field exempt.
+ *
+ * The cause was a reader, not a rule: the adapter called
+ * `readFactorDisplayValue`, which only decides WHICH `display_value` field to
+ * read and returns the producer's string verbatim, instead of
+ * `factorDisplayText`, the entry point `FactorNode` and the inspector panels
+ * share and the only one that runs the value through the formatter.
+ */
+describe('the estimate hint obeys the same policy as every other number', () => {
+  const factorWithDisplayValue = (displayValue: string, unit: string | null): Node => ({
+    id: 'fac_under_test',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Operational Overhead on Data Team',
+      type: 'factor',
+      display_value: displayValue,
+      /*
+       * ⚠ NO `value`, AND THAT IS A PRECONDITION NOT A DETAIL. `estimateText` is
+       * spread ONLY when `factorValue(data)` is null — "nobody supplied a value".
+       * My first fixture carried `value: 0.5`, so the branch never ran and the
+       * assertion read `undefined`: a FIXTURE defect that looks exactly like the
+       * product being silent.
+       */
+      observedState: { unit },
+    },
+  })
+
+  const estimateFor = (displayValue: string, unit: string | null): string | undefined => {
+    const input: ModelProjectionInput = {
+      nodes: [factorWithDisplayValue(displayValue, unit)],
+      edges: [],
+    } as unknown as ModelProjectionInput
+    const row = toModelRows(input).find(r => r.id === 'fac_under_test')
+    return row?.estimateText
+  }
+
+  it('⛔ THE SHIPPED DEFECT: a "scale" estimate no longer prints the pseudo-unit', () => {
+    const text = estimateFor('0.5 scale', 'scale')
+    expect(text, 'the row must still carry an estimate — dropping it is not the fix').toBeDefined()
+    expect(text).not.toMatch(/\bscale\b/i)
+  })
+
+  it('the MAGNITUDE survives — a fix that dropped the number would pass a naive check', () => {
+    expect(estimateFor('0.5 scale', 'scale')).toContain('0.5')
+  })
+
+  /**
+   * ⭐ THE OPPOSITE-DIRECTION TWIN. A real unit must still print, or the "fix"
+   * is just suppression wearing a policy's clothes.
+   */
+  it('CONTRAST: a real unit is still rendered', () => {
+    const text = estimateFor('£49', '£')
+    expect(text).toBeDefined()
+    expect(text).toContain('49')
+  })
+})
