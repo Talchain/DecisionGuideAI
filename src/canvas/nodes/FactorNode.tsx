@@ -16,7 +16,7 @@ import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
-import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionSetting'
+import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
@@ -138,7 +138,14 @@ export const FactorNode = memo((props: NodeProps) => {
     if (!hoveredOptionId) return null
     const option = nodes.find(n => n.id === hoveredOptionId)
     const ceeOption = ceeAnalysisReady?.options?.find(o => o.id === hoveredOptionId)
-    const interventions = (ceeOption?.interventions ?? option?.data?.interventions) as Record<string, unknown> | undefined
+    /*
+     * ⭐ THE SHARED READER, AND WITHOUT IT THIS LINE CONTRADICTED THE OPTION
+     * CARD. `ceeAnalysisReady` carries the numbers flat and the authored
+     * strings in a sibling `intervention_details` map; taking the numbers alone
+     * sent `0.2` into the UI's own band table and printed "Very low" where CEE
+     * had written "Low (0.2)". See `resolveOptionInterventionsForDisplay`.
+     */
+    const interventions = resolveOptionInterventionsForDisplay(option, ceeOption)
     return factorOptionSetting(interventions?.[props.id], observedState)
   }, [hoveredOptionId, nodes, ceeAnalysisReady, props.id, observedState])
   const isAffectedByHover = interventionDisplayValue !== null
