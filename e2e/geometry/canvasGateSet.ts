@@ -598,12 +598,16 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
    * keeping a measure file in the tree, and it is recorded per entry below.
    */
   {
-    what: 'composerLook.measure.ts (3 cells, ~37s) — the docked Olumi composer, at rest, grown, and pasted-into',
+    what:
+      'composerLook.measure.ts (4 cells, ~1m) — the docked Olumi composer at rest, grown, ' +
+      'pasted-into, and post-run',
     why:
-      'It carries THREE `expect`s and is still excluded, which needs saying rather than hiding: ' +
-      'two assert the INSTRUMENT is not lying to itself (a numeric line-height actually ' +
-      'resolves; the pasted value arrived) and one asserts the action row sits below the ' +
-      'textarea. None of them encodes a ruling about what the composer OUGHT to measure — ' +
+      'It carries `expect`s and is still excluded, which needs saying rather than hiding: they ' +
+      'assert the INSTRUMENT is not lying to itself (a numeric line-height actually resolves; ' +
+      'the pasted value arrived), that the action row sits below the textarea, and — in the ' +
+      'post-run cell — that the run control is 24px, inside the row, and that the readiness ' +
+      'bar has GONE as it arrived, which is the one-control-never-two contract. None of them ' +
+      'encodes a ruling about what the composer OUGHT to measure — ' +
       'inventing one here would be an oracle written from the author\'s head (trap 13c), and ' +
       'the geometry it reports is exactly the kind that a legitimate design change moves. The ' +
       'BEHAVIOUR is pinned in the main suite by `PersistentInputStrip.spec.tsx`, which binds ' +
@@ -612,7 +616,13 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       'the browser measured 97, and the first cut of the redesign came out 94px, i.e. a 3px ' +
       '"win" for a change made to reclaim space. Modelled rather than measured, it would have ' +
       'shipped as a regression described in the PR as a saving. jsdom cannot produce either ' +
-      'number: it resolves no line-height at all, which is why the growth maths now MEASURES.',
+      'number: it resolves no line-height at all, which is why the growth maths now MEASURES. ' +
+      '⭐ ITS FOURTH CELL IS THE ONLY THING IN THE TREE THAT CAN SEE THE NEW RUN CONTROL AT ' +
+      'ALL: it is gated on a COMPLETED run, a completed run needs CEE/PLoT, and no seeded ' +
+      'capture has keys — so the control was about to ship unseen. Driving the store to the ' +
+      'post-run state also found that `hasCompletedFirstRun` lives in BOTH `resultsStore` ' +
+      'and `canvasStore`, and the dock reads the canvas one; setting the other changes ' +
+      'nothing the dock can see, which is worth knowing before the next fixture.',
   },
   {
     what: 'wholeAppLook.measure.ts (3 cells, ~40s) — the canvas and the dock in one frame',

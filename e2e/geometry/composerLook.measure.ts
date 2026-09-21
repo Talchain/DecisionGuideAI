@@ -158,3 +158,62 @@ test('COMPOSER C — pasted list keeps its shape', async ({ page }) => {
   console.log('[composer] paste: ▪/● + CRLF normalised to the marker safeRichText renders')
   await shootFooter(page, 'COMPOSER-C-pasted-list')
 })
+
+/**
+ * ⭐ THE ONE NEW CONTROL THAT NO OTHER CAPTURE CAN REACH.
+ *
+ * The composer's run-analysis button is gated on the COMPLEMENT of
+ * `AnalysisReadinessBar`'s own `preRunWithModel`, so it exists only after a run
+ * has completed — and a completed run needs CEE/PLoT, which this container has
+ * no keys for. Every seeded capture is therefore pre-run, and the control was
+ * about to ship having never been SEEN. "Never offer an affordance that does
+ * not work" is not a claim you can make from a spec that mocks its own host.
+ *
+ * So the store is driven directly to the post-run state and the surface is
+ * photographed and asserted there.
+ *
+ * ⚠ AND IT IS THE CANVAS STORE, NOT THE RESULTS STORE. The first version of
+ * this cell set `useResultsStore.getState().setHasCompletedFirstRun(true)` and
+ * the control never appeared: `hasCompletedFirstRun: true` read back from that
+ * store while the readiness bar stayed mounted and the button stayed absent.
+ * `OutputsDock` reads the flag out of `useCanvasStore`'s shallow snapshot
+ * (`OutputsDock.tsx:749`) — the SAME NAME lives in both stores, and setting the
+ * wrong one changes nothing the dock can see. Worth knowing before the next
+ * person writes a fixture against it.
+ */
+test('COMPOSER D — post-run: the discreet run control appears, named and live', async ({ page }) => {
+  await openOlumiDock(page)
+
+  // Pre-run CONTROL first, so the assertion below reads as a TRANSITION and not
+  // as a surface that always looked like that.
+  await expect(page.locator('[data-testid="ai-input-bar-strip-analyse"]')).toHaveCount(0)
+  await expect(page.locator('[data-testid="analysis-readiness-bar"]')).toBeVisible()
+
+  await page.evaluate(() => {
+    const store = (window as unknown as {
+      useCanvasStore: { setState: (p: Record<string, unknown>) => void }
+    }).useCanvasStore
+    store.setState({ hasCompletedFirstRun: true })
+  })
+
+  const btn = page.getByRole('button', { name: 'Re-run analysis' })
+  await expect(btn).toBeVisible()
+  // ⭐ ONE CONTROL AT THE FOOT OF THE TAB, NEVER TWO. The bar and this button
+  // are complements of one predicate, so the bar must have gone as this arrived.
+  await expect(page.locator('[data-testid="analysis-readiness-bar"]')).toHaveCount(0)
+
+  const row = await page.locator('[data-testid="ai-input-bar-strip-actions"]').boundingBox()
+  const b = await btn.boundingBox()
+  // It is IN the action row, on the right, and it is the QUIET one — the send
+  // disc keeps 28px, this keeps 24 (WCAG 2.2 SC 2.5.8 to the pixel).
+  expect(Math.round(b!.height)).toBe(24)
+  expect(b!.x).toBeGreaterThanOrEqual(row!.x)
+  expect(Math.round(b!.x + b!.width)).toBeLessThanOrEqual(Math.round(row!.x + row!.width) + 1)
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `[composer] post-run: run control ${Math.round(b!.width)}x${Math.round(b!.height)} at ` +
+      `x=${Math.round(b!.x)} in a row spanning ${Math.round(row!.x)}..${Math.round(row!.x + row!.width)}`,
+  )
+  await shootFooter(page, 'COMPOSER-D-post-run')
+})
