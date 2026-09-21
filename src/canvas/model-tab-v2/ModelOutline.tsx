@@ -687,7 +687,29 @@ export function ModelOutline({
         <button
           type="button"
           onClick={toggleAll}
-          className="rounded-sm text-xs text-text-light underline-offset-2 outline-none transition-colors hover:text-text-header hover:underline focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40"
+          /* ⛔⛔ THE TYPOGRAPHY TOKEN, NEVER A RAW TAILWIND SIZE CLASS — AND
+             THIS FILE WARNED ME 400 LINES DOWN. The DS v5 scoped-typography
+             ratchet counts raw Tailwind type classes on this surface; my first
+             head shipped one and CI read `panel-typography-scoped: 16 (baseline
+             15, Δ+1)`, which is the whole of why #1839's first run was RED.
+
+             ⚠⚠ AND THE SCANNER READS COMMENTS. My first repair NAMED the
+             offending class in this very docblock to explain the fix, and the
+             count went to 17 — the repair scored worse than the defect. The
+             class is described here rather than spelled for that reason.
+
+             ⚠ AND `py-1.5` IS NOT DECORATION. This file records the measurement:
+             moving the vertical padding off a control took its border box from
+             **31.25px to 19.25px**, under the **24px** of WCAG 2.2 AA 2.5.8 that
+             the estate already holds on the canvas. My first head had no `py` at
+             all, so it would have shipped a control below the touch-target floor
+             — a defect the ratchet red happened to expose, not one it was
+             looking for.
+
+             Matched to the clause link above rather than styled afresh: same
+             token, same padding, same underline-offset. One affordance, one
+             look. */
+          className={`${typography.panelMeta} rounded-sm py-1.5 text-text-light underline-offset-2 outline-none transition-colors hover:text-text-header hover:underline focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40`}
           data-testid="model-outline-v2-toggle-all"
         >
           {allOpen ? 'Collapse all' : 'Expand all'}
