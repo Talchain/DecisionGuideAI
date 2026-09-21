@@ -30,6 +30,7 @@ import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item }
 import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 import { biasCodeFromPhase3Item } from './biasTypesFromGuidance'
 import { SUCCESS_TARGET_PROMPT } from './successTargetPrompt'
+import { strongerOptionInWeakRuns } from '../strengthElicitation/assumedStrengthCopy'
 
 /**
  * The deterministic "define a success measure" recommendation's id.
@@ -370,9 +371,15 @@ function mergeChannelTwins(items: StrengthenPhase3Item[]): StrengthenPhase3Item[
   return out
 }
 
-function pct(p: number): string {
-  return `${Math.round(p * 100)}%`
-}
+/*
+ * ⚠ `pct()` LIVED HERE AND IS GONE WITH ITS ONLY CALLER. The flip signal was
+ * the single use of it; the sentence that replaces that signal formats its own
+ * percentage inside `strongerOptionInWeakRuns`, beside the condition it belongs
+ * to, so a second formatter in this file would be a percentage waiting to
+ * disagree with the one the reader sees. Removed rather than left unused,
+ * because the required check's FIRST step is lint and an unused local fails it
+ * before a single test runs.
+ */
 
 export function buildRecommendations(inputs: StrengthenInputs): Recommendation[] {
   const recs: Recommendation[] = []
@@ -721,9 +728,35 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       // {factor} shifts"), and `whyNow` carries the urgency. The title was
       // restating the selection rule; now it states the subject.
       title: `Test the assumption about ${top.factorLabel}`,
-      signal: alt
-        ? `${pct(top.switchProbability)} chance ${alt} scores highest instead if ${top.factorLabel} shifts.`
-        : `${pct(top.switchProbability)} chance a different option scores highest if ${top.factorLabel} shifts.`,
+      /**
+       * ⛔⛔ THIS SAID THE WRONG QUANTITY, AND IT SAID IT AS A FORECAST.
+       *
+       * As shipped: *"NN% chance {alt} scores highest instead if {factor}
+       * shifts."* Two faults in one sentence, and the second is the one no
+       * guard could see:
+       *
+       *  1 · CONDITION DROPPED. ISL declares the field (`staging`,
+       *      `src/models/response_v2.py:569-575`): *"Proportion of MC samples
+       *      where alternative wins WHEN EDGE IS WEAK."* It is conditional on
+       *      the link being in its bottom quartile — not on the factor
+       *      "shifting", which is any movement in either direction.
+       *  2 · TENSE. "chance … if … shifts" is a forecast about something that
+       *      might happen. The number counts runs that ALREADY happened.
+       *
+       * ⛔ AND THE SENTENCE WAS AN ACCURATE DESCRIPTION OF THE ADJACENT FIELD.
+       * `response_v2.py:576-580` declares `marginal_switch_probability` —
+       * *"Probability of decision flip when ONLY this edge varies"* — which is
+       * precisely "how much this one assumption moved the answer". The UI reads
+       * it nowhere. Two neighbouring producer fields, and this card had them
+       * swapped. #1798 found the identical swap in the uncertainty column's
+       * caption; this is the same defect on the card the panel leads with.
+       *
+       * ⚠ THE REPLACEMENT IS IMPORTED, NOT WRITTEN. `strongerOptionInWeakRuns`
+       * is the elicitation card's own sentence, which has carried the condition
+       * correctly since it was written. A second spelling here is how one
+       * measurement acquires two readings, which is the defect being closed.
+       */
+      signal: strongerOptionInWeakRuns(top.switchProbability, alt ?? null, 'that assumption'),
       whyNow: 'This single relationship carries the most decision risk right now.',
       tryThis: 'Plan one check that would confirm or correct this assumption before you rely on the ranking.',
       sourceLine: 'Source: robustness analysis (fragile relationships).',
