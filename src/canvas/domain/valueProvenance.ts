@@ -422,3 +422,54 @@ export function factorHasConfirmableValue(data: unknown): boolean {
 export function factorIsConfirmable(data: unknown): boolean {
   return factorNeedsVerification(data) && factorHasConfirmableValue(data)
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE WRITE VOCABULARY — the stamps that PRODUCE the classes above
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Until now these two literals were private to `CalibrateDrillIn.tsx` (137-138),
+ * the one surface that had been taught to claim authorship. Every OTHER value
+ * editor therefore claimed nothing: `FactorControllablePanel` sent the number,
+ * got an applied receipt back, and `confirmOptimisticFactorEdit` returned
+ * `'no_stamp'` because there was no stamp to write. Measured on deployed
+ * `fd992149`: a factor the user typed read back `source: 'cee_inference'`.
+ *
+ * They live HERE, beside the classification that reads them, because a write
+ * vocabulary kept apart from the predicate that interprets it is the
+ * hand-maintained mirror this module was created to abolish (trap 12). A second
+ * surface copying the literal is how `getExtractionLabel` came to print
+ * "Estimated by Olumi" over a value a person had confirmed.
+ *
+ * ⚠ THESE ARE RECEIPT-GATED, NOT OPTIMISTIC (ROADMAP 2.304). Neither is passed
+ * to `setObservedValue`. They travel on the undo snapshot handed to
+ * `captureOptimisticFactorEdit` and are applied by `confirmOptimisticFactorEdit`
+ * only once CEE's `graph_patch` receipt has landed. The number moves
+ * immediately; the CLAIM waits for the engine. Passing either into a setter
+ * would re-open 2.304 in reverse — an optimistic write wearing a confirmation.
+ *
+ * ⚠ WHY `user_override` IS RIGHT FOR A TYPED VALUE, and it is not a UI choice.
+ * It is the SERVER's own `USER_EDIT_SOURCE` — the single literal CEE's
+ * `set_factor_value` merges into the persisted `observed_state`
+ * (`canonicalise-value-ops.ts:280`, `set-factor-value.ts:421`, read at CEE
+ * staging `d5b64246`). Writing anything else here would make the client stamp
+ * and the server stamp disagree about the same act, and the boot merge would
+ * then have two user-owned literals to reconcile on one value.
+ *
+ * Membership is not asserted in prose: `valueProvenance.stamps.spec.ts` derives
+ * it, so a literal that stops classifying as `edited`/`confirmed`, or that
+ * leaves `isReviewedByUser`'s set, REDs rather than degrading a pill silently.
+ */
+
+/** The human supplied the number. Earned by an applied `factor_value_edit`. */
+export const USER_VALUE_STAMP = Object.freeze({ source: 'user_override' } as const)
+
+/**
+ * The human read the number that was there and endorsed it. `extractionType`
+ * is part of the claim, not decoration — it is what distinguishes an explicit
+ * endorsement from the producer's own `'inferred'` marker on the same field.
+ */
+export const USER_CONFIRMATION_STAMP = Object.freeze({
+  source: 'user_confirmed',
+  extractionType: 'explicit',
+} as const)

@@ -57,6 +57,7 @@ import {
   type ValueInputSeedBasis,
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
+import { USER_VALUE_STAMP } from '../../../domain/valueProvenance'
 import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
 import {
   BeliefElicitationField,
@@ -311,7 +312,28 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // is the same fire-and-forget shape against the same endpoint: a refusal
       // leaves the panel showing a number the engine declined. Fixing one twin and
       // leaving the other armed is how this class keeps coming back.
-      const undo = captureOptimisticFactorEdit(nodeId ?? '', modelValue, node?.data)
+      //
+      // ⭐ AND IT CARRIES THE AUTHORSHIP CLAIM, which until now it did not.
+      // `captureOptimisticFactorEdit`'s 4th argument is the receipt-gated
+      // provenance stamp (ROADMAP 2.304): it rides the snapshot and is written
+      // by `confirmOptimisticFactorEdit` ONLY once CEE's applied `graph_patch`
+      // receipt lands. `CalibrateDrillIn` was the sole caller passing one, so
+      // this panel's accepted edits returned `'no_stamp'` and wrote nothing —
+      // the user typed the number and the model recorded it as Olumi's.
+      // Measured on deployed `fd992149`: `observedState.source` read
+      // `'cee_inference'` after a hand-typed value that had round-tripped.
+      //
+      // ⚠ STILL NOT OPTIMISTIC. The stamp is NOT passed to `setObservedValue`
+      // below — that setter's call is unchanged, which is what keeps 2.304's
+      // ruling intact. The number moves now; the claim waits for the engine.
+      // The comment above is about the UNDO twin; this is its provenance twin,
+      // and leaving it armed is the same way the class keeps coming back.
+      const undo = captureOptimisticFactorEdit(
+        nodeId ?? '',
+        modelValue,
+        node?.data,
+        USER_VALUE_STAMP,
+      )
 
       // Local store write first, so the canvas and the freshness overlay reflect
       // the edit immediately even if the turn is slow or fails. Note this writes
