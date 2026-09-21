@@ -8,8 +8,13 @@
  *   - `ui_render_success`         — full success path
  *   - `cee_response_received`     — CEE responded but the result wasn't
  *                                    actionable (e.g. recoverable error)
- *   - `analysis_not_run`          — no analysis fact yet on the path
- *   - `analysis_failed`           — analysis run completed unsuccessfully
+ *   - `analysis_not_run`          — no analysis fact yet on the path:
+ *                                    never attempted, withheld, refused,
+ *                                    or not attested
+ *   - `analysis_failed`           — an analysis RAN and completed
+ *                                    unsuccessfully. Reserved for an
+ *                                    attested failure; never inferred
+ *                                    from a readiness precondition.
  *   - `proxy_or_network_failure`  — request never reached CEE or the
  *                                    response was a 5xx / network error
  *   - `payload_capture_disabled`  — request succeeded but payload was
@@ -144,7 +149,9 @@ const ANALYSIS_FAILURE_CATEGORIES = new Set([
  *       evaluated false on `undefined`. The structured source field
  *       captured the absence but the enum still claimed success.
  *   5b. 200 + analysis turn + analysis_ready.status !== 'ready' →
- *       analysis_failed.
+ *       analysis_not_run. Readiness states whether a run may PROCEED;
+ *       none of its values attests a run that ran and failed. This
+ *       returned `analysis_failed` until 2026-09-21 — see the branch.
  *   6. 200 + non-analysis turn + freshness === 'none' → analysis_not_run.
  *   7. 200 + payload capture disabled → payload_capture_disabled.
  *   8. 200 + everything else → ui_render_success.
@@ -209,11 +216,37 @@ export function derivePipelineStatus(
     return 'analysis_not_run'
   }
 
-  // 5b — 200 + analysis turn + analysis_ready not in 'ready' state.
+  // 5b — 200 + analysis turn + a readiness verdict that is not 'ready'.
+  //
+  // ⚠ THIS RETURNED `analysis_failed` UNTIL 2026-09-21, AND THAT WAS A FALSE
+  // STATEMENT ABOUT STATE. Measured on a real user bundle (scenario 48a1ce84,
+  // 11:47Z) that carried `run_state.kind = 'never_run'`, readiness
+  // `needs_user_input`, and freshness `none` — and told the user the model was
+  // unhealthy. Nothing had failed: the run was correctly WITHHELD pending user
+  // input, and no analysis was ever attempted.
+  //
+  // `analysis_ready.status` answers "may this run PROCEED?". It cannot answer
+  // "did a run FAIL?" — `CEEAnalysisReady` says so in the docblock of this very
+  // field. Reading a precondition as an outcome is two questions under one
+  // predicate. Over the producer's whole declared domain
+  // (`ANALYSIS_READY_STATUSES` + the `unknown` unsupplied sentinel):
+  //
+  //   needs_user_mapping · needs_encoding · needs_user_input — preconditions
+  //   blocked                                                — run PREVENTED
+  //   unknown                                                — no verdict stated
+  //
+  // NOT ONE describes an analysis that ran and failed, so this branch must
+  // never yield `analysis_failed` for any of them. `analysis_not_run` is the
+  // honest cell, and it is the SAME one branch 5-WIRE above already returns for
+  // the wire kinds `never_run` / `blocked` / `unknown_degraded`, for exactly
+  // this reason. Nothing is minted.
+  //
+  // `analysis_failed` keeps its honest producer at branch 3: a 4xx carrying a
+  // recoverable envelope whose category attests a run that genuinely failed.
   if (inputs.isAnalysisTurn) {
     const readyStatus = inputs.ceeAnalysisReady?.status
     if (readyStatus !== undefined && readyStatus !== 'ready') {
-      return 'analysis_failed'
+      return 'analysis_not_run'
     }
   }
 

@@ -90,24 +90,30 @@ describe('derivePipelineStatus — proxy_or_network_failure', () => {
 })
 
 describe('derivePipelineStatus — analysis_failed', () => {
-  it('200 + analysis turn + analysis_ready.status="needs_user_input" → analysis_failed', () => {
+  // ⚠ THESE TWO PINNED A FALSE STATEMENT UNTIL 2026-09-21. Both readiness
+  // statuses are PRECONDITIONS — the run was withheld, never attempted — so
+  // `analysis_failed` claimed a failure that never happened. Corrected to
+  // `analysis_not_run`; the full domain is enumerated in
+  // `derivePipelineStatus.neverRunIsNotFailed.test.ts`. The 4xx cases below
+  // are the honest producers of `analysis_failed` and are unchanged.
+  it('200 + analysis turn + analysis_ready.status="needs_user_input" → analysis_not_run', () => {
     const result = derivePipelineStatus(
       inputs({
         isAnalysisTurn: true,
         ceeAnalysisReady: ready({ status: 'needs_user_input' }),
       }),
     )
-    expect(result).toBe('analysis_failed')
+    expect(result).toBe('analysis_not_run')
   })
 
-  it('200 + analysis turn + status="needs_user_mapping" → analysis_failed', () => {
+  it('200 + analysis turn + status="needs_user_mapping" → analysis_not_run', () => {
     const result = derivePipelineStatus(
       inputs({
         isAnalysisTurn: true,
         ceeAnalysisReady: ready({ status: 'needs_user_mapping' }),
       }),
     )
-    expect(result).toBe('analysis_failed')
+    expect(result).toBe('analysis_not_run')
   })
 
   it('4xx + recoverable envelope with analysis_failed category → analysis_failed', () => {
@@ -233,9 +239,16 @@ describe('derivePipelineStatus — precedence properties', () => {
     expect(result).toBe('proxy_or_network_failure')
   })
 
-  it('analysis failure cannot be hidden by a 200 status alone', () => {
-    // Property: a 200 with analysis_ready.status !== 'ready' on an
-    // analysis turn is analysis_failed, never ui_render_success.
+  it('a not-ready run gate cannot be hidden by a 200 status alone', () => {
+    // Property: a 200 with analysis_ready.status !== 'ready' on an analysis
+    // turn must NEVER report ui_render_success — that is what this property
+    // has always protected, and it is unchanged.
+    //
+    // ⚠ The property was previously SPELLED as `analysis_failed`, which
+    // overstated it: `needs_user_input` is a precondition, so no run was ever
+    // attempted and nothing failed. The honest cell is `analysis_not_run`.
+    // Both assertions are kept so the property cannot regress in either
+    // direction — silently succeeding, or silently re-inventing a failure.
     const result = derivePipelineStatus(
       inputs({
         trace: trace({ status: 200 }),
@@ -243,7 +256,9 @@ describe('derivePipelineStatus — precedence properties', () => {
         ceeAnalysisReady: ready({ status: 'needs_user_input' }),
       }),
     )
-    expect(result).toBe('analysis_failed')
+    expect(result).not.toBe('ui_render_success')
+    expect(result).not.toBe('analysis_failed')
+    expect(result).toBe('analysis_not_run')
   })
 
   it('result is deterministic — same inputs give same output', () => {
