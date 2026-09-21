@@ -1,5 +1,5 @@
 import { typography } from '../../../styles/typography'
-import { UNCONFIRMED_ESTIMATE_LABEL } from '../../domain/vocabulary'
+import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 
 /**
@@ -239,7 +239,7 @@ export function EstimateMarker({
       title={title ?? ESTIMATE_SUBJECT_TITLE[subject]}
       data-testid="estimate-marker"
     >
-      est.
+      {UNCONFIRMED_ESTIMATE_TOKEN}
     </span>
   )
 }

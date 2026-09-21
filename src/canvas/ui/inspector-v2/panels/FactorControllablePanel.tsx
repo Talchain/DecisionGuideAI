@@ -16,6 +16,7 @@ import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
@@ -510,7 +511,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             placeholder={DESCRIPTION_PLACEHOLDERS.factor}
             rows={2}
             maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+            className={`${typography.panelBody} ${controls.editableTextarea}`}
           />
         ) : (
           <EmptyDescriptionPrompt
@@ -658,7 +659,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               onBlur={handleValueBlur}
               onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
               placeholder="Enter value"
-              className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
+              className={`${typography.panelHeader} text-xl ${controls.editableField}`}
             />
             {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
               <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>

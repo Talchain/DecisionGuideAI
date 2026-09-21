@@ -12,6 +12,7 @@ import { FACTOR_CATEGORY_LABEL } from '../../../domain/vocabulary'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
 
 const FACTOR_TYPES = [
@@ -209,7 +210,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
               onChange={e => setNewDriver(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAddDriver() }}
               placeholder="Add driver…"
-              className={`${typography.panelMeta} flex-1 h-7 px-2 rounded bg-transparent border border-panel-border focus:border-primary focus:outline-none transition-colors`}
+              className={`${typography.panelMeta} flex-1 h-7 ${controls.editableField}`}
             />
             <button
               onClick={handleAddDriver}
