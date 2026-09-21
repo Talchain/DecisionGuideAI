@@ -71,7 +71,17 @@ describe('ISL inference-warning vocabulary — the derived code set', () => {
     // `staging` c9ab543d found two codes this map did not hold. One is added
     // (`GOAL_DIRECTION_UNATTESTED`, which fires on every run today); the other
     // is pinned as deliberately absent below.
-    expect(CODES).toHaveLength(27)
+    //
+    // ⭐ 27 → 29 on 2026-09-21, and this RED is the pin doing its job. Two codes
+    // arrived on a real run (`olumi-debug-95b92672`) that this map did not hold —
+    // `FACTOR_EVPPI_NOT_COMPUTED` and `EDGE_E_VALUE_NON_FINITE_DROPPED` — so BOTH
+    // rendered the generic fallback and the user read "Part of this analysis was
+    // limited" twice, with the producer's actual explanations discarded. This is
+    // exactly the cross-repo drift this file's header predicts; the count is meant
+    // to move deliberately, with the map, which is what happened here.
+    expect(CODES).toHaveLength(29)
+    expect(CODES).toContain('FACTOR_EVPPI_NOT_COMPUTED')
+    expect(CODES).toContain('EDGE_E_VALUE_NON_FINITE_DROPPED')
     expect(CODES).toContain('E_VALUES_UNAVAILABLE')
     expect(CODES).toContain('RANGE_OPEN_ENDED')
     expect(CODES).toContain('ROOT_NODE_DEFAULT_VALUE')
