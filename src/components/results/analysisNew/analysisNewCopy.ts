@@ -871,8 +871,28 @@ export const ANALYSIS_NEW_COPY = {
       alternativeLabel: string,
       unit: string,
     ): string => {
-      const n = (v: number) =>
-        `${unit}${v.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
+      // ⛔ A PERCENT IS A SUFFIX. This interpolated `unit` as an unconditional
+      // PREFIX, so the deployed build `e6551858` rendered, from a producer row
+      // carrying `unit: '%'`:
+      //
+      //     "Monthly Churn Rate would have to rise from %0.03 to %0.04 …"
+      //
+      // ⚠ AND THE SAME RUN SPELLED THE SAME DATUM CORRECTLY EIGHT INCHES AWAY:
+      // At-a-Glance said "passes 0.04%". One producer unit, two renderings on
+      // one screen — the defect `flipThresholdDisplay`'s header was written
+      // about.
+      //
+      // The rule is `glanceCondition`'s, reproduced rather than re-decided:
+      // percent suffixes, everything else keeps the prefix that is right for a
+      // currency (`£53.86`, never `53.86£`). That function's header already
+      // named why this happened — *"a rule that only one of two threshold sites
+      // can reach is a rule this surface does not have"* — after the identical
+      // class shipped as "Customer demand passes index0.361111". This is the
+      // site that could not reach it, and it is the third outing of the class.
+      const n = (v: number) => {
+        const figure = v.toLocaleString('en-GB', { maximumFractionDigits: 2 })
+        return unit === '%' ? `${figure}%` : `${unit}${figure}`
+      }
       const verb = flipValue > currentValue ? 'rise' : 'fall'
       const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} comes out ahead.`
       /**
