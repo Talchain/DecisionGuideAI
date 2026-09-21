@@ -80,10 +80,27 @@ export interface NextInputCandidate {
    * build (10 Sep 2026, `ModelRowView.tsx`): on a factor that declares no prior
    * range the editor accepts a bare value, reports `Applied`, and the analysis
    * then refuses EVERY TIME — *"recorded as a bare amount with no range for me
-   * to measure it against"*. No range editor is reachable anywhere in the
-   * product, and the value cannot be cleared (`factor_value_edit.value` is
-   * required and finite at the contract). So an instruction to set a value on
-   * such a factor can leave the model unanalysable with no route back.
+   * to measure it against"*, and the value cannot be cleared
+   * (`factor_value_edit.value` is required and finite at the contract). So an
+   * instruction to set a value on such a factor can leave the model
+   * unanalysable with no route back.
+   *
+   * ⚠⚠ AND THE SENTENCE THAT USED TO SIT HERE WAS FALSE — it read "no range
+   * editor is reachable anywhere in the product", which the `#1801` guard
+   * `prior-range-capability-claim.spec.ts` refuses BY NAME, and it refused this
+   * file. The claim was false by NINE MINUTES when it was first written
+   * (`#1454` landed 22:19:53 on 10 Sep; the claim 22:28:39) and it was copied
+   * onward for eleven days.
+   *
+   * ⭐ THE TRUE, SURFACE-QUALIFIED STATEMENT, which is what the guard asks for:
+   * a range editor exists on exactly ONE surface — the canvas inspector's
+   * `FactorExternalPanel` (3 `setPriorRange` call sites) — and only for a
+   * factor whose `category` is `'external'`. `FactorControllablePanel` has
+   * zero, and all 19 non-test files of `model-tab-v2` have zero; its
+   * `proposePriorRange` contract is declared once with zero implementations.
+   * Measured on two real captures: 1 external of 7 categorised factors. So the
+   * hazard above is real for the other six, and `strengthen/factorRangeCapability.ts`
+   * owns that question for every caller that needs to ask it.
    */
   readonly declaresNoRange?: boolean
 }
