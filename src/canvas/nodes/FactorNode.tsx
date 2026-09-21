@@ -223,6 +223,17 @@ export const FactorNode = memo((props: NodeProps) => {
    */
   const isInferred = factorValueIsUnconfirmedEstimate(props.data)
 
+  // ⭐ ONE readout, two affordances. The on-graph editor and the read-only span
+  // render the SAME recorded readout, so the card cannot show two different
+  // numbers depending on whether the value happens to have a durable carrier.
+  //
+  // ⚠ Hoisted because duplicating the expression at both branches broke the
+  // recorded-value guard's UNIQUENESS binding: its anchor matched twice, so its
+  // +/-240 window was no longer bound to either render site. An anchor that
+  // matches twice is not a binding (trap 19) - the guard was right to refuse.
+  const recordedValueReadout =
+    isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
+
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
   // `extractionType` alone cannot answer it. `inferred` is the state CEE
@@ -954,7 +965,10 @@ export const FactorNode = memo((props: NodeProps) => {
             the popover and the inspector keep the full string. A value the
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
-          <div className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}>
+          <div
+            className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}
+            data-testid="factor-recorded-value"
+          >
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
                 model. A controllable factor's value has a durable carrier
                 (`factor_value_edit`); an observable factor's and a risk's do
@@ -970,13 +984,13 @@ export const FactorNode = memo((props: NodeProps) => {
             {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
               <NodeValueEditor
                 value={observedState.value}
-                readout={isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}
+                readout={recordedValueReadout}
                 onCommit={(v) => editAuthority.proposeFactorValue(v)}
                 ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
                 testId={`node-value-editor-${props.id}`}
               />
             ) : (
-              <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
+              <span>{recordedValueReadout}</span>
             )}
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>

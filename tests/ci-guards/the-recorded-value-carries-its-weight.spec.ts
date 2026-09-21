@@ -68,7 +68,15 @@ describe('the three cards that record a quantity use it', () => {
     // the element — the guard passed against the wrong region until a mutant run
     // reported the PRISTINE tree as failing. An anchor that is not unique is not
     // a binding (trap 19).
-    ['FactorNode', join('src', 'canvas', 'nodes', 'FactorNode.tsx'), 'collapseEstimateDisplay(valueDisplay)'],
+    //
+    // ⭐ And it must be unique BY CONSTRUCTION, not by luck. This site anchored
+    // on a CALL EXPRESSION, which stayed unique only while the card had exactly
+    // one value affordance. The moment the value became editable on the graph
+    // the card grew a second branch, the expression matched twice and the window
+    // was bound to nothing — a live RED on a tree whose anatomy was intact. A
+    // `data-testid` cannot go stale that way and is what both siblings already
+    // use, so FactorNode now matches them instead of being the exception.
+    ['FactorNode', join('src', 'canvas', 'nodes', 'FactorNode.tsx'), 'factor-recorded-value'],
     ['RiskNode', join('src', 'canvas', 'nodes', 'RiskNode.tsx'), 'risk-recorded-value'],
     ['DecisionNode', join('src', 'canvas', 'nodes', 'DecisionNode.tsx'), 'decision-node-option-count'],
   ]
@@ -88,5 +96,30 @@ describe('the three cards that record a quantity use it', () => {
       window,
       `${name} renders its recorded quantity at a smaller token than the card's title. The anatomy's second question is what the model records — rendering it as a footnote is what makes these cards read as empty.`,
     ).toContain('typography.nodeValue')
+  })
+
+  // ⭐⭐ ONE READOUT, HOWEVER MANY AFFORDANCES.
+  //
+  // A factor's value now has two render branches — an editor where the edit has
+  // a durable carrier (`factor_value_edit`) and a plain span where it does not.
+  // Nothing in the type system stops those two branches formatting the SAME
+  // recorded number differently, and a card that shows `Moderate` when it is
+  // read-only and `0.5` when it is editable is telling the reader that the
+  // affordance changed the model's content. It did not.
+  //
+  // So the collapse happens in exactly ONE place and both branches consume it.
+  // This is the invariant the duplication broke, and it is the discriminating
+  // one: inlining the expression back into either branch reds this test, while
+  // the anchor test above would stay green.
+  it('⭐ the estimate collapse happens ONCE and every affordance consumes it', () => {
+    const code = codeOnly(read(join('src', 'canvas', 'nodes', 'FactorNode.tsx')))
+    expect(
+      code.split('collapseEstimateDisplay(valueDisplay)').length - 1,
+      'the estimate-collapse expression is written more than once, so two affordances on one card can drift apart',
+    ).toBe(1)
+    expect(
+      code.split('recordedValueReadout').length - 1,
+      'the hoisted readout is declared but not consumed by both the editable and the read-only branch',
+    ).toBeGreaterThanOrEqual(3)
   })
 })
