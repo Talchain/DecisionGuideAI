@@ -142,7 +142,43 @@ function StripEntry({ warning }: { warning: InferenceWarning }): JSX.Element {
         <span
           ref={textRef}
           data-testid="inference-warning-strip-entry-text"
-          className={`${typography.panelBody} text-text-body block ${expanded ? '' : 'line-clamp-2'}`}
+          /**
+           * ⛔⛔ `block` AND `line-clamp-2` CANNOT BOTH BE HERE, AND THE FIRST
+           * CUT SHIPPED THEM BOTH — SO THE CLAMP DID NOTHING.
+           *
+           * `line-clamp-2` sets its own `display`, and an explicit `block`
+           * beside it wins the cascade — so the element rendered as a plain
+           * block, the text never truncated, and because
+           * `scrollHeight === clientHeight` the overflow probe read false and the
+           * "Show more" control never mounted either.
+           *
+           * ⚠ I FIRST WROTE "`line-clamp-2` IS `display: -webkit-box`" HERE AND
+           * MEASURED THAT CLAIM FALSE. With `block` removed on the deployed
+           * build the computed display is **`flow-root`**, not `-webkit-box`.
+           * The class works; my account of HOW was wrong, and an assertion on
+           * the display STRING would have failed while the behaviour was
+           * correct. The load-bearing evidence is the behaviour, not the
+           * mechanism: `clientHeight` 195 -> 39 (two lines), `scrollHeight` 195
+           * unchanged, entry 213px -> 57px, overflow now detected so the toggle
+           * mounts. Assert what the reader sees, never the implementation of a
+           * utility class.
+           *
+           * ⚠⚠ MEASURED ON THE DEPLOYED BUILD `ae379f29`, AFTER MERGE, which is
+           * the only reason it was caught: strip 213px, `display: "block"`,
+           * `webkitLineClamp: "2"`, `scrollHeight 195 === clientHeight 195`,
+           * toggle absent. The class was present and inert.
+           *
+           * ⛔ AND THE PRE-SHIP MEASUREMENT WAS THE REAL FAILURE. I verified the
+           * 174px -> 57px claim by INJECTING `style.display='-webkit-box'` onto
+           * the live node — which is not what the code does. **An injection that
+           * sets a property the shipped class never sets measures a different
+           * component.** Toggle the CLASS, or read the computed `display` back
+           * and assert it, or the number is about the probe.
+           *
+           * The expanded arm keeps `block` because the clamp is gone there and a
+           * bare inline span would not honour the width.
+           */
+          className={`${typography.panelBody} text-text-body ${expanded ? 'block' : 'line-clamp-2'}`}
         >
           {title}
         </span>
