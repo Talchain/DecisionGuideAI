@@ -14,11 +14,28 @@
  * tab reached CEE, because that surface asks
  * `useModelEditAuthority.proposeOptionIntervention`.
  *
- * ⚠ AND THE CONTROL IS LIVE, which is what makes this a defect rather than a
- * fence. `InspectorRouter:542` passes `readOnly` only on the NON-authority
- * branch, and `'option'` IS in `AUTHORITY_OWNING_PANELS`, so it defaults false.
- * ⛔ Contrast `factor-observable`, which is genuinely inert and whose notice
- * says so — that one is NOT a defect and must not be "fixed" by this pattern.
+ * ⚠⚠ A CLAIM THAT WAS IN THIS HEADER IS WITHDRAWN, AND THE WITHDRAWAL CHANGES
+ * WHAT THESE TESTS PROVE. It read *"AND THE CONTROL IS LIVE … `readOnly` …
+ * defaults false"*. **False.** `InspectorRouter:542` is
+ * `<PanelComponent … readOnly />` — a bare attribute on the AUTHORITY branch —
+ * and `InterventionRow` gets `disabled={readOnly}`, rendering the value as TEXT
+ * when disabled. **In the app today this control cannot be typed into.**
+ *
+ * ⭐ THESE TESTS RENDER THE PANEL WITHOUT `readOnly`, WHICH IS A STATE THE
+ * DEPLOYMENT DOES NOT CURRENTLY MOUNT — and that is disclosed rather than
+ * hidden, because an undisclosed version of it is CLAUDE.md trap 3b, the defect
+ * that shipped twice in one feature. What they prove is narrow and still worth
+ * proving: WHEN this row is writable, the write reaches the model instead of
+ * dying in the browser. The fence exists because it did not; removing the
+ * reason for a fence is the step before removing the fence.
+ *
+ * ⛔ `OptionPanel.readOnlyFence.spec.tsx` is the file that pins the DEPLOYED
+ * posture, and it must stay green. If these two files ever disagree about
+ * whether the row is writable, that one is right.
+ *
+ * ⛔ Contrast `factor-observable`, absent from `AUTHORITY_OWNING_PANELS`
+ * entirely and inert for a different reason — no carrier at all. That one is
+ * NOT a defect and must not be "fixed" by this pattern.
  *
  * ⚠ NOTHING NEW IS INVENTED. `option_intervention_edit` (schemas 0.54.0) ships
  * end to end — the event builder, the payload arm, and the authority's guards.

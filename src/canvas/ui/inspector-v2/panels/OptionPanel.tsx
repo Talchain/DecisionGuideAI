@@ -129,12 +129,34 @@ export const OptionPanel = memo(function OptionPanel({
    * the SAME edit made in the Model tab reached CEE through
    * `useModelEditAuthority.proposeOptionIntervention`.
    *
-   * ⚠ AND THE CONTROL IS LIVE, WHICH IS WHAT MAKES IT A DEFECT RATHER THAN A
-   * FENCE. `InspectorRouter:542` passes `readOnly` only on the NON-authority
-   * branch and `'option'` IS in `AUTHORITY_OWNING_PANELS`, so `readOnly`
-   * defaults false here. Compare `factor-observable`, which is genuinely inert
-   * and whose notice says so — that one is not a defect and must not be
-   * "fixed".
+   * ⚠⚠ A CLAIM OF MINE THAT WAS HERE AND IS WITHDRAWN. It read: *"AND THE
+   * CONTROL IS LIVE, WHICH IS WHAT MAKES IT A DEFECT RATHER THAN A FENCE …
+   * `InspectorRouter:542` passes `readOnly` only on the NON-authority branch …
+   * so `readOnly` defaults false here."* **That is false.** `:542` is
+   * `<PanelComponent key={nodeId} {...panelProps} readOnly />` — a BARE
+   * attribute, i.e. `readOnly={true}`, on the AUTHORITY branch. The panel opted
+   * out of the Router's blanket in order to fence its OWN writers, which is the
+   * opposite of what I read it as (CLAUDE.md trap 21: opting in to fencing
+   * yourself is not opting in to writing). `InterventionRow` receives
+   * `disabled={readOnly}` at :532 and, when disabled, renders the value as TEXT
+   * rather than an input — so today a reader cannot edit an option effect from
+   * this panel at all, and `OptionPanel.readOnlyFence.spec.tsx` pins exactly
+   * that.
+   *
+   * ⭐ SO WHAT DOES THIS CHANGE DELIVER? It removes the REASON for the fence.
+   * `FactorControllablePanel` is in the same `AUTHORITY_OWNING_PANELS` set and
+   * fences only two things — its description and its advanced editor, both
+   * local-only writers — while its VALUE control stays live, because
+   * `proposeFactorValue` reaches the server. That is the estate's rule, stated
+   * by its own code: fence the writers with no carrier, leave live the ones
+   * that reach the model. This row had no carrier; it has one now. Lifting the
+   * fence is therefore the completion of this change and not a widening of it —
+   * but it moves a user-visible control, so it is its own increment with its
+   * own review, and until it lands THIS CHANGE IS CORRECT AND UNREACHABLE.
+   *
+   * ⛔ Compare `factor-observable`, which is absent from the set entirely and
+   * is inert for a different reason — no carrier at all. That one is not a
+   * defect and must not be "fixed" by this pattern.
    *
    * ⚠ THE CARRIER WAS ALREADY BUILT AND THIS PANEL WAS NOT ASKING FOR IT.
    * `option_intervention_edit` (schemas 0.54.0) ships end to end —
