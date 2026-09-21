@@ -149,7 +149,7 @@ export function EditableLabel({
         title={`Rename — ${value || placeholder}`}
         aria-label={`Rename ${value || placeholder}`}
       >
-        <span className={`${wrap ? 'min-w-0 whitespace-normal break-words' : 'truncate'} border-b border-dashed border-panel-border group-hover:border-info`}>
+        <span className={`${wrap ? 'min-w-0 whitespace-normal break-words' : 'truncate'} border-b border-dashed border-field group-hover:border-info`}>
           {value || placeholder}
         </span>
         <Pencil

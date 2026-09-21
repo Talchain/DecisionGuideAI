@@ -11,6 +11,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
@@ -284,7 +285,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             placeholder="Describe this external factor..."
             rows={2}
             maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+            className={`${typography.panelBody} ${controls.editableTextarea}`}
           />
         ) : (
           <EmptyDescriptionPrompt
@@ -444,10 +445,10 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               <button
                 key={key}
                 onClick={() => handleQuickSet(key)}
-                className={`${typography.panelMeta} px-2.5 py-1 rounded-full cursor-pointer capitalize transition-colors ${
+                className={`${typography.panelMeta} ${controls.selectableChip.base} ${
                   selected === key
-                    ? 'border border-primary text-primary bg-panel'
-                    : 'border border-panel-border text-text-light bg-panel hover:bg-panel-hover'
+                    ? controls.selectableChip.selected
+                    : controls.selectableChip.unselected
                 }`}
               >
                 {QUICK_SET[key].label}
@@ -490,7 +491,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                   onChange={e => setLocalMin(e.target.value)}
                   onBlur={handleMinBlur}
                   onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                  className={`${typography.panelMeta} w-full mt-0.5 bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 tabular-nums transition-colors`}
+                  className={`${typography.panelMeta} mt-0.5 tabular-nums ${controls.editableField}`}
                 />
               </label>
               <label className="flex-1">
@@ -502,7 +503,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                   onChange={e => setLocalMax(e.target.value)}
                   onBlur={handleMaxBlur}
                   onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                  className={`${typography.panelMeta} w-full mt-0.5 bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 tabular-nums transition-colors`}
+                  className={`${typography.panelMeta} mt-0.5 tabular-nums ${controls.editableField}`}
                 />
               </label>
             </div>
