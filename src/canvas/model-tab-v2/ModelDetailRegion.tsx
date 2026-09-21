@@ -39,6 +39,29 @@ import { UNCONFIRMED_ESTIMATE_LABEL } from '../domain/vocabulary'
 import type { DetailField, DetailTier, ModelRow, ModelRowDetail } from './types'
 
 /**
+ * The picker's one line of copy, and the refusal that rides its buttons.
+ *
+ * ⚠ IT NAMES THE ACT, NOT THE GAP. The product already reports the gap in
+ * eleven places; a twelfth report would be the thing the old gate was right to
+ * refuse. This sentence exists because the buttons under it need a subject —
+ * "Clearing rate" alone does not say what pressing it does.
+ *
+ * ⛔ NO "yet". `METRIC_UNSET`'s ruling makes "yet" an invitation, and an
+ * invitation is exactly what this row IS — so the word would be doing its work
+ * twice, once in prose and once as a control. The control is the stronger
+ * half; the prose stays flat.
+ *
+ * ⚠ THE REFUSAL IS THE SURFACE'S, NOT THE AUTHORITY'S. It fires when the host
+ * passed no handler — the B3 posture where the whole tab is reading-only — and
+ * says what a reader can do about it, which is nothing here. A refusal that
+ * blamed the value would be a sentence about the wrong object.
+ */
+const ADD_INTERVENTION_PROMPT = 'Set what this option changes:'
+const NO_AUTHORITY_INTERVENTION =
+  'This model is open for reading only, so changes cannot be set here.'
+
+
+/**
  * ⭐ WHO CHOSE THIS TARGET — this surface's register, TOTAL over the kind.
  *
  * ⚠ A SECOND REGISTER, AND THAT IS THE RATIFIED SHAPE, NOT A TRAP-12 MIRROR.
@@ -237,6 +260,42 @@ export function ModelDetailRegion({
    * every one of them was asserting something ELSE about the pane.
    */
   const interventions = detail.interventions ?? []
+  const interventionCandidates = detail.interventionCandidates ?? []
+
+  /**
+   * ⭐⭐ THE ROW THE PICKER OPENS, AND WITHOUT IT THE PICKER IS THE DEFECT IT
+   * CLOSES. The editor renders inside `interventions.map`, so an edit begun on
+   * a factor the option does not YET change has nowhere to appear: the reader
+   * presses a live button and the surface does not move — preamble P8, rebuilt
+   * by its own fix. Caught by asking what the click actually renders rather
+   * than by trusting that the state was set.
+   *
+   * ⚠ IT IS A ROW WITH NO VALUE, NOT A ROW WITH A ZERO. `value` and
+   * `numericValue` are `null` because nothing has been set — the surface's own
+   * rule that absence renders as absence, never as a figure nobody stated.
+   *
+   * ⚠ APPENDED, NOT MERGED INTO THE PROJECTION. `detail.interventions` is what
+   * the MODEL holds; this row is what the READER is composing. Writing it into
+   * the projection would make an unsent draft look like a stored target, which
+   * is the distinction the pending/queued phases exist to keep.
+   */
+  const editingCandidate =
+    interventionEdit !== null &&
+    !interventions.some(iv => iv.factorId === interventionEdit.factorId)
+      ? interventionCandidates.find(c => c.factorId === interventionEdit.factorId)
+      : undefined
+  const interventionRows = editingCandidate
+    ? [
+        ...interventions,
+        {
+          factorId: editingCandidate.factorId,
+          factorLabel: editingCandidate.factorLabel,
+          value: null,
+          numericValue: null,
+          provenanceSource: undefined,
+        },
+      ]
+    : interventions
 
   if (detail.rowId !== row.id) {
     return (
@@ -456,17 +515,36 @@ export function ModelDetailRegion({
         2b — What this option would change (rehomed from `OptionsSection`'s
         intervention rows, 18 Aug 2026).
 
-        ⚠ IT RENDERS ONLY WHEN THERE IS SOMETHING TO SHOW. An option that sets
-        no targets reports that through its ROW's `missing-intervention` marker
-        and the repair queue that collects it — an empty section here would be a
-        second, quieter rendering of the same fact, and the two would then have
-        to be kept in step.
+        ⚠⚠ THE GATE WAS `interventions.length > 0` AND ITS STATED REASON HAS
+        GONE STALE. It read: *"An option that sets no targets reports that
+        through its ROW's `missing-intervention` marker and the repair queue
+        that collects it — an empty section here would be a second, quieter
+        rendering of the same fact."* The argument is sound and its premise is
+        not: `set-option-values` — the queue that collects exactly those
+        options — **is never mounted**. `MountedQueueId` is
+        `Extract<RepairQueue['id'], 'confirm-estimates'>`, and a sweep with a
+        contrast control finds `'set-option-values'` in five definitional
+        places and zero call sites against `'confirm-estimates'`'s twelve
+        including the mount. So the gate deferred to a surface that does not
+        render, on the one surface that could act.
+
+        ⭐ AND THE SECTION IS NO LONGER A SECOND RENDERING OF THE FACT — IT IS
+        THE CONTROL THAT FIXES IT. Measured on the founder's board, 3 of 5
+        options carried zero interventions and the analysis could not tell them
+        apart; eleven user-facing strings reported that gap and exactly one
+        offered a route, which pointed at chat. This is the only connected
+        editor in the product (`modelOptionIntervention: 'server_graph'`), and
+        it was invisible on precisely the options that needed it.
+
+        ⚠ STILL SILENT WHEN THERE IS NOTHING TO OFFER. No targets AND no
+        candidates — an option wired to nothing — renders nothing, because then
+        the honest answer really is elsewhere.
       */}
-      {interventions.length > 0 && (
+      {(interventionRows.length > 0 || interventionCandidates.length > 0) && (
         <section data-testid="model-detail-v2-interventions">
           <h4 className={`${typography.panelHeader} text-text-header`}>What this would change</h4>
           <ul>
-            {interventions.map(iv => {
+            {interventionRows.map(iv => {
               const active = interventionEdit?.factorId === iv.factorId
               const pending = active && interventionEdit?.phase === 'pending'
               const queued = active && interventionEdit?.phase === 'queued'
@@ -624,6 +702,64 @@ export function ModelDetailRegion({
               )
             })}
           </ul>
+
+          {/*
+            ⭐⭐ THE ROUTE, NOT A SECOND REPORT OF THE GAP.
+
+            ⛔ WIRED FACTORS ONLY, AND THAT IS THE AUTHORITY'S RULE RATHER THAN
+            A UI TASTE. `proposeOptionIntervention`: *"The SERVER additionally
+            requires the option to be WIRED to it and refuses otherwise."*
+            `buildOptionInterventionCandidates` projects exactly that set, so
+            every row here is one the server will accept — a picker offering an
+            unwired factor would be an enabled control that does nothing
+            (preamble P8), which is the defect class this increment closes.
+
+            ⛔ IT SEEDS AN EMPTY EDITOR, NEVER THE FACTOR'S BASELINE. Opening at
+            the baseline would put a number on screen that nobody stated, and
+            committing it would assert an effect the reader never chose. The
+            same reasoning keeps `OptionPanel.handleAddFactor` local: an option
+            that changes a factor TO its current value is not an effect, it is
+            a claim that there is none.
+
+            ⚠ IT REUSES `onBeginInterventionEdit` RATHER THAN MINTING A SECOND
+            WRITE PATH. Adding a target and changing one are the same act on the
+            same field; two paths would be two answers to one question, and only
+            one of them would stay correct.
+          */}
+          {interventionCandidates.filter(c => c.factorId !== editingCandidate?.factorId).length > 0 && (
+            <div data-testid="model-detail-v2-intervention-candidates" className="pt-1">
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {ADD_INTERVENTION_PROMPT}
+              </p>
+              <ul className="flex flex-wrap gap-1 pt-0.5">
+                {interventionCandidates
+                  .filter(c => c.factorId !== editingCandidate?.factorId)
+                  .map(c => (
+                  <li key={c.factorId}>
+                    <button
+                      type="button"
+                      data-testid={`model-detail-v2-intervention-add-${c.factorId}`}
+                      disabled={typeof onBeginInterventionEdit !== 'function'}
+                      onClick={() => onBeginInterventionEdit?.(c.factorId, '')}
+                      aria-label={`Set what this option changes ${c.factorLabel} to`}
+                      title={
+                        typeof onBeginInterventionEdit === 'function'
+                          ? undefined
+                          : NO_AUTHORITY_INTERVENTION
+                      }
+                      className={`${typography.buttonSmall} border border-panel-border rounded px-2 py-0.5 ${
+                        typeof onBeginInterventionEdit === 'function'
+                          ? 'text-text-header hover:bg-panel-hover'
+                          : 'text-text-light cursor-not-allowed'
+                      }`}
+                    >
+                      {c.factorLabel}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 
