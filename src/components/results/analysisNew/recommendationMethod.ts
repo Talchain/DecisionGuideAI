@@ -320,6 +320,15 @@ const METHOD_BY_DSK_CLAIM: ReadonlyArray<readonly [string, string]> = [
   // reference class"; the claim is "Outside view and reference class
   // forecasting". Name-identical in both halves.
   ['DSK-T-002', 'outside_view'],
+  // ⭐ ADDED 21 Sep 2026 — and it is the THIRD technique under `CALIBRATION_PROMPT`,
+  // which is the whole argument for this table restated with more evidence.
+  // Derived from a sweep of 945 captured bundles: `DSK-T-003` occurs 83 times,
+  // 4 of them stamped `CALIBRATION_PROMPT` alongside T-001 and T-002. Its
+  // producer-authored `claim_title` is "Consider-the-opposite as a debiasing
+  // strategy"; the catalogue entry is `consider_opposite`, titled "Consider the
+  // opposite". Name-identical in both halves — the same standard the two rows
+  // above were admitted on, not a looser one.
+  ['DSK-T-003', 'consider_opposite'],
 ]
 
 export function methodForRecommendation(
