@@ -4,10 +4,10 @@ import { memo, useCallback, useEffect, useMemo } from 'react'
 // while `FirstUseComposer` passes it as a placeholder ATTRIBUTE, so a grep for
 // one shape does not find the other. Bound to the shared constant so the two
 // cannot drift apart again.
-import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 import { ExternalLink } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useConversationContext } from '../conversation/ConversationContext'
+import { useEmptyConversationInvitation } from '../hooks/useStageAwarePlaceholder'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 // Type-only: erased at compile time, so this adds no runtime edge to a module
@@ -39,6 +39,9 @@ interface OlumiTabBodyProps {
 export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabBodyProps) {
   const conversation = useConversationContext()
   const realMessageCount = conversation.messages.filter((m) => !m.synthetic).length
+  // Read unconditionally — the empty branch below is an early return, and a
+  // hook behind it would change call order between the two states.
+  const invitation = useEmptyConversationInvitation()
 
   // pre-analysis-power-v2 fix: register guidance-store callbacks at the
   // OlumiTabBody level so consumers like `DiscussWithAiButton` (the
@@ -164,8 +167,27 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
       <div className="flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-empty">
         {floatOutIcon}
         <div className="flex flex-1 items-center justify-center px-6 py-6">
-          <p className={typo('panelBody', 'text-text-light text-center max-w-xs')}>
-            {FIRST_USE_PLACEHOLDER}
+          {/*
+            ⭐ THE INVITATION KNOWS WHETHER THERE IS A MODEL, AND IT DID NOT.
+            This rendered `FIRST_USE_PLACEHOLDER` on the sole condition that the
+            conversation was empty — so a canvas full of options, opened from a
+            template or after a cleared history, was met with "Describe the
+            decision or challenge you're working through", twenty pixels above a
+            composer already saying "Ask about this model…". One frame, one
+            state, two surfaces disagreeing about what the user had.
+
+            ⚠ THE STATE IS NOT RE-DERIVED HERE. `useEmptyConversationInvitation`
+            reads the SAME ladder the composer's placeholder reads
+            (`useConversationStage`), so the two cannot drift apart again — a
+            second predicate in this file is exactly how they came apart in the
+            first place. The genuinely-first-use case still gets the sentence it
+            always did; four states that had no voice now have one.
+          */}
+          <p
+            className={typo('panelBody', 'text-text-light text-center max-w-xs')}
+            data-testid="olumi-tab-empty-invitation"
+          >
+            {invitation}
           </p>
         </div>
       </div>
