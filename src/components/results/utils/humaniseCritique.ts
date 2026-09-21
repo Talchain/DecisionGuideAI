@@ -787,6 +787,25 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
       'Where a relationship\'s current and reversed strength come out the same, there is no ratio to weigh, so those entries are absent from the evidence list rather than empty. Every other part of this analysis stands.',
   }),
 
+  /**
+   * ⭐ ABSENT BY CONTRACT, NOT BY FAILURE — the distinction is the whole message.
+   *
+   * The producer: "edge_sensitivity is empty by wire contract, not by
+   * computation failure. Factor-level sensitivity is unaffected." A reader who
+   * meets an empty relationship-sensitivity area and no explanation concludes
+   * something broke.
+   *
+   * ⚠ NO WIRE TOKEN AND NO FORMAT VERSION REACHES THE COPY. "the ISL V2
+   * response format" and `edge_sensitivity` are internals; the reader needs the
+   * consequence, not the mechanism.
+   */
+  EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE: () => ({
+    title:
+      'Sensitivity for individual relationships is not carried by this analysis format, so it is absent by design rather than missing. Your results stand.',
+    description:
+      'Factor-level sensitivity is unaffected and is shown as usual. Nothing failed to compute here.',
+  }),
+
   // ── Kind B (user-stated ranges): the closed RangeFitRefusalCode vocabulary ─
   // ⚠ THESE ARE NOT COMPUTE DEGRADATION, despite sitting beside it on the wire.
   // At `services/range_fit.py` each is a refusal of a range the USER stated,
@@ -976,6 +995,9 @@ export const ISL_INFERENCE_WARNING_KINDS: Readonly<Record<string, InferenceWarni
   // the 28fe0c95 AST walk this map was built from — the drift the vocabulary
   // spec's property (4) predicted, arriving exactly as described.
   FACTOR_EVPPI_NOT_COMPUTED: 'compute_degradation',
+  // Added 2026-09-21: code 32. Absent BY WIRE CONTRACT, not by failure — which
+  // is why the copy says the results stand rather than describing a shortfall.
+  EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE: 'compute_degradation',
   FACTOR_EVPC_UNAVAILABLE: 'compute_degradation',
   // Model shape
   GOAL_THRESHOLD_NOT_CONVERTIBLE: 'model_shape',

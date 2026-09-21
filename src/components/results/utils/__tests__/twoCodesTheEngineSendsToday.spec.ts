@@ -45,17 +45,33 @@ const FALLBACK_TITLE = 'Part of this analysis was limited'
 const FACTOR_BLAME = /review this factor|this factor'?s inputs|assess this factor|your inputs|check your inputs/i
 const UNRESOLVED_LABEL = /This factor/
 
-/** Exactly as received on run `95b92672`. A RECORD — append, never edit. */
-const AS_RECEIVED_95B92672 = [
-  {
-    code: 'EDGE_E_VALUE_NON_FINITE_DROPPED',
-    kind: 'compute_degradation',
-  },
-  {
-    code: 'FACTOR_EVPPI_NOT_COMPUTED',
-    kind: 'compute_degradation',
-  },
+/**
+ * ⭐⭐ THE UNMAPPED CODES, FOUND BY SWEEP RATHER THAN BY SIGHTING.
+ *
+ * After the two above were caught on one screenshot, all **945 captured debug
+ * bundles** were read for `inference_warnings[].code`. Twelve distinct codes are
+ * actually emitted in the wild, and `humaniseCritique` was then CALLED for each at
+ * pristine `origin/staging` — because a text grep over that file truncates at an
+ * inner brace and cannot see its label-aware map, which is how a first pass
+ * wrongly scored `CONSTRAINT_TARGET_UNRELIABLE` as unmapped when it has had
+ * label-naming copy all along. Derived, THREE had no template, so every run
+ * carrying one rendered "Part of this analysis was limited" instead of what the
+ * producer said. Fixing the class beats fixing the instance that happened to be
+ * screenshotted — the other two would have surfaced as "new" defects later.
+ *
+ * ⚠ A RECORD, NOT A FIXTURE. These are codes and counts actually observed.
+ * APPEND-ONLY: if the producer's vocabulary changes, add a row, never edit one.
+ */
+const UNMAPPED_UNTIL_2026_09_21 = [
+  { code: 'EDGE_E_VALUE_NON_FINITE_DROPPED', kind: 'compute_degradation', occurrences: 30 },
+  { code: 'FACTOR_EVPPI_NOT_COMPUTED', kind: 'compute_degradation', occurrences: 6 },
+  { code: 'EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE', kind: 'compute_degradation', occurrences: 1 },
 ] as const
+
+/** The pair witnessed together on one screen, which is where this started. */
+const AS_RECEIVED_95B92672 = UNMAPPED_UNTIL_2026_09_21.filter(
+  (w) => w.code === 'EDGE_E_VALUE_NON_FINITE_DROPPED' || w.code === 'FACTOR_EVPPI_NOT_COMPUTED',
+)
 
 const humanise = (code: string) => humaniseCritique({ code, message: '' } as never)
 
@@ -123,6 +139,27 @@ describe('the two codes the engine sent on 95b92672', () => {
     const text = `${title} ${description}`
     expect(text).not.toMatch(FACTOR_BLAME)
     expect(text).not.toMatch(UNRESOLVED_LABEL)
+  })
+
+  it.each(UNMAPPED_UNTIL_2026_09_21)(
+    '$code ($occurrences occurrences in 945 bundles) now has real copy',
+    ({ code, kind }) => {
+      expect(ISL_INFERENCE_WARNING_KINDS[code], `${code} unclassified`).toBe(kind)
+      const { title, description } = humanise(code)
+      expect(title, `${code} still on the fallback`).not.toBe(FALLBACK_TITLE)
+      expect(`${title} ${description}`).not.toMatch(FACTOR_BLAME)
+      expect(`${title} ${description}`).not.toMatch(UNRESOLVED_LABEL)
+    },
+  )
+
+  /**
+   * ⛔⛔ ALL FOUR ARE DIFFERENT SENTENCES. Four codes resolving to templates is
+   * not the fix if two of them resolve to the SAME template — that reproduces
+   * the defect with extra steps.
+   */
+  it('all three are distinct findings', () => {
+    const titles = UNMAPPED_UNTIL_2026_09_21.map((w) => humanise(w.code).title)
+    expect(new Set(titles).size).toBe(UNMAPPED_UNTIL_2026_09_21.length)
   })
 
   /**

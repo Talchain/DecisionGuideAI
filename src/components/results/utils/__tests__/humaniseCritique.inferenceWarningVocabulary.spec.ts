@@ -79,7 +79,18 @@ describe('ISL inference-warning vocabulary — the derived code set', () => {
     // limited" twice, with the producer's actual explanations discarded. This is
     // exactly the cross-repo drift this file's header predicts; the count is meant
     // to move deliberately, with the map, which is what happened here.
-    expect(CODES).toHaveLength(29)
+    //
+    // ⭐ 27 → 30 on 2026-09-21, from a SWEEP plus a DERIVATION rather than a
+    // sighting. All 945 captured debug bundles were read for
+    // `inference_warnings[].code` (12 distinct codes emitted in the wild), and
+    // then `humaniseCritique` was CALLED for each — because a text grep over
+    // this file truncates at an inner brace and misses the label-aware map
+    // entirely, which is how a first pass wrongly scored two codes as unmapped.
+    // Measured at pristine `origin/staging`, exactly three land on the generic
+    // fallback: EDGE_E_VALUE_NON_FINITE_DROPPED, FACTOR_EVPPI_NOT_COMPUTED and
+    // EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE. Those three, and only those three.
+    expect(CODES).toHaveLength(30)
+    expect(CODES).toContain('EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE')
     expect(CODES).toContain('FACTOR_EVPPI_NOT_COMPUTED')
     expect(CODES).toContain('EDGE_E_VALUE_NON_FINITE_DROPPED')
     expect(CODES).toContain('E_VALUES_UNAVAILABLE')
