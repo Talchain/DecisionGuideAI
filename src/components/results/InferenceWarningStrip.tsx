@@ -100,12 +100,31 @@ function StripEntry({ warning }: { warning: InferenceWarning }): JSX.Element {
 
   const title = humaniseInferenceWarningTitle(warning)
 
+  /**
+   * ⛔⛔ THE DEPS WERE `[title]` ALONE AND THAT WAS A HIDING DEFECT, not a
+   * refresh nicety. Found by an independent reviewer (Canvas lane, 21 Sep).
+   *
+   * The panel lives in a dock the user can drag. Text that FITS at mount and
+   * stops fitting after a narrow would keep `overflows === false`, so the clamp
+   * would apply with **no "Show more" beside it** — warning copy silently
+   * truncated and unreachable. That is exactly the no-silent-truncation rule the
+   * strip already holds itself to for held-back ENTRIES, broken one level down
+   * at the sentence.
+   *
+   * ⚠ A RESIZE LISTENER ON `window` WOULD NOT COVER IT. The dock resizes without
+   * the window changing size, so the observer watches the ELEMENT.
+   */
   useEffect(() => {
     const el = textRef.current
     if (el === null) return
     // +1 absorbs sub-pixel line-height rounding, which otherwise reports a
     // one-line entry as overflowing on some zoom levels.
-    setOverflows(el.scrollHeight > el.clientHeight + 1)
+    const measure = (): void => setOverflows(el.scrollHeight > el.clientHeight + 1)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [title])
 
   return (
