@@ -64,3 +64,29 @@ describe('the tipping-point sentence places its unit where the reader reads it',
     expect(s).toContain('0.04%')
   })
 })
+
+/**
+ * ⭐ THE ROOT CAUSE, NOT THE SYMPTOM. Both threshold sites now route through
+ * ONE owner (`applyUnitPlacement`), so a unit cannot be placed two ways on one
+ * screen. These pin the cases the hand-rolled spellings got wrong.
+ */
+describe('one owner places every unit — the sites cannot disagree', () => {
+  it('⛔ PINS A LATENT DEFECT: a compound unit is no longer jammed on the front', () => {
+    // `£/month` is in Paul's own bundle (`current_value: 53.86`). It was only
+    // unreachable because that row's flip_value is null — one producer change
+    // away from rendering "£/month53.86".
+    const s = tp('Pro Plan Monthly Price', 49, 53.86, 'Hold', '£/month')
+    expect(s).not.toContain('£/month49')
+    expect(s).toContain('49 £/month')
+  })
+
+  it('a placeholder unit prints NO unit — "index0.36" cannot come back', () => {
+    const s = tp('Customer demand', 0.2, 0.36, 'X', 'index')
+    expect(s).not.toContain('index')
+  })
+
+  it('an ISO code takes a space, not a jam', () => {
+    const s = tp('Price', 49, 59, 'X', 'USD')
+    expect(s).toContain('USD 49')
+  })
+})
