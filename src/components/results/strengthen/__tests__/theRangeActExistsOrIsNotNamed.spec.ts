@@ -47,6 +47,12 @@ const lowEvidenceHighInfluence = (
   label: LABEL,
   influence: 0.9,
   confidenceDisplay: { show: true, value: 0.2, isDefaulted: false, isProvisional: false },
+  // ⚠ REQUIRED on `StrengthenFactor`, and omitting it was a real TS error the
+  // `Typecheck Gate Self-Test` caught — `tsconfig.app.json` EXCLUDES tests, so
+  // the ordinary `pnpm typecheck` is blind to spec files and this is the gate
+  // that is not. Its value is irrelevant to every assertion here; its presence
+  // is not optional.
+  canFocus: true,
   ...(rangeIsSettable === undefined ? {} : { rangeIsSettable }),
 })
 
