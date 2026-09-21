@@ -965,7 +965,7 @@ jobs:
       # Bounded so a teardown hang (mode A) or a genuine JS-side hang (e.g.
       # an infinite render loop — the actual chronic-red root cause, see
       # workflow header) fails fast instead of running to GitHub's 6-hour
-      # default. Each shard carries ~1/4 the files, so 15 min is generous
+      # default. Each shard carries ~1/4 the files, so 20 min is generous
       # headroom over the ~4-5 min a healthy shard takes.
       #
       # We capture vitest's REAL exit code (PIPESTATUS[0], not tee's) and force
@@ -985,7 +985,16 @@ jobs:
       # below never matches it — a real PASS misreported as a parse failure.
       - name: Run test suite (shard ${{ matrix.shard }}/${{ env.SHARD_COUNT }})
         id: vitest
-        timeout-minutes: 15
+        # 15 -> 20 (21 Sep 2026). MEASURED, not guessed: the cap was 900s and a PASSING
+        # staging baseline peaks at 897s — three seconds of headroom, which is a coin
+        # flip rather than a signal. Shard 2/4 failed at 912s the same night with ZERO
+        # test failures in a 3.9MB log carrying 8551 vitest markers, and a re-run on
+        # identical code went green. This step's own error text already says "This is a
+        # CI hang, not a test failure".
+        # ⚠ It CANNOT mask a test failure — a real failure still fails. What it does
+        # remove is the only pressure currently on suite duration. If suite time keeps
+        # growing, that needs a real duration signal, not a bigger cap.
+        timeout-minutes: 20
         run: |
           set +e
           pnpm exec vitest run --reporter=verbose --no-color --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} 2>&1 | tee vitest-output.raw.txt
@@ -1044,9 +1053,9 @@ jobs:
             exit 1
           fi
           # Empty exit_code => the step was killed before it could report its
-          # exit (15-min timeout or runner cancellation). Mode A.
+          # exit (20-min timeout or runner cancellation). Mode A.
           if [ -z "${VITEST_EXIT}" ]; then
-            echo "::error::Shard ${{ matrix.shard }} did not complete — it timed out (15 min) or was cancelled before reporting. This is a CI hang, not a test failure; inspect the 'vitest-output-shard-${{ matrix.shard }}' artifact to see how far it got."
+            echo "::error::Shard ${{ matrix.shard }} did not complete — it timed out (20 min) or was cancelled before reporting. This is a CI hang, not a test failure; inspect the 'vitest-output-shard-${{ matrix.shard }}' artifact to see how far it got."
             tail -30 vitest-output.txt || true
             exit 1
           fi
