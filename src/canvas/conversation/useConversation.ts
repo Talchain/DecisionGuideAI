@@ -4859,19 +4859,6 @@ export function useConversation(): UseConversationReturn {
         // it resolves to 'unconfirmed' instead. Network throws and CEE-class
         // errors are unchanged: both are verified.
         if (userBubbleIdForTurn) {
-          // ⚠ SCOPED TO TRANSPORT-CLASS, and a pre-existing test is what
-          // bounded it: without this conjunct a CEE-class BoundaryError — the
-          // server ANSWERING with its own typed verdict — also read as
-          // unconfirmed. An opened stream is evidence about DELIVERY only; it
-          // says nothing when CEE has already spoken, and its verdict governs.
-          const transportClass =
-            target.kind === 'typed_error' &&
-            isTransportFailure({
-              hasBoundaryError: target.boundaryError !== undefined,
-              transportMeta: target.transportMeta,
-              recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
-              rawBody: target.rawBody,
-            })
           const unverified =
             target.kind === 'typed_error' &&
             isUnverifiedDelivery({
@@ -4900,18 +4887,30 @@ export function useConversation(): UseConversationReturn {
           // dead socket is a fact about the retry, not about the turn.
           //
           // Two questions under one name, so they are named apart rather than
-          // reconciled: `unverified` = "did the fallback get through?",
+          // reconciled: `unverified` = "did the FALLBACK get through?",
           // `streamOpenedForTurn` = "did THIS TURN get through?". Only the
           // second licenses a delivery claim, and it licenses `'unconfirmed'`
           // — sent, reply not received — never `'sent'`, because no outcome
           // ever came back. `'unconfirmed'` also withholds the retry chip,
           // which matters: CEE keys its commit on its own per-request id, so a
           // retry here DUPLICATES the turn.
+          //
+          // ⛔ I FIRST SCOPED THIS TO TRANSPORT-CLASS AND THE REVIEWER WAS
+          // RIGHT THAT IT ANSWERS THE WRONG QUESTION. `target` classifies the
+          // BUFFERED FALLBACK's result; `streamOpenedForTurn` is evidence
+          // about the ORIGINAL turn. A CEE-class `BoundaryError` from the
+          // fallback does not un-open the stream the original turn already
+          // opened — so the conjunct let "Not delivered" render for a message
+          // that demonstrably arrived. A later typed result may govern the
+          // turn's OUTCOME COPY (the server-fault sentence stays), but it
+          // cannot support a claim about DELIVERY. Two requests, two
+          // questions; the conjunct folded them back together after I had
+          // just written that they must not be.
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
               target.kind !== 'typed_error' || deliveryProvenByFrame
                 ? 'sent'
-                : unverified || (transportClass && streamOpenedForTurn)
+                : unverified || streamOpenedForTurn
                   ? 'unconfirmed'
                   : 'failed',
           })

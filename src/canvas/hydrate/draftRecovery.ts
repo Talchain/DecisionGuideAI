@@ -88,6 +88,7 @@ export async function recoverDraftFromServer(
   args: RecoverDraftArgs,
 ): Promise<DraftRecoveryOutcome> {
   let mergeChanged: boolean | null = null
+  let attributable: boolean | null = null
   const hydration = await hydrateCanvasFromServer(args.scenarioId, {
     userId: args.userId,
     accessToken: args.accessToken,
@@ -95,12 +96,35 @@ export async function recoverDraftFromServer(
     canApply: args.canApply,
     onMergeApplied: (merge) => {
       mergeChanged = merge.changed
+      // ⛔ CAUSAL ATTRIBUTION, WHICH `changed` ALONE IS NOT. Returned by an
+      // independent review of the zero-delta fix: a canvas that was STALE or
+      // unhydrated merges a graph the server already held BEFORE this turn and
+      // reports `changed: true`, so the older graph gets narrated as the
+      // recovered draft. The zero-delta guard closes the identical-base false
+      // positive; this closes the wrong-delta one.
+      //
+      // The test is the server's own identity against the base this client
+      // held when the read was issued — and that base is still the PRE-TURN
+      // value here, because the failed turn never updated it.
+      //
+      //   · hashes EQUAL      → the server holds the pre-turn graph. Nothing
+      //                         this turn did is on it. Not a recovery.
+      //   · base NULL         → nothing was authoritative before, so a graph
+      //                         now is new by construction. Attributable.
+      //   · fetched hash NULL → a CEE that predates the field. Attribution is
+      //                         IMPOSSIBLE, so nothing is claimed — fail
+      //                         closed, because a false "recovered" is a lie
+      //                         about the user's model and a missed one is a
+      //                         retry.
+      attributable =
+        merge.graphHash !== null && merge.graphHash !== merge.baseAtDispatch
     },
   })
   logger.debug('draft_recovery.outcome', {
     scenarioId: args.scenarioId,
     hydration,
     mergeChanged,
+    attributable,
   })
   if (hydration !== 'merged') return 'notRecovered'
 
@@ -112,6 +136,11 @@ export async function recoverDraftFromServer(
   // missed recovery (recoverable, the user retries) rather than a claimed one
   // (a sentence about the user's model that is not true).
   if (mergeChanged !== true) return 'notRecovered'
+
+  // Both are required, and they answer different questions: `mergeChanged`
+  // asks whether the canvas moved, `attributable` asks whether THIS TURN is
+  // why. Either alone licenses a sentence the other refutes.
+  if (attributable !== true) return 'notRecovered'
 
   // The merge applied the server's committed graph, so the unsettled state is
   // settled. Ownership-guarded release, same rule as sendTurn's finally: only

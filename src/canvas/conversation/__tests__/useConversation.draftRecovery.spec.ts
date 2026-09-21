@@ -134,11 +134,14 @@ function serverGraphResult(): ScenarioGraphResult {
     briefText: null,
     notModelled: null,
     identity: { value: 'srv-hash-1', projectionVersion: 'p1' },
-    // The write precondition for these bytes. `null` is the honest fixture:
-    // this suite is about GRAPH recovery on stream loss and asserts nothing
-    // about editability. Present rather than optional so a consumer cannot
-    // silently forget it — the parser always supplies it.
-    graphHash: null,
+    // ⚠ WAS `null`, AND THAT WAS A SHAPE THE WIRE CANNOT PRODUCE.
+    // `assist.v1.scenario-graph.ts` computes `graph_hash` from the graph it is
+    // returning whenever one is present, and sends null ONLY when the graph is
+    // absent — a case that never reaches this fixture, which carries a graph.
+    // The convenient null encoded a combination the producer cannot emit, and
+    // the recovery's causal check reads this field, so the fixture was quietly
+    // deciding the behaviour under test.
+    graphHash: 'srv-graph-hash-after-commit',
     layoutPresent: false,
     // ROADMAP 2.1271 — the recovery read carries the same analysis keys as
     // every other scenario-graph read. `null` on both is the honest fixture
@@ -278,6 +281,12 @@ beforeEach(() => {
     hasCompletedFirstRun: false,
     lastAuthoritativeGraph: null,
     serverGraphIdentity: null,
+    // ⚠ MUST BE RESET, and its absence made this suite ORDER-DEPENDENT.
+    // `adoptServerWriteBase` sets it on every successful read, so a test that
+    // recovered left its hash behind as the NEXT test's pre-turn base — and
+    // the recovery's causal check compares exactly those two. Six tests that
+    // pass in isolation failed in file order until this line existed.
+    lastServerGraphHash: null,
     results: { status: 'idle' } as never,
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   } as never)
@@ -651,6 +660,48 @@ describe('stream loss + fallback decline — the server HOLDS the draft', () => 
     expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
     expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
     expect(contents).not.toContain(DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE)
+  })
+
+  /**
+   * ⛔ CANVAS MOVEMENT IS NOT CAUSAL ATTRIBUTION — returned by an independent
+   * review of the zero-delta fix, and it is the harder half.
+   *
+   * The zero-delta guard closes the case where the server hands back exactly
+   * what is already on the canvas. It does NOT close the case where the canvas
+   * was STALE or unhydrated: the merge then moves it, reports `changed: true`,
+   * and an older graph the server already held BEFORE this turn gets narrated
+   * as the recovered draft.
+   *
+   * The discriminator is the server's own identity against the base this client
+   * held when the read was issued — still the PRE-TURN value, because the
+   * failed turn never updated it. Equal means nothing this turn did is on the
+   * server's copy.
+   */
+  it('a server graph the client already knew about is NOT this turn\'s recovery, however much the canvas moves', async () => {
+    // The pre-turn authority: the client already knew this exact server graph.
+    useCanvasStore.setState({ lastServerGraphHash: 'srv-graph-hash-after-commit' } as never)
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveStreamLossDecline()
+
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // The merge DID move the canvas — that is the point. It still proves nothing.
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+  })
+
+  it('CONTRAST: a DIFFERENT server hash from the pre-turn base IS attributable, and recovers', async () => {
+    // Same drive, same moved canvas — only the server's identity differs from
+    // what this client knew before the turn. Without this twin, the test above
+    // is consistent with a guard that refuses everything.
+    useCanvasStore.setState({ lastServerGraphHash: 'srv-graph-hash-BEFORE-the-turn' } as never)
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveStreamLossDecline()
+
+    expect(result.current.messages.map((m) => m.content)).toContain(
+      DRAFT_RECOVERED_STREAM_LOSS_NOTICE,
+    )
   })
 
   it('a transport-dead recovery read is a failure, not a recovery — same standing behaviour', async () => {

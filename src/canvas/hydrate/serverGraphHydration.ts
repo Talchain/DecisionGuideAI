@@ -85,7 +85,17 @@ export interface HydrateFromServerOptions {
    *
    * Every other caller omits it and is unaffected.
    */
-  onMergeApplied?: (merge: { readonly changed: boolean }) => void
+  onMergeApplied?: (merge: {
+    readonly changed: boolean
+    /**
+     * The fetched graph's own identity, and the server base this client held
+     * when the read was ISSUED. Equal means the server is handing back the
+     * graph it already had before this turn — canvas movement then proves only
+     * that the canvas was behind, never that this turn caused anything.
+     */
+    readonly graphHash: string | null
+    readonly baseAtDispatch: string | null
+  }) => void
 }
 
 /**
@@ -458,7 +468,7 @@ export async function hydrateCanvasFromServer(
 
   // Reported from the one place that knows it, AFTER every write this function
   // performs, so a caller acting on it is acting on a settled canvas.
-  opts.onMergeApplied?.({ changed: merge.changed })
+  opts.onMergeApplied?.({ changed: merge.changed, graphHash: result.graphHash, baseAtDispatch })
 
   return 'merged'
 }

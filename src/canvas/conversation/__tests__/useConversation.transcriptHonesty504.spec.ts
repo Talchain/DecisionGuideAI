@@ -234,7 +234,23 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     expect(result.current.lastSendFailure?.kind).toBe('transport')
   })
 
-  it('CEE-class BoundaryError: #391 copy preserved AND the user message is now marked failed', async () => {
+  /**
+   * ⚠ THIS TEST ASSERTED `'failed'` AND THAT WAS ITSELF A FALSE CLAIM — changed
+   * deliberately, with the reason in place rather than quietly.
+   *
+   * `'failed'` renders "Not delivered". CEE answering with its own typed
+   * `BoundaryError` is PROOF the message was delivered — it is the server's own
+   * verdict about a turn it received. The #391 server-fault COPY is right and
+   * is still asserted below; the DELIVERY MARKER was not. Two different
+   * questions about one turn: what happened to it, and whether it arrived.
+   *
+   * Caught by an independent review of the streamed-draft change, which found
+   * the same conflation one layer up: a fallback's typed result may govern the
+   * turn's outcome copy, but it cannot support "Not delivered" for a message
+   * that reached the server. This is that rule applied here, where it was
+   * already wrong before the streamed path existed.
+   */
+  it('CEE-class BoundaryError: #391 copy preserved, and the message is unconfirmed — never "Not delivered"', async () => {
     stubFetchWith(500, BOUNDARY_ERROR_BODY)
     const { result } = renderHook(() => useConversation())
     await act(async () => {
@@ -242,7 +258,9 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     })
 
     const userMsg = result.current.messages.find((m) => m.role === 'user')
-    expect(userMsg?.deliveryState).toBe('failed')
+    // The server answered, so the message arrived. It is not "sent" either —
+    // no usable reply came back.
+    expect(userMsg?.deliveryState).toBe('unconfirmed')
     const last = result.current.messages[result.current.messages.length - 1]
     // CEE-class keeps the canonical taxonomy copy (server fault IS the truth here).
     expect(last.content).toContain('Something went wrong on our side. Please retry.')
