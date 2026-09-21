@@ -164,7 +164,7 @@ import {
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
-import { markFactorEditInFlight, settleFactorEditInFlight } from './pendingFactorEdit'
+import { markFactorEditInFlight } from './pendingFactorEdit'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -3868,6 +3868,21 @@ export function useConversation(): UseConversationReturn {
           // DEFER, do not drop. Returns a sentinel so the caller can tell this
           // apart from a dispatched turn — the old bare `return` could not be
           // distinguished from success by any caller, in prod or in a test.
+          //
+          // ⭐⭐ AND THE CARD IS TOLD HERE TOO — this return is WHY the first
+          // version of the pending readout did nothing in a real browser.
+          // A queued edit never reaches the dispatch-time mark further down, so
+          // the commonest case (an edit made while any turn is in flight) was
+          // the one case with no pending state at all, and the card went blank
+          // exactly as before. Marking on BOTH admission paths is what Codex's
+          // "immediate and deferred dispatch through the shared settlement
+          // owner" requires; settlement is already shared, admission was not.
+          if (opts.optimisticFactorEdit) {
+            markFactorEditInFlight(
+              opts.optimisticFactorEdit.nodeId,
+              opts.optimisticFactorEdit.sentValue,
+            )
+          }
           enqueueDeferredSystemSend(opts)
           return SEND_DEFERRED
         } else {
@@ -5822,35 +5837,20 @@ export function useConversation(): UseConversationReturn {
         if (inFlightOptimisticFactorEditRef.current === opts.optimisticFactorEdit) {
           inFlightOptimisticFactorEditRef.current = null
         }
-        // ⭐⭐ EVERY-EXIT SETTLE FOR THE PENDING READOUT, and it belongs in THIS
-        // `finally` rather than at the four resolution sites.
+        // ⚠⚠ NO PENDING SETTLE HERE, AND THE FIRST VERSION OF THIS FIX PUT ONE
+        // HERE AND WAS WRONG — witnessed in a real browser, card still blank.
         //
-        // Acceptance (`confirmOptimisticFactorEdit`), refusal
-        // (`resolveFailedOptimisticFactorEdit`), a non-applied reply
-        // (`revertOptimisticFactorEdit`) and interruption
-        // (`resolveInterruptedOptimisticFactorEdit`) all end the pending state
-        // and differ only in what the CANONICAL graph then holds. Settling at
-        // each of them is four chances to miss one, and a missed settle leaves
-        // a card permanently claiming a value is in flight — a worse lie than
-        // the blank it replaced. A `finally` also covers the exits none of them
-        // name: an abort, a timeout, a thrown dispatch.
+        // This `finally` ends an ATTEMPT, not an EDIT. A deferred system edit
+        // stays queued across up to `MAX_FLUSH_ATTEMPTS` and is only forgotten
+        // on acceptance or a proven no-write, so settling here cleared the
+        // pending readout after attempt 1 of 3 while the number was still
+        // genuinely unacknowledged — and the card went blank again, which is
+        // the exact defect this was written to remove.
         //
-        // ⚠ Ordering is load-bearing and is already correct: the resolution
-        // sites run BEFORE this finally, so by the time pending clears the
-        // canonical state is settled and the card transitions straight from
-        // "pending 0.77" to either the stamped value or the restored previous
-        // one — never through a blank frame.
-        //
-        // ⚠ `settleFactorEditInFlight` stands down on a superseded value
-        // (see its header), so a preempted turn's late finally cannot blank a
-        // newer edit the user can still see — the same ownership rule as the
-        // reference-identity clear above.
-        if (opts.optimisticFactorEdit) {
-          settleFactorEditInFlight(
-            opts.optimisticFactorEdit.nodeId,
-            opts.optimisticFactorEdit.sentValue,
-          )
-        }
+        // Pending now ends where the EDIT resolves into canonical state:
+        // `confirmOptimisticFactorEdit` and `revertOptimisticFactorEdit`, the
+        // two functions that own that transition. By construction rather than
+        // by guessing at attempt boundaries.
         useDraftStore.getState().setIsGenerating(false)
         // ROADMAP 2.122 — every-exit settle for the streamed draft phase
         // (abort, timeout, thrown dispatch, a `return` from the abort guard).
