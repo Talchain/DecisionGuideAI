@@ -72,6 +72,13 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     // the engine had no way to tell a producer pre-mortem from a producer
     // assumption check and minted `clarify` for both.
     ...(item.signal_code ? { signalCode: item.signal_code } : {}),
+    // ⭐ AND `dsk_claim_id` DIED HERE TOO, for the same reason and with the same
+    // consequence one layer on. `signal_code` is `CALIBRATION_PROMPT` for both a
+    // pre-mortem and an outside-view prompt; the claim id is `DSK-T-001` and
+    // `DSK-T-002`. Dropping it left the methods shelf unable to tell the reader
+    // that this run raised a pre-mortem — on the withheld run, where these
+    // producer blocks are the only coaching the panel has.
+    ...(item.dsk_claim_id ? { dskClaimId: item.dsk_claim_id } : {}),
     ...(item.coaching_kind ? { coachingKind: item.coaching_kind } : {}),
     /**
      * ⭐⭐ `target_object` FIRST, THEN `related_elements` — AND THE SECOND HALF
@@ -581,6 +588,10 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     const biasCode = biasCodeFromPhase3Item(item)
     recs.push({
       id: `strengthen:phase3:${item.id}`,
+      // Producer-owned passthrough, exactly as `signalCode` and `biasCode` are:
+      // `methodForRecommendation` needs an IDENTITY to resolve a technique, and
+      // this is the only one a coaching block carries.
+      ...(item.dskClaimId ? { dskClaimId: item.dskClaimId } : {}),
       // Stage 3: the producer's own `signal_code`, where it names a move we can
       // independently classify. Falls through to 'clarify' — today's
       // unconditional value — for every code we cannot. See
