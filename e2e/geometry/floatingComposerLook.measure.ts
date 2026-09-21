@@ -222,55 +222,48 @@ test('FLOATING C — the strip, on the tab that actually renders it', async ({ p
 })
 
 /**
- * FLOATING D — HOW MANY CLICKS DOES THE FLOAT-OUT CHEVRON TAKE? Measured, by
- * viewport, because the answer is not the same at every width.
+ * FLOATING D — ONE CLICK OPENS THE FLOATING PANEL, AT EVERY VIEWPORT, AND THE
+ * CONSTRAINED WIDTHS STILL SHOW ONLY ONE EXPANDED SURFACE.
  *
- * ⭐ THE FINDING. From the docked Olumi tab, the strip's chevron — labelled
- * "Open Olumi in floating panel" — opens the panel in ONE click at 1680 and
- * 1920, and takes TWO at 1280 and 1440: the panel opens and is immediately
- * minimised to the restore pill, and a second click on that pill opens it for
- * good. 1280 and 1440 are the ordinary laptop widths, so the two-click path is
- * the one most people get.
+ * ⭐ WHAT THIS PINNED BEFORE, AND WHY THE HISTORY STAYS. Written on 21 Sep 2026
+ * this file asserted TWO clicks at 1280 and 1440 and one at 1680 and 1920,
+ * because that is what the product did: at the narrow widths the panel opened
+ * and was immediately minimised to the restore pill, so the chevron's label
+ * ("Open Olumi in floating panel") was a promise the click did not keep. Those
+ * are the ordinary laptop widths, so the two-click path was the one most people
+ * got. The cells are kept, flipped to one click, so the defect cannot return
+ * quietly — a regression puts a pill back and these go red by name.
  *
- * ⚠ NOT A DEAD CONTROL, AND THE DIFFERENCE MATTERS. The first reading of this
- * was "the chevron does nothing"; the pill is small and corner-docked, so a
- * click that produces one looks like a click that produced nothing. Driving the
- * pill afterwards settles it: `isOpen: true, isMinimised: false,
- * userChoseFloating: true, panelVisible: true`. The capability is reachable.
- * It is the ONE-CLICK PROMISE the label makes that is not kept.
+ * ⭐ THE CAUSE, ESTABLISHED BY TRACE RATHER THAN BY READING. Three plausible
+ * mechanisms were tested against the live sequence and all three refuted
+ * (`fitsAtMinSize` — ample room at 1440; the shell listener's own
+ * `setShowResultsPanel(false)` microtask — that effect returns early once the
+ * flag is false; a re-minimise of the pill-restored panel — it survives). The
+ * answer came from capturing a stack at every write of the dock's `isOpen`,
+ * AT THE CALL rather than inside the updater, where React's reducer is all a
+ * stack can show: `floatOutToWindow`'s own tab bookkeeping moved `externalTab`,
+ * which woke the external-tab sync effect, which read the just-collapsed dock
+ * as a state to correct and re-opened it. The fix defers the surface request by
+ * one frame so that effect settles against an open dock first. It is recorded
+ * beside the code it changed.
  *
- * ⚠ WHAT IS ESTABLISHED ABOUT THE MECHANISM, AND WHAT IS NOT. Established, by
- * measurement: the shell DOES take ownership of the reveal at the narrow widths
- * (`olumi-floating-surface-requested` comes back `defaultPrevented: true`) and
- * declines it at the wide ones (`false`), which matches
- * `needsSingleExpandedPanel` — so the split is the constrained-composition rule
- * firing, not a broken handler. Also established, by wrapping the dock's own
- * `sessionStorage` persist: the dock's collapse COMMITS and is then REVERTED
- * inside a frame — the committed sequence is `isOpen=true → isOpen=false →
- * isOpen=true`, with `activeTab` unchanged throughout. So the shell's half of
- * the ruled bargain ("choosing floating Olumi collapses Outputs") is undone by
- * something that re-opens the dock, and the reconcile effect then minimises the
- * panel the user just asked for.
- *
- * NOT established: WHICH writer performs the revert. Three candidates were
- * tested against the trace and all three were refuted — `fitsAtMinSize` (there
- * is ample room at 1440), the listener's own `setShowResultsPanel(false)`
- * microtask (that effect's guard returns early once the flag is false), and a
- * re-minimise of the pill-restored panel (it survives). Recording the refuted
- * ones deliberately: each looked obviously right, and a fix built on any of
- * them would have changed core dock navigation for a reason that is not true.
- *
- * This cell asserts ONLY what it has measured — the one-click promise, per
- * viewport — so it will go red the day the bargain is honoured, which is the
- * point.
+ * ⚠ THE SECOND ASSERTION IS THE ONE THAT KEEPS THE FIX HONEST. "One click" is
+ * easy to get by simply not collapsing the dock — which would put two expanded
+ * thinking surfaces side by side at 1280 and silently repeal the
+ * constrained-composition rule (`needsSingleExpandedPanel`) that the collapse
+ * exists to satisfy. So at the constrained widths this also requires the dock
+ * to have actually yielded. Without it, this file would call the rule's
+ * repeal a success.
  */
 for (const vp of [
-  { width: 1280, height: 800, clicks: 2 },
-  { width: 1440, height: 900, clicks: 2 },
-  { width: 1680, height: 1050, clicks: 1 },
-  { width: 1920, height: 1080, clicks: 1 },
+  { width: 1280, height: 800, constrained: true },
+  { width: 1440, height: 900, constrained: true },
+  { width: 1680, height: 1050, constrained: false },
+  { width: 1920, height: 1080, constrained: false },
 ] as const) {
-  test(`FLOATING D ${vp.width} — the float-out chevron takes ${vp.clicks} click(s)`, async ({ page }) => {
+  test(`FLOATING D ${vp.width} — one click opens the panel${vp.constrained ? ', and the dock yields' : ''}`, async ({
+    page,
+  }) => {
     await preparePage(page, { width: vp.width, height: vp.height })
     await openCanvas(page)
     const applied = await seedStarterDraft(page, 'build-vs-buy')
@@ -280,32 +273,39 @@ for (const vp of [
     await waitForVisualQuiescence(page)
     await openOlumiTab(page)
 
-    const panel = page.locator('[data-testid="floating-olumi-panel"]')
-    const pill = page.locator('[data-testid="floating-olumi-panel-pill"]')
+    const dockWidthBefore = await page.evaluate(() => {
+      const d = document.querySelector('aside[aria-label="Outputs dock"]')
+      return d ? Math.round(d.getBoundingClientRect().width) : -1
+    })
 
     await page.locator('[data-testid="ai-input-bar-strip-chevron"]').first().click()
     await waitForVisualQuiescence(page)
 
-    const openedFirstClick = await panel.isVisible()
-    const pillAfterFirst = await pill.count()
+    const panel = page.locator('[data-testid="floating-olumi-panel"]')
+    const pillCount = await page.locator('[data-testid="floating-olumi-panel-pill"]').count()
+    const dockWidthAfter = await page.evaluate(() => {
+      const d = document.querySelector('aside[aria-label="Outputs dock"]')
+      return d ? Math.round(d.getBoundingClientRect().width) : -1
+    })
     console.log(
-      `[chevron ${vp.width}] after 1 click — panel visible: ${openedFirstClick}, pill: ${pillAfterFirst}`,
+      `[chevron ${vp.width}] panel visible: ${await panel.isVisible()}, pill: ${pillCount}, ` +
+        `dock ${dockWidthBefore} -> ${dockWidthAfter}`,
     )
 
-    if (vp.clicks === 1) {
-      expect(openedFirstClick, 'one click should open the panel at this width').toBe(true)
-      return
+    await expect(
+      panel,
+      'one click on "Open Olumi in floating panel" did not open the floating Olumi panel',
+    ).toBeVisible({ timeout: 10_000 })
+    expect(pillCount, 'the panel opened but a restore pill was left behind — it bounced').toBe(0)
+
+    if (vp.constrained) {
+      expect(
+        dockWidthAfter,
+        'the panel opened WITHOUT the dock yielding — two expanded surfaces at a constrained width ' +
+          'repeals the rule the collapse exists to satisfy',
+      ).toBeLessThan(dockWidthBefore)
     }
 
-    // Two-click width: record the intermediate state, then prove the pill is
-    // the second half rather than a dead end.
-    expect(openedFirstClick, 'this width is pinned as two-click; it opened in one').toBe(false)
-    expect(pillAfterFirst, 'the first click left neither a panel nor a pill — that WOULD be dead').toBe(1)
-    await pill.first().click()
-    await waitForVisualQuiescence(page)
-    await expect(panel, 'the pill did not open the panel either — the surface is unreachable').toBeVisible({
-      timeout: 10_000,
-    })
-    await page.screenshot({ path: `${OUT}/FLOAT-D-${vp.width}-after-two-clicks.png` })
+    await page.screenshot({ path: `${OUT}/FLOAT-D-${vp.width}.png` })
   })
 }
