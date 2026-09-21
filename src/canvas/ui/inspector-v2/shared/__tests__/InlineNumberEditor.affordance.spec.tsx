@@ -126,6 +126,51 @@ describe('a fenced writer is visibly fenced', () => {
     }
   })
 
+  it('⭐ the RESTING control is fenced too — its only two call sites are inside the Router fence', () => {
+    // `InspectorRouter`'s else-branch wraps every NON-authority panel in a
+    // `<fieldset disabled>`, and `InlineNumberEditor` is used ONLY by the
+    // observable-factor and risk panels, both of which are in that branch. So
+    // the live resting box would render on a control the product has fenced.
+    //
+    // ⚠ PIN THE PRECONDITION: `:disabled` must match a `<button>` inside a
+    // disabled fieldset, not merely an `<input>`. Assuming it is how the input's
+    // own fence was nearly shipped inert.
+    render(
+      <fieldset disabled>
+        <InlineNumberEditor
+          readout="0.62"
+          placeholder="No value set. Click to enter."
+          value={0.62}
+          onSave={vi.fn()}
+          displayTestId="fenced-value-display"
+          inputTestId="fenced-value-input"
+        />
+      </fieldset>,
+    )
+    const fenced = screen.getByTestId('fenced-value-display')
+    expect(fenced.matches(':disabled')).toBe(true)
+    expect(controls.editableResting).toContain('disabled:bg-panel')
+    expect(controls.editableResting).toContain('disabled:cursor-not-allowed')
+
+    // A pencil on a fenced control is a promise the product will refuse.
+    expect(controls.editableCue).toContain('group-disabled:hidden')
+
+    // Positive control, so the assertion discriminates: the same component
+    // OUTSIDE a fence must NOT match, or ':disabled' is true of everything and
+    // this test would pass with the fence removed.
+    render(
+      <InlineNumberEditor
+        readout="0.62"
+        placeholder="No value set."
+        value={0.62}
+        onSave={vi.fn()}
+        displayTestId="live-value-display"
+        inputTestId="live-value-input"
+      />,
+    )
+    expect(screen.getByTestId('live-value-display').matches(':disabled')).toBe(false)
+  })
+
   it('the disabled state actually reaches a control inside a disabled fieldset', () => {
     // ⚠ PIN THE PRECONDITION IN-TEST. The `disabled:` variants above are inert
     // unless `:disabled` propagates from the fieldset to the control — which is

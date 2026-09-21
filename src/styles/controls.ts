@@ -116,7 +116,22 @@ export const controls = {
    * click, which reads as a glitch rather than as entering a field.
    */
   editableResting:
-    'w-full text-left rounded-md bg-panel-hover border border-field hover:border-primary cursor-text px-2 py-1 transition-colors',
+    'w-full text-left rounded-md bg-panel-hover border border-field hover:border-primary cursor-text px-2 py-1 transition-colors' +
+    // ⚠ THE RESTING CONTROL NEEDS THE FENCE TREATMENT MORE THAN THE INPUT DOES,
+    // and this was missing from the first cut of it.
+    //
+    // `InspectorRouter`'s else-branch wraps every NON-authority panel in a
+    // `<fieldset disabled>`. `InlineNumberEditor`'s only two call sites —
+    // observable factor and risk — are both in that branch, so the live box
+    // above would have rendered on a control the product has deliberately
+    // fenced: the most convincing possible lie about what can be edited.
+    // `:disabled` matches a `<button>` inside a disabled fieldset exactly as it
+    // does an input, which the spec beside this pins rather than assumes.
+    DISABLED_FENCE +
+    // A pencil on a fenced control is a promise, so the cue goes with the box.
+    // `group-disabled:` because the cue is a CHILD of the button that carries
+    // both the `group` marker and the disabled state.
+    ' disabled:hover:border-default',
 
   /**
    * The pencil cue beside a resting editable value.
@@ -125,5 +140,6 @@ export const controls = {
    * already uses a pencil, and two different cues for one meaning is exactly
    * the inconsistency this module exists to stop.
    */
-  editableCue: 'shrink-0 text-text-light group-hover:text-info transition-colors',
+  editableCue:
+    'shrink-0 text-text-light group-hover:text-info group-disabled:hidden transition-colors',
 } as const
