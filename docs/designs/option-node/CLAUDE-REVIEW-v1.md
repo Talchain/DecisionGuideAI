@@ -48,6 +48,20 @@ Driven in a browser at
 `docs/designs/option-node/v2/olumi-option-node-v2.html`, viewport 1280×720 unless stated. **Witnessed
 means I performed the interaction and observed the result**, not that I read a screenshot or a note.
 
+> ⛔ **THIS EVIDENCE BASE IS NOT IN VERSION CONTROL, SO §2 AND §3A ARE NOT REPRODUCIBLE FROM THIS REPO.**
+> Raised by the independent review seat on 9 Sep 2026 and re-derived before this correction: the
+> prototype above, `REVIEW-BRIEF.md` (cited at the top as the governing brief) and `START-HERE.md`
+> (cited in §3C) return **0, 0 and 0** hits in `git ls-files`, against a contrast control of **97**
+> tracked `docs/**/*.md` — so the sweep is not blind, the artefacts are genuinely absent.
+>
+> The eleven witnessed interactions below and §3A's occurrence counts were therefore taken against an
+> artefact no later session can retrieve. They are recorded as **a witness that cannot be re-run**,
+> not as a measurement anyone can reproduce. Treat every number in §2 and §3A as provenance-bearing
+> testimony, not as evidence — and re-measure before relying on one.
+>
+> ⚠ This is the same defect its sibling #1288 exists to COUNT (seven dangling design-doc citations in
+> `src/`). Stating it here rather than silently adding three more is the whole of the correction.
+
 | Check | Witnessed |
 |---|---|
 | Coaching is per-option | **Yes.** Selecting *Protect focus time* changed the observation to *"This option assumes interruptions are the main cause of delay. No supporting evidence is attached"* and the action to *Challenge the explanation*. Selecting *Two developers* gave *Explore hiring delays*. Different observation, different action, different type label. |
@@ -274,7 +288,7 @@ a different node type.
 
 ---
 
-# ADDENDUM — 8 Sep 2026. Two of this review's own recommendations are corrected here.
+# ADDENDUM — 8 Sep 2026. Three of this review's own recommendations are corrected here.
 
 Append-only. The sections above are left exactly as filed; this addendum says which of their claims no
 longer stand and why. **Recommendations 1, 2 and 7 are superseded by what follows.**
