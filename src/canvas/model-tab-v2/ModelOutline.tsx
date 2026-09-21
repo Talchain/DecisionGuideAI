@@ -641,11 +641,40 @@ export function ModelOutline({
    * and leave a group shut, which is the one outcome the control must never
    * produce.
    */
-  const allOpen = groups.every(g => g.open)
+  /**
+   * ⛔⛔ IT WRITES THE SET THAT GOVERNS THE OUTLINE ON SCREEN, AND THE FIRST HEAD
+   * OF THIS CHANGE DID NOT. It wrote `closed` unconditionally and cleared
+   * `searchClosed`, which is precisely the thing `toggle` above was repaired to
+   * stop doing: *"during a search the reader is acting on the SEARCH's outline,
+   * not on their resting one, so the click must not silently rewrite the state
+   * they return to when the needle clears."* A whole-outline control is not
+   * exempt from its own file's rule.
+   *
+   * Measured, mounted fully open with a needle matching one group and one other
+   * group hand-closed: pressing the control **labelled "Expand all" left 1 of 5
+   * groups open**, and clearing the needle returned the reader to **0 of 5**.
+   *
+   * ⛔⛔ AND THE LABEL AND THE ACT NOW READ ONE PREDICATE. They read two: the
+   * label came off the derived `open` (which folds in `searchClosed`) while the
+   * act branched on `closed.size`. Two spellings of one question is trap 12, and
+   * here it let the button announce an act and perform its opposite.
+   *
+   * ⚠ `governed` EXCLUDES WHAT THE CONTROL IS POWERLESS OVER. While searching, a
+   * group that is closed at rest AND has no match cannot be opened by any value
+   * of `searchClosed` — counting it would pin the label to "Expand all" over a
+   * button that cannot move it, which is the inert-control defect `outlineLayout`
+   * above records being caught on merged staging. Empty ⇒ nothing to govern ⇒ the
+   * control is absent rather than inert, on the same rule.
+   */
+  const governed = groups.filter(
+    g => !searching || openGroups.has(g.id) || g.headingRows.length > 0,
+  )
+  const allOpen = governed.length > 0 && governed.every(g => g.open)
   const toggleAll = useCallback(() => {
-    setClosed(prev => (prev.size === 0 ? new Set(MODEL_GROUP_IDS) : new Set()))
-    setSearchClosed(new Set())
-  }, [])
+    const next: ReadonlySet<ModelGroupId> = allOpen ? new Set(MODEL_GROUP_IDS) : new Set()
+    if (searching) setSearchClosed(next)
+    else setClosed(next)
+  }, [allOpen, searching])
 
   return (
     <div data-testid="model-outline-v2" data-tier={tier} className="flex flex-col">
@@ -653,6 +682,7 @@ export function ModelOutline({
           affordance shape as `pre-analysis-v3-groups-toggle-all`, so the two
           model surfaces do not teach the reader two different controls for one
           act. */}
+      {governed.length > 0 && (
       <div className="flex justify-end px-2 pb-1">
         <button
           type="button"
@@ -663,6 +693,7 @@ export function ModelOutline({
           {allOpen ? 'Collapse all' : 'Expand all'}
         </button>
       </div>
+      )}
       {groups.map(group => {
         /* ⚠ COMPUTED ONCE. It was called twice — once to decide whether to
            render and once to render — so the heading asked the same question of
