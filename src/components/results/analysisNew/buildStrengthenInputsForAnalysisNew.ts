@@ -120,8 +120,46 @@ export function buildStrengthenInputsForAnalysisNew({
       // exists to catch. A subscription here would re-render this panel on every
       // node drag to track a field that moves only on a structural graph edit.
       rangeIsSettable: rangeIsSettableForFactor(d.matchedNodeId ?? d.factorKey),
-      // The engine ranks on the SAME display value the bars show.
-      influence: d.displayInfluence ?? d.influenceScore,
+      /**
+       * ⛔⛔ THE `?? d.influenceScore` TAIL IS GONE, AND IT WAS THE BANNED
+       * PATTERN NAMED VERBATIM IN THE CONTRACT.
+       *
+       * Found by an independent reviewer (Canvas lane, 21 Sep) against #1795 at
+       * `6b149be5`, and confirmed at the bytes rather than accepted: `types.ts`
+       * (quoted in `buildAnalysisNewViewModel.ts:533`) says *"Consumers must
+       * render/sort this, NOT `influenceScore ?? normalisedInfluence`, which
+       * mixes bases under partial producer coverage."* This line was that
+       * expression, one identifier apart.
+       *
+       * ⚠ WHY IT MATTERED EVEN THOUGH IT NEVER FIRED. Both bases are
+       * set-relative normalisations whose top row is 1.0 by construction, so
+       * they agree on SCALE and differ on QUANTITY — the producer's structural
+       * score versus this app's normalisation of the magnitude chain. Sorting
+       * across the two ranks unlike things while looking entirely plausible,
+       * which is why no fixture caught it.
+       *
+       * ⚠ AND IT CONTRADICTED THIS PR'S OWN ARGUMENT. `nextInputToSet.ts` is
+       * built on "ONE RANK AUTHORITY, NOT TWO" and refuses the wire's
+       * `influence_rank` for exactly that reason. Reaching for the raw producer
+       * metric here was the second authority arriving through the back door of
+       * a `??`, inside the change that forbids it.
+       *
+       * ⭐ FAIL CLOSED, WHICH IS WHAT THE SIBLING ALREADY DOES. The view model
+       * uses `displayInfluence` or nothing (`:553`, `:721`), and its own comment
+       * rules: *"Absent, the honest render is no number."* An undefined
+       * influence here flows to `selectNextInputToSet`, whose
+       * `determinedRankDepth` withholds rather than guessing — so the row goes
+       * quiet instead of naming a factor ranked on a different basis.
+       *
+       * ⚠ Reachability NOT claimed either way. The pipeline comment says
+       * `displayInfluence` is always set live and the chain existed for legacy
+       * fixtures. A debug bundle cannot settle it — `displayInfluence` is
+       * computed in this app and appears on no wire, so a capture sweep reads
+       * zero for the wrong reason (measured: 0 of 500 runs, with no contrast
+       * control available). The fix is warranted by the CONTRACT, not by a
+       * frequency.
+       */
+      influence: d.displayInfluence,
       // Resolved through THE policy module — the engine never sees the raw
       // producer number.
       confidenceDisplay: resolveFactorConfidenceDisplay({
