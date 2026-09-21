@@ -16,7 +16,7 @@ import { typography } from '../../../../styles/typography'
 import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
-import { useModelEditAuthority, type OptionInterventionProposalOutcome } from '../../../hooks/useModelEditAuthority'
+import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -151,33 +151,11 @@ export const OptionPanel = memo(function OptionPanel({
    * its old value on every edit, which reads as the control being broken and is
    * a worse lie than the one this fixes.
    */
-  const authority = useModelEditAuthority(nodeId ?? null)
-  const [pendingIntervention, setPendingIntervention] = useState<
-    { factorId: string; value: number } | null
-  >(null)
-  const [interventionNotice, setInterventionNotice] = useState<string | null>(null)
-
-  const commitIntervention = useCallback((factorId: string, value: number) => {
-    // Optimistic only for THIS ROW'S DISPLAY, never for the store.
-    setPendingIntervention({ factorId, value })
-    setInterventionNotice(null)
-    const outcome: OptionInterventionProposalOutcome =
-      authority.proposeOptionIntervention(factorId, value)
-    // ⛔ EVERY REFUSAL IS DISCLOSED. The authority's own instruction: "That
-    // refusal must be DISCLOSED by the caller, never silently swallowed." The
-    // two are named apart because only ONE of them the reader can clear.
-    if (outcome === 'needs_fresh_base') {
-      setPendingIntervention(null)
-      setInterventionNotice(
-        'Not sent — Olumi has not seen this model this session. Ask it anything, then set this again.',
-      )
-      return
-    }
-    if (outcome !== 'dispatched') {
-      setPendingIntervention(null)
-      setInterventionNotice('Not sent — this effect cannot be recorded on this model.')
-    }
-  }, [authority])
+  const {
+    commit: commitIntervention,
+    pending: pendingIntervention,
+    notice: interventionNotice,
+  } = useOptionInterventionCommit(nodeId ?? null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
