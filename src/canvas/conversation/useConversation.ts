@@ -506,7 +506,28 @@ export interface StreamedDraftTurnResult {
    * It is the evidence the caller needs for one specific claim: an opened
    * stream means the request reached the server, whatever happened after.
    */
-  streamOpened?: boolean
+  /**
+   * ⛔⛔ REQUIRED, AND THAT IS THE FIX. It was optional, and 1 of this
+   * function's 7 return sites supplied it — the caller's
+   * `streamed.streamOpened === true` then silently read `undefined` as
+   * "the stream never opened" on the other 6.
+   *
+   * Codex, independent review of #1803 at head `8b04406f`: the reachable case
+   * is an SSE that opens and delivers a validated GRAPH_READY preview, is then
+   * abandoned, and whose buffered fallback returns a CEE-class typed error.
+   * That arm returned `unsettledCause: 'stream_loss'` with no delivery fact, so
+   * the classifier emitted `failed` and the user saw **"Not delivered"** with a
+   * Retry control that duplicates the turn — for a turn that demonstrably
+   * reached CEE. This file's own comment on that branch says the rendered
+   * structure "came from a validated GRAPH_READY frame and is real": it knew
+   * the stream had delivered, and dropped the evidence one line later.
+   *
+   * ⭐ Required rather than defaulted, deliberately. A default would have fixed
+   * today's six sites and left the seventh free to omit it silently; the
+   * compiler now refuses a return site that forgets. That is the difference
+   * between fixing the instances and closing the class.
+   */
+  streamOpened: boolean
   /** The SAME shape the buffered path produces. Ingested identically. */
   result: V5CallResult
   /**
@@ -675,7 +696,7 @@ async function runStreamedDraftTurn(args: {
       // Outcome 1. The buffered body carries the whole graph, so the terminal
       // ingest replaces whatever the preview put up.
       useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-      return { result, previewOwnsCanvas: previewOnCanvas }
+      return { result, previewOwnsCanvas: previewOnCanvas, streamOpened }
     }
     if (previewOnCanvas) {
       // Outcome 2 — the honest failure. Phase stays non-idle so the run gate
@@ -684,7 +705,7 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
-      return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
+      return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss', streamOpened }
     }
     // No browser preview does not prove no server commit: frames can be lost
     // before the original draft finishes. The caller must read the canonical
@@ -722,11 +743,20 @@ async function runStreamedDraftTurn(args: {
   }
 
   let res: Response
+  /**
+   * ⭐ THE ONE PLACE THE DELIVERY FACT IS BORN. Set the instant
+   * `openV5TurnStream` RESOLVES, so every later return reads one variable
+   * rather than each arm deciding for itself whether the turn reached CEE.
+   * `fallbackToBuffered` closes over it too, so its internal returns cannot
+   * disagree with the arm that called it.
+   */
+  let originalStreamOpened = false
   // Anchors the terminal-ingest record's duration. Taken BEFORE the open, so
   // it measures the turn the user waited for, not the frame parse.
   const streamStartedAt = Date.now()
   try {
     res = await openV5TurnStream(payload, { headers, signal })
+    originalStreamOpened = true
   } catch (e) {
     // The stream never opened, so nothing ran server-side and nothing committed.
     if ((e as Error)?.name === 'AbortError' || signal.aborted) {
@@ -980,11 +1010,12 @@ async function runStreamedDraftTurn(args: {
       // a different fact from a 200 that lost its graph, and one sentence
       // cannot state both truthfully.
       unsettledCause: terminalErrorKeepsModel ? 'terminal_error_model_kept' : 'stream_loss',
+      streamOpened: originalStreamOpened,
     }
   }
 
   useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-  return { result, previewOwnsCanvas }
+  return { result, previewOwnsCanvas, streamOpened: originalStreamOpened }
 }
 
 
@@ -4337,6 +4368,14 @@ export function useConversation(): UseConversationReturn {
       // unsettled answer (there is no separate boolean that can disagree).
       let streamedPreviewOwnsCanvas = false
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
+      /**
+       * ⛔ HOISTED TO JOIN ITS TWO SIBLINGS, because the outer `catch` needs it
+       * and the inner block scope did not reach. It is declared per invocation
+       * of this function, i.e. per turn, so two concurrent turns cannot read
+       * each other's fact — which a hook-level ref would have allowed, and
+       * which is why one was not used.
+       */
+      let streamOpenedForTurn = false
 
       try {
         // Resolve session identity once — X-User-Id + Authorization Bearer
@@ -4430,7 +4469,6 @@ export function useConversation(): UseConversationReturn {
 
         let v5Result: V5CallResult
         let missingGraphAfterFallback = false
-        let streamOpenedForTurn = false
         if (useStreamedDraft) {
           const streamed = await runStreamedDraftTurn({
             payload: build.payload,
@@ -5766,10 +5804,39 @@ export function useConversation(): UseConversationReturn {
         // Timeout-triggered aborts render their own bubble (above). User
         // stops and concurrent cancellations are silent by design.
         if (!isAbort && mode === 'user' && !hidden) {
-          // Transcript honesty: the dispatch itself threw — nothing
-          // reached the server, so the bubble must not read as sent.
+          /**
+           * Transcript honesty: the dispatch threw, so the bubble must not read
+           * as sent.
+           *
+           * ⛔⛔ BUT "THREW" IS NOT "NEVER REACHED THE SERVER", AND THIS LINE
+           * ASSERTED THAT IT WAS. The comment here read *"nothing reached the
+           * server"* and wrote a flat `'failed'`. Measured with an in-process
+           * probe on the real hook: on an opened SSE that delivered a validated
+           * GRAPH_READY frame and was then abandoned with a CEE-class fallback
+           * error, the classifier above computes the delivery fact CORRECTLY
+           * (`streamOpenedForTurn: true`) — and this writer runs AFTERWARDS and
+           * overwrites it. Probe order: `caller got:true` -> `classifier
+           * streamOpenedForTurn:true` -> `WRITER@5805`.
+           *
+           * ⭐⭐ SO THE DEFECT SURVIVED ITS OWN FIX. Codex's independent review
+           * (#1803, head `8b04406f`) found the evidence being DROPPED at 6 of 7
+           * return sites; carrying it at all 7 is necessary and was NOT
+           * sufficient, because `deliveryState` has NINE writers and only the
+           * classifier consulted the fact. A second authority that runs later
+           * beats a correct first one every time.
+           *
+           * The rule is the same one ROADMAP 2.665 states and the classifier
+           * already applies: an opened original stream means the request
+           * reached CEE, whatever happened after, so the honest marker is
+           * `'unconfirmed'` — "Sent — reply not received", and no retry chip,
+           * because CEE keys its commit on its own per-request id and a retry
+           * DUPLICATES the turn. Where the stream never opened, nothing reached
+           * the server, non-delivery is verified and `'failed'` is the truth.
+           */
           if (userBubbleIdForTurn) {
-            updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            updateMessage(userBubbleIdForTurn, {
+              deliveryState: streamOpenedForTurn ? 'unconfirmed' : 'failed',
+            })
           }
           addMessage({
             id: crypto.randomUUID(),

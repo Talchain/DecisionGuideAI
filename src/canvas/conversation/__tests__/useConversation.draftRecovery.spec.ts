@@ -988,3 +988,85 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
     )
   })
 })
+
+/**
+ * ⛔⛔ CODEX'S REQUIRED WITNESS — independent CHANGES_REQUIRED on #1803 at head
+ * `8b04406f`, 21 Sep 2026.
+ *
+ * The finding: `StreamedDraftTurnResult.streamOpened` was OPTIONAL, and **1 of
+ * this function's 7 return sites supplied it**. The caller's
+ * `streamed.streamOpened === true` then read `undefined` as "the stream never
+ * opened" on the other six.
+ *
+ * ⚠ EVERY DELIVERY TEST ABOVE DRIVES `driveTruncatedBeforeGraphReady`, so every
+ * one of them runs with **no preview on the canvas** — the arm where the fact
+ * happened to be carried. The reachable defect lives on the arm where a
+ * validated `GRAPH_READY` frame HAS rendered, which none of them touches. The
+ * suite was green and blind in one direction.
+ *
+ * The case, in the user's terms: their draft appears on the canvas, the socket
+ * dies, the buffered retry comes back with a CEE error envelope — and they are
+ * told **"Not delivered"** with a Retry control that duplicates the turn, for a
+ * turn CEE demonstrably received and drew.
+ */
+describe("an opened stream that DREW a preview is never reported as undelivered", () => {
+  /** CEE answered — with an error envelope rather than a turn body. */
+  const CEE_CLASS_ERROR = {
+    kind: 'boundary_error' as const,
+    error: { code: 'UPSTREAM_TIMEOUT', message: 'upstream timed out', retryable: true } as never,
+  }
+  /** Nothing answered: the transport died before any response existed. */
+  const TRANSPORT_ERROR = { kind: 'parse_error' as const, reason: 'network error: Failed to fetch' }
+
+  it("⛔ THE DEFECT: preview drawn, stream abandoned, CEE-class fallback error -> 'unconfirmed', never 'failed'", async () => {
+    // The recovery read finds nothing, so the bubble cannot be upgraded to
+    // 'sent' by that route — this isolates the DELIVERY fact as the only thing
+    // that can decide the outcome.
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    mockCallV5Turn.mockResolvedValue(CEE_CLASS_ERROR)
+
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    await stream.fail()
+    await act(async () => { await sent })
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble, 'precondition: the user bubble must still exist').toBeDefined()
+    expect(
+      userBubble?.deliveryState,
+      'the stream opened and delivered a GRAPH_READY frame, so the turn reached CEE',
+    ).toBe('unconfirmed')
+  })
+
+  /**
+   * ⭐ THE NEGATIVE CONTROL, and it is the half that makes the assertion above
+   * mean something. Fail the ORIGINAL open, then fail the fallback at transport
+   * before any response exists: nothing ever reached CEE, so "Not delivered" is
+   * the truth and must survive. Without this, a change that hard-codes
+   * `'unconfirmed'` passes the test above while making the product lie in the
+   * other direction.
+   */
+  it("CONTRAST: open fails AND the fallback dies at transport -> still 'failed'", async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    mockOpenStream.mockRejectedValue(new Error('network error: Failed to fetch'))
+    mockCallV5Turn.mockResolvedValue(TRANSPORT_ERROR)
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await (result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>)
+    })
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble, 'precondition: the user bubble must still exist').toBeDefined()
+    expect(
+      userBubble?.deliveryState,
+      'nothing ever reached the server, so non-delivery is verified and must still be said',
+    ).toBe('failed')
+  })
+})
