@@ -624,8 +624,45 @@ export function ModelOutline({
 
   const { groups } = outlineLayout(rows, filter, openGroups, searchClosed, pressedClause)
 
+  /**
+   * ⭐ THE WHOLE MODEL IN ONE ACT. Five groups meant five clicks to read the
+   * model, every time the panel mounted closed — Paul, 21 Sep: *"having to do
+   * it individually is a pain, and sometimes users just want to see all of the
+   * model expanded."*
+   *
+   * ⚠ THE LABEL IS DERIVED, NOT FIXED. A button that always read "Expand all"
+   * would be lying the moment everything was open, and the reader would have no
+   * way to close them again without five more clicks. It names the act it will
+   * perform, which is the same contract `YourDecisionSection`'s toggle has
+   * carried since pre-analysis-v3 — reused rather than re-designed.
+   *
+   * ⚠ `searchClosed` IS CLEARED TOO, DELIBERATELY. That set holds closes made
+   * BY HAND during a search; leaving it populated would let "Expand all" run
+   * and leave a group shut, which is the one outcome the control must never
+   * produce.
+   */
+  const allOpen = groups.every(g => g.open)
+  const toggleAll = useCallback(() => {
+    setClosed(prev => (prev.size === 0 ? new Set(MODEL_GROUP_IDS) : new Set()))
+    setSearchClosed(new Set())
+  }, [])
+
   return (
     <div data-testid="model-outline-v2" data-tier={tier} className="flex flex-col">
+      {/* Right-aligned, link-styled, focus-visible ring only — the same
+          affordance shape as `pre-analysis-v3-groups-toggle-all`, so the two
+          model surfaces do not teach the reader two different controls for one
+          act. */}
+      <div className="flex justify-end px-2 pb-1">
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="rounded-sm text-xs text-text-light underline-offset-2 outline-none transition-colors hover:text-text-header hover:underline focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40"
+          data-testid="model-outline-v2-toggle-all"
+        >
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
       {groups.map(group => {
         /* ⚠ COMPUTED ONCE. It was called twice — once to decide whether to
            render and once to render — so the heading asked the same question of
