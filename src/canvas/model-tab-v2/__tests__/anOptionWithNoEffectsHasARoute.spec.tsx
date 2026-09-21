@@ -38,6 +38,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
+import type { EdgeData } from '../../domain/edges'
 import { toRowDetail, type ModelProjectionInput } from '../adapters'
 import { ModelDetailRegion } from '../ModelDetailRegion'
 import type { ModelRow } from '../types'
@@ -65,7 +66,8 @@ const goal = (id = 'g1'): Node => ({
   data: { label: 'Reach £2m ARR', type: 'goal' },
 })
 
-const edge = (id: string, source: string, target: string): Edge => ({ id, source, target, data: {} })
+const edge = (id: string, source: string, target: string): Edge<EdgeData> =>
+  ({ id, source, target, data: {} as EdgeData })
 
 const input = (over: Partial<ModelProjectionInput> = {}): ModelProjectionInput =>
   ({ nodes: [], edges: [], goalThreshold: null, ...over }) as ModelProjectionInput
@@ -167,7 +169,7 @@ const renderRegion = (
     <ModelDetailRegion
       row={row(rowId, 'Hire a marketing manager')}
       detail={toRowDetail(detailInput, rowId)!}
-      tier="full"
+      tier="advanced"
       onBeginInterventionEdit={onBeginInterventionEdit}
       onInterventionDraftChange={vi.fn()}
       onCommitIntervention={vi.fn()}
