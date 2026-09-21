@@ -445,10 +445,10 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               <button
                 key={key}
                 onClick={() => handleQuickSet(key)}
-                className={`${typography.panelMeta} px-2.5 py-1 rounded-full cursor-pointer capitalize transition-colors ${
+                className={`${typography.panelMeta} ${controls.selectableChip.base} ${
                   selected === key
-                    ? 'border border-primary text-primary bg-panel'
-                    : 'border border-panel-border text-text-light bg-panel hover:bg-panel-hover'
+                    ? controls.selectableChip.selected
+                    : controls.selectableChip.unselected
                 }`}
               >
                 {QUICK_SET[key].label}

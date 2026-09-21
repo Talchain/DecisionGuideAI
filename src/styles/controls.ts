@@ -142,4 +142,36 @@ export const controls = {
    */
   editableCue:
     'shrink-0 text-text-light group-hover:text-info group-disabled:hidden transition-colors',
+
+  /**
+   * ⭐ A CHIP THE USER PICKS FROM — and the reason it is here is a measured
+   * population, not consistency for its own sake.
+   *
+   * The external-factor panel's quick-set range buttons are the PRIMARY, always
+   * visible way to give a factor a prior range. That matters because the
+   * deployed product **refuses an analysis** when a factor is *"recorded as a
+   * bare amount with no range"* — and `analyticalNodeFields.ts:175` records that
+   * a factor's prior is *"analysis-affecting… the input ISL samples for external
+   * factors"*. **14 of 34 factors on the five shipped starters are `external`**,
+   * so this is the remedy control for two fifths of the board.
+   *
+   * Its SELECTED state used `border-primary` and was fine. Its UNSELECTED state
+   * used `border border-panel-border` on `bg-panel` — a **1.23 : 1** edge against
+   * the panel's own background, i.e. five text labels floating with no visible
+   * boundary. The identical defect as the invisible input, on the control that
+   * answers a refusal.
+   *
+   * ⚠ NOT A SWEEP. `border border-panel-border` has 27 uses in `inspector-v2`,
+   * about 5 of them on interactive buttons. Only this one has a population
+   * argument today, so only this one moves; the rest are recorded as follow-up
+   * rather than changed on a hunch. A token here means the next chip is correct
+   * by construction without licensing a 27-site edit nobody measured.
+   */
+  selectableChip: {
+    base: 'px-2.5 py-1 rounded-full cursor-pointer capitalize border transition-colors',
+    selected: 'border-primary text-primary bg-panel',
+    /** `border-field` is the 3.70:1 token; `bg-panel-hover` on hover keeps the
+     *  existing feedback. */
+    unselected: 'border-field text-text-light bg-panel hover:bg-panel-hover hover:border-primary',
+  },
 } as const

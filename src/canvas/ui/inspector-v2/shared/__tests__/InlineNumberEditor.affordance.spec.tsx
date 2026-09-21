@@ -243,3 +243,37 @@ describe('the refusal border replaces rather than appends', () => {
     expect(onSave).not.toHaveBeenCalled()
   })
 })
+
+
+// ─────────────────────────────────────────────────────────────────────
+// 4 · The chip a user picks from
+// ─────────────────────────────────────────────────────────────────────
+
+describe('a selectable chip is visible in BOTH states, not only when chosen', () => {
+  it('the unselected state carries the 3.70:1 border, not the 1.23:1 one', () => {
+    // The external-factor quick-set range buttons are the primary, always
+    // visible remedy for an analysis the product REFUSES when a factor has no
+    // range — and 14 of 34 factors on the five shipped starters are external.
+    // Their selected state was already visible; their unselected state was a
+    // text label on a 1.23:1 edge against the panel's own background.
+    const unselected = new Set(controls.selectableChip.unselected.split(/\s+/))
+    expect(unselected.has('border-field')).toBe(true)
+    expect(unselected.has('border-panel-border')).toBe(false)
+  })
+
+  it('⛔ and the SELECTED state is still distinguishable from it', () => {
+    // The discriminating half. Raising the unselected border could make the two
+    // states agree, which would destroy the radio semantics while passing the
+    // assertion above — a fix that trades an invisible control for an
+    // unreadable one.
+    expect(controls.selectableChip.selected).not.toEqual(controls.selectableChip.unselected)
+    expect(controls.selectableChip.selected).toContain('border-primary')
+    expect(controls.selectableChip.unselected).not.toContain('border-primary bg')
+  })
+
+  it('the border width lives on the base, so neither state can forget it', () => {
+    // `border` was previously repeated in both arms of the ternary. One of two
+    // duplicated tokens is exactly what drifts (trap 12); on the base it cannot.
+    expect(controls.selectableChip.base.split(/\s+/)).toContain('border')
+  })
+})
