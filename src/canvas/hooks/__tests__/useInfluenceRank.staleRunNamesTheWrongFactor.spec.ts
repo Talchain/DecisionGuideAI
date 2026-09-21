@@ -13,6 +13,25 @@
  * computed on a graph the reader has since changed can point at a factor that
  * is no longer the leader — a false statement, not an old one.
  *
+ * ⭐⭐ AND THE PIN WAS THEN PUT THROUGH A DISCRIMINATING MUTANT PAIR, BECAUSE
+ * "I wrote a pin and the mutant now bites" is exactly the claim a guard
+ * agreeing with itself would also make. A single biting mutant proves
+ * sensitivity to SOMETHING; only the pair proves sensitivity to the NAMED
+ * object (trap 19's proof obligation). Measured:
+ *
+ *   · break the FRESHNESS conjunct  → REDs *"withholds it entirely once the
+ *     run is stale"* and NOTHING ELSE.
+ *   · break the LICENSING conjunct  → REDs *"a current run still withholds an
+ *     UNLICENSED rank"* and NOTHING ELSE — the freshness test stays GREEN.
+ *   · rot the fixture so it licenses nothing (`(1, 1)`) → REDs the
+ *     precondition assertion in the first test, so this file's discriminating
+ *     power is guarded at rest rather than true only on the day it was written
+ *     (trap 12b: a control pinned to something that moves has an expiry date
+ *     nobody wrote down).
+ *
+ * Neither arm crosses over, so the two tests are bound to two different
+ * properties rather than both coasting on one.
+ *
  * ⛔ THE FRESHNESS CLASSIFIER IS NOT RE-TESTED HERE. It has its own suite, and
  * a second corpus over it would be two answers to one settled question. What
  * is pinned is this hook's CONJUNCTION: the licensing guard AND the freshness
