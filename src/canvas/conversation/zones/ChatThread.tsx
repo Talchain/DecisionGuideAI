@@ -310,7 +310,7 @@ export const ChatThread = memo(function ChatThread({
         />
       )}
 
-      {messages.map((msg, i) => {
+      {messages.map((msg) => {
         // Hide user messages and the streaming placeholder while EmptyState is the loading hub.
         // Same predicate the scroll trigger counts with — derived, never restated.
         if (!isRendered(msg)) return null
@@ -322,7 +322,6 @@ export const ChatThread = memo(function ChatThread({
           <ChatMessage
             key={msg.id}
             message={msg}
-            isFirst={i === 0}
             onChipClick={onChipClick}
             onRetry={onRetry}
             showFailedSendRetry={msg.id === failedSendRetryId}

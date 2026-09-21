@@ -77,37 +77,109 @@ describe('PersistentInputStrip', () => {
       expect(screen.getByRole('textbox')).toBeInTheDocument()
     })
 
-    it('round-16: strip variant has 3-line min (70px) and 8-line max (160px) so cog+send fit and composer grows', () => {
+    /**
+     * ⛔ BOTH ASSERTIONS BELOW ARE THE INVERSE OF THE ONES THEY REPLACE, and the
+     * inversion is stated rather than the old tests quietly deleted.
+     *
+     * The strip used to assert a 70px rest height and a `right-4` inset on an
+     * absolutely-positioned control stack. Both were correct FOR A COMPOSER
+     * WHOSE CONTROLS FLOATED OVER ITS TEXT — the 70px existed to hold a 58px
+     * cog+send cluster inside the border, and the 16px inset existed so that
+     * cluster would not sit on top of the textarea's internal scrollbar.
+     *
+     * The controls now live in their own row beneath the text, so neither
+     * reservation has anything left to reserve for. The properties that MATTER
+     * are re-asserted, not dropped: the box still has a bounded rest height and
+     * a bounded ceiling, and the controls are still reachable and still grouped.
+     */
+    it('rests at ONE line and grows to ten — the 70px reservation is gone', () => {
       render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,
       })
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
-      // LINE_HEIGHT_PX (18) * STRIP_MIN_LINES (3) + 16 = 70.
-      // The cog + send icon stack (28 + 2 + 28 = 58px) now fits inside
-      // the textarea border without overflowing.
-      expect(textarea.style.minHeight).toBe('70px')
-      // LINE_HEIGHT_PX (18) * STRIP_MAX_LINES (8) + 16 = 160.
-      // Composer grows as user types; internal scroll engages beyond this.
-      expect(textarea.style.maxHeight).toBe('160px')
+      // LINE_HEIGHT_PX (18, the jsdom fallback — a real browser measures 19.5
+      // from `panelBody`'s `leading-relaxed`) * 1 line + TEXTAREA_PAD_PX (12).
+      expect(textarea.style.minHeight).toBe('30px')
+      // 18 * 10 + 12 = 192. The ceiling ROSE (was 160) while the rest state
+      // SHRANK: the box is now smaller when empty and larger when full.
+      expect(textarea.style.maxHeight).toBe('192px')
     })
 
-    it('round-16: strip variant uses larger right inset on icon stack so the scrollbar is not covered when textarea scrolls', () => {
-      // When the textarea hits its 160px ceiling and the browser draws
-      // an internal vertical scrollbar (≈12px wide), the absolutely-
-      // positioned cog + send icon stack would overlap the scrollbar at
-      // the default `right-1.5` (6px) inset. Round-16 bumps the strip
-      // variant's stackInset to `right-4` (16px) so the icons sit clear
-      // of the scrollbar.
+    it('puts the controls in a row BENEATH the text, not floating over it', () => {
       render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,
       })
       const send = screen.getByTestId('ai-input-bar-strip-send')
-      // The icon stack is the absolutely-positioned div wrapping the control
-      // buttons. The cog that used to share it was removed on 29 Aug 2026
-      // (permanently-disabled menu); the inset property is unchanged.
-      const stack = send.parentElement as HTMLElement
-      // Tailwind class assertion — `right-4` corresponds to a 16px inset.
-      expect(stack.className).toMatch(/\bright-4\b/)
+      const row = send.parentElement as HTMLElement
+      // The row is in normal flow — no `absolute`, and therefore no inset to
+      // tune against a scrollbar it can no longer overlap.
+      expect(row.className).not.toMatch(/\babsolute\b/)
+      expect(row.className).not.toMatch(/\bright-\d/)
+      expect(row.getAttribute('data-testid')).toBe('ai-input-bar-strip-actions')
+      // CONTROL — the float-out chevron joined the same row rather than staying
+      // outside the composer's border as a separate frame.
+      expect(row.contains(screen.getByTestId('ai-input-bar-strip-chevron'))).toBe(true)
+    })
+
+    it('reserves no right padding on the textarea — the text gets the full width', () => {
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
+        wrapper: Wrapper,
+      })
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
+      // Was `pr-14` (56px) held open for the floating cluster.
+      expect(textarea.className).toMatch(/\bpr-3\b/)
+      expect(textarea.className).not.toMatch(/\bpr-(12|14)\b/)
+    })
+
+    it('offers NO run-analysis control unless the host supplies one', () => {
+      // Never a dead affordance: the button exists only when `OutputsDock`
+      // hands down the canonical runner and its gate.
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
+        wrapper: Wrapper,
+      })
+      expect(screen.queryByTestId('ai-input-bar-strip-analyse')).toBeNull()
+    })
+
+    it('CONTROL — the run-analysis control appears, is named, and fires the host runner', () => {
+      const onRun = vi.fn()
+      render(
+        <PersistentInputStrip
+          isOlumiTabActive
+          onOpenFloating={() => {}}
+          analysisAction={{ onRun, canRun: true, isRunning: false, label: 'Re-run analysis' }}
+        />,
+        { wrapper: Wrapper },
+      )
+      const btn = screen.getByRole('button', { name: 'Re-run analysis' })
+      expect(btn.getAttribute('data-blocked')).toBe('false')
+      fireEvent.click(btn)
+      expect(onRun).toHaveBeenCalledTimes(1)
+    })
+
+    it('DISABLES the run control while the gate is shut, and says why — never hides it', () => {
+      const onRun = vi.fn()
+      render(
+        <PersistentInputStrip
+          isOlumiTabActive
+          onOpenFloating={() => {}}
+          analysisAction={{
+            onRun,
+            canRun: false,
+            isRunning: false,
+            blockedReason: '4 parts of your model are not ready for analysis yet.',
+            label: 'Re-run analysis',
+          }}
+        />,
+        { wrapper: Wrapper },
+      )
+      const btn = screen.getByTestId('ai-input-bar-strip-analyse') as HTMLButtonElement
+      expect(btn).toBeInTheDocument()
+      expect(btn.disabled).toBe(true)
+      expect(btn.getAttribute('data-blocked')).toBe('true')
+      // The gate's OWN sentence, carried through verbatim.
+      expect(btn.getAttribute('title')).toBe('4 parts of your model are not ready for analysis yet.')
+      fireEvent.click(btn)
+      expect(onRun).not.toHaveBeenCalled()
     })
   })
 

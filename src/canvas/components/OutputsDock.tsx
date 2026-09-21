@@ -4237,6 +4237,39 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
+              /* ⭐ THE AI TAB'S RUN CONTROL, AND THE GAP IT CLOSES.
+                 `AnalysisReadinessBar` — the bar this surface declares in
+                 `shellContract.ts` — returns null the moment the pre-run window
+                 ends (`if (!preRunWithModel) return null`). After a completed
+                 analysis the Olumi tab therefore had NO way to run another: the
+                 Re-analyse controls live on the Analysis and Model surfaces, a
+                 tab away, and the composer sat under a placeholder reading
+                 "Ask about the latest analysis…" with nothing to re-run it.
+
+                 ⚠ ONE CONTROL, NOT TWO. The condition is the COMPLEMENT of the
+                 bar's own `preRunWithModel`, built from the same two
+                 expressions rather than a second opinion about them — so the
+                 foot of this tab carries the bar's prominent Analyse before a
+                 run and this quiet one after, never both.
+
+                 ⚠ THE RUNNER AND THE GATE ARE THE ONES ALREADY COMPUTED HERE.
+                 `handleRunAnalysis` is the canonical runner registered in
+                 `canonicalRunRegistry`; `canRunAnalysis` / `runBlockedTooltip`
+                 are the gate's own verdict and sentence. Nothing is re-derived
+                 for this control (CLAUDE.md trap 21) — the retired
+                 `StaleAnalysisBadge`, whose rerun bypassed the canonical
+                 runner, is the counter-example this avoids. */
+              analysisAction={
+                nodes.length > 0 && !isPreRun
+                  ? {
+                      onRun: handleRunAnalysis,
+                      canRun: canRunAnalysis,
+                      isRunning,
+                      blockedReason: runBlockedTooltip,
+                      label: 'Re-run analysis',
+                    }
+                  : undefined
+              }
             />
           </div>
         ) : null}

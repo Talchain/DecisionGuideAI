@@ -1,15 +1,26 @@
 /**
- * MessageBubble — FF-off parity for the new Follow-up actions.
+ * MessageBubble — legacy-path parity for the follow-up actions.
  *
  * MessageBubble is shared between AI Panel v2 surfaces (floating + docked
  * Olumi) and the FF-off legacy DraftChat surface. The Explain more +
- * Summarise affordances must NEVER render under FF-off — adding them
+ * Summarise affordances must NEVER reach the legacy surface — adding them
  * silently would change legacy conversation parity.
  *
- * The flag guard (`isAiPanelV2Enabled()`) inside MessageBubble.tsx is the
- * single source of truth. This spec proves the guard holds end-to-end:
- * with `feature.aiPanelV2` off and the same callbacks that AI Panel v2
- * surfaces use, no follow-up icons appear in the rendered bubble.
+ * ⭐ THE GUARANTEE GOT STRONGER, WHICH IS WHY THIS FILE CHANGED. It used to
+ * rest on a RUNTIME FLAG CHECK — `isAiPanelV2Enabled()` inside MessageBubble —
+ * and proved the guard held by flipping `feature.aiPanelV2` and re-rendering.
+ * Both affordances have since moved OUT of MessageBubble into `MessageMenu`,
+ * which only `zones/ChatMessage` renders. The legacy DraftChat surface does not
+ * mount ChatMessage at all (it references neither it nor MessageBubble), so
+ * parity now holds BY CONSTRUCTION: there is no code path on which the legacy
+ * surface could acquire these controls, flag or no flag.
+ *
+ * ⛔ THE FLAG-ON "sanity check" ARM IS RETIRED, not quietly deleted. It
+ * asserted that flipping the flag to true made MessageBubble render the two
+ * buttons — a true statement about a component that no longer owns them. Its
+ * real subject, "the affordances exist somewhere and are wired", is asserted
+ * properly in `zones/__tests__/MessageMenu.spec.tsx` (21 arms), against the
+ * component that now renders them.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -35,7 +46,7 @@ const ASSISTANT_MESSAGE: ConversationMessage = {
   clientTurnId: 'client-turn-ff-off',
 } as ConversationMessage
 
-describe('FollowUpActions — FF-off parity (legacy DraftChat path)', () => {
+describe('Follow-up actions — legacy-path parity (DraftChat)', () => {
   beforeEach(() => {
     try {
       window.localStorage.setItem('feature.aiPanelV2', 'false')
@@ -74,7 +85,15 @@ describe('FollowUpActions — FF-off parity (legacy DraftChat path)', () => {
     expect(screen.queryByTestId('message-action-explain-more')).toBeNull()
   })
 
-  it('flipping the flag to true re-enables the affordances (sanity check)', () => {
+  it('MessageBubble renders no follow-up affordance EVEN WITH the flag on', () => {
+    /*
+     * The inversion of the retired arm, and the point of the change: the flag
+     * is no longer what keeps these controls off the legacy surface — the
+     * component simply does not own them any more. Flipping the flag on must
+     * therefore change nothing here. If a future edit re-adds a follow-up
+     * button to MessageBubble, this REDs and the legacy path is protected
+     * before anyone has to notice it in a screenshot.
+     */
     try { window.localStorage.setItem('feature.aiPanelV2', 'true') } catch {}
     render(
       <MessageBubble
@@ -83,7 +102,9 @@ describe('FollowUpActions — FF-off parity (legacy DraftChat path)', () => {
         onArtefactMessage={vi.fn()}
       />,
     )
-    expect(screen.getByTestId('message-action-explain-more')).toBeInTheDocument()
-    expect(screen.getByTestId('message-action-summarise')).toBeInTheDocument()
+    expect(screen.queryByTestId('message-action-explain-more')).toBeNull()
+    expect(screen.queryByTestId('message-action-summarise')).toBeNull()
+    expect(screen.queryByTestId('message-menu-trigger')).toBeNull()
   })
+
 })

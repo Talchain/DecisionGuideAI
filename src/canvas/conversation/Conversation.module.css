@@ -229,14 +229,33 @@
   word-break: break-word;
 }
 
+/*
+ * ⭐ AI TEXT HAS NO BUBBLE — DS v5 §21.1, conformed rather than invented.
+ * The table there reads "AI text | No background (inline on canvas bg),
+ * `text-text-body`, left-aligned"; only the USER message is specified as
+ * `bg-panel rounded-lg shadow-1`. This surface had been carrying a panel
+ * fill, a 1px border, a shadow AND 16px of padding on every assistant turn.
+ *
+ * ⛔ IT WAS THE OUTERMOST OF THREE NESTED BORDERS. A turn rendered as
+ * bordered bubble → bordered block card → bordered entity chip, which is
+ * what made a 416px dock read as boxes inside boxes. Dropping this frame
+ * removes one whole level and returns 32px of horizontal space per message
+ * (16px each side — 7.7% of the dock) to the producer's prose.
+ *
+ * Padding goes to 0 deliberately: the message LIST already owns the gutter
+ * (`.messageList` padding), so keeping any here would double it and re-indent
+ * the text the change exists to un-indent. Blocks inside keep their own
+ * borders and are unaffected.
+ */
 .messageBubbleAssistant {
   composes: messageBubble;
   align-self: flex-start;
   max-width: 100%;
-  background: var(--bg-panel, #FEFEFE);
-  border: 1px solid var(--border-default, #EEE6D8);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
   color: var(--text-body, #3F3F3E);
-  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
 }
 
 /* § 2b — V2 assistant text rhythm (ORCHESTRATOR_RENDERING_V2) */
@@ -2017,8 +2036,12 @@
   padding: 12px;
 }
 
+/* The assistant turn carries no frame in any density (DS v5 §21.1), so there
+   is no inner padding for a density mode to tighten — the message list's own
+   gutter is the only horizontal inset. Re-adding padding here would restore
+   the indent the frame removal exists to reclaim. */
 :global(.floating-density) .messageBubbleAssistant {
-  padding: 12px;
+  padding: 0;
 }
 
 /* Inner block stack — tighter gap between coaching/evidence/patch blocks
