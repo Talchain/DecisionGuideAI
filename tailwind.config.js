@@ -46,6 +46,7 @@ export default {
           DEFAULT: 'rgb(var(--bg-panel-rgb) / <alpha-value>)',
           hover: 'rgb(var(--bg-panel-hover-rgb) / <alpha-value>)',
           border: 'rgb(var(--border-default-rgb) / <alpha-value>)',
+          field: 'rgb(var(--border-field-rgb) / <alpha-value>)',
         },
 
         // Border emphasis
