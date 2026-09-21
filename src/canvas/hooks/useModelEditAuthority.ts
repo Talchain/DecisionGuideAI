@@ -41,9 +41,21 @@
  * from `proposeFactorValue` on purpose (trap 21 — two questions must not share
  * one name). `proposeFactorValue` asks *"will the server accept this number?"*.
  * `proposeOptionIntervention` and `proposeFactorConfirmation` ask *"record this
- * in the model"*, and there is NO server carrier for either: the wire's only
- * value-bearing node edit is `factor_value_edit`, whose `field` is the literal
- * `'value'`. They reach CEE exactly as they always have — through the debounced,
+ * in the model"*.
+ *
+ * ⚠⚠ AND THE NEXT SENTENCE HAS EXPIRED FOR ONE OF THE TWO. It read: *"there is
+ * NO server carrier for either: the wire's only value-bearing node edit is
+ * `factor_value_edit`, whose `field` is the literal `'value'`."* That was true
+ * when written and is now FALSE of `proposeOptionIntervention`:
+ * `option_intervention_edit` landed in schemas 0.54.0 and THIS HOOK DISPATCHES
+ * IT (see `:564`). `OptionInterventionProposalOutcome`'s own header already
+ * records the split; this paragraph did not, and a stale premise in the
+ * header is how a caller decides it may write locally instead — which is
+ * exactly what `OptionPanel` did, leaving 3 of 5 options on the founder's board
+ * carrying no effect at all.
+ *
+ * `proposeFactorConfirmation` still has no carrier and keeps `LocalCommitOutcome`.
+ * The two are named apart rather than sharing a union now true of only one. They reach CEE exactly as they always have — through the debounced,
  * VALUE-LESS `direct_graph_edit` notification that `useGraphEditEvents`
  * emits off the store. Nothing here claims otherwise, and `LocalCommitOutcome`
  * has no `dispatched` member so no caller can accidentally report one.

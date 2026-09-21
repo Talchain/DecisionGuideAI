@@ -16,6 +16,7 @@ import { typography } from '../../../../styles/typography'
 import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
+import { useModelEditAuthority, type OptionInterventionProposalOutcome } from '../../../hooks/useModelEditAuthority'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -116,6 +117,67 @@ export const OptionPanel = memo(function OptionPanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
+
+  /**
+   * ⭐⭐ AN EFFECT YOU SET HERE NOW REACHES THE MODEL.
+   *
+   * Measured on the founder's board (bundle `95b92672`, 21 Sep): **3 of his 5
+   * options carried ZERO interventions**, and the analysis could not tell them
+   * apart. This control was the reason. It called
+   * `mutations.setIntervention` — a pure `updateNode`, **0 dispatch symbols** —
+   * so an effect the reader set landed in their browser and nowhere else, while
+   * the SAME edit made in the Model tab reached CEE through
+   * `useModelEditAuthority.proposeOptionIntervention`.
+   *
+   * ⚠ AND THE CONTROL IS LIVE, WHICH IS WHAT MAKES IT A DEFECT RATHER THAN A
+   * FENCE. `InspectorRouter:542` passes `readOnly` only on the NON-authority
+   * branch and `'option'` IS in `AUTHORITY_OWNING_PANELS`, so `readOnly`
+   * defaults false here. Compare `factor-observable`, which is genuinely inert
+   * and whose notice says so — that one is not a defect and must not be
+   * "fixed".
+   *
+   * ⚠ THE CARRIER WAS ALREADY BUILT AND THIS PANEL WAS NOT ASKING FOR IT.
+   * `option_intervention_edit` (schemas 0.54.0) ships end to end —
+   * `conversation/optionInterventionEdit.ts`, `v5/buildPayload.ts:1143`, and the
+   * authority's own guards. Nothing new is invented here; one surface is
+   * pointed at the owner the other already used.
+   *
+   * ⛔ NO LOCAL STORE WRITE, and that is the authority's ruling, not a choice
+   * made here: *"the goal draft never changes the store before a real applied
+   * response"*. The applied `graph_patch` owns the write.
+   *
+   * ⭐ SO THE ROW NEEDS A PENDING VALUE OF ITS OWN — the same shape `EdgePanel`
+   * uses for `localStrength`. Without it the number would visibly snap back to
+   * its old value on every edit, which reads as the control being broken and is
+   * a worse lie than the one this fixes.
+   */
+  const authority = useModelEditAuthority(nodeId ?? null)
+  const [pendingIntervention, setPendingIntervention] = useState<
+    { factorId: string; value: number } | null
+  >(null)
+  const [interventionNotice, setInterventionNotice] = useState<string | null>(null)
+
+  const commitIntervention = useCallback((factorId: string, value: number) => {
+    // Optimistic only for THIS ROW'S DISPLAY, never for the store.
+    setPendingIntervention({ factorId, value })
+    setInterventionNotice(null)
+    const outcome: OptionInterventionProposalOutcome =
+      authority.proposeOptionIntervention(factorId, value)
+    // ⛔ EVERY REFUSAL IS DISCLOSED. The authority's own instruction: "That
+    // refusal must be DISCLOSED by the caller, never silently swallowed." The
+    // two are named apart because only ONE of them the reader can clear.
+    if (outcome === 'needs_fresh_base') {
+      setPendingIntervention(null)
+      setInterventionNotice(
+        'Not sent — Olumi has not seen this model this session. Ask it anything, then set this again.',
+      )
+      return
+    }
+    if (outcome !== 'dispatched') {
+      setPendingIntervention(null)
+      setInterventionNotice('Not sent — this effect cannot be recorded on this model.')
+    }
+  }, [authority])
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
@@ -480,11 +542,15 @@ export const OptionPanel = memo(function OptionPanel({
                    test passed because they hand the prop in themselves; only the
                    mounted InspectorModal test could see it, and it did. */
                 recordedBaseline={iv.recordedBaseline}
-                currentValue={iv.value}
+                currentValue={
+                  pendingIntervention?.factorId === iv.factorId
+                    ? pendingIntervention.value
+                    : iv.value
+                }
                 displayValue={iv.displayValue}
                 unit={iv.unit}
                 provenanceSource={iv.provenanceSource}
-                onChange={v => mutations.setIntervention(iv.factorId, v)}
+                onChange={v => commitIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
                 disabled={readOnly}
                 techMode={techMode}
@@ -492,6 +558,22 @@ export const OptionPanel = memo(function OptionPanel({
                    live in TechnicalDisclosure via OptionAdvancedEditor. */
               />
             ))
+          )}
+
+          {/* ⛔ THE REFUSAL, SAID OUT LOUD. The authority returns two of them and
+              its header instructs the caller to disclose rather than swallow;
+              a control that silently does nothing is the defect this change
+              exists to close, wearing a different face. Rendered here, below
+              the rows it is about, so it cannot be mistaken for a notice about
+              the option as a whole. */}
+          {interventionNotice !== null && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1.5`}
+              data-testid="option-intervention-notice"
+              role="status"
+            >
+              {interventionNotice}
+            </p>
           )}
 
           {/* Add a change — inside PrimaryControlCard as the list footer */}
