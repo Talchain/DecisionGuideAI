@@ -15,7 +15,20 @@
  * `formatInterventionTargetText` has always opened with the F.6 passthrough
  * (`if (chip.displayValue) return chip.displayValue`), and
  * `unwrapInterventionValue` has always read `display_value` off a NESTED
- * intervention. But CEE does not send a nested intervention. It sends
+ * intervention.
+ *
+ * ⚠⚠ THIS BLOCK ONCE SAID *"But CEE does not send a nested intervention"*, FLATLY,
+ * AND THAT SENTENCE IS WITHDRAWN. **Both shapes are real.** The served bundles
+ * above carry the FLAT one; all five committed starter drafts carry the NESTED
+ * one (70 interventions; `src/types/options.ts:79` declares exactly that shape).
+ * The defect was never that one shape is fictional — it is that the code handled
+ * ONE and the served payload used the OTHER, so the fix is a compatibility
+ * adapter over both rather than a switch from one to the other.
+ *
+ * Correcting it here because the implementation, the utility corpus and
+ * `joinInterventionDetails`' own docblock all withdrew the premise while this
+ * header kept asserting it — and a false premise in a spec header is exactly
+ * what made the original defect invisible. What the SERVED bundles send is:
  *
  *     options[i].interventions         = { "<factorId>": 0.9 }          ← flat number
  *     options[i].intervention_details  = { "<factorId>": { display_value: "£18k", … } }
@@ -29,9 +42,17 @@
  * ⚠⚠ AND THIS IS WHY NO EXISTING TEST COULD SEE IT (CLAUDE.md trap 16-inverse:
  * *a fixture you wrote yourself is not evidence about the wire*). Every prior
  * OptionNode spec builds `interventions: { 'f-head': { value: 3, display_value:
- * '3 engineers' } }` — the nested shape the code handles and **the producer
- * never emits**. The suites were green about a shape that does not arrive.
- * These fixtures use the WIRE shape, copied from the two bundles above.
+ * '3 engineers' } }` — the nested shape, which the code already handled.
+ *
+ * ⚠ AND THE ORIGINAL SENTENCE HERE — *"the shape the producer never emits"* — IS
+ * ALSO WITHDRAWN, for the same reason as above. That shape IS emitted, by the
+ * starter drafts. The honest statement is narrower and is the whole point: those
+ * fixtures exercised **only** the shape the code already handled, so the suites
+ * could be green while the shape the SERVED bundles use fell straight through.
+ * A corpus that covers one member of a union certifies nothing about the other
+ * (CLAUDE.md trap 13d: check what your corpus EXCLUDES, not what it covers).
+ * These fixtures use the SERVED shape, copied from the two bundles above; the
+ * nested shape is covered at the boundary in `labelUtils.spec.ts`.
  *
  * Paul's ruling, 20 Sep: *"the graph … should display the data model accurately,
  * operating as a thin layer, not performing excessive data manipulation."*
