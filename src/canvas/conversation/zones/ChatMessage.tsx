@@ -1,8 +1,13 @@
 /**
- * ChatMessage — wraps MessageBubble with hover/focus action bar.
+ * ChatMessage — wraps MessageBubble with its one inline overflow control.
  *
- * Uses Tailwind `group` + `group-hover:opacity-100` to show MessageActions
- * on hover. Keyboard accessible via `focus-within`.
+ * ⛔ THE HOVER ACTION BAR IS GONE, and this header used to describe it
+ * ("Tailwind `group` + `group-hover:opacity-100` to show MessageActions on
+ * hover"). That bar was absolutely positioned, which is why every message
+ * paid a 32px reserved gutter to keep it off the first line of text. Its four
+ * actions now live in `MessageMenu`, inline and always present — so there is
+ * no band to reserve and no hover state to discover. The `group` class stays:
+ * inner surfaces still use it.
  *
  * Messages are categorised (action, research, error, answer) via
  * data-message-category for test/automation selectors.
@@ -11,7 +16,7 @@
 import { memo } from 'react'
 import { MessageBubble } from '../MessageBubble'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
-import { ACTION_BAR_GUTTER_PX, MessageActions } from './MessageActions'
+import { MessageMenu } from './MessageMenu'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 
@@ -94,32 +99,20 @@ export const ChatMessage = memo(function ChatMessage({
   return (
     <div
       className={`group relative pointer-events-auto ${borderClass}`}
-      // L-73: the hover controls get their OWN band. Before this they were
-      // absolutely positioned at top:0, i.e. on top of the first line of the
-      // message — "hover controls can cover message text", verbatim. The gutter
-      // is reserved unconditionally rather than on hover, because opening it on
-      // hover would reflow the whole thread under the user's pointer.
-      style={{ marginBottom: 12, paddingTop: ACTION_BAR_GUTTER_PX }}
+      /*
+       * ⭐ THE 32px ACTION GUTTER IS GONE, and removing the REASON for it is
+       * the point rather than the removal itself. L-73 reserved this band
+       * unconditionally because the floating action bar was absolutely
+       * positioned and would otherwise sit on the message's first line, and
+       * opening the band on hover would reflow the thread under the pointer.
+       * Both were correct given a floating bar. `MessageMenu` is INLINE, so
+       * there is nothing to reserve space for — and a thread of N messages
+       * gets back 32·N px of vertical space it was spending on emptiness.
+       */
+      style={{ marginBottom: 12 }}
       data-testid={`chat-message-${message.role}`}
       data-message-category={category !== 'answer' ? category : undefined}
-      data-actions-gutter-px={ACTION_BAR_GUTTER_PX}
     >
-      {/* Action bar — visible on hover/focus-within, fade in 200ms */}
-      <div
-        className={`
-          opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
-          transition-opacity pointer-events-none group-hover:pointer-events-auto
-          group-focus-within:pointer-events-auto
-        `}
-        style={{ transitionDuration: '200ms' }}
-      >
-        <MessageActions
-          role={message.role}
-          content={message.content}
-          onRetry={message.role === 'assistant' ? onRetry : undefined}
-          isFirst={isFirst}
-        />
-      </div>
 
       <MessageBubble
         message={message}
@@ -136,6 +129,34 @@ export const ChatMessage = memo(function ChatMessage({
         onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
         isLatestAssistantTurn={isLatestAssistantTurn}
       />
+
+      {/*
+        One quiet overflow control per message, in the message's OWN flow —
+        replacing both the floating Copy/Retry bar and the per-message
+        "Explain more · Summarise" row. It is rendered at rest rather than on
+        hover: see the MessageMenu header on why hover-only is refused here.
+      */}
+      <div className="mt-1 flex items-center">
+        <MessageMenu
+          role={message.role}
+          content={message.content}
+          onRetry={message.role === 'assistant' ? onRetry : undefined}
+          /*
+           * ⚠ THE OLD ROW'S GATE IS CARRIED OVER, NOT DROPPED. `FollowUpActions`
+           * rendered only when the message was a non-synthetic, non-streaming
+           * assistant turn with real content — asking "explain that in more
+           * detail" of a half-streamed sentence, or of a system notice, offers
+           * an act the turn cannot honour. Consolidating the surface must not
+           * quietly widen when the act is offered, so the same conditions
+           * decide whether the follow-up items exist at all.
+           */
+          onSendFollowUp={
+            message.role === 'assistant' && !message.synthetic && !message.isStreaming
+              ? onArtefactMessage
+              : undefined
+          }
+        />
+      </div>
     </div>
   )
 })

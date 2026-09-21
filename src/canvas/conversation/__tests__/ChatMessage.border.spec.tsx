@@ -94,3 +94,42 @@ describe('ChatMessage — category derivation', () => {
     expect(container.querySelector('[data-message-category]')).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// The reclaimed action gutter — an INVERTED assertion, kept rather than deleted
+// ---------------------------------------------------------------------------
+
+describe('no space is reserved for an action bar that no longer floats', () => {
+  /*
+   * ⛔ THIS INVERTS `MessageActions.controls.spec`'s "ChatMessage reserves
+   * exactly that gutter above the bubble" (32px), and the inversion is the
+   * point. That spec was RIGHT for its surface: an absolutely-positioned hover
+   * bar would otherwise sit on the message's first line, and opening the band
+   * only on hover would reflow the thread under the pointer — so the band was
+   * reserved unconditionally, on EVERY message.
+   *
+   * `MessageMenu` is inline, so there is nothing to keep off the text and no
+   * band to reserve. A thread of N messages gets back 32·N px. This assertion
+   * exists so that saving cannot be silently undone: any future reintroduction
+   * of a top gutter on the message wrapper REDs here and has to argue for
+   * itself.
+   */
+  it('reserves no top gutter on the message wrapper', () => {
+    const { container } = renderMessage({ content: 'A normal answer' })
+    const wrapper = container.firstElementChild as HTMLElement
+    expect(wrapper.style.paddingTop).toBe('')
+    expect(wrapper.getAttribute('data-actions-gutter-px')).toBeNull()
+  })
+
+  it('CONTROL — the wrapper is still the element that carries message spacing', () => {
+    // Without this, the assertion above could pass by querying the wrong node.
+    const { container } = renderMessage({ content: 'A normal answer' })
+    const wrapper = container.firstElementChild as HTMLElement
+    expect(wrapper.style.marginBottom).toBe('12px')
+  })
+
+  it('still offers every act, through the one inline control', () => {
+    const { container } = renderMessage({ content: 'A normal answer' })
+    expect(container.querySelector('[data-testid="message-menu-trigger"]')).not.toBeNull()
+  })
+})

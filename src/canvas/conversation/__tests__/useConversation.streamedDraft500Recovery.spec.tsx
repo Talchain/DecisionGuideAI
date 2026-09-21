@@ -53,7 +53,7 @@
  * the network seams mocked.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, render, screen, act, cleanup } from '@testing-library/react'
+import { renderHook, render, screen, act, cleanup, fireEvent } from '@testing-library/react'
 import { BoundaryErrorSchema, FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 
 import { useConversation } from '../useConversation'
@@ -390,19 +390,39 @@ describe('mount surface (trap 3b) — the hook output renders through ChatThread
     }
     // The `retry` CHIP is deliberately NOT rendered by this surface — a
     // documented product decision (chipDispatch.ts RENDERABLE_LOCAL_CHIP_IDS
-    // excludes RETRY_CHIP_ID: every failure bubble already carries
-    // MessageActions' hover Retry, wired to the same retryLast). Pinned here
+    // excludes RETRY_CHIP_ID: every failure bubble already carries a Retry
+    // in `MessageMenu`, wired to the same retryLast). Pinned here
     // so a future flip of that decision fails this spec loud and the mount
     // claim gets re-derived rather than silently drifting.
     expect(screen.queryByTestId('suggested-chip-retry')).toBeNull()
     // The retry affordance the surface ACTUALLY provides on the failure
-    // bubble: MessageActions' Retry (hover/focus action bar, aria-label).
+    // bubble: Retry inside `MessageMenu` — the one inline overflow control
+    // that replaced the floating hover bar (which no longer exists).
     const wrapper = withSuggestion[0].closest('[data-testid="chat-message-assistant"]')
     expect(wrapper).not.toBeNull()
+
+    /*
+     * ⚠ THE ACT IS THE PROPERTY; THE BUTTON'S LOCATION IS NOT. This used to
+     * assert a bare `aria-label="Retry"` button present at rest, which was the
+     * floating hover bar. Retry now lives in `MessageMenu`, so it is one click
+     * deeper — a REAL trade, stated rather than hidden: a recovery action on a
+     * failed turn is now behind an overflow control.
+     *
+     * It is accepted here because the surface it replaced was HOVER-ONLY — it
+     * did not exist at rest either, and was invisible to touch entirely. An
+     * always-present trigger is not a worse starting point than a hover target.
+     * What must not regress is reachability, so that is what is asserted.
+     */
+    const trigger = wrapper!.querySelector<HTMLButtonElement>(
+      '[data-testid="message-menu-trigger"]',
+    )
+    expect(trigger, 'the failed turn still offers its overflow control').not.toBeNull()
+    fireEvent.click(trigger!)
     expect(
       Array.from(wrapper!.querySelectorAll('button')).some(
-        (b) => b.getAttribute('aria-label') === 'Retry',
+        (b) => (b.textContent ?? '').trim() === 'Retry',
       ),
+      'and Retry is reachable inside it',
     ).toBe(true)
   })
 })
