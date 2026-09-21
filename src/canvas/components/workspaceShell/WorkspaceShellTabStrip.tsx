@@ -42,7 +42,7 @@ import type { WorkspaceSurfaceDescriptor } from './shellContract'
  * looks like a button that lost its styling.
  */
 const ROW_ICON_CONTROL =
-  'inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ' +
+  'inline-flex items-center justify-center w-6 h-6 rounded border border-field ' +
   `${typography.panelMeta} text-text-header hover:bg-panel shrink-0`
 
 /**
@@ -375,7 +375,7 @@ export function WorkspaceShellTabStrip({
         className={`${typography.panelMeta} px-2 py-1 rounded-full border shrink-0 cursor-pointer transition-colors ${
           expertMode
             ? 'text-info border-info'
-            : 'text-text-light border-panel-border hover:border-info hover:text-info'
+            : 'text-text-light border-field hover:border-info hover:text-info'
         }`}
         aria-label={expertMode ? 'Disable expert mode' : 'Enable expert mode'}
         aria-pressed={expertMode}

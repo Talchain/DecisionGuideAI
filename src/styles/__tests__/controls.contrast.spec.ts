@@ -101,3 +101,38 @@ describe('an editable field is visibly a field', () => {
     expect(controls.editableField).toContain('focus:border-primary')
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────
+// The controls a live measurement found failing, pinned by ratio
+// ─────────────────────────────────────────────────────────────────────
+
+describe('every token used to mark an interactive control clears the non-text floor', () => {
+  /**
+   * Measured on served `e6551858`, one screen, 178 interactive controls: **30
+   * failed the 3:1 floor**, 29 of them sharing `rgb(238, 230, 216)`
+   * (`--border-default`, 1.24:1) — the canvas toolbar's twelve icon buttons, the
+   * inspector's three quick-action chips, `CHIP_CLASS`, the version trigger and
+   * the expert-mode toggle. The thirtieth was the goal node's no-target chip at
+   * `border-warning/40`, 1.92:1.
+   *
+   * ⚠ Ratios are COMPUTED from `brand.css` here, not restated, so this fails
+   * loud if the palette moves — the same reason the field token is guarded that
+   * way rather than by a number typed into a test.
+   */
+  const panel = token('bg-panel-rgb')
+
+  it('the tokens those controls were moved TO all pass', () => {
+    for (const name of ['border-field-rgb', 'warning-ink-rgb']) {
+      const ratio = contrast(token(name), panel)
+      expect(ratio, `--${name} must clear the non-text floor, measured ${ratio}:1`)
+        .toBeGreaterThanOrEqual(WCAG_NON_TEXT_MINIMUM)
+    }
+  })
+
+  it('⛔ CONTROL: the tokens they were moved FROM still fail, so the move was necessary', () => {
+    // Without this the assertion above passes for a palette in which everything
+    // passes, and says nothing about whether these controls needed changing.
+    expect(contrast(token('border-default-rgb'), panel)).toBeLessThan(WCAG_NON_TEXT_MINIMUM)
+    expect(contrast(token('warning-rgb'), panel)).toBeLessThan(WCAG_NON_TEXT_MINIMUM)
+  })
+})

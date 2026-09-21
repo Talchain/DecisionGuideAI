@@ -173,6 +173,27 @@ export const controls = {
    * rather than changed on a hunch. A token here means the next chip is correct
    * by construction without licensing a 27-site edit nobody measured.
    */
+  /**
+   * ⭐ A CHIP THAT PERFORMS AN ACTION — distinct from `selectableChip`, which
+   * carries radio semantics and therefore needs a selected state. These have no
+   * state to show; they just have to look pressable.
+   *
+   * Measured on served `e6551858`: of 178 interactive controls on one screen,
+   * **30 failed the 3:1 non-text floor and 29 of those shared one colour** —
+   * `rgb(238, 230, 216)`, i.e. `--border-default`, at **1.24 : 1**. The inspector's
+   * three quick-action chips were among them, and their class string was written
+   * out THREE TIMES in one file, which is the hand-maintained mirror this module
+   * exists to end (CLAUDE.md trap 12).
+   *
+   * ⚠ `border-panel-border` is NOT swept estate-wide. It has 548 uses, most of
+   * them card edges and dividers, where 1.24:1 is the right quiet choice — the
+   * floor governs "visual information required to identify a user interface
+   * component", not every line on screen. Only controls move, and only the ones
+   * a live measurement showed failing.
+   */
+  actionChip:
+    'inline-flex items-center gap-1 rounded-full border border-field px-2 py-1 text-text-body hover:bg-panel-hover hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors',
+
   selectableChip: {
     base: 'px-2.5 py-1 rounded-full cursor-pointer capitalize border transition-colors',
     selected: 'border-primary text-primary bg-panel',

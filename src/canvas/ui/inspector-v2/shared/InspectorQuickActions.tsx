@@ -20,6 +20,7 @@ import { useCallback, useMemo } from 'react'
 import { MessageCircleQuestion, BarChart3, PenLine } from 'lucide-react'
 
 import { typography } from '../../../../styles/typography'
+import { controls } from '../../../../styles/controls'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useUIStore, type OutputTab } from '../../../../stores/uiStore'
 import { requestAsk } from '../askSemantic'
@@ -117,7 +118,7 @@ export function InspectorQuickActions({
           onClick={handleAsk}
           title={`Ask Olumi about ${elementLabel}`}
           aria-label={`Ask Olumi about ${elementLabel}`}
-          className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors`}
+          className={`${typography.panelMeta} ${controls.actionChip}`}
         >
           <MessageCircleQuestion size={12} aria-hidden="true" />
           Ask Olumi
@@ -135,7 +136,7 @@ export function InspectorQuickActions({
           onClick={handleChange}
           title={`Ask Olumi to change ${elementLabel}`}
           aria-label={`Ask Olumi to change ${elementLabel}`}
-          className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors`}
+          className={`${typography.panelMeta} ${controls.actionChip}`}
         >
           <PenLine size={12} aria-hidden="true" />
           Change this
@@ -147,7 +148,7 @@ export function InspectorQuickActions({
         onClick={handleAnalysis}
         title={`Open the analysis for ${elementLabel}`}
         aria-label={`Open the analysis for ${elementLabel}`}
-        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors`}
+        className={`${typography.panelMeta} ${controls.actionChip}`}
       >
         <BarChart3 size={12} aria-hidden="true" />
         Its analysis
