@@ -2558,12 +2558,42 @@ export function AnalysisNewTabBody({
             two most generative: "is the question too narrow?" and "what does
             each option gain and give up?".
 
-            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE. `ActionsMenu`
-            renders the WHOLE `METHOD_CATALOGUE` and its own header says it owns
-            "user-invoked science-grounded methods". Its only mount is inside
+            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE — AND THAT WAS
+            ALREADY FALSE BY THREE DAYS WHEN THIS BLOCK WAS WRITTEN.
+
+            The sentence here read: *"Its only mount is inside
             `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
-            ruling parks. This estate's chronic failure #1, verbatim: we build
-            more than we plug in.
+            ruling parks."* That was the whole argument for adding a second
+            surface, and it was untrue at the time. Derived at the history:
+
+              15 Sep  #1590 `9dc8cf47`  mounts `<ActionsMenu />` on THIS tab
+              18 Sep  #1694 `c522af9e`  adds this shelf, arguing from the
+                                        pre-#1590 state
+
+            `<ActionsMenu />` sits 25 lines ABOVE this comment. So the premise
+            was refutable by reading the same file, and every session since has
+            inherited it.
+
+            ⚠ THE SHELF IS NOT WITHDRAWN AND MUST NOT BE. Paul's 18 Sep ruling
+            was "make it first-screen", and a collapsed menu near the foot of
+            the panel does not satisfy that whatever its reachability. The shelf
+            earns its place on the RULING; it never needed the false premise.
+
+            ⚠ WHAT THE TAB ACTUALLY SHIPS, measured on deployed `b6673341` via
+            the guest path: the `Actions` menu carries TEN items — all seven
+            methods verbatim, plus `Edit decision brief`, `Review all inputs`
+            and `Rerun analysis`. Seven of ten duplicate the shelf above.
+            `ActionsMenu.tsx` knows this and resolves the part that matters:
+            both surfaces build their payload through one `runMethod`, so there
+            is no second answer to "what does this method ask?".
+
+            ⛔ WHETHER TWO SURFACES SHOULD CARRY THE SAME SEVEN IS A DESIGN CALL
+            AND IS PAUL'S, NOT THIS FILE'S. It is recorded, not acted on: he has
+            ruled on this placement twice, an approved prototype governs it, and
+            no measurement here shows the duplication costs a reader anything.
+            Do not "reconcile" it by deleting either surface on a tidiness
+            argument. This estate's chronic failure #1 is real — but the cure is
+            not a third mount minted from a stale sentence.
 
             ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
             routes every ask through `openAskOlumi` — the same drawer this file
