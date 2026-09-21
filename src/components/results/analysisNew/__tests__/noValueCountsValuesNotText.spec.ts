@@ -98,11 +98,27 @@ describe('noValueTotal counts values, not display text', () => {
       factor('user-set', { value: 0.7, source: 'user_override' }),
     ] as never)
     expect(strip.noValueTotal).toBe(0)
-    // PRECONDITION: this really is the suppressed shape — no raw_value, no unit —
-    // so the assertion above is about the fix and not about a factor that always
-    // rendered fine.
-    expect(factorDisplayText(factor('user-set', { value: 0.7, source: 'user_override' }).data))
+  })
+
+  /**
+   * ⚠ NON-VACUITY, RE-BASED 22 Sep 2026 — and the old guard failing is this
+   * file's design working, not a regression.
+   *
+   * The precondition above used to pin `factorDisplayText(...) === null` for the
+   * model-scale shape. #1846 changed that ON PURPOSE: a number the person typed
+   * themselves is never hidden back from them, so the formatter now RENDERS it.
+   * Simply deleting the guard would leave the assertion above free to pass
+   * vacuously, so it is replaced by the discrimination the change actually
+   * introduces — IDENTICAL shape, authorship the only difference.
+   */
+  it('PRECONDITION: on the bare model-scale shape, authorship is what decides', () => {
+    // No raw_value and no unit: the shape `factorValueEdit.ts:304-307` persists
+    // for a model-scale edit, not a fully anchored factor that always rendered.
+    const shape = { value: 0.7 }
+    expect(factorDisplayText(factor('sys', { ...shape, source: 'cee_inference' }).data))
       .toBeNull()
+    expect(factorDisplayText(factor('usr', { ...shape, source: 'user_override' }).data))
+      .not.toBeNull()
   })
 
   it('a unit does not save a factor whose raw_value is absent', () => {
