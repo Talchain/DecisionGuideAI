@@ -752,13 +752,24 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               witness asked exactly that, twice, in natural language, and the
               deployed assistant declined both times — "I can't currently store
               a movable range". It is not a model failing: no range editor is
-              reachable anywhere in the product, and `model-tab-v2/contracts.ts`
-              declares `proposePriorRange` with ZERO implementations. The
-              sibling surface for this same defect class
-              (`model-tab-v2/ModelRowView.tsx`'s `NO_RANGE_NOTICE`) had already
-              reached that conclusion and WITHHOLDS a remedy on exactly this
-              ground, its spec banning the literals 'add a range' and 'set a
-              range'. This panel was the unsupported side of that disagreement.
+              reachable FOR A CONTROLLABLE FACTOR, which is the only kind this
+              panel renders. `model-tab-v2/contracts.ts` declares
+              `proposePriorRange` with ZERO implementations, and
+              `InspectorRouter` sends every non-external category here, to a
+              panel with zero `setPriorRange` call sites.
+              ⚠⚠ NARROWED 20 Sep 2026. This said "anywhere in the product",
+              inherited from `ModelRowView.tsx`'s notice, and THAT SENTENCE WAS
+              ALREADY FALSE BY NINE MINUTES when it was written — #1454 made the
+              EXTERNAL factor's range operable the same evening, and
+              `FactorExternalPanel`'s quick-set buttons reach `prior_range_edit`
+              today. The conclusion below is unchanged, because this panel never
+              renders an external factor; only the scope of the claim was wrong,
+              and a claim that overstates its scope is how the next surface
+              inherits a falsehood. The sibling surface
+              (`model-tab-v2/ModelRowView.tsx`'s `NO_RANGE_NOTICE`) WITHHOLDS a
+              remedy on this ground, its spec banning the literals 'add a range'
+              and 'set a range'. This panel was the unsupported side of that
+              disagreement.
 
               ⭐ WHY A STATED UNIT, AND WHY "PERCENTAGE" SPECIFICALLY. Derived
               in CEE at `staging` d9b06ea8, not guessed. The analysis gate is

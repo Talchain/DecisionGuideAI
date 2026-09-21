@@ -8,9 +8,21 @@
  * movable range like 0 to 100 on it." The user did precisely what the product
  * told them to do and was refused.
  *
- * It is not a model failing. No range editor is reachable anywhere in the
- * product: `model-tab-v2/contracts.ts` declares `proposePriorRange` with ZERO
- * implementations. The sibling surface for this same defect class
+ * It is not a model failing. No range editor is reachable FOR A CONTROLLABLE
+ * FACTOR — the only kind this panel renders: `model-tab-v2/contracts.ts`
+ * declares `proposePriorRange` with ZERO implementations, and `InspectorRouter`
+ * sends every non-external category to this panel, which has zero
+ * `setPriorRange` call sites.
+ *
+ * ⚠⚠ NARROWED 20 Sep 2026 — this said "anywhere in the product" and that was
+ * FALSE BY NINE MINUTES when the sentence was first written. #1454
+ * (`d720f551`, 2026-09-10T22:19:53) made the EXTERNAL factor's range operable;
+ * the commit carrying the claim landed at 22:28:39 and #1515 copied it here.
+ * `FactorExternalPanel`'s quick-set buttons reach `prior_range_edit` today and
+ * `mutationAuthority` classes it `server_fact`. Nothing about this file's
+ * conclusion changes — it never renders an external factor — but the claim's
+ * SCOPE did, and an overstated scope is how a falsehood reaches the next
+ * surface that inherits it. The sibling surface for this same defect class
  * (`model-tab-v2/ModelRowView.tsx`'s `NO_RANGE_NOTICE`) had already reached
  * that conclusion and WITHHOLDS a remedy on exactly this ground — its own spec
  * bans the literals 'add a range' and 'set a range'. This panel was the

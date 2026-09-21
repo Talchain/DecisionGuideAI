@@ -15,9 +15,14 @@
  *  4. the `Analyse first pass` control was ENABLED when clicked
  *     (`disabled === false`), because CEE's `graph-readiness` separately reported
  *     `can_run_analysis: true, issues: []`;
- *  5. no range editor is reachable anywhere: all four non-test `prior_range_edit`
- *     mount paths are dead, and `model-tab-v2/contracts.ts` declares
- *     `proposePriorRange` with zero implementations;
+ *  5. ⚠⚠ CORRECTED 20 Sep 2026. This read "no range editor is reachable
+ *     anywhere: all four non-test `prior_range_edit` mount paths are dead".
+ *     FALSE BY NINE MINUTES — #1454 (`d720f551`, 22:19:53) made the external
+ *     factor's range operable; this landed at 22:28:39. What holds, and is what
+ *     this file actually needs: `model-tab-v2/contracts.ts:235` declares
+ *     `proposePriorRange` with zero implementations, so THE MODEL TAB cannot
+ *     set a range, and the canvas inspector can only for `category ===
+ *     'external'`. For every other factor the original sentence is still true;
  *  6. the applied value cannot be cleared. Emptying the input disables
  *     `Review change`, and no unset affordance exists.
  *
