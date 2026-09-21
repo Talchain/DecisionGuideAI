@@ -587,6 +587,66 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       'test edit, and inventing one here would be an oracle written from the author\'s head ' +
       '(CLAUDE.md trap 13c). Rowed in the PR.',
   },
+  /*
+   * ── THE AI-PANEL REDESIGN'S THREE INSTRUMENTS (#1813) ─────────────────────
+   * Same claim-type test as the block above, applied honestly: two of the
+   * three emit a report and assert nothing a PRODUCT change can redden, and
+   * the third asserts only what arithmetic cannot settle about itself.
+   *
+   * ⭐ WHY THEY EXIST AT ALL, since the lane they served is finished: each one
+   * refuted something already written down. That is the whole argument for
+   * keeping a measure file in the tree, and it is recorded per entry below.
+   */
+  {
+    what: 'composerLook.measure.ts (3 cells, ~37s) — the docked Olumi composer, at rest, grown, and pasted-into',
+    why:
+      'It carries THREE `expect`s and is still excluded, which needs saying rather than hiding: ' +
+      'two assert the INSTRUMENT is not lying to itself (a numeric line-height actually ' +
+      'resolves; the pasted value arrived) and one asserts the action row sits below the ' +
+      'textarea. None of them encodes a ruling about what the composer OUGHT to measure — ' +
+      'inventing one here would be an oracle written from the author\'s head (trap 13c), and ' +
+      'the geometry it reports is exactly the kind that a legitimate design change moves. The ' +
+      'BEHAVIOUR is pinned in the main suite by `PersistentInputStrip.spec.tsx`, which binds ' +
+      'the bounds in jsdom. ⭐ WHAT ONLY THIS COULD DO, and it did it: the hand model of the ' +
+      'composer\'s rest height — adding the Tailwind padding steps up — predicted 84px where ' +
+      'the browser measured 97, and the first cut of the redesign came out 94px, i.e. a 3px ' +
+      '"win" for a change made to reclaim space. Modelled rather than measured, it would have ' +
+      'shipped as a regression described in the PR as a saving. jsdom cannot produce either ' +
+      'number: it resolves no line-height at all, which is why the growth maths now MEASURES.',
+  },
+  {
+    what: 'wholeAppLook.measure.ts (3 cells, ~40s) — the canvas and the dock in one frame',
+    why:
+      "Same claim-type test: `grep -c 'expect('` returns 1, and that one is a visibility check " +
+      'on the dock so a capture cannot silently photograph an empty page. It asserts nothing ' +
+      'about composition, so gating it would add an arm that cannot go red for a product ' +
+      'reason. ⭐ WHAT ONLY IT CAN DO: every other instrument here photographs a CROP of the ' +
+      'thing being changed, which is how a surface improves component by component while the ' +
+      'SCREEN gets busier — and that is not a hypothetical. It caught the Olumi tab inviting ' +
+      'the user to "describe the decision you\'re working through" twenty pixels above a ' +
+      'composer already saying "Ask about this model…", on a canvas full of that model. Every ' +
+      'spec on both surfaces was green; each was correct about its own component, and nothing ' +
+      'had ever asserted they AGREED. The fix is pinned in the main suite by ' +
+      '`emptyConversationInvitation.spec.tsx`, mutation-proven; this is what saw it.',
+  },
+  {
+    what: 'canvasFit.measure.ts (2 cells, ~35s) — does the graph fit the space left beside the dock?',
+    why:
+      "Same claim-type test: `grep -c 'expect('` returns 0. It reports viewport, pane, dock, " +
+      'node extent, transform and a clipped count, and asserts nothing about any of them — ' +
+      'deliberately, because at the time it was written the four plausible causes of the thing ' +
+      'it was pointed at had four INCOMPATIBLE fixes, and an assertion would have picked one ' +
+      'before the evidence did. ⭐ WHAT ONLY IT COULD DO: it WITHDREW a finding that had ' +
+      'already been written into a PR body. "The canvas does not fit beside the dock" is not a ' +
+      'defect — both starters need zoom 0.329/0.379 and land at exactly 0.500, which is ' +
+      '`LABEL_LEGIBLE_ZOOM`, a ruled floor that exists because unfloored fits hid 16 of 18 node ' +
+      'titles. And the second half of the claim — "the fit ignores the 416px dock" — is false ' +
+      'too: the painted extent centres at 536/566 against a free-strip centre of 506 and a pane ' +
+      'centre of 720, so `computeFitPadding()` frames on the unoccluded box even when the zoom ' +
+      'is clamped. One of the fixes it prevented (lower the floor) would have re-broken the ' +
+      'defect that floor exists to prevent.',
+  },
+
   {
     what: 'coachingLineDensity.measure.ts (3 cells, ~43s) — the compact coaching line (#1450)',
     why:
