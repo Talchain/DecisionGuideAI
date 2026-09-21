@@ -11,6 +11,8 @@ import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
+import { NodeValueEditor } from './shared/NodeValueEditor'
+import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
@@ -64,6 +66,15 @@ export const FactorNode = memo((props: NodeProps) => {
   const isDetailed = viewMode === 'expert'
 
   const nodeCategory = props.data?.category as string | undefined
+
+  /**
+   * ⭐ THE SAME AUTHORITY THE MODEL TAB WRITES THROUGH, not a second one.
+   * `proposeFactorValue` carries `factor_value_edit` with an optimistic revert
+   * and fails CLOSED on a value the wire cannot encode. Using it here means the
+   * card and the Model tab cannot disagree about whether an edit reached the
+   * model — which is the trap-21 shape this estate keeps paying for.
+   */
+  const editAuthority = useModelEditAuthority(props.id)
   const controllability = useMemo(() => {
     if (!isPostAnalysis) return undefined
     return deriveControllability(props.id, ceeAnalysisReady?.options, edges, nodeCategory)
@@ -944,7 +955,29 @@ export const FactorNode = memo((props: NodeProps) => {
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
           <div className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}>
-            <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
+            {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
+                model. A controllable factor's value has a durable carrier
+                (`factor_value_edit`); an observable factor's and a risk's do
+                NOT, and the inspector fences them for exactly that reason. An
+                editable-looking control on a value that cannot be sent would be
+                the more convincing lie: the user would act on it. So the
+                affordance follows the CARRIER, per writer, never per surface.
+
+                ⚠ Seeded from `observedState.value`, the EXACT number — never
+                from `valueDisplay`, which is a formatted readout. Seeding from a
+                rounded string once committed 0.38 for a 0.376 and destroyed the
+                producer's precision. */}
+            {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
+              <NodeValueEditor
+                value={observedState.value}
+                readout={isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}
+                onCommit={(v) => editAuthority.proposeFactorValue(v)}
+                ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
+                testId={`node-value-editor-${props.id}`}
+              />
+            ) : (
+              <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
+            )}
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>
         )}
