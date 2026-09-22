@@ -6,7 +6,6 @@
 import { memo, useState, useMemo, useCallback } from 'react'
 import { goalConstraintText, constraintWithEditedValue } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
-import { resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
@@ -48,7 +47,13 @@ import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAncho
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
-import { canCaptureGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
+// ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
+// This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
+// `domain/goalTarget` all along, while the readout below was derived from the
+// store scalar — and #1844 wrote a whole new module (`displayableGoalTarget.ts`)
+// for the question this module's own sibling export answers. The duplicate owner
+// was not hidden; it was on the next line of an existing import.
+import { canCaptureGoalTarget, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 
 export const GoalPanel = memo(function GoalPanel({

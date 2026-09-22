@@ -28,6 +28,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 import { GoalPanel } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
+import pricingModelStarter from '../../../starters/data/pricing-model.draft.json'
 
 function seed(nodeData: Record<string, unknown>, threshold: number, rep: string) {
   useCanvasStore.setState({
@@ -44,6 +45,38 @@ function seed(nodeData: Record<string, unknown>, threshold: number, rep: string)
 describe('GoalPanel — the target is the user\'s own figure', () => {
   beforeEach(() => cleanup())
   afterEach(() => cleanup())
+
+  /**
+   * ⭐⭐ THE NUMBERS BELOW ARE NOT INVENTED, AND THIS PINS THAT.
+   *
+   * `110` / `'%'` / `1.1` came from CEE's own measurement of the 12 NRR boards, and
+   * they turn out to be the EXACT values shipped in `pricing-model.draft.json` —
+   * the demo example titled *"Pricing Model Transition Strategy — Achieve NRR Above
+   * 110%"*. A self-authored fixture is not evidence about the producer
+   * (CLAUDE.md); a fixture that matches a shipped starter is.
+   *
+   * ⚠ SHAPE, DERIVED NOT ASSUMED: the starter carries these at the node's TOP
+   * LEVEL, and `backfillGoalThresholdOntoGoalNode` (`applyDraftResult.ts:415`)
+   * moves them onto `node.data` at runtime — which is where the panel reads them.
+   * So the seeds below put them on `data`, matching the runtime shape rather than
+   * the file's.
+   *
+   * ⛔ THIS TEST EXISTS SO A STARTER EDIT CANNOT SILENTLY STRAND THE CASES BELOW.
+   * Without it, someone retuning the demo board leaves this file asserting against
+   * numbers the product no longer ships, and it stays green while testing nothing.
+   */
+  it('PROVENANCE PIN: the shipped starter still carries these exact figures', () => {
+    const nodes = (pricingModelStarter as { nodes?: Array<Record<string, unknown>> }).nodes ?? []
+    const goal = nodes.find((n) => typeof n.goal_threshold_raw !== 'undefined')
+    expect(goal, 'no starter node carries goal_threshold_raw — the cases below are stranded').toBeDefined()
+    expect(goal?.goal_threshold_raw, 'the starter\'s raw target moved').toBe(110)
+    expect(goal?.goal_threshold_unit, 'the starter\'s unit moved').toBe('%')
+    // ⭐ And the incoherence CEE reported is STILL SHIPPED: 1.1 is outside [0,1],
+    // and 110/140 = 0.7857, so this is not `raw / cap`. That is the whole reason
+    // the normalised magnitude must never be rendered as the target.
+    expect(goal?.goal_threshold, 'the starter no longer ships the out-of-range value').toBe(1.1)
+    expect(goal?.goal_threshold_cap).toBe(140)
+  })
 
   it("⭐ shows the RAW figure and its unit, not the normalised constant", () => {
     seed({ goal_threshold_raw: 20000, goal_threshold_unit: '£' }, 0.8, 'normalised')
