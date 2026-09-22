@@ -36,7 +36,7 @@
  * for a wrong implementation.
  */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 
 import {
   analysisHeldOn,
@@ -562,5 +562,144 @@ describe('acknowledgement identity is derived from the registration projection',
     const untypeable = [{ id: 'x', data: { starterId: 's' } }] as any
     markGraphServerAcknowledged(SC, untypeable, [] as any)
     expect(analysisHeldOn(st(untypeable, [] as any))).toBe('starter')
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEAM 4 — A RE-ARMED HOLD MUST BE CONVERTIBLE
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * ⭐ THE QUESTION THIS FILE NEVER ASKED. Seam 3 proves at length that the hold
+ * RE-ARMS when the analytical model moves — "a changed node observedState
+ * (wire observed_state) is NOT the acknowledged model" is exactly right, and it
+ * is only half the contract. Nothing asked whether a re-armed hold can ever
+ * clear AGAIN. It could not.
+ *
+ * `analysisHeldOn` releases on `isGraphServerAcknowledged`, which is keyed on
+ * `analyticalDigest` — the projected graph. The hook's no-retry-loop guard is
+ * keyed on `${scenarioId}:${nodes.length}:${edges.length}`. **A value-only edit
+ * moves the digest and leaves both counts untouched**, so the re-arm effect
+ * correctly re-arms the hold, the registration effect finds its attempt key
+ * already used, returns early, and the model stays held for the life of the
+ * page. Two identities for one question — the "two questions, one name" shape
+ * `analysisHeldOnInjectedModel.ts` was written to end, reappearing one file
+ * over in the guard rather than in the predicate.
+ *
+ * The user-visible consequence is the pre-analysis footer refusing every rerun
+ * after any value edit, while three other rerun controls bypass the gate
+ * entirely — i.e. the only reachable route to a rerun is the unsafe one.
+ *
+ * ⚠ THE COUNTS ARE UNCHANGED ON PURPOSE AND THE TEST ASSERTS IT. If the edit
+ *   moved a count, the old key would differ too and this case would pass
+ *   against the defect — the assertion below is what makes it discriminating.
+ */
+describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
+  const SCENARIO = '77777777-7777-4777-8777-777777777777'
+
+  it('registers AGAIN after a value-only edit, so the re-armed hold can clear', async () => {
+    const ACK = {
+      status: 'registered' as const,
+      identity: { value: 'abc', projectionVersion: 'identity.v1' },
+      nodeCount: 2,
+      edgeCount: 0,
+      requestId: 'req_1',
+    }
+    // ⚠ THE SECOND REGISTRATION IS DEFERRED ON PURPOSE. With both calls
+    //   resolving immediately, the intermediate assertion below raced the
+    //   second acknowledgement and the hold had already released by the time it
+    //   ran — the test failed while the behaviour was correct. Holding the
+    //   second answer open makes "re-armed, not yet converted" a state the test
+    //   can actually stand in, rather than a window it has to win.
+    let releaseSecond: () => void = () => {}
+    registerSpy
+      .mockResolvedValueOnce(ACK)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseSecond = () => resolve(ACK)
+          }),
+      )
+    useCanvasStore.setState({
+      nodes: STARTER_NODES as never,
+      edges: [] as never,
+      currentScenarioId: SCENARIO,
+      importPendingServerRegistration: true,
+    })
+
+    renderHook(() => useImportRegistration())
+
+    // The first acknowledgement lands and the hold clears.
+    await waitFor(() => {
+      expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+    })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+
+    // The user sets a factor value. Nothing structural moves.
+    const edited = [
+      node('n1', { starterId: 'pricing-model', observedState: { value: 0.6 } }),
+      node('n2', { starterId: 'pricing-model' }),
+    ]
+    await act(async () => {
+      useCanvasStore.setState({ nodes: edited as never })
+    })
+
+    // PRECONDITION, PINNED: the counts really are unchanged, so the old attempt
+    // key really is the same key. Without this the case could pass for the
+    // wrong reason.
+    expect(edited.length).toBe(STARTER_NODES.length)
+    expect(useCanvasStore.getState().edges.length).toBe(0)
+
+    // The hold is correctly re-armed — seam 3's contract, restated as a
+    // precondition rather than assumed.
+    await waitFor(() => {
+      expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    })
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
+
+    // ⭐ THE CLAIM: the edited model is offered to the server, so the hold it
+    // just re-armed has a route back to released.
+    await waitFor(() => {
+      expect(registerSpy).toHaveBeenCalledTimes(2)
+    })
+    // It was offered as the EDITED model, not a stale snapshot of the old one.
+    const sentGraph = registerSpy.mock.calls[1][1] as { nodes: Array<Record<string, unknown>> }
+    expect(sentGraph.nodes.find((n) => n.id === 'n1')?.observed_state).toEqual({ value: 0.6 })
+
+    // Still held until the server actually answers — the release is on the
+    // acknowledgement, never on having asked.
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
+
+    await act(async () => {
+      releaseSecond()
+    })
+    await waitFor(() => {
+      expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    })
+  })
+
+  it('DISCRIMINATES: one model is still registered ONCE, not on every render', async () => {
+    // The guard this changes exists to stop a re-fire loop while the hold stays
+    // armed. Widening its key must not widen it to "no guard" — a failing
+    // registration on ONE model must still be attempted once per page life.
+    registerSpy.mockResolvedValue({ status: 'unavailable' })
+    useCanvasStore.setState({
+      nodes: STARTER_NODES as never,
+      edges: [] as never,
+      currentScenarioId: SCENARIO,
+      importPendingServerRegistration: true,
+    })
+
+    const { rerender } = renderHook(() => useImportRegistration())
+
+    await waitFor(() => {
+      expect(registerSpy).toHaveBeenCalledTimes(1)
+    })
+    rerender()
+    rerender()
+    await new Promise((r) => setTimeout(r, 30))
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    // and the hold is still armed, because nothing was acknowledged
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
   })
 })
