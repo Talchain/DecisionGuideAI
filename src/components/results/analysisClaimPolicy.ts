@@ -64,6 +64,8 @@
  *                mount), `analysis-hero/actOnIt/rankActOnItRows`.
  *   Q-STABILITY  `TriageActionCardsBody` — the checks-footer robustness glyph
  *                and `StabilityNarrative`'s percentage. (#1206)
+ *                `analysisNew/buildAnalysisNewViewModel` — the glance's verdict
+ *                word ("Stable" / "Mixed" / "Sensitive"). (#1206, 22 Sep 2026)
  *   Q-FIGURES    NO SUPPRESSING CONSUMER, DELIBERATELY — and this one is not
  *                a gap. It is the answer that LICENSES rather than withholds:
  *                on `quantified_provisional` the figures are admitted, and the
@@ -74,11 +76,10 @@
  *                worse product than the defect it replaced. It is read by §1's
  *                lattice table, which is what stops it drifting silently.
  *
- * ⚠ THE REASONING TAB IS NOT COVERED. #1206 witnessed the SAME unlicensed
- * "Stable" / "Robust" on `analysisNew`, which reads none of these answers.
- * That half is deliberately out of scope here — those files are held by open
- * PR #1192 and the surface has a named owner on #1206 — and it is a live gap,
- * not a closed one.
+ * ✅ THE REASONING TAB NOW READS Q-STABILITY (22 Sep 2026). #1206 witnessed the
+ * same unlicensed "Stable" on `analysisNew`; its glance verdict is gated on
+ * `mayStateStability` above. Its other answers are read by that tab's own
+ * gates (`licensesComparativeLeaderClaim`), not through this module.
  */
 import { leaderDesignationPermitted } from './leaderDesignation'
 import type { AnalysisAdmissionV1, PermittedAnalysisMode } from '../../adapters/cee/types'

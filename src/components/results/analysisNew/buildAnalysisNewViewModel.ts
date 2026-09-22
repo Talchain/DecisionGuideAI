@@ -44,6 +44,7 @@
 import { applyUnitPlacement, classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
+import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import {
   ASSUMED_STRENGTH_TITLE,
@@ -2410,7 +2411,16 @@ function buildAtAGlance(
           }
         })()
 
-  const word = rec.robustnessVerdict ? VERDICT_WORD[rec.robustnessVerdict] : undefined
+  // ⛔ THE ADMISSION DECIDES WHETHER ANY STRENGTH WORD MAY BE STATED (#1206).
+  // CEE's `permitted_analysis_mode` makes "calling a result stable or robust"
+  // impossible over a comparison none of whose parameters the user has set, and
+  // says so on this same screen. The producer's verdict still picks WHICH word;
+  // `mayStateStability` (the Analysis tab's gate too) decides whether any may
+  // be stated, the unflattering one included. Pinned by
+  // `theStrengthWordObeysTheAdmission.spec.ts`.
+  const mayStateStability = analysisClaimPolicy(rec).mayStateStability
+  const word =
+    mayStateStability && rec.robustnessVerdict ? VERDICT_WORD[rec.robustnessVerdict] : undefined
   // The single most informative number on the surface, and it is only licensed
   // alongside an entitled leader — so it is gated on the SAME condition as the
   // headline.
