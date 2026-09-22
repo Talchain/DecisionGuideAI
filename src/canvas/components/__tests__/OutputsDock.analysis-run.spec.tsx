@@ -687,6 +687,71 @@ describe('OutputsDock analyse convergence', () => {
       expect(overview.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       localStorage.removeItem('feature.decisionOverview')
     })
+
+    /**
+     * ⛔⛔ THE CARD CALLED A NAMED MODEL "Untitled draft" — WITNESSED, NOT
+     * IMAGINED. Deployed `12c9d410`, guest, saved example *Customer Data
+     * Platform Selection*: the app header read "Replace CDP Within Budget and
+     * Compliance Constraints", the canvas decision node read "Customer Data
+     * Platform Selection", and this card's `<h2>` read "Untitled draft".
+     *
+     * ⭐ THE FIXTURE IS THE GUEST SHAPE, MEASURED OFF THE LIVE PAGE, not a
+     * convenient one: `currentScenarioId` IS set while `olumi-canvas-scenarios`
+     * is ABSENT entirely. `getScenario()` therefore resolves nothing, which is
+     * why the card fell through to its fallback while the toolbar — which uses
+     * `resolveModelDisplayName` — did not.
+     */
+    it('⛔ a GUEST model is named after the goal it is about, not "Untitled draft"', () => {
+      localStorage.setItem('feature.decisionOverview', '1')
+      localStorage.removeItem('olumi-canvas-scenarios')
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+        currentScenarioId: 'guest-scenario-with-no-stored-record',
+        nodes: [
+          {
+            id: 'goal_cdp',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { kind: 'goal', label: 'Replace CDP Within Budget' },
+          },
+        ],
+      } as any)
+      renderOutputsDock()
+      const heading = screen.getByTestId('decision-overview').querySelector('h2')
+      // PRECONDITION: the card is mounted and has a heading at all, so a null
+      // query cannot pass the two assertions below by being absent.
+      expect(heading).not.toBeNull()
+      expect(heading!.textContent).toBe('Replace CDP Within Budget')
+      expect(heading!.textContent).not.toBe('Untitled draft')
+      localStorage.removeItem('feature.decisionOverview')
+    })
+
+    /**
+     * ⚠ THE OTHER DIRECTION, and it is why the fix returns `null` rather than
+     * `resolveModelDisplayName`'s own generic. With nothing to derive from, the
+     * card keeps its OWN deliberate wording ("it is untitled, and it is a
+     * draft") instead of being silently restyled to "Untitled model".
+     */
+    it('CONTRAST — with no goal label to derive from, the card keeps its own fallback', () => {
+      localStorage.setItem('feature.decisionOverview', '1')
+      localStorage.removeItem('olumi-canvas-scenarios')
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+        currentScenarioId: 'guest-scenario-with-no-stored-record',
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'A factor' } },
+        ],
+      } as any)
+      renderOutputsDock()
+      const heading = screen.getByTestId('decision-overview').querySelector('h2')
+      expect(heading).not.toBeNull()
+      expect(heading!.textContent).toBe('Untitled draft')
+      localStorage.removeItem('feature.decisionOverview')
+    })
   })
 
   describe('Wave F-B: one freshness owner — duplicate stale surfaces retired', () => {

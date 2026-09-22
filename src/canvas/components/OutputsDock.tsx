@@ -68,6 +68,8 @@ import { AnalysisStateRegion } from '../../components/results/analysisState/Anal
 import { useAnalysisRunState } from '../../components/results/analysisState/useAnalysisRunState'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
+import { resolveModelDisplayName, UNNAMED_MODEL_FALLBACK } from '../domain/modelDisplayName'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
@@ -1230,10 +1232,55 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // it must never run per render (review B1); flag-off renders skip it via
   // the mount-site gate below.
   const overviewScenarioId = useCanvasStore((s) => s.currentScenarioId)
-  const overviewTitle = useMemo(
-    () => (isDecisionOverviewEnabled() && overviewScenarioId ? (getScenario(overviewScenarioId)?.name ?? null) : null),
-    [overviewScenarioId],
-  )
+  /**
+   * ⭐ THE GOAL THE MODEL IS ABOUT, so this card can name a model nobody has
+   * stored a title for. Selector returns a STRING OR NULL — a primitive — so it
+   * cannot re-render this component on identity alone (React #185, the standing
+   * hazard in this file).
+   */
+  const overviewGoalLabel = useCanvasStore((s) => {
+    const goal = (s.nodes ?? []).find((n) => resolveNodeTypeLiteral(n) === 'goal')
+    const label = (goal?.data as { label?: unknown } | undefined)?.label
+    return typeof label === 'string' && label.trim().length > 0 ? label : null
+  })
+  /**
+   * ⛔⛔ THIS CARD SAID "Untitled draft" FOR A MODEL THE REST OF THE PRODUCT
+   * NAMES, and the estate already owned the answer it was missing.
+   *
+   * Witnessed on deployed `12c9d410`, guest, saved example *Customer Data
+   * Platform Selection*: the app header read "Replace CDP Within Budget and
+   * Compliance Constraints", the canvas decision node read "Customer Data
+   * Platform Selection", and this `<h2>` read **"Untitled draft"** — three
+   * surfaces, three answers, one of them claiming the model has no name at all.
+   *
+   * ⭐ THE CAUSE WAS TWO DERIVATIONS OF ONE CONCEPT, not a missing string.
+   * `getScenario()` reads the scenarios localStorage record, and a GUEST has
+   * none — measured on the live page: `currentScenarioId` was set while the
+   * whole scenarios key was absent, so this always resolved `null`. The header
+   * never had that problem because `CanvasMVP` falls back to
+   * `resolveModelDisplayName`, whose own module header names this exact case:
+   * *"a GUEST's model is called 'Untitled model' forever, with the goal it is
+   * plainly about sitting in the same store, unread."* That fix reached the
+   * toolbar and missed this card. Same owner now reads for both.
+   *
+   * ⚠ NULL, NOT THE GENERIC, WHEN NOTHING CAN BE DERIVED. `resolveModelDisplayName`
+   * ends at `UNNAMED_MODEL_FALLBACK` ("Untitled model"); this card has its own
+   * deliberate wording for that state ("Untitled draft" — *"it is untitled, and
+   * it is a draft"*). Returning null hands the decision back to the card so this
+   * change cannot quietly restyle the genuinely-unnamed case.
+   *
+   * ⛔ DISPLAY ONLY. `modelDisplayName` writes nothing and neither does this —
+   * the auto-title's Supabase write remains the only thing that NAMES a model.
+   *
+   * Memoised because `getScenario` parses the whole scenarios blob (review B1).
+   */
+  const overviewTitle = useMemo(() => {
+    if (!isDecisionOverviewEnabled()) return null
+    const stored = overviewScenarioId ? getScenario(overviewScenarioId)?.name : null
+    if (typeof stored === 'string' && stored.trim().length > 0) return stored
+    const derived = resolveModelDisplayName(null, overviewGoalLabel)
+    return derived === UNNAMED_MODEL_FALLBACK ? null : derived
+  }, [overviewScenarioId, overviewGoalLabel])
 
   // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
   // Each factor's contribution to the outcome swing is proportional to its normalised influence.
