@@ -147,6 +147,7 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalF
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
+import { selectLodBodyHidden } from '../utils/zoomLegibility'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 /** Strip known suffixes from factor labels for contextual display. */
@@ -828,6 +829,15 @@ export const OptionNode = memo((props: NodeProps) => {
     }),
     [ceeAnalysisReady, props.id, nodes],
   )
+
+  /**
+   * ⚠ THIS LINE IS PART OF THE CARD BODY, SO IT GOES WHEN THE BODY GOES.
+   * `selectLodBodyHidden` is the single source (`zoomLegibility.ts`) — no second
+   * rung literal. Without it the copy census reaches the route line at
+   * `option · pre · lod-line`, a rung where the card is title-only and a 10px
+   * floor already decided nothing else may render.
+   */
+  const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
 
   const isBaselineOption = useMemo(() => {
     // Explicit flag wins; regex only fires when flag absent (null/undefined).
@@ -2060,6 +2070,61 @@ export const OptionNode = memo((props: NodeProps) => {
           </ul>
         )}
 
+        {/* ⭐⭐⭐ THE ONE LINE THAT SAYS THESE CHANGES ARE EDITABLE — AND IT IS
+            NOT EXPERT-ONLY ANY MORE, AND IT NOW SITS UNDER THE CHANGES IT
+            REFERS TO.
+
+            ⛔ MEASURED on served `b5f1867d`, guest, canonical pricing board:
+            `option-change-count-*` was ABSENT from the DOM on all four option
+            cards while the delta rows rendered. The card showed three concrete
+            changes it makes to the model — "Bottom-up adoption… Very high (0.8)
+            → Moderate (0.4)" — and said nothing about editing them.
+
+            The cause was not this line's own gate, which #1871 had already
+            fixed. Walking UP the JSX, the enclosing conditional was
+            `{showLayer2Inline && !isPostAnalysis && !isBaselineOption && (`
+            where `showLayer2Inline = isDetailed = viewMode === 'expert'`, and
+            the served store reads `viewMode: "standard"`. Expert-only, on a
+            product that opens in Standard.
+
+            ⚠ ONLY THIS CHILD MOVES. The completeness line and `optionChips`
+            stay inside the Expert fragment. Standard view is deliberately
+            quieter and this is not a request for more chips: the claim is
+            narrow — a user looking at three changes should be told they can
+            change them, and where.
+
+            ⚠ The outer gate's other two conditions travel WITH the line, so
+            post-analysis and the baseline option behave exactly as before. A
+            moved element that quietly widens its own conditions is a second
+            change wearing the first one's clothes. */}
+        {!lodBodyHidden && !isPostAnalysis && !isBaselineOption && optionTargetsLineShows({ hasInterventions, deltasRendered: structuredDeltaChipsRender }) && (() => {
+          const { short, full } = optionTargetsChannels({ count: totalInterventionCount })
+          return (
+            /* ⭐ A CONTROL, BECAUSE THE SENTENCE ALREADY NAMED THE
+               DESTINATION. The two-carrier shape is unchanged: the count is
+               what a sighted reader needs at a glance, the sentence is what
+               makes it actionable, and neither is dropped. `nodrag nopan`
+               and the pointer stop are not optional inside a React Flow
+               node — without them a press inside the control is treated as
+               a node drag. */
+            <button
+              type="button"
+              className={`nodrag nopan ${typography.edgeLabel} text-text-light mt-0.5 m-0 block text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
+              title={full}
+              data-testid={`option-change-count-${props.id}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                openNodeInspector(props.id)
+              }}
+            >
+              <span aria-hidden="true">{short}</span>
+              <span className={typography.screenReaderOnly}>{full}</span>
+            </button>
+          )
+        })()}
+
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
@@ -2647,33 +2712,6 @@ export const OptionNode = memo((props: NodeProps) => {
                 Neither deferral rested on height once the reason was written
                 down properly, which is the tell that the height claim was
                 doing rhetorical rather than load-bearing work. */}
-            {optionTargetsLineShows({ hasInterventions, deltasRendered: structuredDeltaChipsRender }) && (() => {
-              const { short, full } = optionTargetsChannels({ count: totalInterventionCount })
-              return (
-                /* ⭐ A CONTROL, BECAUSE THE SENTENCE ALREADY NAMED THE
-                   DESTINATION. The two-carrier shape is unchanged: the count is
-                   what a sighted reader needs at a glance, the sentence is what
-                   makes it actionable, and neither is dropped. `nodrag nopan`
-                   and the pointer stop are not optional inside a React Flow
-                   node — without them a press inside the control is treated as
-                   a node drag. */
-                <button
-                  type="button"
-                  className={`nodrag nopan ${typography.edgeLabel} text-text-light mt-0.5 m-0 block text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
-                  title={full}
-                  data-testid={`option-change-count-${props.id}`}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onDoubleClick={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openNodeInspector(props.id)
-                  }}
-                >
-                  <span aria-hidden="true">{short}</span>
-                  <span className={typography.screenReaderOnly}>{full}</span>
-                </button>
-              )
-            })()}
             {completeness && (
               <p
                 className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}

@@ -23,7 +23,7 @@
  * `useOptionInterventionCommit`'s and the browser witness's.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import {
   OptionNode,
@@ -93,7 +93,7 @@ const baseProps = {
   draggable: true,
 }
 
-function renderCard() {
+function renderCard(viewMode: 'standard' | 'expert' = 'expert', dataOverride?: Record<string, unknown>, resultsStatus: string = 'idle') {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
     sensitivityRank: null, influence: null, confidence: null,
     inSensitivityAnalysis: false, achievementProbability: null,
@@ -106,7 +106,7 @@ function renderCard() {
       nodes: NODES,
       edges: EDGES,
       ceeAnalysisReady: CEE,
-      results: { status: 'idle', report: null },
+      results: { status: resultsStatus, report: null },
       highlightedNodes: new Set(),
       dimmedNodeIds: new Set(),
       lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
@@ -114,13 +114,13 @@ function renderCard() {
       goalConstraints: [],
       setHoveredOption: vi.fn(),
       runMeta: { ceeReview: null },
-      viewMode: 'expert',
+      viewMode,
       lodRung: 'full',
     } as never),
   )
   const { container } = render(
     <ReactFlowProvider>
-      <OptionNode {...baseProps} data={NODES[0].data} />
+      <OptionNode {...baseProps} data={{ ...NODES[0].data, ...(dataOverride ?? {}) }} />
     </ReactFlowProvider>,
   )
   return container.querySelector(`[data-testid="option-change-count-${OPTION_ID}"]`)
@@ -244,5 +244,78 @@ describe('the route line shows wherever a target exists, not only as a fallback'
     // so the render and the predicate are asserted together.
     expect(optionTargetsLineShows({ hasInterventions: true, deltasRendered: false })).toBe(true)
     expect(renderCard()).not.toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE VIEW THE PRODUCT ACTUALLY OPENS IN.
+ *
+ * ⛔ MEASURED on served `b5f1867d` — the build containing #1871, which was
+ * supposed to have fixed this:
+ *
+ *     [OPT] changeCountEls = 0      <- [data-testid^="option-change-count-"]
+ *     [OPT] deltaLists     = 3      <- the delta rows DO render
+ *     [OPT] viewMode       = "standard"
+ *     [OPT] lodRung        = "quiet"
+ *
+ * All four option cards still returned in `cardsWhoseONLYAffordanceIsRename`.
+ * #1871 fixed this line's OWN gate; the line never rendered because the
+ * ENCLOSING one was `showLayer2Inline = isDetailed = viewMode === 'expert'`.
+ *
+ * Every test above runs in Expert view and passed throughout — which is exactly
+ * why they could not see it. A jsdom render reaches branches the deployed view
+ * never reaches, and only a census on the served build caught it.
+ *
+ * ⛔ MUTANT: put the line back inside the Expert fragment — the first case REDs,
+ * the Expert regression guard stays green.
+ */
+describe('the route renders in the view the product opens in', () => {
+  it('STANDARD view carries the route — the served-build case', () => {
+    const line = renderCard('standard')
+    expect(line, 'the route line must render in Standard view').not.toBeNull()
+    expect(line?.tagName.toLowerCase()).toBe('button')
+  })
+
+  it('REGRESSION GUARD — Expert view still carries it, once', () => {
+    expect(renderCard('expert')).not.toBeNull()
+  })
+
+  it('it is ONE control, not one per view — no duplicate in either view', () => {
+    for (const view of ['standard', 'expert'] as const) {
+      // ⚠ EACH RENDER GETS A CLEAN DOCUMENT. Without this the second iteration
+      // queries a document holding BOTH renders and reports a duplicate the
+      // product does not have — the assertion was right, the harness was not.
+      cleanup()
+      vi.clearAllMocks()
+      renderCard(view)
+      expect(
+        document.querySelectorAll(`[data-testid="option-change-count-${OPTION_ID}"]`).length,
+        `${view} rendered more than one route line`,
+      ).toBe(1)
+    }
+  })
+
+  it('CONTRAST CONTROL — the line still states the count in Standard view', () => {
+    expect(renderCard('standard')?.textContent ?? '').toContain('2 factor targets')
+  })
+
+  /**
+   * ⛔ THE CONDITION THAT TRAVELLED WITH THE LINE, AND IT NEEDED ITS OWN TEST.
+   * Moving the line out of the Expert fragment meant re-stating that fragment's
+   * other two conditions at the new site. A mutant DROPPING `!isBaselineOption`
+   * SURVIVED the first version of this suite — the fixture's option is not a
+   * baseline, so nothing exercised it, and a preserved condition nothing tests
+   * is a condition the next change deletes for free.
+   */
+  it('a completed run still carries NO route — the other inherited condition, guarded', () => {
+    // `isPostAnalysis = resultsStatus === 'complete'`. A mutant dropping
+    // `!isPostAnalysis` also survived until this existed.
+    expect(renderCard('standard', undefined, 'complete')).toBeNull()
+  })
+
+  it('the baseline option still carries NO route — the inherited condition, guarded', () => {
+    expect(renderCard('standard', { is_baseline: true })).toBeNull()
+    cleanup()
+    expect(renderCard('expert', { is_baseline: true })).toBeNull()
   })
 })

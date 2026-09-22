@@ -921,7 +921,25 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(new Set(reachedIn.get('option · the change-COUNT line (compacted by this PR)')))
       // Both boards lack a declared reference; having observed values no
       // longer suppresses this recovery affordance by inventing a pair.
-      .toEqual(new Set(['option · pre · expert', 'option · no-baseline · expert']))
+      //
+      // ⭐⭐ `option · pre · standard` ADDED 22 Sep 2026, AND THIS SET IS THE
+      // ADJUDICATION, NOT A RECORDING. The line moved out of the Expert-only
+      // fragment (`showLayer2Inline = isDetailed = viewMode === 'expert'`)
+      // because the product OPENS in Standard: measured on served `b5f1867d`,
+      // `[data-testid^="option-change-count-"]` was absent from all four option
+      // cards while the delta rows rendered — the card showed three concrete
+      // changes it makes to the model and offered no way to change them.
+      //
+      // ⚠ `option · pre · lod-line` is deliberately NOT here. The first version
+      // of the move reached it, and the census caught that: at the `line` rung
+      // the card is title-only and a 10px floor already decided nothing else
+      // renders. The line is now gated on `selectLodBodyHidden` — the single
+      // source in `zoomLegibility.ts`, not a second rung literal.
+      .toEqual(new Set([
+        'option · pre · standard',
+        'option · pre · expert',
+        'option · no-baseline · expert',
+      ]))
   })
 
   /**
