@@ -339,6 +339,35 @@ function analyticalDigest(
 }
 
 /**
+ * ⭐ THE ACKNOWLEDGEMENT'S OWN IDENTITY, PUBLISHED — not a new one.
+ *
+ * `useImportRegistration` needs to key "have I already tried to register THIS
+ * model?" and was keying it on `${scenarioId}:${nodes.length}:${edges.length}`.
+ * That is a SECOND identity for the question this module already answers, and
+ * the two disagree in the case the user actually hits: a value-only edit moves
+ * the digest and leaves both counts untouched, so the hold re-arms while the
+ * guard says the attempt was already made, and the model stays held for the
+ * life of the page.
+ *
+ * Exported rather than reimplemented in the hook for the reason this estate
+ * keeps relearning: a hand-written second expression of an identity is a
+ * divergence waiting to happen, and `analyticalDigest` already carries the
+ * projection, the ordering and the intervention-key normalisation that make
+ * the comparison meaningful.
+ *
+ * `null` when the model has no identity at all (no scenario, no nodes, or a
+ * graph the projection refuses) — the caller decides what to do with that,
+ * exactly as `markGraphServerAcknowledged` does.
+ */
+export function analyticalIdentityKey(
+  scenarioId: string | null,
+  nodes: GraphNodes,
+  edges: GraphEdges,
+): string | null {
+  return analyticalDigest(scenarioId, nodes, edges)
+}
+
+/**
  * Do these two graphs represent the SAME analytical model? Scenario-free, so a
  * caller can ask the question about a snapshot without also asserting where it
  * lived. Used to stop an in-flight receipt confirming a replacement.

@@ -47,6 +47,7 @@ import { useCanvasStore } from '../store'
 import {
   releaseImportRegistration,
   markGraphServerAcknowledged,
+  analyticalIdentityKey,
   isGraphServerAcknowledged,
   isSameAnalyticalModel,
   markGraphImported,
@@ -93,7 +94,34 @@ export function useImportRegistration(): void {
   const userId = user?.id ?? null
 
   /**
-   * Attempts already made, keyed by `${scenarioId}:${nodeCount}:${edgeCount}`.
+   * Attempts already made, keyed by THE ANALYTICAL IDENTITY THE HOLD USES.
+   *
+   * ⛔ IT USED TO BE `${scenarioId}:${nodeCount}:${edgeCount}`, AND THAT MADE A
+   *   RE-ARMED HOLD PERMANENT. `analysisHeldOn` releases on
+   *   `isGraphServerAcknowledged`, keyed on `analyticalDigest`; this guard was
+   *   keyed on the two counts. A VALUE-ONLY EDIT moves the digest and touches
+   *   neither count — so the re-arm effect below correctly re-armed the hold,
+   *   this effect found its key already used and returned, and no second
+   *   registration was ever attempted. The model stayed held for the life of
+   *   the page, the pre-analysis footer refused every rerun, and the only
+   *   remaining routes to a rerun were the controls that bypass the gate
+   *   entirely — i.e. the unsafe one was the only one that worked.
+   *
+   *   Two identities for one question, which is the "two questions, one name"
+   *   defect `analysisHeldOnInjectedModel.ts` exists to end, reappearing in the
+   *   guard instead of in the predicate. The key is now the module's own
+   *   `analyticalIdentityKey`, so the guard and the hold cannot disagree.
+   *
+   * ⚠ IT IS STILL A GUARD, AND STILL PER MODEL. Widening the key must not
+   *   widen it to "no guard": one model that fails to register is still
+   *   attempted exactly once per page life. The projection drops `position`,
+   *   `selected`, `dragging` and `measured` (`CANVAS_ONLY_NODE_KEYS`), so a
+   *   drag or a click cannot move the key and cannot cost a request.
+   *
+   * ⚠ THE COUNTS KEY REMAINS AS THE FALLBACK for a model with no identity at
+   *   all — no nodes, or a graph the projection refuses. That is the only case
+   *   where the old behaviour is still the right behaviour, because there is
+   *   nothing finer to key on and a null key would disable the guard.
    *
    * ⚠ THIS IS AN IN-FLIGHT / NO-RETRY-LOOP GUARD, NOT THE HOLD. The hold lives
    *   in localStorage and survives the page; this ref dies with it, so a reload
@@ -185,7 +213,9 @@ export function useImportRegistration(): void {
 
     // Snapshot the exact graph being registered (see the header).
     const { nodes, edges } = useCanvasStore.getState()
-    const attemptKey = `${scenarioId}:${nodes.length}:${edges.length}`
+    const attemptKey =
+      analyticalIdentityKey(scenarioId, nodes, edges) ??
+      `${scenarioId}:${nodes.length}:${edges.length}`
     if (attempted.current.has(attemptKey)) return
     attempted.current.add(attemptKey)
 
