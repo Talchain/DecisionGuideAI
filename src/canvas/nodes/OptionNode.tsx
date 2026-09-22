@@ -27,6 +27,7 @@ import { BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { planOptionCardAtRest } from './shared/optionCardAtRest'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -537,6 +538,44 @@ interface StructuredDelta {
   fromTo: string
 }
 
+/**
+ * One delta row — the card and the preview both render through this, so the
+ * two cannot drift into stating one change two ways. The card passes the
+ * compacted `label`, the preview the `fullLabel` (it is portalled outside the
+ * React Flow transform and has the room — which is why this file calls it the
+ * recovery surface for the card's compaction). Ellipsis-with-recovery on the
+ * card (Paul, 29 Aug): `label` is compacted to 22 chars and the `title` carries
+ * the full string. Native `title` is the canvas-node tooltip idiom in this repo
+ * — see `nodes/shared/MetricPills.tsx`.
+ *
+ * `data-delta-factor` is the row's IDENTITY, so a spec can say which change a
+ * card kept without matching on a value string another row could also render.
+ */
+function renderDeltaRow(d: StructuredDelta, labelText: string) {
+  return (
+    <li
+      key={d.factorId}
+      data-delta-factor={d.factorId}
+      className="flex items-start gap-1"
+      title={`${d.fullLabel}: ${d.fromTo}`}
+    >
+      {d.direction === 'up' ? (
+        <ArrowUp size={10} className="text-text-light flex-shrink-0 mt-0.5" />
+      ) : d.direction === 'down' ? (
+        <ArrowDown size={10} className="text-text-light flex-shrink-0 mt-0.5" />
+      ) : null}
+      {/* min-w-0 so the text block may shrink and WRAP rather than overflow.
+          Nothing here is `truncate`: a CSS ellipsis inside a canvas node REDs
+          `nodeTextClipping.visual.spec.ts`, which exempts JS-shortened strings
+          by design. */}
+      <span className="min-w-0 flex-1">
+        <span className={`${typography.nodeLabel} block text-text-body`}>{labelText}</span>
+        <span className={`${typography.nodeLabel} block text-text-light`}>{d.fromTo}</span>
+      </span>
+    </li>
+  )
+}
+
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
@@ -1021,6 +1060,41 @@ export const OptionNode = memo((props: NodeProps) => {
    */
   const structuredDeltaChipsRender =
     !isBaselineOption && structuredDeltas.length > 0
+
+  /**
+   * ⭐ DRAFT (22 Sep 2026, for Paul's design critique) — THE AT-REST BUDGET.
+   * In Standard view the card keeps ONE delta row (the most distinctive change)
+   * beside the reference and the `N factor targets` route; the full list moves
+   * to the card's preview, which selection holds open. The card's box is the
+   * same selected or not, because growth re-lays out the board — see
+   * `shared/optionCardAtRest.ts` for the rule and the measurement behind it.
+   */
+  const atRest = planOptionCardAtRest({
+    deltaFactorIds: structuredDeltaChipsRender ? structuredDeltas.map(d => d.factorId) : [],
+    distinctiveFactorId: differentiator?.factorId ?? null,
+    isDetailed,
+    selected: props.selected === true,
+  })
+  const cardDeltas = structuredDeltas.filter(d => atRest.cardRowIds.includes(d.factorId))
+
+  /** The full list the card compacted — rendered in the preview, never the card. */
+  const fullDeltaList = useMemo(() => (atRest.compacted ? (
+    <ul
+      className="flex flex-col gap-1 m-0 mt-0.5 mb-1 p-0 list-none"
+      data-testid={`option-deltas-full-${props.id}`}
+    >
+      {baselineOptionReference && (
+        <li className={`${typography.edgeLabel} text-text-light`}>Reference: {baselineOptionReference.label}</li>
+      )}
+      {structuredDeltas.map(d => renderDeltaRow(d, d.fullLabel))}
+    </ul>
+  ) : null), [atRest.compacted, props.id, baselineOptionReference, structuredDeltas])
+
+  /** Factors whose from→to the preview already states, so its target list skips them. */
+  const previewDeltaIds = useMemo(
+    () => (atRest.compacted ? new Set(structuredDeltas.map(d => d.factorId)) : null),
+    [atRest.compacted, structuredDeltas],
+  )
 
   /**
    * ⭐⭐ THE DIFFERENTIATOR DE-DUPLICATION IS RETIRED — Paul, 10 Sep 2026:
@@ -1531,9 +1605,14 @@ export const OptionNode = memo((props: NodeProps) => {
         <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>
           {isBaselineOption ? 'Baseline values for' : 'This option sets'} {totalInterventionCount} factor{totalInterventionCount !== 1 ? 's' : ''}.
         </p>
-        {interventionChips.length > 0 && (
+        {/* DRAFT at-rest budget: what the card compacted, in full, from→to
+            against the named reference. A target already stated there is not
+            listed a second time below; a target with no declared reference
+            (no row) still is. */}
+        {fullDeltaList}
+        {interventionChips.some(chip => !previewDeltaIds?.has(chip.factorId)) && (
           <div className="flex flex-col gap-0.5">
-            {interventionChips.map(chip => {
+            {interventionChips.filter(chip => !previewDeltaIds?.has(chip.factorId)).map(chip => {
               const targetFormatted = formatInterventionTargetText(chip)
               // F.6 passthrough: skip echo stripping for CEE display_value.
               const echoStripped = chip.displayValue
@@ -1576,7 +1655,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {!isDetailed && optionChips}
       </>
     )
-  }, [isPostAnalysis, isDetailed, isBaselineOption, totalInterventionCount, interventionChips, allInterventionChips.length, handleViewParams, optionChips])
+  }, [isPostAnalysis, isDetailed, isBaselineOption, totalInterventionCount, interventionChips, allInterventionChips.length, handleViewParams, optionChips, fullDeltaList, previewDeltaIds])
 
   /**
    * Completeness assessment for Detailed pre-analysis view.
@@ -2026,37 +2105,19 @@ export const OptionNode = memo((props: NodeProps) => {
            ⚠ AND IT IS A REORDER, NOT A PROMOTION: `structuredDeltaChipsRender`
            keeps its own gate, so a card with no structured deltas renders
            exactly what it renders today, in the order it renders it. */}
+        {/* ⭐ DRAFT AT-REST BUDGET (22 Sep 2026): in Standard view only the
+            rows in `atRest.cardRowIds` render here — ONE, the most distinctive
+            change — and the full list is in the preview. Detailed renders every
+            row, as before. See `shared/optionCardAtRest.ts`. */}
         {structuredDeltaChipsRender && (
-          <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
+          <ul
+            className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none"
+            data-testid={`option-deltas-${props.id}`}
+          >
             {baselineOptionReference && (
               <li className={`${typography.edgeLabel} text-text-light`}>Reference: {baselineOptionReference.label}</li>
             )}
-            {structuredDeltas.map(d => (
-              <li
-                key={d.factorId}
-                className="flex items-start gap-1"
-                /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go
-                   (Paul, 29 Aug). `label` is compacted to 22 chars; the full
-                   string is here and in the hover popover below. Native
-                   `title` is the canvas-node tooltip idiom in this repo — see
-                   `nodes/shared/MetricPills.tsx`. */
-                title={`${d.fullLabel}: ${d.fromTo}`}
-              >
-                {d.direction === 'up' ? (
-                  <ArrowUp size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                ) : d.direction === 'down' ? (
-                  <ArrowDown size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                ) : null}
-                {/* min-w-0 so the text block may shrink and WRAP rather than
-                    overflow. Nothing here is `truncate`: a CSS ellipsis inside
-                    a canvas node REDs `nodeTextClipping.visual.spec.ts`, which
-                    exempts JS-shortened strings by design. */}
-                <span className="min-w-0 flex-1">
-                  <span className={`${typography.nodeLabel} block text-text-body`}>{d.label}</span>
-                  <span className={`${typography.nodeLabel} block text-text-light`}>{d.fromTo}</span>
-                </span>
-              </li>
-            ))}
+            {cardDeltas.map(d => renderDeltaRow(d, d.label))}
           </ul>
         )}
 
@@ -2745,9 +2806,16 @@ export const OptionNode = memo((props: NodeProps) => {
           tap and on keyboard focus as well; the comment is corrected here
           rather than left to teach the next reader that hover is the only
           door. */}
+      {/* DRAFT at-rest budget: SELECTING a compacted card holds its preview
+          open — the card's "expanded" state, opened deliberately, without
+          growing the card (growth re-lays out the board; see
+          `shared/optionCardAtRest.ts`). Post-analysis the preview already
+          states the changes against the reference ("What this option sets:" —
+          up to three rows, then "+N more in inspector"), so pinning is the
+          whole change here. */}
       {!isDetailed && isPostAnalysis && (
         <NodePopover
-          visible={showPopover}
+          visible={showPopover || atRest.previewPinned}
           width={260}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
@@ -2759,10 +2827,12 @@ export const OptionNode = memo((props: NodeProps) => {
       )}
 
       {/* Pre-analysis preview. Without a reference pair, Detailed mode also needs target recovery.
-          It must not lose its preview merely because no before-value is known. */}
+          It must not lose its preview merely because no before-value is known.
+          DRAFT at-rest budget: held open while a compacted card is selected, and
+          carrying the full from→to list the card compacted (`fullDeltaList`). */}
       {!isPostAnalysis && (!isDetailed || structuredDeltas.length === 0) && preAnalysisPopoverContent && (
         <NodePopover
-          visible={showPopover}
+          visible={showPopover || atRest.previewPinned}
           width={260}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}

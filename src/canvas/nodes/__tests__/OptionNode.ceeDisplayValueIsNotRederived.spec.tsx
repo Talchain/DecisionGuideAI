@@ -176,11 +176,11 @@ const baseProps = {
   dragging: false, zIndex: 0, deletable: true, selectable: true, draggable: true,
 }
 
-const renderCard = () => {
+const renderCard = (selected = false) => {
   vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
   return render(
     <ReactFlowProvider>
-      <OptionNode {...baseProps} data={{ label: 'Warm Intro via Network', type: 'option' }} />
+      <OptionNode {...baseProps} selected={selected} data={{ label: 'Warm Intro via Network', type: 'option' }} />
     </ReactFlowProvider>
   )
 }
@@ -205,9 +205,18 @@ describe('OptionNode — CEE display_value is printed, never re-derived', () => 
 
   it('does not silently drop an intervention whose unit the UI cannot anchor', () => {
     // `d41770fd`: this is the change the card called "the key difference" and
-    // then did not show. CEE authored both sides; the card states them.
-    const text = renderCard().container.textContent ?? ''
-    expect(text).toContain('0.8 scale')
+    // then did not show. CEE authored both sides; the product states them.
+    //
+    // ⚠ DRAFT AT-REST BUDGET (22 Sep 2026, `shared/optionCardAtRest.ts`): at
+    // rest the card keeps ONE row plus its count, and this row is the second of
+    // two, so it now lives in the card's preview — which selecting the card
+    // holds open. The claim is checked where the row lives, not dropped. The
+    // "named the key difference and did not show it" half is now structural:
+    // the row a card keeps IS the differentiator's factor
+    // (`OptionNode.atRestBudget.spec.tsx`).
+    renderCard(true)
+    const preview = document.body.querySelector('[data-testid="option-deltas-full-option-1"]')
+    expect(preview?.textContent ?? '').toContain('0.8 scale')
   })
 
   /**
