@@ -366,6 +366,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             <ImportanceBar
               importanceScore={displayMetadata.influence}
               sensitivityRank={displayMetadata.sensitivityRank}
+              influenceProvenance={displayMetadata.influenceProvenance}
             />
             {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
                 is derived from this value, so a human reads the second as

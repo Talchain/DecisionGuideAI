@@ -223,6 +223,26 @@ export const GoalPanel = memo(function GoalPanel({
   const targetDisplay = displayableTarget == null
     ? null
     : formatGoalTarget(displayableTarget.value, displayableTarget.unit)
+  /**
+   * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
+   *
+   * Until 22 Sep `targetDisplay == null` answered BOTH "is there text to show"
+   * and "does the pipeline hold a number", because the two could not diverge:
+   * every number was displayable. Routing the readout through
+   * `resolveDisplayableGoalTarget` makes them diverge — a normalised magnitude
+   * with no raw anchor is a number the pipeline HOLDS and this panel WITHHOLDS.
+   *
+   * The docblock at the `targetUnlocks` sentence below states the semantic it
+   * needs in so many words: *"`targetDisplay == null` is exactly 'the pipeline
+   * holds no number', so it is the condition the sentence is true under."*
+   * Leaving that sentence on `targetDisplay` would have made it claim
+   * probabilities are locked beside a run that HAS produced them — "a fresh
+   * false claim bought with the fix for another one, which is the trade this PR
+   * exists to refuse", in the words of the PR that wrote it.
+   *
+   * So the sentence keeps ITS question and the readout keeps its own.
+   */
+  const pipelineHoldsNoTargetNumber = goalThreshold == null
 
   /**
    * ⭐⭐⭐ THE ADMISSION — *may this reader add a target?* — AND, UNTIL #1172
@@ -395,6 +415,7 @@ export const GoalPanel = memo(function GoalPanel({
               <ImportanceBar
                 importanceScore={displayMetadata.influence}
                 sensitivityRank={displayMetadata.sensitivityRank}
+                influenceProvenance={displayMetadata.influenceProvenance}
               />
             </div>
           )
@@ -503,7 +524,7 @@ export const GoalPanel = memo(function GoalPanel({
                   IS `statedGoalTargetRaw(data) == null`, so a stated
                   `goal_threshold_raw` makes it false and gating the seed on that
                   admission preserves the pre-fill by construction. */}
-              {targetDisplay == null && (
+              {pipelineHoldsNoTargetNumber && (
                 <p className={`${typography.panelMeta} text-info mt-1.5`}>
                   {GOAL_CONSTRAINT_COPY.targetUnlocks}
                 </p>

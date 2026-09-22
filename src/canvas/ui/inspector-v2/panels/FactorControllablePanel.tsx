@@ -646,23 +646,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 This is a change of POSITION, not of type — sizing the sentence to
                 its neighbours is a separate question and is not smuggled in here. */}
               <div>
-                {/* ⭐⭐ THE NUMBER NEEDS ITS BASIS — 22 Sep 2026. Every other
-                    renderer of this datum requires a non-null provenance beside
-                    it: `FactorNode.tsx:759,770,1086`, and `lodMetricLine.ts:279`
-                    whose comment states the rule out loud — "Fail-closed on
-                    provenance, exactly as FactorNode's own influence row does."
-                    This panel's container gates on `influence != null ||
-                    sensitivityRank != null`, which is neither.
-                    ⛔ The harm is named at FactorNode's own gate: "on the
-                    fallback basis the top driver shows 100% BY CONSTRUCTION."
-                    Measured over 970 bundles, 15 of 399 boards rank a factor
-                    MOST INFLUENTIAL while holding no value for it, at 1.0.
-                    ⚠ Gated HERE rather than on the container, which also carries
-                    the rank and the guidance sentence — withholding the number
-                    must not withhold the rank, which is separately licensed. */}
+                {/* ⭐ The basis gate lives in `ImportanceBar`, the ONE renderer all
+                    four factor/goal panels share — see its docblock. Gating here
+                    instead withheld the RANK too, which is separately licensed. */}
                 <ImportanceBar
-                importanceScore={displayMetadata.influenceProvenance != null ? displayMetadata.influence : null}
+                importanceScore={displayMetadata.influence}
                 sensitivityRank={displayMetadata.sensitivityRank}
+                influenceProvenance={displayMetadata.influenceProvenance}
                 />
                 {sensitivityGuidance && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>

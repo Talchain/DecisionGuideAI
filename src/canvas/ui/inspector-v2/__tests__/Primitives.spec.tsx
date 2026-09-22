@@ -209,14 +209,14 @@ describe('AdvancedFieldGroup', () => {
 describe('ImportanceBar', () => {
   it('returns null when importanceScore is null (pre-analysis)', () => {
     const { container } = render(
-      <ImportanceBar importanceScore={null} sensitivityRank={null} />,
+      <ImportanceBar importanceScore={null} sensitivityRank={null} influenceProvenance="sensitivity" />,
     )
     expect(container.firstElementChild).toBeNull()
   })
 
   it('renders horizontal row: rank, bar, and percentage', () => {
     const { container } = render(
-      <ImportanceBar importanceScore={0.65} sensitivityRank={2} />,
+      <ImportanceBar importanceScore={0.65} sensitivityRank={2} influenceProvenance="sensitivity" />,
     )
     // Rank label
     expect(screen.getByText('2nd')).toBeTruthy()
@@ -231,7 +231,7 @@ describe('ImportanceBar', () => {
   })
 
   it('renders without rank label when sensitivityRank is null', () => {
-    render(<ImportanceBar importanceScore={0.4} sensitivityRank={null} />)
+    render(<ImportanceBar importanceScore={0.4} sensitivityRank={null} influenceProvenance="sensitivity" />)
     // Still shows bar and percentage
     expect(screen.getByText('40%')).toBeTruthy()
     expect(screen.getByText('Influence on results')).toBeTruthy()
@@ -239,11 +239,47 @@ describe('ImportanceBar', () => {
 
   it('clamps importanceScore to [0, 1] range', () => {
     const { container } = render(
-      <ImportanceBar importanceScore={1.5} sensitivityRank={1} />,
+      <ImportanceBar importanceScore={1.5} sensitivityRank={1} influenceProvenance="sensitivity" />,
     )
     const bar = container.querySelector('[role="progressbar"]')
     expect(bar?.getAttribute('aria-valuenow')).toBe('100')
     expect(screen.getByText('100%')).toBeTruthy()
+  })
+
+  /**
+   * ⭐⭐ THE BASIS GATE — added 22 Sep 2026 with the prop it tests.
+   *
+   * The three layout cases above now PASS a provenance, because stating a
+   * percentage requires one. That is a precondition, not a loosening — so the
+   * rule needs its own cases here, or those edits would have removed a guard
+   * while adding one.
+   *
+   * ⛔ The harm, named at `FactorNode`'s own gate: "on the fallback basis the top
+   * driver shows 100% BY CONSTRUCTION." Measured over 970 debug bundles: 15 of
+   * 399 boards rank a VALUELESS factor most influential, each at influence 1.0.
+   */
+  it('⛔ withholds the percentage and the bar when no provenance attests them', () => {
+    const { container } = render(
+      <ImportanceBar importanceScore={1} sensitivityRank={1} influenceProvenance={null} />,
+    )
+    expect(screen.queryByText('100%'), 'an unattested influence was stated').toBeNull()
+    expect(container.querySelector('[role="progressbar"]'), 'the bar drew an unattested value').toBeNull()
+  })
+
+  it('⭐ but KEEPS the rank, which is licensed separately', () => {
+    // An earlier version of this fix gated the SCORE at the call site instead,
+    // which hit `importanceScore == null` and silently dropped the rank too.
+    // `Brief4Panels.spec.tsx` caught that. This is the case that pins it.
+    render(<ImportanceBar importanceScore={1} sensitivityRank={1} influenceProvenance={null} />)
+    expect(screen.getByText('1st'), 'the rank was withheld with the number').toBeTruthy()
+  })
+
+  it('⭐ CONTROL: the same inputs WITH a basis do state the percentage', () => {
+    const { container } = render(
+      <ImportanceBar importanceScore={1} sensitivityRank={1} influenceProvenance="sensitivity" />,
+    )
+    expect(screen.getByText('100%')).toBeTruthy()
+    expect(container.querySelector('[role="progressbar"]')).not.toBeNull()
   })
 
   it('ordinalFor handles 11th/12th/13th correctly', () => {

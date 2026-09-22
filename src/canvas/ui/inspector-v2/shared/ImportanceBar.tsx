@@ -21,6 +21,31 @@ interface ImportanceBarProps {
   importanceScore: number | null
   /** Ordinal rank among factors (1 = most influential). Null → no rank label. */
   sensitivityRank: number | null
+  /**
+   * ⭐⭐ THE BASIS THAT LICENSES THE PERCENTAGE. REQUIRED ON PURPOSE — a missing
+   * arm is a TYPE ERROR, which is the compiler enforcing the rule rather than a
+   * fifth hand-maintained copy of it (CLAUDE.md trap 12).
+   *
+   * Every other renderer of this datum already requires it beside the number:
+   * `FactorNode.tsx:759,770,1086` and `lodMetricLine.ts:279`, whose comment
+   * states it out loud — "Fail-closed on provenance, exactly as FactorNode's own
+   * influence row does." This component is the ONE renderer shared by all four
+   * inspector panels (factor-controllable / -external / -observable, and goal),
+   * so the rule belongs here and not at four call sites.
+   *
+   * ⛔ THE HARM IS NAMED AT FACTORNODE'S OWN GATE: "on the fallback basis the top
+   * driver shows 100% BY CONSTRUCTION." Measured across 970 debug bundles: 747 of
+   * 1850 rendered factors (40.4%) carry no value, 90 carry an influence score
+   * with no value, and 15 of 399 boards rank a VALUELESS factor most influential
+   * — each at influence 1.0.
+   *
+   * ⚠ NULL WITHHOLDS THE PERCENTAGE AND THE BAR, NEVER THE RANK. The rank is
+   * licensed separately (`MAX_BADGED_RANK`, withheld on ties) and an earlier
+   * version of this fix gated the SCORE at the call site instead — which hit
+   * `importanceScore == null` below and silently dropped the rank as well.
+   * `Brief4Panels.spec.tsx` caught that, and it was right to.
+   */
+  influenceProvenance: string | null
 }
 
 const RANK_ORDINALS = ['', '1st', '2nd', '3rd']
@@ -36,11 +61,13 @@ function ordinalFor(rank: number): string {
   return `${rank}th`
 }
 
-export function ImportanceBar({ importanceScore, sensitivityRank }: ImportanceBarProps) {
+export function ImportanceBar({ importanceScore, sensitivityRank, influenceProvenance }: ImportanceBarProps) {
   if (importanceScore == null) return null
 
   const pct = Math.max(0, Math.min(1, importanceScore)) * 100
   const rankLabel = sensitivityRank != null ? ordinalFor(sensitivityRank) : null
+  // ⭐ The number needs its basis; the rank does not. See `influenceProvenance`.
+  const mayStateThePercentage = influenceProvenance != null
 
   return (
     <div data-testid="importance-bar">
@@ -51,22 +78,26 @@ export function ImportanceBar({ importanceScore, sensitivityRank }: ImportanceBa
             {rankLabel}
           </span>
         )}
-        <div
-          className="flex-1 h-1.5 rounded-full bg-panel-border overflow-hidden"
-          role="progressbar"
-          aria-valuenow={Math.round(pct)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Relative influence"
-        >
+        {mayStateThePercentage && (
           <div
-            className="h-full bg-primary rounded-full transition-[width] duration-200"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className={`${typography.panelMeta} text-text-body flex-shrink-0`}>
-          {Math.round(pct)}%
-        </span>
+            className="flex-1 h-1.5 rounded-full bg-panel-border overflow-hidden"
+            role="progressbar"
+            aria-valuenow={Math.round(pct)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Relative influence"
+          >
+            <div
+              className="h-full bg-primary rounded-full transition-[width] duration-200"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        )}
+        {mayStateThePercentage && (
+          <span className={`${typography.panelMeta} text-text-body flex-shrink-0`}>
+            {Math.round(pct)}%
+          </span>
+        )}
       </div>
       <div className={`${typography.panelMeta} text-text-light mt-1`}>
         {INLINE_LABELS.influenceOnResults}
