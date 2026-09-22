@@ -27,6 +27,65 @@ import { BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../mutations/mutationAuthority'
+
+/**
+ * ⭐⭐⭐ THE ONE OPTION FIELD WITH A REAL WIRE CARRIER, AND THE CARD NAMED THE
+ * DESTINATION WITHOUT OFFERING A WAY THERE.
+ *
+ * Measured on served `1f77130d`, canonical pricing board, a geometry-free
+ * destination probe (`locator.click()` per node, `factorContrast` fired):
+ * **option 0/4 reach a live editor**, while the card's own line already read
+ * *"3 factor targets. Open the inspector to see which ones."* — a `<p>`. It
+ * named the room and locked the door.
+ *
+ * ⛔ AND THIS ONE IS NOT A CONSOLATION ROUTE. `option` IS a member of
+ * `AUTHORITY_OWNING_PANELS`, so `OptionPanel` is not behind the blanket
+ * `<fieldset disabled>`, and `proposeOptionIntervention` carries a real
+ * `option_intervention_edit` — one of only seven model-changing wire verbs.
+ * The authority table says so in its own words (`modelOptionIntervention:
+ * 'server_graph'`), which is what the stronger sentence is COMPOSED from
+ * rather than asserted: regress that key and the card goes back to saying
+ * only *see*, which is still true.
+ *
+ * ⚠ "CHANGE THEM", NOT "EDIT THIS OPTION". The carrier sets the ACTIVE
+ * OPTION'S TARGET VALUE FOR ONE FACTOR — `proposeOptionIntervention`'s own
+ * header — so the sentence names the factor targets, which is what the count
+ * beside it is counting. A sentence about editing "the option" would promise
+ * its description and its label too, and neither is what this carrier writes.
+ */
+export const OPTION_TARGETS_ROUTE_IS_LIVE = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.modelOptionIntervention,
+)
+
+/**
+ * The two carriers this line has always had — the sighted reader's count and
+ * the full sentence — composed once so they cannot drift apart.
+ *
+ * ⚠ `routeIsLive` IS INJECTABLE FOR THE ONE REASON THE GOAL CHIP'S IS: so both
+ * branches are reached BY EXECUTION. Asserting them behind
+ * `if (OPTION_TARGETS_ROUTE_IS_LIVE)` is a tautology that passes whichever way
+ * the key falls, and a mutant regressing a key survived exactly that once.
+ */
+export function optionTargetsChannels({
+  count,
+  routeIsLive = OPTION_TARGETS_ROUTE_IS_LIVE,
+}: {
+  count: number
+  routeIsLive?: boolean
+}): { short: string; full: string } {
+  const short = `${count} factor target${count === 1 ? '' : 's'}`
+  return {
+    short,
+    full: routeIsLive
+      ? `${short}. Open the inspector to change them.`
+      : `${short}. Open the inspector to see which ones.`,
+  }
+}
+
 import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import {
   selectGoalProbability,
@@ -2544,17 +2603,30 @@ export const OptionNode = memo((props: NodeProps) => {
                 down properly, which is the tell that the height claim was
                 doing rhetorical rather than load-bearing work. */}
             {structuredDeltas.length === 0 && hasInterventions && (() => {
-              const short = `${totalInterventionCount} factor target${totalInterventionCount === 1 ? '' : 's'}`
-              const full = `${short}. Open the inspector to see which ones.`
+              const { short, full } = optionTargetsChannels({ count: totalInterventionCount })
               return (
-                <p
-                  className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+                /* ⭐ A CONTROL, BECAUSE THE SENTENCE ALREADY NAMED THE
+                   DESTINATION. The two-carrier shape is unchanged: the count is
+                   what a sighted reader needs at a glance, the sentence is what
+                   makes it actionable, and neither is dropped. `nodrag nopan`
+                   and the pointer stop are not optional inside a React Flow
+                   node — without them a press inside the control is treated as
+                   a node drag. */
+                <button
+                  type="button"
+                  className={`nodrag nopan ${typography.edgeLabel} text-text-light mt-0.5 m-0 block text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
                   title={full}
                   data-testid={`option-change-count-${props.id}`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openNodeInspector(props.id)
+                  }}
                 >
                   <span aria-hidden="true">{short}</span>
                   <span className={typography.screenReaderOnly}>{full}</span>
-                </p>
+                </button>
               )
             })()}
             {completeness && (

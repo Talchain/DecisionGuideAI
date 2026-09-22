@@ -10,6 +10,7 @@
  */
 
 import { memo, useState, useCallback, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react'
+import { nodeTitleChannels } from './shared/nodeRenameAffordance'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { linkedOptionIds } from '../domain/linkedOptions'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
@@ -726,7 +727,25 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // tooltip. So the description goes where this PR already says the type
   // survives. ⚠ A VISUAL SURFACE IS STILL OWED — rowed in CANVAS-BACKLOG.md;
   // a sighted user currently has no way to ask what a node type means.
-  const accessibleName = `${nodeType} node: ${label}. ${NODE_TYPE_DESCRIPTIONS[nodeType] ?? ''}`.trim()
+  const accessibleNameWithoutAffordance = `${nodeType} node: ${label}. ${NODE_TYPE_DESCRIPTIONS[nodeType] ?? ''}`.trim()
+  /**
+   * ⭐⭐⭐ AND THE ONE EDIT EVERY KIND SUPPORTS IS NOW SAID OUT LOUD — on all
+   * six, from here, because here is the only place all six pass through.
+   *
+   * Measured on served `1f77130d`: 9 of 15 nodes on the canonical board offered
+   * no affordance and no reason, and a geometry-free destination probe found a
+   * live editor behind the factor cards only (4/5) and none behind the other
+   * five kinds. A second witness then double-clicked all 15 and found a seeded,
+   * focused rename field on every one — `15/15`, six kinds, fabricated-label
+   * control discriminating. The capability was complete; the advertising was
+   * absent. See `shared/nodeRenameAffordance.ts` for why it is the LABEL and
+   * why it promises the interaction only.
+   */
+  const titleChannels = nodeTitleChannels({
+    label,
+    accessibleName: accessibleNameWithoutAffordance,
+  })
+  const accessibleName = titleChannels.accessibleName
 
   /*
    * ⭐⭐ REGISTER THIS NODE'S HANDLE BOUNDS ONCE, ON MOUNT — WITHOUT THIS THE
@@ -1993,7 +2012,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               it keys on `layoutVersion`, not on zoom. */}
           <div
             data-testid="node-title"
-            title={label}
+            /* ⚠ COMPOSED, NOT REPLACED: this element is `line-clamp-2`, so the
+               attribute is also the reader's only route back to a clipped
+               name. Label first, affordance after. */
+            title={titleChannels.title}
             className={
               lodBoostTitle
                 ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
