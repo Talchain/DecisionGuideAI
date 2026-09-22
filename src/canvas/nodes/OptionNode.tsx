@@ -70,6 +70,51 @@ export const OPTION_TARGETS_ROUTE_IS_LIVE = hasServerGraphAuthority(
  * `if (OPTION_TARGETS_ROUTE_IS_LIVE)` is a tautology that passes whichever way
  * the key falls, and a mutant regressing a key survived exactly that once.
  */
+/**
+ * ⭐⭐⭐ THE CARD THAT SHOWS THE MOST EDITABLE CONTENT ADVERTISED NOTHING.
+ *
+ * The factor-targets line was gated `structuredDeltas.length === 0 && hasInterventions`
+ * — a FALLBACK: show the count only when we cannot show the changes themselves.
+ * `OptionNode.factorTargetsAreReachable.spec.tsx` says so in its own fixture
+ * docblock, and pins exactly that branch.
+ *
+ * ⛔ MEASURED ON THE SERVED BUILD `db758d83`, canonical pricing board, guest:
+ * all four option cards carry `interventions=3`, all four render the DELTAS,
+ * and an affordance census over every `title` and `aria-label` on each card
+ * (controls: a fabricated phrase matched nothing; the status string "Edited
+ * since…" excluded by name and reported) found:
+ *
+ *     cardsWhoseONLYAffordanceIsRename = [... option:opt_full_switch,
+ *       option:opt_hybrid, option:opt_new_logos, option:opt_status_quo ...]
+ *
+ * So the branch I strengthened is the branch the real board does not take.
+ * A fix landed on one surface while its twin kept the defect — and the twin is
+ * the one the user is looking at.
+ *
+ * ⚠ AND THE COUNT IS NOT REDUNDANT BESIDE THE DELTAS. A delta row renders only
+ * for an intervention with a DECLARED REFERENCE that actually CHANGED (four
+ * `return null` arms above), while this count is `totalInterventionCount` —
+ * every target this option sets. "3 factor targets" beside two visible rows is
+ * the honest statement that one target is not being shown, which the fallback
+ * gate was hiding precisely when it mattered.
+ *
+ * ⛔ IT IS ALSO THE BASELINE OPTION'S ONLY ROUTE. `structuredDeltaChipsRender`
+ * carries `!isBaselineOption`, so a baseline option with deltas rendered
+ * NEITHER list NOR count under the old gate.
+ */
+export function optionTargetsLineShows({
+  hasInterventions,
+  deltasRendered,
+}: {
+  hasInterventions: boolean
+  /** Kept in the signature deliberately: it is what the old gate keyed on, so
+   *  a regression to the fallback rule is expressible — and REDs. */
+  deltasRendered: boolean
+}): boolean {
+  void deltasRendered
+  return hasInterventions
+}
+
 export function optionTargetsChannels({
   count,
   routeIsLive = OPTION_TARGETS_ROUTE_IS_LIVE,
@@ -2602,7 +2647,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 Neither deferral rested on height once the reason was written
                 down properly, which is the tell that the height claim was
                 doing rhetorical rather than load-bearing work. */}
-            {structuredDeltas.length === 0 && hasInterventions && (() => {
+            {optionTargetsLineShows({ hasInterventions, deltasRendered: structuredDeltaChipsRender }) && (() => {
               const { short, full } = optionTargetsChannels({ count: totalInterventionCount })
               return (
                 /* ⭐ A CONTROL, BECAUSE THE SENTENCE ALREADY NAMED THE

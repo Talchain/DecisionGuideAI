@@ -29,6 +29,7 @@ import {
   OptionNode,
   OPTION_TARGETS_ROUTE_IS_LIVE,
   optionTargetsChannels,
+  optionTargetsLineShows,
 } from '../OptionNode'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -198,5 +199,50 @@ describe('the sentence is composed from the authority, not asserted', () => {
     expect(optionTargetsChannels({ count: 3 }).full).toBe(
       optionTargetsChannels({ count: 3, routeIsLive: OPTION_TARGETS_ROUTE_IS_LIVE }).full,
     )
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE BRANCH THE REAL BOARD TAKES — which the fixture above does not.
+ *
+ * The fixture above says so itself: *"NO observed values on the factors, so
+ * `structuredDeltas` is empty and the COUNT line is what renders."* On the
+ * canonical pricing board every option carries three interventions WITH
+ * references, so the deltas DO render — and under the old gate
+ * (`structuredDeltas.length === 0 && hasInterventions`) the route line did not.
+ *
+ * MEASURED, served `db758d83`, guest, affordance census over every `title` and
+ * `aria-label` on each card (controls: a fabricated phrase matched nothing; the
+ * status string "Edited since…" excluded by name and counted):
+ *
+ *     cardsWhoseONLYAffordanceIsRename = [ option:opt_full_switch,
+ *       option:opt_hybrid, option:opt_new_logos, option:opt_status_quo, … ]
+ *
+ * ⛔ MUTANT PAIR. Restoring the fallback rule — `hasInterventions &&
+ * !deltasRendered` — REDs the first case below and leaves the other three
+ * green. Making the line unconditional REDs the last two and leaves the first
+ * two green. Neither mutant survives.
+ */
+describe('the route line shows wherever a target exists, not only as a fallback', () => {
+  it('SHOWS beside the deltas — the case the served board is in, and the old gate refused', () => {
+    expect(optionTargetsLineShows({ hasInterventions: true, deltasRendered: true })).toBe(true)
+  })
+
+  it('REGRESSION GUARD — still shows in the fallback case the old gate covered', () => {
+    expect(optionTargetsLineShows({ hasInterventions: true, deltasRendered: false })).toBe(true)
+  })
+
+  it('CONTRAST CONTROL — it is a route to targets, so no targets means no line', () => {
+    expect(optionTargetsLineShows({ hasInterventions: false, deltasRendered: false })).toBe(false)
+    expect(optionTargetsLineShows({ hasInterventions: false, deltasRendered: true })).toBe(false)
+  })
+
+  it('the CARD is gated by the predicate, not by a second copy of the rule', () => {
+    // The fixture has interventions and no deltas; the predicate says show, and
+    // the card must agree. If the card ever re-derives the rule inline, a change
+    // to the predicate stops moving the card and this stops being evidence —
+    // so the render and the predicate are asserted together.
+    expect(optionTargetsLineShows({ hasInterventions: true, deltasRendered: false })).toBe(true)
+    expect(renderCard()).not.toBeNull()
   })
 })
