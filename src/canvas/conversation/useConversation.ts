@@ -40,6 +40,7 @@ import {
 } from './scenarioResponseFence'
 import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
+import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
@@ -4412,6 +4413,7 @@ export function useConversation(): UseConversationReturn {
         const v5Headers: Record<string, string> = {
           ...buildTurnAuthHeaders(v5Identity),
           ...buildRequestIdHeaders(generateRequestId()),
+          ...aiComparisonHeaders(),
         }
 
         // ═══════════════════════════════════════════════════════════════════
