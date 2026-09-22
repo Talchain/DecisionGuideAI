@@ -66,6 +66,22 @@ async function report(page: Page, starter: StarterId) {
         h: Math.round(t.bot - t.top), n: t.n,
         kinds: Array.from(new Set(t.kinds)).join(','),
       })),
+      // ⭐ WHICH CARD SETS THE BAND. A lane's height is its TALLEST member, so
+      // the band number alone cannot say whether a lane is uniformly tall or
+      // ragged around one outlier — and those need opposite fixes. Per-card
+      // heights make the difference visible: spread = tallest - shortest.
+      lanes: tiers.map((t) => {
+        const hs = rows.filter((r) => r.y >= t.top && r.y < t.bot).map((r) => r.h).sort((a, b) => b - a)
+        return {
+          kinds: Array.from(new Set(t.kinds)).join(','),
+          heights: hs,
+          tallest: hs[0] ?? 0,
+          shortest: hs[hs.length - 1] ?? 0,
+          spread: (hs[0] ?? 0) - (hs[hs.length - 1] ?? 0),
+          // What the lane would cost if its outlier came down to the median.
+          median: hs.length ? hs[Math.floor(hs.length / 2)] : 0,
+        }
+      }),
     }
   })
 
