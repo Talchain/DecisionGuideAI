@@ -137,7 +137,7 @@ import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
 import { factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
-import { METRIC_NOUN } from './metricVocabulary'
+import { LAST_RUN_PREFIX, METRIC_NOUN } from './metricVocabulary'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
@@ -176,6 +176,17 @@ export interface LodMetricFacts {
    * rank existed, so one number carried two claims at two zoom levels.
    */
   influenceRank?: { caption: string; setSizeText: string } | null
+  /**
+   * The model has changed since the run the influence figure came from — the
+   * card's own `useModelChangedSinceRun()`, passed through `BaseNode`.
+   *
+   * ⭐ LABELS THE INFLUENCE ARMS ONLY. A stated value and a prior range are not
+   * run-derived, so "Last run" beside them would be a claim about the wrong
+   * object. And it is a PREFIX, not a suffix, for this line's own reason (see
+   * the `est.` mark in `BaseNode`): the line is `truncate`d, so the first thing
+   * an ellipsis eats is the END — the figure gives way and the label cannot.
+   */
+  influenceFromLastRun?: boolean
 }
 
 export interface LodMetricLineInputs {
@@ -293,8 +304,10 @@ function resolveText({
          * `influenceRankReadout` composes its own `phrase` from both for
          * exactly that reason.
          */
+        // Ruling 3 (ROADMAP 2.651): a stale figure is labelled, never withheld.
+        const lastRun = facts?.influenceFromLastRun === true ? LAST_RUN_PREFIX : ''
         const rank = facts?.influenceRank
-        if (rank) return `${rank.caption} · ${rank.setSizeText}`
+        if (rank) return `${lastRun}${rank.caption} · ${rank.setSizeText}`
         // ⚠ THE REGISTER, for the same reason as the `ahead` arm below — and
         // this line is why round 3 of #1209 was not enough. That round fixed
         // ONE hardcoded noun in this function and its body then claimed "every
@@ -308,7 +321,7 @@ function resolveText({
         // are now pinned by widening `metricNounVocabulary.canvas.spec.ts`
         // past its `cards` filter — see the note there. Nothing had been
         // watching this file.
-        return `${METRIC_NOUN.influence} ${Math.round(influence * 100)}%`
+        return `${lastRun}${METRIC_NOUN.influence} ${Math.round(influence * 100)}%`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules
