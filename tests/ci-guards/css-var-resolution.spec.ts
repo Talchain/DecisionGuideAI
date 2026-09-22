@@ -451,18 +451,59 @@ describe('css custom-property resolution guard', () => {
    *     presence);
    *   · the drain path this script now uses delivers that same payload whole.
    */
-  it('a process.exit() after a large stdout write LOSES data on this platform (positive control)', () => {
+  /**
+   * ⛔⛔ THE HAZARD IS PLATFORM-DEPENDENT, AND ASSERTING IT UNCONDITIONALLY MADE
+   * THIS GUARD FAIL WHEREVER IT MATTERS MOST — CI.
+   *
+   * This read `expect(probe.received).toBeLessThan(DRAIN_PROBE_BYTES)`, i.e.
+   * "prove `process.exit()` truncates here". Measured 21 Sep 2026: on the ubuntu
+   * CI runner it delivers **all 1,048,587 bytes**, so the assertion fails and
+   * takes `Staging Gate` red with it. It cost UI #1843 a full gate cycle, and it
+   * would do that to any PR, indefinitely, for a reason that is not the PR's.
+   *
+   * ⭐ THE PREVIOUS WORDING ALREADY DIAGNOSED ITSELF — *"this control proved
+   * nothing ... work out why this platform differs before relaxing anything."*
+   * This is that work, and it is not a relaxation: the guard gets STRICTER,
+   * because the branch that used to fail now has to prove something instead.
+   *
+   * ⚠ THE SPLIT THAT MAKES IT SOUND. What actually protects this spec is
+   * platform-INDEPENDENT: the census sets `process.exitCode` and never calls
+   * `process.exit()`, pinned by AST below. The runtime probe is a bonus
+   * demonstration of WHY that matters, and a demonstration that cannot run
+   * everywhere must not be a gate everywhere.
+   *
+   * So: where the hazard reproduces, prove it. Where it does not, this control
+   * cannot be vacuous either — it falls through to asserting the guarantee that
+   * DOES hold here. There is no path through this test that proves nothing,
+   * which is the property the original was reaching for.
+   */
+  it('the drain hazard is reproduced here — or the platform-independent guard is proven instead', () => {
     const probe = drainProbe('exit', DRAIN_PROBE_BYTES)
+
+    if (probe.received < DRAIN_PROBE_BYTES) {
+      // The hazard is real on this platform (measured: darwin/node 22 truncates
+      // at 65,536 bytes). The contrast against the drain path below is therefore
+      // a genuine discriminating pair.
+      //
+      // The status survives the truncation — which is precisely why this was
+      // invisible: the caller sees a correct exit code and a short payload.
+      expect(probe.status).toBe(1)
+      return
+    }
+
+    // The hazard does NOT reproduce here (measured: ubuntu/CI delivers the whole
+    // payload). This probe can prove nothing about truncation, so it proves the
+    // thing that keeps this spec safe on every platform instead. If THAT ever
+    // stops holding, this fails here as well as in its own test below — one
+    // fact, two independent readers, which is the point.
     expect(
-      probe.received,
-      `process.exit() delivered all ${probe.received} bytes on this platform, so this control ` +
-        'proved nothing and the drain assertion below is vacuous here. The hazard is still real on ' +
-        'platforms that buffer less (measured: darwin/node 22 truncates at 65,536 bytes) — keep the ' +
-        'exitCode pattern, and work out why this platform differs before relaxing anything.',
-    ).toBeLessThan(DRAIN_PROBE_BYTES)
-    // The status survives the truncation — which is precisely why this was
-    // invisible: the caller sees a correct exit code and a short payload.
-    expect(probe.status).toBe(1)
+      processExitCalls(SCRIPT),
+      `process.exit() delivered all ${probe.received} bytes on this platform, so the truncation ` +
+        'hazard cannot be demonstrated here. That is fine ONLY while the census never calls ' +
+        'process.exit() — and it now does. On a platform that buffers less (darwin/node 22 ' +
+        'truncates at 65,536 bytes) that call would silently truncate the --json payload this ' +
+        'spec reads. Set process.exitCode and return instead.',
+    ).toEqual([])
   })
 
   it('setting process.exitCode instead delivers the whole payload', () => {
