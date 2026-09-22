@@ -36,6 +36,11 @@
  * for a wrong implementation.
  */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  __resetPendingFactorEditsForTest,
+  markFactorEditInFlight,
+  settleFactorEditInFlight,
+} from '../../conversation/pendingFactorEdit'
 import { act, renderHook, waitFor } from '@testing-library/react'
 
 import {
@@ -725,5 +730,93 @@ describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
     expect(registerSpy).toHaveBeenCalledTimes(1)
     // and the hold is still armed, because nothing was acknowledged
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+  })
+})
+
+/**
+ * ⛔⛔ SEAM 5 — ONE USER EDIT MUST NOT FIRE TWO WRITERS THAT RACE.
+ *
+ * Measured on served staging (UI `28d2745e`, CEE `9c16e8c`, 22 Sep 2026,
+ * `request_id 368410a8-e75c-443d-b836-716eee27a42a`): a Model-tab value edit on
+ * a saved example moved the digest, seam 4's re-registration fired beside the
+ * canonical `factor_value_edit` turn, the registration committed first, and CEE
+ * rolled the edit back — `GraphStaleWriteError`, HTTP 500. The user's number
+ * then reached the server only through the registration, without authorship.
+ * A second edit the same minute won the race and settled as "User edited".
+ *
+ * The registration is still owed (seam 4); it just waits until the edit that
+ * armed it has settled, so the two writes are sequenced rather than racing.
+ */
+describe('seam 5 — the side-channel waits for the canonical edit that re-armed it', () => {
+  const SCENARIO = '88888888-8888-4888-8888-888888888888'
+  const ACK = {
+    status: 'registered' as const,
+    identity: { value: 'abc', projectionVersion: 'identity.v1' },
+    nodeCount: 2,
+    edgeCount: 0,
+    requestId: 'req_1',
+  }
+
+  afterEach(() => __resetPendingFactorEditsForTest())
+
+  it('sends nothing while the edit is with the engine, then registers the settled model once', async () => {
+    // The second answer is held open so "re-armed, not yet converted" is a
+    // state the assertions can stand in (seam 4's lesson).
+    let releaseSecond: () => void = () => {}
+    registerSpy.mockResolvedValueOnce(ACK).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseSecond = () => resolve(ACK)
+        }),
+    )
+    useCanvasStore.setState({
+      nodes: STARTER_NODES as never,
+      edges: [] as never,
+      currentScenarioId: SCENARIO,
+      importPendingServerRegistration: true,
+    })
+
+    renderHook(() => useImportRegistration())
+    await waitFor(() => {
+      expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+    })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+
+    // The Model tab's own order: the local write, then the edit is admitted in
+    // flight in the same tick (`sendTurn` marks it before its first await), so
+    // both happen before any effect runs.
+    const edited = [
+      node('n1', { starterId: 'pricing-model', observedState: { value: 0.6 } }),
+      node('n2', { starterId: 'pricing-model' }),
+    ]
+    await act(async () => {
+      useCanvasStore.setState({ nodes: edited as never })
+      markFactorEditInFlight('n1', 0.6)
+    })
+
+    // Precondition: the edit re-armed the hold (the new digest is unacknowledged).
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
+
+    // ⛔ THE CLAIM: no second writer while the canonical edit is in flight.
+    await new Promise((r) => setTimeout(r, 30))
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+
+    // The edit settles — acceptance, refusal and interruption all end here.
+    await act(async () => {
+      expect(settleFactorEditInFlight('n1', 0.6)).toBe(true)
+    })
+
+    await waitFor(() => {
+      expect(registerSpy).toHaveBeenCalledTimes(2)
+    })
+    const sentGraph = registerSpy.mock.calls[1][1] as { nodes: Array<Record<string, unknown>> }
+    expect(sentGraph.nodes.find((n) => n.id === 'n1')?.observed_state).toEqual({ value: 0.6 })
+
+    await act(async () => {
+      releaseSecond()
+    })
+    await waitFor(() => {
+      expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    })
   })
 })
