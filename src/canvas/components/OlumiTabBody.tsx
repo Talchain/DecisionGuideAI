@@ -17,6 +17,7 @@ import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 // whose specs mock ConversationContext/ConversationPanel and not useConversation.
 import type { DispatchActionOpts } from '../conversation/useConversation'
 import { aiComparisonLabel } from '../../v5/aiComparisonMode'
+import { typo } from '../../styles/typography'
 
 interface OlumiTabBodyProps {
   /** Opens the floating Olumi panel for the user (manual float-out from
@@ -153,7 +154,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-0.5">
       {comparisonLabel ? (
         <span
-          className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-text-light"
+          className={typo('panelMeta', 'rounded border border-border px-1.5 py-0.5 text-text-light')}
           data-testid="olumi-ai-comparison-mode"
           title="AI implementation active for this staging session"
         >
