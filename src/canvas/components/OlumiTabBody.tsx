@@ -16,6 +16,7 @@ import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 // Type-only: erased at compile time, so this adds no runtime edge to a module
 // whose specs mock ConversationContext/ConversationPanel and not useConversation.
 import type { DispatchActionOpts } from '../conversation/useConversation'
+import { aiComparisonLabel } from '../../v5/aiComparisonMode'
 
 interface OlumiTabBodyProps {
   /** Opens the floating Olumi panel for the user (manual float-out from
@@ -145,28 +146,39 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     // Attach evidence is handled by CogPopover, not here.
   }, [])
 
-  // Float-out icon — small, top-right corner, subtle. Available in both
-  // empty and populated states so users can switch surface preference
-  // without losing draft text (singleton ConversationContext preserves it).
-  const floatOutIcon = onFloatOut ? (
-    <div className="flex justify-end px-2 pt-1 pb-0.5">
-      <button
-        type="button"
-        onClick={onFloatOut}
-        className="inline-flex items-center justify-center w-6 h-6 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        aria-label="Open Olumi in floating panel"
-        data-testid="olumi-tab-float-out"
-        title="Open in floating window"
-      >
-        <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-      </button>
+  // Staging comparison mode is always visible so a tester cannot unknowingly
+  // compare two different AI engines under an identical-looking surface.
+  const comparisonLabel = aiComparisonLabel()
+  const topControls = comparisonLabel || onFloatOut ? (
+    <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-0.5">
+      {comparisonLabel ? (
+        <span
+          className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-text-light"
+          data-testid="olumi-ai-comparison-mode"
+          title="AI implementation active for this staging session"
+        >
+          AI: {comparisonLabel}
+        </span>
+      ) : <span />}
+      {onFloatOut ? (
+        <button
+          type="button"
+          onClick={onFloatOut}
+          className="inline-flex items-center justify-center w-6 h-6 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          aria-label="Open Olumi in floating panel"
+          data-testid="olumi-tab-float-out"
+          title="Open in floating window"
+        >
+          <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
+      ) : null}
     </div>
   ) : null
 
   if (isEmptyConversation) {
     return (
       <div className="flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-empty">
-        {floatOutIcon}
+        {topControls}
         <div className="flex flex-1 items-center justify-center px-6 py-6">
           {/*
             ⭐ THE INVITATION KNOWS WHETHER THERE IS A MODEL, AND IT DID NOT.
@@ -189,7 +201,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
 
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-body">
-      {floatOutIcon}
+      {topControls}
       <div className="flex flex-1 min-h-0 flex-col">
         <ConversationPanel
           conversation={conversation}
