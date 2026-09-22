@@ -605,3 +605,96 @@ describe('(g) the heading controls meet the estate target-size bar', () => {
     expect(padYPx(toggle('factors').className)).toBe(12)
   })
 })
+
+/**
+ * ⛔⛔ A DECISION QUESTION IS NOT A MISSING VALUE — witnessed on staging
+ * `1f77130d`, guest, the saved example "Pricing Model Transition Strategy".
+ *
+ *     ▾ Goal 2   1 with no value yet
+ *          Pricing Model Transition Strategy      Rename
+ *          Achieve NRR Above 110% …              Rename   110 %
+ *
+ * Pressing that clause narrowed the group to exactly one row: **the decision
+ * question**. The goal, which has a target, was correctly filtered out.
+ *
+ * So the Model tab tells the reader that one of their two goal entries is
+ * missing a value, and routes them to the one entry in the whole model that can
+ * never take one. `toModelRows` gives a decision row `primaryValue: null` and
+ * `editable: false` — correctly, because a question has no value — and
+ * `unsetBucketOf` reads that null as "nobody has supplied one yet".
+ *
+ * ⭐ THE BUCKETS ASK THE WRONG QUESTION FOR THIS KIND, AND THE FIX IS THE
+ * `null` ARM THE TYPE ALREADY HAS. `UnsetBucket | null` is documented as
+ * *"not in any unset bucket, which for a row that HAS a value is the whole
+ * answer"*. A row that can hold no value belongs there for the same reason: the
+ * heading never counts it and the clause never reveals it. This is not a new
+ * rung — it is the existing "no gap here" answer, reached by a second route.
+ *
+ * ⚠ SCOPED TO `decision`, DELIBERATELY. Risks and outcomes also arrive with
+ * `primaryValue: null` from the same fallthrough, and their count is TRUE —
+ * likelihood and impact really are unset on them, and the canvas offers a route
+ * to set them. Widening this to every unvalued kind would delete a real gap.
+ */
+describe('(g) a kind that can hold no value is in no unset bucket', () => {
+  const decisionRow: ModelRow = {
+    id: 'dec_pricing',
+    kind: 'decision',
+    group: 'goal',
+    label: 'Pricing Model Transition Strategy',
+    primaryValue: null,
+    attention: [],
+    // ⚠ THE PROJECTION'S OWN SHAPE, not a convenient one: `toModelRows` sends
+    // every non-factor, non-goal, non-option node down one fallthrough with
+    // `primaryValue: null` and `editable: false`. A fixture that set a value
+    // here would describe a row the product cannot produce.
+    editable: false,
+  }
+  const valuedGoalRow: ModelRow = {
+    id: 'goal_nrr',
+    kind: 'goal',
+    group: 'goal',
+    label: 'Achieve NRR Above 110%',
+    primaryValue: '110 %',
+    attention: [],
+    editable: true,
+  }
+
+  const drawGoal = (rows: readonly ModelRow[]) =>
+    render(<ModelOutline rows={rows} tier="plain" filter="" />)
+
+  it('PRECONDITION: the contrast control still counts — an unvalued FACTOR does produce the clause', () => {
+    drawGoal([decisionRow, valuedGoalRow, nothing('fac_lead', 'Lead time')])
+    expect(
+      summary('factors').textContent,
+      'the probe can see the clause when one is due — otherwise every assertion below is vacuous',
+    ).toBe('1 with no value yet')
+  })
+
+  it('⛔ the goal heading does not report the decision question as a missing value', () => {
+    drawGoal([decisionRow, valuedGoalRow])
+    expect(
+      screen.queryByTestId('model-group-v2-goal-unknown-summary'),
+      'a question has no value to supply, so there is no gap to name',
+    ).toBeNull()
+    // ⭐ AND THE GROUP TOTAL IS UNCHANGED. The row is still IN the model and
+    // still counted as an element — this withholds a claim about it, it does
+    // not hide it.
+    expect(toggle('goal').textContent).toContain('2')
+    expect(screen.getByTestId('model-row-v2-dec_pricing')).toBeInTheDocument()
+  })
+
+  it('⛔ and there is no clause to press that routes to it', () => {
+    drawGoal([decisionRow, valuedGoalRow])
+    expect(screen.queryByTestId('model-group-v2-goal-clause-no-value')).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE ARM THAT KEEPS THE FIX HONEST. A goal that genuinely has no
+   * target IS a gap the reader can close, and it must still be named —
+   * otherwise this change trades an invented gap for a hidden one.
+   */
+  it('⭐ a goal with no target is still counted', () => {
+    drawGoal([decisionRow, { ...valuedGoalRow, primaryValue: null }])
+    expect(summary('goal').textContent).toBe('1 with no value yet')
+  })
+})

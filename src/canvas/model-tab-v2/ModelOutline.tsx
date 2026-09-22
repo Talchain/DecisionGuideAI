@@ -408,10 +408,38 @@ function SectionWriterNotice({
  */
 export type UnsetBucket = 'no-value' | 'from-olumi' | 'yours'
 
+/**
+ * ⭐⭐ THE KINDS WHOSE `primaryValue` IS NULL BECAUSE THERE IS NOTHING TO
+ * STATE — not because nobody has stated it yet.
+ *
+ * ⛔ WITNESSED ON STAGING `1f77130d`, guest, the saved example "Pricing Model
+ * Transition Strategy". The goal heading read **"Goal 2 · 1 with no value
+ * yet"**, and pressing that clause narrowed the group to exactly one row: the
+ * DECISION QUESTION. The goal, which carries `110 %`, was correctly filtered
+ * out. So the tab named a gap in the one element of the model that can never
+ * hold a value, and offered the reader a route to it.
+ *
+ * `toModelRows` is right to send a decision down its fallthrough with
+ * `primaryValue: null` and `editable: false` — a question has no value. It is
+ * this classifier that read that null as "nobody has supplied one yet".
+ *
+ * ⚠ A SET, NOT A CONDITION, AND IT IS DELIBERATELY SMALL. Risks and outcomes
+ * arrive from the SAME fallthrough with the same `primaryValue: null`, and
+ * their count is TRUE: likelihood and impact really are unset on them, and the
+ * canvas offers a route to set them. Widening this to "every kind the
+ * fallthrough produces" would trade an invented gap for a hidden one, which is
+ * strictly worse. Add a kind here only with the witness that shows the gap it
+ * names cannot exist.
+ */
+const KINDS_THAT_HOLD_NO_VALUE: ReadonlySet<ModelRow['kind']> = new Set(['decision'])
+
 export function unsetBucketOf(row: ModelRow): UnsetBucket | null {
   // `primaryValue === null` is the projection's OWN definition of "nothing is
   // stated". A row with a value is in no bucket at all.
   if (row.primaryValue !== null) return null
+  // … and neither is a row with nothing TO state. Same `null`, same meaning
+  // for the heading and the filter: no gap here, so no clause and no route.
+  if (KINDS_THAT_HOLD_NO_VALUE.has(row.kind)) return null
   if (classifyValueProvenance(row.provenanceSource)?.userOwned === true) return 'yours'
   // ⚠ TWO FACTS, ONE QUESTION — read from their existing owners, never
   // re-derived. `estimateText` is the field the CELL renders;
