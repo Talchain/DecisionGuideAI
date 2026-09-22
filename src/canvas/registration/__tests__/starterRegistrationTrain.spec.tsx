@@ -79,8 +79,17 @@ vi.mock('../../../adapters/cee/registerScenarioGraph', async (importOriginal) =>
   ...(await importOriginal<typeof import('../../../adapters/cee/registerScenarioGraph')>()),
   registerScenarioGraph: (...args: unknown[]) => registerSpy(...args),
 }))
+/**
+ * ⚠ MUTABLE ON PURPOSE. `userId` is an effect DEPENDENCY of
+ * `useImportRegistration`, and `useAuth().user.id` is populated asynchronously
+ * by `onAuthStateChange` (the hook's own comment says so) — so it flips under
+ * an UNCHANGED graph in normal operation. That is the one path that re-runs the
+ * registration effect on the same model, and therefore the only path on which
+ * the no-retry guard is load-bearing. A static mock cannot reach it.
+ */
+let mockAuthUser: { id: string } | null = null
 vi.mock('../../../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: null }),
+  useAuth: () => ({ user: mockAuthUser }),
 }))
 vi.mock('../../../lib/supabase', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../lib/supabase')>()),
@@ -102,6 +111,7 @@ const DRAFTED_NODES = [node('n1'), node('n2')]
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockAuthUser = null
   isV5CanonicalRunPathMock.mockReturnValue(true)
   clearImportRegistrationMarkers()
   __resetPersistenceSessionForTests()
@@ -678,10 +688,19 @@ describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
     })
   })
 
-  it('DISCRIMINATES: one model is still registered ONCE, not on every render', async () => {
-    // The guard this changes exists to stop a re-fire loop while the hold stays
-    // armed. Widening its key must not widen it to "no guard" — a failing
-    // registration on ONE model must still be attempted once per page life.
+  it('DISCRIMINATES: the SAME model is registered once even when auth resolves under it', async () => {
+    // The guard exists to stop a duplicate registration when the effect re-runs
+    // on an unchanged model. Widening its key must not widen it to "no guard".
+    //
+    // ⛔ THE FIRST VERSION OF THIS CASE WAS VACUOUS AND SAID "DISCRIMINATES" IN
+    //   ITS NAME. It called `rerender()` twice and asserted one registration —
+    //   but `rerender()` changes none of `[pending, scenarioId, userId]`, so the
+    //   effect never re-ran and the guard was never reached. Deleting the guard
+    //   outright (`if (false) return`) left all 32 cases GREEN. Caught by
+    //   running that mutant, not by re-reading the test.
+    //
+    //   `userId` is the dependency that actually moves under a fixed graph, so
+    //   that is what this drives now.
     registerSpy.mockResolvedValue({ status: 'unavailable' })
     useCanvasStore.setState({
       nodes: STARTER_NODES as never,
@@ -695,9 +714,14 @@ describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
     await waitFor(() => {
       expect(registerSpy).toHaveBeenCalledTimes(1)
     })
-    rerender()
-    rerender()
+
+    // Auth resolves. Same scenario, same graph, different effect dependency.
+    await act(async () => {
+      mockAuthUser = { id: 'user-after-auth-resolved' }
+      rerender()
+    })
     await new Promise((r) => setTimeout(r, 30))
+
     expect(registerSpy).toHaveBeenCalledTimes(1)
     // and the hold is still armed, because nothing was acknowledged
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
