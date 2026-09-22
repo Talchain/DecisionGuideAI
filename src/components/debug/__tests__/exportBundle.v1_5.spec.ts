@@ -16,7 +16,7 @@ vi.mock('../../../lib/debug-state', () => ({
   getUserActions: () => [...mockUserActions],
 }))
 
-import { buildDebugBundle, type FullGraphData } from '../utils/exportBundle'
+import { buildDebugBundle, type FullGraphData, type DisplayState } from '../utils/exportBundle'
 
 function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
   return {
@@ -166,7 +166,7 @@ describe('Debug Bundle V1.5', () => {
   })
 
   it('display_state is populated when provided in options', () => {
-    const displayState = {
+    const displayState: DisplayState = {
       active_panel: 'analysis',
       active_tab: 'results',
       active_section: 'outcomes',
@@ -533,7 +533,7 @@ describe('Debug Bundle V1.5', () => {
     mockUserActions.push(
       { actionType: 'analyse_triggered', timestamp: '2024-01-01T00:00:00.000Z' },
     )
-    const displayState = {
+    const displayState: DisplayState = {
       active_panel: 'results',
       active_tab: 'outcomes',
       active_section: null,
