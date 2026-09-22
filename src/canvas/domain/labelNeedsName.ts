@@ -198,14 +198,43 @@ export function isVerbatimBriefLabel(data: unknown): boolean {
  * Returns the signal that fired, or `false`. The label itself is NEVER altered
  * by this module — callers disclose, they do not rewrite.
  */
+/**
+ * The node kinds CEE's entity-naming rule ALREADY covers.
+ *
+ * ⛔ THIS MODULE'S OWN HEADER IS THE SOURCE, not a preference: *"CEE has an
+ * entity-naming rule and it runs for `goal`, `option` and `decision` only.
+ * `factor` has NONE — not a refusing one, an ABSENT one."* A label on one of
+ * these three has already been through a naming decision upstream, so
+ * disclosing "Olumi has not been given a short name for this" would be a
+ * FALSE CLAIM ABOUT THE PRODUCER, made on the user's own model.
+ *
+ * ⚠ THE DECISION NODE IS WHY THIS EXISTS AND IT IS NOT AN EDGE CASE. Its label
+ * IS the question being decided — "Should we hire?" — so it reads as a sentence
+ * by design, every time, on the most prominent node on the board. Without this
+ * veto the product tells a user their decision needs a name because they phrased
+ * it as a question. Seven canvas specs across five files caught it.
+ *
+ * ⚠ NOT A LIST OF "NAMED THINGS" — a list of kinds with a PRODUCER RULE. Any
+ * kind absent from it keeps the disclosure, which is the fail-open direction:
+ * a kind nobody has written a naming rule for is exactly the case this module
+ * was built for.
+ */
+const KINDS_CEE_ALREADY_NAMES: ReadonlySet<string> = new Set(['goal', 'option', 'decision'])
+
 export function labelNeedsName(data: unknown): SentenceSignal | false {
   const record = data as Record<string, unknown> | undefined
   const label = record?.label
+
+  // VETO 1, checked FIRST because it is about the node and not about the words:
+  // the producer owns naming for this kind, so there is nothing to disclose.
+  const kind = record?.type
+  if (typeof kind === 'string' && KINDS_CEE_ALREADY_NAMES.has(kind)) return false
+
   const signal = readsAsSentence(label)
   if (!signal) return false
 
-  // VETO: the producer sent a quote AND authored a different label from it, so
-  // a naming decision has already been made upstream. Defer to it.
+  // VETO 2: the producer sent a quote AND authored a different label from it,
+  // so a naming decision has already been made upstream. Defer to it.
   const quote = record?.source_quote
   if (
     typeof quote === 'string' &&

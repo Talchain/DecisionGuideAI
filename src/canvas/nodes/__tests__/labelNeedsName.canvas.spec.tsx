@@ -30,7 +30,7 @@
  * later build — CLAUDE.md trap 14b.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -138,6 +138,12 @@ const baseFactorProps = {
   positionAbsoluteY: 0,
   dragging: false,
   zIndex: 0,
+  // `NodeProps` takes these through `Required<Pick<Node, ...>>`, so they are not
+  // optional however little this spec cares about them. Absent, the two render
+  // helpers below are `TS2739` and the ratchet rejects the file.
+  deletable: false,
+  selectable: true,
+  draggable: true,
 }
 
 function applyStore(state: Record<string, unknown>) {
@@ -231,6 +237,40 @@ describe('labelNeedsName — the predicate', () => {
     const authored = { label: 'Engineering Attrition Is Rising', source_quote: 'we lost two staff engineers to it last year' }
     expect(readsAsSentence(authored.label)).toBeTruthy()   // precondition: shape gate WOULD fire
     expect(labelNeedsName(authored)).toBe(false)           // …and the veto suppresses it
+  })
+
+  /**
+   * ⭐⭐ VETO 1 — A KIND CEE ALREADY NAMES IS NEVER ASKED THE QUESTION.
+   *
+   * Added 22 Sep 2026 while rebasing this branch over 292 commits of `staging`.
+   * The predicate shipped here reads ONLY `label` and `source_quote`, so it
+   * fired on every kind — and `BaseNode` applies it to all of them. A decision
+   * node's label IS the question being decided, so it reads as a sentence by
+   * construction and the product told the user their decision needed a name.
+   *
+   * ⛔ NOT MY TASTE — THIS MODULE'S OWN HEADER: *"CEE has an entity-naming rule
+   * and it runs for `goal`, `option` and `decision` only. `factor` has NONE."*
+   * The disclosure is "Olumi was not given a short name for this". On a kind the
+   * producer names, that sentence is false about the producer.
+   *
+   * ⚠ THE CONTRAST IS THE POINT AND IT IS THE SAME STRING. One label, two
+   * kinds, two answers — so this cannot pass by the veto having swallowed the
+   * shape gate, and it cannot pass by the sentence simply not reading as one.
+   */
+  it('VETO — a kind CEE already names is never flagged, on the SAME label a factor is flagged for', () => {
+    const sentence = 'Should we hire a second delivery team this quarter?'
+    // PRECONDITION: the shape gate genuinely fires on this string. Without
+    // this the two assertions below could both be true of a non-sentence.
+    expect(readsAsSentence(sentence)).toBeTruthy()
+
+    for (const kind of ['decision', 'goal', 'option']) {
+      expect(labelNeedsName({ label: sentence, type: kind })).toBe(false)
+    }
+    // …and the kind this module was built for still gets the disclosure.
+    expect(labelNeedsName({ label: sentence, type: 'factor' })).toBeTruthy()
+    // A kind with no producer naming rule at all keeps it too — the veto is a
+    // named list, not "anything that is not a factor".
+    expect(labelNeedsName({ label: sentence, type: 'risk' })).toBeTruthy()
   })
 
   it('isVerbatimBriefLabel proves authorship only when the quote is present AND equal', () => {
