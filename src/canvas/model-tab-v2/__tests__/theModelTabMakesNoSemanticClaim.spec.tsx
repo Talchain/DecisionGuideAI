@@ -100,12 +100,33 @@ const EVERY_STATE: readonly ModelRow[] = [
 const draw = (rows: readonly ModelRow[]) =>
   render(<ModelOutline rows={rows} tier="advanced" filter="" />)
 
-/** The rendered text, with the screen-reader document removed first. */
-const visibleText = (): string => {
+/**
+ * ⭐⭐⭐ EVERYTHING A READER RECEIVES — TEXT **AND** `aria-label` **AND**
+ * `title`, and the third channel is the one that caught this file out.
+ *
+ * ⛔ THE FIRST CUT SWEPT `textContent` ALONE AND TWO OF ITS THREE MUTANTS
+ * SURVIVED. Retitling the unconfirmed-estimate marker to the bare `est.` badge
+ * changed nothing it could see, because that marker is an **`aria-label` on an
+ * icon** — there is no text node at all. Putting a literal `Key driver` crown
+ * on every row as a **`title`** changed nothing either. A census blind to the
+ * two channels the product actually uses for exactly this kind of mark reports
+ * a clean sweep of the wrong document, and every arm below would have returned
+ * "clean" forever.
+ *
+ * ⇒ This is the estate's own rule in the other direction: `innerText` unions
+ * the visible and `sr-only` documents and INFLATES a duplication finding, so
+ * `.sr-only` is stripped; but an attribute-borne claim is still a claim, so
+ * `aria-label` and `title` are ADDED. Strip what is duplicated, add what is
+ * carried.
+ */
+const claimSurface = (): string => {
   const root = screen.getByTestId('model-outline-v2') ?? document.body
   const clone = root.cloneNode(true) as HTMLElement
   clone.querySelectorAll('.sr-only').forEach((n) => n.remove())
-  return (clone.textContent ?? '').replace(/\s+/g, ' ')
+  const attributes = Array.from(clone.querySelectorAll('[aria-label], [title]'))
+    .flatMap((el) => [el.getAttribute('aria-label'), el.getAttribute('title')])
+    .filter((v): v is string => typeof v === 'string' && v !== '')
+  return [clone.textContent ?? '', ...attributes].join(' | ').replace(/\s+/g, ' ')
 }
 
 /**
@@ -132,8 +153,8 @@ describe('the Model tab makes no semantic claim it has no producer for', () => {
    */
   it('PRECONDITION — every kind really rendered, and the text is substantial', () => {
     draw(EVERY_STATE)
-    const text = visibleText()
-    expect(text.length, 'the outline produced real text to sweep').toBeGreaterThan(120)
+    const text = claimSurface()
+    expect(text.length, 'the outline produced a real surface to sweep').toBeGreaterThan(120)
     for (const kind of EVERY_KIND) {
       expect(screen.getByTestId(`model-row-v2-row_${kind}`), `${kind} row mounted`).toBeInTheDocument()
     }
@@ -141,7 +162,7 @@ describe('the Model tab makes no semantic claim it has no producer for', () => {
 
   it.each(BANNED)('⛔ never says %s', (_name, pattern) => {
     draw(EVERY_STATE)
-    expect(visibleText()).not.toMatch(pattern)
+    expect(claimSurface()).not.toMatch(pattern)
   })
 
   /**
@@ -151,7 +172,7 @@ describe('the Model tab makes no semantic claim it has no producer for', () => {
    */
   it('CONTROL — the probe sees the string when it is there, and a user may still say it', () => {
     draw([rowOf('factor', { id: 'row_user_words', label: 'Key driver of churn' })])
-    const text = visibleText()
+    const text = claimSurface()
     expect(text, 'the user\'s own label is rendered verbatim').toMatch(/key driver of churn/i)
     expect(text, 'so the census above was measuring a document that can contain it').toMatch(/key driver/i)
   })
