@@ -66,12 +66,19 @@ const threeWithheldOfFive = (opts: { withInfluenceRank: boolean }) =>
         makeDriver({ factorKey: 'f_pin_4', factorLabel: 'Pinned C', rank: 4,
                      displayInfluence: 0.3, zeroReason: 'intervention_override' }),
         // The two that survive to be shown.
+        // ⚠ THE TWO RANKS DIVERGE ON PURPOSE, and an earlier cut of this file
+        // set them equal — which made the preference arm VACUOUS and let a
+        // mutant that deleted `influenceRank` entirely survive the battery.
+        // They are different quantities (the producer's own field vs this
+        // client's elasticity-derived ordering) and the product can reach a
+        // state where they disagree, which is the whole reason the view model
+        // prefers one.
         makeDriver({ factorKey: 'f_top', factorLabel: 'Top Account Revenue Concentration',
                      rank: 3, displayInfluence: 0.6,
-                     ...(opts.withInfluenceRank ? { influenceRank: 3 } : {}) }),
+                     ...(opts.withInfluenceRank ? { influenceRank: 2 } : {}) }),
         makeDriver({ factorKey: 'f_comp', factorLabel: 'Competitive Pressure for Usage Pricing',
                      rank: 5, displayInfluence: 0.01,
-                     ...(opts.withInfluenceRank ? { influenceRank: 5 } : {}) }),
+                     ...(opts.withInfluenceRank ? { influenceRank: 4 } : {}) }),
       ],
     },
   })
@@ -124,8 +131,22 @@ describe('the Rank a driver shows is the producer\'s, not its position in the vi
     expect(shown).not.toContain('2')
   })
 
-  /** ⭐ AND THE PRODUCER'S OWN FIELD WINS WHERE IT EXISTS. */
+  /**
+   * ⭐ AND THE PRODUCER'S OWN FIELD WINS WHERE IT EXISTS — with the two
+   * ranks DIVERGENT, so the assertion can tell them apart. The fixture sends
+   * `rank` 3/5 and `influenceRank` 2/4; only reading the producer's field
+   * yields 2 and 4.
+   */
   it('influence_rank is preferred over the derived rank', () => {
-    expect(ranksShown(threeWithheldOfFive({ withInfluenceRank: true }))).toEqual(['3', '5'])
+    expect(ranksShown(threeWithheldOfFive({ withInfluenceRank: true }))).toEqual(['2', '4'])
+  })
+
+  /**
+   * ⚠ AND STILL NOT A RENUMBERING ON THAT ARM EITHER. `2, 4` is the
+   * producer's own non-contiguous pair; `1, 2` would be positions.
+   */
+  it('⛔ nor does the producer arm renumber to 1 and 2', () => {
+    const shown = ranksShown(threeWithheldOfFive({ withInfluenceRank: true }))
+    expect(shown).not.toEqual(['1', '2'])
   })
 })
