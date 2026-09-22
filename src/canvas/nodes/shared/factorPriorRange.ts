@@ -357,6 +357,39 @@ export function resolveFactorPriorRange({
     ) {
       return null
     }
+    /**
+     * ⭐⭐⭐ CEE'S OWN STRING WINS HERE TOO — and until now it could not.
+     *
+     * The dedupe immediately above already states the rule: *"The
+     * `display_value` line wins because it is CEE-authored copy."* But it is
+     * gated on `valueDisplay != null`, which is the value the CALLER renders —
+     * and a factor with NO observed value renders none. So the one card that
+     * most needs a legible range was the one card the rule could not reach.
+     *
+     * Measured on Paul's run, bundle `ebc6e31a`, served `1f77130d`, factor
+     * `ab78e513` *Monthly Churn Rate*: `observed_state: null`,
+     * `display_value: "0% to 13%"`, prior 0 → 0.13. The card rendered
+     * **`Range: 0 to 0.13`** while CEE's own sentence sat unused in the payload.
+     *
+     * ⚠ A PREFERENCE, NOT A NEW CLAIM. Nothing is computed, converted or
+     * invented: the producer's string is rendered verbatim under the caption
+     * this line already carries. Where CEE authored nothing the normalised
+     * fallback below is untouched, so the missing unit stays an upstream gap
+     * rather than becoming a sentence this surface makes up.
+     *
+     * ⚠ AND ONLY ON THE VALUELESS ARM. With a `valueDisplay` the existing
+     * dedupe owns the decision; reaching into that branch would give a card
+     * that already shows its value a second copy of it under a Range caption.
+     */
+    if (valueDisplay == null) {
+      const authored = (data as { display_value?: unknown } | undefined)?.display_value
+      if (typeof authored === 'string' && authored.trim().length > 0) {
+        // Strip a caption the producer may already have included, so the two
+        // cannot stack into "Range: Range: …".
+        const body = authored.trim().replace(/^Range:\s*/i, '')
+        if (body.length > 0) return `Range: ${body}`
+      }
+    }
     return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
   }
 
