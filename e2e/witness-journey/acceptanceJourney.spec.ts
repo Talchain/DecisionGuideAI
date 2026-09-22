@@ -88,6 +88,37 @@ test('the acceptance journey on the deployed build', async ({ page }) => {
     if (/\/(proxy|bff|assist|orchestrate)\//.test(u)) wire.push(`${r.method()} ${u.slice(0, 80)}`)
   })
 
+  /**
+   * ⛔⛔ THE WITNESS MUST NAME WHOSE FAULT IT IS, AND ON 22 SEP 2026 IT DID NOT.
+   *
+   * Leg 4 asserted only the END STATE — `observedState.source` matching /user/ —
+   * seven seconds after the keypress. That assertion cannot tell these apart:
+   *
+   *   · the UI failed to attribute a value the user typed      ← a PRODUCT defect
+   *   · the CEE turn never succeeded, so there was nothing to
+   *     attribute                                              ← INFRASTRUCTURE
+   *
+   * Both read as *"the edit did not become user-authored"*, and I published the
+   * first reading twice in one morning when the truth was the second. Measured:
+   * one run's turn returned **HTTP 500** (Render cold start) and the stamp never
+   * landed; runs whose turn returned 200 stamped `user_override` at **2,459 ms**
+   * and held it stable through 24 s. So the seven-second window was never the
+   * problem and the harness was pointing at the wrong suspect.
+   *
+   * ⭐ THE FIX IS NOT A LONGER TIMEOUT — that would only make a flaky witness
+   * slower. It is to capture the TURN'S OWN OUTCOME and let the failure message
+   * name the responsible side. A witness that cannot say who is at fault
+   * manufactures false product alarms, which is worse than no witness at all,
+   * because someone acts on them.
+   */
+  const editTurns: Array<{ status: number; body: string }> = []
+  page.on('response', async (r) => {
+    if (!/proxy\/v5\/turn/.test(r.url())) return
+    let body = '(body already consumed)'
+    try { body = (await r.text()).slice(0, 400) } catch { /* a consumed body is not a failure */ }
+    editTurns.push({ status: r.status(), body })
+  })
+
   const { origin, build } = await pinnedOrigin()
   // eslint-disable-next-line no-console
   console.log(`[JOURNEY] build=${build} origin=${origin}`)
@@ -157,8 +188,29 @@ test('the acceptance journey on the deployed build', async ({ page }) => {
   console.log(`[JOURNEY] leg4 after=${JSON.stringify(after)}`)
   console.log(`[JOURNEY] leg4 wire=${JSON.stringify(sent)}`)
   expect(after?.value, 'the typed value did not reach canonical state').toBe(7)
-  expect(String(after?.source), 'the edit did not become user-authored').toMatch(/user/)
   expect(sent.length, 'the edit reached canonical state but was never sent').toBeGreaterThan(0)
+
+  // ── WHOSE FAULT IS IT · attribute before asserting ──────────────────────────
+  // A turn that did not return 200 means the edit was never accepted, so the
+  // absence of a user-authored stamp is CORRECT behaviour on the UI's part and a
+  // transport/service failure on the other side. Say that, rather than accusing
+  // the product of losing the user's authorship.
+  const failedTurns = editTurns.filter((t) => t.status !== 200)
+  console.log(`[JOURNEY] leg4 turnOutcomes=${JSON.stringify(editTurns.map((t) => t.status))}`)
+  if (failedTurns.length > 0) {
+    console.log(`[JOURNEY] leg4 FIRST FAILING TURN body=${failedTurns[0].body}`)
+  }
+  expect(
+    failedTurns.map((t) => t.status),
+    `INFRASTRUCTURE, NOT THE UI: the edit turn returned ${failedTurns.map((t) => t.status).join(',')} `
+      + `so there was nothing for the client to attribute. Re-run before reading this as a product `
+      + `defect — CEE staging cold-starts return 500. First body: ${failedTurns[0]?.body ?? 'n/a'}`,
+  ).toEqual([])
+  expect(
+    String(after?.source),
+    'THE UI IS AT FAULT: the edit turn succeeded (200) and canonical state still does not record the '
+      + 'user as the author of a value they typed',
+  ).toMatch(/user/)
 
   // ── LEG 5 · reload and retain ───────────────────────────────────────────────
   await page.reload({ waitUntil: 'domcontentloaded' })
