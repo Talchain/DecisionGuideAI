@@ -123,6 +123,7 @@ import { render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
+import { optionTargetsChannels } from '../OptionNode'
 import { OutcomeNode } from '../OutcomeNode'
 import { RiskNode } from '../RiskNode'
 
@@ -858,8 +859,14 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     const card = mountCard('option', 'option-2', 'pre')
     twoCarrier(
       card.querySelector('[data-testid="option-change-count-option-2"]'),
-      '2 factor targets',
-      '2 factor targets. Open the inspector to see which ones.',
+      optionTargetsChannels({ count: 2 }).short,
+      // ⚠ DERIVED, NOT RESTATED (22 Sep 2026). The line is now a control and
+      // its sentence is composed from `modelOptionIntervention` — a real
+      // `option_intervention_edit` carrier — so the wording has an owner. A
+      // literal here would be a second hand-maintained copy of it (trap 12),
+      // and the census's job is repeated copy ACROSS cards, not pinning this
+      // one card's words.
+      optionTargetsChannels({ count: 2 }).full,
       'change-count',
     )
   })
