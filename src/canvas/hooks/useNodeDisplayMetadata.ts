@@ -506,10 +506,38 @@ export function useNodeDisplayMetadata(
       const rank = ranked.findIndex(f => f.key === nodeId) + 1
       // MAX_BADGED_RANK is the badge's promise, so it is what the gate is
       // measured against — the depth and the cap can no longer drift apart.
-      const determinedDepth = determinedRankDepth(
+      /**
+       * ⛔⛔ THE TIE GATE MUST ASK ABOUT THE NUMBER THE READER SEES, NOT ONLY THE
+       * ONE THE ORDER IS KEYED ON — and this PR broke that before fixing it.
+       *
+       * Re-keying `ranked.value` from the displayed influence onto `|elasticity|`
+       * (correct for the ORDER — the badge says "most sensitive to") silently moved
+       * the TIE TEST onto elasticity too, because `determinedRankDepth` reads
+       * `value`. `driverPolicyFeed.parity.spec.tsx` caught it on a fixture with
+       * IDENTICAL `influence_score: 0.5` and elasticities `0.3` / `-0.9`: not tied
+       * on the sort key, so the canvas badged `#1` and `#2` beside two visible
+       * `0.5`s. That is exactly the defect #964 exists to remove, reintroduced —
+       * and that spec states the principle: "an ordinal is a COMPARATIVE claim and
+       * a tie cannot support one."
+       *
+       * ⚠ ORDERING AND BADGING ARE DIFFERENT QUESTIONS (CLAUDE.md trap 21), so
+       * they get different inputs. An ordinal needs BOTH to discriminate: the basis
+       * it claims (elasticity) AND the figure printed beside it (the displayed
+       * influence). Tied on either, and the reader cannot check the claim — so the
+       * depth is the MINIMUM of the two, never the sort key's alone.
+       *
+       * ⭐ It still ASKS THE EXISTING OWNER twice rather than minting a rival tie
+       * notion, which is the rule the paragraph above already set.
+       */
+      const depthByBasis = determinedRankDepth(
         ranked.map((f) => ({ id: f.key, value: f.value })),
         MAX_BADGED_RANK,
       )
+      const depthByDisplayed = determinedRankDepth(
+        ranked.map((f) => ({ id: f.key, value: displayModel.get(f.key)?.value ?? 0 })),
+        MAX_BADGED_RANK,
+      )
+      const determinedDepth = Math.min(depthByBasis, depthByDisplayed)
       sensitivityRank = rank > 0 && rank <= determinedDepth ? rank : null
 
       // VoI rank: top-3 factors by value_of_information. Keyed off the shared
