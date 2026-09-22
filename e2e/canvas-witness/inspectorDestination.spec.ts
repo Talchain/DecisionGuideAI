@@ -49,6 +49,24 @@ test('INSPECTOR DESTINATION — per node kind, is the editor enabled?', async ({
   const readDock = () => page.evaluate(() => {
     const flow = document.querySelector('.react-flow')
     const inDock = (e: Element) => !(flow && flow.contains(e))
+    /**
+     * ⛔ INPUT-SHAPED EDITORS ONLY, AND THE LIMIT IS STATED RATHER THAN CLOSED.
+     *
+     * This under-reports in one known way: an EXTERNAL factor's editor is the
+     * quick-set range BUTTONS as well as the tech-mode Min/Max inputs
+     * (`analyticalNodeFields.ts` on `prior`), so a button-only panel reads
+     * `live=0` here. `live=0` therefore means **no input-shaped editor**, not
+     * "no editor" — and the kind-level verdict below is unaffected, because
+     * every kind that has a carrier also has at least one input-shaped editor.
+     *
+     * ⚠ AND ADMITTING BUTTONS WAS TRIED, MEASURED, AND REVERTED. A name-matched
+     * allowance (`/set |change|edit|adjust|confirm|apply|min|max|range|.../`)
+     * made EVERY node report five live editors, because it matched the dock's
+     * own chrome: *"Auto-ar**range**"*, *"Click to re**set** to 100%"*,
+     * *"Minimise"*. A decision node — which has no carrier at all — read as
+     * fully editable. A widened population that reads as capability is worse
+     * than a narrow one that states its limit, so the limit is stated.
+     */
     const all = Array.from(document.querySelectorAll('input,textarea,select,[role="slider"],[contenteditable="true"]')).filter(inDock)
     const live = all.filter((e) => {
       const i = e as HTMLInputElement
