@@ -6,6 +6,7 @@
 import { memo, useState, useMemo, useCallback } from 'react'
 import { goalConstraintText, constraintWithEditedValue } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
+import { resolveDisplayableGoalTarget } from '../../../domain/displayableGoalTarget'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
@@ -195,9 +196,33 @@ export const GoalPanel = memo(function GoalPanel({
   // must obey the same rule, or "≥ 0.8 £" simply reappears inside the input.
   // One expression, both consumers — never two copies of the tag check.
   const scaleSafeUnit = goalThresholdRepresentation === 'normalised' ? undefined : thresholdUnit
-  const targetDisplay = goalThreshold == null
+  /**
+   * ⭐⭐ THE READOUT NOW GOES THROUGH THE ONE OWNER — 22 Sep 2026.
+   *
+   * The paragraph above says this guard is PANEL-ONLY and not an estate-wide
+   * invariant. `resolveDisplayableGoalTarget` is that invariant, and routing the
+   * readout through it is what stops this panel being a fourth copy of the tag
+   * check. The EDITOR keeps `scaleSafeUnit` — it is a different question (may
+   * this reader SET a target) and must not inherit the readout's answer.
+   *
+   * ⛔ WHY IT CHANGED, AND IT CAME FROM THE PRODUCER. CEE answered this lane's
+   * ask on 22 Sep: `target_derived_headroom` takes the cap FROM THE TARGET
+   * (`raw * 1.25`), so `raw / (raw * 1.25) === 0.8` for every raw > 0 — measured
+   * at 0.8 in 42 of 54 boards, and `cap/raw === 1.25` in 18 of 18. This readout
+   * printed that constant with the unit stripped, while holding the reader's own
+   * figure in `thresholdRaw` one line above and passing it ONLY to the editor.
+   * `goal_threshold_raw` + `goal_threshold_unit` ship on 24 of 24 such nodes and
+   * the `analysis_ready` schema's own comment instructs this rendering.
+   */
+  const displayableTarget = resolveDisplayableGoalTarget({
+    goalThreshold,
+    representation: goalThresholdRepresentation as 'raw' | 'normalised' | null,
+    thresholdRaw,
+    thresholdUnit,
+  })
+  const targetDisplay = displayableTarget == null
     ? null
-    : formatGoalTarget(goalThreshold, scaleSafeUnit ?? null)
+    : formatGoalTarget(displayableTarget.value, displayableTarget.unit)
 
   /**
    * ⭐⭐⭐ THE ADMISSION — *may this reader add a target?* — AND, UNTIL #1172
