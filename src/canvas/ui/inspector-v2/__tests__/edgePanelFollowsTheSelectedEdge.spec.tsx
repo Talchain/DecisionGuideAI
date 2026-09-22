@@ -30,15 +30,26 @@ const NODES = [
   { id: 'c12af5de', type: 'goal', data: { label: 'Revenue' }, position: { x: 0, y: 0 } },
 ]
 
-/** Two edges the SERVER holds, at values in different bands. */
+/**
+ * Two edges the SERVER holds, at values in different bands.
+ *
+ * ⚠ `weightSource: 'cee'` ADDED — the fixture always MEANT these to be
+ * server-held (its own comment says so) but never said it in the field the
+ * provenance gate reads. Once the panel withholds a strength whose `weight`
+ * carries no source, a fixture without one describes an edge NOBODY has
+ * characterised, which is not this file's subject: it asks whether the panel
+ * FOLLOWS THE SELECTED EDGE. Measured on the deployed board, real edges carry
+ * `weightSource: 'cee'` on 37 of 37 — so this is the fixture catching up with
+ * both its own intent and the wire, not a gate being worked around.
+ */
 const EDGES = [
   {
     id: 'e-strong', source: '2891dabb', target: 'c12af5de',
-    data: { weight: 0.85, direction: 'positive', serverStrength: { mean: 0.85, effect_direction: 'positive' } },
+    data: { weight: 0.85, weightSource: 'cee', direction: 'positive', serverStrength: { mean: 0.85, effect_direction: 'positive' } },
   },
   {
     id: 'e-weak', source: '2891dabb', target: 'c12af5de',
-    data: { weight: 0.30, direction: 'positive', serverStrength: { mean: 0.30, effect_direction: 'positive' } },
+    data: { weight: 0.30, weightSource: 'cee', direction: 'positive', serverStrength: { mean: 0.30, effect_direction: 'positive' } },
   },
 ]
 
