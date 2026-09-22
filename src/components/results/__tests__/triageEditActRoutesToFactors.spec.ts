@@ -16,7 +16,17 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 
-const CALLER = 'src/components/results/TriageActionCardsBody.tsx'
+/*
+ * ⚠ THE CALLER MOVED, AND THE GUARD MOVED WITH IT (20 Sep 2026). The three-call
+ * route was duplicated in `TriageActionCardsBody.tsx` and absent from the
+ * pre-analysis sibling, which still opened the Inspector — one act, two
+ * destinations. Both now call `openModelValueEditor`, so that module is where
+ * the section key is stated and where this guard has to look. Pointing it at
+ * the old file would have left it asserting a literal that is no longer there,
+ * which this spec's own `expect(m, 'no literal ... found')` catches loudly
+ * rather than passing vacuously.
+ */
+const CALLER = 'src/canvas/nodes/shared/openModelValueEditor.ts'
 const MAP_HOST = 'src/canvas/components/ModelTabBody.tsx'
 
 describe('the triage edit act targets a real Model-tab section', () => {
@@ -27,7 +37,7 @@ describe('the triage edit act targets a real Model-tab section', () => {
     for (const f of [CALLER, MAP_HOST]) {
       expect(execFileSync('git', ['ls-files', f], { encoding: 'utf8' }).trim()).toBe(f)
     }
-    expect(caller.length).toBeGreaterThan(1000)
+    expect(caller.length).toBeGreaterThan(500)
     expect(host.length).toBeGreaterThan(1000)
   })
 

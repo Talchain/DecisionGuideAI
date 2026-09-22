@@ -16,7 +16,7 @@ vi.mock('../../../lib/debug-state', () => ({
   getUserActions: () => [...mockUserActions],
 }))
 
-import { buildDebugBundle, type FullGraphData } from '../utils/exportBundle'
+import { buildDebugBundle, type FullGraphData, type DisplayState } from '../utils/exportBundle'
 
 function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
   return {
@@ -166,7 +166,7 @@ describe('Debug Bundle V1.5', () => {
   })
 
   it('display_state is populated when provided in options', () => {
-    const displayState = {
+    const displayState: DisplayState = {
       active_panel: 'analysis',
       active_tab: 'results',
       active_section: 'outcomes',
@@ -179,6 +179,11 @@ describe('Debug Bundle V1.5', () => {
       hero_headline_displayed: 'Plan A is recommended',
       analysis_display_state: 'complete',
       analysis_display_headline: 'Analysis complete',
+      // The gate a canvas node renders its run copy from. Stated here rather
+      // than defaulted on the type: a bundle that does not say which predicates
+      // were true cannot place a screenshot, which is the defect the field
+      // exists to close.
+      analysis_gate: { results_status: 'complete', has_report: true, has_renderable_result: true },
     }
     const bundle = buildDebugBundle(makeDebugData(), { displayState })
     expect(bundle.display_state).toEqual(displayState)
@@ -528,7 +533,7 @@ describe('Debug Bundle V1.5', () => {
     mockUserActions.push(
       { actionType: 'analyse_triggered', timestamp: '2024-01-01T00:00:00.000Z' },
     )
-    const displayState = {
+    const displayState: DisplayState = {
       active_panel: 'results',
       active_tab: 'outcomes',
       active_section: null,
@@ -541,6 +546,11 @@ describe('Debug Bundle V1.5', () => {
       hero_headline_displayed: 'Plan A is recommended',
       analysis_display_state: 'complete',
       analysis_display_headline: 'Analysis complete',
+      // The gate a canvas node renders its run copy from. Stated here rather
+      // than defaulted on the type: a bundle that does not say which predicates
+      // were true cannot place a screenshot, which is the defect the field
+      // exists to close.
+      analysis_gate: { results_status: 'complete', has_report: true, has_renderable_result: true },
     }
     const orchestratorData = {
       turn_count: 3,

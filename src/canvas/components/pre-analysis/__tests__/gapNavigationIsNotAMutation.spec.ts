@@ -1,8 +1,16 @@
 /**
  * A gap row offers a way to act, and it is NOT gated on mutation authority.
  *
- * `handleSetValueForGap` is `openNodeInspector(factorId)` and nothing else — it
- * writes no model value. It was gated on `preAnalysisFactorValue`, a MUTATION
+ * `handleSetValueForGap` is one navigation call and nothing else — it writes no
+ * model value.
+ *
+ * ⚠ THIS GUARD USED TO PIN THE HELPER'S NAME (`openNodeInspector`) AND THAT WAS
+ * THE WRONG PROPERTY (20 Sep 2026). The destination legitimately moved to the
+ * Model tab — the Inspector serves only two of the three factor categories, so
+ * an `observable` factor landed on a read-only fieldset. A guard pinned to one
+ * spelling REDs on a correct change and says nothing about the property it
+ * exists to protect. It now pins the property: the handler delegates to one of
+ * the SANCTIONED NAVIGATION OWNERS and contains no writer. It was gated on `preAnalysisFactorValue`, a MUTATION
  * authority key, so a user looking at an unfilled factor was offered no way to
  * act, on the grounds that an edit could not be saved, by a handler that does
  * not edit.
@@ -35,10 +43,26 @@ describe('the gap row can be acted on', () => {
     expect(src).toContain('PRE_ANALYSIS_FACTOR_VALUE_CONNECTED')
   })
 
+  /**
+   * The navigation owners this handler may delegate to. Each opens a surface
+   * and writes nothing to the model: `openModelValueEditor` moves the output
+   * tab, requests an outline section and focuses a row; `openNodeInspector`
+   * selects a node and raises the inspector. Adding a name here is a decision
+   * to be defended — it is not a place to park a writer.
+   */
+  const NAVIGATION_OWNERS = ['openModelValueEditor', 'openNodeInspector'] as const
+
   it('the navigation handler still only navigates — it must not have gained a write', () => {
     const body = src.slice(src.indexOf('const handleSetValueForGap'))
     const decl = body.slice(0, body.indexOf('}, ['))
-    expect(decl).toContain('openNodeInspector')
+    const owner = NAVIGATION_OWNERS.find(n => decl.includes(`${n}(`)) ?? null
+    expect(
+      owner,
+      `handleSetValueForGap delegates to none of ${NAVIGATION_OWNERS.join(', ')} — `
+        + 'either it stopped navigating, or a new owner arrived without being reasoned about here.',
+    ).not.toBeNull()
+    // Exactly one, so a handler cannot satisfy this by opening two surfaces.
+    expect(NAVIGATION_OWNERS.filter(n => decl.includes(`${n}(`))).toHaveLength(1)
     for (const writer of ['updateNode(', 'updateEdge(', 'sendSystemEvent(', 'setGoal(']) {
       expect(decl, `handleSetValueForGap gained ${writer} — it is no longer navigation`).not.toContain(writer)
     }
