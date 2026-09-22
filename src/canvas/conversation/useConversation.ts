@@ -165,6 +165,7 @@ import {
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
+import { beginModelEditDelivery } from '../registration/editDeliveryHold'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -6177,6 +6178,13 @@ export function useConversation(): UseConversationReturn {
       // DEFERRED. Genuine failures still REJECT (SystemEventSendError), so the
       // existing `try/catch` dispatchers (FeedbackRow's optimistic revert, the
       // patch-accept retry card) are untouched.
+      //
+      // ⭐ ONE WRITER: while a model-changing turn is on the wire, the
+      // whole-graph registration must not leave (`registration/editDeliveryHold`).
+      // Marked here because every edit kind reaches the wire through this
+      // call; released on every exit via `.finally`, deferral included (a
+      // deferred edit is held by `pendingEmittedEdits` from that point on).
+      const releaseEditDelivery = beginModelEditDelivery(event.type)
       return await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,
@@ -6215,7 +6223,7 @@ export function useConversation(): UseConversationReturn {
         // it now surfaces as a revert plus an honest sentence rather than as an
         // option quietly reappearing on the next re-run.
         deferIfBusy: opts?.deferIfBusy,
-      })
+      }).finally(releaseEditDelivery)
     },
     [sendTurn],
   )

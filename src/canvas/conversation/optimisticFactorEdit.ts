@@ -51,6 +51,10 @@ import {
   DOUBLE_ROUND_TRIP_SIGNIFICANT_DIGITS,
 } from '../utils/formatValueWithUnit'
 import { settleFactorEditInFlight } from './pendingFactorEdit'
+import {
+  isGraphServerAcknowledged,
+  markGraphServerAcknowledged,
+} from '../store/importRegistrationMarker'
 
 /**
  * Everything needed to undo one optimistic value write, captured BEFORE it.
@@ -781,6 +785,66 @@ export function buildInterruptedFactorEditNotice(label: string | null | undefine
   )
 }
 
+/**
+ * The node data a REFUSAL restores — the one definition, shared by the revert
+ * and by the receipt acknowledgement below, so "the model before this edit"
+ * means the same thing on both sides of the receipt.
+ */
+function revertedNodeData(nodeData: unknown, edit: OptimisticFactorEdit): Record<string, unknown> {
+  return {
+    ...(nodeData as Record<string, unknown>),
+    observedState: edit.prevObservedState,
+    display_value: edit.prevDisplayValue,
+  }
+}
+
+/**
+ * ⭐⭐ THE APPLIED RECEIPT IS THE ACKNOWLEDGEMENT — ONE WRITER, second half.
+ *
+ * `analysisHeldOn` releases a client-injected model only on positive evidence
+ * that CEE holds it (`isGraphServerAcknowledged`). Before this, the only such
+ * evidence was a whole-graph `graph/register`, so EVERY edit re-registered the
+ * whole graph: once as the optimistic write landed (the race that rolled the
+ * edit back, witnessed 22 Sep on staging) and again after the confirm stamp
+ * (witnessed 3 s after the receipt). The second write also carried the user's
+ * number under whatever stamp the canvas held at that moment.
+ *
+ * The rule is a chain, and it only extends evidence that already exists:
+ *
+ *   CEE held  G₀  (an acknowledgement record for this scenario)
+ *   ∧ CEE applied THIS edit to its graph (the receipt)
+ *   ⇒ CEE holds G₀ + this edit.
+ *
+ * `G₀` is computed as the current graph with THIS edit reverted — exactly what
+ * a refusal would restore (`revertedNodeData`). So any OTHER unacknowledged
+ * change on the canvas (a second edit, a local-only write, a rename in flight)
+ * makes `G₀` unacknowledged and the chain does not fire — the model stays held
+ * and a registration offers it once delivery settles. It can only fail CLOSED.
+ *
+ * ⚠ NO SERVER HASH TO BIND TO. The turn carries CEE's `graph_hash` (aag_v1) and
+ *   the registration returns an opaque `identity.v1` token — different
+ *   projections, neither computable client-side — so the acknowledgement stays
+ *   on the client's own analytical digest, the key `analysisHeldOn` reads.
+ */
+function receiptExtendsAcknowledgedModel(edit: OptimisticFactorEdit): boolean {
+  const store = useCanvasStore.getState()
+  const node = store.nodes.find((n) => n.id === edit.nodeId)
+  if (!node) return false
+  const obs = (readObservedState(node.data) ?? {}) as Record<string, unknown>
+  // The receipt is about `sentValue`. A node that moved on is a newer edit's
+  // business; it resolves (and acknowledges) itself.
+  if (obs.value !== edit.sentValue) return false
+  const before = store.nodes.map((n) =>
+    n.id === edit.nodeId ? { ...n, data: revertedNodeData(n.data, edit) } : n,
+  )
+  return isGraphServerAcknowledged(store.currentScenarioId, before as never, store.edges as never)
+}
+
+function acknowledgeCurrentModel(): void {
+  const store = useCanvasStore.getState()
+  markGraphServerAcknowledged(store.currentScenarioId, store.nodes as never, store.edges as never)
+}
+
 /** What `revertOptimisticFactorEdit` did, for tests and DEV logging. */
 export type RevertOutcome = 'reverted' | 'node_gone' | 'value_moved_on'
 
@@ -809,7 +873,13 @@ export type ConfirmOutcome = 'stamped' | 'no_stamp' | 'node_gone' | 'value_moved
  */
 export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): ConfirmOutcome {
   settlePendingFor(edit)
-  if (!edit.reviewedStamp) return 'no_stamp'
+  // Asked BEFORE any write below: the question is about the graph the receipt
+  // answered, not the one the stamp produces.
+  const receiptAcknowledges = receiptExtendsAcknowledgedModel(edit)
+  if (!edit.reviewedStamp) {
+    if (receiptAcknowledges) acknowledgeCurrentModel()
+    return 'no_stamp'
+  }
   const store = useCanvasStore.getState()
   const node = store.nodes.find((n) => n.id === edit.nodeId)
   if (!node) return 'node_gone'
@@ -839,6 +909,9 @@ export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): Confirm
   } finally {
     store.endExternalGraphMutation?.()
   }
+
+  // After the stamp, so the acknowledgement names the model now on screen.
+  if (receiptAcknowledges) acknowledgeCurrentModel()
 
   // Persist the earned stamp NOW (L66, final-walk defect 0, P1). The stamp is
   // the ONE thing only the client holds — the value round-trips through CEE,
@@ -898,14 +971,12 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   // ⚠ NOT A USER EDIT — a ROLLBACK to the value that was there before. The graph
   // ends up back where the coaching was authored, so treating it as an edit
   // destroys coaching that the revert has just made valid again.
+  // (The `data: { … }` literal below is the shape `coachingSurvivesReload`
+  // §F pins at the source; its content is the one shared `revertedNodeData`.)
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     store.updateNode(edit.nodeId, {
-      data: {
-        ...(node.data as Record<string, unknown>),
-        observedState: edit.prevObservedState,
-        display_value: edit.prevDisplayValue,
-      },
+      data: { ...revertedNodeData(node.data, edit) },
     } as never)
   } finally {
     store.endExternalGraphMutation?.()
