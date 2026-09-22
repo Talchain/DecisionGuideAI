@@ -71,16 +71,72 @@ describe('the triage edit act targets a real Model-tab section', () => {
     expect(keys).not.toContain('model-group-v2-factors')
   })
 
-  it('requests the factors section BY KEY, not by testid', () => {
-    const m = caller.match(/requestModelTabSection\(\s*'([^']+)'\s*\)/)
-    expect(m, 'no literal requestModelTabSection call found in the caller').toBeTruthy()
+  /**
+   * ⚠ THE LITERAL MOVED INTO THE SIGNATURE (22 Sep 2026) AND THIS GUARD GOT
+   * STRONGER RATHER THAN LOOSER. `openModelValueEditor` now takes the section
+   * as a parameter — `'factors'` still the default, so the triage act is
+   * unmoved — because the goal card needs the same act pointed at its own
+   * group, and a SECOND copy of this route is the defect the caller's own
+   * header is about.
+   *
+   * So the old assertion (one literal inside the function body) can no longer
+   * hold: `requestModelTabSection(section)` passes a variable. Restating it
+   * against the default alone would guard LESS than before, because the real
+   * risk has changed shape — it is now that a CALL SITE passes a string that is
+   * not a key. That is exactly the silent degradation the header describes, and
+   * there is now more than one call site to get it wrong.
+   *
+   * ⛔ THIS THEREFORE CHECKS EVERY CALL SITE IN THE TREE, not the caller alone,
+   * and it derives the call sites rather than listing them.
+   */
+  it('the default section is a KEY of the map, not a testid', () => {
+    const m = caller.match(/section:\s*ModelTabSectionId\s*=\s*'([^']+)'/)
+    expect(m, "no defaulted `section: ModelTabSectionId = '…'` found in the caller").toBeTruthy()
     const arg = m![1]
     expect(
       sectionKeys(),
-      `requestModelTabSection('${arg}') is not a key of MODEL_SECTION_TARGET, so the `
+      `the default section '${arg}' is not a key of MODEL_SECTION_TARGET, so the `
         + "consumer's `?? 'model-tab-v2-panel'` fallback will land the user at the panel "
         + 'top with nothing selected.',
     ).toContain(arg)
     expect(arg).toBe('factors')
+    // And the request itself must pass the parameter through — a re-hardcoded
+    // literal here would silently ignore every caller's destination.
+    expect(caller).toMatch(/requestModelTabSection\(\s*section\s*\)/)
+  })
+
+  it('EVERY call site passes a section that is a key of the map', () => {
+    const files = execFileSync('git', ['grep', '-l', 'openModelValueEditor(', '--', 'src'], {
+      encoding: 'utf8',
+    })
+      .split('\n')
+      // ⚠ AND THIS FILE EXCLUDES ITSELF, because its own failure message spells
+      // `openModelValueEditor(…, '${a}')` and the sweep matched that template —
+      // a probe reading its own text as evidence. Caught on the first run.
+      .filter(
+        f =>
+          f.length > 0
+          && !f.endsWith('openModelValueEditor.ts')
+          && !f.endsWith('triageEditActRoutesToFactors.spec.ts'),
+      )
+    // Positive control: the sweep must find call sites at all. A renamed export
+    // would otherwise make this pass by finding nothing.
+    expect(files.length, 'no call sites found — has the export been renamed?').toBeGreaterThan(0)
+
+    const keys = sectionKeys()
+    const args: string[] = []
+    for (const f of files) {
+      const body = readFileSync(f, 'utf8')
+      for (const mm of body.matchAll(/openModelValueEditor\(\s*[^,)]+,\s*'([^']+)'\s*\)/g)) {
+        args.push(mm[1])
+      }
+    }
+    // Contrast control, in this run: a fabricated section must be rejected by
+    // the very predicate the real arguments are judged with. Without it, an
+    // empty `args` would read as a clean pass.
+    expect(keys.includes('not-a-real-section')).toBe(false)
+    for (const a of args) {
+      expect(keys, `openModelValueEditor(…, '${a}') is not a key of MODEL_SECTION_TARGET`).toContain(a)
+    }
   })
 })
