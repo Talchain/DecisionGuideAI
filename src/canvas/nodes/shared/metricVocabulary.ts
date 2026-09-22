@@ -82,6 +82,27 @@ export const METRIC_NOUN = {
 } as const
 
 /**
+ * ⭐ THE LABEL A RUN-DERIVED FIGURE OR RANK CARRIES ONCE THE MODEL HAS CHANGED
+ * SINCE THAT RUN.
+ *
+ * Paul's Ruling 3 (ROADMAP 2.651, quoted at
+ * `components/results/analysisState/analysisStateContract.ts`): "out-of-date
+ * results are labelled, not withheld … No dimming, no aria-disabled lockout."
+ * So a stale `Influence 62%` or `Key driver 1` stays on the card and SAYS which
+ * run it belongs to, rather than asserting it about the model now on screen.
+ *
+ * ⚠ THE STRING IS THE OPTION CARD'S, NOT A NEW ONE. `OptionNode`'s leading pill
+ * already renders `Last run · Most supported` from a literal; this is that
+ * literal, and `staleRun.labelsLastRun.spec.tsx` pins the pill against this
+ * constant so the two cannot drift into two wordings for one state.
+ *
+ * ⚠ THE LICENCE IS `useModelChangedSinceRun()` (`canvas/hooks`) — the composed
+ * verdict's `'changed'`, never `!useAnalysisResultsAreCurrent()`, whose `false`
+ * also covers never-run and cannot-confirm.
+ */
+export const LAST_RUN_PREFIX = 'Last run · '
+
+/**
  * ⭐ WHAT A CAPTIONED QUANTITY SAYS WHEN NOBODY HAS SET IT.
  *
  * ⚠⚠ THE CANONICAL ROOT-CAUSE RECORD FOR THIS CHANGE LIVES HERE, AND THE FOUR

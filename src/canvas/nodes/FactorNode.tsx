@@ -24,6 +24,8 @@ import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { influenceExplanation, influenceBarAriaLabel, influenceBasisNoun, influenceRankExplanation } from '../../components/results/influenceScaleCopy'
 import { useInfluenceRank } from '../hooks/useInfluenceRank'
+import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
+import { LAST_RUN_PREFIX } from './shared/metricVocabulary'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -462,6 +464,28 @@ export const FactorNode = memo((props: NodeProps) => {
     displayMetadata.sensitivityRank,
     displayMetadata.influenceSetSize,
   )
+  /**
+   * ⭐ A STALE RUN'S FIGURE IS LABELLED, NEVER WITHHELD — Paul's Ruling 3
+   * (ROADMAP 2.651): "out-of-date results are labelled, not withheld … No
+   * dimming, no aria-disabled lockout." Once the model has changed since the
+   * run, every influence caption on this card (both views) opens with
+   * `Last run · `, the option card's own wording, and the figure stays.
+   *
+   * ⚠ ONE LOCAL, BOTH ROWS, AND PASSED DOWN to `BaseNode` for the rank badge
+   * and the reduced line — so the card cannot label the figure on one rung
+   * and assert it on another. The licence is `useModelChangedSinceRun` (the
+   * composed `'changed'`), which is a DIFFERENT question from the rank gate
+   * above and deliberately not merged with it: that gate withholds the
+   * countable half on anything short of confirmably current; this one labels
+   * only where the model is known to have moved.
+   *
+   * ⚠ GEOMETRY: the prefix is inline in the caption column, which is
+   * `shrink-0`, so it takes width from the bar (`flex-1 min-w-0`) and cannot
+   * wrap onto a second line. Card HEIGHT is unchanged by construction; the
+   * bar's width on the narrowest card is not measured here.
+   */
+  const resultsFromLastRun = useModelChangedSinceRun()
+  const lastRunPrefix = resultsFromLastRun ? LAST_RUN_PREFIX : ''
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (pill, bar, AND the
@@ -828,11 +852,11 @@ export const FactorNode = memo((props: NodeProps) => {
               <div
                 className="flex items-center gap-1.5"
                 role="group"
-                aria-label={influenceRank ? influenceRank.phrase : influenceBasisNoun(displayMetadata.influenceProvenance)}
+                aria-label={`${lastRunPrefix}${influenceRank ? influenceRank.phrase : influenceBasisNoun(displayMetadata.influenceProvenance)}`}
                 tabIndex={0}
                 data-node-tooltip
               >
-                <span className={`${typography.edgeLabel} text-text-light min-w-[3.5rem] shrink-0`}>{influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}</span>
+                <span className={`${typography.edgeLabel} text-text-light min-w-[3.5rem] shrink-0`}>{lastRunPrefix}{influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}</span>
                 <div className="flex-1 min-w-0">
                   <DataBar
                     value={influencePct / 100}
@@ -962,6 +986,7 @@ export const FactorNode = memo((props: NodeProps) => {
         data={{ ...cleanedData, controllability }}
         nodeType="factor"
         icon={metadata.icon}
+        resultsFromLastRun={resultsFromLastRun}
         headerSlot={(() => {
           // Graph v1.1 Task 2: low-priority factors keep their identity cue
           // (fileQuestion for needs-input) but lose extra science icons in
@@ -1205,7 +1230,7 @@ export const FactorNode = memo((props: NodeProps) => {
              visual harness (see the report). The pixel claim in that docblock
              is the component author's, not re-derived here. */
           <NodeMetricRow
-            label={influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}
+            label={`${lastRunPrefix}${influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}`}
             value={influencePct / 100}
             formatted={influenceRank ? influenceRank.setSizeText : `${influencePct}%`}
             fillClass="bg-info"
@@ -1232,7 +1257,7 @@ export const FactorNode = memo((props: NodeProps) => {
                announce "Most influential: of 5." Unranked rows pass nothing and
                keep the default, unchanged. */
             accessibleName={influenceRank
-              ? `${influenceRank.phrase}, at ${influencePct}% of the strongest factor. ${influenceBarAriaLabel(
+              ? `${lastRunPrefix}${influenceRank.phrase}, at ${influencePct}% of the strongest factor. ${influenceBarAriaLabel(
                   displayMetadata.influenceProvenance,
                   displayMetadata.influenceImportanceBasis,
                 )}`
