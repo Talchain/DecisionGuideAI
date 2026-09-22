@@ -20,7 +20,7 @@
  * rowed separately rather than swept in.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { FactorControllablePanel } from '../panels/FactorControllablePanel'
 import { useCanvasStore } from '../../../store'
 
@@ -53,7 +53,7 @@ describe('FactorControllablePanel — influence needs its basis', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       ...BASE, influence: 0.62, influenceProvenance: 'sensitivity',
     } as never)
-    render(<FactorControllablePanel nodeId="fac1" /> as never)
+    render(<FactorControllablePanel nodeId="fac1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     expect(document.body.textContent, 'a basis-backed influence was withheld').toMatch(/62\s*%/)
   })
 
@@ -61,7 +61,7 @@ describe('FactorControllablePanel — influence needs its basis', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       ...BASE, influence: 1, influenceProvenance: null,
     } as never)
-    render(<FactorControllablePanel nodeId="fac1" /> as never)
+    render(<FactorControllablePanel nodeId="fac1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     expect(
       document.body.textContent,
       'the top driver reads 100% BY CONSTRUCTION on the fallback basis',

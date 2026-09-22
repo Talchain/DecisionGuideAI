@@ -285,7 +285,7 @@ describe('ImportanceBar', () => {
   it('ordinalFor handles 11th/12th/13th correctly', () => {
     // Rank > 3 won't show from useNodeDisplayMetadata (caps at 3),
     // but the ordinal function is defensive
-    render(<ImportanceBar importanceScore={0.1} sensitivityRank={1} />)
+    render(<ImportanceBar importanceScore={0.1} sensitivityRank={1} influenceProvenance="sensitivity" />)
     expect(screen.getByText('1st')).toBeTruthy()
   })
 })

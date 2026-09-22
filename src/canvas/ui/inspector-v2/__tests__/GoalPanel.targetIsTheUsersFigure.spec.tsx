@@ -25,7 +25,7 @@
  * shown `≥ 0.8` while the panel held `20000` and `£` one line away.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { GoalPanel } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
 
@@ -47,7 +47,7 @@ describe('GoalPanel — the target is the user\'s own figure', () => {
 
   it("⭐ shows the RAW figure and its unit, not the normalised constant", () => {
     seed({ goal_threshold_raw: 20000, goal_threshold_unit: '£' }, 0.8, 'normalised')
-    render(<GoalPanel nodeId="goal1" />)
+    render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     const txt = document.body.innerText || document.body.textContent || ''
     expect(txt, 'the panel stated the 0.8 constant instead of the target').not.toMatch(/\b0\.8\b/)
     expect(txt, "the reader's own figure was withheld").toMatch(/20[,.]?000/)
@@ -61,7 +61,7 @@ describe('GoalPanel — the target is the user\'s own figure', () => {
    */
   it('⛔ an out-of-range normalised value still yields the raw target', () => {
     seed({ goal_threshold_raw: 110, goal_threshold_unit: '%' }, 1.1, 'normalised')
-    render(<GoalPanel nodeId="goal1" />)
+    render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     const txt = document.body.innerText || document.body.textContent || ''
     expect(txt).toMatch(/110/)
     expect(txt, 'the incoherent normalised scalar was stated').not.toMatch(/\b1\.1\b/)
@@ -75,7 +75,7 @@ describe('GoalPanel — the target is the user\'s own figure', () => {
    */
   it('⭐ CONTROL: with no raw anchor the constant is withheld, not printed', () => {
     seed({}, 0.8, 'normalised')
-    render(<GoalPanel nodeId="goal1" />)
+    render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     const txt = document.body.innerText || document.body.textContent || ''
     expect(txt).not.toMatch(/\b0\.8\b/)
   })
