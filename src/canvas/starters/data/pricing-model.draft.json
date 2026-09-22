@@ -95,10 +95,12 @@
       "id": "goal_pricing_transition",
       "kind": "goal",
       "label": "Achieve NRR Above 110% While Enabling Bottom-Up Adoption",
-      "goal_threshold": 1.1,
+      "goal_threshold": 0.8,
       "goal_threshold_raw": 110,
       "goal_threshold_unit": "%",
-      "goal_threshold_cap": 140,
+      "goal_threshold_cap": 137.5,
+      "goal_threshold_cap_provenance": "target_derived_headroom",
+      "goal_threshold_frame": "level",
       "provenance": "ai_inferred"
     },
     {
@@ -1256,7 +1258,7 @@
     "goal_node_id": "goal_pricing_transition",
     "status": "ready",
     "bias_findings": [],
-    "goal_threshold": 1.1,
+    "goal_threshold": 0.8,
     "model_adjustments": [
       {
         "code": "category_reclassified",

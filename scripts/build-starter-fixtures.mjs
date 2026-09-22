@@ -26,7 +26,7 @@
  * is exactly the hand-maintained mirror that would go stale on the next
  * recapture (CLAUDE.md trap 12).
  *
- * THREE transformations are applied, all mechanical and all re-derivable:
+ * FOUR transformations are applied, all mechanical and all re-derivable:
  *
  *  1. Deletion of two purely diagnostic top-level keys (see STRIPPED_KEYS).
  *  2. Overlay of the RE-DERIVED `analysis_ready` display strings (see
@@ -34,6 +34,10 @@
  *     unchanged, and the assertion fails the build if one moves.
  *  3. Repair of MALFORMED captured display strings (see CAPTURE_TEXT_REPAIRS).
  *     Exact-match, declared one string at a time, with the hit count pinned.
+ *  4. Repair of an INCOHERENT captured goal threshold (see
+ *     CAPTURE_GOAL_THRESHOLD_REPAIRS). The ONLY transformation that moves a
+ *     number, and it moves only the goal's normalisation — never the user's
+ *     stated figure. Exact-match on the captured fields, hit count pinned.
  *
  * Nothing else is rewritten, reordered, padded or invented — a hand-written
  * graph would be a fabricated demo.
@@ -216,6 +220,160 @@ function repairCapturedText(id, fixture) {
     // Non-vacuity: the replacement must actually differ, or the entry is a no-op
     // dressed as a fix.
     if (r.to === r.from) fail(`${id}: text repair replacement is identical to the source string`)
+  }
+}
+
+/**
+ * TRANSFORMATION 4 — repair of an INCOHERENT captured goal threshold.
+ *
+ * THE CONTRACT. `goal_threshold` is NORMALISED: CEE mints it as
+ * `raw / cap` (`src/utils/goal-threshold-cap.ts`), and every consumer reads it
+ * on [0, 1] — PLoT's 2.239-G guard (`routes/v2/run.ts`) refuses anything `>= 1`
+ * as "the target is pinned to the top of its own normalisation range".
+ *
+ * WHAT THE CAPTURES CARRY.
+ *
+ *   pricing-model  goal_pricing_transition  threshold 1.1 · raw 110 · '%' · cap 140
+ *   market-entry   goal_arr_growth          threshold 0.73 · raw 11 · '£M ARR' · cap 15
+ *
+ * `pricing-model` is raw / 100 — the percent read as a fraction — not raw / cap
+ * (0.7857…), and it is outside [0, 1]. Measured consequence on the served stack
+ * (CEE 9c16e8c, PLoT 5039cca, ISL staging c00f5077): the canvas registers node
+ * data verbatim, CEE persists it verbatim (the only bound it enforces on this
+ * field is finiteness), and PLoT's guard then drops the threshold before ISL.
+ * The run returns NO goal probability and NO reason for its absence, while the
+ * goal card reads "Target: 110%" off `goal_threshold_raw`. Nothing on screen
+ * disagrees with the defect, which is why it survived.
+ *
+ * `market-entry` is the ratio ROUNDED to two places (11 / 15 = 0.7333…). Inside
+ * [0, 1] and harmless today, but it is not `raw / cap`, and "equal to raw / cap"
+ * is the invariant `starters.goalThresholdCoherence.spec.ts` holds every starter
+ * to. Only the rounding is undone; its cap is the capture's own and no
+ * attestation is added — CEE's rule is that absent provenance means UNATTESTED
+ * and must never be defaulted.
+ *
+ * THE PRICING REPLACEMENT IS CEE'S OWN MINT, NOT A HAND-PICKED NUMBER. It is the
+ * output of CEE's draft projector `applyStatedGoalTarget`
+ * (`cee/draft/records/projector.ts` @ 9c16e8c) for the captured raw and unit:
+ * `resolveGoalThresholdCapWithProvenance(undefined, 110, '%', undefined)` falls
+ * past rule 2 (a '%' target above 100) to rule 3, a 25% headroom cap —
+ * `cap = 137.5`, provenance `target_derived_headroom`, `goal_threshold = raw / cap
+ * = 0.8` — and the same statement stamps `goal_threshold_frame: 'level'`,
+ * because `raw / cap` is a level by construction. That projector's own rule is
+ * that raw · cap · normalised · frame · unit "travel together, from ONE
+ * derivation, or not at all", so all six are written here together.
+ *
+ * ⚠ WHY THE FRAME IS INCLUDED. Without it ISL refuses with
+ * GOAL_THRESHOLD_FRAME_UNSPECIFIED and the canvas tells the reader to "restate
+ * the target as a level to reach or a change" — untrue of "NRR above 110%".
+ * With it ISL reaches its level limb and refuses for the reason that IS true of
+ * this graph (no current NRR is recorded: `missing_goal_baseline`), which the
+ * canvas renders as "the probability of reaching it was withheld rather than
+ * guessed". Either way no probability is fabricated; the frame decides only
+ * whether the stated reason is the true one.
+ *
+ * ⚠ THE CAPTURES ARE NOT EDITED, exactly as for transformations 2 and 3.
+ * ⚠ EXACT MATCH, BOTH DIRECTIONS. Every `from` field must equal the capture
+ * byte-for-byte and the node must carry no OTHER goal-threshold field, or the
+ * build fails — a recapture that fixed this upstream must delete the entry, not
+ * have it no-op silently (CLAUDE.md trap 15). The `to` block is asserted
+ * coherent before it is written (`raw / cap` exactly, inside [0, 1], and a
+ * headroom provenance only beside a `raw × 1.25` cap).
+ */
+const CAPTURE_GOAL_THRESHOLD_REPAIRS = [
+  {
+    starter: 'pricing-model',
+    goalNodeId: 'goal_pricing_transition',
+    from: { goal_threshold: 1.1, goal_threshold_raw: 110, goal_threshold_unit: '%', goal_threshold_cap: 140 },
+    to: {
+      goal_threshold: 110 / 137.5,
+      goal_threshold_raw: 110,
+      goal_threshold_unit: '%',
+      goal_threshold_cap: 137.5,
+      goal_threshold_cap_provenance: 'target_derived_headroom',
+      goal_threshold_frame: 'level',
+    },
+    // 1 × the goal node + 1 × the top-level `analysis_ready.goal_threshold` mirror.
+    expectedHits: 2,
+    reason:
+      'captured goal_threshold 1.1 was raw/100, not raw/cap, and outside [0,1]; PLoT refuses >= 1, so the run returned no goal probability and no reason. Re-minted with CEE applyStatedGoalTarget @ 9c16e8c (rule 3 headroom cap).',
+  },
+  {
+    starter: 'market-entry',
+    goalNodeId: 'goal_arr_growth',
+    from: { goal_threshold: 0.73, goal_threshold_raw: 11, goal_threshold_unit: '£M ARR', goal_threshold_cap: 15 },
+    to: { goal_threshold: 11 / 15, goal_threshold_raw: 11, goal_threshold_unit: '£M ARR', goal_threshold_cap: 15 },
+    expectedHits: 2,
+    reason: 'captured goal_threshold 0.73 was raw/cap rounded to two places; restored to the exact ratio, captured cap kept, no provenance added.',
+  },
+]
+
+/** Every goal-threshold field a node can carry; the repair must own all of them. */
+const GOAL_THRESHOLD_FIELDS = [
+  'goal_threshold',
+  'goal_threshold_raw',
+  'goal_threshold_unit',
+  'goal_threshold_cap',
+  'goal_threshold_cap_provenance',
+  'goal_threshold_frame',
+]
+
+function repairGoalThreshold(id, fixture) {
+  const repairs = CAPTURE_GOAL_THRESHOLD_REPAIRS.filter((r) => r.starter === id)
+  for (const r of repairs) {
+    const { to } = r
+    // The replacement must itself satisfy the contract it is repairing towards.
+    if (!(to.goal_threshold >= 0 && to.goal_threshold <= 1)) fail(`${id}: goal repair target ${to.goal_threshold} is outside [0, 1]`)
+    if (to.goal_threshold !== to.goal_threshold_raw / to.goal_threshold_cap) {
+      fail(`${id}: goal repair target ${to.goal_threshold} is not raw / cap (${to.goal_threshold_raw} / ${to.goal_threshold_cap})`)
+    }
+    if (to.goal_threshold_cap_provenance === 'target_derived_headroom' && to.goal_threshold_cap !== to.goal_threshold_raw * 1.25) {
+      fail(`${id}: a target_derived_headroom provenance must sit beside a raw × 1.25 cap`)
+    }
+    if (to.goal_threshold_raw !== r.from.goal_threshold_raw || to.goal_threshold_unit !== r.from.goal_threshold_unit) {
+      fail(`${id}: a goal repair may move the normalisation, never the user's stated figure or unit`)
+    }
+
+    let hits = 0
+    const index = fixture.nodes.findIndex((n) => n.id === r.goalNodeId)
+    if (index < 0) fail(`${id}: goal repair names node "${r.goalNodeId}", which the capture does not carry`)
+    const node = fixture.nodes[index]
+    if (node.kind !== 'goal') fail(`${id}: goal repair node "${r.goalNodeId}" is kind "${node.kind}", not goal`)
+    for (const key of GOAL_THRESHOLD_FIELDS) {
+      const captured = node[key]
+      if (key in r.from) {
+        if (captured !== r.from[key]) {
+          fail(`${id}: ${r.goalNodeId}.${key} is ${JSON.stringify(captured)}, repair expects ${JSON.stringify(r.from[key])}. If a recapture fixed this upstream, DELETE the repair entry.`)
+        }
+      } else if (captured !== undefined) {
+        fail(`${id}: ${r.goalNodeId}.${key} is present in the capture but not owned by the repair — review it before repairing`)
+      }
+    }
+    // Rebuild in place, keeping the node's own key order: the repaired block
+    // lands where the captured block stood, so the diff shows only what moved.
+    const rebuilt = {}
+    let written = false
+    for (const [key, value] of Object.entries(node)) {
+      if (GOAL_THRESHOLD_FIELDS.includes(key)) {
+        if (!written) Object.assign(rebuilt, to)
+        written = true
+        continue
+      }
+      rebuilt[key] = value
+    }
+    fixture.nodes[index] = rebuilt
+    hits += 1
+
+    const ar = fixture.analysis_ready
+    if (ar && 'goal_threshold' in ar) {
+      if (ar.goal_node_id !== r.goalNodeId) fail(`${id}: analysis_ready.goal_node_id is not the repaired goal`)
+      if (ar.goal_threshold !== r.from.goal_threshold) {
+        fail(`${id}: analysis_ready.goal_threshold is ${ar.goal_threshold}, repair expects ${r.from.goal_threshold}`)
+      }
+      ar.goal_threshold = to.goal_threshold
+      hits += 1
+    }
+    if (hits !== r.expectedHits) fail(`${id}: goal repair matched ${hits} site(s), expected exactly ${r.expectedHits}`)
   }
 }
 
@@ -439,6 +597,11 @@ function build() {
     if (Array.isArray(fixture.nodes)) fixture.nodes = JSON.parse(JSON.stringify(fixture.nodes))
     repairCapturedText(s.id, fixture)
 
+    // --- Transformation 4: repair an incoherent captured goal threshold ---
+    // Operates on the deep-cloned `nodes` and `analysis_ready` above, so the
+    // parsed capture that the card copy and counts are derived from is untouched.
+    repairGoalThreshold(s.id, fixture)
+
     const { title, summary } = deriveCardCopy(s.id, capture.nodes)
 
     fixtures.set(s.id, JSON.stringify(fixture, null, 2) + '\n')
@@ -476,7 +639,8 @@ function build() {
         // Disclosed on the record: the shipped graph is the captured graph, but
         // its analysis_ready display STRINGS were re-derived through CEE's
         // post-#944 guarded transform. Values, nodes, edges and counts are the
-        // capture's own. See the script header.
+        // capture's own, except a goal's normalised threshold where
+        // `goalThresholdRepairs` below says so. See the script header.
         displayValuesRederived: {
           reason: 'capture predates CEE #944 (sitsAtObservedState); every option borrowed the factor baseline display string',
           artefact: 'docs/evidence/starters/rederived-analysis-ready.json',
@@ -491,6 +655,14 @@ function build() {
           from: r.from,
           to: r.to,
           occurrences: r.expectedHits,
+          reason: r.reason,
+        })),
+        // Transformation 4, disclosed the same way: derived from the table, and
+        // an empty list rather than a missing key where nothing was repaired.
+        goalThresholdRepairs: CAPTURE_GOAL_THRESHOLD_REPAIRS.filter((r) => r.starter === s.id).map((r) => ({
+          goalNodeId: r.goalNodeId,
+          from: r.from,
+          to: r.to,
           reason: r.reason,
         })),
         note: s.note,
