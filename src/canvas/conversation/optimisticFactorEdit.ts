@@ -50,6 +50,7 @@ import {
   formatNumber,
   DOUBLE_ROUND_TRIP_SIGNIFICANT_DIGITS,
 } from '../utils/formatValueWithUnit'
+import { settleFactorEditInFlight } from './pendingFactorEdit'
 
 /**
  * Everything needed to undo one optimistic value write, captured BEFORE it.
@@ -100,6 +101,36 @@ export interface OptimisticFactorEdit {
  * is the key the optimistic write (`setObservedValue`) created, so the two halves
  * cannot end up disagreeing about which copy is live.
  */
+/**
+ * ⭐⭐ PENDING ENDS WHERE THE EDIT RESOLVES, NOT WHERE AN ATTEMPT ENDS.
+ *
+ * The pending readout (`pendingFactorEdit`) keeps a user's typed number on
+ * screen while the engine has not answered, because the projection otherwise
+ * suppresses an unanchored bare number and the card goes blank on the value the
+ * user just typed.
+ *
+ * ⚠ THE FIRST VERSION SETTLED IT IN `sendTurn`'s `finally` AND THAT WAS WRONG,
+ * witnessed in a real browser: that `finally` ends an ATTEMPT. A deferred system
+ * edit stays queued across up to `MAX_FLUSH_ATTEMPTS` and is only forgotten on
+ * acceptance or a proven no-write, so the readout cleared after attempt 1 of 3
+ * while the number was still genuinely unacknowledged.
+ *
+ * The two functions below ARE the resolution — they are the only writes that
+ * end an optimistic factor edit's life in canonical state — so settling in them
+ * is correct by construction. Both no-op outcomes (`node_gone`,
+ * `value_moved_on`) settle too: the edit is over either way, and a superseded
+ * value stands down inside `settleFactorEditInFlight` itself.
+ *
+ * ⚠ AND IF NEITHER EVER RUNS, PENDING DELIBERATELY PERSISTS. At the deferred
+ * attempt cap the value stays local and unsent by design (the dirty hold has to
+ * stay truthful), so the honest screen is the number with no authorship claim —
+ * not a blank. A pending readout that outlives a failed send is telling the
+ * truth about the model.
+ */
+function settlePendingFor(edit: OptimisticFactorEdit): void {
+  settleFactorEditInFlight(edit.nodeId, edit.sentValue)
+}
+
 function readObservedState(nodeData: unknown): unknown {
   const d = (nodeData ?? {}) as Record<string, unknown>
   return d.observedState ?? d.observed_state
@@ -694,6 +725,7 @@ export type ConfirmOutcome = 'stamped' | 'no_stamp' | 'node_gone' | 'value_moved
  * (Model tab, inspector) pass no stamp and are byte-identical through here.
  */
 export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): ConfirmOutcome {
+  settlePendingFor(edit)
   if (!edit.reviewedStamp) return 'no_stamp'
   const store = useCanvasStore.getState()
   const node = store.nodes.find((n) => n.id === edit.nodeId)
@@ -771,6 +803,7 @@ export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): Confirm
  * stale revert is a silent overwrite of newer truth.
  */
 export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOutcome {
+  settlePendingFor(edit)
   const store = useCanvasStore.getState()
   const node = store.nodes.find((n) => n.id === edit.nodeId)
   if (!node) return 'node_gone'

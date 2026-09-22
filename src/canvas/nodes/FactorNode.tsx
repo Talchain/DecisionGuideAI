@@ -11,6 +11,9 @@ import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
+import { NodeValueEditor } from './shared/NodeValueEditor'
+import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
+import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
@@ -64,6 +67,29 @@ export const FactorNode = memo((props: NodeProps) => {
   const isDetailed = viewMode === 'expert'
 
   const nodeCategory = props.data?.category as string | undefined
+
+  /**
+   * ⭐ THE SAME AUTHORITY THE MODEL TAB WRITES THROUGH, not a second one.
+   * `proposeFactorValue` carries `factor_value_edit` with an optimistic revert
+   * and fails CLOSED on a value the wire cannot encode. Using it here means the
+   * card and the Model tab cannot disagree about whether an edit reached the
+   * model — which is the trap-21 shape this estate keeps paying for.
+   */
+  const editAuthority = useModelEditAuthority(props.id)
+  /**
+   * ⭐⭐ THE NUMBER THIS CARD WOULD OTHERWISE BE HIDING.
+   *
+   * Witnessed on this PR before the fix: typing `0.77` into a `unit: "scale"`
+   * factor moved the canonical store 0.5 -> 0.77 and the card then rendered
+   * NOTHING, unmounting its own editor with it. Two correct rules composing
+   * wrongly — the projection suppresses an unanchored bare number so it cannot
+   * read as measured, and the edit authority rightly withholds `source: 'user'`
+   * until CEE returns a receipt, so the projection's rescue could never fire.
+   *
+   * ⛔ Delivery state, not provenance: it paints no pill, moves no "to verify"
+   * count, and is never persisted. See `conversation/pendingFactorEdit`.
+   */
+  const pendingEditValue = usePendingFactorEditValue(props.id)
   const controllability = useMemo(() => {
     if (!isPostAnalysis) return undefined
     return deriveControllability(props.id, ceeAnalysisReady?.options, edges, nodeCategory)
@@ -167,12 +193,15 @@ export const FactorNode = memo((props: NodeProps) => {
     () => factorDisplayText({
       ...props.data,
       label: cleanedLabel,
+      // Top level, never inside observedState: the observed state is the
+      // persisted model and an unacknowledged keystroke must not reach it.
+      pending_user_value: pendingEditValue,
       observedState: observedState && {
         ...observedState,
         unit: isSuppressedUnit(observedState.unit ?? undefined) ? undefined : observedState.unit,
       },
     }),
-    [props.data, cleanedLabel, observedState],
+    [props.data, cleanedLabel, observedState, pendingEditValue],
   )
 
   // Prior range for external factors (only the range values, no "Variable"
@@ -211,6 +240,17 @@ export const FactorNode = memo((props: NodeProps) => {
    * the number without the mark. One owner, three readers.
    */
   const isInferred = factorValueIsUnconfirmedEstimate(props.data)
+
+  // ⭐ ONE readout, two affordances. The on-graph editor and the read-only span
+  // render the SAME recorded readout, so the card cannot show two different
+  // numbers depending on whether the value happens to have a durable carrier.
+  //
+  // ⚠ Hoisted because duplicating the expression at both branches broke the
+  // recorded-value guard's UNIQUENESS binding: its anchor matched twice, so its
+  // +/-240 window was no longer bound to either render site. An anchor that
+  // matches twice is not a binding (trap 19) - the guard was right to refuse.
+  const recordedValueReadout =
+    isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -964,8 +1004,33 @@ export const FactorNode = memo((props: NodeProps) => {
             the popover and the inspector keep the full string. A value the
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
-          <div className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}>
-            <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
+          <div
+            className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}
+            data-testid="factor-recorded-value"
+          >
+            {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
+                model. A controllable factor's value has a durable carrier
+                (`factor_value_edit`); an observable factor's and a risk's do
+                NOT, and the inspector fences them for exactly that reason. An
+                editable-looking control on a value that cannot be sent would be
+                the more convincing lie: the user would act on it. So the
+                affordance follows the CARRIER, per writer, never per surface.
+
+                ⚠ Seeded from `observedState.value`, the EXACT number — never
+                from `valueDisplay`, which is a formatted readout. Seeding from a
+                rounded string once committed 0.38 for a 0.376 and destroyed the
+                producer's precision. */}
+            {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
+              <NodeValueEditor
+                value={observedState.value}
+                readout={recordedValueReadout}
+                onCommit={(v) => editAuthority.proposeFactorValue(v)}
+                ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
+                testId={`node-value-editor-${props.id}`}
+              />
+            ) : (
+              <span>{recordedValueReadout}</span>
+            )}
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>
         )}

@@ -164,6 +164,7 @@ import {
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
+import { markFactorEditInFlight } from './pendingFactorEdit'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -3867,6 +3868,21 @@ export function useConversation(): UseConversationReturn {
           // DEFER, do not drop. Returns a sentinel so the caller can tell this
           // apart from a dispatched turn — the old bare `return` could not be
           // distinguished from success by any caller, in prod or in a test.
+          //
+          // ⭐⭐ AND THE CARD IS TOLD HERE TOO — this return is WHY the first
+          // version of the pending readout did nothing in a real browser.
+          // A queued edit never reaches the dispatch-time mark further down, so
+          // the commonest case (an edit made while any turn is in flight) was
+          // the one case with no pending state at all, and the card went blank
+          // exactly as before. Marking on BOTH admission paths is what Codex's
+          // "immediate and deferred dispatch through the shared settlement
+          // owner" requires; settlement is already shared, admission was not.
+          if (opts.optimisticFactorEdit) {
+            markFactorEditInFlight(
+              opts.optimisticFactorEdit.nodeId,
+              opts.optimisticFactorEdit.sentValue,
+            )
+          }
           enqueueDeferredSystemSend(opts)
           return SEND_DEFERRED
         } else {
@@ -3905,6 +3921,26 @@ export function useConversation(): UseConversationReturn {
         opts.mode === 'system' && systemEvent?.type === 'factor_value_edit'
           ? (opts.optimisticFactorEdit ?? null)
           : null
+      // ⭐⭐ AND THE CARD IS TOLD THE NUMBER IS IN FLIGHT, at this same moment
+      // and for the same reason: this is where the dispatch is ADMITTED, so it
+      // is the earliest point at which "a person typed this and the engine has
+      // not answered" is true. Marking at composition time would claim a send
+      // that may never happen.
+      //
+      // Placed here rather than in the three writer surfaces because all of
+      // them — the on-graph editor, the inspector panel and the pre-analysis
+      // drill-in — reach the wire through this one function, and a deferred
+      // flush arrives here too. One owner, so the immediate and deferred paths
+      // cannot drift (the mistake the 2.304 stamp was written to avoid).
+      //
+      // ⛔ Delivery state only. Nothing here writes provenance; the stamp is
+      // still `confirmOptimisticFactorEdit`'s alone, against a receipt.
+      if (inFlightOptimisticFactorEditRef.current) {
+        markFactorEditInFlight(
+          inFlightOptimisticFactorEditRef.current.nodeId,
+          inFlightOptimisticFactorEditRef.current.sentValue,
+        )
+      }
       // Stop-fence: capture the stop identity HERE, at the point every turn kind
       // passes through, not only in the V5 branch. The V5 branch refines it below
       // once `currentScenarioId` is definitively resolved (it can MINT a scenario
@@ -5801,6 +5837,20 @@ export function useConversation(): UseConversationReturn {
         if (inFlightOptimisticFactorEditRef.current === opts.optimisticFactorEdit) {
           inFlightOptimisticFactorEditRef.current = null
         }
+        // ⚠⚠ NO PENDING SETTLE HERE, AND THE FIRST VERSION OF THIS FIX PUT ONE
+        // HERE AND WAS WRONG — witnessed in a real browser, card still blank.
+        //
+        // This `finally` ends an ATTEMPT, not an EDIT. A deferred system edit
+        // stays queued across up to `MAX_FLUSH_ATTEMPTS` and is only forgotten
+        // on acceptance or a proven no-write, so settling here cleared the
+        // pending readout after attempt 1 of 3 while the number was still
+        // genuinely unacknowledged — and the card went blank again, which is
+        // the exact defect this was written to remove.
+        //
+        // Pending now ends where the EDIT resolves into canonical state:
+        // `confirmOptimisticFactorEdit` and `revertOptimisticFactorEdit`, the
+        // two functions that own that transition. By construction rather than
+        // by guessing at attempt boundaries.
         useDraftStore.getState().setIsGenerating(false)
         // ROADMAP 2.122 — every-exit settle for the streamed draft phase
         // (abort, timeout, thrown dispatch, a `return` from the abort guard).
