@@ -295,8 +295,31 @@ const FROZEN_REQUIRED_EVIDENCE: Readonly<Record<string, string>> = {
     'no edit control mounts',
   preAnalysisFactorConfirmation:
     'no confirmation control mounts',
+  /**
+   * ⭐⭐ UPDATED 22 Sep 2026 — A DELIBERATE, ARGUED ACT, WHICH IS THE ONLY WAY
+   * THIS TABLE MAY BE EDITED. The previous record read *"no edge-strength
+   * control mounts"*. That sentence is now FALSE, and leaving it frozen would
+   * preserve a false record rather than protect a true one.
+   *
+   * THE WORLD MOVED, and this PR is what moved it: `PreAnalysisPanel`'s
+   * handler was one local `updateEdgeData` that emitted nothing, and is now
+   * wired through `buildEdgeStrengthEditEvent` → `sendSystemEvent` →
+   * `adaptEdgeStrengthEdit` → CEE `dispatchEdgeStrengthEdit`.
+   *
+   * ⭐ AND THE NEW SENTENCE WAS CHECKED AGAINST THE DEPLOYED SERVICE, not just
+   * against this repo — which is the one class the freeze's own header admits
+   * it cannot catch ("all three wrong together"). At deployed CEE `9b98fcd`,
+   * `dispatch.ts:707` refuses `edge_strength_edit` as `reader_only_refusal`
+   * whenever `config.features.graphCas.rpcEnforce !== true`, and
+   * `config/index.ts:394` derives `rpcEnforce = rpcMode === "enforce"`.
+   * `GET /healthz` on `cee-staging` reports
+   * `graph_cas: { rpc_mode: "enforce", enforcing: true }` — two independent
+   * readings of the same capability object. So the refusal branch is NOT taken
+   * and the edit is handled `'mutating'`: the evidence this row now claims is
+   * obtainable in the deployed posture, not merely in the code.
+   */
   preAnalysisEdgeStrength:
-    'no edge-strength control mounts',
+    'accepted edge_strength_edit from the card quick-select; pills render only where edgeStrengthEditIsAssertable',
   preAnalysisV3FactorValue:
     'accepted factor_value_edit plus receipt-gated optimistic rollback/readback',
   preAnalysisV3FactorConfirmation:
