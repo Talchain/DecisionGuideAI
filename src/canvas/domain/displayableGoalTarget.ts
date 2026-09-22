@@ -1,4 +1,38 @@
 /**
+ * ⛔⛔⛔ SUPERSEDED — `domain/goalTarget.ts` OWNED THIS QUESTION FIRST.
+ *
+ * This module was written for #1844 under the docblock below, which claims to be
+ * "the ONE owner" of *"is there a target worth stating"*. It is not, and it never
+ * was: `domain/goalTarget.ts` exports `resolveGoalTarget()`, documented as
+ * returning "the figure, in the USER's units. Never a normalised 0-1", and
+ * `GoalNode` — the goal CARD — has been using it all along. So #1844 created a
+ * SECOND owner of one question: the hand-maintained mirror (CLAUDE.md trap 12),
+ * committed by the very change that cites it. Found 22 Sep 2026 while checking
+ * whether the card and the panel disagreed.
+ *
+ * `resolveGoalTarget` is also strictly better in ways that show on screen:
+ *   · it prefers the reader's own `success_threshold` when
+ *     `threshold_source === 'user'`, falling back to CEE's `goal_threshold_raw`.
+ *     THIS MODULE KNOWS NOTHING OF `success_threshold`, so a surface using it
+ *     shows CEE's figure back to someone who has just typed their own.
+ *   · it returns `source: 'user' | 'brief'`, and those "are different claims
+ *     about authorship".
+ *   · it rejects a blank string, which `goal_threshold_raw` can be.
+ *
+ * ⛔ DO NOT ADD A CONSUMER. `inspector-v2/panels/GoalPanel.tsx` was moved off it
+ * on 22 Sep. The only remaining importer is `ui/NodeInspector.tsx`, which has NO
+ * REACHABLE RENDER SITE (`InspectorModal.tsx:160` returns unconditionally under
+ * the module literal `const USE_INSPECTOR_V2 = true`, above that file's only
+ * `<NodeInspector>` at `:226`; `PropertiesPanel` has zero non-test importers).
+ *
+ * ⭐ IT IS KEPT, NOT DELETED, FOR ONE REASON: its spec
+ * `__tests__/aConstantIsNotATarget.spec.ts` carries the 989-bundle measurement
+ * that motivated the whole line of work — 0.8 in 42 of 54, `cap/raw === 1.25` in
+ * 18 of 18 — and that evidence should not be thrown away with the code. Removing
+ * both, and folding the measurement into `goalTarget.ts`, is rowed.
+ */
+
+/**
  * ⭐⭐⭐ A CONSTANT IS NOT A TARGET.
  *
  * ## The measurement, and it is the whole reason this module exists
