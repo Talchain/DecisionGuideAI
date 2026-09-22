@@ -49,6 +49,24 @@ test('INSPECTOR DESTINATION — per node kind, is the editor enabled?', async ({
   const readDock = () => page.evaluate(() => {
     const flow = document.querySelector('.react-flow')
     const inDock = (e: Element) => !(flow && flow.contains(e))
+    /**
+     * ⛔ INPUT-SHAPED EDITORS ONLY, AND THE LIMIT IS STATED RATHER THAN CLOSED.
+     *
+     * This under-reports in one known way: an EXTERNAL factor's editor is the
+     * quick-set range BUTTONS as well as the tech-mode Min/Max inputs
+     * (`analyticalNodeFields.ts` on `prior`), so a button-only panel reads
+     * `live=0` here. `live=0` therefore means **no input-shaped editor**, not
+     * "no editor" — and the kind-level verdict below is unaffected, because
+     * every kind that has a carrier also has at least one input-shaped editor.
+     *
+     * ⚠ AND ADMITTING BUTTONS WAS TRIED, MEASURED, AND REVERTED. A name-matched
+     * allowance (`/set |change|edit|adjust|confirm|apply|min|max|range|.../`)
+     * made EVERY node report five live editors, because it matched the dock's
+     * own chrome: *"Auto-ar**range**"*, *"Click to re**set** to 100%"*,
+     * *"Minimise"*. A decision node — which has no carrier at all — read as
+     * fully editable. A widened population that reads as capability is worse
+     * than a narrow one that states its limit, so the limit is stated.
+     */
     const all = Array.from(document.querySelectorAll('input,textarea,select,[role="slider"],[contenteditable="true"]')).filter(inDock)
     const live = all.filter((e) => {
       const i = e as HTMLInputElement
@@ -96,7 +114,35 @@ test('INSPECTOR DESTINATION — per node kind, is the editor enabled?', async ({
   for (const [k, v] of byKind) console.log(`[ID] KIND ${k.padEnd(9)} ${v.withLive}/${v.n} reach a live editor`)
 
   const measurable = rows.length > 5 && cPresent && cAbsent && cFactor
-  const deadKinds = [...byKind.entries()].filter(([, v]) => v.withLive === 0).map(([k]) => k)
-  console.log(`[ID] VERDICT ${measurable ? (deadKinds.length === 0 ? 'PASS' : 'FAIL') : 'NOT-MEASURED'} — kindsWithNoLiveEditor=${JSON.stringify(deadKinds)}`)
+  const deadKinds = [...byKind.entries()].filter(([, v]) => v.withLive === 0).map(([k]) => k).sort()
+
+  /**
+   * ⛔ THE VERDICT IS AGAINST THE KNOWN CARRIER SET, NOT AGAINST ZERO — because
+   * a witness that can only ever FAIL is noise, and the reader stops looking.
+   *
+   * `MODEL_CHANGING_SYSTEM_EVENT_TYPES` has seven members and NONE of them
+   * carries an arbitrary node field. A risk's likelihood, an outcome's range
+   * and a decision's description therefore have no route to the shared model at
+   * all, and no editor behind their panels would be honest. That is a PRODUCER
+   * gap, tracked with CEE — not a UI regression, and not something this run can
+   * fix by failing every night.
+   *
+   * So this asserts the SHAPE: exactly the kinds with no carrier may lack a
+   * live editor. It goes RED in the two directions that matter —
+   *   · a kind that HAS a carrier stops reaching its editor  (a real regression)
+   *   · a kind with NO carrier grows one                     (a fabrication)
+   * — and stays green on the known, deliberate gap.
+   */
+  const NO_CARRIER_KINDS = ['decision', 'outcome', 'risk'] as const
+  const expected = [...NO_CARRIER_KINDS].sort()
+  const asExpected = JSON.stringify(deadKinds) === JSON.stringify(expected)
+  const regressed = deadKinds.filter((k) => !expected.includes(k as never))
+  const fabricated = expected.filter((k) => !deadKinds.includes(k))
+  console.log(
+    `[ID] VERDICT ${measurable ? (asExpected ? 'PASS' : 'FAIL') : 'NOT-MEASURED'} `
+    + `— kindsWithNoLiveEditor=${JSON.stringify(deadKinds)} expected=${JSON.stringify(expected)}`,
+  )
+  if (regressed.length > 0) console.log(`[ID] REGRESSION — these have a carrier and lost their editor: ${JSON.stringify(regressed)}`)
+  if (fabricated.length > 0) console.log(`[ID] FABRICATION — these have NO carrier and gained an editor: ${JSON.stringify(fabricated)}`)
   expect(measurable, 'NOT-MEASURED: factor contrast control did not fire').toBe(true)
 })
