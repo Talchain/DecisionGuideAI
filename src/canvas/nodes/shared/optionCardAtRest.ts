@@ -7,9 +7,17 @@
  * ── THE PROBLEM IT ANSWERS ─────────────────────────────────────────────────
  *
  * Paul: the graph "doesn't fit on a standard laptop screen". The camera is
- * bounded (`cameraComfort.ts` records the ~96px overflow at 1280x800 that no fit
- * can remove), so the remaining lever is CARD HEIGHT, and option cards are the
- * tallest on the board: one `<li>` per changed factor, each a label line plus a
+ * bounded — `cameraComfort.ts` records that at 1280x800 "~96px is lost whatever
+ * we do" — so the remaining lever is CARD HEIGHT.
+ *
+ * ⚠ SCOPE OF THAT LEVER, read from the same comment rather than assumed: the
+ * ~96px it records is a WIDTH loss on the two landscape starters (a 1776-unit
+ * model needs 888px at zoom 0.5 against 792px of visible canvas). Card height
+ * cannot recover a width overflow; it shortens the model's VERTICAL extent only.
+ * Whether that moves what a 1280x800 screen shows on a given starter is a
+ * geometry measurement, not something this module can claim.
+ *
+ * Option cards are the tallest on the board: one `<li>` per changed factor, each a label line plus a
  * from→to line that wraps ("Low (0) → Very high (1)"), up to four rows. On the
  * pricing starter every non-baseline option carries three. The rows also make
  * the cards RAGGED, which defeats reading options side by side — the one thing
