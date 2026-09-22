@@ -63,8 +63,35 @@ describe('a value a person set is shown as set, whatever scale it arrived on', (
     expect(rowOf(factor({ ...CAPTURED_USER_VALUE, source: 'user_confirmed' })).primaryValue).toBe('0.6')
   })
 
-  it('CONTRAST: Olumi’s own estimate in the same shape stays an estimate', () => {
-    const row = rowOf(factor({ ...CAPTURED_USER_VALUE, source: 'cee_inference' }))
+  /**
+   * ⚠ THE CONTRAST MUST BE AN ESTIMATE THE FORMATTER WOULD RENDER. A bare
+   * `cee_inference` 0.6 is suppressed by the display policy anyway, so a
+   * contrast built on it passed with the provenance check deleted (two mutants
+   * survived). This one is captured from the same served store: an Olumi
+   * estimate WITH display text, the case that must never be promoted to "set".
+   */
+  it('CONTRAST: Olumi’s own displayable estimate stays an estimate, attributed to Olumi', () => {
+    const node: Node = {
+      id: 'fac_enterprise_revenue_risk',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        category: 'controllable',
+        display_value: 'Low (0)',
+        label: 'Enterprise Revenue Cannibalization Risk',
+        type: 'factor',
+        observedState: {
+          value: 0,
+          source: 'cee_inference',
+          extractionType: 'inferred',
+          factor_type: 'other',
+          uncertainty_drivers: ['Top 10 accounts are 40% of revenue', 'Actual usage patterns of large accounts unknown'],
+        },
+      },
+    }
+    const row = toModelRows(input(node)).find((r) => r.id === 'fac_enterprise_revenue_risk')!
+    // Precondition: this estimate IS displayable, so the contrast can bite.
+    expect(row.estimateText).toBeTruthy()
     expect(row.primaryValue).toBeNull()
     expect(row.attention).toContain('no-value')
   })
