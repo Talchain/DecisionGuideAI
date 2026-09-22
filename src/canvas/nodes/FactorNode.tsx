@@ -1062,9 +1062,17 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* External factor: prior range (if available) */}
+        {/* External factor: prior range (if available). Once the user has
+            stated a value the owner restates it as REPLACED ("Your value
+            replaces the range a to b"), because the analysis no longer samples
+            it — see `userValueReplacesPrior`. Same slot, same type. */}
         {nodeCategory === 'external' && priorRangeDisplay && (
-          <div className={`${typography.edgeLabel} mt-0.5 text-text-light`}>{priorRangeDisplay}</div>
+          <div
+            className={`${typography.edgeLabel} mt-0.5 text-text-light`}
+            data-testid={`factor-prior-range-${props.id}`}
+          >
+            {priorRangeDisplay}
+          </div>
         )}
 
         {/* ⭐⭐ EDGE PILLS — DIRECTION + STRENGTH + TARGET, AND THEY NO LONGER
