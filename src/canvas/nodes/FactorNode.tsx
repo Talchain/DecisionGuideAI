@@ -25,7 +25,7 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay, FactorFirmnessBand, resolveFactorFirmnessDisplay } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
@@ -209,8 +209,30 @@ export const FactorNode = memo((props: NodeProps) => {
    * one of them (`CanvasLegendPopover:929`) with a comment naming this line as
    * the source. The third, the reduced line, had no copy at all and printed
    * the number without the mark. One owner, three readers.
+   *
+   * ⛔ RESOLVED AGAINST `staging`, NOT AGAINST THIS BRANCH. The branch this
+   * band arrived on still carries the OLD inline spelling,
+   * `observedState?.extractionType === 'inferred'`. Taking its side would have
+   * re-forked the predicate the line above exists to own — a silent revert
+   * wearing a conflict marker. The band is additive to it, never a replacement.
    */
   const isInferred = factorValueIsUnconfirmedEstimate(props.data)
+
+  // ⭐ HOW FIRM THIS FACTOR'S NUMBER IS — the card's spread channel.
+  //
+  // Provenance-gated in `shared/factorFirmness.ts`, which returns a union whose
+  // `show: true` arm cannot be constructed without both a positive σ and a
+  // classified author. The card therefore has no way to draw a band from a
+  // defaulted or unattributed `observedState.std`, which is the defect class
+  // this lane exists to prevent.
+  //
+  // ⛔ THIS IS NOT THE EDGE RIBBON. That one is `edge.data.strengthStd` and
+  // answers how firm a LINK's strength is; this is the factor's own observed
+  // value. Neighbouring questions, named apart on purpose.
+  const firmnessDisplay = useMemo(
+    () => resolveFactorFirmnessDisplay(props.data as Record<string, unknown> | undefined),
+    [props.data],
+  )
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -944,7 +966,23 @@ export const FactorNode = memo((props: NodeProps) => {
             user stated is never touched and never marked. */}
         {valueDisplay !== null && (
           <div className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}>
-            <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
+            {/* ⭐ THE SPREAD BAND RIDES THE VALUE'S OWN BOX. `relative
+                inline-block` establishes the containing block; the band inside
+                is ABSOLUTE, so it sits in the line box's half-leading under the
+                baseline and contributes no height. The wrapper is `inline-block`
+                rather than `inline` because an inline box is not a containing
+                block for an absolutely positioned child's height — with `inline`
+                the band would resolve against the card and drift.
+                ⚠ The wrapper stays inside the existing flex item, so the value
+                keeps its baseline alignment with `EstimateMarker` beside it.
+                ⛔ The class is `typography.nodeValue`, from `staging`. This
+                branch predates that scale and still says `nodeLabel`; keeping
+                its side would have moved the card's value back onto the label
+                size as a side effect of adding a band. */}
+            <span className="relative inline-block">
+              {isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}
+              <FactorFirmnessBand display={firmnessDisplay} />
+            </span>
             {isInferred && !isDetailed && <EstimateMarker />}
           </div>
         )}

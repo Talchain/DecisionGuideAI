@@ -13,3 +13,10 @@ export { NodeCoachingMarker } from './NodeCoachingMarker'
 export { PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './PreAnalysisInboundRows'
 export { NodeMetricRow } from './NodeMetricRow'
 export { NodeProvenanceMark } from './NodeProvenanceMark'
+export { FactorFirmnessBand } from './FactorFirmnessBand'
+export {
+  resolveFactorFirmnessDisplay,
+  firmnessBandWidthPx,
+  firmnessBandDescription,
+  type FactorFirmnessDisplay,
+} from './factorFirmness'
