@@ -921,7 +921,37 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(new Set(reachedIn.get('option · the change-COUNT line (compacted by this PR)')))
       // Both boards lack a declared reference; having observed values no
       // longer suppresses this recovery affordance by inventing a pair.
-      .toEqual(new Set(['option · pre · expert', 'option · no-baseline · expert']))
+      //
+      // ⭐⭐ `option · pre · standard` ADDED 22 Sep 2026, AND THIS SET IS THE
+      // ADJUDICATION, NOT A RECORDING. The line moved out of the Expert-only
+      // fragment (`showLayer2Inline = isDetailed = viewMode === 'expert'`)
+      // because the product OPENS in Standard: measured on served `b5f1867d`,
+      // `[data-testid^="option-change-count-"]` was absent from all four option
+      // cards while the delta rows rendered — the card showed three concrete
+      // changes it makes to the model and offered no way to change them.
+      //
+      // ⚠ `option · pre · lod-line` IS HERE, AND MY FIRST INSTINCT ABOUT IT WAS
+      // WRONG IN A WAY THE CANVAS BROWSER GATE CAUGHT. I read the line's
+      // appearance at that rung as a regression and gated it on
+      // `selectLodBodyHidden`. That made the card's RESERVED height
+      // zoom-dependent, and `heightVsZoom` REDed at 54px of bound spread
+      // against 45px of sub-row slack — "a layout run at one zoom then reserves
+      // a stride that is wrong at every other", which is the overlap defect
+      // that measurer exists to close. Its message even names the cause: "the
+      // LOD body collapse is the usual way this regresses."
+      //
+      // The truth underneath: at the `line` rung an option card with no LOD
+      // metric line is not body-blanked at all — `lodBodyBlanked = bodyReduced
+      // && lodBodyLine !== null` — so its body already renders there. That is
+      // PRE-EXISTING behaviour of this bucket, not something this change
+      // introduced, and the honest record is to name it rather than to bolt a
+      // second, zoom-dependent gate onto one child to hide it.
+      .toEqual(new Set([
+        'option · pre · standard',
+        'option · pre · lod-line',
+        'option · pre · expert',
+        'option · no-baseline · expert',
+      ]))
   })
 
   /**
