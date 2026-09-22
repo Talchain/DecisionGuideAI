@@ -110,8 +110,8 @@ test('NODE AFFORDANCE — at rest vs on hover, per node', async ({ page }) => {
    */
   const NO_CARRIER_KINDS = new Set(['decision', 'outcome', 'risk'])
   const allSilent = rows.filter((r) => !r.restEdit && !r.hovEdit && !r.statesWhyNot)
-  const expectedSilent = allSilent.filter((r) => NO_CARRIER_KINDS.has(r.type) || r.type === 'factor' || r.type === 'option')
-  const silent = allSilent.filter((r) => !NO_CARRIER_KINDS.has(r.type) && r.type !== 'factor' && r.type !== 'option')
+  const expectedSilent = allSilent.filter((r) => NO_CARRIER_KINDS.has(String(r.type)) || String(r.type) === 'factor' || String(r.type) === 'option')
+  const silent = allSilent.filter((r) => !NO_CARRIER_KINDS.has(String(r.type)) && String(r.type) !== 'factor' && String(r.type) !== 'option')
   console.log(`[NA] EXPECTED-SILENT (no carrier / baseline / external) ${expectedSilent.length}: ${JSON.stringify(expectedSilent.map((r) => r.type + ':' + r.id))}`)
   const c1 = rows.length > 5
   const c2 = rows.some((r) => r.hovEdit)          // probe CAN see an affordance
