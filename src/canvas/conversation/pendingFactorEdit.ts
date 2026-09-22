@@ -114,6 +114,11 @@ export function pendingFactorEditValue(nodeId: string | null | undefined): numbe
   return typeof v === 'number' ? v : null
 }
 
+/** Whether ANY factor edit is with the engine and unacknowledged. */
+export function anyFactorEditInFlight(): boolean {
+  return inFlight.size > 0
+}
+
 /** Subscribe to in-flight changes. Returns an unsubscribe. */
 export function subscribePendingFactorEdits(listener: Listener): () => void {
   listeners.add(listener)

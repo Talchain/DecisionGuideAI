@@ -36,7 +36,11 @@
  * stays as the STATE (it is what survives a reload), and its release is now
  * driven by CEE's ack rather than by nothing at all. One mechanism, two halves.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  anyFactorEditInFlight,
+  subscribePendingFactorEdits,
+} from '../conversation/pendingFactorEdit'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -131,6 +135,25 @@ export function useImportRegistration(): void {
    */
   const attempted = useRef(new Set<string>())
 
+  /**
+   * ⛔ ONE USER EDIT, ONE WRITER AT A TIME. A value edit on a saved example
+   * re-arms the hold AND sends the canonical `factor_value_edit`. If this
+   * registration commits first, CEE rolls the edit back as a stale write
+   * (`GraphStaleWriteError`; measured on served staging 22 Sep 2026, request
+   * `368410a8…`) and the user's number survives only through the registration,
+   * without authorship. So registration waits while any factor edit is in
+   * flight, and this tick re-runs it when the last one settles — delayed,
+   * never skipped. Pinned by `starterRegistrationTrain.spec.tsx` seam 5.
+   */
+  const [editsSettledTick, setEditsSettledTick] = useState(0)
+  useEffect(
+    () =>
+      subscribePendingFactorEdits(() => {
+        if (!anyFactorEditInFlight()) setEditsSettledTick((t) => t + 1)
+      }),
+    [],
+  )
+
   const nodesNow = useCanvasStore((s) => s.nodes)
   const edgesNow = useCanvasStore((s) => s.edges)
 
@@ -208,6 +231,12 @@ export function useImportRegistration(): void {
       // The effect re-runs on the new `scenarioId` and registers there. It does
       // NOT fall through: `attempted` would otherwise be keyed on a scenario
       // that was null when the key was built.
+      return
+    }
+
+    // Never beside a canonical edit — see `editsSettledTick` above.
+    if (anyFactorEditInFlight()) {
+      logger.info('import_registration.deferred_behind_factor_edit', { scenarioId })
       return
     }
 
@@ -315,5 +344,5 @@ export function useImportRegistration(): void {
       cancelled = true
       controller.abort()
     }
-  }, [pending, scenarioId, userId])
+  }, [pending, scenarioId, userId, editsSettledTick])
 }
