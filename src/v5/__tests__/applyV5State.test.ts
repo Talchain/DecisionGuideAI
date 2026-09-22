@@ -228,6 +228,108 @@ describe('applyV5State — graph_patch:set_factor_value', () => {
     expect((written.observedState as Record<string, unknown>).extractionType).toBe('explicit')
   })
 
+  /**
+   * ⛔⛔ THE SIBLING SPELLING, AND IT IS THE MAJORITY SHAPE ON A REAL BOARD.
+   *
+   * `factorValueIsUnconfirmedEstimate` (`canvas/domain/valueProvenance.ts:401-405`)
+   * reads TWO locations and an OR between them:
+   *
+   *     obs?.extractionType === 'inferred' || d?.extractionType === 'inferred'
+   *
+   * The test above closes the SECOND disjunct. This one closes the FIRST, which
+   * the writer spread straight through: `observedState` is rebuilt as
+   * `{ ...existing, ...after }`, and a pre-existing nested claim survives
+   * whenever CEE's `after` does not carry an `extractionType` of its own — which
+   * the witnessed `after` (`{ value, source: 'user_override' }`) does not.
+   *
+   * ⭐ AND THE NESTED SPELLING IS THE COMMON ONE, measured rather than assumed.
+   * The estate's own capture recorded at `valueProvenance.ts:378-381` — deployed
+   * guest board, `usage-based-billing`, 8 factors — found **5 carrying
+   * `observedState.extractionType: 'inferred'` and 1 carrying the top-level
+   * `data.extractionType`**. So the fix that shipped covered the 1-of-8 shape and
+   * the 5-of-8 shape kept the defect: the card still reads `0.2 est.`, titled
+   * *"Estimate not yet confirmed — this value was filled in for you"*, about a
+   * number the user typed.
+   *
+   * The complete non-test withdrawal manifest is three sites:
+   * `useInspectorMutations.ts:706` (top-level) and `:739` (nested) — which clears
+   * BOTH and whose own comment warns of the defect being *"reopened by its
+   * neighbour"* — and `applyV5State.ts` here, which cleared one.
+   *
+   * ⚠ CLEARED, NOT RE-AUTHORED, and merged ABOVE `...after` for the same reason
+   * the top-level clear is: `extractionType` is the server's to write, and a
+   * fresh extraction CEE authors for the new value must still win. The next test
+   * is the discriminator for that.
+   */
+  it('⛔ withdraws a stale NESTED observedState.extractionType — the spelling the reader checks first', () => {
+    const inferredNode = {
+      id: 'node-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      // The 5-of-8 shape: the claim sits INSIDE observedState, and there is no
+      // top-level one, so the already-shipped clear cannot reach it.
+      data: { label: 'Data Team Capacity', observedState: { value: 10, extractionType: 'inferred' } },
+    } as unknown as V5ApplicatorStore['nodes'][number]
+    const { store, updateNode } = makeStore([inferredNode])
+    applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'graph_patch',
+            status: 'applied',
+            operation: 'set_factor_value',
+            target_id: 'node-1',
+            before: { value: 10 },
+            after: { value: 0.2, source: 'user_override' },
+          },
+        ],
+      }),
+      store,
+    )
+    const written = updateNode.mock.calls.at(-1)![1].data as Record<string, unknown>
+    const obs = written.observedState as Record<string, unknown>
+    expect(obs.extractionType).toBeUndefined()
+    // CONTRAST — one stale sentence is withdrawn, the node is not wiped. Without
+    // these, the assertion above would pass on a fix that dropped the whole
+    // observedState.
+    expect(written.label).toBe('Data Team Capacity')
+    expect(obs.value).toBe(0.2)
+    expect(obs.source).toBe('user_override')
+  })
+
+  /**
+   * ⚠ THE SERVER STILL WINS ON THE NESTED SPELLING TOO. This is the
+   * discriminating half of the pair: it FAILS if the clear is merged BELOW
+   * `...after` instead of above it, which is the one way to get this wrong while
+   * still satisfying the test before it.
+   */
+  it('CONTRAST — a fresh nested extractionType inside `after` survives the clear', () => {
+    const inferredNode = {
+      id: 'node-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: { label: 'F', observedState: { value: 10, extractionType: 'inferred' } },
+    } as unknown as V5ApplicatorStore['nodes'][number]
+    const { store, updateNode } = makeStore([inferredNode])
+    applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'graph_patch',
+            status: 'applied',
+            operation: 'set_factor_value',
+            target_id: 'node-1',
+            before: { value: 10 },
+            after: { value: 0.2, source: 'user_override', extractionType: 'explicit' },
+          },
+        ],
+      }),
+      store,
+    )
+    const written = updateNode.mock.calls.at(-1)![1].data as Record<string, unknown>
+    expect((written.observedState as Record<string, unknown>).extractionType).toBe('explicit')
+  })
+
   it('defers when target node is missing in canvas', () => {
     const { store, updateNode } = makeStore([])
     const response = baseResponse({

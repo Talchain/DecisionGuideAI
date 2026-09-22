@@ -1084,6 +1084,38 @@ export function applyV5State(
               extractionType: undefined,
               observedState: {
                 ...((node.data as { observedState?: Record<string, unknown> }).observedState ?? {}),
+                /**
+                 * ⛔ THE SECOND SPELLING, AND THE ONE THE READER CHECKS FIRST.
+                 *
+                 * `factorValueIsUnconfirmedEstimate`
+                 * (`canvas/domain/valueProvenance.ts:401-405`) is an OR over TWO
+                 * locations — `obs?.extractionType` and `d?.extractionType`. The
+                 * clear above closes the second. This closes the first, which the
+                 * spread on the line above carries straight through whenever CEE's
+                 * `after` has no `extractionType` of its own, which the witnessed
+                 * `after` (`{ value, source: 'user_override' }`) does not.
+                 *
+                 * ⭐ AND THIS IS THE MAJORITY SHAPE, measured not assumed: the
+                 * capture recorded at `valueProvenance.ts:378-381` (deployed guest
+                 * board, `usage-based-billing`, 8 factors) found FIVE carrying
+                 * `observedState.extractionType: 'inferred'` against ONE carrying
+                 * the top-level spelling. Clearing only the top level covered
+                 * 1-of-8 and left 5-of-8 still reading `0.2 est.`, titled
+                 * "Estimate not yet confirmed — this value was filled in for you",
+                 * about a number the user had just typed.
+                 *
+                 * ⚠ ABOVE `...after`, deliberately and for the same reason the
+                 * top-level clear is: CLEARED, NOT RE-AUTHORED. `extractionType`
+                 * is the server's to write, so a fresh extraction CEE authors for
+                 * the NEW value must still win. Moving this line below `...after`
+                 * turns a withdrawal into a refusal, and the paired CONTRAST test
+                 * fails if anyone does.
+                 *
+                 * The sibling writer `useInspectorMutations.ts:706`/`:739` already
+                 * clears BOTH, and its own comment warns of exactly this defect
+                 * being "reopened by its neighbour". This is that neighbour.
+                 */
+                extractionType: undefined,
                 ...after,
               },
             } as typeof node.data,
