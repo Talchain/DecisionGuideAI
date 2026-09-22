@@ -1016,6 +1016,33 @@ export const FactorNode = memo((props: NodeProps) => {
                 the more convincing lie: the user would act on it. So the
                 affordance follows the CARRIER, per writer, never per surface.
 
+                ⚠⚠ AND THE SENTENCE ABOVE IS A BELIEF ABOUT CEE, NOT A
+                DERIVATION — recorded 22 Sep 2026 so the next reader does not
+                take it for one. Swept at this tip: `conversation/factorValueEdit.ts`
+                contains **zero** references to `category`, `controllable` or
+                `observable`, so the carrier this gate defers to does NOT
+                distinguish them; `useResultsSectionData.ts` says the same in
+                its own words — `proposeFactorValue` *"performs no kind check of
+                its own"*. The restriction lives HERE and in
+                `AUTHORITY_OWNING_PANELS`, and nothing in this repo derives it.
+
+                ⛔ THE GATE IS DELIBERATELY LEFT CLOSED ANYWAY, and that is the
+                point of writing this rather than opening it. "The carrier has
+                no category check" is a fact about the CLIENT; whether CEE
+                WRITES an observable factor's `observed_state.value` on a
+                `factor_value_edit` is a fact about the SERVER, and it is
+                unmeasured. Opening the gate on the client-side fact alone would
+                ship exactly the control this comment warns about — one whose
+                write may be silently dropped.
+
+                What would settle it, asked on `olumi-programme-docs#63`: does
+                CEE persist `observed_state.value` for a factor whose category
+                is `observable` or `external`? If it does, this gate and
+                `AUTHORITY_OWNING_PANELS`' omission of `factor-observable` can
+                both open, and two of five factors on the canonical pricing
+                board stop being read-only. If it does not, this sentence stops
+                being a belief and becomes a derivation with a citation.
+
                 ⚠ Seeded from `observedState.value`, the EXACT number — never
                 from `valueDisplay`, which is a formatted readout. Seeding from a
                 rounded string once committed 0.38 for a 0.376 and destroyed the
