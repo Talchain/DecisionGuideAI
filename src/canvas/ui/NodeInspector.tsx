@@ -602,8 +602,20 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </div>
           ) : (
             <>
-              {/* Influence bar */}
-              {displayMetadata.influence !== null && (
+              {/* ⭐⭐ INFLUENCE NEEDS ITS BASIS — added 22 Sep 2026, and this was
+                  the ONE renderer of five that did not fail closed.
+                  `FactorNode.tsx:759,770,1086` and `lodMetricLine.ts:279` all
+                  require `influenceProvenance != null` beside the number;
+                  lodMetricLine's comment even states the rule — "Fail-closed on
+                  provenance, exactly as FactorNode's own influence row does."
+                  This site gated on `influence !== null` ALONE, which is the
+                  hand-maintained mirror (trap 12) with the odd one out on the
+                  panel a reader opens deliberately to interrogate a factor.
+                  ⛔ The harm is named at FactorNode's own gate: "on the fallback
+                  basis the top driver shows 100% BY CONSTRUCTION." Measured over
+                  970 bundles, 15 of 399 boards rank a factor MOST INFLUENTIAL
+                  while holding no value for it, each at influence 1.0. */}
+              {displayMetadata.influence !== null && displayMetadata.influenceProvenance != null && (
                 <div className="mb-2">
                   <div className="flex justify-between items-center mb-1">
                     <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>
