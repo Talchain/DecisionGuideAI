@@ -58,6 +58,7 @@ import {
 } from '../store/importRegistrationMarker'
 import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
+import { seedWriteBaseAfterRegistration } from './seedWriteBaseAfterRegistration'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
 
@@ -337,6 +338,15 @@ export function useImportRegistration(): void {
         edgeCount: result.edgeCount,
         markerReleased: released,
         identityProjection: result.identity?.projectionVersion ?? null,
+      })
+      // ⭐ THE EDIT PROTOCOL'S BASE. The ack names no `graph_hash`, and without
+      // one a fresh scenario's first rename is held until some unrelated turn
+      // happens to stamp it (witnessed on staging `8151fba5`: never sent).
+      // ⚠ NOT given `controller.signal`: the release above flips `pending`, and
+      // this effect's cleanup aborts that controller on the re-run it causes.
+      void seedWriteBaseAfterRegistration(scenarioId, result.identity, {
+        userId: identity.userId,
+        accessToken: identity.accessToken,
       })
     })()
 
