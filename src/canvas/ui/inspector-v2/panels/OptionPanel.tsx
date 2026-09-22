@@ -579,7 +579,14 @@ export const OptionPanel = memo(function OptionPanel({
                     ? pendingIntervention.value
                     : iv.value
                 }
-                displayValue={iv.displayValue}
+                /* ⚠ WITHHELD WHILE THIS ROW'S SEND IS IN FLIGHT. The prose
+                   describes the RECORD ("Moderate (0.5)"); beside a pending 0.6
+                   it would state the old target as current. The pending number
+                   is shown instead, and the prose returns if the send is
+                   refused — the same split `currentValue` makes above. */
+                displayValue={
+                  pendingIntervention?.factorId === iv.factorId ? undefined : iv.displayValue
+                }
                 unit={iv.unit}
                 provenanceSource={iv.provenanceSource}
                 onChange={v => commitIntervention(iv.factorId, v)}

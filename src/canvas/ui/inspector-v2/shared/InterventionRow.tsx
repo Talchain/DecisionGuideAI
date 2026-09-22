@@ -349,7 +349,29 @@ export function InterventionRow({
   // also satisfies the Brief 4 constraint "InterventionRow reading
   // intervention.value directly when intervention.display_value is present".
   const hasDisplayValue = !!displayValue
-  const showNumericSurface = !hasDisplayValue || techMode
+  /**
+   * ⭐⭐ THE PROSE STAYS THE DEFAULT TEXT — AND IT NO LONGER LOCKS THE ONLY
+   * EDITOR AWAY FROM A READER WHO ASKS FOR IT.
+   *
+   * MEASURED on served `28d2745e` (guest, saved pricing example): every
+   * intervention carries a `display_value`, so this gate hid the input on every
+   * row while the option card said "Open the inspector to change them" and
+   * `OptionPanel` had already lifted the row's `disabled` for a carrier that
+   * works (`option_intervention_edit`, witnessed applying on the same build).
+   * The route named the room; this line locked the door.
+   *
+   * So the prose becomes the control, as the Model tab's editor for the same
+   * carrier already does: nothing numeric is shown until the reader presses the
+   * target, and the editor then opens on the MODEL value — never the prose,
+   * which may be a label that cannot be parsed back into the number it names.
+   * Brief 4's rule is kept: no raw number in default mode unless asked for.
+   *
+   * ⛔ `disabled` STILL WINS. A fenced row offers no reveal; the reveal exists
+   * only where the row's own writer is live.
+   */
+  const [revealed, setRevealed] = useState(false)
+  const canReveal = hasDisplayValue && !techMode && !disabled
+  const showNumericSurface = !hasDisplayValue || techMode || (canReveal && revealed)
 
   /**
    * ⚠ CLASSIFIED ONCE, OUTSIDE BOTH VALUE BRANCHES. The mark must not hang off
@@ -400,12 +422,24 @@ export function InterventionRow({
         </div>
       </div>
 
-      {/* CEE-authored display_value — canonical default-mode text when present */}
-      {hasDisplayValue && (
+      {/* CEE-authored display_value — canonical default-mode text when present.
+          A live row makes it the way in to the editor; a fenced one keeps it text. */}
+      {hasDisplayValue && (canReveal && !revealed ? (
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          aria-label={`Change the target for ${factorLabel}`}
+          title="Change this target"
+          data-testid={`intervention-target-edit-${factorId}`}
+          className={`${typography.panelBody} text-text-body mt-1 block text-left underline decoration-dotted underline-offset-2 hover:decoration-solid`}
+        >
+          {displayValue}
+        </button>
+      ) : (
         <div className={`${typography.panelBody} text-text-body mt-1 ${techMode ? 'italic text-text-light' : ''}`}>
           {displayValue}
         </div>
-      )}
+      ))}
 
       {/* The target this option sets, and nothing else. Default mode when there
           is no `display_value`, or always in techMode. */}
@@ -507,9 +541,16 @@ export function InterventionRow({
               <input
                 ref={inputRef}
                 type="text"
+                aria-label={`Target value for ${factorLabel}`}
+                // Focus only when the reader asked for the editor; a row that
+                // always shows its input must not steal focus on mount.
+                autoFocus={revealed}
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
-                onBlur={handleBlur}
+                onBlur={() => {
+                  handleBlur()
+                  setRevealed(false)
+                }}
                 onKeyDown={handleKeyDown}
                 className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel border-info`}
               />
@@ -517,7 +558,9 @@ export function InterventionRow({
                   never made an unlabelled number scientifically valid — an
                   operator typing into it is entitled to know which scale they
                   are typing on. */}
-              {!displayValue && (
+              {/* A revealed editor holds the MODEL number beside the prose, so
+                  it names its scale too — the prose frames a different string. */}
+              {(!displayValue || revealed) && (
                 <span className={`${typography.panelMeta} text-text-light`}>
                   {INTERVENTION_ROW_STRINGS.modelValueQualifier}
                 </span>

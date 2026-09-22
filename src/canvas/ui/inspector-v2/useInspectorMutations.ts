@@ -310,8 +310,14 @@ export const INSPECTOR_READ_ONLY_REASON =
 // single carrier, so it takes the same clause. The pane still says less than
 // the blanket string above; it now says less about the same thing, rather than
 // something different.
+// ⚠ AND IT NAMES THE TARGETS, because the pane has a second live writer: the
+// target an option sets for a factor (`option_intervention_edit`). "Other
+// fields here are read-only" stood beside that control and told the reader the
+// one thing on this pane that changes the analysis could not be changed. It says
+// SENT, not saved: the row confirms against the applied receipt and withdraws
+// the number with a notice when the send does not land.
 export const INSPECTOR_OPTION_READ_ONLY_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Other fields here are read-only for now — links, details and coaching still work.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A target this option sets is sent to the shared model when you change it. Other fields here are read-only for now — links, details and coaching still work.`
 
 /**
  * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE
