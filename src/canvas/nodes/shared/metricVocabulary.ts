@@ -529,12 +529,18 @@ export const SENSITIVITY_RANK_NOUN = 'Key driver'
 /**
  * What the badge RENDERS. One builder, two consumers — the visible text and
  * the accessible name below — so the card and the screen reader cannot be
- * given different words for the same badge. That drift is not hypothetical
+ * given different words for the same badge.
+ *
+ * ⭐ `fromLastRun` (the card's `useModelChangedSinceRun()`) opens the badge
+ * with `LAST_RUN_PREFIX` — a stale rank is LABELLED, never withdrawn (Paul's
+ * Ruling 3, ROADMAP 2.651). It lives HERE rather than at the call site so the
+ * accessible name, built from this string, still opens with the visible one
+ * by construction (WCAG 2.5.3) on the stale arm too. That drift is not hypothetical
  * here: it is exactly what #1414 shipped, and the comment block above
  * `SENSITIVITY_RANK_CLAUSE` is its post-mortem.
  */
-export const sensitivityRankBadgeLabel = (rank: number): string =>
-  `${SENSITIVITY_RANK_NOUN} ${rank}`
+export const sensitivityRankBadgeLabel = (rank: number, fromLastRun = false): string =>
+  `${fromLastRun ? LAST_RUN_PREFIX : ''}${SENSITIVITY_RANK_NOUN} ${rank}`
 
 /**
  * The legend's row heading for this badge. `MetricLegendRow.noun` is
@@ -562,8 +568,8 @@ export const SENSITIVITY_RANK_LEGEND_NOUN = `${SENSITIVITY_RANK_NOUN} 1, 2, 3`
  * changed is that the sighted reader is no longer the one left with the bare
  * numeral.
  */
-export const sensitivityRankBadgeAccessibleName = (rank: number): string =>
-  `${sensitivityRankBadgeLabel(rank)}: one of ${SENSITIVITY_RANK_CLAUSE}`
+export const sensitivityRankBadgeAccessibleName = (rank: number, fromLastRun = false): string =>
+  `${sensitivityRankBadgeLabel(rank, fromLastRun)}: one of ${SENSITIVITY_RANK_CLAUSE}`
 
 /**
  * The option ordinal badge's accessible name. Deliberately NOT a bare

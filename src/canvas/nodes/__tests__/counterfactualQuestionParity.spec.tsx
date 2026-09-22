@@ -63,7 +63,12 @@ vi.mock('../../hooks/useScienceIcons', () => ({
   useScienceIcons: vi.fn(() => []),
 }))
 
-vi.mock('../../../flags', () => ({
+// Spread the real flags module: `FactorNode` now reads the composed analysis
+// verdict (`useModelChangedSinceRun`), whose source classifier calls a flag
+// this factory never listed. A `vi.mock` factory REPLACES the module, so an
+// unlisted flag is `undefined` and throws at render (CLAUDE.md trap 12).
+vi.mock('../../../flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../flags')>()),
   isGraphBadgesEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
   isGraphLensEnabled: vi.fn(() => false),

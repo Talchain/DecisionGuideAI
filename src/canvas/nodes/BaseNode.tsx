@@ -64,7 +64,7 @@ import {
   CANVAS_HEADER_GLYPH_GROUP_CLASSES,
 } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
-import { LAST_RUN_PREFIX, sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel, STRUCTURAL_UNSET } from './shared/metricVocabulary'
+import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -1849,16 +1849,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             /* ⭐ A STALE RANK IS LABELLED, NOT WITHDRAWN (Ruling 3, ROADMAP
                2.651). `Key driver 1` about a model the user has since edited
                is a claim about the wrong graph; `Last run · Key driver 1` is
-               true. The prefix leads BOTH channels, so the visible string is
-               still a literal prefix of the accessible name (WCAG 2.5.3).
+               true. The prefix is applied INSIDE both builders, so the visible
+               string is still a literal prefix of the accessible name (WCAG
+               2.5.3) and both remain direct builder calls.
                ⚠ WIDTH: this badge sits in the corner stack, which is
                `absolute bottom-full` — a band ABOVE the card — so the longer
                string cannot change the card's height; it widens leftwards,
                the same envelope `OptionNode`'s `Last run · Most supported`
                pill already occupies in this stack. */
-            aria-label={`${resultsFromLastRun ? LAST_RUN_PREFIX : ''}${sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank)}`}
+            aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank, resultsFromLastRun)}
           >
-            {resultsFromLastRun ? LAST_RUN_PREFIX : ''}{sensitivityRankBadgeLabel(displayMetadata.sensitivityRank)}
+            {sensitivityRankBadgeLabel(displayMetadata.sensitivityRank, resultsFromLastRun)}
           </span>
         )}
 
