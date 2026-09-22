@@ -509,6 +509,39 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       })
   }, [edges, nodes, nodeId])
 
+  /**
+   * ⛔⛔ DOES THIS FACTOR HAVE ANY CONNECTION AT ALL — a DIFFERENT question from
+   * "does it have one these two lists show", and conflating them is the L-40
+   * contradiction that #1853 removed from `OptionPanel`.
+   *
+   * The denial below is gated on `setByOptions.length === 0 && influences.length
+   * === 0`, and neither list can see an INBOUND edge from a non-option:
+   *   · `influences` filters `e.source === nodeId` — outbound only;
+   *   · `setByOptions` is intervention-derived, keyed on options.
+   * So a `factor → factor` link into this node falls through both, exactly as
+   * the inbound `option → decision` edge fell through both of `DecisionPanel`'s
+   * lists before review D3 — whose comment names the mechanism: *"surviving in
+   * the direction the first corpus never drew."*
+   *
+   * ⚠ NOT WITNESSED ON A REAL BOARD, AND SAID SO PLAINLY. Measured on the
+   * deployed model (`6c7d8abd`, saved example, all eight factors): **zero** have
+   * no outbound edge while carrying an inbound non-option one, so `influences`
+   * is never empty there and the denial never fires. This is the LATENT form.
+   *
+   * ⭐ FIXED ANYWAY, AND THE REASON IS THE PATTERN RATHER THAN THIS INSTANCE.
+   * `EMPTY_STATES.noConnectionsFlat` has been repaired twice now — `DecisionPanel`
+   * (D3) and `OptionPanel` (#1853, merged and witnessed on the deployed build) —
+   * each time on the sibling the previous repair did not reach. Leaving the one
+   * remaining sibling on the old shape is the failure this string's own docblock
+   * exists to stop: *"every panel that shows it must first prove there is
+   * genuinely nothing to show."* This panel proves only that there is nothing in
+   * ITS TWO LISTS.
+   */
+  const hasAnyConnection = useMemo(
+    () => edges.some(e => e.source === nodeId || e.target === nodeId),
+    [edges, nodeId],
+  )
+
   if (!nodeId || !node) return null
 
   // Contextual guidance sentence based on sensitivity rank
@@ -991,7 +1024,15 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             ))}
           </>
         )}
-        {setByOptions.length === 0 && influences.length === 0 && (
+        {/*
+          ⚠ THE DENIAL, NOT THE GROUP. Unlike `OptionPanel` (#1853) this group
+          carries other content — the "set by" rows and the influence rows — so
+          omitting it wholesale would take live content with it. Only the flat
+          denial is gated, and only on the state where it would be FALSE.
+          A factor with genuinely no edges still gets it, which is the contrast
+          the second test pins.
+        */}
+        {setByOptions.length === 0 && influences.length === 0 && !hasAnyConnection && (
           <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
         )}
       </PanelGroup>
