@@ -70,8 +70,12 @@
  * it enumerates `data.*` fields only.
  *
  * ── stale/ephemeral notes carried over from task #23 ───────────────────────────
- * node `probability`, `impact`, `prior` are genuinely user-editable IN ISOLATION
- * on the live path and analysis-affecting → `stale` (and persisted by default).
+ * node `prior` is genuinely user-editable IN ISOLATION on the live path and
+ * analysis-affecting → `stale` (and persisted by default).
+ * ⚠ CORRECTED 22 Sep 2026: this sentence also named `probability` and `impact`,
+ * and for those two it is FALSE at the tip. Both are risk fields, `risk` is not
+ * in `AUTHORITY_OWNING_PANELS`, and the router therefore inerts their controls.
+ * They stay `stale` — see each note for why the purpose is unaffected.
  * edge `beliefStrength`, `belief`, `exists_probability` have NO live editor that
  * writes them in isolation (creation-time defaults / the DEAD v1 edge inspector /
  * CEE-ingestion that always co-writes the persisted `beliefExists`) → `stale`
@@ -190,14 +194,54 @@ export const NODE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
     note: 'snake_case derived/normalised goal threshold; analysis-affecting (staleness) but DERIVED and re-computed on restore, so EPHEMERAL — excluded from the autosave hash (a recompute must not churn the dirty-gate; the raw inputs are persisted). Consumers: staleness, V2 adapter output; excluded from computeGraphHash.',
   },
   {
+    // ⚠ CORRECTED 22 Sep 2026, and written as a TEST rather than a verdict —
+    // because the `prior` entry above is a worked example of a correction that
+    // was true when written, was never re-derived, and ended up pointing the
+    // reader the opposite way.
+    //
+    // THE TEST, one line, run it rather than trusting this sentence:
+    //   is 'risk' a member of `AUTHORITY_OWNING_PANELS`?
+    // At `InspectorRouter.tsx:441` that set is
+    // `['option', 'factor-controllable', 'factor-external']` — so no. A
+    // non-member's whole panel body is wrapped in
+    // `<fieldset disabled data-authority="disabled">` (`:541-551`), which
+    // natively inerts every form-associated descendant. `RiskPanel` is mounted
+    // from exactly one place, `InspectorRouter.tsx:70` `'risk': RiskPanel`, so
+    // there is no second, unfenced route. Its likelihood control is
+    // `InlineNumberEditor` (`RiskPanel.tsx:133`), a `<button>`/`<input>` pair,
+    // and is inerted with the rest.
+    // ⚠ LINE NUMBERS MOVE. The `prior` comment above still cites `:334-340` for
+    // the same fieldset; derive the current ones, do not transcribe these.
+    //
+    // AND IT WOULD BE LOCAL-ONLY EVEN UNFENCED. `setProbability`
+    // (`useInspectorMutations.ts:888-894`) is a bare `updateNode` with no
+    // `sendSystemEvent`, and `MODEL_CHANGING_SYSTEM_EVENT_TYPES`
+    // (`conversation/types.ts`) has no member that carries a risk field — its
+    // seven verbs are one factor value, one option intervention, two edge
+    // verbs and the structural add / add-edge / delete / rename. So a write
+    // here could never reach the shared model, fence or no fence.
+    // `nodes/RiskNode.tsx:117-124` states the same position in its own words
+    // and is the corroborating reader, not the source of this claim.
+    //
+    // ⛔ `purposes: ['stale']` IS UNCHANGED AND STILL LOAD-BEARING. Nothing
+    // about editability decides it: CEE ingestion writes this field, and a
+    // change from ANY writer must route into `hasAnalyticalNodeChange` or the
+    // freshness verdict behind "Model changed since this analysis" is computed
+    // over a different graph. Only the prose changes here.
     field: 'probability',
     purposes: ['stale'],
-    note: "A risk's likelihood [0,1] — user-editable in isolation via RiskPanel (setProbability → updateNode(data.probability), live since #453) and analysis-affecting (drives calculateRiskSeverity; passes to PLoT). Top-level node.data, not nested in observedState. #453 root cause when missing from staleness. Consumers: staleness, RiskPanel, V2 adapter. Persisted by hash-by-default.",
+    note: "A risk's likelihood [0,1] — analysis-affecting (drives calculateRiskSeverity; passes to PLoT). NOT user-editable at the tip: `RiskPanel` renders a real control (`setProbability` → `updateNode(data.probability)`, shipped #453) but `risk` is absent from `InspectorRouter`'s `AUTHORITY_OWNING_PANELS`, so the panel body is wrapped in a disabled fieldset that inerts it; and `setProbability` is a bare `updateNode` with no wire carrier, so it would be local-only even unfenced. Top-level node.data, not nested in observedState. #453 root cause when missing from staleness. Consumers: staleness, RiskPanel, V2 adapter. Persisted by hash-by-default.",
   },
   {
+    // ⚠ CORRECTED 22 Sep 2026, same cause as `probability` above and the same
+    // one-line test: `risk` is not in `AUTHORITY_OWNING_PANELS`. The impact
+    // control is a `<button type="button" role="radio">` (`RiskPanel.tsx:158-159`)
+    // — form-associated, so the disabled fieldset inerts it too — and
+    // `setImpact` (`useInspectorMutations.ts:896-900`) is a bare `updateNode`
+    // with no wire carrier. `purposes` unchanged, for the reason given above.
     field: 'impact',
     purposes: ['stale'],
-    note: "A risk's impact enum (low..critical); with probability drives severity. User-editable in isolation via RiskPanel (setImpact → updateNode(data.impact)). #453. Consumers: staleness, RiskPanel. Persisted by hash-by-default.",
+    note: "A risk's impact enum (low..critical); with probability drives severity. NOT user-editable at the tip: `RiskPanel`'s control (`setImpact` → `updateNode(data.impact)`, shipped #453) is inerted by `InspectorRouter`'s disabled fieldset because `risk` is not authority-owning, and `setImpact` has no wire carrier so it would be local-only even unfenced. #453. Consumers: staleness, RiskPanel. Persisted by hash-by-default.",
   },
   {
     field: '_baseline_snapshot',
