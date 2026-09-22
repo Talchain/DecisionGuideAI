@@ -1,4 +1,4 @@
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore, type ModelTabSectionId } from '@/stores/uiStore'
 import { focusModelTarget } from '../../utils/focusHelpers'
 
 /**
@@ -49,8 +49,22 @@ import { focusModelTarget } from '../../utils/focusHelpers'
  * pre-existing on the destination and identical for every existing Model-tab
  * user; it is not introduced here.
  */
-export function openModelValueEditor(nodeId: string): void {
+export function openModelValueEditor(
+  nodeId: string,
+  /**
+   * ⚠ A SECTION KEY, AND `'factors'` STAYS THE DEFAULT SO NO EXISTING CALL SITE
+   * MOVES. The parameter exists because the goal card needs the same act
+   * pointed at its own group, and a SECOND copy of this route is precisely what
+   * the header above is about — one owner, two destinations, was the defect.
+   *
+   * Typed as `ModelTabSectionId` rather than `string`, so a destination that is
+   * not a key of `MODEL_SECTION_TARGET` cannot compile. The alternative failure
+   * is silent: the consumer coalesces an unknown target to the panel top, so a
+   * wrong string lands the reader on the outline with nothing selected.
+   */
+  section: ModelTabSectionId = 'factors',
+): void {
   useUIStore.getState().setActiveOutputTab('diagnostics')
-  useUIStore.getState().requestModelTabSection('factors')
+  useUIStore.getState().requestModelTabSection(section)
   focusModelTarget(nodeId)
 }

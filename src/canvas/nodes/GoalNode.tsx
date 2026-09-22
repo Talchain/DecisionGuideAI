@@ -56,6 +56,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { openModelValueEditor } from './shared/openModelValueEditor'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintText } from '../utils/goalConstraintText'
@@ -221,6 +222,52 @@ export const GOAL_TARGET_LIVE_ROUTE = 'the Model tab'
 export const GOAL_TARGET_ROUTE_IS_LIVE = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget,
 )
+
+/** The control's identity, so a probe binds to it rather than to its wording. */
+export const GOAL_TARGET_ROUTE_TESTID = 'goal-target-route'
+
+/**
+ * ⭐⭐⭐ A TARGET THAT IS SET GETS THE SAME ROUTE AS A TARGET THAT IS MISSING.
+ *
+ * Measured on served `1f77130d`, the canonical pricing board: the goal card
+ * rendered `Target: 110%` as a plain `<div>` — no affordance, no reason — and
+ * it was one of 9 of 15 nodes in that state. `goalNoTargetChannels` above had
+ * already solved the harder half of this for the ABSENT case; the SET case was
+ * simply never given the same clause, so the commonest thing a reader wants to
+ * do with a target they can see — change it — had no visible route at all.
+ *
+ * ⚠ THE SAME DERIVATION, DELIBERATELY. This returns `null` rather than a
+ * different sentence when the carrier is not live, so a regression removes the
+ * CONTROL and not merely its wording: an affordance that opens a destination
+ * which cannot save is the "unwitnessed promise" this file's history is about.
+ *
+ * ⚠ AND IT PROMISES NAVIGATION, WHICH IS ALL IT DOES. `openModelValueEditor`'s
+ * header states the property: *"NAVIGATION IS NOT A MUTATION."* The write
+ * itself belongs to `proposeGoalTarget`, whose `direction` has no default and
+ * must be stated by whichever surface collects it — the Model tab's goal editor
+ * does, with an explicit "at least | at most" select, and this card does not
+ * and must not.
+ */
+export function goalTargetRouteChannels({
+  targetLine,
+  routeIsLive = GOAL_TARGET_ROUTE_IS_LIVE,
+}: {
+  /** What the card already renders. Quoted back so the two cannot drift. */
+  targetLine: string
+  /**
+   * ⚠ INJECTABLE FOR THE SAME ONE REASON `goalNoTargetChannels` is: so both
+   * branches are reached BY EXECUTION. Asserting them behind
+   * `if (GOAL_TARGET_ROUTE_IS_LIVE)` is a tautology that passes whichever way
+   * the flag falls, and a mutant regressing the key survived exactly that once.
+   */
+  routeIsLive?: boolean
+}): { 'aria-label': string; title: string } | null {
+  if (!routeIsLive) return null
+  return {
+    'aria-label': `${targetLine} — change it in ${GOAL_TARGET_LIVE_ROUTE}`,
+    title: `Change this target in ${GOAL_TARGET_LIVE_ROUTE}.`,
+  }
+}
 
 /**
  * Every channel a reader can reach the no-target chip through.
@@ -769,6 +816,8 @@ export const GoalNode = memo((props: NodeProps) => {
   // from `goalNoTargetChannels` and asserted equal to it.
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
+  const targetRouteChannels =
+    targetLine !== null ? goalTargetRouteChannels({ targetLine }) : null
   const noTargetStatusChip = (
     <button
       type="button"
@@ -882,8 +931,27 @@ export const GoalNode = memo((props: NodeProps) => {
             the existing coaching chip. */}
         {canCaptureTarget && !isPostAnalysis && noTargetStatusChip}
 
-        {/* With target: display it */}
-        {targetLine !== null && (
+        {/* With target: display it — and, where the carrier is live, offer the
+            route to change it. The plain-div arm is retained for the case where
+            the authority regresses: the FACT survives, the promise does not. */}
+        {targetLine !== null && targetRouteChannels !== null && (
+          <button
+            type="button"
+            data-testid={GOAL_TARGET_ROUTE_TESTID}
+            aria-label={targetRouteChannels['aria-label']}
+            title={targetRouteChannels.title}
+            className={`nodrag nopan ${typography.nodeLabel} text-text-light mt-1 text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              openModelValueEditor(props.id, 'goal')
+            }}
+          >
+            {targetLine}
+          </button>
+        )}
+        {targetLine !== null && targetRouteChannels === null && (
           <div className={`${typography.nodeLabel} text-text-light mt-1`}>
             {targetLine}
           </div>
