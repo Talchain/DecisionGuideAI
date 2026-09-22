@@ -676,7 +676,17 @@ export function AnalysisNewTabBody({
   const [methodOpen, setMethodOpen] = useState(false)
 
 
-  const reanalyseBlocked = !canRunAnalysis && !isRunning
+  /**
+   * ⭐⭐ ONE PREDICATE, THE GATE'S OWN VERDICT, READ BY EVERY CONTROL ON THIS
+   * SURFACE THAT COULD START A RUN — the ribbon's Re-analyse and the pre-run
+   * act. It was named `reanalyseBlocked` while only the ribbon read it, and
+   * the pre-run act meanwhile asked a DIFFERENT, coarser question
+   * (`blockedListing == null`) and reached the opposite answer in every state
+   * the gate refuses by early return (witnessed, staging `1f77130d`).
+   * Renaming it to the question removes the invitation to grow a second one
+   * (CLAUDE.md trap 21).
+   */
+  const runRefusedByGate = !canRunAnalysis && !isRunning
   /**
    * ⭐⭐ THE COMPOSED RUN AUTHORITY, RESOLVED ONCE AND READ TWICE — never two
    * predicates that happen to agree (CLAUDE.md trap 21).
@@ -696,7 +706,7 @@ export function AnalysisNewTabBody({
    * ⚠ `aria-busy` below and the pre-run sentence read THIS const, so the panel
    * cannot end up marked busy while denying that a run has started.
    *
-   * ⚠ IT IS DELIBERATELY NOT USED FOR `reanalyseBlocked` ABOVE. That predicate
+   * ⚠ IT IS DELIBERATELY NOT USED FOR `runRefusedByGate` ABOVE. That predicate
    * pairs the gate's verdict with the flag the GATE consumed, which is the
    * local one; swapping it would test a different run than the one that
    * produced the verdict. Two questions, two flags — see that comment.
@@ -1525,7 +1535,17 @@ export function AnalysisNewTabBody({
                 a saved model is the common case. Every line below is the run
                 gate's own; see `WhyNoAnalysisYet`. */}
             {isBusyNow ? null : (
-              <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
+              <WhyNoAnalysisYet
+                listing={blockedListing}
+                /* ⭐⭐ THE GATE'S SINGLE-BLOCKER SENTENCE, so a refusal that
+                   publishes no itemised listing is still explained rather than
+                   silent. Passed only when the gate actually refuses — the
+                   tooltip is also the carrier for a `warning` on an ALLOWED
+                   run, and printing that under "Why no analysis yet" would
+                   invent an obstacle. */
+                reason={runRefusedByGate ? runBlockedReason : null}
+                onFocusTarget={focusTarget}
+              />
             )}
             {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
                 This block states the blocker — "No analysis has run yet" — and
@@ -1541,17 +1561,29 @@ export function AnalysisNewTabBody({
                 action on that very turn. The panel rendered seven "Methods you
                 can run" and no way to run the analysis.
 
-                ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. `blockedListing`
-                is null exactly when the gate does not block — `WhyNoAnalysisYet`
-                documents that contract — so when it is non-null the remedy is
-                resolving those blockers, which the listing above already offers
-                with focus targets. Offering a button that refuses is the defect
-                one level down, and this panel has adjudicated it out twice.
+                ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. The remedy for
+                a refused run is resolving its blockers, which the box above
+                states; offering a button that refuses is the defect one level
+                down, and this panel has adjudicated it out twice.
+
+                ⛔ AND IT ASKS THE GATE, NOT THE LISTING — corrected 22 Sep
+                2026, witnessed on staging `1f77130d`. This condition read
+                `blockedListing == null`, on the strength of a contract line
+                that said a null listing means the run is not blocked. It does
+                not: `canRunAnalysis` publishes NO listing from any of its early
+                returns, and says so above them. On a model whose registration
+                CEE had aborted (`graph/register` → `net::ERR_ABORTED`, `/graph`
+                → 404) the hold was armed, the gate refused, and this control
+                rendered ENABLED with no reason anywhere on the tab — one click
+                from asking CEE to analyse a graph it answers 404 for.
+                `canRunAnalysis` is the gate's own `allowed`, already passed
+                here by `OutputsDock` and already read by the ribbon one section
+                down: present and unreachable, exactly as `onReanalyse` was.
 
                 ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
                 renders nothing rather than a control that does nothing — the
                 same fail-closed shape `onSendMessage` uses one section over. */}
-            {!isBusyNow && blockedListing == null && onReanalyse ? (
+            {!isBusyNow && !runRefusedByGate && onReanalyse ? (
               <button
                 type="button"
                 onClick={onReanalyse}
@@ -1829,15 +1861,15 @@ export function AnalysisNewTabBody({
           rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
           onReanalyse={onReanalyse}
           /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
-             IT — and not the verdict itself. `reanalyseBlocked` is
+             IT — and not the verdict itself. `runRefusedByGate` is
              `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
              in it), and the reason is masked by that same boolean so a
              permitted control carries no refusal text. What `AtAGlance` gets
              is therefore a PRESENTATION predicate over the one admission, in
              the shape `AnalysisReadinessBar` and `PanelFooter` already use —
              not either of the two values the dock handed this component. */
-          reanalyseBlocked={reanalyseBlocked}
-          reanalyseBlockedReason={reanalyseBlocked ? runBlockedReason : null}
+          reanalyseBlocked={runRefusedByGate}
+          reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
           /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
              questions the ribbon control has to answer. `reanalyseBlocked`
              above says whether the gate REFUSED; this says whether a run is

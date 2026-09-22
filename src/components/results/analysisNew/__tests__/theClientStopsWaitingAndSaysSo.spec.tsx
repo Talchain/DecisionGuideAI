@@ -91,9 +91,25 @@ interface DrawOpts {
   isBusy?: boolean
   waitExhausted?: boolean
   onReanalyse?: () => void
+  /**
+   * ⭐ THE HOST'S RUN VERDICT, WHICH THIS FIXTURE USED TO OMIT. The body
+   * documents `canRunAnalysis` as *"`null` = no verdict supplied, which is
+   * treated as blocked … the fail-closed render is no control at all"*, so a
+   * fixture that omits it is asking for the refused state while asserting the
+   * permitted one. Default `true` is the host ANSWERING "a run may start",
+   * which is the state "the way out is restored" is about.
+   */
+  canRunAnalysis?: boolean | null
+  runBlockedReason?: string | null
 }
 
-const draw = ({ isBusy = true, waitExhausted, onReanalyse = vi.fn() }: DrawOpts = {}) =>
+const draw = ({
+  isBusy = true,
+  waitExhausted,
+  onReanalyse = vi.fn(),
+  canRunAnalysis = true,
+  runBlockedReason = null,
+}: DrawOpts = {}) =>
   render(
     <AnalysisNewTabBody
       resultsSectionData={openStrategicChallenge()}
@@ -103,6 +119,8 @@ const draw = ({ isBusy = true, waitExhausted, onReanalyse = vi.fn() }: DrawOpts 
       {...(waitExhausted === undefined ? {} : { waitExhausted })}
       isStale={false}
       blockedListing={null}
+      canRunAnalysis={canRunAnalysis}
+      runBlockedReason={runBlockedReason}
       onReanalyse={onReanalyse}
     />,
   )
@@ -264,6 +282,30 @@ describe('once the client has stopped waiting, the panel stops claiming a run', 
     const act = screen.getByTestId('analysis-new-status-pre-run-act')
     expect(act).toBeInTheDocument()
     expect(act).toHaveTextContent(COPY.status.preRunRunAction)
+  })
+
+  /**
+   * ⛔⛔ AND IT IS NOT RESTORED WHEN THE GATE REFUSES — the twin, added
+   * 22 Sep 2026 with the staging `1f77130d` witness. Exhaustion says the CLIENT
+   * stopped waiting; it says nothing about whether a run may start. On a model
+   * whose registration CEE aborted, both were true at once and this panel
+   * offered the control anyway.
+   */
+  it('but not when the gate refuses a run — then it says why instead', () => {
+    draw({
+      ...EXHAUSTED,
+      canRunAnalysis: false,
+      runBlockedReason: 'Olumi cannot see this model yet.',
+    })
+    expect(
+      screen.queryByTestId('analysis-new-status-pre-run-act'),
+      'a control that would ask for a run the gate has already refused',
+    ).toBeNull()
+    expect(block()).toHaveTextContent('Olumi cannot see this model yet.')
+    // ⭐ AND THE EXHAUSTION SENTENCE STAYS. The two facts are independent, and
+    // suppressing one because the other is true is this panel's signature
+    // regression.
+    expect(block()).toHaveTextContent(COPY.status.waitExhausted)
   })
 
   it('and says why running again is worth doing', () => {

@@ -162,8 +162,17 @@ export interface CanRunAnalysisResult {
   /** Detailed reasons for blocking (for tooltips/debug) */
   blockingReasons?: string[]
   /**
-   * The same refusal, itemised — see `GateBlockedListing`. Present exactly when
-   * `reason` is, and always about the same blocking set.
+   * The same refusal, itemised — see `GateBlockedListing`. Always about the
+   * same blocking set as `reason`.
+   *
+   * ⛔ NOT "present exactly when `reason` is", which is what this line used to
+   * claim. Every early return below states a `reason` and publishes NO listing,
+   * deliberately (the comment above them says why). Two consumers inherited the
+   * over-claim and read `blockedListing == null` as "the run is not blocked":
+   * `WhyNoAnalysisYetProps` and the Reasoning tab's pre-run run control, which
+   * therefore rendered enabled on a held model (witnessed, staging
+   * `1f77130d`). **`allowed` is the gating answer. This field is a rendering
+   * convenience and must never be read as one.**
    */
   blockedListing?: GateBlockedListing
   /** Warning message (when allowed but suboptimal) */
