@@ -3209,17 +3209,25 @@ export function useConversation(): UseConversationReturn {
           settle('committed')
           return
         }
-        if (receipt === 'refuted') {
+        // `not_applied` (a 200 with no `draft_graph`) is how CEE REFUSES a
+        // rename — see the receipt type. It reverts like a refused value edit,
+        // but only on POSITIVE evidence the server holds this node: without the
+        // record, the refusal may be `node_target_not_found` on local-only
+        // work, and reverting would discard the user's typing on a guess.
+        const serverHeld =
+          store.lastAuthoritativeGraph?.nodeIds.includes(intent.nodeId) === true
+        if (receipt === 'refuted' || (receipt === 'not_applied' && serverHeld)) {
           settle('refused')
           shouldRevert = true
-          // WITHHELD WHENEVER CEE ALREADY SPOKE — and on this arm it almost
-          // always has, with a better sentence than ours (it names the label).
+          // WITHHELD WHENEVER CEE ALREADY SPOKE — its refusal sentence is the
+          // notice, and a second voice would only be the vaguer one.
           const spoke =
             typeof outcome.response.assistant_text === 'string' &&
             outcome.response.assistant_text.trim().length > 0
-          notice = spoke ? null : 'unconfirmed_server'
+          notice = spoke ? null : 'not_applied'
         } else {
-          // `unproven`. We hold no bytes about this node. Keep the name.
+          // `unproven`, or `not_applied` on a node we hold no server record
+          // for. We cannot say what the model holds. Keep the name.
           settle('unconfirmed')
           notice = 'unconfirmed_server'
         }

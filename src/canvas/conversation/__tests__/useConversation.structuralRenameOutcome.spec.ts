@@ -28,6 +28,10 @@
  * PERSISTED graph through `commitDirectAnswer(..., { contentGraph })`, so that
  * arm carries a positive, readable refutation.
  *
+ * ⛔ CORRECTED 22 Sep 2026 at CEE `9c16e8cd`: `contentGraph` never reaches the
+ * wire, so CEE's refusal arrives with NO `draft_graph` (receipt `not_applied`).
+ * The `refuted` cases below still pin a reply that DOES carry another label.
+ *
  * ⭐ EVERY CASE BELOW SHIPS ITS OPPOSITE-DIRECTION TWIN. A revert that fires too
  * eagerly DISCARDS the user's typing; one that fires too rarely leaves the
  * product lying about the model. Those are two different harms and a corpus
@@ -119,6 +123,9 @@ const OTHER_USERS_LABEL = 'Engineering run rate'
 function seedCanvasPostRename() {
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
+    // Seeded explicitly (starter/hydrate/receipt paths all set it) rather than
+    // leaked from whichever test ran before: the `not_applied` revert reads it.
+    lastAuthoritativeGraph: { nodeIds: [NODE_ID, SIBLING_ID], edgePairs: [] },
     // The REAL state at the moment `sendTurn` resolves: the drain moved this
     // gesture out of the queue and into the lifecycle as `in_flight` before it
     // awaited, so the resolver's job includes writing the terminal verdict.
@@ -329,13 +336,16 @@ describe('structural_rename — a committed 200 whose bytes REFUTE the rename', 
     expect(notices).toHaveLength(0)
   })
 
-  it('OPPOSITE TWIN — a 200 with NO readable committed graph KEEPS the name and says it could not confirm', async () => {
+  it('a 200 with NO draft_graph is CEE\'s REFUSAL shape — the previous name comes back', async () => {
+    // ⛔ This test used to pin KEEP, on the premise that a missing graph is
+    // silence. At CEE staging `9c16e8cd` it is not: every success stamps
+    // `draft_graph`, every refusal omits it. The keep-on-no-evidence twin (no
+    // server record for the node) lives in `useConversation.refusedRenameReverts.spec.ts`.
     stub200(null, 'Something happened.')
     const { labelOf, notices } = await driveRename()
 
-    // Reverting on a guess is DATA LOSS — strictly worse than the uncertainty.
-    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(notices).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
+    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
+    expect(notices).not.toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
   })
 })
 
@@ -413,12 +423,10 @@ describe('structural_rename — the lifecycle verdict, one per arm', () => {
     expect(verdictFor('sr-1')).toBe('refused')
   })
 
-  it('a 200 with NO readable committed graph settles `unconfirmed` — the honest third state', async () => {
+  it('a 200 with NO draft_graph settles `refused` — CEE declined it (see the receipt\'s `not_applied`)', async () => {
     stub200(null, 'Something happened.')
     await driveRename()
-    // ⚠ NOT collapsed into success. We hold no bytes about this node, and the
-    // name is still on the canvas, so the record has to say we do not know.
-    expect(verdictFor('sr-1')).toBe('unconfirmed')
+    expect(verdictFor('sr-1')).toBe('refused')
   })
 
   it('a guaranteed-no-write 409 settles `refused`', async () => {

@@ -272,8 +272,14 @@ describe('readStructuralRenameReceipt', () => {
   it('REFUTED even when a SIBLING carries our label — bound by id, not by value', () => {
     expect(readStructuralRenameReceipt(intent(), graph(PREVIOUS))).toBe('refuted')
   })
-  it('UNPROVEN with no draft_graph — silence is not a verdict', () => {
-    expect(readStructuralRenameReceipt(intent(), {})).toBe('unproven')
+  it('NOT_APPLIED with no draft_graph — that is CEE\'s refusal shape (staging 9c16e8cd), not silence', () => {
+    // Every CEE rename success stamps `draft_graph`; every refusal omits it.
+    expect(readStructuralRenameReceipt(intent(), {})).toBe('not_applied')
+    expect(readStructuralRenameReceipt(intent(), { draft_graph: null })).toBe('not_applied')
+  })
+  it('UNPROVEN with no reply body at all — silence is not a verdict', () => {
+    expect(readStructuralRenameReceipt(intent(), null)).toBe('unproven')
+    expect(readStructuralRenameReceipt(intent(), undefined)).toBe('unproven')
   })
   it('UNPROVEN when the node is ABSENT — that is a concurrent DELETE, a different event', () => {
     expect(

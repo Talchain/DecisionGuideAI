@@ -649,6 +649,21 @@ export type StructuralRenameReceipt =
   | 'proven'
   /** The committed graph carries THIS id at a DIFFERENT label — someone else won, or CEE refused. */
   | 'refuted'
+  /**
+   * The reply carries NO `draft_graph` at all — CEE declined the rename.
+   *
+   * ⚠ THIS IS NOT SILENCE, and treating it as `unproven` kept a refused name on
+   * the canvas (witnessed on served staging, 22 Sep 2026). Derived at CEE
+   * staging `9c16e8cd`: every SUCCESS stamps `draft_graph` after verifying the
+   * new label in the committed bytes (`system-events/dispatch.ts:2511-2553`);
+   * every REFUSAL is `refuse()` → `blocks: []` with no `draft_graph`
+   * (`system-events/structural-rename.ts:237-256`, returned at
+   * `dispatch.ts:2354-2425`). The `contentGraph` a refusal passes to
+   * `commitDirectAnswer` feeds only the stored-text id scrub (`commit.ts:205-220`)
+   * and never reaches the wire — so the "refusal carries a readable
+   * refutation" premise behind `refuted` does not hold for CEE's refusals.
+   */
+  | 'not_applied'
   /** No readable committed graph arrived. We know nothing; do not invent a verdict. */
   | 'unproven'
 
@@ -664,6 +679,11 @@ export type StructuralRenameReceipt =
  * that arm carries the OTHER label — which is a positive, readable refutation
  * rather than a silence.
  *
+ * ⛔ CORRECTED 22 Sep 2026 at CEE `9c16e8cd`: that `contentGraph` never reaches
+ * the wire, so a CEE refusal arrives with NO `draft_graph` and reads as
+ * `not_applied`, not `refuted`. `refuted` stays for any reply that does carry a
+ * graph at another label. See `not_applied` above.
+ *
  * BOUND BY IDENTITY: this intent's exact node id. Another node having taken this
  * label is not evidence about ours, and a label predicate is precisely the shape
  * a same-labelled sibling satisfies.
@@ -672,8 +692,12 @@ export function readStructuralRenameReceipt(
   intent: StructuralRenameIntent,
   response: unknown,
 ): StructuralRenameReceipt {
-  const draftGraph = (response as { draft_graph?: unknown } | null | undefined)?.draft_graph
-  if (!draftGraph || typeof draftGraph !== 'object') return 'unproven'
+  // No reply body at all is a transport-shaped hole, not a refusal.
+  if (!response || typeof response !== 'object') return 'unproven'
+  const draftGraph = (response as { draft_graph?: unknown }).draft_graph
+  // A reply WITHOUT the field is CEE's refusal shape — see `not_applied`.
+  if (draftGraph === undefined || draftGraph === null) return 'not_applied'
+  if (typeof draftGraph !== 'object') return 'unproven'
 
   const rawNodes = (draftGraph as { nodes?: unknown }).nodes
   if (!Array.isArray(rawNodes)) return 'unproven'
@@ -730,6 +754,13 @@ export const STRUCTURAL_RENAME_NOTICE = {
    */
   unconfirmed_server:
     "I couldn't confirm that new name reached the saved model. It's on the canvas, but it may revert when you reload — reload this decision to see what the model actually holds.",
+  /**
+   * CEE answered and did not take the rename, said nothing about why, and the
+   * old name is back. Only for a revert that RAN: `unconfirmed_server` says the
+   * name is still on the canvas, which is false once it has been put back.
+   */
+  not_applied:
+    "That new name wasn't saved to the model, so I've put the previous name back rather than show you a name the model doesn't hold.",
   /**
    * Nothing reached the server. Same epistemic position, different cause; the
    * copy avoids blaming the model for a network failure.
