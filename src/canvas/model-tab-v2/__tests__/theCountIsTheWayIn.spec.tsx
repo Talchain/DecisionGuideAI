@@ -697,4 +697,26 @@ describe('(g) a kind that can hold no value is in no unset bucket', () => {
     drawGoal([decisionRow, { ...valuedGoalRow, primaryValue: null }])
     expect(summary('goal').textContent).toBe('1 with no value yet')
   })
+
+  /**
+   * ⭐⭐⭐ THE SCOPE IS PINNED, NOT JUST STATED IN A COMMENT. Risks and
+   * outcomes reach the outline from the SAME `toModelRows` fallthrough as a
+   * decision — `primaryValue: null`, `editable: false` — so the cheapest
+   * wrong fix is "exempt every kind that fallthrough produces". Their count is
+   * TRUE: likelihood and impact really are unset, and the canvas offers a route
+   * to set them. This arm REDs on that widening.
+   */
+  it('⛔ a risk and an outcome are still counted — their gap is real', () => {
+    const unvalued = (id: string, kind: ModelRow['kind']): ModelRow => ({
+      id,
+      kind,
+      group: 'outcomes-risks',
+      label: id,
+      primaryValue: null,
+      attention: [],
+      editable: false,
+    })
+    drawGoal([decisionRow, valuedGoalRow, unvalued('risk_exec', 'risk'), unvalued('out_nrr', 'outcome')])
+    expect(summary('outcomes-risks').textContent).toBe('2 with no value yet')
+  })
 })
