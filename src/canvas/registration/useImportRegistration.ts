@@ -36,7 +36,7 @@
  * stays as the STATE (it is what survives a reload), and its release is now
  * driven by CEE's ack rather than by nothing at all. One mechanism, two halves.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -56,6 +56,7 @@ import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
+import { editDeliveryHold, useEditDeliveryHeld } from './editDeliveryHold'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -135,6 +136,40 @@ export function useImportRegistration(): void {
   const edgesNow = useCanvasStore((s) => s.edges)
 
   /**
+   * ⭐⭐ ONE WRITER — NO REGISTRATION WHILE A CANVAS EDIT IS STILL IN DELIVERY.
+   *
+   * Witnessed on served staging (22 Sep 2026): the optimistic write of a value
+   * edit moved the digest, the re-arm effect below armed a whole-graph
+   * registration, and it left in the SAME millisecond as the edit turn —
+   * carrying the user's number under the old `cee_inference` stamp. CEE's CAS
+   * rolled the edit back (500), and the register had already stored the number
+   * as Olumi's. See `editDeliveryHold.ts` for the four signals.
+   *
+   * Reactive, so the re-arm effect re-evaluates — and a stood-down
+   * registration is retried (below) — when delivery settles. By then an
+   * applied receipt has already acknowledged the edited model
+   * (`confirmOptimisticFactorEdit`) and a refusal has reverted to the
+   * acknowledged one, so in both cases nothing is sent.
+   */
+  const editDeliveryHeld = useEditDeliveryHeld()
+
+  /**
+   * A registration that stood down for an edit in delivery, waiting to be
+   * re-evaluated. Bumping `retryAfterDelivery` re-runs the registration effect
+   * ONCE when delivery settles — deliberately NOT by making `editDeliveryHeld`
+   * a dependency of that effect: its cleanup ABORTS the request in flight, and
+   * an edit starting must never cancel a registration already on the wire (its
+   * receipt is what lets the edit's own receipt chain the acknowledgement).
+   */
+  const deferredForDelivery = useRef(false)
+  const [retryAfterDelivery, setRetryAfterDelivery] = useState(0)
+  useEffect(() => {
+    if (editDeliveryHeld || !deferredForDelivery.current) return
+    deferredForDelivery.current = false
+    setRetryAfterDelivery((n) => n + 1)
+  }, [editDeliveryHeld])
+
+  /**
    * ⚠ RELOAD RECOVERY — WITHOUT THIS, "SAFE HOLDING" BECOMES A PERMANENT WALL.
    *
    * `hydrateGraphSlice` re-derives `importPendingServerRegistration` from the
@@ -149,6 +184,10 @@ export function useImportRegistration(): void {
   useEffect(() => {
     const st = useCanvasStore.getState()
     if (st.importPendingServerRegistration) return
+    // ONE WRITER: an optimistic write is not a model the server lacks — it is
+    // an edit the server is about to answer. Re-arming on it is what raced the
+    // edit turn. Re-evaluated when delivery settles (`editDeliveryHeld` dep).
+    if (editDeliveryHold(st as never) !== null) return
     if (analysisHeldOn(st as never) === null) return
     if (isGraphServerAcknowledged(st.currentScenarioId, st.nodes as never, st.edges as never)) return
     markGraphImported(st.nodes as never, st.edges as never)
@@ -156,10 +195,23 @@ export function useImportRegistration(): void {
     logger.info('import_registration.re_armed_after_lost_acknowledgement', {
       scenarioId: st.currentScenarioId ?? null,
     })
-  }, [nodesNow, edgesNow, scenarioId])
+  }, [nodesNow, edgesNow, scenarioId, editDeliveryHeld])
 
   useEffect(() => {
     if (!pending) return
+    // ONE WRITER: stand down BEFORE the attempt key is spent, so the same
+    // model can still be offered once delivery settles.
+    {
+      const hold = editDeliveryHold(useCanvasStore.getState() as never)
+      if (hold !== null) {
+        deferredForDelivery.current = true
+        logger.info('import_registration.deferred_for_edit_delivery', {
+          scenarioId: scenarioId ?? null,
+          hold,
+        })
+        return
+      }
+    }
     if (!scenarioId || !UUID_PATTERN.test(scenarioId)) {
       // ⭐ "THERE IS NOWHERE TO REGISTER THIS GRAPH" WAS TRUE, AND THAT MADE IT
       //    A THING TO FIX RATHER THAN A THING TO LOG. A fresh guest who opens a
@@ -242,6 +294,15 @@ export function useImportRegistration(): void {
       //    disagree. `userId` (from `useAuth`) remains the effect DEPENDENCY;
       //    it is not what is sent.
       const identity = await getSessionIdentity()
+      // ONE WRITER, re-checked at the last synchronous moment before the POST:
+      // an edit admitted during the await above must win. Un-spend the key so
+      // the retry after delivery can offer this model again.
+      if (!cancelled && editDeliveryHold(useCanvasStore.getState() as never) !== null) {
+        attempted.current.delete(attemptKey)
+        deferredForDelivery.current = true
+        logger.info('import_registration.deferred_for_edit_delivery', { scenarioId, hold: 'late' })
+        return
+      }
       const result = await registerScenarioGraph(scenarioId, projected.graph, {
         userId: identity.userId,
         accessToken: identity.accessToken,
@@ -315,5 +376,5 @@ export function useImportRegistration(): void {
       cancelled = true
       controller.abort()
     }
-  }, [pending, scenarioId, userId])
+  }, [pending, scenarioId, userId, retryAfterDelivery])
 }
