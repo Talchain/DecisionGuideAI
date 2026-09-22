@@ -17,6 +17,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
+import { NODE_RENAME_AFFORDANCE, nodeTitleChannels } from '../shared/nodeRenameAffordance'
 import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
@@ -128,14 +129,29 @@ describe('BaseNode — a label that cannot be shown in full stays reachable', ()
     // reachable at a readable size; this is that guarantee for sighted users,
     // and the group's aria-label is its assistive-tech twin.
     const { title } = renderNode(LONG_LABEL)
-    expect(title.getAttribute('title')).toBe(LONG_LABEL)
+    // ⚠ THE ATTRIBUTE NOW CARRIES TWO FACTS (22 Sep 2026) and the guarantee
+    // this file owns is the FIRST of them. `nodeTitleChannels` appended the
+    // rename affordance, because a double-click renames every node kind on the
+    // served build (15/15 witnessed) and no card said so. Asserting equality
+    // with the bare label would now RED on a correct compose; asserting merely
+    // `toContain` would pass on a static string, which the sibling case below
+    // exists to forbid. So this binds to the COMPOSER — the label must be
+    // recoverable, in full, at the start.
+    expect(title.getAttribute('title')).toBe(
+      nodeTitleChannels({ label: LONG_LABEL, accessibleName: '' }).title,
+    )
+    expect(title.getAttribute('title')?.startsWith(LONG_LABEL)).toBe(true)
   })
 
   it('binds the reachable text to THIS node’s label, not to any label', () => {
     // Identity, not a value predicate: a `title` carrying some other node's
     // text, or a static string, would satisfy "has a title attribute".
     const { title } = renderNode(SHORT_LABEL)
-    expect(title.getAttribute('title')).toBe(SHORT_LABEL)
-    expect(title.getAttribute('title')).not.toBe(LONG_LABEL)
+    expect(title.getAttribute('title')).toBe(
+      nodeTitleChannels({ label: SHORT_LABEL, accessibleName: '' }).title,
+    )
+    // Still discriminating in both directions a static string would defeat.
+    expect(title.getAttribute('title')).not.toContain(LONG_LABEL)
+    expect(title.getAttribute('title')).not.toBe(NODE_RENAME_AFFORDANCE)
   })
 })
