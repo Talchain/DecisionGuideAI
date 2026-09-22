@@ -147,7 +147,6 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalF
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
-import { selectLodBodyHidden } from '../utils/zoomLegibility'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 /** Strip known suffixes from factor labels for contextual display. */
@@ -829,15 +828,6 @@ export const OptionNode = memo((props: NodeProps) => {
     }),
     [ceeAnalysisReady, props.id, nodes],
   )
-
-  /**
-   * ⚠ THIS LINE IS PART OF THE CARD BODY, SO IT GOES WHEN THE BODY GOES.
-   * `selectLodBodyHidden` is the single source (`zoomLegibility.ts`) — no second
-   * rung literal. Without it the copy census reaches the route line at
-   * `option · pre · lod-line`, a rung where the card is title-only and a 10px
-   * floor already decided nothing else may render.
-   */
-  const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
 
   const isBaselineOption = useMemo(() => {
     // Explicit flag wins; regex only fires when flag absent (null/undefined).
@@ -2097,7 +2087,7 @@ export const OptionNode = memo((props: NodeProps) => {
             post-analysis and the baseline option behave exactly as before. A
             moved element that quietly widens its own conditions is a second
             change wearing the first one's clothes. */}
-        {!lodBodyHidden && !isPostAnalysis && !isBaselineOption && optionTargetsLineShows({ hasInterventions, deltasRendered: structuredDeltaChipsRender }) && (() => {
+        {!isPostAnalysis && !isBaselineOption && optionTargetsLineShows({ hasInterventions, deltasRendered: structuredDeltaChipsRender }) && (() => {
           const { short, full } = optionTargetsChannels({ count: totalInterventionCount })
           return (
             /* ⭐ A CONTROL, BECAUSE THE SENTENCE ALREADY NAMED THE
