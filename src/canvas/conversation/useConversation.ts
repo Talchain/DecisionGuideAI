@@ -4796,7 +4796,7 @@ export function useConversation(): UseConversationReturn {
               extractConflictCategory(target.boundaryError),
             )
           } else {
-            const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId)
+            const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId, optimisticEdit.sentValue)
             if (!applied) {
               const outcome = revertOptimisticFactorEdit(optimisticEdit)
               if (import.meta.env.DEV) {
