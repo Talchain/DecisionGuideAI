@@ -455,20 +455,6 @@ describe('C · THE SECTION STRUCTURE', () => {
     const groupHeadings = allHeadings.filter((t) => t !== null && GROUP_TITLES.includes(t))
     const headings = allHeadings.filter((t) => t === null || !GROUP_TITLES.includes(t))
     expect(headings).toEqual([
-      /*
-       * ⭐⭐ METHODS LEAD, AND THAT IS THE RULING RATHER THAN A DRIFT. ZONE:
-       * FOCUS sits above ZONE: ANSWER, and its gate now admits the static
-       * `METHOD_CATALOGUE` as well as the run's own focus ids, so the zone
-       * renders on EVERY run instead of only when the producer raised
-       * something. Paul, 18 Sep 2026: "Surface the Methods menu — make it
-       * prominent", then "make it first-screen — put it in ZONE: FOCUS".
-       *
-       * ⭐ THIS CENSUS GOING RED IS THE PROOF THE MOVE LANDED — the same thing
-       * the drivers note below records for its own move. The section is added
-       * to the list, never excluded from it, so the census still pins which
-       * sections appear and in what order.
-       */
-      ANALYSIS_NEW_COPY.sections.methods,
       // ⭐ #1082's trust readout, mounted in the same commit that added this
       // line. Its appearance HERE is the positive control that the mount is
       // real rather than a no-op import: this census went RED on it, by name.
@@ -484,6 +470,22 @@ describe('C · THE SECTION STRUCTURE', () => {
       // removed from the list — it is REPOSITIONED, so the census still pins
       // which sections appear and in what order.
       ANALYSIS_NEW_COPY.sections.drivers,
+      /*
+       * ⭐⭐ METHODS FOLLOW THE ANSWER. ZONE: FOCUS sat above ZONE: ANSWER on
+       * Paul's 18 Sep ruling; reversed 22 Sep 2026 on Experience Design's
+       * recommendation ("methods first-class, not first"), pending Paul's
+       * confirmation. Its gate admits the static
+       * `METHOD_CATALOGUE` as well as the run's own focus ids, so the zone
+       * renders on EVERY run instead of only when the producer raised
+       * something. Paul, 18 Sep 2026: "Surface the Methods menu — make it
+       * prominent", then "make it first-screen — put it in ZONE: FOCUS".
+       *
+       * ⭐ THIS CENSUS GOING RED IS THE PROOF THE MOVE LANDED — the same thing
+       * the drivers note above records for its own move. The section is added
+       * to the list, never excluded from it, so the census still pins which
+       * sections appear and in what order.
+       */
+      ANALYSIS_NEW_COPY.sections.methods,
       // ⚠ STRENGTHEN LEADS THE DETAIL AS OF THE REORDER. The coaching was
       // seventh of ten MOUNTS — below the ranked options and below Key
       // insights — and this census could not see that; see the scope note on
@@ -654,12 +656,13 @@ describe('C · THE SECTION STRUCTURE', () => {
      * The claim is still an EXACT list rather than a count or an index, so it
      * REDs the moment any DETAIL section creeps above the coaching — which is
      * the defect this case exists to catch. What changed is that ZONE: FOCUS
-     * renders unconditionally, and it sits above the answer by design.
+     * renders unconditionally; since 22 Sep 2026 (Experience Design, pending
+     * Paul's confirmation) it sits directly BELOW the answer, not above it.
      */
     expect(
       beforeStrengthen,
-      'only the methods a person can choose, and the answer, may precede the coaching',
-    ).toEqual([ANALYSIS_NEW_COPY.sections.methods, ANALYSIS_NEW_COPY.sections.drivers])
+      'only the answer, and the methods a person can choose, may precede the coaching',
+    ).toEqual([ANALYSIS_NEW_COPY.sections.drivers, ANALYSIS_NEW_COPY.sections.methods])
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
       headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),
     )

@@ -1679,96 +1679,6 @@ export function AnalysisNewTabBody({
           insights={nodeInsights}
         />
 
-        {/* ── FOCUS NOW ──────────────────────────────────────────────────────
-            ⭐ THE PROTOTYPE'S PRIMARY ACTION, AND IT WAS BUILT ON THE WRONG TAB.
-            `reasoningpanelv3` puts FOCUS NOW immediately under the model strip —
-            one thing to do next, with the reason it applies to you. Every part
-            of it already exists: `FocusNowContainer` has been the Analysis tab's
-            second panel since it shipped, and Paul's scope ruling excludes that
-            tab. So the panel he does use had no primary action at all; the slot
-            was held by "Strengthen the reasoning", which renders EMPTY whenever
-            the producer sends no phase-3 coaching.
-
-            ⛔ MOUNTED NARROWED, AND IT WOULD HAVE BEEN A REGRESSION OTHERWISE.
-            `useFocusNow` passes only `coachingSummary`, and that is gated off
-            (`CERTIFY_SUMMARY=false`), so the container renders six UNCONDITIONAL
-            hygiene nudges. Dropped here unchanged they would tell a person with
-            a goal, three options and two outcomes to "define what success looks
-            like" — the surface asserting a gap it never measured, in the one
-            slot a reader trusts most. `focusApplicableIds` narrows them to the
-            rows this model demonstrably lacks, and an empty list renders
-            nothing at all. */}
-        {/* ⛔ RENDERS ONLY WHEN IT HAS SOMETHING TO SAY, AND THE RATCHET IS WHY.
-            `thePanelCannotRegrow.spec.tsx` caught this mount at 9 blocks against
-            a ceiling of 8 on all three fixtures. Its header names the exact
-            failure: "the dump is what twenty individually-reasonable additions
-            look like from the reader's chair" — and this addition is a good one,
-            which is precisely the case the ratchet exists to stop.
-
-            The breach was not the nudges: those fixtures set no canvas nodes, so
-            `stripHasContent` is false, every fact is unknown and NO row is
-            earned. It was the SHELL — `FocusNowPanel` renders its own empty
-            state, so the block cost a reader a heading over nothing. That is the
-            rule this tab already enforces on every sibling
-            (`aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx`).
-            So the gate is here, and the ceiling is UNCHANGED at 8/8/6 rather
-            than argued upward. */}
-        {/* ── ZONE: FOCUS ─────────────────────────────────────────────
-            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
-            makes the zone grammar a REDUCTION: the panel goes from a flat stack
-            of equal-weight cards to a few named groups, and the regrowth
-            ratchet counts it as one child rather than several. A label added
-            loose would have raised the count by five and the ceiling with it,
-            which is the opposite of what the prototype asks for. */}
-        {/* ⛔⛔ THE ZONE IS GATED ON ITS OWN CONTENT, AND THE COMMENT DIRECTLY
-            ABOVE SAYS WHY. The block above me was gated for exactly this reason
-            — "the block cost a reader a heading over nothing" — and my first cut
-            put a label above that gate rather than inside it, so "Focus now"
-            rendered alone on ALL SEVEN fixtures (measured: content beyond the
-            label = 0 characters, every one). A zone label is a heading like any
-            other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
-            it was breaking, and the fix is the gate, not a wider ceiling. */}
-        {/* ⛔⛔ THE GATE WIDENED, AND THE RULE IT PROTECTS IS UNCHANGED.
-            This read `focusApplicableIds.length > 0`, because the comment above
-            is right that a zone label over nothing is the defect. `Focus now`
-            now heads something on EVERY run: `MethodsYouCanRun` renders the
-            static `METHOD_CATALOGUE`, which is never empty. So the heading still
-            claims something that is under it — the gate moved, the rule did not.
-
-            ⭐ PAUL'S INSTRUCTION, 18 Sep 2026: "make it first-screen — put it in
-            ZONE: FOCUS." It was in ZONE: ALSO, below the fold. This zone renders
-            above the answer, so the methods are now the first thing under the
-            decision itself.
-
-            ⚠ THE NUDGES KEEP THEIR OWN GATE, inside. They are run-specific and
-            frequently absent; the methods are not. Two different questions, and
-            folding them into one gate is what would bring the heading-over-
-            nothing defect back. */}
-        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
-          <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
-            {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
-                GROUP of blocks, so it carries no border, no fill and no radius
-                of its own: furniture that looked like a block would add the
-                weight this change exists to remove. Sized and coloured as
-                `panelMeta`, the quietest of the panel's three sizes. */}
-            <p
-              className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-              data-testid="analysis-new-zone-focus"
-            >
-              Focus now
-            </p>
-            {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
-                specific to THIS model; the methods are always available. A
-                reader who has a run-specific prompt should meet it before the
-                general shelf — prominence for the shelf was the instruction,
-                not precedence over the run. */}
-            {focusApplicableIds.length > 0 ? (
-              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
-            ) : null}
-            <MethodsYouCanRun raisedMethodIds={raisedMethodIds} />
-          </div>
-        ) : null}
-
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
         {/* ⛔ `driverTotal` NO LONGER PASSED. It let the glance declare its cap
             of three ("+N more drivers in this run"); the glance's driver list
@@ -2336,6 +2246,97 @@ export function AnalysisNewTabBody({
         />
         </div>
         )}
+
+        {/* ── FOCUS NOW ──────────────────────────────────────────────────────
+            ⭐ THE PROTOTYPE'S PRIMARY ACTION, AND IT WAS BUILT ON THE WRONG TAB.
+            `reasoningpanelv3` puts FOCUS NOW immediately under the model strip —
+            one thing to do next, with the reason it applies to you. Every part
+            of it already exists: `FocusNowContainer` has been the Analysis tab's
+            second panel since it shipped, and Paul's scope ruling excludes that
+            tab. So the panel he does use had no primary action at all; the slot
+            was held by "Strengthen the reasoning", which renders EMPTY whenever
+            the producer sends no phase-3 coaching.
+
+            ⛔ MOUNTED NARROWED, AND IT WOULD HAVE BEEN A REGRESSION OTHERWISE.
+            `useFocusNow` passes only `coachingSummary`, and that is gated off
+            (`CERTIFY_SUMMARY=false`), so the container renders six UNCONDITIONAL
+            hygiene nudges. Dropped here unchanged they would tell a person with
+            a goal, three options and two outcomes to "define what success looks
+            like" — the surface asserting a gap it never measured, in the one
+            slot a reader trusts most. `focusApplicableIds` narrows them to the
+            rows this model demonstrably lacks, and an empty list renders
+            nothing at all. */}
+        {/* ⛔ RENDERS ONLY WHEN IT HAS SOMETHING TO SAY, AND THE RATCHET IS WHY.
+            `thePanelCannotRegrow.spec.tsx` caught this mount at 9 blocks against
+            a ceiling of 8 on all three fixtures. Its header names the exact
+            failure: "the dump is what twenty individually-reasonable additions
+            look like from the reader's chair" — and this addition is a good one,
+            which is precisely the case the ratchet exists to stop.
+
+            The breach was not the nudges: those fixtures set no canvas nodes, so
+            `stripHasContent` is false, every fact is unknown and NO row is
+            earned. It was the SHELL — `FocusNowPanel` renders its own empty
+            state, so the block cost a reader a heading over nothing. That is the
+            rule this tab already enforces on every sibling
+            (`aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx`).
+            So the gate is here, and the ceiling is UNCHANGED at 8/8/6 rather
+            than argued upward. */}
+        {/* ── ZONE: FOCUS ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        {/* ⛔⛔ THE ZONE IS GATED ON ITS OWN CONTENT, AND THE COMMENT DIRECTLY
+            ABOVE SAYS WHY. The block above me was gated for exactly this reason
+            — "the block cost a reader a heading over nothing" — and my first cut
+            put a label above that gate rather than inside it, so "Focus now"
+            rendered alone on ALL SEVEN fixtures (measured: content beyond the
+            label = 0 characters, every one). A zone label is a heading like any
+            other; `aGroupHeadingClaimsSomethingIsUnderIt.spec.tsx` is the rule
+            it was breaking, and the fix is the gate, not a wider ceiling. */}
+        {/* ⛔⛔ THE GATE WIDENED, AND THE RULE IT PROTECTS IS UNCHANGED.
+            This read `focusApplicableIds.length > 0`, because the comment above
+            is right that a zone label over nothing is the defect. `Focus now`
+            now heads something on EVERY run: `MethodsYouCanRun` renders the
+            static `METHOD_CATALOGUE`, which is never empty. So the heading still
+            claims something that is under it — the gate moved, the rule did not.
+
+            ⭐ PAUL'S INSTRUCTION, 18 Sep 2026: "make it first-screen — put it in
+            ZONE: FOCUS." It was in ZONE: ALSO, below the fold. ⚠ ORDER REVERSED
+            22 Sep 2026 on Experience Design's recommendation ("methods
+            first-class, not first"), pending Paul's confirmation: this zone now
+            renders directly BELOW the answer rather than above it.
+
+            ⚠ THE NUDGES KEEP THEIR OWN GATE, inside. They are run-specific and
+            frequently absent; the methods are not. Two different questions, and
+            folding them into one gate is what would bring the heading-over-
+            nothing defect back. */}
+        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
+          <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
+            {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
+                GROUP of blocks, so it carries no border, no fill and no radius
+                of its own: furniture that looked like a block would add the
+                weight this change exists to remove. Sized and coloured as
+                `panelMeta`, the quietest of the panel's three sizes. */}
+            <p
+              className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+              data-testid="analysis-new-zone-focus"
+            >
+              Focus now
+            </p>
+            {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
+                specific to THIS model; the methods are always available. A
+                reader who has a run-specific prompt should meet it before the
+                general shelf — prominence for the shelf was the instruction,
+                not precedence over the run. */}
+            {focusApplicableIds.length > 0 ? (
+              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+            ) : null}
+            <MethodsYouCanRun raisedMethodIds={raisedMethodIds} />
+          </div>
+        ) : null}
 
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.
