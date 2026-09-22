@@ -161,6 +161,30 @@ describe('the served option row: a target carrying display_value can be changed 
     expect((within(row()).getByRole('textbox') as HTMLInputElement).value).toBe('0.6')
   })
 
+  it('⛔ ESCAPE CANCELS — nothing is sent, and the prose comes back', () => {
+    // Measured before this case existed: the Escape handler reset the draft and
+    // blurred, but the blur ran the commit with the TYPED value still in its
+    // closure, so "cancel" sent the number the reader was abandoning.
+    renderPanel()
+    fireEvent.click(within(row()).getByRole('button', { name: `Change the target for ${FACTOR_LABEL}` }))
+    const input = within(row()).getByRole('textbox') as HTMLInputElement
+    input.focus()
+    fireEvent.change(input, { target: { value: '0.9' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(sentEvents()).toHaveLength(0)
+    expect(row()).toHaveTextContent('Moderate (0.5)')
+  })
+
+  it('CONTRAST — Enter commits the same typed value Escape abandons', () => {
+    renderPanel()
+    fireEvent.click(within(row()).getByRole('button', { name: `Change the target for ${FACTOR_LABEL}` }))
+    const input = within(row()).getByRole('textbox') as HTMLInputElement
+    input.focus()
+    fireEvent.change(input, { target: { value: '0.9' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(sentEvents().map(e => e.payload?.value)).toEqual([0.9])
+  })
+
   it('⛔ a disabled row offers no control — the reveal never outranks a fence', () => {
     render(
       <InterventionRow

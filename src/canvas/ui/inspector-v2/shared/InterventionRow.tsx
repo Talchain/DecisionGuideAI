@@ -239,7 +239,22 @@ export function InterventionRow({
     setDraft(String(currentValue))
   }, [currentValue])
 
+  /**
+   * ⛔ ESCAPE MUST NOT COMMIT. The Escape arm below resets the draft and then
+   * blurs — but the blur runs THIS callback from the render that still holds the
+   * TYPED draft, so "cancel" sent the number the reader was abandoning (measured
+   * in `OptionPanel.servedEffectRowIsEditable.spec.tsx` before the fix). A ref,
+   * because the question "was this blur a cancel?" has to be answered in the
+   * same tick the state update has not yet reached.
+   */
+  const cancelledRef = useRef(false)
+
   const handleBlur = useCallback(() => {
+    if (cancelledRef.current) {
+      cancelledRef.current = false
+      setDraft(String(currentValue))
+      return
+    }
     const parsed = parseFloat(draft)
     if (!isNaN(parsed) && parsed !== currentValue) {
       onChange(parsed)
@@ -254,6 +269,7 @@ export function InterventionRow({
       inputRef.current?.blur()
     } else if (e.key === 'Escape') {
       e.preventDefault()
+      cancelledRef.current = true
       setDraft(String(currentValue))
       inputRef.current?.blur()
     }
