@@ -56,11 +56,34 @@ import type { GateBlockedListing } from '../../../../canvas/utils/canRunAnalysis
 
 export interface WhyNoAnalysisYetProps {
   /**
-   * The run gate's published refusal, or null when the run is not blocked (or
-   * no verdict exists yet). Null renders NOTHING — an empty explanation box on
-   * a model that can run would be an invented obstacle.
+   * The run gate's published ITEMISED refusal, or null when the gate published
+   * none. Nothing to list renders NOTHING — an empty explanation box on a model
+   * that can run would be an invented obstacle.
+   *
+   * ⛔ IT IS NOT "NULL WHEN THE RUN IS NOT BLOCKED", WHICH IS WHAT THIS LINE
+   * USED TO SAY, and the over-claim reached two consumers before it was
+   * measured. `canRunAnalysis` states the opposite directly above its own early
+   * returns: *"The early returns below do NOT publish a listing, and that is
+   * deliberate … They are all single-blocker states, which render as a sentence
+   * rather than a list anyway."* A held model, zero nodes, an unsettled
+   * streamed draft and a run in flight all refuse with no listing. `reason`
+   * below is that sentence.
    */
   listing: GateBlockedListing | null | undefined
+  /**
+   * ⭐⭐ THE SINGLE-BLOCKER SENTENCE — `getRunButtonTooltip(runGateResult)`, the
+   * gate's own `reason`, passed through exactly as `listing` is and never
+   * composed here. This component still adds no rung and no copy of its own.
+   *
+   * Read ONLY when the listing has nothing to list, so a refusal that itemises
+   * never prints its summary beside its items.
+   *
+   * ⚠ NO ROUTE. `GateBlockedItem.scope` is attached by the composer only when
+   * exactly one blocker authored that exact sentence; an early return publishes
+   * no item and therefore no scope, so this row is deliberately inert rather
+   * than linked to a guess.
+   */
+  reason?: string | null
   /** Route to a node on canvas. The tab already owns this. */
   onFocusTarget: (id: string) => void
   testId?: string
@@ -68,13 +91,26 @@ export interface WhyNoAnalysisYetProps {
 
 export function WhyNoAnalysisYet({
   listing,
+  reason = null,
   onFocusTarget,
   testId = 'analysis-new-why-no-analysis',
 }: WhyNoAnalysisYetProps) {
-  const sentences = listing?.sentences ?? []
-  // ⚠ NO LISTING, OR NOTHING TO LIST, RENDERS NOTHING. An "everything is fine"
-  // reassurance would be a claim this component never measured, and a heading
-  // over an empty list reads as a failure to load.
+  const itemised = listing?.sentences ?? []
+  /**
+   * ⚠ THE FALLBACK IS SUBORDINATE, NEVER ADDITIVE. The itemised list wins
+   * whenever it has anything in it — the summary and the items are two views of
+   * ONE refusal, and printing both is the "two expressions of one refusal"
+   * defect `GateBlockedListing` exists to close.
+   */
+  const sentences =
+    itemised.length > 0
+      ? itemised
+      : typeof reason === 'string' && reason.trim() !== ''
+        ? [{ text: reason }]
+        : []
+  // ⚠ NOTHING TO SAY RENDERS NOTHING. An "everything is fine" reassurance would
+  // be a claim this component never measured, and a heading over an empty list
+  // reads as a failure to load.
   if (sentences.length === 0) return null
 
   return (
