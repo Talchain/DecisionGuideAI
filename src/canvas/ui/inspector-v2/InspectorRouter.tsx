@@ -31,6 +31,7 @@ import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
 import { typography } from '../../../styles/typography'
+import { nodeConfidenceBadgeReadout } from './nodeConfidenceBadge'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -361,11 +362,18 @@ export const InspectorRouter = memo(function InspectorRouter({
         .map(e => resolveEdgeValueDisplay(e.data as Record<string, unknown> | undefined, 'beliefExists'))
         .filter((d): d is { show: true; value: number; source: EdgeValueSource } => d.show)
         .map(d => d.value)
-      if (confidences.length > 0) {
-        const avg = confidences.reduce((a, b) => a + b, 0) / confidences.length
-        const level = (avg >= 0.7 ? 'high' : avg >= 0.4 ? 'medium' : 'low') as const
-        nodeConfidenceLevel = level
-        confidenceBadge = <ConfidenceBadge level={level} value={Math.round(avg * 100)} />
+      // ⛔ AND THE SENTENCE ABOVE IS NOW ENFORCED, NOT ONLY WRITTEN (22 Sep
+      // 2026). Excluding UNSET edges did not close the case it describes: on
+      // Paul's board (bundle `482ec9e0`, served `1f77130d`) both inbound edges
+      // carry `belief_exists: 0.8` with `belief_exists_source: "cee"` — real
+      // provenance, so they pass the gate above — and the panel rendered
+      // `✓ 80%`, the exact synthetic aggregate of a constant. The second
+      // question, whether what survived the gate says anything, is
+      // `nodeConfidenceBadgeReadout`'s.
+      const readout = nodeConfidenceBadgeReadout(confidences)
+      if (readout) {
+        nodeConfidenceLevel = readout.level
+        confidenceBadge = <ConfidenceBadge level={readout.level} value={readout.value} />
       }
     }
   }
