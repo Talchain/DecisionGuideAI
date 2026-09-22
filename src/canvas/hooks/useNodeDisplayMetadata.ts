@@ -371,11 +371,65 @@ export function useNodeDisplayMetadata(
       const feed = selectDriverPolicyFeed(report as unknown as ResultsReport)
       const rows = feed.policyRows
       const displayModel = feed.displayModel
+      /**
+       * ⛔⛔ THE BADGE RANKED BY THE WRONG QUANTITY, AND IT SAID SO ON SCREEN.
+       *
+       * This sorted on `displayModel.value`, which under complete producer
+       * coverage IS `influence_score` — PLoT's STRUCTURAL weight, computed from
+       * authored edge strengths BEFORE the simulation. The badge's own
+       * accessible name is `sensitivityRankBadgeAccessibleName`:
+       * *"Key driver #N: one of the factors the result is most sensitive to"*.
+       * Structural weight is not sensitivity, and on a real board they diverge.
+       *
+       * ── MEASURED ON PAUL'S OWN RUN, not inferred ─────────────────────────
+       * `olumi-debug-1dd2133d-20260916.json`, staging `6497a251`. PLoT sent BOTH
+       * ranks in `factor_sensitivity`, and they disagree:
+       *
+       *   factor                       importance_rank  influence_rank  elasticity
+       *   Team Leadership Coverage            1               2            0.8
+       *   Delivery Capacity                   2               4            0.4
+       *   Hiring Speed in Current Market      3               5            0.4
+       *   Tech Lead Presence                  4               1            0
+       *   Hiring and Onboarding Cost          5               3            0
+       *   Additional Developer Headcount      6               6            0
+       *
+       * The board badged #1/#2/#3 as Tech Lead Presence / Team Leadership
+       * Coverage / Hiring and Onboarding Cost — EXACTLY `influence_rank` order.
+       * **So the product badged "the result is most sensitive to this" onto a
+       * factor whose own `elasticity` and `sensitivity_score` are both 0.**
+       * `importance_rank`'s top three ARE the elasticity ordering, so the
+       * badge's WORDS were right all along and the FIELD was wrong.
+       *
+       * ── WHY ELASTICITY AND NOT `importance_rank` ─────────────────────────
+       * `importance_rank` is the producer's own answer and would be the ideal
+       * key — `adapters/plot/v2/responseMapper.ts:1040` already says *"Sort by
+       * importance_rank if available"* — but it is DROPPED before the shared
+       * policy feed, which carries `key` and `rawElasticity` only. Threading a
+       * new field through that feed is a larger change than this defect
+       * warrants, and it is not needed: on this payload elasticity reproduces
+       * `importance_rank`'s ordering exactly. Rowed rather than smuggled in.
+       *
+       * ⚠ THE TIE GATE IS UNCHANGED AND DOES REAL WORK HERE. Ranking by
+       * elasticity leaves Delivery Capacity and Hiring Speed tied at 0.4, so
+       * `determinedRankDepth` cuts the badged depth to 1 and Paul's board shows
+       * ONE badge — on the factor the result is genuinely sensitive to —
+       * instead of three led by a factor that moves nothing. Fewer badges is
+       * the correct outcome, not a regression.
+       *
+       * ⛔ SCOPE: this changes the BADGE's ordering only. `displayModel.value`
+       * still feeds the influence NUMBER, which is a different question and
+       * correctly a different answer. A card may now show the highest influence
+       * and carry no badge; that is the two metrics being honestly distinct
+       * rather than one silently standing in for the other.
+       */
       const ranked = rows
         .map((r) => ({
           key: r.key,
           elasticity: r.rawElasticity,
-          value: displayModel.get(r.key)?.value ?? 0,
+          // The badge asks "what is the result most sensitive to". Elasticity is
+          // that question's answer; `displayModel.value` answers "how big is this
+          // factor structurally", which is why it used to disagree with the words.
+          value: Number.isFinite(r.rawElasticity) ? Math.abs(r.rawElasticity) : 0,
         }))
         .sort(compareByDisplayModel)
 
@@ -452,10 +506,38 @@ export function useNodeDisplayMetadata(
       const rank = ranked.findIndex(f => f.key === nodeId) + 1
       // MAX_BADGED_RANK is the badge's promise, so it is what the gate is
       // measured against — the depth and the cap can no longer drift apart.
-      const determinedDepth = determinedRankDepth(
+      /**
+       * ⛔⛔ THE TIE GATE MUST ASK ABOUT THE NUMBER THE READER SEES, NOT ONLY THE
+       * ONE THE ORDER IS KEYED ON — and this PR broke that before fixing it.
+       *
+       * Re-keying `ranked.value` from the displayed influence onto `|elasticity|`
+       * (correct for the ORDER — the badge says "most sensitive to") silently moved
+       * the TIE TEST onto elasticity too, because `determinedRankDepth` reads
+       * `value`. `driverPolicyFeed.parity.spec.tsx` caught it on a fixture with
+       * IDENTICAL `influence_score: 0.5` and elasticities `0.3` / `-0.9`: not tied
+       * on the sort key, so the canvas badged `#1` and `#2` beside two visible
+       * `0.5`s. That is exactly the defect #964 exists to remove, reintroduced —
+       * and that spec states the principle: "an ordinal is a COMPARATIVE claim and
+       * a tie cannot support one."
+       *
+       * ⚠ ORDERING AND BADGING ARE DIFFERENT QUESTIONS (CLAUDE.md trap 21), so
+       * they get different inputs. An ordinal needs BOTH to discriminate: the basis
+       * it claims (elasticity) AND the figure printed beside it (the displayed
+       * influence). Tied on either, and the reader cannot check the claim — so the
+       * depth is the MINIMUM of the two, never the sort key's alone.
+       *
+       * ⭐ It still ASKS THE EXISTING OWNER twice rather than minting a rival tie
+       * notion, which is the rule the paragraph above already set.
+       */
+      const depthByBasis = determinedRankDepth(
         ranked.map((f) => ({ id: f.key, value: f.value })),
         MAX_BADGED_RANK,
       )
+      const depthByDisplayed = determinedRankDepth(
+        ranked.map((f) => ({ id: f.key, value: displayModel.get(f.key)?.value ?? 0 })),
+        MAX_BADGED_RANK,
+      )
+      const determinedDepth = Math.min(depthByBasis, depthByDisplayed)
       sensitivityRank = rank > 0 && rank <= determinedDepth ? rank : null
 
       // VoI rank: top-3 factors by value_of_information. Keyed off the shared

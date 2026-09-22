@@ -69,6 +69,7 @@ import { typography } from '../../styles/typography'
 import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { formatWinProbability, classifyUnit } from '../utils/labelUtils'
+import { resolveDisplayableGoalTarget } from '../domain/displayableGoalTarget'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
@@ -206,6 +207,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
+  const goalThresholdRepresentation = useCanvasStore(s => s.goalThresholdRepresentation)
+
 
   // S.4: Session-only "user-reviewed" tracking
   const confirmedNodeIds = useCanvasStore(s => s.confirmedNodeIds)
@@ -213,6 +216,27 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const isConfirmed = confirmedNodeIds.has(nodeId)
 
   const node = nodes.find(n => n.id === nodeId)
+  /**
+   * ⭐⭐ ONE OWNER FOR "IS THERE A TARGET WORTH STATING".
+   *
+   * This file read the scalar bare and, for a percent-ish unit, ran it through
+   * `formatTargetValue(displayableTarget.value, 'percent')` — so a NORMALISED 0.8
+   * rendered as **"80%"**. Measured across 989 debug bundles: `goal_threshold`
+   * is 0.8 in 42 of the 54 that carry it, and ALL 18 carrying a cap have
+   * `cap / raw === 1.25` exactly, because the cap is derived from the target.
+   * That "80%" is a constant for every decision ever made.
+   *
+   * ⚠ ONLY THE TWO CLAIM-MAKING BRANCHES BELOW MOVE. The Assumptions-section
+   * `GoalThresholdEditor` further down still keys on the raw scalar: it gates an
+   * EDITOR, not an assertion, and offering someone the chance to set a target is
+   * never a false statement (CLAUDE.md trap 21 — two questions, two conditions).
+   */
+  const displayableTarget = resolveDisplayableGoalTarget({
+    goalThreshold,
+    representation: goalThresholdRepresentation,
+    thresholdRaw: (node?.data as Record<string, unknown>)?.goal_threshold_raw as number | string | null | undefined,
+    thresholdUnit: (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | null | undefined,
+  })
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
 
@@ -489,26 +513,31 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       )}
 
       {/* E.4: Goal threshold — inline editor when unset, read-only when set */}
-      {isGoalNode && goalThreshold == null && (
+      {isGoalNode && displayableTarget == null && (
         <div className="mt-2">
           <GoalThresholdEditor nodeId={nodeId} />
         </div>
       )}
-      {isGoalNode && goalThreshold != null && (
+      {isGoalNode && displayableTarget != null && (
         <p className={`${typography.panelBody} text-text-body mt-2`}>
           Target: \u2265 {(() => {
-            const unit = (node?.data as Record<string, unknown>)?.goal_threshold_unit
-              ?? ((node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined)?.unit
+            // ⚠ THE UNIT COMES FROM THE OWNER. It used to return `null` here,
+            // because the value was a normalised magnitude no unit described —
+            // the "≥ 0.8 £" defect `GoalPanel` documents. Since 22 Sep the owner
+            // returns the RAW figure instead (CEE confirmed `goal_threshold_raw`
+            // + `_unit` ship on 24 of 24 such nodes), so a unit arriving here now
+            // genuinely describes the number beside it.
+            const unit = displayableTarget.unit
             const unitStr = typeof unit === 'string' ? unit.toLowerCase() : ''
             // U2: percent recognition routed through classifyUnit (the single
             // source of truth) instead of a local three-literal copy. Identical
             // for those literals, and additionally correct for the whitespace
             // form this site missed (`.toLowerCase()` without `.trim()`).
             if (classifyUnit(typeof unit === 'string' ? unit : null).kind === 'percent') {
-              return formatTargetValue(goalThreshold, 'percent')
+              return formatTargetValue(displayableTarget.value, 'percent')
             }
-            if (unitStr && unitStr !== 'count') return formatTargetValue(goalThreshold, 'currency', typeof unit === 'string' ? unit : undefined)
-            return formatTargetValue(goalThreshold)
+            if (unitStr && unitStr !== 'count') return formatTargetValue(displayableTarget.value, 'currency', typeof unit === 'string' ? unit : undefined)
+            return formatTargetValue(displayableTarget.value)
           })()}
         </p>
       )}
@@ -573,8 +602,20 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </div>
           ) : (
             <>
-              {/* Influence bar */}
-              {displayMetadata.influence !== null && (
+              {/* ⭐⭐ INFLUENCE NEEDS ITS BASIS — added 22 Sep 2026, and this was
+                  the ONE renderer of five that did not fail closed.
+                  `FactorNode.tsx:759,770,1086` and `lodMetricLine.ts:279` all
+                  require `influenceProvenance != null` beside the number;
+                  lodMetricLine's comment even states the rule — "Fail-closed on
+                  provenance, exactly as FactorNode's own influence row does."
+                  This site gated on `influence !== null` ALONE, which is the
+                  hand-maintained mirror (trap 12) with the odd one out on the
+                  panel a reader opens deliberately to interrogate a factor.
+                  ⛔ The harm is named at FactorNode's own gate: "on the fallback
+                  basis the top driver shows 100% BY CONSTRUCTION." Measured over
+                  970 bundles, 15 of 399 boards rank a factor MOST INFLUENTIAL
+                  while holding no value for it, each at influence 1.0. */}
+              {displayMetadata.influence !== null && displayMetadata.influenceProvenance != null && (
                 <div className="mb-2">
                   <div className="flex justify-between items-center mb-1">
                     <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>

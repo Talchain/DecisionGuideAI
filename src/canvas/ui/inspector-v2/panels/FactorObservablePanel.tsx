@@ -312,6 +312,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
               <ImportanceBar
               importanceScore={displayMetadata.influence}
               sensitivityRank={displayMetadata.sensitivityRank}
+              influenceProvenance={displayMetadata.influenceProvenance}
               />
               {sensitivityGuidance && (
                 <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>

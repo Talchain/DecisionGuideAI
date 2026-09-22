@@ -47,7 +47,13 @@ import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAncho
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
-import { canCaptureGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
+// ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
+// This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
+// `domain/goalTarget` all along, while the readout below was derived from the
+// store scalar — and #1844 wrote a whole new module (`displayableGoalTarget.ts`)
+// for the question this module's own sibling export answers. The duplicate owner
+// was not hidden; it was on the next line of an existing import.
+import { canCaptureGoalTarget, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 
 export const GoalPanel = memo(function GoalPanel({
@@ -195,9 +201,63 @@ export const GoalPanel = memo(function GoalPanel({
   // must obey the same rule, or "≥ 0.8 £" simply reappears inside the input.
   // One expression, both consumers — never two copies of the tag check.
   const scaleSafeUnit = goalThresholdRepresentation === 'normalised' ? undefined : thresholdUnit
-  const targetDisplay = goalThreshold == null
-    ? null
-    : formatGoalTarget(goalThreshold, scaleSafeUnit ?? null)
+  /**
+   * ⭐⭐⭐ THE READOUT GOES THROUGH THE OWNER THE CARD ALREADY USES.
+   *
+   * ⛔⛔ AND MY FIRST VERSION OF THIS BUILT A SECOND OWNER. It routed the readout
+   * through `domain/displayableGoalTarget.ts`, written for #1844 under a docblock
+   * claiming to be "the ONE owner" — while `domain/goalTarget.ts` had owned this
+   * question all along and `GoalNode` (the card) was already using it. Two domain
+   * modules answering *"what target may we show"* is the hand-maintained mirror
+   * (CLAUDE.md trap 12) committed by the very change that cites it.
+   *
+   * `resolveGoalTarget` is also strictly better than what I wrote, in a way that
+   * matters on screen:
+   *   · it prefers the reader's OWN `success_threshold` when
+   *     `threshold_source === 'user'`, falling back to CEE's `goal_threshold_raw`.
+   *     My version knew nothing of `success_threshold`, so it would have shown
+   *     CEE's figure back to someone who had just typed their own.
+   *   · it returns `source: 'user' | 'brief'` — "a target the reader typed and a
+   *     target we lifted from their brief are different claims about authorship".
+   *   · it rejects a blank string, which `goal_threshold_raw` can be.
+   *
+   * ⭐ AND THE FORMATTING CHAIN IS THE CARD'S, VERBATIM (`GoalNode.tsx:578-583`),
+   * because `formatGoalTarget` was moved into a shared module for exactly this
+   * reason: *"Inspector v2's GoalPanel needed the SAME mapping and had none (it
+   * interpolated the number bare with the unit as a suffix — '800000 £'), and the
+   * staging walk saw the two surfaces print different strings for one goal."*
+   * Resolution was the half still unshared. Now both halves are.
+   *
+   * ⚠ ROWED, NOT DONE: the three-line chain below is still a copy. The structural
+   * fix is one exported `formattedGoalTarget()` in `domain/goalTarget.ts` used by
+   * both surfaces. Not taken here because it edits `GoalNode` and would widen a PR
+   * that is otherwise a withholding change.
+   */
+  const resolvedTarget = resolveGoalTarget(node?.data as GoalTargetSource | undefined)
+  const targetDisplay = (() => {
+    if (resolvedTarget == null) return null
+    const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
+    if (Number.isNaN(raw)) return String(resolvedTarget.raw)
+    return formatGoalTarget(raw, resolvedTarget.unit) ?? String(resolvedTarget.raw)
+  })()
+  /**
+   * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
+   *
+   * `targetDisplay == null` used to answer BOTH "is there text to show" and "does
+   * the pipeline hold a number", because the two could not diverge. Sourcing the
+   * readout from the NODE makes them diverge: the store scalar and the node's
+   * target fields are written by different paths and `goalTarget.ts` says so in
+   * terms — *"no write orders these two scalars, so they diverge."*
+   *
+   * The `targetUnlocks` sentence below needs the PIPELINE question: its own
+   * docblock states *"`targetDisplay == null` is exactly 'the pipeline holds no
+   * number', so it is the condition the sentence is true under."* Leaving it on
+   * `targetDisplay` would have made it claim probabilities are locked beside a run
+   * that HAS produced them — "a fresh false claim bought with the fix for another
+   * one, which is the trade this PR exists to refuse", in the words of the PR that
+   * wrote it. So the sentence keeps ITS question and the readout keeps its own.
+   */
+  const pipelineHoldsNoTargetNumber = goalThreshold == null
 
   /**
    * ⭐⭐⭐ THE ADMISSION — *may this reader add a target?* — AND, UNTIL #1172
@@ -370,6 +430,7 @@ export const GoalPanel = memo(function GoalPanel({
               <ImportanceBar
                 importanceScore={displayMetadata.influence}
                 sensitivityRank={displayMetadata.sensitivityRank}
+                influenceProvenance={displayMetadata.influenceProvenance}
               />
             </div>
           )
@@ -384,7 +445,21 @@ export const GoalPanel = memo(function GoalPanel({
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <PrimaryControlCard>
           {/* §4.2 Success target */}
-          {targetDisplay != null && !canCaptureTarget ? (
+          {/* ⛔⛔ THE BRANCH GATE KEEPS THE STORE AS ITS SUBJECT. Sourcing the
+              readout TEXT from the node (above) must not move this branch, and my
+              first attempt did: with the text node-sourced, `targetDisplay != null`
+              became TRUE in the quadrant where the node holds a brief-extracted raw
+              and the store holds no number — so the READOUT took over and the
+              EDITOR vanished. `capturePromiseAnswers.spec.tsx` names that exact
+              quadrant as "THE QUADRANT THE OBVIOUS FIX DELETES… the exact state
+              `GoalThresholdEditor`'s `thresholdRaw` pre-population and its
+              'From your brief' badge exist for. The admission is a SUFFICIENT
+              condition, never the whole gate." It was right and I was the obvious
+              fix.
+              ⭐ So: WHICH branch is the store's question, WHAT it says is the
+              node's, and `targetDisplay != null` still guards against claiming a
+              target we cannot state — which is #1844's withholding intent intact. */}
+          {goalThreshold != null && targetDisplay != null && !canCaptureTarget ? (
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
                 Success means reaching {'\u2265'} {targetDisplay}
@@ -478,7 +553,7 @@ export const GoalPanel = memo(function GoalPanel({
                   IS `statedGoalTargetRaw(data) == null`, so a stated
                   `goal_threshold_raw` makes it false and gating the seed on that
                   admission preserves the pre-fill by construction. */}
-              {targetDisplay == null && (
+              {pipelineHoldsNoTargetNumber && (
                 <p className={`${typography.panelMeta} text-info mt-1.5`}>
                   {GOAL_CONSTRAINT_COPY.targetUnlocks}
                 </p>

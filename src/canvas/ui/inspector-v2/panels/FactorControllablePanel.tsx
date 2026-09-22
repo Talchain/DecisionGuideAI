@@ -679,9 +679,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 This is a change of POSITION, not of type — sizing the sentence to
                 its neighbours is a separate question and is not smuggled in here. */}
               <div>
+                {/* ⭐ The basis gate lives in `ImportanceBar`, the ONE renderer all
+                    four factor/goal panels share — see its docblock. Gating here
+                    instead withheld the RANK too, which is separately licensed. */}
                 <ImportanceBar
                 importanceScore={displayMetadata.influence}
                 sensitivityRank={displayMetadata.sensitivityRank}
+                influenceProvenance={displayMetadata.influenceProvenance}
                 />
                 {sensitivityGuidance && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
