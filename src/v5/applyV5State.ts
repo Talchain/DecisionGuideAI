@@ -1036,6 +1036,52 @@ export function applyV5State(
           store.updateNode(target, {
             data: {
               ...(node.data as Record<string, unknown>),
+              /**
+               * ⛔⛔ WITHDRAW THE STALE EXTRACTION CLAIM — THE NEIGHBOUR
+               * `useInspectorMutations` WARNED ABOUT, STILL OPEN.
+               *
+               * That setter clears BOTH spellings of `extractionType` and says
+               * why: *"the `data` spelling still labelled Olumi's estimate after
+               * the user typed a value — the exact defect this PR exists to
+               * close, reopened by its neighbour."* This apply path is that
+               * neighbour. It spreads `node.data` wholesale, so a top-level
+               * `extractionType: 'inferred'` survives a value replacement it no
+               * longer describes.
+               *
+               * ── WITNESSED ON THE DEPLOYED BUILD `b31517a1` ─────────────────
+               * Guest, saved example. Set `Data Team Capacity` to `0.2` from the
+               * Model tab and confirm. The card is correct — no `est.` marker,
+               * provenance "User edited". RELOAD, and the same card reads
+               * **"0.2 est."** with the title *"Estimate not yet confirmed —
+               * this value was filled in for you."*
+               *
+               * The persisted node at that moment holds THREE authorship facts,
+               * two of which disagree with the third:
+               *     provenance:            "user_set"
+               *     observedState.source:  "user_override"
+               *     extractionType:        "inferred"   ← this one
+               * and `factorValueIsUnconfirmedEstimate` reads
+               * `obs?.extractionType === 'inferred' || d?.extractionType ===
+               * 'inferred'`, so the one that disagrees is the one that decides.
+               * The product tells a user the number they typed was filled in for
+               * them.
+               *
+               * ⚠ WHY HERE AND NOT IN THE READER. The estate already ruled on
+               * that, in the spec that fixed the inspector: *"This fixes the
+               * WRITER, deliberately, rather than teaching the marker to read
+               * `source` — re-pointing the reader would make the marker and
+               * `EstimateMarker`'s two other call sites answer different
+               * questions."* Same ruling, applied to the writer it did not reach.
+               *
+               * ⚠ CLEARED, NOT RE-AUTHORED — the same discipline `display_value`
+               * is under. `extractionType` is the SERVER's to write; setting it
+               * to `'explicit'` here would be the client asserting an extraction
+               * it never performed. Clearing withdraws a sentence that has become
+               * false and leaves the field for the server to re-author. And
+               * `after` is merged BELOW this line, so if CEE sends its own
+               * `extractionType` for the new value, the server still wins.
+               */
+              extractionType: undefined,
               observedState: {
                 ...((node.data as { observedState?: Record<string, unknown> }).observedState ?? {}),
                 ...after,
