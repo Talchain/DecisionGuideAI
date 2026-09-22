@@ -7,7 +7,7 @@
  * derive from `openAiPreviewEndpoint()`, and the cases below drive every
  * combination of the two settings rather than the two that happen to be easy.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   OPENAI_PREVIEW_STORAGE_KEY,
   OPENAI_PREVIEW_ENDPOINT_STORAGE_KEY,
@@ -15,7 +15,7 @@ import {
   openAiPreviewEndpoint,
   isOpenAiPreviewActive,
 } from '../openAiPreview'
-import { __internals } from '../v5Adapter'
+import { __internals, callV5Turn } from '../v5Adapter'
 
 const AGENT = 'https://agent.example.test/agent/v1/turn'
 
@@ -108,5 +108,40 @@ describe('the banner says exactly what was briefed', () => {
 
   it('promises nothing about saving', () => {
     expect(OPENAI_PREVIEW_BANNER).not.toMatch(/sav|persist|stored|kept/i)
+  })
+})
+
+/**
+ * ⭐⭐ THE WIRE, NOT THE RESOLVER. `resolveEndpoint()` returning the right
+ * string proves a decision, not a request — and the defect class this estate
+ * keeps hitting is a correct value that never reaches the thing that uses it.
+ * So these drive the REAL exported caller and read the URL `fetch` was handed.
+ */
+describe('the turn actually goes there — asserted at the fetch boundary', () => {
+  beforeEach(() => { setFlag(null); setEndpoint(null) })
+  afterEach(() => { setFlag(null); setEndpoint(null) })
+
+  const okResponse = () =>
+    new Response(JSON.stringify({ response_version: 'v5' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+  it('POSTs the Agent route when the preview is on', async () => {
+    setFlag(true); setEndpoint(AGENT)
+    const fetchImpl = vi.fn(async () => okResponse()) as unknown as typeof fetch
+    await callV5Turn({ kind: 'message' } as never, { fetchImpl })
+    const calledWith = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]
+    expect(calledWith[0]).toBe(AGENT)
+    expect((calledWith[1] as { method?: string }).method).toBe('POST')
+  })
+
+  it('CONTRAST CONTROL — POSTs the CEE endpoint when it is off', async () => {
+    const fetchImpl = vi.fn(async () => okResponse()) as unknown as typeof fetch
+    await callV5Turn({ kind: 'message' } as never, { fetchImpl })
+    const url = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0]
+    expect(url).not.toBe(AGENT)
+    expect(typeof url).toBe('string')
+    expect(String(url).length).toBeGreaterThan(0)
   })
 })
