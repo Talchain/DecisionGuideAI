@@ -2024,7 +2024,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               data-needs-name-signal={needsName}
               title={labelNeedsNameExplanation(data)}
               aria-label={labelNeedsNameExplanation(data)}
-              className="mb-0.5 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1 py-px text-[10px] font-medium leading-none text-amber-800"
+              className="mb-0.5 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1 py-px text-[length:calc(10px*var(--canvas-label-scale,1))] font-medium leading-none text-amber-800"
             >
               {LABEL_NEEDS_NAME_MARKER}
             </div>
