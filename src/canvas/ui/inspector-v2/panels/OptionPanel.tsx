@@ -349,6 +349,35 @@ export const OptionPanel = memo(function OptionPanel({
       }>
   }, [edges, nodes, nodeId, interventionIds])
 
+  /**
+   * ⛔⛔ DOES THIS OPTION HAVE ANY CONNECTION AT ALL — a DIFFERENT question from
+   * "does it have one this group has not already shown", and conflating them is
+   * the L-40 contradiction.
+   *
+   * `outboundConnections` above is CORRECTLY narrow: it deliberately drops the
+   * decision parent (organisational) and every factor already rendered as an
+   * InterventionRow (redundant). So it is empty for a perfectly ordinary,
+   * fully-connected option — and the group then printed the FLAT DENIAL,
+   * "No connections yet.", a few centimetres under six connections it had just
+   * listed itself.
+   *
+   * WITNESSED on deployed `b31517a1`, guest, saved example: `opt_rudderstack`
+   * holds **5 edges and 6 interventions** in the persisted graph, the panel
+   * listed all six under "What this option changes", and then said it had none.
+   *
+   * ⭐ `EMPTY_STATES.noConnectionsFlat` CARRIES THE RULING THAT FORBIDS THIS,
+   * in its own docblock: *"rendered by panels that were simultaneously showing
+   * connections the user could see on the canvas. Now one constant, and every
+   * panel that shows it must first prove there is genuinely nothing to show."*
+   * This panel proved only that there is nothing MORE to show. `DecisionPanel`
+   * was repaired for the same class (review D3, "it was outbound-only"); this is
+   * the sibling that repair did not reach.
+   */
+  const hasAnyConnection = useMemo(
+    () => edges.some(e => e.source === nodeId || e.target === nodeId),
+    [edges, nodeId],
+  )
+
   // Controllable factors available to add
   const controllableFactors = useMemo(() => {
     return nodes
@@ -853,6 +882,16 @@ export const OptionPanel = memo(function OptionPanel({
       })()}
 
       {/* ── Connections group ─────────────────────────────────── */}
+      {/*
+        ⚠ THE GROUP IS OMITTED, NOT EMPTIED, and that is deliberate. `PanelGroup`
+        renders its label unconditionally, so suppressing only the sentence would
+        leave a bare "Connections" heading with nothing beneath it — which reads
+        as a rendering fault rather than as honesty. When every connection this
+        option has is already on screen above, the group has no job; when the
+        option genuinely has none, the group and its flat denial are both TRUE
+        and both render.
+      */}
+      {(outboundConnections.length > 0 || !hasAnyConnection) && (
       <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
         {outboundConnections.map(conn => (
           <ConnectionRow
@@ -869,6 +908,7 @@ export const OptionPanel = memo(function OptionPanel({
           <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
         )}
       </PanelGroup>
+      )}
 
       {/* ── Expert-only model detail ──────────────────────────── */}
       {/* ⚠⚠ WRITERS 4 AND 5 OF 5, AND THE TWO A FILE-SCOPED SWEEP MISSES.
