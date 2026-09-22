@@ -1099,6 +1099,8 @@ export type ChecksCode =
   | 'robustness_not_assessed'
   /** The field is absent — an older producer build said nothing at all. */
   | 'robustness_unknown'
+  /** A verdict came back, but the admission licenses no strength word (#1206). */
+  | 'robustness_not_established'
   /** Gaps were found and every one is addressed. */
   | 'evidence_all_addressed'
   /** Gaps were found and some are outstanding. */

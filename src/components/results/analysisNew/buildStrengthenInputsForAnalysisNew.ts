@@ -34,6 +34,7 @@
 
 import { resolveFactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
 import { leaderDesignationPermitted } from '../leaderDesignation'
+import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { adaptivePriorityFromStage } from '../strengthen/StrengthenContainer'
 import { toStrengthenPhase3Item } from '../strengthen/buildRecommendations'
 import { mergeBiasFindingTypes } from '../strengthen/biasTypesFromGuidance'
@@ -89,6 +90,7 @@ export function buildStrengthenInputsForAnalysisNew({
     // documents, reached through a mirror that was faithful about every key
     // except this one.
     hasLeadingOption: leaderDesignationPermitted(data.recommendation),
+    stabilityLicensed: analysisClaimPolicy(data.recommendation).mayStateStability,
     // ⭐ IDENTITY, BESIDE THE PERMISSION ABOVE — two questions, two fields. The
     // line above says the panel MAY designate; this says what the designated
     // option is CALLED, so a permitted trigger can name it instead of writing

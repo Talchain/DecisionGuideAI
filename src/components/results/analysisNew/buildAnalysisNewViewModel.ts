@@ -3440,8 +3440,14 @@ function buildChecks(
    * `undefined` is an older build saying nothing at all.
    */
   const robustnessVerdict = rec.robustnessVerdict
+  // ⛔ SAME GATE AS THE GLANCE WORD (#1206): a determinate verdict the admission
+  // does not license is reported as not established, never as a strength word.
+  const robustnessDeterminate =
+    robustnessVerdict === 'robust' || robustnessVerdict === 'moderate' || robustnessVerdict === 'fragile'
   const robustnessCode: ChecksCode =
-    robustnessVerdict === 'robust'
+    robustnessDeterminate && !analysisClaimPolicy(rec).mayStateStability
+      ? 'robustness_not_established'
+      : robustnessVerdict === 'robust'
       ? 'robustness_robust'
       : robustnessVerdict === 'moderate' || robustnessVerdict === 'fragile'
         ? 'robustness_sensitive'
@@ -3578,6 +3584,7 @@ const CHECK_STATE: Record<ChecksCode, ChecksState> = {
   robustness_sensitive: 'finding',
   robustness_not_assessed: 'not_assessed',
   robustness_unknown: 'not_assessed',
+  robustness_not_established: 'not_assessed',
   evidence_all_addressed: 'pass',
   evidence_gaps: 'finding',
   evidence_none_flagged: 'pass',

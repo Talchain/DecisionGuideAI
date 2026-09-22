@@ -65,7 +65,9 @@
  *   Q-STABILITY  `TriageActionCardsBody` — the checks-footer robustness glyph
  *                and `StabilityNarrative`'s percentage. (#1206)
  *                `analysisNew/buildAnalysisNewViewModel` — the glance's verdict
- *                word ("Stable" / "Mixed" / "Sensitive"). (#1206, 22 Sep 2026)
+ *                word and the "What we checked" robustness row; and, through
+ *                `StrengthenInputs.stabilityLicensed`, Strengthen's commit row
+ *                on both tabs. (#1206, 22 Sep 2026)
  *   Q-FIGURES    NO SUPPRESSING CONSUMER, DELIBERATELY — and this one is not
  *                a gap. It is the answer that LICENSES rather than withholds:
  *                on `quantified_provisional` the figures are admitted, and the
@@ -76,10 +78,12 @@
  *                worse product than the defect it replaced. It is read by §1's
  *                lattice table, which is what stops it drifting silently.
  *
- * ✅ THE REASONING TAB NOW READS Q-STABILITY (22 Sep 2026). #1206 witnessed the
- * same unlicensed "Stable" on `analysisNew`; its glance verdict is gated on
- * `mayStateStability` above. Its other answers are read by that tab's own
- * gates (`licensesComparativeLeaderClaim`), not through this module.
+ * THE REASONING TAB READS Q-STABILITY at the three strength-statement sites an
+ * adversarial sweep found (22 Sep 2026, #1206): the glance word, the "What we
+ * checked" robustness row and Strengthen's commit row. ⚠ A sweep proves the
+ * sites it found, not that none remain — a new site that states a stability
+ * verdict must read `mayStateStability` too. Its leader answers are read by
+ * that tab's own gate (`licensesComparativeLeaderClaim`).
  */
 import { leaderDesignationPermitted } from './leaderDesignation'
 import type { AnalysisAdmissionV1, PermittedAnalysisMode } from '../../adapters/cee/types'
