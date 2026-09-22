@@ -508,6 +508,37 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
    * instrument broke.
    */
   {
+    what: 'whereTheHeightGoes.measure.ts (2 cells) — where the board\'s 2,434px of height actually sits',
+    why:
+      'Same claim-type test, and `grep -c \'expect(\'` returns 0 BY DESIGN. ⭐ IT EXISTS BECAUSE THE ' +
+      'ARITHMETIC IT REPLACED WAS WRONG. The standing plan named "tighten inter-lane gaps (521 -> 240), ' +
+      'saving 281px" as the largest no-information-loss height lever; this measure found 352px of gap in ' +
+      'TOTAL, uniform at 88 across four gaps, so zeroing every gap saves less than the claimed saving of a ' +
+      'partial tightening. It also relocated the problem: 86% of the height is CARDS, and a lane\'s band ' +
+      'is set by its tallest single card only on one of two boards (pricing-model is [506,506,506,227] — ' +
+      'median EQUALS tallest, so there is no outlier to clamp). ' +
+      '⛔ IT MUST NOT BECOME A GATE ARM. Its numbers are inputs to a design decision about card content, ' +
+      'not a product invariant — height is legitimately allowed to change when a card\'s content changes, ' +
+      'and a gate arm asserting today\'s bands would fire on every honest content edit. Its one guard is ' +
+      'internal: cards + gaps must reconcile to the extent the same run reads from the viewport, and it ' +
+      'prints VOID rather than a tidy table when they do not.',
+  },
+  {
+    what: 'dockCostsTheBoard.measure.ts (2 cells) — what the outputs dock costs the visible board',
+    why:
+      'Same claim-type test; zero `expect(`. Reads `clipped` with the dock expanded then collapsed IN ONE ' +
+      'PAGE, so both readings share a layout, a camera and a build. ⭐ IT EXISTS TO KILL A FIX, AND IT DID: ' +
+      'it measured clipped 12 -> 8 of 20, and in the ONE run of four where the camera also re-framed ' +
+      '(x -246 -> -58) clipped was STILL 8 — the re-frame trades left-clipping for right-clipping and nets ' +
+      'zero cards. That refuted a "the camera never re-frames" finding of mine AND the fix it implied. ' +
+      '⛔ NOT A GATE ARM: the re-fit is RACY (it landed inside the measurement window in one run of four), ' +
+      'so an assertion on it would be a flake generator on a merge path. The measure samples the transform ' +
+      'five times and prints every distinct value so the intermittency is DATA rather than noise — which ' +
+      'is exactly the thing a gate arm cannot express. ⚠ Its dock reading is also environment-sensitive: ' +
+      'the DEPLOYED guest route ships the dock COLLAPSED (control "Expand outputs dock"), while the local ' +
+      'build under this harness ships it expanded at 416px. Another reason it reports rather than asserts.',
+  },
+  {
     what: 'dockContent.measure.ts (1 cell) — a photograph and a census of the dock at its ruled width',
     why:
       'Same claim-type test: it emits one `DOCKCONTENT {...}` line and a photograph, and asserts ' +
