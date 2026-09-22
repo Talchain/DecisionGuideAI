@@ -118,12 +118,40 @@ test('PERSIST + AUTHORSHIP on the pricing board', async ({ page }) => {
   const reloaded = await obs(page, target as string)
   console.log(`[PERSIST] afterReload=${JSON.stringify(reloaded)}`)
 
-  const valueLanded = (after as any)?.value === 0.42
-  const authored = /user/.test(String((after as any)?.source ?? ''))
+  /**
+   * ⛔⛔ TWO OF THESE ASSERTED MORE THAN THE CONTRACT PROMISES, AND THAT MAKES A
+   * WITNESS A FALSE-FAIL GENERATOR. Corrected 22 Sep 2026 after measuring the
+   * seam at the bytes.
+   *
+   * `useModelEditAuthority.ts:503-542` — on a DISPATCHED `factor_value_edit` the
+   * client deliberately writes NOTHING locally, neither value nor authorship:
+   *
+   *   "THE STAMP IS WRITTEN LOCALLY ONLY WHERE NOTHING ELSE WILL EVER OWN IT …
+   *    a dispatched edit was stamped 'checked by you' before the engine had seen
+   *    it. That is the fabricated provenance … The local write SURVIVES on the
+   *    `local_only` path only."
+   *
+   * The stamp is meant to be written by `confirmOptimisticFactorEdit` AGAINST
+   * CEE'S RECEIPT. A turn IS dispatched here (captured on the wire), so this run
+   * is on the dispatched path and **an immediate local value/authorship is not
+   * promised**. Failing the run on it blames the client for honouring the
+   * estate's own anti-fabrication ruling.
+   *
+   * ⭐ They are still MEASURED and printed — the user-visible fact that nothing
+   * appears until a reload is real and worth watching — but the VERDICT now
+   * rests only on what the contract does promise: the value persists, the
+   * authorship is the user's, and no false `est.` survives.
+   */
+  const immediateLocalValue = (after as any)?.value === 0.42
+  const immediateLocalAuthorship = /user/.test(String((after as any)?.source ?? ''))
   const retained = (reloaded as any)?.value === 0.42
   const retainedAuthorship = /user/.test(String((reloaded as any)?.source ?? ''))
   const noFalseEst = (reloaded as any)?.extractionType !== 'inferred'
-  console.log(`[PERSIST] valueLanded=${valueLanded} authoredToUser=${authored} retainedAfterReload=${retained} authorshipRetained=${retainedAuthorship} noFalseEstAfterReload=${noFalseEst}`)
-  const verdict = valueLanded && authored && retained && retainedAuthorship && noFalseEst ? 'PASS' : 'FAIL'
+  console.log(`[PERSIST] OBSERVED-NOT-ASSERTED immediateLocalValue=${immediateLocalValue} immediateLocalAuthorship=${immediateLocalAuthorship} (dispatched path promises neither)`)
+  console.log(`[PERSIST] ASSERTED retainedAfterReload=${retained} authorshipRetained=${retainedAuthorship} noFalseEstAfterReload=${noFalseEst}`)
+  const verdict = retained && retainedAuthorship && noFalseEst ? 'PASS' : 'FAIL'
   console.log(`[PERSIST] VERDICT ${verdict}`)
+  if (!retainedAuthorship) {
+    console.log(`[PERSIST] ⛔ THE FAILING CLAUSE IS AUTHORSHIP: the user's own value came back as source=${JSON.stringify((reloaded as any)?.source)}. CEE sends no receipt on factor_value_edit (748-byte conversational response, zero observed_state), so confirmOptimisticFactorEdit never fires. olumi-programme-docs#63.`)
+  }
 })
