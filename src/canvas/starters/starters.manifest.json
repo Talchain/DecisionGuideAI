@@ -31,6 +31,7 @@
           "rederivedAt": "2026-08-29"
         },
         "textRepairs": [],
+        "goalThresholdRepairs": [],
         "note": "RECAPTURED — original brief, 19n/39e/4opt, 56.7s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"Data Team Capacity\" was a token-subset of risk \"Data Team Capacity Strain\"."
       }
     },
@@ -60,6 +61,24 @@
           "rederivedAt": "2026-08-29"
         },
         "textRepairs": [],
+        "goalThresholdRepairs": [
+          {
+            "goalNodeId": "goal_arr_growth",
+            "from": {
+              "goal_threshold": 0.73,
+              "goal_threshold_raw": 11,
+              "goal_threshold_unit": "£M ARR",
+              "goal_threshold_cap": 15
+            },
+            "to": {
+              "goal_threshold": 0.7333333333333333,
+              "goal_threshold_raw": 11,
+              "goal_threshold_unit": "£M ARR",
+              "goal_threshold_cap": 15
+            },
+            "reason": "captured goal_threshold 0.73 was raw/cap rounded to two places; restored to the exact ratio, captured cap kept, no provenance added."
+          }
+        ],
         "note": "RECAPTURED — original brief, 18n/32e/3opt, 56.8s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"UK Financial Services Deepening\" was a token-subset of the option of the same name. Also drafts far more reliably on cb54320 (2/2) than the 1/5 recorded on 1b9d596."
       }
     },
@@ -96,6 +115,7 @@
             "reason": "degenerate LLM draw in the 2026-07-24 capture: doubled phrasing, orphan closing bracket, trailing double space"
           }
         ],
+        "goalThresholdRepairs": [],
         "note": "NOT recaptured — probe idx 12, 19n/37e/4opt, 59.1s, coaching complete. The only original capture already free of label collisions, so it is left exactly as it was rather than re-rolled for tidiness."
       }
     },
@@ -125,6 +145,7 @@
           "rederivedAt": "2026-08-29"
         },
         "textRepairs": [],
+        "goalThresholdRepairs": [],
         "note": "RECAPTURED — original brief, 16n/25e/4opt, 53.3s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal \"Achieve ARR Growth by Q3\" strictly contained outcome \"ARR Growth by Q3\". 1 of 3 fresh draws was collision-free."
       }
     },
@@ -154,6 +175,26 @@
           "rederivedAt": "2026-08-29"
         },
         "textRepairs": [],
+        "goalThresholdRepairs": [
+          {
+            "goalNodeId": "goal_pricing_transition",
+            "from": {
+              "goal_threshold": 1.1,
+              "goal_threshold_raw": 110,
+              "goal_threshold_unit": "%",
+              "goal_threshold_cap": 140
+            },
+            "to": {
+              "goal_threshold": 0.8,
+              "goal_threshold_raw": 110,
+              "goal_threshold_unit": "%",
+              "goal_threshold_cap": 137.5,
+              "goal_threshold_cap_provenance": "target_derived_headroom",
+              "goal_threshold_frame": "level"
+            },
+            "reason": "captured goal_threshold 1.1 was raw/100, not raw/cap, and outside [0,1]; PLoT refuses >= 1, so the run returned no goal probability and no reason. Re-minted with CEE applyStatedGoalTarget @ 9c16e8c (rule 3 headroom cap)."
+          }
+        ],
         "note": "RECAPTURED — original brief, 15n/30e/4opt, 50.4s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal strictly contained outcome \"Net Revenue Retention\". 1 of 3 fresh draws was collision-free."
       }
     }

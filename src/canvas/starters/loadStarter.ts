@@ -39,8 +39,10 @@ export interface StarterProvenance {
    * `analysis_ready` display STRINGS were re-derived through CEE's post-#944
    * guarded transform, because the captures predate the `sitsAtObservedState`
    * fix and every option borrowed its factor's baseline string. Values, nodes,
-   * edges and counts are the capture's own — the build script asserts no number
-   * moved. See `scripts/build-starter-fixtures.mjs`.
+   * edges and counts are the capture's own — the build script asserts this
+   * re-derivation moved no number. The ONE number the build does move is a
+   * goal's normalised threshold (transformation 4, disclosed per starter as
+   * `goalThresholdRepairs`). See `scripts/build-starter-fixtures.mjs`.
    */
   displayValuesRederived: {
     reason: string
