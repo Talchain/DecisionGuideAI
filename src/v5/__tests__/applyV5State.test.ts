@@ -144,6 +144,90 @@ describe('applyV5State — graph_patch:set_factor_value', () => {
     expect(result.applied).toContain('graph_patch:set_factor_value:node-1')
   })
 
+  /**
+   * ⛔⛔ A VALUE THE USER SET MUST STOP CALLING ITSELF OLUMI'S ESTIMATE — AND
+   * THIS PATH WAS THE ONE WRITER THAT DID NOT WITHDRAW THE CLAIM.
+   *
+   * WITNESSED on deployed `b31517a1`, guest, saved example. Set `Data Team
+   * Capacity` to 0.2 from the Model tab, confirm: the card is right — no `est.`
+   * marker, provenance "User edited". RELOAD and the same card reads
+   * **"0.2 est."**, titled *"Estimate not yet confirmed — this value was filled
+   * in for you."* The persisted node holds `provenance: "user_set"` AND
+   * `observedState.source: "user_override"` AND `extractionType: "inferred"`,
+   * and `factorValueIsUnconfirmedEstimate` reads the last of those.
+   *
+   * `useInspectorMutations.setObservedValue` already clears both spellings and
+   * its comment names this exact hazard — *"reopened by its neighbour"*. The
+   * Model tab does not write locally: it dispatches `factor_value_edit` and the
+   * accepted patch lands HERE, which spread `node.data` wholesale.
+   */
+  it('⛔ withdraws a stale top-level extractionType — the user\'s value is not Olumi\'s estimate', () => {
+    const inferredNode = {
+      id: 'node-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      // The shape read off the deployed build, not invented: the extraction
+      // claim sits at the TOP level, beside an observedState that has none.
+      data: { label: 'Data Team Capacity', extractionType: 'inferred', observedState: { value: 10 } },
+    } as unknown as V5ApplicatorStore['nodes'][number]
+    const { store, updateNode } = makeStore([inferredNode])
+    applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'graph_patch',
+            status: 'applied',
+            operation: 'set_factor_value',
+            target_id: 'node-1',
+            before: { value: 10 },
+            after: { value: 0.2, source: 'user_override' },
+          },
+        ],
+      }),
+      store,
+    )
+    const written = updateNode.mock.calls.at(-1)![1].data as Record<string, unknown>
+    expect(written.extractionType).toBeUndefined()
+    // CONTRAST — this withdraws ONE stale sentence, it does not wipe the node.
+    // Without this the assertion above would pass on a fix that dropped
+    // everything the spread carries.
+    expect(written.label).toBe('Data Team Capacity')
+    expect((written.observedState as Record<string, unknown>).value).toBe(0.2)
+    expect((written.observedState as Record<string, unknown>).source).toBe('user_override')
+  })
+
+  /**
+   * ⚠ THE SERVER STILL WINS. `after` is merged after the clear, so a fresh
+   * extraction CEE authors for the NEW value is preserved — the clear withdraws
+   * a stale claim, it does not refuse a current one.
+   */
+  it('CONTRAST — a fresh extractionType inside `after` survives the clear', () => {
+    const inferredNode = {
+      id: 'node-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: { label: 'F', extractionType: 'inferred', observedState: { value: 10 } },
+    } as unknown as V5ApplicatorStore['nodes'][number]
+    const { store, updateNode } = makeStore([inferredNode])
+    applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'graph_patch',
+            status: 'applied',
+            operation: 'set_factor_value',
+            target_id: 'node-1',
+            before: { value: 10 },
+            after: { value: 7, extractionType: 'explicit' },
+          },
+        ],
+      }),
+      store,
+    )
+    const written = updateNode.mock.calls.at(-1)![1].data as Record<string, unknown>
+    expect((written.observedState as Record<string, unknown>).extractionType).toBe('explicit')
+  })
+
   it('defers when target node is missing in canvas', () => {
     const { store, updateNode } = makeStore([])
     const response = baseResponse({
