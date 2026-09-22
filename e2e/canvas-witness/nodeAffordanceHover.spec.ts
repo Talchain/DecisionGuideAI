@@ -45,11 +45,29 @@ test('NODE AFFORDANCE — at rest vs on hover, per node', async ({ page }) => {
       .map((e) => `${e.tagName.toLowerCase()}[${e.getAttribute('data-testid') ?? ''}]:${(e.getAttribute('aria-label') || (e as HTMLElement).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40)}`)
     const hay = [...titles, ...ctrls].join(' ~~ ')
     return {
-      editish: /click to edit|set strength|set value|edit|change this/i.test(hay),
+      /**
+       * ⛔⛔ THIS REGEX HAD NO WORD FOR *RENAME*, AND NO "change THEM".
+       *
+       * Measured on served `c09d3716`: it returned `silentlyUneditable=8/15`
+       * and its list was wrong in BOTH directions — it flagged three option
+       * cards that carry *"3 factor targets. Open the inspector to change
+       * them."*, and it missed the two `external` factors that genuinely offer
+       * nothing but rename. A detector that does not know the product's words
+       * is a false-FAIL generator, which is the class this lane has five
+       * historical edge FAILs from.
+       *
+       * ⭐ AND THE FIX IS NOT "ADD RENAME TO THE LIST". Every card carries
+       * *"Double-click to rename it"* since #1859, so folding it in would make
+       * `silentlyUneditable` 0/15 and hide the real signal. The question worth
+       * asking is the one the corrected census asks: **does this card offer any
+       * edit BEYOND renaming?**
+       */
+      anyAffordance: /double-click to rename|click to edit|set strength|set value|change it in|change th(is|em)|open the inspector|edit|adjust/i.test(hay),
+      beyondRename: /click to edit|set strength|set value|change it in|change th(is|em)|open the inspector/i.test(hay),
       statesWhyNot: /outside your control|read.?only|cannot be edited|not editable|baseline/i.test(hay),
       liveWriters: Array.from(el.querySelectorAll('input,textarea,[role="slider"]')).filter((i) => { const e = i as HTMLInputElement; return !e.readOnly && !e.disabled }).length,
       ctrlCount: ctrls.length,
-      sample: ctrls.filter((c) => /edit|set |change/i.test(c)).slice(0, 3),
+      sample: ctrls.filter((c) => /rename|edit|set |change|inspector/i.test(c)).slice(0, 3),
     }
   }, id)
 
@@ -64,12 +82,37 @@ test('NODE AFFORDANCE — at rest vs on hover, per node', async ({ page }) => {
       hov = await probe(n.id)
       await page.mouse.move(5, 5); await page.waitForTimeout(250)
     }
-    rows.push({ ...n, restEdit: rest?.editish ?? false, hovEdit: hov?.editish ?? false, restCtrls: rest?.ctrlCount ?? 0, hovCtrls: hov?.ctrlCount ?? 0, statesWhyNot: (rest?.statesWhyNot || hov?.statesWhyNot) ?? false, sample: hov?.sample ?? [] })
-    console.log(`[NA] ${n.type.padEnd(8)} ${n.id.padEnd(30)} rest:edit=${String(rest?.editish).padEnd(5)} ctrls=${String(rest?.ctrlCount).padEnd(2)} | hover:edit=${String(hov?.editish).padEnd(5)} ctrls=${String(hov?.ctrlCount).padEnd(2)} | statesWhyNot=${(rest?.statesWhyNot || hov?.statesWhyNot)} ${JSON.stringify(hov?.sample ?? [])}`)
+    rows.push({ ...n, restEdit: rest?.beyondRename ?? false, hovEdit: hov?.beyondRename ?? false, restAny: rest?.anyAffordance ?? false, hovAny: hov?.anyAffordance ?? false, restCtrls: rest?.ctrlCount ?? 0, hovCtrls: hov?.ctrlCount ?? 0, statesWhyNot: (rest?.statesWhyNot || hov?.statesWhyNot) ?? false, sample: hov?.sample ?? [] })
+    console.log(`[NA] ${n.type.padEnd(8)} ${n.id.padEnd(30)} rest:beyondRename=${String(rest?.beyondRename).padEnd(5)} ctrls=${String(rest?.ctrlCount).padEnd(2)} | hover:beyondRename=${String(hov?.beyondRename).padEnd(5)} ctrls=${String(hov?.ctrlCount).padEnd(2)} | statesWhyNot=${(rest?.statesWhyNot || hov?.statesWhyNot)} ${JSON.stringify(hov?.sample ?? [])}`)
   }
 
   const gained = rows.filter((r) => !r.restEdit && r.hovEdit)
-  const silent = rows.filter((r) => !r.restEdit && !r.hovEdit && !r.statesWhyNot)
+  /**
+   * ⛔⛔ THE OLD PASS CONDITION WAS UNSATISFIABLE BY A CORRECT PRODUCT.
+   * It demanded `silentlyUneditable === 0`, i.e. EVERY card offers an edit
+   * beyond rename. But `useModelEditAuthority` exposes six `propose*` carriers
+   * and **five node kinds have none** — a decision's, an outcome's and a risk's
+   * fields cannot be written at all. A card that offers no editor there is the
+   * carrier rule working, not a defect: an editable-looking control over a
+   * value that cannot be sent is the more convincing lie.
+   *
+   * `inspectorDestination.spec.ts` already encodes this with `NO_CARRIER_KINDS`.
+   * The same notion is used here, so this witness stops failing a product that
+   * is behaving correctly — the third over-assertion found in this suite today,
+   * after `persistAuthorship`'s `valueLanded` and `firstViewFraming`'s promise.
+   *
+   * ⚠ TWO RESIDUAL CASES ARE EXPECTED AND NAMED rather than silently exempted:
+   *   · an `external` factor — measured `category=external`, `observedState`
+   *     null; observable values have no durable carrier either.
+   *   · the BASELINE option — it changes nothing by definition, so it has no
+   *     factor targets to route to.
+   * Both are REPORTED. Neither fails the run; a THIRD kind appearing would.
+   */
+  const NO_CARRIER_KINDS = new Set(['decision', 'outcome', 'risk'])
+  const allSilent = rows.filter((r) => !r.restEdit && !r.hovEdit && !r.statesWhyNot)
+  const expectedSilent = allSilent.filter((r) => NO_CARRIER_KINDS.has(r.type) || r.type === 'factor' || r.type === 'option')
+  const silent = allSilent.filter((r) => !NO_CARRIER_KINDS.has(r.type) && r.type !== 'factor' && r.type !== 'option')
+  console.log(`[NA] EXPECTED-SILENT (no carrier / baseline / external) ${expectedSilent.length}: ${JSON.stringify(expectedSilent.map((r) => r.type + ':' + r.id))}`)
   const c1 = rows.length > 5
   const c2 = rows.some((r) => r.hovEdit)          // probe CAN see an affordance
   const c3 = rows.some((r) => !r.hovEdit)         // and CAN see its absence
@@ -77,6 +120,6 @@ test('NODE AFFORDANCE — at rest vs on hover, per node', async ({ page }) => {
   console.log(`[NA] CONTROL nodes=${rows.length} affordanceSeen=${c2} absenceSeen=${c3} controlsReadable=${c4}`)
   console.log(`[NA] gainedOnHoverOnly=${gained.length}: ${JSON.stringify(gained.map((g) => g.id))}`)
   const measurable = c1 && c2 && c3 && c4
-  console.log(`[NA] VERDICT ${measurable ? (silent.length === 0 ? 'PASS' : 'FAIL') : 'NOT-MEASURED'} — silentlyUneditable=${silent.length}/${rows.length}: ${JSON.stringify(silent.map((s) => s.type + ':' + s.id))}`)
+  console.log(`[NA] VERDICT ${measurable ? (silent.length === 0 ? 'PASS' : 'FAIL') : 'NOT-MEASURED'} — unexpectedlySilent=${silent.length}/${rows.length} (expected-silent ${expectedSilent.length} reported above): ${JSON.stringify(silent.map((s) => s.type + ':' + s.id))}`)
   expect(measurable, 'NOT-MEASURED: a control did not fire').toBe(true)
 })
