@@ -91,7 +91,7 @@ const near = (v: unknown, want: number) => typeof v === 'number' && Math.abs(v -
 
 test('PERSIST + AUTHORSHIP on the pricing board', async ({ page }) => {
   test.setTimeout(300_000)
-  const wire = captureEditWire(page)
+  const wire = await captureEditWire(page)
 
   const { origin, build } = await pinnedOrigin()
   console.log(`[PERSIST] servedUI=${build} origin=${origin}`)
@@ -159,6 +159,8 @@ test('PERSIST + AUTHORSHIP on the pricing board', async ({ page }) => {
   // side-channel window from the response's end, plus a margin for the apply.
   await page.waitForTimeout(turn?.endMs != null ? Math.max(0, turn.endMs + 7_000 - Date.now()) : 12_000)
   await wire.drain()
+  const pageClock = await wire.syncPageClock()
+  console.log(`[PERSIST] pageClock entries=${pageClock.entries} matchedToNetwork=${pageClock.matched}/${wire.turns.length + wire.registers.length}`)
   const settled = await obs(page, targetId)
 
   console.log(`[PERSIST] editTurn=${turn ? `${turn.path} HTTP ${turn.status ?? turn.failure} requestBody.event=${JSON.stringify((turn.reqBody as any)?.event)} responseBytes=${turn.resText?.length ?? 0}` : 'NONE'}`)

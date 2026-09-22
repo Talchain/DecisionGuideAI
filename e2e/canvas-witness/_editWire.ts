@@ -28,20 +28,33 @@
  *   4. SETTLEMENT   — the store after settlement and after a reload (in the
  *                     spec, because what "settled" means differs per edit).
  *
- * ⚠ TWO CLOCKS, BOTH PRINTED, AND ONLY ONE DECIDES. "Before the response" is
- *   judged on the BROWSER's clock (`request.timing()`: the register's start vs
- *   the turn's last response byte) — one clock for both, so no skew. Offsets
- *   from the turn's REQUEST are printed twice: from the browser's `startTime`
- *   and from the order the page EMITTED them (`seq`, plus a Node timestamp at
- *   the event). Read `seq` for "which was sent first": on 22 Sep the
- *   cross-origin turn was emitted at +86 ms but its `startTime` read +403 ms
- *   (likely its CORS preflight — UNVERIFIED), so a register emitted 5 ms AFTER
- *   the turn read 314 ms BEFORE it on `startTime`.
+ * ⛔⛔ WHICH CLOCK DECIDES "BEFORE THE RESPONSE" — THE PAGE'S, AND WHY.
+ *   The question is whether the UI sent a register BEFORE IT HAD the receipt.
+ *   The network clock (`request.timing().responseEnd`) answers a different
+ *   question — when the browser logged the last byte — and on 22 Sep it LAGGED
+ *   what the page's JS had already done. Measured on UI 8151fba5 under load:
+ *   the turn's body was readable to the page at +4804 ms, the app called a
+ *   register (carrying the `user_override` stamp the client writes on an
+ *   applied receipt) at +4832 ms, and the network `responseEnd` read +7550 ms.
+ *   Judged on the network clock that register was "2.7 s before the response"
+ *   — a false FAIL the first version of this helper printed. So a tiny init script wraps
+ *   `window.fetch` for exactly two POST paths (turn, register) and records, on
+ *   the page's own clock, when each fetch was CALLED and when the turn's body
+ *   was fully READABLE (a clone read to completion — the moment the app's own
+ *   `res.json()` could resolve). It changes no request: no header, no body, and
+ *   every other fetch passes straight through. "Before the response" is judged
+ *   on that page clock; the network clock is printed beside it, and used only
+ *   when the page clock has no entry.
+ * ⚠ Offsets from the turn's REQUEST are printed on both clocks and as emission
+ *   order (`seq`). On 22 Sep the cross-origin turn was emitted at +86 ms but its
+ *   network `startTime` read +403 ms (likely its CORS preflight — UNVERIFIED), so
+ *   a register emitted 5 ms AFTER the turn read 314 ms BEFORE it on `startTime`.
+ *   Read `seq` for "which was sent first".
  * ⚠ SCOPE IS ORDERING, NOT A CLOCK. A register is "in the window" if the
  *   browser emitted it after the edit gesture's mark (event order, no skew) and
  *   it started no later than 5 s after the turn's response ended.
  */
-import type { Page, Request, Response } from '@playwright/test'
+import type { Page, Request as PwRequest, Response as PwResponse } from '@playwright/test'
 
 export type Verdict = 'PASS' | 'FAIL' | 'NOT-MEASURED'
 
@@ -78,6 +91,10 @@ export interface WireCall {
   startMs: number
   /** Which clock `startMs`/`endMs` came from. A `node` fallback is printed, never hidden. */
   timingSrc: 'browser' | 'node'
+  /** PAGE clock: when the app called `fetch` for this request (null until `syncPageClock`). */
+  pageCalledAt: number | null
+  /** PAGE clock: when this turn's response body was fully readable by the app. */
+  pageBodyAt: number | null
   /** Browser wall-clock epoch ms at the last response byte, else Node's at finish. */
   endMs: number | null
   status: number | null
@@ -127,18 +144,56 @@ export interface EditWire {
   registersInWindow: (mark: { registers: number }, turn: WireCall | null) => WireCall[]
   /** Let in-flight body reads finish (a reload aborts them otherwise). */
   drain: () => Promise<void>
+  /** Copy the page-clock stamps onto the captured calls. Call BEFORE any reload. */
+  syncPageClock: () => Promise<{ entries: number; matched: number }>
 }
 
-export function captureEditWire(page: Page): EditWire {
+/**
+ * The in-page probe. Runs before any app script (`addInitScript`). It records;
+ * it does not alter the request, and it passes every other fetch straight through.
+ */
+function pageProbe(): void {
+  const w = window as unknown as { __editWireLog?: unknown[]; fetch: typeof fetch }
+  if (w.__editWireLog) return
+  const log: Array<{ kind: string; path: string; calledAt: number; bodyAt: number | null; failedAt: number | null }> = []
+  w.__editWireLog = log
+  const orig = w.fetch.bind(window)
+  const probe = function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    let url = ''
+    let method = 'GET'
+    try {
+      url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      method = String(init?.method ?? (typeof input === 'object' && 'method' in input ? input.method : 'GET')).toUpperCase()
+    } catch { return orig(input, init) }
+    let path = url
+    try { path = new URL(url, location.href).pathname } catch { /* keep url */ }
+    const isTurn = /\/proxy\/v5\/turn(?:\/stream)?$/.test(path)
+    const isRegister = /\/bff\/cee\/scenarios\/[^/]+\/graph\/register$/.test(path)
+    if (method !== 'POST' || (!isTurn && !isRegister)) return orig(input, init)
+    const entry = { kind: isTurn ? 'turn' : 'register', path, calledAt: Date.now(), bodyAt: null as number | null, failedAt: null as number | null }
+    log.push(entry)
+    return orig(input, init).then(
+      (res) => {
+        if (isTurn) res.clone().text().then(() => { entry.bodyAt = Date.now() }, () => { entry.failedAt = Date.now() })
+        return res
+      },
+      (err) => { entry.failedAt = Date.now(); throw err },
+    )
+  }
+  w.fetch = probe as typeof fetch
+}
+
+export async function captureEditWire(page: Page): Promise<EditWire> {
+  await page.addInitScript(pageProbe)
   const turns: WireCall[] = []
   const registers: WireCall[] = []
-  const byRequest = new Map<Request, WireCall>()
+  const byRequest = new Map<PwRequest, WireCall>()
   const pending: Array<Promise<void>> = []
   const allPosts: Array<{ seq: number; seenMs: number; path: string }> = []
   let seq = 0
   let bff = 0
 
-  const finish = (req: Request, call: WireCall, fallbackEnd: number) => {
+  const finish = (req: PwRequest, call: WireCall, fallbackEnd: number) => {
     const t = req.timing()
     const browser = t.startTime > 0 && t.responseEnd >= 0
     if (t.startTime > 0) call.startMs = t.startTime
@@ -156,7 +211,7 @@ export function captureEditWire(page: Page): EditWire {
     if (!isTurn && !isRegister) return
     const call: WireCall = {
       seq, url: req.url(), path, seenMs: Date.now(), startMs: Date.now(), timingSrc: 'node',
-      endMs: null, status: null, failure: null, reqBody: parse(req.postData()), resText: null,
+      pageCalledAt: null, pageBodyAt: null, endMs: null, status: null, failure: null, reqBody: parse(req.postData()), resText: null,
       resJson: null, done: false,
     }
     byRequest.set(req, call)
@@ -167,7 +222,7 @@ export function captureEditWire(page: Page): EditWire {
     const call = byRequest.get(req)
     if (!call) return
     const p = (async () => {
-      const res: Response | null = await req.response().catch(() => null)
+      const res: PwResponse | null = await req.response().catch(() => null)
       call.status = res?.status() ?? null
       if (res && TURN_PATH.test(call.path)) {
         call.resText = await res.text().catch(() => null)
@@ -215,6 +270,36 @@ export function captureEditWire(page: Page): EditWire {
       return after.filter((r) => r.startMs <= until)
     },
     drain: async () => { await Promise.allSettled(pending) },
+    /**
+     * Correlate each captured call with the page entry of the same kind and path
+     * whose `calledAt` is nearest its request event (same machine clock; the gap
+     * is IPC latency). Each page entry is used once; a gap over 2 s is no match.
+     */
+    syncPageClock: async () => {
+      const log = (await page.evaluate(() => (window as unknown as { __editWireLog?: unknown[] }).__editWireLog ?? []).catch(() => [])) as Array<{
+        kind: string; path: string; calledAt: number; bodyAt: number | null; failedAt: number | null
+      }>
+      const used = new Set<number>()
+      let matched = 0
+      for (const [kind, calls] of [['turn', turns], ['register', registers]] as const) {
+        for (const c of calls) {
+          let best = -1
+          let bestGap = Infinity
+          log.forEach((e, i) => {
+            if (used.has(i) || e.kind !== kind || e.path !== c.path) return
+            const gap = Math.abs(e.calledAt - c.seenMs)
+            if (gap < bestGap) { best = i; bestGap = gap }
+          })
+          if (best >= 0 && bestGap <= 2_000) {
+            used.add(best)
+            c.pageCalledAt = log[best].calledAt
+            c.pageBodyAt = log[best].bodyAt
+            matched += 1
+          }
+        }
+      }
+      return { entries: log.length, matched }
+    },
   }
 }
 
@@ -275,7 +360,13 @@ export interface RegisterRow {
   nodePresent: boolean
   node: { value?: unknown; source?: unknown; label?: unknown } | null
   carriesEdited: boolean
+  /** The deciding answer: page clock when both stamps exist, else network clock. */
   beforeResponse: boolean
+  beforeResponseClock: 'page' | 'network' | 'no-turn'
+  /** Page clock: register fetch called vs turn body readable (null if unmatched). */
+  relToTurnBodyPageMs: number | null
+  /** Network clock verdict, printed beside the deciding one. */
+  beforeResponseNetwork: boolean | null
   unconfirmed: boolean
 }
 
@@ -303,7 +394,13 @@ export function sideChannelRows(
     const n = nodeInRegister(r.reqBody, nodeId)
     const obs = (n?.observed_state ?? null) as Record<string, unknown> | null
     const carriesEdited = n != null && carries(n)
-    const beforeResponse = turn?.endMs == null ? true : r.startMs < turn.endMs
+    const beforeResponseNetwork = turn?.endMs == null ? null : r.startMs < turn.endMs
+    const pageKnown = turn != null && turn.pageBodyAt != null && r.pageCalledAt != null
+    const beforeResponse = turn == null
+      ? true
+      : pageKnown
+        ? (r.pageCalledAt as number) < (turn.pageBodyAt as number)
+        : (beforeResponseNetwork ?? true)
     return {
       seq: r.seq,
       emittedAfterTurn: turn ? r.seq > turn.seq : null,
@@ -316,6 +413,9 @@ export function sideChannelRows(
       node: n ? { value: obs?.value, source: obs?.source, label: n.label } : null,
       carriesEdited,
       beforeResponse,
+      beforeResponseClock: turn == null ? 'no-turn' : pageKnown ? 'page' : 'network',
+      relToTurnBodyPageMs: pageKnown ? Math.round((r.pageCalledAt as number) - (turn!.pageBodyAt as number)) : null,
+      beforeResponseNetwork,
       unconfirmed: carriesEdited && (beforeResponse || !confirmed),
     }
   })
@@ -324,7 +424,7 @@ export function sideChannelRows(
 export function sideChannelClause(rows: RegisterRow[], bffFamilySeen: number): ClauseResult {
   const bad = rows.filter((r) => r.unconfirmed)
   if (bad.length > 0) {
-    const why = bad.map((r) => `#${r.seq} ${r.emittedAfterTurn === null ? 'with NO edit turn ever sent' : `${r.beforeResponse ? 'BEFORE the turn response' : 'after a NON-CONFIRMING response'} (${r.emittedAfterTurn ? 'emitted after' : 'emitted BEFORE'} the turn request; ${r.relToTurnEndMs}ms from its response end)`} value=${JSON.stringify(r.node?.value)} source=${JSON.stringify(r.node?.source)} label=${JSON.stringify(r.node?.label)} → HTTP ${r.status ?? r.failure}`).join('; ')
+    const why = bad.map((r) => `#${r.seq} ${r.emittedAfterTurn === null ? 'with NO edit turn ever sent' : `${r.beforeResponse ? 'BEFORE the turn response' : 'after a NON-CONFIRMING response'} (${r.emittedAfterTurn ? 'emitted after' : 'emitted BEFORE'} the turn request; ${r.beforeResponseClock} clock: ${r.beforeResponseClock === 'page' ? `${r.relToTurnBodyPageMs}ms from the turn body being readable` : `${r.relToTurnEndMs}ms from its response end`})`} value=${JSON.stringify(r.node?.value)} source=${JSON.stringify(r.node?.source)} label=${JSON.stringify(r.node?.label)} → HTTP ${r.status ?? r.failure}`).join('; ')
     return { verdict: 'FAIL', detail: `${bad.length} of ${rows.length} register(s) carried the UNCONFIRMED edited value: ${why}` }
   }
   const unreadable = rows.filter((r) => !r.nodePresent)
@@ -340,7 +440,7 @@ export function sideChannelClause(rows: RegisterRow[], bffFamilySeen: number): C
 export function printRegisterRows(tag: string, rows: RegisterRow[]): void {
   if (rows.length === 0) { console.log(`${tag} SIDE-CHANNEL registersInWindow=0`); return }
   for (const r of rows) {
-    console.log(`${tag} SIDE-CHANNEL register#${r.seq} emittedAfterTurn=${r.emittedAfterTurn} t=${r.relToTurnEventMs}ms from turn request event, ${r.relToTurnStartMs}ms from turn startTime, ${r.relToTurnEndMs}ms from turn response end; HTTP ${r.status ?? r.failure}; node=${JSON.stringify(r.node)} carriesEdited=${r.carriesEdited} beforeResponse=${r.beforeResponse} UNCONFIRMED=${r.unconfirmed}`)
+    console.log(`${tag} SIDE-CHANNEL register#${r.seq} emittedAfterTurn=${r.emittedAfterTurn} t=${r.relToTurnEventMs}ms from turn request event, ${r.relToTurnStartMs}ms from turn startTime; PAGE clock ${r.relToTurnBodyPageMs}ms from turn body readable; NETWORK clock ${r.relToTurnEndMs}ms from turn responseEnd (beforeResponse page=${r.beforeResponseClock === 'page' ? r.beforeResponse : 'n/a'} network=${r.beforeResponseNetwork}; decided on ${r.beforeResponseClock}); HTTP ${r.status ?? r.failure ?? 'in-flight'}; node=${JSON.stringify(r.node)} carriesEdited=${r.carriesEdited} UNCONFIRMED=${r.unconfirmed}`)
   }
 }
 
@@ -351,7 +451,7 @@ export function printWireLog(tag: string, wire: EditWire, zeroMs: number): void 
   const all = [...wire.turns.map((c) => ({ k: 'turn', c })), ...wire.registers.map((c) => ({ k: 'register', c }))]
     .sort((a, b) => a.c.seq - b.c.seq)
   for (const { k, c } of all) {
-    console.log(`${tag} WIRE #${c.seq} ${k.padEnd(8)} event=${c.seenMs - zeroMs}ms start=${Math.round(c.startMs - zeroMs)}ms end=${c.endMs == null ? 'n/a' : `${Math.round(c.endMs - zeroMs)}ms`} (${c.timingSrc} clock) HTTP ${c.status ?? c.failure ?? 'in-flight'} ${c.path}`)
+    console.log(`${tag} WIRE #${c.seq} ${k.padEnd(8)} event=${c.seenMs - zeroMs}ms start=${Math.round(c.startMs - zeroMs)}ms end=${c.endMs == null ? 'n/a' : `${Math.round(c.endMs - zeroMs)}ms`} (${c.timingSrc} clock) page:called=${c.pageCalledAt == null ? 'n/a' : `${c.pageCalledAt - zeroMs}ms`}${k === 'turn' ? ` page:bodyReadable=${c.pageBodyAt == null ? 'n/a' : `${c.pageBodyAt - zeroMs}ms`}` : ''} HTTP ${c.status ?? c.failure ?? 'in-flight'} ${c.path}`)
   }
 }
 

@@ -84,7 +84,7 @@ test('RENAME PERSISTENCE on the pricing board', async ({ browser }) => {
   const j = (await (await fetch('https://staging--olumi.netlify.app/version.json')).json()) as { commit: string; deploy_url: string }
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await ctx.newPage()
-  const wire = captureEditWire(page)
+  const wire = await captureEditWire(page)
   console.log(`[RENAME] servedUI=${j.commit} origin=${j.deploy_url}`)
 
   await page.goto(j.deploy_url, { waitUntil: 'domcontentloaded' })
@@ -158,6 +158,8 @@ test('RENAME PERSISTENCE on the pricing board', async ({ browser }) => {
   // 5 s side-channel window + a margin for the settle.
   await page.waitForTimeout(Math.max(6_000 - (Date.now() - gestureMs), turn?.endMs != null ? turn.endMs + 7_000 - Date.now() : 6_000, 0))
   await wire.drain()
+  const pageClock = await wire.syncPageClock()
+  console.log(`[RENAME] pageClock entries=${pageClock.entries} matchedToNetwork=${pageClock.matched}/${wire.turns.length + wire.registers.length}`)
 
   // ⛔ THE STORE, NOT THE DOM. A card can repaint optimistically; the canonical
   // node is the subject of the claim.
