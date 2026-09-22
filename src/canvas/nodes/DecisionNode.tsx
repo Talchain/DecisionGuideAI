@@ -1243,7 +1243,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 {withheldLeader.suggestion.length > 0 && (
                   <>
                     {' '}
-                    <span className="text-text-light">{withheldLeader.suggestion}.</span>
+                    {/* ⚠ NO HARDCODED FULL STOP. `selectWithheldLeaderDisclosure`
+                        terminates both strings through `endSentence`, so the
+                        title gets a boundary too — it did not, and the two ran
+                        together on the card Paul read — and a template ending
+                        in `?` can no longer render `?.` */}
+                    <span className="text-text-light">{withheldLeader.suggestion}</span>
                   </>
                 )}
               </div>

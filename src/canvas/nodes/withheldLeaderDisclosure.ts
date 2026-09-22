@@ -106,6 +106,32 @@ type ReportLike = Parameters<typeof readInferenceWarnings>[0]
  * shape that produces two internally-consistent authorities disagreeing
  * (trap 21). If the producer did not say it withheld, this says nothing.
  */
+/**
+ * ⭐ ONE SENTENCE BOUNDARY, APPLIED ONCE, FOR EVERY CODE.
+ *
+ * `humaniseCritique`'s entries are TITLES — none carries terminal punctuation,
+ * deliberately, because other surfaces render them as headings. The canvas
+ * renders a title and a suggestion side by side as prose, and terminated only
+ * the second one with a hardcoded `.`. Paul read the result on served
+ * `1f77130d`:
+ *
+ *     "…can't be evaluated reliably Set a current value or range…"
+ *
+ * ⛔ FIXED AT THE OWNER, NOT AT THE TEMPLATE. Adding a full stop to one entry
+ * would repair one card and leave its siblings — the failure mode
+ * `humaniseCritique.ts:194-211` names about this very entry: *"the remedy
+ * scoped to the instance while nothing swept its siblings."*
+ *
+ * ⚠ AND IT NEVER ADDS A SECOND. The hardcoded `.` it replaces would have
+ * rendered `…?.` the day a template ended in a question — a latent defect that
+ * this closes on the way past.
+ */
+export function endSentence(text: string): string {
+  const t = text.trim()
+  if (t.length === 0) return ''
+  return /[.!?…]$/.test(t) ? t : `${t}.`
+}
+
 export function selectWithheldLeaderDisclosure(
   report: ReportLike,
   /** Node id → label from the graph store, for templates that name a node.
@@ -128,7 +154,9 @@ export function selectWithheldLeaderDisclosure(
 
     const suggestion =
       typeof humanised.suggestion === 'string' ? humanised.suggestion.trim() : ''
-    return { code, title, suggestion }
+    // Terminated HERE so every consumer gets readable prose without having to
+    // remember — the renderer that forgot is the whole defect.
+    return { code, title: endSentence(title), suggestion: endSentence(suggestion) }
   }
 
   return null
