@@ -210,19 +210,102 @@ function patchTargets(block: Record<string, unknown>): string[] {
  *     `target_id` on the edit receipt, `operations[].target_id` on proposal
  *     blocks.)
  */
-export function responseAppliedFactorEdit(response: unknown, targetId: string): boolean {
+/**
+ * ⛔⛔⛔ THIS FUNCTION REVERTED EVERY SUCCESSFUL EDIT, AND THE CAUSE IS ONE
+ * MISSING CHANNEL.
+ *
+ * It decided "did CEE apply my edit?" by scanning `blocks[]` for a `graph_patch`
+ * and nothing else. But CEE's own handler,
+ * `orchestrator-v5/handlers/edit-graph-dispatch.ts:1628-1637`, says:
+ *
+ *   "Successful (non-rejected) edits return []  — the V4 GraphPatchBlock with
+ *    `operations: PatchOperation[]` does not fit the narrow boundary
+ *    `graph_patch` operation enum. THE APPLIED GRAPH INSTEAD REACHES THE UI VIA
+ *    THE TOP-LEVEL `draft_graph` WIRE FIELD … The UI never re-reads
+ *    scenarios.graph on an edit turn; its only inline-graph ingestion path is
+ *    `draft_graph`."
+ *
+ * So on EVERY successful edit this returned `false`, `useConversation` called
+ * `revertOptimisticFactorEdit`, and the client undid the user's own edit —
+ * and `confirmOptimisticFactorEdit` never ran, so the `user_override` stamp was
+ * never written either.
+ *
+ * MEASURED on served `eebf6362`, guest, pricing board: a canonical diff over
+ * 767 paths showed `changedPaths=0` after an edit whose turn returned HTTP 200;
+ * the value appeared only after a reload, carrying CEE's own
+ * `source: "cee_inference"`. Response top-level keys were
+ * `[response_version, assistant_text, blocks, suggested_actions, insights,
+ *   stage_indicator, analysis_state, _agent]` — `blocks` present, no
+ * `graph_patch` in it, exactly as the contract prescribes for a success.
+ *
+ * ⚠ FOUR CLIENT DOCBLOCKS SAY "applied `graph_patch`" AND ALL FOUR ARE STALE
+ * (`domain/valueProvenance.ts:48`, `FactorControllablePanel.tsx:367`,
+ * `pendingFactorEdit.ts:22`, `CalibrateDrillIn.tsx:20`). They agree with each
+ * other, which is why this survived: agreement among comments is not a
+ * contract. The handler is.
+ *
+ * ⛔ THE NEW PATH IS BOUND BY IDENTITY **AND** BY THE NUMBER SENT, not by the
+ * mere presence of a graph. A `draft_graph` accompanies many replies; treating
+ * its presence as a receipt would keep values the server REFUSED, which is
+ * worse than the defect being fixed. `sentValue` is optional only so existing
+ * callers compile; without it the new path is inert and behaviour is exactly
+ * as before.
+ *
+ * ⛔ AN EXPLICIT REFUSAL STILL WINS. A `graph_patch` naming this target with a
+ * NOT_APPLIED status returns `false` even when a `draft_graph` rides along in
+ * the same reply.
+ */
+export function responseAppliedFactorEdit(
+  response: unknown,
+  targetId: string,
+  sentValue?: number,
+): boolean {
   if (!targetId) return true // unattributable edit — never revert on a guess
-  const blocks = (response as { blocks?: unknown })?.blocks
-  if (!Array.isArray(blocks)) return false
+  const reply = (response ?? {}) as { blocks?: unknown; draft_graph?: unknown }
+  const blocks = reply.blocks
   const NOT_APPLIED = new Set(['rejected', 'proposed', 'dismissed', 'failed', 'error', 'pending'])
-  for (const raw of blocks) {
-    const block = (raw ?? {}) as Record<string, unknown>
-    if (block.type !== 'graph_patch') continue
-    const status = typeof block.status === 'string' ? block.status.toLowerCase() : undefined
-    if (status && NOT_APPLIED.has(status)) continue
-    const targets = patchTargets(block)
-    if (targets.length === 0) return true // applied-but-unattributable → assume ours
-    if (targets.includes(targetId)) return true
+  let refusedThisTarget = false
+  if (Array.isArray(blocks)) {
+    for (const raw of blocks) {
+      const block = (raw ?? {}) as Record<string, unknown>
+      if (block.type !== 'graph_patch') continue
+      const status = typeof block.status === 'string' ? block.status.toLowerCase() : undefined
+      const targets = patchTargets(block)
+      if (status && NOT_APPLIED.has(status)) {
+        // Unattributable refusals count too: the loop's old fall-through
+        // returned `false` for them, and that direction is preserved.
+        if (targets.length === 0 || targets.includes(targetId)) refusedThisTarget = true
+        continue
+      }
+      if (targets.length === 0) return true // applied-but-unattributable → assume ours
+      if (targets.includes(targetId)) return true
+    }
+  }
+  if (refusedThisTarget) return false
+  return draftGraphCarriesEdit(reply.draft_graph, targetId, sentValue)
+}
+
+/**
+ * Does the top-level `draft_graph` show THIS factor holding THE NUMBER WE SENT?
+ *
+ * Identity plus value, deliberately: a graph in the reply proves a graph was
+ * sent, never that this edit was the reason. Without `sentValue` this is inert
+ * (`false`), so no existing caller changes behaviour.
+ */
+function draftGraphCarriesEdit(draftGraph: unknown, targetId: string, sentValue?: number): boolean {
+  if (typeof sentValue !== 'number' || !Number.isFinite(sentValue)) return false
+  if (!draftGraph || typeof draftGraph !== 'object') return false
+  const nodes = (draftGraph as { nodes?: unknown }).nodes
+  if (!Array.isArray(nodes)) return false
+  for (const raw of nodes) {
+    const node = (raw ?? {}) as Record<string, unknown>
+    if (String(node.id ?? '') !== targetId) continue
+    const observed = (node.observed_state ?? node.observedState) as Record<string, unknown> | undefined
+    const value = observed?.value
+    if (typeof value !== 'number') return false
+    // The wire carries model-scale numbers; compare as such, with a tolerance
+    // for float round-tripping rather than an exact `===`.
+    return Math.abs(value - sentValue) < 1e-9
   }
   return false
 }
