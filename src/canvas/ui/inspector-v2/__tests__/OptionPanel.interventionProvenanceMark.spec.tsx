@@ -402,18 +402,43 @@ describe('B1-b — the Inspector says who chose each target', () => {
     expect(mark(dialog, FACTOR_MIGRATION)?.textContent).toBe(MARK_BRIEF)
   })
 
-  it('⭐⭐ T-VOCAB `user_specified` reads as the USER’s, and the surface’s own helper would have inverted it', () => {
+  it('⭐⭐ T-VOCAB `user_specified` reads as the USER’s, and the shared helper no longer inverts it', () => {
     // ⭐ THE REASON THIS LANE DOES NOT REUSE `getExtractionLabel`, asserted
-    // rather than argued. Both halves run: the inversion is REAL on this tip,
-    // and the shipped mark does not commit it.
+    // rather than argued — and the assertion FLIPPED, deliberately.
+    //
+    // ⚠ This test used to require `getExtractionLabel('user_specified')` to
+    // equal MARK_AI, PINNING the inversion as real on the tip. That was the
+    // honest record at the time: the helper's default arm asserted machine
+    // authorship for every source it did not literally list, so a value the
+    // USER specified was printed as Olumi's estimate.
+    //
+    // That defect is now fixed — the default arm delegates instead of claiming
+    // — so the old assertion would pin a defect that no longer exists, which is
+    // worse than no assertion at all. It is replaced by the PROPERTY it was
+    // really protecting: **this helper must never credit the machine for a
+    // source it does not recognise.**
     expect(
       classifyValueProvenance('user_specified'),
       'PRECONDITION: `user_specified` is NOT a node observed_state.source literal',
     ).toBeNull()
+    const helperLabel = getExtractionLabel('user_specified')
     expect(
-      getExtractionLabel('user_specified'),
-      "the surface's node-vocabulary helper credits the machine for the user's own number",
-    ).toBe(MARK_AI)
+      helperLabel,
+      'the helper must not claim machine authorship for an unrecognised source',
+    ).not.toBe(MARK_AI)
+    expect(
+      helperLabel,
+      'and must not attribute to Olumi by any wording, not just this exact string',
+    ).not.toContain('Olumi')
+    // ⛔ NON-VACUITY: an empty return would satisfy both negatives above while
+    // rendering nothing to the user. The helper must still SAY something.
+    expect(helperLabel.length, 'the helper must still produce a label').toBeGreaterThan(0)
+    //
+    // ⚠ AND THE LANE STILL DOES NOT REUSE IT. The helper is now neutral, not
+    // correct for this surface: it cannot produce MARK_EDITED, which is what a
+    // user-specified intervention must read as. Neutral-and-wrong is better
+    // than confidently-wrong, but it is still not this lane's answer — which is
+    // what the second half below continues to prove.
 
     seedStore([
       factorNode(FACTOR_MIGRATION, FACTOR_MIGRATION_LABEL),
