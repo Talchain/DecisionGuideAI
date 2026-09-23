@@ -175,6 +175,8 @@ function renameIntent(): StructuralRenameIntent {
  * still holds the previous name, which is the state these cases describe.
  */
 let persistedLabel = PREVIOUS_LABEL
+/** When true, the graph read fails (404): the model cannot be read back. */
+let readUnreadable = false
 
 function isGraphRead(input: unknown): boolean {
   const url = typeof input === 'string' ? input : String((input as { url?: string })?.url ?? input)
@@ -182,6 +184,16 @@ function isGraphRead(input: unknown): boolean {
 }
 
 function graphReadResponse(): Response {
+  if (readUnreadable) {
+    const body = { schema: 'error.v1', code: 'NOT_FOUND', message: 'not found' }
+    return {
+      ok: false,
+      status: 404,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => body,
+      text: async () => JSON.stringify(body),
+    } as unknown as Response
+  }
   const body = {
     schema: 'scenario_graph.v1',
     scenario_id: SCENARIO_ID,
@@ -308,6 +320,7 @@ async function driveRename() {
 
 beforeEach(() => {
   persistedLabel = PREVIOUS_LABEL
+  readUnreadable = false
   vi.clearAllMocks()
 })
 afterEach(() => {
@@ -412,6 +425,8 @@ describe('structural_rename 409 — a guaranteed no-write reverts and says so', 
 
   it('OPPOSITE TWIN: an unknown future category does NOT revert and takes the cannot-confirm line', async () => {
     stub409('some_future_conflict_category')
+    // The model cannot be read back, so this stays a guess — and a guess never reverts.
+    readUnreadable = true
     const { labelOf, notices } = await driveRename()
 
     expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
@@ -421,6 +436,8 @@ describe('structural_rename 409 — a guaranteed no-write reverts and says so', 
 
   it('OPPOSITE TWIN: a turn-fence category does NOT revert either', async () => {
     stub409('turn_fence_superseded')
+    // The model cannot be read back, so this stays a guess — and a guess never reverts.
+    readUnreadable = true
     const { labelOf, notices } = await driveRename()
 
     expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
@@ -472,8 +489,17 @@ describe('structural_rename — the lifecycle verdict, one per arm', () => {
     expect(verdictFor('sr-1')).toBe('refused')
   })
 
+  it('an UNKNOWN 409 while the model can be READ and holds the previous name → the canvas shows the model\'s name', async () => {
+    stub409('some_future_conflict_category')
+    persistedLabel = PREVIOUS_LABEL
+    await driveRename()
+    expect(verdictFor('sr-1')).toBe('refused')
+  })
+
   it('OPPOSITE TWIN — an UNKNOWN 409 category settles `unconfirmed`, never `refused`', async () => {
     stub409('some_future_conflict_category')
+    // The model cannot be read back, so this stays a guess — and a guess never reverts.
+    readUnreadable = true
     await driveRename()
     // Calling an unknown a refusal is the same overclaim as calling it a
     // success, one step further down. The producer guarantees nothing here.
