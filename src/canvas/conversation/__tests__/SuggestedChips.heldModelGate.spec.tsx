@@ -453,3 +453,65 @@ function unregistered(nodes: unknown): never {
   return { nodes, importPendingServerRegistration: true } as never
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RULE 5(c) — THE CHIP READS THE SAME HOLD AS THE RUN GATE, AND RE-READS IT.
+//
+// A latched scenario (CEE holds the model, OW-1) releases the saved-example
+// hold, so the run chip shows. The hold now also reads the edit-delivery
+// registers, which live OUTSIDE the store: a user change going on the wire
+// changes no store field this chip selects. A bare `useCanvasStore` selector
+// would keep showing a run chip while the change is in flight; the shared
+// `useAnalysisHoldReason` hook re-reads.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('SuggestedChips — rule 5(c): the latch releases, an in-flight change re-holds', () => {
+  const LATCHED = 'scn-chip-latched'
+
+  beforeEach(async () => {
+    try { localStorage.setItem('feature.v5CanonicalAnalysis', 'true') } catch { /* no-op */ }
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    const { __resetCeeHeldModelLatchForTest } = await import('../../registration/ceeHeldModel')
+    __resetCeeHeldModelLatchForTest()
+    setNodes(STARTER_NODES)
+    useCanvasStore.setState({ currentScenarioId: LATCHED, edges: [] } as never)
+    setReady('ready')
+    clearAnalysis()
+  })
+
+  afterEach(async () => {
+    cleanup()
+    const { __resetCeeHeldModelLatchForTest } = await import('../../registration/ceeHeldModel')
+    __resetCeeHeldModelLatchForTest()
+    try { localStorage.removeItem('feature.v5CanonicalAnalysis') } catch { /* no-op */ }
+    vi.unstubAllEnvs()
+    setNodes([])
+    setReady(null)
+    clearAnalysis()
+  })
+
+  it('PRECONDITION: unlatched, the starter hides the run chip', () => {
+    renderChips([makeChip({ id: 'unlatched', action_type: 'run_analysis' })])
+    expect(screen.queryByTestId('suggested-chip-unlatched')).toBeNull()
+  })
+
+  it('⭐ latched: CEE holds the model, so the run chip shows', async () => {
+    const { latchCeeHeldModel } = await import('../../registration/ceeHeldModel')
+    latchCeeHeldModel(LATCHED, 'boot_read')
+    renderChips([makeChip({ id: 'latched', action_type: 'run_analysis' })])
+    expect(screen.getByTestId('suggested-chip-latched')).toBeInTheDocument()
+  })
+
+  it('⛔ latched, then a change goes on the wire AFTER render: the run chip goes', async () => {
+    const { act } = await import('@testing-library/react')
+    const { latchCeeHeldModel } = await import('../../registration/ceeHeldModel')
+    const { beginModelEditDelivery } = await import('../../registration/editDeliveryHold')
+    latchCeeHeldModel(LATCHED, 'boot_read')
+    renderChips([makeChip({ id: 'in_flight', action_type: 'run_analysis' })])
+    expect(screen.getByTestId('suggested-chip-in_flight')).toBeInTheDocument()
+    let settle: () => void = () => {}
+    act(() => { settle = beginModelEditDelivery('factor_value_edit') })
+    expect(screen.queryByTestId('suggested-chip-in_flight')).toBeNull()
+    act(() => settle())
+    expect(screen.getByTestId('suggested-chip-in_flight')).toBeInTheDocument()
+  })
+})
