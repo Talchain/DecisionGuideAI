@@ -171,10 +171,6 @@ const renderFactor = () =>
 const INFLUENCE_BAR_NAME =
   'Influence, relative to the strongest factor. The top driver always shows 100%'
 
-/** The exact announced sentence the ranked leader publishes, at 100%. */
-const RANKED_NAME_LEADER =
-  'Most influential of 5 factors compared in this model, at 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%'
-
 beforeEach(() => { vi.clearAllMocks() })
 
 /**
