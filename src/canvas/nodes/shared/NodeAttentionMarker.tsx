@@ -2,7 +2,8 @@
  * The one quiet "Worth reviewing" marker (locked Canvas design, 23 Sep 2026).
  *
  * A ring in the warning family — the same family as the edited-since-run dot —
- * so it reads as "look here", never as an error. Hover/focus names the
+ * so it reads as "look here", never as an error. The colour is a BORDER, never
+ * text (`nodeSystem.semanticColourOnText.spec` Rule 5: `text-warning` fails SC 1.4.3). Hover/focus names the
  * producer reasons; click selects the node and opens the EXISTING inspector
  * (`openNodeInspector`), never a new panel. Lucide-free on purpose: a ring
  * scales with `--canvas-label-scale` without becoming an illegible glyph.
@@ -35,7 +36,7 @@ export function NodeAttentionMarker({
         e.stopPropagation()
         openNodeInspector(nodeId)
       }}
-      className="nodrag nopan shrink-0 grid place-items-center rounded-full bg-panel text-warning hover:bg-warning/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-info"
+      className="nodrag nopan shrink-0 inline-flex items-center justify-center rounded-full bg-panel hover:bg-warning/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-info"
       style={{
         width: 'calc(18px * var(--canvas-label-scale, 1))',
         height: 'calc(18px * var(--canvas-label-scale, 1))',
@@ -43,11 +44,10 @@ export function NodeAttentionMarker({
     >
       <span
         aria-hidden="true"
-        className="block rounded-full border-2 border-current"
+        className="block rounded-full border-2 border-warning"
         style={{
           width: 'calc(9px * var(--canvas-label-scale, 1))',
           height: 'calc(9px * var(--canvas-label-scale, 1))',
-          boxShadow: '0 0 0 3px color-mix(in srgb, currentColor 12%, transparent)',
         }}
       />
     </button>
