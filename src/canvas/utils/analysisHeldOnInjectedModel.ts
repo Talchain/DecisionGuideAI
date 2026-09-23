@@ -77,6 +77,8 @@ import {
 } from '../registration/editDeliveryHold'
 import type { UnconfirmedDeleteSubject } from '../conversation/unconfirmedStructuralDelete'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
+import { STRUCTURAL_DELETE_UNCONFIRMED_REMEDY } from '../mutations/structuralDelete'
+import { STRUCTURAL_RENAME_UNCONFIRMED_REMEDY } from '../mutations/structuralRename'
 
 /**
  * Which client-side injection put this graph on the canvas.
@@ -327,7 +329,9 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
  *    #1917 N1). The link is on the canvas, so setting it again is reachable.
  *  · UNCONFIRMED RENAME — names the label on the canvas. Renaming again (to the
  *    same name or back) is an edit through the protocol; a later committed
- *    rename of the same state, or a different label, releases the hold.
+ *    rename of the same state, or a different label, releases the hold. The
+ *    remedy is `STRUCTURAL_RENAME_UNCONFIRMED_REMEDY`, the one the rename's own
+ *    transcript line gives (Panel #1917 N4: one state, one remedy).
  *  · UNCONFIRMED ADD — names the added element. Removing it releases the hold
  *    (its node is no longer on the canvas); adding it again goes through the
  *    protocol with a receipt.
@@ -337,6 +341,14 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
  *    from); a link deleted on its own is "the link from {A} to {B}". A delete of
  *    several elements names none of them rather than picking one. A later
  *    proven delete of the same element supersedes the record.
+ *    ⭐ ITS ONE EXIT IS THE CHAT (Panel #1917 F1). The element is not on the
+ *    canvas, so "remove it again" named nothing to select, and Undo is disabled
+ *    on the canvas (`canvasSemanticMutations: 'disabled'`). Asking Olumi goes
+ *    through the chat, not the canvas, and a later applied turn releases the hold both
+ *    ways — a committed graph without the element proves the delete, one with
+ *    it puts the element back (`oneWriterRegistration.spec` §13). The remedy is
+ *    `STRUCTURAL_DELETE_UNCONFIRMED_REMEDY`, the one the delete's own transcript
+ *    line gives (N4).
  *
  * Question-shaped where the user has a choice; plain statement where they have
  * none. No em dashes (the footer copy sweep in `signals/__tests__/registry.spec`
@@ -355,13 +367,13 @@ export const ANALYSIS_HELD_ON_EDIT_COPY = {
     'so analysis is waiting until it is settled. Would you like to set the strength again?',
   unconfirmedRename: (label: string | null): string =>
     `Olumi couldn't confirm ${label === null ? 'your rename' : `your rename to ${label}`}, ` +
-    'so analysis is waiting until it is settled. Would you like to rename it again, or change the name back?',
+    `so analysis is waiting until it is settled. ${STRUCTURAL_RENAME_UNCONFIRMED_REMEDY}`,
   unconfirmedAdd: (label: string | null): string =>
     `${label === null ? "Olumi couldn't confirm your addition to the saved model" : `Olumi couldn't confirm that ${label} was added to the saved model`}, ` +
     'so analysis is waiting until it is settled. Would you like to remove it and add it again?',
   unconfirmedDelete: (label: string | null): string =>
     `Olumi couldn't confirm that ${label === null ? 'what you deleted' : label} was removed from the saved model, ` +
-    'so analysis is waiting until it is settled. Would you like to remove it again?',
+    `so analysis is waiting until it is settled. ${STRUCTURAL_DELETE_UNCONFIRMED_REMEDY}`,
 } as const
 
 /** What is holding analysis — the ready-made model itself, or the user's own unconfirmed edit. */
