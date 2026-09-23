@@ -105,6 +105,8 @@ vi.mock('../../../flags', async (importOriginal) => {
 
 import { useImportRegistration } from '../useImportRegistration'
 import { useConversation } from '../../conversation/useConversation'
+import { editDeliveryHold } from '../editDeliveryHold'
+import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -541,5 +543,137 @@ describe('one writer — no registration while a Canvas edit is in flight', { ti
     expect(registerSpy).toHaveBeenCalledTimes(2)
     const sent = (registerSpy.mock.calls[1][1] as { nodes: Array<Record<string, unknown>> }).nodes
     expect((sent.find((n) => n.id === BYSTANDER)?.observed_state as Record<string, unknown>).value).toBe(0.3)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNRESOLVED STRUCTURAL EDIT — #1892 review (CHANGES_REQUIRED @ fc0c7d91).
+//
+// "A structural rename whose turn ends in an untyped 500 can still be persisted
+// by the whole-graph registration after delivery settles." The rename keeps its
+// optimistic label (the 500 arm is `unconfirmed`, never a revert), the queue and
+// the wire mark clear, and the re-arm used to register the canvas — carrying a
+// label CEE never confirmed. Delivery settling is not proof CEE accepted it.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const NEW_LABEL = 'Adoption Friction RENAMED'
+
+async function mountAcknowledgedStarterWithRenameDrain() {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: STARTER_NODES as never,
+    edges: STARTER_EDGES as never,
+    importPendingServerRegistration: true,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: 'aag_before_rename',
+    lastAuthoritativeGraph: null,
+    pendingStructuralRenames: [],
+    structuralRenameLifecycle: [],
+    _externalMutationActive: 0,
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const hook = renderHook(() => {
+    useImportRegistration()
+    const conversation = useConversation()
+    useStructuralRenameEvents(conversation.sendSystemEvent as never)
+    return conversation
+  })
+  await act(async () => { await flush() })
+  expect(registerSpy).toHaveBeenCalledTimes(1)
+  expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  return hook
+}
+
+function registeredLabel(call: unknown[]): unknown {
+  const graph = call[1] as { nodes: Array<Record<string, unknown>> }
+  return graph.nodes.find((n) => n.id === TARGET)?.label
+}
+
+describe('an UNRESOLVED structural edit holds registration after delivery settles', () => {
+  it('⛔ rename → untyped 500 → queue and wire settle: NO later registration carries the unconfirmed label', async () => {
+    await mountAcknowledgedStarterWithRenameDrain()
+    replies.push(UNTYPED_500)
+    await act(async () => {
+      useCanvasStore.getState().updateNodeLabel(TARGET, NEW_LABEL)
+      await flush()
+    })
+    // Preconditions, pinned: the turn went out, settled `unconfirmed`, the
+    // optimistic label stayed (the 500 arm never reverts), and delivery cleared.
+    expect(dispatched.some((p) => (p as { event?: { kind?: string } }).event?.kind === 'structural_rename')).toBe(true)
+    const record = useCanvasStore.getState().structuralRenameLifecycle.find((r) => r.intent.nodeId === TARGET)
+    expect(record?.status).toBe('unconfirmed')
+    expect((useCanvasStore.getState().nodes.find((n) => n.id === TARGET)!.data as { label?: string }).label).toBe(NEW_LABEL)
+    expect(useCanvasStore.getState().pendingStructuralRenames).toHaveLength(0)
+
+    await act(async () => { await flush() })
+    expect(registerSpy.mock.calls.filter((c) => registeredLabel(c) === NEW_LABEL)).toEqual([])
+  })
+
+  it('CONTROL: an APPLIED rename progresses — committed, and nothing holds registration afterwards', async () => {
+    await mountAcknowledgedStarterWithRenameDrain()
+    replies.push({
+      ok: true,
+      response: {
+        assistant_text: `Renamed to '${NEW_LABEL}'.`,
+        blocks: [],
+        graph_hash: 'aag_after_rename',
+        draft_graph: {
+          nodes: [
+            { id: TARGET, kind: 'factor', label: NEW_LABEL },
+            { id: BYSTANDER, kind: 'factor', label: 'Seat Price' },
+          ],
+          edges: [],
+        },
+      },
+    })
+    await act(async () => {
+      useCanvasStore.getState().updateNodeLabel(TARGET, NEW_LABEL)
+      await flush()
+    })
+    const record = useCanvasStore.getState().structuralRenameLifecycle.find((r) => r.intent.nodeId === TARGET)
+    expect(record?.status).toBe('committed')
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+  })
+
+  it('CONTROL: an unconfirmed rename stops holding once its optimistic label is gone from the canvas', async () => {
+    await mountAcknowledgedStarterWithRenameDrain()
+    replies.push(UNTYPED_500)
+    await act(async () => {
+      useCanvasStore.getState().updateNodeLabel(TARGET, NEW_LABEL)
+      await flush()
+    })
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBe('unresolved_structural_edit')
+    // The optimistic label is replaced (e.g. a receipt overlaid CEE's label).
+    act(() => {
+      useCanvasStore.setState({
+        nodes: useCanvasStore.getState().nodes.map((n) =>
+          n.id === TARGET ? { ...n, data: { ...(n.data as object), label: 'Bottom-Up Adoption Friction' } } : n,
+        ),
+      } as never)
+    })
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+  })
+})
+
+describe('the unresolved-edit rule, pure', () => {
+  const nodes = [{ id: 'n1', data: { label: 'New name' } }, { id: 'n2', data: { label: 'x' } }]
+  const rename = (status: string, scenarioId: string | null, label = 'New name') => ({
+    status, scenarioId, intent: { nodeId: 'n1', label },
+  })
+  it('an unconfirmed rename for THIS scenario, still on the canvas, holds', () => {
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('unconfirmed', 's1')] } as never))
+      .toBe('unresolved_structural_edit')
+  })
+  it('CONTROL: another scenario\'s record, a committed one, or a refused one does not hold', () => {
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('unconfirmed', 's2')] } as never)).toBeNull()
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('committed', 's1')] } as never)).toBeNull()
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('refused', 's1')] } as never)).toBeNull()
+  })
+  it('an unconfirmed ADD holds while its node is on the canvas, and not after it is gone', () => {
+    const add = { status: 'unconfirmed', scenarioId: 's1', intent: { nodeId: 'n2' } }
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralAddLifecycle: [add] } as never)).toBe('unresolved_structural_edit')
+    expect(editDeliveryHold({ nodes: [nodes[0]], currentScenarioId: 's1', structuralAddLifecycle: [add] } as never)).toBeNull()
   })
 })
