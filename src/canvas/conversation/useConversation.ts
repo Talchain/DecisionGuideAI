@@ -147,6 +147,10 @@ import {
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import {
+  isGraphServerAcknowledged,
+  markGraphServerAcknowledged,
+} from '../store/importRegistrationMarker'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
 import { logger } from '../../lib/logger'
@@ -166,6 +170,7 @@ import {
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
+import { beginModelEditDelivery } from '../registration/editDeliveryHold'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -5197,7 +5202,42 @@ export function useConversation(): UseConversationReturn {
                 scenarioIdAtDispatch,
               )
             ) {
+              // ⭐⭐ ONE WRITER — THE APPLIED RECEIPT IS THE ACKNOWLEDGEMENT, FOR
+              // EVERY KIND THAT CARRIES THE COMMITTED GRAPH (#1892 residual 3).
+              //
+              // Witnessed on served staging 23 Sep 00:12Z (UI `8f79c9e1`): an
+              // applied `option_intervention_edit` moved the canvas digest here,
+              // the re-arm in `useImportRegistration` saw an unacknowledged held
+              // model, and 9 ms later a whole-graph `graph/register` wrote the
+              // canvas over CEE's committed postimage — stripping provenance
+              // from every option and moving CEE's hash, so the NEXT edit was
+              // refused as stale.
+              //
+              // The same chain `confirmOptimisticFactorEdit` uses, stated for a
+              // receipt that brings the whole committed graph: CEE held G₀ (the
+              // canvas as it stood just before this receipt was applied) ∧ CEE
+              // applied this edit and sent its postimage ∧ the canvas has just
+              // been reconciled to that postimage ⇒ CEE holds the canvas. It
+              // only EXTENDS an acknowledgement that already exists: any other
+              // unacknowledged change on the canvas (an optimistic write still
+              // unanswered, a local-only edit) makes G₀ unacknowledged, the
+              // chain does not fire, and a registration offers the model once
+              // delivery settles — fail CLOSED, #1855 preserved.
+              const beforeReceipt = useCanvasStore.getState()
+              const receiptExtendsAcknowledgement = isGraphServerAcknowledged(
+                beforeReceipt.currentScenarioId,
+                beforeReceipt.nodes as never,
+                beforeReceipt.edges as never,
+              )
               const merged = reconcileAppliedGraph(inlineGraph as any)
+              if (receiptExtendsAcknowledgement) {
+                const afterReceipt = useCanvasStore.getState()
+                markGraphServerAcknowledged(
+                  afterReceipt.currentScenarioId,
+                  afterReceipt.nodes as never,
+                  afterReceipt.edges as never,
+                )
+              }
               if (
                 import.meta.env.DEV &&
                 (merged.addedNodeCount > 0 ||
@@ -6179,6 +6219,13 @@ export function useConversation(): UseConversationReturn {
       // DEFERRED. Genuine failures still REJECT (SystemEventSendError), so the
       // existing `try/catch` dispatchers (FeedbackRow's optimistic revert, the
       // patch-accept retry card) are untouched.
+      //
+      // ⭐ ONE WRITER: while a model-changing turn is on the wire, the
+      // whole-graph registration must not leave (`registration/editDeliveryHold`).
+      // Marked here because every edit kind reaches the wire through this
+      // call; released on every exit via `.finally`, deferral included (a
+      // deferred edit is held by `pendingEmittedEdits` from that point on).
+      const releaseEditDelivery = beginModelEditDelivery(event.type)
       return await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,
@@ -6217,7 +6264,7 @@ export function useConversation(): UseConversationReturn {
         // it now surfaces as a revert plus an honest sentence rather than as an
         // option quietly reappearing on the next re-run.
         deferIfBusy: opts?.deferIfBusy,
-      })
+      }).finally(releaseEditDelivery)
     },
     [sendTurn],
   )
