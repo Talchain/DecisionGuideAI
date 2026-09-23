@@ -474,13 +474,13 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   'risk · pre · standard': [
     'Strength', // CAPTION — `METRIC_NOUN.strength`, beside its bar.
-    // ⭐ ADJUDICATED 9 Sep 2026 — CONTROL, promoted from the hover popover to
-    // the card face. It is byte-identical across every risk card BY DESIGN:
-    // this file's own rule is that "an affordance that read differently on
-    // each card would be a different affordance". It is here because the
-    // chips were previously invisible at rest — `NodePopover` returns null
-    // when closed, so nothing on a Standard risk card asked anything.
-    'What would we see first?', // CONTROL
+    // ⭐ RE-ADJUDICATED 23 Sep 2026 — `What would we see first?` LEFT THIS
+    // BUCKET. It was adjudicated in on 9 Sep as a CONTROL promoted from the
+    // hover to the card face. The locked Experience Design ("Coaching becomes
+    // ONE consistent icon on the card surface") keeps it on the face as the
+    // coaching icon's accessible name and tooltip, so it is no longer painted
+    // copy and no longer repeats on every risk card. Reachability without a
+    // hover is pinned in `cardFaceQuestions.restingState.spec.tsx`.
   ],
   'risk · pre · expert': [
     'Driven by:', // HEADING
@@ -490,8 +490,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What would we see first?', // CONTROL
   ],
   'risk · post · standard': [
-    'Strength', // CAPTION
-    'What would we see first?', // CONTROL — promoted; see the pre bucket above.
+    'Strength', // CAPTION — the chip left with the pre bucket's (23 Sep 2026).
   ],
   'risk · post · expert': [
     'Depends on:', // HEADING
@@ -502,9 +501,9 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   'outcome · pre · standard': [
     'Strength', // CAPTION
-    // ⭐ ADJUDICATED 9 Sep 2026 — CONTROL, promoted to the card face for the
-    // same reason as the risk chip above.
-    'What would falsify this?', // CONTROL
+    // ⭐ RE-ADJUDICATED 23 Sep 2026 — `What would falsify this?` left this
+    // bucket for the same reason as the risk chip above: it is the outcome
+    // card's coaching icon now, not painted copy.
   ],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
@@ -514,10 +513,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What would falsify this?', // CONTROL
   ],
   'outcome · post · standard': [
-    'Strength', // CAPTION
-    'What would falsify this?', // CONTROL — promoted, and no longer deleted by
-    // the run: the falsification question was `!isPostAnalysis`-gated, so it
-    // vanished exactly when the outcome had a number worth falsifying.
+    'Strength', // CAPTION — the chip left with the pre bucket's (23 Sep 2026);
+    // the question itself still survives the run, as the coaching icon.
   ],
   'outcome · post · expert': [
     'Depends on:', // HEADING

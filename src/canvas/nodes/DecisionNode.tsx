@@ -1,12 +1,18 @@
 /**
  * Decision node component — Graph v2 simplification.
  *
- * Pre-analysis Standard: triage line, 2 coaching chips, popover with model
- *   readiness breakdown.
- * Pre-analysis Detailed: same as Standard (chip rules are view-agnostic).
- * Post-analysis Standard: model-readiness summary, with stability and coaching
- *   in the popover. Option comparisons remain on option cards.
- * Post-analysis Detailed: stability and coaching inline in the body.
+ * Pre-analysis Standard: option count, ONE top-gap line, and ONE coaching
+ *   icon (`NodeCoachingIcon`); popover with model readiness breakdown.
+ * Pre-analysis Detailed: the same, with the two invitations as chips instead
+ *   of the icon.
+ * Post-analysis Standard: model-readiness summary and the coaching icon, with
+ *   stability and the coaching chips in the popover. Option comparisons remain
+ *   on option cards.
+ * Post-analysis Detailed: stability and coaching chips inline in the body.
+ *
+ * ⭐ ONE ICON, NOT A CHIP ROW, ON THE RESTING CARD (locked Experience Design,
+ *   Paul, 23 Sep 2026: "Coaching becomes ONE consistent icon on the card
+ *   surface"). See `showPreAnalysisInvitations` and `showPostAnalysisChips`.
  *
  * Resting state: when NEITHER branch would put a child on screen, the body
  *   states what is absent from this node and — where an authoring act would
@@ -33,6 +39,7 @@ import { METRIC_NOUN, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { NodeCoachingIcon } from './shared/NodeCoachingIcon'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
@@ -256,10 +263,11 @@ export function popoverLabel(word: string): string {
  * false on arrival.
  *
  * · The two TRIAGE lines (`Top gap: estimate …` / `Top gap: validate …`,
- *   measure 40) render in a div with NO clamp and NO `break-words`, so the only
- *   bound is the token's own length — unbounded above, where the old rule
- *   capped the label at the measure plus one ellipsis character. That is the
- *   deliberate trade: a word cut open is worse than a word that overruns.
+ *   measure 40) are clamped to ONE line (`line-clamp-1 break-words`) since the
+ *   one-icon design of 23 Sep 2026, with the UNTRUNCATED line on `title` — see
+ *   the render site. Before that they had NO clamp and NO `break-words`, so the
+ *   only bound was the token's own length. The truncation rule itself is
+ *   unchanged: a word cut open is still worse than a word that overruns.
  * · The ANCHOR BRIEF (`ANCHOR_BRIEF_MAX_CHARS`, 160) is bounded by CSS and not
  *   by this function — `line-clamp-3 break-words` on the blockquote, with the
  *   full text on `title`. #1229 shipped that site against the OLD rule and said
@@ -419,8 +427,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const showRunAnalysis = allFactorsPresent && goalDefined
 
   // ---- Triage line: single most important next action (pre-analysis only) ----
-  const triageLine = useMemo(() => {
+  //
+  // Returns the RENDERED line and the FULL line. They differ only where a
+  // factor label was cut by `truncateAtWord`; the full one rides `title` so a
+  // line clamped to one row still has somewhere to recover the whole sentence.
+  const triage = useMemo<{ line: string; full: string } | null>(() => {
     if (isPostAnalysis) return null
+    const same = (line: string) => ({ line, full: line })
 
     const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
@@ -436,7 +449,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       if (value == null && !(prior?.range_min != null && prior?.range_max != null)) {
         const rawLabel = (d.label as string | undefined) ?? ''
         const cleaned = cleanFactorLabel(rawLabel) || rawLabel
-        return `Top gap: estimate ${truncateAtWord(cleaned, 40)}`
+        return { line: `Top gap: estimate ${truncateAtWord(cleaned, 40)}`, full: `Top gap: estimate ${cleaned}` }
       }
     }
 
@@ -475,18 +488,19 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     if (topInferred) {
       const rawLabel = (topInferred.node.data?.label as string | undefined) ?? ''
       const cleaned = cleanFactorLabel(rawLabel) || rawLabel
-      return `Top gap: validate ${truncateAtWord(cleaned, 40)}`
+      return { line: `Top gap: validate ${truncateAtWord(cleaned, 40)}`, full: `Top gap: validate ${cleaned}` }
     }
 
     // 3. Goal has no threshold
-    if (!goalDefined) return 'Top gap: set a success target'
+    if (!goalDefined) return same('Top gap: set a success target')
 
     // 4. Fewer than 3 options
-    if (optionNodes.length < 3) return 'Top gap: explore more options'
+    if (optionNodes.length < 3) return same('Top gap: explore more options')
 
     // 5. Model is reasonably complete — no triage line
     return null
   }, [isPostAnalysis, nodes, edges, goalDefined])
+  const triageLine = triage?.line ?? null
 
   /**
    * ⛔ `biggestRisk` LIVED HERE. DELETED, NOT REPAIRED.
@@ -538,18 +552,36 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // ⚠ The sentence itself now lives in the resolver, which composes it from
   // `optionCount`. Counting only, never assessing — the pluralisation and the
   // wording are unchanged.
+  //
+  // ⭐ ONE RESOLUTION, TWO RENDERINGS: the Detailed chip row and the Standard
+  // icon read the same `preAnalysisCoaching`, so they cannot ask different
+  // questions of the same model.
+  const preAnalysisCoaching = useMemo(() => resolveNodeCoaching({
+    kind: 'decision',
+    surface: 'preAnalysis',
+    state: { showRunAnalysis },
+    context: { optionCount },
+  }), [showRunAnalysis, optionCount])
   const preAnalysisCoachingChips = useMemo(() => (
     <CoachingChipRow
       className="flex items-center gap-1 flex-wrap mt-1.5"
-      chips={resolveNodeCoaching({
-        kind: 'decision',
-        surface: 'preAnalysis',
-        state: { showRunAnalysis },
-        context: { optionCount },
-      })}
+      chips={preAnalysisCoaching}
     />
-  ), [showRunAnalysis, optionCount])
+  ), [preAnalysisCoaching])
+  const decisionNodeId = id as string
+  const preAnalysisCoachingIcon = (
+    <NodeCoachingIcon nodeId={decisionNodeId} chips={preAnalysisCoaching} />
+  )
 
+  const postAnalysisCoaching = useMemo(() => resolveNodeCoaching({
+    kind: 'decision',
+    surface: 'postAnalysis',
+    state: { showRunAnalysis },
+    context: { optionCount },
+  }), [showRunAnalysis, optionCount])
+  const postAnalysisCoachingIcon = (
+    <NodeCoachingIcon nodeId={decisionNodeId} chips={postAnalysisCoaching} />
+  )
   const postAnalysisCoachingChips = useMemo(() => (
     <>
       {/* ⭐⭐ THE QUESTION IS COMPARATIVE, BECAUSE THE ACTION IS.
@@ -571,15 +603,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       cannot smuggle the attainment claim back in through its own framing. */}
       <CoachingChipRow
         className="flex gap-1 flex-wrap mt-1.5"
-        chips={resolveNodeCoaching({
-          kind: 'decision',
-          surface: 'postAnalysis',
-          state: { showRunAnalysis },
-          context: { optionCount },
-        })}
+        chips={postAnalysisCoaching}
       />
     </>
-  ), [showRunAnalysis, optionCount])
+  ), [postAnalysisCoaching])
 
   // Stability for post-analysis Detailed body and Standard popover.
   // Returns the underlying fraction (0-1) so the popover progress bar can use
@@ -695,11 +722,23 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // elements with the text: Challenge this result", which is the test doing its
   // job on the author.
   //
-  // So: the body shows the chips whenever the popover is NOT carrying them —
-  // i.e. in Detailed (no popover at all), and in Standard whenever stability
-  // gives the popover its own content. The two predicates are complements of
-  // one expression, so they cannot drift into overlapping or into a gap.
-  const showPostAnalysisChips = isDetailed || Boolean(robustnessVerdict)
+  // So: the body shows the chips whenever the popover is NOT carrying them.
+  // The two predicates are complements of one expression, so they cannot drift
+  // into overlapping or into a gap.
+  //
+  // ⭐⭐ AND IN STANDARD THE POPOVER NOW ALWAYS CARRIES THEM (locked Experience
+  // Design, Paul, 23 Sep 2026: "Coaching becomes ONE consistent icon on the
+  // card surface"). The ruling above put the chips on the Standard body so a
+  // non-hovering reader could reach them. That reach is kept by the ICON —
+  // mounted last in the body, carrying the resolver's first post-analysis
+  // question, opened by a tap — and the chip row leaves the resting card. The
+  // resting copy half of the 9 Sep ruling is untouched: `bodyHasContent`'s post
+  // arm is still `showStabilityLine` alone.
+  //
+  // The complement is kept, and is now simpler: the body carries the chips in
+  // Detailed (which has no popover), and the Standard popover carries them in
+  // every state, stability or none.
+  const showPostAnalysisChips = isDetailed
   const showTriageLine = Boolean(triageLine)
 
   /**
@@ -736,6 +775,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * as authority for it. A false label is a first-class defect here (trap 14);
    * the next reader would have believed the paragraph over the code.
    */
+  // ⭐ WHAT "THE INVITATIONS" ARE NOW DEPENDS ON THE VIEW, AND THEIR PRESENCE
+  // DOES NOT (locked Experience Design, 23 Sep 2026). In Standard they are ONE
+  // coaching icon carrying the first invitation — the reach this block argues
+  // for (on the card, not behind a hover, tappable) with none of the chip text;
+  // in Detailed they stay the chip row. Either way the pre-analysis branch has
+  // them, so `bodyHasContent` below is unchanged.
+  //
   // ⚠ NO `optionCount > 0` CONJUNCT, and that is measured rather than assumed.
   // I wrote one, and a mutant proved it a NO-OP: deleting it left the suite
   // fully green, because `isPreAnalysisBranch` already requires linked options.
@@ -1265,6 +1311,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {/* Nothing above rendered — say what is absent rather than
                 presenting an empty box. */}
             {!bodyHasContent && bodyFallback}
+            {/* Standard: the coaching question as ONE icon, last in the body so
+                it sits bottom-right. The chips themselves are in the popover. */}
+            {!isDetailed && postAnalysisCoachingIcon}
           </div>
         ) : isPreAnalysisBranch ? (
           <>
@@ -1313,9 +1362,33 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 `__tests__/DecisionNode.triageTruncation.spec.tsx`; a clamp for
                 this line is rowed in the PR body.
                 `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any node text
-                starts overflowing its box again. */}
+                starts overflowing its box again.
+
+                ⭐ ONE LINE NOW, WITH SOMEWHERE TO GO (locked Experience Design,
+                23 Sep 2026: "at most ONE highest-value gap/attention line …
+                keep one line, truncate with the full text in a title"). The
+                ruling this block records is kept, not reversed: its own words
+                are "an ellipsis with somewhere to go is a caveat; an ellipsis
+                with nowhere to go is hiding", and the measured defect was a cut
+                line with NO `title` and NO `aria-label` carrying it. This line
+                carries the UNTRUNCATED sentence on `title` — including the
+                label words `truncateAtWord` cuts, which were previously
+                recoverable nowhere at all.
+
+                ⚠ WHAT THIS DOES NOT CLOSE, stated rather than hidden: `title`
+                is a pointer affordance. A touch or keyboard reader of a label
+                long enough to wrap gets the first line only; the factor itself
+                is one tap away on the canvas. And `line-clamp-1` clamps
+                VERTICALLY, so `nodeTextClipping.visual.spec.ts` — which measures
+                horizontal overflow only — does not see this clamp at all;
+                recoverability here is pinned by
+                `__tests__/anchorCards.coachingIcon.spec.tsx`, not by that scan. */}
             {showTriageLine && (
-              <div className={`${typography.edgeLabel} text-text-body mt-1`}>
+              <div
+                data-testid="decision-node-top-gap"
+                className={`${typography.edgeLabel} text-text-body mt-1 line-clamp-1 break-words`}
+                title={triage?.full}
+              >
                 {triageLine}
               </div>
             )}
@@ -1327,12 +1400,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 <NodeChip chipId="decision_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
               </div>
             )}
-            {/* The invitations — see `showPreAnalysisInvitations` for why these
-                moved out from behind the hover. `preAnalysisCoachingChips`
-                already drops "What could go wrong?" while the Run CTA is up, so
-                the card never carries three chips at once. */}
-            {showPreAnalysisInvitations && preAnalysisCoachingChips}
+            {/* The invitations — see `showPreAnalysisInvitations`. Detailed:
+                the chip row (`preAnalysisCoaching` already drops "What could go
+                wrong?" while the Run CTA is up, so the card never carries three
+                chips at once). Standard: ONE icon, last in the body. */}
+            {showPreAnalysisInvitations && isDetailed && preAnalysisCoachingChips}
             {!bodyHasContent && bodyFallback}
+            {showPreAnalysisInvitations && !isDetailed && preAnalysisCoachingIcon}
           </>
         ) : (
           /* Neither branch applies — most often a decision with no option
@@ -1411,20 +1485,21 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               )}
             </div>
           )}
-          {/* ⭐ CHIPS ARE THE POPOVER'S FALLBACK ONLY, now that the body shows
-              them. Rendering them in both places put the same two invitations
-              on screen twice on hover.
+          {/* ⭐ THE STANDARD HOME OF THE POST-ANALYSIS CHIPS, IN EVERY STATE.
+              They were the no-stability fallback only while the Standard body
+              carried them when stability existed; since the one-icon design
+              (23 Sep 2026) the Standard body carries the ICON and never the
+              chips, so this is their one Standard home and `getByText` still
+              finds each exactly once. The typed chips (`what_would_flip`,
+              `compare_options`) keep their typed dispatch HERE — the icon asks
+              through the prefill seam, which has no action-type channel.
 
               ⛔ AND THIS MAY NOT BECOME AN UNCONDITIONAL REMOVAL. The popover's
               existence is what makes `completedRunLine` ("Hover for this node's
               detail") true — `resting` selects that line on `hasPostAnalysisPopover`.
               Drop the chips outright and a run with no stability leaves an EMPTY
-              popover under a line promising detail; gate the popover on stability
-              instead and the same run falls through to `emptyLine` ("Nothing to
-              show on this node") while the chips are plainly showing — false on a
-              reachable path either way. Keeping them as the no-stability fallback
-              is what holds both statements honest. */}
-          {!robustnessVerdict && postAnalysisCoachingChips}
+              popover under a line promising detail. */}
+          {postAnalysisCoachingChips}
         </NodePopover>
       )}
     </div>

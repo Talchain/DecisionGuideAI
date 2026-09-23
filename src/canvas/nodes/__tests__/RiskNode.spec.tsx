@@ -201,13 +201,20 @@ describe('RiskNode', () => {
     expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
   })
 
-  // P1.7 — severity badge visible in STANDARD view (was Expert/popover-only).
-  it('shows the severity badge in STANDARD view (not Expert-only)', () => {
+  // ⚠ UPDATED 23 Sep 2026 — P1.7 put the severity badge in STANDARD view. The
+  // locked Experience Design supersedes that: the badge is a grade the UI
+  // DERIVES from probability × impact, so it moves to Detailed and the resting
+  // card shows only the RECORDED pair (asserted in the next case, unchanged).
+  // The Detailed arm is the file's default store (`viewMode: 'expert'`) and is
+  // covered by the Low/High badge cases above.
+  it('does NOT show the derived severity badge in STANDARD view — Detailed only', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByText('High Risk')).toBeDefined()
+    expect(screen.queryByText('High Risk')).toBeNull()
+    // The recorded pair it was derived from is still on the resting card.
+    expect(screen.getByText('Entered estimate · 90% likely · High impact')).toBeDefined()
   })
 
   // P1.7 — the defining probability × impact pair is shown in the body.

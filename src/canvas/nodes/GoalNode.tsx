@@ -12,6 +12,9 @@
  *    floor — see `targetLine`, which is the only place it is built.
  *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
  *  - No risks chip (always)
+ *  - Coaching: ONE icon (`NodeCoachingIcon`), last in the body, in Standard;
+ *    the same question stays a chip row in Detailed (locked Experience
+ *    Design, 23 Sep 2026). A stale figure is prefixed `LAST_RUN_PREFIX`.
  *
  * Layer 2 (popover in Standard / inline in Detailed):
  *  - Stability bar + percentage
@@ -32,7 +35,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
+import { METRIC_NOUN, LAST_RUN_PREFIX } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import {
   canCaptureGoalTarget,
@@ -51,6 +54,7 @@ import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
 import { NodeChip, NodeMetricRow, NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { NodeCoachingIcon } from './shared/NodeCoachingIcon'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -341,7 +345,20 @@ export const GoalNode = memo((props: NodeProps) => {
   // probability (producer returned none), and demanding a rerun then contradicts
   // the panel's "Analysis reflects the current model". Only a genuinely
   // changed/stale model ('changed' semantic) warrants "Rerun the analysis".
-  const analysisChanged = useAnalysisTrust().semantic === 'changed'
+  const analysisTrustSemantic = useAnalysisTrust().semantic
+  const analysisChanged = analysisTrustSemantic === 'changed'
+  /**
+   * ⭐ A STALE FIGURE STAYS VISIBLE, PREFIXED (Ruling 3). The achievement
+   * readout below had NO stale treatment at all: a run the model had since
+   * moved away from printed its figure exactly as a current one did. It is not
+   * hidden — hiding a result the user has seen is its own defect — it is
+   * prefixed `LAST_RUN_PREFIX`, on the SAME two trust states `OptionNode`
+   * already keys its prefix on, read from the SAME composed authority. The
+   * null-probability quadrant's "Rerun the analysis" sentence is separate and
+   * unchanged: it speaks when there is no figure to prefix.
+   */
+  const showLastRunPrefix =
+    analysisTrustSemantic === 'changed' || analysisTrustSemantic === 'cannot_confirm'
   // Audit §8 P1: canvas result decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift).
 
@@ -815,6 +832,16 @@ export const GoalNode = memo((props: NodeProps) => {
   // left the promise in the two channels nobody greps, so all three are DERIVED
   // from `goalNoTargetChannels` and asserted equal to it.
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
+
+  // The face question, resolved ONCE and read by both renderings of it — the
+  // Detailed chip row and the Standard icon — so the two cannot ask different
+  // questions about the same goal.
+  const goalCardCoaching = resolveNodeCoaching({
+    kind: 'goal',
+    surface: 'card',
+    state: { achievementIsCritical },
+    context: {},
+  })
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
   const targetRouteChannels =
     targetLine !== null ? goalTargetRouteChannels({ targetLine }) : null
@@ -1007,6 +1034,7 @@ export const GoalNode = memo((props: NodeProps) => {
                 permitted arm is byte-identical to the string it replaced;
                 migrating the healthy path off "reaching target" is a separate
                 copy decision and is NOT smuggled in here. */}
+            {showLastRunPrefix && <span data-testid="goal-last-run-prefix">{LAST_RUN_PREFIX}</span>}
             {goalFitSubstituted
               ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
               : `${achievementReadout} chance of reaching target`}
@@ -1153,22 +1181,31 @@ export const GoalNode = memo((props: NodeProps) => {
             That chip renders on `canCaptureTarget`, which is `!hasThreshold` —
             so it holds this card face precisely when the old gate suppressed
             this question. The two are complementary, and together they read as
-            one thought: no target set yet, and is this even the right goal. */}
-        <CoachingChipRow
-          className="mt-1.5 flex gap-1 flex-wrap"
-          chips={resolveNodeCoaching({
-            kind: 'goal',
-            surface: 'card',
-            state: { achievementIsCritical },
-            context: {},
-          })}
-        />
+            one thought: no target set yet, and is this even the right goal.
+
+            ⭐ AND IN STANDARD IT IS ONE ICON NOW (locked Experience Design,
+            Paul, 23 Sep 2026: *"Coaching becomes ONE consistent icon on the
+            card surface."*). Both arguments above survive intact: the question
+            is on the face, not behind a hover, and still ungated on a target —
+            the icon's question IS this `card` resolution, and a tap opens it
+            with this goal in context. The chip row stays in Detailed, which
+            keeps every coaching surface inline. The icon itself is mounted LAST
+            in the body (below) so it sits bottom-right. */}
+        {isDetailed && (
+          <CoachingChipRow
+            className="mt-1.5 flex gap-1 flex-wrap"
+            chips={goalCardCoaching}
+          />
+        )}
 
         {/* Coaching chip "Is my target realistic?" moved to popover (Standard)
             / Detailed inline layer-2. See `layer2Content` above. */}
 
         {/* Layer 2: inline in Detailed view */}
         {showLayer2Inline && layer2Content}
+
+        {/* Standard: the card's question as ONE icon, last in the body. */}
+        {!isDetailed && <NodeCoachingIcon nodeId={props.id} chips={goalCardCoaching} />}
       </BaseNode>
 
       {/* Layer 2: popover in Standard view (only for goals with threshold, post-analysis) */}

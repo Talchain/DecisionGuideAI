@@ -60,6 +60,26 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+
+/**
+ * ⭐ THE CARD-FACE QUESTION IS ONE ICON NOW (locked Experience Design, Paul,
+ * 23 Sep 2026: "Coaching becomes ONE consistent icon on the card surface").
+ * On the Decision, Goal, Outcome and Risk cards the Standard face no longer
+ * paints its coaching chip text; `NodeCoachingIcon` carries the resolver's
+ * FIRST card question as its accessible name. The icon renders only where an
+ * ask surface is registered (`askSemantic`'s "no surface, no affordance"
+ * rule), so the cases that read it register one for the duration of the
+ * render — the real store, the real selector — and restore it after.
+ */
+function withAskSurface(run: () => void) {
+  useGuidanceStore.setState({ _dispatchAction: vi.fn() } as never)
+  try {
+    run()
+  } finally {
+    useGuidanceStore.setState({ _dispatchAction: null } as never)
+  }
+}
 
 // Make NodePopover transparent so we can read its rendered content directly
 // (otherwise the popover is hidden behind a 300ms hover delay).
@@ -762,16 +782,20 @@ describe('Render matrix — DecisionNode chip audit', () => {
     } : null,
   })
 
-  it('Standard pre: shows "Explore more options" + ("Run analysis" XOR "What could go wrong?") — never 3 chips', () => {
+  // ⚠ UPDATED 23 Sep 2026 (one coaching icon): Standard no longer PAINTS the
+  // two invitations. The first rides the coaching icon's accessible name; the
+  // Run-XOR-could-go-wrong rule is unchanged and is asserted on the Detailed
+  // arm below, where the chips still render.
+  it('Standard pre: "Explore more options" is the coaching icon, not a chip; "What could go wrong?" is not on the card', () => {
     applyStore(decisionTopology('standard', 'pre'))
-    renderDecision()
-    expect(screen.getByText('Explore more options')).toBeDefined()
-    // Exactly one of the secondary chips renders, never both at once.
-    const runAnalysis = screen.queryAllByText('Run analysis').length
-    const couldGoWrong = screen.queryAllByText('What could go wrong?').length
-    expect(runAnalysis + couldGoWrong).toBe(1)
-    // No legacy "Review model readiness" chip leaks into the popover.
-    expect(screen.queryByText('Review model readiness')).toBeNull()
+    withAskSurface(() => {
+      renderDecision()
+      expect(screen.getByRole('button', { name: 'Explore more options' })).toBeDefined()
+      expect(screen.queryByText('Explore more options')).toBeNull()
+      expect(screen.queryByText('What could go wrong?')).toBeNull()
+      // No legacy "Review model readiness" chip leaks into the popover.
+      expect(screen.queryByText('Review model readiness')).toBeNull()
+    })
   })
 
   it('Standard post: shows "Challenge this result" + "Compare options"', () => {
@@ -940,13 +964,18 @@ describe('Render matrix — GoalNode chip audit', () => {
    * available at this stage, because every option and factor downstream is
    * then optimised against the proxy rather than the objective.
    */
+  // ⚠ UPDATED 23 Sep 2026: the question is asked by the card's coaching icon
+  // (its accessible name) rather than a painted chip; the pairing it pins is
+  // unchanged.
   it('Goal with-target Standard post: asks whether the target is the REAL goal, not just a reachable one', () => {
     applyStore(goalTopology('standard', 'post', true))
-    renderGoal({ goal_threshold_raw: 100000 })
-    expect(screen.getAllByText('Is this the real goal?').length).toBeGreaterThanOrEqual(1)
-    // Sits beside the realism question rather than replacing it: "can we hit
-    // this number" and "is this the right number" are different questions.
-    expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
+    withAskSurface(() => {
+      renderGoal({ goal_threshold_raw: 100000 })
+      expect(screen.getByRole('button', { name: 'Is this the real goal?' })).toBeDefined()
+      // Sits beside the realism question rather than replacing it: "can we hit
+      // this number" and "is this the right number" are different questions.
+      expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
+    })
   })
 
   it('Goal no-target Standard post: shows the compact no-target chip', () => {
@@ -990,11 +1019,20 @@ describe('Render matrix — OutcomeNode chip audit', () => {
 
   // Retain the upstream and falsification pair in its existing pre-analysis
   // treatment. Consequence exploration separately stays available in both phases.
+  //
+  // ⚠ UPDATED 23 Sep 2026: in Standard the falsification question is the card's
+  // coaching icon (accessible name), not a painted chip; Detailed unchanged.
   it.each(['standard', 'expert'] as const)('%s pre: preserves falsification beside upstream exploration', (view) => {
     applyStore(outcomeTopology(view, 'pre'))
-    renderOutcome()
-    expect(screen.getByText('What would falsify this?')).toBeDefined()
-    expect(screen.getByText('What affects this?')).toBeDefined()
+    withAskSurface(() => {
+      renderOutcome()
+      if (view === 'standard') {
+        expect(screen.getByRole('button', { name: 'What would falsify this?' })).toBeDefined()
+      } else {
+        expect(screen.getByText('What would falsify this?')).toBeDefined()
+      }
+      expect(screen.getByText('What affects this?')).toBeDefined()
+    })
   })
 
   it('Standard post: no body chip (popover handles post-analysis coaching)', () => {
@@ -1064,13 +1102,18 @@ describe('Render matrix — RiskNode chip audit', () => {
    * agreed trigger for acting on it. Asserted in BOTH phases because a leading
    * indicator is as useful while framing as it is after a run.
    */
+  //
+  // ⚠ UPDATED 23 Sep 2026: asked by the card's coaching icon (its accessible
+  // name) rather than a painted chip.
   it.each(['pre', 'post'] as const)('%s: asks what we would see first — the risk is monitorable, not just loggable', (phase) => {
     applyStore(riskTopology('standard', phase))
-    renderRisk()
-    expect(screen.getByText('What would we see first?')).toBeDefined()
-    // The reduce/mitigate pair is not displaced by the addition.
-    expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Explore mitigation')).toBeDefined()
+    withAskSurface(() => {
+      renderRisk()
+      expect(screen.getByRole('button', { name: 'What would we see first?' })).toBeDefined()
+      // The reduce/mitigate pair is not displaced by the addition.
+      expect(screen.getByText('What reduces this?')).toBeDefined()
+      expect(screen.getByText('Explore mitigation')).toBeDefined()
+    })
   })
 
   it('Detailed pre: same two chips — view-agnostic for Risk', () => {

@@ -20,6 +20,17 @@
  *
  * CLAUDE.md trap 3: these assert presence and absence of TEXT. jsdom cannot
  * prove visibility and nothing here claims it does.
+ *
+ * ⭐ UPDATED 23 SEP 2026 — ONE COACHING ICON (locked Experience Design, Paul:
+ * "Coaching becomes ONE consistent icon on the card surface"). The reach this
+ * file pins — the invitation is on the card, not behind a hover, and a tap
+ * reaches it — is unchanged. What changed is its FORM in Standard: the first
+ * invitation ("Explore more options") is the card's coaching icon, a real
+ * button whose accessible name is the invitation and whose click PRE-FILLS the
+ * message (`requestAsk` → the Ask-Olumi drawer) rather than dispatching it.
+ * "What could go wrong?" leaves the Standard card for Detailed, where both
+ * invitations stay chips. So the message-honesty cases below read the
+ * PRE-FILLED DRAFT: it is still sent in the user's name, one Send later.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, cleanup, fireEvent } from '@testing-library/react'
@@ -80,8 +91,12 @@ vi.mock('../../store', () => ({
  * same approach the sibling `restingState.spec.tsx` takes.
  */
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 
 const dispatched: Array<Record<string, unknown>> = []
+
+/** The card's coaching icon — the first invitation, as a real button. */
+const invitationIcon = () => screen.queryByRole('button', { name: 'Explore more options' })
 
 const DECISION_ID = 'decision-1'
 const decisionNode = { id: DECISION_ID, type: 'decision', data: { type: 'decision' } }
@@ -139,18 +154,29 @@ describe('DecisionNode — invitations in Standard view', () => {
     dispatched.length = 0
     useGuidanceStore.setState({
       _dispatchAction: (a: Record<string, unknown>) => { dispatched.push(a) },
+      guidanceItems: [],
     } as never)
+    useAskOlumiStore.setState({ isOpen: false, draft: '' } as never)
   })
   afterEach(() => cleanup())
 
-  it('offers "Explore more options" WITHOUT hovering', () => {
+  it('offers "Explore more options" WITHOUT hovering — as the card\'s coaching icon', () => {
     const { container } = renderDecision()
-    expect(outsidePopover(container)).toContain('Explore more options')
+    const icon = invitationIcon()
+    expect(icon, 'no coaching icon on the card').not.toBeNull()
+    // On the CARD, not in the popover.
+    expect(screen.getByTestId('decision-node-popover').contains(icon)).toBe(false)
+    // …and no longer painted as chip text (23 Sep 2026).
+    expect(outsidePopover(container)).not.toContain('Explore more options')
   })
 
-  it('offers "What could go wrong?" WITHOUT hovering', () => {
-    const { container } = renderDecision()
-    expect(outsidePopover(container)).toContain('What could go wrong?')
+  it('"What could go wrong?" leaves the Standard card for Detailed, where it stays a chip', () => {
+    const standard = renderDecision()
+    expect(outsidePopover(standard.container)).not.toContain('What could go wrong?')
+    standard.unmount()
+    setStore({ viewMode: 'expert' })
+    const detailed = renderDecision()
+    expect(outsidePopover(detailed.container)).toContain('What could go wrong?')
   })
 
   it('⭐ MOVED to the card, not duplicated onto it', () => {
@@ -161,19 +187,18 @@ describe('DecisionNode — invitations in Standard view', () => {
     // Stripping the popover and asserting what is LEFT is what distinguishes
     // "present" from "reachable"; asserting the popover no longer holds them is
     // what stops the duplication coming back.
-    const { container } = renderDecision()
+    renderDecision()
     const popover = screen.queryByTestId('decision-node-popover')
     expect(popover, 'popover fixture missing — this test would pass vacuously').not.toBeNull()
-    expect(outsidePopover(container)).toContain('Explore more options')
+    expect(invitationIcon()).not.toBeNull()
     expect(within(popover as HTMLElement).queryByText('Explore more options')).toBeNull()
     // The popover keeps what it is uniquely good at.
     expect(popover?.textContent).toContain('Model readiness')
   })
 
-  it('they are real BUTTONS, so tap and keyboard reach them with no key handling of ours', () => {
+  it('it is a real BUTTON, so tap and keyboard reach it with no key handling of ours', () => {
     renderDecision()
-    const chip = screen.getAllByText('Explore more options')[0].closest('button')
-    expect(chip).not.toBeNull()
+    expect(invitationIcon()?.tagName).toBe('BUTTON')
   })
 
   it('says nothing when the decision has no options — an invitation to explore alternatives to nothing', () => {
@@ -182,6 +207,7 @@ describe('DecisionNode — invitations in Standard view', () => {
     setStore({ edges: [], nodes: [decisionNode] })
     const { container } = renderDecision()
     expect(outsidePopover(container)).not.toContain('Explore more options')
+    expect(invitationIcon()).toBeNull()
   })
 
   it('the card never carries three chips at once', () => {
@@ -208,15 +234,20 @@ describe('DecisionNode — invitations in Standard view', () => {
    * USER'S NAME — so it has to be true of the model it is sent from.
    */
   describe('what the chip sends, not what it shows', () => {
+    // The icon PRE-FILLS rather than dispatching (23 Sep 2026), so what the
+    // user will send is the drawer's draft. Nothing may be dispatched for them.
     const messageFor = (label: string): string => {
       dispatched.length = 0
+      useAskOlumiStore.setState({ isOpen: false, draft: '' } as never)
+      // Scoped to THIS render: the discrimination case renders twice.
       const { container } = renderDecision()
-      const btn = Array.from(container.querySelectorAll('button'))
-        .find(b => b.textContent?.includes(label))
-      if (!btn) throw new Error(`refusing to assert: no "${label}" chip rendered`)
+      const btn = within(container).queryByRole('button', { name: label })
+      if (!btn) throw new Error(`refusing to assert: no "${label}" icon rendered`)
       fireEvent.click(btn)
-      if (dispatched.length === 0) throw new Error('refusing to assert: click dispatched nothing')
-      return String(dispatched[dispatched.length - 1].message ?? '')
+      const { isOpen, draft } = useAskOlumiStore.getState()
+      if (!isOpen || !draft) throw new Error('refusing to assert: click pre-filled nothing')
+      if (dispatched.length !== 0) throw new Error('the icon dispatched on the user\'s behalf')
+      return draft
     }
 
     it('does not claim the model has exactly two options', () => {
@@ -267,14 +298,15 @@ describe('DecisionNode — invitations in Standard view', () => {
   describe('counting the model honestly', () => {
     const messageWithEdges = (edges: unknown[], nodes: unknown[]): string => {
       dispatched.length = 0
+      useAskOlumiStore.setState({ isOpen: false, draft: '' } as never)
       setStore({ edges, nodes })
       const { container } = renderDecision()
-      const btn = Array.from(container.querySelectorAll('button'))
-        .find(b => b.textContent?.includes('Explore more options'))
-      if (!btn) throw new Error('refusing to assert: no "Explore more options" chip rendered')
+      const btn = within(container).queryByRole('button', { name: 'Explore more options' })
+      if (!btn) throw new Error('refusing to assert: no "Explore more options" icon rendered')
       fireEvent.click(btn)
-      if (dispatched.length === 0) throw new Error('refusing to assert: click dispatched nothing')
-      return String(dispatched[dispatched.length - 1].message ?? '')
+      const { isOpen, draft } = useAskOlumiStore.getState()
+      if (!isOpen || !draft) throw new Error('refusing to assert: click pre-filled nothing')
+      return draft
     }
 
     it('one option linked twice is one option', () => {

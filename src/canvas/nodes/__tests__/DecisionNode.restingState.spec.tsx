@@ -248,6 +248,9 @@ function visibleText(el: HTMLElement): string {
   return parts.join('\n')
 }
 
+/** The card's coaching icon (23 Sep 2026), found by its per-node test id. */
+const coachingIcon = () => screen.getByTestId(`node-coaching-icon-${decisionNode.id}`)
+
 describe('DecisionNode — honest resting state', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -519,8 +522,16 @@ describe('DecisionNode — honest resting state', () => {
     // something". The two assertions above still discharge that in full. What
     // is added is the other half of the ruling: the chip is now reachable
     // WITHOUT a hover, on the same render.
-    expect(within(popover).queryByText('Challenge this result')).toBeNull()
-    expect(screen.getByText('Challenge this result')).toBeDefined()
+    //
+    // ⭐ UPDATED AGAIN 23 Sep 2026 (locked Experience Design: "Coaching becomes
+    // ONE consistent icon on the card surface"). The no-hover reach is now the
+    // card's coaching ICON, whose accessible name is this same first
+    // post-analysis question; the chips themselves live in the Standard
+    // popover in every state, stability included, and still exactly once.
+    expect(within(popover).getByText('Challenge this result')).toBeDefined()
+    expect(screen.getAllByText('Challenge this result')).toHaveLength(1)
+    // The icon, bound by its identity — the popover chip shares its name.
+    expect(coachingIcon().getAttribute('aria-label')).toBe('Challenge this result')
 
     expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
     // "yet" would assert that nothing has happened. A run had.
@@ -607,7 +618,11 @@ describe('DecisionNode — honest resting state', () => {
    * The discriminator is that BOTH are asserted in ONE render. Split across two
    * cases this would pass against either half alone.
    */
-  it('Standard completed run: the chips AND the resting copy are BOTH on the card', () => {
+  // ⚠ UPDATED 23 Sep 2026 — the ruling's "chips" half is now the card's ONE
+  // coaching icon (locked Experience Design); the chips live in the popover.
+  // The coexistence this arm exists for — the invitation and the honest
+  // resting copy in ONE render — is unchanged and still asserted.
+  it('Standard completed run: the coaching icon AND the resting copy are BOTH on the card', () => {
     const factorNodes = [
       { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
       { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
@@ -620,10 +635,13 @@ describe('DecisionNode — honest resting state', () => {
     })
     renderDecision()
 
-    // The invitations — reachable with no hover, which is the change.
+    // The invitation — reachable with no hover: the coaching icon, on the card.
+    // Bound by identity — the popover chip shares the icon's accessible name.
+    const icon = coachingIcon()
+    expect(icon.getAttribute('aria-label')).toBe('Challenge this result')
+    expect(screen.getByTestId('decision-node-popover').contains(icon)).toBe(false)
     // ⭐ EXACTLY ONE EACH. `getByText` throws on duplicates, and that is load
-    // bearing here: the popover carries these same chips as its no-stability
-    // fallback, so a body/popover predicate that overlaps renders them twice.
+    // bearing here: a body/popover predicate that overlaps renders them twice.
     // This assertion caught precisely that in the first cut.
     expect(screen.getByText('Challenge this result')).toBeDefined()
     expect(screen.getByText('Compare options')).toBeDefined()

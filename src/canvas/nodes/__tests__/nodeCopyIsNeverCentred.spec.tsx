@@ -137,6 +137,7 @@ import { GhostOptionNode } from '../GhostOptionNode'
 import { DecisionNode } from '../DecisionNode'
 import { BaseNode } from '../BaseNode'
 import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
+import { useCanvasStore } from '../../store'
 
 // ---------------------------------------------------------------------------
 // The walker
@@ -280,19 +281,31 @@ describe('the walker can see a centring it is pointed at (positive control)', ()
 describe('the five walked components render no centred copy (see header: 9 of 14 unwalked)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('RiskNode — the severity badge is body copy in the always-visible Standard view', () => {
-    const container = mount(
-      <RiskNode {...nodeProps({
-        type: 'risk',
-        data: { type: 'risk', label: 'Key engineer leaves', probability: 0.9, impact: 'high' },
-      })} />,
-    )
-    // Pin the precondition IN-TEST (trap 13b): assert the badge this case is
-    // about actually rendered, so a fixture that stopped producing a severity
-    // cannot pass this by rendering nothing.
-    expect(container.textContent).toContain('High Risk')
-    const found = centredCopy(container)
-    expect(found, `RiskNode centres copy:\n${report(found)}`).toEqual([])
+  // ⚠ UPDATED 23 Sep 2026: the derived severity badge moved from the Standard
+  // body to DETAILED (locked Experience Design — the resting card shows only
+  // the recorded probability × impact). The case walks the view that renders
+  // the badge now; the property it guards — the badge is left-aligned body
+  // copy — is unchanged.
+  it('RiskNode — the severity badge is body copy in the Detailed view', () => {
+    const standardImpl = (selector: (s: unknown) => unknown) => selector(makeStoreState())
+    vi.mocked(useCanvasStore).mockImplementation(((selector: (s: unknown) => unknown) =>
+      selector(makeStoreState({ viewMode: 'expert' }))) as never)
+    try {
+      const container = mount(
+        <RiskNode {...nodeProps({
+          type: 'risk',
+          data: { type: 'risk', label: 'Key engineer leaves', probability: 0.9, impact: 'high' },
+        })} />,
+      )
+      // Pin the precondition IN-TEST (trap 13b): assert the badge this case is
+      // about actually rendered, so a fixture that stopped producing a severity
+      // cannot pass this by rendering nothing.
+      expect(container.textContent).toContain('High Risk')
+      const found = centredCopy(container)
+      expect(found, `RiskNode centres copy:\n${report(found)}`).toEqual([])
+    } finally {
+      vi.mocked(useCanvasStore).mockImplementation(standardImpl as never)
+    }
   })
 
   it('GhostTierNode — the door label is a whole sentence', () => {

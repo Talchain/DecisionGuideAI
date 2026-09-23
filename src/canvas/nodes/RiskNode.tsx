@@ -16,6 +16,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { NodeCoachingIcon } from './shared/NodeCoachingIcon'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
@@ -120,7 +121,8 @@ import { nodeRecordedValue } from '../domain/nodeRecordedValue'
  * — every other panel body is wrapped in `<fieldset disabled>`, which natively
  * inerts it. So "open its details and set one" would be the exact promise
  * `GoalNode` had to withdraw when its threshold editor turned out to be inert.
- * The sentence states the fact; the CHIP beside it is the route, and it goes
+ * The sentence states the fact; the card's coaching icon is the route (it was
+ * a chip beside it until the one-icon design of 23 Sep 2026), and it goes
  * somewhere that demonstrably answers.
  */
 export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.inline}.`
@@ -458,6 +460,15 @@ export const RiskNode = memo((props: NodeProps) => {
    * class on the board (median risk height 86px against option 250, factor
    * 141 — `nodeLayoutConstants.ts`). If it is still too much, this chip can be
    * withdrawn on its own and the sentence above stands without it.
+   *
+   * ⚠⚠ AND AS OF 23 SEP 2026 IT IS WITHDRAWN FROM THE FACE, exactly as that
+   * sentence allowed. The locked Experience Design makes the card's coaching
+   * ONE icon carrying the resolver's FIRST `card` chip; the leading indicator
+   * leads on every risk (the "ADDED, NOT SWAPPED" ruling above), so the sizing
+   * question — the second chip — is no longer painted and has no other
+   * surface. The sentence stands. `exposureUnstated` still reaches the
+   * resolver, so the resolution is unchanged; only its second entry has no
+   * renderer on the resting card.
    */
   // ⚠ The three surfaces ask for three DIFFERENT resolutions, and the card's
   // order is deliberately not the Detailed order — see the resolver's docblock.
@@ -467,12 +478,23 @@ export const RiskNode = memo((props: NodeProps) => {
     [cleanedLabel, riskContext],
   )
 
-  const riskFaceChip = useMemo(() => (
-    <CoachingChipRow
-      className="flex gap-1 flex-wrap mt-1.5"
+  /**
+   * ⭐ THE CARD'S QUESTIONS ARE ONE ICON NOW (locked Experience Design, Paul,
+   * 23 Sep 2026: *"Coaching becomes ONE consistent icon on the card
+   * surface."*). The two blocks above argued for the leading-indicator question
+   * and the size question reaching the card face WITHOUT a hover, and both
+   * arguments still hold: the icon is on the face, its question is the
+   * resolver's first `card` chip (so the leading indicator still leads and
+   * `exposureUnstated` still decides what follows), and a TAP opens it with
+   * this risk in context — no hover needed on a touch device. What moves is
+   * the painted chip text, which is the density the 15 Sep note objected to.
+   */
+  const riskFaceIcon = useMemo(() => (
+    <NodeCoachingIcon
+      nodeId={props.id}
       chips={resolveNodeCoaching({ kind: 'risk', surface: 'card', state: riskCoachingState, context: riskCoachingContext })}
     />
-  ), [riskCoachingState, riskCoachingContext])
+  ), [props.id, riskCoachingState, riskCoachingContext])
 
   const riskPopoverChips = useMemo(() => (
     <CoachingChipRow
@@ -490,8 +512,16 @@ export const RiskNode = memo((props: NodeProps) => {
   ), [riskCoachingState, riskCoachingContext])
 
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
-  // (the existing probability×impact derivation, reused not re-added). P1.7: now
-  // rendered in the always-visible Standard body (Layer 1), not Expert/popover-only.
+  // (the existing probability×impact derivation, reused not re-added).
+  //
+  // ⛔ DETAILED ONLY (locked Experience Design, 23 Sep 2026 — supersedes P1.7's
+  // "always-visible Standard body"). The badge is a VERDICT THE UI COMPUTES:
+  // `calculateRiskSeverity` weights the impact band and cuts the product at
+  // 0.5 / 1.5 / 3 — cut-offs this card chose, not the user and not the
+  // producer. At rest the card shows only what was RECORDED (`NN% likely ·
+  // <Impact> impact`), and the derived grade is detail. The unsized case is
+  // unchanged in both views: no badge anywhere, so a missing likelihood can
+  // never read as a low severity.
   const detailedMetrics = severity ? (
     <div
       // The `textAlign: 'center'` that was here is gone. This div carries no
@@ -726,20 +756,15 @@ export const RiskNode = memo((props: NodeProps) => {
           )
         )}
 
-        {/* Severity badge + probability × impact pair — visible in STANDARD view
-            (P1.7). Both are derived/read straight from node data; no fabrication
-            when data is absent. */}
-        {detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
+        {/* The DERIVED severity badge is Detailed-only (see `detailedMetrics`);
+            the RECORDED probability × impact pair below stays in both views.
+            No fabrication when data is absent. */}
+        {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
         {riskExposureLine}
 
-        {/* The leading-indicator question rides the CARD in Standard view; the
-            reduce/mitigate pair stays in the popover. Detailed renders all
-            three inline below. See `riskFaceChip` for the measurement. */}
-        {!isDetailed && riskFaceChip}
-
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
-            Graph v1.1 Task 4: align with wireframe v4. The severity badge now
-            lives in Layer 1 (Standard-visible, P1.7) so it is NOT repeated here. */}
+            Graph v1.1 Task 4: align with wireframe v4. The severity badge sits
+            above the exposure line (Detailed-only) so it is NOT repeated here. */}
         {isDetailed && layer2ContentPost}
 
         {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
@@ -756,6 +781,11 @@ export const RiskNode = memo((props: NodeProps) => {
         {/* Detailed view: coaching chips inline (Standard renders them in
             the popovers below). */}
         {isDetailed && riskChips}
+
+        {/* Standard view: the card's questions as ONE icon, LAST in the body so
+            it sits bottom-right. The reduce/mitigate pair stays in the popover;
+            Detailed renders all three inline above. See `riskFaceIcon`. */}
+        {!isDetailed && riskFaceIcon}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}
@@ -767,8 +797,8 @@ export const RiskNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {/* Severity badge lives in Layer 1 (Standard-visible, P1.7) — the popover
-              carries only the post-analysis detail + coaching chips. */}
+          {/* The popover carries only the post-analysis detail + coaching chips;
+              the derived severity badge is Detailed-only. */}
           {layer2ContentPost}
           {riskPopoverChips}
         </NodePopover>

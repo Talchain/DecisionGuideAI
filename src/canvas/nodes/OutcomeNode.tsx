@@ -15,6 +15,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { NodeCoachingIcon } from './shared/NodeCoachingIcon'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
@@ -200,10 +201,18 @@ export const OutcomeNode = memo((props: NodeProps) => {
     ? `How can I validate my assumption about ${factorLabel} and its effect on ${cleanedLabel || 'this outcome'}?${outcomeContext}`
     : null
 
-  // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
-  const layer2ContentPost = isPostAnalysis ? (
+  // ----- Layer 2 content: post-analysis "Depends on:" — DETAILED ONLY -----
+  //
+  // ⛔ NOT IN THE STANDARD POPOVER ANY MORE (locked Experience Design, 23 Sep
+  // 2026): *"Move the full 'Depends on:' ConnRows list to Detailed only."* An
+  // outcome is a compact REPEATED card; the reader of a Standard card gets its
+  // name, its own recorded strength and one structural fact ("N options move
+  // this"), and the full inbound list is detail. It was shared between the
+  // hover and Detailed; it is now Detailed's alone. The actionable prompt below
+  // it — "Test the connection from X" — is NOT the list and stays in both.
+  const dependsOnPost = isPostAnalysis ? (
     <>
-      {/* "Depends on:" ConnRows (max 3 Standard, max 5 Detailed) */}
+      {/* "Depends on:" ConnRows (max 3) */}
       {inboundConnections.length > 0 && (
         <>
           <Sep />
@@ -223,7 +232,12 @@ export const OutcomeNode = memo((props: NodeProps) => {
           <ConnRowsOverflow total={inboundConnections.length} shown={3} />
         </>
       )}
+    </>
+  ) : null
 
+  // ----- Layer 2 content: post-analysis actionable prompt (popover AND Detailed inline) -----
+  const layer2ContentPost = isPostAnalysis ? (
+    <>
       {/* Actionable guidance */}
       {validateQuestion && (
         <>
@@ -288,12 +302,20 @@ export const OutcomeNode = memo((props: NodeProps) => {
   )
   const outcomeCoachingState = useMemo(() => ({ isPostAnalysis }), [isPostAnalysis])
 
-  const outcomeFaceChip = useMemo(() => (
-    <CoachingChipRow
-      className="flex gap-1 flex-wrap mt-1.5"
+  /**
+   * ⭐ …AND IT IS ONE ICON NOW (locked Experience Design, Paul, 23 Sep 2026:
+   * *"Coaching becomes ONE consistent icon on the card surface."*). Both
+   * reasons above still hold — the question is on the FACE, not behind a hover,
+   * and it survives the run — because the icon's question IS the resolver's
+   * `card` chip and a tap opens it with this outcome in context. Only the
+   * painted chip text leaves the card.
+   */
+  const outcomeFaceIcon = useMemo(() => (
+    <NodeCoachingIcon
+      nodeId={props.id}
       chips={resolveNodeCoaching({ kind: 'outcome', surface: 'card', state: outcomeCoachingState, context: outcomeCoachingContext })}
     />
-  ), [outcomeCoachingState, outcomeCoachingContext])
+  ), [props.id, outcomeCoachingState, outcomeCoachingContext])
 
   const outcomePopoverChips = useMemo(() => (
     <CoachingChipRow
@@ -521,11 +543,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* The falsification question rides the CARD in Standard view, in both
-            phases. The remaining chips stay in the popover; Detailed renders
-            the full set inline below. See `outcomeFaceChip`. */}
-        {!isDetailed && outcomeFaceChip}
-
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4 OutcomePostDet —
             percentage (Layer 1), separator, "Depends on:" ConnRows (max 3),
@@ -538,6 +555,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
             derivation — and the metric no longer renders here. The sentence is
             quoted rather than deleted because it is the reason the figure
             survived on this card for as long as it did. */}
+        {isDetailed && dependsOnPost}
         {isDetailed && layer2ContentPost}
 
         {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
@@ -555,6 +573,11 @@ export const OutcomeNode = memo((props: NodeProps) => {
             in the popover below). */}
         {isDetailed && outcomeChips}
 
+        {/* The falsification question rides the CARD in Standard view, in both
+            phases, as ONE icon LAST in the body so it sits bottom-right. The
+            remaining chips stay in the popover; Detailed renders the full set
+            inline above. See `outcomeFaceIcon`. */}
+        {!isDetailed && outcomeFaceIcon}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}

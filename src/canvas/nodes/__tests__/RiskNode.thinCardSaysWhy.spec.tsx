@@ -113,6 +113,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
 const baseProps = {
   type: 'risk', position: { x: 0, y: 0 }, selected: false, isConnectable: true,
@@ -165,10 +166,20 @@ const unsetLine = () => screen.queryByTestId('risk-exposure-unset')
  */
 const exposureLine = () => screen.queryByTestId('risk-exposure-line')?.textContent ?? null
 const sizingChip = () => screen.queryByRole('button', { name: 'How likely is this?' })
+/**
+ * ⚠ SINCE 23 SEP 2026 THIS IS THE CARD'S COACHING ICON, found by the same
+ * accessible name. The locked Experience Design ("Coaching becomes ONE
+ * consistent icon on the card surface") replaced the chip row with one icon
+ * carrying the resolver's FIRST card question — the leading indicator.
+ */
 const indicatorChip = () => screen.queryByRole('button', { name: 'What would we see first?' })
 
 describe('a thin risk card says the MODEL is thin', () => {
-  beforeEach(() => { cleanup(); vi.clearAllMocks() })
+  beforeEach(() => {
+    cleanup(); vi.clearAllMocks()
+    // An ask surface, so the coaching icon may render (`askSemantic`'s rule).
+    useGuidanceStore.setState({ _dispatchAction: vi.fn() } as never)
+  })
 
   // ── 1. The target ────────────────────────────────────────────────────────
   it('⭐ RED-FIRST: a risk with no likelihood and no impact says so, on the card', () => {
@@ -210,16 +221,24 @@ describe('a thin risk card says the MODEL is thin', () => {
     expect(exposureLine()).toBe('Entered estimate · High impact')
   })
 
-  // ── 4. The next-step half moves in step with the diagnosis ────────────────
-  it('⭐ THE COACHING HALF: the sizing question appears exactly where the sentence does', () => {
+  // ── 4. The next-step half, after the one-icon design ──────────────────────
+  //
+  // ⚠ UPDATED 23 Sep 2026. This case asserted a `How likely is this?` CHIP
+  // beside the sentence. The card's chip row is now ONE icon carrying the
+  // resolver's FIRST card question, and the resolver leads with the leading
+  // indicator on EVERY risk ("ADDED, NOT SWAPPED" — that ruling is what keeps
+  // the indicator first). The sizing question was the row's second chip and
+  // has no other surface, so it leaves the card — the withdrawal `RiskNode`'s
+  // own docblock pre-authorised: "this chip can be withdrawn on its own and
+  // the sentence above stands without it." The sentence stands (tests 1-3).
+  it('⭐ THE COACHING HALF: the unsized card keeps ONE question — the leading indicator — beside the sentence', () => {
     draw('risk-gdpr', UNSIZED)
-    expect(sizingChip()).toBeTruthy()
-    // ADDED, NOT SWAPPED — the leading-indicator question was promoted to the
-    // face by a separate reasoned decision and must survive this one.
+    expect(unsetLine()?.textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
     expect(indicatorChip()).toBeTruthy()
+    expect(sizingChip()).toBeNull()
   })
 
-  it('⛔ AND IT IS ABSENT ON A SIZED RISK, so the chip is a response and not wallpaper', () => {
+  it('⛔ ON A SIZED RISK THE SIZING QUESTION STAYS ABSENT, and the leading indicator still leads', () => {
     draw('risk-migration', SIZED)
     expect(sizingChip()).toBeNull()
     expect(indicatorChip()).toBeTruthy()

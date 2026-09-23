@@ -22,6 +22,19 @@
  * mock `NodePopover` — it renders the real one, closed, which is what a user
  * gets. It is the only place that can tell "on the card" from "behind a hover".
  *
+ * ─── ⭐ UPDATED 23 SEP 2026: THE QUESTION IS ONE ICON ON THE CARD ───────────
+ *
+ * Locked Experience Design (Paul): *"Coaching becomes ONE consistent icon on
+ * the card surface."* On the risk, outcome and goal cards the promoted
+ * question no longer paints as a chip; `NodeCoachingIcon` carries it as its
+ * accessible name, mounted on the card face, opened by a click or a tap. The
+ * property this file exists for — the question is reachable WITHOUT A HOVER,
+ * in the default view — is unchanged and is what the cases below still bind:
+ * the question is a real button on the resting card, and the popover-only
+ * chips are still absent. The icon renders only where an ask surface is
+ * registered (`askSemantic`'s rule), so one is registered on the real store.
+ * The action card is outside that design's scope and keeps its chip.
+ *
  * ─── THE DISCRIMINATOR ──────────────────────────────────────────────────────
  *
  * Each case asserts a promoted question is PRESENT *and* a popover-only chip is
@@ -75,6 +88,10 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+
+/** The question as the resting card carries it: the coaching icon's name. */
+const cardQuestion = (name: string) => screen.queryByRole('button', { name })
 
 type Phase = 'pre' | 'post'
 
@@ -140,6 +157,8 @@ const renderAction = () => render(
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // An ask surface, so the coaching icon may render (see header).
+  useGuidanceStore.setState({ _dispatchAction: vi.fn() } as never)
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
     sensitivityRank: null, influence: null, confidence: null,
     inSensitivityAnalysis: false, achievementProbability: null,
@@ -153,8 +172,9 @@ describe('Resting state — the card asks its question without a hover', () => {
     (phase) => {
       applyStore(phase)
       renderRisk()
-      // Promoted to the card face.
-      expect(screen.getByText('What would we see first?')).toBeDefined()
+      // Promoted to the card face — as the coaching icon, not painted text.
+      expect(cardQuestion('What would we see first?')).not.toBeNull()
+      expect(screen.queryByText('What would we see first?')).toBeNull()
       // ⭐ DISCRIMINATOR — these are popover-only, and the popover is closed.
       // If this ever passes, the file has stopped telling card from hover.
       expect(screen.queryByText('What reduces this?')).toBeNull()
@@ -167,7 +187,7 @@ describe('Resting state — the card asks its question without a hover', () => {
     (phase) => {
       applyStore(phase)
       renderOutcome()
-      expect(screen.getByText('What would falsify this?')).toBeDefined()
+      expect(cardQuestion('What would falsify this?')).not.toBeNull()
       // DISCRIMINATOR — popover-only in Standard view.
       expect(screen.queryByText('Explore consequences')).toBeNull()
     },
@@ -199,7 +219,7 @@ describe('Resting state — the card asks its question without a hover', () => {
     (phase) => {
       applyStore(phase)
       renderGoal()
-      expect(screen.getByText('Is this the real goal?')).toBeDefined()
+      expect(cardQuestion('Is this the real goal?')).not.toBeNull()
       // DISCRIMINATOR — the target-interrogating chips stay behind the hover
       // AND behind `hasThreshold`, so they must be absent on this fixture.
       expect(screen.queryByText('Is my target realistic?')).toBeNull()
