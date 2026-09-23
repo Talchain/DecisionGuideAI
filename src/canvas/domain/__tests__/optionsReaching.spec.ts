@@ -196,12 +196,19 @@ describe('optionsReachingLine', () => {
     expect(optionsReachingLine(count)).toBeNull()
   })
 
+  // Locked Canvas design (23 Sep 2026): MT-20 — "N options MOVE this" put a
+  // causal verb on a STRUCTURAL count (`countOptionsReaching` counts connected
+  // options, including one the analysis left out). The count and the singular
+  // stay pinned; the verb now says only what was counted, and the causal verb
+  // is asserted ABSENT so it cannot creep back.
   it('uses the singular for one', () => {
-    expect(optionsReachingLine(1)).toBe('1 option moves this')
+    expect(optionsReachingLine(1)).toBe('1 option connects to this')
+    expect(optionsReachingLine(1)).not.toMatch(/\bmoves?\b/)
   })
 
   it('uses the plural for more than one', () => {
-    expect(optionsReachingLine(2)).toBe('2 options move this')
-    expect(optionsReachingLine(7)).toBe('7 options move this')
+    expect(optionsReachingLine(2)).toBe('2 options connect to this')
+    expect(optionsReachingLine(7)).toBe('7 options connect to this')
+    expect(optionsReachingLine(2)).not.toMatch(/\bmoves?\b/)
   })
 })

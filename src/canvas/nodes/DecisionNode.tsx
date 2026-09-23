@@ -1,26 +1,27 @@
 /**
- * Decision node component — Graph v2 simplification.
+ * Decision ("Question") node component.
  *
- * Pre-analysis Standard: triage line, 2 coaching chips, popover with model
- *   readiness breakdown.
- * Pre-analysis Detailed: same as Standard (chip rules are view-agnostic).
- * Post-analysis Standard: model-readiness summary, with stability and coaching
- *   in the popover. Option comparisons remain on option cards.
- * Post-analysis Detailed: stability and coaching inline in the body.
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 1): WIDE AND SHALLOW.
+ *   Title (the question) → ONE line: the option count and at most ONE
+ *   reasoning-focus signal (pre-analysis: the top gap, clamped with full-text
+ *   recovery; after a run: the withheld-leader disclosure or the run-wide
+ *   absence of per-option shares; unnamed / no options: the resting line and
+ *   its one CTA) → the rail (the ONE coaching icon — "Explore more options"
+ *   before a run, the typed "Challenge this result" after it — and the run
+ *   action).
+ * Detailed: adds the robustness line and the chip rows, same width.
+ * Popovers: unchanged (readiness breakdown before a run, robustness after).
  *
- * Resting state: when NEITHER branch would put a child on screen, the body
- *   states what is absent from this node and — where an authoring act would
- *   answer that absence — offers to ask Olumi for it. Never a sentence about
- *   the analysis. See `bodyHasContent` and `DECISION_RESTING_COPY`.
- *   On `completedRunLine` it leads with the model-readiness summary
- *   ("4 factors · 2 estimated · 1 missing"), which is the same structural count
- *   the pre-analysis popover shows and is the only thing on this card that
- *   survives a completed run. See `composeReadinessSummary`.
+ * History (superseded, kept for the record of why each line existed): the
+ * face used to carry the triage line, two coaching chips, the readiness
+ * summary and a "Run analysis" chip as separate rows; `bodyHasContent` chose a
+ * resting fallback when none rendered. See `DECISION_RESTING_COPY` and
+ * `composeReadinessSummary`, which remain the owners of those strings.
  */
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
-import { Crosshair } from 'lucide-react'
+import { Crosshair, Play } from 'lucide-react'
 import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useModelReadiness } from '../hooks/useModelReadiness'
@@ -29,9 +30,16 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
-import { METRIC_NOUN, STRUCTURAL_UNSET } from './shared/metricVocabulary'
+import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
-import { NodeChip, NodePopover } from './shared'
+import { NodePopover } from './shared'
+import { runAnalysisFromCard } from './shared/NodeChip'
+import { NodeRailIcon } from './shared/NodeRailIcons'
+import Tooltip from '../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import { useShowToastSafe } from '../ToastContext'
+import { analysisHeldNotice } from '../utils/analysisHeldOnInjectedModel'
+import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { isGoalDefined } from '../../utils/isGoalDefined'
@@ -419,7 +427,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const showRunAnalysis = allFactorsPresent && goalDefined
 
   // ---- Triage line: single most important next action (pre-analysis only) ----
-  const triageLine = useMemo(() => {
+  const triage = useMemo<{ short: string; full: string } | null>(() => {
     if (isPostAnalysis) return null
 
     const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
@@ -436,7 +444,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       if (value == null && !(prior?.range_min != null && prior?.range_max != null)) {
         const rawLabel = (d.label as string | undefined) ?? ''
         const cleaned = cleanFactorLabel(rawLabel) || rawLabel
-        return `Top gap: estimate ${truncateAtWord(cleaned, 40)}`
+        return { short: `Top gap: estimate ${truncateAtWord(cleaned, 40)}`, full: `Top gap: estimate ${cleaned}` }
       }
     }
 
@@ -475,14 +483,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     if (topInferred) {
       const rawLabel = (topInferred.node.data?.label as string | undefined) ?? ''
       const cleaned = cleanFactorLabel(rawLabel) || rawLabel
-      return `Top gap: validate ${truncateAtWord(cleaned, 40)}`
+      return { short: `Top gap: validate ${truncateAtWord(cleaned, 40)}`, full: `Top gap: validate ${cleaned}` }
     }
 
     // 3. Goal has no threshold
-    if (!goalDefined) return 'Top gap: set a success target'
+    if (!goalDefined) return { short: 'Top gap: set a success target', full: 'Top gap: set a success target' }
 
     // 4. Fewer than 3 options
-    if (optionNodes.length < 3) return 'Top gap: explore more options'
+    if (optionNodes.length < 3) return { short: 'Top gap: explore more options', full: 'Top gap: explore more options' }
 
     // 5. Model is reasonably complete — no triage line
     return null
@@ -628,11 +636,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     return { verdict, reason }
   }, [isPostAnalysis, report])
 
-  // Chip actions via _sendMessage
-  const handleChip = useCallback((message: string) => {
-    const send = useGuidanceStore.getState()._sendMessage
-    if (send) send(message)
-  }, [])
 
   // ---- What the two body branches will actually put on screen ----
   //
@@ -699,8 +702,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // i.e. in Detailed (no popover at all), and in Standard whenever stability
   // gives the popover its own content. The two predicates are complements of
   // one expression, so they cannot drift into overlapping or into a gap.
-  const showPostAnalysisChips = isDetailed || Boolean(robustnessVerdict)
-  const showTriageLine = Boolean(triageLine)
 
   /**
    * ⭐ THE INVITATIONS BELONG ON THE CARD, NOT BEHIND A HOVER.
@@ -742,7 +743,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // A guard that cannot fail is not defence in depth, it is a second answer to
   // a question already answered — and the next reader would have had to work
   // out which one was load-bearing.
-  const showPreAnalysisInvitations = isPreAnalysisBranch
 
   // ⭐ POST ARM IS THE PRESENCE OF A FINDING, NOT OF ANY CHILD. See
   // `showPostAnalysisChips` above: chips are invitations and must not be
@@ -778,12 +778,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // conditional, so the sentence never needed the rider to render: it was not a
   // trade-off between them. Pinned both ways in
   // `DecisionNode.restingState.spec.tsx`.
-  const bodyHasContent = isPostAnalysisBranch
-    ? showStabilityLine
-    : isPreAnalysisBranch
-      ? (showTriageLine || showRunAnalysis || showPreAnalysisInvitations)
-      : false
-
   // ---- The honest resting state ----
   //
   // Measured on deployed `2db13473`: the anchor node of a real model rendered
@@ -947,167 +941,94 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     return resting.line
   }, [isUnnamed, resting.line, optionCountLineText])
 
-  /**
-   * ⚠⚠ ONE ARM, BECAUSE THE OTHER IS UNREACHABLE HERE — AND I WROTE TWO FIRST.
-   *
-   * The block this replaces substituted on `completedRunLine || emptyLine`, so
-   * my first cut inherited both and added a second mechanism to suppress
-   * `emptyLine` ("Nothing to show on this node") wherever the summary rendered,
-   * on the grounds that a count of the model directly above that sentence is
-   * the product contradicting itself.
-   *
-   * ⛔ THE SUPPRESSION COULD NEVER FIRE. Derived at this file's own branch
-   * conditions rather than assumed, and pinned by the two tests named below:
-   *
-   *   • The PRE-ANALYSIS branch cannot reach the fallback at all —
-   *     `showPreAnalysisInvitations` IS `isPreAnalysisBranch`, so
-   *     `bodyHasContent` is unconditionally true whenever options are linked.
-   *   • The THIRD arm requires `optionCount === 0`, which the arms above route
-   *     to `noOptionsLine`/`unnamedLine`, never to `emptyLine`.
-   *   • The POST-ANALYSIS branch reaches the fallback only in Standard view
-   *     (Detailed always renders chips), and Standard means
-   *     `hasPostAnalysisPopover`, which is `completedRunLine`.
-   *
-   * So `emptyLine` reaches only `lodMetric`, which is a different surface with
-   * its own `optionCount` arm. A guard that cannot fail is not defence in
-   * depth, it is a second answer to a question already answered — this file
-   * makes exactly that argument sixty lines up about an `optionCount > 0`
-   * conjunct a mutant proved to be a no-op. Narrowed to what is reachable and
-   * testable, and the reachability itself is asserted rather than recorded in
-   * a comment nobody re-derives.
-   *
-   * ⚠ THE TWO CTA ARMS ARE STILL LEFT ALONE, which is the removed block's rule
-   * kept deliberately rather than by inertia: `unnamedLine` and `noOptionsLine`
-   * prompt an authoring act the user can perform, and a count above them
-   * dilutes the prompt and buys nothing.
-   */
-  const restingLineIsContentFree = resting.line === DECISION_RESTING_COPY.completedRunLine
 
-  /**
-   * ⭐⭐ INSIDE `decision-node-resting-state`, AND THAT IS THE ARGUMENT FOR THIS
-   * LINE RATHER THAN A CAVEAT ABOUT IT.
-   *
-   * The brief block this replaces sat OUTSIDE the subtree for a sound reason:
-   * it rendered the USER'S OWN prose, which may legitimately contain every word
-   * the honesty guard forbids, so hosting it inside would have forced the guard
-   * to be weakened. The same is true of the `triageLine` alternative I tried
-   * first and discarded — it carries a factor LABEL, and "Supplier lead time"
-   * alone REDs the guard.
-   *
-   * This line carries no user text at all: four integers and four owned words.
-   * So it belongs INSIDE the guarded subtree, where `DecisionNode.restingState`
-   * now enumerates `DECISION_READINESS_COPY` and runs a factor-bearing fixture
-   * through the same rendered corpus. The guard is EXTENDED to cover new copy,
-   * never relaxed to admit it.
-   *
-   * ⚠ `triageLine` WAS THE OBVIOUS CANDIDATE AND CANNOT WORK HERE — measured,
-   * not assumed. It opens `if (isPostAnalysis) return null`, so it is null in
-   * exactly the state this fallback exists to fill. Wiring it in would have
-   * produced a block that is always absent where it is needed, under a green
-   * suite built from pre-analysis fixtures.
-   */
-  const readinessSummary = useMemo(() => composeReadinessSummary(readiness), [readiness])
-  const showReadinessSummary = Boolean(readinessSummary) && restingLineIsContentFree
-
-  const restingState = (
-    <div className="mt-1" data-testid="decision-node-resting-state">
-      {showReadinessSummary && (
-        <div
-          data-testid="decision-node-readiness-summary"
-          className={`${typography.edgeLabel} text-text-body`}
-        >
-          {readinessSummary}
-        </div>
-      )}
-      <div className={`${typography.edgeLabel} text-text-light`}>{resting.line}</div>
-      {resting.cta && canAsk && (
-        <button
-          type="button"
-          data-testid="decision-node-resting-cta"
-          // ⭐ FOCUS AND HOVER, WHICH THIS CONTROL HAD NEITHER OF. It is a real
-          // <button>, so a keyboard user tabbing to it got NO visible focus
-          // indicator at all (WCAG 2.4.7). Matches the treatment already
-          // established on `NodeQuickActions.tsx:113` rather than inventing a
-          // second one — the ring colour and offset are the canvas's, not new.
-          // `rounded` exists only so the ring has a shape to follow.
-          className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan mt-0.5 rounded hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
-          onClick={handleRestingAsk}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {resting.cta}
-        </button>
-      )}
-    </div>
-  )
-
-  /**
-   * ⭐⭐ THE COUNT, ON THE CARD FACE, AT READING ZOOM — the whole point of this
-   * change. Named ONCE and rendered at both body arms, for the same reason
-   * `bodyFallback` below is named: this file already records three render sites
-   * of one block starting to diverge.
-   *
-   * ## Which arms, and why not the third
-   *
-   * `null` at `optionCount === 0` (see `composeOptionCountLine`), so the THIRD
-   * arm never needs it — that arm's condition reduces to
-   * `!isPostAnalysisBranch && optionCount === 0`, derived from the two branch
-   * predicates rather than assumed, so the line would be `null` there in every
-   * reachable case. Rendering it there anyway would be a guard that cannot fire,
-   * which this file argues against sixty lines up about an `optionCount > 0`
-   * conjunct a mutant proved a no-op.
-   *
-   * ## ⛔ IT IS NOT A CONJUNCT OF `bodyHasContent`, AND THAT IS DELIBERATE
-   *
-   * `bodyHasContent`'s post arm is `showStabilityLine` — "the presence of an
-   * actual FINDING" — precisely so that invitations do not silence the resting
-   * copy. A structural count is not a finding any more than a chip is; feeding
-   * it in would suppress the resting state on every completed run in Standard,
-   * which is the exact mechanism the tombstone above this arm warns about and
-   * the one `showSupportShareAbsent` was deliberately kept out of. So the count
-   * and the resting block are SIBLING conditionals, each answering its own
-   * question, and every existing arm of `DecisionNode.restingState.spec.tsx`
-   * keeps its meaning.
-   *
-   * ## What renders where on the zoom ladder
-   *
-   * `full` and `quiet`: `BaseNode`'s `bodyReduced` is false, so `lodBodyLine` is
-   * `null` and there is NO reduced line in the tree at all — this card-face line
-   * is the only instance. `line` (and `quiet` on a card the active lens has set
-   * aside): `bodyReduced` is true, `BaseNode` wraps ALL children in
-   * `LOD_BLANKED_BODY_STYLE` (`visibility: hidden`, one-line height,
-   * `overflow: hidden`) and paints the reduced line as a visible sibling — so
-   * this line is inside the blanked wrapper and the count is painted exactly
-   * once at every rung. The number cannot appear twice on one card.
-   *
-   * ⚠ IN THE DOM IT DOES OCCUR TWICE AT THE `line` RUNG, and the spec says so
-   * rather than pretending otherwise: jsdom cannot prove visibility (CLAUDE.md
-   * trap 3), so what is asserted there is the BLANKING MECHANISM being engaged
-   * over this element — a structural fact jsdom can see — and not a claim about
-   * paint that only a browser can settle.
-   */
-  const optionCountLine = optionCountLineText === null ? null : (
-    <div
-      data-testid="decision-node-option-count"
-      className={`${typography.nodeValue} text-text-body mt-1`}
-    >
-      {optionCountLineText}
-    </div>
-  )
-
-  /**
-   * What the body falls back to when neither branch put a child on screen.
-   *
-   * ⚠ IT IS NOW A PLAIN ALIAS, AND IT STAYS NAMED. The brief block used to
-   * substitute for the resting state here, so this expression chose between two
-   * blocks; the readiness summary is a LINE INSIDE the resting state instead, so
-   * there is nothing left to choose. The name is kept because this file renders
-   * the fallback at THREE sites — collapsing it to a bare `restingState` at each
-   * one is how the three start to diverge, which is the defect the original
-   * comment was written about.
-   */
-  const bodyFallback = restingState
+  // ⭐ The readiness summary and the content-free "Hover for this node's detail"
+  // line are OFF the shallow face (ED 11:52Z point 1: option count + at most ONE
+  // reasoning-focus signal). The readiness counts stay in the pre-analysis
+  // popover; `composeReadinessSummary` is still exported for its callers.
 
   // ---- Render ----
+
+  /**
+   * ⭐ ONE reasoning-focus signal, clamped to one line with FULL-TEXT RECOVERY
+   * for every input class: the shared focusable tooltip (hover and keyboard)
+   * and a screen-reader copy of the full sentence (ED 02:31Z: "do not rely on
+   * native `title` as the only full-text recovery for a one-line clamp").
+   */
+  const clampedSignal = (testId: string, short: string, full: string, extra?: Record<string, string>) => (
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={full}>
+      <span
+        tabIndex={0}
+        data-node-tooltip="true"
+        data-testid={testId}
+        {...extra}
+        className={`${typography.edgeLabel} min-w-0 flex-1 truncate text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+      >
+        <span aria-hidden="true">{short}</span>
+        <span className={typography.screenReaderOnly}>{full}</span>
+      </span>
+    </Tooltip>
+  )
+
+  const restingCta = resting.cta && canAsk ? (
+    <button
+      type="button"
+      data-testid="decision-node-resting-cta"
+      className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan rounded hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+      onClick={handleRestingAsk}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {resting.cta}
+    </button>
+  ) : null
+
+  const focusSignal = isUnnamed || (!isPostAnalysisBranch && !isPreAnalysisBranch) ? (
+    <>
+      <span className={`${typography.edgeLabel} text-text-light`}>{resting.line}</span>
+      {restingCta}
+    </>
+  ) : isPostAnalysisBranch ? (
+    withheldLeader
+      ? clampedSignal(
+          'decision-leader-withheld',
+          withheldLeader.title,
+          withheldLeader.suggestion.length > 0 ? `${withheldLeader.title} ${withheldLeader.suggestion}` : withheldLeader.title,
+          { 'data-withheld-code': withheldLeader.code },
+        )
+      : showSupportShareAbsent
+        ? clampedSignal(
+            'decision-support-share-absent',
+            'No per-option share from this run',
+            'On the data so far, this run gave no share of runs for the options. Compare them on what each one changes.',
+          )
+        : null
+  ) : triage ? (
+    clampedSignal('decision-node-top-gap', triage.short, triage.full)
+  ) : null
+
+  // The card's ONE coaching question (rail): before a run, "Explore more
+  // options"; after it, "Challenge this result" — TYPED `what_would_flip`,
+  // dispatched typed by `NodeCoachingIcon`, never demoted (ED 02:31Z).
+  //
+  // ⚠ ONLY WHERE THE CHIPS IT REPLACES RENDERED: after a run, or before one
+  // with options linked (`isPreAnalysisBranch`). With NO options the card's
+  // one act is the resting CTA ("Add options"); "Explore more options — My
+  // model has 0 options so far" beside it would be the same invitation twice,
+  // one of them counting a zero (review of this PR, DecisionNode.invitations).
+  const decisionCoaching: ResolvedCoaching = useMemo(
+    () =>
+      isPostAnalysisBranch || isPreAnalysisBranch
+        ? resolveNodeCoaching({
+            kind: 'decision',
+            surface: isPostAnalysisBranch ? 'postAnalysis' : 'preAnalysis',
+            state: { showRunAnalysis },
+            context: { optionCount },
+          })
+        : null,
+    [isPostAnalysisBranch, isPreAnalysisBranch, showRunAnalysis, optionCount],
+  )
+  const showToast = useShowToastSafe()
+  const runHeldNotice = useCanvasStore((st) => analysisHeldNotice(st))
 
   return (
     <div
@@ -1128,218 +1049,58 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         id={id}
         data={data}
         selected={selected}
+        coaching={decisionCoaching}
+        railIcons={
+          /* The run affordance is an ACTION in the rail (spec §2: "Bottom rail is
+             one consistent location for icons/actions") rather than a row of
+             its own — same canonical pipeline as the chip it replaces. */
+          !isPostAnalysisBranch && showRunAnalysis && optionCount > 0 ? (
+            <NodeRailIcon
+              testId={`decision-run-analysis-${id}`}
+              label={runHeldNotice ?? 'Run the analysis now'}
+              icon={Play}
+              tone="info"
+              onActivate={() => runAnalysisFromCard('decision_run_analysis', showToast)}
+            />
+          ) : undefined
+        }
       >
-        {/* ===== POST-ANALYSIS =====
-            Branches on the ANALYSIS LIFECYCLE, not on the leader claim.
-            It used to branch on `headline`, which coupled three unrelated
-            things to one gate: withholding the leader sentence also withheld
-            the stability line and the post-analysis chips — and then fell
-            through to the PRE-analysis branch, so a completed run rendered
-            "Run analysis" again. Harmless while `headline` was null only in
-            degenerate cases; a live regression the moment a withheld verdict
-            made it null on a real completed run (ROADMAP 1.223).
+        {/* ⭐⭐ THE QUESTION CARD IS WIDE AND SHALLOW (ED 11:52Z point 1: "target:
+            wide + shallow, meaningful canonical question/framing label, option
+            count + at most one reasoning-focus signal, coaching behind the one
+            icon. Do not echo the whole brief").
 
-            Stability is the axis `decisionVerdict` insists is disclosed
-            SEPARATELY from separation, so suppressing it alongside the leader
-            claim would be the over-suppression half of this same defect. */}
-        {isPostAnalysisBranch ? (
-          <div className="mt-1">
-            {/* How many alternatives are in play. FIRST, because it is the frame
-                the rest of this body is read against — and a run completing does
-                not change how many options the model holds. */}
-            {optionCountLine}
-            {/* ⛔ THE LEADER SENTENCE IS GONE FROM THE QUESTION NODE.
-
-                It read "{X} supported in N% of simulated scenarios" — the
-                option cards' own verdict, restated under a heading that asks a
-                question. The node that FRAMES the decision was answering it,
-                in the words of the cards beside it, and a reader got the same
-                claim twice with no second source behind the repetition.
-
-                ⚠ THE PERMISSION SEMANTICS ARE UNCHANGED AND STILL LIVE. This
-                does not relax the option cards' admission, refusal,
-                non-vacuity or identity controls. This Question node no longer
-                derives a comparative headline, including at reduced zoom.
-
-                Its risk clause went with it (see the selector's tombstone
-                above). What this node keeps is the authored question,
-                readiness facts, independent stability and the routes out. */}
-            {/* ⛔ AND THE RUN CAVEAT WENT WITH THE CLAIM IT QUALIFIED.
-
-                It read "{grade}: small changes could flip which option the data
-                supports" and was gated on the producer's claim — a caveat
-                ABOUT the verdict sentence, existing because that sentence was
-                always-on while its qualifier was Detailed-only.
-
-                ⚠ Removing a claim does not require retaining its attached
-                caveat. With no comparative sentence on this card there is
-                nothing here for it to qualify, and a fragility notice floating
-                above a question would be a claim of its own.
-
-                ⭐ THE GENUINE INDEPENDENT STABILITY INFORMATION IS UNTOUCHED and
-                is a different quantity: `robustnessVerdict` still renders inline
-                in Detailed (`showStabilityLine`, below) and in the Standard
-                popover (bottom of this file). That is the axis `decisionVerdict`
-                insists is disclosed separately, and it survives on both
-                surfaces. */}
-            {/* ⛔ AND ITS BAR WENT WITH IT — `decision-leader-metric-row`.
-
-                The bar was added because this figure was the least visually
-                encoded on the canvas. True, and it is the OPTION card's job:
-                the row rendered `option_probabilities[leader]` under
-                `METRIC_NOUN.support` — the same field, same caption and same
-                scale the most-supported OptionNode already draws. A second
-                copy here is the duplication one layer below the sentence.
-
-                ⚠ The old comment's warning still stands where the bar still
-                lives: never gate it on the NUMBER rather than the CLAIM,
-                because `option_probabilities[leader].win_probability` is
-                present on withheld runs too. That argument was always an
-                argument for the option card's bar. It is untouched. */}
-            {/* ⛔ NO READINESS BLOCK HERE — AND I BUILT ONE TWICE BEFORE
-                ARRIVING AT THAT.
-
-                With the verdict, its bar and its caveat all gone, a completed
-                run in STANDARD puts nothing in this branch (stability and chips
-                are Detailed-only), so `bodyHasContent` is false and the
-                RESTING/completed-run state renders — which already carries the
-                readiness breakdown, inside the guarded subtree, with its
-                wayfinding line. Nothing needed lifting.
-
-                My first attempt rendered readiness here ungated, which made
-                `bodyHasContent` true on every completed run and SUPPRESSED that
-                resting state; my second gated it on `bodyHasContent`, which was
-                coherent but pointless once the caveat also went. The simplest
-                shape is the ruled one: remove the duplicate, let the existing
-                state supply the content, and move no copy out from under the
-                honesty corpus. */}
-            {/* Post-analysis Detailed only: stability + chips inline in body
-                (Detailed has no popover). Standard surfaces both via the
-                popover below. */}
-            {showSupportShareAbsent && (
-              <div
-                className={`${typography.edgeLabel} text-text-body mt-1`}
-                data-testid="decision-support-share-absent"
-              >
-                On the data so far, this run produced no {METRIC_NOUN.support.toLowerCase()} percentages
-                for the options. Compare them on what each one changes.
-              </div>
-            )}
-            {/* ⭐ THE RUN WITHHELD A RECOMMENDATION — SAY SO, AND SAY THE MOVE.
-                Independent of `showSupportShareAbsent` ON PURPOSE, and that is
-                the whole finding: on founder export `44e349fa` the shares were
-                all PRESENT (0.72 / 0.16 / 0.09 / 0.02, every option `computed`)
-                and the leader was still withheld. Gating this on the absence
-                would have rendered nothing on the exact run that produced the
-                complaint. Two questions — "are there percentages?" and "why is
-                nothing recommended?" — kept apart (trap 21). */}
-            {withheldLeader && (
-              <div
-                className={`${typography.edgeLabel} mt-1`}
-                data-testid="decision-leader-withheld"
-                data-withheld-code={withheldLeader.code}
-              >
-                <span className="text-text-body">{withheldLeader.title}</span>
-                {withheldLeader.suggestion.length > 0 && (
-                  <>
-                    {' '}
-                    {/* ⚠ NO HARDCODED FULL STOP. `selectWithheldLeaderDisclosure`
-                        terminates both strings through `endSentence`, so the
-                        title gets a boundary too — it did not, and the two ran
-                        together on the card Paul read — and a template ending
-                        in `?` can no longer render `?.` */}
-                    <span className="text-text-light">{withheldLeader.suggestion}</span>
-                  </>
-                )}
-              </div>
-            )}
-            {showStabilityLine && robustnessVerdict && (
-              <div
-                className={`${typography.edgeLabel} text-text-light mt-1`}
-                data-testid="decision-robustness-verdict"
-              >
-                Robustness: {robustnessVerdict.verdict}
-              </div>
-            )}
-            {showPostAnalysisChips && postAnalysisCoachingChips}
-            {/* Nothing above rendered — say what is absent rather than
-                presenting an empty box. */}
-            {!bodyHasContent && bodyFallback}
+            ONE line under the title: how many options are in play, and at most
+            ONE reasoning-focus signal —
+              · pre-analysis: the top gap (clamped to one line; the full
+                sentence is its tooltip AND its accessible text — ED 02:31Z:
+                native `title` alone is not full-text recovery);
+              · after a run: the withheld-leader disclosure, else the run-wide
+                absence of per-option shares;
+              · unnamed / no options: the resting line and its one CTA.
+            The coaching chips ("Explore more options", "Challenge this result")
+            are the rail's ONE coaching icon — typed `what_would_flip` kept typed.
+            Detailed adds the robustness line and the chip rows, as before. */}
+        <div
+          className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5"
+          data-testid="decision-node-resting-state"
+        >
+          {optionCountLineText !== null && (
+            <span data-testid="decision-node-option-count" className={`${typography.nodeValue} shrink-0 text-text-body`}>
+              {optionCountLineText}
+            </span>
+          )}
+          {focusSignal}
+        </div>
+        {isDetailed && showStabilityLine && robustnessVerdict && (
+          <div
+            className={`${typography.edgeLabel} text-text-light mt-1`}
+            data-testid="decision-robustness-verdict"
+          >
+            Robustness: {robustnessVerdict.verdict}
           </div>
-        ) : isPreAnalysisBranch ? (
-          <>
-            {/* ===== PRE-ANALYSIS ===== */}
-
-            {/* How many alternatives are in play. Above the triage line on
-                purpose: the triage line names the next ACT, this names the SET
-                being built, and knowing the set is what lets a reader judge
-                whether it is complete. */}
-            {optionCountLine}
-
-            {/* Triage line — single most important next action.
-                ⚠ IT MUST WRAP, NOT TRUNCATE, and that is not a style preference.
-                This carried `truncate` (`white-space: nowrap` + ellipsis) and
-                shipped 37-41% cut on every starter measured — deployed staging
-                `384a2b4f`, 29 Aug 2026:
-
-                  "Top gap: validate Platform Engineer Headco…"   38% hidden
-                  "Top gap: validate Vendor Solution Adoption"    38% hidden
-                  "Top gap: validate Snowflake-Native Build …"    41% hidden
-
-                The full string occurred EXACTLY ONCE in the DOM with no
-                unclipped instance anywhere — no `title`, no `aria-label`
-                carrying it, and opening the node's details did not restate it.
-                So the product's single most action-guiding sentence was cut
-                before it named the thing to go and fix, with nowhere to recover
-                it. An ellipsis with somewhere to go is a caveat; an ellipsis
-                with nowhere to go is hiding.
-
-                Wrapping is bounded FOR ORDINARY PROSE: `truncateAtWord` above
-                cuts the label at the last word boundary at or before 40, which
-                caps this line near 59 characters — two lines at this measure.
-
-                ⚠ THAT CAP IS NO LONGER ABSOLUTE, AND THIS PR IS WHAT MOVED IT.
-                `truncateAtWord` now returns a single unbroken token WHOLE rather
-                than mutilating it, so a one-word label prints at ITS OWN length,
-                however long that is, where the old rule capped it at 41 (the
-                measure plus one ellipsis character). The magnitude is derived
-                in-test rather than restated here — see
-                `__tests__/DecisionNode.triageTruncation.spec.tsx`; an earlier
-                draft of this sentence said "at 51, not 40", and the old rule
-                gave 41. This div carries no `line-clamp` and no `break-words`, so
-                an over-long token has nothing to wrap on. The trade is deliberate
-                — a word cut open is worse than a word that overruns — and it is
-                measured and pinned by
-                `__tests__/DecisionNode.triageTruncation.spec.tsx`; a clamp for
-                this line is rowed in the PR body.
-                `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any node text
-                starts overflowing its box again. */}
-            {showTriageLine && (
-              <div className={`${typography.edgeLabel} text-text-body mt-1`}>
-                {triageLine}
-              </div>
-            )}
-
-            {/* The "Run analysis" CTA when the model is ready — a primary
-                action, not coaching. */}
-            {showRunAnalysis && (
-              <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                <NodeChip chipId="decision_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
-              </div>
-            )}
-            {/* The invitations — see `showPreAnalysisInvitations` for why these
-                moved out from behind the hover. `preAnalysisCoachingChips`
-                already drops "What could go wrong?" while the Run CTA is up, so
-                the card never carries three chips at once. */}
-            {showPreAnalysisInvitations && preAnalysisCoachingChips}
-            {!bodyHasContent && bodyFallback}
-          </>
-        ) : (
-          /* Neither branch applies — most often a decision with no option
-             linked, which is the shape measured on `2db13473`. This arm used
-             to be a literal `null`, i.e. the empty box itself. */
-          bodyFallback
         )}
+        {isDetailed && (isPostAnalysisBranch ? postAnalysisCoachingChips : isPreAnalysisBranch ? preAnalysisCoachingChips : null)}
       </BaseNode>
 
       {/* Pre-analysis popover — model readiness breakdown + coaching chips */}

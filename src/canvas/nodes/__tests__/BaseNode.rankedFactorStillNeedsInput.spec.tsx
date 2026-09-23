@@ -67,12 +67,36 @@
  * pinned at the source by the ARM PIN in
  * `BaseNode.statusPillCornerStack.spec.tsx`; what this file adds is that WHEN
  * the pair arrives, the row renders both and orders them widest-first.
+ *
+ * ── ⭐ LOCKED CANVAS DESIGN (23 Sep 2026) — THE PAIR SURVIVES, IN TWO PLACES ──
+ * ED 02:31Z D1a: "RETIRE the Key-driver badge once the body driver line is
+ * present." The rank no longer lives in the corner: it is stated on the card
+ * face by the driver line (`factor-driver-line`, "Driver N of M in this
+ * model"), and only while the run is current. So the claim this file exists for
+ * — a ranked factor can STILL need input, and the card must say BOTH — is
+ * re-pointed, not dropped:
+ *   · "Needs input" stays in the corner stack (unchanged);
+ *   · the rank is asserted on the driver line of the SAME card;
+ *   · the retired badge is asserted ABSENT in every case that has a rank.
+ * The badge's corner SLOT is now the "Worth reviewing" marker
+ * (`attention-marker-{id}`, spec §2), so the widest reachable row is
+ * pill · marker · edited dot · coaching — CASE 2 pins that order. The attention
+ * plan is pure and pinned in `shared/__tests__/nodeAttention.spec.ts`; it is
+ * stubbed here (marked / unmarked), like the display-metadata hook.
+ *
+ * The mutation table above, at the new identities:
+ *   · re-gate the factor arm on `isPreRunMode`   → cases 1 and 2 RED (pill)
+ *   · exclude unvalued factors from the ranking  → cases 1 and 2 RED (driver line)
+ *   · render the pill unconditionally            → case 3 REDs
+ *   · state a rank unconditionally               → case 4 REDs (caption)
+ *   · reorder the stack narrowest-first          → case 2 REDs
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
+import { DRIVER_LINE_COPY } from '../shared/metricVocabulary'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -122,6 +146,12 @@ vi.mock('../../store', () => {
     viewMode: 'expert',
     setHoveredOption: vi.fn(),
     selectNodeWithoutHistory,
+    // Locked Canvas design (23 Sep 2026): the rank is now stated by the driver
+    // line, which renders ONLY while the run is current
+    // (`useAnalysisResultsAreCurrent`, read for real through these fields).
+    analysisFreshness: { freshness: 'fresh' },
+    analysisFreshnessDirty: false,
+    importPendingServerRegistration: false,
   }
   const useCanvasStore = vi.fn((selector: (s: unknown) => unknown) => selector(state))
   ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => state
@@ -131,12 +161,18 @@ vi.mock('../../store', () => {
 // The rank the driver feed would supply for this factor; toggled per test.
 // Read inside the returned closure, so it is evaluated at render time.
 let sensitivityRank: number | null = null
+// The ranked set's size — the `M` of "Driver N of M". Read at render time.
+const SET_SIZE = 4
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank,
-    influence: null,
-    influenceProvenance: null,
+    // Locked Canvas design (23 Sep 2026): the driver line needs a measured
+    // quantity and its basis — the same fields the ranking comes with on the
+    // wire. Present on EVERY case, so the rank alone is what varies.
+    influence: 0.9,
+    influenceProvenance: 'normalised_elasticity',
     influenceImportanceBasis: null,
+    influenceSetSize: SET_SIZE,
     confidence: null,
     confidenceIsDefaulted: false,
     confidenceIsProvisional: false,
@@ -151,6 +187,24 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     voiRank: null,
   })),
 }))
+
+// The badge's corner slot is now the "Worth reviewing" marker; stubbed per test.
+let attentionMarked = false
+vi.mock('../shared/useNodeAttention', () => ({
+  useNodeAttention: vi.fn(() =>
+    attentionMarked
+      ? {
+          reasons: [{ kind: 'top_driver', order: 3, label: 'Driver 2 of 4 in this model: the comparison responds strongly to it. How sure are you of its value?' }],
+          marked: true,
+          markedCount: 1,
+          candidateCount: 1,
+        }
+      : { reasons: [], marked: false, markedCount: 0, candidateCount: 0 },
+  ),
+}))
+
+/** The rank as the card now states it — on the face, by identity. */
+const driverCaption = () => within(screen.getByTestId('factor-driver-line')).getByTestId('factor-driver-line-caption')
 
 const baseProps = {
   id: FACTOR_ID,
@@ -200,42 +254,45 @@ beforeEach(() => {
   vi.clearAllMocks()
   cleanup()
   sensitivityRank = null
+  attentionMarked = false
   editedNodeIds.clear()
   useGuidanceStore.getState().clearGuidanceItems()
 })
 
 describe('a ranked factor can still need input — the pair the contract called impossible', () => {
-  it('CASE 1 — "Needs input" and the rank badge render TOGETHER, in ONE stack, pill first', () => {
+  it('CASE 1 — "Needs input" and the rank render TOGETHER on one card: pill in the stack, rank on the driver line', () => {
     sensitivityRank = 1
     renderFactor(UNVALUED_FACTOR)
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
     const pill = screen.getByTestId('needs-input-pill')
-    const badge = screen.getByTestId(`sensitivity-rank-${FACTOR_ID}`)
 
+    // Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: the Key-driver badge is
+    // retired — the corner holds the pill alone…
+    expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
     expect(stack).toContainElement(pill)
-    expect(stack).toContainElement(badge)
+    expect(Array.from(stack.children)).toEqual([pill])
 
-    // WIDEST-FIRST, bound by identity: the row is right-anchored and grows
-    // leftward, so the two wide members lead and the small badges keep the
-    // distance from the corner they hold on every other card.
-    const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(2)
-    expect(kids[0]).toBe(pill)
-    expect(kids[1]).toBe(badge)
+    // …and the rank is stated by the driver line on the SAME card, so the pair
+    // the contract called impossible is still on screen, together.
+    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, SET_SIZE))
   })
 
-  it('CASE 2 — the FOUR-member row: pill · rank · edited dot · coaching, in that order', () => {
+  it('CASE 2 — the FOUR-member row: pill · attention marker · edited dot · coaching, in that order', () => {
     sensitivityRank = 2
+    attentionMarked = true
     editedNodeIds.add(FACTOR_ID)
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderFactor(UNVALUED_FACTOR)
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
     const pill = screen.getByTestId('needs-input-pill')
-    const badge = screen.getByTestId(`sensitivity-rank-${FACTOR_ID}`)
+    // Locked Canvas design (23 Sep 2026): the "Worth reviewing" marker holds the
+    // retired rank badge's slot (spec §2; ED 02:31Z D1a/D1b).
+    const marker = screen.getByTestId(`attention-marker-${FACTOR_ID}`)
     const edited = screen.getByTestId(`edited-since-run-${FACTOR_ID}`)
     const coaching = screen.getByTestId(`node-coaching-marker-${FACTOR_ID}`)
+    expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
 
     const kids = Array.from(stack.children)
     // ⛔ FOUR. `BaseNode.cornerStack.spec.tsx` pins THREE — on a DECISION
@@ -243,24 +300,28 @@ describe('a ranked factor can still need input — the pair the contract called 
     // type and is not evidence about a factor.
     expect(kids).toHaveLength(4)
     expect(kids[0]).toBe(pill)
-    expect(kids[1]).toBe(badge)
+    expect(kids[1]).toBe(marker)
     expect(kids[2]).toBe(edited)
     expect(kids[3]).toBe(coaching)
+
+    // The rank itself is on the driver line, rank 2 by identity.
+    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(2, SET_SIZE))
   })
 
-  it('CASE 3 — THE TWIN: a factor that HAS a value, ranked, shows the badge and NO pill', () => {
+  it('CASE 3 — THE TWIN: a factor that HAS a value, ranked, states the rank and shows NO pill', () => {
     sensitivityRank = 1
     renderFactor({ ...UNVALUED_FACTOR, observedState: { value: 0.7, source: 'user_override' } })
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
-    const badge = screen.getByTestId(`sensitivity-rank-${FACTOR_ID}`)
-    const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(1)
-    expect(kids[0]).toBe(badge)
+    // Locked Canvas design (23 Sep 2026): no badge in the corner — the stack is
+    // empty — and the rank is on the driver line.
+    expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
+    expect(stack.children).toHaveLength(0)
+    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, SET_SIZE))
   })
 
-  it('CASE 4 — THE OTHER TWIN: an unvalued factor the ranking did not determine shows the pill and NO badge', () => {
+  it('CASE 4 — THE OTHER TWIN: an unvalued factor the ranking did not determine shows the pill and states NO rank', () => {
     sensitivityRank = null
     renderFactor(UNVALUED_FACTOR)
 
@@ -270,5 +331,12 @@ describe('a ranked factor can still need input — the pair the contract called 
     const kids = Array.from(stack.children)
     expect(kids).toHaveLength(1)
     expect(kids[0]).toBe(pill)
+    // Locked Canvas design (23 Sep 2026): the same measured quantity still
+    // renders its driver line — with the quantity's own noun, never a rank.
+    // This is what makes CASES 1-3 discriminating: the caption follows the
+    // rank, not the fixture.
+    const caption = driverCaption()
+    expect(caption.textContent).toBe('Outcome sensitivity')
+    expect(caption.textContent).not.toMatch(/^Driver \d+ of \d+/)
   })
 })

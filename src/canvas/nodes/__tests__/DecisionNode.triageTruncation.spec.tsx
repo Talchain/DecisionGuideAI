@@ -32,6 +32,15 @@
  * that happens to contain the same fragment. Proven with a discriminating
  * mutant pair: reverting the truncator's rule REDs these tests; renaming an
  * unrelated factor leaves them GREEN.
+ *
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 1, ED 02:31Z). The
+ * triage line is now the Question card's ONE pre-analysis focus signal,
+ * `decision-node-top-gap`: its VISIBLE text (the `aria-hidden` span) is the
+ * 40-character word-boundary short form this file pins, and its screen-reader
+ * copy (`.sr-only`) is the FULL untruncated sentence — ED 02:31Z's full-text
+ * recovery for a one-line clamp. So the whole-sentence identity assertions
+ * below read the VISIBLE span, and each truncating case also asserts the
+ * recovery carries the untruncated label.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -150,6 +159,18 @@ function graph(inferredLabel: string, otherLabel = 'Headcount') {
   })
 }
 
+/**
+ * Locked Canvas design (23 Sep 2026): the top gap bound by IDENTITY — the
+ * visible (truncated) text and the screen-reader (full) text, read apart.
+ */
+const topGap = () => {
+  const el = screen.getByTestId('decision-node-top-gap')
+  const visible = el.querySelector('[aria-hidden="true"]')
+  const full = el.querySelector('.sr-only')
+  if (!visible || !full) throw new Error('refusing to assert: top gap lacks its visible or sr-only half')
+  return { visible: visible.textContent ?? '', full: full.textContent ?? '' }
+}
+
 const renderWith = (inferredLabel: string, otherLabel?: string) => {
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
     selector(graph(inferredLabel, otherLabel) as never),
@@ -196,8 +217,13 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
 
     renderWith(label)
 
-    expect(screen.getByText('Top gap: validate Snowflake-Native Build Capacity In The…')).toBeTruthy()
-    expect(screen.queryByText(/In The Dat/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the visible span carries the cut; the
+    // sr-only copy carries the untruncated sentence (ED 02:31Z full-text
+    // recovery), so the fragment check is on what is SEEN.
+    const { visible, full } = topGap()
+    expect(visible).toBe('Top gap: validate Snowflake-Native Build Capacity In The…')
+    expect(visible).not.toMatch(/In The Dat/)
+    expect(full).toBe(`Top gap: validate ${label}`)
   })
 
   /**
@@ -222,10 +248,14 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
 
     renderWith(token)
 
-    expect(screen.getByText(`Top gap: validate ${token}`)).toBeTruthy()
+    // Locked Canvas design (23 Sep 2026): read the visible span by identity —
+    // the sr-only recovery legitimately repeats the same sentence.
+    const { visible, full } = topGap()
+    expect(visible).toBe(`Top gap: validate ${token}`)
     // No ellipsis anywhere on this line: nothing was cut, so nothing may claim
     // to have been.
-    expect(screen.queryByText(/Top gap: validate .*…/)).toBeNull()
+    expect(visible).not.toMatch(/Top gap: validate .*…/)
+    expect(full).toBe(visible)
 
     // ---- THE TRADE, MEASURED FROM THIS FIXTURE ----------------------------
     // `OLD_RULE` is the pre-PR `DecisionNode` helper reproduced verbatim from
@@ -265,7 +295,11 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
 
     renderWith(label)
 
-    expect(screen.getByText('Top gap: validate Brand perception')).toBeTruthy()
+    // Locked Canvas design (23 Sep 2026): bound to the top gap's visible span;
+    // the sr-only recovery is the same sentence, since nothing was cut.
+    const { visible, full } = topGap()
+    expect(visible).toBe('Top gap: validate Brand perception')
+    expect(full).toBe(visible)
   })
 })
 

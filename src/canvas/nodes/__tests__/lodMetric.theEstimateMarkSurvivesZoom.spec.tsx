@@ -23,6 +23,12 @@
  * being fixed — so the arm that produces the string decides the mark, and the
  * last test here pins that.
  *
+ * Locked Canvas design (23 Sep 2026): the influence arm now states the DRIVER
+ * RANK (`Driver N of M in this model`, ED 02:31Z D1a) from the `driverRank`
+ * fact, never a bare `Influence N%` (ED 11:52Z). Still a different object from
+ * the factor's value, so the rule — and the tests below — are unchanged in
+ * intent; the fixtures now carry the rank so that arm actually fires.
+ *
  * CLAIM SCOPE (trap 3): jsdom proves PRESENCE and STRUCTURE, never pixels. The
  * `shrink-0` assertion is a claim about the class the element carries, which is
  * what makes the layout claim checkable at all.
@@ -187,6 +193,10 @@ describe('the mark names the factor’s own value and no other number', () => {
   }
 
   it('withholds the mark where the line states an influence score, not a value', () => {
+    // Locked Canvas design (23 Sep 2026): the influence arm speaks as the driver
+    // rank (ED 02:31Z D1a / ED 11:52Z "no pseudo-precise `% influence`"), so the
+    // rank fact BaseNode hands down is supplied and the non-vacuity check binds
+    // to that exact line instead of to "62%".
     const detail = resolveLodMetricLineDetail({
       nodeType: 'factor',
       data: influenceOnly,
@@ -196,8 +206,11 @@ describe('the mark names the factor’s own value and no other number', () => {
         influence: 0.62,
         influenceProvenance: 'analysis',
       } as never,
+      facts: { driverRank: { rank: 1, setSize: 4 } },
     })
-    expect(detail.text, 'the influence arm produced no line — fixture is vacuous').toContain('62%')
+    expect(detail.text, 'the influence arm produced no line — fixture is vacuous').toBe(
+      'Driver 1 of 4 in this model',
+    )
     expect(detail.unconfirmedEstimate).toBe(false)
   })
 
@@ -214,9 +227,14 @@ describe('the mark names the factor’s own value and no other number', () => {
         influence: 0.62,
         influenceProvenance: 'analysis',
       } as never,
+      // Locked Canvas design (23 Sep 2026): the rank fact is supplied so the
+      // influence arm WOULD fire if the arms were reordered — without it the
+      // arm is dead and this precondition would pass for the wrong reason.
+      facts: { driverRank: { rank: 1, setSize: 4 } },
     })
     expect(detail.unconfirmedEstimate).toBe(true)
     expect(detail.text).toContain('0.4')
     expect(detail.text).not.toContain('62%')
+    expect(detail.text).not.toContain('Driver')
   })
 })

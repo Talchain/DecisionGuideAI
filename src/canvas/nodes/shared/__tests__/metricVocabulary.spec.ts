@@ -39,7 +39,6 @@ import {
   sensitivityRankBadgeLabel,
   SENSITIVITY_RANK_LEGEND_NOUN,
   optionOrdinalBadgeAccessibleName,
-  SENSITIVITY_RANK_CLAUSE,
   ORDINAL_MINT_CLAUSE,
 } from '../metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
@@ -354,7 +353,11 @@ describe('METRIC_LEGEND_ROWS', () => {
   it('⭐⭐ the badge call sites CALL the builders — a byte-identical copy REDs here', () => {
     const sites = [
       { file: '../../OptionNode.tsx', builder: 'optionOrdinalBadgeAccessibleName', clause: ORDINAL_MINT_CLAUSE },
-      { file: '../../BaseNode.tsx', builder: 'sensitivityRankBadgeAccessibleName', clause: SENSITIVITY_RANK_CLAUSE },
+      // ⭐ The BaseNode "Key driver" badge site is RETIRED (ED 02:31Z D1a: "RETIRE
+      // the Key-driver badge once the body driver line is present"); the rank
+      // now reads through `DRIVER_LINE_COPY`, pinned by
+      // `lockedNodeCardDesign.spec.tsx`. `SENSITIVITY_RANK_CLAUSE` stays pinned
+      // by the legend row assertions above.
     ] as const
 
     for (const site of sites) {

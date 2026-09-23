@@ -762,3 +762,97 @@ export const ORDINAL_ROW_MUST_STATE_MINT = /first laid out/
  */
 export const LEGEND_POPOVER_WIDTH_PX = 288
 export const MAX_GLOSS_LENGTH = 110
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE LOCKED NODE-CARD DESIGN (Experience Design, 22–23 Sep 2026) — the copy
+ * every card face now reads, held in ONE register so a card, its reduced line
+ * and its guard cannot drift into four wordings for one idea again.
+ *
+ * Authority: `docs/designs/canvas-final-v2/olumi-canvas-overnight-implementation-spec.md`
+ * (branch `docs/canvas-final-visual-contract`) and the ED rulings on
+ * olumi-programme-docs#63 (5787931376 at 02:31Z, 5794306145 at 11:52Z). Where a
+ * ruling refines the spec, the ruling wins, and each constant below names the
+ * ruling it follows.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * `Last run · ` — licensed ONLY when the model is known to have CHANGED since
+ * the run (ED 02:31Z, "Goal stale rule: align to Q2 — `changed` only").
+ * `cannot_confirm` and never-run must not manufacture a "last run" claim.
+ */
+export const LAST_RUN_PREFIX = 'Last run · '
+
+/**
+ * The factor driver line. ED 02:31Z: "`Driver N of M`, not `Driver #N of M`";
+ * ED 11:52Z: "model-relative driver treatment, e.g. `Driver 1 of 4 in this
+ * model` … no pseudo-precise `% influence` on the face."
+ *
+ * ⚠ The disclosure is basis-aware rather than the spec's verbatim sentence
+ * ("Relative model sensitivity in this analysis…"): on the `influence_score`
+ * basis the figure is STRUCTURAL and computed before the run, and
+ * `influenceScaleCopy.ts` (#1221) forbids attributing it to "this analysis".
+ * The relative/not-absolute half of the spec sentence is kept word for word.
+ */
+export const DRIVER_LINE_COPY = {
+  rank: (rank: number, setSize: number): string => `Driver ${rank} of ${setSize} in this model`,
+  relativeDisclosure:
+    'Relative to the strongest factor in this model, not an absolute causal percentage.',
+  rankBasis:
+    'Ranked by how strongly the comparison responds to each factor in this model.',
+  question: 'How sure are you of its value?',
+} as const
+
+/** The turning-point mini-visual (spec §3, precedence 1). */
+export const TURNING_POINT_COPY = {
+  caption: 'Turning point',
+  /**
+   * The producer found a flip but its value is on the model's internal scale
+   * (`value_scale !== 'display'`). ROADMAP 2.1371: a raw `0.5` printed on a
+   * headcount is the acceptance failure — so no number, and the sentence says why.
+   */
+  internalScale:
+    'The point is on the model’s internal scale, so no number is shown.',
+  question: 'How likely is that?',
+} as const
+
+/**
+ * Relationship strength ON A NODE is the LINK's strength, never the node's own
+ * likelihood or value (ED 11:52Z: "if strength is shown on-node, call it
+ * **link strength**"). MT-15b: an unconfirmed producer value reads as Olumi's
+ * estimate — one wording, not "Not set yet" beside an edge that shows a value.
+ */
+export const LINK_STRENGTH_COPY = {
+  noun: 'Link strength',
+  olumiEstimate: 'Olumi’s estimate',
+  /** A producer value that is not Olumi's (e.g. a template's), not yet confirmed. */
+  unconfirmedEstimate: 'Estimate, not confirmed',
+  notSet: 'not set',
+} as const
+
+/**
+ * The option card's at-rest result. ED 11:52Z: "Do not use `Support` as the
+ * result label. It reads as endorsement. Any result shown at rest must be
+ * explicitly model-relative, e.g. `Current model · 55% of runs`."
+ *
+ * The caption follows the run's currency, and each arm is only what the state
+ * supports: `changed` → `Last run` (the one state that licenses it);
+ * `cannot_confirm` → `Model result`, which asserts neither currency nor a
+ * later model.
+ */
+export const OPTION_RESULT_COPY = {
+  current: 'Current model',
+  lastRun: 'Last run',
+  unconfirmed: 'Model result',
+  share: (formatted: string): string => `${formatted} of runs`,
+  sentence: (formatted: string): string =>
+    `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
+    'A finding about the model as it stands, not a recommendation.',
+  unconfirmedNote: 'Olumi can’t confirm this run reflects the current model.',
+  changedNote: 'The model has changed since this run.',
+} as const
+
+/**
+ * The one attention cue (spec §2 "Attention cue — add"; ED 11:52Z point 7).
+ * It reads as "worth thinking about", never as a warning or an error.
+ */
+export const WORTH_REVIEWING = 'Worth reviewing'

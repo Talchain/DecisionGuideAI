@@ -102,7 +102,14 @@ const twoOptionReport = (opts: { failedReason?: string } = {}) => ({
   },
 })
 
-const renderBoth = (results: ReturnType<typeof twoOptionReport>) => {
+/**
+ * Locked Canvas design (23 Sep 2026): "Within a small margin…" and "Held back
+ * by:" render ONLY in Detailed (`viewMode: 'expert'`) now. The comparative-claim
+ * pairs below therefore render in Detailed, where the line CAN appear, so their
+ * absences stay non-vacuous; each positive control also asserts the line is
+ * absent in Standard, the view the product opens in.
+ */
+const renderBoth = (results: ReturnType<typeof twoOptionReport>, viewMode: 'standard' | 'expert' = 'standard') => {
   useCanvasStore.setState({
     nodes: [
       { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option' } },
@@ -110,6 +117,7 @@ const renderBoth = (results: ReturnType<typeof twoOptionReport>) => {
     ],
     edges: [],
     results,
+    viewMode,
   } as never)
   return render(
     <ReactFlowProvider>
@@ -122,7 +130,7 @@ const renderBoth = (results: ReturnType<typeof twoOptionReport>) => {
 describe('OptionNode — a failed computation is not a measured zero', () => {
   beforeEach(() => {
     mockTrust.suspect = true
-    useCanvasStore.setState({ results: { status: 'idle', report: null } } as never)
+    useCanvasStore.setState({ results: { status: 'idle', report: null }, viewMode: 'standard' } as never)
   })
 
   it('renders NO win readout for an option the producer marked failed', () => {
@@ -200,6 +208,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
   // ── THE SECOND SURFACE BUILT FROM THE SAME NUMBER ──────────────────────────
 
   it('makes no COMPARATIVE claim about an option that was never scored', () => {
+    // Locked Canvas design (23 Sep 2026): Detailed, where the line can render.
     // The readout is not the only reader of `win_probability`. `closeCallGapPp`
     // computes a gap against the leader and, inside 5pp, renders "Close call
     // with the leading option". A failed option's finite `0` yields a
@@ -234,6 +243,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
           },
         },
       },
+      viewMode: 'expert',
     } as never)
     render(
       <ReactFlowProvider>
@@ -264,13 +274,25 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
           },
         },
       },
+      viewMode: 'expert',
     } as never)
-    render(
+    const { unmount } = render(
       <ReactFlowProvider>
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
       </ReactFlowProvider>,
     )
     expect(screen.getByText(/Within a small margin/i)).toBeInTheDocument()
+    // Locked Canvas design (23 Sep 2026): the close-call line is Detailed-only
+    // now — the identical computed fixture in Standard carries no such line.
+    unmount()
+    useCanvasStore.setState({ viewMode: 'standard' } as never)
+    render(
+      <ReactFlowProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
+      </ReactFlowProvider>,
+    )
+    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
   })
 
   // ── THE THIRD SURFACE: A COMPARATIVE DESIGNATION CARRYING NO NUMBER ────────
@@ -294,8 +316,11 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
    * subject. ONLY `status` differs, so a gate that suppressed "Held back by:" for
    * every option — or one that never fired at all — cannot pass both.
    */
-  const renderBehindFixture = (subjectStatus: string) => {
+  // Locked Canvas design (23 Sep 2026): "Held back by:" is Detailed-only, so
+  // the pair renders in Detailed by default (see `renderBoth`'s note).
+  const renderBehindFixture = (subjectStatus: string, viewMode: 'standard' | 'expert' = 'expert') => {
     useCanvasStore.setState({
+      viewMode,
       nodes: [
         { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', is_baseline: false } },
         { id: LEADER, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', is_baseline: false } },
@@ -343,9 +368,14 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // gap. Only `status` differs — so this fails the moment the gate is
     // widened past the producer's failing token, and the assertion above
     // fails the moment it is removed.
-    renderBehindFixture('computed')
+    const { unmount } = renderBehindFixture('computed')
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.getByText(/Held back by:/)).toBeInTheDocument()
+    // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
+    unmount()
+    renderBehindFixture('computed', 'standard')
+    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
   // ⚠ MY DUPLICATE OF THE ABOVE WAS DROPPED IN THE MERGE, NOT LOST.
@@ -389,7 +419,8 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // there were two. "Held back by: <reason>" places this option relative to the
     // others; on an option with no distribution there is nothing to be behind
     // WITH. It rendered directly beside the "Not computed" disclosure.
-    renderBoth(twoOptionReport())
+    // Locked Canvas design (23 Sep 2026): Detailed, where the line can render.
+    renderBoth(twoOptionReport(), 'expert')
     const card = screen.getByTestId(`option-not-computed-${FAILED}`).closest('div')
     expect(screen.queryAllByText(/^Held back by:/).length).toBe(0)
     expect(card).toBeInTheDocument()
@@ -405,8 +436,13 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       near_tie: { is_tie: false, top_option_id: COMPUTED_TRUE_ZERO },
     }
     ;(r.report.option_probabilities[COMPUTED_TRUE_ZERO] as { win_probability: number }).win_probability = 0.6
-    renderBoth(r)
+    const { unmount } = renderBoth(r, 'expert')
     expect(screen.queryAllByText(/^Held back by:/).length).toBeGreaterThan(0)
+    // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
+    unmount()
+    renderBoth(r, 'standard')
+    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    expect(screen.queryAllByText(/^Held back by:/).length).toBe(0)
   })
 
   it('renders nothing at all outside results mode', () => {

@@ -245,10 +245,19 @@ const resolveRisk = (r: Extract<NodeCoachingRequest, { kind: 'risk' }>): Resolve
         ...(r.state.exposureUnstated ? [riskChip.sizeExposure(label, ctx)] : []),
       ])
     case 'popover':
-      return orNull([riskChip.whatReduces(label, ctx), riskChip.addMitigation(label, ctx)])
+      // ⭐ ED 02:31Z (D4): "How likely is this?" is NOT deleted when the card's
+      // face becomes one coaching icon (which asks the leading-indicator
+      // question). It moves to Detailed and here, so an unsized risk keeps a
+      // route to sizing it on every surface.
+      return orNull([
+        ...(r.state.exposureUnstated ? [riskChip.sizeExposure(label, ctx)] : []),
+        riskChip.whatReduces(label, ctx),
+        riskChip.addMitigation(label, ctx),
+      ])
     case 'detailed':
       // The promoted face question trails inline, where it led on the face.
       return orNull([
+        ...(r.state.exposureUnstated ? [riskChip.sizeExposure(label, ctx)] : []),
         riskChip.whatReduces(label, ctx),
         riskChip.addMitigation(label, ctx),
         riskChip.leadingIndicator(label, ctx),

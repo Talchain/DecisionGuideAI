@@ -156,9 +156,16 @@ export function countOptionsReaching(
  * ⚠ AND THE SINGULAR IS NOT COSMETIC. *"1 options move this"* on the one card a
  * reader has stopped to study is the difference between a product that was
  * finished and one that was not.
+ *
+ * ⭐⭐ MT-20 (manual test on served `4c6ec07b`, 23 Sep 2026): "N options MOVE
+ * this" put a CAUSAL verb on a STRUCTURAL count. `countOptionsReaching` counts
+ * options that are CONNECTED upstream — including an option the analysis left
+ * out — so the verb claimed an effect nothing measured. The count is kept (it
+ * is true and card-scoped); the verb now says only what was counted:
+ * "N options connect to this".
  */
 export function optionsReachingLine(count: number): string | null {
   if (count <= 0) return null
-  if (count === 1) return '1 option moves this'
-  return `${count} options move this`
+  if (count === 1) return '1 option connects to this'
+  return `${count} options connect to this`
 }

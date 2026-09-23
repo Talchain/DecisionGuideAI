@@ -62,6 +62,17 @@
  *
  * CLAUDE.md trap 3: these assert the presence/absence of TEXT. jsdom cannot
  * prove visibility and nothing here claims it does.
+ *
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 1). The Question card is
+ * WIDE AND SHALLOW: `decision-node-resting-state` is now the card's ONE face
+ * row in EVERY state — the option count plus at most one focus signal (the
+ * resting line + CTA when unnamed / no options; the top gap before a run; the
+ * withheld leader or run-wide share absence after one). The content-free
+ * "Hover for this node's detail" line and the readiness summary are off the
+ * face, and the coaching chips are the rail's ONE icon (Detailed keeps the
+ * rows). Tests that pinned "the resting state stays SHUT" are re-pointed to
+ * what that guarded — no fallback LINE on a row that already has content — and
+ * the honesty guard still runs over the whole row, declared and rendered.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
@@ -197,6 +208,14 @@ const renderDecision = (overrides: Partial<typeof baseProps> = {}) =>
 
 const RESTING = 'decision-node-resting-state'
 const RESTING_CTA = 'decision-node-resting-cta'
+const COACHING_ICON = `node-coaching-icon-${DECISION_ID}`
+/** Every static line the old resting FALLBACK could render. */
+const FALLBACK_LINES = [
+  DECISION_RESTING_COPY.unnamedLine,
+  DECISION_RESTING_COPY.noOptionsLine,
+  DECISION_RESTING_COPY.completedRunLine,
+  DECISION_RESTING_COPY.emptyLine,
+]
 
 /**
  * ⛔ THE CONSTRAINT, AS ONE PREDICATE, APPLIED IN TWO PLACES.
@@ -255,7 +274,7 @@ describe('DecisionNode — honest resting state', () => {
     // A composer IS registered by default: the CTA is gated on a conversation
     // surface existing, so a default of "none" would make every CTA test pass
     // for the wrong reason.
-    useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn() } as any)
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as any)
     useAskOlumiStore.getState().close()
     useAskOlumiStore.setState({ draft: '', label: '', context: '', targetId: undefined } as any)
   })
@@ -404,7 +423,23 @@ describe('DecisionNode — honest resting state', () => {
     // over a line it never saw — the corpus-excludes-the-class defect
     // (CLAUDE.md trap 13d). All four buckets are populated so every segment the
     // composer can emit passes under the guard.
-    ['post-analysis Standard, leader withheld, readiness summary rendered', () => {
+    // Locked Canvas design (23 Sep 2026): the top gap is now INSIDE the guarded
+    // row (its one pre-analysis focus signal), so the corpus renders it too —
+    // extended, never weakened.
+    ['pre-analysis, options linked, top gap on the row', () => {
+      setStore({
+        nodes: [
+          decisionNode,
+          ...optionNodes,
+          { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+        ],
+        edges: optionEdges,
+      })
+      renderDecision()
+      // The case pins its own precondition: the top gap really is on the row.
+      expect(within(screen.getByTestId(RESTING)).getByTestId('decision-node-top-gap')).toBeDefined()
+    }],
+    ['post-analysis Standard, leader withheld, factor-bearing model (summary off the face)', () => {
       setStore({
         nodes: [
           decisionNode,
@@ -419,13 +454,14 @@ describe('DecisionNode — honest resting state', () => {
         viewMode: 'standard',
       })
       renderDecision()
-      // ⭐ THE CASE PINS ITS OWN PRECONDITION (review finding R1). The shared
-      // body below only asserts the subtree is non-empty and honest — and the
-      // wayfinding line alone satisfies both. If the summary stopped rendering
-      // in this fixture the case would stay GREEN while certifying the guard
-      // over a line it never saw, which is the exact hazard this case was added
-      // to close. `getByTestId` throws when absent, so the case now fails loud.
-      expect(screen.getByTestId('decision-node-readiness-summary')).toBeDefined()
+      // ⭐ THE CASE PINS ITS OWN PRECONDITION (review finding R1).
+      // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 took the readiness
+      // summary off the face, so the precondition is re-pointed: the summary is
+      // ABSENT (a re-appearance must meet the guard knowingly, not by accident)
+      // and the row the guard scans carries the option count, so the corpus is
+      // not certifying an empty subtree.
+      expect(screen.queryByTestId('decision-node-readiness-summary')).toBeNull()
+      expect(within(screen.getByTestId(RESTING)).getByTestId('decision-node-option-count').textContent).toBe('2 options')
     }],
   ]
 
@@ -520,9 +556,17 @@ describe('DecisionNode — honest resting state', () => {
     // is added is the other half of the ruling: the chip is now reachable
     // WITHOUT a hover, on the same render.
     expect(within(popover).queryByText('Challenge this result')).toBeNull()
-    expect(screen.getByText('Challenge this result')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the chip is the
+    // rail's ONE coaching icon, still reachable WITHOUT a hover, and still TYPED
+    // (ED 02:31Z: `what_would_flip` is never demoted to a generic ask).
+    const icon = screen.getByTestId(COACHING_ICON)
+    expect(icon.getAttribute('aria-label')).toBe('Challenge this result')
+    expect(icon.getAttribute('data-coaching-typed')).toBe('true')
 
-    expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): the content-free wayfinding line is
+    // off the face; the row states the option count instead.
+    expect(within(resting).queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
+    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
     // "yet" would assert that nothing has happened. A run had.
     expect(visibleText(resting)).not.toMatch(/\byet\b/i)
     // No authoring CTA here: the absence is not something the user writes away,
@@ -542,8 +586,14 @@ describe('DecisionNode — honest resting state', () => {
     })
     renderDecision()
     // Positive control: the body genuinely has content on this fixture.
-    expect(screen.getByText(/Top gap: estimate/i)).toBeDefined()
-    expect(screen.queryByTestId(RESTING)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the triage line is
+    // the row's ONE focus signal (`decision-node-top-gap`), and the row itself
+    // is the face in every state. "Does NOT render" is re-pointed to what it
+    // guarded: no resting fallback LINE and no CTA beside real content.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId('decision-node-top-gap').textContent).toMatch(/Top gap: estimate/i)
+    for (const line of FALLBACK_LINES) expect(resting.textContent).not.toContain(line)
+    expect(within(resting).queryByTestId(RESTING_CTA)).toBeNull()
   })
 
   it('DOES render on a completed run in Standard — the verdict no longer holds it shut', () => {
@@ -578,13 +628,13 @@ describe('DecisionNode — honest resting state', () => {
       })
       const { unmount } = renderDecision()
       const resting = screen.getByTestId(RESTING)
-      // The wayfinding line proves the state rendered for the COMPLETED-RUN
-      // reason rather than by accident…
-      expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
-      // …and readiness stays INSIDE the guarded subtree, so no copy moved out
-      // from under the honesty corpus. Both permissions, which is the property:
-      // before this change the summary was reachable on WITHHELD runs only.
-      expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
+      // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the wayfinding
+      // line and the readiness summary are off the face. The row renders under
+      // BOTH permissions and states the same structural fact (the option count),
+      // which is the property: the verdict does not change what the row shows.
+      expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+      expect(within(resting).queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
+      expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
       // ⚠ NO CTA IS ASSERTED HERE, deliberately: the completed-run arm of
       // `resting` carries `cta: null`, so claiming a resting CTA on this path
       // would be false. The reachable actions on a completed run are the
@@ -607,7 +657,7 @@ describe('DecisionNode — honest resting state', () => {
    * The discriminator is that BOTH are asserted in ONE render. Split across two
    * cases this would pass against either half alone.
    */
-  it('Standard completed run: the chips AND the resting copy are BOTH on the card', () => {
+  it('Standard completed run: the invitation AND the resting row are BOTH on the card', () => {
     const factorNodes = [
       { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
       { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
@@ -620,17 +670,21 @@ describe('DecisionNode — honest resting state', () => {
     })
     renderDecision()
 
-    // The invitations — reachable with no hover, which is the change.
-    // ⭐ EXACTLY ONE EACH. `getByText` throws on duplicates, and that is load
-    // bearing here: the popover carries these same chips as its no-stability
-    // fallback, so a body/popover predicate that overlaps renders them twice.
-    // This assertion caught precisely that in the first cut.
-    expect(screen.getByText('Challenge this result')).toBeDefined()
-    expect(screen.getByText('Compare options')).toBeDefined()
+    // The invitation — reachable with no hover, which is the change.
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the chips are the
+    // rail's ONE coaching icon ("Challenge this result", typed), EXACTLY ONE
+    // on the card; the chip ROW is off the Standard face, and this fixture HAS
+    // stability, so the popover carries no chips either.
+    const icons = screen.getAllByRole('button', { name: 'Challenge this result' })
+    expect(icons).toHaveLength(1)
+    expect(icons[0].getAttribute('data-testid')).toBe(COACHING_ICON)
+    expect(screen.queryByText('Challenge this result')).toBeNull()
+    expect(screen.queryByText('Compare options')).toBeNull()
 
-    // …and the honest resting copy is NOT suppressed by them.
+    // …and the resting row is NOT suppressed by it (Paul's 9 Sep ruling kept).
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
+    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+    expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
 
     // The copy still may not explain the analysis, chips or no chips.
     expect(visibleText(resting)).not.toMatch(/\byet\b/i)
@@ -642,7 +696,7 @@ describe('DecisionNode — honest resting state', () => {
    * carries the chips instead; the body must then NOT also carry them. The
    * resting copy still renders, so Paul's ruling holds in both arms.
    */
-  it('Standard completed run with NO stability: chips live in the popover, resting copy still renders, nothing doubled', () => {
+  it('Standard completed run with NO stability: the popover keeps its chips, the face carries ONE icon and no chip row, the resting row still renders', () => {
     const factorNodes = [
       { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
       { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
@@ -658,10 +712,21 @@ describe('DecisionNode — honest resting state', () => {
     // Exactly one — `getByText` throws on a duplicate, which is the property.
     const popover = screen.getByTestId('decision-node-popover')
     expect(within(popover).getByText('Challenge this result')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): "popovers unchanged" — so the
+    // no-stability popover still carries its chips — and ED 11:52Z point 1 puts
+    // the ONE coaching icon on the face. The face itself carries no chip ROW:
+    // outside the popover the question appears once, as the icon.
+    const faceControls = screen
+      .getAllByRole('button', { name: 'Challenge this result' })
+      .filter(b => !b.closest('[data-testid="decision-node-popover"]'))
+    expect(faceControls).toHaveLength(1)
+    expect(faceControls[0].getAttribute('data-testid')).toBe(COACHING_ICON)
 
-    // …and the resting copy is present alongside, per the ruling.
+    // …and the resting row is present alongside, per the ruling; the summary is
+    // off the face (ED 11:52Z point 1).
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
+    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+    expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
   })
 
   it('⭐ TWIN — in DETAILED the branch has content, so this state stays shut', () => {
@@ -679,7 +744,14 @@ describe('DecisionNode — honest resting state', () => {
     // ⛔ And the withdrawn figure must NOT return: 62% was the leading option's
     // win probability relabelled, and the fixture still supplies it.
     expect(screen.queryByText(/62%/)).toBeNull()
-    expect(screen.queryByTestId(RESTING)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the row is the
+    // face in every view now, so "stays shut" is re-pointed to what it guarded:
+    // no resting fallback LINE and no CTA sit on top of the robustness line and
+    // the Detailed chip row (positive control: that row really renders).
+    expect(screen.getByText('Compare options').closest('button')).not.toBeNull()
+    const resting = screen.getByTestId(RESTING)
+    for (const line of FALLBACK_LINES) expect(resting.textContent).not.toContain(line)
+    expect(within(resting).queryByTestId(RESTING_CTA)).toBeNull()
   })
 
   // ── REHOMED FROM `ownedLeaderClaim.canvas.spec.tsx` ─────────────────────

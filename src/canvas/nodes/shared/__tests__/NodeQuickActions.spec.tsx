@@ -178,7 +178,13 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
 describe('NodeQuickActions — stays out of the owned top-right corner', () => {
   it('anchors to the BOTTOM-right, never the top', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
-    const el = screen.getByTestId('node-quick-actions-node-a')
+    // ⭐ LOCKED CANVAS DESIGN (23 Sep 2026): the corner inset moved from the
+    // quick-action row to the CARD RAIL that now hosts it (the row sits in the
+    // rail beside the resting coaching/data icons). The claim is unchanged —
+    // the actions anchor bottom-right, never top — so it is asserted on the
+    // element that now carries the anchor, and the row is pinned INSIDE it.
+    const el = screen.getByTestId('node-card-rail-node-a')
+    expect(el.contains(screen.getByTestId('node-quick-actions-node-a'))).toBe(true)
 
     // ⚠ ASSERTED THROUGH THE SHARED CONSTANT, NOT THROUGH A TAILWIND SPELLING.
     // This read `toContain('bottom-1.5')` — a hand-copy of the class literal,
