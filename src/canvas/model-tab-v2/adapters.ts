@@ -170,7 +170,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 // rather than reimplemented: a second presence test here would be the estate's
 // dominant defect (trap 12) on a field a user-facing sentence depends on.
 import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
-import { factorIsConfirmable } from '../domain/valueProvenance'
+import { classifyValueProvenance, factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
@@ -439,7 +439,18 @@ function narrowObservedState(obs: ObservedState): ModelTabObservedState {
 function factorValue(data: unknown): string | null {
   const obs = observedStateOf(data)
   if (!obs) return null
-  return getPrimaryValue(narrowObservedState(obs))
+  const primary = getPrimaryValue(narrowObservedState(obs))
+  if (primary !== null) return primary
+  // ⛔ A NUMBER A PERSON SET IS NEVER "NOT SET". A factor stored on the model
+  // scale comes back as `{value, source}` with no `raw_value`; reading only
+  // `raw_value` sent the user's own value down the no-value path, which labels
+  // its text Olumi's (served `8151fba5`: "Not set · Olumi: 0.6", marked "User
+  // edited"). A user-owned source decides it; an estimate stays an estimate.
+  // Pinned by `aUsersOwnValueIsNeverNotSet.spec.ts`.
+  const v = (obs as { value?: unknown }).value
+  if (typeof v !== 'number' || !Number.isFinite(v)) return null
+  if (classifyValueProvenance((obs as { source?: unknown }).source as string | undefined)?.userOwned !== true) return null
+  return factorDisplayText(data as Record<string, unknown>)
 }
 
 /**
