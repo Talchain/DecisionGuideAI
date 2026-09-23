@@ -11,6 +11,7 @@ import {
   markGraphServerAcknowledged,
 } from '../../store/importRegistrationMarker'
 import { __resetAppliedEditPulseForTests } from '../appliedEditPulse'
+import { beginModelEditDelivery } from '../../registration/editDeliveryHold'
 import captured from './fixtures/starter-registration-reload.json'
 
 // Actual hosted saved-starter → register → run → reload, 2026-09-08 17:35–17:42Z.
@@ -107,7 +108,19 @@ describe('captured saved-starter no-edit reload', () => {
 
   it('isolates no-edit option JSON round-trip from every edge overlay', () => {
     const before = seed()
-    mergeServerGraphOnHydrate({ nodes: structuredClone(captured.serverGraph.nodes), edges: [] })
+    // ⚠ UPDATED 23 Sep 2026 (reload shows the saved model): `edges: []` is no
+    // longer "say nothing about edges" — it is a saved model with NO edges, and
+    // an accepted read now takes the 39 canvas edges off (a model change). The
+    // isolation is kept by withholding the removal licence for this one read (an
+    // edit on the wire — `editDeliveryHold`), the one state in which a partial
+    // read touches only the half it carries. The whole captured read, edges
+    // included, is pinned current by the two cases above.
+    const release = beginModelEditDelivery('factor_value_edit')
+    try {
+      mergeServerGraphOnHydrate({ nodes: structuredClone(captured.serverGraph.nodes), edges: [] })
+    } finally {
+      release()
+    }
     expectCurrent(before)
   })
 
