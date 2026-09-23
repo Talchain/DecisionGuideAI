@@ -243,11 +243,25 @@ describe('FactorExternalPanel v6.2', () => {
 
   it('renders both category pill and extraction label in context group', () => {
     setExternalStore()
-    // No observedState source → getExtractionLabel(undefined) → 'Estimated by Olumi'
+    // ⚠ STRING UPDATED, SUBJECT UNCHANGED. This test's subject is CO-PRESENCE —
+    // that the context group carries both a category pill and an extraction
+    // label. The particular label was incidental, and the old comment here
+    // recorded the defect as though it were the specification:
+    //
+    //   "No observedState source → getExtractionLabel(undefined) → 'Estimated by Olumi'"
+    //
+    // The premise was right and the expectation was wrong. This fixture has NO
+    // observedState source, so Olumi never made an estimate — and labelling that
+    // as its estimate is the fabrication `extractionLabelHonesty.spec.ts` now
+    // pins against. `getExtractionLabel(undefined)` returns 'No evidence yet',
+    // agreeing with its sibling `getProvenanceLabel(undefined)`.
     const { container } = render(<FactorExternalPanel {...externalProps} />)
     const contextGroup = container.querySelector('[data-panel-group="context"]')
     expect(contextGroup?.textContent).toContain('Outside your control')
-    expect(contextGroup?.textContent).toContain('Estimated by Olumi')
+    expect(contextGroup?.textContent).toContain('No evidence yet')
+    // The co-presence claim is what matters, so pin it positively rather than
+    // relying on the label assertion alone.
+    expect(contextGroup?.textContent).not.toContain('Estimated by Olumi')
   })
 
   it('renders ImportanceBar in context group when post-analysis influence data present', () => {
@@ -413,9 +427,14 @@ describe('Provenance pill semantics', () => {
     setExternalStore()
     const { container } = render(<FactorExternalPanel {...externalProps} />)
     const contextGroup = container.querySelector('[data-panel-group="context"]')
-    // Both category pill and extraction label should be present
+    // Both category pill and extraction label should be present.
+    // ⚠ Label string updated for the same reason as the sibling case above: the
+    // fixture carries no observedState source, so 'No evidence yet' is the true
+    // label and 'Estimated by Olumi' was a claim about an estimate that was
+    // never made. The co-presence assertion — the actual subject here — is
+    // unchanged.
     expect(contextGroup?.textContent).toContain('Outside your control')
-    expect(contextGroup?.textContent).toContain('Estimated by Olumi')
+    expect(contextGroup?.textContent).toContain('No evidence yet')
   })
 
   it('FactorObservablePanel context group shows extraction label when source present', () => {
