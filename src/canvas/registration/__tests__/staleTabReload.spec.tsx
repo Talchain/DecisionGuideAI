@@ -774,6 +774,70 @@ describe('§7 a registration CEE acknowledges records what CEE holds', () => {
   })
 })
 
+// ═══════════════════════════════════════════════════════════════════════════
+// §8 — a registration CEE acknowledged IS a settled read. The residual #1903's
+// review request left open (open question 1): a reload while a starter or
+// import registration is still pending reads first, the merge refuses the
+// pending import (`importUnregistered` → `mergeRefused`, verdict 'refuse'), the
+// registration then succeeds — and with the refused read still on record every
+// later value-only change was walled off for the page's life (probe:
+// `{outcome:'mergeRefused', firstRegistrations:1, reRegistrationsAfterEdit:0}`).
+// ═══════════════════════════════════════════════════════════════════════════
+describe('§8 a registration CEE acknowledged settles the boot read (the mergeRefused residual)', () => {
+  /** A pending import/starter registration on the canvas at reload, and the read landing first. */
+  async function reloadWithPendingRegistrationReadFirst() {
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    markGraphImported(MATCHING_NODES as never, MATCHING_EDGES as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+    const r = await hydrate(SERVER_AS_REGISTERED)
+    expect(r.outcome, 'precondition: the merge refuses the pending import').toBe('mergeRefused')
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('mergeRefused')
+  }
+
+  it('the read refuses, the registration succeeds, then a value-only change leaving the element set a subset IS re-offered — once', async () => {
+    await reloadWithPendingRegistrationReadFirst()
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy, 'precondition: the pending registration was sent').toHaveBeenCalledTimes(1)
+    expect(analysisHeldOn(useCanvasStore.getState() as never), 'precondition: CEE acknowledged it').toBeNull()
+
+    await localValueOnlyChange(0.6)
+    expect(registerSpy).toHaveBeenCalledTimes(2)
+    const reOffer = registerSpy.mock.calls[1]
+    expect(registeredNodeIds(reOffer).sort()).toEqual([GOAL, KEPT].sort())
+    expect(registeredEdgePairs(reOffer)).toEqual([edgePairKey(KEPT, GOAL)])
+    // Once: the re-offer's own acknowledgement releases the model.
+    await act(async () => { await flush() })
+    expect(registerSpy).toHaveBeenCalledTimes(2)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    hook.unmount()
+  })
+
+  it('CONTROL: a registration CEE did NOT acknowledge settles nothing — the refused read stands, nothing is re-offered', async () => {
+    registerSpy.mockResolvedValue({ status: 'unavailable' })
+    await reloadWithPendingRegistrationReadFirst()
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('mergeRefused')
+    hook.unmount()
+  })
+
+  it('CONTROL: after the registration settles the read, an element CEE lacks (added later) is still NOT registered', async () => {
+    await reloadWithPendingRegistrationReadFirst()
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      addAfterTheRead()
+      await flush()
+    })
+    expect(registrationsCarrying(ADDED)).toHaveLength(0)
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    hook.unmount()
+  })
+})
+
 describe('§3 decision A: after the reload, the screen shows the saved model', () => {
   it('the element CEE lacks is taken off the canvas AND named in a lasting notice, and the analysis is marked out of date', async () => {
     useCanvasStore.setState({
