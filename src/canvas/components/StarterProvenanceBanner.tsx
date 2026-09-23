@@ -5,7 +5,8 @@ import { useCanvasStore } from '../store'
 import { useShowToastSafe } from '../ToastContext'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { getStarter, resolveStarterId } from '../starters/loadStarter'
-import { analysisHeldNotice } from '../utils/analysisHeldOnInjectedModel'
+import { useAnalysisHoldReason } from '../hooks/useAnalysisHold'
+import { isUserEditHold } from '../utils/analysisHeldOnInjectedModel'
 import { typography } from '../../styles/typography'
 import { useOverlayCell } from './CanvasOverlayBand'
 
@@ -31,6 +32,13 @@ import { useOverlayCell } from './CanvasOverlayBand'
  * graph, so CEE would otherwise answer about a model it never received. The
  * re-draft is the honest route to an analysable model, which is exactly why it
  * is offered here rather than buried.
+ *
+ * ⚠ EXCEPT WHILE THE USER'S OWN EDIT IS THE CAUSE (decision, 23 Sep 2026). When
+ * the hold is an unconfirmed or in-flight edit, re-drafting would REPLACE the
+ * model and discard that change without warning (the confirm dialog below
+ * speaks of the example and the conversation, not of the edit). So the button
+ * is withdrawn for as long as the edit is the operative cause; the line beside
+ * it names the edit and its remedy instead (`heldReason`).
  */
 export function StarterProvenanceBanner() {
   const [dismissed, setDismissed] = useState(false)
@@ -53,11 +61,15 @@ export function StarterProvenanceBanner() {
    * mount condition. The 18 Aug affordance sweep found this notice still saying
    * "Analysis is held on a saved example" while a toast said "Analysis
    * complete." — because the banner mounted on `starterId` while the gate
-   * refused on a DIFFERENT condition. `analysisHeldNotice` is the gate's own
+   * refused on a DIFFERENT condition. `useAnalysisHeldNotice` is the gate's own
    * condition and the gate's own sentence, so the two cannot disagree; `null`
-   * means analysis is not held and the claim is simply not made.
+   * means analysis is not held and the claim is simply not made. While the
+   * user's own edit is unconfirmed it names that edit instead of the example.
    */
-  const heldNotice = useCanvasStore((s) => analysisHeldNotice(s))
+  const holdReason = useAnalysisHoldReason()
+  const heldNotice = holdReason?.sentence ?? null
+  // No re-draft over the user's own unconfirmed edit (see the header).
+  const offerRedraft = !isUserEditHold(holdReason)
 
   const handleRedraft = useCallback(async () => {
     if (!starterId) return
@@ -226,14 +238,16 @@ export function StarterProvenanceBanner() {
           Edit anything on the canvas.{heldNotice === null ? '' : ` ${heldNotice}`}
         </p>
       </div>
-      <button
-        type="button"
-        data-testid="starter-redraft"
-        onClick={handleRedraft}
-        className={`${typography.label} shrink-0 whitespace-nowrap rounded-pill bg-primary px-3 py-1.5 text-text-on-color transition-colors duration-fast hover:bg-primary-hover`}
-      >
-        Re-draft this live
-      </button>
+      {offerRedraft && (
+        <button
+          type="button"
+          data-testid="starter-redraft"
+          onClick={handleRedraft}
+          className={`${typography.label} shrink-0 whitespace-nowrap rounded-pill bg-primary px-3 py-1.5 text-text-on-color transition-colors duration-fast hover:bg-primary-hover`}
+        >
+          Re-draft this live
+        </button>
+      )}
       <button
         type="button"
         aria-label="Dismiss saved-example notice"

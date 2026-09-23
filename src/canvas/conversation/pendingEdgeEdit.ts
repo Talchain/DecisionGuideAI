@@ -22,7 +22,7 @@
  *
  * ## What this module answers
  *
- *  1. `graphCarriesUnconfirmedEdgeEdit` — does THIS graph show a magnitude the
+ *  1. `unconfirmedEdgeEditOnGraph` — does THIS graph show a magnitude the
  *     server has not confirmed? `editDeliveryHold` holds registration while it
  *     does (signal 5, the twin of signal 4 for factor values). Bound to the
  *     graph, not to the register's non-emptiness, for the reason signal 4 is.
@@ -97,15 +97,20 @@ export function settleEdgeEdit(edgeId: string, sentMagnitude: number): boolean {
   return true
 }
 
-/** Signal 5: does THIS graph show a link magnitude the server has not confirmed? */
-export function graphCarriesUnconfirmedEdgeEdit(edges: ReadonlyArray<{ id?: unknown; data?: unknown }>): boolean {
-  if (inFlight.size === 0) return false
+/**
+ * Signal 5: the first edge of THIS graph showing a link magnitude the server
+ * has not confirmed, or `null`. Returns WHICH link (it was a boolean) so the
+ * hold sentence can name it (`heldReason`); no copy here.
+ */
+export function unconfirmedEdgeEditOnGraph(edges: ReadonlyArray<{ id?: unknown; data?: unknown }>): string | null {
+  if (inFlight.size === 0) return null
   for (const entry of inFlight.values()) {
     const edge = edges.find((e) => e.id === entry.edgeId)
-    if (edge && edgeMagnitudeOf(edge) === entry.sentMagnitude) return true
+    if (edge && edgeMagnitudeOf(edge) === entry.sentMagnitude) return entry.edgeId
   }
-  return false
+  return null
 }
+
 
 /**
  * `current` with the keys the strength write touches put back as they were in

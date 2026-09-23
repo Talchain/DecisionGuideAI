@@ -490,6 +490,42 @@ export function revertStructuralDelete(
 export { PROVEN_NO_WRITE_CONFLICT_CATEGORIES as STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES } from '../../v5/provenNoWriteConflict'
 
 /**
+ * ⭐ THE ONE REMEDY FOR A DELETE WE COULD NOT CONFIRM — said by the transcript
+ * below AND by the analysis hold (`ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete`),
+ * because the two describe one state and must not send the user two ways
+ * (Panel #1917 N4; programme-docs #63 5798274977).
+ *
+ * WHY THIS EXIT (Panel #1917 F1). The deletion is still applied on the canvas,
+ * so there is nothing there to remove "again"; Undo is disabled on the canvas
+ * (`mutationAuthority.ts` `canvasSemanticMutations: 'disabled'`: ⌘Z, the menu
+ * item and the rail button all refuse). Asking Olumi goes through the chat, not
+ * the canvas, and is the route the product already names for a change the
+ * canvas cannot make (`SHARED_MODEL_AUTHORITY_COPY`: "…or ask Olumi…"). A
+ * later APPLIED turn releases the hold whichever way CEE answers: a committed
+ * graph that lacks the element proves the delete
+ * (`settleUnconfirmedDeletesProvenByReceipt`), one that still holds it puts the
+ * element back on the canvas (`reconcileAppliedGraph`). Pinned through the real
+ * dispatcher in `oneWriterRegistration.spec.tsx` §13.
+ *
+ * ⛔ NOT "reload this decision", which this transcript said until N4: a heavier
+ * exit the hold does not need, and a second remedy for one failure.
+ *
+ * PROPOSED COPY — for Experience Design; the requirement is Panel's F1 (a
+ * reachable exit) and N4 (one remedy). Parity is pinned by
+ * `utils/__tests__/aHoldAndItsTranscriptGiveOneRemedy.spec.ts`.
+ */
+// ⚠ TWO EXITS, NOT ONE (Panel F1-residual, #1917 5798940402). "Ask Olumi" releases the
+// hold when CEE still holds the element (it comes back) or removes it now (a
+// committed graph lacking it). But when CEE had ALREADY committed the delete that
+// answered 500, "remove X" is a no-op, and CEE attaches no draft_graph to a no-op
+// (edit-graph-dispatch.ts appliedGraphForWire; source reading, wire UNVERIFIED), so
+// the reply releases nothing. Reload is the exit that works in every branch
+// (editDeliveryHold: the lifecycle is not persisted; the boot merge shows CEE's
+// graph), named second so nobody is told to reload who did not need to.
+export const STRUCTURAL_DELETE_UNCONFIRMED_REMEDY =
+  'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
+
+/**
  * The one honest sentence for a delete that WAS SENT, keyed by OUTCOME rather
  * than composed at each site.
  *
@@ -540,13 +576,15 @@ export const STRUCTURAL_DELETE_NOTICE = {
    * not. Saying "couldn't confirm" is the only claim the evidence supports.
    */
   unconfirmed_server:
-    "I couldn't confirm that deletion reached the saved model. It's still gone from the canvas, but it may come back when you reload or re-run — reload this decision to see what the model actually holds.",
+    "I couldn't confirm that deletion reached the saved model. It's still gone from the canvas, but it may come back when you reload or re-run. " +
+    STRUCTURAL_DELETE_UNCONFIRMED_REMEDY,
   /**
    * Nothing reached the server. Same epistemic position, different cause; the
    * copy avoids blaming the model for a network failure.
    */
   unconfirmed_transport:
-    "That deletion didn't reach the server, so the saved model may still contain it. It's still gone from the canvas — reload this decision to see what the model actually holds.",
+    "That deletion didn't reach the server, so the saved model may still contain it. It's still gone from the canvas. " +
+    STRUCTURAL_DELETE_UNCONFIRMED_REMEDY,
 } as const
 
 /**
