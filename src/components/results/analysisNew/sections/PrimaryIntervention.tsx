@@ -18,7 +18,7 @@
  * "I disagree" / "Not relevant" controls are rendered once, in the Strengthen
  * row. See `theFocusCardReferencesRatherThanReprints.spec.tsx`.
  */
-import { Sparkles, ChevronRight } from 'lucide-react'
+import { MessageCircle, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { methodForRecommendation } from '../recommendationMethod'
 import { PANEL_INSET_ACTION, action, icon } from '../panelSurfaces'
@@ -75,7 +75,12 @@ export function PrimaryIntervention({
           data-testid={`${testId}-primary-intervention`}
           data-recommendation-id={primaryIntervention.id}
         >
-          <Sparkles className={`${icon('row')} mt-0.5 shrink-0 text-info`} aria-hidden="true" />
+          {/* ⭐ `MessageCircle`, NOT `Sparkles` — RULED 23 Sep 2026 (R3). This
+              card RUNS a reasoning move with Olumi: an ACT. `Sparkles` is
+              reserved for content Olumi ORIGINATED (the AI-estimate status,
+              an option Olumi proposed), and every hand-to-Olumi act in the
+              panel is the speech bubble. */}
+          <MessageCircle className={`${icon('row')} mt-0.5 shrink-0 text-info`} aria-hidden="true" />
           <span className="min-w-0 flex-1">
             {/* ⭐ GATED ON PROVENANCE, NOT ON SIMILARITY. A text comparison
                 between the header and the action would fire on whatever

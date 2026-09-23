@@ -40,7 +40,6 @@ import {
   CheckCircle,
   FileText,
   Flag,
-  Pencil,
   Sparkles,
   UserCheck,
   Users,
@@ -90,10 +89,8 @@ export const VALUE_PROVENANCE_ICON: Readonly<Record<ValueProvenanceKind, LucideI
      * person), and the tick only qualifies the person — so the set stays
      * legible when the glyphs are small.
      *
-     * ⚠ Deliberately NOT `Pencil`: that is `edited`'s glyph below, for when the
-     * record says the human SUPPLIED the number. `user_set` does not say which
-     * act occurred, so a glyph asserting authorship would claim more than the
-     * wire does — the same over-claim this whole register exists to avoid.
+     * ⚠ Deliberately NOT `Pencil`: `Pencil` is the panel's EDIT ACT (R2, 23 Sep
+     * 2026), never a status. `edited` below now SHARES this glyph — see there.
      */
     human: UserCheck,
     /**
@@ -104,19 +101,27 @@ export const VALUE_PROVENANCE_ICON: Readonly<Record<ValueProvenanceKind, LucideI
      */
     confirmed: CheckCircle,
     /**
-     * The human supplied the number. `Pencil` is the estate's edit glyph
-     * (`SuggestionCard`, `AcceptOverrideControl`).
+     * The human supplied the number.
      *
-     * ⚠ NOT REACHABLE FROM A CANVAS CARD TODAY, and the scope is stated rather
-     * than generalised (CLAUDE.md trap 20): `classifyNodeProvenance` recognises
-     * three literals only, so `NodeProvenanceMark` can render `brief`, `ai` and
-     * `human` and nothing else. `Pencil` is a Tier-2 ACTION glyph in
-     * §"Visibility tiers"; used as a persistent status mark it could read as a
-     * clickable edit. That question is owed by whichever surface first renders
-     * this kind persistently — it is not owed by the canvas mark, which cannot
-     * reach it.
+     * ⭐⭐ `UserCheck`, NOT `Pencil` — RULED 23 Sep 2026 (R2, on Paul's
+     * instruction: one icon, one meaning). This used to be `Pencil`, and the
+     * note that stood here said the question it raised "is owed by whichever
+     * surface first renders this kind persistently". The Model tab does: a
+     * typed value stamps `user_override` → `edited`, so its rows drew a pencil
+     * as a STATUS while every other panel pencil — Review or change, the value
+     * editor, and now the row's own Rename — is an ACT. A user-edited row would
+     * have shown two pencils meaning two things.
+     *
+     * ⚠ THE SAME GLYPH AS `human`, ON PURPOSE. To the reader the two say one
+     * thing: this value is yours. What still separates them is the WORDS —
+     * `VALUE_PROVENANCE_LABEL` keeps "User edited" and "Set by you" distinct,
+     * and those are the mark's accessible name and hover text, so nothing the
+     * register recorded is lost. The key groups both under "You own this value".
+     *
+     * ⚠ STILL NOT REACHABLE FROM A CANVAS CARD (`classifyNodeProvenance`
+     * recognises three literals only), so the canvas is unaffected.
      */
-    edited: Pencil,
+    edited: UserCheck,
     /**
      * Recorded as an explicit assumption. `Flag` is already the canvas's
      * assumption mark — `BaseNode`'s `assumption-badge` renders
