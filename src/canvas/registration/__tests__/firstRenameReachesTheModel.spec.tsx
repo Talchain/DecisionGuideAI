@@ -50,6 +50,7 @@ import { useCanvasStore } from '../../store'
 import { clearImportRegistrationMarkers } from '../../store/importRegistrationMarker'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 import { useImportRegistration } from '../useImportRegistration'
+import { editDeliveryHold } from '../editDeliveryHold'
 import { useServerGraphHydration } from '../../hooks/useServerGraphHydration'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
 
@@ -338,5 +339,87 @@ describe('a first rename on a freshly registered scenario reaches the edit proto
     await new Promise((r) => setTimeout(r, 50))
     expect(fake.cee.log.filter((l) => l.startsWith('read:'))).toEqual(['read:404'])
     expect(useCanvasStore.getState().lastServerGraphHash).toBe(TURN_HASH)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENAME-BEFORE-ACK — the deadlock between #1892's hold and this PR's seed.
+//
+// A rename queued while NO write base exists waits for a base. #1892 holds a
+// whole-graph registration while ANY structural edit is queued. On a scenario
+// CEE has not acknowledged yet, only that registration's ack can seed the base
+// (this PR). So: rename waits for the base → the base waits for the ack → the
+// ack waits for the registration → the registration waits for the rename.
+// Reached whenever the rename is queued before the registration attempt runs
+// (a first attempt that failed and is waiting to retry, or a gesture before
+// the hooks mount). The fix must not reopen the side channel: the registration
+// carries the model CEE is about to hold — the rename rolled back to its
+// `expected_label` — and the rename then travels the edit protocol.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('a rename queued BEFORE the first registration neither blocks it nor rides it', () => {
+  it('registers the PRE-rename model, seeds the base from the read, then SENDS the rename through the protocol', async () => {
+    await openFreshStarter()
+    const previousLabel = canvasLabelOf(NODE_ID)
+    expect(typeof previousLabel).toBe('string')
+    // The gesture lands first: no base anywhere, so it queues deferred.
+    act(() => {
+      useCanvasStore.getState().updateNodeLabel(NODE_ID, NEW_LABEL)
+    })
+    expect(useCanvasStore.getState().pendingStructuralRenames).toHaveLength(1)
+    expect(useCanvasStore.getState().pendingStructuralRenames[0]!.baseGraphHash).toBeNull()
+
+    const sent = vi.fn().mockResolvedValue({})
+    mountCanvasHooks(sent)
+
+    // The registration is NOT held forever by a rename that is waiting for it…
+    await waitFor(() => {
+      expect(fake.cee.log).toContain('register')
+    }, { timeout: 3000 })
+    act(() => fake.cee.registerGate.resolve())
+    await waitFor(() => {
+      expect(fake.cee.stored).not.toBeNull()
+    })
+    // …and it carried the model CEE is about to hold, NOT the unsent new label:
+    // the side channel stays shut.
+    const registered = fake.cee.stored!.graph.nodes.find((n) => n.id === NODE_ID)
+    expect(registered?.label).toBe(previousLabel)
+
+    // The ack seeds the base, and the queued rename goes out on the protocol.
+    await waitFor(() => {
+      expect(sent).toHaveBeenCalledTimes(1)
+    }, { timeout: 3000 })
+    const [event] = sent.mock.calls[0]!
+    expect(event.type).toBe('structural_rename')
+    expect(event.payload).toEqual({
+      node_id: NODE_ID,
+      label: NEW_LABEL,
+      expected_label: previousLabel,
+      base_graph_hash: READ_HASH,
+    })
+    // The user's name stands on the canvas throughout.
+    expect(canvasLabelOf(NODE_ID)).toBe(NEW_LABEL)
+  })
+
+  // CONTROLS on the rule itself (pure): only a rename that CANNOT be sent — no
+  // base on the intent and none in the store — stops holding registration.
+  // (A hook-level control is not possible here: this spec's rename sender is a
+  // double, so the dispatcher's on-the-wire mark that #1892 relies on for an
+  // in-flight rename is never set. `oneWriterRegistration.spec` covers that.)
+  it('CONTROL: a queued rename still HOLDS registration whenever a base exists (store or intent)', () => {
+    const queued = [{ nodeId: NODE_ID, baseGraphHash: null }]
+    expect(editDeliveryHold({ nodes: [], pendingStructuralRenames: queued, lastServerGraphHash: 'fedcba9876543210' } as never))
+      .toBe('structural_edit_queued')
+    expect(editDeliveryHold({ nodes: [], pendingStructuralRenames: [{ nodeId: NODE_ID, baseGraphHash: 'aa' }], lastServerGraphHash: null } as never))
+      .toBe('structural_edit_queued')
+  })
+
+  it('the rule: a base-less rename with no base in the store does not hold registration', () => {
+    expect(editDeliveryHold({ nodes: [], pendingStructuralRenames: [{ nodeId: NODE_ID, baseGraphHash: null }], lastServerGraphHash: null } as never))
+      .toBeNull()
+  })
+
+  it('CONTROL: other queued structural edits still hold regardless of base', () => {
+    expect(editDeliveryHold({ nodes: [], pendingStructuralDeletes: [{}], lastServerGraphHash: null } as never))
+      .toBe('structural_edit_queued')
   })
 })
