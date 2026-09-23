@@ -656,3 +656,24 @@ describe('an UNRESOLVED structural edit holds registration after delivery settle
     expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
   })
 })
+
+describe('the unresolved-edit rule, pure', () => {
+  const nodes = [{ id: 'n1', data: { label: 'New name' } }, { id: 'n2', data: { label: 'x' } }]
+  const rename = (status: string, scenarioId: string | null, label = 'New name') => ({
+    status, scenarioId, intent: { nodeId: 'n1', label },
+  })
+  it('an unconfirmed rename for THIS scenario, still on the canvas, holds', () => {
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('unconfirmed', 's1')] } as never))
+      .toBe('unresolved_structural_edit')
+  })
+  it('CONTROL: another scenario\'s record, a committed one, or a refused one does not hold', () => {
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('unconfirmed', 's2')] } as never)).toBeNull()
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('committed', 's1')] } as never)).toBeNull()
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('refused', 's1')] } as never)).toBeNull()
+  })
+  it('an unconfirmed ADD holds while its node is on the canvas, and not after it is gone', () => {
+    const add = { status: 'unconfirmed', scenarioId: 's1', intent: { nodeId: 'n2' } }
+    expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralAddLifecycle: [add] } as never)).toBe('unresolved_structural_edit')
+    expect(editDeliveryHold({ nodes: [nodes[0]], currentScenarioId: 's1', structuralAddLifecycle: [add] } as never)).toBeNull()
+  })
+})
