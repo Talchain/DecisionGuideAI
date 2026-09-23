@@ -58,6 +58,12 @@ import { seedWriteBaseAfterRegistration } from './seedWriteBaseAfterRegistration
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
 import { editDeliveryHold, useEditDeliveryHeld, withQueuedRenamesRolledBack } from './editDeliveryHold'
+import {
+  mayRegisterOverSavedModel,
+  recordRegistrationAcknowledged,
+  useBootGraphReadStore,
+} from '../hydrate/bootGraphRead'
+import { identityFromCanvasGraph } from '../utils/graphIdentity'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -165,6 +171,17 @@ export function useImportRegistration(): void {
   const editDeliveryHeld = useEditDeliveryHeld()
 
   /**
+   * What this page's boot read learned about the scenario's saved model, and
+   * the element set CEE is known to hold — both INPUTS to the re-arm below,
+   * subscribed so it re-evaluates when the read settles OR CEE's record moves
+   * (a receipt, a draft, a registration: `bootGraphRead.ts`).
+   */
+  const bootGraphRead = useBootGraphReadStore((s) =>
+    scenarioId ? s.byScenario[scenarioId]?.state : undefined,
+  )
+  const lastAuthoritativeGraph = useCanvasStore((s) => s.lastAuthoritativeGraph)
+
+  /**
    * A registration that stood down for an edit in delivery, waiting to be
    * re-evaluated. Bumping `retryAfterDelivery` re-runs the registration effect
    * ONCE when delivery settles — deliberately NOT by making `editDeliveryHeld`
@@ -201,12 +218,23 @@ export function useImportRegistration(): void {
     if (editDeliveryHold(st as never) !== null) return
     if (analysisHeldOn(st as never) === null) return
     if (isGraphServerAcknowledged(st.currentScenarioId, st.nodes as never, st.edges as never)) return
+    // ⭐ ONE WRITER AT RELOAD TOO: never write this page's copy over a model CEE
+    // already holds. Witnessed 23 Sep on served `fa84d226`: a stale second tab's
+    // reload read CEE's 14 nodes, then this re-arm registered its own 15 and
+    // undid a delete committed in the other tab. It now takes the boot read as
+    // an input — waits until a read of a CEE-addressable scenario has answered,
+    // registers when CEE holds no model, and, when CEE holds one, registers only
+    // a canvas holding NO element CEE lacks (so a write can never resurrect a
+    // delete, while the #1855 in-page re-offer survives — review B2 (i)). A read
+    // that carries every value the canvas would send acknowledges it instead
+    // (`serverGraphHydration.ts`), so nothing is sent at all.
+    if (mayRegisterOverSavedModel(st as never) !== 'permit') return
     markGraphImported(st.nodes as never, st.edges as never)
     useCanvasStore.setState({ importPendingServerRegistration: true })
     logger.info('import_registration.re_armed_after_lost_acknowledgement', {
       scenarioId: st.currentScenarioId ?? null,
     })
-  }, [nodesNow, edgesNow, scenarioId, editDeliveryHeld])
+  }, [nodesNow, edgesNow, scenarioId, editDeliveryHeld, bootGraphRead, lastAuthoritativeGraph])
 
   useEffect(() => {
     if (!pending) return
@@ -376,6 +404,20 @@ export function useImportRegistration(): void {
           withQueuedRenamesRolledBack(live.nodes, live.pendingStructuralRenames) as never,
           live.edges as never,
         )
+      // ⭐ ONE AUTHORITATIVE RECORD. A registration CEE acknowledged REPLACED
+      // the scenario's model with exactly the elements it carried, so they are
+      // what CEE now holds — the same fact a receipt or a boot read records in
+      // `lastAuthoritativeGraph`, and the record the re-arm's gate reads
+      // (`bootGraphRead.ts`). Recorded against WHAT WAS SENT, and only while the
+      // canvas is still this scenario's: the record is not keyed by scenario.
+      // ⭐ AND IT SETTLES THE BOOT READ. The acknowledgement is a settled answer
+      // about what CEE holds, so a read that refused the pending import
+      // (`mergeRefused`) no longer walls the re-arm for the page's life; the
+      // subset rule over the record just written governs from here.
+      if (live.currentScenarioId === scenarioId) {
+        live.setLastAuthoritativeGraph(identityFromCanvasGraph(nodes, edges))
+        recordRegistrationAcknowledged(scenarioId)
+      }
       if (!stillCurrent) {
         logger.info('import_registration.superseded', { scenarioId })
         // The receipt is real, so record it against WHAT WAS SENT — a later

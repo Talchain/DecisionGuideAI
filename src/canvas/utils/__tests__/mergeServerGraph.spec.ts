@@ -127,11 +127,16 @@ describe('mergeServerGraphOnHydrate — values from server, layout from local', 
   })
 })
 
-describe('mergeServerGraphOnHydrate — additive, never destructive', () => {
+describe('mergeServerGraphOnHydrate — additions, and removals only of what the saved model lacks', () => {
   it('adds a server node the canvas does not have, without re-laying-out the rest', () => {
+    // ⚠ FIXTURE UPDATED 23 Sep 2026 (reload shows the saved model): the server
+    // graph now carries `goal-1` too. It used to omit it as shorthand, which was
+    // harmless while boot never removed anything; under the new rule an omitted
+    // node is one the saved model LACKS, and would be taken off.
     const res = mergeServerGraphOnHydrate({
       nodes: [
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
+        { id: 'goal-1', kind: 'goal', label: 'Profit', value: 5 },
         { id: 'factor-2', kind: 'factor', label: 'Headcount' },
       ],
       edges: [],
@@ -156,17 +161,25 @@ describe('mergeServerGraphOnHydrate — additive, never destructive', () => {
     expect(useCanvasStore.getState().nodes).toHaveLength(2)
   })
 
-  it('NEVER removes a local-only node — the server graph is not a deletion oracle', () => {
-    // The autosave can legitimately be AHEAD of the server (guest inspector
-    // edits never reach CEE at all — ROADMAP 2.304). Boot hydration removing
-    // them would trade a stale value for lost work.
+  it('REMOVES a node the saved model lacks — the accepted read is what the canvas shows', () => {
+    // ⚠ RULE REVERSED 23 Sep 2026 — decision "on reload, the saved model wins,
+    // and what differs is named" (lead, on Paul's standing authority). This case
+    // used to pin "NEVER removes a local-only node", reasoning that the autosave
+    // can be AHEAD of the server because guest inspector edits never reach CEE
+    // (ROADMAP 2.304). 2.304 is recorded CLOSED / ALREADY FIXED and edits now
+    // reach CEE as canonical turns; the rule instead kept a factor another tab
+    // had deleted on screen, which analysis ignored and the user could not
+    // delete. The licence (no edit in flight, never on a refusal) and the notice
+    // are pinned in `mergeServerGraph.reloadShowsSavedModel.spec.ts`.
     const res = mergeServerGraphOnHydrate({
       nodes: [{ id: 'factor-1', kind: 'factor', label: 'Spend', value: 250 }],
       edges: [],
     })
-    expect(res.removedNodeCount).toBe(0)
-    expect(nodeById('goal-1')).toBeTruthy()
-    expect(useCanvasStore.getState().nodes).toHaveLength(2)
+    expect(res.removedNodeCount).toBe(1)
+    expect(res.removedLabels).toEqual(['Profit'])
+    expect(nodeById('goal-1')).toBeUndefined()
+    expect(useCanvasStore.getState().nodes).toHaveLength(1)
+    expect(nodeById('factor-1').position).toEqual(A_POS)
   })
 
   it('records the server graph as CEE-acknowledged (authorises LATER receipt deletions)', () => {
@@ -191,7 +204,8 @@ describe('mergeServerGraphOnHydrate — honest absence', () => {
     // may act on it, so it should have to be declared here rather than arriving
     // silently. `accepted: false` is the L61 addition — an empty server graph is
     // a REFUSAL (nothing was observed), which is the same rule that already
-    // governs `lastAuthoritativeGraph` on the line below.
+    // governs `lastAuthoritativeGraph` on the line below. `removedLabels` is the
+    // 23 Sep addition (reload shows the saved model) — declared here as intended.
     expect(res).toEqual({
       addedNodeCount: 0,
       addedEdgeCount: 0,
@@ -199,6 +213,7 @@ describe('mergeServerGraphOnHydrate — honest absence', () => {
       updatedEdgeCount: 0,
       removedNodeCount: 0,
       removedEdgeCount: 0,
+      removedLabels: [],
       accepted: false,
       refusedReason: 'emptyServerGraph',
       changed: false,

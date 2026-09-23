@@ -374,8 +374,12 @@ export interface CaptureStructuralRenameInput {
    * acknowledged"; `applyDraftResult.ts:288` — "a fresh draft IS an
    * authoritative CEE graph"; `mergeAppliedGraph.ts:601` — "the receipt is proof
    * that CEE has seen exactly these elements"; `mergeServerGraph.ts:445` — the
-   * same sentence as the cold load. The reconciler ALREADY uses this record to
-   * answer this class of question ("only removes elements CEE has previously
+   * same sentence as the cold load. (A fifth since #1903: a `registered`
+   * receipt in `useImportRegistration` — CEE "now holds exactly" the elements
+   * it registered, i.e. every node on the registered canvas, so a rename of
+   * any of them is sent rather than stood down as client-created.) The
+   * reconciler ALREADY uses this record to answer this class of question
+   * ("only removes elements CEE has previously
    * acknowledged"), so this is a second reader of one authority rather than a
    * second authority.
    *

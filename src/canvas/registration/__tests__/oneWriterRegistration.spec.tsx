@@ -119,6 +119,8 @@ import {
   __resetUnconfirmedDeletesForTest,
   settleStructuralDeleteAttempt,
 } from '../../conversation/unconfirmedStructuralDelete'
+import { __resetBootGraphReadForTest } from '../../hydrate/bootGraphRead'
+import { recordSettledBootRead } from './__helpers__/settledBootRead'
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -283,6 +285,11 @@ async function mountAcknowledgedStarter() {
   })
   expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
   expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  // PRODUCTION'S CONFIGURATION: the Canvas route's boot read of this scenario
+  // has answered — CEE holds the starter it just acknowledged (#1903 B2: the
+  // re-arm waits while no read is recorded, so without this every case below
+  // would stand in a state the app never settles in).
+  recordSettledBootRead(SCENARIO, STARTER_NODES, STARTER_EDGES)
   return hook
 }
 
@@ -329,6 +336,7 @@ beforeEach(() => {
   __resetPendingFactorEditsForTest()
   __resetUnconfirmedDeletesForTest()
   __resetPersistenceSessionForTests()
+  __resetBootGraphReadForTest()
   useCanvasStore.setState({
     nodes: [] as never,
     edges: [] as never,
@@ -596,6 +604,7 @@ async function mountAcknowledgedStarterWithRenameDrain() {
   await act(async () => { await flush() })
   expect(registerSpy).toHaveBeenCalledTimes(1)
   expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  recordSettledBootRead(SCENARIO, STARTER_NODES, STARTER_EDGES) // see mountAcknowledgedStarter
   return hook
 }
 
@@ -913,6 +922,7 @@ async function mountAcknowledgedStarterWithOption() {
   expect(registerSpy).toHaveBeenCalledTimes(1)
   expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
   expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  recordSettledBootRead(SCENARIO, [...STARTER_NODES, starterOption()], STARTER_EDGES) // see mountAcknowledgedStarter
   return hook
 }
 
