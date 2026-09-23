@@ -333,7 +333,7 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     renderCard(FactorNode as never, 'fac-market')
     const card = face('Market growth')
     expect(within(card).queryByTestId('factor-turning-point')).toBeNull()
-    expect(within(card).getByTestId('factor-prior-range')).toBeTruthy()
+    expect(within(card).getByTestId('factor-prior-range-fac-market').textContent).toMatch(/^Range: /)
   })
 })
 

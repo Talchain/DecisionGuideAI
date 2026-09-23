@@ -1102,8 +1102,21 @@ export const FactorNode = memo((props: NodeProps) => {
             fromLastRun={resultsFromLastRun}
           />
         ) : null}
+        {/* The range is a TEXT line on the locked face (#1915 deviation 3). Once
+            the user has stated a value the owner restates it as REPLACED ("Your
+            value replaces the range a to b"), because the analysis no longer
+            samples it — see `userValueReplacesPrior` (#1889). Same slot, same
+            type; the turning-point precedence above is unchanged (visual
+            contract v3: a displaced range stays "disclosed as superseded, not
+            plotted as active uncertainty"). The test id carries the node id
+            (#1889) so a reader binds to THIS card's line by identity. */}
         {nodeCategory === 'external' && priorRangeDisplay && (!turningPoint || isDetailed) && (
-          <div className={`${typography.edgeLabel} mt-0.5 text-text-light`} data-testid="factor-prior-range">{priorRangeDisplay}</div>
+          <div
+            className={`${typography.edgeLabel} mt-0.5 text-text-light`}
+            data-testid={`factor-prior-range-${props.id}`}
+          >
+            {priorRangeDisplay}
+          </div>
         )}
 
         {/* ⭐⭐ EDGE PILLS — DIRECTION + STRENGTH + TARGET, AND THEY NO LONGER

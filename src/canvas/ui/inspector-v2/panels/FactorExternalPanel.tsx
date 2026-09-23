@@ -43,6 +43,10 @@ import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import {
+  userValueReplacesPrior,
+  USER_VALUE_REPLACES_THIS_RANGE,
+} from '../../../nodes/shared/factorPriorRange'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -129,6 +133,15 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
   // Prior range
   const prior = (node?.data as Record<string, unknown>)?.prior as Record<string, unknown> | number | undefined
+  /**
+   * ⭐ A USER-OWNED VALUE REPLACES THIS RANGE IN THE ANALYSIS — read from the
+   * card's owner, never re-derived. PLoT skips the prior for any factor carrying
+   * `observed_state.value`, so while the user's value stands the role note
+   * below would be false ("it is what the model treats as the factor's
+   * plausible level"). The range and its controls stay visible: only the claim
+   * about what the analysis DOES with it changes.
+   */
+  const valueReplacesRange = userValueReplacesPrior(node?.data)
   const rangeMin = typeof prior === 'object' ? (prior as Record<string, unknown>)?.range_min as number | undefined : undefined
   const rangeMax = typeof prior === 'object' ? (prior as Record<string, unknown>)?.range_max as number | undefined : undefined
 
@@ -591,6 +604,16 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             to it. The expanded-surface scan in this panel's own spec asserts
             it there too.
 
+            ⭐ ONE STATE NOW HAS ITS OWN SENTENCE (22 Sep 2026). The silent
+            gate above is no longer hypothetical on this panel: the Model tab
+            lets a user state a point value for an external factor, CEE stamps
+            it `user_override`, and from then on PLoT skips this range. In that
+            state Q1's answer is "no, your value replaces it", and the role
+            sentence would be false, so `valueReplacesRange` swaps it for
+            `USER_VALUE_REPLACES_THIS_RANGE`. Scoped to a USER-OWNED value
+            (`userValueReplacesPrior`); a model-authored value keeps the role
+            sentence, which is the reported open question, not a decision here.
+
             "your judgement" is deliberately avoided: a drafted prior arrives
             from CEE already populated, so the panel cannot establish who
             authored the range. And nothing here is in the imperative — an
@@ -603,7 +626,9 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             className={`${typography.panelMeta} text-text-light mt-2`}
             data-testid="factor-external-range-role"
           >
-            This range is an analysis input, not a label: it is what the model treats as the factor&rsquo;s plausible level. You can set it here.
+            {valueReplacesRange
+              ? USER_VALUE_REPLACES_THIS_RANGE
+              : <>This range is an analysis input, not a label: it is what the model treats as the factor&rsquo;s plausible level. You can set it here.</>}
           </p>
         </PrimaryControlCard>
 
