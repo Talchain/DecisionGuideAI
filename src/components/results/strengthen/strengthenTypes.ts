@@ -322,8 +322,11 @@ export interface StrengthenInputs {
    * May any surface state a stability verdict on this run? Quoted from
    * `analysisClaimPolicy(rec).mayStateStability` by BOTH callers, never
    * re-derived. `false` suppresses the commit row, whose copy says the numbers
-   * "held up under stress-testing" (#1206). Absent = an older caller, read as
-   * licensed, matching the policy's own absent-admission arm.
+   * "held up under stress-testing" (#1206), AND the producer's `FRAGILE_RESULT`
+   * review card, which rates how often the ordering holds (ruling
+   * olumi-programme-docs#63; `STABILITY_CLAIM_SIGNAL_CODES` in
+   * `buildRecommendations.ts`). Absent = an older caller, read as licensed,
+   * matching the policy's own absent-admission arm.
    */
   stabilityLicensed?: boolean
   /**
@@ -346,6 +349,11 @@ export interface StrengthenInputs {
    * This interface's own contract doc is the likeliest thing a future caller
    * reads, which is why the correction lives here and is pinned by
    * `__tests__/strengthenInputsCallersThreadComposed.spec.ts`.
+   *
+   * `false` also suppresses the producer's `ANALYSIS_NARRATIVE` and `PRE_MORTEM`
+   * review cards, which name or presuppose a leader, from the phase-3 promotion
+   * (ruling olumi-programme-docs#63; `LEADER_CLAIM_SIGNAL_CODES` in
+   * `buildRecommendations.ts`).
    *
    * Strict read (`=== false` suppresses). `undefined` means no verdict was
    * supplied and leaves the legacy behaviour untouched — the same concession
