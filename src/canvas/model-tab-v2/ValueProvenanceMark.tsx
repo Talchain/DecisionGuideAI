@@ -30,7 +30,7 @@
  * a band like "0.4 to 0.9" has the first and not the second. A mark that
  * absorbed the ⚠ would destroy that distinction, so it does not.
  */
-import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 
 export interface ValueProvenanceMarkProps {
@@ -38,6 +38,17 @@ export interface ValueProvenanceMarkProps {
   source: string | null | undefined
   /** Row id, for a testid that binds to THIS row and not to a sibling. */
   rowId: string
+}
+
+/**
+ * Which kind this mark DRAWS for a source literal, or `null` when it draws
+ * nothing. Exported so a sibling cell can ask "is the AI mark on this row?"
+ * through the same classifier the mark uses, rather than a second predicate
+ * that could drift from it (C5, 23 Sep 2026: the value cell drops its visible
+ * "Olumi:" only when this answers `'ai'`).
+ */
+export function provenanceMarkKind(source: string | null | undefined): ValueProvenanceKind | null {
+  return classifyValueProvenance(source)?.kind ?? null
 }
 
 export function ValueProvenanceMark({ source, rowId }: ValueProvenanceMarkProps) {

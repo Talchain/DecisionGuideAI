@@ -58,7 +58,7 @@ import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
-import { ValueProvenanceMark } from './ValueProvenanceMark'
+import { ValueProvenanceMark, provenanceMarkKind } from './ValueProvenanceMark'
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   ATTENTION_IS_SEVERE,
@@ -2462,6 +2462,12 @@ function ValueCell({
    * strings drown the outline. These strings are distinct per row and each one
    * is a fact the product computed.
    */
+  /** Does this row's provenance cell draw the `Sparkles` "AI estimate" mark?
+   *  The SAME gate the cell renders under (`provenanceSource !== undefined`)
+   *  and the SAME classifier the mark draws from — never a second predicate. */
+  const olumiMarkOnRow =
+    row.provenanceSource !== undefined && provenanceMarkKind(row.provenanceSource) === 'ai'
+
   const estimate =
     display === null && row.estimateText !== undefined ? (
       <span
@@ -2559,7 +2565,19 @@ function ValueCell({
         title={`Olumi: ${row.estimateText}`}
         className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
       >
-        Olumi: {row.estimateText}
+        {/* ⭐ "Olumi:" IS SAID ONCE PER ROW (C5, 23 Sep 2026). Where this row's
+            provenance mark is Olumi's own `Sparkles` "AI estimate", the visible
+            prefix restated it — audit row #8, 3 of 3 such rows on the
+            market-entry render. The words stay for assistive tech (`sr-only`)
+            and on hover (`title` above), so only the visible duplicate goes.
+
+            ⚠ ONLY WHEN THE MARK IS REALLY DRAWN, asked of the mark's own
+            classifier. `ValueProvenanceMark` records that the hint text and the
+            value's provenance are owned independently: a row can carry Olumi's
+            estimate with no AI mark, and there the word is the only
+            attribution, so it stays visible. */}
+        {olumiMarkOnRow ? <span className="sr-only">Olumi: </span> : 'Olumi: '}
+        {row.estimateText}
       </span>
     ) : null
 
