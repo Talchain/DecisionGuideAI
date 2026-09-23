@@ -189,8 +189,14 @@ describe('H1 — orange stops being the default; polarity survives a contest', (
     expect(s.stroke).not.toContain('--semantic-warning')
   })
 
-  it('…and the contest is still visible, on the dash', () => {
-    expect(renderEdge(draftedEdge({ validation: contestedValidation() })).strokeDasharray).toBe('2.4 6')
+  // ⭐ REWRITTEN 23 Sep 2026 (Experience Design: "dash = existence certainty
+  // only"). This case asserted the contest was "still visible, on the dash"
+  // (`2.4 6`) — which told the reader the connection's existence was in doubt
+  // when both passes stated a high likelihood. The disagreement now lives in
+  // the connection's inspector; the line keeps existence's own answer.
+  it('…and the contest does NOT dash the line — the dash belongs to existence', () => {
+    expect(renderEdge(draftedEdge({ validation: contestedValidation() })).strokeDasharray)
+      .toEqual(renderEdge(draftedEdge()).strokeDasharray)
   })
 
   it('TWIN: a sign_flip contest DOES render the exception hue', () => {
@@ -199,7 +205,10 @@ describe('H1 — orange stops being the default; polarity survives a contest', (
     expect(s.stroke).not.toBe(POSITIVE)
   })
 
-  it('TWIN: needs_user_input DOES render the exception hue at full strength', () => {
+  // ⭐ INVERTED 23 Sep 2026 (Experience Design: "orange = AI review SIGN
+  // disagreement only"). `needs_user_input` over an AGREED sign used to paint
+  // full orange; it now keeps its polarity, and the inspector heading reads it.
+  it('needs_user_input over an agreed sign keeps its POLARITY — the flag is not a colour', () => {
     const s = renderEdge(draftedEdge({
       validation: contestedValidation({
         pass2: {
@@ -208,7 +217,8 @@ describe('H1 — orange stops being the default; polarity survives a contest', (
         },
       }),
     }))
-    expect(s.stroke).toBe('var(--semantic-warning)')
+    expect(s.stroke).toBe(POSITIVE)
+    expect(s.stroke).not.toContain('--semantic-warning')
   })
 })
 

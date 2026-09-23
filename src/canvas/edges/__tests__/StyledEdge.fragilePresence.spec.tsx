@@ -13,6 +13,10 @@
  * the marginal. fragileEdgeMatch is deliberately NOT mocked here — the real
  * accessor is the unit under test.
  *
+ * ⚠ SINCE 23 SEP 2026 the canvas cue is icon-only (Experience Design's locked
+ * connector grammar): the figure is stated on its accessible name and title,
+ * "NN% chance the result flips…", and the hover keeps "NN% flip risk".
+ *
  * ReactFlow/store mock structure follows StyledEdge.hover.spec.tsx.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -154,6 +158,7 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
     const badge = screen.getByTestId('edge-fragile-tag')
     expect(badge.textContent).not.toContain('90%')
     expect(badge.textContent).not.toMatch(/·\s*\d+%/)
+    expect(badge.getAttribute('aria-label') ?? '').not.toMatch(/\d+%/)
     const titled = badge.closest('[title]')
     expect(titled?.getAttribute('title')).toBe(
       'Sensitive assumption: outcome may flip if this relationship changes',
@@ -170,17 +175,19 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
     expect(popover.textContent).not.toContain('90%')
   })
 
-  it('CONTROL (badge): a measured switch_probability still renders "Sensitive · NN%" and the quantified title', () => {
+  // ⭐ REWRITTEN 23 Sep 2026 — Experience Design's locked grammar: fragility
+  // is a DISCREET exception cue, and "Sensitive · 70%" was a verbose label
+  // whose bare figure sat beside a strength label and was read as a strength.
+  // The cue now paints no figure; the MEASURED figure is still the only one
+  // stated, on the cue's name and title, WITH its noun. What this case pins
+  // is unchanged: measured wins, the marginal quantity is never displayed.
+  it('CONTROL (cue): a measured switch_probability is stated on the cue\'s name WITH its noun, and never painted', () => {
     setFragileEdges([{ edge_id: 'e1', switch_probability: 0.42, marginal_switch_probability: 0.9 }])
     render(<StyledEdge {...(defaultEdgeProps as any)} />)
-    // The badge is the ROW, not the word. The label and the value are now
-    // separate spans (the value must not share an ellipsis with the label),
-    // so a text predicate matches the label span alone and reads a badge
-    // with its number stripped off. Binding by testid asserts the same
-    // thing about the whole badge, and cannot drift with the markup again.
     const badge = screen.getByTestId('edge-fragile-tag')
-    expect(badge.textContent).toContain('42%')
-    expect(badge.textContent).not.toContain('90%')
+    expect(badge.textContent ?? '').not.toMatch(/\d/)
+    expect(badge.getAttribute('aria-label')).toContain('42% chance the result flips')
+    expect(badge.getAttribute('aria-label')).not.toContain('90%')
     const titled = badge.closest('[title]')
     expect(titled?.getAttribute('title')).toContain('42% chance the result flips')
   })
@@ -197,6 +204,9 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
   it('CONTROL: a measured 0 is a measurement — not fragile, no badge, never resurrected by marginal', () => {
     setFragileEdges([{ edge_id: 'e1', switch_probability: 0, marginal_switch_probability: 0.9 }])
     render(<StyledEdge {...(defaultEdgeProps as any)} />)
+    // By test id: the cue paints no word since 23 Sep 2026, so a text query
+    // for "Sensitive" would pass on a cue that IS rendered (trap 13).
+    expect(screen.queryByTestId('edge-fragile-tag')).toBeNull()
     expect(screen.queryByText(/Sensitive/)).toBeNull()
   })
 })

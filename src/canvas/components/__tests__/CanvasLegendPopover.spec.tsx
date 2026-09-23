@@ -127,21 +127,17 @@ const THICKNESS_LABELS = CANVAS_STRENGTH_BANDS.map(b => `${b.label} effect`)
 const APPROVED = [
   DECISION_NODE_LABEL, 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
   'Raises', 'Lowers',
-  // Solid is TWO populations — nobody stated a likelihood, and somebody stated
-  // one at or above `EDGE_VALUE_BAND_CUTS.high`. `graphDisplayCalculations.spec.ts`
-  // pins both. The caption must stay true of both; a bare absence claim here
-  // ("no doubt recorded") is false across the whole stated-high band and is
-  // what this change removed.
-  'Solid connection: no doubt recorded, or only a small one',
-  // Dashed is TWO causes, and the caption must be true of BOTH — the standard
-  // the solid row above was already held to. `resolveEdgeDash` fires the
-  // `contested` rule for EVERY contested edge without reading
-  // `contested_reasons`, and three of the five `ContestedReason` members
-  // (`strength_band_change`, `confidence_band_change`, `raw_magnitude`) are
-  // disagreements about HOW STRONG or HOW CERTAIN, with both passes agreeing the
-  // connection exists. "someone recorded a doubt" was false across that whole
-  // population and is what this change removes. See `CanvasLegendPopover.tsx`.
-  'Dashed connection: a doubt or a disagreement was recorded',
+  // ⭐ REWRITTEN 23 Sep 2026 — the locked connector grammar ("dash = existence
+  // certainty only"). Solid is still TWO existence populations (nobody stated a
+  // likelihood; somebody stated one at or above `EDGE_VALUE_BAND_CUTS.high`),
+  // and since the contest dash was removed it ALSO carries Olumi's review
+  // disagreements. So the caption is scoped to what the line reads — the
+  // MODEL's likelihood — and a separate row says where the review's view is.
+  // `CanvasLegendPopover.connectorGrammar.spec.tsx` pins the derivation.
+  'Solid: the model records little or no doubt that this connection exists',
+  // Experience Design's banked D3 wording: existence, and nothing else.
+  'Dashed: lower certainty that this connection exists is recorded',
+  'Other review disagreements: shown when you open the connection',
   // ⚠ The three thickness literals are replaced by the derivation above —
   // keeping them would make this allowlist a mirror of a mirror.
   ...THICKNESS_LABELS,
@@ -256,9 +252,11 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     fireEvent.click(screen.getByTestId('btn-canvas-legend'))
   }
 
-  it('explains the ONE reserved colour: orange means the reviews disagree', () => {
+  // ⭐ 23 Sep 2026: orange is narrowed to a SIGN disagreement between Olumi's
+  // two review passes, in Experience Design's banked wording (no "your call").
+  it('explains the ONE reserved colour: orange means the review passes disagree on direction', () => {
     open()
-    expect(screen.getByText('Orange: reviews disagree — your call')).toBeInTheDocument()
+    expect(screen.getByText("Orange: Olumi's two review passes disagree on direction")).toBeInTheDocument()
   })
 
   it('explains grey as "not stated yet", the signal with no other channel', () => {
