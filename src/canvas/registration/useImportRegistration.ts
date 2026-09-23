@@ -54,9 +54,10 @@ import {
 } from '../store/importRegistrationMarker'
 import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
+import { seedWriteBaseAfterRegistration } from './seedWriteBaseAfterRegistration'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
-import { editDeliveryHold, useEditDeliveryHeld } from './editDeliveryHold'
+import { editDeliveryHold, useEditDeliveryHeld, withQueuedRenamesRolledBack } from './editDeliveryHold'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -273,8 +274,16 @@ export function useImportRegistration(): void {
       return
     }
 
-    // Snapshot the exact graph being registered (see the header).
-    const { nodes, edges } = useCanvasStore.getState()
+    // Snapshot the exact graph being registered (see the header). A rename
+    // still QUEUED is not the model CEE holds: it is registered rolled back to
+    // its expected label and then sent on the edit protocol, never carried here
+    // (`withQueuedRenamesRolledBack`, the #1893 × #1892 deadlock).
+    const snapshotState = useCanvasStore.getState()
+    const nodes = withQueuedRenamesRolledBack(
+      snapshotState.nodes,
+      snapshotState.pendingStructuralRenames,
+    ) as typeof snapshotState.nodes
+    const { edges } = snapshotState
     const attemptKey =
       analyticalIdentityKey(scenarioId, nodes, edges) ??
       `${scenarioId}:${nodes.length}:${edges.length}`
@@ -355,9 +364,18 @@ export function useImportRegistration(): void {
       //   admitting anything. Reproduced: A at weight 0.2 in flight, replaced by
       //   B at 0.9, A's receipt resolved, and B read as acknowledged.
       const live = useCanvasStore.getState()
+      // Compared on the SAME footing as the snapshot: a rename still queued is
+      // rolled back on both sides, so the ack of the pre-rename model is not
+      // mistaken for a superseded one (which would skip the base seed below
+      // and strand the queued rename — the deadlock this rollback exists for).
       const stillCurrent =
         live.currentScenarioId === scenarioId &&
-        isSameAnalyticalModel(nodes, edges, live.nodes as never, live.edges as never)
+        isSameAnalyticalModel(
+          nodes,
+          edges,
+          withQueuedRenamesRolledBack(live.nodes, live.pendingStructuralRenames) as never,
+          live.edges as never,
+        )
       if (!stillCurrent) {
         logger.info('import_registration.superseded', { scenarioId })
         // The receipt is real, so record it against WHAT WAS SENT — a later
@@ -379,6 +397,15 @@ export function useImportRegistration(): void {
         edgeCount: result.edgeCount,
         markerReleased: released,
         identityProjection: result.identity?.projectionVersion ?? null,
+      })
+      // ⭐ THE EDIT PROTOCOL'S BASE. The ack names no `graph_hash`, and without
+      // one a fresh scenario's first rename is held until some unrelated turn
+      // happens to stamp it (witnessed on staging `8151fba5`: never sent).
+      // ⚠ NOT given `controller.signal`: the release above flips `pending`, and
+      // this effect's cleanup aborts that controller on the re-run it causes.
+      void seedWriteBaseAfterRegistration(scenarioId, result.identity, {
+        userId: identity.userId,
+        accessToken: identity.accessToken,
       })
     })()
 
