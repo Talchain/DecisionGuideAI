@@ -22,11 +22,12 @@ import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsFor
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
-import { useInfluenceRank } from '../hooks/useInfluenceRank'
+import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { FactorDriverLine } from './shared/FactorDriverLine'
 import { FactorTurningPointTrack } from './shared/FactorTurningPointTrack'
 import { selectFactorTurningPoint } from './shared/factorTurningPoint'
+import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -471,31 +472,47 @@ export const FactorNode = memo((props: NodeProps) => {
    *   title → value + unit → tiny relative DRIVER line → at most ONE mini-visual
    *   (turning point, else a genuine range, else nothing) → the rail.
    *
-   * ⛔ BOTH ANALYSIS-DERIVED CUES REQUIRE A CURRENT RUN (spec §8: "stale analysis
-   * hides/de-emphasises analysis-derived driver, tipping-point … cues"; spec §3
-   * "Hide when analysis is absent or stale"). One licence — the same one
-   * `useInfluenceRank` and the "Worth reviewing" plan use — so no run-derived
-   * cue on this card can survive a staleness another one respects.
+   * ⭐ BOTH ANALYSIS-DERIVED CUES SPEAK ONLY ABOUT A RUN THE STATE CAN NAME
+   * (design integration, 23 Sep 2026 — #1891's rule applied to this face):
+   *   · CURRENT run → shown, unlabelled;
+   *   · model KNOWN to have changed since the run → shown and LABELLED
+   *     `Last run · ` (Paul's Ruling 3, ROADMAP 2.651: "out-of-date results are
+   *     labelled, not withheld"; visual contract v3: "retain valid historical
+   *     figures with Last run · when a model change is known");
+   *   · never-run / cannot-confirm → hidden (ED 02:31Z Q2: must not manufacture
+   *     a "last run" claim; spec §8 for the unknown case).
+   *
+   * ⚠ TWO QUESTIONS, TWO OWNERS, deliberately not merged: `resultsAreCurrent`
+   * (the derived "is this about the graph on screen?") and
+   * `resultsFromLastRun` (#1891's `useModelChangedSinceRun`, the composed
+   * verdict's `'changed'`). Where both answer yes the label wins — a label is
+   * never a false claim; its absence could be.
+   *
+   * ⚠ ONE LOCAL, EVERY RUNG: `resultsFromLastRun` is passed to `BaseNode` for
+   * the reduced line, and `driverRankFor` is the one rank rule both read, so
+   * the card cannot label the rank on one rung and assert it on another.
    */
   const resultsAreCurrent = useAnalysisResultsAreCurrent()
+  const resultsFromLastRun = useModelChangedSinceRun()
+  const runCuesShown = resultsAreCurrent || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
   const driverLine =
-    isPostAnalysis && resultsAreCurrent && influencePct != null && displayMetadata.influenceProvenance != null
+    isPostAnalysis && runCuesShown && influencePct != null && displayMetadata.influenceProvenance != null
       ? {
-          rank:
-            influenceRank !== null &&
-            typeof displayMetadata.sensitivityRank === 'number' &&
-            typeof displayMetadata.influenceSetSize === 'number'
-              ? { rank: displayMetadata.sensitivityRank, setSize: displayMetadata.influenceSetSize }
-              : null,
+          rank: driverRankFor(
+            influenceRank,
+            displayMetadata.sensitivityRank,
+            displayMetadata.influenceSetSize,
+            resultsFromLastRun,
+          ),
           value: influencePct / 100,
           provenance: displayMetadata.influenceProvenance,
           importanceBasis: displayMetadata.influenceImportanceBasis,
         }
       : null
   const turningPoint = useMemo(
-    () => (isPostAnalysis && resultsAreCurrent ? selectFactorTurningPoint(resultsReport, props.id) : null),
-    [isPostAnalysis, resultsAreCurrent, resultsReport, props.id],
+    () => (isPostAnalysis && runCuesShown ? selectFactorTurningPoint(resultsReport, props.id) : null),
+    [isPostAnalysis, runCuesShown, resultsReport, props.id],
   )
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
@@ -835,6 +852,7 @@ export const FactorNode = memo((props: NodeProps) => {
               value={driverLine.value}
               provenance={driverLine.provenance}
               importanceBasis={driverLine.importanceBasis}
+              fromLastRun={resultsFromLastRun}
             />
           )}
           {/* Confidence — gated upstream by the shared display policy
@@ -946,6 +964,7 @@ export const FactorNode = memo((props: NodeProps) => {
         nodeType="factor"
         icon={metadata.icon}
         coaching={cardQuestion}
+        resultsFromLastRun={resultsFromLastRun}
         headerSlot={(() => {
           // Graph v1.1 Task 2: low-priority factors keep their identity cue
           // (fileQuestion for needs-input) but lose extra science icons in
@@ -1054,9 +1073,11 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* ⭐ THE TINY RELATIVE DRIVER VISUAL — current analysis only. Detailed
-            renders the same line once, inside its Layer 2 block (with the
-            confidence row), so the rank is never stated twice on one card. */}
+        {/* ⭐ THE TINY RELATIVE DRIVER VISUAL — a current run, or a known-changed
+            model's last run LABELLED `Last run · ` (never-run / cannot-confirm
+            hide it). Detailed renders the same line once, inside its Layer 2
+            block (with the confidence row), so the rank is never stated twice
+            on one card. */}
         {!isDetailed && driverLine && (
           <FactorDriverLine
             nodeId={props.id}
@@ -1064,11 +1085,12 @@ export const FactorNode = memo((props: NodeProps) => {
             value={driverLine.value}
             provenance={driverLine.provenance}
             importanceBasis={driverLine.importanceBasis}
+            fromLastRun={resultsFromLastRun}
           />
         )}
 
         {/* ⭐ AT MOST ONE MINI-VISUAL (spec §3 precedence): a real turning point
-            (PLoT `found`, current run), else a GENUINE range (the external
+            (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external
             factor's producer prior — never a fabricated fallback), else nothing.
             Detailed shows the range beside the turning point: it adds
             information, not a different card. */}
@@ -1077,6 +1099,7 @@ export const FactorNode = memo((props: NodeProps) => {
             nodeId={props.id}
             factorLabel={cleanedLabel}
             turningPoint={turningPoint}
+            fromLastRun={resultsFromLastRun}
           />
         ) : null}
         {nodeCategory === 'external' && priorRangeDisplay && (!turningPoint || isDetailed) && (

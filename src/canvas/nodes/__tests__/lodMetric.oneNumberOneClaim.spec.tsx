@@ -158,7 +158,8 @@ describe('the reduced line names the rank the card names', () => {
 
 describe('mounted — the current-run licence reaches the reduced line (locked Canvas design, 23 Sep 2026)', () => {
   const NODE_ID = 'fac_conversion_rate'
-  const makeStore = (current: boolean) => ({
+  type Currency = 'current' | 'changed' | 'cannot_confirm'
+  const makeStore = (currency: Currency) => ({
     results: { status: 'complete', report: null },
     highlightedNodes: new Set(),
     dimmedNodeIds: new Set(),
@@ -174,14 +175,17 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
     viewMode: 'standard',
     lodRung: 'line',
     // `useAnalysisResultsAreCurrent()` — the ONE licence `useInfluenceRank`
-    // reads. The stale arm differs ONLY in the dirty bit.
-    analysisFreshness: { freshness: 'fresh' },
-    analysisFreshnessDirty: !current,
+    // reads. The CHANGED arm differs ONLY in the dirty bit; the cannot-confirm
+    // arm only in CEE's verdict (a restored run's `hydrated_without_capture`).
+    analysisFreshness: currency === 'cannot_confirm'
+      ? { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' }
+      : { freshness: 'fresh' },
+    analysisFreshnessDirty: currency === 'changed',
     importPendingServerRegistration: false,
   })
 
-  const mount = (current: boolean) => {
-    storeState = makeStore(current)
+  const mount = (currency: Currency) => {
+    storeState = makeStore(currency)
     mountedMetadata = { ...metadata }
     return render(
       <ReactFlowProvider>
@@ -192,18 +196,33 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
   }
 
   it('a CURRENT run: the reduced line states the card’s driver caption', () => {
-    mount(true)
+    mount('current')
     expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
       driverLineCaption({ rank: 1, setSize: 5 }, 'influence_score'),
     )
   })
 
-  it('CONTRAST — the SAME card on a stale run states no rank and no percentage', () => {
-    const { container } = mount(false)
+  /*
+   * ⭐ DESIGN INTEGRATION (23 Sep 2026) — #1891's rule on this rung. A model
+   * KNOWN to have changed since the run (the dirty overlay → composed
+   * `'changed'`) keeps the rank and LABELS it `Last run · ` (Paul's Ruling 3,
+   * ROADMAP 2.651; visual contract v3). A run the product cannot vouch for
+   * (cannot-confirm) still states no rank and no percentage (ED 02:31Z Q2).
+   */
+  it('CHANGED — the SAME card labels the rank as the last run’s, never as current', () => {
+    mount('changed')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
+      `Last run · ${driverLineCaption({ rank: 1, setSize: 5 }, 'influence_score')}`,
+    )
+  })
+
+  it('CONTRAST — the SAME card on a cannot-confirm run states no rank and no percentage', () => {
+    const { container } = mount('cannot_confirm')
     // Positive control first (trap 13): the card mounted.
     expect(screen.getByText('Conversion Rate')).toBeInTheDocument()
     expect(screen.queryByTestId('node-lod-line')).toBeNull()
     expect(container.textContent).not.toContain('Driver 1 of 5')
     expect(container.textContent).not.toContain('62%')
+    expect(container.textContent).not.toContain('Last run')
   })
 })

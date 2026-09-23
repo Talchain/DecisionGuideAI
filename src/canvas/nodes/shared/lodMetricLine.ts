@@ -137,7 +137,7 @@ import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
 import { factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
-import { DRIVER_LINE_COPY, METRIC_NOUN, OPTION_RESULT_COPY } from './metricVocabulary'
+import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, METRIC_NOUN, OPTION_RESULT_COPY } from './metricVocabulary'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
@@ -179,9 +179,11 @@ export interface LodMetricFacts {
   /**
    * ⭐ THE DRIVER RANK, in the one wording every rung uses (ED 02:31Z D1a:
    * "`Driver N of M`, not `Driver #N of M`"; ED 11:52Z: "no pseudo-precise
-   * `% influence` on the face"). Resolved by `BaseNode` from the SAME current-
-   * only licence as the card's driver line (`useInfluenceRank`), so a stale run
-   * withholds it on both rungs. Absent ⇒ no analysis-derived line at all.
+   * `% influence` on the face"). Resolved by `BaseNode` from the SAME
+   * licence as the card's driver line (`driverRankFor`): a current run, or a
+   * known-changed model's last run (labelled through `influenceFromLastRun`).
+   * Never-run / cannot-confirm withhold it on both rungs. Absent ⇒ no
+   * analysis-derived line at all.
    */
   driverRank?: { rank: number; setSize: number } | null
   /**
@@ -189,6 +191,17 @@ export interface LodMetricFacts {
    * same caption the card shows at full zoom. Absent ⇒ the result is withheld.
    */
   optionResultCaption?: string | null
+  /**
+   * The model has changed since the run the influence figure came from — the
+   * card's own `useModelChangedSinceRun()`, passed through `BaseNode`.
+   *
+   * ⭐ LABELS THE DRIVER ARM ONLY. A stated value and a prior range are not
+   * run-derived, so "Last run" beside them would be a claim about the wrong
+   * object. And it is a PREFIX, not a suffix, for this line's own reason (see
+   * the `est.` mark in `BaseNode`): the line is `truncate`d, so the first thing
+   * an ellipsis eats is the END — the figure gives way and the label cannot.
+   */
+  influenceFromLastRun?: boolean
 }
 
 export interface LodMetricLineInputs {
@@ -312,8 +325,12 @@ function resolveText({
         // below still speaks where one exists. (The #1209 register note that
         // lived here is honoured by construction — the words come from
         // `DRIVER_LINE_COPY`, the one register the card also reads.)
+        // Ruling 3 (ROADMAP 2.651; #1891): a known-changed model's rank is
+        // labelled, never withheld — and never invented on never-run or
+        // cannot-confirm (`driverRank` is absent there).
         const driver = facts?.driverRank
-        if (driver) return DRIVER_LINE_COPY.rank(driver.rank, driver.setSize)
+        const lastRun = facts?.influenceFromLastRun === true ? LAST_RUN_PREFIX : ''
+        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules

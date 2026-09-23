@@ -238,18 +238,48 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     expect(card.textContent).not.toMatch(/influence/i)
   })
 
-  it('⛔ STALE HIDES the driver line and the turning point (spec §8) — control: current shows both', () => {
+  /*
+   * ⭐ DESIGN INTEGRATION (23 Sep 2026) — #1891's rule applied to this face.
+   * The locked spec §8 hid both cues on ANY non-current run. The later
+   * authorities split that: a model KNOWN to have changed keeps its last run's
+   * driver rank and turning point LABELLED `Last run · ` (Paul's Ruling 3,
+   * ROADMAP 2.651; visual contract v3 "Last run · Driver N of M", "Last run ·
+   * turning point"), while never-run and cannot-confirm withhold them (ED
+   * 02:31Z Q2: never manufacture a "last run" claim).
+   */
+  it('CHANGED LABELS the driver line and the turning point "Last run · " — control: current shows both unlabelled', () => {
     setState({ phase: 'post' })
     setMeta({ 'fac-conv': DRIVER_META })
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
-    expect(within(face('Trial conversion')).getByTestId('factor-driver-line')).toBeTruthy()
-    expect(within(face('Trial conversion')).getByTestId('factor-turning-point')).toBeTruthy()
+    const freshLine = within(face('Trial conversion')).getByTestId('factor-driver-line')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 in this model')
+    expect(within(face('Trial conversion')).getByTestId('factor-turning-point').textContent).toMatch(/^Turning point/)
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
-    expect(within(face('Trial conversion')).queryByTestId('factor-driver-line')).toBeNull()
-    expect(within(face('Trial conversion')).queryByTestId('factor-turning-point')).toBeNull()
+    const line = within(face('Trial conversion')).getByTestId('factor-driver-line')
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 in this model')
+    // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 in this model')).toBe(true)
+    const tp = within(face('Trial conversion')).getByTestId('factor-turning-point')
+    expect(tp.textContent).toMatch(/^Last run · Turning point/)
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Turning point')).toBe(true)
+  })
+
+  it('⛔ CANNOT-CONFIRM and NEVER-RUN HIDE the driver line and the turning point — no past analysis is invented', () => {
+    setState({ phase: 'post' })
+    setMeta({ 'fac-conv': DRIVER_META })
+    for (const semantic of ['cannot_confirm', 'none'] as const) {
+      setCurrency(semantic)
+      renderCard(FactorNode as never, 'fac-conv')
+      // Positive control: the card mounted.
+      expect(face('Trial conversion')).toBeTruthy()
+      expect(within(face('Trial conversion')).queryByTestId('factor-driver-line')).toBeNull()
+      expect(within(face('Trial conversion')).queryByTestId('factor-turning-point')).toBeNull()
+      expect(face('Trial conversion').textContent).not.toContain('Last run')
+      cleanup()
+    }
   })
 
   it('⛔ THE "Key driver" CORNER BADGE IS RETIRED (ED 02:31Z) — one rank, one wording', () => {

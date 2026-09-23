@@ -19,9 +19,14 @@
  *
  * ── WHEN IT SHOWS ───────────────────────────────────────────────────────────
  *
- * The CALLER decides, and the rule is spec §8: only while the analysis is
- * CURRENT. A stale run hides it rather than labelling it (spec §3 "Hide when
- * analysis is absent or stale").
+ * The CALLER decides. Design integration (23 Sep 2026) applies #1891's rule
+ * (Paul's Ruling 3, ROADMAP 2.651: "labelled, not withheld"; ED 02:31Z Q2;
+ * visual contract v3 "Last run · Driver N of M"):
+ *   · current run → the line, unlabelled;
+ *   · model KNOWN to have changed since the run (`useModelChangedSinceRun`) →
+ *     the line, with `fromLastRun` set: caption AND accessible name open with
+ *     `LAST_RUN_PREFIX`, so the visible string stays a prefix of the name;
+ *   · never-run / cannot-confirm → no line (no past analysis is invented).
  *
  * ── WHAT THE TOOLTIP SAYS ───────────────────────────────────────────────────
  *
@@ -40,7 +45,7 @@ import {
   influenceStructuralBasisNote,
 } from '../../../components/results/influenceScaleCopy'
 import type { DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
-import { DRIVER_LINE_COPY } from './metricVocabulary'
+import { DRIVER_LINE_COPY, LAST_RUN_PREFIX } from './metricVocabulary'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
 
@@ -52,6 +57,12 @@ export interface FactorDriverLineProps {
   value: number
   provenance: DriverDisplayProvenance
   importanceBasis: string | null
+  /**
+   * The model is KNOWN to have changed since the run this line reads (the
+   * card's `useModelChangedSinceRun()`). Labels the caption and the accessible
+   * name `Last run · `; it never decides whether the line shows.
+   */
+  fromLastRun?: boolean
   testId?: string
 }
 
@@ -88,11 +99,13 @@ export function FactorDriverLine({
   value,
   provenance,
   importanceBasis,
+  fromLastRun = false,
   testId = 'factor-driver-line',
 }: FactorDriverLineProps) {
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
-  const caption = driverLineCaption(rank, provenance)
-  const explanation = driverLineExplanation({ rank, value, provenance, importanceBasis })
+  const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
+  const caption = `${lastRun}${driverLineCaption(rank, provenance)}`
+  const explanation = `${lastRun}${driverLineExplanation({ rank, value, provenance, importanceBasis })}`
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={explanation}>
       <button

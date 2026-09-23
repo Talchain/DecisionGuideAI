@@ -42,7 +42,7 @@ import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
-import { useInfluenceRank } from '../hooks/useInfluenceRank'
+import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { ESTIMATE_SUBJECT_TITLE } from './shared/EstimateMarker'
 import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
 import { resolveLodMetricFacts } from './shared/lodMetricFacts'
@@ -185,6 +185,25 @@ interface BaseNodeProps extends NodeProps {
    * absent on every other kind.
    */
   resultCaption?: string | null
+  /**
+   * ⭐ THE MODEL HAS CHANGED SINCE THE RUN THIS CARD'S FIGURES CAME FROM — the
+   * owner's `useModelChangedSinceRun()`, passed in already answered.
+   *
+   * Read by the one run-derived factor figure this component draws: the
+   * driver arm of the reduced line ("Driver N of M in this model"), which keeps
+   * its rank and opens with `LAST_RUN_PREFIX` (Paul's Ruling 3, ROADMAP 2.651:
+   * "out-of-date results are labelled, not withheld"). The `Key driver N`
+   * badge #1891 also labelled is retired by the locked design (ED 02:31Z D1a);
+   * its rank now lives on the driver line, which carries the same label.
+   *
+   * ⚠ A PROP, NOT A HOOK HERE, deliberately. `BaseNode` hosts every card on the
+   * canvas and `sensitivityRank` is assigned to FACTORS ONLY
+   * (`useNodeDisplayMetadata`, inside its `nodeType === 'factor'` branch), so
+   * the one card that can carry the figure computes the answer once and its
+   * own driver line and turning point read the same local. Absent means the
+   * owner has no run-derived factor figure to label — never "current".
+   */
+  resultsFromLastRun?: boolean
 }
 
 /**
@@ -213,7 +232,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   /**
    * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
@@ -511,14 +530,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     if (!bodyReduced) return undefined
     if (nodeType === 'factor') {
       // One rank wording on every rung: "Driver N of M in this model", from the
-      // current-only readout (`useInfluenceRank` → null when stale).
-      const sensitivityRank = displayMetadata.sensitivityRank
-      const setSize = displayMetadata.influenceSetSize
-      const driverRank =
-        influenceRank && typeof sensitivityRank === 'number' && typeof setSize === 'number'
-          ? { rank: sensitivityRank, setSize }
-          : null
-      return { influenceRank, driverRank }
+      // SAME rule the card's driver line reads (`driverRankFor`): a current run,
+      // or a known-changed model's last run labelled `Last run · ` (#1891's rule,
+      // Paul's Ruling 3). Never-run / cannot-confirm → null.
+      const driverRank = driverRankFor(
+        influenceRank,
+        displayMetadata.sensitivityRank,
+        displayMetadata.influenceSetSize,
+        resultsFromLastRun,
+      )
+      return { influenceRank, driverRank, influenceFromLastRun: resultsFromLastRun }
     }
     if (nodeType !== 'option') return undefined
     return {
@@ -530,7 +551,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       }),
       optionResultCaption: resultCaption ?? null,
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, resultCaption])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, resultCaption, resultsFromLastRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }

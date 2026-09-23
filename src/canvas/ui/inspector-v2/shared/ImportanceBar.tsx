@@ -15,6 +15,8 @@
 
 import { typography } from '../../../../styles/typography'
 import { INLINE_LABELS } from '../inspectorStrings'
+import { useModelChangedSinceRun } from '../../../hooks/useModelChangedSinceRun'
+import { LAST_RUN_PREFIX } from '../../../nodes/shared/metricVocabulary'
 
 interface ImportanceBarProps {
   /** 0..1 normalised importance score. Null → pre-analysis empty state. */
@@ -62,6 +64,17 @@ function ordinalFor(rank: number): string {
 }
 
 export function ImportanceBar({ importanceScore, sensitivityRank, influenceProvenance }: ImportanceBarProps) {
+  /**
+   * ⭐ A STALE RUN'S ORDINAL AND PERCENTAGE ARE LABELLED, NEVER WITHHELD —
+   * Paul's Ruling 3 (ROADMAP 2.651): "out-of-date results are labelled, not
+   * withheld … No dimming, no aria-disabled lockout." Asked HERE, not at the
+   * four panels, for the same reason the basis gate is: this is the one
+   * renderer all four mount. The label rides on the caption beneath the row
+   * (`Last run · Influence on results`), so the row itself is untouched.
+   *
+   * ⚠ Called before the early return because it is a hook.
+   */
+  const fromLastRun = useModelChangedSinceRun()
   if (importanceScore == null) return null
 
   const pct = Math.max(0, Math.min(1, importanceScore)) * 100
@@ -100,7 +113,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank, influenceProve
         )}
       </div>
       <div className={`${typography.panelMeta} text-text-light mt-1`}>
-        {INLINE_LABELS.influenceOnResults}
+        {fromLastRun ? LAST_RUN_PREFIX : ''}{INLINE_LABELS.influenceOnResults}
       </div>
     </div>
   )

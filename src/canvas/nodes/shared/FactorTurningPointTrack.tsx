@@ -14,12 +14,16 @@
  * Click → the element's existing inspector (spec §9: "driver / turning-point
  * mini visual → existing analysis/impact section").
  *
- * ⛔ The caller shows it only while the analysis is CURRENT (spec §8).
+ * ⛔ The caller shows it while the analysis is CURRENT, or — labelled
+ * `Last run · ` through `fromLastRun` — while the model is KNOWN to have changed
+ * since the run (design integration, 23 Sep 2026: #1891's rule, Paul's Ruling 3;
+ * visual contract v3 "Last run · turning point"). Never-run and cannot-confirm
+ * show nothing.
  */
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
 import { formatFlipValue } from '../../../components/results/utils/flipThresholdDisplay'
-import { TURNING_POINT_COPY } from './metricVocabulary'
+import { LAST_RUN_PREFIX, TURNING_POINT_COPY } from './metricVocabulary'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
 import { turningPointSentence, type FactorTurningPoint } from './nodeAttention'
@@ -36,12 +40,17 @@ export function FactorTurningPointTrack({
   nodeId,
   factorLabel,
   turningPoint,
+  fromLastRun = false,
 }: {
   nodeId: string
   factorLabel: string
   turningPoint: FactorTurningPoint
+  /** The model is KNOWN to have changed since the run (`useModelChangedSinceRun`). */
+  fromLastRun?: boolean
 }) {
-  const explanation = turningPointExplanation(factorLabel, turningPoint)
+  const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
+  const caption = `${lastRun}${TURNING_POINT_COPY.caption}`
+  const explanation = `${lastRun}${turningPointExplanation(factorLabel, turningPoint)}`
   const rises = turningPoint.flipValue > turningPoint.currentValue
   const currentAtPct = rises ? NEAR_PCT : FAR_PCT
   const flipAtPct = rises ? FAR_PCT : NEAR_PCT
@@ -52,7 +61,7 @@ export function FactorTurningPointTrack({
         type="button"
         data-testid="factor-turning-point"
         data-node-tooltip="true"
-        aria-label={`${TURNING_POINT_COPY.caption}. ${explanation}`}
+        aria-label={`${caption}. ${turningPointExplanation(factorLabel, turningPoint)}`}
         className="nodrag nopan mt-1 flex w-full items-center justify-between gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
         onClick={(e) => {
           e.stopPropagation()
@@ -61,7 +70,7 @@ export function FactorTurningPointTrack({
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
-        <span className={`${typography.edgeLabel} min-w-0 text-text-body`}>{TURNING_POINT_COPY.caption}</span>
+        <span className={`${typography.edgeLabel} min-w-0 text-text-body`}>{caption}</span>
         <span className="inline-flex items-center gap-1.5 shrink-0" aria-hidden="true">
           <span className="relative block h-1 w-[54px] rounded-full bg-panel-border">
             <span

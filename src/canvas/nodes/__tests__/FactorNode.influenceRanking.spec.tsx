@@ -378,9 +378,14 @@ describe('no denominator — both views name the quantity, never a rank', () => 
  * pins the restored implication.
  *
  * ⭐ Locked Canvas design (23 Sep 2026), spec §8 / §3 "Hide when analysis is
- * absent or stale": a non-current run now HIDES the whole driver line on both
- * views, rather than falling back to the unranked percentage. The rank is still
- * withheld (asserted), and the CONTROL still proves the gate discriminates.
+ * absent or stale": a run the product cannot vouch for (restored /
+ * cannot-confirm) HIDES the whole driver line on both views, rather than
+ * falling back to the unranked percentage. The rank is still withheld
+ * (asserted), and the CONTROL still proves the gate discriminates.
+ *
+ * ⭐ DESIGN INTEGRATION (23 Sep 2026): a model KNOWN to have changed since the
+ * run is a different state — its line is shown LABELLED `Last run · ` (#1891's
+ * rule, Paul's Ruling 3; ED 02:31Z Q2 keys the label on `changed` only).
  */
 describe('the ranked claim is withheld when the result is not confirmably current', () => {
   it('THE DEFECT THIS ROUND CLOSES: a RESTORED run publishes no denominator', () => {
@@ -406,9 +411,12 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     expect(document.body.textContent).not.toContain('Driver 1')
   })
 
-  it('a local analysis-affecting edit withholds it too', () => {
+  it('a local analysis-affecting edit LABELS it as the last run’s — it does not publish it as current', () => {
     // The dirty overlay over a retained CEE 'fresh' — what an ordinary
     // in-canvas add produces via `invalidateAnalysisReady` (`store.ts:2890`).
+    // ⭐ Design integration (23 Sep 2026): the model is KNOWN to have changed,
+    // so the rank is kept and labelled (#1891's rule, Paul's Ruling 3) — the
+    // countable `of 5` is now a claim about the LAST run, which is true.
     setStore('standard', {
       analysisFreshness: { freshness: 'fresh' },
       analysisFreshnessDirty: true,
@@ -417,8 +425,9 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     renderFactor()
 
     expect(screen.getByTestId('node-title')).toBeTruthy()
-    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
-    expect(document.body.textContent).not.toContain('of 5')
+    expect(captionOf(faceLine())).toBe('Last run · Driver 1 of 5 in this model')
+    // Never the unlabelled current-run caption.
+    expect(captionOf(faceLine())!.startsWith('Driver')).toBe(false)
   })
 
   it('CONTROL: the same rank and the same set size on a current result DO publish', () => {
@@ -442,9 +451,14 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    expect(screen.getByTestId('node-title')).toBeTruthy()
-    expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
-    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
-    expect(document.body.textContent).not.toContain('of 5')
+    // ⭐ Design integration (23 Sep 2026): a CEE-stated 'stale' composes to
+    // 'changed' — the model is KNOWN to have moved — so the Detailed line is
+    // SHOWN and LABELLED as the last run's, rank included (#1891's rule, Paul's
+    // Ruling 3, ROADMAP 2.651: "labelled, not withheld"; visual contract v3).
+    // The two views still cannot disagree: both carry the same label.
+    const line = detailLine()
+    expect(captionOf(line)).toBe('Last run · Driver 1 of 5 in this model')
+    expect(line.getAttribute('aria-label')!.startsWith(captionOf(line)!)).toBe(true)
+    expect(line.textContent).not.toContain('100%')
   })
 })
