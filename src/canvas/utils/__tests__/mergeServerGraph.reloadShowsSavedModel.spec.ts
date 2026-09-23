@@ -5,9 +5,10 @@
  * of CEE's saved model is ACCEPTED, the canvas ends up holding exactly CEE's
  * elements. Canvas nodes CEE lacks, and canvas edges whose endpoint pair CEE
  * lacks (or whose endpoint was removed), are taken off. Layout of what survives
- * is kept exactly. The removal is a model change (analysis out of date, undoable
- * pre-merge snapshot), and the hydration path records a notice naming what was
- * taken off, for one lasting chat line.
+ * is kept exactly. The removal is a model change (analysis out of date) that is
+ * NOT undoable (decision, 23 Sep: no history entry may carry a removed element —
+ * §2), and the hydration path records a notice naming what was taken off, for
+ * one lasting chat line.
  *
  * THE WITNESSED SHAPE (served `fa84d226`, 23 Sep 08:31–08:35Z, two tabs on one
  * scenario): tab A deletes `fac_market_competition` ("Competitive Pressure");

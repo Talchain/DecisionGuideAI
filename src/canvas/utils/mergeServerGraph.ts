@@ -80,24 +80,30 @@
  * finished saving IS taken off at reload. The UI cannot tell that case from
  * "removed in another tab" (nothing records which saved graph the autosave came
  * from), so the line says both are possible and asks the user to add back what
- * they still want; the pre-merge snapshot makes the removal undoable on screen.
+ * they still want.
+ *
+ * ⛔ A REMOVAL IS NOT UNDOABLE (decision, 23 Sep). Undo restores the canvas
+ *   only: an undone element would sit on screen while CEE does not hold it, and
+ *   the reload gate (`hydrate/bootGraphRead.ts`) refuses to register a canvas
+ *   carrying an element CEE lacks — a silent divergence. So a removal pushes no
+ *   snapshot, and NO history entry may carry a removed element afterwards
+ *   (`withoutRemovedElements` below). "Add it back" is the ordinary add path.
  *
  * ⚠ AND BECAUSE THAT OVERWRITE IS REAL, IT IS NOT SILENT. Whenever this merge
- * moves at least one EXISTING value OR TAKES AN ELEMENT OFF it (1) pushes a
- * pre-merge history snapshot, so the revert is undoable rather than
- * unrecoverable — the autosave would otherwise persist the reverted state ~1.5s
- * later and destroy the last copy — and (2) pulses the changed elements on the
- * existing applied-edit surface, so a number cannot move under the user
- * unannounced (a removed element cannot be pulsed; it is named in the chat line
- * instead). Neither fires on a pure addition or a no-op. See the commit block
- * below.
+ * moves at least one EXISTING value it (1) pushes a pre-merge history snapshot,
+ * so the revert is undoable rather than unrecoverable — the autosave would
+ * otherwise persist the reverted state ~1.5s later and destroy the last copy —
+ * and (2) pulses the changed elements on the existing applied-edit surface, so
+ * a number cannot move under the user unannounced. Neither fires on a pure
+ * addition, a pure removal (named in the chat line instead) or a no-op. See the
+ * commit block below.
  *
  * ⚠ AND (3), ON A WIDER PREDICATE THAN (1)/(2) — A3: whenever this merge changes
  * the graph AT ALL, it marks the analysis STALE. Without it the canvas showed
  * the merged graph while the Analysis panel showed the pre-merge result labelled
  * CURRENT, with the 2s pulse as the only signal. (1) and (2) answer "was the
  * user's work destroyed / did a number move under their eyes", which only an
- * OVERWRITE (or, for (1), a removal) does; this answers "does the current
+ * OVERWRITE does; this answers "does the current
  * freshness verdict still describe what is on the canvas", which an ADDITION
  * breaks just as completely.
  * Three questions, two predicates — deliberately. See the commit block below.
@@ -269,6 +275,31 @@ function refused(reason: MergeServerGraphRefusal): MergeServerGraphResult {
  */
 function isUiOnlyNode(n: { type?: unknown } | null | undefined): boolean {
   return typeof n?.type === 'string' && n.type.startsWith('ghost-')
+}
+
+/**
+ * A history entry with every element this read took off stripped out, by
+ * identity: a removed node, an edge touching one (never a dangling edge), and
+ * an edge on a pair the saved model lacks. Edges go by PAIR, never by id — the
+ * same identity the removal used, so an id a removed edge once carried cannot
+ * strip an edge the saved model holds. Returns the entry itself when it carried
+ * none of them.
+ */
+function withoutRemovedElements<T extends { nodes: any[]; edges: any[] }>(
+  entry: T,
+  removedNodeIds: ReadonlySet<string>,
+  removedPairKeys: ReadonlySet<string>,
+): T {
+  const nodes = entry.nodes.filter((n) => !removedNodeIds.has(n?.id))
+  const edges = entry.edges.filter((e) => {
+    if (e == null) return true
+    if (removedNodeIds.has(e.source) || removedNodeIds.has(e.target)) return false
+    const key = canvasEdgePairKey(e)
+    return key === null || !removedPairKeys.has(key)
+  })
+  return nodes.length === entry.nodes.length && edges.length === entry.edges.length
+    ? entry
+    : { ...entry, nodes, edges }
 }
 
 /** What the user is told a removed node was: its label, or its id. */
@@ -690,17 +721,29 @@ export function mergeServerGraphOnHydrate(
   // Additions alone do not qualify — nothing is being overwritten — and a
   // no-op merge already returned above.
   //
-  // ⭐ A REMOVAL QUALIFIES EXACTLY LIKE AN OVERWRITE ("RELOAD SHOWS THE SAVED
-  // MODEL" in the header): it destroys canvas content, and the autosave would
-  // persist the trimmed canvas ~1.5s later. The snapshot keeps it undoable on
-  // screen. (Undo restores the canvas only — it does not put the element back in
-  // the saved model; the chat line asks the user to add it back.)
+  // ⛔ A REMOVAL DOES NOT QUALIFY, AND NO SNAPSHOT MAY CARRY ONE ("A REMOVAL IS
+  // NOT UNDOABLE" in the header). Undo would put the element back on the canvas
+  // only — CEE does not hold it and the reload gate will not register it — so a
+  // removal pushes nothing, and after this merge every history entry is
+  // stripped of what it took off. That includes the snapshot an overwrite in the
+  // SAME read has just pushed (undo still restores the overwritten value, never
+  // the removed element) and any EARLIER entry (in-session draft recovery also
+  // runs this merge). The chat line's "Add it back" is the ordinary add path.
   const overwroteExistingValues = valueChangedNodeIds.length > 0 || valueChangedEdgeIds.length > 0
-  const destroyedCanvasContent = overwroteExistingValues || removedAny
   const modelChanged =
     overwroteExistingValues || addedNodes.length > 0 || addedEdges.length > 0 || removedAny
-  if (destroyedCanvasContent) {
+  if (overwroteExistingValues) {
     useCanvasStore.getState().pushHistory()
+  }
+  if (removedAny) {
+    const removedPairKeys = new Set<string>(
+      pairRemovedEdges.map((e: any) => canvasEdgePairKey(e)).filter((k): k is string => k !== null),
+    )
+    const strip = (entry: any) =>
+      withoutRemovedElements(entry, removedNodeIds, removedPairKeys)
+    useCanvasStore.setState((s: any) => ({
+      history: { past: s.history.past.map(strip), future: s.history.future.map(strip) },
+    }))
   }
 
   // ⚠ PRODUCER WRITE, NOT A USER GESTURE — the suppression is load-bearing.
@@ -787,7 +830,8 @@ export function mergeServerGraphOnHydrate(
   // DIVERGENCE FROM THE TWO GATES EITHER SIDE OF IT IS DELIBERATE — DO NOT
   // "TIDY" THESE INTO ONE. Three different questions share this block:
   //   · pushHistory            — "is the user's work about to be destroyed?"
-  //                              Only an OVERWRITE or a REMOVAL destroys.
+  //                              Only an OVERWRITE qualifies (a removal is
+  //                              deliberately NOT undoable — see the header).
   //   · pulseAppliedTargets    — "did a number move under the user's eyes?"
   //                              Only an OVERWRITE moves one.
   //   · THIS                   — "is the canvas graph now different from the
