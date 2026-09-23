@@ -3291,8 +3291,27 @@ export function useConversation(): UseConversationReturn {
         // state; anything else is an unknown, and calling an unknown a refusal
         // would be the same overclaim in verdict form.
         if (!provenNoWrite) {
-          settle('unconfirmed')
-          notice = 'unconfirmed_server'
+          // An UNTYPED server failure: CEE says a commit may have landed. Ask the
+          // model instead of guessing (#1892/#1884 review: release an unresolved
+          // edit only on an applied receipt, a confirmed revert, or an
+          // authoritative reread). Unreadable keeps the arm's own uncertainty.
+          const settlement = settleNotAppliedRename(
+            intent,
+            await readRenameAuthority(intent.nodeId, capturedScenarioId),
+          )
+          if (settlement.status === 'committed') {
+            settle('committed')
+            return
+          }
+          if (settlement.status === 'refused') {
+            settle('refused')
+            shouldRevert = true
+            revertLabel = settlement.canvasLabel
+            notice = 'not_applied'
+          } else {
+            settle('unconfirmed')
+            notice = 'unconfirmed_server'
+          }
         } else {
           // ⛔ "THE TURN WROTE NOTHING" IS NOT "THE MODEL HOLDS THE OLD NAME".
           // Witnessed on served staging 23 Sep 00:14Z (UI `8f79c9e1`): this
@@ -3315,8 +3334,25 @@ export function useConversation(): UseConversationReturn {
           notice = 'base_hash_diverged'
         }
       } else {
-        settle('unconfirmed')
-        notice = 'unconfirmed_transport'
+        // Transport: nothing is known about the write. The same reread settles
+        // it when the model can be read; otherwise the uncertainty stands.
+        const settlement = settleNotAppliedRename(
+          intent,
+          await readRenameAuthority(intent.nodeId, capturedScenarioId),
+        )
+        if (settlement.status === 'committed') {
+          settle('committed')
+          return
+        }
+        if (settlement.status === 'refused') {
+          settle('refused')
+          shouldRevert = true
+          revertLabel = settlement.canvasLabel
+          notice = 'not_applied'
+        } else {
+          settle('unconfirmed')
+          notice = 'unconfirmed_transport'
+        }
       }
 
       if (shouldRevert) {
