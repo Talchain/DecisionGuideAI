@@ -379,7 +379,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
     }] })
     const { container } = renderOption({})
     expect(screen.getByText('What could go wrong?')).toBeDefined()
-    expect(screen.getByText('Reference: Keep current hiring')).toBeDefined()
+    // D2 (23 Sep 2026): the Standard card keeps its reference as ONE line, cut
+    // to fit a row, with the whole sentence in its `title` (and in the preview).
+    // Still bound by the full string — now where the card carries it.
+    expect(screen.getByTitle('Reference: Keep current hiring').textContent).toMatch(/^Reference: Keep current/)
     // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
     // "9 engineers"), so the chip reads "3 engineers → 9 engineers".
     // ⚠ WAS `expect(differentiatorP).toBeUndefined()` — brief scope 7 dropped
