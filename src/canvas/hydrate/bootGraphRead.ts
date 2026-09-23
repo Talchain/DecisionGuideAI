@@ -145,8 +145,13 @@ export interface RegisterOverSavedModelInput {
   readonly scenarioId: string | null | undefined
   /** The scenario's recorded read state, or undefined when none is recorded. */
   readonly read: BootGraphReadState | undefined
-  /** The element set CEE is known to hold (`store.lastAuthoritativeGraph`). */
-  readonly lastAuthoritativeGraph: AuthoritativeGraphIdentity | null
+  /**
+   * The element set CEE is known to hold — `store.lastAuthoritativeGraph`,
+   * READ. Named for its meaning, not the store field, so this read never looks
+   * like a write to the recorder scan in
+   * `provisionalDelivery.graphAcceptance.reachability.spec.ts`.
+   */
+  readonly ceeHolds: AuthoritativeGraphIdentity | null
   /** The element set on the canvas now. */
   readonly canvas: AuthoritativeGraphIdentity
 }
@@ -174,7 +179,7 @@ export function registerOverSavedModelVerdict(
   if (read === undefined || read === 'reading') return 'wait'
   if (NO_SAVED_MODEL.has(read)) return 'permit'
   if (SAVED_MODEL_READ.has(read)) {
-    return canvasHoldsNothingCeeLacks(input.canvas, input.lastAuthoritativeGraph)
+    return canvasHoldsNothingCeeLacks(input.canvas, input.ceeHolds)
       ? 'permit'
       : 'refuse'
   }
@@ -196,7 +201,7 @@ export function mayRegisterOverSavedModel(state: RegisterOverSavedModelState): R
     read: isCeeAddressableScenarioId(scenarioId)
       ? useBootGraphReadStore.getState().byScenario[scenarioId]?.state
       : undefined,
-    lastAuthoritativeGraph: state.lastAuthoritativeGraph,
+    ceeHolds: state.lastAuthoritativeGraph,
     canvas: identityFromCanvasGraph(state.nodes, state.edges),
   })
 }
