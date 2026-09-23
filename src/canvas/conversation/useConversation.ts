@@ -59,9 +59,12 @@ import {
   type StructuralDeleteNoticeKey,
 } from '../mutations/structuralDelete'
 import {
+  readRenameReadback,
   readStructuralRenameReceipt,
   revertStructuralRename,
+  settleNotAppliedRename,
   STRUCTURAL_RENAME_NOTICE,
+  type StructuralRenameReadback,
   type StructuralRenameIntent,
   type StructuralRenameNoticeKey,
 } from '../mutations/structuralRename'
@@ -145,6 +148,7 @@ import {
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
+import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import {
@@ -3173,6 +3177,31 @@ export function useConversation(): UseConversationReturn {
   )
 
   /**
+   * The authoritative readback a `not_applied` rename is settled against —
+   * CEE's persisted graph, through the same guest-reachable read hydration and
+   * `recoverDraftFromServer` use. Never throws: any failure is `unreadable`,
+   * which keeps the user's name and says it could not be confirmed.
+   */
+  const readRenameAuthority = useCallback(
+    async (nodeId: string, scenarioId: string | null): Promise<StructuralRenameReadback> => {
+      if (!scenarioId) return { kind: 'unreadable' }
+      try {
+        const identity = await getSessionIdentity()
+        const result = await fetchScenarioGraph(scenarioId, {
+          userId: identity.userId,
+          accessToken: identity.accessToken,
+        })
+        return result.status === 'graph'
+          ? readRenameReadback(nodeId, result.graph)
+          : { kind: 'unreadable' }
+      } catch {
+        return { kind: 'unreadable' }
+      }
+    },
+    [],
+  )
+
+  /**
    * schemas 0.50.0 — resolve a `structural_rename` against what the SERVER did.
    *
    * ⭐⭐ THE ONE THING THAT MAKES THIS DIFFERENT FROM ITS DELETE TWIN, and the
@@ -3213,7 +3242,7 @@ export function useConversation(): UseConversationReturn {
    * UNKNOWN and takes the cannot-confirm line, never a promise we cannot keep.
    */
   const resolveStructuralRename = useCallback(
-    (
+    async (
       intent: StructuralRenameIntent,
       capturedScenarioId: string | null,
       outcome:
@@ -3221,9 +3250,11 @@ export function useConversation(): UseConversationReturn {
         | { kind: 'typed_error'; conflictCategory: string | undefined }
         | { kind: 'transport' },
     ) => {
-      const store = useCanvasStore.getState()
       let notice: StructuralRenameNoticeKey | null = null
       let shouldRevert = false
+      // The label the canvas is put back to. The captured previous name, unless
+      // the readback says the model holds another one.
+      let revertLabel = intent.restore.label
 
       // ⭐ SETTLE THE LIFECYCLE RECORD ON EVERY ARM, INCLUDING THE EARLY
       // RETURNS — review P1. The record is the attempt/completion authority that
@@ -3242,17 +3273,48 @@ export function useConversation(): UseConversationReturn {
           settle('committed')
           return
         }
-        if (receipt === 'refuted') {
+        // `not_applied` (a 200 with no `draft_graph`) is how CEE answers a
+        // rename it did not apply — see the receipt type. ⛔ IT IS NOT, ON ITS
+        // OWN, A REFUSAL OF THE NAME (#1884 review): the register side channel
+        // can already have stored the new label, and then CEE says
+        // `expected_label_mismatch` about a rename that IS saved. So the model
+        // is READ BACK and the canvas settles to what it holds. The read is
+        // awaited HERE, inside the send the drain is awaiting, because a verdict
+        // is terminal (`settleStructuralRename` never rewrites one) and the
+        // drain writes `unconfirmed` the moment that await returns.
+        if (receipt === 'not_applied') {
+          const settlement = settleNotAppliedRename(
+            intent,
+            await readRenameAuthority(intent.nodeId, capturedScenarioId),
+          )
+          if (settlement.status === 'committed') {
+            settle('committed')
+            return
+          }
+          if (settlement.status === 'unconfirmed') {
+            settle('unconfirmed')
+            notice = 'unconfirmed_server'
+          } else {
+            settle('refused')
+            shouldRevert = true
+            revertLabel = settlement.canvasLabel
+            const spoke =
+              typeof outcome.response.assistant_text === 'string' &&
+              outcome.response.assistant_text.trim().length > 0
+            notice = spoke ? null : 'not_applied'
+          }
+        } else if (receipt === 'refuted') {
           settle('refused')
           shouldRevert = true
-          // WITHHELD WHENEVER CEE ALREADY SPOKE — and on this arm it almost
-          // always has, with a better sentence than ours (it names the label).
+          // WITHHELD WHENEVER CEE ALREADY SPOKE — its refusal sentence is the
+          // notice, and a second voice would only be the vaguer one.
           const spoke =
             typeof outcome.response.assistant_text === 'string' &&
             outcome.response.assistant_text.trim().length > 0
-          notice = spoke ? null : 'unconfirmed_server'
+          notice = spoke ? null : 'not_applied'
         } else {
-          // `unproven`. We hold no bytes about this node. Keep the name.
+          // `unproven`, or `not_applied` on a node we hold no server record
+          // for. We cannot say what the model holds. Keep the name.
           settle('unconfirmed')
           notice = 'unconfirmed_server'
         }
@@ -3261,17 +3323,79 @@ export function useConversation(): UseConversationReturn {
         // A category the PRODUCER guarantees wrote nothing is a refusal we can
         // state; anything else is an unknown, and calling an unknown a refusal
         // would be the same overclaim in verdict form.
-        settle(provenNoWrite ? 'refused' : 'unconfirmed')
-        shouldRevert = provenNoWrite
-        notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+        if (!provenNoWrite) {
+          // An UNTYPED server failure: CEE says a commit may have landed. Ask the
+          // model instead of guessing (#1892/#1884 review: release an unresolved
+          // edit only on an applied receipt, a confirmed revert, or an
+          // authoritative reread). Unreadable keeps the arm's own uncertainty.
+          const settlement = settleNotAppliedRename(
+            intent,
+            await readRenameAuthority(intent.nodeId, capturedScenarioId),
+          )
+          if (settlement.status === 'committed') {
+            settle('committed')
+            return
+          }
+          if (settlement.status === 'refused') {
+            settle('refused')
+            shouldRevert = true
+            revertLabel = settlement.canvasLabel
+            notice = 'not_applied'
+          } else {
+            settle('unconfirmed')
+            notice = 'unconfirmed_server'
+          }
+        } else {
+          // ⛔ "THE TURN WROTE NOTHING" IS NOT "THE MODEL HOLDS THE OLD NAME".
+          // Witnessed on served staging 23 Sep 00:14Z (UI `8f79c9e1`): this
+          // arm's 409 arrived while a `graph/register` 1 ms later stored the
+          // new label; the canvas reverted, and reload then showed the refused
+          // name as the model's. The same readback as `not_applied` settles
+          // it. Unreadable keeps this arm's own evidence (the producer's
+          // no-write guarantee for the TURN): revert, as before.
+          const settlement = settleNotAppliedRename(
+            intent,
+            await readRenameAuthority(intent.nodeId, capturedScenarioId),
+          )
+          if (settlement.status === 'committed') {
+            settle('committed')
+            return
+          }
+          settle('refused')
+          shouldRevert = true
+          if (settlement.status === 'refused') revertLabel = settlement.canvasLabel
+          notice = 'base_hash_diverged'
+        }
       } else {
-        settle('unconfirmed')
-        notice = 'unconfirmed_transport'
+        // Transport: nothing is known about the write. The same reread settles
+        // it when the model can be read; otherwise the uncertainty stands.
+        const settlement = settleNotAppliedRename(
+          intent,
+          await readRenameAuthority(intent.nodeId, capturedScenarioId),
+        )
+        if (settlement.status === 'committed') {
+          settle('committed')
+          return
+        }
+        if (settlement.status === 'refused') {
+          settle('refused')
+          shouldRevert = true
+          revertLabel = settlement.canvasLabel
+          notice = 'not_applied'
+        } else {
+          settle('unconfirmed')
+          notice = 'unconfirmed_transport'
+        }
       }
 
       if (shouldRevert) {
+        // Read the store NOW, not before the readback's await: the canvas the
+        // revert guards against is the one on screen after it.
+        const store = useCanvasStore.getState()
         const revertOutcome = revertStructuralRename(
-          intent,
+          revertLabel === intent.restore.label
+            ? intent
+            : { ...intent, restore: { ...intent.restore, label: revertLabel } },
           {
             nodes: store.nodes,
             currentScenarioId: store.currentScenarioId,
@@ -3296,7 +3420,7 @@ export function useConversation(): UseConversationReturn {
         })
       }
     },
-    [addMessage],
+    [addMessage, readRenameAuthority],
   )
 
   /**
@@ -4756,7 +4880,7 @@ export function useConversation(): UseConversationReturn {
           systemEvent?.type === 'structural_rename' &&
           activeV5TurnIdRef.current === turnClientId
         ) {
-          resolveStructuralRename(
+          await resolveStructuralRename(
             structuralRename,
             // Captured at DISPATCH, not read now — a scenario switch mid-turn
             // must stand the revert down rather than write this label into a
@@ -5888,7 +6012,9 @@ export function useConversation(): UseConversationReturn {
           // unfounded as keeping it) and the user is told it is unconfirmed
           // rather than left to discover it on the next reload.
           if (opts.structuralRename && systemEvent?.type === 'structural_rename') {
-            resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
+            // AWAITED: the resolver now reads the model back, and a verdict is
+            // terminal — it must land before the drain's own settle does.
+            await resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
               kind: 'transport',
             })
           }
