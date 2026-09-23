@@ -32,7 +32,7 @@
  * guard whose discrimination is unpinned agrees with itself).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
 import { RiskNode } from '../RiskNode'
@@ -75,6 +75,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
 type Phase = 'pre' | 'post'
 
@@ -138,8 +139,32 @@ const renderAction = () => render(
   </ReactFlowProvider>
 )
 
+/**
+ * Locked Canvas design (23 Sep 2026): ED 11:52Z point 5 — "move the repeated
+ * coaching prompts behind the one coaching affordance". The card's question no
+ * longer rides the face as a chip; it is the rail's coaching icon, which sits in
+ * the RESTING group of the rail (`node-card-rail-resting-<id>`), NOT in the
+ * hover-only quick-action row — so "asked without a hover" still holds, and is
+ * asserted by that identity. The icon asks the FIRST chip of the card's
+ * resolution (`resolveNodeCoaching`, surface 'card'), bound here by chip id.
+ */
+const expectRestingQuestion = (nodeId: string, label: string, chipId: string) => {
+  // Absent as a face CHIP (no visible text on the card)…
+  expect(screen.queryByText(label)).toBeNull()
+  // …present, at rest, as the card's ONE coaching icon.
+  const resting = screen.getByTestId(`node-card-rail-resting-${nodeId}`)
+  const icon = within(resting).getByTestId(`node-coaching-icon-${nodeId}`)
+  expect(icon).toHaveAccessibleName(label)
+  expect(icon).toHaveAttribute('data-coaching-chip-id', chipId)
+  // Not inside the hover-only quick-action row.
+  expect(within(screen.getByTestId(`node-quick-actions-${nodeId}`)).queryByTestId(`node-coaching-icon-${nodeId}`)).toBeNull()
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  // The coaching icon renders only when an ask surface is registered
+  // (`canReceiveAsk`), as it is in the product.
+  useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
     sensitivityRank: null, influence: null, confidence: null,
     inSensitivityAnalysis: false, achievementProbability: null,
@@ -153,8 +178,8 @@ describe('Resting state — the card asks its question without a hover', () => {
     (phase) => {
       applyStore(phase)
       renderRisk()
-      // Promoted to the card face.
-      expect(screen.getByText('What would we see first?')).toBeDefined()
+      // Promoted to the card — now as its resting coaching icon (see above).
+      expectRestingQuestion('risk-1', 'What would we see first?', 'risk_leading_indicator')
       // ⭐ DISCRIMINATOR — these are popover-only, and the popover is closed.
       // If this ever passes, the file has stopped telling card from hover.
       expect(screen.queryByText('What reduces this?')).toBeNull()
@@ -167,7 +192,8 @@ describe('Resting state — the card asks its question without a hover', () => {
     (phase) => {
       applyStore(phase)
       renderOutcome()
-      expect(screen.getByText('What would falsify this?')).toBeDefined()
+      // Locked Canvas design (23 Sep 2026): asked by the resting icon, both phases.
+      expectRestingQuestion('outcome-1', 'What would falsify this?', 'outcome_what_would_falsify')
       // DISCRIMINATOR — popover-only in Standard view.
       expect(screen.queryByText('Explore consequences')).toBeNull()
     },
@@ -199,7 +225,9 @@ describe('Resting state — the card asks its question without a hover', () => {
     (phase) => {
       applyStore(phase)
       renderGoal()
-      expect(screen.getByText('Is this the real goal?')).toBeDefined()
+      // Locked Canvas design (23 Sep 2026): asked by the resting icon, still with
+      // NO target set (the gate this case pins stays open).
+      expectRestingQuestion('goal-1', 'Is this the real goal?', 'goal_is_this_the_real_goal')
       // DISCRIMINATOR — the target-interrogating chips stay behind the hover
       // AND behind `hasThreshold`, so they must be absent on this fixture.
       expect(screen.queryByText('Is my target realistic?')).toBeNull()

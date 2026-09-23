@@ -4,7 +4,6 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
 import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 import { countOptionsReaching, optionsReachingLine } from '../domain/optionsReaching'
@@ -17,7 +16,7 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisIn
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
-import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
+import { LinkStrengthRow, linkStrengthLodLine } from './shared/LinkStrengthRow'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -153,11 +152,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
    */
   const lodMetric = useMemo(() => {
     if (!bridgeEdgeData) return null
-    const pct = bridgeEdgeData.bridgeStrengthPct
-    if (pct != null) return `${METRIC_NOUN.strength} ${pct}%`
-    // The connection exists and nobody has said how strong it is. Saying so is
-    // the same true thing the full card says, in the width one line allows.
-    return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
+    // One wording on every rung — the row's own (`LinkStrengthRow`).
+    return linkStrengthLodLine(bridgeEdgeData)
   }, [bridgeEdgeData])
 
   /**
@@ -288,12 +284,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
   )
   const outcomeCoachingState = useMemo(() => ({ isPostAnalysis }), [isPostAnalysis])
 
-  const outcomeFaceChip = useMemo(() => (
-    <CoachingChipRow
-      className="flex gap-1 flex-wrap mt-1.5"
-      chips={resolveNodeCoaching({ kind: 'outcome', surface: 'card', state: outcomeCoachingState, context: outcomeCoachingContext })}
-    />
-  ), [outcomeCoachingState, outcomeCoachingContext])
+  const outcomeFaceCoaching = useMemo(
+    () => resolveNodeCoaching({ kind: 'outcome', surface: 'card', state: outcomeCoachingState, context: outcomeCoachingContext }),
+    [outcomeCoachingState, outcomeCoachingContext],
+  )
 
   const outcomePopoverChips = useMemo(() => (
     <CoachingChipRow
@@ -385,7 +379,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
         nodeType="outcome"
         lodMetric={lodMetric}
         icon={metadata.icon}
-        headerSlot={scienceIcons.length > 0 ? (
+        coaching={outcomeFaceCoaching}
+        headerSlot={isDetailed && scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
@@ -483,24 +478,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
              `title` and the screen-reader phrase, stated as an assumption.
              `NodeMetricRow` requires BOTH carriers: a `title` is unreachable by
              keyboard on a non-focusable row and absent on touch. */
-          bridgeEdgeData.strengthIsSettled ? (
-            <NodeMetricRow
-              label={METRIC_NOUN.strength}
-              value={bridgeEdgeData.bridgeStrengthPct / 100}
-              formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
-              fillClass="bg-success"
-              testId="outcome-strength-row"
-            />
-          ) : (
-            <NodeMetricRow
-              label={METRIC_NOUN.strength}
-              value={null}
-              unsetText={METRIC_UNSET.standalone}
-              testId="outcome-strength-row"
-              title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
-              phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
-            />
-          )
+          <LinkStrengthRow bridge={bridgeEdgeData} fillClass="bg-success" testId="outcome-strength-row" />
         )}
 
         {/* ⭐ "3 options move this" — the card's own scoped quantity, on the
@@ -524,7 +502,9 @@ export const OutcomeNode = memo((props: NodeProps) => {
         {/* The falsification question rides the CARD in Standard view, in both
             phases. The remaining chips stay in the popover; Detailed renders
             the full set inline below. See `outcomeFaceChip`. */}
-        {!isDetailed && outcomeFaceChip}
+        {/* ⛔ NO COACHING CHIP ON THE FACE (ED 11:52Z point 5: "move the repeated
+            coaching prompts behind the one coaching affordance"). The card's
+            question is the rail's coaching icon (`coaching` on BaseNode). */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4 OutcomePostDet —

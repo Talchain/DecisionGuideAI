@@ -55,7 +55,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
-import { METRIC_UNSET } from '../shared/metricVocabulary'
+import { METRIC_UNSET, LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -172,7 +172,10 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
       </ReactFlowProvider>,
     )
     // A weighted edge, no recorded magnitude: the score is the only thing to say.
-    expect(lodLine()).toContain('Strength')
+    // Locked Canvas design (23 Sep 2026): on-node strength is the LINK's
+    // strength (ED 11:52Z "call it link strength"), and an unconfirmed producer
+    // value reads as Olumi's estimate (MT-15b) — was `Strength not set yet`.
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
   })
 
   /**
@@ -204,7 +207,9 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
     expect(lodLine()).toBe('4 months')
     // The discriminating half: it is not merely PRESENT, the score is ABSENT.
     // Without this the assertion would pass on any line that mentioned months.
-    expect(lodLine()).not.toContain('Strength')
+    // Locked Canvas design (23 Sep 2026): the noun is now `Link strength`
+    // (ED 11:52Z) — a bare 'Strength' probe would no longer match it.
+    expect(lodLine()).not.toContain(LINK_STRENGTH_COPY.noun)
     expect(lodLine()).not.toContain('40%')
   })
 
@@ -218,7 +223,8 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
       </ReactFlowProvider>,
     )
     expect(lodLine()).toBe('4 months')
-    expect(lodLine()).not.toContain('Strength')
+    // Locked Canvas design (23 Sep 2026): probe the noun the line now uses (ED 11:52Z).
+    expect(lodLine()).not.toContain(LINK_STRENGTH_COPY.noun)
   })
 
   it('an UNWEIGHTED edge does not claim "not set yet" over a value that is set', () => {
@@ -257,6 +263,8 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
         <RiskNode {...(baseProps as unknown as NodeProps)} id="risk-4" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    expect(lodLine()).toContain('Strength')
+    // Locked Canvas design (23 Sep 2026): a human-settled strength reads
+    // `Link strength N%` (ED 11:52Z "call it link strength") — was `Strength 40%`.
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} 40%`)
   })
 })

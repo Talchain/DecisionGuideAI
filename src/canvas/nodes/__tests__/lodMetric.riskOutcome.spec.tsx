@@ -37,7 +37,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
 import { OutcomeNode } from '../OutcomeNode'
-import { METRIC_UNSET } from '../shared/metricVocabulary'
+import { LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -166,8 +166,14 @@ describe('the deployed defect: risk and outcome cards went blank when zoomed out
      * written to record is untouched and still exactly right (a risk card's ONE
      * reliable datum is its bridge edge, not `probability` × `impact`); the line
      * still speaks, which is this file's whole point.
+     *
+     * Locked Canvas design (23 Sep 2026): ED 11:52Z names on-node strength
+     * "Link strength"; MT-15b — a producer value nobody settled reads "Olumi’s
+     * estimate" (whose guess it is), not "not set yet" beside an edge that shows
+     * a value. The line still speaks and still carries no figure.
      */
-    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
+    expect(lodLine()).not.toMatch(/\d+%/)
   })
 
   it('an outcome does the same, from the same seam', () => {
@@ -184,7 +190,9 @@ describe('the deployed defect: risk and outcome cards went blank when zoomed out
         />
       </ReactFlowProvider>,
     )
-    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" + MT-15b wording.
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
+    expect(lodLine()).not.toMatch(/\d+%/)
   })
 })
 
@@ -214,7 +222,9 @@ describe('⛔ the figure appears only where somebody stated it', () => {
         <RiskNode {...(baseProps as any)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" + MT-15b —
+    // the unsettled CEE arm names Olumi's estimate, still with no figure.
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
     expect(lodLine()).not.toContain('50%')
   })
 
@@ -227,7 +237,8 @@ describe('⛔ the figure appears only where somebody stated it', () => {
         <RiskNode {...(baseProps as any)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    expect(lodLine()).toBe('Strength 50%')
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" noun.
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} 50%`)
   })
 })
 
