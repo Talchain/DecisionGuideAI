@@ -52,6 +52,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { IconBtn } from '../components/pre-analysis/primitives/IconBtn'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
@@ -1273,7 +1274,7 @@ export function ModelRowView({
               ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
             }`}
           >
-            <Mark className="w-3.5 h-3.5" aria-hidden="true" />
+            <Mark className={icon('row')} aria-hidden="true" />
           </span>
         )
       })}

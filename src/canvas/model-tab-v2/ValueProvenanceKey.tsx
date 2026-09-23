@@ -25,6 +25,7 @@ import { Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 
 /**
  * The questions a reader asks, and which kinds answer each. TOTAL over the
@@ -80,7 +81,7 @@ export function ValueProvenanceKey() {
         onClick={() => setOpen(o => !o)}
         className="inline-flex items-center justify-center p-1 rounded text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
       >
-        <Info className="w-3.5 h-3.5" aria-hidden="true" />
+        <Info className={icon('row')} aria-hidden="true" />
       </button>
 
       {open && (
@@ -99,7 +100,7 @@ export function ValueProvenanceKey() {
                 return (
                   <div key={kind} className="flex items-center gap-2" data-provenance-kind={kind}>
                     <span className="w-4 flex items-center justify-center text-text-light">
-                      <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                      <Icon className={icon('row')} aria-hidden="true" />
                     </span>
                     <span className={`${typography.panelMeta} text-text-body`}>
                       {VALUE_PROVENANCE_LABEL[kind]}

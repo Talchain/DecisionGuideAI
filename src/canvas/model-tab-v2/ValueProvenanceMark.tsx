@@ -32,6 +32,7 @@
  */
 import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 
 export interface ValueProvenanceMarkProps {
   /** The row's `observed_state.source` literal, straight off the model. */
@@ -70,7 +71,7 @@ export function ValueProvenanceMark({ source, rowId }: ValueProvenanceMarkProps)
       title={label}
       className="inline-flex shrink-0 items-center text-text-light"
     >
-      <Icon aria-hidden="true" className="w-3.5 h-3.5" />
+      <Icon aria-hidden="true" className={icon('row')} />
     </span>
   )
 }
