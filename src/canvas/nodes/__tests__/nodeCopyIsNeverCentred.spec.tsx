@@ -137,6 +137,14 @@ import { GhostOptionNode } from '../GhostOptionNode'
 import { DecisionNode } from '../DecisionNode'
 import { BaseNode } from '../BaseNode'
 import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
+import { useCanvasStore } from '../../store'
+
+/** Route the mocked store through a state with the given overrides. */
+const useStoreState = (overrides: Record<string, unknown> = {}) => {
+  vi.mocked(useCanvasStore).mockImplementation(
+    ((selector: (s: unknown) => unknown) => selector(makeStoreState(overrides))) as never,
+  )
+}
 
 // ---------------------------------------------------------------------------
 // The walker
@@ -278,21 +286,39 @@ describe('the walker can see a centring it is pointed at (positive control)', ()
 })
 
 describe('the five walked components render no centred copy (see header: 9 of 14 unwalked)', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useStoreState()
+  })
 
-  it('RiskNode — the severity badge is body copy in the always-visible Standard view', () => {
-    const container = mount(
-      <RiskNode {...nodeProps({
-        type: 'risk',
-        data: { type: 'risk', label: 'Key engineer leaves', probability: 0.9, impact: 'high' },
-      })} />,
-    )
-    // Pin the precondition IN-TEST (trap 13b): assert the badge this case is
-    // about actually rendered, so a fixture that stopped producing a severity
-    // cannot pass this by rendering nothing.
-    expect(container.textContent).toContain('High Risk')
-    const found = centredCopy(container)
-    expect(found, `RiskNode centres copy:\n${report(found)}`).toEqual([])
+  /**
+   * Locked Canvas design (23 Sep 2026): the derived severity badge ("High Risk")
+   * is Detailed-only now (ED 11:52Z — the resting Risk face keeps the entered
+   * exposure line, the badge is Detailed information). So the badge is walked
+   * WHERE IT NOW RENDERS, and the Standard face is still walked in full — the
+   * rule is "never centred", in every view the card has.
+   */
+  it('RiskNode — the severity badge is body copy in the Detailed view; the Standard face is walked too', () => {
+    const riskProps = nodeProps({
+      type: 'risk',
+      data: { type: 'risk', label: 'Key engineer leaves', probability: 0.9, impact: 'high' },
+    })
+    // Standard: the card rendered (positive control), the badge is not on the
+    // resting face, and nothing there is centred.
+    const standard = mount(<RiskNode {...riskProps} />)
+    expect(standard.textContent).toContain('Key engineer leaves')
+    expect(standard.textContent).not.toContain('High Risk')
+    const foundStandard = centredCopy(standard)
+    expect(foundStandard, `RiskNode (Standard) centres copy:\n${report(foundStandard)}`).toEqual([])
+
+    // Detailed: pin the precondition IN-TEST (trap 13b): assert the badge this
+    // case is about actually rendered, so a fixture that stopped producing a
+    // severity cannot pass this by rendering nothing.
+    useStoreState({ viewMode: 'expert' })
+    const detailed = mount(<RiskNode {...riskProps} />)
+    expect(detailed.textContent).toContain('High Risk')
+    const found = centredCopy(detailed)
+    expect(found, `RiskNode (Detailed) centres copy:\n${report(found)}`).toEqual([])
   })
 
   it('GhostTierNode — the door label is a whole sentence', () => {
@@ -356,15 +382,20 @@ describe('the five walked components render no centred copy (see header: 9 of 14
      *
      * Asserted in three parts so a re-added exemption REDs here, rather than
      * silently restoring the skip.
+     *
+     * ⭐ Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: "RETIRE the
+     * Key-driver badge once the body driver line is present". The badge is gone
+     * from the chrome — the rank is stated once, by the factor card's driver
+     * line ("Driver N of M in this model", `FactorDriverLine`, left-aligned
+     * `text-left` copy) — so this arm now pins that the retired badge does NOT
+     * come back (neither the word, nor a bare `#2`, nor its test id), even with
+     * a rank in the metadata (`sensitivityRank: 2` in this file's mock). The
+     * walker's verdict below still covers everything the chrome renders.
      */
-    expect(container.textContent).toContain(sensitivityRankBadgeLabel(2))
+    expect(container.textContent, 'the retired Key-driver badge is back').not.toContain(sensitivityRankBadgeLabel(2))
+    expect(container.textContent).not.toContain('Key driver')
     expect(container.textContent, 'the badge is back to a bare numeral').not.toContain('#2')
-    const rankBadge = container.querySelector('[data-testid^="sensitivity-rank-"]')!
-    expect(rankBadge, 'the rank badge did not mount — this arm proves nothing').not.toBeNull()
-    expect(
-      isDeclaredGlyph(rankBadge, container),
-      'the rank badge carries copy AND a glyph exemption again',
-    ).toBe(false)
+    expect(container.querySelector('[data-testid^="sensitivity-rank-"]')).toBeNull()
     const found = centredCopy(container)
     expect(found, `BaseNode centres copy:\n${report(found)}`).toEqual([])
   })

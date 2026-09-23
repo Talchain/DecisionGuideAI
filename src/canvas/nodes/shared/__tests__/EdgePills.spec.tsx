@@ -8,6 +8,16 @@
  * source stamp means. The unstamped case is no longer "the same but quieter" —
  * it is a different, disclosed state, covered in its own describe block at the
  * bottom of this file.
+ *
+ * Locked Canvas design (23 Sep 2026): MT-19 + ED 11:52Z ("call it link
+ * strength"). The pills are Detailed-only now (FactorNode gates the mount), and
+ * where they render they SAY WHAT THEY ARE: a VISIBLE verb ("Raises"/"Lowers",
+ * `edge-pill-verb-<id>`), NEUTRAL arrows (no success/danger ink — direction is a
+ * fact about the link, not a verdict), and "Link strength" named — "· Link
+ * strength N%" only when a human settled it (`strengthIsHumanSettled`), "· Link
+ * strength est." for a producer value (the number moves to the title), "· Link
+ * strength not set" when nothing set it. A `cee` stamp is therefore an ESTIMATE
+ * here, and a `user` stamp is the settled arm.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -26,30 +36,60 @@ import { useCanvasStore } from '../../../store'
 const mockStore = (state: AnyState) =>
   vi.mocked(useCanvasStore).mockImplementation((sel) => sel(state as never))
 
+/** What a sighted reader sees: the element's text without its sr-only copies. */
+const visibleText = (el: Element): string => {
+  const c = el.cloneNode(true) as HTMLElement
+  c.querySelectorAll('.sr-only').forEach(n => n.remove())
+  return c.textContent ?? ''
+}
+
 describe('EdgePills', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('renders direction + percentage + the verbatim target label (decode path)', () => {
+  // Locked Canvas design (23 Sep 2026), MT-19: an Olumi-estimated (cee) strength
+  // no longer prints a bare "45%" — it reads "· Link strength est." with the
+  // figure in the title, and the arrow is NEUTRAL ink (a raised risk is not good
+  // news). The decode path — verb + verbatim target label — is what this pins.
+  it('renders direction + the named strength + the verbatim target label (decode path)', () => {
     mockStore(makeState({
       edges: [{ id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.45, direction: 'positive', weightSource: 'cee' } }],
       nodes: [{ id: 'o1', type: 'outcome', data: { label: 'Market position' } }],
     }))
     const { container } = render(<EdgePills nodeId="f1" />)
     expect(screen.getByText('Market position')).toBeDefined()
-    expect(container.textContent).toContain('45%')
-    // Positive → "raises" → success-coloured arrow.
-    expect(container.querySelector('.text-success')).toBeTruthy()
+    expect(screen.getByTestId('edge-pill-verb-e1').textContent).toBe('Raises')
+    const est = screen.getByTestId('edge-pill-strength-estimate-e1')
+    expect(visibleText(est)).toBe('· Link strength est.')
+    // The figure is moved, not deleted: it is in the estimate's own title, beside
+    // the words saying it is Olumi's and not yet confirmed — AND in an sr-only
+    // copy, because a `title` is unreachable by keyboard and absent on touch.
+    expect(est.getAttribute('title')).toBe('Link strength · Olumi’s estimate: 45%, not yet confirmed')
+    expect(est.querySelector('.sr-only')!.textContent).toBe(' (Olumi’s estimate: 45%, not yet confirmed)')
+    // …and never printed bare on the VISIBLE pill.
+    expect(visibleText(container)).not.toContain('45%')
+    // Positive → the up arrow, in NEUTRAL ink — no success colour anywhere.
+    const arrow = container.querySelector('svg.lucide-arrow-up')
+    expect(arrow, 'the direction arrow did not render').not.toBeNull()
+    expect(arrow!.getAttribute('class')).toContain('text-text-light')
+    expect(container.querySelector('.text-success')).toBeNull()
   })
 
-  it('uses a danger (lowers) arrow for negative edges', () => {
+  it('uses a NEUTRAL down arrow and the visible verb "Lowers" for negative edges', () => {
     mockStore(makeState({
       edges: [{ id: 'e1', source: 'f1', target: 'r1', data: { weight: 0.65, direction: 'negative', weightSource: 'cee' } }],
       nodes: [{ id: 'r1', type: 'risk', data: { label: 'Burn rate' } }],
     }))
     const { container } = render(<EdgePills nodeId="f1" />)
     expect(screen.getByText('Burn rate')).toBeDefined()
-    expect(container.textContent).toContain('65%')
-    expect(container.querySelector('.text-danger')).toBeTruthy()
+    expect(screen.getByTestId('edge-pill-verb-e1').textContent).toBe('Lowers')
+    expect(screen.getByTestId('edge-pill-strength-estimate-e1').getAttribute('title')).toContain('65%')
+    // Discriminating twin of the case above: the DOWN glyph, not the up one…
+    const arrow = container.querySelector('svg.lucide-arrow-down')
+    expect(arrow, 'the direction arrow did not render').not.toBeNull()
+    expect(container.querySelector('svg.lucide-arrow-up')).toBeNull()
+    // …in neutral ink: no danger colour on a direction.
+    expect(arrow!.getAttribute('class')).toContain('text-text-light')
+    expect(container.querySelector('.text-danger')).toBeNull()
   })
 
   it('omits the pill (no bare value, no throw) when the target label is absent', () => {
@@ -95,10 +135,11 @@ describe('EdgePills', () => {
     expect(screen.getByText(longLabel)).toBeDefined()
   })
 
-  // A11y: the arrow glyph is aria-hidden, so direction is exposed to screen
-  // readers via visually-hidden approved "Raises"/"Lowers" text. Visible UI
-  // is unchanged (the text is sr-only / out of flow).
-  it('exposes direction to screen readers as "Raises"/"Lowers"', () => {
+  // A11y: the arrow glyph is aria-hidden, so direction is carried by the approved
+  // "Raises"/"Lowers" words. Locked Canvas design (23 Sep 2026), MT-19: the verb
+  // is now VISIBLE text (it was sr-only), so sighted and screen-reader users read
+  // the same word — it is still in the accessible text, and no longer hidden.
+  it('exposes direction as the visible words "Raises"/"Lowers" (not sr-only)', () => {
     mockStore(makeState({
       edges: [
         { id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.45, direction: 'positive', weightSource: 'cee' } },
@@ -110,28 +151,66 @@ describe('EdgePills', () => {
       ],
     }))
     const { container } = render(<EdgePills nodeId="f1" />)
+    // Bound by identity: each verb belongs to ITS edge, so a swapped sign fails.
+    expect(screen.getByTestId('edge-pill-verb-e1').textContent).toBe('Raises')
+    expect(screen.getByTestId('edge-pill-verb-e2').textContent).toBe('Lowers')
     expect(screen.getByText('Raises')).toBeDefined()
     expect(screen.getByText('Lowers')).toBeDefined()
-    // Visually hidden (sr-only) — present for assistive tech, out of visible flow.
-    expect(container.querySelector('.sr-only')).toBeTruthy()
+    // Visible now — no visually-hidden copy of the VERB remains (the only
+    // sr-only text on these pills is the estimate's figure, not the verb).
+    container.querySelectorAll('.sr-only').forEach(n => {
+      expect(n.textContent).not.toMatch(/Raises|Lowers/)
+    })
+    expect(screen.getByTestId('edge-pill-verb-e1').classList.contains('sr-only')).toBe(false)
+    // The glyphs stay decorative; the words are the accessible channel.
+    container.querySelectorAll('svg.lucide-arrow-up, svg.lucide-arrow-down').forEach(svg => {
+      expect(svg.getAttribute('aria-hidden')).toBe('true')
+    })
   })
 })
 
 // Audit §8 P0-4: strength vs confidence labelling — the pill % is link
-// STRENGTH and must be self-identifying (title + aria), distinguishable from
-// ConnRow's "N% conf." confidence format.
+// STRENGTH and must be self-identifying, distinguishable from ConnRow's
+// "N% conf." confidence format.
+//
+// Locked Canvas design (23 Sep 2026), ED 11:52Z ("call it link strength") +
+// MT-15b: the noun "Link strength" is now VISIBLE text on the pill itself (it
+// was only a title + aria-label on a bare "30%"), and settlement decides the
+// arm — a human-settled value prints "· Link strength N%", a producer value
+// reads "· Link strength est." with the figure in its title. Both arms are
+// pinned so the self-identification holds on each.
 describe('EdgePills — strength labelling (audit §8 P0-4)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('exposes the strength title and aria label on the percentage', () => {
+  it('an Olumi estimate names itself as link strength, with the figure in its title', () => {
     mockStore(makeState({
       edges: [{ id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.3, direction: 'positive', weightSource: 'cee' } }],
       nodes: [{ id: 'o1', type: 'outcome', data: { label: 'Shipping speed' } }],
     }))
     render(<EdgePills nodeId="f1" />)
-    const pct = screen.getByText('30%')
-    expect(pct.getAttribute('title')).toBe('Link strength')
-    expect(pct.getAttribute('aria-label')).toBe('30% link strength')
+    const est = screen.getByTestId('edge-pill-strength-estimate-e1')
+    expect(visibleText(est)).toBe('· Link strength est.')
+    expect(est.getAttribute('title')).toBe('Link strength · Olumi’s estimate: 30%, not yet confirmed')
+    // Never the confidence family's spelling ("N% conf.") on the visible pill,
+    // and never the confidence noun in the sr-only figure ("not yet confirmed"
+    // is the estimate's status, not a confidence).
+    expect(visibleText(est)).not.toContain('conf')
+    expect(est.querySelector('.sr-only')!.textContent).not.toMatch(/\bconf\.|confidence/)
+    // It is NOT the settled arm.
+    expect(screen.queryByTestId('edge-pill-strength-e1')).toBeNull()
+  })
+
+  it('a human-settled strength prints the figure beside the noun', () => {
+    mockStore(makeState({
+      edges: [{ id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.3, direction: 'positive', weightSource: 'user' } }],
+      nodes: [{ id: 'o1', type: 'outcome', data: { label: 'Shipping speed' } }],
+    }))
+    render(<EdgePills nodeId="f1" />)
+    const settled = screen.getByTestId('edge-pill-strength-e1')
+    expect(settled.textContent).toBe('· Link strength 30%')
+    expect(settled.getAttribute('title')).toBe('Link strength: 30%, set by a person')
+    expect(settled.textContent).not.toContain('conf')
+    expect(screen.queryByTestId('edge-pill-strength-estimate-e1')).toBeNull()
   })
 })
 
@@ -168,6 +247,12 @@ describe('EdgePills — unset strength is disclosed, not reported', () => {
     expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
     expect(screen.queryByText('30%')).toBeNull()
     expect(screen.queryByLabelText('30% link strength')).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the figure can now also travel in a
+    // strength element's title, so both strength arms are asserted absent too —
+    // a default must not reach the settled OR the estimate arm.
+    expect(screen.queryByTestId('edge-pill-strength-e1')).toBeNull()
+    expect(screen.queryByTestId('edge-pill-strength-estimate-e1')).toBeNull()
+    expect(document.body.innerHTML).not.toContain('30%')
   })
 
   it('keeps the pill and its verbatim label — the connection is real even when the number is not', () => {
@@ -176,12 +261,18 @@ describe('EdgePills — unset strength is disclosed, not reported', () => {
     expect(screen.getByText('Revenue')).toBeDefined()
   })
 
-  it('says "Not set" on the specific element, with an announceable label', () => {
+  // Locked Canvas design (23 Sep 2026), ED 11:52Z: the marker's VISIBLE text is
+  // now the whole announceable phrase "· Link strength not set" (it was "Not set"
+  // plus an aria-label carrying the noun). The screen-reader name is the text
+  // itself, so the two channels cannot say different things.
+  it('says "Link strength not set" on the specific element, as its own visible text', () => {
     mockStore(unsetState)
     render(<EdgePills nodeId="f1" />)
     const marker = screen.getByTestId('edge-pill-strength-unset-e1')
-    expect(marker.textContent).toBe('Not set')
-    expect(marker.getAttribute('aria-label')).toBe('Link strength not set')
+    // The register's own inline unset wording (`METRIC_UNSET.inline`, via
+    // `LINK_STRENGTH_COPY.notSet`) — one wording for "nobody set it" everywhere.
+    expect(marker.textContent).toBe('· Link strength not set yet')
+    expect(marker.getAttribute('aria-hidden')).toBeNull()
     expect(marker.getAttribute('title')).toContain('not set')
   })
 
@@ -193,6 +284,12 @@ describe('EdgePills — unset strength is disclosed, not reported', () => {
     expect(USER_EDGE_DEFAULTS.direction).toBe('positive')
     expect(screen.queryByText('Raises')).toBeNull()
     expect(screen.queryByText('Lowers')).toBeNull()
+    expect(screen.queryByTestId('edge-pill-verb-e1')).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the arrows are neutral ink now, so a
+    // colour-class absence would pass even with the arrow drawn. Bind to the
+    // glyphs themselves (the positive control below proves the probe sees one).
+    expect(container.querySelector('svg.lucide-arrow-up')).toBeNull()
+    expect(container.querySelector('svg.lucide-arrow-down')).toBeNull()
     expect(container.querySelector('.text-success')).toBeNull()
     expect(container.querySelector('.text-danger')).toBeNull()
   })
@@ -207,10 +304,14 @@ describe('EdgePills — unset strength is disclosed, not reported', () => {
       }],
       nodes: [{ id: 'o1', type: 'outcome', data: { label: 'Revenue' } }],
     }))
-    render(<EdgePills nodeId="f1" />)
-    expect(screen.getByText('55%')).toBeDefined()
+    const { container } = render(<EdgePills nodeId="f1" />)
+    // Locked Canvas design (23 Sep 2026): a user-stamped strength is the SETTLED
+    // arm, which prints the figure beside the noun ("· Link strength 55%").
+    expect(screen.getByTestId('edge-pill-strength-e1').textContent).toBe('· Link strength 55%')
     expect(screen.queryByTestId('edge-pill-strength-unset-e1')).toBeNull()
     expect(screen.getByText('Raises')).toBeDefined()
+    // The probe used in the case above DOES see an arrow when one is drawn.
+    expect(container.querySelector('svg.lucide-arrow-up')).not.toBeNull()
   })
 
   it('sorts unset pills after known strengths so the cap of 4 spends its slots on real numbers', () => {
