@@ -328,7 +328,19 @@ describe('node design system — rule 5, measured', () => {
      * would pass while checking nothing. A guard that cannot distinguish is
      * indistinguishable from a guard that found nothing.
      */
-    expect(exempted, 'the aria-hidden exemption fired for nothing — the tag scan is not discriminating').toBeGreaterThan(0)
+    // ⭐ LOCKED CANVAS DESIGN (23 Sep 2026): the only live exemptions were
+    // `EdgePills`' green/rose arrows, which MT-19 made NEUTRAL ink (a green ↑
+    // into a risk read as good news). With no semantic-coloured decorative mark
+    // left, `exempted` is legitimately 0 — so discrimination is proven on a
+    // PLANTED pair instead: the same tag scan must exempt an aria-hidden mark
+    // and must NOT exempt a visible one. The property the old control stood
+    // for is kept; only its witness moved from the corpus to a fixture.
+    const planted = 'const a = <span aria-hidden="true" className="text-warning" />\nconst b = <span className="text-warning">x</span>'
+    const plantedCode = blankComments(planted)
+    const plantedTags = [...plantedCode.matchAll(TOKEN_RE(banned))].map(m => enclosingTag(plantedCode, m.index ?? 0))
+    expect(plantedTags.filter(t => /aria-hidden/.test(t)).length, 'the aria-hidden exemption cannot fire').toBe(1)
+    expect(plantedTags.filter(t => !/aria-hidden/.test(t)).length, 'the scan exempts everything').toBe(1)
+    void exempted
 
     expect(
       hits,

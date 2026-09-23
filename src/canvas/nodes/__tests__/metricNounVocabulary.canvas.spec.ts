@@ -546,10 +546,12 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // empty or the comparison is inert.
     expect(live.length).toBeGreaterThan(3)
     expect(RETIRED_METRIC_NOUNS.length).toBeGreaterThan(2)
-    expect(live).toContain('Strength')
-    // ⚠ …and the case distinction the sweep depends on is real: `Strength` is
-    // live while `strength` is retired. If these ever collapse, "Link strength"
-    // starts REDing and the guard gets worked around.
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 5): the live noun is
+    // now "Link strength" — the LINK, never the node's own quantity.
+    expect(live).toContain('Link strength')
+    // ⚠ …and the case distinction the sweep depends on is real: the capitalised
+    // live noun is not the retired lower-case caption `strength`. If these ever
+    // collapse, "Link strength" starts REDing and the guard gets worked around.
     expect(RETIRED_METRIC_NOUNS as readonly string[]).toContain('strength')
   })
 })

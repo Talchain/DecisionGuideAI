@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, type ReactNode } from 'react'
 import { MessageSquare, MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -16,6 +16,8 @@ import {
   CANVAS_QUICK_ACTION_INSET_PX,
   CANVAS_QUICK_ACTION_SLOP_PX,
 } from './canvasGlyphScale'
+import { NodeCoachingIcon, useCoachingIconChip } from './NodeCoachingIcon'
+import type { ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 
 /**
  * Does this node type have a generative prompt to offer?
@@ -136,6 +138,22 @@ export interface NodeQuickActionsProps {
   /** Keep the actions visible regardless of hover — used when the node is
    *  selected, which is what gives a keyboard-only user a way to reach them. */
   alwaysVisible?: boolean
+  /**
+   * ⭐ THE RAIL'S RESTING MEMBERS (locked Canvas design, spec §2 "Bottom rail is
+   * one consistent location for icons/actions"). Persistent data icons — the
+   * evidence and behaviour cues, a provenance exception — rendered ALWAYS, to
+   * the left of the coaching icon. Each caller renders only what its data says
+   * applies (spec §2: "Persistent status/data icons render only when
+   * informative").
+   */
+  restingIcons?: ReactNode
+  /**
+   * The card's coaching resolution. When it yields a question, the ONE coaching
+   * icon is the rail's rightmost resting member and the hover-only "Ask Olumi"
+   * button is withheld — ED 02:31Z (D4): the quick actions "expand/replace
+   * around it, not duplicate 'Ask Olumi'".
+   */
+  coaching?: ResolvedCoaching
 }
 
 export const NodeQuickActions = memo(function NodeQuickActions({
@@ -143,7 +161,10 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   nodeType,
   label,
   alwaysVisible = false,
+  restingIcons,
+  coaching = null,
 }: NodeQuickActionsProps) {
+  const coachingChip = useCoachingIconChip(nodeId, coaching)
   // The gate must ask the question `askAI` actually asks. It polls for
   // `_sendMessage` and gives up with a toast if that never registers — so a
   // gate of `_sendMessage || _prefillChat` would show the button on a surface
@@ -386,6 +407,21 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
   return (
     <div
+      /* ⭐ THE CARD RAIL (locked Canvas design, 23 Sep 2026). ONE row in the band
+         BaseNode already reserves (`NODE_QUICK_ACTION_BAND_PX`), anchored at the
+         quick actions' own corner inset. Left: the hover/focus-only quick
+         actions (unchanged, with their opacity/pointer-events mirror). Right:
+         the RESTING members — data icons, then the coaching icon rightmost — so
+         at rest the visible icons sit flush at the corner and the hover group
+         appears to their left without moving them (ED 02:31Z D4: "No layout
+         jump").
+
+         The wrapper itself never hit-tests (`pointer-events-none`); the resting
+         group opts back in, and the hover group keeps its mirror. */
+      className={`node-card-rail absolute ${CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-none`}
+      data-testid={`node-card-rail-${nodeId}`}
+    >
+    <div
       /* ⭐ THE `pointer-events` SET MIRRORS THE `opacity` SET, 1:1, AND THE
          MIRROR IS LOAD-BEARING — do not "tidy" it into a different spelling.
 
@@ -427,10 +463,10 @@ export const NodeQuickActions = memo(function NodeQuickActions({
          The `opacity` variants are byte-identical to the ones this fix was
          originally written against, so the 1:1 mirror argument above still
          holds exactly. */
-      className={`node-quick-actions absolute ${CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto [@media(pointer:coarse)]:pointer-events-auto motion-reduce:transition-none ${alwaysVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      className={`node-quick-actions flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto [@media(pointer:coarse)]:pointer-events-auto motion-reduce:transition-none ${alwaysVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
-      {canAsk && (
+      {canAsk && coachingChip === null && (
         <Tooltip asChild delay={300} content="Ask Olumi">
           <button
             type="button"
@@ -510,6 +546,16 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           <MoreHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
         </button>
       </Tooltip>
+    </div>
+    {(restingIcons || coachingChip !== null) && (
+      <div
+        className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`}
+        data-testid={`node-card-rail-resting-${nodeId}`}
+      >
+        {restingIcons}
+        <NodeCoachingIcon nodeId={nodeId} chips={coaching} />
+      </div>
+    )}
     </div>
   )
 })

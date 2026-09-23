@@ -58,13 +58,32 @@ import {
   UNFINISHED_CONTRIBUTION_TEST_ID,
 } from './shared/analysisParticipation'
 import { NodeQuickActions } from './shared/NodeQuickActions'
+import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
+import { openNodeInspector } from './shared/openNodeInspector'
+import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
+import { notAnalysedActionLabel, resolveOptionPrompt } from '../../components/results/utils/notAnalysedCopy'
+
+/** One sentence per clause, so a joined accessible name never runs two together. */
+const asSentence = (text: string): string => {
+  const t = text.trim()
+  return /[.!?…]$/.test(t) ? t : `${t}.`
+}
+
+/** The results panel's own action label for an option with no values — one wording. */
+const NOT_ANALYSED_ACTION_LABEL = notAnalysedActionLabel('no_interventions') ?? 'Tell Olumi what it changes'
 import {
   NODE_QUICK_ACTION_BAND_PX,
   CANVAS_CORNER_STACK_CLASSES,
   CANVAS_HEADER_GLYPH_GROUP_CLASSES,
 } from './shared/canvasGlyphScale'
-import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
-import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel, STRUCTURAL_UNSET } from './shared/metricVocabulary'
+import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
+import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
+import { useNodeAttention } from './shared/useNodeAttention'
+import { attentionSentence } from './shared/nodeAttention'
+import { NodeAttentionMarker } from './shared/NodeAttentionMarker'
+import { NodeSignalRailIcons } from './shared/NodeRailIcons'
+import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
+import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -146,6 +165,26 @@ interface BaseNodeProps extends NodeProps {
    * So the owner declares it. When set, this WINS over the central resolver.
    */
   lodMetric?: string | null
+  /**
+   * ⭐ THE CARD RAIL'S RESTING DATA ICONS (locked Canvas design, 23 Sep 2026).
+   * A caller adds only icons its own data says apply; the grounded evidence and
+   * behaviour icons are added HERE for every kind, from the same plan the
+   * "Worth reviewing" marker reads, so no card can forget them or invent them.
+   */
+  railIcons?: ReactNode
+  /**
+   * The card's coaching resolution — the rail's ONE coaching icon asks its first
+   * question (ED 02:31Z D4). `null`/absent renders no icon, and the hover-only
+   * "Ask Olumi" quick action stays in its place.
+   */
+  coaching?: ResolvedCoaching
+  /**
+   * The option card's result caption by run currency (`runCurrency.ts`) — the
+   * SAME caption the card shows at full zoom, handed down so the reduced line
+   * says it too. Owned by `OptionNode`, which already reads the currency;
+   * absent on every other kind.
+   */
+  resultCaption?: string | null
 }
 
 /**
@@ -174,7 +213,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   /**
    * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
@@ -390,6 +429,27 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
 
   /**
+   * ⭐ THE ONE "WORTH REVIEWING" CUE and the rail's grounded data icons, from
+   * ONE board-wide plan (`shared/nodeAttention.ts`). Run-derived reasons are in
+   * the plan only while the analysis is current (spec §8), and "AI-generated"
+   * alone never qualifies (spec §2).
+   */
+  const attention = useNodeAttention(id)
+  /**
+   * Provenance at rest = EXCEPTIONS to the board's default (spec §6; ED 11:52Z
+   * point 8). Detailed shows every mark ("Detailed adds information").
+   */
+  const isDetailedView = useCanvasStore(s => s.viewMode === 'expert')
+  const provenanceDefault = useProvenanceDefaultKind()
+  const attentionText = attention.marked
+    ? attentionSentence(attention.reasons, {
+        unconfirmedEstimate: nodeType === 'factor' && factorValueIsUnconfirmedEstimate(data),
+        marked: attention.markedCount,
+        candidates: attention.candidateCount,
+      })
+    : null
+
+  /**
    * The ONE line a node still says when it is too small to say anything else.
    *
    * ⚠ THE SCOPE AND THE RULES LIVE IN `shared/lodMetricLine.ts`, NOT HERE — and
@@ -449,15 +509,28 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
-    if (nodeType === 'factor') return { influenceRank }
+    if (nodeType === 'factor') {
+      // One rank wording on every rung: "Driver N of M in this model", from the
+      // current-only readout (`useInfluenceRank` → null when stale).
+      const sensitivityRank = displayMetadata.sensitivityRank
+      const setSize = displayMetadata.influenceSetSize
+      const driverRank =
+        influenceRank && typeof sensitivityRank === 'number' && typeof setSize === 'number'
+          ? { rank: sensitivityRank, setSize }
+          : null
+      return { influenceRank, driverRank }
+    }
     if (nodeType !== 'option') return undefined
-    return resolveLodMetricFacts({
-      nodeType,
-      nodeId: id,
-      data: data as Record<string, unknown> | undefined,
-      ceeOptions: ceeAnalysisReady?.options,
-    })
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank])
+    return {
+      ...resolveLodMetricFacts({
+        nodeType,
+        nodeId: id,
+        data: data as Record<string, unknown> | undefined,
+        ceeOptions: ceeAnalysisReady?.options,
+      }),
+      optionResultCaption: resultCaption ?? null,
+    }
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, resultCaption])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
@@ -553,6 +626,39 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // factor whose id somehow collided would otherwise inherit an option's
   // exclusion — bound to the node type here rather than trusting id spaces.
   const isExcludedFromAnalysis = nodeType === 'option' && exclusionMessage !== null
+
+  /**
+   * ⭐⭐ MT-21 — "Not in this analysis" WAS INERT (manual test on served
+   * `4c6ec07b`). The pill stated a gap and offered no way to close it, while
+   * the results panel already carried the route (`NotAnalysedOptionCard`:
+   * "Tell Olumi what it changes" → `openAskOlumi` with CEE's own sentence,
+   * `resolveOptionPrompt`). The canvas now reuses THAT action — no second
+   * route, no second wording.
+   *
+   * KEYED ON THE PRODUCER'S BLOCKER when present: CEE's
+   * `analysis_ready.blockers[]` entry for this option with `blocker_type:
+   * 'missing_value'` names the factor it lacks (`factor_label`), and the pill's
+   * accessible name says so. Absent that entry, an option with NO intervention
+   * values is recognised directly (`resolveOptionInterventionCount === 0`) —
+   * the same fact the panel's `no_interventions` reason reports. An exclusion
+   * for any other reason opens the option's inspector: still a route, never a
+   * claim the action fits.
+   */
+  const exclusionAction = useMemo(() => {
+    if (!isExcludedFromAnalysis) return null
+    const blocker = ceeAnalysisReady?.blockers?.find(
+      b => b.option_id === id && b.blocker_type === 'missing_value',
+    ) ?? null
+    const valueCount = resolveOptionInterventionCount(id, {
+      ceeOptions: ceeAnalysisReady?.options,
+      nodeInterventions: (data as { interventions?: unknown } | undefined)?.interventions,
+    })
+    const tellOlumi = blocker !== null || valueCount === 0
+    return {
+      tellOlumi,
+      missingFactor: blocker?.factor_label?.trim() || null,
+    }
+  }, [isExcludedFromAnalysis, ceeAnalysisReady, id, data])
 
   /**
    * ⭐⭐ DID THE CALCULATION COUNT THIS NODE? — A THIRD QUESTION, NAMED APART
@@ -1202,6 +1308,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           nodeType={nodeType}
           label={label}
           alwaysVisible={selected === true}
+          coaching={coaching}
+          restingIcons={
+            railIcons || attention.reasons.length > 0 ? (
+              <>
+                {railIcons}
+                <NodeSignalRailIcons nodeId={id} label={label} reasons={attention.reasons} />
+              </>
+            ) : undefined
+          }
         />
       )}
 
@@ -1576,9 +1691,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           <StatusPill
             testId="excluded-from-analysis-pill"
             label="Not in this analysis"
-            title={exclusionMessage !== null && exclusionMessage !== ''
-              ? exclusionMessage
-              : 'The analysis will run without this option'}
+            title={[
+              asSentence(exclusionMessage !== null && exclusionMessage !== ''
+                ? exclusionMessage
+                : 'The analysis will run without this option'),
+              exclusionAction?.missingFactor ? `Missing: ${exclusionAction.missingFactor}.` : null,
+              exclusionAction?.tellOlumi
+                ? `${NOT_ANALYSED_ACTION_LABEL}.`
+                : 'Open its details.',
+            ].filter(Boolean).join(' ')}
+            onActivate={() => {
+              if (exclusionAction?.tellOlumi) {
+                openAskOlumi({
+                  context: `About "${label}"`,
+                  draft: resolveOptionPrompt(label),
+                  label: NOT_ANALYSED_ACTION_LABEL,
+                })
+                return
+              }
+              openNodeInspector(id)
+            }}
           />
         ) : isRetainedExcluded ? (
           /* ⭐ A THIRD ARM OF THE SAME TERNARY — NOT A FOURTH CHILD OF THE STACK.
@@ -1708,132 +1840,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           )
         ) : null}
 
-        {/* Sensitivity rank badge — Results mode, top 3 factors. */}
-        {typeof displayMetadata.sensitivityRank === 'number' && (
-          <span
-            data-testid={`sensitivity-rank-${id}`}
-            /* ⛔⛔ IT WAS A FIXED ROUND BOX HOLDING `#N`, AND IT CARRIED NO
-               WORD AT ALL — `data-node-glyph`, `rounded-full`,
-               `justify-center`, `minWidth: 20px`, `height: 20px`.
+        {/* ⭐ THE KEY-DRIVER BADGE IS RETIRED (ED 02:31Z, D1a: "RETIRE the
+            Key-driver badge once the body driver line is present"). One rank is
+            stated once, in one vocabulary — the factor card's driver line
+            ("Driver N of M in this model") and its reduced line — and never in
+            a corner badge a stale run could keep alive (the badge was not
+            freshness-gated; the driver line is).
 
-               Measured on deployed staging, 18 Sep 2026: factor cards read
-               `#1`, `#2`, `#3`. **`#1` reads as BEST.** It means MOST
-               SENSITIVE — the factor the result moves most on, which is
-               usually the factor the team knows LEAST about and should be
-               arguing with, not trusting. The badge inverted its own meaning
-               on the cards where the inversion costs most.
-
-               ⭐ THREE THINGS CHANGE TOGETHER AND NONE OF THEM IS COSMETIC:
-
-               (1) THE WORD. `sensitivityRankBadgeLabel` renders
-                   `Key driver 1` — the same builder the `aria-label` below is
-                   composed from, so the card and the screen reader cannot be
-                   given different words for one badge (which is precisely the
-                   drift #1414 shipped; see `metricVocabulary.ts`).
-
-               (2) THE GLYPH DECLARATION GOES, AND SO DOES THE CENTRING. This
-                   span declared `data-node-glyph`, the exemption
-                   `nodeCopyIsNeverCentred.spec.tsx` honours for copy that is
-                   a glyph by construction. A numeral was. A NOUN IS NOT.
-                   Keeping the attribute would have held an exemption open
-                   over real copy — the hand-maintained-mirror shape one level
-                   up from the one that guard exists to close — so the
-                   exemption is surrendered and `justify-center` with it. The
-                   words now sit where the reading order puts them, like the
-                   `StatusPill` two lines above.
-
-               (3) THE FIXED 20px BOX GOES, AND IT HAD TO. `typography.nodeLabel`
-                   is `calc(12px * var(--canvas-label-scale))` and that scale
-                   caps at 2, so at the settle zoom the type reaches ~24px
-                   inside a 20px box. A two-character numeral survived that;
-                   `Key driver 1` would have been clipped. Geometry is now
-                   `StatusPill`'s — padding plus `lineHeight`, which counter-
-                   scales with the type instead of fighting it.
-
-               ⛔⛔ WIDTH — AND THE FIRST VERSION OF THIS BLOCK BOUNDED IT WITH A
-               DISJOINTNESS THAT DOES NOT HOLD. It read: *"This badge's only
-               possible neighbours are the 10px edited-since-run dot and the
-               coaching marker … `StatusPill` is disjoint from it on
-               `results.status` … So the widest thing this row ever holds is
-               this badge — and `Key driver 1` is 12 characters against the
-               `Needs input` pill's 11 … The envelope is one the row already
-               carries in this badge's place."* The arithmetic in that sentence
-               is right and its CONCLUSION is wrong, because the two pills are
-               not alternatives: they SHARE the row.
-
-               `isIncomplete`'s factor arm is phase-independent
-               (`isFactorNeedsInput(data)`, no `isPreRunMode`), and
-               `sensitivityRank` is assigned on factors from the results report
-               with no exclusion for unvalued ones. So a user who runs an
-               analysis with a factor they never valued — the likeliest factor
-               to be badged, because an unestimated factor carries the widest
-               uncertainty and the result moves most on it — gets `Needs input`
-               AND `Key driver N` on one row. Re-derived in full on the corner
-               stack's contract above; pinned at the render in
-               `BaseNode.rankedFactorStillNeedsInput.spec.tsx`.
-
-               ⚠ SO THE ENVELOPE THIS BADGE ENTERS IS THE PAIR, NOT THE BADGE.
-               Before #1688 the badge was a fixed 20×20 box; this change takes
-               it to `StatusPill`'s own geometry, which is right for the word
-               and is a ~3× widening of this member. In the widest reachable
-               state the row holds ~140px of text pills plus the dot and the
-               coaching marker, against a `DEFAULT_NODE_WIDTH` of 200 — and both
-               pills counter-scale to 2× at the settle zoom while the card does
-               not. The ordering invariant is unaffected (widest-first still
-               holds: pill · rank · dot · coaching), so nothing is displaced
-               from the corner. Whether the ROW FITS is a browser question and
-               is NOT answered here or anywhere else in this tree yet. */
-            className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-semibold text-text-body bg-panel-border rounded-[10px] shadow-sm`}
-            style={{ padding: '2px 6px', lineHeight: 1.2, pointerEvents: 'none' }}
-            /* ⚠⚠ THIS WAS A `title`, AND A `title` ON THIS ELEMENT CAN NEVER
-               FIRE. `pointerEvents: 'none'` (the line above, load-bearing so the
-               badge does not swallow drags aimed at the card) means the browser
-               raises no hover on it, so the tooltip had no trigger — while
-               reading, in source and in review, exactly like an explanation
-               that was already provided. A dead affordance that looks like
-               coverage is worse than none: it stops anyone asking the question
-               again.
-
-               `aria-label` needs no pointer, so it works where the title could
-               not, and it is the half that was genuinely missing — a screen
-               reader previously got the bare string "#1".
-
-               ⚠ THE SIGHTED READER STILL HAS NO HOVER HERE, and that is stated
-               rather than quietly left: the meaning lives in the canvas legend
-               (`metricVocabulary.ts`, `SENSITIVITY_RANK_CLAUSE` and the row
-               built from it), which mounts unconditionally. Giving this badge a
-               real tooltip means removing `pointerEvents: 'none'` and
-               re-measuring drag behaviour on the card — a separate change, not
-               a comment.
-
-               ⭐ WHAT THE WORD DOES AND DOES NOT CLOSE, SAID NARROWLY. The
-               sighted reader now gets the NOUN without hovering, which is the
-               half that was missing; they still do not get the ORDERING
-               PRINCIPLE (ranked by sensitivity) without the legend. Half a
-               fix, and the half that stops the badge asserting a placing.
-
-               ⚠⚠ AND THE CITATION ABOVE USED TO BE THE WHOLE COUPLING, WHICH IS
-               TO SAY THERE WAS NONE. This file imported nothing from
-               `metricVocabulary`; the `aria-label` was a template literal that
-               happened to repeat the legend's gloss, with a line number in a
-               comment standing in for an import. That is the shape this estate
-               calls a hand-maintained mirror (CLAUDE.md trap 12) — and the
-               drift it admits is invisible, because the legend's only guard
-               (`ORDINAL_ROW_MUST_STATE_MINT`) reads `row.gloss` and never the
-               badge. A legend rewrite would have left a screen-reader user
-               being told something a sighted reader is not.
-
-               The record is kept rather than tidied away; what changes is that
-               it is now TRUE BY IMPORT.
-               `sensitivityRankBadgeAccessibleName` is built from
-               `SENSITIVITY_RANK_CLAUSE`, the same constant the legend row is
-               built from, so the two cannot say different things about this
-               badge. The rendered string is unchanged. */
-            aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank)}
-          >
-            {sensitivityRankBadgeLabel(displayMetadata.sensitivityRank)}
-          </span>
-        )}
+            ⭐ ITS SLOT NOW HOLDS THE ONE "WORTH REVIEWING" CUE (spec §2), an
+            info-tinted ring — never the warning family (ED 02:31Z D1b) — with
+            its reasons in a focusable tooltip and as its accessible name. */}
+        {attentionText !== null && <NodeAttentionMarker nodeId={id} sentence={attentionText} />}
 
         {/* N3 (graph-visuals): amber corner dot — this node was edited since the
             last analysis run (device-local diff vs the run snapshot; the
@@ -2073,7 +2090,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             data-testid="node-provenance-mark-group"
             className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
           >
-            <NodeProvenanceMark nodeType={nodeType} data={data} />
+            <NodeProvenanceMark nodeType={nodeType} data={data} hideKind={isDetailedView ? null : provenanceDefault} />
           </span>
         )}
 
