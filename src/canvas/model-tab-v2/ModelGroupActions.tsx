@@ -41,9 +41,10 @@
  * place of a typed "+ " (DS v5 §9: no unicode symbol used as an icon).
  */
 
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, Plus } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { IconBtn } from '../components/pre-analysis/primitives/IconBtn'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import type { GroupAction, GroupActionContext } from './groupActions'
 import type { ModelGroupId } from './types'
 
@@ -94,11 +95,13 @@ export function ModelGroupActions({
           data-testid={`model-action-v2-${action.id}`}
           data-intent={action.intent}
           onClick={() => onAction(action, action.message(context))}
-          className={`${typography.panelMeta} cursor-pointer hover:underline ${
-            action.intent === 'structural' ? 'text-info' : 'text-text-light hover:text-info'
-          }`}
+          className={`${typography.panelMeta} inline-flex items-center gap-1 cursor-pointer hover:underline text-info`}
         >
-          {action.intent === 'structural' ? `+ ${action.label}` : action.label}
+          {/* C6, 23 Sep 2026: the DS Tier-2 `Plus`, not a typed "+ ". Only the
+              structural acts reach this arm now — `discuss` is the icon button
+              above — so the old per-intent colour branch is gone with it. */}
+          <Plus className={`${icon('row')} shrink-0`} aria-hidden="true" />
+          {action.label}
         </button>
         ),
       )}
