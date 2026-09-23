@@ -154,6 +154,8 @@ describe('the served option row: a target carrying display_value can be changed 
   })
 
   it('while in flight the row shows the number sent, not the prose it replaces', async () => {
+    // Genuinely in flight: the turn has not been processed yet.
+    sendSystemEvent.mockImplementation(() => new Promise(() => undefined))
     renderPanel()
     editTo('0.6')
     await flush()
