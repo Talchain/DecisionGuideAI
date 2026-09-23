@@ -450,6 +450,35 @@ describe('§4 a read acknowledges only values the wire carries (review B3)', () 
     expect(r.acked).toBe(false)
   })
 
+  it('an option\'s interventionKeys is vouched for by the index of the wire\'s own interventions map — acknowledged', async () => {
+    // `interventionKeys` is the index `mapDraftNodeToCanvas` derives; the wire
+    // carries the map it indexes, never the index itself.
+    const OPTION = 'opt_raise_price'
+    const option = {
+      id: OPTION,
+      type: 'option',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Raise price',
+        kind: 'option',
+        starterId: 'pricing-model',
+        provenance: 'ai_inferred',
+        interventions: { [KEPT]: { value: 0.5 } },
+        interventionKeys: [KEPT],
+      },
+    } as unknown as Node
+    setCanvas([...MATCHING_NODES, option], MATCHING_EDGES)
+    const r = await hydrate({
+      ...SERVER_AS_REGISTERED,
+      nodes: [
+        ...SERVER_AS_REGISTERED.nodes,
+        { id: OPTION, kind: 'option', label: 'Raise price', interventions: { [KEPT]: { value: 0.5 } } },
+      ],
+    })
+    expect(r.outcome).toBe('merged')
+    expect(r.acked).toBe(true)
+  })
+
   it('M8 pin: the read does not acknowledge while an edit is still being delivered', async () => {
     setCanvas(MATCHING_NODES, MATCHING_EDGES)
     useCanvasStore.setState({ pendingEmittedEdits: 1 } as never)
@@ -498,6 +527,40 @@ describe('§5 no timing lets the re-arm write before the read has answered (revi
 
     await act(async () => {
       calls[1].answer(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+      await flush()
+    })
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+    hook.unmount()
+  })
+
+  it('E2: a superseded read that answers LATER cannot overwrite the current read — its "no model" is not a licence', async () => {
+    // Two reads of one scenario in flight (e.g. the boot read and a draft
+    // recovery read): the second supersedes the first. Neither is aborted, so
+    // the first can answer with a real outcome after the second has begun.
+    const calls = pendingFetches()
+    let first: Promise<unknown> = Promise.resolve()
+    let second: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      first = hydrateCanvasFromServer(SCENARIO)
+      second = hydrateCanvasFromServer(SCENARIO)
+      await flush()
+    })
+    expect(calls.length).toBe(2)
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+
+    await act(async () => {
+      calls[0].answer(jsonResponse(404, { error: 'not_found' }))
+      await first
+      await flush()
+    })
+    // The superseded read's 404 did not replace the live read's mark.
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('reading')
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+
+    await act(async () => {
+      calls[1].answer(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+      await second
       await flush()
     })
     expect(registrationsCarrying(DELETED)).toHaveLength(0)
