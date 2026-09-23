@@ -141,18 +141,40 @@ function currentValue(data: unknown): unknown {
  * and the boot merge then shows CEE's graph). Fail closed: an edit nobody
  * confirmed is never promoted to canonical by the side channel.
  */
+/**
+ * ⛔ ONLY THE LATEST ATTEMPT PER NODE SPEAKS (#1892 review, CHANGES_REQUIRED @
+ * 846997a1). The lifecycle APPENDS a record per attempt and never rewrites a
+ * terminal one, so scanning every record let a superseded `unconfirmed` attempt
+ * hold forever: rename "Foo" (500) → "Bar" (applied) → "Foo" (applied) left the
+ * first record matching the canvas label, and registration stayed walled off
+ * for the page's life although CEE had applied the user's rename. A later
+ * attempt on the same node — in the same scenario — is the answer; an earlier
+ * one is history.
+ */
+function latestAttemptPerNode(records: ReadonlyArray<unknown>): unknown[] {
+  const latest = new Map<string, unknown>()
+  for (const raw of records) {
+    const r = raw as { scenarioId?: unknown; intent?: { nodeId?: unknown } }
+    const nodeId = r?.intent?.nodeId
+    if (typeof nodeId !== 'string') continue
+    // Array order is attempt order; a later write replaces the earlier one.
+    latest.set(`${String(r.scenarioId ?? '')}\u0000${nodeId}`, raw)
+  }
+  return [...latest.values()]
+}
+
 function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
   const scenario = state.currentScenarioId ?? null
   const labelOf = (id: unknown): unknown => {
     const node = state.nodes.find((n) => n.id === id)
     return node ? (node.data as { label?: unknown } | undefined)?.label : undefined
   }
-  for (const raw of state.structuralRenameLifecycle ?? []) {
+  for (const raw of latestAttemptPerNode(state.structuralRenameLifecycle ?? [])) {
     const r = raw as { status?: unknown; scenarioId?: unknown; intent?: { nodeId?: unknown; label?: unknown } }
     if (r?.status !== 'unconfirmed' || (r.scenarioId ?? null) !== scenario) continue
     if (r.intent && labelOf(r.intent.nodeId) === r.intent.label) return true
   }
-  for (const raw of state.structuralAddLifecycle ?? []) {
+  for (const raw of latestAttemptPerNode(state.structuralAddLifecycle ?? [])) {
     const r = raw as { status?: unknown; scenarioId?: unknown; intent?: { nodeId?: unknown } }
     if (r?.status !== 'unconfirmed' || (r.scenarioId ?? null) !== scenario) continue
     if (r.intent && state.nodes.some((n) => n.id === r.intent!.nodeId)) return true

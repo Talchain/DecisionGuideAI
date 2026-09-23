@@ -657,6 +657,54 @@ describe('an UNRESOLVED structural edit holds registration after delivery settle
   })
 })
 
+const renameApplied = (label: string) => ({
+  ok: true,
+  response: {
+    assistant_text: `Renamed to '${label}'.`,
+    blocks: [],
+    graph_hash: `aag_after_${label.replace(/\W+/g, '_')}`,
+    draft_graph: {
+      nodes: [
+        { id: TARGET, kind: 'factor', label },
+        { id: BYSTANDER, kind: 'factor', label: 'Seat Price' },
+      ],
+      edges: [],
+    },
+  },
+})
+
+describe('#1892 review (846997a1): only the LATEST attempt per node may hold', () => {
+  it('⛔ rename "Foo" → untyped 500, "Bar" → applied, "Foo" → applied: the stale record does not wall registration off', async () => {
+    await mountAcknowledgedStarterWithRenameDrain()
+    const rename = async (label: string, reply: unknown) => {
+      replies.push(reply)
+      await act(async () => {
+        useCanvasStore.getState().updateNodeLabel(TARGET, label)
+        await flush()
+      })
+    }
+    await rename('Foo', UNTYPED_500)
+    await rename('Bar', renameApplied('Bar'))
+    // Contrast, from the review's own run: after "Bar" the post-commit registration went.
+    expect(registerSpy.mock.calls.some((c) => registeredLabel(c) === 'Bar')).toBe(true)
+    const beforeFoo = registerSpy.mock.calls.length
+    await rename('Foo', renameApplied('Foo'))
+    await act(async () => { await flush() })
+
+    // Preconditions, by identity: three attempts on ONE node, the last one committed.
+    const attempts = useCanvasStore.getState().structuralRenameLifecycle
+      .filter((r) => r.intent.nodeId === TARGET)
+      .map((r) => `${r.intent.label}:${r.status}`)
+    expect(attempts).toEqual(['Foo:unconfirmed', 'Bar:committed', 'Foo:committed'])
+    expect((useCanvasStore.getState().nodes.find((n) => n.id === TARGET)!.data as { label?: string }).label).toBe('Foo')
+
+    // CEE applied "Foo": nothing may still be holding for the superseded attempt…
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+    // …and the model is offered exactly as it was after "Bar".
+    expect(registerSpy.mock.calls.slice(beforeFoo).some((c) => registeredLabel(c) === 'Foo')).toBe(true)
+  })
+})
+
 describe('the unresolved-edit rule, pure', () => {
   const nodes = [{ id: 'n1', data: { label: 'New name' } }, { id: 'n2', data: { label: 'x' } }]
   const rename = (status: string, scenarioId: string | null, label = 'New name') => ({
@@ -670,6 +718,27 @@ describe('the unresolved-edit rule, pure', () => {
     expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('unconfirmed', 's2')] } as never)).toBeNull()
     expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('committed', 's1')] } as never)).toBeNull()
     expect(editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: [rename('refused', 's1')] } as never)).toBeNull()
+  })
+  it('#1892 review: a LATER settled attempt on the same node supersedes an earlier unconfirmed one', () => {
+    const at = (status: string, label: string, scenarioId = 's1', nodeId = 'n1') => ({ status, scenarioId, intent: { nodeId, label } })
+    const hold = (lifecycle: unknown[]) =>
+      editDeliveryHold({ nodes, currentScenarioId: 's1', structuralRenameLifecycle: lifecycle } as never)
+    // The review's sequence: "New name" 500, "B" applied, "New name" applied.
+    expect(hold([at('unconfirmed', 'New name'), at('committed', 'B'), at('committed', 'New name')])).toBeNull()
+    expect(hold([at('unconfirmed', 'New name'), at('refused', 'New name')])).toBeNull()
+    // CONTROLS — latest-only is not "never hold":
+    expect(hold([at('committed', 'New name'), at('unconfirmed', 'New name')])).toBe('unresolved_structural_edit')
+    // another node's attempt supersedes nothing here…
+    expect(hold([at('unconfirmed', 'New name'), at('committed', 'x', 's1', 'n2')])).toBe('unresolved_structural_edit')
+    // …nor does the same node id in another scenario.
+    expect(hold([at('unconfirmed', 'New name'), at('committed', 'New name', 's2')])).toBe('unresolved_structural_edit')
+  })
+  it('#1892 review, the ADD twin: a later settled add on the same node supersedes an earlier unconfirmed one', () => {
+    const add = (status: string) => ({ status, scenarioId: 's1', intent: { nodeId: 'n2' } })
+    const hold = (lifecycle: unknown[]) =>
+      editDeliveryHold({ nodes, currentScenarioId: 's1', structuralAddLifecycle: lifecycle } as never)
+    expect(hold([add('unconfirmed'), add('committed')])).toBeNull()
+    expect(hold([add('committed'), add('unconfirmed')])).toBe('unresolved_structural_edit')
   })
   it('an unconfirmed ADD holds while its node is on the canvas, and not after it is gone', () => {
     const add = { status: 'unconfirmed', scenarioId: 's1', intent: { nodeId: 'n2' } }
