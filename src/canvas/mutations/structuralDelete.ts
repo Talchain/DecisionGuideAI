@@ -562,11 +562,20 @@ export const STRUCTURAL_DELETE_NOTICE = {
  * all. Nothing was removed, the canvas is untouched, and that is certain.
  *
  * ⚠ THE ACTION NAMED IS THE ONE THAT WORKS, derived the same way its sibling
- * `base_hash_diverged` derives its own: `lastServerGraphHash` has exactly ONE
- * non-test writer (`setLastServerGraphHash`), whose only non-test caller is
- * `applyV5State.ts:1210`, on a turn response. A reload makes it worse, not
- * better (see the `base_hash_diverged` note: hydration returns
- * `graph_identity_hash`, never a `graph_hash`). Any message re-syncs.
+ * `base_hash_diverged` derives its own. `lastServerGraphHash` has ONE non-test
+ * setter (`setLastServerGraphHash`), and it now has THREE non-test callers —
+ * this note used to say one (#1893 review):
+ *   · `applyV5State` — the top-level `graph_hash` on a turn response;
+ *   · `serverGraphHydration`'s `adoptServerWriteBase` — a graph read's
+ *     `graph_hash`, adopted only when that read's graph is the one on screen
+ *     (the `unchanged` and `merged` outcomes);
+ *   · `seedWriteBaseAfterRegistration` — the read after an ACKNOWLEDGED
+ *     registration, adopted only when its identity equals the ack's (#1893).
+ * The copy names the one route the user can take on demand: any message
+ * re-syncs. A reload can now seed a base as well, but only when the read
+ * carries a `graph_hash` for the graph on screen, so it is not the route named.
+ * (The `base_hash_diverged` note's "the READ returns no `graph_hash`" was
+ * measured before `fetchScenarioGraph` parsed one off the read.)
  *
  * ⛔ A WRITER MANIFEST AND A DISPATCH QUESTION ARE NOT THE SAME QUESTION, and an
  * earlier version of this note joined them with a "So" that does not carry.
