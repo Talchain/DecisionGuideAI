@@ -19,6 +19,7 @@
 
 import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
@@ -411,6 +412,19 @@ export async function hydrateCanvasFromServer(
     // the same distinction on the
     // decline side). The refusal simply does not touch this seam.
     return 'mergeRefused'
+  }
+
+  // ⭐ RELOAD SHOWS THE SAVED MODEL — the accepted merge took elements off the
+  // canvas because the saved model lacks them (`mergeServerGraph.ts` header).
+  // Removing visible work without a word is its own defect, so record what went
+  // for the conversation's one lasting line (`reloadDifferenceStore`). Keyed by
+  // the scenario the read came back for; an accepted merge that removed nothing
+  // records nothing.
+  if (merge.removedNodeCount > 0 || merge.removedEdgeCount > 0) {
+    useReloadDifferenceStore.getState().recordRemoval({
+      scenarioId,
+      removedLabels: merge.removedLabels,
+    })
   }
 
   // THE ACCEPTED EXIT. The graph this verdict describes is now on the canvas,

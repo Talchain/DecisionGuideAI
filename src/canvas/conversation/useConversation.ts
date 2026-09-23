@@ -14,6 +14,7 @@ import { setCurrentScenarioId } from '../store/scenarios'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
 // and `./turnService` still exports it. `callOrchestratorTurn` / `streamOrchestratorTurn`
@@ -2996,6 +2997,35 @@ export function useConversation(): UseConversationReturn {
       return next
     })
   }, [])
+
+  // ⭐ RELOAD SHOWS THE SAVED MODEL — the lasting line. When the boot read took
+  // elements off the canvas because the saved model lacks them, the hydration
+  // path records a scenario-keyed notice (`reloadDifferenceStore`); this appends
+  // it as ONE synthetic assistant line for the decision on screen.
+  //
+  // ⚠ DECLARED AFTER the mount restore and the scenario-switch effect, and that
+  // order is load-bearing: both replace `messages` wholesale, and the mount
+  // restore refuses to run over a non-empty panel. Same-commit effects run in
+  // declaration order, so the restored transcript lands first and this line is
+  // appended after it (pinned by the ORDERING case in
+  // `useConversation.reloadDifference.spec.tsx`).
+  // ⚠ NEVER TWICE: `delivered` lives in the store, not in this instance, so a
+  // remount of the conversation host cannot append the same notice again.
+  const reloadDifferenceId = useReloadDifferenceStore((s) => s.id)
+  useEffect(() => {
+    if (!reloadDifferenceId || !scenarioId) return
+    const notice = useReloadDifferenceStore.getState()
+    if (notice.id !== reloadDifferenceId || notice.delivered) return
+    if (notice.scenarioId !== scenarioId) return
+    notice.markDelivered(reloadDifferenceId)
+    addMessage({
+      id: `reload-difference-${reloadDifferenceId}`,
+      role: 'assistant',
+      synthetic: true,
+      content: formatReloadDifferenceNotice(notice.removedLabels),
+      timestamp: new Date(),
+    })
+  }, [reloadDifferenceId, scenarioId, addMessage])
 
   /**
    * schemas 0.48.0 — resolve a `structural_delete` against what the SERVER did.
