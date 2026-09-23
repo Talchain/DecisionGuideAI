@@ -75,6 +75,7 @@ import {
   editDeliveryHoldDetail,
   type EditDeliveryState,
 } from '../registration/editDeliveryHold'
+import type { UnconfirmedDeleteSubject } from '../conversation/unconfirmedStructuralDelete'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 
 /**
@@ -325,6 +326,12 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
  *  · UNCONFIRMED ADD — names the added element. Removing it releases the hold
  *    (its node is no longer on the canvas); adding it again goes through the
  *    protocol with a receipt.
+ *  · UNCONFIRMED DELETE (#1905 residual 1: an untyped 500 or transport loss
+ *    keeps the deletion on the canvas) — names what was removed, by the name
+ *    the delete record kept (the element is no longer on the canvas to read it
+ *    from); a link deleted on its own is "the link from {A} to {B}". A delete of
+ *    several elements names none of them rather than picking one. A later
+ *    proven delete of the same element supersedes the record.
  *
  * Question-shaped where the user has a choice; plain statement where they have
  * none. No em dashes (the footer copy sweep in `signals/__tests__/registry.spec`
@@ -344,6 +351,9 @@ export const ANALYSIS_HELD_ON_EDIT_COPY = {
   unconfirmedAdd: (label: string | null): string =>
     `${label === null ? "Olumi couldn't confirm your addition to the saved model" : `Olumi couldn't confirm that ${label} was added to the saved model`}, ` +
     'so analysis is waiting until it is settled. Would you like to remove it and add it again?',
+  unconfirmedDelete: (label: string | null): string =>
+    `Olumi couldn't confirm that ${label === null ? 'what you deleted' : label} was removed from the saved model, ` +
+    'so analysis is waiting until it is settled. Would you like to remove it again?',
 } as const
 
 /** What is holding analysis — the ready-made model itself, or the user's own unconfirmed edit. */
@@ -353,6 +363,7 @@ export type AnalysisHoldKind =
   | 'unconfirmed_value'
   | 'unconfirmed_rename'
   | 'unconfirmed_add'
+  | 'unconfirmed_delete'
 
 /**
  * The hold AND its sentence, as one value — the analogue of `analysisHeldOn`
@@ -416,6 +427,26 @@ function labelOf(data: Record<string, unknown> | null): string | null {
 }
 
 /**
+ * What an unconfirmed delete removed, as the sentence names it, or `null` (the
+ * frame's unlabelled form). A node's name is the one the delete record kept. A
+ * link's ends are still on the canvas, so their CURRENT names are read there
+ * first, then the record's; with either end unnamed, the link is not named.
+ */
+function removedName(state: AnalysisHoldReasonState, removed: UnconfirmedDeleteSubject): string | null {
+  switch (removed.kind) {
+    case 'node':
+      return removed.label
+    case 'link': {
+      const from = labelOf(nodeDataOf(state, removed.sourceId)) ?? removed.sourceLabel
+      const to = labelOf(nodeDataOf(state, removed.targetId)) ?? removed.targetLabel
+      return from !== null && to !== null ? `the link from ${from} to ${to}` : null
+    }
+    case 'several':
+      return null
+  }
+}
+
+/**
  * The user's number, rendered by the card's own projection (`factorDisplayText`
  * with the pending value, exactly as `FactorNode` passes it) — never a second
  * formatter. `null` when the projection declines to render it, in which case
@@ -456,9 +487,9 @@ export function heldReason(state: AnalysisHoldReasonState): AnalysisHoldReason |
       )
     }
     case 'unresolved_structural_edit': {
-      // Merge of #1905 (its unconfirmed-delete hold): the delete is not named
-      // yet, so it keeps the sentence #1905 shipped for it.
-      if (edit.edit === 'delete') return savedExampleHold(held)
+      if (edit.edit === 'delete') {
+        return intern('unconfirmed_delete', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(removedName(state, edit.removed)))
+      }
       const label = labelOf(nodeDataOf(state, edit.nodeId))
       return edit.edit === 'rename'
         ? intern('unconfirmed_rename', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(label))

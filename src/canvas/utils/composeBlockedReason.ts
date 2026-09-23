@@ -1098,6 +1098,8 @@ function composedPatterns(): RegExp[] {
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(null),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(LABEL_SLOT),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(null),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(LABEL_SLOT),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(null),
   ]
   cachedPatterns = templates.map((template) => {
     const source = escapeForRegex(template)

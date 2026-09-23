@@ -4,12 +4,14 @@
  * gates on the hold.
  *
  * ⚠ WHY A HOOK AND NOT A BARE STORE SELECTOR. Half of what `heldReason` reads is
- * NOT canvas-store state: whether an edit is on the wire, and whether a sent
- * value is still unanswered, live in module-level registers
- * (`registration/editDeliveryHold.ts`, `conversation/pendingFactorEdit.ts`).
+ * NOT canvas-store state: whether an edit is on the wire, whether a sent value
+ * is still unanswered, and whether a delete is still unconfirmed live in
+ * module-level registers (`registration/editDeliveryHold.ts`,
+ * `conversation/pendingFactorEdit.ts`, `conversation/unconfirmedStructuralDelete.ts`).
  * The untyped 500 releases the wire mark and leaves the value pending WITHOUT a
  * store write, so a selector-only surface kept saying "still being saved" about
- * a turn that had settled unconfirmed. The registers subscription below
+ * a turn that had settled unconfirmed; recording an unconfirmed delete is not a
+ * store write either. The registers subscription below
  * re-renders on those moves; the store selector re-runs on every render and on
  * every store write, so the pair together sees both halves.
  *

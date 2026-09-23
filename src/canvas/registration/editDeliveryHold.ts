@@ -79,7 +79,8 @@ import {
 } from '../conversation/pendingEdgeEdit'
 import {
   subscribeUnconfirmedDeletes,
-  unconfirmedDeleteStillOnCanvas,
+  unconfirmedDeleteOnCanvas,
+  type UnconfirmedDeleteSubject,
 } from '../conversation/unconfirmedStructuralDelete'
 
 /** Model-changing system_event turns currently on the wire. */
@@ -90,7 +91,8 @@ const listeners = new Set<Listener>()
 
 /**
  * Moves whenever a MODULE-LEVEL delivery register moves (the wire mark here,
- * the pending factor-edit register). Neither is canvas-store state, so a store
+ * the pending factor-edit register, the unconfirmed-delete register). None is
+ * canvas-store state, so a store
  * selector alone never re-runs when the untyped 500 releases the wire mark and
  * leaves the value pending — a surface built that way would keep saying "still
  * being saved" about a turn that has settled. See `subscribeDeliveryRegisters`.
@@ -163,7 +165,7 @@ export type EditDeliveryHold =
 export type EditDeliveryHoldDetail =
   | { readonly cause: 'edit_on_the_wire' | 'edit_queued' | 'structural_edit_queued' }
   | { readonly cause: 'unresolved_structural_edit'; readonly edit: 'rename' | 'add'; readonly nodeId: string }
-  | { readonly cause: 'unresolved_structural_edit'; readonly edit: 'delete' }
+  | { readonly cause: 'unresolved_structural_edit'; readonly edit: 'delete'; readonly removed: UnconfirmedDeleteSubject }
   | { readonly cause: 'unconfirmed_value_on_canvas'; readonly nodeId: string; readonly sentValue: number }
   | { readonly cause: 'unconfirmed_edge_on_canvas' }
 
@@ -231,7 +233,7 @@ const labelOfIntent = (r: Record<string, unknown>) => (r.intent as { label?: unk
 /** The first unconfirmed structural edit still on the canvas — renames, then adds, then deletes, as before. */
 function unresolvedStructuralEditOnCanvas(
   state: EditDeliveryState,
-): { edit: 'rename' | 'add'; nodeId: string } | { edit: 'delete' } | null {
+): { edit: 'rename' | 'add'; nodeId: string } | { edit: 'delete'; removed: UnconfirmedDeleteSubject } | null {
   const scenario = state.currentScenarioId ?? null
   const labelOf = (id: unknown): unknown => {
     const node = state.nodes.find((n) => n.id === id)
@@ -258,7 +260,8 @@ function unresolvedStructuralEditOnCanvas(
   // the canvas, and the side channel must not make it canonical
   // (`unconfirmedStructuralDelete.ts`; #1892 review residual row "Delete",
   // #1905 residual 1). Scenario-scoped there, read against THIS graph here.
-  if (unconfirmedDeleteStillOnCanvas(state)) return { edit: 'delete' }
+  const removed = unconfirmedDeleteOnCanvas(state)
+  if (removed !== null) return { edit: 'delete', removed }
   return null
 }
 
@@ -302,8 +305,9 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
 }
 
 /**
- * Subscribe to the MODULE-LEVEL registers only — the wire mark and the pending
- * factor-edit register — never to the canvas store.
+ * Subscribe to the MODULE-LEVEL registers only — the wire mark, the pending
+ * factor-edit register and the unconfirmed-delete register — never to the
+ * canvas store. (Recording or settling a delete is not a store write either.)
  *
  * For a surface that already reads the store through a selector and needs to
  * re-render when a register moves as well. Deliberately store-free: component
@@ -314,13 +318,16 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
  */
 export function subscribeDeliveryRegisters(listener: Listener): () => void {
   listeners.add(listener)
-  const unsubscribePending = subscribePendingFactorEdits(() => {
+  const onRegister = () => {
     registersVersion += 1
     listener()
-  })
+  }
+  const unsubscribePending = subscribePendingFactorEdits(onRegister)
+  const unsubscribeDeletes = subscribeUnconfirmedDeletes(onRegister)
   return () => {
     listeners.delete(listener)
     unsubscribePending()
+    unsubscribeDeletes()
   }
 }
 

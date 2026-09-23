@@ -39,14 +39,44 @@
  * A proven attempt drops the earlier records that share an element with it, so
  * a later committed delete of a restored node is never walled off by a stale
  * one; a reverted/refused attempt releases nothing.
+ *
+ * ## What the record keeps for the hold sentence
+ *
+ * `unconfirmedDeleteOnCanvas(state)` also says WHAT was removed, so the hold
+ * can name it (`heldReason`, `utils/analysisHeldOnInjectedModel.ts`). Once the
+ * delete is applied the element is not on the canvas, so its name is taken at
+ * delete time from the intent's `restore` payload and kept on the record. Still
+ * no copy here: this returns facts, and the sentence is `heldReason`'s.
  */
 import type { StructuralDeleteIntent } from '../mutations/structuralDelete'
 import { logger } from '../../lib/logger'
+
+/**
+ * What one unconfirmed delete removed, as far as a sentence can name it:
+ *   'node'    — one node (and any links that went with it): its label then;
+ *   'link'    — one link deleted on its own: its two ends, with their labels
+ *               where the `restore` payload held them (it holds only removed
+ *               nodes, so for a link on its own the reader looks the ends up
+ *               on the canvas, where they still are);
+ *   'several' — more than one node, or more than one link on their own. Naming
+ *               one of them would misdescribe the delete.
+ */
+export type UnconfirmedDeleteSubject =
+  | { readonly kind: 'node'; readonly label: string | null }
+  | {
+      readonly kind: 'link'
+      readonly sourceId: string
+      readonly targetId: string
+      readonly sourceLabel: string | null
+      readonly targetLabel: string | null
+    }
+  | { readonly kind: 'several' }
 
 interface UnconfirmedDelete {
   readonly scenarioId: string | null
   readonly nodeIds: readonly string[]
   readonly edgeIds: readonly string[]
+  readonly subject: UnconfirmedDeleteSubject
 }
 
 let records: UnconfirmedDelete[] = []
@@ -60,6 +90,39 @@ function emit(): void {
 
 function claimedOf(intent: StructuralDeleteIntent): { nodeIds: string[]; edgeIds: string[] } {
   return { nodeIds: [...intent.claimedNodeIds], edgeIds: [...intent.claimedEdgeIds] }
+}
+
+/** A usable label, or null: never an id-shaped or blank stand-in. */
+function labelOfNode(node: { data?: unknown } | undefined): string | null {
+  const label = (node?.data as { label?: unknown } | undefined)?.label
+  return typeof label === 'string' && label.trim().length > 0 ? label.trim() : null
+}
+
+/**
+ * Taken at DELETE TIME from `restore`, the only place the removed element's
+ * name still exists once the delete is applied. `restore` may be absent on a
+ * hand-built intent; then nothing is named.
+ */
+function subjectOf(intent: StructuralDeleteIntent): UnconfirmedDeleteSubject {
+  const restoreNodes = intent.restore?.nodes ?? []
+  const restoreEdges = intent.restore?.edges ?? []
+  const labelIn = (id: unknown): string | null => labelOfNode(restoreNodes.find((n) => n.id === id))
+  if (intent.claimedNodeIds.length === 1) {
+    return { kind: 'node', label: labelIn(intent.claimedNodeIds[0]) }
+  }
+  if (intent.claimedNodeIds.length === 0 && intent.claimedEdgeIds.length === 1) {
+    const edge = restoreEdges.find((e) => e.id === intent.claimedEdgeIds[0])
+    if (edge && typeof edge.source === 'string' && typeof edge.target === 'string') {
+      return {
+        kind: 'link',
+        sourceId: edge.source,
+        targetId: edge.target,
+        sourceLabel: labelIn(edge.source),
+        targetLabel: labelIn(edge.target),
+      }
+    }
+  }
+  return { kind: 'several' }
 }
 
 /**
@@ -94,7 +157,7 @@ export function settleStructuralDeleteAttempt(
   }
   const recorded = settlement === 'unconfirmed' && (nodeIds.length > 0 || edgeIds.length > 0)
   if (recorded) {
-    records.push({ scenarioId, nodeIds, edgeIds })
+    records.push({ scenarioId, nodeIds, edgeIds, subject: subjectOf(intent) })
     logger.info('structural_delete.unconfirmed_held', { scenarioId, nodeIds, edgeIds })
   }
   if (superseded > 0 || recorded) emit()
@@ -107,17 +170,27 @@ export interface UnconfirmedDeleteState {
   readonly currentScenarioId?: string | null
 }
 
-export function unconfirmedDeleteStillOnCanvas(state: UnconfirmedDeleteState): boolean {
-  if (records.length === 0) return false
+/**
+ * The first unconfirmed delete of THIS scenario whose removal the canvas still
+ * shows (every element it removed still absent), as what it removed; `null`
+ * when none stands.
+ */
+export function unconfirmedDeleteOnCanvas(state: UnconfirmedDeleteState): UnconfirmedDeleteSubject | null {
+  if (records.length === 0) return null
   const scenario = state.currentScenarioId ?? null
   const nodeIds = new Set(state.nodes.map((n) => n.id))
   const edgeIds = new Set((state.edges ?? []).map((e) => e.id))
-  return records.some(
+  const standing = records.find(
     (r) =>
       r.scenarioId === scenario &&
       r.nodeIds.every((id) => !nodeIds.has(id)) &&
       r.edgeIds.every((id) => !edgeIds.has(id)),
   )
+  return standing?.subject ?? null
+}
+
+export function unconfirmedDeleteStillOnCanvas(state: UnconfirmedDeleteState): boolean {
+  return unconfirmedDeleteOnCanvas(state) !== null
 }
 
 export function subscribeUnconfirmedDeletes(listener: Listener): () => void {

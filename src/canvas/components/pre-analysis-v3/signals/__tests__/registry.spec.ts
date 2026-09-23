@@ -258,6 +258,9 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     unconfirmedRenameNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(null),
     unconfirmedAdd: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd('Partner churn'),
     unconfirmedAddNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(null),
+    unconfirmedDelete: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete('Partner churn'),
+    unconfirmedDeleteLink: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete('the link from Partner churn to Grow revenue'),
+    unconfirmedDeleteNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(null),
   })
   // ROADMAP 2.376 — the contested surface's own copy, with its one factory invoked so the
   // sentence a user is shown is scanned rather than the function that builds it.
