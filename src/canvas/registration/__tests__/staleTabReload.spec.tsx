@@ -220,6 +220,9 @@ function restoreStaleCopy() {
     pendingEmittedEdits: 0,
     results: { status: 'idle' } as never,
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    // OW-1: the one-writer latch is page-life state keyed by scenario — a new
+    // "page" per case starts with nothing latched.
+    ceeHeldScenarioIds: new Set<string>(),
   } as never)
 }
 
@@ -995,5 +998,311 @@ describe('§9 a superseded read changes nothing (the late-read race)', () => {
     expect(st.lastAuthoritativeGraph && [...st.lastAuthoritativeGraph.nodeIds].sort()).toEqual([GOAL, KEPT].sort())
     expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(true)
     expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('merged')
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §10 — OW-1, THE ONE-WRITER CONTRACT, RULES 1 AND 2 (programme-docs #63
+// 5794896612 → 5797440981). Once CEE holds a scenario's model the page never
+// writes a whole-graph `graph/register` over it.
+//   Rule 1: register only when CEE holds NO model — the read answered `absent`
+//           (200 graph_present:false) or `notReadable` (404). An UNKNOWN read
+//           (5xx, transport) is not a licence: hold, and read again.
+//   Rule 2: a per-scenario latch. After ANY acknowledgement — a register 200, a
+//           read returning the graph (`merged`/`unchanged`), an applied receipt,
+//           a server version restore — the page never registers that scenario
+//           again. Stored as `ceeHeldScenarioIds` on the canvas store (Panel's
+//           signal request): read here BY IDENTITY off that field.
+// ═══════════════════════════════════════════════════════════════════════════
+const SCENARIO_B = '6b2f8bc1-1e15-4ee5-9a0c-cc7581b09fd6'
+
+/** The latch as Panel's Run gate reads it: the stored `ceeHeldScenarioIds`. */
+function ceeHolds(scenarioId: string): boolean {
+  const held = (useCanvasStore.getState() as unknown as { ceeHeldScenarioIds?: ReadonlySet<string> })
+    .ceeHeldScenarioIds
+  return held?.has(scenarioId) === true
+}
+/** Boot reads issued for ONE scenario — bound by the id in the route, never a bare count. */
+function readsOf(scenarioId: string) {
+  return fetchSpy.mock.calls.filter((c) => String(c[0]).includes(`/scenarios/${scenarioId}/graph`))
+}
+/** Registrations sent for ONE scenario. */
+function registrationsFor(scenarioId: string) {
+  return registerSpy.mock.calls.filter((c) => c[0] === scenarioId)
+}
+const ABSENT_BODY = () => jsonResponse(200, { ...graphBody(null), graph: null, graph_present: false })
+function keptObserved(): unknown {
+  return (useCanvasStore.getState().nodes.find((n) => n.id === KEPT)!.data as Record<string, unknown>).observedState
+}
+/** The same nodes, stamped as an inserted TEMPLATE instead of a starter. */
+function asTemplate(nodes: Node[]): Node[] {
+  return nodes.map((n) => {
+    const { starterId: _s, ...rest } = n.data as Record<string, unknown>
+    return { ...n, data: { ...rest, templateId: 'tpl-pricing', templateName: 'Pricing' } } as Node
+  })
+}
+
+describe('§10 OW-1 — register only when CEE holds no model; latch on every acknowledgement', () => {
+  it('CASE 1 · reload of a scenario CEE holds: the read returns the graph → 0 registers even with a value CEE lacks (V1), and the scenario is latched', async () => {
+    setCanvas(keptWith({ observedState: { value: 0.7 } }), MATCHING_EDGES)
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+    let outcome: unknown
+    await act(async () => { outcome = await hydrateCanvasFromServer(SCENARIO) })
+    // Preconditions, V1 by identity: the read returned CEE's graph, the canvas
+    // kept the 0.7 CEE's factor has no value for, so the read does not vouch.
+    expect(outcome).toBe('merged')
+    expect(keptObserved()).toEqual({ value: 0.7 })
+    {
+      const st = useCanvasStore.getState()
+      expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(false)
+    }
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    // ⭐ RED before OW-1: the subset re-offer wrote {observed_state: 0.7} into CEE.
+    expect(registerSpy).not.toHaveBeenCalled()
+    expect(ceeHolds(SCENARIO)).toBe(true)
+    // …and stays so: a later local change is not written over the saved model.
+    await localValueOnlyChange(0.6)
+    expect(registerSpy).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  it('CASE 1 · a read answering `unchanged` (CEE\'s graph has not moved since this page hydrated) latches too — nothing sent', async () => {
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    // The identity this page last hydrated from: the very token the body carries.
+    useCanvasStore.setState({ serverGraphIdentity: { value: 'd'.repeat(64), projectionVersion: 'identity.v1' } } as never)
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+    let outcome: unknown
+    await act(async () => { outcome = await hydrateCanvasFromServer(SCENARIO) })
+    expect(outcome).toBe('unchanged')
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(ceeHolds(SCENARIO)).toBe(true)
+    expect(registerSpy).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  describe('CASE 2 · an UNKNOWN read is never a licence — 0 registers, the read is retried, not latched, still held', () => {
+    async function advance(ms: number) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+    }
+    it.each<[string, () => void]>([
+      ['a transport failure', () => { fetchSpy.mockRejectedValue(new TypeError('Failed to fetch')) }],
+      ['503 through every attempt', () => { fetchSpy.mockResolvedValue(jsonResponse(503, { error: 'unavailable' })) }],
+      ['500', () => { fetchSpy.mockResolvedValue(jsonResponse(500, { error: 'internal' })) }],
+    ])('%s', async (_name, answer) => {
+      vi.useFakeTimers()
+      try {
+        answer()
+        const hook = renderHook(() => {
+          useServerGraphHydration(SCENARIO)
+          useImportRegistration()
+        })
+        await advance(2_000) // the adapter's own 503 attempts, 400 ms apart
+        const firstReads = readsOf(SCENARIO).length
+        expect(firstReads, 'precondition: the boot read went out').toBeGreaterThan(0)
+        expect(registerSpy).not.toHaveBeenCalled()
+        expect(ceeHolds(SCENARIO)).toBe(false)
+        expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
+
+        await advance(200_000)
+        // ⭐ Fail closed AND keep asking: the read is retried…
+        expect(readsOf(SCENARIO).length).toBeGreaterThan(firstReads)
+        // …and no unknown ever becomes a licence to write.
+        expect(registerSpy).not.toHaveBeenCalled()
+        expect(ceeHolds(SCENARIO)).toBe(false)
+        expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
+
+        // BOUNDED: ten more minutes of clock, not one more read.
+        const settled = readsOf(SCENARIO).length
+        await advance(600_000)
+        expect(readsOf(SCENARIO)).toHaveLength(settled)
+        hook.unmount()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('the retried read that returns CEE\'s graph latches the scenario — the unknown resolves with nothing sent', async () => {
+      vi.useFakeTimers()
+      try {
+        fetchSpy
+          .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+          .mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+        const hook = renderHook(() => {
+          useServerGraphHydration(SCENARIO)
+          useImportRegistration()
+        })
+        await advance(0)
+        expect(readsOf(SCENARIO)).toHaveLength(1)
+        expect(ceeHolds(SCENARIO)).toBe(false)
+        await advance(200_000)
+        expect(readsOf(SCENARIO).length).toBeGreaterThan(1)
+        expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('merged')
+        expect(ceeHolds(SCENARIO)).toBe(true)
+        expect(registerSpy).not.toHaveBeenCalled()
+        hook.unmount()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  it.each<[string, () => Response]>([
+    ['404', () => jsonResponse(404, { error: 'not_found' })],
+    ['200 graph_present:false', ABSENT_BODY],
+  ])('CASE 3 · CEE holds no model (%s): exactly one register, then latched — a later local change registers nothing', async (_name, body) => {
+    fetchSpy.mockResolvedValue(body())
+    const hook = await reload()
+    expect(registrationsFor(SCENARIO)).toHaveLength(1)
+    expect(ceeHolds(SCENARIO)).toBe(true)
+
+    await localValueOnlyChange(0.6)
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    // ⚠ INTERIM, accepted by Panel (#63 5797440981): the local-only change moves
+    // the digest, so Run re-holds on the digest path until 5(c) releases it on
+    // this latch. Pinned so that swap is a deliberate change.
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
+    hook.unmount()
+  })
+
+  it('CASE 5 · the latch is per scenario: B (CEE holds none) registers once while A is latched, and back on A nothing is sent', async () => {
+    fetchSpy.mockImplementation(async (url: string) =>
+      String(url).includes(SCENARIO_B) ? ABSENT_BODY() : jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+    const hook = await reload()
+    expect(ceeHolds(SCENARIO), 'precondition: A\'s read latched A').toBe(true)
+    expect(registerSpy).not.toHaveBeenCalled()
+
+    // The user opens decision B: its own restored copy, then its boot read.
+    await act(async () => {
+      setCanvas(STALE_NODES, STALE_EDGES, SCENARIO_B)
+      await flush()
+    })
+    await act(async () => {
+      await hydrateCanvasFromServer(SCENARIO_B)
+      await flush()
+    })
+    expect(registrationsFor(SCENARIO_B)).toHaveLength(1)
+    expect(ceeHolds(SCENARIO_B)).toBe(true)
+    expect(ceeHolds(SCENARIO)).toBe(true)
+
+    // Back on A, a local change: A is still latched.
+    await act(async () => {
+      setCanvas(MATCHING_NODES, MATCHING_EDGES, SCENARIO)
+      await flush()
+    })
+    await localValueOnlyChange(0.6)
+    expect(registrationsFor(SCENARIO)).toHaveLength(0)
+    hook.unmount()
+  })
+
+  it('CASE 6 · a deliberate import on a scenario CEE does not hold registers once — then, latched, a second import is not written over it', async () => {
+    // A file import carries no starter/template stamp, so only the deliberate
+    // (pending-marker) path can register it.
+    const imported = MATCHING_NODES.map((n) => {
+      const { starterId: _s, ...rest } = n.data as Record<string, unknown>
+      return { ...n, data: rest } as Node
+    })
+    setCanvas(imported, MATCHING_EDGES)
+    fetchSpy.mockResolvedValue(ABSENT_BODY())
+    await act(async () => { await hydrateCanvasFromServer(SCENARIO) })
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy, 'precondition: nothing to write before the import').not.toHaveBeenCalled()
+
+    await act(async () => {
+      markGraphImported(imported as never, MATCHING_EDGES as never)
+      useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+      await flush()
+    })
+    expect(registrationsFor(SCENARIO)).toHaveLength(1)
+    expect(ceeHolds(SCENARIO)).toBe(true)
+
+    // A second import onto the scenario CEE now holds.
+    const second = [...imported, { ...ADDED_NODE, data: { label: 'Churn Risk', kind: 'factor' } } as Node]
+    const secondEdges = [...MATCHING_EDGES, ADDED_EDGE]
+    await act(async () => {
+      useCanvasStore.setState({ nodes: second as never, edges: secondEdges as never } as never)
+      markGraphImported(second as never, secondEdges as never)
+      useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+      await flush()
+    })
+    expect(registrationsFor(SCENARIO)).toHaveLength(1)
+    expect(registrationsCarrying(ADDED)).toHaveLength(0)
+    // The honest posture: the import is still NOT confirmed as CEE's model.
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    hook.unmount()
+  })
+
+  it('CASE 7 · an acknowledgement for A that lands while B is current latches A, not B', async () => {
+    let answerA: (v: unknown) => void = () => {}
+    registerSpy.mockImplementationOnce(() => new Promise((res) => { answerA = res }))
+    setCanvas(MATCHING_NODES, MATCHING_EDGES, SCENARIO)
+    markGraphImported(MATCHING_NODES as never, MATCHING_EDGES as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registrationsFor(SCENARIO), 'precondition: A\'s registration is on the wire').toHaveLength(1)
+
+    // The user opens decision B before A's answer lands.
+    await act(async () => {
+      useCanvasStore.setState({
+        currentScenarioId: SCENARIO_B,
+        nodes: STALE_NODES as never,
+        edges: STALE_EDGES as never,
+        importPendingServerRegistration: false,
+      } as never)
+      await flush()
+    })
+    await act(async () => {
+      answerA(ACK)
+      await flush()
+    })
+    expect(ceeHolds(SCENARIO)).toBe(true)
+    expect(ceeHolds(SCENARIO_B)).toBe(false)
+    hook.unmount()
+  })
+
+  describe('CASE 8 · the saved-example / template hold after a reload of a model CEE holds', () => {
+    const stamped = (kind: 'starter' | 'template', nodes: Node[]) => (kind === 'starter' ? nodes : asTemplate(nodes))
+
+    it.each(['starter', 'template'] as const)(
+      '%s: a read that vouches for every value releases it by the READ\'s own acknowledgement — nothing sent, latched',
+      async (kind) => {
+        setCanvas(stamped(kind, MATCHING_NODES), MATCHING_EDGES)
+        expect(analysisHeldOn(useCanvasStore.getState() as never), 'precondition: held before the read').toBe(kind)
+        fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+        const hook = await reload()
+        expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+        expect(registerSpy).not.toHaveBeenCalled()
+        expect(ceeHolds(SCENARIO)).toBe(true)
+        hook.unmount()
+      },
+    )
+
+    // ⛔ FLAGGED WALL (OW-1 report, case 8). The read does NOT vouch for a value
+    // CEE lacks (V1), so `acknowledgeCanvasThatMatchesTheRead` declines — right.
+    // Before OW-1 the subset re-offer registered the canvas and ITS ack released
+    // the hold (while writing the value CEE lacked: Panel's V1). Under rule 2 no
+    // re-offer is sent, so nothing on the digest path releases the hold for the
+    // page's life: no receipt can extend an acknowledgement G₀ never had, and a
+    // reload repeats this. The only exit is the copy's own "re-draft" remedy.
+    // The release belongs on the latch — Panel's 5(c) (`stamp && !ceeHoldsModel`)
+    // — and this pin must flip when it lands. Not fixed here by instruction: OW-1
+    // does not touch the digest path.
+    it.each(['starter', 'template'] as const)(
+      '⛔ WALL (flagged for Panel 5(c)): %s with a value CEE lacks (V1) — latched, nothing sent, and nothing releases the hold',
+      async (kind) => {
+        setCanvas(stamped(kind, keptWith({ observedState: { value: 0.7 } })), MATCHING_EDGES)
+        fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+        const hook = await reload()
+        const st = useCanvasStore.getState()
+        expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(false)
+        expect(registerSpy).not.toHaveBeenCalled()
+        expect(ceeHolds(SCENARIO)).toBe(true)
+        expect(analysisHeldOn(st as never)).toBe(kind)
+        hook.unmount()
+      },
+    )
   })
 })

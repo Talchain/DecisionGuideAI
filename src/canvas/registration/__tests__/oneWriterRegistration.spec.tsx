@@ -53,7 +53,11 @@ import { act, renderHook } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
-import { clearImportRegistrationMarkers, isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
+import {
+  clearImportRegistrationMarkers,
+  isGraphServerAcknowledged,
+  markGraphImported,
+} from '../../store/importRegistrationMarker'
 import { analysisHeldOn, heldReason } from '../../utils/analysisHeldOnInjectedModel'
 import { captureOptimisticFactorEdit } from '../../conversation/optimisticFactorEdit'
 import { __resetPendingFactorEditsForTest } from '../../conversation/pendingFactorEdit'
@@ -160,7 +164,11 @@ import {
   settleStructuralDeleteAttempt,
   settleUnconfirmedDeletesProvenByReceipt,
 } from '../../conversation/unconfirmedStructuralDelete'
-import { __resetBootGraphReadForTest } from '../../hydrate/bootGraphRead'
+import {
+  __resetBootGraphReadForTest,
+  beginBootGraphRead,
+  settleBootGraphRead,
+} from '../../hydrate/bootGraphRead'
 import { recordSettledBootRead } from './__helpers__/settledBootRead'
 import { STRUCTURAL_DELETE_NOTICE } from '../../mutations/structuralDelete'
 
@@ -394,6 +402,8 @@ beforeEach(() => {
     currentScenarioId: null,
     importPendingServerRegistration: false,
     pendingStructuralRenames: [],
+    // OW-1: the one-writer latch is page-life state keyed by scenario.
+    ceeHeldScenarioIds: new Set<string>(),
   } as never)
 })
 
@@ -2147,5 +2157,143 @@ describe('13 · the delete hold\'s one exit — ask Olumi — releases it (Panel
     expect(heldCause()).toBe('unresolved_structural_edit')
     expect(holdSentence()).toBe(DELETE_HOLD_ASKS_OLUMI)
     expect(registeredWithoutConcentration()).toEqual([])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 14. OW-1 — AN APPLIED RECEIPT LATCHES THE SCENARIO (the one-writer contract,
+//     rule 2; programme-docs #63 5795173355 / 5797440981).
+//
+// After ANY acknowledgement for a scenario the page never sends a whole-graph
+// `graph/register` for it again. These cases isolate the RECEIPT as the
+// acknowledgement: nothing has been registered, the boot read came back
+// unknown (so rule 1 holds everything), and then a canonical edit is APPLIED.
+// A later read answering 404 would, by rule 1 alone, license a registration —
+// the latch is what refuses it. Read by identity off the stored field Panel's
+// Run gate consumes (`ceeHeldScenarioIds`).
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ceeHolds(scenarioId: string): boolean {
+  const held = (useCanvasStore.getState() as unknown as { ceeHeldScenarioIds?: ReadonlySet<string> })
+    .ceeHeldScenarioIds
+  return held?.has(scenarioId) === true
+}
+
+/** A stamped model on a scenario this page has NOT latched: no ack yet, and the boot read came back unknown. */
+async function mountUnlatchedStarter(nodes: Node[] = STARTER_NODES, edges: Edge[] = STARTER_EDGES) {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: nodes as never,
+    edges: edges as never,
+    importPendingServerRegistration: false,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: 'aag_before_edit',
+    lastAuthoritativeGraph: null,
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const token = beginBootGraphRead(SCENARIO)
+  settleBootGraphRead(SCENARIO, token, 'unavailable')
+  const hook = renderHook(() => {
+    useImportRegistration()
+    return useConversation()
+  })
+  await act(async () => { await flush() })
+  expect(registerSpy, 'precondition: an unknown read registers nothing').not.toHaveBeenCalled()
+  expect(analysisHeldOn(useCanvasStore.getState() as never), 'precondition: the model is held').toBe('starter')
+  return hook
+}
+
+/** The boot read is asked again and now answers 404 — rule 1 ALONE would permit a registration. */
+async function laterReadAnswersNotReadable() {
+  await act(async () => {
+    const token = beginBootGraphRead(SCENARIO)
+    settleBootGraphRead(SCENARIO, token, 'notReadable')
+    await flush()
+  })
+}
+
+/** Every local gesture that could otherwise reach `graph/register`. */
+async function everyLocalGesture() {
+  await laterReadAnswersNotReadable()
+  await act(async () => {
+    writeOptimistically(BYSTANDER, 0.3)
+    await flush()
+  })
+  await act(async () => {
+    const st = useCanvasStore.getState()
+    markGraphImported(st.nodes as never, st.edges as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+    await flush()
+  })
+}
+
+describe('14 · OW-1: an applied receipt latches the scenario — then nothing is registered over it', { timeout: 30_000 }, () => {
+  it('CASE 4 · an APPLIED factor-value receipt latches the scenario — then 0 registers under any local gesture', async () => {
+    const hook = await mountUnlatchedStarter()
+    replies.push(APPLIED(USER_VALUE))
+    const { send } = await commitValueEdit(hook, USER_VALUE)
+    await settleTurn(send)
+    // Precondition, by identity: the APPLIED arm ran (the user's number, stamped).
+    expect(observed(TARGET)).toMatchObject({ value: USER_VALUE, source: 'user_override' })
+    expect(ceeHolds(SCENARIO)).toBe(true)
+
+    await everyLocalGesture()
+    expect(registerSpy).not.toHaveBeenCalled()
+  })
+
+  it('CASE 4 · an APPLIED receipt carrying the committed graph (option edit) latches the scenario — then 0 registers under any local gesture', async () => {
+    const hook = await mountUnlatchedStarter([...STARTER_NODES, starterOption()], STARTER_EDGES)
+    replies.push(APPLIED_OPTION(0.6))
+    await act(async () => {
+      await hook.result.current.sendSystemEvent(optionEdit(0.6)).catch(() => undefined)
+      await flush()
+    })
+    // Precondition, by identity: the receipt's committed value is on the canvas.
+    const iv = (useCanvasStore.getState().nodes.find((n) => n.id === OPTION)!.data as Record<string, unknown>)
+      .interventions as Record<string, { value?: number }>
+    expect(iv[TARGET]?.value).toBe(0.6)
+    expect(ceeHolds(SCENARIO)).toBe(true)
+
+    await everyLocalGesture()
+    expect(registerSpy).not.toHaveBeenCalled()
+  })
+
+  it('CONTROL · a REFUSED edit is no acknowledgement: not latched, and a read answering 404 still registers the model — once', async () => {
+    const hook = await mountUnlatchedStarter()
+    replies.push(REFUSED)
+    const { send } = await commitValueEdit(hook, USER_VALUE)
+    await settleTurn(send)
+    expect(observed(TARGET), 'precondition: the refusal reverted').toMatchObject({ value: SERVER_VALUE })
+    expect(ceeHolds(SCENARIO)).toBe(false)
+
+    await laterReadAnswersNotReadable()
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(ceeHolds(SCENARIO), 'the register 200 is itself an acknowledgement').toBe(true)
+  })
+
+  it('an acknowledgement that lands while a registration awaits its last hop wins — the POST never leaves', async () => {
+    await mountUnlatchedStarter()
+    let openIdentity: () => void = () => {}
+    identityGate = new Promise<void>((res) => { openIdentity = res })
+    // A deliberate import arms a registration; hold it inside its identity await.
+    await act(async () => {
+      const st = useCanvasStore.getState()
+      markGraphImported(st.nodes as never, st.edges as never)
+      useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+      await flush()
+    })
+    expect(registerSpy).not.toHaveBeenCalled()
+
+    // An acknowledgement for THIS scenario lands meanwhile (any of the four
+    // sources; stated directly on the stored latch).
+    await act(async () => {
+      useCanvasStore.setState({ ceeHeldScenarioIds: new Set([SCENARIO]) } as never)
+      identityGate = null
+      openIdentity()
+      await flush()
+    })
+    expect(registerSpy).not.toHaveBeenCalled()
   })
 })
