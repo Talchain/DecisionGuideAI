@@ -33,6 +33,25 @@ import { deriveTierLanes } from '../utils/tierLanes'
 const LANE_PAD_Y = 48
 const LANE_PAD_X = 120
 
+/**
+ * ⭐ WHERE A BAND'S TITLE SITS, IN GRAPH UNITS (contract v3.1, `.layer-label`:
+ * left-aligned with the layer's content, just above it).
+ *
+ * It used to sit at the band's padded LEFT edge, 120 units outside the
+ * outermost card. The band is furniture and never enters the fit, so at the
+ * landing fit that edge lies under the left toolbar and the title was clipped
+ * ("tions", "mes & risks" — Paul, 24 Sep, both PoCs). Anchored on the content
+ * edge it is inside the fitted box whenever the cards are.
+ *
+ * Anchored by its BOTTOM, `LANE_TITLE_GAP` above the first card's top: the
+ * label counter-scales, so at far zoom it grows several times taller, and it
+ * must grow up into the space between bands, never down over a card.
+ */
+export const LANE_TITLE_GAP = 8
+export function laneTitleFlowAnchor(lane: { x: number; y: number }): { x: number; bottomY: number } {
+  return { x: lane.x, bottomY: lane.y - LANE_TITLE_GAP }
+}
+
 export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly Node[] }) {
   const lanes = useMemo(() => deriveTierLanes(nodes), [nodes])
   if (lanes.length === 0) return null
@@ -114,12 +133,14 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
                * resolves, and 12px is the canvas's own label size — 13 was a
                * number I chose, which is the smaller half of the same defect.
                */
-              className={`absolute text-text-light ${typography.nodeLabel}`}
+              className={`absolute uppercase text-text-light ${typography.nodeLabel}`}
               style={{
-                left: 16,
-                top: 12,
+                // Band-local coordinates of `laneTitleFlowAnchor`.
+                left: LANE_PAD_X,
+                top: LANE_PAD_Y - LANE_TITLE_GAP,
+                transform: 'translateY(-100%)',
                 lineHeight: 1.2,
-                letterSpacing: '0.01em',
+                letterSpacing: '0.06em',
                 whiteSpace: 'nowrap',
               }}
             >
