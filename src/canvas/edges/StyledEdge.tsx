@@ -209,7 +209,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode, isLineRung } = useCanvasStore(
     useShallow(s => ({
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
@@ -224,6 +224,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // store doubles without the slice stay safe.
       isSelectionDimmed: s.dimmedEdgeIds?.has(edgeIdKey) === true,
       viewMode: s.viewMode,
+      // D3 (Paul, 23 Sep 2026): the far rung of the semantic-zoom ladder, where
+      // an exception cue would paint as a speck. A primitive boolean (React
+      // #185), and absent-safe: a store double without the slice reads as NOT
+      // the line rung, i.e. the ordinary render. See `paintFragileRow`.
+      isLineRung: s.lodRung === 'line',
     })),
   )
   const isResultsMode = resultsStatus === 'complete'
@@ -604,10 +609,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeLikelihood]
   )
 
-  // Contested edge state — reduced to four named facts by the one authority
-  // (`edgePresentation.readContestedState`), which also owns the
-  // divergence-scaled dash. The gate itself is unchanged: status contested AND
-  // user_action pending AND a divergence actually supplied.
+  // AI-review disagreement state — reduced to two named facts by the one
+  // authority (`edgePresentation.readContestedState`). The gate itself is
+  // unchanged: status contested AND user_action pending AND a divergence
+  // actually supplied. Since 23 Sep 2026 (Paul) it reaches the canvas ONLY as
+  // the direction-disputed stroke on a `sign_flip`; it never sets the dash.
   const validation = edgeData?.validation
   const contested = useMemo(() => readContestedState(validation), [validation])
 
@@ -1138,6 +1144,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const showFragileRow =
     (viewMode !== 'standard' ? isFragileEdge : isTopFragileEdge) && !isStructuralEdge
 
+  /**
+   * ⭐ WHETHER THE ROW IS PAINTED — a different question from whether the edge
+   * is a member (`showFragileRow`), and kept separate on purpose.
+   *
+   * D3 (Paul, 23 Sep 2026): the fragility row is an EXCEPTION CUE, and an
+   * exception cue must not paint as a microscopic icon. `line` is the rung the
+   * ladder defines as "card body text would paint below the canvas text floor
+   * even at the maximum counter-scale" (`LOD_BODY_HIDDEN_ZOOM`); this row's
+   * text carries the same capped counter-scale and its 12px triangle carries
+   * none, so both are under that floor there too — ARITHMETIC over the
+   * ladder's constants, not a paint witness. So it is not painted at `line`.
+   * The fact is not lost: the hover popover still names it, and zooming in
+   * brings it back.
+   *
+   * ⚠ MEMBERSHIP, AND THEREFORE PLACEMENT, DO NOT READ THE RUNG. The placement
+   * pass (`isPersistentChipEdge`, `fragileLabelIds`) still clears this row's
+   * box at every rung, so crossing the rung never moves a neighbouring chip —
+   * the only zoom behaviour this change adds is the row's absence at `line`.
+   * No new threshold: `line` is the ladder's own rung, written by `LodSync`.
+   */
+  const paintFragileRow = showFragileRow && !isLineRung
+
   const isPersistentChipEdge = isTopStrengthEdge || showFragileRow
 
   // E3 part 2 (C2): subscribe to node geometry so a label re-dodges when ANY
@@ -1253,7 +1281,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     showEdgeHint: Boolean(showEdgeHint),
   })
 
-  const showChip = showLabel || showFragileRow
+  const showChip = showLabel || paintFragileRow
 
   /**
    * The word beside the glyph. Where a PERSISTENT strength row is on screen,
@@ -1774,7 +1802,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             if (isAnalysisFragileEdge && !isStructuralEdge)
               // R6: the fragility halo moves off the warning hue with the
               // fragility chips it accompanies — under the DEFAULT lens, orange
-              // on an edge means contested. (The evidence LENS keeps its own
+              // on an edge means the drafting passes disagree about its SIGN
+              // (Paul, 23 Sep 2026). (The evidence LENS keeps its own
               // orange for 'assumed': a lens is an explicit alternative
               // encoding with its own key, not the default vocabulary.)
               shadows.push('drop-shadow(0 0 4px var(--semantic-info, #3b82f6))')
@@ -2043,7 +2072,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // placed by the resolver. Selected as ONE class rather than
               // appended after another border colour: Tailwind resolves by
               // stylesheet order, not by the order classes appear here.
-              showFragileRow
+              paintFragileRow
                 ? 'border-info/30'
                 : isDark
                   ? 'border-gray-600'
@@ -2095,7 +2124,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 // carries what it means. Derived from `ESTIMATE_SUBJECT_TITLE`,
                 // never re-typed — the cards say this in exactly one place.
                 ...(showLabel && strengthUnconfirmed ? [ESTIMATE_SUBJECT_TITLE.strength] : []),
-                ...(showFragileRow ? [fragileSentence] : []),
+                ...(paintFragileRow ? [fragileSentence] : []),
               ]
               // ⭐⭐ SAY WHAT THE DOUBLE-CLICK ACTUALLY DOES.
               //
@@ -2246,7 +2275,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 (`getFragileEdgeSwitchProbability`); all it lost is the
                 hard-coded `labelX + 30` that put it outside the placement
                 pass and left it floating with no visible referent. */}
-            {showFragileRow && (
+            {paintFragileRow && (
               <div
                 data-testid="edge-fragile-tag"
                 style={{
@@ -2321,8 +2350,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             title="Flagged as assumption"
             data-testid="edge-assumption-badge"
           >
-            {/* R6: not orange — this is a user annotation, not a contested
-                verdict. Orange on an edge is reserved for contested. */}
+            {/* R6: not orange — this is a user annotation. Orange on an edge
+                is reserved for a SIGN disagreement between the drafting
+                passes (Paul, 23 Sep 2026). */}
             <Flag size={12} className="text-text-light" />
           </div>
         </EdgeLabelRenderer>

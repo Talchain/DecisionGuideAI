@@ -27,6 +27,16 @@
  * is unchanged and still enforced by this component's spec. Any FURTHER copy
  * still stops and asks.
  *
+ * ⭐ D3 · CONNECTORS (Paul, 23 Sep 2026) is the next such instruction, and it
+ * supplies the copy it needs: line style keys EXISTENCE certainty only (no
+ * "disagreement"); orange keys ONE thing — Olumi's two drafting passes
+ * disagree about the DIRECTION — in words that cannot be read as people
+ * disagreeing; one row keys the fragility cue; and no string here says
+ * "contested", which is reserved for attributable HUMAN disagreement (no
+ * carrier yet). R6's "orange reserved for contested connections only" is
+ * NARROWED by this ruling, not contradicted: orange is now the sign-dispute
+ * subset of what R6 called contested.
+ *
  * L-49: the canvas spoke four vocabularies with no key — solid vs dashed, +/-
  * markers, thickness, and colour. The legend explained the first and the third.
  * Worse, it taught up/down ARROWS for direction, which the canvas has never
@@ -35,7 +45,7 @@
  */
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, type ReactNode } from 'react'
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle, AlertTriangle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
@@ -46,6 +56,7 @@ import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
+import { DIRECTION_DISPUTED_STROKE } from '../edges/edgePresentation'
 
 interface LegendRow {
   label: string
@@ -72,7 +83,17 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
   stroke?: string
   width?: number
   /**
-   * The dasharray to draw when `dashed`. Defaults to a GENERIC SAMPLE, and the
+   * The dasharray to draw when `dashed`. Defaults to the canvas's ONE dash,
+   * `EXISTENCE_UNCERTAIN_DASH`.
+   *
+   * ⭐ SUPERSEDED 23 Sep 2026 — READ THE REST OF THIS BLOCK AS HISTORY. The
+   * default used to be a GENERIC SAMPLE ('3 2'), justified below by the
+   * divergence-scaled CONTESTED dash that no single constant was true of. Paul
+   * ruled that the dash is existence certainty ONLY and the contested dash rule
+   * is deleted (`edges/edgePresentation.ts`), so the canvas now paints exactly
+   * one dash and the key draws it.
+   *
+   * (Previously:) Defaults to a GENERIC SAMPLE, and the
    * default is load-bearing rather than lazy: the CONTESTED dash is
    * divergence-scaled, so no single constant is true of it.
    *
@@ -110,7 +131,7 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
           stroke={stroke}
           strokeWidth={width}
           strokeLinecap="round"
-          strokeDasharray={dashed ? (dash ?? '3 2') : undefined}
+          strokeDasharray={dashed ? (dash ?? EXISTENCE_UNCERTAIN_DASH) : undefined}
         />
       </svg>
       {mark && (
@@ -122,6 +143,17 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
   )
 }
 
+// ⭐⭐⭐ 23 Sep 2026 — PAUL RULED THE DASH IS EXISTENCE CERTAINTY ONLY, and that
+// settles the argument this whole block records. `resolveEdgeDash` no longer
+// has a `contested` rule, so a dash has exactly ONE cause again — a stated
+// likelihood below the certainty cut — and the dashed caption names that cause
+// alone. "or a disagreement" is removed because the canvas no longer draws one.
+// The SOLID caption is unchanged and is now complete as well as true: it still
+// covers both solid populations (nobody stated a likelihood / a high one was
+// stated), and no disagreement can dash a line any more. The history below is
+// kept because it is why the solid row reads the way it does — do not
+// "simplify" it to "existence certain": an unassessed link draws solid too.
+//
 // ⭐⭐ THE ROW THAT ASSERTED SOMETHING NOBODY HAD SAID.
 //
 // These two rows read "Solid connection: established" and "Dashed connection:
@@ -251,7 +283,7 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
 const CONNECTION_ROWS: LegendRow[] = [
   { label: 'Solid connection: no doubt recorded, or only a small one', swatch: <LineSwatch dashed={false} /> },
   {
-    label: 'Dashed connection: a doubt or a disagreement was recorded',
+    label: 'Dashed connection: a doubt was recorded about whether it exists',
     swatch: <LineSwatch dashed dash={EXISTENCE_UNCERTAIN_DASH} />,
   },
 ]
@@ -270,14 +302,40 @@ const DIRECTION_ROWS: LegendRow[] = [
   { label: 'Grey: direction not set yet', swatch: <LineSwatch stroke="var(--edge-neutral)" width={2} /> },
 ]
 
-// Colour, R6. Exactly one meaning is reserved on a connection: orange means the
-// two reviews disagreed and it is waiting on the person. Every other orange the
-// canvas used to paint on a connection (fragility, assumption flags, who set a
-// value) has moved off the hue, so this row is true.
+// Colour, R6 → D3. Exactly one meaning is reserved on a connection. Since 23 Sep
+// 2026 (Paul) it is NARROWER than R6's: orange means Olumi's two drafting passes
+// disagree about the DIRECTION of the effect (`contested_direction_disputed`,
+// a `sign_flip`), and nothing else — a disagreement about strength, confidence,
+// existence or size no longer turns a line orange. Every other orange the canvas
+// used to paint on a connection (fragility, assumption flags, who set a value)
+// had already moved off the hue, so this row is true.
+//
+// ⚠ THE WORDING SAYS WHO DISAGREES. "reviews disagree" read as PEOPLE; the
+// passes are Olumi's own, and "contested" is reserved for attributable human
+// disagreement, so neither word is used.
+//
+// ⚠ THE SWATCH IS SOLID AND DRAWS THE CANVAS'S OWN VALUE. It was dashed, because
+// every contested edge also dashed; that rule is gone, so an orange line is
+// dashed only when its existence is also in doubt — which the line-style rows
+// key. The colour is `DIRECTION_DISPUTED_STROKE`, imported, not restated.
 const COLOUR_ROWS: LegendRow[] = [
   {
-    label: 'Orange: reviews disagree — your call',
-    swatch: <LineSwatch stroke="var(--semantic-warning)" width={2} dashed />,
+    label: "Orange: Olumi's two drafting passes disagree about the direction — your call",
+    swatch: <LineSwatch stroke={DIRECTION_DISPUTED_STROKE} width={2} />,
+  },
+]
+
+// The fragility cue (D3, Paul 23 Sep 2026). The canvas pins an exception chip on
+// a connection whose change could flip the result — the chip's own words are
+// "Sensitive · NN%", with `AlertTriangle` (the same Lucide glyph, at the same
+// 12px). The caption claims no more than the chip's own title sentence ("outcome
+// may flip if this relationship changes"); it names no threshold and no number.
+const FRAGILITY_ROWS: LegendRow[] = [
+  {
+    label: 'Sensitive: the result may flip if this connection changes',
+    swatch: (
+      <AlertTriangle size={12} className="text-text-body shrink-0" aria-hidden="true" data-testid="legend-fragile-cue" />
+    ),
   },
 ]
 
@@ -1063,6 +1121,8 @@ export function CanvasLegendPopover() {
             <LegendGroup rows={DIRECTION_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={COLOUR_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={FRAGILITY_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={PROVENANCE_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
