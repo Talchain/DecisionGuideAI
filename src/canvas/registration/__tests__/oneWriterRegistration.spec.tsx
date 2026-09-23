@@ -793,3 +793,157 @@ describe('the unresolved-edit rule, pure', () => {
     expect(editDeliveryHold({ nodes: [nodes[0]], currentScenarioId: 's1', structuralAddLifecycle: [add] } as never)).toBeNull()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. AN APPLIED RECEIPT THAT CARRIES THE COMMITTED GRAPH IS THE ACKNOWLEDGEMENT
+//    — for EVERY kind, not only the factor value edit (#1892 residual 3).
+//
+// WITNESSED on served staging 23 Sep 00:12Z (UI 8f79c9e1, CEE 29ffda8a,
+// `output/canvas-completion-20260923/LOG.md` § M1): an `option_intervention_edit`
+// came back 200 with its committed `draft_graph`; the reconcile moved the
+// canvas digest, the re-arm saw an unacknowledged held model, and 9 ms later a
+// whole-graph `graph/register` wrote the canvas over CEE — stripping every
+// option's provenance and moving CEE's hash so the NEXT edit was refused.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const OPTION = 'opt_hybrid'
+
+function starterOption(): Node {
+  return {
+    id: OPTION,
+    type: 'option',
+    position: { x: 0, y: 200 },
+    data: {
+      label: 'Hybrid Platform Fee Plus Usage',
+      kind: 'option',
+      starterId: 'pricing-model',
+      provenance: 'ai_inferred',
+      is_baseline: false,
+      interventions: {
+        [TARGET]: { value: 0.4, source: 'brief_extraction', display_value: 'Moderate (0.4)' },
+      },
+      interventionKeys: [TARGET],
+    },
+  } as unknown as Node
+}
+
+const optionEdit = (value: number): WireSystemEvent => ({
+  type: 'option_intervention_edit',
+  payload: { option_id: OPTION, factor_id: TARGET, value, base_graph_hash: 'aag_before_edit' },
+})
+
+/** CEE's applied option receipt: prose, no blocks, the committed graph on `draft_graph`. */
+const APPLIED_OPTION = (value: number) => ({
+  ok: true,
+  response: {
+    assistant_text: `Set Hybrid Platform Fee Plus Usage's Bottom-Up Adoption Friction to ${value}.`,
+    blocks: [],
+    graph_hash: 'aag_after_option_edit',
+    draft_graph: {
+      nodes: [
+        {
+          id: TARGET,
+          kind: 'factor',
+          label: 'Bottom-Up Adoption Friction',
+          category: 'controllable',
+          observed_state: { value: SERVER_VALUE, source: 'cee_inference', extractionType: 'inferred', factor_type: 'other' },
+        },
+        {
+          id: BYSTANDER,
+          kind: 'factor',
+          label: 'Seat Price',
+          category: 'controllable',
+          observed_state: { value: 0.4, source: 'cee_inference', extractionType: 'inferred', factor_type: 'other' },
+        },
+        {
+          id: OPTION,
+          kind: 'option',
+          label: 'Hybrid Platform Fee Plus Usage',
+          is_baseline: false,
+          interventions: {
+            [TARGET]: {
+              value,
+              source: 'user_specified',
+              target_match: { node_id: TARGET, confidence: 'high', match_type: 'exact_id' },
+            },
+          },
+        },
+      ],
+      edges: [{ id: `${TARGET}::${BYSTANDER}::0`, from: TARGET, to: BYSTANDER, strength: { mean: -0.6 } }],
+    },
+  },
+})
+
+async function mountAcknowledgedStarterWithOption() {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: [...STARTER_NODES, starterOption()] as never,
+    edges: STARTER_EDGES as never,
+    importPendingServerRegistration: true,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: 'aag_before_edit',
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const hook = renderHook(() => {
+    useImportRegistration()
+    return useConversation()
+  })
+  await act(async () => { await flush() })
+  expect(registerSpy).toHaveBeenCalledTimes(1)
+  expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  return hook
+}
+
+function registeredOption(call: unknown[]): Record<string, unknown> | undefined {
+  const graph = call[1] as { nodes: Array<Record<string, unknown>> }
+  return graph.nodes.find((n) => n.id === OPTION)?.interventions as Record<string, unknown> | undefined
+}
+
+describe('8 · an applied receipt carrying the committed graph acknowledges the model — no post-settle registration', () => {
+  it('an APPLIED option-target edit sends NO whole-graph registration after it settles', async () => {
+    const hook = await mountAcknowledgedStarterWithOption()
+    replies.push(APPLIED_OPTION(0.6))
+    await act(async () => {
+      await hook.result.current.sendSystemEvent(optionEdit(0.6)).catch(() => undefined)
+      await flush()
+    })
+
+    // The receipt landed on the canvas (the precondition, bound by identity)…
+    const iv = (useCanvasStore.getState().nodes.find((n) => n.id === OPTION)!.data as Record<string, unknown>)
+      .interventions as Record<string, unknown>
+    expect((iv[TARGET] as { value?: number } | number)).toBeDefined()
+    // …and the ONLY registration is the one that acknowledged the starter.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(registeredOption(registerSpy.mock.calls[0])?.[TARGET]).toMatchObject({ value: 0.4 })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  })
+
+  it('CONTROL: an unacknowledged local change made while the edit is in flight keeps the chain closed — the model is re-offered', async () => {
+    const hook = await mountAcknowledgedStarterWithOption()
+    holdTurn = true
+    let send: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      send = hook.result.current.sendSystemEvent(optionEdit(0.6)).catch(() => undefined)
+      await flush()
+    })
+    // While the turn is on the wire, a local-only analytical change nobody
+    // sent: the registration is held (one writer), and G₀ is no longer the
+    // model CEE acknowledged.
+    await act(async () => {
+      writeOptimistically(BYSTANDER, 0.9)
+      await flush()
+    })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+
+    replies.push(APPLIED_OPTION(0.6))
+    await settleTurn(send)
+
+    // Fail CLOSED: the receipt does not vouch for a canvas it never saw, so a
+    // registration offers the model once delivery settles (#1855 preserved).
+    expect(registerSpy.mock.calls.length).toBeGreaterThan(1)
+  })
+})
