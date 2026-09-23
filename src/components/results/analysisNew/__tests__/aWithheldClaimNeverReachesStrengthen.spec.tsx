@@ -177,6 +177,33 @@ describe('Strengthen the reasoning shows no review-card claim the run withholds'
     expect(section).not.toHaveTextContent('The ordering holds in about 75% of variations')
   })
 
+  it('an edit turn that re-licenses the CURRENT graph does not re-license the run on screen (#1898 × this fix)', async () => {
+    // Witnessed 23 Sep: a graph-only edit turn made `comparative_leader` live
+    // while the run on screen had been admitted `quantified_provisional`. #1898
+    // records the run's own admission and conjoins it; this pins that the
+    // review cards read the CONJOINED answer. `leaderDesignationPermitted` is
+    // `false` exactly as `useResultsSectionData` publishes it for this run; the
+    // stability arm is derived here, by `analysisClaimPolicy`, from BOTH
+    // admissions — drop the run conjunct and FRAGILE_RESULT comes back.
+    const guidanceItems = await ingestCapture()
+    const data = run(true)
+    ;(data.recommendation as unknown as Record<string, unknown>).leaderDesignationPermitted = false
+    ;(data.recommendation as unknown as Record<string, unknown>).runAnalysisAdmission = {
+      permitted_analysis_mode: 'quantified_provisional',
+    }
+    const recs = buildRecommendations(
+      buildStrengthenInputsForAnalysisNew({ data, guidanceItems, biasSignals: null, currentStage: null }),
+    )
+    render(<StrengthenTheReasoning interventions={recs} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-toggle'))
+    const ids = renderedRowIds()
+    expect(ids.length).toBeGreaterThan(0)
+    expect(ids).not.toContain(rowId(BLOCK.narrative))
+    expect(ids).not.toContain(rowId(BLOCK.preMortem))
+    expect(ids).not.toContain(rowId(BLOCK.fragile))
+    expect(ids).toContain(rowId(BLOCK.assumption))
+  })
+
   it('CONTRAST: comparative_leader on the SAME capture renders all three claim cards', async () => {
     await renderPanel(true)
     const ids = renderedRowIds()
