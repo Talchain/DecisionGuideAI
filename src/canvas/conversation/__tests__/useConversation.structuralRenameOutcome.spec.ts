@@ -168,6 +168,42 @@ function renameIntent(): StructuralRenameIntent {
   }
 }
 
+/**
+ * What CEE's PERSISTED graph calls NODE_ID, answered at `POST …/scenarios/{id}/graph`.
+ * A reply with no committed graph is now settled by reading the model back
+ * (#1884 review), so every stub routes that read. Default: CEE declined and
+ * still holds the previous name, which is the state these cases describe.
+ */
+let persistedLabel = PREVIOUS_LABEL
+
+function isGraphRead(input: unknown): boolean {
+  const url = typeof input === 'string' ? input : String((input as { url?: string })?.url ?? input)
+  return /\/scenarios\/[^/]+\/graph$/.test(url)
+}
+
+function graphReadResponse(): Response {
+  const body = {
+    schema: 'scenario_graph.v1',
+    scenario_id: SCENARIO_ID,
+    graph_present: true,
+    graph: {
+      nodes: [
+        { id: NODE_ID, kind: 'factor', label: persistedLabel },
+        { id: SIBLING_ID, kind: 'factor', label: NEW_LABEL },
+      ],
+      edges: [],
+    },
+    graph_hash: BASE_GRAPH_HASH,
+  }
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as unknown as Response
+}
+
 /** The 409 envelope, byte-shaped from CEE `route-v2.ts`. */
 function stub409(category: string) {
   const body = {
@@ -188,7 +224,7 @@ function stub409(category: string) {
   }
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({
+    vi.fn(async (input: unknown) => isGraphRead(input) ? graphReadResponse() : ({
       ok: false,
       status: 409,
       headers: new Headers({ 'content-type': 'application/json' }),
@@ -227,7 +263,7 @@ function stub200(committedLabel: string | null, assistantText: string) {
   }
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({
+    vi.fn(async (input: unknown) => isGraphRead(input) ? graphReadResponse() : ({
       ok: true,
       status: 200,
       headers: new Headers({ 'content-type': 'application/json' }),
@@ -271,6 +307,7 @@ async function driveRename() {
 }
 
 beforeEach(() => {
+  persistedLabel = PREVIOUS_LABEL
   vi.clearAllMocks()
 })
 afterEach(() => {
