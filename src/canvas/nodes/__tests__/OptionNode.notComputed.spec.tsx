@@ -250,7 +250,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
       </ReactFlowProvider>,
     )
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 
   it('POSITIVE CONTROL: the same 3pp gap DOES render the close-call line for a COMPUTED option', () => {
@@ -281,7 +281,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
       </ReactFlowProvider>,
     )
-    expect(screen.getByText(/Within a small margin/i)).toBeInTheDocument()
+    expect(screen.getByText(/Close to the option most runs favour/i)).toBeInTheDocument()
     // Locked Canvas design (23 Sep 2026): the close-call line is Detailed-only
     // now — the identical computed fixture in Standard carries no such line.
     unmount()
@@ -292,7 +292,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       </ReactFlowProvider>,
     )
     expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 
   // ── THE THIRD SURFACE: A COMPARATIVE DESIGNATION CARRYING NO NUMBER ────────

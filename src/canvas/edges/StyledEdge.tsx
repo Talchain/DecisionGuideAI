@@ -69,7 +69,7 @@ import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
-import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
+import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
@@ -122,6 +122,22 @@ export const EDGE_HIT_AREA_WIDTH = 28
  * read costs a diagnostic; this narrows once, in one place, and the callers
  * stay clean.
  */
+/**
+ * The ids of every live edge sharing these endpoints (this one included) — the
+ * context the fragility matcher needs to withhold an id-less finding that could
+ * belong to either of two parallel relationships (Codex #1919 5802926467).
+ * Local rather than imported so the many specs that mock `fragileEdgeMatch`
+ * with a fixed factory keep working; `fragileEdgeMatch.parallelEdgeIdsFor` is
+ * the same rule, pinned by its own spec.
+ */
+function parallelEdgeIdsOf(
+  edges: ReadonlyArray<{ id: string; source: string; target: string }> | undefined,
+  edgeSource: string,
+  edgeTarget: string,
+): string[] {
+  return (edges ?? []).filter(e => e.source === edgeSource && e.target === edgeTarget).map(e => e.id)
+}
+
 function fragileEdgesOf(report: unknown): FragileEdgeCandidate[] {
   const robustness = (report as { robustness?: { fragile_edges?: unknown } } | null | undefined)
     ?.robustness
@@ -280,38 +296,51 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }),
   )
 
-  // Graph Lens: alternative winner label for fragile edge hover
+  /**
+   * ⭐ ONE RESOLVED IDENTITY FOR EVERY FRAGILITY READER ON THIS EDGE (Codex
+   * #1919 5802926467). The edges that share this edge's endpoints are read from
+   * the live graph once and handed to every matcher below — cue, probability,
+   * top-edge, placement and the lens label — so a supplied `edge_id` is
+   * exclusive everywhere and an id-less finding that could belong to either of
+   * two parallel relationships is withheld everywhere, not just in a helper test.
+   */
+  const fragileMatchCtx = useMemo(
+    (): FragileEdgeMatchContext => ({
+      parallelEdgeIds: parallelEdgeIdsOf(typeof getEdges === 'function' ? getEdges() : undefined, String(source), String(target)),
+    }),
+    // `report` is a deliberate dependency: the graph can gain a parallel edge
+    // between runs, and every reader here re-derives when the report changes.
+    [getEdges, source, target, report],
+  )
+
+  // Graph Lens: alternative winner label for fragile edge hover — the SAME
+  // resolved entry as the cue (never "id matches OR endpoints match").
   const lensFragileLabel = useMemo(() => {
     if (!isLensFragile || !report) return ''
-    const reportAny = report as Record<string, unknown>
-    const robustness = reportAny.robustness as Record<string, unknown> | undefined
-    const fragileEdges = (robustness?.fragile_edges ?? []) as Array<Record<string, unknown>>
-    for (const fe of fragileEdges) {
-      const feEdgeId = (fe.edge_id ?? fe.edgeId) as string | undefined
-      const fromId = (fe.from_id ?? fe.fromId ?? fe.source) as string | undefined
-      const toId = (fe.to_id ?? fe.toId ?? fe.target) as string | undefined
-      if (feEdgeId === id || (fromId === source && toId === target)) {
-        const altLabel = (fe.alternative_winner_label ?? fe.alternativeWinnerLabel) as string | undefined
-        return altLabel ? `If wrong → ${altLabel}` : 'Sensitive'
-      }
-    }
-    return 'Sensitive'
-  }, [isLensFragile, report, id, source, target])
+    // The first entry the SAME matcher assigns to this edge (exclusive id,
+    // withheld when ambiguous) — never "id matches OR endpoints match".
+    const entry = fragileEdgesOf(report).find(fe =>
+      isEdgeFragileFn(String(id), String(source), String(target), [fe], fragileMatchCtx),
+    ) as (FragileEdgeCandidate & { alternative_winner_label?: string; alternativeWinnerLabel?: string }) | undefined
+    if (!entry) return 'Sensitive'
+    const altLabel = entry.alternative_winner_label ?? entry.alternativeWinnerLabel
+    return altLabel ? `If wrong → ${altLabel}` : 'Sensitive'
+  }, [isLensFragile, report, id, source, target, fragileMatchCtx])
 
   // Check if this edge is fragile (switch_probability > 0.3)
   // Uses shared utility for consistent matching across StyledEdge, useMenuItems, useLensFilter
   const isFragileEdge = useMemo(() => {
     if (!isResultsMode || !report?.robustness) return false
     const fragileEdges = report.robustness.fragile_edges || []
-    return isEdgeFragileFn(id, source, target, fragileEdges)
-  }, [isResultsMode, report, id, source, target])
+    return isEdgeFragileFn(id, source, target, fragileEdges, fragileMatchCtx)
+  }, [isResultsMode, report, id, source, target, fragileMatchCtx])
 
   // T7: Switch probability for fragile edge badge tooltip + hover popover
   const fragileEdgeSwitchProb = useMemo(() => {
     if (!isFragileEdge || !report?.robustness) return null
     const fragileEdges = report.robustness.fragile_edges || []
-    return getFragileEdgeSwitchProbability(id, source, target, fragileEdges)
-  }, [isFragileEdge, report, id, source, target])
+    return getFragileEdgeSwitchProbability(id, source, target, fragileEdges, fragileMatchCtx)
+  }, [isFragileEdge, report, id, source, target, fragileMatchCtx])
 
   // E4 (graph-visuals): the SINGLE most fragile relationship earns a fragility
   // badge in the default (standard) view too, so the top flip risk is visible
@@ -320,8 +349,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const isTopFragileEdge = useMemo(() => {
     if (!isFragileEdge || !report?.robustness) return false
     const fragileEdges = report.robustness.fragile_edges || []
-    return isTopFragileEdgeFn(id, source, target, fragileEdges)
-  }, [isFragileEdge, report, id, source, target])
+    return isTopFragileEdgeFn(id, source, target, fragileEdges, fragileMatchCtx)
+  }, [isFragileEdge, report, id, source, target, fragileMatchCtx])
 
   /**
    * The fragility sentence — ONE owner (`connectorCopy.fragileEdgeSentence`,
@@ -353,7 +382,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const fragileEdges = fragileEdgesOf(report)
     if (fragileEdges.length === 0) return new Set()
     const out = new Set<string>()
-    for (const e of getEdges()) {
+    const allEdges = getEdges()
+    for (const e of allEdges) {
       // Exclude structural edges, so one cannot reserve a placement slot for a
       // chip it will never render.
       //
@@ -386,9 +416,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const tk = tn?.type || (tn?.data as Record<string, unknown>)?.kind
       if (sk === 'decision' && tk === 'option') continue
       if (sk === 'option' && tk === 'factor') continue
+      const ctx: FragileEdgeMatchContext = { parallelEdgeIds: parallelEdgeIdsOf(allEdges, e.source, e.target) }
       const match = viewMode !== 'standard'
-        ? isEdgeFragileFn(e.id, e.source, e.target, fragileEdges)
-        : isTopFragileEdgeFn(e.id, e.source, e.target, fragileEdges)
+        ? isEdgeFragileFn(e.id, e.source, e.target, fragileEdges, ctx)
+        : isTopFragileEdgeFn(e.id, e.source, e.target, fragileEdges, ctx)
       if (match) out.add(e.id)
     }
     return out

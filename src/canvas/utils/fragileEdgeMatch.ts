@@ -75,6 +75,40 @@ function entryMatchesEdge(
 }
 
 /**
+ * The ids of every edge in `edges` that shares this edge's endpoints
+ * (including this edge) — the context `entryMatchesEdge` needs to withhold an
+ * id-less finding that could belong to either of two parallel relationships
+ * (Codex #1919 5802926467: the MOUNTED reader must supply it, not only a test).
+ */
+export function parallelEdgeIdsFor(
+  edges: ReadonlyArray<{ id: string; source: string; target: string }>,
+  edgeSource: string,
+  edgeTarget: string,
+): string[] {
+  return edges.filter(e => e.source === edgeSource && e.target === edgeTarget).map(e => e.id)
+}
+
+/**
+ * The ONE report entry that belongs to this edge, by the same exclusive-identity
+ * rule as the cue and the probability, or null. Used where a reader needs the
+ * entry's other fields (the lens label's alternative winner), so no reader can
+ * fall back to "id matches OR endpoints match" on its own.
+ */
+export function findFragileEntryForEdge(
+  edgeId: string,
+  edgeSource: string,
+  edgeTarget: string,
+  fragileEdges: FragileEdgeCandidate[],
+  ctx?: FragileEdgeMatchContext,
+): FragileEdgeCandidate | null {
+  for (const fe of fragileEdges) {
+    if (!isRecord(fe)) continue
+    if (entryMatchesEdge(fe, edgeId, edgeSource, edgeTarget, ctx)) return fe
+  }
+  return null
+}
+
+/**
  * Check whether a single edge matches any fragile edge entry with switch_probability > 0.3.
  * Matches by edge_id first, then falls back to from_id/to_id (source/target) pair.
  */

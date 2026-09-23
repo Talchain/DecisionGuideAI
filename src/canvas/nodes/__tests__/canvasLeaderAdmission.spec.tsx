@@ -408,14 +408,14 @@ describe('OptionNode "Close call" — a distance to a leader nobody may name', (
     withStore(ADMISSION_PERMITTED, CLOSE_NODES, CLOSE_CALL_REPORT)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.getByText(/Within a small margin/)).toBeDefined()
+    expect(screen.getByText(/Close to the option most runs favour/)).toBeDefined()
   })
 
   it('⭐ ARM C — refused: no close-call line', () => {
     withStore(ADMISSION_WITHHELD, CLOSE_NODES, CLOSE_CALL_REPORT)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.queryByText(/Within a small margin/)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/)).toBeNull()
   })
 })
 

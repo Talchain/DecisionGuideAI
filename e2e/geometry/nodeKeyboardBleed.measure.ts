@@ -901,6 +901,26 @@ async function showNormalZoom(page: Page): Promise<void> {
   }
 }
 
+/** Back to the landing framing (the product's own Fit to view). */
+async function showLandingZoom(page: Page): Promise<void> {
+  const fit = page.locator('button[aria-label="Fit to view"]').first()
+  if (await fit.count()) {
+    await fit.click()
+    await waitForVisualQuiescence(page)
+  }
+}
+
+/**
+ * ⭐ EACH DRIVEN ROW AT THE ZOOM WHERE ITS CONTROL LIVES. Point 6 made the two
+ * "ask Olumi" doors mutually exclusive by zoom rung: the rail coaching icon at
+ * Normal (full) zoom, the hover `node-action-ask` below it. So a coaching row
+ * is driven at 100% and every other row at the landing framing.
+ */
+async function showZoomForKind(page: Page, kind: string): Promise<void> {
+  if (kind.startsWith('node-coaching-icon')) await showNormalZoom(page)
+  else await showLandingZoom(page)
+}
+
 /** A genuinely fresh document, for the first seed and when the starter changes. */
 async function loadCanvas(page: Page, starter: StarterId): Promise<void> {
   // ⚠ `page.goto('about:blank')` FIRST WAS TRIED AND IS WORSE: the second
@@ -1083,9 +1103,14 @@ test.describe('in-node keyboard bleed', () => {
     const censusByStarter = new Map<StarterId, FocusableCensusRow[]>()
     for (const starter of new Set(DRIVEN_KINDS.map((k) => k.starter))) {
       await loadCanvas(page, starter)
-      await showNormalZoom(page)
       loaded = starter
-      const rows = await censusFocusables(page)
+      // Census at BOTH rungs and merge: each "ask Olumi" door exists at exactly one.
+      const landingRows = await censusFocusables(page)
+      await showNormalZoom(page)
+      const normalRows = await censusFocusables(page)
+      await showLandingZoom(page)
+      const seen = new Set(landingRows.map((r) => `${r.nodeId}|${r.kind}|${r.name}`))
+      const rows = [...landingRows, ...normalRows.filter((r) => !seen.has(`${r.nodeId}|${r.kind}|${r.name}`))]
       expect(rows.length, `no focusable control found inside any node of "${starter}" — the probe is blind`).toBeGreaterThan(0)
       censusByStarter.set(starter, rows)
     }
@@ -1161,11 +1186,11 @@ test.describe('in-node keyboard bleed', () => {
         console.log(`[bleed] ${starter} ${kind} <- ${JSON.stringify(key)}`)
         if (starter !== loaded) {
           await loadCanvas(page, starter)
-          await showNormalZoom(page)
+          await showZoomForKind(page, kind)
           loaded = starter
         } else {
           await reseed(page, starter)
-          await showNormalZoom(page)
+          await showZoomForKind(page, kind)
           // ⚠ RE-APPLYING THE GRAPH DOES NOT UNDO EVERYTHING. An earlier press
           // can start an analysis, and the ghost nodes hide themselves
           // post-analysis — so the target can be present and unfocusable. When
@@ -1173,7 +1198,7 @@ test.describe('in-node keyboard bleed', () => {
           // at something the browser will not focus.
           if (!(await tryFocus(page, c.nodeId, c.name)).ok) {
             await loadCanvas(page, starter)
-            await showNormalZoom(page)
+            await showZoomForKind(page, kind)
             loaded = starter
           }
         }

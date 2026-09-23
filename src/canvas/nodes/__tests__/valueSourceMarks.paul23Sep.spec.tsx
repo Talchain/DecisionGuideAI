@@ -172,10 +172,10 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     })
   }
 
-  it('the user-edit window (Olumi source, withdrawn extractionType) is NOT labelled Olumi’s estimate', () => {
+  it('the user-edit window (old Olumi source, withdrawn extractionType) reads "no source" — never est., never you, never unmarked (Codex #1919 5802926467)', () => {
     setState()
     const { container } = renderNode(FactorNode, 'fac-edit-window')
-    expect(factorValueMark(container)).toBeNull()
+    expect(factorValueMark(container)).toBe('unknown')
   })
 
   it('the mark is a word with an accessible name, not colour alone', () => {

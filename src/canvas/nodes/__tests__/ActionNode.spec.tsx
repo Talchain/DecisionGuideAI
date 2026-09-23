@@ -129,20 +129,23 @@ describe('ActionNode', () => {
     expect(context).not.toHaveTextContent(/confidence|owner|due|confirmed|missing/)
   })
 
-  it('keeps Ask bound to the specific action before the existing conversation sends', async () => {
+  it('keeps Ask bound to the specific action — the resting coaching icon PRE-FILLS the question, never sends it silently (Paul 23 Sep point 6; contract v3)', async () => {
     const action = { id: defaultProps.id, type: 'action', position: { x: 0, y: 0 }, data: { ...defaultProps.data, description: 'Interview customers.', body: 'Record which assumption the interviews challenge.' } }
     useCanvasStore.setState({ nodes: [
       { id: 'other-action', type: 'action', position: { x: 0, y: 0 }, data: { label: 'Another action' } },
       action,
     ] })
-    const sendMessage = vi.fn(() => {
+    const sendMessage = vi.fn()
+    const prefill = vi.fn(() => {
       expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([defaultProps.id])
       expect(useCanvasStore.getState().nodes.find(node => node.id === defaultProps.id)?.data).toEqual(action.data)
     })
-    useGuidanceStore.setState({ _sendMessage: sendMessage })
+    useGuidanceStore.setState({ _sendMessage: sendMessage, _prefillChat: prefill } as never)
     renderWithProvider({ data: action.data })
     fireEvent.click(screen.getByRole('button', { name: 'Ask Olumi about Send notification' }))
-    await waitFor(() => expect(sendMessage).toHaveBeenCalledWith('Explain the role of "Send notification" in this decision model.'))
+    await waitFor(() => expect(prefill).toHaveBeenCalledWith('Explain the role of "Send notification" in this decision model.'))
+    // Nothing is sent without the user confirming it.
+    expect(sendMessage).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'More actions for Send notification' })).toBeInTheDocument()
   })
 

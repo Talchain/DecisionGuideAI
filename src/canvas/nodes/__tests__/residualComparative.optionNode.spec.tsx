@@ -220,7 +220,7 @@ describe('OptionNode — the close-call marker (was "Close call: within N percen
     // Bound to the marker that actually renders: /Close call: within/ stops
     // matching once the colon-and-number form is retired, so it would pass by
     // testing nothing.
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 
   it('PERMITTED: the line renders (over-suppression control)', () => {

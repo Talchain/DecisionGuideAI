@@ -589,7 +589,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     } as any)
     renderOption({})
     // Locked Canvas design (23 Sep 2026): Standard face carries neither line.
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
     expect(screen.queryByText(/Held back by:/)).toBeNull()
     // …Detailed does, on the same fixture.
     renderCloseCallIn('expert', closeCallTopology(3))
@@ -616,7 +616,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     } as any)
     renderOption({})
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent on Standard…
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
     renderCloseCallIn('expert', closeCallTopology(1))
     // ⭐ SUPERSEDED 2026-08-10: this asserted the singular 'point' form. With
     // no number rendered there is no pluralisation left to pin — what remains
@@ -663,7 +663,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     } as any)
     renderOption({})
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent on Standard…
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
     renderCloseCallIn('expert', subPercent)
     expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
@@ -699,15 +699,15 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    // Bound to the marker that actually renders — the old /Within a small margin/ pattern
+    // Bound to the marker that actually renders — the old /Close to the option most runs favour/ pattern
     // stops matching once the colon-and-number form is gone, which would make
     // this absence assertion pass by testing nothing.
     //
     // ⚠ RE-BOUND 7 Sep 2026, FOR THE SECOND TIME AND FOR THE SAME REASON. The
     // marker stopped saying "Close call" at all (Paul's no-contest ruling), so
-    // /Within a small margin/i would now pass against a card that renders the marker in
+    // /Close to the option most runs favour/i would now pass against a card that renders the marker in
     // full. The comment above was already the warning; this is it firing.
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
     expect(screen.queryByText('What would change this?')).toBeNull()
     // The standard "What would make this better supported?" chip is still present.
     expect(screen.getByText('What would make this better supported?')).toBeDefined()
@@ -715,7 +715,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Standard absence above is no longer discriminating on its own — the
     // window's OUTER edge is pinned where the marker can render.
     renderCloseCallIn('expert', closeCallTopology(10))
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 
   it('Standard post leader: NO close-call line on the leader itself', () => {
@@ -743,7 +743,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
     // Locked Canvas design (23 Sep 2026): Detailed-only marker — the leader
     // exclusion is pinned where the marker can render.
     renderCloseCallIn('expert', {
@@ -756,17 +756,17 @@ describe('Render matrix — OptionNode × view × phase', () => {
         },
       },
     })
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 
   it('Pre Standard non-baseline: close-call line never renders pre-analysis', () => {
     applyStore({ ...closeCallTopology(3), phase: 'pre' })
     renderOption({})
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
     // Locked Canvas design (23 Sep 2026): Detailed-only marker — the
     // pre-analysis exclusion is pinned where the marker can render.
     renderCloseCallIn('expert', { ...closeCallTopology(3), phase: 'pre' })
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 })
 

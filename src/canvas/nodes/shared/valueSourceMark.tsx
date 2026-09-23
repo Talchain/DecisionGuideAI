@@ -109,9 +109,11 @@ export interface FactorValueSourceMark {
  *      'explicit'`, which CEE writes beside `brief_extraction`).
  *   4. ⚠ `source` still says Olumi but the writer has WITHDRAWN `extractionType`
  *      — the signature `setObservedValue` leaves when a person types over an
- *      estimate, before the receipt stamps `user_override`. Returns `null`: the
- *      record contradicts itself, and claiming either author would be a guess.
- *      Transient by construction (the receipt resolves it to `you`).
+ *      estimate, before the receipt stamps `user_override`. Marked `unknown`
+ *      ("no source"): the record contradicts itself and claiming either author
+ *      would be a guess, but an unmarked number would break point 1 (Codex
+ *      #1919 5802926467). Transient by construction (the receipt resolves it
+ *      to `you`).
  *   5. Anything else — no stamp, or a literal nobody classifies — is marked
  *      `unknown` ("no source" / "Source not recorded"). Still never unmarked
  *      (Paul 23 Sep contract feedback point 1: never "unmarked = Olumi"), but
@@ -135,8 +137,12 @@ export function factorValueSourceMark(data: unknown): FactorValueSourceMark | nu
     return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
   }
   if (stamped?.kind === 'ai') {
-    // Rule 4 — the writer withdrew the estimate claim; the stamp has not caught up.
-    return null
+    // Rule 4 — the writer withdrew the estimate claim (a dispatched edit keeps
+    // the OLD `cee_inference` source and clears both extraction markers until
+    // the receipt). Neither author is established yet, so the visible number
+    // says so: `no source` — never `you` before acknowledgement, never the old
+    // value's `est.` (Codex #1919 5802926467: every shown value has a source word).
+    return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
   }
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
 }

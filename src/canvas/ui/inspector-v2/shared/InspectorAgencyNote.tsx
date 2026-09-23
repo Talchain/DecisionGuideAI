@@ -25,7 +25,7 @@ export function InspectorAgencyNote({ children }: { children: ReactNode }) {
     >
       <p
         data-testid="inspector-agency-statement"
-        className={`${typography.panelBody} text-text-body font-medium m-0`}
+        className={`${typography.panelBody} text-text-body m-0`}
       >
         {INSPECTOR_AGENCY_STATEMENT}
       </p>

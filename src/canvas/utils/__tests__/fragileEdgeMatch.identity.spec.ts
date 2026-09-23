@@ -56,3 +56,28 @@ describe('fragile-edge identity (Codex 5801910965)', () => {
     expect(isEdgeFragile(E1.id, E1.source, E1.target, idless, { parallelEdgeIds: [E1.id] })).toBe(true)
   })
 })
+
+describe('the MOUNTED reader supplies the parallel context (Codex #1919 5802926467)', () => {
+  it('findFragileEntryForEdge uses the same exclusive identity as the cue (for the lens label)', async () => {
+    const { findFragileEntryForEdge, parallelEdgeIdsFor } = await import('../fragileEdgeMatch')
+    const edges = [
+      { id: 'e1', source: 'fac_a', target: 'out_b' },
+      { id: 'e2', source: 'fac_a', target: 'out_b' },
+      { id: 'e3', source: 'fac_c', target: 'out_b' },
+    ]
+    const ctxAB = { parallelEdgeIds: parallelEdgeIdsFor(edges, 'fac_a', 'out_b') }
+    expect(ctxAB.parallelEdgeIds).toEqual(['e1', 'e2'])
+    const withId = [{ edge_id: 'e1', from_id: 'fac_a', to_id: 'out_b', switch_probability: 0.62, alternative_winner_label: 'Hybrid' }]
+    expect(findFragileEntryForEdge('e1', 'fac_a', 'out_b', withId, ctxAB)).not.toBeNull()
+    expect(findFragileEntryForEdge('e2', 'fac_a', 'out_b', withId, ctxAB)).toBeNull()
+    // A mismatched supplied id never falls back to endpoints.
+    const mismatched = [{ edge_id: 'e9', from_id: 'fac_a', to_id: 'out_b', switch_probability: 0.62 }]
+    expect(findFragileEntryForEdge('e1', 'fac_a', 'out_b', mismatched, ctxAB)).toBeNull()
+    // Id-less + parallel → neither; id-less + unique → the one edge.
+    const idless = [{ from_id: 'fac_a', to_id: 'out_b', switch_probability: 0.62 }]
+    expect(findFragileEntryForEdge('e1', 'fac_a', 'out_b', idless, ctxAB)).toBeNull()
+    const idlessC = [{ from_id: 'fac_c', to_id: 'out_b', switch_probability: 0.62 }]
+    const ctxC = { parallelEdgeIds: parallelEdgeIdsFor(edges, 'fac_c', 'out_b') }
+    expect(findFragileEntryForEdge('e3', 'fac_c', 'out_b', idlessC, ctxC)).not.toBeNull()
+  })
+})
