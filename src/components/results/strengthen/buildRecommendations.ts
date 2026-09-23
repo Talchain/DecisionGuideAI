@@ -149,6 +149,54 @@ const LEHI_CONFIDENCE_CEILING = 0.4
 // strengthen feed.
 const MAX_PHASE3_PROMOTED = 4
 
+/**
+ * ⛔⛔ PRODUCER REVIEW CARDS WHOSE KIND IS A CLAIM, AND THE LICENCE EACH NEEDS.
+ *
+ * Witnessed on the served build (23 Sep 2026, saved example "Customer Data
+ * Platform Selection", guest): the turn's admission was `quantified_provisional`
+ * — no option may be called the leader, no result stable or robust — and the
+ * glance obeyed it. `decision_review_enricher` still sent three review cards,
+ * and this promotion put them into "Strengthen the reasoning" VERBATIM, under
+ * "Source: Olumi model review.":
+ *
+ *   ANALYSIS_NARRATIVE — "Adopt RudderStack produced the best outcome in 55% of
+ *                         runs…": names and ranks a leader.
+ *   PRE_MORTEM         — "the migration to Adopt RudderStack has overrun…":
+ *                         presupposes the leader.
+ *   FRAGILE_RESULT     — "How robust is this? … rated low on how often the
+ *                         ordering holds": a robustness rating.
+ *
+ * #1881 gated the panel's OWN leader and strength words through
+ * `hasLeadingOption` and `stabilityLicensed` (#1206). Both inputs were already
+ * threaded by both callers; this promotion simply never consulted them, so the
+ * producer's cards made the claims the panel's own copy is forbidden to make,
+ * one row below it.
+ *
+ * RULED on olumi-programme-docs#63 (Release Control, comment 5787083967):
+ * SUPPRESSION ONLY — a review-card kind that asserts a leader or a result
+ * strength obeys the run's claim licence. So:
+ *
+ * - ⚠ KEYED ON THE PRODUCER'S `signal_code`, NEVER ON TEXT. The code is the
+ *   producer's own name for the card's kind; the body is prose this estate
+ *   forbids parsing. An item with no code is not identifiable as a claim card
+ *   and is kept.
+ * - ⚠ NOTHING IS REWORDED. A card is shown verbatim or not at all.
+ * - ⚠ `ASSUMPTION_CHECK` IS ABSENT ON PURPOSE. It asserts neither a leader nor a
+ *   strength, and the ruling names it as the card to leave alone. Every other
+ *   code is untouched too: adding one here is a new claim about what a producer
+ *   kind asserts, and needs its own evidence.
+ * - ⚠ EXACT MATCH, like `HELP_TYPE_BY_SIGNAL_CODE`: the vocabulary is the
+ *   producer's SCREAMING_SNAKE, verbatim.
+ *
+ * Not exported. The spec writes the codes out longhand, so a rename here goes
+ * RED there instead of agreeing with itself.
+ */
+const LEADER_CLAIM_SIGNAL_CODES: ReadonlySet<string> = new Set([
+  'ANALYSIS_NARRATIVE',
+  'PRE_MORTEM',
+])
+const STABILITY_CLAIM_SIGNAL_CODES: ReadonlySet<string> = new Set(['FRAGILE_RESULT'])
+
 /** Adaptive-priority boost: large enough that a matching rec always outranks
  * every non-matching band while in-band relative order is preserved. */
 const ADAPTIVE_MATCH_BOOST = 10_000
@@ -553,8 +601,32 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // ordering; exercise blocks and pre-0.19.0 blocks legitimately lack it).
   const isProducerRanked = (i: StrengthenInputs['phase3Items'][number]): boolean =>
     typeof i.priorityRank === 'number'
+  // ⛔ THE RUN'S CLAIM LICENCE, applied to the producer's review cards (see
+  // LEADER_CLAIM_SIGNAL_CODES; #1206, #1881, ruling olumi-programme-docs#63).
+  // Strict `=== false` on both, for the reason `leaderClaimWithheld` above gives:
+  // an absent value is a legacy/fixture caller and keeps every card, matching
+  // the absence arm both inputs document in `strengthenTypes.ts`. The leader arm
+  // REUSES `leaderClaimWithheld` rather than re-reading the input, so it cannot
+  // drift from the other triggers it gates.
+  //
+  // ⚠ FILTERED FIRST — BEFORE the sort, the dedupe, the channel-twin fold and
+  // the MAX_PHASE3_PROMOTED budget. On the captured runs the three claim cards
+  // sort ahead of every assumption card (should_fix before could_fix; rank 10
+  // before 60+) and so hold three of the four slots; dropping them after the
+  // cap would spend those slots on rows nobody sees and push real findings off
+  // the list — the harm the UI-SEM-085 ordering fix prevents one level up. And
+  // before the title+body dedupe, so a suppressed card can never be the "first
+  // occurrence" that silently removes a licensed one.
+  const stabilityClaimWithheld = inputs.stabilityLicensed === false
+  const obeysClaimLicence = (i: StrengthenInputs['phase3Items'][number]): boolean => {
+    if (i.signalCode === undefined) return true
+    if (leaderClaimWithheld && LEADER_CLAIM_SIGNAL_CODES.has(i.signalCode)) return false
+    if (stabilityClaimWithheld && STABILITY_CLAIM_SIGNAL_CODES.has(i.signalCode)) return false
+    return true
+  }
   const seenPhase3Keys = new Set<string>()
-  const dedupedPhase3 = [...inputs.phase3Items]
+  const dedupedPhase3 = inputs.phase3Items
+    .filter(obeysClaimLicence)
     .sort((a, b) => {
       // Stage 2 — SEVERITY-major: the producer's `category` is the primary
       // display order (must_fix → should_fix → could_fix → technique). It is
