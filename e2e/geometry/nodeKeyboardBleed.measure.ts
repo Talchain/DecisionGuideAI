@@ -882,6 +882,25 @@ async function reseed(page: Page, starter: StarterId): Promise<void> {
   await resetSelection(page)
 }
 
+/**
+ * ⭐ THE DRIVE RUNS AT NORMAL ZOOM (Paul, 23 Sep contract feedback point 6):
+ * "Keep one very discreet, consistent coaching icon at Normal zoom. Hide it at
+ * quiet/far zoom." A dense starter lands at the auto-fit floor (0.5), which is
+ * the QUIET rung, so the rail coaching icon — two of the render paths this
+ * drive covers — is correctly absent there, and censusing at landing zoom
+ * would drop them. Every node renders at any zoom (no
+ * `onlyRenderVisibleElements`), so resetting to 100% loses no control; it
+ * only restores the one the rule hides. The census TEST (all five starters)
+ * is unchanged and still gates whatever the landing zoom shows.
+ */
+async function showNormalZoom(page: Page): Promise<void> {
+  const reset = page.locator('button[aria-label^="Zoom level"]').first()
+  if (await reset.count()) {
+    await reset.click()
+    await waitForVisualQuiescence(page)
+  }
+}
+
 /** A genuinely fresh document, for the first seed and when the starter changes. */
 async function loadCanvas(page: Page, starter: StarterId): Promise<void> {
   // ⚠ `page.goto('about:blank')` FIRST WAS TRIED AND IS WORSE: the second
@@ -1064,6 +1083,7 @@ test.describe('in-node keyboard bleed', () => {
     const censusByStarter = new Map<StarterId, FocusableCensusRow[]>()
     for (const starter of new Set(DRIVEN_KINDS.map((k) => k.starter))) {
       await loadCanvas(page, starter)
+      await showNormalZoom(page)
       loaded = starter
       const rows = await censusFocusables(page)
       expect(rows.length, `no focusable control found inside any node of "${starter}" — the probe is blind`).toBeGreaterThan(0)
@@ -1141,9 +1161,11 @@ test.describe('in-node keyboard bleed', () => {
         console.log(`[bleed] ${starter} ${kind} <- ${JSON.stringify(key)}`)
         if (starter !== loaded) {
           await loadCanvas(page, starter)
+          await showNormalZoom(page)
           loaded = starter
         } else {
           await reseed(page, starter)
+          await showNormalZoom(page)
           // ⚠ RE-APPLYING THE GRAPH DOES NOT UNDO EVERYTHING. An earlier press
           // can start an analysis, and the ghost nodes hide themselves
           // post-analysis — so the target can be present and unfocusable. When
@@ -1151,6 +1173,7 @@ test.describe('in-node keyboard bleed', () => {
           // at something the browser will not focus.
           if (!(await tryFocus(page, c.nodeId, c.name)).ok) {
             await loadCanvas(page, starter)
+            await showNormalZoom(page)
             loaded = starter
           }
         }
