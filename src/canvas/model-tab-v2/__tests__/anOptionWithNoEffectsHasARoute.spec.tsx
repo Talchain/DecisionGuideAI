@@ -185,13 +185,27 @@ describe('the section appears on the options that need it', () => {
     expect(screen.getByTestId('model-detail-v2-intervention-candidates')).toBeTruthy()
   })
 
-  it('⛔ SEEDS AN EMPTY EDITOR — opening at the factor’s baseline would assert an effect nobody chose', () => {
+  it('⛔ THE INPUT OPENS EMPTY — never at the factor’s baseline, which would assert an effect nobody chose', () => {
+    // 23 Sep 2026: the two-step picker (press a factor name, THEN an editor
+    // opens) is replaced by a direct input per linked factor. The property the
+    // picker test pinned — the editor is seeded EMPTY, never with the factor's
+    // own value — is kept, against a factor that HAS a value to leak.
+    const board = input({
+      nodes: [
+        option(OPT, 'Hire a marketing manager'),
+        factor(F_A, 'Team capacity'),
+        { ...factor(F_B, 'Monthly spend'), data: { label: 'Monthly spend', type: 'factor', observedState: { value: 0.7 } } },
+      ],
+      edges: [edge('e1', OPT, F_A), edge('e2', OPT, F_B)],
+    })
     const begin = vi.fn()
-    renderRegion(boardWithNoEffects(), OPT, begin)
-    fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-add-${F_B}`))
-    // Bound by IDENTITY: the fixture carries two candidates, so a handler that
-    // fired for "some factor" would not satisfy this (trap 19).
-    expect(begin).toHaveBeenCalledWith(F_B, '')
+    renderRegion(board, OPT, begin)
+    const box = screen.getByTestId(`model-detail-v2-intervention-${F_B}-input`) as HTMLInputElement
+    expect(box.value).toBe('')
+    // Typing BEGINS the edit with what was typed — bound by IDENTITY: the
+    // fixture carries two candidates (trap 19).
+    fireEvent.change(box, { target: { value: '0.5' } })
+    expect(begin).toHaveBeenCalledWith(F_B, '0.5')
   })
 
   it('CONTRAST — stays silent for an option wired to nothing, where the answer really is elsewhere', () => {
@@ -200,18 +214,21 @@ describe('the section appears on the options that need it', () => {
     expect(screen.queryByTestId('model-detail-v2-interventions')).toBeNull()
   })
 
-  it('⛔ disables the picker when the host passed NO handler, rather than offering a dead button', () => {
+  it('⛔ disables the input and Save when the host passed NO handler, rather than offering a dead control', () => {
     renderRegion(boardWithNoEffects(), OPT, undefined)
-    const button = screen.getByTestId(`model-detail-v2-intervention-add-${F_A}`) as HTMLButtonElement
-    expect(button.disabled).toBe(true)
-    expect(button.getAttribute('title') ?? '').toMatch(/reading only/i)
+    const box = screen.getByTestId(`model-detail-v2-intervention-${F_A}-input`) as HTMLInputElement
+    expect(box.disabled).toBe(true)
+    expect(box.getAttribute('title') ?? '').toMatch(/reading only/i)
+    const save = screen.getByTestId(`model-detail-v2-intervention-${F_A}-save`) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
   })
 
-  it('names the factor on the button, never its id', () => {
+  it('names the option and the factor in the question, never an id', () => {
     renderRegion(boardWithNoEffects(), OPT, vi.fn())
-    const button = screen.getByTestId(`model-detail-v2-intervention-add-${F_A}`)
-    expect(button.textContent).toBe('Team capacity')
-    expect(button.textContent).not.toContain(F_A)
+    const question = screen.getByTestId(`model-detail-v2-intervention-${F_A}-question`)
+    expect(question.textContent).toBe('What does Hire a marketing manager change Team capacity to?')
+    expect(question.textContent).not.toContain(F_A)
+    expect(question.textContent).not.toContain(OPT)
   })
 })
 
@@ -236,12 +253,14 @@ describe('the row the picker opens actually appears', () => {
     expect(row_.textContent).toContain('Monthly spend')
   })
 
-  it('⛔ takes that factor OUT of the picker while its row is open — never both at once', () => {
+  it('⛔ ONE row per factor — an open edit never renders the factor twice', () => {
+    // Replaces "takes that factor OUT of the picker while its row is open":
+    // there is no picker now, so the failure mode that test guarded — the same
+    // factor offered in two places at once — is asserted directly.
     renderRegion(boardWithNoEffects(), OPT, vi.fn(), { factorId: F_B, draft: '', phase: 'editing' })
-    expect(screen.queryByTestId(`model-detail-v2-intervention-add-${F_B}`)).toBeNull()
-    // CONTRAST: the other candidate is untouched, so this is a removal of ONE
-    // row and not a collapse of the picker.
-    expect(screen.getByTestId(`model-detail-v2-intervention-add-${F_A}`)).toBeTruthy()
+    expect(screen.getAllByTestId(`model-detail-v2-intervention-${F_B}`)).toHaveLength(1)
+    // CONTRAST: the other candidate keeps its own input.
+    expect(screen.getByTestId(`model-detail-v2-intervention-${F_A}-input`)).toBeTruthy()
   })
 
   it('⛔ DEMONSTRATES THE EQUIVALENT MUTANT rather than asserting it', () => {
