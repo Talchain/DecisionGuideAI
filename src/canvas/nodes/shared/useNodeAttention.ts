@@ -8,9 +8,18 @@
  * (`useAnalysisResultsAreCurrent`) — the same licence the driver line uses, so
  * the marker can never name a rank the card itself withholds (purpose audit,
  * cross-cutting "one licence for all run-derived comparative claims").
+ *
+ * ⛔ AND "CURRENT" MEANS THE COMPOSED VERDICT TOO (reviewer blocker on Paul 23
+ * Sep contract feedback points 11/14). The local-only hook lets a run through
+ * when CEE's wire says `refused` / `unknown_degraded` over locally fresh fields
+ * (its own docblock names that gap). `FactorNode` already withholds its driver
+ * line and turning point on `useRunCurrency() !== 'current'` (Codex #63
+ * 5801431996), so the rail and the inspector's "Worth reviewing" reasons must
+ * too, or they name a rank / turning point the card withholds. Both must agree.
  */
 import { useCanvasStore } from '../../store'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
+import { useRunCurrency } from './runCurrency'
 import { selectDriverPolicyFeed } from '../../../components/results/useResultsSectionData'
 import type { ResultsReport } from '../../../components/results/types'
 import { resolveBiasSignal } from '../../shared/biasSignalTitles'
@@ -32,6 +41,17 @@ let cache: { deps: readonly unknown[]; plan: AttentionPlan } | null = null
 const same = (a: readonly unknown[], b: readonly unknown[]) =>
   a.length === b.length && a.every((v, i) => Object.is(v, b[i]))
 
+/**
+ * The unit the factor CARD shows its value in, exactly as `FactorNode` passes it
+ * to the turning-point track: `undefined` when the card shows no value (nothing
+ * to disagree with), else the observed unit or `null`.
+ */
+function shownFactorUnit(data: Record<string, unknown> | undefined): string | null | undefined {
+  const obs = (data?.observedState ?? data?.observed_state) as { value?: unknown; unit?: unknown } | undefined
+  if (typeof obs?.value !== 'number') return undefined
+  return typeof obs.unit === 'string' ? obs.unit : null
+}
+
 export function attentionPlanFor(
   nodes: ReadonlyArray<NodeLike> | undefined,
   report: unknown,
@@ -50,6 +70,7 @@ export function attentionPlanFor(
     id: n.id,
     label: typeof n.data?.label === 'string' ? (n.data.label as string) : '',
     unconfirmedEstimate: resolveNodeTypeLiteral(n as never) === 'factor' && factorValueIsUnconfirmedEstimate(n.data),
+    factorUnit: shownFactorUnit(n.data),
   }))
 
   let run: Parameters<typeof deriveAttentionPlan>[0]['run'] = null
@@ -108,7 +129,8 @@ export function useNodeAttention(nodeId: string): NodeAttention {
       ? (s.runMeta?.m1ReviewAssumptions as { bias_findings?: unknown } | null | undefined)?.bias_findings
       : undefined,
   )
-  const runIsCurrent = useAnalysisResultsAreCurrent()
+  const locallyCurrent = useAnalysisResultsAreCurrent()
+  const runIsCurrent = useRunCurrency() === 'current' && locallyCurrent
   const plan = attentionPlanFor(nodes, report, runIsCurrent, ceeBiasFindings, reviewBiasFindings)
   const reasons = plan.reasonsByNode.get(nodeId)
   if (!reasons) return NONE

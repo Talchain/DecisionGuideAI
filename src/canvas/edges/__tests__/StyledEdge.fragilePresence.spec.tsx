@@ -160,17 +160,21 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
     expect(badge.textContent).not.toMatch(/·\s*\d+%/)
     expect(badge.getAttribute('aria-label') ?? '').not.toMatch(/\d+%/)
     const titled = badge.closest('[title]')
+    // Paul 23 Sep contract feedback point 4: the cue's own sentence, no
+    // "Sensitive" label — and still no figure when none was measured.
     expect(titled?.getAttribute('title')).toBe(
-      'Sensitive assumption: outcome may flip if this relationship changes',
+      "If this connection's strength changes, the current model comparison could change",
     )
   })
 
-  it('PIN (popover): a marginal-only fragile edge hovers to "Sensitive" with NO flip-risk percentage', () => {
+  it('PIN (popover): a marginal-only fragile edge hovers to the fragility sentence with NO flip-risk percentage', () => {
     setFragileEdges([{ edge_id: 'e1', marginal_switch_probability: 0.9 }])
     const { container } = render(<StyledEdge {...(defaultEdgeProps as any)} />)
     openHoverPopover(container)
     const popover = screen.getByTestId('edge-hover-popover')
-    expect(popover.textContent).toContain('Sensitive')
+    // By test id, then the sentence: the line exists, and states no figure.
+    const line = screen.getByTestId('edge-hover-fragility')
+    expect(line.textContent).toBe("If this connection's strength changes, the current model comparison could change")
     expect(popover.textContent).not.toContain('flip risk')
     expect(popover.textContent).not.toContain('90%')
   })
@@ -186,10 +190,10 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
     render(<StyledEdge {...(defaultEdgeProps as any)} />)
     const badge = screen.getByTestId('edge-fragile-tag')
     expect(badge.textContent ?? '').not.toMatch(/\d/)
-    expect(badge.getAttribute('aria-label')).toContain('42% chance the result flips')
+    expect(badge.getAttribute('aria-label')).toContain('42% flip risk')
     expect(badge.getAttribute('aria-label')).not.toContain('90%')
     const titled = badge.closest('[title]')
-    expect(titled?.getAttribute('title')).toContain('42% chance the result flips')
+    expect(titled?.getAttribute('title')).toContain('42% flip risk')
   })
 
   it('CONTROL (popover): a measured switch_probability still renders "NN% flip risk"', () => {

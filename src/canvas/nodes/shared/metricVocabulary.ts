@@ -232,8 +232,10 @@ export const LAST_RUN_PREFIX = 'Last run · '
  *
  * ⚠ THE PARENTHETICAL THAT USED TO SIT HERE SUGGESTED DASH, AND THE BUILD LANE
  * MEASURED IT AND REFUSED. *"The canvas already uses DASH to mean uncertainty"*
- * is precisely the problem: `EDGE_DASH_RULES` already carries `contested`,
- * `existence_certainty` and `visual_props`, and `resolveEdgeDash` returns the
+ * is precisely the problem: `EDGE_DASH_RULES` already carried `contested`,
+ * `existence_certainty` and `visual_props` (since Paul 23 Sep contract feedback
+ * point 4 the rules are structural → existence_unset → existence_certainty:
+ * dash means existence certainty only), and `resolveEdgeDash` returns the
  * FIRST match — so a fourth rule would be invisible on exactly the edges most
  * in question. Recorded so the dead suggestion is not re-proposed.
  *
@@ -579,7 +581,7 @@ export const sensitivityRankBadgeLabel = (rank: number, fromLastRun = false): st
 export const SENSITIVITY_RANK_LEGEND_NOUN = 'Driver N of M'
 // ⭐ LOCKED DESIGN (23 Sep 2026; ED 02:31Z D1a): the corner "Key driver N" badge
 // is RETIRED and the rank is stated once, on the factor card's driver line —
-// "Driver N of M in this model" (`DRIVER_LINE_COPY.rank`). The legend heading
+// "Driver N of M analysed" (`DRIVER_LINE_COPY.rank`). The legend heading
 // moves with it, so the key names the marking a reader actually meets.
 
 /**
@@ -853,7 +855,11 @@ export const MAX_GLOSS_LENGTH = 110
  * The relative/not-absolute half of the spec sentence is kept word for word.
  */
 export const DRIVER_LINE_COPY = {
-  rank: (rank: number, setSize: number): string => `Driver ${rank} of ${setSize} in this model`,
+  // Paul 23 Sep contract feedback point 5: "if it says `1 of 3`, users must
+  // understand what the 3 means". M is the factors in the last analysis's
+  // driver feed (`rankFactor`), not the cards on the board — "in this model"
+  // invited counting cards. `FactorDriverLine`'s disclosure states the rest.
+  rank: (rank: number, setSize: number): string => `Driver ${rank} of ${setSize} analysed`,
   relativeDisclosure:
     'Relative to the strongest factor in this model, not an absolute causal percentage.',
   rankBasis:

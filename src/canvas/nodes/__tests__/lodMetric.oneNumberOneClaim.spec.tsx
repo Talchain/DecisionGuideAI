@@ -24,7 +24,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * LOCKED CANVAS DESIGN (23 Sep 2026) — WHAT THE CARD NOW SAYS
  * ─────────────────────────────────────────────────────────────────────────────
- * The card's rank is now its driver line, `Driver N of M in this model`
+ * The card's rank is now its driver line, `Driver N of M analysed`
  * (ED 02:31Z D1a: "`Driver N of M`, not `Driver #N of M`"), and the bare
  * percentage is no longer a face fallback at ANY rung (ED 11:52Z: "no
  * pseudo-precise `% influence` on the face") — it lives in the driver line's

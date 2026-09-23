@@ -41,9 +41,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
 let resultsAreCurrent = true
+let runCurrency: 'current' | 'changed' | 'unconfirmed' | 'none' = 'current'
 
 vi.mock('../useAnalysisResultsAreCurrent', () => ({
   useAnalysisResultsAreCurrent: () => resultsAreCurrent,
+}))
+// The composed verdict (wire + local) — `FactorNode`'s own rule since Codex #63
+// 5801431996, now shared by the reduced line (Paul 23 Sep points 11/14 blocker).
+vi.mock('../../nodes/shared/runCurrency', () => ({
+  useRunCurrency: () => runCurrency,
 }))
 
 import { useInfluenceRank } from '../useInfluenceRank'
@@ -52,6 +58,13 @@ import { influenceRankReadout } from '../../../components/results/influenceScale
 describe('useInfluenceRank withholds a rank the run no longer licenses', () => {
   beforeEach(() => {
     resultsAreCurrent = true
+    runCurrency = 'current'
+  })
+
+  it('⛔ withholds it when the WIRE cannot confirm the run, though the local fields are fresh', () => {
+    runCurrency = 'unconfirmed'
+    const { result } = renderHook(() => useInfluenceRank(1, 5))
+    expect(result.current).toBeNull()
   })
 
   it('names the rank while the run is about the graph in front of the reader', () => {

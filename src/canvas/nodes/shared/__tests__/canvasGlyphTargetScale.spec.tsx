@@ -264,7 +264,13 @@ const SURFACES: {
 ]
 
 beforeEach(() => {
+  // Paul 23 Sep contract feedback point 6: at Normal zoom (`lodRung: 'full'`)
+  // the card's Ask Olumi door is the resting coaching icon and the hover ask
+  // is withheld (askOlumiOneGlyph.spec / coachingIconPaul23Sep.spec pin that).
+  // This spec measures the HOVER row with its Ask button, which renders at the
+  // quiet rung.
   useCanvasStore.setState({
+    lodRung: 'quiet',
     nodes: [
       NODE,
       { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price' } },

@@ -107,7 +107,9 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
       // NAMED rule rather than falling through to the legacy visual-props map.
       'existence_unset',
       'existence_certainty',
-      'visual_props',
+      // ⛔ NO `visual_props` — Paul 23 Sep contract feedback point 4: "Dash
+      // remains existence certainty only." A presentational `style` field
+      // carries no existence claim, so it may not dash a line.
     ])
     // The defect this module was written to remove: a "needs attention" dash
     // applied to every confidence-less edge, gated on an app phase.
@@ -266,7 +268,7 @@ describe('edgePresentation — the dash is existence certainty ONLY', () => {
     // future lane that wants to mark the unset state has a named position to
     // hang it on, and nothing silently inherits the other's treatment.
     const d = resolveEdgeDash(state({ existence: { kind: 'stated', dash: undefined } }))
-    expect(d.rule).toBe('visual_props')
+    expect(d.rule).toBe('existence_certainty')
     expect(d.value).toBeUndefined()
     expect(d.rule).not.toBe('existence_unset')
   })

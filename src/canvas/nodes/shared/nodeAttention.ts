@@ -47,6 +47,7 @@
  */
 import { FLIP_THRESHOLD_COPY, flipDirectionWording, formatFlipValue } from '../../../components/results/utils/flipThresholdDisplay'
 import { DRIVER_LINE_COPY, TURNING_POINT_COPY } from './metricVocabulary'
+import { turningPointUnitsCompatible } from './factorTurningPoint'
 import { influenceRankReadout } from '../../../components/results/influenceScaleCopy'
 
 export type AttentionReasonKind =
@@ -76,7 +77,17 @@ export interface FactorTurningPoint {
 
 export interface AttentionInputs {
   /** Every node on the canvas, with the label used in sentences. */
-  readonly nodes: ReadonlyArray<{ id: string; label: string; unconfirmedEstimate: boolean }>
+  readonly nodes: ReadonlyArray<{
+    id: string
+    label: string
+    unconfirmedEstimate: boolean
+    /**
+     * The unit the card shows the factor's value in (`undefined` = the card shows
+     * no value). A turning point's number is printed only when its unit is
+     * compatible, the same rule the card's track applies.
+     */
+    factorUnit?: string | null
+  }>
   /** Run-derived: present only while the analysis is CURRENT. */
   readonly run: {
     readonly ranks: ReadonlyMap<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number }>
@@ -118,10 +129,18 @@ function push(map: Map<string, AttentionReason[]>, id: string, reason: Attention
 }
 
 /** The flip sentence, in the withheld (no-leader) form, ending in its question. */
-export function turningPointSentence(factorLabel: string, tp: FactorTurningPoint): string {
+export function turningPointSentence(
+  factorLabel: string,
+  tp: FactorTurningPoint,
+  factorUnit?: string | null,
+): string {
   const subject = factorLabel.trim() || 'this factor'
   const direction = flipDirectionWording(tp.currentValue, tp.flipValue)
-  const value = tp.displayScale ? formatFlipValue(tp.flipValue, tp.unit) : 'a turning point Olumi found'
+  // The number prints only where the card's track would print it: display scale
+  // AND a unit compatible with the card's (`turningPointUnitsCompatible`), so
+  // the reason can never state a number in a unit the card withholds.
+  const unitsOk = factorUnit === undefined || turningPointUnitsCompatible(tp.unit, factorUnit)
+  const value = tp.displayScale && unitsOk ? formatFlipValue(tp.flipValue, tp.unit) : 'a turning point Olumi found'
   return `${FLIP_THRESHOLD_COPY.flipRiskNoAlternative(subject, direction, value, true)} ${TURNING_POINT_COPY.question}`
 }
 
@@ -134,7 +153,7 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
     for (const [id, tp] of run.turningPoints) {
       const node = byId.get(id)
       if (!node) continue
-      push(reasons, id, { kind: 'turning_point', order: 1, label: turningPointSentence(node.label, tp) })
+      push(reasons, id, { kind: 'turning_point', order: 1, label: turningPointSentence(node.label, tp, node.factorUnit) })
     }
     for (const id of run.fragileEdgeSources) {
       if (!byId.has(id)) continue

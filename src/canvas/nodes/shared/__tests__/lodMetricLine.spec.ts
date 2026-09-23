@@ -9,7 +9,7 @@
  * value, which used to render nothing and must now render its influence.
  *
  * Locked Canvas design (23 Sep 2026): "its influence" is now its DRIVER RANK in
- * the card's own words — `Driver N of M in this model` (ED 02:31Z D1a) — and
+ * the card's own words — `Driver N of M analysed` (ED 02:31Z D1a) — and
  * never a bare `Influence N%` (ED 11:52Z: "no pseudo-precise `% influence` on
  * the face"). The rank arrives as the `driverRank` fact, which `BaseNode`
  * resolves from the current-run licence only.
@@ -58,7 +58,7 @@ const DRIVER_2_OF_5 = { driverRank: { rank: 2, setSize: 5 } }
 describe('the deployed defect: a factor with no stated value said nothing', () => {
   it('falls back to the driver rank the card already shows', () => {
     // Locked Canvas design (23 Sep 2026): the card's driver line reads
-    // "Driver N of M in this model" (ED 02:31Z D1a), so the reduced line says
+    // "Driver N of M analysed" (ED 02:31Z D1a), so the reduced line says
     // the same words — it once said the bare "Influence 62%".
     expect(
       resolveLodMetricLine({
@@ -68,7 +68,7 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
         displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
         facts: DRIVER_2_OF_5,
       }),
-    ).toBe('Driver 2 of 5 in this model')
+    ).toBe('Driver 2 of 5 analysed')
   })
 
   it('⛔ the bare "Influence N%" fallback is GONE — influence with no current rank says nothing analysis-derived', () => {
@@ -419,7 +419,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
         facts: { driverRank: { rank: 1, setSize: 4 } },
       }),
-    ).toBe('Driver 1 of 4 in this model')
+    ).toBe('Driver 1 of 4 analysed')
   })
 
   it('TWIN — influence with NO current rank falls through to the prior range, never to a bare percentage', () => {

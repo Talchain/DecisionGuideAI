@@ -60,8 +60,7 @@ import {
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { openNodeInspector } from './shared/openNodeInspector'
-import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
-import { notAnalysedActionLabel, resolveOptionPrompt } from '../../components/results/utils/notAnalysedCopy'
+import { openOptionValueInput } from '../utils/openOptionValueInput'
 
 /** One sentence per clause, so a joined accessible name never runs two together. */
 const asSentence = (text: string): string => {
@@ -69,8 +68,13 @@ const asSentence = (text: string): string => {
   return /[.!?…]$/.test(t) ? t : `${t}.`
 }
 
-/** The results panel's own action label for an option with no values — one wording. */
-const NOT_ANALYSED_ACTION_LABEL = notAnalysedActionLabel('no_interventions') ?? 'Tell Olumi what it changes'
+/**
+ * The route the "Not in this analysis" pill names for an option with no values.
+ * #1911 gave the option a DIRECT input ("Set what this option changes:" in the
+ * Model tab's option detail), so the pill now names that route instead of a
+ * chat draft ("Tell Olumi what it changes"). Model surface = user-facing "Model".
+ */
+const NOT_ANALYSED_ACTION_LABEL = 'Set what it changes in the Model tab'
 import {
   NODE_QUICK_ACTION_BAND_PX,
   CANVAS_CORNER_STACK_CLASSES,
@@ -190,7 +194,7 @@ interface BaseNodeProps extends NodeProps {
    * owner's `useModelChangedSinceRun()`, passed in already answered.
    *
    * Read by the one run-derived factor figure this component draws: the
-   * driver arm of the reduced line ("Driver N of M in this model"), which keeps
+   * driver arm of the reduced line ("Driver N of M analysed"), which keeps
    * its rank and opens with `LAST_RUN_PREFIX` (Paul's Ruling 3, ROADMAP 2.651:
    * "out-of-date results are labelled, not withheld"). The `Key driver N`
    * badge #1891 also labelled is retired by the locked design (ED 02:31Z D1a);
@@ -529,7 +533,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
     if (nodeType === 'factor') {
-      // One rank wording on every rung: "Driver N of M in this model", from the
+      // One rank wording on every rung: "Driver N of M analysed", from the
       // SAME rule the card's driver line reads (`driverRankFor`): a current run,
       // or a known-changed model's last run labelled `Last run · ` (#1891's rule,
       // Paul's Ruling 3). Never-run / cannot-confirm → null.
@@ -655,6 +659,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * "Tell Olumi what it changes" → `openAskOlumi` with CEE's own sentence,
    * `resolveOptionPrompt`). The canvas now reuses THAT action — no second
    * route, no second wording.
+   * ⚠ SUPERSEDED FOR THE NO-VALUES ARM (23 Sep 2026): #1911 merged a direct
+   * input, so `tellOlumi` now opens `openOptionValueInput(id)` and the name
+   * reads "Set what it changes in the Model tab" (see the pill's `onActivate`).
+   * The field keeps its old name; it means "the no-values arm".
    *
    * KEYED ON THE PRODUCER'S BLOCKER when present: CEE's
    * `analysis_ready.blockers[]` entry for this option with `blocker_type:
@@ -1354,9 +1362,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         <div
           className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel border border-warning shadow-1"
           title="Flagged as assumption"
+          /* Paul 23 Sep contract feedback point 12: an icon needs a name a
+             screen reader can read, not a `title` alone — the same pattern as
+             the edited-since-run dot in the corner stack. */
+          role="img"
+          aria-label="Flagged as assumption"
           data-testid="assumption-badge"
         >
-          <FlagIcon size={12} className="text-text-body" />
+          <FlagIcon size={12} aria-hidden="true" className="text-text-body" />
         </div>
       )}
 
@@ -1722,22 +1735,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 : 'Open its details.',
             ].filter(Boolean).join(' ')}
             onActivate={() => {
-              /* TODO(#1911): route the "no values yet" arm to
-                 `openOptionValueInput` (src/canvas/utils/openOptionValueInput.ts,
-                 added by #1911 "set an option's first effect value directly —
-                 no longer only by a chat sentence") once #1911 is merged, so the
-                 pill opens the option's value input rather than a chat draft
-                 (Experience Design, #63 5796039276 priority 2; design-integration
-                 checklist). #1911 is NOT merged at the design-integration head,
-                 so this arm still reuses #1915's MT-21 route below (the results
-                 panel's `openAskOlumi` prefill-and-confirm, never auto-sent).
-                 The design integration deliberately adds no new chat wiring. */
+              /* ⭐ #1911 IS MERGED (826e69c39), so the "no values yet" arm opens
+                 the option's OWN value input — `openOptionValueInput` (Model tab
+                 → options section → this option's first empty effect input) —
+                 rather than a chat draft (Experience Design, #63 5796039276
+                 priority 2; design-integration checklist). This replaces #1915's
+                 MT-21 route (the results panel's `openAskOlumi` prefill). It is
+                 navigation, not a mutation: the input's own authority decides
+                 what saves. An option linked to no factor still lands on its
+                 detail, whose notice says to link it first. */
               if (exclusionAction?.tellOlumi) {
-                openAskOlumi({
-                  context: `About "${label}"`,
-                  draft: resolveOptionPrompt(label),
-                  label: NOT_ANALYSED_ACTION_LABEL,
-                })
+                openOptionValueInput(id)
                 return
               }
               openNodeInspector(id)
@@ -1874,7 +1882,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         {/* ⭐ THE KEY-DRIVER BADGE IS RETIRED (ED 02:31Z, D1a: "RETIRE the
             Key-driver badge once the body driver line is present"). One rank is
             stated once, in one vocabulary — the factor card's driver line
-            ("Driver N of M in this model") and its reduced line — and never in
+            ("Driver N of M analysed") and its reduced line — and never in
             a corner badge a stale run could keep alive (the badge was not
             freshness-gated; the driver line is).
 

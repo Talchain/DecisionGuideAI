@@ -136,7 +136,7 @@ import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
-import { factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
+import { factorValueSourceMark } from './valueSourceMark'
 import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, METRIC_NOUN, OPTION_RESULT_COPY } from './metricVocabulary'
 
 /**
@@ -267,7 +267,10 @@ export function resolveLodMetricLineDetail({
    * factor arms REDs instead of silently marking the wrong number.
    */
   const stated = factorStatedValue(data, label)
-  return { text, unconfirmedEstimate: stated !== null && factorValueIsUnconfirmedEstimate(data) }
+  // Paul 23 Sep contract feedback point 1: the reduced line reads the SAME
+  // owner as the card face (`factorValueSourceMark`), so a value with no stamp
+  // is `est.` at every zoom — never "unmarked = Olumi" at far zoom only.
+  return { text, unconfirmedEstimate: stated !== null && factorValueSourceMark(data)?.kind === 'olumi' }
 }
 
 /**

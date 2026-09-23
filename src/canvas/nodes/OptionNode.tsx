@@ -159,6 +159,7 @@ import { NodeRailIcon } from './shared/NodeRailIcons'
 import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
 import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
+import { ValueSourceMark } from './shared/valueSourceMark'
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -1022,11 +1023,31 @@ export const OptionNode = memo((props: NodeProps) => {
             (ceeOpt as { intervention_details?: Record<string, unknown> }).intervention_details,
           )
         : Object.entries(((n.data as any)?.interventions ?? {}) as Record<string, unknown>)
+      /**
+       * ⚠ A BARE NUMBER CARRIES NO PROVENANCE, SO IT MUST NOT ERASE ONE. After a
+       * user's `option_intervention_edit`, the same turn's `analysis_ready` has
+       * been witnessed carrying BARE numbers (`applyDraftResult.ts`,
+       * `mergeProducerInterventions`, 23 Sep staging) while the node holds the
+       * receipt-stamped `{value, source:'user_specified'}`. Reading the bare map
+       * alone printed the user's own target with no author. Same rule as
+       * `mergeProducerInterventions`: where the producer entry has no source and
+       * its value EXACTLY equals the node's own object, that object's `source`
+       * stands. A different value keeps the producer's (unstamped) entry.
+       */
+      const ownInterventions = ((n.data as any)?.interventions ?? {}) as Record<string, unknown>
       const targets = new Map<string, OptionTargetLike>()
       for (const [fid, entry] of raw) {
         const u = unwrapInterventionValue(entry)
         if (u.value == null) continue
-        targets.set(fid, { value: u.value, displayValue: u.displayValue, source: (u as { source?: string | null }).source ?? null })
+        let source = u.source ?? null
+        if (source === null && ceeOpt) {
+          const own = ownInterventions[fid]
+          if (own !== null && typeof own === 'object' && !Array.isArray(own)) {
+            const ownU = unwrapInterventionValue(own)
+            if (ownU.value === u.value) source = ownU.source ?? null
+          }
+        }
+        targets.set(fid, { value: u.value, displayValue: u.displayValue, source })
       }
       out.push({ id: n.id, isBaseline, targets })
     }
@@ -2041,6 +2062,8 @@ export const OptionNode = memo((props: NodeProps) => {
                         : r.reference === 'current_value'
                           ? 'From the factor’s current value in the model.'
                           : null,
+                      // Point 7 (Paul 23 Sep): where the TARGET came from, in words.
+                      r.estimated ? null : `Target: ${r.targetSource.label.toLowerCase()}.`,
                     ].filter(Boolean).join(' ')}
                   >
                     {r.change}
@@ -2052,6 +2075,20 @@ export const OptionNode = memo((props: NodeProps) => {
                       >
                         {' '}{UNCONFIRMED_ESTIMATE_TOKEN}
                       </span>
+                    )}
+                    {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
+                        whether 7% came from you / Olumi / brief. Olumi keeps the
+                        served `est.` above; every OTHER source now carries its own
+                        one-word mark instead of silence, so an unmarked target is
+                        never left to be read as Olumi's. */}
+                    {!r.estimated && (
+                      <>
+                        {' '}
+                        <ValueSourceMark
+                          mark={r.targetSource}
+                          testId={`option-change-row-source-${props.id}-${r.factorId}`}
+                        />
+                      </>
                     )}
                   </dd>
                 </Fragment>
@@ -2431,7 +2468,8 @@ export const OptionNode = memo((props: NodeProps) => {
             rule licenses. */}
         {isDetailed && closeCallGapPp != null && (
           <p className={`${typography.nodeLabel} text-text-body mt-0.5 m-0`}>
-            Within a small margin of the most-supported option
+            {/* Model-relative, never a leader title (Codex #63 5801910965; ED 5799353114 decision 1). */}
+            Close to the option most runs favour in this model
           </p>
         )}
 

@@ -194,7 +194,7 @@ vi.mock('../shared/useNodeAttention', () => ({
   useNodeAttention: vi.fn(() =>
     attentionMarked
       ? {
-          reasons: [{ kind: 'top_driver', order: 3, label: 'Driver 2 of 4 in this model: the comparison responds strongly to it. How sure are you of its value?' }],
+          reasons: [{ kind: 'top_driver', order: 3, label: 'Driver 2 of 4 analysed: the comparison responds strongly to it. How sure are you of its value?' }],
           marked: true,
           markedCount: 1,
           candidateCount: 1,

@@ -38,6 +38,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { ASK_OLUMI_CHIP_ID } from '../shared/NodeCoachingIcon'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -133,10 +134,13 @@ describe('the factor card carries its own question, like every other kind', () =
   it('⛔ CONTRAST: an OWNED, observed value gets no question at all', () => {
     renderFactor({ observedState: { value: 0.4, extractionType: 'observed', source: 'user' }, category: 'controllable' })
     expect(screen.queryByTestId('factor-card-question')).toBeNull()
-    expect(screen.queryByTestId(ICON)).toBeNull()
-    // ⚠ NON-VACUITY for the icon's absence: the ask surface IS registered and the
-    // rail IS mounted — the generic "Ask Olumi" quick action renders in the
-    // coaching icon's place exactly when the card has no question to ask.
-    expect(screen.getByTestId(`node-action-ask-${ID}`)).toBeTruthy()
+    // Paul 23 Sep contract feedback point 6: the coaching ICON stays on every
+    // card at Normal zoom, so the silence moved from the icon to its QUESTION —
+    // the icon is the generic "Ask Olumi" door and asks no assumption question.
+    const icon = screen.getByTestId(ICON)
+    expect(icon.getAttribute('data-coaching-chip-id')).toBe(ASK_OLUMI_CHIP_ID)
+    expect(icon).not.toHaveAccessibleName('What’s the evidence?')
+    // …and it REPLACES the hover-only "Ask Olumi" rather than duplicating it.
+    expect(screen.queryByTestId(`node-action-ask-${ID}`)).toBeNull()
   })
 })

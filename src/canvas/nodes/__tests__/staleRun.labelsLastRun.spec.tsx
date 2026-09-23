@@ -28,7 +28,7 @@
  * the bare `Influence N%` reduced line — all retired by the locked node-card
  * design, #1915) to the surfaces that now carry the same figure: the factor
  * card's `FactorDriverLine` (face + Detailed), its turning-point track and its
- * reduced line ("Driver N of M in this model"). The RULE is unchanged:
+ * reduced line ("Driver N of M analysed"). The RULE is unchanged:
  * `changed` → shown and labelled; cannot-confirm → not labelled. Under the
  * locked design cannot-confirm also HIDES the analysis cues (spec §8), which
  * is ED 02:31Z Q2's "never manufacture a last-run claim".
@@ -190,13 +190,13 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 in this model')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 5 in this model')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 5 analysed')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
-    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 5 in this model\. /)
+    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 5 analysed\. /)
     // The badge stays retired on the stale arm too.
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
   })
@@ -206,7 +206,7 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 in this model')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
   })
 
   it('cannot-confirm is NOT "changed" — no Last-run label, and no analysis cue (ED 02:31Z Q2)', () => {
@@ -223,17 +223,17 @@ describe('factor card, Standard view — the driver line', () => {
 })
 
 describe('factor card — the turning-point track', () => {
-  it('a stale run keeps the track and labels it "Last run · Turning point"', () => {
+  it('a stale run keeps the track and labels it "Last run · " (Paul 23 Sep point 3 direction sentence)', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-turning-point').textContent).toMatch(/^Turning point/)
+    expect(screen.getByTestId('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
 
     editTheModel()
     expect(semantic()).toBe('changed')
     const tp = screen.getByTestId('factor-turning-point')
-    expect(tp.textContent).toMatch(/^Last run · Turning point/)
-    expect(tp.getAttribute('aria-label')).toMatch(/^Last run · Turning point\. /)
+    expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
+    expect(tp.getAttribute('aria-label')).toMatch(/^Last run · Below 6\.5%, the model comparison changes\. /)
   })
 })
 
@@ -257,12 +257,12 @@ describe('factor card, below the legibility floor — the reduced line', () => {
     seedCompletedRun(UNVALUED, { lodRung: 'line' })
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 5 in this model')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 5 analysed')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 5 in this model')
-    expect(screen.getByTestId('node-lod-line').getAttribute('title')).toBe('Last run · Driver 1 of 5 in this model')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 5 analysed')
+    expect(screen.getByTestId('node-lod-line').getAttribute('title')).toBe('Last run · Driver 1 of 5 analysed')
   })
 
   it('a human-stated value is NOT run-derived and is never labelled', () => {

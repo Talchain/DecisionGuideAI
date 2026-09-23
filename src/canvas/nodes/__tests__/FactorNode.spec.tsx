@@ -496,7 +496,7 @@ describe('FactorNode', () => {
   // P3: Rank badge in the top-right corner stack.
   // ⭐ Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: "RETIRE the Key-driver
   // badge once the body driver line is present." The rank is stated ONCE, by the
-  // driver line on the card face ("Driver N of M in this model"), and the corner
+  // driver line on the card face ("Driver N of M analysed"), and the corner
   // stack no longer holds a badge. What this test still pins: the stack owns the
   // corner (its own constant), and the rank reaches the reader — now on the line.
   it('the retired rank badge does NOT render; the rank is stated by the driver line (P3, ED 02:31Z D1a)', () => {
@@ -547,7 +547,7 @@ describe('FactorNode', () => {
     expect(screen.queryByText(sensitivityRankBadgeLabel(1))).toBeNull()
     expect(container.textContent).not.toContain('#1')
     // The rank is stated by the driver line on the face instead.
-    expect(captionOf(screen.getByTestId('factor-driver-line'))).toBe('Driver 1 of 5 in this model')
+    expect(captionOf(screen.getByTestId('factor-driver-line'))).toBe('Driver 1 of 5 analysed')
     // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
     // members that remain in it are static flex children.
     // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
@@ -589,8 +589,11 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Medium')).toBeNull()
   })
 
-  // P4: Evidence bar uses bg-info (not bg-factor) — Detailed results mode
-  it('evidence bar uses bg-info class in Detailed results mode (P4)', () => {
+  // P4: Evidence bar uses bg-info (not bg-factor) — Detailed results mode.
+  // Paul 23 Sep contract feedback point 9: driver bar neutral — the driver
+  // bar's fill is now the muted neutral token so it does not compete with the
+  // Info-blue attention marker; the confidence/evidence bar keeps bg-info.
+  it('evidence bar uses bg-info; the driver bar is neutral (P4 + Paul 23 Sep point 9)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -630,8 +633,12 @@ describe('FactorNode', () => {
     })
     const { container } = renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     const bars = container.querySelectorAll('.bg-info')
-    // Both sensitivity and evidence bars should be bg-info
-    expect(bars.length).toBeGreaterThanOrEqual(2)
+    // The evidence bar stays bg-info …
+    expect(bars.length).toBeGreaterThanOrEqual(1)
+    // … the driver bar does not (contrast control within the same render).
+    const driverFill = screen.getByTestId('factor-driver-line-detail-bar-fill')
+    expect(driverFill.className).toContain('bg-text-light')
+    expect(driverFill.className).not.toContain('bg-info')
     expect(container.querySelector('.bg-factor')).toBeNull()
   })
 
@@ -883,13 +890,13 @@ describe('FactorNode', () => {
     const line = screen.getByTestId('factor-driver-line')
     fireEvent.mouseEnter(line)
     const RANKED_DISCLOSURE =
-      'Driver 1 of 5 in this model. Ranked by how strongly the comparison responds to each factor in this model. ' +
+      'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
       'Bar: outcome sensitivity, 100% of the strongest factor. ' +
       'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
       'How much the outcome shifts when this factor changes. How sure are you of its value?'
     expect(await screen.findByRole('tooltip')).toHaveTextContent(RANKED_DISCLOSURE)
     // The visible line is a RANKING, which is the claim a reader can push back on.
-    expect(captionOf(line)).toBe('Driver 1 of 5 in this model')
+    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
     // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is the
     // assertion that would RED if the face reverted to printing the figure.
     expect(line.textContent).not.toContain('100%')
@@ -1273,16 +1280,23 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
-  // A16: source='user' → no provenance icon
-  it('A16: source="user" renders no provenance icon', () => {
-    renderFactor({
+  // A16: source='user' → no Olumi/brief provenance ICON — and, since Paul 23 Sep
+  // contract feedback point 1 ("User-set/evidence-backed values get their own
+  // provenance. Do not rely on 'unmarked = Olumi'"), ONE quiet `you` word mark
+  // whose accessible name is "Set by you". The old third assertion (no "Set by
+  // you" anywhere) pinned the unmarked-user rule point 1 retires.
+  it('A16: source="user" renders no provenance icon, and its own `you` mark', () => {
+    const { container } = renderFactor({
       label: 'Budget',
       type: 'factor',
       observedState: { value: 0.7, source: 'user' },
     })
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
     expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
-    expect(screen.queryByText('Set by you')).toBeNull()
+    expect(container.querySelector('[data-testid="estimate-marker"]')).toBeNull()
+    const mark = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')
+    expect(mark).not.toBeNull()
+    expect(mark!.textContent).toBe('youSet by you')
   })
 
   // A17: Contextual value text + science icon are separate elements

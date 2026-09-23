@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY, RiskNodeDataSchema } from '../domain/nodes'
-import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
+import { calculateRiskSeverity, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_UNSET } from './shared/metricVocabulary'
@@ -180,7 +180,6 @@ export const RiskNode = memo((props: NodeProps) => {
     () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
     [props.data],
   )
-  const severityColors = getRiskSeverityColors(severity)
 
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
   const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
@@ -494,16 +493,24 @@ export const RiskNode = memo((props: NodeProps) => {
       // `inline-flex`, no `w-fit` and no width, so it is a full-bleed block
       // inside the card: the badge text sat centred while every other line of
       // the node was left-aligned.
-      className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
+      //
+      // ⛔ Paul 23 Sep contract feedback point 9: "risk = existing Danger
+      // treatment … do not invent new colours". `getRiskSeverityColors` painted
+      // low/medium in Tailwind yellow/orange defaults that are not in the design
+      // system, and high/critical as `text-danger`, which fails small-text
+      // contrast (`nodeSystem.semanticColourOnText.spec.ts`). Every band is now
+      // the design-system outlined pill — danger border at /30, body text — and
+      // the WORD carries the severity, not a colour.
+      className={`bg-transparent border border-danger/30 text-text-body rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
     >
       {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
     </div>
   ) : null
 
   const riskExposureLine = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light mt-1`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
+    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
   ) : (
-    <div className={`${typography.edgeLabel} text-text-light mt-1`} data-testid="risk-exposure-unset">
+    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-unset">
       {RISK_EXPOSURE_UNSET_LINE}
     </div>
   )
@@ -649,8 +656,8 @@ export const RiskNode = memo((props: NodeProps) => {
             `shared/metricVocabulary.ts`.) The `est.`-beside-the-figure
             branch is gone; where nobody set the weight there is no figure. */}
         {/* ⭐⭐ THE RISK'S OWN MAGNITUDE, ABOVE EVERY FIGURE THAT IS ABOUT
-            SOMETHING ELSE. The row beneath describes a CONNECTION's strength and
-            the block below it a severity derived from probability × impact —
+            SOMETHING ELSE. The severity band beneath is derived from probability ×
+            impact and the link row after it describes a CONNECTION's strength —
             neither of which is this risk's size. A risk labelled "Time to Reach
             Customer Target" holds `12 months` in its own data and printed none
             of it (`RiskNode` carried zero `observedState` references against a
@@ -676,6 +683,24 @@ export const RiskNode = memo((props: NodeProps) => {
           </p>
         )}
 
+        {/* The probability × impact pair is the node's OWN entered data and stays
+            on the face; the derived severity badge beside it is Detailed-only
+            (locked design, 23 Sep 2026 — see the gate below). No fabrication
+            when data is absent. */}
+        {/* ⭐ The derived severity badge ("High Risk") is Detailed information
+            (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
+            it is not a resting claim. The node's OWN entered likelihood/impact
+            below stays on the face — it is the user's data, not a verdict. */}
+        {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
+        {riskExposureLine}
+
+        {/* ⭐ THE LINK ROW COMES AFTER THE RISK'S OWN SIZE (Paul 23 Sep contract
+            feedback point 13, with the contract's rule "outcome/risk records are
+            distinct from the strength of their connections"). The recorded
+            magnitude, the severity band and likelihood/impact are ONE group
+            about the risk; they used to sit split around this row. Outcome
+            and risk now share one anatomy — own state, then the link — so a
+            mixed row reads alike without any filler line. */}
         {bridgeEdgeData && (
           /* ⭐ TWO ROWS, ONE CAPTION COLUMN — AND THE BAR IS THE THING THAT MOVES.
 
@@ -705,17 +730,6 @@ export const RiskNode = memo((props: NodeProps) => {
              keyboard on a non-focusable row and absent on touch. */
           <LinkStrengthRow bridge={bridgeEdgeData} fillClass="bg-danger" testId="risk-strength-row" />
         )}
-
-        {/* The probability × impact pair is the node's OWN entered data and stays
-            on the face; the derived severity badge beside it is Detailed-only
-            (locked design, 23 Sep 2026 — see the gate below). No fabrication
-            when data is absent. */}
-        {/* ⭐ The derived severity badge ("High Risk") is Detailed information
-            (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
-            it is not a resting claim. The node's OWN entered likelihood/impact
-            below stays on the face — it is the user's data, not a verdict. */}
-        {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
-        {riskExposureLine}
 
         {/* The leading-indicator question rides the CARD in Standard view; the
             reduce/mitigate pair stays in the popover. Detailed renders all

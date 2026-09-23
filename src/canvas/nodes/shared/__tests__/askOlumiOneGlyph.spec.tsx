@@ -39,7 +39,7 @@ const glyphOf = (el: HTMLElement): string => {
 
 beforeEach(() => {
   cleanup()
-  useCanvasStore.setState({ nodes: [NODE] } as never)
+  useCanvasStore.setState({ nodes: [NODE], lodRung: 'full' } as never)
   useGuidanceStore.setState({
     _sendMessage: vi.fn(), _prefillChat: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [],
   } as never)
@@ -59,6 +59,10 @@ describe('"Ask Olumi" is ONE glyph on the card — MessageCircle (Panel R3)', ()
   })
 
   it('the hover quick action "Ask Olumi" is MessageCircle, not MessageSquare', () => {
+    // Paul 23 Sep contract feedback point 6: at Normal zoom the resting coaching
+    // icon is the card's Ask Olumi door and the hover ask is withheld; the hover
+    // ask renders at the quiet rung, where the resting icon is hidden.
+    useCanvasStore.setState({ lodRung: 'quiet' } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     const ask = screen.getByTestId('node-action-ask-node-a')
     expect(ask).toHaveAccessibleName('Ask Olumi about Hiring spend')
@@ -75,8 +79,17 @@ describe('"Ask Olumi" is ONE glyph on the card — MessageCircle (Panel R3)', ()
     )
     const coaching = glyphOf(screen.getByTestId('node-coaching-icon-node-a'))
     cleanup()
+    useCanvasStore.setState({ lodRung: 'quiet' } as never) // point 6: the hover ask's rung
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     expect(glyphOf(screen.getByTestId('node-action-ask-node-a'))).toBe(coaching)
+  })
+
+  it('Paul 23 Sep point 6 — at Normal zoom the rail carries ONE Ask Olumi door: the resting icon, same glyph, no hover twin', () => {
+    render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
+    expect(screen.queryByTestId('node-action-ask-node-a')).toBeNull()
+    const icon = screen.getByTestId('node-coaching-icon-node-a')
+    expect(icon).toHaveAccessibleName('Ask Olumi about Hiring spend')
+    expect(glyphOf(icon)).toBe(ASK_GLYPH)
   })
 
   it('CONTROL — a different act keeps its own glyph, so the probe discriminates', () => {

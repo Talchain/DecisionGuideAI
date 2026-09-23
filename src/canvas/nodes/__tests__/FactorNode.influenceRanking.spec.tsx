@@ -45,7 +45,7 @@
  * (`factor-influence-row`, "Most influential … of 5") and the Detailed DataBar
  * row are BOTH replaced by one `FactorDriverLine`: `factor-driver-line` on the
  * face, `factor-driver-line-detail` in Detailed/popover layer 2. Its caption is
- * "Driver N of M in this model" for a determined rank, else the quantity's own
+ * "Driver N of M analysed" for a determined rank, else the quantity's own
  * noun; the percentage lives ONLY in its accessible name / tooltip, beside
  * "…N% of the strongest factor…" — demoted, never deleted.
  *
@@ -187,7 +187,7 @@ const renderFactor = () =>
  * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
  */
 const RANKED_NAME_LEADER =
-  'Driver 1 of 5 in this model. Ranked by how strongly the comparison responds to each factor in this model. ' +
+  'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
   'Bar: outcome sensitivity, 100% of the strongest factor. ' +
   'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
   'How much the outcome shifts when this factor changes. How sure are you of its value?'
@@ -218,7 +218,7 @@ describe('Standard view — the driver line states the ranking', () => {
        transparent here), so the Detailed driver line is also in the document.
        A `getByText` would be ambiguous (CLAUDE.md trap 19). */
     const line = faceLine()
-    expect(captionOf(line)).toBe('Driver 1 of 5 in this model')
+    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
     /* ⛔ THE DELETE-MUTANT ASSERTION. Remove the rank from this call site and
        the caption falls back to the quantity noun, which the line above
        REJECTS. And the retired `% influence` row is gone from the face. */
@@ -255,7 +255,7 @@ describe('Standard view — the driver line states the ranking', () => {
     setMetadata(2, 5, 0.62)
     renderFactor()
     const line = faceLine()
-    expect(captionOf(line)).toBe('Driver 2 of 5 in this model')
+    expect(captionOf(line)).toBe('Driver 2 of 5 analysed')
     expect(line.textContent).not.toContain('62%')
     expect(line).toHaveAccessibleName(/62% of the strongest factor/)
   })
@@ -273,7 +273,7 @@ describe('Detailed view — the Detailed driver line states the same ranking', (
     setMetadata(1, 5, 1)
     renderFactor()
     const line = detailLine()
-    expect(captionOf(line)).toBe('Driver 1 of 5 in this model')
+    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
     expect(line.textContent).not.toContain('100%')
     expect(line.textContent).not.toContain('Relative influence')
     expect(line).toHaveAccessibleName(RANKED_NAME_LEADER)
@@ -425,7 +425,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     renderFactor()
 
     expect(screen.getByTestId('node-title')).toBeTruthy()
-    expect(captionOf(faceLine())).toBe('Last run · Driver 1 of 5 in this model')
+    expect(captionOf(faceLine())).toBe('Last run · Driver 1 of 5 analysed')
     // Never the unlabelled current-run caption.
     expect(captionOf(faceLine())!.startsWith('Driver')).toBe(false)
   })
@@ -438,7 +438,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    expect(captionOf(faceLine())).toBe('Driver 1 of 5 in this model')
+    expect(captionOf(faceLine())).toBe('Driver 1 of 5 analysed')
   })
 
   it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {
@@ -457,7 +457,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     // Ruling 3, ROADMAP 2.651: "labelled, not withheld"; visual contract v3).
     // The two views still cannot disagree: both carry the same label.
     const line = detailLine()
-    expect(captionOf(line)).toBe('Last run · Driver 1 of 5 in this model')
+    expect(captionOf(line)).toBe('Last run · Driver 1 of 5 analysed')
     expect(line.getAttribute('aria-label')!.startsWith(captionOf(line)!)).toBe(true)
     expect(line.textContent).not.toContain('100%')
   })

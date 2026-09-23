@@ -36,6 +36,7 @@ import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
+import { ASK_OLUMI_CHIP_ID } from '../shared/NodeCoachingIcon'
 
 /**
  * Locked Canvas design (23 Sep 2026; ED 02:31Z D4, ED 11:52Z point 5): the
@@ -165,7 +166,9 @@ describe('the option card asks its own question, like every other kind', () => {
     // the producer rather than the producer).
     renderOption({ is_baseline: true })
     // Locked Canvas design (23 Sep 2026): the question's home is the rail icon.
-    expect(screen.queryByTestId(ICON)).toBeNull()
+    // Paul 23 Sep contract feedback point 6: the icon stays on every card, so
+    // "asks nothing" now means it is the generic "Ask Olumi" door, no question.
+    expect(screen.getByTestId(ICON).getAttribute('data-coaching-chip-id')).toBe(ASK_OLUMI_CHIP_ID)
     expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
 
@@ -174,7 +177,8 @@ describe('the option card asks its own question, like every other kind', () => {
     // the component's own predicate, which the flag-only case never exercises.
     renderOption({ label: 'Keep per-seat pricing (status quo)' })
     // Locked Canvas design (23 Sep 2026): the question's home is the rail icon.
-    expect(screen.queryByTestId(ICON)).toBeNull()
+    // Paul 23 Sep point 6: present on every card, as the generic door only.
+    expect(screen.getByTestId(ICON).getAttribute('data-coaching-chip-id')).toBe(ASK_OLUMI_CHIP_ID)
     expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
 

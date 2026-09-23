@@ -23,7 +23,7 @@ import {
   EDGE_AFFORDANCE_CHAT_ALTERNATIVE,
 } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
-import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
+import { Lightbulb, Activity, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
 import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
@@ -75,7 +75,6 @@ import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
 import {
   fragileEdgeSentence,
-  fragilePopoverLine,
   DIRECTION_DISPUTED_SENTENCE,
   directionInUseSentence,
   linkStrengthCaption,
@@ -624,6 +623,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // the hover reads it too, so a disputed sign is not stated there as fact.
   const validation = edgeData?.validation
   const contested = useMemo(() => readContestedState(validation), [validation])
+  /**
+   * Olumi's two review passes disagree about the SIGN — the one disagreement
+   * that reaches the line (amber stroke). Paul 23 Sep contract feedback point
+   * 9: "AI sign-disagreement = Warning/amber + `±`" — so the polarity glyph
+   * reads it too and draws `±` (shape + colour, not a new colour).
+   */
+  const isSignDisputed = contested.isContested && contested.directionDisputed
 
   // Fix 1: Line style encodes existence certainty ONLY, not direction
   // Direction is already encoded via color (green/red) and sign (+/−)
@@ -1401,7 +1407,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // Cheap gate: the two conditions knowable inside a store selector. The
     // render below applies the full predicate; this only avoids paying for a
     // computation whose result is thrown away.
-    if (!statedDirection || isStructuralEdge) return ''
+    if ((!statedDirection && !isSignDisputed) || isStructuralEdge) return ''
     // ⚠ TOLERATE A PARTIAL STORE SLICE. Eleven existing edge suites hand
     // `useStore` a hand-built object with `nodes` and no `edges`, and an
     // unguarded `for (const e of st.edges)` throws inside render — it took out
@@ -1493,10 +1499,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
     existence: existenceDash,
-    visualPropsDash: visualProps.strokeDasharray,
+    // `visualPropsDash` is no longer passed: dash is existence certainty ONLY
+    // (Paul 23 Sep contract feedback point 4; `EDGE_DASH_RULES`).
   }), [
     isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
-    isHighlightedEdge, directionStroke, existenceDash, visualProps.strokeDasharray,
+    isHighlightedEdge, directionStroke, existenceDash,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
 
@@ -1921,7 +1928,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           `direction` field — see the derivation at the top of this component.
           An unstated / declined / unrecognised direction renders NOTHING here;
           the graph says less rather than something it was never told. */}
-      {statedDirection && lensMode !== 'causal' && !isStructuralEdge && !strengthRowCarriesDirection && (
+      {/* ⭐ Paul 23 Sep contract feedback point 9: a SIGN dispute draws `±`
+          on the amber stroke, and it is drawn even when the strength row's
+          words carry a direction — those words are the FIRST pass's sign, the
+          disputed one, so they cannot stand in for the dispute cue. */}
+      {(statedDirection || isSignDisputed) && lensMode !== 'causal' && !isStructuralEdge && (isSignDisputed || !strengthRowCarriesDirection) && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -1950,8 +1961,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // Colour was never the load-bearing channel here — see
             // `directionStroke.ts:23-32` — so the glyph reads as body text and
             // the SHAPE does the work, which is what a dichromat relies on.
-            className={`${typography.edgeLabel} text-text-body`}
-            aria-label={`Effect direction: ${statedDirection}`}
+            //
+            // ⭐ SEMIBOLD — Paul 23 Sep contract feedback point 12: "`+ / −`
+            // must remain interpretable at readable zoom". At regular weight a
+            // counter-scaled "−" is a hairline beside a 2px stroke; 600 is the
+            // contract's own polarity weight. Size and ink are unchanged.
+            className={`${typography.edgeLabel} font-semibold text-text-body`}
+            aria-label={
+              isSignDisputed
+                ? `Effect direction: ${DIRECTION_DISPUTED_SENTENCE}`
+                : `Effect direction: ${statedDirection}`
+            }
             // ⭐ IDENTITY BINDING. Without it the only way to attribute a glyph
             // to an edge is its ORDER in the portal, and `EdgeLabelRenderer`
             // portals every edge's children into one flat layer — so the Nth
@@ -1961,7 +1981,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // stacking BY EDGE rather than by a value predicate.
             data-edge-id={id}
           >
-            {statedDirection === 'positive' ? '+' : '−'}
+            {isSignDisputed ? '±' : statedDirection === 'positive' ? '+' : '−'}
           </div>
         </EdgeLabelRenderer>
       )}
@@ -2077,16 +2097,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             className={`nodrag nopan border shadow-panel ${typography.edgeLabel} ${
               isDark ? 'bg-gray-900 text-gray-100' : 'bg-panel/95 text-text-header'
             } ${
-              // The fragility row brings the old badge's border with it, so a
-              // fragile-only chip IS the badge — same copy, same surface, now
-              // placed by the resolver. Selected as ONE class rather than
-              // appended after another border colour: Tailwind resolves by
-              // stylesheet order, not by the order classes appear here.
-              paintFragileCue
-                ? 'border-info/30'
-                : isDark
-                  ? 'border-gray-600'
-                  : 'border-panel-border'
+              // (Formerly: "The fragility row brings the old badge's border with
+              // it, so a fragile-only chip IS the badge".)
+              // ⛔ NO SEMANTIC BORDER FOR FRAGILITY (Paul 23 Sep contract
+              // feedback point 4: "one discreet fragility cue"). The chip used
+              // to take `border-info/30` when it carried the cue — a second,
+              // colour-only fragility signal, in the hue point 9 reserves for
+              // attention. The mark below is the ONE cue.
+              isDark
+                ? 'border-gray-600'
+                : 'border-panel-border'
             } ${hasSuggestion ? 'ring-2 ring-info ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
             role="note"
             data-testid="edge-influence-label"
@@ -2335,7 +2355,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 }}
                 className="text-text-body"
               >
-                <AlertTriangle size={12} className="flex-shrink-0" aria-hidden="true" />
+                {/* ⭐ NOT A TRIANGLE — Paul 23 Sep contract feedback point 4
+                    ("remove the warning-triangle … pile-up"). `AlertTriangle`
+                    is the design system's WARNING icon (DS v5 §9.5) and the
+                    RISK node's icon (§9.4), so on a connection it said
+                    "warning" or "risk" about a relationship that is neither.
+                    `Activity` is a neutral pulse mark, in body ink, named by
+                    its sentence — shape does the work, not a hue. */}
+                <Activity size={12} className="flex-shrink-0" aria-hidden="true" />
               </div>
             )}
           </div>
@@ -2432,7 +2459,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
          * model: their messages are dispatched to CEE verbatim as the user's
          * own words (see their LLM-FACING note).
          */
-        const signDisputed = contested.isContested && contested.directionDisputed
+        const signDisputed = isSignDisputed
         const dirLabelForClaims = signDisputed ? null : dirLabel
         // Which half-colour the bar paints IS a direction claim, so it is gated
         // the same way. Grey is this canvas's stated NO-VERDICT colour for
@@ -2556,10 +2583,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   connection and at every zoom: the canvas cue is budgeted and
                   hidden at the far rung, the hover is where the fact is never
                   lost. */}
+              {/* Paul 23 Sep contract feedback point 4: the SAME sentence and
+                  the SAME neutral mark as the cue — no "Sensitive" label, no
+                  warning triangle, no info hue. Every keyboard user reaches
+                  this line too: focusing the edge opens this popover. */}
               {isFragileEdge && (
-                <div className={`${typography.edgeLabel} text-info flex items-center gap-1`}>
-                  <AlertTriangle size={10} aria-hidden="true" />
-                  {fragilePopoverLine(fragileEdgeSwitchProb)}
+                <div
+                  data-testid="edge-hover-fragility"
+                  className={`${typography.edgeLabel} text-text-body flex items-start gap-1`}
+                >
+                  <Activity size={10} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>{fragileEdgeSentence(fragileEdgeSwitchProb)}</span>
                 </div>
               )}
               {/* Coaching chips */}

@@ -206,8 +206,17 @@ export interface EdgePresentationState {
    * resolved union, and the two answers are separate named rules below.
    */
   readonly existence: ExistenceDash
-  /** Dash from the legacy visual-props map. Last resort. */
-  readonly visualPropsDash: string | undefined
+  /**
+   * Dash from the legacy visual-props map (the edge's presentational `style`).
+   *
+   * ⛔ NEVER READ SINCE Paul 23 Sep contract feedback point 4 ("dash remains
+   * existence certainty only"). It used to be the last-resort `visual_props`
+   * dash rule, so a stored `style: 'dashed'` could dash a connection whose
+   * STATED likelihood was high — a dash with no existence claim behind it.
+   * Kept OPTIONAL only so older state builders in specs still type-check;
+   * `StyledEdge` no longer passes it.
+   */
+  readonly visualPropsDash?: string | undefined
 }
 
 // ── Stroke ──────────────────────────────────────────────────────────────────
@@ -330,10 +339,17 @@ export const EDGE_DASH_RULES = [
    * but stating it in the array is what makes the doctrine reviewable.
    */
   'existence_unset',
-  /** exists_probability below the certainty threshold — a stated value. */
+  /**
+   * A STATED likelihood — dashed below the certainty threshold, solid at or
+   * above it. The last rule: nothing below it may dash a line.
+   *
+   * ⛔ `visual_props` (the legacy `style` map) WAS HERE and is deleted — Paul
+   * 23 Sep contract feedback point 4: "Dash remains existence certainty only."
+   * A presentational field has no existence claim behind it, so it may not
+   * draw one. Measured inert before deletion (no `src/` writer sets `style` to
+   * 'dashed'|'dotted'), but the schema still admits it on stored boards.
+   */
   'existence_certainty',
-  /** Legacy visual-props map. */
-  'visual_props',
 ] as const
 
 export type EdgeDashRule = (typeof EDGE_DASH_RULES)[number]
@@ -347,17 +363,17 @@ export function resolveEdgeDash(state: EdgePresentationState): EdgeDashDecision 
   if (state.isStructural) return { value: undefined, rule: 'structural' }
   // `state.contested` is deliberately NOT read here — see `EDGE_DASH_RULES`.
   // Provenance before value. Nobody stated a likelihood, so neither this
-  // channel NOR the legacy `visual_props` map below may mark the edge: `style`
+  // channel NOR the legacy `style` map (no longer read at all) may mark the edge: `style`
   // is a presentational field with no provenance at all, and letting it paint a
   // certainty mark on an unassessed link is the same defect one layer down.
   // Inert as measured — a sweep of `src/` for `style: 'dashed'|'dotted'` outside
   // tests and fixtures returns zero against a `style: 'solid'` contrast control
   // in the same run — so this closes a hole rather than changing a pixel.
   if (state.existence.kind === 'unset') return { value: undefined, rule: 'existence_unset' }
-  if (state.existence.dash !== undefined) {
-    return { value: state.existence.dash, rule: 'existence_certainty' }
-  }
-  return { value: state.visualPropsDash, rule: 'visual_props' }
+  // A stated likelihood decides alone: its own dash below the cut, solid above
+  // it. `state.visualPropsDash` is deliberately NOT read (Paul 23 Sep contract
+  // feedback point 4 — see `EDGE_DASH_RULES`).
+  return { value: state.existence.dash, rule: 'existence_certainty' }
 }
 
 // ── Direction of causation ──────────────────────────────────────────────────

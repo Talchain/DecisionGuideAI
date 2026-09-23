@@ -230,7 +230,7 @@ describe('OptionNode — the close-call marker (was "Close call: within N percen
     // The withheld-turn ENTITLEMENT this describe block exists to pin is
     // unchanged; only the quantity has gone. The percentage-point gap between
     // two win frequencies is retired from every user-facing surface.
-    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
+    expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 })

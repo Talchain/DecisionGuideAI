@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
+import { VALUE_SOURCE_MARK_LABEL, VALUE_SOURCE_MARK_TOKEN } from '../shared/valueSourceMark'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -89,6 +90,7 @@ vi.mock('../../../flags', async (importOriginal) => {
 const FACTOR_ID = 'fac_market_demand'
 const REPLACED = 'Your value replaces the range 0.3 to 0.8'
 const LIVE = 'Range: 0.3 to 0.8'
+const RANGE_WITH_NO_SOURCE = `${LIVE} ${VALUE_SOURCE_MARK_TOKEN.unknown}${VALUE_SOURCE_MARK_LABEL.unknown}`
 
 const baseProps = {
   id: FACTOR_ID,
@@ -146,7 +148,10 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
     const text = container.textContent ?? ''
     expect(text).toContain(LIVE)
     expect(text).not.toContain('replaces')
-    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(LIVE)
+    // Paul 23 Sep contract feedback point 1: a range that is the card's only
+    // figure is never unmarked — but nothing records who set a range, so it
+    // says "no source", never `est.` (reviewer blocker, 23 Sep).
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(RANGE_WITH_NO_SOURCE)
   })
 
   it('TWIN — a model-authored value (cee_inference) is not the user\'s: unchanged', () => {
@@ -181,6 +186,8 @@ describe('design integration — the locked Standard face after a run', () => {
 
   it('TWIN — a model-authored value keeps the live range on the Standard face', () => {
     renderFactor({ value: 0.55, source: 'cee_inference', extractionType: 'inferred' })
-    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(LIVE)
+    // Point 1 (Paul 23 Sep): the range is marked, never left bare — and as
+    // "no source", because the range's author is not recorded on the node.
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(RANGE_WITH_NO_SOURCE)
   })
 })

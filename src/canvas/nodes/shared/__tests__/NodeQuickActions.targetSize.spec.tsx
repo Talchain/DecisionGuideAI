@@ -79,7 +79,12 @@ const visualPx = (cls: string): number | null => {
 
 describe('quick actions are reachable targets that do not touch', () => {
   beforeEach(() => {
-    useCanvasStore.setState({ nodes: [NODE] } as never)
+    // Paul 23 Sep contract feedback point 6: at Normal zoom (`lodRung: 'full'`)
+    // the card's Ask Olumi door is the resting coaching icon and the hover ask
+    // is withheld (askOlumiOneGlyph.spec / coachingIconPaul23Sep.spec pin that).
+    // This spec measures the HOVER row with its Ask button, which renders at the
+    // quiet rung.
+    useCanvasStore.setState({ nodes: [NODE], lodRung: 'quiet' } as never)
     // The send channel makes both AI shortcuts available; with no channel,
     // only More renders. Assert the actual button count below so the spacing
     // test cannot pass on a single isolated button.

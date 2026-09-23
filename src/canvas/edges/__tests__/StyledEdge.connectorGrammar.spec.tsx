@@ -264,7 +264,7 @@ describe('R4 — fragility is a DISCREET cue: no bare figure on the canvas', () 
     expect((cue!.textContent ?? '').trim()).toBe('')
     // The figure is still reachable, named for what it is.
     const name = cue!.getAttribute('aria-label') ?? ''
-    expect(name).toContain('42% chance the result flips')
+    expect(name).toContain('42% flip risk')
     expect(cue!.getAttribute('role')).toBe('img')
     expect(cue!.getAttribute('title')).toBe(name)
   })
@@ -275,7 +275,8 @@ describe('R4 — fragility is a DISCREET cue: no bare figure on the canvas', () 
     const cue = byTestId(container, 'edge-fragile-tag')
     expect(cue).not.toBeNull()
     expect(cue!.getAttribute('aria-label') ?? '').not.toMatch(/\d+%/)
-    expect(cue!.getAttribute('aria-label') ?? '').toContain('may flip')
+    // Paul 23 Sep contract feedback point 4: the cue's own sentence, no figure.
+    expect(cue!.getAttribute('aria-label') ?? '').toBe("If this connection's strength changes, the current model comparison could change")
   })
 
   it('a chip carrying BOTH a strength row and the cue names the cue on the assistive channel too', () => {
@@ -287,7 +288,7 @@ describe('R4 — fragility is a DISCREET cue: no bare figure on the canvas', () 
     const chip = byTestId(container, 'edge-influence-label')
     expect(chip).not.toBeNull()
     expect(byTestId(container, 'edge-influence-label-text'), 'the strength row is missing — this is not the two-row chip').not.toBeNull()
-    expect(chip!.getAttribute('aria-label') ?? '').toContain('42% chance the result flips')
+    expect(chip!.getAttribute('aria-label') ?? '').toContain('42% flip risk')
   })
 })
 

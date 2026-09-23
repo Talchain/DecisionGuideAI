@@ -59,6 +59,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
+import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintText } from '../utils/goalConstraintText'
@@ -253,9 +254,16 @@ export const GOAL_TARGET_ROUTE_TESTID = 'goal-target-route'
 export function goalTargetRouteChannels({
   targetLine,
   routeIsLive = GOAL_TARGET_ROUTE_IS_LIVE,
+  sourceLabel,
 }: {
   /** What the card already renders. Quoted back so the two cannot drift. */
   targetLine: string
+  /**
+   * Where the target came from, as the visible mark beside it says
+   * (`goalTargetSourceMark`). Spoken and hovered too, so the mark is never
+   * sight-only (Paul 23 Sep contract feedback points 1 and 12).
+   */
+  sourceLabel?: string
   /**
    * ⚠ INJECTABLE FOR THE SAME ONE REASON `goalNoTargetChannels` is: so both
    * branches are reached BY EXECUTION. Asserting them behind
@@ -265,9 +273,10 @@ export function goalTargetRouteChannels({
   routeIsLive?: boolean
 }): { 'aria-label': string; title: string } | null {
   if (!routeIsLive) return null
+  const source = sourceLabel ? ` (${sourceLabel})` : ''
   return {
-    'aria-label': `${targetLine} — change it in ${GOAL_TARGET_LIVE_ROUTE}`,
-    title: `Change this target in ${GOAL_TARGET_LIVE_ROUTE}.`,
+    'aria-label': `${targetLine}${source} — change it in ${GOAL_TARGET_LIVE_ROUTE}`,
+    title: `${sourceLabel ? `${sourceLabel}. ` : ''}Change this target in ${GOAL_TARGET_LIVE_ROUTE}.`,
   }
 }
 
@@ -655,9 +664,16 @@ export const GoalNode = memo((props: NodeProps) => {
    * possessive withholding) that cannot ride one line, and a number stripped of
    * the caveat that makes it honest is not made safe by shrinking the type —
    * the same rule `shared/lodMetricLine.ts` applies to an outcome. The
-   * THRESHOLD is the user's own stated target: it needs no caveat, because it
-   * is not a claim about the world, and it is the thing a reader most wants
-   * from this card at a glance.
+   * THRESHOLD needs no caveat, because it is not a claim about the world, and it
+   * is the thing a reader most wants from this card at a glance.
+   *
+   * ⚠ BUT IT IS NOT ALWAYS THE USER'S OWN TARGET (reviewer blocker on Paul 23
+   * Sep contract feedback point 1). `statedGoalTargetRaw` falls back to CEE's
+   * `goal_threshold_raw`, which on the market-entry starter is `£11M ARR` —
+   * a figure its brief never states. So the line carries a source mark
+   * (`goalTargetSourceMark`): `you` only when `threshold_source === 'user'`,
+   * otherwise "no source". The mark sits BESIDE the line, not inside it, so the
+   * reduced line derived from `targetLine` is unchanged.
    */
   const targetLine = thresholdDisplay != null ? `${GOAL_TARGET_PREFIX} ${thresholdDisplay}` : null
 
@@ -818,8 +834,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // from `goalNoTargetChannels` and asserted equal to it.
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
+  const targetSourceMark =
+    targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
   const targetRouteChannels =
-    targetLine !== null ? goalTargetRouteChannels({ targetLine }) : null
+    targetLine !== null ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label }) : null
   const noTargetStatusChip = (
     <button
       type="button"
@@ -962,6 +980,9 @@ export const GoalNode = memo((props: NodeProps) => {
             <div className={`${typography.nodeLabel} text-text-light`}>
               {targetLine}
             </div>
+          )}
+          {targetSourceMark !== null && (
+            <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} />
           )}
         </div>
 

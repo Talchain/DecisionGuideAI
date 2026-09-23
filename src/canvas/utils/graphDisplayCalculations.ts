@@ -336,8 +336,9 @@ export const MEASURED_EDGE_STROKE_WIDTH_FLOOR = Math.min(
  *
  * ⚠ WHY NOT A DASH, THE OBVIOUS CHOICE. Dash is already spent on this canvas —
  * `EDGE_DASH_RULES` (`edges/edgePresentation.ts`) carries `existence_certainty`
- * and `visual_props` (and carried `contested` until the locked connector
- * grammar of 23 Sep 2026 made dash existence-only), and ghost/suggestion
+ * (it carried `contested` until the locked connector grammar of 23 Sep 2026,
+ * and `visual_props` until Paul 23 Sep contract feedback point 4 made dash
+ * existence-certainty only), and ghost/suggestion
  * edges dash too. Ambiguity is the smaller half of the problem: `resolveEdgeDash`
  * returns the FIRST rule that matches, so a `strength_unset` rule would be
  * INVISIBLE on exactly the edges most in question (an unset edge that is also

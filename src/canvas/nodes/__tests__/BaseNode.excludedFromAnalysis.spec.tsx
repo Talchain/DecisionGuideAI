@@ -21,7 +21,7 @@
  * negative cases below are not padding, they are the point.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -42,6 +42,8 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
+import { useUIStore } from '../../../stores/uiStore'
+import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { OptionNode } from '../OptionNode'
 import { FactorNode } from '../FactorNode'
 
@@ -108,11 +110,28 @@ describe('an excluded option says so on the board', () => {
     // Locked Canvas design (23 Sep 2026): the pill is now a BUTTON (StatusPill
     // `onActivate`), so its title/accessible name append the route it opens.
     // This option has no values and no `missing_value` blocker names a factor,
-    // so the action is "Tell Olumi what it changes." and no "Missing: …" clause.
+    // so the action names the direct input #1911 merged ("Set what it changes
+    // in the Model tab.") and there is no "Missing: …" clause.
     // CEE's sentence still LEADS, verbatim.
-    expect(el!.getAttribute('title')).toBe(`${CEE_MESSAGE} Tell Olumi what it changes.`)
+    expect(el!.getAttribute('title')).toBe(`${CEE_MESSAGE} Set what it changes in the Model tab.`)
     expect(el!.tagName).toBe('BUTTON')
     expect(el!.getAttribute('aria-label')).toBe(el!.getAttribute('title'))
+  })
+
+  /**
+   * ⭐ #1911 MERGED — the no-values arm opens the option's OWN value input
+   * (`openOptionValueInput`: Model tab → options → this option), never a chat
+   * draft. RED before the change: the pill opened the Ask-Olumi drawer.
+   */
+  it('a click opens the option\'s value input in the Model tab — no chat draft', () => {
+    setReadiness([{ message: CEE_MESSAGE, option_id: OPTION_ID, waived_by_exclusion: true }])
+    useUIStore.setState({ activeOutputTab: 'results', pendingOptionValueInput: null } as never)
+    useAskOlumiStore.setState({ isOpen: false } as never)
+    renderNode('option', OPTION_ID)
+    fireEvent.click(pill()!)
+    expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
+    expect(useUIStore.getState().pendingOptionValueInput).toBe(OPTION_ID)
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 
   it('still marks it when CEE sent no sentence — excluded is excluded', () => {
@@ -120,12 +139,9 @@ describe('an excluded option says so on the board', () => {
     renderNode('option', OPTION_ID)
     expect(pill()).toBeTruthy()
     // Locked Canvas design (23 Sep 2026): the fallback still leads, then the
-    // pill's route (it is a button now). ⚠ SUSPECTED PRODUCTION DEFECT, left
-    // RED on purpose: the fallback has no full stop, so the joined accessible
-    // name reads "…without this option Tell Olumi what it changes." as one
-    // run-on sentence (BaseNode.tsx `'The analysis will run without this option'`
-    // joined with `' '`). Expected is the two-sentence form.
-    expect(pill()!.getAttribute('title')).toBe('The analysis will run without this option. Tell Olumi what it changes.')
+    // pill's route (it is a button now). `asSentence` gives the fallback its
+    // full stop, so the joined accessible name is two sentences, not one run-on.
+    expect(pill()!.getAttribute('title')).toBe('The analysis will run without this option. Set what it changes in the Model tab.')
   })
 
   /**

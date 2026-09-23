@@ -20,14 +20,12 @@ import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
-import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
+import { useRunCurrency } from './shared/runCurrency'
 import { FactorDriverLine } from './shared/FactorDriverLine'
-import { FactorTurningPointTrack } from './shared/FactorTurningPointTrack'
-import { selectFactorTurningPoint } from './shared/factorTurningPoint'
-import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
+import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
+import { selectFactorTurningPointState } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -43,6 +41,7 @@ import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/v
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark } from './shared/valueSourceMark'
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -255,6 +254,20 @@ export const FactorNode = memo((props: NodeProps) => {
   const recordedValueReadout =
     isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
 
+  // ⭐ WHOSE NUMBER THIS IS, ON THE FACE — Paul 23 Sep contract feedback point 1:
+  // "Mark Olumi estimates explicitly … User-set/evidence-backed values get their
+  // own provenance. Do not rely on 'unmarked = Olumi'." One mark per figure
+  // (`est.` / `you` / `brief` / `panel`), in BOTH the standard and Detailed
+  // views, on the value line. (A range that is the only figure gets its own
+  // neutral "no source" mark, never this one — see the range line below.) This supersedes R6's rest-only `est.` (the collapse above stays
+  // rest-only; only the MARK now also shows in Detailed, where the full
+  // "Moderate (0.5)" string otherwise read as unattributed).
+  const valueSourceMark = factorValueSourceMark(props.data)
+  const renderValueSourceMark = () =>
+    valueSourceMark === null ? null
+      : valueSourceMark.kind === 'olumi' ? <EstimateMarker />
+        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} />
+
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
   // `extractionType` alone cannot answer it. `inferred` is the state CEE
@@ -405,7 +418,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
    * every driver render on this card. (Historical: it fed the Standard-view
    * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
-   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M in this model".) They show the same figure, so they carry the
+   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
    * same misread, and fixing one would have left `Relative influence … 100%`
    * reachable one view away — four presentations of one idea, which is the
    * inconsistency this card's rows were unified to remove.
@@ -492,9 +505,15 @@ export const FactorNode = memo((props: NodeProps) => {
    * the reduced line, and `driverRankFor` is the one rank rule both read, so
    * the card cannot label the rank on one rung and assert it on another.
    */
-  const resultsAreCurrent = useAnalysisResultsAreCurrent()
-  const resultsFromLastRun = useModelChangedSinceRun()
-  const runCuesShown = resultsAreCurrent || resultsFromLastRun
+  //
+  // ⛔ SUPERSEDED IN PART (Codex EARLY_REVIEW, #63 5801431996; spec
+  // `runCuesFollowOneComposedCurrency.spec.tsx`): visibility and label now come
+  // from ONE composed verdict, `useRunCurrency()`. The local-only
+  // `useAnalysisResultsAreCurrent()` let a wire `refused` / `unknown_degraded`
+  // (cannot-confirm) still show an UNQUALIFIED cue over locally fresh fields.
+  const runCurrency = useRunCurrency()
+  const resultsFromLastRun = runCurrency === 'changed'
+  const runCuesShown = runCurrency === 'current' || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
   const driverLine =
     isPostAnalysis && runCuesShown && influencePct != null && displayMetadata.influenceProvenance != null
@@ -510,10 +529,15 @@ export const FactorNode = memo((props: NodeProps) => {
           importanceBasis: displayMetadata.influenceImportanceBasis,
         }
       : null
-  const turningPoint = useMemo(
-    () => (isPostAnalysis && runCuesShown ? selectFactorTurningPoint(resultsReport, props.id) : null),
+  // Paul 23 Sep contract feedback point 3(d): the slot always says something
+  // after a run it may speak for — the track for a PLoT `found` row, else the
+  // quiet "No turning point …" fallback. Never-run / cannot-confirm stay null
+  // (the same `isPostAnalysis && runCuesShown` gate), so no past run is invented.
+  const turningPointState = useMemo(
+    () => (isPostAnalysis && runCuesShown ? selectFactorTurningPointState(resultsReport, props.id) : null),
     [isPostAnalysis, runCuesShown, resultsReport, props.id],
   )
+  const turningPoint = turningPointState?.kind === 'found' ? turningPointState.turningPoint : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -840,7 +864,7 @@ export const FactorNode = memo((props: NodeProps) => {
               provenance means no influence number is rendered. */}
           {/* ⭐ ONE DRIVER VOCABULARY IN EVERY VIEW. Detailed and the popover
               render the SAME `FactorDriverLine` the resting face does ("Driver N
-              of M in this model" + relative bar, the % in its tooltip), and it
+              of M analysed" + relative bar, the % in its tooltip), and it
               is withheld on a stale run exactly as it is there. The old
               "Most influential ▬ of 5" row here was the fourth wording of one
               rank (purpose audit, #1899 finding 3). */}
@@ -1013,7 +1037,9 @@ export const FactorNode = memo((props: NodeProps) => {
             ("Moderate (0.5)" -> "Moderate") and carries ONE quiet `est.`
             marker instead of the stack of stamps S17 showed. Detailed view,
             the popover and the inspector keep the full string. A value the
-            user stated is never touched and never marked. */}
+            user stated is never collapsed — and, since Paul 23 Sep contract
+            feedback point 1, it carries its OWN mark (`you`) rather than none,
+            so "unmarked" never has to be read as "Olumi's". */}
         {valueDisplay !== null && (
           <div
             className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}
@@ -1069,7 +1095,7 @@ export const FactorNode = memo((props: NodeProps) => {
             ) : (
               <span>{recordedValueReadout}</span>
             )}
-            {isInferred && !isDetailed && <EstimateMarker />}
+            {renderValueSourceMark()}
           </div>
         )}
 
@@ -1094,12 +1120,15 @@ export const FactorNode = memo((props: NodeProps) => {
             factor's producer prior — never a fabricated fallback), else nothing.
             Detailed shows the range beside the turning point: it adds
             information, not a different card. */}
-        {turningPoint ? (
-          <FactorTurningPointTrack
+        {turningPointState ? (
+          <FactorTurningPointSlot
             nodeId={props.id}
             factorLabel={cleanedLabel}
-            turningPoint={turningPoint}
+            state={turningPointState}
             fromLastRun={resultsFromLastRun}
+            // Contract "compatible units": checked only when the card shows a
+            // value — an unvalued factor has no unit to disagree with.
+            factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
           />
         ) : null}
         {/* The range is a TEXT line on the locked face (#1915 deviation 3). Once
@@ -1116,6 +1145,18 @@ export const FactorNode = memo((props: NodeProps) => {
             data-testid={`factor-prior-range-${props.id}`}
           >
             {priorRangeDisplay}
+            {/* Point 1: a range that is the card's ONLY figure is never left
+                unmarked — but it does NOT borrow the VALUE's mark. Who set a
+                range is unknowable from the node: the inspector's quick-set
+                (`setPriorRange`) writes `prior` with no stamp, so `est.` / "filled
+                in for you" would label a person's judgement as Olumi's
+                (`factorPriorRange.ts`: "drafted" is an attribution the node
+                cannot support). It says so instead: "no source" / "Source not
+                recorded". When a value line exists it carries the mark, and a
+                user value restates this line as replaced — so never twice. */}
+            {valueDisplay === null && (
+              <> <ValueSourceMark mark={PRIOR_RANGE_SOURCE_MARK} testId={`factor-range-source-${props.id}`} /></>
+            )}
           </div>
         )}
 

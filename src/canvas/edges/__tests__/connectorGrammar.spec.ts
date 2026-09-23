@@ -104,7 +104,8 @@ describe('R1 — the dash means existence certainty ONLY', () => {
       'structural',
       'existence_unset',
       'existence_certainty',
-      'visual_props',
+      // ⛔ NO `visual_props` — Paul 23 Sep contract feedback point 4: "Dash
+      // remains existence certainty only."
     ])
   })
 
@@ -134,7 +135,7 @@ describe('R1 — the dash means existence certainty ONLY', () => {
     const contested = readContestedState(validation('strength_band_change', false, 1))
     const d = resolveEdgeDash(state({ contested, existence: { kind: 'stated', dash: undefined } }))
     expect(d.value).toBeUndefined()
-    expect(d.rule).toBe('visual_props')
+    expect(d.rule).toBe('existence_certainty')
   })
 
   it('the reduced contest state carries no dash — nothing computed for a rule that no longer exists', () => {

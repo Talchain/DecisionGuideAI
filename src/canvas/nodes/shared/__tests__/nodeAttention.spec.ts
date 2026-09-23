@@ -92,7 +92,7 @@ describe('what qualifies — existing producer signals only', () => {
     expect(plan.reasonsByNode.has('single')).toBe(false)
     // CONTROL: a licensed rank in the same run still qualifies, in the card's words.
     expect(plan.reasonsByNode.get('ok')?.map(r => r.kind)).toEqual(['top_driver'])
-    expect(plan.reasonsByNode.get('ok')?.[0].label).toMatch(/^Driver 2 of 4 in this model/)
+    expect(plan.reasonsByNode.get('ok')?.[0].label).toMatch(/^Driver 2 of 4 analysed/)
   })
 
   it('⛔ UNGROUNDED behavioural findings never mark: no resolvable target, or an unknown code', () => {
@@ -137,7 +137,7 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
       run: run({ ranks: new Map([['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4 }]]) }),
     }))
     const label = plan.reasonsByNode.get('d1')![0].label
-    expect(label).toContain('Driver 1 of 4 in this model')
+    expect(label).toContain('Driver 1 of 4 analysed')
     expect(label).not.toContain('#')
     expect(label.trim().endsWith('?')).toBe(true)
   })
@@ -177,5 +177,31 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
     expect(text.startsWith('Worth reviewing:')).toBe(true)
     expect(text).toContain('Olumi’s estimate')
     expect(text).toContain('3 of 7')
+  })
+})
+
+describe('the turning-point reason never states a number the card withholds (reviewer blocker, Paul 23 Sep points 3/11)', () => {
+  const tp = { currentValue: 8, flipValue: 6.5, unit: '%', displayScale: true }
+  const reasonFor = (factorUnit: string | null | undefined) => {
+    const plan = deriveAttentionPlan(base({
+      nodes: [{ id: 'f1', label: 'Hiring speed', unconfirmedEstimate: false, factorUnit }],
+      run: run({ turningPoints: new Map([['f1', tp]]) }),
+    }))
+    return plan.reasonsByNode.get('f1')?.find(r => r.kind === 'turning_point')?.label ?? '<none>'
+  }
+
+  it('incompatible units (row "%", card "seats") → the reason keeps its direction and drops the number', () => {
+    const label = reasonFor('seats')
+    expect(label).not.toBe('<none>')
+    expect(label).not.toMatch(/6\.5/)
+    expect(label).toContain('a turning point Olumi found')
+  })
+
+  it('CONTRAST — compatible units ("%" vs "percent") → the number prints', () => {
+    expect(reasonFor('percent')).toMatch(/6\.5/)
+  })
+
+  it('CONTRAST — the card shows no value (undefined) → nothing to disagree with, the number prints', () => {
+    expect(reasonFor(undefined)).toMatch(/6\.5/)
   })
 })

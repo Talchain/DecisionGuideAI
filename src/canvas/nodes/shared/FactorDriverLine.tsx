@@ -2,7 +2,7 @@
  * ⭐ THE FACTOR'S TINY RELATIVE DRIVER VISUAL (locked spec §3 "Tiny driver visual
  * — restore"; ED 02:31Z D1a; ED 11:52Z point 3).
  *
- *   `Driver 1 of 4 in this model  ▬▬▬▬`         a determined rank (1..3)
+ *   `Driver 1 of 4 analysed  ▬▬▬▬`         a determined rank (1..3)
  *   `Structural influence          ▬▬`           unranked — the quantity's own noun
  *
  * ── WHAT IT REFUSES ─────────────────────────────────────────────────────────
@@ -36,6 +36,28 @@
  * (#1221) forbids attributing it to "this analysis", so the spec's
  * "in this analysis" becomes "in this model". The spec's "not an absolute causal
  * percentage" is kept word for word.
+ *
+ * ── WHAT THE `of M` MEANS (Paul 23 Sep contract feedback point 5) ───────────
+ *
+ * "If it says `1 of 3`, users must understand what the 3 means … never imply a
+ * missing rank is accidentally omitted." `M` is `rank.setSize`, the distinct
+ * factors in the last analysis's driver feed (`rankFactor.ts`) — the SAME
+ * licensed reader that publishes the rank, never a count of cards on the board.
+ * Ranks are named for at most `MAX_BADGED_RANK` of them, and only where the
+ * order is clear (`determinedRankDepth`), so a board can show factors with a
+ * bar and no rank. `driverLineDenominatorNote` says exactly that, in the
+ * tooltip and as the line's accessible DESCRIPTION (`aria-description`), on the
+ * ranked AND the unranked arm. It is a description, not part of the name, so
+ * the name stays the disclosure it was and still opens with the caption.
+ *
+ * ── THE BAR IS NEUTRAL (Paul 23 Sep contract feedback point 9) ──────────────
+ *
+ * "Make the driver bar neutral, so it does not compete with attention." Info
+ * blue is the attention marker's channel; the fill is the design system's
+ * neutral muted token (`text-light`, the one `AnalysisFreshnessNotice` and
+ * `AnalysisRefusalNotice` already paint as a fill). This overrides DS v5 §11.6
+ * "Driver influence bars (stay `var(--info)`)" for the canvas card only; the
+ * panel's driver chart is not this component. No new colour.
  */
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
@@ -44,7 +66,7 @@ import {
   influenceQuantity,
   influenceStructuralBasisNote,
 } from '../../../components/results/influenceScaleCopy'
-import type { DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
+import { MAX_BADGED_RANK, type DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
 import { DRIVER_LINE_COPY, LAST_RUN_PREFIX } from './metricVocabulary'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
@@ -93,6 +115,19 @@ export function driverLineExplanation({
   return parts.join(' ')
 }
 
+/**
+ * Paul 23 Sep contract feedback point 5 — what `of M` counts, and why a factor
+ * may carry no rank. `M` is the caption's own `rank.setSize`; the cap is the
+ * owner's `MAX_BADGED_RANK`. No other number is stated.
+ */
+export function driverLineDenominatorNote(rank: FactorDriverLineProps['rank']): string {
+  const cap = `Olumi names a driver rank for at most ${MAX_BADGED_RANK}`
+  const why = 'and only where their order is clear, so a factor without a rank has not been left out.'
+  return rank
+    ? `“of ${rank.setSize}” counts the factors in the last analysis. ${cap} of them, ${why}`
+    : `No driver rank. ${cap} factors in the last analysis, ${why}`
+}
+
 export function FactorDriverLine({
   nodeId,
   rank,
@@ -106,13 +141,15 @@ export function FactorDriverLine({
   const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
   const caption = `${lastRun}${driverLineCaption(rank, provenance)}`
   const explanation = `${lastRun}${driverLineExplanation({ rank, value, provenance, importanceBasis })}`
+  const denominatorNote = driverLineDenominatorNote(rank)
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={explanation}>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={`${explanation} ${denominatorNote}`}>
       <button
         type="button"
         data-testid={testId}
         data-node-tooltip="true"
         aria-label={explanation}
+        aria-description={denominatorNote}
         className="nodrag nopan mt-1 flex w-full items-center justify-between gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
         onClick={(e) => {
           e.stopPropagation()
@@ -133,7 +170,8 @@ export function FactorDriverLine({
           className="h-1 w-[54px] shrink-0 overflow-hidden rounded-full bg-panel-border"
         >
           <span
-            className="block h-full rounded-full bg-info"
+            data-testid={`${testId}-bar-fill`}
+            className="block h-full rounded-full bg-text-light"
             style={{ width: pct > 0 ? `max(4px, ${pct}%)` : '0%' }}
           />
         </span>

@@ -52,6 +52,7 @@ import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreC
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { useReadinessStore } from '../../stores/readinessStore'
+import { useUIStore } from '../../../stores/uiStore'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
 import { OutcomeNode } from '../OutcomeNode'
@@ -203,14 +204,14 @@ afterEach(() => cleanup())
 const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, inSensitivityAnalysis: true, isResultsMode: true }
 
 describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z D1a; ED 11:52Z point 3)', () => {
-  it('a current, ranked factor reads "Driver 1 of 4 in this model" with a bar — no "%", no "#"; the % lives in its disclosure', () => {
+  it('a current, ranked factor reads "Driver 1 of 4 analysed" with a bar — no "%", no "#"; the % lives in its disclosure', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     const line = within(card).getByTestId('factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 in this model')
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
@@ -253,18 +254,18 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = within(face('Trial conversion')).getByTestId('factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 in this model')
-    expect(within(face('Trial conversion')).getByTestId('factor-turning-point').textContent).toMatch(/^Turning point/)
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    expect(within(face('Trial conversion')).getByTestId('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
     const line = within(face('Trial conversion')).getByTestId('factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 in this model')
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 analysed')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
-    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 in this model')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
     const tp = within(face('Trial conversion')).getByTestId('factor-turning-point')
-    expect(tp.textContent).toMatch(/^Last run · Turning point/)
-    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Turning point')).toBe(true)
+    expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
   })
 
   it('⛔ CANNOT-CONFIRM and NEVER-RUN HIDE the driver line and the turning point — no past analysis is invented', () => {
@@ -277,6 +278,8 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
       expect(face('Trial conversion')).toBeTruthy()
       expect(within(face('Trial conversion')).queryByTestId('factor-driver-line')).toBeNull()
       expect(within(face('Trial conversion')).queryByTestId('factor-turning-point')).toBeNull()
+      // Paul 23 Sep point 3(d): the fallback may not invent a past run either.
+      expect(within(face('Trial conversion')).queryByTestId('factor-turning-point-none')).toBeNull()
       expect(face('Trial conversion').textContent).not.toContain('Last run')
       cleanup()
     }
@@ -301,7 +304,7 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     renderCard(FactorNode as never, 'fac-conv')
     const tp = within(face('Trial conversion')).getByTestId('factor-turning-point')
     expect(within(tp).getByTestId('factor-turning-point-value').textContent).toBe('6.5%')
-    expect(tp.getAttribute('aria-label')).toContain('If Trial conversion falls below 6.5%, the comparison is likely to change.')
+    expect(tp.getAttribute('aria-label')).toContain('Below 6.5%, the current model comparison changes.')
   })
 
   it('⛔ a NORMALISED flip prints NO number (ROADMAP 2.1371) and says why', () => {
@@ -321,9 +324,13 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setMeta({ 'fac-price': DRIVER_META, 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     expect(within(face('Monthly price')).queryByTestId('factor-turning-point')).toBeNull()
+    // Paul 23 Sep contract feedback point 3(d): "no turning point available" is
+    // the normal, quiet fallback — mounted on the card, not an edge case.
+    expect(within(face('Monthly price')).getByTestId('factor-turning-point-none').textContent).toMatch(/^No turning point (available|in this run)/)
     cleanup()
     renderCard(FactorNode as never, 'fac-conv')
     expect(within(face('Trial conversion')).getByTestId('factor-turning-point')).toBeTruthy()
+    expect(within(face('Trial conversion')).queryByTestId('factor-turning-point-none')).toBeNull()
   })
 
   it('without a turning point, an external factor shows its genuine range — and never both at rest', () => {
@@ -477,25 +484,26 @@ describe('Option — the coaching icon keeps a TYPED action typed (ED 02:31Z)', 
   })
 })
 
-describe('Option — MT-21: "Not in this analysis" routes to "Tell Olumi what it changes"', () => {
+describe('Option — MT-21: "Not in this analysis" routes to the option\'s own value input (#1911 merged)', () => {
   beforeEach(() => {
     useReadinessStore.setState({
       stale: false,
       readiness: { readiness_issues: [{ option_id: 'opt-empty', waived_by_exclusion: true, message: 'Freemium tier has no values yet.' }] },
     } as never)
   })
-  it('the pill is a control; keyed on the missing_value blocker it names the factor and opens the resolve draft', () => {
+  it('the pill is a control; keyed on the missing_value blocker it names the factor and opens the option\'s value input', () => {
     setState({ phase: 'pre' })
+    useUIStore.setState({ activeOutputTab: 'results', pendingOptionValueInput: null } as never)
     renderCard(OptionNode as never, 'opt-empty')
     const pill = within(face('Freemium tier')).getByTestId('excluded-from-analysis-pill')
     expect(pill.tagName).toBe('BUTTON')
     expect(pill.getAttribute('aria-label')).toContain('Missing: Seat count.')
-    expect(pill.getAttribute('aria-label')).toContain('Tell Olumi what it changes')
+    expect(pill.getAttribute('aria-label')).toContain('Set what it changes in the Model tab')
     fireEvent.click(pill)
-    const ask = useAskOlumiStore.getState()
-    expect(ask.isOpen).toBe(true)
-    expect(ask.draft).toBe('Help me configure Freemium tier.')
-    expect(ask.label).toBe('Tell Olumi what it changes')
+    // #1911: `openOptionValueInput` — the Model tab, this option, no chat draft.
+    expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
+    expect(useUIStore.getState().pendingOptionValueInput).toBe('opt-empty')
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 })
 
@@ -538,11 +546,11 @@ describe('Outcome/Risk — coaching behind the one icon; link strength named as 
     expect(within(screen.getByTestId('node-popover')).getByText('How likely is this?')).toBeTruthy()
   })
 
-  it('⛔ MT-20: the outcome counts options that CONNECT — no causal "move"', () => {
+  it('⛔ MT-20: the outcome counts options that CONNECT — no causal "move"; names its denominator (Paul 23 Sep point 8)', () => {
     setState({ phase: 'pre' })
     renderCard(OutcomeNode as never, 'outcome-1')
     const line = within(face('Revenue')).getByTestId('outcome-options-moving')
-    expect(line.textContent).toBe('2 options connect to this')
+    expect(line.textContent).toBe('2 of 4 options connect to this')
   })
 })
 
@@ -696,7 +704,7 @@ describe('copy guard — the locked design’s ban list holds on every rendered 
     expect(lockedCardCopyViolations('You are anchored on the first number')).toHaveLength(1)
     expect(lockedCardCopyViolations('You have anchoring bias')).toHaveLength(1)
     // …and passes the locked wording.
-    expect(lockedCardCopyViolations('Driver 1 of 4 in this model')).toEqual([])
+    expect(lockedCardCopyViolations('Driver 1 of 4 analysed')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs')).toEqual([])
     expect(lockedCardCopyViolations('Worth checking: anchoring. What would show whether it applies here?')).toEqual([])
     expect(lockedCardCopyViolations('Most supported')).toEqual([])

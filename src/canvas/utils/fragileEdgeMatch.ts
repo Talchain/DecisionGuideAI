@@ -36,6 +36,45 @@ export interface FragileEdgeCandidate {
 }
 
 /**
+ * Optional caller context for identity: the ids of every edge on the canvas
+ * that shares this edge's endpoints (including this edge). Only an id-less
+ * entry ever consults it.
+ */
+export interface FragileEdgeMatchContext {
+  parallelEdgeIds?: readonly string[]
+}
+
+/**
+ * ⭐ ONE RELATIONSHIP NEVER INHERITS ANOTHER'S FINDING (Codex, #63 5801910965).
+ *
+ * A supplied `edge_id` is EXCLUSIVE identity: it matches that edge and no
+ * other, however the endpoints compare. This previously fell back to the
+ * endpoint pair even when the entry named a DIFFERENT edge, so of two parallel
+ * causal edges A→B the one the report did not name painted the cue and
+ * borrowed the other's measured switch probability.
+ *
+ * The endpoint pair is a fallback ONLY for an entry with no id. When the
+ * caller says more than one edge shares those endpoints, that entry is
+ * ambiguous and matches none of them (withheld, never painted on every match).
+ */
+function entryMatchesEdge(
+  fe: FragileEdgeCandidate,
+  edgeId: string,
+  edgeSource: string,
+  edgeTarget: string,
+  ctx?: FragileEdgeMatchContext,
+): boolean {
+  const feEdgeId = fe.edge_id ?? fe.edgeId
+  if (typeof feEdgeId === 'string' && feEdgeId.length > 0) return feEdgeId === edgeId
+
+  const from = fe.from_id ?? fe.fromId ?? fe.source
+  const to = fe.to_id ?? fe.toId ?? fe.target
+  if (from !== edgeSource || to !== edgeTarget) return false
+  const parallel = ctx?.parallelEdgeIds
+  return !(parallel != null && parallel.length > 1)
+}
+
+/**
  * Check whether a single edge matches any fragile edge entry with switch_probability > 0.3.
  * Matches by edge_id first, then falls back to from_id/to_id (source/target) pair.
  */
@@ -44,6 +83,7 @@ export function isEdgeFragile(
   edgeSource: string,
   edgeTarget: string,
   fragileEdges: FragileEdgeCandidate[],
+  ctx?: FragileEdgeMatchContext,
 ): boolean {
   return fragileEdges.some(fe => {
     if (!isRecord(fe)) return false
@@ -52,14 +92,7 @@ export function isEdgeFragile(
                        fe.marginal_switch_probability ?? fe.marginalSwitchProbability
     if (typeof switchProb !== 'number' || switchProb <= THRESHOLDS.FRAGILE_EDGE_FILTER) return false
 
-    // Try matching by edge_id first
-    const feEdgeId = fe.edge_id ?? fe.edgeId
-    if (feEdgeId === edgeId) return true
-
-    // Fallback: match by source/target pair
-    const from = fe.from_id ?? fe.fromId ?? fe.source
-    const to = fe.to_id ?? fe.toId ?? fe.target
-    return from === edgeSource && to === edgeTarget
+    return entryMatchesEdge(fe, edgeId, edgeSource, edgeTarget, ctx)
   })
 }
 
@@ -90,6 +123,7 @@ export function isTopFragileEdge(
   edgeSource: string,
   edgeTarget: string,
   fragileEdges: FragileEdgeCandidate[],
+  ctx?: FragileEdgeMatchContext,
 ): boolean {
   let top: FragileEdgeCandidate | null = null
   let topProb = -Infinity
@@ -98,7 +132,7 @@ export function isTopFragileEdge(
     if (p != null && p > topProb) { topProb = p; top = fe }
   }
   if (!top) return false
-  return isEdgeFragile(edgeId, edgeSource, edgeTarget, [top])
+  return isEdgeFragile(edgeId, edgeSource, edgeTarget, [top], ctx)
 }
 
 /**
@@ -124,6 +158,7 @@ export function getFragileEdgeSwitchProbability(
   edgeSource: string,
   edgeTarget: string,
   fragileEdges: FragileEdgeCandidate[],
+  ctx?: FragileEdgeMatchContext,
 ): number | null {
   for (const fe of fragileEdges) {
     if (!isRecord(fe)) continue
@@ -131,12 +166,9 @@ export function getFragileEdgeSwitchProbability(
     const measured = fe.switch_probability ?? fe.switchProbability
     if (typeof measured !== 'number' || measured <= THRESHOLDS.FRAGILE_EDGE_FILTER) continue
 
-    const feEdgeId = fe.edge_id ?? fe.edgeId
-    if (feEdgeId === edgeId) return measured
-
-    const from = fe.from_id ?? fe.fromId ?? fe.source
-    const to = fe.to_id ?? fe.toId ?? fe.target
-    if (from === edgeSource && to === edgeTarget) return measured
+    // The SAME identity decision as cue membership, so a value can never land
+    // on an edge the cue does not.
+    if (entryMatchesEdge(fe, edgeId, edgeSource, edgeTarget, ctx)) return measured
   }
   return null
 }

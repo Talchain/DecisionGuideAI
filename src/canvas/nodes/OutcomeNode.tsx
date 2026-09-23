@@ -6,7 +6,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
-import { countOptionsReaching, optionsReachingLine } from '../domain/optionsReaching'
+import { outcomeOptionReachLine } from './shared/outcomeOptionReach'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
@@ -175,9 +175,15 @@ export const OutcomeNode = memo((props: NodeProps) => {
    * it is after a run and it is withheld in neither. The card's other numbers
    * are gated because they are CLAIMS ABOUT VALUES; this one counts lines on
    * the board.
+   *
+   * ⛔ Paul 23 Sep contract feedback point 8 NARROWS THE ABOVE: the line now
+   * renders only where it differentiates — some, not all, of the board's
+   * options reach this outcome — and names its denominator. On 7 of 10 starter
+   * outcomes every option connects, so the unconditional count was the
+   * low-information copy point 8 removes. See `shared/outcomeOptionReach.ts`.
    */
   const optionsMovingThis = useMemo(
-    () => optionsReachingLine(countOptionsReaching(nodes, edges, props.id)),
+    () => outcomeOptionReachLine(nodes, edges, props.id),
     [nodes, edges, props.id],
   )
 
@@ -481,11 +487,12 @@ export const OutcomeNode = memo((props: NodeProps) => {
           <LinkStrengthRow bridge={bridgeEdgeData} fillClass="bg-success" testId="outcome-strength-row" />
         )}
 
-        {/* ⭐ "3 options move this" — the card's own scoped quantity, on the
-            face, in every view and both phases. Silent at zero (see
-            `optionsReachingLine`), which is why there is no `> 0` test here:
-            the silence rule lives with the sentence, so a second surface
-            reusing the line cannot get it wrong.
+        {/* ⭐ "2 of 3 options connect to this" — only where it differentiates
+            (Paul 23 Sep contract feedback point 8). Silent when every option
+            or no option connects, and there is no placeholder in its place
+            (point 13: no filler space). The silence rule lives with the
+            sentence (`outcomeOptionReachLine`), which is why there is no gate
+            here.
 
             Styling is `FactorNode`'s "Linked to N outcomes." line verbatim
             (`FactorNode.tsx:613`) — the same class of statement in the opposite

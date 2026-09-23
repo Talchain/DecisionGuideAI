@@ -80,6 +80,12 @@ describe('openNodeInspector — the live inspector seam', () => {
 describe('NodeQuickActions — R5 efficiency layer', () => {
   beforeEach(() => {
     seedGraph()
+    // Paul 23 Sep contract feedback point 6: at Normal zoom (`lodRung: 'full'`)
+    // the card's Ask Olumi door is the resting coaching icon and the hover ask
+    // is withheld (askOlumiOneGlyph.spec / coachingIconPaul23Sep.spec pin that).
+    // This spec measures the HOVER row with its Ask button, which renders at the
+    // quiet rung.
+    useCanvasStore.setState({ lodRung: 'quiet' } as never)
     useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null } as never)
   })
 

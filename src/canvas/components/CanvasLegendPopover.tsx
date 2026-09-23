@@ -42,8 +42,10 @@
  * derived from what StyledEdge actually paints.
  */
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
+import { factorValueSourceMark } from '../nodes/shared/valueSourceMark'
+import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, type ReactNode } from 'react'
-import { HelpCircle, AlertTriangle } from 'lucide-react'
+import { HelpCircle, Activity } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
@@ -119,8 +121,13 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
    * dash has one cause (existence certainty) and this is its one pattern.
    */
   dash?: string
-  /** Optional polarity marker drawn beside the line, as the canvas draws it. */
-  mark?: '+' | '−'
+  /**
+   * Optional polarity marker drawn beside the line, AS THE CANVAS DRAWS IT:
+   * `StyledEdge`'s glyph is a character in body ink, semibold, at the edge-label
+   * size — never the stroke's hue (the SHAPE carries the sign; Paul 23 Sep
+   * contract feedback point 12). `±` is the sign-disagreement glyph (point 9).
+   */
+  mark?: '+' | '−' | '±'
 }) {
   return (
     <span className="inline-flex items-center gap-0.5" style={{ flexShrink: 0 }}>
@@ -137,7 +144,11 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
         />
       </svg>
       {mark && (
-        <span aria-hidden="true" style={{ color: stroke, fontWeight: 700, fontSize: '11px', lineHeight: 1 }}>
+        <span
+          aria-hidden="true"
+          data-testid="legend-polarity-mark"
+          style={{ color: 'var(--text-body)', fontWeight: 600, fontSize: '11px', lineHeight: 1 }}
+        >
           {mark}
         </span>
       )}
@@ -333,7 +344,9 @@ const DIRECTION_ROWS: LegendRow[] = [
 const COLOUR_ROWS: LegendRow[] = [
   {
     label: LEGEND_ORANGE_CAPTION,
-    swatch: <LineSwatch stroke={DIRECTION_DISPUTED_STROKE} width={2} />,
+    // `±` — Paul 23 Sep contract feedback point 9: amber AND a shape, as the
+    // canvas now draws a sign-disputed connection's glyph.
+    swatch: <LineSwatch stroke={DIRECTION_DISPUTED_STROKE} width={2} mark="±" />,
   },
   { label: LEGEND_OTHER_REVIEW_CAPTION, swatch: null },
 ]
@@ -344,7 +357,8 @@ const COLOUR_ROWS: LegendRow[] = [
  * The locked grammar made fragility a discreet exception cue: an icon-only mark
  * in the connection's chip, its figure on its name. An icon nobody can decode is
  * a private code, so the key names it, with the SAME glyph at the SAME size the
- * canvas draws (`AlertTriangle`, 12).
+ * canvas draws (`Activity`, 12, body ink — Paul 23 Sep contract feedback point
+ * 4 retired the warning triangle and the "Sensitive" label).
  *
  * ⚠ POST-RUN ONLY — the rule at `METRIC_ROW_VISIBLE` below: a pre-run reader is
  * not shown a row for a marking no connection can carry yet (the canvas cue is
@@ -356,7 +370,7 @@ const COLOUR_ROWS: LegendRow[] = [
 const FRAGILITY_ROWS: LegendRow[] = [
   {
     label: LEGEND_SENSITIVE_CAPTION,
-    swatch: <AlertTriangle size={12} className="text-text-body shrink-0" aria-hidden="true" />,
+    swatch: <Activity size={12} className="text-text-body shrink-0" aria-hidden="true" />,
     testId: 'legend-fragile-cue',
   },
 ]
@@ -1013,7 +1027,13 @@ export function CanvasLegendPopover() {
     // there was nothing to explain. Measured on the deployed
     // `usage-based-billing` starter, where `Vendor Licensing Cost` is exactly
     // that shape. An honest mirror is still a mirror (CLAUDE.md trap 12).
-    return s.nodes.some(n => n.type === 'factor' && factorValueIsUnconfirmedEstimate(n.data))
+    // Paul 23 Sep contract feedback point 1: the card face now also marks a
+    // stated value with NO stamp as `est.` (`factorValueSourceMark`), so the key
+    // explains the mark whenever either owner puts it on a card.
+    return s.nodes.some(n => n.type === 'factor' && (
+      factorValueIsUnconfirmedEstimate(n.data) ||
+      (hasAnyStatedValue(n.data) && factorValueSourceMark(n.data)?.kind === 'olumi')
+    ))
   })
   const board: LegendBoardState = { isPostAnalysis, ordinalsOnScreen, estimateMarkersOnScreen }
 

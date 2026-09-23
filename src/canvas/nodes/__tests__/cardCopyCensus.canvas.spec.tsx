@@ -511,16 +511,22 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // deployed `79866c44`, 4 of 4 option cards asked nothing on their face).
     // Locked Canvas design (23 Sep 2026): the question is still on the card, as
     // the rail's coaching icon — no visible run. See REACH.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'option · pre · expert': [
     // Locked Canvas design (23 Sep 2026): `What could go wrong?` was the card
     // question in BOTH views; it is the rail icon in both now.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'option · post · standard': [
     'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, beside `N% of runs`.
     //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
     //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
     //            sentence is on the `title` and in `sr-only` text.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
@@ -530,6 +536,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [
@@ -633,6 +641,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // that explains the state is already where this lane would have put it:
     // on the `title` and in sr-only text, neither of which the census counts.
     'Not computed',
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   // The change-COUNT fallback lives here and nowhere else. It does NOT enter
   // the census — `Changes 1 factor` / `Changes 2 factors` / `Changes 3 factors`
@@ -644,6 +654,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // icon now (see `option · pre · standard`). The change-COUNT line this
     // bucket exists to reach is RETIRED from the face — its routes are `+N
     // more` and the rail's edit-targets icon (REACH, and the two-carrier case).
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'option · pre · lod-line': [],
   'option · post · lod-line': [],

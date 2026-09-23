@@ -91,8 +91,9 @@ describe('EdgePanel v6.2 — context group', () => {
     })
     const { container } = render(<EdgePanel {...panelProps} />)
     expect(container.querySelector('[data-panel-group="context"]')).not.toBeNull()
-    expect(screen.getByText('Sensitive assumption')).toBeTruthy()
-    expect(screen.getByText(/Small changes here could shift which option the data supports/)).toBeTruthy()
+    // Paul 23 Sep contract feedback point 4: the canvas cue's sentence, no "Sensitive".
+    expect(screen.getByText("If this connection's strength changes, the current model comparison could change")).toBeTruthy()
+    expect(screen.queryByText(/Sensitive/)).toBeNull()
     expect(screen.getByText('65% flip risk')).toBeTruthy()
   })
 })

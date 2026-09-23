@@ -92,41 +92,60 @@ export const LEGEND_THICKNESS_CAPTION = 'Thicker line: a stronger modelled relat
 // ── Fragility ───────────────────────────────────────────────────────────────
 
 /**
- * The fragility sentence the cue carries on its name and title — MOVED HERE
- * VERBATIM from `StyledEdge`, where it was the badge's own `title`. The number
- * is `fragileEdgeSwitchProb`, from `getFragileEdgeSwitchProbability`, whose
- * docblock names what it renders: *"NN% flip risk" in EdgePanel … and
- * "Sensitive · NN%" on the StyledEdge badge/hover popover*. Its meaning is NOT
- * changed here (a parallel investigation is checking what `switch_probability`
- * measures); only the canvas stops printing it without its noun.
+ * ⭐ THE ONE FRAGILITY SENTENCE — Paul 23 Sep contract feedback point 4.
+ *
+ * "Remove the warning-triangle + red/dashed + 'Sensitive' pile-up. One discreet
+ * fragility cue." The cue is a neutral mark; this is the sentence its name, its
+ * hover title, the connection's hover popover and the key all carry. It is
+ * model-relative ("the current model comparison", the words Paul's point 3 uses
+ * for the turning point) and names no winner, so it cannot read as advice.
+ *
+ * ⛔ No "Sensitive" label and no warning vocabulary: a sensitive relationship
+ * is not automatically weak or wrong (the contract's own inspector wording).
+ *
+ * ⚠ NO SIZE CLAIM (reviewer blocker on point 4, 23 Sep). An earlier wording said
+ * "Small changes here …" while the inspector tooltip on the SAME figure said
+ * "changes significantly": one number, two contradictory magnitudes, and
+ * neither established (what `switch_probability` measures is still under
+ * investigation). The sentence therefore names the change without sizing it,
+ * and `EDGE_COPY.flipRiskTooltip` is composed from `fragileEdgeSentence` so the
+ * two can never disagree again.
+ */
+export const FRAGILE_CUE_SENTENCE = "If this connection's strength changes, the current model comparison could change"
+
+/**
+ * The fragility sentence the cue carries on its name and title, and — since
+ * Paul 23 Sep contract feedback point 4 — the hover popover's fragility line
+ * too: ONE sentence for one cue, where there used to be three spellings
+ * ("Sensitive assumption: …", "Sensitive: NN% flip risk", and the key's
+ * "Sensitive: …"). The number is `fragileEdgeSwitchProb`, from
+ * `getFragileEdgeSwitchProbability`, stated WITH the noun `fragileEdgeMatch`
+ * gives it ("NN% flip risk"). Its meaning is NOT changed here (a parallel
+ * investigation is checking what `switch_probability` measures); only the
+ * canvas stops calling the connection "Sensitive" and stops printing the
+ * figure without its noun.
  *
  * Presence-branched: absent means NOT COMPUTED, and the marginal quantity is
  * never a fallback (`StyledEdge.fragilePresence.spec.tsx`).
  */
 export function fragileEdgeSentence(switchProbability: number | null): string {
   return switchProbability !== null
-    ? `Sensitive assumption: ${Math.round(switchProbability * 100)}% chance the result flips if this relationship changes`
-    : 'Sensitive assumption: outcome may flip if this relationship changes'
+    ? `${FRAGILE_CUE_SENTENCE} (${Math.round(switchProbability * 100)}% flip risk)`
+    : FRAGILE_CUE_SENTENCE
 }
 
 /**
- * The hover popover's fragility line — moved verbatim. It already carried its
- * noun ("flip risk"), the one `fragileEdgeMatch` names for this figure.
- */
-export function fragilePopoverLine(switchProbability: number | null): string {
-  return switchProbability !== null
-    ? `Sensitive: ${Math.round(switchProbability * 100)}% flip risk`
-    : 'Sensitive'
-}
-
-/**
- * The key's row for the cue. Model-relative ("this model's result") and it
- * DISCLOSES the budget, so a reader who sees one marked connection does not
- * conclude only one matters (purpose audit). No figure: the figure belongs to a
- * connection, on its own cue.
+ * The key's row for the cue. Model-relative, and it DISCLOSES the budget, so a
+ * reader who sees one marked connection does not conclude only one matters
+ * (purpose audit). No figure: the figure belongs to a connection, on its own
+ * cue. The budget is named by the quantity that actually picks the connection
+ * (`isTopFragileEdge` takes the highest MEASURED flip risk).
+ *
+ * (The export keeps its old name so no reader outside this lane moves; its
+ * words no longer say "Sensitive" — Paul 23 Sep contract feedback point 4.)
  */
 export const LEGEND_SENSITIVE_CAPTION =
-  "Sensitive: if this connection changes, this model's result may flip. Standard view marks only the top one."
+  `${FRAGILE_CUE_SENTENCE}. Standard view marks only the connection with the highest flip risk.`
 
 // ── Link strength, as the edge's hover names it ─────────────────────────────
 

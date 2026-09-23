@@ -152,7 +152,7 @@ describe('StyledEdge — one placed chip per edge', () => {
     // ⭐ 23 Sep 2026: the row is now the DISCREET cue (Experience Design's
     // locked grammar) — it paints no figure; the sentence rides its name.
     expect(tag!.textContent ?? '').not.toMatch(/\d/)
-    expect(tag!.getAttribute('aria-label')).toContain('49% chance the result flips')
+    expect(tag!.getAttribute('aria-label')).toContain('49% flip risk')
     // …and no strength row, because this edge is not in the persistent set.
     expect(strengthText(container)).toBeNull()
   })
@@ -167,7 +167,7 @@ describe('StyledEdge — one placed chip per edge', () => {
     expect(el.contains(strengthText(container)!)).toBe(true)
     expect(el.contains(fragileTag(container)!)).toBe(true)
     expect(strengthText(container)!.textContent).toContain('boost')
-    expect(fragileTag(container)!.getAttribute('aria-label')).toContain('49% chance the result flips')
+    expect(fragileTag(container)!.getAttribute('aria-label')).toContain('49% flip risk')
   })
 
   it('THE DELETED OFFSET: no element in the tree is transformed to labelX + 30', () => {
@@ -196,12 +196,13 @@ describe('StyledEdge — one placed chip per edge', () => {
     // sentences in one title; the strength sentence is the referent, and it is
     // asserted here in the same form the inspector panel would show for 0.6.
     expect(containerTitle).toContain('Strong boost')
-    expect(containerTitle).toContain('49% chance the result flips')
+    expect(containerTitle).toContain('49% flip risk')
 
     // Each row keeps its own owner and its own title — the chip is a
     // container, not a fourth signal.
     expect(fragileTag(container)!.getAttribute('title')).toBe(
-      'Sensitive assumption: 49% chance the result flips if this relationship changes',
+      // Paul 23 Sep contract feedback point 4: the cue's sentence, no "Sensitive" label.
+      "If this connection's strength changes, the current model comparison could change (49% flip risk)",
     )
   })
 
@@ -212,7 +213,9 @@ describe('StyledEdge — one placed chip per edge', () => {
     expect(chips(container).length).toBe(1)
     expect(strengthText(container)).not.toBeNull()
     expect(fragileTag(container)).toBeNull()
-    expect(chip(container)!.getAttribute('title')).not.toContain('Sensitive assumption')
+    // Bound to the CURRENT fragility sentence (Paul 23 Sep point 4), so this
+    // control cannot pass vacuously on retired wording.
+    expect(chip(container)!.getAttribute('title')).not.toContain("If this connection's strength changes, the current model comparison could change")
   })
 
   it('CONTROL: an edge that is neither top-strength nor fragile renders NO chip', () => {

@@ -148,12 +148,14 @@ describe('the fragility cue is keyed where it can appear: after a run', () => {
     setPhase('complete')
     open()
     const row = screen.getByTestId('legend-fragile-cue')
+    // Paul 23 Sep contract feedback point 4: the cue's own sentence (no
+    // "Sensitive" label) and the canvas's neutral mark (no warning triangle).
     expect(row.textContent).toBe(
-      "Sensitive: if this connection changes, this model's result may flip. Standard view marks only the top one.",
+      "If this connection's strength changes, the current model comparison could change. Standard view marks only the connection with the highest flip risk.",
     )
     const icon = row.querySelector('svg')
     expect(icon, 'the fragility row draws no icon').not.toBeNull()
-    expect(icon!.getAttribute('class') ?? '').toMatch(/lucide-(alert-triangle|triangle-alert)/)
+    expect(icon!.getAttribute('class') ?? '').toMatch(/lucide-activity/)
     // No figure in the key: the number is the connection's own, on its cue.
     expect(row.textContent).not.toMatch(/\d/)
   })

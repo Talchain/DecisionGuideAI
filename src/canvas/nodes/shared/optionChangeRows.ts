@@ -32,8 +32,8 @@ import {
 } from '../../utils/interventionDisplay'
 import { cleanFactorLabel, sentenceCaseFactorLabel, compactFactorLabel } from '../../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
-import { classifyInterventionProvenance } from '../../domain/valueProvenance'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
+import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
 
 export const OPTION_CARD_ROW_LIMIT = 2
 
@@ -127,6 +127,12 @@ export interface OptionChangeRow {
   reference: 'baseline_option' | 'current_value' | 'none'
   /** Olumi chose this target (`cee_hypothesis`) — stays marked (#1901 finding 2). */
   estimated: boolean
+  /**
+   * WHERE THE TARGET CAME FROM — you / Olumi / brief (Paul 23 Sep contract
+   * feedback point 7). Never absent: an unknown or missing source is Olumi's
+   * estimate, never the user's. `estimated` is exactly `targetSource.kind === 'olumi'`.
+   */
+  targetSource: FactorValueSourceMark
   /** The target equals the baseline option's — said, not hidden. */
   sameAsReference: boolean
 }
@@ -144,7 +150,11 @@ export function buildOptionChangeRow({
 }): OptionChangeRow {
   const fullLabel = sentenceCaseFactorLabel(cleanFactorLabel(factor.label || factorId)) || factorId
   const label = compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS)
-  const estimated = classifyInterventionProvenance(target.source ?? null)?.kind === 'ai'
+  // Point 7: every row names its target's source. Was `classify…?.kind === 'ai'`,
+  // which left `cee_inference` (live on the wire, unclassified in the
+  // intervention vocabulary) and an absent source UNMARKED — "unmarked = Olumi".
+  const targetSource = interventionTargetSourceMark(target.source ?? null)
+  const estimated = targetSource.kind === 'olumi'
   const context = {
     label: fullLabel,
     unit: factor.unit,
@@ -222,6 +232,7 @@ export function buildOptionChangeRow({
       fullChange: direction,
       reference: typeof reference === 'number' ? (baselineOptionTarget ? 'baseline_option' : 'current_value') : 'none',
       estimated,
+      targetSource,
       sameAsReference: direction === 'No change',
     }
   }
@@ -233,6 +244,7 @@ export function buildOptionChangeRow({
     fullChange: fromFull ? `${fromFull} → ${targetFull}` : sameAsReference ? `${targetFull} · same as baseline` : `→ ${targetFull}`,
     reference,
     estimated,
+    targetSource,
     sameAsReference,
   }
 }

@@ -172,7 +172,11 @@ describe('OptionNode — the run must not delete the model content', () => {
   const REFERENCE_TITLE = 'From Status quo (the baseline option)'
   const expectReferenceOnTheRow = () => {
     const row = screen.getByTestId(ROW)
-    expect(row.textContent).toBe(CHIP)
+    // Paul 23 Sep contract feedback point 7: the target's source is named on the
+    // row. This fixture's intervention carries no `source`, so the row says
+    // "no source" — never "you", and never Olumi's estimate (Codex #63
+    // 5801529767; reviewer blocker, 23 Sep).
+    expect(row.textContent).toBe(`${CHIP} no sourceSource not recorded`)
     // The title also restates the full row ("<factor>: <from> → <to>."); the
     // reference clause is the claim this file owns.
     expect(row.getAttribute('title')).toContain(REFERENCE_TITLE)

@@ -26,6 +26,7 @@
  * available, so one number carried two different claims at two zoom levels.
  */
 import { useAnalysisResultsAreCurrent } from './useAnalysisResultsAreCurrent'
+import { useRunCurrency } from '../nodes/shared/runCurrency'
 import {
   influenceRankReadout,
   type InfluenceRankReadout,
@@ -35,7 +36,12 @@ export function useInfluenceRank(
   sensitivityRank: number | null | undefined,
   influenceSetSize: number | null | undefined,
 ): InfluenceRankReadout | null {
-  const resultsAreCurrent = useAnalysisResultsAreCurrent()
+  // ⛔ Composed verdict AND local: the local-only hook lets a wire `refused` /
+  // `unknown_degraded` through over fresh fields, and then the reduced line named
+  // a rank the full card withholds (reviewer blocker on Paul 23 Sep contract
+  // feedback points 11/14; the card's rule is Codex #63 5801431996).
+  const locallyCurrent = useAnalysisResultsAreCurrent()
+  const resultsAreCurrent = useRunCurrency() === 'current' && locallyCurrent
   return resultsAreCurrent ? influenceRankReadout(sensitivityRank, influenceSetSize) : null
 }
 

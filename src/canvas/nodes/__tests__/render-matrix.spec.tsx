@@ -597,7 +597,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // The tie-ness SIGNAL is valuable and stays; the percentage-point gap is
     // the banned statistic and is gone. The node already states this option's
     // own win probability directly above.
-    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
+    expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
     expect(screen.getByText(/Held back by:/)).toBeDefined()
   })
@@ -621,7 +621,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // ⭐ SUPERSEDED 2026-08-10: this asserted the singular 'point' form. With
     // no number rendered there is no pluralisation left to pin — what remains
     // worth pinning is that a 1pp gap is still INSIDE the close-call window.
-    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
+    expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
@@ -665,7 +665,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent on Standard…
     expect(screen.queryByText(/Within a small margin/i)).toBeNull()
     renderCloseCallIn('expert', subPercent)
-    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
+    expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
