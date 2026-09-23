@@ -19,7 +19,16 @@
  * §1 is the write (C1: never overwrite newer saved work). §2 pins the two cases
  * where writing the local copy IS right and must survive any fix: CEE holds no
  * graph yet, and a deliberate import still waiting for its first registration
- * (2.503). §3 is the screen, and is ruling-dependent.
+ * (2.503). §3 is the screen.
+ *
+ * ⭐ DECISION A (packaged with this fix, 23 Sep): on reload the SAVED MODEL WINS.
+ *   An accepted boot merge takes off every canvas element CEE lacks
+ *   (`mergeServerGraph.ts` "RELOAD SHOWS THE SAVED MODEL"), names it in one
+ *   lasting chat line, and marks the analysis out of date. So after a reload the
+ *   stale copy no longer carries the deleted factor, and a read carrying every
+ *   remaining value now ACKNOWLEDGES the canvas (§1b). An element CEE lacks can
+ *   only be on the canvas again if it arrives AFTER the read — a local add — and
+ *   §1b / §6 pin that such an element is neither acknowledged nor registered.
  *
  * §4–§7 are the independent review's probes at `b072db1a` (CHANGES_REQUIRED),
  * kept as cases: B3 (a read acknowledges only values the wire carries), B1 (a
@@ -69,6 +78,8 @@ import {
 import { isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { edgePairKey } from '../../utils/graphIdentity'
+import { beginModelEditDelivery } from '../editDeliveryHold'
+import { useReloadDifferenceStore } from '../../stores/reloadDifferenceStore'
 
 const SCENARIO = '5a1e7ab0-0d04-4dd4-89db-bb6470a98fc5'
 const GOAL = 'goal_revenue'
@@ -108,6 +119,14 @@ const SERVER_AFTER_DELETE = {
   ],
   edges: [{ from: KEPT, to: GOAL, strength_mean: 0.5 }],
 }
+
+/**
+ * A factor the user adds on THIS tab after the reload's read — so CEE's saved
+ * model (and its record, `lastAuthoritativeGraph`) cannot hold it yet.
+ */
+const ADDED = 'fac_added_after_read'
+const ADDED_NODE = starterNode(ADDED, 'factor', 'Churn Risk')
+const ADDED_EDGE = starterEdge(ADDED, GOAL)
 
 /** Tab B's copy when nothing was deleted elsewhere: exactly CEE's elements. */
 const MATCHING_NODES = STALE_NODES.filter((n) => n.id !== DELETED)
@@ -223,6 +242,7 @@ beforeEach(() => {
   clearImportRegistrationMarkers()
   __resetPersistenceSessionForTests()
   __resetBootGraphReadForTest()
+  useReloadDifferenceStore.getState().clear()
   auth.user = null
   restoreStaleCopy()
 })
@@ -278,6 +298,15 @@ async function localValueOnlyChange(value: number) {
     useCanvasStore.setState({ nodes: edited as never } as never)
     await flush()
   })
+}
+
+/** A local add after the read: the factor and its edge, with no delivery signal left up. */
+function addAfterTheRead() {
+  const st = useCanvasStore.getState()
+  useCanvasStore.setState({
+    nodes: [...st.nodes, ADDED_NODE] as never,
+    edges: [...st.edges, ADDED_EDGE] as never,
+  } as never)
 }
 
 function registeredEdgePairs(call: unknown[]): string[] {
@@ -360,11 +389,61 @@ describe('§1b the re-arm\'s own design case survives without its write', () => 
     hook.unmount()
   })
 
-  it('a canvas that carries an element CEE lacks is NOT acknowledged by the read (stays held, nothing sent)', async () => {
-    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+  // ⭐ DECISION A. This case used to read "a canvas that carries an element CEE
+  // lacks is NOT acknowledged by the read (stays held, nothing sent)": the boot
+  // merge KEPT the element, so the canvas could never match. The merge now takes
+  // it off, so the stale copy converges on the saved model and the read vouches
+  // for what is left. The "element CEE lacks" premise survives only for an
+  // element that arrives AFTER the read — the next case.
+  it('DECISION A: the reload takes off the element CEE lacks, the canvas then matches the read — acknowledged, nothing sent', async () => {
+    expect(useCanvasStore.getState().nodes.some((n) => n.id === DELETED), 'precondition: the stale copy carries it').toBe(true)
+    // What CEE holds after tab A's delete, spelled as CEE stores a registered graph.
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
     const hook = await reload()
     const st = useCanvasStore.getState()
+    // Taken off by the reload merge — bound by id, node and edge.
+    expect(st.nodes.map((n) => n.id).sort()).toEqual([GOAL, KEPT].sort())
+    expect(st.edges.map((e) => edgePairKey(e.source, e.target))).toEqual([edgePairKey(KEPT, GOAL)])
+    expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(true)
+    expect(analysisHeldOn(st as never)).toBeNull()
+    expect(registerSpy).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  it('AN ELEMENT ADDED AFTER THE READ, its add turn not yet settled, is NOT acknowledged and NOT registered over the saved model', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+    const hook = await reload()
+    {
+      const st = useCanvasStore.getState()
+      expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never), 'precondition: the reload matched the read').toBe(true)
+    }
+
+    // The user adds a factor after the read; its `structural_add` turn is on the wire.
+    const releaseAddTurn = beginModelEditDelivery('structural_add')
+    try {
+      await act(async () => {
+        const st = useCanvasStore.getState()
+        useCanvasStore.setState({
+          nodes: [...st.nodes, ADDED_NODE] as never,
+          edges: [...st.edges, ADDED_EDGE] as never,
+        } as never)
+        await flush()
+      })
+      const st = useCanvasStore.getState()
+      expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(false)
+      expect(registrationsCarrying(ADDED)).toHaveLength(0)
+    } finally {
+      releaseAddTurn()
+    }
+
+    // The turn has left the wire but no receipt put the factor into CEE's record:
+    // nothing but the saved-model gate stands between it and a whole-graph write.
+    await act(async () => { await flush() })
+    const st = useCanvasStore.getState()
+    expect(st.nodes.some((n) => n.id === ADDED), 'precondition: the added factor is still on the canvas').toBe(true)
+    expect(useCanvasStore.getState().lastAuthoritativeGraph?.nodeIds ?? []).not.toContain(ADDED)
     expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(false)
+    expect(registrationsCarrying(ADDED)).toHaveLength(0)
     expect(registerSpy).not.toHaveBeenCalled()
     hook.unmount()
   })
@@ -625,9 +704,15 @@ describe('§6 after a merged boot read the re-arm is refused only for an element
     hook.unmount()
   })
 
-  it('J-control: a canvas carrying an element CEE lacks is NOT re-registered, before or after a value-only change', async () => {
-    const r = await hydrate(SERVER_AFTER_DELETE)
+  // ⭐ DECISION A. Both cases below used to reach "a canvas carrying an element
+  // CEE lacks" by reloading the stale copy — the merge kept DELETED. The merge
+  // now takes it off (asserted as a precondition), so the element CEE lacks is
+  // one added after the read, which is the only way such a canvas now arises.
+  it('J-control: a canvas carrying an element CEE lacks (added after the read) is NOT re-registered, before or after a value-only change', async () => {
+    const r = await hydrate(SERVER_AS_REGISTERED)
     expect(r.outcome).toBe('merged')
+    expect(useCanvasStore.getState().nodes.some((n) => n.id === DELETED), 'precondition: the reload took DELETED off').toBe(false)
+    addAfterTheRead()
     const hook = renderHook(() => useImportRegistration())
     await act(async () => { await flush() })
     await localValueOnlyChange(0.6)
@@ -636,21 +721,24 @@ describe('§6 after a merged boot read the re-arm is refused only for an element
   })
 
   it('the verdict follows CEE\'s record: when a later authoritative graph holds the element too, the model is re-offered', async () => {
-    const r = await hydrate(SERVER_AFTER_DELETE)
+    const r = await hydrate(SERVER_AS_REGISTERED)
     expect(r.outcome).toBe('merged')
+    expect(useCanvasStore.getState().nodes.some((n) => n.id === DELETED), 'precondition: the reload took DELETED off').toBe(false)
+    addAfterTheRead()
     const hook = renderHook(() => useImportRegistration())
     await act(async () => { await flush() })
     expect(registerSpy).not.toHaveBeenCalled()
     // No canvas change at all — only CEE's record of what it holds moves
-    // (e.g. an idempotent receipt carrying the element again).
+    // (e.g. the add's receipt carrying the element).
     await act(async () => {
       useCanvasStore.getState().setLastAuthoritativeGraph({
-        nodeIds: [GOAL, KEPT, DELETED],
-        edgePairs: [edgePairKey(KEPT, GOAL), edgePairKey(DELETED, GOAL)],
+        nodeIds: [GOAL, KEPT, ADDED],
+        edgePairs: [edgePairKey(KEPT, GOAL), edgePairKey(ADDED, GOAL)],
       })
       await flush()
     })
     expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(registeredNodeIds(registerSpy.mock.calls[0]).sort()).toEqual([GOAL, KEPT, ADDED].sort())
     hook.unmount()
   })
 })
@@ -686,6 +774,24 @@ describe('§7 a registration CEE acknowledges records what CEE holds', () => {
   })
 })
 
-describe('§3 RULING-DEPENDENT (Paul, decision A): after the reload, the screen shows the saved model', () => {
-  it.todo('the element CEE lacks is taken off the canvas AND named in a lasting notice, and the analysis is marked out of date')
+describe('§3 decision A: after the reload, the screen shows the saved model', () => {
+  it('the element CEE lacks is taken off the canvas AND named in a lasting notice, and the analysis is marked out of date', async () => {
+    useCanvasStore.setState({
+      graphEditedSinceLastRun: false,
+      analysisStateReady: true,
+      analysisFreshnessDirty: false,
+    } as never)
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+    const hook = await reload()
+    const st = useCanvasStore.getState()
+    expect(st.nodes.some((n) => n.id === DELETED)).toBe(false)
+    const notice = useReloadDifferenceStore.getState()
+    expect(notice.scenarioId).toBe(SCENARIO)
+    expect(notice.removedLabels).toEqual(['Competitive Pressure'])
+    expect(st.graphEditedSinceLastRun).toBe(true)
+    expect(st.analysisStateReady).toBe(false)
+    expect(st.analysisFreshnessDirty).toBe(true)
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+    hook.unmount()
+  })
 })
