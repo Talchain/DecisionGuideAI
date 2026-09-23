@@ -249,19 +249,14 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
       data: { direction: 'positive', direction_source: 'user' },
       store: { highlightedEdges: new Set(['e1']) },
     },
+    // ⚠ This row was `contested_needs_user_input` → full `--semantic-warning`.
+    // That rule is DELETED (Paul, 23 Sep 2026: orange is a SIGN disagreement
+    // only), so it can no longer be a case. Replaced by the stated-positive
+    // polarity so the table still spans five DISTINCT values.
     {
-      rule: 'contested_needs_user_input',
-      stroke: 'var(--semantic-warning)',
-      data: {
-        direction: 'positive',
-        direction_source: 'user',
-        validation: {
-          status: 'contested',
-          user_action: 'pending',
-          max_divergence: 0.5,
-          pass2: { needs_user_input: true },
-        },
-      },
+      rule: 'polarity (a stated positive — same rule, third value)',
+      stroke: 'var(--edge-positive)',
+      data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 },
     },
     {
       rule: 'contested_direction_disputed (the color-mix value)',

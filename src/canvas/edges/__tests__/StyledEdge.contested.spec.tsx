@@ -1,12 +1,21 @@
 /**
- * Regression tests for contested edge visual styling in StyledEdge.
+ * Regression tests for how an AI-review disagreement (`edge.data.validation`)
+ * reaches the canvas stroke.
+ *
+ * ⭐ PAUL'S RULING, 23 Sep 2026 (D3 · Connectors):
+ *  - the DASH is existence certainty ONLY — no review disagreement sets it;
+ *  - ORANGE means the two drafting passes disagree about the SIGN, and nothing
+ *    else — `needs_user_input` over an agreed sign no longer paints it;
+ *  - so a disagreement that is NOT about the sign renders exactly as if no
+ *    validation were present. It stays visible in the Edge inspector
+ *    (`EdgeReviewDisagreement`), not on the line.
  *
  * Covers:
- *  - Pending contested → dashed info stroke with divergence-scaled gap
- *  - needs_user_input → tighter dash gap + full info colour
- *  - Resolved contested → reverts to standard non-contested style
- *  - Missing max_divergence → non-contested style (no silent default)
- *  - Absent validation → standard style
+ *  - Non-sign contest (any of the four reasons, with/without needs_user_input,
+ *    at any divergence) → byte-identical to the validation-absent control
+ *  - sign_flip → the direction-disputed orange, and still no contest dash
+ *  - A stated low existence probability still dashes, contested or not
+ *  - Resolved / malformed / absent validation → standard style
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
@@ -203,6 +212,11 @@ describe('StyledEdge — contested visual styling', () => {
     capturedStyle = undefined
   })
 
+  // ⭐ UPDATED AGAIN 23 Sep 2026 — PAUL'S RULING: the dash is existence
+  // certainty only, and orange is a SIGN disagreement only. The 17 Aug note
+  // below is kept for its history; its "the contest rides the dash" half is
+  // what the 23 Sep ruling removes.
+  //
   // ⭐ UPDATED 17 Aug 2026 — PAUL'S RULING, not a drifting expectation.
   //
   // These three cases used to assert that ANY pending contest painted the edge
@@ -218,22 +232,68 @@ describe('StyledEdge — contested visual styling', () => {
   // asserted, on its own twins, immediately below. See
   // `edgePresentation.spec.ts` for the full precedence and
   // `StyledEdge.presentationStability.spec.tsx` for the founder-witnessed harms.
-  it('pending contest over an AGREED sign keeps its polarity and dashes', () => {
-    const style = renderEdge({
+  const NON_SIGN_REASONS = [
+    'strength_band_change',
+    'confidence_band_change',
+    'existence_boundary_crossing',
+    'raw_magnitude',
+  ] as const
+
+  /**
+   * A realistic drafted edge: STATED polarity and strength (the provenance
+   * stamps `resolveEdgeDirectionDisplay` / `resolveEdgeSignedStrengthDisplay`
+   * require) and a STATED high existence probability, so the edge has a real
+   * polarity colour and a real "solid" answer from the existence channel.
+   * Without the stamps polarity collapses to neutral grey and "not orange"
+   * would pass on the wrong colour.
+   */
+  function stampedEdge(overrides: Record<string, unknown> = {}) {
+    return {
       weight: 0.5,
       direction: 'positive',
-      validation: makeValidation({ max_divergence: 0.6 }),
-    })
+      weightSource: 'cee',
+      directionSource: 'cee',
+      beliefExists: 0.9,
+      beliefExistsSource: 'cee',
+      ...overrides,
+    }
+  }
 
-    // No alarm hue: the thing in dispute is the strength band, not the sign.
-    expect(style.stroke).not.toContain('--semantic-warning')
-
-    // The contest is still shown — divergence-scaled: width = 1.5 + 0.6*1.5 =
-    // 2.4, gap = 4 + 0.6*4 = 6. Unchanged by the refactor.
-    expect(style.strokeDasharray).toBe('2.4 6')
+  it('PRECONDITION: the stamped fixture renders a POLARITY colour and a solid line', () => {
+    const style = renderEdge(stampedEdge())
+    expect(style.stroke).toBe('var(--edge-positive)')
+    expect(style.strokeDasharray).toBeUndefined()
   })
 
-  it('OPPOSITE-DIRECTION TWIN: a sign_flip contest DOES take the warning stroke', () => {
+  // (a) — the ruling's core. Every non-sign reason, with AND without
+  // needs_user_input, at the low/mid/high divergence the old dash scaled with:
+  // byte-identical to the same edge with no `validation` at all.
+  it.each(NON_SIGN_REASONS)(
+    '(a) a %s contest renders SOLID and NOT orange — exactly as if validation were absent',
+    (reason) => {
+      for (const needs_user_input of [false, true]) {
+        for (const max_divergence of [0, 0.6, 1]) {
+          const data = stampedEdge({
+            validation: makeValidation({
+              contested_reasons: [reason],
+              max_divergence,
+              pass2: {
+                strength_mean: 0.7, strength_std: 0.15, exists_probability: 0.9,
+                reasoning: 'test', basis: 'domain_prior', needs_user_input,
+              },
+            }),
+          })
+          const { withValidation } = expectStyledAsIfNoValidation(data)
+          expect(withValidation.strokeDasharray, `${reason} needs=${needs_user_input} d=${max_divergence}`).toBeUndefined()
+          expect(withValidation.stroke).toBe('var(--edge-positive)')
+          expect(withValidation.stroke).not.toContain('--semantic-warning')
+        }
+      }
+    },
+  )
+
+  // (b) — control: the ONE orange survives.
+  it('(b) OPPOSITE-DIRECTION TWIN: a sign_flip contest DOES take the warning stroke', () => {
     const style = renderEdge({
       weight: 0.5,
       direction: 'positive',
@@ -241,59 +301,57 @@ describe('StyledEdge — contested visual styling', () => {
     })
     expect(style.stroke).toContain('color-mix')
     expect(style.stroke).toContain('--semantic-warning')
-    expect(style.strokeDasharray).toBe('2.4 6')
   })
 
-  it('needs_user_input gets tighter dash and full info colour', () => {
-    const style = renderEdge({
-      weight: 0.5,
-      direction: 'positive',
+  it('(b) …and a sign_flip contest does NOT dash: the dash is existence certainty only', () => {
+    const style = renderEdge(stampedEdge({
+      validation: makeValidation({ max_divergence: 0.6, contested_reasons: ['sign_flip'] }),
+    }))
+    expect(style.stroke).toContain('--semantic-warning')
+    expect(style.strokeDasharray).toBeUndefined()
+  })
+
+  it('(b) a sign_flip contest that also asks for input takes the SAME one orange', () => {
+    const signFlip = (needs_user_input: boolean) => renderEdge(stampedEdge({
       validation: makeValidation({
-        max_divergence: 0.8,
+        contested_reasons: ['sign_flip'],
         pass2: {
           strength_mean: 0.7, strength_std: 0.15, exists_probability: 0.9,
-          reasoning: 'test', basis: 'domain_prior', needs_user_input: true,
+          reasoning: 'test', basis: 'domain_prior', needs_user_input,
         },
       }),
-    })
-
-    // Full warning colour for needs_user_input (contested = needs attention)
-    expect(style.stroke).toBe('var(--semantic-warning)')
-
-    // Tight dash: gap = 3 regardless of divergence; width = 1.5 + 0.8*1.5 = 2.7
-    expect(style.strokeDasharray).toBe('2.7 3')
+    })).stroke
+    expect(signFlip(true)).toBe(signFlip(false))
+    expect(signFlip(true)).toContain('color-mix')
   })
 
-  it('POSITIVE CONTROL: a contested edge does NOT render as if validation were absent', () => {
-    // Without this, every negative arm below could pass by comparing two
-    // identically-broken renders. This proves the differential helper CAN fail.
-    //
-    // ⚠ The discriminating channel is now the DASH, not the stroke — the whole
-    // point of the ruling above. Asserted on BOTH contest classes so the control
-    // cannot be satisfied by the exception hue alone.
-    const agreedSign = {
-      weight: 0.5,
-      direction: 'positive',
-      validation: makeValidation({ max_divergence: 0.6 }),
+  // (c) — the existence channel is untouched, and now wins on a contested edge.
+  it('(c) CONTROL: an uncontested edge with a stated LOW existence probability dashes 6,4', () => {
+    expect(renderEdge(stampedEdge({ beliefExists: 0.3 })).strokeDasharray).toBe('6,4')
+  })
+
+  it('(c) a contested edge with a stated LOW existence probability dashes from EXISTENCE (6,4)', () => {
+    for (const reasons of [['strength_band_change'], ['sign_flip']]) {
+      const style = renderEdge(stampedEdge({
+        beliefExists: 0.3,
+        validation: makeValidation({ max_divergence: 0.6, contested_reasons: reasons }),
+      }))
+      expect(style.strokeDasharray, reasons.join()).toBe('6,4')
     }
-    const withValidation = contestedStyleSignature(renderEdge(agreedSign))
-    const control = contestedStyleSignature(renderEdge(withoutValidation(agreedSign)))
+  })
 
-    expect(withValidation).not.toEqual(control)
-    expect(withValidation.strokeDasharray).toBe('2.4 6')
-    expect(control.strokeDasharray).not.toBe('2.4 6')
-    // …and the agreed-sign contest is specifically NOT alarming.
-    expect(withValidation.stroke).not.toContain('--semantic-warning')
-
-    // TWIN: the sign_flip class still discriminates on the STROKE too.
-    const disputedSign = {
-      ...agreedSign,
+  it('POSITIVE CONTROL: the differential helper CAN fail — a sign_flip contest differs from its control', () => {
+    // Without this, every "as if validation were absent" arm could pass by
+    // comparing two identically-broken renders. The discriminating channel is
+    // now the STROKE, and only for a SIGN disagreement — the whole ruling.
+    const disputedSign = stampedEdge({
       validation: makeValidation({ max_divergence: 0.6, contested_reasons: ['sign_flip'] }),
-    }
+    })
     const disputed = contestedStyleSignature(renderEdge(disputedSign))
+    const control = contestedStyleSignature(renderEdge(withoutValidation(disputedSign)))
+    expect(disputed).not.toEqual(control)
     expect(disputed.stroke).toContain('--semantic-warning')
-    expect(contestedStyleSignature(renderEdge(withoutValidation(disputedSign))).stroke)
-      .not.toContain('--semantic-warning')
+    expect(control.stroke).not.toContain('--semantic-warning')
   })
 
   it('resolved contested edge reverts to standard non-contested style', () => {
@@ -342,28 +400,5 @@ describe('StyledEdge — contested visual styling', () => {
       direction: 'positive',
       validation: makeValidation({ status: 'agreed' }),
     })
-  })
-
-  it('max_divergence 0 produces minimal dash width (1.5) and gap (4)', () => {
-    const style = renderEdge({
-      weight: 0.5,
-      direction: 'positive',
-      validation: makeValidation({ max_divergence: 0 }),
-    })
-
-    expect(style.strokeDasharray).toBe('1.5 4')
-    // Reason is `strength_band_change`, so the sign is not in dispute and the
-    // polarity survives — see the ruling note at the top of this describe.
-    expect(style.stroke).not.toContain('--semantic-warning')
-  })
-
-  it('max_divergence 1 produces maximum dash width (3.0) and gap (8)', () => {
-    const style = renderEdge({
-      weight: 0.5,
-      direction: 'positive',
-      validation: makeValidation({ max_divergence: 1 }),
-    })
-
-    expect(style.strokeDasharray).toBe('3 8')
   })
 })

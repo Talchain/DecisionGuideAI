@@ -22,6 +22,7 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabul
 import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
+import { readContestedState, resolveEdgeStroke, NOT_CONTESTED } from '../../edges/edgePresentation'
 
 /**
  * ⭐ THE PHASE IS NOW A RENDER INPUT, SO EVERY TEST IN THIS FILE HAS A PHASE —
@@ -133,15 +134,13 @@ const APPROVED = [
   // ("no doubt recorded") is false across the whole stated-high band and is
   // what this change removed.
   'Solid connection: no doubt recorded, or only a small one',
-  // Dashed is TWO causes, and the caption must be true of BOTH — the standard
-  // the solid row above was already held to. `resolveEdgeDash` fires the
-  // `contested` rule for EVERY contested edge without reading
-  // `contested_reasons`, and three of the five `ContestedReason` members
-  // (`strength_band_change`, `confidence_band_change`, `raw_magnitude`) are
-  // disagreements about HOW STRONG or HOW CERTAIN, with both passes agreeing the
-  // connection exists. "someone recorded a doubt" was false across that whole
-  // population and is what this change removes. See `CanvasLegendPopover.tsx`.
-  'Dashed connection: a doubt or a disagreement was recorded',
+  // ⭐ Dashed is ONE cause again (Paul, 23 Sep 2026): the dash is existence
+  // certainty only, so the caption names a doubt that the connection exists
+  // and nothing else. It USED to be "a doubt or a disagreement was recorded",
+  // because `resolveEdgeDash` fired a `contested` rule for every AI-review
+  // disagreement; that rule is deleted, and a caption still naming a
+  // disagreement would teach a cause the canvas no longer draws.
+  'Dashed connection: a doubt was recorded about whether it exists',
   // ⚠ The three thickness literals are replaced by the derivation above —
   // keeping them would make this allowlist a mirror of a mirror.
   ...THICKNESS_LABELS,
@@ -256,9 +255,14 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     fireEvent.click(screen.getByTestId('btn-canvas-legend'))
   }
 
-  it('explains the ONE reserved colour: orange means the reviews disagree', () => {
+  it('explains the ONE reserved colour: orange means the drafting passes disagree about the DIRECTION', () => {
+    // Paul, 23 Sep 2026: orange is a SIGN disagreement between Olumi's own two
+    // drafting passes — not "reviews", which reads as people.
     open()
-    expect(screen.getByText('Orange: reviews disagree — your call')).toBeInTheDocument()
+    expect(
+      screen.getByText("Orange: Olumi's two drafting passes disagree about the direction — your call"),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Orange: reviews disagree — your call')).toBeNull()
   })
 
   it('explains grey as "not stated yet", the signal with no other channel', () => {
@@ -358,6 +362,113 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     expect(text).not.toMatch(/\bnode\b/)
     expect(text).not.toMatch(/\bedge\b/)
     expect(text).not.toMatch(/\bgraph\b/)
+  })
+})
+
+/**
+ * ⭐ D3 · CONNECTORS — Paul, 23 Sep 2026. The key must match the encoding the
+ * canvas now draws:
+ *   · line style = existence certainty ONLY (no "disagreement" on the dash row);
+ *   · orange = Olumi's two drafting passes disagree about the DIRECTION, drawn
+ *     SOLID in the exact stroke the canvas paints for that rule;
+ *   · one row for the fragility cue, drawn with the chip's own triangle;
+ *   · and never the word "contested" — reserved for attributable HUMAN
+ *     disagreement, which has no carrier yet.
+ */
+describe('CanvasLegendPopover — D3 connectors key (Paul, 23 Sep 2026)', () => {
+  function openKey() {
+    const r = render(<CanvasLegendPopover />)
+    fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+    return r
+  }
+  const ORANGE_LABEL = "Orange: Olumi's two drafting passes disagree about the direction — your call"
+
+  /** Every string a person can perceive in the open key, one per node. */
+  function perceivable(root: HTMLElement): string[] {
+    const out: string[] = []
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const t = n.textContent?.trim()
+      if (t) out.push(t)
+    }
+    for (const el of Array.from(root.querySelectorAll('*'))) {
+      for (const a of ['aria-label', 'title', 'aria-description']) {
+        const v = el.getAttribute(a)
+        if (v && v.trim()) out.push(v.trim())
+      }
+    }
+    return out
+  }
+
+  it('(f) the line-style rows name EXISTENCE only — no "disagree" on either', () => {
+    openKey()
+    const dashed = screen.getByText('Dashed connection: a doubt was recorded about whether it exists')
+    const solid = screen.getByText('Solid connection: no doubt recorded, or only a small one')
+    for (const row of [dashed, solid]) {
+      expect(row.textContent ?? '').not.toMatch(/disagree/i)
+    }
+    expect(screen.queryByText('Dashed connection: a doubt or a disagreement was recorded')).toBeNull()
+  })
+
+  it('(f) the dashed swatch still draws the canvas\'s own existence dash (control)', () => {
+    openKey()
+    // Found by its prefix, not its caption, so this control reads the same row
+    // before and after the caption changed.
+    const row = screen.getByText(/^Dashed connection:/).parentElement!
+    expect(row.querySelector('line')?.getAttribute('stroke-dasharray')).toBe('6,4')
+  })
+
+  it('(f) the orange swatch is SOLID and painted in the stroke the canvas uses for a SIGN disagreement', () => {
+    openKey()
+    const row = screen.getByText(ORANGE_LABEL).parentElement!
+    const line = row.querySelector('line')
+    expect(line, 'the orange row has no swatch line — this probe is blind').not.toBeNull()
+    // Derived through the REAL resolver, never a literal: the colour a
+    // sign_flip contest actually resolves to on the canvas.
+    const signFlip = readContestedState({
+      status: 'contested', user_action: 'pending', max_divergence: 0.5,
+      contested_reasons: ['sign_flip'],
+    })
+    const canvasOrange = resolveEdgeStroke({
+      isStructural: false, lensMode: 'full', causalParams: null, evidenceClass: null,
+      contested: signFlip, isHighlighted: false, polarityStroke: 'var(--edge-positive)',
+      existence: { kind: 'stated', dash: undefined }, visualPropsDash: undefined,
+    })
+    expect(canvasOrange.rule).toBe('contested_direction_disputed')
+    expect(line!.getAttribute('stroke')).toBe(canvasOrange.value)
+    // SOLID: an orange edge is no longer dashed by its disagreement.
+    expect(line!.getAttribute('stroke-dasharray')).toBeNull()
+    // Contrast: the uncontested stroke is NOT that colour, so the equality
+    // above cannot be satisfied by a constant every rule returns.
+    expect(canvasOrange.value).not.toBe(
+      resolveEdgeStroke({
+        isStructural: false, lensMode: 'full', causalParams: null, evidenceClass: null,
+        contested: NOT_CONTESTED, isHighlighted: false, polarityStroke: 'var(--edge-positive)',
+        existence: { kind: 'stated', dash: undefined }, visualPropsDash: undefined,
+      }).value,
+    )
+  })
+
+  it('(f) one row keys the fragility cue, with the chip\'s own triangle and no new claim', () => {
+    openKey()
+    const label = screen.getByText('Sensitive: the result may flip if this connection changes')
+    const swatch = label.parentElement!.querySelector('[data-testid="legend-fragile-cue"]')
+    expect(swatch, 'the fragility row has no swatch').not.toBeNull()
+    // Lucide renders an <svg>; the chip draws the same `AlertTriangle`.
+    expect(swatch!.tagName.toLowerCase()).toBe('svg')
+  })
+
+  it('(f) GUARD: no perceivable string in the key says "contested"', () => {
+    const { container } = openKey()
+    const corpus = perceivable(container)
+    // Positive controls: the probe reads the rows (text) AND the button's
+    // accessible name (attribute), and the corpus is the whole key. Bound to
+    // rows this change does not touch, so the guard is not RED-by-rewording.
+    expect(corpus).toContain('Raises')
+    expect(corpus).toContain('Grey: direction not set yet')
+    expect(corpus).toContain('How to read this')
+    expect(corpus.length).toBeGreaterThan(20)
+    expect(corpus.filter((s) => /contest/i.test(s))).toEqual([])
   })
 })
 

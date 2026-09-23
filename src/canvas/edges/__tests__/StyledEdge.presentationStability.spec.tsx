@@ -189,8 +189,12 @@ describe('H1 — orange stops being the default; polarity survives a contest', (
     expect(s.stroke).not.toContain('--semantic-warning')
   })
 
-  it('…and the contest is still visible, on the dash', () => {
-    expect(renderEdge(draftedEdge({ validation: contestedValidation() })).strokeDasharray).toBe('2.4 6')
+  it("…and it does NOT dash either: the dash is existence certainty only (Paul, 23 Sep 2026)", () => {
+    // Was '2.4 6' — the contest rode the dash. Paul's 23 Sep ruling removes
+    // that: a line style that also meant "the reviews disagreed about the
+    // strength" could not honestly mean "this connection may not exist". The
+    // disagreement lives in the Edge inspector now, not on the line.
+    expect(renderEdge(draftedEdge({ validation: contestedValidation() })).strokeDasharray).toBeUndefined()
   })
 
   it('TWIN: a sign_flip contest DOES render the exception hue', () => {
@@ -199,7 +203,10 @@ describe('H1 — orange stops being the default; polarity survives a contest', (
     expect(s.stroke).not.toBe(POSITIVE)
   })
 
-  it('TWIN: needs_user_input DOES render the exception hue at full strength', () => {
+  it("PAUL'S RULING (23 Sep): needs_user_input over an AGREED sign keeps its polarity", () => {
+    // Was the full-strength exception hue. Orange is now a SIGN disagreement
+    // only; a request for input about the STRENGTH is not a reason to delete
+    // a direction both passes agree on.
     const s = renderEdge(draftedEdge({
       validation: contestedValidation({
         pass2: {
@@ -208,7 +215,8 @@ describe('H1 — orange stops being the default; polarity survives a contest', (
         },
       }),
     }))
-    expect(s.stroke).toBe('var(--semantic-warning)')
+    expect(s.stroke).toBe(POSITIVE)
+    expect(s.stroke).not.toContain('--semantic-warning')
   })
 })
 

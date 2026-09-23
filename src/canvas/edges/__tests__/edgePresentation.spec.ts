@@ -13,6 +13,13 @@
  *
  * The ordering is asserted against `EDGE_STROKE_RULES` / `EDGE_DASH_RULES`
  * directly, so a future reorder is a RED, not a silent repaint.
+ *
+ * ⭐ PAUL'S RULING, 23 Sep 2026 (D3 · Connectors) — asserted below by name:
+ *   1. DASH = EXISTENCE CERTAINTY ONLY. No AI-review disagreement may set the
+ *      dash; the `contested` dash rule is gone.
+ *   2. ORANGE = the two drafting passes disagree about the SIGN, and nothing
+ *      else. `contested_needs_user_input` painted orange for all five reasons,
+ *      including the four where both passes AGREE on the sign; it is gone.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -87,7 +94,8 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
       'structural',
       'lens_causal',
       'lens_evidence',
-      'contested_needs_user_input',
+      // PAUL, 23 Sep 2026: `contested_needs_user_input` is deleted — it painted
+      // orange whatever the passes disagreed about. Orange is the SIGN only.
       'contested_direction_disputed',
       'highlighted',
       'polarity',
@@ -97,7 +105,8 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
   it('states the dash precedence as an ordered list, and carries NO pre-run rule', () => {
     expect([...EDGE_DASH_RULES]).toEqual([
       'structural',
-      'contested',
+      // PAUL, 23 Sep 2026: NO `contested` rule. The dash is existence
+      // certainty only — an AI-review disagreement never sets it.
       // Provenance is asked BEFORE value: an edge nobody assessed reaches a
       // NAMED rule rather than falling through to the legacy visual-props map.
       'existence_unset',
@@ -107,6 +116,7 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
     // The defect this module was written to remove: a "needs attention" dash
     // applied to every confidence-less edge, gated on an app phase.
     expect(EDGE_DASH_RULES).not.toContain('pre_run_incomplete')
+    expect(EDGE_DASH_RULES as readonly string[]).not.toContain('contested')
   })
 
   it('every rule the stroke resolver can return is declared in the ordered list', () => {
@@ -117,7 +127,6 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
       resolveEdgeStroke(state({ isStructural: true })).rule,
       resolveEdgeStroke(state({ lensMode: 'causal', causalParams: { direction: 'negative' } })).rule,
       resolveEdgeStroke(state({ lensMode: 'evidence', evidenceClass: 'assumed' })).rule,
-      resolveEdgeStroke(state({ contested: contestedNeedsInput })).rule,
       resolveEdgeStroke(state({ contested: contestedSignFlip })).rule,
       resolveEdgeStroke(state({ isHighlighted: true })).rule,
       resolveEdgeStroke(state()).rule,
@@ -148,13 +157,42 @@ describe('edgePresentation — colour belongs to polarity', () => {
     expect(d.value).toContain('--semantic-warning')
   })
 
-  it('OPPOSITE-DIRECTION TWIN: needs_user_input takes the exception hue at full strength', () => {
+  // ⭐ PAUL, 23 Sep 2026: orange = the passes disagree about the SIGN, only.
+  // `needs_user_input` used to take the exception hue at full strength for ANY
+  // reason — including the four where both passes AGREE on the sign, so the
+  // orange deleted a polarity nobody disputed (Rule A in the module header).
+  it("PAUL'S RULING (23 Sep): needs_user_input over an AGREED sign keeps its polarity", () => {
     const d = resolveEdgeStroke(state({ contested: contestedNeedsInput }))
-    expect(d.rule).toBe('contested_needs_user_input')
-    expect(d.value).toBe('var(--semantic-warning)')
+    expect(d.rule).toBe('polarity')
+    expect(d.value).toBe(POLARITY_GREEN)
   })
 
-  it('needs_user_input outranks a sign_flip contest — one edge, one colour, stated order', () => {
+  it.each([
+    'strength_band_change',
+    'confidence_band_change',
+    'existence_boundary_crossing',
+    'raw_magnitude',
+  ])('%s never paints orange — with or without needs_user_input', (reason) => {
+    for (const needs of [false, true]) {
+      const c = readContestedState(validation({
+        contested_reasons: [reason],
+        pass2: {
+          strength_mean: 0.7, strength_std: 0.15, exists_probability: 0.9,
+          reasoning: 'test', basis: 'domain_prior', needs_user_input: needs,
+        },
+      }))
+      // Precondition: this IS a live contest, so polarity winning is the
+      // ruling at work and not an unread validation.
+      expect(c.isContested).toBe(true)
+      const d = resolveEdgeStroke(state({ contested: c }))
+      expect(d.rule, `${reason} (needs_user_input=${needs})`).toBe('polarity')
+      expect(d.value).not.toContain('--semantic-warning')
+    }
+  })
+
+  it('a sign_flip contest that ALSO asks for input takes the ONE direction-disputed hue', () => {
+    // One orange, one meaning: there is no second, full-strength orange left
+    // for a legend row to explain.
     const both = readContestedState(validation({
       contested_reasons: ['sign_flip'],
       pass2: {
@@ -162,7 +200,9 @@ describe('edgePresentation — colour belongs to polarity', () => {
         reasoning: 'test', basis: 'domain_prior', needs_user_input: true,
       },
     }))
-    expect(resolveEdgeStroke(state({ contested: both })).rule).toBe('contested_needs_user_input')
+    const d = resolveEdgeStroke(state({ contested: both }))
+    expect(d.rule).toBe('contested_direction_disputed')
+    expect(d.value).toBe(resolveEdgeStroke(state({ contested: contestedSignFlip })).value)
   })
 
   it('a contested edge still outranks the transient highlight, as it always did', () => {
@@ -208,29 +248,39 @@ describe('edgePresentation — colour belongs to polarity', () => {
   })
 })
 
-describe('edgePresentation — the contest is ALWAYS visible, on the dash', () => {
-  it('every contested edge dashes, whatever colour won above', () => {
+describe('edgePresentation — the dash is existence certainty ONLY (Paul, 23 Sep 2026)', () => {
+  it('no contest sets the dash: a contested edge with a stated HIGH likelihood is solid', () => {
+    // Was: every contested edge dashed at a divergence-scaled pattern, whatever
+    // the passes disagreed about — so a strength-only contest drew the same
+    // line style as a doubt that the connection exists.
     for (const c of [contestedNonDirection, contestedSignFlip, contestedNeedsInput]) {
+      expect(c.isContested).toBe(true)
       const d = resolveEdgeDash(state({ contested: c }))
-      expect(d.rule).toBe('contested')
-      expect(d.value).toBe(c.dash)
+      expect(d.rule).toBe('visual_props')
+      expect(d.value).toBeUndefined()
     }
   })
 
-  it('the divergence-scaled dash is unchanged by this refactor', () => {
-    expect(readContestedState(validation({ max_divergence: 0.6 })).dash).toBe('2.4 6')
-    expect(readContestedState(validation({ max_divergence: 0 })).dash).toBe('1.5 4')
-    expect(readContestedState(validation({ max_divergence: 1 })).dash).toBe('3 8')
-    // needs_user_input pins the GAP at 3 regardless of divergence; the width
-    // still scales (1.5 + 0.6 × 1.5 = 2.4).
-    expect(contestedNeedsInput.dash).toBe('2.4 3')
-    expect(readContestedState(validation({
-      max_divergence: 0.8,
-      pass2: {
-        strength_mean: 0.7, strength_std: 0.15, exists_probability: 0.9,
-        reasoning: 'test', basis: 'domain_prior', needs_user_input: true,
-      },
-    })).dash).toBe('2.7 3')
+  it('a contested edge with a stated LOW likelihood dashes from EXISTENCE, not from the contest', () => {
+    for (const c of [contestedNonDirection, contestedSignFlip, contestedNeedsInput]) {
+      const d = resolveEdgeDash(state({ contested: c, existence: { kind: 'stated', dash: '6,4' } }))
+      expect(d.rule).toBe('existence_certainty')
+      expect(d.value).toBe('6,4')
+    }
+  })
+
+  it('a contested edge NOBODY ASSESSED is solid under the named unset rule', () => {
+    const d = resolveEdgeDash(state({ contested: contestedSignFlip, existence: { kind: 'unset' } }))
+    expect(d.rule).toBe('existence_unset')
+    expect(d.value).toBeUndefined()
+  })
+
+  it('the reduced contest carries NO dash — nothing is left for a later rule to re-wire', () => {
+    // The divergence-scaled dash was this module's; deleting the rule and
+    // leaving the value computed would be a decoy (the header's own reasoning
+    // for deleting the dead arrowheads).
+    expect(contestedNonDirection).not.toHaveProperty('dash')
+    expect(contestedNeedsInput).not.toHaveProperty('needsUserInput')
   })
 
   it('OPPOSITE-DIRECTION TWIN: a genuinely uncertain edge still dashes from existence certainty', () => {
@@ -329,11 +379,11 @@ describe('readContestedState — the gate, and what it refuses to infer', () => 
     ['a bare string rather than an array', validation({ contested_reasons: 'sign_flip' })],
   ])('FAILS QUIET when contested_reasons is %s — still contested, direction NOT disputed', (_l, v) => {
     // P5: painting the exception hue here would assert a direction disagreement
-    // on no evidence. The contest is still shown, on the dash.
+    // on no evidence. (The contest is no longer shown on the canvas at all —
+    // Paul, 23 Sep 2026 — it lives in the Edge inspector.)
     const c = readContestedState(v)
     expect(c.isContested).toBe(true)
     expect(c.directionDisputed).toBe(false)
-    expect(c.dash).not.toBeNull()
     expect(resolveEdgeStroke(state({ contested: c })).rule).toBe('polarity')
   })
 })
