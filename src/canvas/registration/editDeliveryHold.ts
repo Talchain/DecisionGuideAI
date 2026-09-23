@@ -51,9 +51,9 @@
  *     already in flight. The edit path does not consult this module. The
  *     receipt-acknowledgement in `optimisticFactorEdit.confirmOptimisticFactorEdit`
  *     removes the post-edit re-registration that made that race common.
- *   · an UNCONFIRMED structural edit after its turn settled (a rename whose
- *     turn 500'd keeps its label). Its settlement state is owned elsewhere
- *     (`structuralRenameLifecycle`) and is not read here.
+ *   (An UNCONFIRMED structural edit after its turn settled — a rename whose
+ *   turn 500'd keeps its label — IS covered: `unresolvedStructuralEditOnCanvas`
+ *   reads `structuralRenameLifecycle` / `structuralAddLifecycle`. #1892 review.)
  */
 import { useSyncExternalStore } from 'react'
 
