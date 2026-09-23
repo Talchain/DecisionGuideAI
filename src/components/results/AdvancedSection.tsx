@@ -135,6 +135,9 @@ export interface AdvancedSectionProps {
 
 const PRESET_ORDER: RiskPresetKey[] = ['risk_averse', 'neutral', 'risk_seeking']
 
+/** The section heading, exported so a pointer elsewhere names it by identity. */
+export const ADVANCED_SECTION_TITLE = 'Advanced and receipts'
+
 export function AdvancedSection({
   // `stability` (recommendation_stability) is intentionally NOT destructured —
   // it is accepted but never rendered (see the prop's @deprecated note). The
@@ -219,7 +222,7 @@ export function AdvancedSection({
 
   return (
     <Accordion
-      title="Advanced and receipts"
+      title={ADVANCED_SECTION_TITLE}
       defaultExpanded={hasInferenceWarnings}
       testId="accordion-advanced"
     >

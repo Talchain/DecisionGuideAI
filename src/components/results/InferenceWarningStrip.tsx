@@ -36,6 +36,17 @@ export interface InferenceWarningStripProps {
   /** Producer inference warnings (all severities); the strip filters. */
   warnings?: InferenceWarning[]
   className?: string
+  /**
+   * ⚠ REQUIRED, AND THE HOST SUPPLIES IT: the heading of the section on THIS
+   * surface that lists the entries the strip holds back. The strip is mounted on
+   * three surfaces that list the remainder in three different places, so a
+   * destination written here was true on at most one of them — and it was true
+   * on none: it said "How this was worked out" while the Reasoning tab lists
+   * them under "What moves the outcome" and the Analysis tab under "Advanced and
+   * receipts" (panel evidence F5, 23 Sep 2026). `null` means this surface lists
+   * them nowhere, and the pointer then says so rather than naming a place.
+   */
+  heldBackListedUnder: string | null
 }
 
 /**
@@ -216,7 +227,19 @@ export function selectRestingEntries(
   return selectRestingStripEntries(warnings)
 }
 
-export function InferenceWarningStrip({ warnings, className = '' }: InferenceWarningStripProps) {
+/** The disclosure line for held-back entries. Names the host's own section. */
+function heldBackPointer(heldBack: number, listedUnder: string | null): string {
+  const subject = heldBack === 1 ? 'One more limitation is' : `${heldBack} more limitations are`
+  return listedUnder === null
+    ? `${subject} not shown here.`
+    : `${subject} listed under ${listedUnder}.`
+}
+
+export function InferenceWarningStrip({
+  warnings,
+  className = '',
+  heldBackListedUnder,
+}: InferenceWarningStripProps) {
   const visible = selectRestingEntries(warnings)
   const heldBack = heldBackStripCount(warnings)
   if (visible.length === 0) return null
@@ -241,9 +264,7 @@ export function InferenceWarningStrip({ warnings, className = '' }: InferenceWar
           data-testid="inference-warning-strip-held-back"
           className={`${typography.panelMeta} text-text-light`}
         >
-          {heldBack === 1
-            ? 'One more limitation is listed under How this was worked out.'
-            : `${heldBack} more limitations are listed under How this was worked out.`}
+          {heldBackPointer(heldBack, heldBackListedUnder)}
         </p>
       ) : null}
     </div>

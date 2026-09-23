@@ -198,6 +198,68 @@ describe('the twins — things that must stay `answered`', () => {
   })
 })
 
+/**
+ * ⭐⭐ A LIVE HOLD IS NEVER A REFUSAL, WHATEVER SHIPS BESIDE IT.
+ *
+ * The `held_proposal` twin above is a block CEE never ships ALONE. A held
+ * structural edit reaches the wire as `[error, held_proposal]`: the redacted
+ * public reason as a LEADING `error` block (`edit-graph-dispatch.ts`, the
+ * `gmBlockedApply` arm), then the typed card. Its `details` is
+ * `publicReasonOf(verdict)` (`edit-graph-referee-gate.ts`) — `source:
+ * 'graph_management'`, `verdict: 'held'`, and NO `rejection_code` — so the
+ * reader fell through to the boundary code and logged every routine
+ * confirmation hold as `refused / INTERNAL_ERROR`.
+ *
+ * WITNESSED, not inferred: Paul's Conventional run, 23 Sep 2026 (scenario
+ * 58af9704), routed to Panel as P3 on #63 5794675550. CEE's own
+ * `classifyUserVisibleRefusal` (`compose/user-visible-refusal.ts`) was
+ * corrected for the identical shape after Paul's 17 Sep session: presence of
+ * a `held_proposal` block, independent of ORDER, means "not a refusal".
+ */
+const HELD_PUBLIC_REASON_BLOCK = {
+  type: 'error',
+  error_code: 'INTERNAL_ERROR',
+  severity: 'warn',
+  details: {
+    source: 'graph_management',
+    verdict: 'held',
+    mutation_class: 'add_node',
+    blocker_code: null,
+    blocker_readable: null,
+    candidate_id: 'cand_1',
+    base_hash_match: true,
+  },
+}
+const HELD_PROPOSAL_BLOCK = {
+  type: 'held_proposal',
+  proposal_id: 'gmh_0123456789ab',
+  summary: 'Add "Reduce scope" to your model',
+}
+
+describe('a held proposal is not a refusal, whatever ships beside it', () => {
+  it.each([
+    ['as CEE ships it: [error, held_proposal]', [HELD_PUBLIC_REASON_BLOCK, HELD_PROPOSAL_BLOCK]],
+    ['in the other order: [held_proposal, error]', [HELD_PROPOSAL_BLOCK, HELD_PUBLIC_REASON_BLOCK]],
+  ])('scores a hold %s as answered, not refused/INTERNAL_ERROR', (_label, blocks) => {
+    const r = selectRecentConversationTurns([
+      rec('t', { assistant_text: "I'm holding these changes until you confirm.", blocks }),
+    ])
+    expect(r.turns[0].outcome).toBe('answered')
+    expect(r.turns[0].outcome_reason).toBeNull()
+    expect(r.refused_count).toBe(0)
+  })
+
+  it('contrast — the same public-reason block WITHOUT a hold is still a refusal', () => {
+    // The fix must key on the hold, not on the error block's shape: a
+    // graph-management block with no card beside it is CEE refusing.
+    const r = selectRecentConversationTurns([
+      rec('t', { assistant_text: 'I could not apply that.', blocks: [HELD_PUBLIC_REASON_BLOCK] }),
+    ])
+    expect(r.turns[0].outcome).toBe('refused')
+    expect(r.turns[0].outcome_reason).toBe('INTERNAL_ERROR')
+  })
+})
+
 describe('a refusal does not outrank the verdicts above it', () => {
   it('a NON-2xx carrying a failure block stays `failed` — no reply was considered', () => {
     const r = selectRecentConversationTurns([

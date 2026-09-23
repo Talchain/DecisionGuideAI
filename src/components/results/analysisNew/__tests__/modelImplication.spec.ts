@@ -138,7 +138,7 @@ describe('what your model implies — the two readings', () => {
     // so pinning against it — rather than against a re-typed literal — is what
     // stops this file going green against wording the product no longer prints.
     expect(result.goal.sentence).toBe(
-      `${GOAL_ANCHOR_COPY.headline('RudderStack', '80%', true)}.`,
+      `In this model, ${GOAL_ANCHOR_COPY.headline('RudderStack', '80%', true)}.`,
     )
     // ⚠ AND IT IS THE BOTH-CASES-TRUE WORDING. The producer sends no signal to
     // tell goal-only from joint, so the possessive would be a claim the contract

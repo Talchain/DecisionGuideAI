@@ -194,8 +194,8 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
           data-noise-verdict={view.leader.noiseVerdict}
         >
           {view.leader.mayName && view.leader.priorLabel && view.leader.currentLabel
-            ? `The option scoring highest moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
-            : 'The option scoring highest is not the same one as last time.'}
+            ? `In this model, the option with the highest score moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
+            : 'In this model, the option with the highest score is not the same one as last time.'}
           {/*
             ⛔ THE QUALIFIER IS NOT OPTIONAL DECORATION — IT IS WHAT MAKES THE
             SENTENCE ABOVE TRUE. Without it this states a leadership change as

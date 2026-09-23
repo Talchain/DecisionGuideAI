@@ -142,9 +142,9 @@ describe('rule 3 — geometry is grammar and does not vary', () => {
     const { unmount } = render(<PanelFigure variant="share" fraction={0.5} testId="a" />)
     expect(screen.getByTestId('a')).toHaveAttribute('aria-hidden', 'true')
     unmount()
-    render(<PanelFigure variant="share" fraction={0.5} testId="b" label="Ahead of the others, 50%" />)
+    render(<PanelFigure variant="share" fraction={0.5} testId="b" label="Highest in this model, 50%" />)
     expect(screen.getByTestId('b')).toHaveAttribute('role', 'img')
-    expect(screen.getByTestId('b')).toHaveAttribute('aria-label', 'Ahead of the others, 50%')
+    expect(screen.getByTestId('b')).toHaveAttribute('aria-label', 'Highest in this model, 50%')
   })
 })
 
