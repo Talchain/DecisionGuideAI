@@ -99,6 +99,7 @@ vi.mock('../../../flags', async (importOriginal) => {
 })
 
 import { useImportRegistration } from '../useImportRegistration'
+import { editDeliveryHold } from '../editDeliveryHold'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useEdgeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 
@@ -432,6 +433,38 @@ describe('one writer — a link-strength edit never reaches CEE behind its own t
     expect(registrationsCarrying(USER_MEAN)).toHaveLength(0)
     expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  })
+
+  it('D · a DEFERRED edit (queued behind the first) that applies is settled by its OWN receipt — the hold never outlives it', async () => {
+    const STRONGER = 0.8
+    const hook = await mountAcknowledgedStarter()
+    holdTurn = true
+    replies.push(APPLIED(USER_MEAN), APPLIED(STRONGER))
+    await pressStrong(hook)
+    // A second pick while the first is on the wire: the dispatcher queues it,
+    // and the carrier is told 'queued' — the ONLY settlement it will ever hear.
+    const second: SystemEventSendSettlement[] = []
+    await act(async () => {
+      hook.result.current.setStrength(STRONGER, { preserveDirection: true, onSendSettled: (s) => second.push(s) })
+      await flush()
+    })
+    expect(second).toEqual(['queued'])
+    expect(dispatched).toHaveLength(1)
+
+    holdTurn = false
+    await releaseAndDrain()
+
+    // PRECONDITIONS, by identity: both turns went out in order, and the canvas
+    // holds the magnitude CEE committed last.
+    expect(dispatched.map((p) => (p.event as { magnitude?: number }).magnitude)).toEqual([USER_MEAN, STRONGER])
+    expect(edgeData().weight).toBe(STRONGER)
+    expect((edgeData().serverStrength as { mean?: number } | undefined)?.mean).toBe(STRONGER)
+    expect(second).toEqual(['queued'])
+    // ⭐ Only the deferred turn's own receipt can end its pending state; if it
+    //    did not, signal 5 would hold registration for the life of the page.
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+    // …and whatever is offered afterwards carries only what CEE committed.
+    for (const call of registerSpy.mock.calls.slice(1)) expect(registeredMean(call)).toBe(STRONGER)
   })
 
   it('CONTROL (fail closed): a local-only change made while the edit is in flight is still re-offered after the receipt', async () => {
