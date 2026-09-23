@@ -142,7 +142,7 @@ describe('an empty canvas hydrates for LAYOUT, not into a column', () => {
 describe('a canvas the user has arranged is untouched — the guard that makes this safe', () => {
   beforeEach(canvasWithUserArrangement)
 
-  it('⭐ DISCRIMINATING TWIN — added nodes still take the added-column placement', () => {
+  it('⭐ DISCRIMINATING TWIN — added nodes still take the added-node placement beside the arrangement', () => {
     // The branch must key on "there was nothing here", NOT on "these nodes have
     // no position". Without this pair the fix above would be satisfied by a
     // change that re-laid-out every hydration — destroying exactly the
@@ -154,8 +154,14 @@ describe('a canvas the user has arranged is untouched — the guard that makes t
     }[]
     const added = nodes.filter((n) => n.id !== 'n0' && n.id !== 'n1')
     expect(added.length).toBeGreaterThan(0)
-    // Right of the existing bounding box (max x 900), exactly as before.
-    for (const n of added) expect(n.position.x).toBe(900 + ADDED_COLUMN_X_GAP)
+    // Placed BESIDE the arrangement, not at the mapper's origin awaiting a
+    // layout: the added factors join n1's factor row (y 500), right of n1.
+    // (Was: a column at `900 + ADDED_COLUMN_X_GAP` from the TOP-most y — the
+    // wrong-row placement reported 23 Sep 2026; see addedNodePlacement.spec.ts.)
+    for (const n of added) {
+      expect(n.position.y).toBe(500)
+      expect(n.position.x).toBeGreaterThan(40)
+    }
   })
 
   it('⭐ and does NOT ask for a layout — the user’s arrangement is not re-run', () => {
