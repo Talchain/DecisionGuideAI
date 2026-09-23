@@ -47,6 +47,7 @@
  */
 import { FLIP_THRESHOLD_COPY, flipDirectionWording, formatFlipValue } from '../../../components/results/utils/flipThresholdDisplay'
 import { DRIVER_LINE_COPY, TURNING_POINT_COPY } from './metricVocabulary'
+import { influenceRankReadout } from '../../../components/results/influenceScaleCopy'
 
 export type AttentionReasonKind =
   | 'turning_point'
@@ -152,7 +153,12 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
           label: 'Evidence here would most reduce uncertainty in the comparison. What would you check first?',
         })
       }
-      if (rank.sensitivityRank !== null && rank.influenceSetSize >= 2) {
+      // ⭐ THE RANK LICENCE IS THE OWNER'S (`influenceRankReadout`: an integer
+      // rank inside a set of at least two), the SAME licence the card's driver
+      // line and reduced line read — never a re-spelled `influenceSetSize >= 2`,
+      // which let a rank beyond its own set be stated and which
+      // `theUiRendersItDoesNotDecide` rightly flags as a UI-chosen threshold.
+      if (rank.sensitivityRank !== null && influenceRankReadout(rank.sensitivityRank, rank.influenceSetSize) !== null) {
         push(reasons, id, {
           kind: 'top_driver',
           order: 3,

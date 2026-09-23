@@ -69,6 +69,32 @@ describe('what qualifies — existing producer signals only', () => {
     expect([...plan.marked]).toEqual(['bias'])
   })
 
+  /*
+   * ⭐ DESIGN INTEGRATION (23 Sep 2026): the "Driver N of M" reason reads the
+   * rank licence's OWNER (`influenceRankReadout`) — the same licence the card's
+   * driver line and reduced line read — instead of re-spelling one half of it
+   * (`influenceSetSize >= 2`, flagged by `theUiRendersItDoesNotDecide`). The
+   * re-spelling let a rank the owner refuses (beyond its own set) be stated as
+   * "Driver 5 of 4".
+   */
+  it('⛔ a rank the licence OWNER refuses states no driver reason — beyond its set, or a set of one', () => {
+    const plan = deriveAttentionPlan(base({
+      nodes: [node('beyond'), node('single'), node('ok')],
+      run: run({
+        ranks: new Map([
+          ['beyond', { sensitivityRank: 5, voiRank: null, influenceSetSize: 4 }],
+          ['single', { sensitivityRank: 1, voiRank: null, influenceSetSize: 1 }],
+          ['ok', { sensitivityRank: 2, voiRank: null, influenceSetSize: 4 }],
+        ]),
+      }),
+    }), 10)
+    expect(plan.reasonsByNode.has('beyond')).toBe(false)
+    expect(plan.reasonsByNode.has('single')).toBe(false)
+    // CONTROL: a licensed rank in the same run still qualifies, in the card's words.
+    expect(plan.reasonsByNode.get('ok')?.map(r => r.kind)).toEqual(['top_driver'])
+    expect(plan.reasonsByNode.get('ok')?.[0].label).toMatch(/^Driver 2 of 4 in this model/)
+  })
+
   it('⛔ UNGROUNDED behavioural findings never mark: no resolvable target, or an unknown code', () => {
     const plan = deriveAttentionPlan(base({
       nodes: [node('f1')],
