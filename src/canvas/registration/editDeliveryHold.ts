@@ -101,7 +101,9 @@ export interface EditDeliveryState {
   readonly nodes: ReadonlyArray<{ id?: unknown; data?: unknown }>
   readonly pendingEmittedEdits?: number
   readonly pendingStructuralDeletes?: ReadonlyArray<unknown>
-  readonly pendingStructuralRenames?: ReadonlyArray<unknown>
+  readonly pendingStructuralRenames?: ReadonlyArray<{ readonly baseGraphHash?: string | null } | unknown>
+  /** The write base. A queued rename with no base of its own is sendable only once this exists. */
+  readonly lastServerGraphHash?: string | null
   readonly pendingStructuralAdds?: ReadonlyArray<unknown>
   readonly pendingStructuralAddEdges?: ReadonlyArray<unknown>
 }
@@ -120,6 +122,56 @@ function currentValue(data: unknown): unknown {
 }
 
 /**
+ * Queued renames that CAN be sent — the ones that genuinely stand between the
+ * user and the server.
+ *
+ * ⛔ THE DEADLOCK THIS EXCLUDES (#1893 × #1892). A rename queued while NO write
+ * base exists waits for a base. On a scenario CEE has not acknowledged yet, the
+ * only thing that can produce that base is a registration's ack (#1893 seeds it
+ * from the read that follows). Holding registration for such a rename closes
+ * the loop: rename → base → ack → registration → rename. It is not "in
+ * delivery" — it cannot be delivered — so it does not hold. The registration
+ * that proceeds carries the rename ROLLED BACK (`withQueuedRenamesRolledBack`),
+ * so the side channel stays shut and the rename travels the edit protocol once
+ * the base arrives.
+ */
+function sendableQueuedRenames(state: EditDeliveryState): number {
+  const queued = state.pendingStructuralRenames ?? []
+  if (typeof state.lastServerGraphHash === 'string' && state.lastServerGraphHash.length > 0) {
+    return queued.length
+  }
+  return queued.filter((intent) => {
+    const base = (intent as { baseGraphHash?: unknown } | null)?.baseGraphHash
+    return typeof base === 'string' && base.length > 0
+  }).length
+}
+
+/**
+ * The graph a registration may send while renames are queued: each queued
+ * rename's node at the label CEE is expected to hold (`expectedLabel`), never
+ * the unsent new one. The FIRST queued intent per node wins — its
+ * `expectedLabel` is the label before any queued rename of that node.
+ */
+export function withQueuedRenamesRolledBack<N extends { id: string; data?: unknown }>(
+  nodes: ReadonlyArray<N>,
+  queued: ReadonlyArray<unknown> | undefined,
+): ReadonlyArray<N> {
+  if (!queued || queued.length === 0) return nodes
+  const expected = new Map<string, string>()
+  for (const raw of queued) {
+    const intent = raw as { nodeId?: unknown; expectedLabel?: unknown } | null
+    if (typeof intent?.nodeId !== 'string' || typeof intent.expectedLabel !== 'string') continue
+    if (!expected.has(intent.nodeId)) expected.set(intent.nodeId, intent.expectedLabel)
+  }
+  if (expected.size === 0) return nodes
+  return nodes.map((n) =>
+    expected.has(n.id)
+      ? ({ ...n, data: { ...(n.data as Record<string, unknown>), label: expected.get(n.id) } } as N)
+      : n,
+  )
+}
+
+/**
  * Non-null while any Canvas edit is still between the user and the server.
  * Pure over its argument plus the two module-level registers it names.
  */
@@ -128,7 +180,7 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
   if ((state.pendingEmittedEdits ?? 0) > 0) return 'edit_queued'
   if (
     (state.pendingStructuralDeletes?.length ?? 0) > 0 ||
-    (state.pendingStructuralRenames?.length ?? 0) > 0 ||
+    sendableQueuedRenames(state) > 0 ||
     (state.pendingStructuralAdds?.length ?? 0) > 0 ||
     (state.pendingStructuralAddEdges?.length ?? 0) > 0
   ) {
