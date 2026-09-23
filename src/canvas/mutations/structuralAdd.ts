@@ -501,6 +501,16 @@ export function readStructuralAddReceipt(
  * COMPLETES the write (any message at all, because that is what stamps a
  * `graph_hash` via `applyV5State`). No affordance terminating in refusal.
  */
+/**
+ * ⭐ ONE STATE, ONE REMEDY (Panel #1917 N4, add path). The unconfirmed-add
+ * transcript lines and the analysis hold (`ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd`)
+ * give the SAME exit. The element is on the canvas, so removing it and adding it
+ * again is reachable, and the re-add goes through the protocol with a receipt.
+ * "Reload this decision" was a second, different remedy for the same state.
+ * Pinned by `aHoldAndItsTranscriptGiveOneRemedy.spec`.
+ */
+export const STRUCTURAL_ADD_UNCONFIRMED_REMEDY = 'Would you like to remove it and add it again?'
+
 export const STRUCTURAL_ADD_DEFERRED_NOTICE =
   "Added to the canvas. It isn't saved to the model yet — I'll save it with your next message. If you reload before then, it won't be there."
 
@@ -527,7 +537,7 @@ export const STRUCTURAL_ADD_DEFERRED_NOTICE =
  * drain, which outlives the React instance that started the send.
  */
 export const STRUCTURAL_ADD_UNCONFIRMED_TOAST =
-  "That went out just as you sent something else, so I can't tell you whether it saved. It's on the canvas — reload this decision to see what the model actually holds."
+  `That went out just as you sent something else, so I can't tell you whether it saved. It's on the canvas. ${STRUCTURAL_ADD_UNCONFIRMED_REMEDY}`
 
 /**
  * Where one add gesture has got to. THREE outcomes, never two, and
@@ -621,10 +631,10 @@ export const STRUCTURAL_ADD_NOTICE = {
    * worse than the uncertainty it would be trying to hide.
    */
   unconfirmed_server:
-    "I couldn't confirm that reached the saved model. It's on the canvas, but it may not be there when you reload — reload this decision to see what the model actually holds.",
+    `I couldn't confirm that reached the saved model. It's on the canvas, but it may not be there when you reload. ${STRUCTURAL_ADD_UNCONFIRMED_REMEDY}`,
   /** Nothing reached the server. Same epistemic position, different cause. */
   unconfirmed_transport:
-    "That didn't reach the server, so the saved model may not have it. It's on the canvas — reload this decision to see what the model actually holds.",
+    `That didn't reach the server, so the saved model may not have it. It's on the canvas. ${STRUCTURAL_ADD_UNCONFIRMED_REMEDY}`,
 } as const
 
 export type StructuralAddNoticeKey = keyof typeof STRUCTURAL_ADD_NOTICE

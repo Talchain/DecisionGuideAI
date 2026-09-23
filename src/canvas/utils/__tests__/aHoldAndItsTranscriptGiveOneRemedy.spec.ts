@@ -38,6 +38,7 @@ import { describe, expect, it } from 'vitest'
 import { ANALYSIS_HELD_ON_EDIT_COPY } from '../analysisHeldOnInjectedModel'
 import { STRUCTURAL_DELETE_NOTICE } from '../../mutations/structuralDelete'
 import { STRUCTURAL_RENAME_NOTICE, STRUCTURAL_RENAME_UNCONFIRMED_TOAST } from '../../mutations/structuralRename'
+import { STRUCTURAL_ADD_NOTICE, STRUCTURAL_ADD_UNCONFIRMED_TOAST } from '../../mutations/structuralAdd'
 
 /**
  * The remedy clause of a piece of copy — where both surfaces state the remedy.
@@ -56,6 +57,8 @@ function remedyClause(copy: string): string {
 /** The proposed remedies, verbatim. */
 const DELETE_REMEDY = 'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
 const RENAME_REMEDY = 'Would you like to rename it again, or change the name back?'
+/** The add hold's remedy (the element is on the canvas, so removing and re-adding it is reachable). N4 add path. */
+const ADD_REMEDY = 'Would you like to remove it and add it again?'
 
 const CAUSES = [
   {
@@ -82,6 +85,19 @@ const CAUSES = [
       'STRUCTURAL_RENAME_NOTICE.unconfirmed_server': STRUCTURAL_RENAME_NOTICE.unconfirmed_server,
       'STRUCTURAL_RENAME_NOTICE.unconfirmed_transport': STRUCTURAL_RENAME_NOTICE.unconfirmed_transport,
       STRUCTURAL_RENAME_UNCONFIRMED_TOAST,
+    },
+  },
+  {
+    cause: 'an unconfirmed add',
+    remedy: ADD_REMEDY,
+    hold: {
+      named: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd('Partner churn'),
+      unnamed: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(null),
+    },
+    transcript: {
+      'STRUCTURAL_ADD_NOTICE.unconfirmed_server': STRUCTURAL_ADD_NOTICE.unconfirmed_server,
+      'STRUCTURAL_ADD_NOTICE.unconfirmed_transport': STRUCTURAL_ADD_NOTICE.unconfirmed_transport,
+      STRUCTURAL_ADD_UNCONFIRMED_TOAST,
     },
   },
 ] as const
@@ -121,6 +137,12 @@ describe('the transcript keeps its CLAIM — only the remedy moved', () => {
     for (const copy of [STRUCTURAL_DELETE_NOTICE.unconfirmed_server, STRUCTURAL_DELETE_NOTICE.unconfirmed_transport]) {
       expect(copy).toContain("It's still gone from the canvas")
     }
+  })
+
+  it('add: still "couldn\'t confirm" / "didn\'t reach" / "interrupted", still says it is on the canvas', () => {
+    expect(STRUCTURAL_ADD_NOTICE.unconfirmed_server).toMatch(/^I couldn't confirm that reached the saved model\. It's on the canvas/)
+    expect(STRUCTURAL_ADD_NOTICE.unconfirmed_transport).toMatch(/^That didn't reach the server, so the saved model may not have it\. It's on the canvas/)
+    expect(STRUCTURAL_ADD_UNCONFIRMED_TOAST).toMatch(/^That went out just as you sent something else, so I can't tell you whether it saved\. It's on the canvas/)
   })
 
   it('rename: still "couldn\'t confirm" / "didn\'t reach" / "interrupted", still says it is on the canvas', () => {
