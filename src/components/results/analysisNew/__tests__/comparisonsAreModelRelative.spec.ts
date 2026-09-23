@@ -354,3 +354,40 @@ describe("What's changed", () => {
     )
   })
 })
+
+// ── Bank item #1 (packaged with #1904): the compute-degradation notices spoke of
+// "the recommendation". Olumi makes no recommendation (doctrine clause 1), so a
+// skipped robustness check is described against which option leads IN THIS MODEL.
+import { humaniseCritique } from '../../utils/humaniseCritique'
+
+describe('compute-degradation notices never speak of "the recommendation"', () => {
+  it.each([
+    ['E_VALUES_UNAVAILABLE', 'The check on how wrong your assumptions could be before a different option leads in this model didn\'t run.'],
+    ['FACTOR_FLIPS_UNAVAILABLE', 'How far each factor would have to move before a different option leads in this model wasn\'t computed.'],
+  ])('%s is stated against the model', (code, lead) => {
+    const { title, description } = humaniseCritique({ code, message: '' } as never)
+    expect(title.startsWith(lead), title).toBe(true)
+    expect(`${title} ${description}`).not.toMatch(/recommendation/i)
+  })
+  it('E_VALUES_UNAVAILABLE description says what it does not affect, in model-relative terms', () => {
+    const { description } = humaniseCritique({ code: 'E_VALUES_UNAVAILABLE', message: '' } as never)
+    expect(description).toContain('It does not affect which option leads in this model, the probabilities')
+  })
+})
+
+// ── Bank items #30 and #28 (packaged): the "What we checked" leader labels state
+// a model-relative finding; the decision record asks for the HUMAN's reason
+// (doctrine clause 3 — the team decides; nothing presupposes Olumi found "the best").
+import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
+import { DECISION_RECORD_COPY } from '../../modals/DecisionRecordModal'
+
+describe('check labels and the decision record carry no answer framing', () => {
+  it('leader check labels are model-relative', () => {
+    expect(ANALYSIS_NEW_COPY.checks.leader_present.label).toBe('In this model, one option is most likely')
+    expect(ANALYSIS_NEW_COPY.checks.leader_tied.label).toBe('In this model, no option is clearly most likely')
+  })
+  it('the decision-record placeholder asks for the person\'s own reason, not why it is "the best"', () => {
+    expect(DECISION_RECORD_COPY.rationalePlaceholder).toBe('Why you chose this option')
+    expect(DECISION_RECORD_COPY.rationalePlaceholder).not.toMatch(/best/i)
+  })
+})

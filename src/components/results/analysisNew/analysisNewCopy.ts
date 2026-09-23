@@ -2606,12 +2606,12 @@ export const ANALYSIS_NEW_COPY = {
    * `__tests__/firstViewportCensus.spec.tsx` exists to forbid.
    */
   checks: {
-    leader_present: { label: 'Most likely option identified' },
+    leader_present: { label: 'In this model, one option is most likely' },
     /**
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).
      */
-    leader_tied: { label: 'No option is clearly most likely' },
+    leader_tied: { label: 'In this model, no option is clearly most likely' },
     leader_not_assessed: {
       /**
        * ⚠⚠ "NOT ASSESSED" WAS FALSE ON A RUN THAT ASSESSED IT — WITNESSED, NOT
