@@ -155,11 +155,14 @@ const EDGE_SOURCE_KEYS: ReadonlySet<string> = new Set(EDGE_PROVENANCED_FIELDS.ma
  * make every default-equal receipt write, silently reversing the reviewed
  * decision above for every edge on every turn.
  *
- * The divergence is narrow and fails SAFE: it needs a receipt whose strength
- * equals the mapper's own default (weight exactly 0.5, direction positive)
- * AND no other change on that edge. The edge then refuses to assert until the
- * next receipt that moves something — under-disclosure, never an over-claim,
- * which is the same direction of error the provenance markers are built on.
+ * The divergence is narrow and fails SAFE: it needs a receipt whose every
+ * supplied value ALREADY equals the canvas — a genuine no-op — on an edge that
+ * holds no server tuple yet. The edge then refuses to assert until the next
+ * receipt that moves something — under-disclosure, never an over-claim, which
+ * is the same direction of error the provenance markers are built on. (Until
+ * 23 Sep it also covered a receipt whose strength merely equalled the mapper's
+ * DEFAULT while the canvas showed something else; `overlayEdge` now applies
+ * that value, so the tuple rides along with it — see "PRESENCE ON BOTH PATHS".)
  * Boot hydration is different: recording a validated server tuple enables the
  * first edit even when display values match, so its no-op check includes it.
  */
@@ -232,9 +235,11 @@ const NO_CHANGE: ReconcileAppliedGraphResult = {
  * edge state with defaults the wire never sent.
  *
  * Used to tell "the wire supplied this value" from "the mapper filled this in"
- * when overlaying onto an EXISTING edge. Accepted, fail-safe under-application:
- * a wire value that happens to equal the mapper default is treated as
- * unsupplied and does not overwrite local state.
+ * when overlaying onto an EXISTING edge — but ONLY for keys whose baseline is
+ * `undefined` (there "differs from the baseline" IS "the mapper emitted it") or
+ * a constant the wire cannot set. The keys that CAN collide with a real default
+ * (`weight`, `direction`) are decided by PRESENCE in `overlayEdge`, never by
+ * this baseline — see "PRESENCE ON BOTH PATHS" there.
  */
 let edgeMapperDefaultsCache: Record<string, unknown> | null = null
 function edgeMapperDefaults(): Record<string, unknown> {
@@ -335,61 +340,99 @@ export function overlayNode(existing: any, wireNode: any): any {
 
 export interface OverlayEdgeOptions {
   /**
-   * Determine "the wire supplied this field" from the mapper's PROVENANCE
-   * STAMPS rather than from "the mapped value differs from the mapper default".
+   * BOOT HYDRATION ONLY: on an otherwise-no-op overlay, still record the
+   * server's validated strength tuple (`serverStrength`).
    *
-   * OFF by default, so the RECEIPT path is byte-unchanged. Boot hydration turns
-   * it ON — see the block below for why the two paths differ.
+   * This is the ONE place the two callers differ, and it is a recorded rule, not
+   * drift: a validated readback at boot enables the first strength edit even
+   * when every display value already matches, while the RECEIPT path stays a
+   * strict metadata no-op (see EDGE_METADATA_ONLY_KEYS). What counts as
+   * "supplied" is NOT an option — both callers share one presence rule.
+   *
+   * (Renamed 23 Sep from `presenceFromProvenanceStamps`, which also switched
+   * presence on. Presence is now unconditional, so that name would describe
+   * something the option no longer controls.)
    */
-  presenceFromProvenanceStamps?: boolean
+  acquireServerStrengthOnNoop?: boolean
+}
+
+/**
+ * The analytical keys of a mapped wire edge that the WIRE ACTUALLY SUPPLIED.
+ *
+ * ONE rule for both callers of `overlayEdge` (the applied-edit receipt and boot
+ * hydration), so the two cannot drift apart again.
+ *
+ *   · PROVENANCED fields (`EDGE_PROVENANCED_FIELDS`) — supplied ⟺ the mapper
+ *     stamped them. `mapDraftEdgeToCanvas` derives each stamp from the SAME raw
+ *     wire probes its value chain uses (`weightSource` ⟺ `strength.mean` /
+ *     `strength_mean` / `weight` present; `directionSource` ⟺ an explicit
+ *     `effect_direction`; …), and `edgeValueSourcePatch` omits any stamp it
+ *     cannot justify. So this is presence on the raw wire object, derived once.
+ *   · Every OTHER key — supplied ⟺ it differs from the mapper's synthetic
+ *     baseline. For those keys that is presence too: the baseline is `undefined`
+ *     for everything the wire can set, and the keys with a real default are
+ *     constants the mapper never reads off the wire (enumerated and reviewed in
+ *     `mergeServerGraph.edgePresence.spec.ts` §4, which goes RED if that set
+ *     grows).
+ */
+function wireSuppliedEdgeData(mappedData: Record<string, unknown>): Record<string, unknown> {
+  const defaults = edgeMapperDefaults()
+  const supplied: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(mappedData)) {
+    if (!sameValue(v, defaults[k])) supplied[k] = v
+  }
+  for (const field of EDGE_PROVENANCED_FIELDS) {
+    if (edgeSourceKey(field) in mappedData && field in mappedData) {
+      supplied[field] = mappedData[field]
+    }
+  }
+  return supplied
 }
 
 /**
  * Overlay a wire edge's analytical fields onto an existing canvas edge.
  * Returns the SAME reference when nothing changed.
  *
- * Only keys whose mapped value DIFFERS from the mapper's default baseline are
- * applied — see EDGE_MAPPER_DEFAULTS. Without that filter every receipt would
- * splat DEFAULT_EDGE_DATA over locally-tuned edges and churn history on every
- * turn.
+ * Only keys the wire SUPPLIED are applied (`wireSuppliedEdgeData`). Without
+ * that filter every receipt would splat DEFAULT_EDGE_DATA over locally-tuned
+ * edges and churn history on every turn. A supplied key applies when its value
+ * differs from the CANVAS's current value — never "from the mapper default".
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * ⚠ EQUALITY-WITH-DEFAULT IS NOT PRESENCE, AND AT BOOT THAT COSTS A NUMBER (L61)
+ * ⚠ PRESENCE ON BOTH PATHS — EQUALITY-WITH-DEFAULT IS NOT PRESENCE (L61, 23 Sep)
  * ─────────────────────────────────────────────────────────────────────────────
- * `DEFAULT_EDGE_DATA.weight` is `0.5`. So a server edge carrying
- * `strength.mean: 0.5` maps to `weight: 0.5`, compares EQUAL to the synthetic
- * baseline, and is discarded as "not supplied" — leaving a local `0.7` on screen
- * while the next analysis is computed from the server's `0.5`. The synthetic
- * baseline's `direction` is `'positive'` for the same reason (default weight
- * `0.5 >= 0`), so an EXPLICIT server `effect_direction: 'positive'` is dropped
- * and a local `'negative'` survives — a SIGN, not a rounding difference.
+ * `DEFAULT_EDGE_DATA.weight` is `0.5`. Deciding "supplied" by comparing against
+ * the synthetic default edge meant a wire `strength.mean: 0.5` mapped to
+ * `weight: 0.5`, compared EQUAL to the baseline, and was discarded as "not
+ * supplied". The baseline's `direction` is `'positive'` for the same reason, so
+ * an EXPLICIT `effect_direction: 'positive'` was dropped and a local
+ * `'negative'` survived — a SIGN, not a rounding difference. Those are the only
+ * two reachable collisions: `beliefExists` resolves to `undefined` in the
+ * baseline and `strengthStd` is omitted, so both already differ from anything
+ * the wire sends.
  *
- * Those are the only two reachable collisions: `beliefExists` resolves to
- * `undefined` in the baseline (the explicit assignment overrides the
- * `DEFAULT_EDGE_DATA` spread) and `strengthStd` is omitted, so both already
- * differ from anything the wire sends.
+ * L61 (4 Aug) moved BOOT onto presence and left the RECEIPT path on equality,
+ * on the premise that "a receipt echoes an edit the user just made". ⛔ THAT
+ * PREMISE IS FALSE for a conversational edit, and this module's own header says
+ * why: the receipt is the ONLY transport of the edit's result. Witnessed 23 Sep
+ * (scenario 58af9704): the user confirmed a strength of 0.5, CEE stored
+ * `strength.mean 0.5`, the receipt carried it — and the canvas kept showing 1.
+ * The UI claim no longer matched the wire receipt, CEE's reread or a reload.
+ * So presence is now UNCONDITIONAL; the receipt path is no longer a special case.
  *
- * On the RECEIPT path the under-application is defensible and stays: a receipt
- * echoes an edit the user just made, and over-applying defaults across every
- * turn is the worse failure. At BOOT it is not defensible — the server row IS
- * what the next turn rebases from, so a dropped value is screen-vs-compute
- * divergence.
+ * WHAT DID NOT CHANGE, and is pinned in
+ * `mergeAppliedGraph.receiptDefaultEqual.spec.ts`:
+ *   · a key the wire does NOT supply never overwrites the canvas;
+ *   · a receipt whose supplied values all equal the canvas is a STRICT no-op —
+ *     same reference, no history entry — and stamps / `serverStrength` still
+ *     never trigger a write on their own (EDGE_METADATA_ONLY_KEYS).
  *
- * THE FIX IS DERIVED, NOT A SECOND LIST. `mapDraftEdgeToCanvas` already proves
- * which fields the wire carried: it computes `wireSuppliedStrength` from the
- * same three probes its priority chain uses and passes it to
- * `edgeValueSourcePatch`, which OMITS any stamp it cannot justify. Hence
- * `weightSource` present on the mapped edge ⟺ the wire carried a strength. The
- * field set is `EDGE_PROVENANCED_FIELDS`; the stamp key is `edgeSourceKey`.
- *
- * ⚠ WHAT THIS DOES NOT FIX, NAMED RATHER THAN GLOSSED. Presence is only
- * recoverable for the PROVENANCED fields. Any other key the mapper always emits
- * with a non-undefined default is still equality-detected, and would still be
- * dropped if the wire ever started supplying it at exactly the default. That set
- * is enumerated and reviewed in a corpus assertion in
- * `mergeServerGraph.edgePresence.spec.ts` §4, which goes RED when it grows —
- * because a guard derived from a registry can prove its consumers agree with the
- * registry and can never prove the registry is complete.
+ * ⚠ WHAT THIS DOES NOT FIX, NAMED RATHER THAN GLOSSED. `direction` counts as
+ * supplied only when `effect_direction` is explicit (the ROADMAP 2.263 stamp
+ * rule). A NON-NEGATIVE mean with no `effect_direction` derives `'positive'`,
+ * which still equals the baseline and so still leaves a canvas `'negative'` in
+ * place — on both paths, exactly as before. Whether CEE ever emits that shape
+ * was not measured here.
  */
 export function overlayEdge(
   existing: any,
@@ -399,32 +442,15 @@ export function overlayEdge(
   const mapped = mapDraftEdgeToCanvas(wireEdge, 0)
   const mappedData = (mapped.data ?? {}) as Record<string, unknown>
 
-  const defaults = edgeMapperDefaults()
-  const supplied: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(mappedData)) {
-    if (!sameValue(v, defaults[k])) supplied[k] = v
-  }
-
-  // Presence beats equality on the paths that ask for it. Runs BEFORE the stamp
-  // coupling below, so a value promoted here keeps its own stamp rather than
-  // having it stripped as orphaned.
-  if (opts?.presenceFromProvenanceStamps) {
-    for (const field of EDGE_PROVENANCED_FIELDS) {
-      if (edgeSourceKey(field) in mappedData && field in mappedData) {
-        supplied[field] = mappedData[field]
-      }
-    }
-  }
+  const supplied = wireSuppliedEdgeData(mappedData)
 
   // A provenance stamp must never outlive or precede the value it describes.
   //
-  // The filter above deliberately UNDER-applies: a wire value that happens to
-  // equal the mapper default is treated as unsupplied and does not overwrite
-  // local state. A `*Source` stamp, though, differs from the baseline whenever
-  // the wire supplied ANYTHING — so without this coupling a receipt carrying
-  // weight 0.5 (== DEFAULT_EDGE_DATA.weight, therefore not applied) would still
-  // stamp `weightSource: 'cee'` onto an edge still showing the user's own 0.7.
-  // That is the exact defect class this marker exists to close: a claim about
+  // Belt, not the mechanism. Under the presence rule a stamp is supplied only
+  // when its field is (the mapper emits the stamp exactly when the wire carried
+  // the value), so this loop removes nothing today. It stays because the stamp
+  // and the value are two keys that a future mapper change could decouple, and
+  // the failure it guards is the one this marker exists to close: a claim about
   // where a number came from, attached to a different number. Derived from
   // EDGE_PROVENANCED_FIELDS, never a hand-kept pair list.
   for (const field of EDGE_PROVENANCED_FIELDS) {
@@ -449,7 +475,7 @@ export function overlayEdge(
     // A validated readback enables the first edit, but does not restate who
     // supplied an unchanged value. Preserve every existing field/stamp and
     // acquire only the tuple; the receipt path stays a strict metadata no-op.
-    if (opts?.presenceFromProvenanceStamps
+    if (opts?.acquireServerStrengthOnNoop
       && supplied.serverStrength !== undefined
       && !sameValue(existing.data?.serverStrength, supplied.serverStrength)) {
       return { ...existing, data: { ...(existing.data ?? {}), serverStrength: supplied.serverStrength } }

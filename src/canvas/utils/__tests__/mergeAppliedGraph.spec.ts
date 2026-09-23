@@ -557,21 +557,24 @@ describe('reconcileAppliedGraph — review fixups (edge-pair self-dedupe, stalen
  * Edge value provenance (`beliefExistsSource` / `weightSource`) through the
  * overlay. Two invariants, both discovered by this suite going red:
  *
- *  1. A stamp must never be applied WITHOUT the value it describes. The overlay
- *     deliberately under-applies a wire value that equals the mapper default —
- *     but a stamp differs from the baseline whenever the wire supplied
- *     anything, so without coupling, a receipt carrying weight 0.5 would stamp
- *     "CEE set this" onto an edge still showing the user's own 0.7. That is the
- *     exact defect class the marker exists to close.
+ *  1. A stamp must never be applied WITHOUT the value it describes. A stamp
+ *     rides WITH its value: a receipt that supplies a strength lands the number
+ *     AND its source together, and a receipt that supplies none stamps nothing.
+ *     (Until 23 Sep the overlay under-applied a wire value equal to the mapper
+ *     default, and this invariant was pinned by asserting the user's 0.7 SURVIVED
+ *     a wire 0.5 — which was the witnessed canvas-vs-saved-model defect itself.
+ *     See `mergeAppliedGraph.receiptDefaultEqual.spec.ts`.)
  *  2. A stamp ALONE must not trigger a store write. `reconcileAppliedGraph`
  *     guarantees a matching receipt is a strict no-op; metadata about an
  *     unchanged number does not earn an exception.
  */
 describe('reconcileAppliedGraph — edge value provenance', () => {
-  it('does NOT stamp a CEE source when the wire value was not applied (equals the mapper default)', () => {
-    // Local edge is the user's 0.7. The wire sends 0.5 — DEFAULT_EDGE_DATA.weight
-    // — which the baseline filter treats as unsupplied, so the displayed number
-    // stays 0.7. The stamp must not travel without it.
+  // UPDATED 23 Sep — was "does NOT stamp a CEE source when the wire value was not
+  // applied (equals the mapper default)", asserting weight 0.7 survived a wire
+  // 0.5. That assertion ENCODED the defect (a supplied value dropped because it
+  // equals DEFAULT_EDGE_DATA.weight). The invariant it served — a stamp never
+  // travels without its value — is kept, in its positive form.
+  it('a wire 0.5 (== the mapper default) LANDS, and its CEE stamp travels WITH it', () => {
     reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
@@ -581,18 +584,17 @@ describe('reconcileAppliedGraph — edge value provenance', () => {
     } as any)
 
     const edge = useCanvasStore.getState().edges.find((e) => e.id === 'e-0') as any
-    expect(edge.data.weight).toBe(0.7)          // the user's value survived…
-    expect(edge.data.weightSource).toBeUndefined() // …and is not credited to CEE
+    expect(edge.data.weight).toBe(0.5)          // the saved model's value is shown…
+    expect(edge.data.weightSource).toBe('cee')   // …and credited to where it came from
   })
 
-  it('drops an ORPHAN stamp even when the receipt DOES write (the escape-catcher)', () => {
-    // ⚠ THE MUTATION THAT ESCAPED FIRST TIME. The sibling case above passes
-    // even with the coupling rule deleted, because the no-op guard catches it
-    // instead — an assertion passing for the wrong reason. Here the receipt
-    // genuinely changes beliefExists, so the overlay DOES write; the no-op
-    // guard cannot mask anything. Weight is sent as 0.5 (== the mapper
-    // default) so it is NOT applied, and its orphan stamp must be dropped —
-    // otherwise 'CEE set this' lands on the user's own 0.7.
+  // UPDATED 23 Sep — was "drops an ORPHAN stamp even when the receipt DOES
+  // write", which sent weight 0.5 beside belief_exists 0.9 and asserted the 0.5
+  // was NOT applied. That encoded the same defect. The escape-catcher SHAPE is
+  // kept — the receipt genuinely writes, so the no-op guard cannot mask anything
+  // — but the strength is now ABSENT rather than default-equal: an absent value
+  // must neither land nor have its stamp land.
+  it('a receipt that writes beliefExists but carries NO strength leaves weight and weightSource alone (the escape-catcher)', () => {
     reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
@@ -600,7 +602,7 @@ describe('reconcileAppliedGraph — edge value provenance', () => {
       ],
       edges: [{
         id: 'e-0', from: 'factor-1', to: 'goal-1',
-        weight: 0.5, belief_exists: 0.9,
+        belief_exists: 0.9,
       }],
     } as any)
 
@@ -609,7 +611,7 @@ describe('reconcileAppliedGraph — edge value provenance', () => {
     // could pass simply because nothing happened at all.
     expect(edge.data.beliefExists).toBe(0.9)
     expect(edge.data.beliefExistsSource).toBe('cee')
-    // …and the orphan is gone.
+    // …and the value the wire never sent is untouched, with no stamp for it.
     expect(edge.data.weight).toBe(0.7)
     expect(edge.data.weightSource).toBeUndefined()
   })

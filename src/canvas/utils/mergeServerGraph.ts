@@ -499,15 +499,14 @@ export function mergeServerGraphOnHydrate(
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
     if (!serverEdge) return e
 
-    // ⚠ PRESENCE, NOT EQUALITY-WITH-DEFAULT (L61). The receipt path infers "the
-    // wire supplied this" from "it differs from the mapper's default edge",
-    // which silently drops a server `strength.mean: 0.5` (== the default weight)
-    // and an explicit default-positive `effect_direction`. That under-
-    // application is fine for a receipt and wrong at boot: the server row is
-    // what the NEXT analysis rebases from, so a dropped value leaves the screen
-    // and the compute disagreeing. The mapper's own provenance stamps prove what
-    // the wire carried — see `overlayEdge`.
-    const overlaid = overlayEdge(e, serverEdge, { presenceFromProvenanceStamps: true })
+    // ⚠ PRESENCE, NOT EQUALITY-WITH-DEFAULT (L61). A server `strength.mean: 0.5`
+    // (== the default weight) or an explicit default-positive `effect_direction`
+    // must land: the server row is what the NEXT analysis rebases from. Presence
+    // is decided inside `overlayEdge` by ONE rule shared with the receipt path
+    // (unconditional since 23 Sep — the receipt path had kept equality and
+    // dropped a user-confirmed 0.5). The only boot-specific behaviour left is
+    // recording the server's strength tuple on an otherwise-no-op overlay.
+    const overlaid = overlayEdge(e, serverEdge, { acquireServerStrengthOnNoop: true })
     if (overlaid === e) return e
 
     // `userReviewedStrength` is UI-only and never on the wire, so the overlay
