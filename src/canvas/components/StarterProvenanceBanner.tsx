@@ -5,7 +5,7 @@ import { useCanvasStore } from '../store'
 import { useShowToastSafe } from '../ToastContext'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { getStarter, resolveStarterId } from '../starters/loadStarter'
-import { analysisHeldNotice } from '../utils/analysisHeldOnInjectedModel'
+import { useAnalysisHeldNotice } from '../hooks/useAnalysisHold'
 import { typography } from '../../styles/typography'
 import { useOverlayCell } from './CanvasOverlayBand'
 
@@ -53,11 +53,12 @@ export function StarterProvenanceBanner() {
    * mount condition. The 18 Aug affordance sweep found this notice still saying
    * "Analysis is held on a saved example" while a toast said "Analysis
    * complete." — because the banner mounted on `starterId` while the gate
-   * refused on a DIFFERENT condition. `analysisHeldNotice` is the gate's own
+   * refused on a DIFFERENT condition. `useAnalysisHeldNotice` is the gate's own
    * condition and the gate's own sentence, so the two cannot disagree; `null`
-   * means analysis is not held and the claim is simply not made.
+   * means analysis is not held and the claim is simply not made. While the
+   * user's own edit is unconfirmed it names that edit instead of the example.
    */
-  const heldNotice = useCanvasStore((s) => analysisHeldNotice(s))
+  const heldNotice = useAnalysisHeldNotice()
 
   const handleRedraft = useCallback(async () => {
     if (!starterId) return

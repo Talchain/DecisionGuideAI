@@ -62,6 +62,7 @@ import { describe, it, expect } from 'vitest'
 import type { AnalysisBlocker, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { actionableBlockers, canRunAnalysis, readinessObjectsToRun } from '../canRunAnalysis'
+import { savedExampleHold } from '../analysisHeldOnInjectedModel'
 import { selectAnalysisReadinessAuthority } from '../../state/analysisStateSelector'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 import type { GraphReadiness } from '../../hooks/useGraphReadiness'
@@ -491,7 +492,7 @@ describe('CONTRAST CONTROL — no producer verdict: the side-car still answers',
     // different questions and return BEFORE readiness is consulted.
     const ready = { status: 'ready', blockers: [] as AnalysisBlocker[] }
     expect(gate({ nodeCount: 0, analysisReadiness: ready }).allowed).toBe(false)
-    expect(gate({ analysisHeldOn: 'starter', analysisReadiness: ready }).allowed).toBe(false)
+    expect(gate({ analysisHeldOn: savedExampleHold('starter'), analysisReadiness: ready }).allowed).toBe(false)
     expect(gate({ draftStreamPhase: 'settling', analysisReadiness: ready }).allowed).toBe(false)
     expect(gate({ isRunning: true, analysisReadiness: ready }).allowed).toBe(false)
   })
