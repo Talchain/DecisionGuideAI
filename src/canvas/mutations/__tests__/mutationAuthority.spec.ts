@@ -151,10 +151,17 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['pre-analysis improvement card'],
     requiredEvidence: 'no confirmation control mounts',
   },
+  // ⭐ REPAIRED 2026-09-18 BY THE EDGE-STRENGTH UNLOCK LANE, and the OLD
+  // `requiredEvidence` is why the repair was needed rather than optional: it
+  // read *'no edge-strength control mounts'*, which was TRUE — the panel handed
+  // `undefined` to every card, so `TriageCard`'s own guard rendered no
+  // quick-select. That sentence is now false in both halves. A control mounts,
+  // and it emits. The new evidence names the carrier, so a regression to a
+  // local-only write is a claim this row contradicts.
   preAnalysisEdgeStrength: {
-    authority: 'disabled',
+    authority: 'server_graph',
     entrySurfaces: ['pre-analysis improvement card'],
-    requiredEvidence: 'no edge-strength control mounts',
+    requiredEvidence: 'accepted edge_strength_edit from the card quick-select; pills render only where edgeStrengthEditIsAssertable',
   },
   preAnalysisV3FactorValue: {
     authority: 'server_graph',
@@ -288,8 +295,31 @@ const FROZEN_REQUIRED_EVIDENCE: Readonly<Record<string, string>> = {
     'no edit control mounts',
   preAnalysisFactorConfirmation:
     'no confirmation control mounts',
+  /**
+   * ⭐⭐ UPDATED 22 Sep 2026 — A DELIBERATE, ARGUED ACT, WHICH IS THE ONLY WAY
+   * THIS TABLE MAY BE EDITED. The previous record read *"no edge-strength
+   * control mounts"*. That sentence is now FALSE, and leaving it frozen would
+   * preserve a false record rather than protect a true one.
+   *
+   * THE WORLD MOVED, and this PR is what moved it: `PreAnalysisPanel`'s
+   * handler was one local `updateEdgeData` that emitted nothing, and is now
+   * wired through `buildEdgeStrengthEditEvent` → `sendSystemEvent` →
+   * `adaptEdgeStrengthEdit` → CEE `dispatchEdgeStrengthEdit`.
+   *
+   * ⭐ AND THE NEW SENTENCE WAS CHECKED AGAINST THE DEPLOYED SERVICE, not just
+   * against this repo — which is the one class the freeze's own header admits
+   * it cannot catch ("all three wrong together"). At deployed CEE `9b98fcd`,
+   * `dispatch.ts:707` refuses `edge_strength_edit` as `reader_only_refusal`
+   * whenever `config.features.graphCas.rpcEnforce !== true`, and
+   * `config/index.ts:394` derives `rpcEnforce = rpcMode === "enforce"`.
+   * `GET /healthz` on `cee-staging` reports
+   * `graph_cas: { rpc_mode: "enforce", enforcing: true }` — two independent
+   * readings of the same capability object. So the refusal branch is NOT taken
+   * and the edit is handled `'mutating'`: the evidence this row now claims is
+   * obtainable in the deployed posture, not merely in the code.
+   */
   preAnalysisEdgeStrength:
-    'no edge-strength control mounts',
+    'accepted edge_strength_edit from the card quick-select; pills render only where edgeStrengthEditIsAssertable',
   preAnalysisV3FactorValue:
     'accepted factor_value_edit plus receipt-gated optimistic rollback/readback',
   preAnalysisV3FactorConfirmation:
@@ -467,6 +497,13 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       // factor-value row it is most often confused with — and those two are
       // exactly the pair a witnessed defect once collapsed.
       'modelOptionIntervention',
+      // ⭐ 18 Sep 2026 — the PRE-ANALYSIS strength quick-select joins, on the
+      // same terms as every member above: a wire carrier (`edge_strength_edit`,
+      // CEE `'mutating'`), a server writer, and a `graph_patch` receipt. It is
+      // NOT a new carrier — it is the one the Inspector's slider already used,
+      // reached from a second surface. Sorted, so it lands before its v3
+      // siblings rather than beside them.
+      'preAnalysisEdgeStrength',
       'preAnalysisV3FactorValue',
       'preAnalysisV3StructuralAdd',
       'structuralDeleteWithServerHash',
@@ -478,7 +515,10 @@ describe('mutation authority is exhaustive and fail-closed', () => {
     expect(CANONICAL_EDIT_AUTHORITY.postRunAutoFix).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisFactorValue).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisFactorConfirmation).toBe('disabled')
-    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength).toBe('disabled')
+    // ⭐ REPAIRED 2026-09-18: asserted POSITIVELY rather than dropped, so a
+    // silent regression to 'disabled' REDs here instead of going unnoticed —
+    // the same discipline the durable-add lane applied to its two keys below.
+    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorValue).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorConfirmation).toBe('disabled')
     // ⭐ FLIPPED BY THE DURABLE-ADD LANE. This assertion is the pristine RED
