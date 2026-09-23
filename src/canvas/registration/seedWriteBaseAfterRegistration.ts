@@ -81,7 +81,24 @@ export async function seedWriteBaseAfterRegistration(
   ackIdentity: RegisteredGraphIdentity | null,
   opts: SeedWriteBaseOptions = {},
 ): Promise<WriteBaseSeedOutcome> {
-  const outcome = await seed(scenarioId, ackIdentity, opts)
+  // ⛔ "NEVER THROWS AND NEVER REJECTS" IS ENFORCED HERE, NOT ASSUMED OF THE
+  // STEPS BELOW (#1893 review B2, CHANGES_REQUIRED @ 8b5a6f1e). The caller
+  // fires this with `void`, so any throw becomes an unhandled rejection — and
+  // one is reachable: `fetchScenarioGraph`'s own `try` covers only the `fetch`
+  // call, so a transport that resolves with no Response throws on
+  // `response.status` outside it (measured: combined with #1903 it failed
+  // `staleTabReload.spec`). A seed that threw adopted no base it can vouch for,
+  // so it reports `notRead`, the outcome for "the read did not return a graph".
+  let outcome: WriteBaseSeedOutcome
+  try {
+    outcome = await seed(scenarioId, ackIdentity, opts)
+  } catch (err) {
+    logger.warn('import_registration.write_base_seed_threw', {
+      scenarioId,
+      error: (err as Error)?.message ?? 'unknown',
+    })
+    outcome = 'notRead'
+  }
   logger.info('import_registration.write_base_seed', { scenarioId, outcome })
   return outcome
 }
