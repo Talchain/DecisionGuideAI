@@ -398,8 +398,9 @@ describe('structural_rename — the arms that must KEEP the new name', () => {
     expect(verdict).toBe('committed')
   })
 
-  it("a 500 `system_event_commit_failed` keeps it and says it couldn't confirm — CEE: a commit may have landed", async () => {
+  it("a 500 `system_event_commit_failed` with an UNREADABLE model keeps it and says it couldn't confirm — CEE: a commit may have landed", async () => {
     stub500CommitFailed()
+    readback = 'unreadable'
     const { labelOf, synthetic, verdict } = await driveRename()
 
     expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
@@ -495,6 +496,42 @@ describe('structural_rename — a no-draft_graph reply is settled by reading the
 
     expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
     expect(verdict).toBe('refused')
+  })
+
+  it('an untyped 500 while CEE holds the NEW name (the commit landed) → keep it, `committed`, no "could not confirm"', async () => {
+    stub500CommitFailed()
+    readback = { label: NEW_LABEL }
+    const { labelOf, synthetic, verdict } = await driveRename()
+
+    expect(graphReads).toBe(1)
+    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
+    expect(verdict).toBe('committed')
+    expect(synthetic).not.toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
+  })
+
+  it('an untyped 500 while CEE still holds the OLD name (the commit did not land) → revert, `refused`', async () => {
+    stub500CommitFailed()
+    readback = { label: PREVIOUS_LABEL }
+    const { labelOf, verdict } = await driveRename()
+
+    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
+    expect(verdict).toBe('refused')
+  })
+
+  it('a TRANSPORT failure is settled by the same reread — the model holds the new name → `committed`', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) => {
+        const url = typeof input === 'string' ? input : String((input as { url?: string })?.url ?? input)
+        if (/\/scenarios\/[^/]+\/graph$/.test(url)) return graphReadResponse()
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    readback = { label: NEW_LABEL }
+    const { labelOf, verdict } = await driveRename()
+
+    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
+    expect(verdict).toBe('committed')
   })
 
   it('CONTROL: a success 200 WITH draft_graph needs no readback', async () => {
