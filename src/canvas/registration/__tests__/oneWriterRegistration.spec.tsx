@@ -2109,13 +2109,22 @@ async function laterReadAnswersNotReadable() {
   })
 }
 
-/** Every local gesture that could otherwise reach `graph/register`. */
+/**
+ * Every local gesture that could otherwise reach `graph/register`. Between the
+ * gestures that go through the RE-ARM, the re-arm must not even arm a
+ * registration: `importPendingServerRegistration` is the "not confirmed as
+ * CEE's model" posture every analysis surface reads, and arming it on a
+ * scenario CEE holds would state that falsely (even though the registration
+ * effect would then refuse to send it).
+ */
 async function everyLocalGesture() {
   await laterReadAnswersNotReadable()
+  expect(useCanvasStore.getState().importPendingServerRegistration, 'the re-arm armed a hold on a scenario CEE holds').toBe(false)
   await act(async () => {
     writeOptimistically(BYSTANDER, 0.3)
     await flush()
   })
+  expect(useCanvasStore.getState().importPendingServerRegistration, 'the re-arm armed a hold on a scenario CEE holds').toBe(false)
   await act(async () => {
     const st = useCanvasStore.getState()
     markGraphImported(st.nodes as never, st.edges as never)
