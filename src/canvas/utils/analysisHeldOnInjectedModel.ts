@@ -376,6 +376,19 @@ export interface AnalysisHoldReason {
 }
 
 /**
+ * True when the operative cause of the hold is the USER'S OWN edit (in
+ * delivery, or unconfirmed), rather than the ready-made model itself. Off
+ * `kind` alone, so no surface re-derives it from the sentence.
+ *
+ * Read by the saved-example banner to withdraw "Re-draft this live" (decision,
+ * 23 Sep 2026): a re-draft REPLACES the model, so while an edit is unconfirmed
+ * it would discard that change without warning.
+ */
+export function isUserEditHold(reason: AnalysisHoldReason | null): boolean {
+  return reason !== null && reason.kind !== 'starter' && reason.kind !== 'template'
+}
+
+/**
  * The hold's input plus the edit registers `editDeliveryHold` reads. Every
  * production reader passes the canvas store's own state (see
  * `hooks/useAnalysisHold.ts`), so the two halves come from one snapshot.
