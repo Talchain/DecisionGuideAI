@@ -35,6 +35,12 @@
  * 10. An UNCONFIRMED delete (untyped 500) holds registration after delivery
  *     settles — #1905's residual 1 — with applied, refused, latest-attempt and
  *     other-scenario controls.
+ * 11. EVERY exit of a delete turn settles it — a user preempt, an AbortError,
+ *     a resolved-but-aborted call and the scenario fence (Panel's #1905 item 1)
+ *     — while D1–D5, the arms that already resolve, gain no second notice.
+ * 12. A LATER applied receipt that proves the removal releases the hold
+ *     (Panel's #1905 item 2) — ALL removed elements absent, same scenario,
+ *     overlapping graph; each guard has its own case.
  *
  * Assertions bind by IDENTITY — the exact register call and the exact factor's
  * `observed_state` in its payload — never by a count alone.
@@ -82,16 +88,47 @@ const dispatched: Array<Record<string, unknown>> = []
 const replies: unknown[] = []
 let holdTurn = false
 let releaseTurn: (() => void) | null = null
+/**
+ * Hold the NEXT turn until its OWN `AbortSignal` fires — a real preempt, not a
+ * simulated one. Its two endings are the two ways `callV5Turn` can leave an
+ * aborted request: `'reject'` is `fetch` rejecting `AbortError`; `'resolve'` is
+ * a body already buffered, so the promise RESOLVES while the signal reads
+ * aborted and `sendTurn` leaves through its in-try `aborted` return (see
+ * `optimisticFactorEditInterrupted.spec`, which names both).
+ */
+let abortableNext: 'reject' | 'resolve' | null = null
+/** An abort shaped exactly as `sendTurn` classifies it (`err.name === 'AbortError'`). */
+function abortError(): Error {
+  const e = new Error('The operation was aborted.')
+  e.name = 'AbortError'
+  return e
+}
+/** A queued reply that makes the transport THROW instead of answering. */
+const THROWS = (err: Error) => ({ __throws: err })
 vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   return {
     ...actual,
-    callV5Turn: vi.fn(async (payload: Record<string, unknown>) => {
+    callV5Turn: vi.fn(async (payload: Record<string, unknown>, opts?: { signal?: AbortSignal }) => {
       dispatched.push(payload)
-      if (holdTurn) {
+      if (abortableNext) {
+        const ending = abortableNext
+        abortableNext = null
+        await new Promise<void>((res, rej) => {
+          const signal = opts?.signal
+          if (!signal) return rej(new Error('an abortable hold needs the turn signal'))
+          const settle = () => (ending === 'resolve' ? res() : rej(abortError()))
+          if (signal.aborted) return settle()
+          signal.addEventListener('abort', settle, { once: true })
+        })
+      } else if (holdTurn) {
         await new Promise<void>((res) => { releaseTurn = res })
       }
-      return replies.shift() ?? { ok: true, response: { assistant_text: 'ok', blocks: [] } }
+      const reply = replies.shift() ?? { ok: true, response: { assistant_text: 'ok', blocks: [] } }
+      if (reply && typeof reply === 'object' && '__throws' in reply) {
+        throw (reply as { __throws: Error }).__throws
+      }
+      return reply
     }),
   }
 })
@@ -115,10 +152,10 @@ import { useConversation } from '../../conversation/useConversation'
 import { editDeliveryHold } from '../editDeliveryHold'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
 import { useStructuralDeleteEvents } from '../../conversation/useStructuralDeleteEvents'
-import {
-  __resetUnconfirmedDeletesForTest,
-  settleStructuralDeleteAttempt,
-} from '../../conversation/unconfirmedStructuralDelete'
+import * as unconfirmedDeletes from '../../conversation/unconfirmedStructuralDelete'
+import { STRUCTURAL_DELETE_NOTICE } from '../../mutations/structuralDelete'
+
+const { __resetUnconfirmedDeletesForTest, settleStructuralDeleteAttempt } = unconfirmedDeletes
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -316,6 +353,12 @@ async function settleTurn(send: Promise<unknown>) {
   })
 }
 
+/** Every canvas toast raised during the case, by its exact message. */
+const toastLog: string[] = []
+function onToast(e: Event) {
+  toastLog.push(String((e as CustomEvent<{ message?: unknown }>).detail?.message))
+}
+
 beforeEach(() => {
   vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
   registerSpy.mockReset()
@@ -324,6 +367,9 @@ beforeEach(() => {
   replies.length = 0
   holdTurn = false
   releaseTurn = null
+  abortableNext = null
+  toastLog.length = 0
+  window.addEventListener('topbar:show-toast', onToast)
   identityGate = null
   clearImportRegistrationMarkers()
   __resetPendingFactorEditsForTest()
@@ -343,9 +389,11 @@ afterEach(async () => {
   // with it the dispatcher's on-the-wire mark, which would then hold the NEXT
   // case's registration and fail it for the wrong reason. Drain it here.
   holdTurn = false
+  abortableNext = null
   releaseTurn?.()
   releaseTurn = null
   await flush()
+  window.removeEventListener('topbar:show-toast', onToast)
   vi.unstubAllEnvs()
   __resetPersistenceSessionForTests()
 })
@@ -1001,7 +1049,9 @@ const STRUCTURAL_EDGES: Edge[] = [
 ]
 
 /** CEE's committed graph for this board, as the receipt's `draft_graph` carries it. */
-function committedGraph(opts: { without?: string; labelOf?: Record<string, string> } = {}) {
+function committedGraph(
+  opts: { without?: string; withoutEdge?: [string, string]; labelOf?: Record<string, string> } = {},
+) {
   const wireFactor = (id: string, label: string, value: number) => ({
     id,
     kind: 'factor',
@@ -1018,7 +1068,9 @@ function committedGraph(opts: { without?: string; labelOf?: Record<string, strin
     { from: TARGET, to: BYSTANDER, strength: { mean: -0.6 } },
     { from: CONCENTRATION, to: TARGET, strength: { mean: 0.3 } },
     { from: CONCENTRATION, to: BYSTANDER, strength: { mean: -0.4 } },
-  ].filter((e) => e.from !== opts.without && e.to !== opts.without)
+  ]
+    .filter((e) => e.from !== opts.without && e.to !== opts.without)
+    .filter((e) => !(opts.withoutEdge && e.from === opts.withoutEdge[0] && e.to === opts.withoutEdge[1]))
   return { nodes, edges }
 }
 
@@ -1441,6 +1493,484 @@ describe('10 · the unconfirmed-delete rule, pure (through `editDeliveryHold`)',
   it('CONTROL: a reverted or a proven attempt with no earlier record holds nothing', () => {
     settleStructuralDeleteAttempt(del(['n9']), 's1', 'reverted')
     settleStructuralDeleteAttempt(del(['n8']), 's1', 'proven')
+    expect(hold(['n1'], 's1')).toBeNull()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 11. EVERY EXIT SETTLES A DELETE — Panel's APPROVE on #1905, item 1.
+//
+// The 500 arm records an unconfirmed delete; three other exits never reach it:
+// the catch resolves `structural_delete` only when `!isAbort`, the response
+// arm needs `activeV5TurnIdRef.current === turnClientId`, and the scenario
+// fence returns first. On each, NOTHING records the attempt, so once delivery
+// settles one whole-graph `graph/register` carries the post-delete canvas and
+// its ack makes a deletion CEE may have refused canonical (Panel D6: payload
+// `[fac_adoption_friction, fac_seat_price]`). The abort is local; CEE does not
+// cancel. D1–D5 are the arms that already resolve — they must not be touched,
+// and in particular must not gain a second notice.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** A typed 409 whose category carries NO no-write guarantee (Panel D3). */
+const DELETE_409_UNKNOWN_CATEGORY = {
+  kind: 'boundary_error',
+  error: {
+    ...DELETE_REFUSED_NO_WRITE.error,
+    details: { ...DELETE_REFUSED_NO_WRITE.error.details, conflict_category: 'SOME_FUTURE_CATEGORY' },
+    request_id: 'req_delete_409_unknown',
+  },
+}
+/** 200 whose committed graph still HOLDS the node — the receipt refutes the delete (Panel D4). */
+const DELETE_200_REFUTED = {
+  ok: true,
+  response: {
+    assistant_text: "I couldn't find everything you deleted in the saved model, so I haven't removed anything. Reload it and try again.",
+    blocks: [],
+    graph_hash: 'aag_after_refused_delete',
+    draft_graph: committedGraph(),
+  },
+}
+/** 200 with NO committed graph — the removal is unproven (Panel D5). */
+const DELETE_200_UNPROVEN = {
+  ok: true,
+  response: {
+    assistant_text: "I couldn't confirm that change in the saved model, so I haven't removed anything.",
+    blocks: [],
+  },
+}
+
+type Hook = Awaited<ReturnType<typeof mountAcknowledgedStructuralBoard>>
+
+function syntheticNotices(hook: Hook): string[] {
+  return (hook.result.current.messages as Array<Record<string, unknown>>)
+    .filter((m) => m.role === 'assistant' && m.synthetic === true)
+    .map((m) => String(m.content))
+}
+function heldCause(): unknown {
+  return editDeliveryHold(useCanvasStore.getState() as never)
+}
+/** The user sends a chat message: `mode: 'user'` preempts, aborting the turn in flight. */
+async function userSends(hook: Hook, text: string) {
+  await act(async () => {
+    void hook.result.current.sendMessage(text).catch(() => undefined)
+    await flush()
+  })
+}
+function userTurnsSent(): number {
+  return dispatched.filter((p) => (p as { event?: unknown }).event === undefined).length
+}
+
+describe('11 · every exit of a delete turn settles it (Panel #1905 item 1)', { timeout: 30_000 }, () => {
+  it('⛔ D6 — the user sends a chat message while the delete is on the wire (the preempt aborts it): NO registration carries the post-delete canvas, the model stays held, the user is told', async () => {
+    const hook = await mountAcknowledgedStructuralBoard()
+    abortableNext = 'reject'
+    await deleteConcentration()
+    expect(sentKinds()).toEqual(['structural_delete'])
+    expect(removedNodeIdsSent()).toEqual([[CONCENTRATION]])
+
+    await userSends(hook, 'Which of these factors matters most?')
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS, by identity: the preempt really happened — a user turn went
+    // out after the delete and the delete's own turn never answered — and the
+    // abort did not revert the gesture (CEE may well have taken it).
+    expect(sentKinds()).toEqual(['structural_delete', undefined])
+    expect(userTurnsSent()).toBe(1)
+    expect(concentrationOnCanvas()).toBe(false)
+
+    // ⛔ THE CLAIM. RED at 2177f45c: one register carries the canvas without
+    // the node and its ack makes the aborted deletion canonical.
+    expect(registeredWithoutConcentration()).toEqual([])
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(false)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).not.toBeNull()
+    // …and the user hears it once, in the "couldn't confirm" words.
+    expect(toastLog).toEqual([STRUCTURAL_DELETE_NOTICE.unconfirmed_server])
+  })
+
+  it('⛔ D6b — the delete turn rejects AbortError (a client timeout): NO registration carries the post-delete canvas, the model stays held, the user is told', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(THROWS(abortError()))
+
+    expect(sentKinds()).toEqual(['structural_delete'])
+    expect(concentrationOnCanvas()).toBe(false)
+
+    expect(registeredWithoutConcentration()).toEqual([])
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(false)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    expect(toastLog).toEqual([STRUCTURAL_DELETE_NOTICE.unconfirmed_server])
+  })
+
+  it('⛔ D6c — the preempted delete\'s body was already buffered (the call RESOLVES while the signal reads aborted): the same', async () => {
+    const hook = await mountAcknowledgedStructuralBoard()
+    abortableNext = 'resolve'
+    await deleteConcentration()
+    await userSends(hook, 'Which of these factors matters most?')
+    await act(async () => { await flush() })
+
+    expect(sentKinds()).toEqual(['structural_delete', undefined])
+    expect(concentrationOnCanvas()).toBe(false)
+
+    expect(registeredWithoutConcentration()).toEqual([])
+    expect(currentAcknowledged()).toBe(false)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    expect(toastLog).toEqual([STRUCTURAL_DELETE_NOTICE.unconfirmed_server])
+  })
+
+  it('⛔ D7 — the scenario fence: the user opens another decision while the delete is on the wire and its 500 lands there; back in the first decision, NO registration carries its post-delete canvas', async () => {
+    await mountAcknowledgedStructuralBoard()
+    holdTurn = true
+    await deleteConcentration()
+    expect(sentKinds()).toEqual(['structural_delete'])
+    const postDeleteNodes = useCanvasStore.getState().nodes
+    const postDeleteEdges = useCanvasStore.getState().edges
+
+    await act(async () => {
+      useCanvasStore.setState({
+        currentScenarioId: OTHER_SCENARIO,
+        nodes: STARTER_NODES as never,
+        edges: STARTER_EDGES as never,
+        importPendingServerRegistration: true,
+      } as never)
+      await flush()
+    })
+    replies.push(UNTYPED_500)
+    await releaseHeldTurn()
+
+    // The other decision is not held by it, and registers its own board.
+    expect(heldCause()).toBeNull()
+    expect(registerSpy.mock.calls.filter((c) => c[0] === OTHER_SCENARIO)).toHaveLength(1)
+
+    // Back in the first decision, the canvas still shows the deletion (e.g. the
+    // autosaved post-delete canvas), and CEE never confirmed it.
+    await act(async () => {
+      useCanvasStore.setState({
+        currentScenarioId: SCENARIO,
+        nodes: postDeleteNodes as never,
+        edges: postDeleteEdges as never,
+      } as never)
+      await flush()
+    })
+    // ⛔ RED at 2177f45c (Panel R4, measured in harness): one register leaks it.
+    expect(registeredWithoutConcentration(SCENARIO)).toEqual([])
+    expect(heldCause()).toBe('unresolved_structural_edit')
+  })
+
+  describe('the arms that already resolve stay as they are — and gain no second notice', () => {
+    it('D1 — untyped 500: held, unacknowledged, ONE "couldn\'t confirm" notice and no toast', async () => {
+      const hook = await mountAcknowledgedStructuralBoard()
+      await deleteConcentrationAndSettle(UNTYPED_500)
+      expect(concentrationOnCanvas()).toBe(false)
+      expect(registeredWithoutConcentration()).toEqual([])
+      expect(currentAcknowledged()).toBe(false)
+      expect(heldCause()).toBe('unresolved_structural_edit')
+      expect(syntheticNotices(hook).filter((n) => n === STRUCTURAL_DELETE_NOTICE.unconfirmed_server)).toHaveLength(1)
+      expect(toastLog).toEqual([])
+    })
+
+    it('D2 — transport loss: held, unacknowledged, ONE transport notice and no toast', async () => {
+      const hook = await mountAcknowledgedStructuralBoard()
+      await deleteConcentrationAndSettle(THROWS(new TypeError('Failed to fetch')))
+      expect(concentrationOnCanvas()).toBe(false)
+      expect(registeredWithoutConcentration()).toEqual([])
+      expect(currentAcknowledged()).toBe(false)
+      expect(heldCause()).toBe('unresolved_structural_edit')
+      expect(syntheticNotices(hook).filter((n) => n === STRUCTURAL_DELETE_NOTICE.unconfirmed_transport)).toHaveLength(1)
+      expect(toastLog).toEqual([])
+    })
+
+    it('D3 — typed 409 with no no-write guarantee: held, unacknowledged, ONE "couldn\'t confirm" notice and no toast', async () => {
+      const hook = await mountAcknowledgedStructuralBoard()
+      await deleteConcentrationAndSettle(DELETE_409_UNKNOWN_CATEGORY)
+      expect(concentrationOnCanvas()).toBe(false)
+      expect(registeredWithoutConcentration()).toEqual([])
+      expect(currentAcknowledged()).toBe(false)
+      expect(heldCause()).toBe('unresolved_structural_edit')
+      expect(syntheticNotices(hook).filter((n) => n === STRUCTURAL_DELETE_NOTICE.unconfirmed_server)).toHaveLength(1)
+      expect(toastLog).toEqual([])
+    })
+
+    it('D4 — 200 refuted (committed graph still holds the node): reverted, released, nothing leaks, no toast', async () => {
+      await mountAcknowledgedStructuralBoard()
+      await deleteConcentrationAndSettle(DELETE_200_REFUTED)
+      expect(concentrationOnCanvas()).toBe(true)
+      expect(heldCause()).toBeNull()
+      expect(registeredWithoutConcentration()).toEqual([])
+      expect(toastLog).toEqual([])
+    })
+
+    it('D5 — 200 unproven (no committed graph): reverted, released, nothing leaks, no toast', async () => {
+      await mountAcknowledgedStructuralBoard()
+      await deleteConcentrationAndSettle(DELETE_200_UNPROVEN)
+      expect(concentrationOnCanvas()).toBe(true)
+      expect(heldCause()).toBeNull()
+      expect(registeredWithoutConcentration()).toEqual([])
+      expect(toastLog).toEqual([])
+    })
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 12. A LATER APPLIED RECEIPT CAN PROVE AN UNCONFIRMED DELETE — Panel's APPROVE
+//     on #1905, item 2.
+//
+// `settleStructuralDeleteAttempt(…, 'proven')` ran only on the delete's OWN
+// receipt, so when CEE committed a delete despite its 500 the hold could not
+// learn it: the canvas equalled CEE's committed graph, yet analysis stayed held
+// until reload (Panel R2, a wedge). The rule: an applied receipt for the SAME
+// scenario, whose committed graph OVERLAPS the canvas, settles `proven` every
+// standing record whose removed elements are ALL absent from that graph — by
+// the delete's own receipt rule (`readStructuralDeleteReceipt`). Each guard has
+// a case: a present element (R1, R5), zero overlap, another scenario, ALL-not-ANY.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** A later applied rename whose committed graph LACKS the node — CEE committed the delete despite its 500. */
+const RENAME_APPLIED_AFTER_COMMITTED_DELETE = {
+  ok: true,
+  response: {
+    assistant_text: `Renamed 'Bottom-Up Adoption Friction' to '${RENAMED}'. That change is saved.`,
+    blocks: [],
+    graph_hash: 'aag_after_rename_post_delete',
+    draft_graph: committedGraph({ without: CONCENTRATION, labelOf: { [TARGET]: RENAMED } }),
+  },
+}
+/** An applied delete of a DIFFERENT element (the TARGET→BYSTANDER link); CEE still holds CONCENTRATION. */
+const EDGE_DELETE_APPLIED_NODE_STILL_HELD = {
+  ok: true,
+  response: {
+    assistant_text: "Removed the link from 'Bottom-Up Adoption Friction' to 'Seat Price'. That change is saved.",
+    blocks: [],
+    graph_hash: 'aag_after_edge_delete',
+    draft_graph: committedGraph({ withoutEdge: [TARGET, BYSTANDER] }),
+  },
+}
+/** A receipt-shaped graph sharing NO node with the canvas (a misdrafted fresh graph). */
+const ZERO_OVERLAP_RECEIPT = {
+  ok: true,
+  response: {
+    assistant_text: "Here's a first model for this decision.",
+    blocks: [],
+    graph_hash: 'aag_unrelated',
+    draft_graph: {
+      nodes: [
+        { id: 'fac_unrelated_a', kind: 'factor', label: 'Unrelated A', category: 'controllable' },
+        { id: 'fac_unrelated_b', kind: 'factor', label: 'Unrelated B', category: 'controllable' },
+      ],
+      edges: [{ from: 'fac_unrelated_a', to: 'fac_unrelated_b', strength: { mean: 0.5 } }],
+    },
+  },
+}
+
+function canvasNodeIds(): string[] {
+  return useCanvasStore.getState().nodes.map((n) => n.id).sort()
+}
+/**
+ * The canvas shows the unconfirmed deletion AGAIN — e.g. the autosaved
+ * post-delete canvas rehydrated after a failed boot read. Whether the record
+ * still stands is exactly what decides whether this is held or registered.
+ */
+async function canvasShowsTheDeletionAgain(scenario = SCENARIO) {
+  await act(async () => {
+    const s = useCanvasStore.getState()
+    useCanvasStore.setState({
+      currentScenarioId: scenario,
+      nodes: s.nodes.filter((n) => n.id !== CONCENTRATION) as never,
+      edges: s.edges.filter((e) => e.source !== CONCENTRATION && e.target !== CONCENTRATION) as never,
+    } as never)
+    await flush()
+  })
+}
+
+describe('12 · a later applied receipt proves an unconfirmed delete (Panel #1905 item 2)', { timeout: 30_000 }, () => {
+  it('⛔ R2 — 500, but CEE committed it: a LATER applied receipt whose committed graph lacks the node releases the hold, and no register carried the canvas while it was unconfirmed', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    const registersWhileUnconfirmed = registerSpy.mock.calls.length
+    expect(registeredWithoutConcentration()).toEqual([])
+
+    replies.push(RENAME_APPLIED_AFTER_COMMITTED_DELETE)
+    await renameTarget()
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS, by identity: the rename applied, and the canvas is CEE's
+    // committed graph by ids — the node is gone on both sides.
+    expect(sentKinds()).toEqual(['structural_delete', 'structural_rename'])
+    expect(canvasNodeIds()).toEqual([BYSTANDER, TARGET].sort())
+    expect(nodeData(TARGET).label).toBe(RENAMED)
+    expect(registersWhileUnconfirmed).toBe(1)
+
+    // ⛔ THE CLAIM. RED at 2177f45c: the hold stands after the receipt (wedge).
+    expect(heldCause()).toBeNull()
+    // Nothing that left carries anything but CEE's own committed graph.
+    for (const call of registerSpy.mock.calls.slice(registersWhileUnconfirmed)) {
+      expect(nodeIdsOf(call)).toEqual([BYSTANDER, TARGET].sort())
+      expect(registeredLabel(call)).toBe(RENAMED)
+    }
+  })
+
+  it('R1 — 500, CEE did NOT commit it: a later receipt restores the node, its links come back under NEW edge ids, and the hold releases', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+
+    replies.push(RENAME_APPLIED)
+    await renameTarget()
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS: the node is back, and its two links are back under ids
+    // the unconfirmed record never named — which is what makes `every` in the
+    // hold load-bearing (with `some`, the old edge ids stay "absent").
+    expect(concentrationOnCanvas()).toBe(true)
+    const restoredLinks = useCanvasStore.getState().edges
+      .filter((e) => e.source === CONCENTRATION || e.target === CONCENTRATION)
+    expect(restoredLinks).toHaveLength(2)
+    const recordedIds = STRUCTURAL_EDGES
+      .filter((e) => e.source === CONCENTRATION || e.target === CONCENTRATION)
+      .map((e) => e.id)
+    for (const link of restoredLinks) expect(recordedIds).not.toContain(link.id)
+
+    expect(heldCause()).toBeNull()
+    expect(registeredWithoutConcentration()).toEqual([])
+  })
+
+  it('R5 — a PROVEN delete of a DIFFERENT element, with the node still in the committed graph, does not settle its record', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+
+    replies.push(EDGE_DELETE_APPLIED_NODE_STILL_HELD)
+    await act(async () => {
+      useCanvasStore.getState().deleteEdgeById(`e_${TARGET}_${BYSTANDER}`)
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS: the second delete was the LINK, by pair, and CEE proved it;
+    // its committed graph still holds the node, so the receipt restored it.
+    expect(sentKinds()).toEqual(['structural_delete', 'structural_delete'])
+    expect((dispatched[1] as { event?: { removed_edges?: unknown } }).event?.removed_edges)
+      .toEqual([{ from: TARGET, to: BYSTANDER }])
+    expect(concentrationOnCanvas()).toBe(true)
+    expect(registeredWithoutConcentration()).toEqual([])
+
+    // ⭐ THE CLAIM: the record still stands — the moment the canvas shows the
+    // deletion again, it holds rather than registering it.
+    await canvasShowsTheDeletionAgain()
+    expect(concentrationOnCanvas()).toBe(false)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    expect(registeredWithoutConcentration()).toEqual([])
+  })
+
+  it('ZERO OVERLAP — a receipt sharing no node with the canvas proves nothing: still held, nothing leaks', async () => {
+    const hook = await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+
+    replies.push(ZERO_OVERLAP_RECEIPT)
+    await userSends(hook, 'Can you draft this again?')
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS: the turn answered with the unrelated graph, and the
+    // reconcile's own zero-overlap guard left the canvas alone.
+    expect(userTurnsSent()).toBe(1)
+    expect(canvasNodeIds()).toEqual([BYSTANDER, TARGET].sort())
+
+    // The unrelated graph lacks the node too — which is exactly why it may not
+    // count as proof.
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    expect(registeredWithoutConcentration()).toEqual([])
+    expect(currentAcknowledged()).toBe(false)
+  })
+
+  it('SCOPE — another decision\'s receipt proving the same node id gone settles nothing here', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+
+    // A second decision opened from the same starter — identical node ids —
+    // registers its board, then deletes the node there and CEE proves it.
+    await act(async () => {
+      useCanvasStore.setState({
+        currentScenarioId: OTHER_SCENARIO,
+        nodes: STRUCTURAL_NODES as never,
+        edges: STRUCTURAL_EDGES as never,
+        importPendingServerRegistration: true,
+      } as never)
+      await flush()
+    })
+    expect(registerSpy.mock.calls.filter((c) => c[0] === OTHER_SCENARIO)).toHaveLength(1)
+    await deleteConcentrationAndSettle(DELETE_APPLIED)
+    expect(sentKinds()).toEqual(['structural_delete', 'structural_delete'])
+    expect(heldCause()).toBeNull()
+
+    // Back in the first decision, its deletion is still unconfirmed.
+    await canvasShowsTheDeletionAgain(SCENARIO)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    expect(registeredWithoutConcentration(SCENARIO)).toEqual([])
+  })
+})
+
+describe('12 · the receipt-proof rule, pure (through `editDeliveryHold`)', () => {
+  const intentOf = (nodeIds: string[], edges: Array<[string, string]> = [], edgeIds: string[] = []) =>
+    ({
+      id: `i_${nodeIds.join('_')}_${edges.map((e) => e.join('>')).join('_')}`,
+      removedNodeIds: nodeIds,
+      removedEdges: edges.map(([from, to]) => ({ from, to })),
+      claimedNodeIds: nodeIds,
+      claimedEdgeIds: edgeIds,
+    }) as never
+  const receipt = (nodes: string[], edges: Array<[string, string]> = []) => ({
+    draft_graph: { nodes: nodes.map((id) => ({ id })), edges: edges.map(([from, to]) => ({ from, to })) },
+  })
+  const hold = (nodes: string[], scenario: string, edges: string[] = []) =>
+    editDeliveryHold({
+      nodes: nodes.map((id) => ({ id })),
+      edges: edges.map((id) => ({ id })),
+      currentScenarioId: scenario,
+    } as never)
+  const proveBy = (scenarioId: string, response: unknown, canvasNodeIds: string[]) =>
+    (unconfirmedDeletes as unknown as {
+      settleUnconfirmedDeletesProvenByReceipt: (input: {
+        scenarioId: string | null
+        response: unknown
+        canvasNodeIds: readonly string[]
+      }) => void
+    }).settleUnconfirmedDeletesProvenByReceipt({ scenarioId, response, canvasNodeIds })
+
+  it('ALL, not ANY: a two-node record stands while ONE of its nodes is still committed, and settles once BOTH are gone', () => {
+    settleStructuralDeleteAttempt(intentOf(['n1', 'n2']), 's1', 'unconfirmed')
+    expect(hold(['n3'], 's1')).toBe('unresolved_structural_edit')
+
+    proveBy('s1', receipt(['n2', 'n3']), ['n3'])
+    expect(hold(['n3'], 's1')).toBe('unresolved_structural_edit')
+
+    proveBy('s1', receipt(['n3']), ['n3'])
+    expect(hold(['n3'], 's1')).toBeNull()
+  })
+
+  it('a removed LINK is proven by its endpoint pair, never by a canvas edge id (which no committed graph carries)', () => {
+    settleStructuralDeleteAttempt(intentOf([], [['n1', 'n2']], ['e_canvas_7']), 's1', 'unconfirmed')
+    expect(hold(['n1', 'n2'], 's1', ['e_other'])).toBe('unresolved_structural_edit')
+
+    // The pair is still committed: no proof, although `e_canvas_7` is "absent".
+    proveBy('s1', receipt(['n1', 'n2'], [['n1', 'n2']]), ['n1', 'n2'])
+    expect(hold(['n1', 'n2'], 's1', ['e_other'])).toBe('unresolved_structural_edit')
+
+    proveBy('s1', receipt(['n1', 'n2']), ['n1', 'n2'])
+    expect(hold(['n1', 'n2'], 's1', ['e_other'])).toBeNull()
+  })
+
+  it('SCOPE and OVERLAP: another scenario\'s receipt, or one sharing no node with the canvas, proves nothing', () => {
+    settleStructuralDeleteAttempt(intentOf(['n9']), 's1', 'unconfirmed')
+    proveBy('s2', receipt(['n1']), ['n1'])
+    expect(hold(['n1'], 's1')).toBe('unresolved_structural_edit')
+    proveBy('s1', receipt(['x1']), ['n1'])
+    expect(hold(['n1'], 's1')).toBe('unresolved_structural_edit')
+    // CONTROL: the same receipt with overlap, in the same scenario, proves it.
+    proveBy('s1', receipt(['n1']), ['n1'])
     expect(hold(['n1'], 's1')).toBeNull()
   })
 })
