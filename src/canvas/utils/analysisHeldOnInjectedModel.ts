@@ -312,8 +312,7 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
  *    rungs of the gate can still refuse once the hold lifts.
  *  · UNCONFIRMED VALUE (the untyped 500: value kept, register still pending) —
  *    names the factor and the number the USER set, rendered by the card's own
- *    projection. An unconfirmed LINK STRENGTH (#1905 signal 5) takes the same
- *    frame, naming "the link from {A} to {B}" and no number. It does NOT name the model's value: nothing on the client
+ *    projection. It does NOT name the model's value: nothing on the client
  *    knows what CEE holds, and inventing it is the defect class. The one remedy
  *    offered is the one the hold is known to clear on: setting the value again
  *    (an applied receipt settles the register). ⛔ NOT "reload": #1892's
@@ -321,6 +320,11 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
  *    is UNVERIFIED whether the canvas restores the number from autosave — in
  *    which case a registration could carry it as Olumi's estimate, the very
  *    corruption the hold exists to prevent.
+ *  · UNCONFIRMED LINK STRENGTH (#1905 signal 5) — the value remedy, in the
+ *    link's own frame: it names "the link from {A} to {B}" and no number, and
+ *    its noun is the UI's for a link's magnitude, Strength
+ *    (`nodes/shared/metricVocabulary.ts`), never the factor's "value" (Panel
+ *    #1917 N1). The link is on the canvas, so setting it again is reachable.
  *  · UNCONFIRMED RENAME — names the label on the canvas. Renaming again (to the
  *    same name or back) is an edit through the protocol; a later committed
  *    rename of the same state, or a different label, releases the hold.
@@ -346,6 +350,9 @@ export const ANALYSIS_HELD_ON_EDIT_COPY = {
     `Olumi couldn't confirm ${label === null ? 'your last value change' : `your change to ${label}`}` +
     `${value === null ? '' : ` (${value})`}, so analysis is waiting until it is settled. ` +
     'Would you like to set the value again?',
+  unconfirmedLinkStrength: (link: string | null): string =>
+    `Olumi couldn't confirm ${link === null ? 'your last link-strength change' : `your change to the strength of ${link}`}, ` +
+    'so analysis is waiting until it is settled. Would you like to set the strength again?',
   unconfirmedRename: (label: string | null): string =>
     `Olumi couldn't confirm ${label === null ? 'your rename' : `your rename to ${label}`}, ` +
     'so analysis is waiting until it is settled. Would you like to rename it again, or change the name back?',
@@ -522,13 +529,15 @@ export function heldReason(state: AnalysisHoldReasonState): AnalysisHoldReason |
         ? intern('unconfirmed_rename', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(label))
         : intern('unconfirmed_add', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(label))
     }
-    // #1905's signal 5: an unconfirmed link strength. The value frame, naming
-    // the link; no number (the link has no projection of the user's, and the
-    // model's is unknown to the client).
+    // #1905's signal 5: an unconfirmed link strength. The link's own frame
+    // ("strength", never "value": Panel #1917 N1), naming the link; no number
+    // (the link has no projection of the user's, and the model's is unknown to
+    // the client). The kind stays `unconfirmed_value`: the hold is the same
+    // rung, and splitting the kind is a separate question (#1917 N2).
     case 'unconfirmed_edge_on_canvas':
       return intern(
         'unconfirmed_value',
-        ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(linkOnCanvasName(state, edit.edgeId), null),
+        ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedLinkStrength(linkOnCanvasName(state, edit.edgeId)),
       )
   }
 }

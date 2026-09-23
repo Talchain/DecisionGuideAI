@@ -254,6 +254,8 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     unconfirmedValueNoValue: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue('Adoption friction', null),
     unconfirmedValueNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, '0.42'),
     unconfirmedValueBare: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, null),
+    unconfirmedLinkStrength: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedLinkStrength('the link from Partner churn to Grow revenue'),
+    unconfirmedLinkStrengthNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedLinkStrength(null),
     unconfirmedRename: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename('Adoption drag'),
     unconfirmedRenameNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(null),
     unconfirmedAdd: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd('Partner churn'),

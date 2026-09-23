@@ -1094,6 +1094,8 @@ function composedPatterns(): RegExp[] {
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(LABEL_SLOT, null),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, LABEL_SLOT),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, null),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedLinkStrength(LABEL_SLOT),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedLinkStrength(null),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(LABEL_SLOT),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(null),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(LABEL_SLOT),
