@@ -40,7 +40,7 @@
  * one `NodeCoachingMarker` and `useScienceIcons` apply).
  */
 import { memo, useCallback } from 'react'
-import { MessageCircleQuestion } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -139,7 +139,11 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
         data-coaching-typed={coachingChipIsTyped(chip) ? 'true' : undefined}
         data-node-tooltip="true"
       >
-        <MessageCircleQuestion aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
+        {/* ⭐ `MessageCircle` EXACTLY — Panel's R3 (#63 5796486697, settled for the
+            canvas by 5796609717): "ask / hand this to Olumi" is one meaning, so
+            one glyph, shared with the quick-action "Ask Olumi" and the panel.
+            `MessageCircleQuestion` would be a second glyph for the same act. */}
+        <MessageCircle aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
       </button>
     </Tooltip>
   )

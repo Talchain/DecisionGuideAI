@@ -1,5 +1,5 @@
 import { memo, useCallback, type ReactNode } from 'react'
-import { MessageSquare, MoreHorizontal, Zap } from 'lucide-react'
+import { MessageCircle, MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
@@ -476,7 +476,9 @@ export const NodeQuickActions = memo(function NodeQuickActions({
             aria-label={`Ask Olumi about ${label}`}
             data-testid={`node-action-ask-${nodeId}`}
           >
-            <MessageSquare size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+            {/* `MessageCircle` — the ONE "Ask Olumi" glyph (Panel R3, #63
+                5796609717), the same glyph as the rail's coaching icon. */}
+            <MessageCircle size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
           </button>
         </Tooltip>
       )}
