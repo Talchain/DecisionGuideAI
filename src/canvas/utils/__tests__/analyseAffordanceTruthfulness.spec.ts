@@ -72,6 +72,7 @@ import {
   ANALYSIS_HELD_NOTICE,
   analysisHeldNotice,
   analysisHeldOn,
+  heldReason,
 } from '../analysisHeldOnInjectedModel'
 import { composeReadinessBlockedReason, BLOCKED_REASON_COPY } from '../composeBlockedReason'
 import { resolveStarterId } from '../../starters/loadStarter'
@@ -103,7 +104,7 @@ function gateWith(overrides: Partial<Parameters<typeof canRunAnalysis>[0]> = {})
     readiness: null,
     hasBlockers: false,
     nodeCount: 20,
-    analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
+    analysisHeldOn: heldReason(unregistered(starterNodes)),
     ...overrides,
   })
 }
@@ -130,7 +131,7 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
     // answer AND the noun in one value, so a caller cannot supply one without
     // the other (which is how the first attempt at this fix had OutputsDock and
     // ConversationPanel describing one state with two different nouns).
-    expect(gateWith({ analysisHeldOn: analysisHeldOn(unregistered(templateNodes)) }).reason).toBe(
+    expect(gateWith({ analysisHeldOn: heldReason(unregistered(templateNodes)) }).reason).toBe(
       ANALYSIS_HELD_NOTICE.template,
     )
     expect(ANALYSIS_HELD_NOTICE.template).not.toBe(ANALYSIS_HELD_NOTICE.starter)
@@ -219,7 +220,7 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
     // The twin: a graph Olumi drafted is NOT refused, so the named remedy is
     // one the gate genuinely accepts.
     expect(analysisHeldOn(unregistered(ceeDraftedNodes))).toBeNull()
-    expect(gateWith({ analysisHeldOn: analysisHeldOn(unregistered(ceeDraftedNodes)) }).allowed).toBe(true)
+    expect(gateWith({ analysisHeldOn: heldReason(unregistered(ceeDraftedNodes)) }).allowed).toBe(true)
   })
 })
 
@@ -245,7 +246,7 @@ describe('the real journey: a model Olumi drafted must ANALYSE from the obvious 
       readiness: readyVerdict,
       hasBlockers: false,
       nodeCount: 20,
-      analysisHeldOn: analysisHeldOn(unregistered(ceeDraftedNodes)),
+      analysisHeldOn: heldReason(unregistered(ceeDraftedNodes)),
     })
     expect(result.allowed).toBe(true)
     expect(result.reason).toBeUndefined()
@@ -262,7 +263,7 @@ describe('the real journey: a model Olumi drafted must ANALYSE from the obvious 
       readiness: readyVerdict,
       hasBlockers: false,
       nodeCount: 20,
-      analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
+      analysisHeldOn: heldReason(unregistered(starterNodes)),
     })
     expect(held.allowed).toBe(false)
     expect(held.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
@@ -275,7 +276,7 @@ describe('the real journey: a model Olumi drafted must ANALYSE from the obvious 
       readiness: readyVerdict,
       hasBlockers: false,
       nodeCount: 20,
-      analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
+      analysisHeldOn: heldReason(unregistered(starterNodes)),
     })
     expect(result.allowed).toBe(true)
   })

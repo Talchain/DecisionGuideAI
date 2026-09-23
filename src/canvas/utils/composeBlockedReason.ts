@@ -43,6 +43,7 @@ import {
   safeInterpolatedLabel,
 } from '../../components/results/utils/glossaryCheck'
 import { isSafeCeeText } from '../components/pre-analysis-v3/signals/ceeTextGuard'
+import { ANALYSIS_HELD_ON_EDIT_COPY } from './analysisHeldOnInjectedModel'
 
 /** An option CEE graded as not-yet-ready, with the label the user sees. */
 export interface OptionNeedingValues {
@@ -1081,6 +1082,22 @@ function composedPatterns(): RegExp[] {
     // vanish at the very surface it was written for. Caught by the sample-matrix
     // spec, which is why that spec asserts coverage of every key.
     BLOCKED_REASON_COPY.staleRecheck,
+    // The edit-caused hold (`heldReason`, purpose audit 23 Sep 2026). It reaches
+    // the footer and the reanalyse bar as the run gate's reason, and it carries
+    // the user's OWN labels — so it is composed copy: vetted, never rewritten.
+    // Left `foreign`, the guard would print "Connection sales capacity" in the
+    // footer while the run chip and the banner said "Edge sales capacity": two
+    // surfaces, two names, one state. Every frame is listed (each label and
+    // value may be absent), so none of them falls through to `foreign`.
+    ANALYSIS_HELD_ON_EDIT_COPY.editInDelivery,
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(LABEL_SLOT, SECOND_LABEL_SLOT),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(LABEL_SLOT, null),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, LABEL_SLOT),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, null),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(LABEL_SLOT),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(null),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(LABEL_SLOT),
+    ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(null),
   ]
   cachedPatterns = templates.map((template) => {
     const source = escapeForRegex(template)

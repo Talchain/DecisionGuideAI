@@ -303,7 +303,7 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
 
   it('agrees with canRunAnalysis: the gate refuses FOR THE HOLD, and the chip is absent', async () => {
     const { canRunAnalysis } = await import('../../utils/canRunAnalysis')
-    const { analysisHeldOn, ANALYSIS_HELD_NOTICE } = await import(
+    const { analysisHeldOn, heldReason, ANALYSIS_HELD_NOTICE } = await import(
       '../../utils/analysisHeldOnInjectedModel'
     )
 
@@ -331,7 +331,10 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
       nodeCount: STARTER_NODES.length,
     }
 
-    const held = canRunAnalysis({ ...params, analysisHeldOn: heldOn } as never)
+    // The gate takes the hold REASON (`heldReason`), the value both live call
+    // sites read through `useAnalysisHoldReason`; `heldOn` above stays the
+    // provenance precondition the chip's own filter reads.
+    const held = canRunAnalysis({ ...params, analysisHeldOn: heldReason(unregistered(STARTER_NODES)) } as never)
     expect(held.allowed).toBe(false)
     expect(held.reason).toBe(ANALYSIS_HELD_NOTICE.starter) // …refused FOR THE HOLD
 
