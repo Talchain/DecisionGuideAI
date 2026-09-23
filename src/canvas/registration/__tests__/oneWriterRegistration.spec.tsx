@@ -672,21 +672,28 @@ describe('8 · an applied receipt carrying the committed graph acknowledges the 
     expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
   })
 
-  it('CONTROL: an unacknowledged local change BEFORE the receipt keeps the chain closed — the model is re-offered', async () => {
+  it('CONTROL: an unacknowledged local change made while the edit is in flight keeps the chain closed — the model is re-offered', async () => {
     const hook = await mountAcknowledgedStarterWithOption()
-    // A local-only analytical change nobody sent: G₀ is no longer acknowledged.
+    holdTurn = true
+    let send: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      send = hook.result.current.sendSystemEvent(optionEdit(0.6)).catch(() => undefined)
+      await flush()
+    })
+    // While the turn is on the wire, a local-only analytical change nobody
+    // sent: the registration is held (one writer), and G₀ is no longer the
+    // model CEE acknowledged.
     await act(async () => {
       writeOptimistically(BYSTANDER, 0.9)
       await flush()
     })
-    const before = registerSpy.mock.calls.length
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+
     replies.push(APPLIED_OPTION(0.6))
-    await act(async () => {
-      await hook.result.current.sendSystemEvent(optionEdit(0.6)).catch(() => undefined)
-      await flush()
-    })
-    // Fail CLOSED: the receipt does not vouch for a change it never saw, so a
+    await settleTurn(send)
+
+    // Fail CLOSED: the receipt does not vouch for a canvas it never saw, so a
     // registration offers the model once delivery settles (#1855 preserved).
-    expect(registerSpy.mock.calls.length).toBeGreaterThan(before)
+    expect(registerSpy.mock.calls.length).toBeGreaterThan(1)
   })
 })
