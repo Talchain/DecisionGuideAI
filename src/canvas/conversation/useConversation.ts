@@ -172,7 +172,10 @@ import {
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
 import { settleEdgeEdit } from './pendingEdgeEdit'
-import { settleStructuralDeleteAttempt } from './unconfirmedStructuralDelete'
+import {
+  settleStructuralDeleteAttempt,
+  settleUnconfirmedDeletesProvenByReceipt,
+} from './unconfirmedStructuralDelete'
 import {
   canvasBeforeOwnAppliedWrite,
   receiptProvesOwnEdgeEdit,
@@ -5334,6 +5337,18 @@ export function useConversation(): UseConversationReturn {
                   afterReceipt.edges as never,
                 )
               }
+              // ⭐ ANY applied receipt can prove an unconfirmed delete (Panel's
+              // #1905 item 2). A delete that answered 500 may have committed,
+              // and until this only its OWN receipt was consulted — so the
+              // canvas could equal CEE's committed graph while analysis stayed
+              // held until reload. Same scenario (the fence above), overlap
+              // with the canvas this receipt was judged against, and ALL of a
+              // record's removals absent: see the module for each guard.
+              settleUnconfirmedDeletesProvenByReceipt({
+                scenarioId: scenarioIdAtDispatch,
+                response: target.response,
+                canvasNodeIds: canvasAtReceipt.nodes.map((n) => n.id),
+              })
               // The committed graph proved the link edit applied: its magnitude
               // is no longer unconfirmed, so `editDeliveryHold` signal 5 stands
               // down HERE — where the receipt is in hand — rather than waiting
@@ -5961,7 +5976,8 @@ export function useConversation(): UseConversationReturn {
         // Its twin `structural_delete` is deliberately NOT handled here: this
         // lane measured the value-edit path and only that one, and a delete's
         // honest copy is a different claim about a different optimistic write.
-        // Naming it rather than silently widening the fix.
+        // Naming it rather than silently widening the fix. (It is now settled by
+        // its carrier's every-exit settle, `useStructuralDeleteEvents`.)
         if (
           isAbort &&
           mode === 'system' &&

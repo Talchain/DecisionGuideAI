@@ -23,7 +23,8 @@
  * it without a line (witnessed in this spec's 500 case). So this module names
  * the edit itself: `structural_delete.unconfirmed_held` when an attempt is
  * recorded, `structural_delete.unconfirmed_superseded` when a later proven
- * delete settles earlier records. No user-facing copy lives here.
+ * delete settles earlier records, `structural_delete.unconfirmed_proven_by_receipt`
+ * when a later applied receipt proves them. No user-facing copy lives here.
  *
  * ## What this module answers
  *
@@ -34,22 +35,44 @@
  * element came back — undo, a receipt, a boot merge of CEE's graph) or on reload
  * (the register is not persisted).
  *
- * ⛔ ONLY A LATER PROVEN DELETE SUPERSEDES (the #1892 review's rule, delete
- * form — its second verdict, @ 9dac7d3e: "a later refusal alone is not proof").
- * A proven attempt drops the earlier records that share an element with it, so
- * a later committed delete of a restored node is never walled off by a stale
- * one; a reverted/refused attempt releases nothing.
+ * ⛔ ONLY PROOF SUPERSEDES (the #1892 review's rule, delete form — its second
+ * verdict, @ 9dac7d3e: "a later refusal alone is not proof"). Two sources:
+ *   · a later PROVEN delete drops the earlier records that share an element
+ *     with it, so a later committed delete of a restored node is never walled
+ *     off by a stale one;
+ *   · a later APPLIED RECEIPT of any kind (Panel's #1905 item 2) settles every
+ *     record of its scenario that its committed graph proves — see
+ *     `settleUnconfirmedDeletesProvenByReceipt`.
+ * A reverted/refused attempt releases nothing.
+ *
+ * ## Every exit settles (Panel's #1905 item 1)
+ *
+ * `useConversation` resolves a delete on three arms and misses three exits: an
+ * abort (a user preempt, a client timeout), a superseded turn, and the scenario
+ * fence. The carrier (`useStructuralDeleteEvents`) closes them by asking, after
+ * its own await, whether ANYBODY settled the attempt — `takeStructuralDeleteAttemptSettled`.
  */
-import type { StructuralDeleteIntent } from '../mutations/structuralDelete'
+import {
+  readStructuralDeleteReceipt,
+  type StructuralDeleteIntent,
+} from '../mutations/structuralDelete'
 import { logger } from '../../lib/logger'
 
 interface UnconfirmedDelete {
   readonly scenarioId: string | null
   readonly nodeIds: readonly string[]
   readonly edgeIds: readonly string[]
+  /** The attempt itself — its canonical removals are what a later receipt must prove. */
+  readonly intent: StructuralDeleteIntent
 }
 
 let records: UnconfirmedDelete[] = []
+
+/**
+ * Attempts some resolver has settled, by intent id. Read ONCE by the carrier's
+ * every-exit settle (`takeStructuralDeleteAttemptSettled`), which forgets it.
+ */
+const settledAttempts = new Set<string>()
 
 type Listener = () => void
 const listeners = new Set<Listener>()
@@ -78,6 +101,7 @@ export function settleStructuralDeleteAttempt(
   settlement: StructuralDeleteSettlement,
 ): void {
   const { nodeIds, edgeIds } = claimedOf(intent)
+  if (typeof intent.id === 'string') settledAttempts.add(intent.id)
   const before = records.length
   if (settlement === 'proven') {
     const nodes = new Set(nodeIds)
@@ -94,7 +118,7 @@ export function settleStructuralDeleteAttempt(
   }
   const recorded = settlement === 'unconfirmed' && (nodeIds.length > 0 || edgeIds.length > 0)
   if (recorded) {
-    records.push({ scenarioId, nodeIds, edgeIds })
+    records.push({ scenarioId, nodeIds, edgeIds, intent })
     logger.info('structural_delete.unconfirmed_held', { scenarioId, nodeIds, edgeIds })
   }
   if (superseded > 0 || recorded) emit()
@@ -120,6 +144,80 @@ export function unconfirmedDeleteStillOnCanvas(state: UnconfirmedDeleteState): b
   )
 }
 
+/**
+ * Did any resolver settle this attempt? Answers once, then forgets the id.
+ *
+ * For the carrier's EVERY-EXIT settle: its await has returned, so if nobody
+ * settled the attempt, it was sent and never heard (aborted, superseded, or
+ * fenced) and `unconfirmed` is the honest terminal state. Asked of the
+ * settlement itself rather than of a list of exits, so a new exit is covered
+ * without being named.
+ */
+export function takeStructuralDeleteAttemptSettled(intentId: string): boolean {
+  const settled = settledAttempts.has(intentId)
+  settledAttempts.delete(intentId)
+  return settled
+}
+
+/**
+ * ⭐ A LATER APPLIED RECEIPT CAN PROVE AN UNCONFIRMED DELETE (Panel's #1905
+ * item 2). A delete that answered 500 may have committed; the only evidence
+ * that it did is a committed graph without its elements, and until this the
+ * only receipt consulted was the delete's OWN. So when CEE had committed it,
+ * the canvas matched CEE's committed graph and analysis stayed held until
+ * reload.
+ *
+ * Settles `proven` each standing record of THIS scenario whose removals are
+ * ALL absent from `response.draft_graph` — by the delete's own receipt rule
+ * (`readStructuralDeleteReceipt`: nodes by id, independent links by endpoint
+ * pair; a canvas edge id is never evidence, no committed graph carries one).
+ *
+ * ⛔ Three guards, each fail-closed:
+ *   · SCENARIO — the receipt answers for its own decision; the same node id in
+ *     another decision is a different element.
+ *   · OVERLAP — a committed graph sharing no node with the canvas is not this
+ *     model's receipt (`reconcileAppliedGraph` drops it for the same reason),
+ *     and it lacks EVERY element trivially: counting it would be a vacuous proof.
+ *   · ALL, not ANY — one element still committed means CEE did not take this
+ *     delete, whatever else has gone.
+ * A record with no canonical removal to test is never proven.
+ */
+export function settleUnconfirmedDeletesProvenByReceipt(input: {
+  readonly scenarioId: string | null
+  readonly response: unknown
+  readonly canvasNodeIds: Iterable<string>
+}): void {
+  if (records.length === 0) return
+  const draftGraph = (input.response as { draft_graph?: unknown } | null | undefined)?.draft_graph
+  const committedNodes = (draftGraph as { nodes?: unknown } | null | undefined)?.nodes
+  if (!Array.isArray(committedNodes)) return
+  const onCanvas = new Set(input.canvasNodeIds)
+  const overlaps = committedNodes.some((n) => {
+    const id = (n as { id?: unknown } | null)?.id
+    return typeof id === 'string' && onCanvas.has(id)
+  })
+  if (!overlaps) return
+
+  const before = records.length
+  const proven: UnconfirmedDelete[] = []
+  records = records.filter((r) => {
+    if (r.scenarioId !== input.scenarioId) return true
+    const removals = (r.intent.removedNodeIds?.length ?? 0) + (r.intent.removedEdges?.length ?? 0)
+    if (removals === 0) return true
+    if (readStructuralDeleteReceipt(r.intent, input.response) !== 'proven') return true
+    proven.push(r)
+    return false
+  })
+  if (records.length === before) return
+  logger.info('structural_delete.unconfirmed_proven_by_receipt', {
+    scenarioId: input.scenarioId,
+    nodeIds: proven.flatMap((r) => r.nodeIds),
+    edgeIds: proven.flatMap((r) => r.edgeIds),
+    settled: proven.length,
+  })
+  emit()
+}
+
 export function subscribeUnconfirmedDeletes(listener: Listener): () => void {
   listeners.add(listener)
   return () => {
@@ -130,5 +228,6 @@ export function subscribeUnconfirmedDeletes(listener: Listener): () => void {
 /** Test-only. */
 export function __resetUnconfirmedDeletesForTest(): void {
   records = []
+  settledAttempts.clear()
   emit()
 }
