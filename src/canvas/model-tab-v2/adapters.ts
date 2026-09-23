@@ -1236,8 +1236,60 @@ function buildOptionInterventionCandidates(
     const factorLabel = resolveCanvasLabel(factorId, labels)
     if (factorLabel === null) return []
     seen.add(factorId)
-    return [{ factorId, factorLabel }]
+    return [{ factorId, factorLabel, ...factorReference(target.data, factorLabel) }]
   })
+}
+
+/**
+ * The factor's current value, for the reference line beside a first-value
+ * input — read by the SAME readers the factor's own outline row uses, so the
+ * two cannot show different "current" values for one factor.
+ *
+ *   · `factorValue`    — `factorValue(data)`, the row's `primaryValue`.
+ *   · `factorEstimate` — `factorDisplayText(data, label)` ONLY when there is no
+ *                        `factorValue`: the row's `estimateText` condition.
+ *   · `factorModelValue` — the normalised `observedState.value` when it is a
+ *                        finite number in [0, 1], the scale the input takes.
+ */
+function factorReference(
+  data: unknown,
+  label: string,
+): Pick<OptionInterventionCandidate, 'factorValue' | 'factorEstimate' | 'factorModelValue'> {
+  const value = factorValue(data)
+  const estimate =
+    value === null ? factorDisplayText(data as Record<string, unknown> | undefined, label) : null
+  const normalised = (observedStateOf(data) as { value?: unknown } | undefined)?.value
+  return {
+    factorValue: value,
+    factorEstimate: estimate,
+    factorModelValue:
+      typeof normalised === 'number' && Number.isFinite(normalised) && normalised >= 0 && normalised <= 1
+        ? normalised
+        : null,
+  }
+}
+
+/**
+ * The options that HAVE a first-value input on this surface — at least one
+ * factor they are linked to and do not yet change.
+ *
+ * ⭐ ONE PROJECTION, TWO READERS. It is `buildOptionInterventionCandidates`
+ * asked once per option — the very list the detail region renders its inputs
+ * from — so the section notice that retires on this set and the inputs that
+ * justify retiring it cannot disagree about which options are settable
+ * (`theNoticeCannotSelfRetire.spec.ts` pins the agreement).
+ */
+export function optionIdsWithValueInputs(input: ModelProjectionInput): ReadonlySet<string> {
+  const labels = buildCanvasLabelMap(input.nodes)
+  const nodesById = new Map(input.nodes.map(n => [n.id, n]))
+  const ids = new Set<string>()
+  for (const node of input.nodes) {
+    if (nodeKind(node) !== 'option') continue
+    if (buildOptionInterventionCandidates(node, input.edges, labels, nodesById).length > 0) {
+      ids.add(node.id)
+    }
+  }
+  return ids
 }
 
 function buildOptionInterventions(

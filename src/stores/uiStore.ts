@@ -144,6 +144,13 @@ export interface UIStoreState {
    * has acted. Null when no navigation is pending.
    */
   pendingModelTabSection: ModelTabSectionId | null
+  /**
+   * Cross-panel handoff, ONE LEVEL BELOW `pendingModelTabSection`: the option
+   * whose first empty effect-value input the Model tab should select and focus
+   * on its next render (`canvas/utils/openOptionValueInput.ts`). Cleared by the
+   * consumer (`ModelTabBody`) once it has acted. Null when none is pending.
+   */
+  pendingOptionValueInput: string | null
   /** Which transient overlay surface is raised right now. Null when none. */
   activeOverlaySurface: OverlaySurfaceId | null
   /** Who raised it. Null exactly when no surface is raised.
@@ -237,6 +244,8 @@ export interface UIStoreActions {
   closeRightPanel: () => void
   /** Request the Model tab to focus + auto-expand a section on next render. */
   requestModelTabSection: (sectionId: ModelTabSectionId | null) => void
+  /** Request the Model tab to open one option's first-value input; null clears. */
+  requestOptionValueInput: (optionId: string | null) => void
   /**
    * USER-driven overlay control: open a surface, or pass null to close.
    * The user may always both raise and lower. This is the action a click,
@@ -313,6 +322,7 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   activeOutputTabVersion: 0,
   activeRightPanel: null,
   pendingModelTabSection: null,
+  pendingOptionValueInput: null,
   activeOverlaySurface: null,
   overlaySurfaceOrigin: null,
   outputSurfaceOrigin: null,
@@ -340,6 +350,7 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   openRightPanel: (mode) => set({ activeRightPanel: mode }),
   closeRightPanel: () => set({ activeRightPanel: null }),
   requestModelTabSection: (sectionId) => set({ pendingModelTabSection: sectionId }),
+  requestOptionValueInput: (optionId) => set({ pendingOptionValueInput: optionId }),
 
   setOverlaySurface: (surface) =>
     set(

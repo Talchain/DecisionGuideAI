@@ -430,6 +430,32 @@ export interface DetailField {
 export interface OptionInterventionCandidate {
   factorId: string
   factorLabel: string
+  /**
+   * ⭐ THE FACTOR'S CURRENT VALUE, FOR REFERENCE — the SAME string the factor's
+   * own outline row shows as its value (`factorValue`, raw value with its unit).
+   * `null` when that row shows none. It is shown beside the input so the reader
+   * answers "what does this option change it TO?" knowing where it stands now.
+   *
+   * ⚠ REFERENCE ONLY, NEVER A SEED. The input opens empty (see the picker's
+   * original ruling in `ModelDetailRegion`): seeding it with the baseline would
+   * put a number on screen nobody stated.
+   */
+  factorValue: string | null
+  /**
+   * Olumi's display text for the factor, present ONLY when `factorValue` is
+   * null — the same condition `ModelRow.estimateText` uses, so a supplied value
+   * is never shown beside an estimate that contradicts it. Labelled as Olumi's
+   * where it renders.
+   */
+  factorEstimate: string | null
+  /**
+   * The factor's current value ON THE SCALE THE INPUT TAKES — the normalised
+   * `observedState.value`, only when it is a finite number in [0, 1]. The
+   * effect input follows the existing option editor's 0–1 model scale
+   * (`buildOptionInterventionEditEvent` refuses outside it), so this is the
+   * number the reader can compare their answer against. `null` otherwise.
+   */
+  factorModelValue: number | null
 }
 
 export interface OptionInterventionField {

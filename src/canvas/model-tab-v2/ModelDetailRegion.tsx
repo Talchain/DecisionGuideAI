@@ -26,8 +26,10 @@
  *    painting a confident and wrong pane — see `ModelRowDetail.rowId`.
  */
 
+import { useEffect, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
+import { firstValueQuestion, firstValueReference } from './optionFirstValue'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
@@ -56,7 +58,10 @@ import type { DetailField, DetailTier, ModelRow, ModelRowDetail } from './types'
  * says what a reader can do about it, which is nothing here. A refusal that
  * blamed the value would be a sentence about the wrong object.
  */
-const ADD_INTERVENTION_PROMPT = 'Set what this option changes:'
+// ~~const ADD_INTERVENTION_PROMPT = 'Set what this option changes:'~~ — retired
+// 23 Sep 2026 with the two-step picker it captioned. Each empty linked factor
+// now carries its own question (`firstValueQuestion`), which names the act AND
+// its subject, so a shared caption above them would say it twice.
 const NO_AUTHORITY_INTERVENTION =
   'This model is open for reading only, so changes cannot be set here.'
 
@@ -146,6 +151,16 @@ export interface ModelDetailRegionProps {
   /** Commit the draft through the write authority. */
   onCommitIntervention?: (factorId: string) => void
   onDiscardInterventionEdit?: () => void
+  /**
+   * ⭐ A REQUEST TO FOCUS THE FIRST EMPTY EFFECT-VALUE INPUT — a token, not a
+   * flag. `openOptionValueInput(optionId)` (the canvas pill's route here) asks
+   * the host to select the option; the host passes a fresh token, this region
+   * focuses its first enabled first-value input once, and acknowledges through
+   * `onFirstValueInputFocused` so a later remount cannot replay it. `null` /
+   * absent: nothing is focused and nothing is stolen from the reader.
+   */
+  focusFirstValueInput?: number | null
+  onFirstValueInputFocused?: () => void
 }
 
 /**
@@ -194,7 +209,26 @@ export function ModelDetailRegion({
   onInterventionDraftChange,
   onCommitIntervention,
   onDiscardInterventionEdit,
+  focusFirstValueInput = null,
+  onFirstValueInputFocused,
 }: ModelDetailRegionProps) {
+  /*
+   * ⚠ HOOKS FIRST — above the identity gate's early return below, so a
+   * mismatched render cannot change the hook order.
+   */
+  const firstValueListRef = useRef<HTMLUListElement | null>(null)
+  useEffect(() => {
+    if (focusFirstValueInput === null) return
+    // The first ENABLED input: a disabled box (reading-only posture) cannot take
+    // focus, and a pending row has no input to take it.
+    firstValueListRef.current
+      ?.querySelector<HTMLInputElement>('input:not([disabled])')
+      ?.focus()
+    // Acknowledged whether or not anything was focused — an option linked to
+    // nothing has no input, and its request is still consumed.
+    onFirstValueInputFocused?.()
+  }, [focusFirstValueInput, onFirstValueInputFocused])
+
   /**
    * ⚠ THE QUESTION IS "WAS THIS TITLE DERIVED AS `from → to`?", NOT
    * "DOES THE TITLE CONTAIN THIS STRING?" — and the difference was measured.
@@ -263,39 +297,16 @@ export function ModelDetailRegion({
   const interventionCandidates = detail.interventionCandidates ?? []
 
   /**
-   * ⭐⭐ THE ROW THE PICKER OPENS, AND WITHOUT IT THE PICKER IS THE DEFECT IT
-   * CLOSES. The editor renders inside `interventions.map`, so an edit begun on
-   * a factor the option does not YET change has nowhere to appear: the reader
-   * presses a live button and the surface does not move — preamble P8, rebuilt
-   * by its own fix. Caught by asking what the click actually renders rather
-   * than by trusting that the state was set.
-   *
-   * ⚠ IT IS A ROW WITH NO VALUE, NOT A ROW WITH A ZERO. `value` and
-   * `numericValue` are `null` because nothing has been set — the surface's own
-   * rule that absence renders as absence, never as a figure nobody stated.
-   *
-   * ⚠ APPENDED, NOT MERGED INTO THE PROJECTION. `detail.interventions` is what
-   * the MODEL holds; this row is what the READER is composing. Writing it into
-   * the projection would make an unsent draft look like a stored target, which
-   * is the distinction the pending/queued phases exist to keep.
+   * ~~⭐⭐ THE ROW THE PICKER OPENS~~ — the composed row that used to be appended
+   * here for an edit begun on a factor the option did not yet change is GONE
+   * (23 Sep 2026), because that factor's row now exists from the start: every
+   * empty linked factor renders its own first-value input below. The property
+   * the composed row guaranteed — an edit on such a factor has somewhere to
+   * appear, with NO value and NO provenance until a receipt — is now structural,
+   * and is pinned in `anOptionWithNoEffectsHasARoute.spec.tsx` and
+   * `anOptionsFirstValueIsSetDirectly.spec.tsx`.
    */
-  const editingCandidate =
-    interventionEdit !== null &&
-    !interventions.some(iv => iv.factorId === interventionEdit.factorId)
-      ? interventionCandidates.find(c => c.factorId === interventionEdit.factorId)
-      : undefined
-  const interventionRows = editingCandidate
-    ? [
-        ...interventions,
-        {
-          factorId: editingCandidate.factorId,
-          factorLabel: editingCandidate.factorLabel,
-          value: null,
-          numericValue: null,
-          provenanceSource: undefined,
-        },
-      ]
-    : interventions
+  const interventionRows = interventions
 
   if (detail.rowId !== row.id) {
     return (
@@ -704,61 +715,137 @@ export function ModelDetailRegion({
           </ul>
 
           {/*
-            ⭐⭐ THE ROUTE, NOT A SECOND REPORT OF THE GAP.
+            ⭐⭐ THE ROUTE, NOT A SECOND REPORT OF THE GAP — AND SINCE 23 Sep 2026
+            IT IS THE INPUT ITSELF, NOT A PICKER THAT OPENS ONE.
 
-            ⛔ WIRED FACTORS ONLY, AND THAT IS THE AUTHORITY'S RULE RATHER THAN
-            A UI TASTE. `proposeOptionIntervention`: *"The SERVER additionally
-            requires the option to be WIRED to it and refuses otherwise."*
-            `buildOptionInterventionCandidates` projects exactly that set, so
-            every row here is one the server will accept — a picker offering an
-            unwired factor would be an enabled control that does nothing
-            (preamble P8), which is the defect class this increment closes.
+            THE USER PROBLEM: Paul added "Reduce Feature Scope", gave its size
+            four times in chat, and it was never analysed — it had no effect
+            values. The two-step picker (press a factor's name, THEN an editor
+            opens) sat under a section notice saying the value "cannot be set
+            from this section", so the route read as no route. Each empty linked
+            factor now asks its own question with the answer box beside it.
 
-            ⛔ IT SEEDS AN EMPTY EDITOR, NEVER THE FACTOR'S BASELINE. Opening at
-            the baseline would put a number on screen that nobody stated, and
-            committing it would assert an effect the reader never chose. The
-            same reasoning keeps `OptionPanel.handleAddFactor` local: an option
-            that changes a factor TO its current value is not an effect, it is
-            a claim that there is none.
+            ⛔ LINKED FACTORS ONLY, AND THAT IS THE AUTHORITY'S RULE RATHER THAN
+            A UI TASTE. CEE's `prepareOptionInterventionEdit` refuses a factor
+            `linkedFactorsOf(graph, option)` does not name
+            (`unresolved_effect_relationship`); `buildOptionInterventionCandidates`
+            projects exactly that set — the option's outgoing edges to factors,
+            minus the factors it already changes — so every input here is one the
+            server will accept.
 
-            ⚠ IT REUSES `onBeginInterventionEdit` RATHER THAN MINTING A SECOND
-            WRITE PATH. Adding a target and changing one are the same act on the
-            same field; two paths would be two answers to one question, and only
-            one of them would stay correct.
+            ⛔ THE INPUT OPENS EMPTY, NEVER AT THE FACTOR'S BASELINE. The factor's
+            current value is shown BESIDE it, for reference, and never put in it:
+            committing a baseline would assert an effect the reader never chose.
+
+            ⚠ IT REUSES `onBeginInterventionEdit` / `onCommitIntervention` AND
+            THE HOST'S ONE ACTIVE EDIT, RATHER THAN MINTING A SECOND WRITE PATH.
+            Adding a target and changing one are the same act on the same field.
+            The first keystroke into an idle box BEGINS the edit with what was
+            typed; Save commits through the same transaction the existing rows
+            use, so pending / queued / refused / unconfirmed are the SAME states,
+            with the SAME copy, and nothing is claimed before the receipt — no
+            value, no provenance mark. When the receipt lands the factor leaves
+            this list and appears above as an ordinary row, marked as the user's.
+
+            ⚠ SCALE: the existing option editor's 0–1 model scale, unchanged. The
+            placeholder says so, and the reference line shows where the factor
+            stands on it.
           */}
-          {interventionCandidates.filter(c => c.factorId !== editingCandidate?.factorId).length > 0 && (
-            <div data-testid="model-detail-v2-intervention-candidates" className="pt-1">
-              <p className={`${typography.panelMeta} text-text-light`}>
-                {ADD_INTERVENTION_PROMPT}
-              </p>
-              <ul className="flex flex-wrap gap-1 pt-0.5">
-                {interventionCandidates
-                  .filter(c => c.factorId !== editingCandidate?.factorId)
-                  .map(c => (
-                  <li key={c.factorId}>
-                    <button
-                      type="button"
-                      data-testid={`model-detail-v2-intervention-add-${c.factorId}`}
-                      disabled={typeof onBeginInterventionEdit !== 'function'}
-                      onClick={() => onBeginInterventionEdit?.(c.factorId, '')}
-                      aria-label={`Set what this option changes ${c.factorLabel} to`}
-                      title={
-                        typeof onBeginInterventionEdit === 'function'
-                          ? undefined
-                          : NO_AUTHORITY_INTERVENTION
-                      }
-                      className={`${typography.buttonSmall} border border-panel-border rounded px-2 py-0.5 ${
-                        typeof onBeginInterventionEdit === 'function'
-                          ? 'text-text-header hover:bg-panel-hover'
-                          : 'text-text-light cursor-not-allowed'
-                      }`}
+          {interventionCandidates.length > 0 && (
+            <ul
+              ref={firstValueListRef}
+              data-testid="model-detail-v2-intervention-candidates"
+              className="flex flex-col gap-2 pt-1"
+            >
+              {interventionCandidates.map(c => {
+                const active = interventionEdit?.factorId === c.factorId
+                const pending = active && interventionEdit?.phase === 'pending'
+                const queued = active && interventionEdit?.phase === 'queued'
+                const notice = active ? interventionEdit?.notice : undefined
+                const editable = typeof onBeginInterventionEdit === 'function'
+                const draft = active && interventionEdit ? interventionEdit.draft : ''
+                const inputId = `model-detail-v2-first-value-${c.factorId}`
+                const reference = firstValueReference(c)
+                return (
+                  <li
+                    key={c.factorId}
+                    data-testid={`model-detail-v2-intervention-${c.factorId}`}
+                    className="flex flex-col gap-0.5"
+                  >
+                    <label
+                      htmlFor={inputId}
+                      data-testid={`model-detail-v2-intervention-${c.factorId}-question`}
+                      className={`${typography.panelBody} text-text-body`}
                     >
-                      {c.factorLabel}
-                    </button>
+                      {firstValueQuestion(row.label, c.factorLabel)}
+                    </label>
+                    {reference !== null && (
+                      <span
+                        data-testid={`model-detail-v2-intervention-${c.factorId}-reference`}
+                        className={`${typography.panelMeta} text-text-light`}
+                      >
+                        {reference}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2">
+                      {pending || queued ? (
+                        <span
+                          data-testid={`model-detail-v2-intervention-${c.factorId}-${queued ? 'queued' : 'pending'}`}
+                          className={`${typography.panelBody} text-text-light`}
+                        >
+                          {draft}
+                          {queued ? ' · queued behind another change' : ' · sent, not saved yet'}
+                        </span>
+                      ) : (
+                        <>
+                          <input
+                            id={inputId}
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="0 to 1"
+                            data-testid={`model-detail-v2-intervention-${c.factorId}-input`}
+                            value={draft}
+                            disabled={!editable}
+                            title={editable ? undefined : NO_AUTHORITY_INTERVENTION}
+                            onChange={e =>
+                              active
+                                ? onInterventionDraftChange?.(c.factorId, e.target.value)
+                                : onBeginInterventionEdit?.(c.factorId, e.target.value)
+                            }
+                            onKeyDown={e => {
+                              if (!active) return
+                              if (e.key === 'Enter') onCommitIntervention?.(c.factorId)
+                              if (e.key === 'Escape') onDiscardInterventionEdit?.()
+                            }}
+                            className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                          />
+                          <button
+                            type="button"
+                            data-testid={`model-detail-v2-intervention-${c.factorId}-save`}
+                            disabled={!editable || !active || draft.trim() === ''}
+                            onClick={() => onCommitIntervention?.(c.factorId)}
+                            className={`${typography.buttonSmall} ${
+                              editable && active && draft.trim() !== '' ? 'text-info' : 'text-text-light'
+                            }`}
+                          >
+                            Save
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {notice !== undefined && (
+                      <span
+                        role="status"
+                        data-testid={`model-detail-v2-intervention-${c.factorId}-notice`}
+                        className={`${typography.panelBody} text-text-light`}
+                      >
+                        {notice}
+                      </span>
+                    )}
                   </li>
-                ))}
-              </ul>
-            </div>
+                )
+              })}
+            </ul>
           )}
         </section>
       )}

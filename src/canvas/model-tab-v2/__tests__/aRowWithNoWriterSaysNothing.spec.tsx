@@ -192,6 +192,11 @@ function renderOutline() {
       onBeginEdit={vi.fn()}
       onGroupAction={vi.fn()}
       editConnectedIds={NO_WRITERS}
+      // 23 Sep 2026: the notice reads the options that HAVE a first-value
+      // input, no longer `editConnectedIds` (`sectionWriterNotice.ts`). The
+      // option in this fixture has none — it is linked to nothing — so the
+      // positive control still holds, for the reason the notice now states.
+      optionIdsWithValueInputs={new Set<string>()}
     />,
   )
 }
