@@ -1,6 +1,9 @@
 /**
  * OptionNode render tests
- * T7: Win probability bar + Most supported badge
+ * T7: Win probability bar (+ the RETIRED "Most supported" badge — ED #63
+ *     5799353114 decision 1: "Drop 'Most supported'. It reads as a
+ *     recommendation." The badge cases now assert the card NEVER names a
+ *     leader, in the strongest case, each with a same-render contrast control.)
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -138,6 +141,21 @@ const renderOption = (data: Record<string, unknown> = {}) =>
     </ReactFlowProvider>
   )
 
+/**
+ * ED #63 5799353114 decision 1 — the option card never names a leader: no
+ * pill by identity, no robustness grade beside it, no "Most supported" in the
+ * card's text. CONTRAST CONTROL FIRST, from the same render: the card's label
+ * and its own "N% of runs" result row — so a blank render cannot pass.
+ */
+function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share: string) {
+  expect(screen.getByText('Hire 3 engineers')).toBeDefined()
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(OPTION_RESULT_COPY.share(share))
+  expect(screen.queryByTestId(`leading-option-pill-${id}`)).toBeNull()
+  expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()
+  expect(screen.queryByText(/most supported/i)).toBeNull()
+  expect(container.textContent ?? '').not.toMatch(/most supported/i)
+}
+
 describe('OptionNode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -200,10 +218,11 @@ describe('OptionNode', () => {
     expect(row.getAttribute('aria-label')).not.toMatch(/\bSupport/)
   })
 
-  // T7: Most supported badge. Post-1.223 this is the POSITIVE CONTROL against
-  // over-suppression: with the producer's own leader claim on the report, the
-  // badge must still render on the option that claim names.
-  it('shows Most supported badge for highest winRate option', () => {
+  // T7: Most supported badge — RETIRED (ED #63 5799353114 decision 1). This was
+  // the positive control against over-suppression; with the producer's own
+  // leader claim naming THIS option it is now the STRONGEST case for the
+  // retired badge to reappear in, and the card must still name no leader.
+  it('ED 5799353114 decision 1: the win-max leader named by the producer gets NO "Most supported" badge', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -237,8 +256,8 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    renderOption()
-    expect(screen.getByText('Most supported')).toBeDefined()
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '72%')
   })
 
   // Discrimination pin: the producer claim names option-2, and the rendered
@@ -323,7 +342,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Most supported')).toBeNull()
   })
 
-  it('badges the recommended option even when it is not the win-max leader (recommended_option_id wins)', () => {
+  it('ED 5799353114 decision 1: the producer-recommended option gets NO badge either (recommended_option_id)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
       achievementProbability: null, stabilityPercentage: null, winRate: 0.28, isResultsMode: true,
@@ -351,9 +370,10 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    // Rendered node is option-1, recommended by the backend despite a lower win.
-    renderOption()
-    expect(screen.getByText('Most supported')).toBeDefined()
+    // Rendered node is option-1, recommended by the backend despite a lower win
+    // — the identity the retired badge used to follow. It names no leader now.
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '28%')
   })
 
   // T8: Intervention chips
@@ -758,12 +778,12 @@ describe('OptionNode', () => {
     expect(row.getAttribute('aria-label')).toContain(OPTION_RESULT_COPY.sentence(percent))
   })
 
-  // V3: Most supported badge uses text-text-body (WCAG AA contrast on bg-success-light)
-  //
-  // Producer signal here is `decision_brief.headline_banded` rather than
-  // `near_tie`, so the canvas badge is pinned against BOTH producer authorities
-  // somewhere in this suite, not just the first one.
-  it('Most supported badge uses text-text-body (not text-success)', () => {
+  // V3: WAS "Most supported badge uses text-text-body (WCAG AA contrast)". The
+  // badge is retired (ED #63 5799353114 decision 1), so there is no badge whose
+  // contrast to pin. The fixture is kept because its producer signal is
+  // `decision_brief.headline_banded` rather than `near_tie`: the card's
+  // no-leader-claim is pinned against BOTH producer authorities in this suite.
+  it('ED 5799353114 decision 1: a `headline_banded` leader claim puts no badge on the card either', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -801,11 +821,8 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    renderOption()
-    const badge = screen.getByTestId('leading-option-pill-option-1')
-    expect(badge).toContainElement(screen.getByText('Most supported'))
-    expect(badge.className).toContain('text-text-body')
-    expect(badge.className).not.toContain('text-success')
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '72%')
   })
 
   // Null-safe paths — most likely regression sources in production
@@ -1165,7 +1182,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Most supported')).toBeNull()
   })
 
-  it('shows Most supported badge when a non-canvas option has higher rate in report', () => {
+  it('ED 5799353114 decision 1: no badge when a non-canvas option has a higher rate in the report', () => {
     // P0-2: only visible canvas option IDs count when computing max.
     //
     // Post-1.223 the fixture also pins WHICH argmax the producer's identity gate
@@ -1210,9 +1227,10 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    renderOption()
-    // option-1 has highest win rate among visible options → Most supported
-    expect(screen.getByText('Most supported')).toBeDefined()
+    // option-1 has the highest win rate among VISIBLE options — the retired
+    // badge's strongest case under the visible-option filter. No badge now.
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '72%')
   })
 
   it('does not show Most supported badge when only one option node exists', () => {

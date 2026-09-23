@@ -24,6 +24,14 @@
  * producer chain cannot reach (trap 16-inverse). The store shape mirrors
  * `OptionNode.leadingPillCornerStack.spec.tsx`'s, deliberately, so both suites
  * drive one shape rather than two restatements of it.
+ *
+ * ⭐ ED #63 5799353114 DECISION 1 (23 Sep 2026): "Drop 'Most supported'. It
+ * reads as a recommendation." The card no longer names a leader in ANY
+ * permission state, so the pill this suite used to show PRESENT on a permitted
+ * run is now asserted ABSENT there too — the strongest case, since `permitted`
+ * is exactly the state that used to license it. The withheld arms keep their
+ * absence assertions unchanged. Every absence is paired with a same-render
+ * contrast control (the card's own result row), so a blank render cannot pass.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -119,30 +127,51 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+/**
+ * ED #63 5799353114 decision 1 — the card makes NO leader claim: no pill by
+ * identity, no robustness grade beside it, and no "Most supported" in the
+ * card's text. Each absence is read from the SAME render as its contrast
+ * control: the card's own label and its model-relative result row.
+ */
+function expectNoLeaderClaimOnCard(container: HTMLElement) {
+  // CONTRAST CONTROL FIRST — the card rendered, with its result row.
+  expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
+  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72% of runs')
+  // …and the absences.
+  expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
+  expect(screen.queryByTestId(`leading-option-robustness-${NODE_ID}`)).toBeNull()
+  expect(screen.queryByText(/most supported/i)).toBeNull()
+  expect(container.textContent ?? '').not.toMatch(/most supported/i)
+}
+
 describe('OptionNode — a withheld leader claim removes the designation', () => {
-  it('PRECONDITION: with the producer silent, this card wears the pill', () => {
-    // Without this, every absence assertion below could pass by testing
-    // nothing (CLAUDE.md trap 13 — an absence probe needs a positive control).
-    renderOption(permittedReport())
-    expect(screen.getByTestId(`leading-option-pill-${NODE_ID}`)).toBeInTheDocument()
+  it('producer silent: the card still makes no leader claim (ED #63 5799353114 decision 1)', () => {
+    // WAS "PRECONDITION: this card wears the pill". The pill is retired, so the
+    // producer-silent arm is now an absence — with the contrast control inside
+    // the helper, so it cannot pass on a dead render (CLAUDE.md trap 13).
+    const { container } = renderOption(permittedReport())
+    expectNoLeaderClaimOnCard(container)
   })
 
-  it('DEFECT SIGNATURE: `leader_claim.permitted:false` removes the `Leading option` pill', () => {
-    renderOption(
+  it('DEFECT SIGNATURE: `leader_claim.permitted:false` — no `Leading option` pill', () => {
+    const { container } = renderOption(
       withPermission(permittedReport(), {
         permitted: false,
         withheld_reason: 'separation_unavailable',
       }),
     )
-    expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
     // Bound by identity AND by text, because the text is the claim the user
     // reads and the test id is the element the fix removes.
-    expect(screen.queryByText("Most supported")).toBeNull()
+    expectNoLeaderClaimOnCard(container)
   })
 
-  it('CONTRAST CONTROL: `permitted:true` leaves the pill exactly where it was', () => {
-    renderOption(withPermission(permittedReport(), { permitted: true }))
-    expect(screen.getByTestId(`leading-option-pill-${NODE_ID}`)).toBeInTheDocument()
+  it('`permitted:true` — the STRONGEST case — still puts no pill on the card (ED #63 5799353114 decision 1)', () => {
+    // WAS "CONTRAST CONTROL: permitted:true leaves the pill exactly where it
+    // was". Permission used to license the pill; after decision 1 it licenses
+    // nothing on the card. The contrast control is now the card's own result
+    // row, read in the same render.
+    const { container } = renderOption(withPermission(permittedReport(), { permitted: true }))
+    expectNoLeaderClaimOnCard(container)
   })
 
   it('THE DATA IS NOT DELETED: the option keeps its own win figure', () => {

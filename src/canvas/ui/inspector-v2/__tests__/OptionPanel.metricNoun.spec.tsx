@@ -40,17 +40,29 @@
  *   is preceded by the POSITIVE it depends on — the figure is on screen and the
  *   live noun captions it — and the retired-phrase sweep runs against the same
  *   `textContent` the positive was read from (trap 13).
- * · The caption is compared to `METRIC_NOUN.support` BY REFERENCE. Writing
- *   "Ahead" literally here would create the second authority the register
- *   exists to abolish; `metricVocabulary.spec.ts` already pins the register's
- *   own value with `toBe`.
+ * · The caption is compared to the register BY REFERENCE
+ *   (`OPTION_RESULT_COPY.current`, which IS `CURRENT_MODEL_NOUN`). Writing it
+ *   literally ONLY would create the second authority the register exists to
+ *   abolish; one literal assertion sits beside the derived one so a change of
+ *   the register's own words is still noticed (trap 12d).
+ *
+ * ⭐ ED #63 5799353114 decision 2 (23 Sep 2026): "Rename 'Support' → 'Current
+ *   model' wherever that result family remains visible. Tooltip/explanation
+ *   should say it is conditional on the current model/assumptions." The hero
+ *   caption was `METRIC_NOUN.support` ("Support"); it now reads
+ *   `Current model · of runs`, with the model-relative sentence as its title.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, within } from '@testing-library/react'
 
 import { InspectorModal } from '../../../components/InspectorModal'
 import { useCanvasStore } from '../../../store'
-import { METRIC_NOUN, RETIRED_METRIC_NOUNS } from '../../../nodes/shared/metricVocabulary'
+import {
+  CURRENT_MODEL_NOUN,
+  METRIC_NOUN,
+  OPTION_RESULT_COPY,
+  RETIRED_METRIC_NOUNS,
+} from '../../../nodes/shared/metricVocabulary'
 
 // importOriginal-spread, NOT a hand-listed factory: `vi.mock` REPLACES the
 // module, so a bare `{ useViewport }` factory silently removes every other
@@ -70,6 +82,12 @@ const RIVAL_LABEL = 'Full switch'
 
 /** The retired inspector caption, read from the register rather than re-typed. */
 const RETIRED_INSPECTOR_CAPTION = 'Chance of leading'
+
+/**
+ * The hero's caption under ED #63 5799353114 decision 2 — derived from the
+ * register, so the caption and this guard cannot drift into two wordings.
+ */
+const HERO_CAPTION = `${OPTION_RESULT_COPY.current} · of runs`
 
 function optionNode(id: string, label: string) {
   return {
@@ -130,7 +148,7 @@ beforeEach(() => {
 })
 
 describe("the option inspector captions the win probability with the canvas's noun", () => {
-  it('⭐ the caption beside the figure IS METRIC_NOUN.support, on the deployed mount path', () => {
+  it('⭐ the caption beside the figure is "Current model · of runs" (ED #63 5799353114 decision 2), on the deployed mount path', () => {
     const { dialog } = openInspector(OPTION_ID)
 
     // PRECONDITION 1 — the OPTION panel is what opened, identified by
@@ -157,11 +175,22 @@ describe("the option inspector captions the win probability with the canvas's no
     // IMMEDIATELY BEFORE it. That ordering is the claim — a caption that stops
     // sitting beside its number is exactly as broken as a caption with the
     // wrong word in it.
-    const caption = within(dialog).getByText(METRIC_NOUN.support)
+    const caption = within(dialog).getByText(HERO_CAPTION)
     expect(
       caption.previousElementSibling?.textContent?.trim(),
-      `"${METRIC_NOUN.support}" is on screen but is not captioning the win-probability figure`,
+      `"${HERO_CAPTION}" is on screen but is not captioning the win-probability figure`,
     ).toBe('62%')
+    // The literal, beside the derived form (trap 12d): the register's words.
+    expect(caption.textContent).toBe('Current model · of runs')
+    expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
+    // ED decision 2's second half: the explanation says the figure is
+    // conditional on the model — the register's own sentence, for THIS figure.
+    expect(caption.getAttribute('title')).toBe(OPTION_RESULT_COPY.sentence('62%'))
+    expect(caption.getAttribute('title')).toMatch(/the model favoured this option/)
+    expect(caption.getAttribute('title')).toMatch(/not a recommendation/)
+    // The retired caption is not what captions the figure any more — read from
+    // the SAME element whose presence and adjacency were just proven.
+    expect(caption.textContent).not.toMatch(new RegExp(`${METRIC_NOUN.support}(?![a-z])`))
   })
 
   it('⭐ the retired "Chance of leading" is nowhere on the option inspector', () => {
@@ -171,15 +200,15 @@ describe("the option inspector captions the win probability with the canvas's no
     // test whose surface never mounted is the vacuity trap 13 exists for, and
     // it is not inherited from the test above.
     expect(
-      within(dialog).getByText(METRIC_NOUN.support).previousElementSibling?.textContent?.trim(),
+      within(dialog).getByText(HERO_CAPTION).previousElementSibling?.textContent?.trim(),
       'PRECONDITION: the win-probability hero must be on screen for this absence to mean anything',
     ).toBe('62%')
 
     const copy = dialog.textContent ?? ''
     // CONTRAST CONTROL: the instrument can see this surface's text at all —
-    // and specifically the live noun, so a blank read cannot pass as a clean one.
+    // and specifically the live caption, so a blank read cannot pass as a clean one.
     expect(copy, 'the inspector read as empty — this absence assertion is vacuous').toContain(
-      METRIC_NOUN.support,
+      HERO_CAPTION,
     )
     expect(copy).toContain('62%')
 

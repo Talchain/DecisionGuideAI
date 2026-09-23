@@ -291,7 +291,15 @@ describe('inspector — ImportanceBar (the one renderer all four panels mount)',
 })
 
 describe('wording parity with the option card', () => {
-  it('the shared prefix is the exact string the option pill already renders', () => {
+  /**
+   * ⭐ RE-POINTED (ED #63 5799353114 decision 1, "Drop 'Most supported'"): the
+   * option card's `Last run · Most supported` pill — the string this prefix was
+   * first lifted from — is retired. The card still carries `Last run` on a
+   * changed run, on its result row, and that row's accessible name is
+   * `Last run · N% of runs. …`. Parity is therefore pinned against the row:
+   * one wording for one state across the factor and option cards.
+   */
+  it('the shared prefix is the exact string the option card\'s result row renders on a changed run — and no pill carries it', () => {
     const option = { label: 'Try a smaller pilot', type: 'option' }
     // The option card reads its win share off the display model (mocked in
     // this file); the leader itself comes from the real report verdict.
@@ -302,13 +310,21 @@ describe('wording parity with the option card', () => {
         { id: 'opt_b', type: 'option', position: { x: 0, y: 0 }, data: option },
       ],
     })
-    render(<ReactFlowProvider><OptionNode
+    const { container } = render(<ReactFlowProvider><OptionNode
       id="opt_a" type="option" data={option as never} selected={false}
       isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
       dragging={false} zIndex={0} deletable selectable draggable
     /></ReactFlowProvider>)
     editTheModel()
     expect(LAST_RUN_PREFIX).toBe('Last run · ')
-    expect(screen.getByTestId('leading-option-pill-opt_a').textContent).toBe(`${LAST_RUN_PREFIX}Most supported`)
+    // The row's visible caption is the prefix's word, and its accessible name
+    // opens with the prefix byte for byte — the same string the factor card uses.
+    expect(`${screen.getByTestId('option-win-anchor-opt_a').textContent} · `).toBe(LAST_RUN_PREFIX)
+    expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
+      .toMatch(new RegExp(`^${LAST_RUN_PREFIX}72% of runs\\. `))
+    // …and the retired pill does not come back carrying it (this card IS the
+    // producer's named leader — the strongest case). Contrast: the row above.
+    expect(screen.queryByTestId('leading-option-pill-opt_a')).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/most supported/i)
   })
 })

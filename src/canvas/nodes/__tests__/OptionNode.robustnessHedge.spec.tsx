@@ -1,28 +1,32 @@
 /**
- * THE CANVAS HEDGES THE CLAIM THE PROSE HEDGES — the founder's payload.
+ * THE CANVAS CARD CARRIES NEITHER THE LEADER CLAIM NOR ITS ROBUSTNESS GRADE.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * THE HARM, MEASURED (deployed UI `a9c2e050`, founder session 5 Sep 2026)
+ * WHAT THIS SUITE USED TO PIN, AND WHY IT NOW PINS THE OPPOSITE
  * ═══════════════════════════════════════════════════════════════════════════
- * One payload carried `robustness.aggregate_level: "very_low"` AND
- * `leader_claim.permitted: true`. The chat said *"treat this as provisional…
- * not yet robust — small changes could flip it."* The option card, inches away
- * and reading the same run, wore a `Leading option` crown over a bare
- * `Ahead 53%` bar and said nothing about robustness.
+ * The founder's payload (deployed UI `a9c2e050`, 5 Sep 2026) carried
+ * `robustness.aggregate_level: "very_low"` AND a permitted leader claim; the
+ * card wore a crown with no caveat while the prose hedged. The fix of the day
+ * put a robustness grade (`leading-option-robustness-${id}`, e.g. "Highly
+ * sensitive") beside the "Most supported" pill, gated on the same claim.
  *
- * ⭐ THE INVARIANT THIS SUITE PINS, IN BOTH DIRECTIONS:
- *   fragile run + permitted crown  ⇒ crown STILL renders, AND a grade beside it
- *   robust  run + permitted crown  ⇒ crown renders, and NO grade
- * The second is the opposite-direction twin and it is the load-bearing half. A
- * suppression-only corpus cannot see a fix that closes the lie by silencing the
- * truth, and silencing is the worse defect — `src/lib/decisionVerdict.ts` owns
- * axis 1 and forbids denying a lead because it is fragile.
+ * ⭐ ED #63 5799353114 DECISION 1 (23 Sep 2026): "Drop 'Most supported'. It
+ * reads as a recommendation." — and decision 5: "No new recommendation
+ * language, warning styling or invented science semantics." With the claim
+ * gone, the grade that qualified it has nothing to qualify and goes with it;
+ * the panel owns the comparative claim and its robustness caveat.
  *
- * ⭐ AND THE THIRD DIRECTION: the disclosure may never appear WITHOUT the claim.
- * A withheld crown on a fragile run must show neither.
+ * ⭐ THE INVARIANT NOW, exercised in the STRONGEST case (permitted claim, this
+ * card IS the leader, `very_low` grade) and across every level the old suite
+ * drove, so no input that used to produce a pill or a grade produces one now:
+ *   any run  ⇒  no pill, no grade, no "Most supported" — AND the card's own
+ *               model-relative result row is still there (contrast control).
  *
- * Binds by IDENTITY (`leading-option-robustness-${id}`), never "some element
- * reading 'Highly sensitive'" — CLAUDE.md trap 19.
+ * ⭐ THE DATA IS NOT THE CLAIM. The win share is still printed on a fragile run
+ * — that half of the old suite is kept verbatim.
+ *
+ * Binds by IDENTITY (`leading-option-pill-${id}`, `leading-option-robustness-
+ * ${id}`), plus the text a user would read — CLAUDE.md trap 19.
  *
  * ⚠ WHAT IT DOES NOT CLAIM (trap 3). jsdom performs no layout. These are
  * assertions about what is MOUNTED, never about pixels or visibility.
@@ -131,40 +135,49 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('OptionNode — the run\'s robustness travels with the leader claim', () => {
-  it('PRECONDITION: the fixture actually crowns this card, so every case below is about the GRADE', () => {
-    // Pins the suite's own precondition in-test. Without this, a fixture that
-    // silently stopped crowning would make every "no grade" assertion below
-    // pass for the wrong reason — a tautology with no red anywhere (trap 13b).
-    renderOption(reportWithRobustness({ level: 'high' }))
-    expect(screen.getByTestId(PILL)).toBeInTheDocument()
+/**
+ * ED #63 5799353114 decision 1 — absence of the claim AND of its qualifier,
+ * each read from the SAME render as a contrast control that is present: the
+ * card's label and its "N% of runs" result row. A blank render cannot pass.
+ */
+function expectNoClaimNoGrade(container: HTMLElement) {
+  // CONTRAST CONTROL FIRST.
+  expect(screen.getByText('Hire a Tech Lead')).toBeInTheDocument()
+  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53% of runs')
+  // The claim.
+  expect(screen.queryByTestId(PILL)).toBeNull()
+  expect(screen.queryByText(/most supported/i)).toBeNull()
+  // The qualifier — by identity, by visible text, and by accessible name (the
+  // grade was a `role="img"` carrying its sentence in `aria-label`).
+  expect(screen.queryByTestId(GRADE)).toBeNull()
+  expect(screen.queryByText(/highly sensitive/i)).toBeNull()
+  expect(screen.queryByRole('img', { name: /sensitive|small changes could flip it/i })).toBeNull()
+  const text = container.textContent ?? ''
+  expect(text).not.toMatch(/most supported/i)
+  expect(text).not.toMatch(/highly sensitive/i)
+}
+
+describe('OptionNode — no leader pill and no robustness grade on the card (ED #63 5799353114 decision 1)', () => {
+  it('⭐ STRONGEST CASE — permitted claim, this card leads, `very_low`: no pill, no grade', () => {
+    // Exactly the payload that used to produce BOTH (the founder's run).
+    const { container } = renderOption(reportWithRobustness({ level: 'very_low' }))
+    expectNoClaimNoGrade(container)
   })
 
-  it('very_low: crowns the card AND discloses the grade beside it', () => {
-    renderOption(reportWithRobustness({ level: 'very_low' }))
-    expect(screen.getByTestId(PILL)).toBeInTheDocument()
-    expect(screen.getByTestId(GRADE)).toHaveTextContent('Highly sensitive')
-  })
-
-  it('low: crowns the card AND discloses the grade beside it', () => {
-    renderOption(reportWithRobustness({ level: 'low' }))
-    expect(screen.getByTestId(PILL)).toBeInTheDocument()
-    expect(screen.getByTestId(GRADE)).toHaveTextContent('Sensitive')
-  })
-
-  // ── THE OPPOSITE-DIRECTION TWIN ──────────────────────────────────────────
-  // A robust, permitted result must still render its leader in FULL. These are
-  // the cases a suppression-only fix would break, and they must stay green.
-  it('TWIN — high: crowns the card and adds NO grade', () => {
-    renderOption(reportWithRobustness({ level: 'high' }))
-    expect(screen.getByTestId(PILL)).toBeInTheDocument()
-    expect(screen.queryByTestId(GRADE)).toBeNull()
-  })
-
-  it('TWIN — moderate: crowns the card and adds NO grade', () => {
-    renderOption(reportWithRobustness({ level: 'moderate' }))
-    expect(screen.getByTestId(PILL)).toBeInTheDocument()
-    expect(screen.queryByTestId(GRADE)).toBeNull()
+  // Every input the old suite drove — the two hedged levels that produced a
+  // grade, the two robust twins that produced a bare pill, and the fail-closed
+  // shapes — now produces neither, so no single level can bring the pill back.
+  it.each([
+    ['low', { level: 'low' }],
+    ['moderate', { level: 'moderate' }],
+    ['high', { level: 'high' }],
+    ['legacy producer sending no robustness grade', {}],
+    ['an unrecognised level string', { level: 'catastrophic', recommendation_stability: 0.1 }],
+    ['no `level`, only a fragile-looking recommendation_stability', { recommendation_stability: 0.05 }],
+    ['no `level`, only a high recommendation_stability', { recommendation_stability: 0.95 }],
+  ])('%s: no pill, no grade', (_name, robustness) => {
+    const { container } = renderOption(reportWithRobustness(robustness))
+    expectNoClaimNoGrade(container)
   })
 
   it('TWIN — the win probability is never suppressed on a fragile run', () => {
@@ -175,42 +188,12 @@ describe('OptionNode — the run\'s robustness travels with the leader claim', (
     expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53%')
   })
 
-  // ── FAIL-CLOSED ON ABSENCE ───────────────────────────────────────────────
-  it('legacy producer sending no robustness grade: crown unchanged, no invented caveat', () => {
-    renderOption(reportWithRobustness({}))
-    expect(screen.getByTestId(PILL)).toBeInTheDocument()
-    expect(screen.queryByTestId(GRADE)).toBeNull()
-  })
-
-  it('an unrecognised level string is not re-derived into a grade', () => {
-    renderOption(reportWithRobustness({ level: 'catastrophic', recommendation_stability: 0.1 }))
-    expect(screen.queryByTestId(GRADE)).toBeNull()
-  })
-
-  // ⚠⚠ THE WITHHELD FIELD IS NEVER READ. PLoT deliberately withholds
-  // `recommendation_stability` — it is the leader's `win_probability`
-  // relabelled, with "zero independent information" (see
-  // `withheldFieldReadBan.spec.ts`). Grading the card from it would fabricate a
-  // robustness statistic out of the very number printed beside it. The card
-  // stays SILENT rather than hedging from a number nothing can vouch for, and
-  // the crown is unaffected either way.
-  it.each([
-    ['a fragile-looking numeric', 0.05],
-    ['a high numeric', 0.95],
-  ])('no `level`, only recommendation_stability (%s): crown shown, no grade', (_n, stability) => {
-    renderOption(reportWithRobustness({ recommendation_stability: stability }))
-    expect(screen.getByTestId(PILL)).toBeInTheDocument()
-    expect(screen.queryByTestId(GRADE)).toBeNull()
-  })
-
-  // ── THE DISCLOSURE MAY NEVER APPEAR WITHOUT THE CLAIM ────────────────────
-  it('withheld crown on a fragile run shows NEITHER the crown nor the grade', () => {
+  it('withheld crown on a fragile run: still neither', () => {
     const withheld = {
       ...reportWithRobustness({ level: 'very_low' }),
       producer_leader_permission: { permitted: false, withheld_reason: 'separation_unavailable' },
     }
-    renderOption(withheld)
-    expect(screen.queryByTestId(PILL)).toBeNull()
-    expect(screen.queryByTestId(GRADE)).toBeNull()
+    const { container } = renderOption(withheld)
+    expectNoClaimNoGrade(container)
   })
 })

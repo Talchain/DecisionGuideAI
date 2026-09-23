@@ -78,6 +78,7 @@ import {
   WIN_RUNNER_UP,
 } from '../../../lib/__fixtures__/ownedLeaderClaim.fixtures'
 import type { AnalysisAdmissionV1 } from '../../../adapters/cee/types'
+import { deriveDecisionVerdict } from '../../../lib/decisionVerdict'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -224,6 +225,21 @@ function renderDecision() {
 /** The crown, bound BY OPTION ID — never by a value another option could satisfy. */
 const crownFor = (id: string) => screen.queryByTestId(`leading-option-pill-${id}`)
 
+/**
+ * ED #63 5799353114 decision 1 ("Drop 'Most supported'. It reads as a
+ * recommendation."): the crown is retired from the card in EVERY admission
+ * arm. Asserted by identity (pill + the grade that rode beside it) and by the
+ * text a user reads, after a same-render CONTRAST CONTROL — the card's label
+ * and its own "N% of runs" result row — so a dead render cannot pass.
+ */
+function expectNoCrown(container: HTMLElement, id: string, label: string, share: string) {
+  expect(screen.getByText(label)).toBeDefined()
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(`${share} of runs`)
+  expect(crownFor(id)).toBeNull()
+  expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()
+  expect(container.textContent ?? '').not.toMatch(/most supported/i)
+}
+
 beforeEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -258,33 +274,48 @@ describe('the surfaces under test are the ones the canvas actually mounts', () =
 // OptionNode — the crown
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('OptionNode crown — Q1 is consulted, not only Q2', () => {
+/**
+ * ⭐ ED #63 5799353114 DECISION 1 CHANGED WHAT THIS BLOCK CAN OBSERVE. The
+ * crown was the visible witness of `isRecommended`; it is now retired from the
+ * card in every arm. ARM A and ARM B, which pinned the crown PRESENT, are
+ * re-pointed at the ruling — they are the strongest cases (Q2 true and Q1 not
+ * refused) and the card must still name no leader. Q1's surviving card-side
+ * readers are the INVERSE-FORM designations below ("Held back by:", "Close
+ * call"), whose permitted/refused twins are unchanged and still discriminate.
+ */
+describe('OptionNode crown — retired (ED #63 5799353114 decision 1) in every Q1 arm', () => {
   it('HARNESS PRECONDITION: Q2 is TRUE on this fixture, so every arm below isolates Q1', () => {
     // Trap 13b third face: a discriminator whose precondition nothing pins can
     // stop discriminating silently. If `PERMITTED_REPORT` ever stopped
     // separating the arms, every withheld assertion below would pass for the
     // WRONG reason — Q2 refusing rather than Q1 — and the file would read green
     // while pinning nothing about admission at all.
-    withStore(undefined)
-    renderOption(LEADER_ID, LEADER_LABEL)
+    //
+    // ⚠ WAS PINNED THROUGH THE CROWN, which no longer renders. Pinned instead
+    // through the ONE module entitled to answer Q2, called exactly as
+    // `OptionNode` calls it (same report, same visible-option set).
+    const verdict = deriveDecisionVerdict(PERMITTED_REPORT, {
+      visibleOptionIds: new Set(OPTION_NODES.map(n => n.id)),
+    })
     expect(
-      crownFor(LEADER_ID),
-      'the fixture must crown the leader with no admission present, or these arms measure Q2',
-    ).not.toBeNull()
+      verdict.hasLeadingOption,
+      'the fixture must separate the arms with no admission present, or these arms measure Q2',
+    ).toBe(true)
+    expect(verdict.leaderId).toBe(LEADER_ID)
   })
 
-  it('ARM A — no admission key at all: today’s behaviour, byte for byte', () => {
-    // The producer has not spoken. This arm is what makes the change safe to
-    // land in either deploy order, and it is asserted rather than assumed.
+  it('ARM A — no admission key at all: the leader card still names no leader', () => {
+    // The producer has not spoken — the arm that used to crown. Contrast
+    // control inside `expectNoCrown`.
     withStore(undefined)
-    renderOption(LEADER_ID, LEADER_LABEL)
-    expect(crownFor(LEADER_ID)).not.toBeNull()
+    const { container } = renderOption(LEADER_ID, LEADER_LABEL)
+    expectNoCrown(container, LEADER_ID, LEADER_LABEL, `${Math.round(WIN_LEADER * 100)}%`)
   })
 
-  it('ARM B — permitted: the leader keeps its crown (over-suppression control)', () => {
+  it('ARM B — permitted (the STRONGEST case): the leader card still names no leader', () => {
     withStore(ADMISSION_PERMITTED)
-    renderOption(LEADER_ID, LEADER_LABEL)
-    expect(crownFor(LEADER_ID)).not.toBeNull()
+    const { container } = renderOption(LEADER_ID, LEADER_LABEL)
+    expectNoCrown(container, LEADER_ID, LEADER_LABEL, `${Math.round(WIN_LEADER * 100)}%`)
   })
 
   it('⭐ ARM C — refused (`none`): the leader is NOT crowned', () => {

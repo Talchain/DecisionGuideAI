@@ -613,7 +613,7 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     // never captions this "Support" — cards read "Current model · N% of runs".
     // The row names the quantity in the card's words and says it is
     // conditional on the model and its assumptions, not a recommendation.
-    gloss: 'on option cards “N% of runs”: the share of simulated runs that favour this option under the current model and its assumptions, not a recommendation',
+    gloss: 'on option cards “N% of runs”: runs favouring this option under this model’s assumptions; not a recommendation',
   },
   {
     noun: METRIC_NOUN.chance,

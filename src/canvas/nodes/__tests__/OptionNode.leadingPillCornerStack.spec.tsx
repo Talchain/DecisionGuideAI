@@ -1,5 +1,19 @@
 /**
- * "Most supported" pill — ONE positioning authority for the top-right corner.
+ * "Most supported" pill — RETIRED from the card; the corner stack keeps ONE
+ * positioning authority for what remains.
+ *
+ * ⭐ ED #63 5799353114 DECISION 1 (23 Sep 2026): "Drop 'Most supported'. It
+ * reads as a recommendation." `OptionNode` no longer passes `cornerSlot` at
+ * all, so the pill (and the robustness grade that rode beside it) is gone from
+ * the corner stack. The cases below that drove the pill INTO the stack are
+ * re-pointed at the strongest case — this card IS the permitted leader, with
+ * the edited dot and the coaching marker also present — and assert that the
+ * stack holds exactly those two members and no pill, each absence paired with
+ * a present sibling in the same render. The rank-badge impossibility pin and
+ * the ordinal pin are unchanged. The history below is kept because it is why
+ * the stack is shaped the way it is.
+ *
+ * ── HISTORY (the migration this file was written for) ──────────────────────
  *
  * THE DEFECT. `OptionNode` hand-wrote the pill at `absolute -top-2 -right-2
  * z-10` — byte-for-byte the anchor and z-index of `node-corner-stack-{id}`
@@ -203,65 +217,61 @@ beforeEach(() => {
   useGuidanceStore.getState().clearGuidanceItems()
 })
 
-describe('OptionNode — "Most supported" pill lives in the ONE corner stack', () => {
-  it('PRECONDITION: the pill and the ordinal both render on this card', () => {
-    // Trap 13b: pin the precondition in-test. Every assertion below is about a
-    // card carrying BOTH, so if the fixture ever stopped producing the pill (a
-    // withheld leader claim, a lost win probability) the structural tests would
-    // pass by testing nothing. This is the state the sibling lane could not
-    // reach on the deployed build.
-    renderOption()
-    expect(screen.getByText("Most supported")).toBeInTheDocument()
+/**
+ * ED #63 5799353114 decision 1 — the card names no leader. Asserted by
+ * identity (pill and grade test ids) AND by the text a user would read, after
+ * a same-render contrast control: the card's label and its result row.
+ */
+function expectNoLeaderPill(container: HTMLElement) {
+  expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
+  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72% of runs')
+  expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
+  expect(screen.queryByTestId(`leading-option-robustness-${NODE_ID}`)).toBeNull()
+  expect(screen.queryByText(/most supported/i)).toBeNull()
+  expect(container.textContent ?? '').not.toMatch(/most supported/i)
+}
+
+describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no "Most supported" pill)', () => {
+  it('the permitted LEADER card renders its ordinal and result row, and NO pill', () => {
+    // WAS "PRECONDITION: the pill and the ordinal both render". The fixture is
+    // unchanged — the producer's claim names THIS card and nothing withholds
+    // it — which is the strongest case for the retired pill to reappear in.
+    const { container } = renderOption()
     expect(screen.getByTestId(`option-stable-number-${NODE_ID}`)).toBeInTheDocument()
+    expectNoLeaderPill(container)
   })
 
-  it('DEFECT SIGNATURE: the pill is inside the stack that owns this corner', () => {
-    // Located by its TEXT on purpose, so this test addresses the element that
-    // exists at pristine and fails on the STRUCTURE rather than on a missing
-    // test id. Before the migration it resolved a `<span>` sitting outside the
-    // stack while carrying the stack's own `absolute -top-2 -right-2 z-10` —
-    // two independently positioned boxes claiming one point. That is the whole
-    // defect, and this is the assertion that goes red without the fix.
-    renderOption()
-    const label = screen.getByText("Most supported")
-    // The freshness qualifier shares the pill, so the wording now has its
-    // own child span. Retain the text-based fallback for the pre-migration
-    // defect, but test the positioned pill rather than that inner label.
-    const pill = label.closest<HTMLElement>(`[data-testid="leading-option-pill-${NODE_ID}"]`) ?? label
+  it('no pill in the stack that owns this corner — the stack is there, the pill is not', () => {
+    // WAS "DEFECT SIGNATURE: the pill is inside the stack". The stack itself is
+    // the contrast control: it IS mounted, so the pill's absence from it is a
+    // statement about the pill, not about a missing container.
+    const { container } = renderOption()
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-    expect(stack).toContainElement(pill)
-    // Identity confirmation: the element the migration moved is the one the
-    // rest of this suite addresses by test id (trap 19 — never two elements).
-    expect(pill).toBe(screen.getByTestId(`leading-option-pill-${NODE_ID}`))
+    expect(stack).toContainElement(screen.getByTestId(`edited-since-run-${NODE_ID}`))
+    expect(stack.querySelector('[data-testid^="leading-option-"]')).toBeNull()
+    expect(stack.textContent ?? '').not.toMatch(/most supported/i)
+    expectNoLeaderPill(container)
   })
 
-  it('ALL THREE REACHABLE: pill, edited dot and coaching are distinct siblings of the ONE stack, in order', () => {
-    // Three, not four: the rank badge cannot render on an option node at all
-    // (pinned below). This is the LARGEST set this card can actually produce,
-    // which is what makes it the right state to drive.
+  it('ALL REACHABLE: on the leader, the ONE stack holds exactly the edited dot and coaching, in order — no pill', () => {
+    // WAS three members (pill, dot, coaching). With the pill retired, the
+    // LARGEST set this leading card can produce is the dot and the coaching
+    // marker (the rank badge cannot render on an option node — pinned below).
     useGuidanceStore.getState().setGuidanceItems([makeGuidanceItem()])
-    renderOption()
+    const { container } = renderOption()
 
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-    const pill = screen.getByTestId(`leading-option-pill-${NODE_ID}`)
     const edited = screen.getByTestId(`edited-since-run-${NODE_ID}`)
     const coaching = screen.getByTestId(`node-coaching-marker-${NODE_ID}`)
 
-    // THE DEFECT, pinned: the pill was a second positioned box in this corner,
-    // not a member of the stack that owns it.
-    expect(stack).toContainElement(pill)
-    expect(stack).toContainElement(edited)
-    expect(stack).toContainElement(coaching)
-
-    // Order, bound by IDENTITY (trap 19) — each child is the specific element,
-    // never "an element with these classes", which a sibling badge could also
-    // satisfy. The length assertion is what makes this a statement about the
-    // WHOLE container rather than about three elements that happen to be in it.
+    // Order, bound by IDENTITY (trap 19). The length assertion is what makes
+    // this a statement about the WHOLE container: a pill re-inserted anywhere
+    // in the stack makes it three.
     const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(3)
-    expect(kids[0]).toBe(pill)
-    expect(kids[1]).toBe(edited)
-    expect(kids[2]).toBe(coaching)
+    expect(kids).toHaveLength(2)
+    expect(kids[0]).toBe(edited)
+    expect(kids[1]).toBe(coaching)
+    expectNoLeaderPill(container)
   })
 
   /**
@@ -315,17 +325,24 @@ describe('OptionNode — "Most supported" pill lives in the ONE corner stack', (
     expect(assignmentAt).toBeLessThan(optionBranchAt)
   })
 
-  it('the pill carries NO positioning of its own — the stack owns the corner', () => {
-    renderOption()
-    const pill = screen.getByTestId(`leading-option-pill-${NODE_ID}`)
+  it('the stack still owns the corner — and no second positioned box claims it', () => {
+    // WAS "the pill carries NO positioning of its own". The pill is gone; what
+    // survives is the invariant it was migrated for: ONE positioned container
+    // in this corner, and nothing else on the card carrying the stack's own
+    // anchor (the pill's pre-migration defect was a byte-for-byte copy of it).
+    // The anchor is DERIVED from the stack's constant, and the stack itself is
+    // the positive control: the probe must find exactly it, so a probe that
+    // matched nothing could not pass.
+    useGuidanceStore.getState().setGuidanceItems([makeGuidanceItem()])
+    const { container } = renderOption()
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-
-    // The exact classes the pill used to hand-write, which duplicated the
-    // stack's. A static flex child cannot self-collide with its siblings.
-    expect(pill.className).not.toContain('absolute')
-    expect(pill.className).not.toContain('-top-2')
-    expect(pill.className).not.toContain('-right-2')
-    expect(pill.className).not.toContain('z-10')
+    const anchorTokens = CANVAS_CORNER_STACK_CLASSES.split(/\s+/)
+      .filter(t => /^(absolute$|-?(top|right|bottom|left)-)/.test(t))
+    expect(anchorTokens.length).toBeGreaterThanOrEqual(2)
+    const claimants = Array.from(container.querySelectorAll<Element>('*'))
+      .filter(el => anchorTokens.every(t => el.classList.contains(t)))
+    expect(claimants).toEqual([stack])
+    expectNoLeaderPill(container)
 
     // ...and the stack still declares the single anchor + z for all of them.
     // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
@@ -402,11 +419,13 @@ describe('OptionNode — "Most supported" pill lives in the ONE corner stack', (
     expect(stack).toContainElement(screen.getByTestId(`edited-since-run-${NODE_ID}`))
   })
 
-  it("PILL ALONE: with no dot or coaching it is the stack's only child", () => {
-    renderOption({ editedSinceRunNodeIds: new Set<string>() })
+  it('NOTHING ELSE IN THE CORNER: with no dot or coaching the leader\'s stack is EMPTY — the pill does not fill it', () => {
+    // WAS "PILL ALONE". The stack is still mounted (the contrast control for
+    // its emptiness), and the card's own result row proves the render is live.
+    const { container } = renderOption({ editedSinceRunNodeIds: new Set<string>() })
 
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-    const pill = screen.getByTestId(`leading-option-pill-${NODE_ID}`)
-    expect(Array.from(stack.children)).toEqual([pill])
+    expect(Array.from(stack.children)).toEqual([])
+    expectNoLeaderPill(container)
   })
 })

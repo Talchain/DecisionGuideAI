@@ -29,6 +29,8 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
+  CURRENT_MODEL_NOUN,
+  OPTION_RESULT_COPY,
   METRIC_NOUN,
   METRIC_UNSET,
   METRIC_LEGEND_ROWS,
@@ -136,10 +138,33 @@ describe('METRIC_LEGEND_ROWS', () => {
     // The binding that makes the legend COMPLETE rather than merely present:
     // adding a fifth noun without a row REDs here. Derived from the register,
     // so there is no second list to keep in sync.
+    //
+    // ⭐ ED #63 5799353114 decision 2: "Rename 'Support' → 'Current model'
+    // wherever that result family remains visible". On the CANVAS the
+    // comparative family is captioned `CURRENT_MODEL_NOUN` — the option card's
+    // `OPTION_RESULT_COPY.current` — so that is the noun the legend row must
+    // carry. `METRIC_NOUN.support` stays in the register for the panel-owned
+    // surfaces, and is exactly what the canvas legend must NOT say.
     const explained = METRIC_LEGEND_ROWS.map((r) => r.noun)
-    for (const noun of Object.values(METRIC_NOUN)) {
+    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN })
+    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length)
+    for (const noun of canvasCaptions) {
       expect(explained, `"${noun}" is captioned on a card but absent from the legend`).toContain(noun)
     }
+    // The card's caption and the legend's noun are ONE value…
+    expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
+    // …and the literal, so the register changing its own word is noticed (trap 12d).
+    expect(CURRENT_MODEL_NOUN).toBe('Current model')
+    // CONTRAST: the retired canvas caption is not a legend noun, while the
+    // present row above IS — so this absence is read from a populated list.
+    expect(explained).not.toContain(METRIC_NOUN.support)
+    // ED decision 2's second half, on the row itself: conditional on the model
+    // and its assumptions, and not a recommendation. Asserted on the PROPERTY,
+    // not the sentence, so a rewording that keeps the condition stays green.
+    const row = METRIC_LEGEND_ROWS.find((r) => r.noun === CURRENT_MODEL_NOUN)!
+    expect(row.gloss).toMatch(/\bmodel\b/)
+    expect(row.gloss).toMatch(/\bassumptions?\b/)
+    expect(row.gloss).toMatch(/not a recommendation/)
   })
 
   it('the influence gloss is DERIVED from the producer, not re-worded', () => {

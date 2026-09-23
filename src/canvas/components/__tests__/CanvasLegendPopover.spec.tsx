@@ -19,7 +19,7 @@ import {
   visibleMetricRows,
 } from '../CanvasLegendPopover'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
-import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, OPTION_RESULT_COPY, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
 
@@ -408,12 +408,33 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
   it('POST-RUN: explains the four captions a reader meets on a card', () => {
     // Named explicitly as well as derived — so deleting a noun from the
     // register cannot make the derived test above pass by iterating less.
+    //
+    // ⭐ ED #63 5799353114 decision 2: "Rename 'Support' → 'Current model'
+    // wherever that result family remains visible". The canvas captions the
+    // comparative family `Current model` (the option card's own caption,
+    // `OPTION_RESULT_COPY.current`), so that — not `METRIC_NOUN.support`, which
+    // the panel-owned surfaces still read — is the noun the key must explain.
     setBoard('complete', { numberedNodes: true })
     open()
     const text = screen.getByRole('dialog').textContent ?? ''
-    for (const noun of Object.values(METRIC_NOUN)) {
+    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN })
+    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length)
+    for (const noun of canvasCaptions) {
       expect(text, `"${noun}" is captioned on a card but absent from the key`).toContain(noun)
     }
+    // The noun the key explains IS the caption the option card prints (one
+    // noun per idea, across the key and the card)…
+    expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
+    // …and the literal, so the register changing its own word is noticed (trap 12d).
+    expect(text).toContain('Current model')
+    // ED decision 2's second half: the explanation ON SCREEN says it is
+    // conditional on the model and its assumptions, and is not a
+    // recommendation — the property, read from the row the key renders.
+    const currentModelRow = METRIC_LEGEND_ROWS.find(r => r.noun === CURRENT_MODEL_NOUN)!
+    expect(text).toContain(currentModelRow.gloss)
+    expect(currentModelRow.gloss).toMatch(/\bmodel\b/)
+    expect(currentModelRow.gloss).toMatch(/\bassumptions?\b/)
+    expect(currentModelRow.gloss).toMatch(/not a recommendation/)
   })
 
   it('⭐ CONTRAST: the RETIRED synonyms appear nowhere in the key', () => {
@@ -429,10 +450,28 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     expect(text).not.toContain('Leads')
     expect(text).not.toContain('Achievement')
     expect(text).not.toContain('Chance of leading')
+    // ⭐ ED #63 5799353114 decisions 1–2: the canvas no longer says "Support"
+    // for this result family, nor "Most supported" for a leader. A key that
+    // explained both would document the confusion rather than end it.
+    //
+    // ⚠ NO LEADING `\b`. `textContent` glues adjacent rows together — the row
+    // before this one ends "…suggested this", so a retired noun would read
+    // "thisSupport:" and a word-boundary probe would MISS it (measured: a
+    // `\bSupport\b` probe stayed green with the noun reverted to "Support").
+    // The probe below is bounded on the right only, and a noun-element probe
+    // (each row's noun is its own <span>) sits beside it.
+    const RETIRED_SUPPORT = /Support(?![a-z])/
+    expect(text).not.toMatch(RETIRED_SUPPORT)
+    expect(screen.queryByText(METRIC_NOUN.support)).toBeNull()
+    expect(text).not.toMatch(/most supported/i)
+    expect(text).not.toMatch(/most-supported/i)
     // Discrimination: the popover HAS text and the live noun IS there, so the
-    // three absences above are not passing on an empty container.
+    // absences above are not passing on an empty container.
     expect(text.length).toBeGreaterThan(200)
-    expect(text).toContain(METRIC_NOUN.support)
+    expect(text).toContain(CURRENT_MODEL_NOUN)
+    expect(screen.getByText(CURRENT_MODEL_NOUN)).toBeInTheDocument()
+    // …and the retired-word probe can fire on GLUED text, the shape it meets.
+    expect(RETIRED_SUPPORT.test(`Olumi suggested this${METRIC_NOUN.support}: on option cards`)).toBe(true)
   })
 
   it('the numbers copy respects the popover vocabulary ban', () => {
@@ -743,10 +782,11 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // point 4: "Do not use `Support` as the result label"). The option card
     // still renders this quantity — the share of simulated runs — as its
     // model-relative readout "N% of runs" (`OPTION_RESULT_COPY.share`), and the
-    // register row's gloss now names that caption. The HEADING stays the
-    // register's comparative anchor (`METRIC_NOUN.support`, shared with the
-    // inspector and compare surfaces), which this probe does not decide.
-    { noun: METRIC_NOUN.support, files: ['OptionNode.tsx'], pattern: /OPTION_RESULT_COPY\.share\(/ },
+    // register row's gloss now names that caption.
+    // ⚠ NOUN RE-DERIVED (ED #63 5799353114 decision 2): the row's HEADING is
+    // now `CURRENT_MODEL_NOUN` ("Current model"), the caption the card prints;
+    // `METRIC_NOUN.support` stays the panel-owned surfaces' anchor.
+    { noun: CURRENT_MODEL_NOUN, files: ['OptionNode.tsx'], pattern: /OPTION_RESULT_COPY\.share\(/ },
     { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
     // ⚠ PATTERN RE-DERIVED, CLAIM UNCHANGED. FactorNode no longer reaches the
     // influence caption through `METRIC_NOUN.influence`: it calls

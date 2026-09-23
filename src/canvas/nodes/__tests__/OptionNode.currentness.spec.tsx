@@ -18,6 +18,20 @@ const fresh = {
   computedAt: '2026-09-09T00:00:00.000Z',
 }
 
+/**
+ * ED #63 5799353114 decision 1 ("Drop 'Most supported'. It reads as a
+ * recommendation."): in EVERY currency state the leader card carries no pill —
+ * neither the bare one nor the `Last run ·` one. Called only AFTER the same
+ * render's `option-win-anchor` / `option-win-readout` assertions, which are its
+ * contrast control: the result row is on screen, the leader claim is not.
+ */
+function expectNoLeaderPill(container: HTMLElement) {
+  expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
+  expect(screen.queryByTestId('leading-option-pill-candidate')).toBeNull()
+  expect(screen.queryByTestId('leading-option-robustness-candidate')).toBeNull()
+  expect(container.textContent ?? '').not.toMatch(/most supported/i)
+}
+
 afterEach(() => {
   cleanup()
   useCanvasStore.setState({
@@ -47,7 +61,7 @@ describe('option results follow the composed freshness authority', () => {
         robustness: { near_tie: { is_tie: false, top_option_id: 'candidate' } },
       } },
     } as never)
-    render(<ReactFlowProvider><OptionNode
+    const { container } = render(<ReactFlowProvider><OptionNode
       id={candidate.id} type="option" data={candidate.data} selected={false}
       isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
       dragging={false} zIndex={0} deletable selectable draggable
@@ -65,7 +79,9 @@ describe('option results follow the composed freshness authority', () => {
     expect(label()).toMatch(/^Current model · 72% of runs\. /)
     expect(label()).not.toContain('The model has changed since this run.')
     expect(label()).not.toContain('can’t confirm')
-    expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent(/^Most supported$/)
+    // The producer's claim names THIS card and nothing withholds it — the
+    // strongest case for the retired pill (ED #63 5799353114 decision 1).
+    expectNoLeaderPill(container)
 
     // A local edit supersedes the prior fresh verdict. This is the same real
     // store transition consumed by the panels, with no node-local hash.
@@ -74,7 +90,9 @@ describe('option results follow the composed freshness authority', () => {
     expect(anchor()).toBe('Last run')
     expect(label()).toMatch(/^Last run · 72% of runs\. /)
     expect(label()).toContain('The model has changed since this run.')
-    expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent('Last run · Most supported')
+    // WAS `Last run · Most supported`: the `Last run` caption survives on the
+    // result row (asserted above); the pill it used to prefix does not.
+    expectNoLeaderPill(container)
     expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
 
     act(() => useCanvasStore.setState({
@@ -83,21 +101,21 @@ describe('option results follow the composed freshness authority', () => {
     } as never))
     // Locked Canvas design (23 Sep 2026): currency that CANNOT be confirmed
     // reads 'Model result' — it claims neither current nor a later model, and
-    // must not manufacture a last-run claim (ED 02:31Z), so the leading pill
-    // loses its "Last run ·" prefix here (it is now `changed`-only).
+    // must not manufacture a last-run claim (ED 02:31Z). (The leading pill that
+    // used to lose its "Last run ·" prefix here is retired altogether.)
     expect(anchor()).toBe('Model result')
     expect(label()).toMatch(/^Model result · 72% of runs\. /)
     expect(label()).toContain('Olumi can’t confirm this run reflects the current model.')
     expect(label()).not.toContain('The model has changed')
     expect(label()).not.toContain('Last run')
-    expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent(/^Most supported$/)
+    expectNoLeaderPill(container)
     expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
 
     act(() => useCanvasStore.setState({ analysisFreshness: fresh } as never))
     expect(anchor()).toBe('Current model')
     expect(label()).toMatch(/^Current model · 72% of runs\. /)
     expect(label()).not.toContain('Last run')
-    expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent(/^Most supported$/)
+    expectNoLeaderPill(container)
     expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
 
     // An unanalysed draft must not acquire a warning about earlier results.
