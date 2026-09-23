@@ -46,7 +46,7 @@ function remedyClause(copy: string): string {
 }
 
 /** The proposed remedies, verbatim. */
-const DELETE_REMEDY = 'Would you like to ask Olumi to remove it?'
+const DELETE_REMEDY = 'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
 const RENAME_REMEDY = 'Would you like to rename it again, or change the name back?'
 
 const CAUSES = [

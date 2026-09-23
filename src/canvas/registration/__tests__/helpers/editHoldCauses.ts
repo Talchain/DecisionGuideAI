@@ -297,7 +297,7 @@ export const CAUSE_MUST_NAME: Record<HoldCause, readonly (string | RegExp)[]> = 
   unconfirmed_value: [/couldn['’]t confirm/i, FACTOR_LABEL, USER_VALUE_TEXT],
   // The remedy is pinned too (Panel #1917 F1): every surface must name the one
   // exit the user can take — the chat — never "remove it again" or Undo.
-  unresolved_delete: [/couldn['’]t confirm/i, `that ${DELETED_LABEL} was removed from the saved model`, /ask Olumi to remove it\?/],
-  unresolved_delete_link: [/couldn['’]t confirm/i, `that ${LINK_NAME} was removed from the saved model`, /ask Olumi to remove it\?/],
+  unresolved_delete: [/couldn['’]t confirm/i, `that ${DELETED_LABEL} was removed from the saved model`, /ask Olumi to remove it\? If Olumi finds it already gone, reload this decision/],
+  unresolved_delete_link: [/couldn['’]t confirm/i, `that ${LINK_NAME} was removed from the saved model`, /ask Olumi to remove it\? If Olumi finds it already gone, reload this decision/],
   unconfirmed_link_value: [/couldn['’]t confirm/i, `your change to the strength of ${LINK_NAME}`, /set the strength again/],
 }

@@ -70,7 +70,7 @@ const REDRAFT = /re-?draft/i
 /** The PROPOSED sentence (for Experience Design sign-off), verbatim. */
 const deleteSentence = (named: string) =>
   `Olumi couldn't confirm that ${named} was removed from the saved model, so analysis is waiting until it is settled. ` +
-  'Would you like to ask Olumi to remove it?'
+  'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
 
 /**
  * Exits the canvas cannot take while this hold stands (Panel #1917 F1): the
@@ -165,7 +165,7 @@ describe('the shared authority names the deleted element', () => {
   ] as const)('F1: %s — the one exit named is the chat, never one the canvas cannot take', (_what, cause) => {
     arrangeHoldCause(cause)
     const s = sharedSentence() as string
-    expect(s.endsWith(' Would you like to ask Olumi to remove it?')).toBe(true)
+    expect(s.endsWith(' Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.')).toBe(true)
     expect(s).not.toMatch(UNREACHABLE_EXIT)
   })
 
@@ -174,7 +174,7 @@ describe('the shared authority names the deleted element', () => {
     applyDeleteToStore(intent)
     settleStructuralDeleteAttempt(intent, SCENARIO, 'unconfirmed')
     const s = sharedSentence() as string
-    expect(s.endsWith(' Would you like to ask Olumi to remove it?')).toBe(true)
+    expect(s.endsWith(' Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.')).toBe(true)
     expect(s).not.toMatch(UNREACHABLE_EXIT)
   })
 

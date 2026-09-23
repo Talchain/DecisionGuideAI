@@ -2040,7 +2040,7 @@ const ASK_OLUMI_TO_REMOVE = 'Please remove Top Account Revenue Concentration fro
 /** The hold's sentence for the witnessed delete target, verbatim (proposed copy, for Experience Design). */
 const DELETE_HOLD_ASKS_OLUMI =
   "Olumi couldn't confirm that Top Account Revenue Concentration was removed from the saved model, " +
-  'so analysis is waiting until it is settled. Would you like to ask Olumi to remove it?'
+  'so analysis is waiting until it is settled. Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
 
 /** A — the chat turn's applied receipt: CEE's committed graph LACKS the node. */
 const CHAT_RECEIPT_WITHOUT_NODE = {
