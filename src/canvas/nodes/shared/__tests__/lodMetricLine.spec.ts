@@ -8,6 +8,12 @@
  * first test here is the deployed defect written down: a factor with no stated
  * value, which used to render nothing and must now render its influence.
  *
+ * Locked Canvas design (23 Sep 2026): "its influence" is now its DRIVER RANK in
+ * the card's own words — `Driver N of M analysed` (ED 02:31Z D1a) — and
+ * never a bare `Influence N%` (ED 11:52Z: "no pseudo-precise `% influence` on
+ * the face"). The rank arrives as the `driverRank` fact, which `BaseNode`
+ * resolves from the current-run licence only.
+ *
  * ⚠ WHY A UNIT SPEC AND NOT A RENDER SPEC. jsdom cannot prove visibility
  * (CLAUDE.md trap 3), so a render test of a low-zoom card proves less than it
  * appears to. What is actually decidable here is the RULE — which datum a node
@@ -42,36 +48,67 @@ const NOTHING: NodeDisplayMetadata = {
 const meta = (o: Partial<NodeDisplayMetadata>): NodeDisplayMetadata =>
   ({ ...NOTHING, ...o }) as NodeDisplayMetadata
 
+/**
+ * The current-run driver rank `BaseNode` hands down (`lodFacts.driverRank`).
+ * Locked Canvas design (23 Sep 2026): the factor fallback reads this fact, so
+ * every factor test that exercises — or must exclude — that arm supplies it.
+ */
+const DRIVER_2_OF_5 = { driverRank: { rank: 2, setSize: 5 } }
+
 describe('the deployed defect: a factor with no stated value said nothing', () => {
-  it('falls back to the influence score the card already shows', () => {
+  it('falls back to the driver rank the card already shows', () => {
+    // Locked Canvas design (23 Sep 2026): the card's driver line reads
+    // "Driver N of M analysed" (ED 02:31Z D1a), so the reduced line says
+    // the same words — it once said the bare "Influence 62%".
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
         data: { label: 'Team capacity' },
         label: 'Team capacity',
         displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
+        facts: DRIVER_2_OF_5,
       }),
-    ).toBe('Influence 62%')
+    ).toBe('Driver 2 of 5 analysed')
+  })
+
+  it('⛔ the bare "Influence N%" fallback is GONE — influence with no current rank says nothing analysis-derived', () => {
+    // Locked Canvas design (23 Sep 2026), ED 11:52Z: "no pseudo-precise
+    // `% influence` on the face" — and this line IS the face at far zoom. The
+    // same node as above, the rank fact removed: no percentage takes its place.
+    const line = resolveLodMetricLine({
+      nodeType: 'factor',
+      data: { label: 'Team capacity' },
+      label: 'Team capacity',
+      displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
+    })
+    expect(line).toBeNull()
   })
 
   it('CONTRAST CONTROL — the same node with NO influence still says nothing, so the line above is the influence and not a default', () => {
+    // Locked Canvas design (23 Sep 2026): the rank fact is supplied here too,
+    // so this still discriminates — the rank speaks only through the
+    // influence gate, never on the fact alone.
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
         data: { label: 'Team capacity' },
         label: 'Team capacity',
         displayMetadata: meta({ influence: null, influenceProvenance: 'influence_score' as never }),
+        facts: DRIVER_2_OF_5,
       }),
     ).toBeNull()
   })
 
   it('fails CLOSED without provenance — the same gate FactorNode’s own influence row uses', () => {
+    // Locked Canvas design (23 Sep 2026): rank fact supplied so the gate, not
+    // its absence, is what withholds.
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
         data: { label: 'Team capacity' },
         label: 'Team capacity',
         displayMetadata: meta({ influence: 0.62, influenceProvenance: null }),
+        facts: DRIVER_2_OF_5,
       }),
     ).toBeNull()
   })
@@ -86,15 +123,36 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
       data: { label: 'Unit cost', observedState: { raw_value: '£26,000' } },
       label: 'Unit cost',
       displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
+      // Locked Canvas design (23 Sep 2026): the rank fact is supplied so the
+      // fallback arm WOULD fire if the value did not win first.
+      facts: DRIVER_2_OF_5,
     })
     expect(line).not.toBeNull()
     expect(line).not.toContain('Influence')
+    expect(line).not.toContain('Driver')
     expect(line).toContain('26')
   })
 })
 
 describe('the other three types, which rendered nothing at any zoom before', () => {
   it('an option says where it stands, as a figure and not the comparative sentence', () => {
+    // Locked Canvas design (23 Sep 2026), ED 11:52Z: "Do not use `Support` as
+    // the result label … must be explicitly model-relative, e.g. `Current model
+    // · 55% of runs`". The caption is the card's own (`optionResultCaption`).
+    const line = resolveLodMetricLine({
+      nodeType: 'option',
+      data: { label: 'Build' },
+      label: 'Build',
+      displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
+      facts: { optionResultCaption: 'Current model' },
+    })
+    expect(line).toBe('Current model · 47% of runs')
+    expect(line).not.toContain(METRIC_NOUN.support)
+  })
+
+  it('⛔ a win share with NO caption is withheld — never a bare or `Support` figure', () => {
+    // Locked Canvas design (23 Sep 2026): the caption is what makes the figure
+    // model-relative (ED 11:52Z), so the same node without one states no share.
     expect(
       resolveLodMetricLine({
         nodeType: 'option',
@@ -102,16 +160,19 @@ describe('the other three types, which rendered nothing at any zoom before', () 
         label: 'Build',
         displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
       }),
-    ).toBe(`${METRIC_NOUN.support} 47%`)
+    ).toBeNull()
   })
 
   it('and says nothing before a run — a win share with no run behind it is a fabrication', () => {
+    // Locked Canvas design (23 Sep 2026): caption supplied so the results-mode
+    // gate, not the missing caption, is what withholds.
     expect(
       resolveLodMetricLine({
         nodeType: 'option',
         data: { label: 'Build' },
         label: 'Build',
         displayMetadata: meta({ isResultsMode: false, winRate: 0.47 }),
+        facts: { optionResultCaption: 'Current model' },
       }),
     ).toBeNull()
   })
@@ -309,6 +370,22 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
   })
 
   it('TWIN — after a run the win share still wins, whatever the change count is', () => {
+    // Locked Canvas design (23 Sep 2026), ED 11:52Z: model-relative caption,
+    // never `Support`. `Last run` is the `changed` currency's caption.
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'option',
+        data: { label: 'Hire Four' },
+        label: 'Hire Four',
+        displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
+        facts: { optionIsBaseline: false, optionInterventionCount: 2, optionResultCaption: 'Last run' },
+      }),
+    ).toBe('Last run · 41% of runs')
+  })
+
+  it('TWIN — with no caption the share is withheld and the change count speaks instead', () => {
+    // Locked Canvas design (23 Sep 2026): an uncaptioned share falls through to
+    // the option's own change-count line, not to a `Support N%` figure.
     expect(
       resolveLodMetricLine({
         nodeType: 'option',
@@ -317,7 +394,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
         facts: { optionIsBaseline: false, optionInterventionCount: 2 },
       }),
-    ).toBe(`${METRIC_NOUN.support} 41%`)
+    ).toBe('Changes 2 factors')
   })
 
   it('a factor with a prior range reads it when it has no stated value and no influence', () => {
@@ -331,7 +408,23 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
     ).toBe('Range: 0.3 to 0.9')
   })
 
-  it('TWIN — influence still outranks the range, so no post-analysis card changes', () => {
+  it('TWIN — the driver rank still outranks the range, so no post-analysis card changes', () => {
+    // Locked Canvas design (23 Sep 2026): the rank is `Driver N of M in this
+    // model` (ED 02:31Z D1a), not `Influence N%` (ED 11:52Z).
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 } },
+        label: 'Attrition',
+        displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
+        facts: { driverRank: { rank: 1, setSize: 4 } },
+      }),
+    ).toBe('Driver 1 of 4 analysed')
+  })
+
+  it('TWIN — influence with NO current rank falls through to the prior range, never to a bare percentage', () => {
+    // Locked Canvas design (23 Sep 2026), ED 11:52Z: no pseudo-precise
+    // `% influence` on the face — the prior range is the next true thing.
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
@@ -339,7 +432,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         label: 'Attrition',
         displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
       }),
-    ).toBe('Influence 67%')
+    ).toBe('Range: 0.3 to 0.9')
   })
 
   it('CONTRAST CONTROL — a CONTROLLABLE factor with the same prior says nothing, so the arm is the external gate and not a default', () => {

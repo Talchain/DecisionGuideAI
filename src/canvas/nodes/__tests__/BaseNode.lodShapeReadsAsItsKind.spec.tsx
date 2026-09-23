@@ -101,10 +101,19 @@ vi.mock('../shared/NodePopover', () => ({
   ),
 }))
 
-vi.mock('../../../flags', () => ({
+// Spread the real flags module: `FactorNode` now reads the composed analysis
+// verdict (`useModelChangedSinceRun`), whose source classifier calls a flag
+// this factory never listed. A `vi.mock` factory REPLACES the module, so an
+// unlisted flag is `undefined` and throws at render (CLAUDE.md trap 12).
+vi.mock('../../../flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../flags')>()),
   isGraphBadgesEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
   isGraphLensEnabled: vi.fn(() => false),
+  // Locked Canvas design (23 Sep 2026): the decision card's rail run icon reads
+  // `analysisHeldNotice` at mount, which asks `isV5CanonicalRunPath` — a flag
+  // this mock must now answer. Off: the V2 path, as before.
+  isV5CanonicalAnalysisEnabled: vi.fn(() => false),
 }))
 
 import { useCanvasStore } from '../../store'

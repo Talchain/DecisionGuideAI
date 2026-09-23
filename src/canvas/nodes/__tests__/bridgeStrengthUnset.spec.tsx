@@ -36,7 +36,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
 import { OutcomeNode } from '../OutcomeNode'
-import { METRIC_UNSET } from '../shared/metricVocabulary'
+import { METRIC_UNSET, LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 import { strengthIsHumanSettled } from '../../domain/edgeStrengthSettlement'
 import { edgeValueSource } from '../../domain/edgeValueProvenance'
 
@@ -241,8 +241,13 @@ describe('⛔ the witnessed defect: a bar drawn for a strength nobody set', () =
   it('the row STAYS, and says what is unknown rather than vanishing', () => {
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
     const row = screen.getByTestId('risk-strength-row')
-    expect(row.textContent).toContain('Strength')
-    expect(row.textContent).toContain(METRIC_UNSET.standalone)
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z names the row "Link
+    // strength"; MT-15b — "Not set yet" beside an edge that shows a value was
+    // itself the defect, so a CEE value nobody settled reads "Olumi’s estimate"
+    // (whose guess it is) — still no figure and no bar (asserted above).
+    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.noun)
+    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.olumiEstimate)
+    expect(row.textContent).not.toContain(METRIC_UNSET.standalone)
   })
 
   it('and it names the way out, in words a reader can act on', async () => {
@@ -286,7 +291,10 @@ describe('⭐ THE DISCRIMINATING PAIR — the row reads the PROVENANCE, not the 
     // card fell silent, which reads as "nothing to see". The connection exists.
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'none', 0.5)))
     const row = screen.getByTestId('risk-strength-row')
-    expect(row.textContent).toContain(METRIC_UNSET.standalone)
+    // Locked Canvas design (23 Sep 2026): MT-15b — genuinely no value reads
+    // "not set", and never "Olumi’s estimate" (nobody supplied one).
+    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.notSet)
+    expect(row.textContent).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
     expect(barWidthIn('risk-strength-row')).toBeNull()
     // ⚠ AND IT MUST NOT CLAIM AN ASSUMPTION NOBODY MADE. Nothing supplied a
     // figure here, so the disclosure may not invent one.
@@ -335,6 +343,11 @@ describe('⛔ F1 — THE ROW MUST NOT DENY AN ADJUDICATION THE USER ACTUALLY MAD
     expect(row.textContent ?? '').not.toMatch(/Nobody has set/i)
     expect(row.getAttribute('aria-label') ?? '').not.toMatch(/Nobody has set/i)
     expect(row.textContent ?? '').not.toContain(METRIC_UNSET.standalone)
+    // Locked Canvas design (23 Sep 2026): "Not set yet" is no longer a wording the
+    // row can produce (MT-15b), so the guard above alone would be vacuous. Pin
+    // BOTH of the row's current unsettled wordings as absent on a settled edge.
+    expect(seenTextIn('risk-strength-row')).not.toContain(LINK_STRENGTH_COPY.notSet)
+    expect(seenTextIn('risk-strength-row')).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
   })
 
   it('an outcome behaves identically — the seam is shared, not copied', () => {
@@ -353,7 +366,14 @@ describe('⛔ F1 — THE ROW MUST NOT DENY AN ADJUDICATION THE USER ACTUALLY MAD
 
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'dismissed', 0.5)))
     expect(barWidthIn('risk-strength-row')).toBeNull()
-    expect(screen.getByTestId('risk-strength-row').textContent).toContain(METRIC_UNSET.standalone)
+    // Locked Canvas design (23 Sep 2026): MT-15b — the unsettled CEE value now
+    // reads "Olumi’s estimate" rather than "Not set yet"; the INVITATION this
+    // case guards is the disclosure's "Nobody has set … Open the details", which
+    // must still stand after a dismissal.
+    const row = screen.getByTestId('risk-strength-row')
+    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.olumiEstimate)
+    expect(row.getAttribute('aria-label') ?? '').toMatch(/Nobody has set/i)
+    expect(row.getAttribute('aria-label') ?? '').toMatch(/Open the details/)
   })
 })
 
@@ -368,6 +388,11 @@ describe('⛔ F5 — the disclosure names the figure\'s AUTHOR from the data, ne
     expect(title).toContain('50%')
     expect(title).not.toMatch(/Olumi/i)
     expect(title).toMatch(/template/i)
+    // Locked Canvas design (23 Sep 2026): MT-15b — the SEEN text now names an
+    // author too ("Olumi’s estimate" for CEE), so the same rule is pinned there:
+    // a template figure reads as an unconfirmed estimate, never as Olumi's.
+    expect(seenTextIn('risk-strength-row')).not.toMatch(/Olumi/i)
+    expect(seenTextIn('risk-strength-row')).toContain('Estimate, not confirmed')
   })
 
   it('CONTRAST CONTROL — a CEE-supplied strength IS still credited to Olumi', () => {
@@ -376,22 +401,30 @@ describe('⛔ F5 — the disclosure names the figure\'s AUTHOR from the data, ne
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
     const title = screen.getByTestId('risk-strength-row').getAttribute('aria-label') ?? ''
     expect(title).toMatch(/Olumi/i)
+    // Locked Canvas design (23 Sep 2026): the seen-text contrast for the case above.
+    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.olumiEstimate)
   })
 })
 
 describe('the reduced line below the legibility floor says the same true thing', () => {
+  // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" + MT-15b — the
+  // reduced line speaks the full row's wording on every rung: an unsettled CEE
+  // value is "Link strength · Olumi’s estimate" (no figure), a settled one
+  // "Link strength N%".
   it('states the unknown rather than a half-full-bar percentage', () => {
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5, 'line')))
-    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
+    expect(lodLine()).not.toMatch(/\d+%/)
   })
 
   it('and still states a percentage the user set themselves', () => {
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'user', 0.5, 'line')))
-    expect(lodLine()).toBe('Strength 50%')
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} 50%`)
   })
 
   it('an outcome behaves identically at the same rung', () => {
     mountOutcome(makeStoreState(modelWithBridge('outcome-1', 'outcome', 'cee', 0.7, 'line')))
-    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
+    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
+    expect(lodLine()).not.toMatch(/\d+%/)
   })
 })

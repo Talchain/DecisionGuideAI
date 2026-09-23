@@ -171,8 +171,16 @@ describe("⛔ the goal notice's imperative is honest on the canvas", () => {
     })
     // Bound by the surface's OWN testid, never by a text predicate another
     // element on the card could also satisfy.
+    //
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2 "provenance
+    // compact"): the pill is now the rail's provenance icon BUTTON under the
+    // SAME testid. It carries the notice as its accessible name (and tooltip),
+    // prefixed by the pill's own words — both read from the constant.
     const own = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)
-    expect(own.getAttribute('title')).toBe(GOAL_LABEL_FROM_BRIEF_COPY.notice)
+    expect(own.tagName).toBe('BUTTON')
+    expect(own.getAttribute('aria-label')).toBe(
+      `${GOAL_LABEL_FROM_BRIEF_COPY.pill}. ${GOAL_LABEL_FROM_BRIEF_COPY.notice}`,
+    )
   })
 
   it('and the imperative clause is PRESENT, not merely the prefix', () => {
@@ -184,7 +192,9 @@ describe("⛔ the goal notice's imperative is honest on the canvas", () => {
     // A distinct signature from the test above ON PURPOSE: repointing this
     // surface at an imperative-free variant keeps the `toBe` green if that
     // variant is what the constant now names, and REDs only here.
-    expect(screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).getAttribute('title'))
+    // Locked Canvas design (23 Sep 2026): read off the rail icon's accessible
+    // name, which is where the notice lives now (ED 11:52Z point 2).
+    expect(screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).getAttribute('aria-label'))
       .toContain(IMPERATIVE)
   })
 

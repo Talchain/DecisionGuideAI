@@ -37,6 +37,13 @@ interface InspectorQuickActionsProps {
   labelContext?: { sourceLabel?: string; targetLabel?: string }
   /** Which results surface this element's analysis lives on. */
   analysisTab?: OutputTab
+  /**
+   * Paul 23 Sep contract feedback point 11 — the context line an ask carries
+   * (e.g. why the element is "Worth reviewing"). Shown by the Ask-Olumi drawer;
+   * the composer path already carries the element through `selected_elements`.
+   * Empty means no context, never an invented one.
+   */
+  askContext?: string
 }
 
 export function InspectorQuickActions({
@@ -45,6 +52,7 @@ export function InspectorQuickActions({
   panelType,
   labelContext,
   analysisTab = 'results',
+  askContext = '',
 }: InspectorQuickActionsProps) {
   const canAsk = useGuidanceStore(
     (s) => s._prefillChat !== null || s._sendMessage !== null || s._dispatchAction !== null,
@@ -62,10 +70,10 @@ export function InspectorQuickActions({
     requestAsk({
       text: question,
       label: `Ask about ${elementLabel}`,
-      context: '',
+      context: askContext,
       targetId: elementId,
     })
-  }, [question, elementLabel, elementId])
+  }, [question, elementLabel, elementId, askContext])
 
   /**
    * ⭐ "Change this" — the route out of a read-only panel.

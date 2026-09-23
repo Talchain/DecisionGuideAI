@@ -23,6 +23,7 @@ import { useEditedSinceRun } from './hooks/useEditedSinceRun'
 import { LodSync } from './components/LodSync'
 import { CanvasLabelScaleSync } from './components/CanvasLabelScaleSync'
 import { CanvasLodNotice } from './components/CanvasLodNotice'
+import { AnalysisStateCue } from './components/AnalysisStateCue'
 import { CanvasOverlayBand, CanvasOverlayBandProvider } from './components/CanvasOverlayBand'
 import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
@@ -2940,6 +2941,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           `ModelExtentNotice` already did from this same position. */}
       <CanvasOverlayBand />
       <CanvasLodNotice />
+      {/* Paul 23 Sep contract feedback point 14 — the canvas-level line that
+          explains the cards' `Last run ·` labels. Bottom-right cell. */}
+      <AnalysisStateCue />
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />

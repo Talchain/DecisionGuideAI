@@ -32,7 +32,9 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
+import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
+import { NodeRailIcon } from './shared/NodeRailIcons'
+import { FileText } from 'lucide-react'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import {
   canCaptureGoalTarget,
@@ -49,7 +51,7 @@ import { basisWithholdsPossessive } from '../../components/results/utils/selectG
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
-import { NodeChip, NodeMetricRow, NodePopover, ScienceIcon } from './shared'
+import { NodeMetricRow, NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useScienceIcons } from '../hooks/useScienceIcons'
@@ -57,6 +59,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
+import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintText } from '../utils/goalConstraintText'
@@ -251,9 +254,16 @@ export const GOAL_TARGET_ROUTE_TESTID = 'goal-target-route'
 export function goalTargetRouteChannels({
   targetLine,
   routeIsLive = GOAL_TARGET_ROUTE_IS_LIVE,
+  sourceLabel,
 }: {
   /** What the card already renders. Quoted back so the two cannot drift. */
   targetLine: string
+  /**
+   * Where the target came from, as the visible mark beside it says
+   * (`goalTargetSourceMark`). Spoken and hovered too, so the mark is never
+   * sight-only (Paul 23 Sep contract feedback points 1 and 12).
+   */
+  sourceLabel?: string
   /**
    * ⚠ INJECTABLE FOR THE SAME ONE REASON `goalNoTargetChannels` is: so both
    * branches are reached BY EXECUTION. Asserting them behind
@@ -263,9 +273,10 @@ export function goalTargetRouteChannels({
   routeIsLive?: boolean
 }): { 'aria-label': string; title: string } | null {
   if (!routeIsLive) return null
+  const source = sourceLabel ? ` (${sourceLabel})` : ''
   return {
-    'aria-label': `${targetLine} — change it in ${GOAL_TARGET_LIVE_ROUTE}`,
-    title: `Change this target in ${GOAL_TARGET_LIVE_ROUTE}.`,
+    'aria-label': `${targetLine}${source} — change it in ${GOAL_TARGET_LIVE_ROUTE}`,
+    title: `${sourceLabel ? `${sourceLabel}. ` : ''}Change this target in ${GOAL_TARGET_LIVE_ROUTE}.`,
   }
 }
 
@@ -653,9 +664,16 @@ export const GoalNode = memo((props: NodeProps) => {
    * possessive withholding) that cannot ride one line, and a number stripped of
    * the caveat that makes it honest is not made safe by shrinking the type —
    * the same rule `shared/lodMetricLine.ts` applies to an outcome. The
-   * THRESHOLD is the user's own stated target: it needs no caveat, because it
-   * is not a claim about the world, and it is the thing a reader most wants
-   * from this card at a glance.
+   * THRESHOLD needs no caveat, because it is not a claim about the world, and it
+   * is the thing a reader most wants from this card at a glance.
+   *
+   * ⚠ BUT IT IS NOT ALWAYS THE USER'S OWN TARGET (reviewer blocker on Paul 23
+   * Sep contract feedback point 1). `statedGoalTargetRaw` falls back to CEE's
+   * `goal_threshold_raw`, which on the market-entry starter is `£11M ARR` —
+   * a figure its brief never states. So the line carries a source mark
+   * (`goalTargetSourceMark`): `you` only when `threshold_source === 'user'`,
+   * otherwise "no source". The mark sits BESIDE the line, not inside it, so the
+   * reduced line derived from `targetLine` is unchanged.
    */
   const targetLine = thresholdDisplay != null ? `${GOAL_TARGET_PREFIX} ${thresholdDisplay}` : null
 
@@ -816,8 +834,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // from `goalNoTargetChannels` and asserted equal to it.
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
+  const targetSourceMark =
+    targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
   const targetRouteChannels =
-    targetLine !== null ? goalTargetRouteChannels({ targetLine }) : null
+    targetLine !== null ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label }) : null
   const noTargetStatusChip = (
     <button
       type="button"
@@ -839,7 +859,7 @@ export const GoalNode = memo((props: NodeProps) => {
       //    it sits alone under the target line, so 3px per side is free.
       //    `relative` is required or the `::before` positions against an
       //    ancestor instead of the button.
-      className={`nodrag relative mt-1 inline-flex items-center gap-1 rounded-full border border-warning-ink bg-warning/10 px-1.5 py-0.5 before:absolute before:-inset-[3px] before:content-[''] ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      className={`nodrag relative inline-flex items-center gap-1 rounded-full border border-warning-ink bg-warning/10 px-1.5 py-0.5 before:absolute before:-inset-[3px] before:content-[''] ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       aria-label={noTargetChannels['aria-label']}
       title={noTargetChannels.title}
       data-testid="goal-node-no-target-chip"
@@ -848,6 +868,33 @@ export const GoalNode = memo((props: NodeProps) => {
       {noTargetChannels.visible}
     </button>
   )
+
+  const briefExtract = goalLabelIsUnconfirmedBriefExtract(
+    props.data as { provenance?: unknown } | undefined,
+  )
+  const goalCoaching = useMemo(
+    () =>
+      resolveNodeCoaching({
+        kind: 'goal',
+        surface: 'card',
+        state: { achievementIsCritical },
+        context: {},
+      }),
+    [achievementIsCritical],
+  )
+  const achievementTitle = [
+    goalFitSubstituted
+      ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
+      : `${achievementReadout ?? ''} chance of reaching target.`,
+    displayMetadata.achievementProbabilityIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
+    hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
+    analysisChanged ? 'The model has changed since this run.' : null,
+  ].filter(Boolean).join(' ')
+  const noProbabilitySentence = analysisChanged
+    ? 'Target set. Rerun the analysis to update your results.'
+    : displayMetadata.goalFitAvailable
+      ? 'Target set. No overall goal probability for this run — see Goal fit for each option’s chance.'
+      : 'Target set. This run did not produce a goal probability.'
 
   return (
     <div
@@ -867,7 +914,27 @@ export const GoalNode = memo((props: NodeProps) => {
         lodMetric={lodMetric}
         icon={metadata.icon}
         borderClassOverride={goalBorderOverride ?? undefined}
-        headerSlot={scienceIcons.length > 0 ? (
+        coaching={goalCoaching}
+        railIcons={
+          /* ⭐ PROVENANCE, COMPACT (ED 11:52Z point 2: "provenance compact"). The
+             "From your brief" pill was a full row of height stating one fact; it
+             is now the rail's provenance icon, an informative EXCEPTION (spec §2)
+             that renders only while the label is an unconfirmed brief extract.
+             The FULL notice — including its imperative, which is true on this
+             surface (the label is editable from this node) — is the icon's
+             tooltip and accessible name, and a click opens the goal's details.
+             The testid is the pill's, so the claim keeps its identity. */
+          briefExtract ? (
+            <NodeRailIcon
+              testId={GOAL_LABEL_FROM_BRIEF_TESTID}
+              label={`${GOAL_LABEL_FROM_BRIEF_COPY.pill}. ${GOAL_LABEL_FROM_BRIEF_COPY.notice}`}
+              icon={FileText}
+              tone="muted"
+              onActivate={() => openNodeInspector(props.id)}
+            />
+          ) : undefined
+        }
+        headerSlot={isDetailed && scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
@@ -875,215 +942,83 @@ export const GoalNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
-        {/* ⭐ The label is the user's own sentence, lifted from the brief —
-            CEE's objective derivation refused, so the canvas is showing a
-            stated FACT where a goal belongs. A MARKER, not a second
-            affordance: per L-47 the canvas signals and the detail lives one
-            hover away.
+        {/* ⭐⭐ THE GOAL CARD IS WIDE AND SHALLOW (ED 11:52Z point 2: "goal +
+            target/capture state + selective reasoning/attention + icon rail;
+            coaching behind icon; provenance compact").
 
-            ⚠⚠ CORRECTED 10 Sep 2026, BY DERIVATION. This comment used to say
-            "the single place to act is the Analysis tab's Goal field". That is
-            FALSE, and it was the reason the notice's imperative was twice
-            suspected of being a dead instruction on this surface. The goal
-            label is editable FROM THIS NODE, and by the shortest path in the
-            product:
+            Row 1 — the target, or its capture state: "Target: …" (a route to
+            the editor where one is live) or "Target not captured".
+            Row 2 — after a run, ONE Chance row (the prose readout and the bar
+            said the same number twice); its basis caveats and the "may be
+            ambitious" prompt are in its tooltip, the popover and Detailed.
+            `Last run ·` prefixes it ONLY when the model is known to have
+            changed (ED 02:31Z: "Goal stale rule: `changed` only").
 
-              GoalNode click        → ReactFlowGraph `handleNodeClick` (:1343)
-                                      → setShowFullInspector(true)
-              GoalNode double-click → `handleNodeDoubleClick` → requestNodeRename
-                                      → the shell opens WITH THE TITLE IN EDIT
-              InspectorShell header → `EditableLabel onSave={onLabelChange}`
-              InspectorRouter       → `store.updateNodeLabel` (NOT `setLabel`)
-              store.ts:3137         → `provenanceAfterHumanAuthoredLabel(kind)`
-                                      returns 'user_set' when kind === 'goal'
+            Gone from the face: the "Is this the real goal?" chip (the rail's
+            coaching icon asks it) and the duplicate "Run analysis" chip (the
+            Question card's rail carries the run). */}
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="goal-node-resting-state">
+          {canCaptureTarget && noTargetStatusChip}
+          {targetLine !== null && targetRouteChannels !== null && (
+            <button
+              type="button"
+              data-testid={GOAL_TARGET_ROUTE_TESTID}
+              aria-label={targetRouteChannels['aria-label']}
+              title={targetRouteChannels.title}
+              className={`nodrag nopan ${typography.nodeLabel} text-text-light text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                openModelValueEditor(props.id, 'goal')
+              }}
+            >
+              {targetLine}
+            </button>
+          )}
+          {targetLine !== null && targetRouteChannels === null && (
+            <div className={`${typography.nodeLabel} text-text-light`}>
+              {targetLine}
+            </div>
+          )}
+          {targetSourceMark !== null && (
+            <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} />
+          )}
+        </div>
 
-            So `goalLabelIsUnconfirmedBriefExtract` goes false and this marker
-            retires — which is exactly what the notice promises. The imperative
-            is TRUE here, so this surface keeps the full `notice` sentence.
-            `provenanceAfterHumanAuthoredLabel` stamps for the goal kind ALONE;
-            it exists for this case.
-
-            ⚠ Do not move this surface to a no-writer variant of the copy on the
-            strength of a sweep of `model-tab-v2/` or of this directory. The
-            writer is not in this file and never was — it is in the inspector,
-            one store call away, and a sweep scoped to the rendering directory
-            returns the same clean zero as a sweep that looked and found
-            nothing. */}
-        {goalLabelIsUnconfirmedBriefExtract(
-          props.data as { provenance?: unknown } | undefined,
-        ) && (
-          <span
-            data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
-            title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
-            className={`mt-1 inline-flex items-center rounded-full border border-info/40 bg-info/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-light`}
-          >
-            {GOAL_LABEL_FROM_BRIEF_COPY.pill}
-          </span>
-        )}
-
-        {/* No target, post-analysis: analysis done but no threshold to evaluate.
-            Null-probability guard swaps the copy when the run produced no
-            finite win_probability (BoundaryError / null probs / stale state). */}
-        {canCaptureTarget && isPostAnalysis && noTargetStatusChip}
-
-        {/* No target, pre-analysis: the "goal gap". Surface the missing target
-            clearly (Paul-authored copy — brief primary + A1 secondary), then keep
-            the existing coaching chip. */}
-        {canCaptureTarget && !isPostAnalysis && noTargetStatusChip}
-
-        {/* With target: display it — and, where the carrier is live, offer the
-            route to change it. The plain-div arm is retained for the case where
-            the authority regresses: the FACT survives, the promise does not. */}
-        {targetLine !== null && targetRouteChannels !== null && (
-          <button
-            type="button"
-            data-testid={GOAL_TARGET_ROUTE_TESTID}
-            aria-label={targetRouteChannels['aria-label']}
-            title={targetRouteChannels.title}
-            className={`nodrag nopan ${typography.nodeLabel} text-text-light mt-1 text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onDoubleClick={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation()
-              openModelValueEditor(props.id, 'goal')
-            }}
-          >
-            {targetLine}
-          </button>
-        )}
-        {targetLine !== null && targetRouteChannels === null && (
-          <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-            {targetLine}
-          </div>
-        )}
-
-        {/* Audit §8 P1 goal-state matrix: target SET + analysis ran + no
-            probability for it (target set after the run, or the run produced
-            none). The old branches ignored this quadrant, leaving a card
-            that showed a target with no path to a probability. No new CTA —
-            the edit affordance and Run flows already exist elsewhere.
-            F5a (Codex review): the copy is driven by the freshness/dirty state,
-            not by value absence — a CURRENT run that simply produced no goal
-            probability shows the honest absent-state copy (never a rerun demand
-            that would contradict the panel's "reflects the current model"); only
-            a genuinely changed model prompts a rerun. */}
-        {/* ROADMAP 2.275: the third arm. Witnessed on staging `a27cadf7`
-            (witness-2267 §6b/§11a) — this node asserted "This run did not
-            produce a goal probability" while the Analysis→Goal-fit sub-tab
-            rendered "< 1%" for all four options from the same report, both
-            simultaneously visible at 1280×800.
-
-            Both statements were individually defensible: no goal probability
-            is attributable to the NODE (the run designates no leading option),
-            yet per-option goal-fit figures genuinely exist. The defect was
-            that the node spoke as though "goal probability" were one thing and
-            flatly denied it. It now acknowledges the figures it can see and
-            says where to read them — no number is invented here, and no option
-            is designated. */}
-        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
-          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
-            {analysisChanged
-              ? 'Target set. Rerun the analysis to update your results.'
-              : displayMetadata.goalFitAvailable
-                ? 'Target set. No overall goal probability for this run — see Goal fit for each option’s chance.'
-                : 'Target set. This run did not produce a goal probability.'}
-          </p>
-        )}
-
-        {/* Post-analysis: achievement probability.
-            UI-SEM-082 (Lane 4, Paul ruled; extends UI-SEM-071 doctrine): gate on
-            the target being SET (hasThreshold) — never on producer value presence
-            alone. The producer synthesises an auto_goal_threshold and returns a
-            goal_probability even when the USER set no target (UI-SEM-071 class),
-            so without this gate the "N% chance of reaching target" line would
-            crown a target the user never set AND co-render with the "Set a target
-            to see how likely you are to reach it" invitation above. hasThreshold makes the two
-            mutually exclusive by construction. */}
-        {showAchievementReadout && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
-            {/* ROADMAP 2.283: the withheld arm is the shared register's PHRASE
-                form verbatim — the same wording the results panel, the hero,
-                the V7 goal lens and OptionNode render for this basis. The
-                permitted arm is byte-identical to the string it replaced;
-                migrating the healthy path off "reaching target" is a separate
-                copy decision and is NOT smuggled in here. */}
-            {goalFitSubstituted
-              ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
-              : `${achievementReadout} chance of reaching target`}
-            {hasConstraintDefaultWarning && (
-              <span
-                className={`${typography.edgeLabel} ml-1 bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 inline-flex items-center justify-center`}
-                title="Some model inputs are missing. Goal probability may be less reliable."
-              >
-                ?
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ⭐ THE SHARED METRIC ROW — the same `noun ▬▬▬ NN%` the factor, risk,
-            outcome and option cards already render (measured on deployed
-            staging `d4ff3683`: 12 of 14 cards had it, the goal and the decision
-            did not). It carries NO new datum: `achievementProbability` is the
-            producer figure the sentence directly above already states in words,
-            through the one chooser entitled to pick it
-            (`selectGoalProbability`). Nothing is computed here.
-
-            ⛔ IT SITS INSIDE THE FIGURE BLOCK, ABOVE THE CAVEAT, ON PURPOSE.
-            On a modelled basis this number may not be shown BARE, and the
-            disclosure below is what makes it honest — which is exactly why the
-            low-zoom line withholds the figure rather than shrinking it. Putting
-            the bar between the sentence and its caveat keeps the disclosure
-            adjacent to every rendering of the number, not just the prose one.
-            A row placed after the caveat would leave a bar with nothing
-            qualifying it.
-
-            ⚠ THE NOUN IS NOT DECORATION (UI-SEM-089): an unlabelled percentage
-            beside a goal reads as a computed CONTRIBUTION. `Chance` keeps the
-            quantity named on the row itself.
-
-            ⚠ NO `phrase`, and every span in the row is `aria-hidden` — correct,
-            because the sentence above already says "N% chance of reaching
-            target" to assistive tech. A phrase here would make a screen reader
-            state the same figure twice. The row is a VISUAL encoding of copy
-            that has not moved, so `GoalNode.possessiveGate`, the zero-floor
-            specs and the parity suite all keep biting on the text they were
-            written against.
-
-            ⚠ AND THE POSSESSIVE GATE IS INHERITED, NOT RE-DERIVED. Where
-            `selectGoalProbability` withholds (`joint_goal_withheld`) it returns
-            no number at all, so `showAchievementReadout` is false and this row
-            does not exist. It must never grow its own basis check. */}
         {showAchievementReadout && (
           <NodeMetricRow
-            label={METRIC_NOUN.chance}
+            label={`${analysisChanged ? LAST_RUN_PREFIX : ''}${METRIC_NOUN.chance}`}
             value={displayMetadata.achievementProbability}
             formatted={achievementReadout ?? ''}
             fillClass="bg-goal"
             testId="goal-achievement-metric-row"
+            title={achievementTitle}
+            phrase={achievementTitle}
+          />
+        )}
+        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
+          <NodeMetricRow
+            label={METRIC_NOUN.chance}
+            value={null}
+            unsetText={analysisChanged ? 'Rerun to update' : displayMetadata.goalFitAvailable ? 'See each option' : 'Not produced by this run'}
+            testId="goal-achievement-unset"
+            title={noProbabilitySentence}
+            phrase={noProbabilitySentence}
           />
         )}
 
-        {/* Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the
-            achievement-probability number above is scored from a MODELLED
-            forward-propagated outcome distribution, not a directly-elicited
-            base — same gate + shared wording as OptionCards' caveat
-            (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the number it
-            qualifies, never separately, never invented. */}
-        {showAchievementReadout &&
-          displayMetadata.achievementProbabilityIsModelledBasis === true && (
-            <p
-              className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-              data-testid="goal-fit-basis-caveat-node"
-            >
-              {GOAL_FIT_BASIS_CAVEAT_COPY}
-            </p>
-          )}
-
-        {/* Actionable guidance for low probability (UI-SEM-082: gated on
-            hasThreshold too — no "Target may be ambitious" against an
-            auto-threshold the user never set). */}
-        {hasThreshold && isPostAnalysis && achievementIsCritical && (
+        {/* Detailed adds information, not a different card: the basis caveat
+            and the "may be ambitious" prompt, as before. */}
+        {isDetailed && showAchievementReadout && displayMetadata.achievementProbabilityIsModelledBasis === true && (
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+            data-testid="goal-fit-basis-caveat-node"
+          >
+            {GOAL_FIT_BASIS_CAVEAT_COPY}
+          </p>
+        )}
+        {isDetailed && hasThreshold && isPostAnalysis && achievementIsCritical && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             Target may be ambitious.{' '}
             <button
@@ -1112,62 +1047,6 @@ export const GoalNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Pre-analysis primary CTA: "Run analysis". This stays in the body
-            because it's a primary action button rather than coaching — moving
-            it to a hover popover would make it nearly undiscoverable for
-            first-time users. */}
-        {hasThreshold && !isPostAnalysis && (
-          <div className="mt-1.5">
-            <NodeChip chipId="goal_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
-          </div>
-        )}
-
-        {/* ⭐⭐ "IS THIS THE REAL GOAL?" ON THE CARD, AND NO LONGER GATED ON A TARGET.
-
-            TWO defects, and the second is the expensive one.
-
-            1. LOCATION. It sat in `layer2Content`, which reaches the screen only
-               via `isDetailed` inline or a hover `NodePopover` — and
-               `NodePopover.tsx:129` is `if (!visible) return null`, so at rest its
-               children are ABSENT FROM THE DOM. Measured on deployed `9748b336`,
-               Standard view: `Is this the real goal` **0**, with 71
-               `react-flow__node` and 26 `Influence` as contrast controls.
-
-            2. ⭐ THE GATE WAS BACKWARDS. It lived inside `{hasThreshold && …}`,
-               and `hasThreshold = !canCaptureTarget` — so the question became
-               reachable ONLY ONCE A NUMERIC TARGET WAS COMMITTED. Asking whether
-               the goal is the real goal is worth most BEFORE the user commits to
-               a measure for it; after that the proxy is already load-bearing and
-               every option and factor downstream has been optimised against it.
-               The gate made the question available exactly when it was least
-               useful. Witnessed live: a goal reading "Target not captured" —
-               i.e. the ideal moment to ask — offered nothing.
-
-            THE PRECEDENT IS DIRECTLY ABOVE. `goal_run_analysis` is already on
-            this card face, for the reason its comment gives: "moving it to a
-            hover popover would make it nearly undiscoverable for first-time
-            users." That argument is not weaker for the question that decides
-            whether the whole model is aimed at the right thing.
-
-            ⚠ NO CONFLICT WITH `noTargetStatusChip`, checked rather than assumed.
-            That chip renders on `canCaptureTarget`, which is `!hasThreshold` —
-            so it holds this card face precisely when the old gate suppressed
-            this question. The two are complementary, and together they read as
-            one thought: no target set yet, and is this even the right goal. */}
-        <CoachingChipRow
-          className="mt-1.5 flex gap-1 flex-wrap"
-          chips={resolveNodeCoaching({
-            kind: 'goal',
-            surface: 'card',
-            state: { achievementIsCritical },
-            context: {},
-          })}
-        />
-
-        {/* Coaching chip "Is my target realistic?" moved to popover (Standard)
-            / Detailed inline layer-2. See `layer2Content` above. */}
-
-        {/* Layer 2: inline in Detailed view */}
         {showLayer2Inline && layer2Content}
       </BaseNode>
 

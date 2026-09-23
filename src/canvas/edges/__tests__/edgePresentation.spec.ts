@@ -87,7 +87,11 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
       'structural',
       'lens_causal',
       'lens_evidence',
-      'contested_needs_user_input',
+      // ⭐ ONE contest rule, and it is about the SIGN (Experience Design,
+      // 23 Sep 2026: "orange = AI review sign disagreement only").
+      // `contested_needs_user_input` — full orange whenever pass 2 asked for
+      // input, whatever the reason — is gone; that flag is now read by the
+      // inspector's disagreement heading instead.
       'contested_direction_disputed',
       'highlighted',
       'polarity',
@@ -97,12 +101,15 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
   it('states the dash precedence as an ordered list, and carries NO pre-run rule', () => {
     expect([...EDGE_DASH_RULES]).toEqual([
       'structural',
-      'contested',
+      // ⭐ NO `contested` RULE (Experience Design, 23 Sep 2026: "dash =
+      // existence certainty only"). A review disagreement never dashes a line.
       // Provenance is asked BEFORE value: an edge nobody assessed reaches a
       // NAMED rule rather than falling through to the legacy visual-props map.
       'existence_unset',
       'existence_certainty',
-      'visual_props',
+      // ⛔ NO `visual_props` — Paul 23 Sep contract feedback point 4: "Dash
+      // remains existence certainty only." A presentational `style` field
+      // carries no existence claim, so it may not dash a line.
     ])
     // The defect this module was written to remove: a "needs attention" dash
     // applied to every confidence-less edge, gated on an app phase.
@@ -117,7 +124,6 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
       resolveEdgeStroke(state({ isStructural: true })).rule,
       resolveEdgeStroke(state({ lensMode: 'causal', causalParams: { direction: 'negative' } })).rule,
       resolveEdgeStroke(state({ lensMode: 'evidence', evidenceClass: 'assumed' })).rule,
-      resolveEdgeStroke(state({ contested: contestedNeedsInput })).rule,
       resolveEdgeStroke(state({ contested: contestedSignFlip })).rule,
       resolveEdgeStroke(state({ isHighlighted: true })).rule,
       resolveEdgeStroke(state()).rule,
@@ -148,13 +154,18 @@ describe('edgePresentation — colour belongs to polarity', () => {
     expect(d.value).toContain('--semantic-warning')
   })
 
-  it('OPPOSITE-DIRECTION TWIN: needs_user_input takes the exception hue at full strength', () => {
+  // ⭐ REWRITTEN 23 Sep 2026 (Experience Design: "orange = AI review sign
+  // disagreement only"). This case used to assert that `needs_user_input`
+  // took the exception hue at FULL strength whatever the reason — so a pass-2
+  // request over an AGREED sign painted the line orange. The flag's reader
+  // moved to the inspector heading (`EdgeReviewDisagreement`).
+  it('needs_user_input over an AGREED sign keeps its polarity — the flag is not a colour', () => {
     const d = resolveEdgeStroke(state({ contested: contestedNeedsInput }))
-    expect(d.rule).toBe('contested_needs_user_input')
-    expect(d.value).toBe('var(--semantic-warning)')
+    expect(d.rule).toBe('polarity')
+    expect(d.value).toBe(POLARITY_GREEN)
   })
 
-  it('needs_user_input outranks a sign_flip contest — one edge, one colour, stated order', () => {
+  it('a sign_flip that ALSO needs input takes the same single orange — one meaning, one hue', () => {
     const both = readContestedState(validation({
       contested_reasons: ['sign_flip'],
       pass2: {
@@ -162,7 +173,9 @@ describe('edgePresentation — colour belongs to polarity', () => {
         reasoning: 'test', basis: 'domain_prior', needs_user_input: true,
       },
     }))
-    expect(resolveEdgeStroke(state({ contested: both })).rule).toBe('contested_needs_user_input')
+    const d = resolveEdgeStroke(state({ contested: both }))
+    expect(d.rule).toBe('contested_direction_disputed')
+    expect(d.value).toBe(resolveEdgeStroke(state({ contested: contestedSignFlip })).value)
   })
 
   it('a contested edge still outranks the transient highlight, as it always did', () => {
@@ -208,29 +221,24 @@ describe('edgePresentation — colour belongs to polarity', () => {
   })
 })
 
-describe('edgePresentation — the contest is ALWAYS visible, on the dash', () => {
-  it('every contested edge dashes, whatever colour won above', () => {
+describe('edgePresentation — the dash is existence certainty ONLY', () => {
+  // ⭐ REWRITTEN 23 Sep 2026 (Experience Design: "dash = existence certainty
+  // only"). This block used to be titled "the contest is ALWAYS visible, on the
+  // dash" and asserted a divergence-scaled `contested` dash on every contested
+  // edge. A strength-only contest then dashed under a key that said the
+  // connection's EXISTENCE was in doubt. The contest now reaches the canvas only
+  // as the sign-dispute orange; every other review disagreement is in the
+  // connection's inspector.
+  it('no contested edge dashes by virtue of the contest — whatever the reason', () => {
     for (const c of [contestedNonDirection, contestedSignFlip, contestedNeedsInput]) {
-      const d = resolveEdgeDash(state({ contested: c }))
-      expect(d.rule).toBe('contested')
-      expect(d.value).toBe(c.dash)
+      expect(c.isContested).toBe(true)
+      expect(resolveEdgeDash(state({ contested: c }))).toEqual(resolveEdgeDash(state()))
     }
   })
 
-  it('the divergence-scaled dash is unchanged by this refactor', () => {
-    expect(readContestedState(validation({ max_divergence: 0.6 })).dash).toBe('2.4 6')
-    expect(readContestedState(validation({ max_divergence: 0 })).dash).toBe('1.5 4')
-    expect(readContestedState(validation({ max_divergence: 1 })).dash).toBe('3 8')
-    // needs_user_input pins the GAP at 3 regardless of divergence; the width
-    // still scales (1.5 + 0.6 × 1.5 = 2.4).
-    expect(contestedNeedsInput.dash).toBe('2.4 3')
-    expect(readContestedState(validation({
-      max_divergence: 0.8,
-      pass2: {
-        strength_mean: 0.7, strength_std: 0.15, exists_probability: 0.9,
-        reasoning: 'test', basis: 'domain_prior', needs_user_input: true,
-      },
-    })).dash).toBe('2.7 3')
+  it('the reduced contest state carries no dash to compute', () => {
+    expect('dash' in contestedNonDirection).toBe(false)
+    expect('dash' in NOT_CONTESTED).toBe(false)
   })
 
   it('OPPOSITE-DIRECTION TWIN: a genuinely uncertain edge still dashes from existence certainty', () => {
@@ -260,7 +268,7 @@ describe('edgePresentation — the contest is ALWAYS visible, on the dash', () =
     // future lane that wants to mark the unset state has a named position to
     // hang it on, and nothing silently inherits the other's treatment.
     const d = resolveEdgeDash(state({ existence: { kind: 'stated', dash: undefined } }))
-    expect(d.rule).toBe('visual_props')
+    expect(d.rule).toBe('existence_certainty')
     expect(d.value).toBeUndefined()
     expect(d.rule).not.toBe('existence_unset')
   })
@@ -329,11 +337,12 @@ describe('readContestedState — the gate, and what it refuses to infer', () => 
     ['a bare string rather than an array', validation({ contested_reasons: 'sign_flip' })],
   ])('FAILS QUIET when contested_reasons is %s — still contested, direction NOT disputed', (_l, v) => {
     // P5: painting the exception hue here would assert a direction disagreement
-    // on no evidence. The contest is still shown, on the dash.
+    // on no evidence. Since 23 Sep 2026 the contest is not on the line at all
+    // (dash = existence only); it is in the connection's inspector.
     const c = readContestedState(v)
     expect(c.isContested).toBe(true)
     expect(c.directionDisputed).toBe(false)
-    expect(c.dash).not.toBeNull()
     expect(resolveEdgeStroke(state({ contested: c })).rule).toBe('polarity')
+    expect(resolveEdgeDash(state({ contested: c }))).toEqual(resolveEdgeDash(state()))
   })
 })

@@ -249,19 +249,14 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
       data: { direction: 'positive', direction_source: 'user' },
       store: { highlightedEdges: new Set(['e1']) },
     },
+    // ⭐ REPLACED 23 Sep 2026. This row was `contested_needs_user_input`
+    // (full `var(--semantic-warning)`), a rule the locked connector grammar
+    // deleted ("orange = AI review SIGN disagreement only"). A stated POSITIVE
+    // takes its place so the table still carries five distinct strokes.
     {
-      rule: 'contested_needs_user_input',
-      stroke: 'var(--semantic-warning)',
-      data: {
-        direction: 'positive',
-        direction_source: 'user',
-        validation: {
-          status: 'contested',
-          user_action: 'pending',
-          max_divergence: 0.5,
-          pass2: { needs_user_input: true },
-        },
-      },
+      rule: 'polarity (a stated positive — same rule, third value)',
+      stroke: 'var(--edge-positive)',
+      data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 },
     },
     {
       rule: 'contested_direction_disputed (the color-mix value)',

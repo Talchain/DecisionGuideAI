@@ -55,6 +55,13 @@ interface StatusPillProps {
    * spec is byte-identical.
    */
   testId?: string
+  /**
+   * ⭐ MT-21 (manual test on served `4c6ec07b`): a pill that names a gap the
+   * user can close must not be INERT. When given, the pill is a button with the
+   * SAME geometry, whose accessible name is `title` (the full claim and the
+   * action) — so a card never states a gap and withholds the route to it.
+   */
+  onActivate?: () => void
 }
 
 /**
@@ -89,17 +96,41 @@ interface StatusPillProps {
  * One token, so the pill's geometry is byte-identical and no card's height can
  * change.
  */
-export const StatusPill = memo(({ label, title, testId = 'needs-input-pill' }: StatusPillProps) => (
-  <span
-    role="status"
-    aria-label={title ?? label}
-    className={`${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-medium text-text-body bg-warning/15 border border-warning/40 rounded-[10px]`}
-    style={{ padding: '2px 8px', lineHeight: 1.2, borderWidth: '0.5px' }}
-    title={title ?? label}
-    data-testid={testId}
-  >
-    {label}
-  </span>
-))
+const PILL_CLASSES =
+  `${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-medium text-text-body bg-warning/15 border border-warning/40 rounded-[10px]`
+const PILL_STYLE = { padding: '2px 8px', lineHeight: 1.2, borderWidth: '0.5px' } as const
+
+export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onActivate }: StatusPillProps) =>
+  onActivate ? (
+    <button
+      type="button"
+      aria-label={title ?? label}
+      className={`${PILL_CLASSES} nodrag nopan cursor-pointer hover:bg-warning/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      style={PILL_STYLE}
+      title={title ?? label}
+      data-testid={testId}
+      data-node-tooltip="true"
+      onClick={(e) => {
+        e.stopPropagation()
+        onActivate()
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+    >
+      {label}
+    </button>
+  ) : (
+    <span
+      role="status"
+      aria-label={title ?? label}
+      className={PILL_CLASSES}
+      style={PILL_STYLE}
+      title={title ?? label}
+      data-testid={testId}
+    >
+      {label}
+    </span>
+  ),
+)
 
 StatusPill.displayName = 'StatusPill'

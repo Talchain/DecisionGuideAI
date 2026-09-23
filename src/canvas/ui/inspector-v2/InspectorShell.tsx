@@ -184,6 +184,9 @@ export const InspectorShell = memo(function InspectorShell({
               onClick={() => onTechToggleChange(!techMode)}
               title={techMode ? 'Hide technical detail' : 'Show technical detail'}
               aria-label={techMode ? 'Hide technical detail' : 'Show technical detail'}
+              // Paul 23 Sep contract feedback point 12: the toggle's state is
+              // announced, not carried by the icon's colour alone.
+              aria-pressed={techMode}
               className="p-1 rounded hover:bg-panel-hover transition-colors"
             >
               <Code2

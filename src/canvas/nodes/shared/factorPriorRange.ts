@@ -21,18 +21,83 @@
  * the body the low-zoom line would disagree with is HIDDEN, so nothing on
  * screen could ever show the disagreement.
  *
- * The extraction was byte-for-byte what `FactorNode` shipped. ⚠ ONE behaviour
- * change has landed since, and it is the only one: the dedupe arm now also
- * declines when the caller's value line CONTRADICTS the scale the normalised
- * range would print on (see `displayedValueIsOffTheNormalisedScale`, and the
- * journey witness quoted there). The dedupe arm still takes the caller's own
+ * The extraction was byte-for-byte what `FactorNode` shipped. ⚠ TWO behaviour
+ * changes have landed since: the dedupe arm now also declines when the
+ * caller's value line CONTRADICTS the scale the normalised range would print on
+ * (see `displayedValueIsOffTheNormalisedScale`, and the journey witness quoted
+ * there); and a USER-OWNED value restates the range as replaced rather than
+ * live (see `userValueReplacesPrior`). The dedupe arm still takes the caller's own
  * `valueDisplay`, because
  * the two callers legitimately resolve that string by different entry points
  * (the card via `formatFactorDisplayValue`, the reduced line via
  * `factorDisplayText`) and neither may be assumed for the other.
  */
 import { isUnquantifiedPrior, priorEndpointsAreNormalised } from '../../domain/nodes'
+import { classifyValueProvenance } from '../../domain/valueProvenance'
+import { getObservedState } from '../../utils/observedStateHelpers'
 import { classifyUnit, formatRawValueWithUnit, isSuppressedUnit } from '../../utils/labelUtils'
+
+/**
+ * ⭐⭐ A VALUE THE USER STATED REPLACES THE RANGE — so the range is not live.
+ *
+ * Derived at the bytes, not assumed (22 Sep 2026; lane notes
+ * `output/canvas-review-20260922/lanes/external-factors.md`, PLoT re-read at
+ * `staging` 5039cca4):
+ *
+ *   · An external factor carrying a drafted `prior` can receive a point value
+ *     today (the Model tab editor admits every factor, bounded only by the
+ *     prior's support). CEE stamps `observed_state.source = 'user_override'`
+ *     and leaves `prior` on the node untouched.
+ *   · PLoT `buildParameterUncertaintiesV3` SKIPS the prior pass for any factor
+ *     whose `observed_state.value !== undefined` — its own words: "a stated
+ *     value always wins, whatever the category" — and sends a Normal around the
+ *     value instead. ISL never reads `node.prior`.
+ *
+ * So a card reading the user's value AND `Range: 0.3 to 0.8` was presenting a
+ * range the analysis no longer uses. The range is still TRUE as a record (it is
+ * what the node carries, and "caveat, never hide" governs this surface), so it
+ * is restated, not removed: the line says the value replaces it. ⚠ It does not
+ * say who authored the range — the inspector's quick-set writes `prior` too, so
+ * "drafted" would be an attribution the node cannot support.
+ *
+ * ⚠ THE PREDICATE IS THE ESTATE'S ONE AUTHORITY FOR "WHO PUT THIS NUMBER HERE",
+ * never a literal list: `classifyValueProvenance(source).userOwned` — the same
+ * test `ModelOutline.unsetBucketOf` applies for "yours". A hand-listed
+ * `'user' || 'user_confirmed' || 'user_override'` is exactly how
+ * `formatFactorDisplayValue` once missed a member.
+ *
+ * ⚠ SCOPED TO A USER-OWNED VALUE, DELIBERATELY NARROWER THAN PLOT'S SKIP.
+ * PLoT's skip is source-agnostic, so a MODEL-authored value beside a prior
+ * has the same dormant range. It is not claimed here: "Your value" would be
+ * false attribution on it, and the right sentence for that state is a separate
+ * decision. Reported, not decided.
+ *
+ * ⚠ A MIRROR OF ONE PLOT GATE, NAMED AS SUCH. `FactorExternalPanel`'s role-note
+ * docblock records why that panel had declined to mirror PLoT's precedence
+ * (trap 12). The mirror is accepted here because the alternative is a false
+ * claim on screen today, and it is confined to this one function so that the
+ * day PLoT changes the precedence there is one place to change.
+ */
+export function userValueReplacesPrior(data: unknown): boolean {
+  const obs = getObservedState(data)
+  const value = obs.value
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false
+  const source = typeof obs.source === 'string' ? obs.source : null
+  return classifyValueProvenance(source)?.userOwned === true
+}
+
+/**
+ * The card's sentence. Follows the range it replaces, in the SAME grammar the
+ * live `Range:` line would have used, so the numbers read identically before
+ * and after the edit.
+ */
+export const USER_VALUE_REPLACES_RANGE = 'Your value replaces the range'
+
+/**
+ * The inspector's sentence, where the range is drawn beside it (bar, inputs),
+ * so it names "this range" rather than repeating the numbers.
+ */
+export const USER_VALUE_REPLACES_THIS_RANGE = 'Your value replaces this range in the analysis.'
 
 /**
  * Parse a display string that is a BARE numeric range ("0.2 to 0.8",
@@ -282,12 +347,21 @@ export interface FactorPriorRangeInputs {
  * other formatters (it previously had a local fmt() with its own hardcoded
  * ['£','$','€','¥'] list that leaked "Range: 20 scale to 80 scale").
  */
-export function resolveFactorPriorRange({
-  data,
-  nodeCategory,
-  observedState,
-  valueDisplay,
-}: FactorPriorRangeInputs): string | null {
+function resolvePriorRangeBody(
+  {
+    data,
+    nodeCategory,
+    observedState,
+    valueDisplay,
+  }: FactorPriorRangeInputs,
+  /**
+   * Whether CEE's authored `display_value` may stand in for the range on the
+   * valueless-caller arm. False once a user-owned value exists: CEE rewrites
+   * `display_value` FROM THE POINT on a value edit (`set-factor-value.ts:696`),
+   * so the authored string is then the user's number, not the range.
+   */
+  preferAuthoredCopy: boolean,
+): string | null {
   const prior = data?.prior as { range_min?: number; range_max?: number } | undefined
   const rangeMin = prior?.range_min
   const rangeMax = prior?.range_max
@@ -381,16 +455,16 @@ export function resolveFactorPriorRange({
      * dedupe owns the decision; reaching into that branch would give a card
      * that already shows its value a second copy of it under a Range caption.
      */
-    if (valueDisplay == null) {
+    if (valueDisplay == null && preferAuthoredCopy) {
       const authored = (data as { display_value?: unknown } | undefined)?.display_value
       if (typeof authored === 'string' && authored.trim().length > 0) {
         // Strip a caption the producer may already have included, so the two
         // cannot stack into "Range: Range: …".
         const body = authored.trim().replace(/^Range:\s*/i, '')
-        if (body.length > 0) return `Range: ${body}`
+        if (body.length > 0) return body
       }
     }
-    return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
+    return `${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
   }
 
   // Real unit with calibration (or percent): the Range line adds calibrated
@@ -420,5 +494,23 @@ export function resolveFactorPriorRange({
   // numeric display_value ("20000 to 80000") deliberately does NOT dedupe
   // here: the calibrated Range line still adds the unit information.
   if (valueDisplay != null && valueDisplay.trim() === rendered) return null
-  return `Range: ${rendered}`
+  return rendered
+}
+
+/**
+ * The one line a factor card (and its reduced low-zoom line) says about the
+ * factor's prior range, or `null` when there is nothing true to say.
+ *
+ * `Range: a to b` while the range is live. Once a USER-OWNED value exists
+ * (`userValueReplacesPrior`), the same numbers are restated as replaced —
+ * `Your value replaces the range a to b` — because the analysis no longer
+ * samples them. Every suppression decision above (ignorance prior, dedupe,
+ * off-scale) is taken FIRST and is unchanged: a range that had nothing true to
+ * say as a live line has nothing true to say as a replaced one either.
+ */
+export function resolveFactorPriorRange(inputs: FactorPriorRangeInputs): string | null {
+  const replaced = userValueReplacesPrior(inputs.data)
+  const body = resolvePriorRangeBody(inputs, !replaced)
+  if (body == null) return null
+  return replaced ? `${USER_VALUE_REPLACES_RANGE} ${body}` : `Range: ${body}`
 }

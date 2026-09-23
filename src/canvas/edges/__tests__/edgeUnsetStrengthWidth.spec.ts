@@ -45,7 +45,7 @@ import {
   UNSET_EDGE_STROKE_WIDTH,
   weightMagnitudeToStrokeWidth,
 } from '../../utils/graphDisplayCalculations'
-import { resolveEdgeStroke, type EdgePresentationState } from '../edgePresentation'
+import { resolveEdgeStroke, NOT_CONTESTED, type EdgePresentationState } from '../edgePresentation'
 
 /**
  * Every width a MEASUREMENT can produce, derived by sampling the whole
@@ -128,7 +128,10 @@ describe('an unset strength is not drawn as a measurement', () => {
       lensMode: 'causal',
       causalParams: { direction: 'negative' },
       evidenceClass: null,
-      contested: { isContested: false, needsUserInput: false, directionDisputed: false, dash: null },
+      // The module's own constant rather than a hand-typed literal: the
+      // contest state narrowed on 23 Sep 2026 (no dash, no needs-input flag),
+      // and a literal here is the mirror that breaks when it does (trap 12).
+      contested: NOT_CONTESTED,
       isHighlighted: false,
       // Two DIFFERENT polarity strokes below, to prove the lens ignores them:
       // if `lens_causal` ever started falling through to polarity, these two

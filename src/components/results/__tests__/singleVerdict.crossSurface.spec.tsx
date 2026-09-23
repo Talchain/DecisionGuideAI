@@ -56,6 +56,17 @@
  * `utils/selectGoalLeader.ts`, pinned by
  * `analysis-hero/__tests__/buildHeroModel.goalFitIdentity.spec.tsx` on the
  * surviving host. The canvas-vs-results block below is untouched.
+ *
+ * ⚠ RE-POINTED ON THE CANVAS SIDE ONLY — ED #63 5799353114 DECISION 1 (23 Sep
+ * 2026): "Drop 'Most supported'. It reads as a recommendation." The canvas card
+ * no longer names a leader on ANY run, so the old two-directional agreement
+ * ("the canvas badges exactly when the panel does not deny") cannot hold and
+ * is not meant to: the panel owns the comparative claim. What survives on the
+ * canvas side is the half that was always the harm — the canvas never asserts
+ * a leader — now asserted on EVERY row of the matrix, each time with a
+ * same-render contrast control (both cards and their "N% of runs" rows are on
+ * screen). The panel-side assertions (its denial probe and the checks footer
+ * stating exactly one verdict) are unchanged.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -211,15 +222,34 @@ const nodeProps = (id: string): OptionNodeProps => ({
   zIndex: 0,
 } as unknown as OptionNodeProps)
 
-/** What the CANVAS says: does any option node claim to be the leading option? */
-function canvasAssertsLeadingOption(): boolean {
+/** The canvas probe's claim detector: the text a user reads, or the pill by identity. */
+const LEADER_CLAIM_TEXT = /Most supported/i
+const LEADER_CLAIM_SELECTOR = '[data-testid^="leading-option-pill-"], [data-testid^="leading-option-robustness-"]'
+
+/**
+ * What the CANVAS says: does any option node claim to be the leading option?
+ * Returns the claim AND the contrast control from the same render — both option
+ * labels and both "N% of runs" result rows — so "no claim" can never be read
+ * off a canvas that failed to render.
+ */
+function readCanvas(): { claims: boolean; rendered: boolean; text: string } {
   const { container } = render(
     <ReactFlowProvider>
       {OPTION_NODES.map(n => <OptionNode key={n.id} {...nodeProps(n.id)} />)}
     </ReactFlowProvider>,
   )
-  return /Most supported/i.test(container.textContent ?? '')
+  const text = container.textContent ?? ''
+  const rendered = OPTION_NODES.every(n =>
+    text.includes(n.data.label) &&
+    /% of runs$/.test(container.querySelector(`[data-testid="option-win-readout-${n.id}"]`)?.textContent ?? ''),
+  )
+  return {
+    claims: LEADER_CLAIM_TEXT.test(text) || container.querySelector(LEADER_CLAIM_SELECTOR) !== null,
+    rendered,
+    text,
+  }
 }
+
 
 /**
  * What the RESULTS SURFACE says — the whole cockpit, as a user loads it.
@@ -269,10 +299,14 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
   // ── The reported defect ────────────────────────────────────────────────
   it('the journey run (72% vs 20%, stability 0.55) does not produce both "Most supported" and "no clear leading option"', () => {
     setStore(JOURNEY_RUN)
-    const canvasClaims = canvasAssertsLeadingOption()
+    const canvas = readCanvas()
+    const canvasClaims = canvas.claims
     document.body.innerHTML = ''
     const panel = readPanel()
 
+    // Contrast control: the canvas DID render both cards, so a silent canvas
+    // here is the card's (ED #63 5799353114 decision 1), not a dead render.
+    expect(canvas.rendered, `the canvas did not render both cards.\nText: ${canvas.text.slice(0, 400)}`).toBe(true)
     expect(
       canvasClaims && panel.denies,
       `Contradiction: canvas badge says "Most supported" while the results panel says "no clear leading option".\nPanel text: ${panel.text.slice(0, 400)}`,
@@ -280,9 +314,21 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
   })
 
   // ── Positive controls: the probe can SEE both claims ────────────────────
-  it('POSITIVE CONTROL: the canvas probe can see a leading-option claim on a clear, robust run', () => {
+  it('CANVAS PROBE CONTROLS: it sees the cards, and its claim detector can fire', () => {
+    // WAS "the canvas probe can see a leading-option claim on a clear, robust
+    // run". That claim is retired (ED #63 5799353114 decision 1), so the probe
+    // is controlled two other ways: (a) on the clear, robust run — the retired
+    // badge's strongest case — it SEES both cards and their result rows while
+    // finding no claim; (b) its detector fires on the exact strings and ids the
+    // retired pill carried, so "no claim" is not a detector that cannot match.
     setStore(CLEAR_RUN)
-    expect(canvasAssertsLeadingOption()).toBe(true)
+    const canvas = readCanvas()
+    expect(canvas.rendered, `the canvas did not render both cards.\nText: ${canvas.text.slice(0, 400)}`).toBe(true)
+    expect(canvas.claims, 'the canvas card named a leader (ED #63 5799353114 decision 1)').toBe(false)
+    expect(LEADER_CLAIM_TEXT.test('Last run · Most supported')).toBe(true)
+    const probe = document.createElement('div')
+    probe.innerHTML = `<span data-testid="leading-option-pill-${WINNER_ID}"></span>`
+    expect(probe.querySelector(LEADER_CLAIM_SELECTOR)).not.toBeNull()
   })
 
   it('POSITIVE CONTROL: the results probe can see a "No clear leader" denial on a genuinely tied run', () => {
@@ -311,18 +357,22 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     { label: 'narrow lead just over the gap threshold', s: { winnerWin: 0.56, runnerUpWin: 0.44, stability: 0.75, isTie: false } },
   ]
 
-  it.each(MATRIX)('$label — canvas and panel agree on whether a leading option exists', ({ s }) => {
+  it.each(MATRIX)('$label — the canvas makes no leader claim; the panel states exactly one verdict', ({ s }) => {
     setStore(s)
-    const canvasClaims = canvasAssertsLeadingOption()
+    const canvas = readCanvas()
     document.body.innerHTML = ''
     const panel = readPanel()
-    // Agreement in BOTH directions: the canvas badges exactly when the panel
-    // does not deny. A one-directional check would pass a build where the
-    // canvas went silent while the panel asserted a leader.
+    // ⭐ CANVAS SIDE, RE-POINTED (ED #63 5799353114 decision 1). This was
+    // `canvasClaims === !panel.denies` — the canvas badged exactly when the
+    // panel did not deny. The canvas card now names no leader on ANY run; the
+    // panel owns the claim. So the canvas can never contradict a denial, and
+    // is asserted silent on every row — after the contrast control that both
+    // cards and their result rows rendered in the same render.
+    expect(canvas.rendered, `the canvas did not render both cards.\nText: ${canvas.text.slice(0, 400)}`).toBe(true)
     expect(
-      canvasClaims,
-      `Surfaces disagree. Canvas badged: ${canvasClaims}; panel denied: ${panel.denies}.\nPanel text: ${panel.text.slice(0, 400)}`,
-    ).toBe(!panel.denies)
+      canvas.claims,
+      `The canvas card named a leader (ED #63 5799353114 decision 1). Panel denied: ${panel.denies}.\nCanvas text: ${canvas.text.slice(0, 400)}`,
+    ).toBe(false)
     // The checks footer states EXACTLY ONE verdict — it must never print
     // both labels, and never neither. (This replaces the deleted panel's
     // headline-vs-footer comparison; see the file header for why it is not

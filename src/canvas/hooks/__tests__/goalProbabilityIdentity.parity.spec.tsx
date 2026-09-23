@@ -283,6 +283,10 @@ describe('goal-probability identity — the rendered canvas text matches the dec
     // being conflated with this one.
     renderGoalNode()
     expect(screen.queryByText(/did not produce a goal probability/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the denial now lives on ONE row
+    // (`goal-achievement-unset`) whose accessible name carries the sentence —
+    // so "does not deny" is also asserted on that row's identity.
+    expect(screen.queryByTestId('goal-achievement-unset')).toBeNull()
   })
 
   it('⭐ L62: on a WITHHELD run the node denies a figure, and the panel agrees — no contradiction in the other direction either', () => {
@@ -297,7 +301,12 @@ describe('goal-probability identity — the rendered canvas text matches the dec
     expect(decision.goalProbability).toBeNull()
 
     const { container } = renderGoalNode()
-    expect(container.textContent ?? '').toContain('did not produce a goal probability')
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2, wide + shallow):
+    // the denial is ONE Chance row — short visible text, the full sentence as
+    // its accessible name and tooltip — rather than a paragraph of its own.
+    const denial = screen.getByTestId('goal-achievement-unset')
+    expect(denial.textContent).toContain('Not produced by this run')
+    expect(denial.getAttribute('aria-label') ?? '').toContain('did not produce a goal probability')
     expect(container.textContent ?? '').not.toContain('62%')
   })
 

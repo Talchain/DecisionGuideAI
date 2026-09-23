@@ -404,7 +404,7 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
   },
   {
     selector: '[aria-label="Dismiss suggestion"]',
-    why: 'coaching dismissal — writes no model value. The edge notice says in terms that coaching still works; until the panel was unfenced this button sat inside the boundary and was inert, so the sentence was false.',
+    why: 'coaching dismissal — writes no model value. Until the panel was unfenced this button sat inside the boundary and was inert while the edge notice said coaching still worked. (That sentence was dropped as boilerplate on Paul 23 Sep contract feedback point 11; the control stays operable, which this entry keeps pinned.)',
     panels: ['edge'],
   },
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },

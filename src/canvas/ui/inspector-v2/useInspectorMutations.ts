@@ -287,8 +287,33 @@ export const EDITOR_WRITTEN_FIELDS = {
 export const RENAME_AUTHORITY_CLAUSE =
   'reaches the shared model, but only for elements the model already holds'
 
+/**
+ * ⭐ THE ONE HUMAN-AGENCY STATEMENT (Paul 23 Sep contract feedback point 11:
+ * "One human-agency statement, not three versions of the same disclaimer").
+ *
+ * Rendered ONCE per inspector pane by `InspectorRouter`, beside — never inside —
+ * the pane's authority notice, so the notice stays the exact element the
+ * `<fieldset disabled>` names in `aria-describedby` and every spec that binds
+ * the notice by `textContent` still binds the SAME truth.
+ *
+ * ⚠ It states a ROLE, not an outcome: the human decides, the model informs.
+ * No recommendation, no ranking, no claim about what a run will do. The
+ * save / not-saved facts stay in the per-pane constants below — this line does
+ * not repeat them, and they no longer repeat each other's boilerplate.
+ */
+export const INSPECTOR_AGENCY_STATEMENT =
+  "You decide. Olumi's model informs your thinking; it doesn't choose for you."
+
+/**
+ * ⚠ Paul 23 Sep contract feedback point 11 — SHORTENED, NOT DELETED. Every
+ * pinned truth survives: the rename is reachable and conditional
+ * (`RENAME_AUTHORITY_CLAUSE`), the other fields can't yet be saved, and the two
+ * routes that DO save (Model tab for supported factor values; asking Olumi) are
+ * still named. What went: "read-only for now because", which restated the
+ * same fact as "can't yet be saved" in the same sentence.
+ */
 export const INSPECTOR_READ_ONLY_REASON =
-  `You can rename this — renaming ${RENAME_AUTHORITY_CLAUSE}. The other fields here are read-only for now because those changes can't yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure.`
+  `You can rename this; renaming ${RENAME_AUTHORITY_CLAUSE}. Other fields here can't yet be saved. Use the Model tab for supported factor values, or ask Olumi to change structure.`
 
 /**
  * ⭐ THE SAME FACTS, FOR THE ONE PANE THAT NOW FENCES ITSELF.
@@ -311,8 +336,12 @@ export const INSPECTOR_READ_ONLY_REASON =
 // single carrier, so it takes the same clause. The pane still says less than
 // the blanket string above; it now says less about the same thing, rather than
 // something different.
+// ⚠ Paul 23 Sep contract feedback point 11: "links, details and coaching still
+// work" was boilerplate repeated on five arms. It is dropped rather than moved:
+// those controls are visibly enabled, and "Other fields" already scopes the
+// fence to writers, so no blanket is implied (the trap-21 concern above).
 export const INSPECTOR_OPTION_READ_ONLY_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Other fields here are read-only for now — links, details and coaching still work.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Other fields here are read-only for now.`
 
 /**
  * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE
@@ -351,7 +380,11 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
   // flatness for free. The rename clause is shared with the other three arms
   // (see `RENAME_AUTHORITY_CLAUSE`); the value clause is left exactly as it
   // was, unaudited, and that is recorded rather than quietly fixed.
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. The value saves to the shared model. Other edits here are not sent yet — links, details and coaching still work.`
+  //
+  // (4) Paul 23 Sep contract feedback point 11: the "links, details and
+  // coaching still work" tail is dropped (repeated boilerplate on five arms);
+  // every save / not-sent fact above is kept.
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. The value saves to the shared model. Other edits here are not sent yet.`
 
 /**
  * ⭐ THE EXTERNAL-FACTOR PANE, AND IT EXISTS SO THE THIRD PANEL CANNOT INHERIT
@@ -533,8 +566,10 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * string does: `setDescription` has no carrier and stays fenced, and naming it
  * as THE exception would be false the moment another fence is added.
  */
+// ⚠ Paul 23 Sep contract feedback point 11: boilerplate tail dropped; the
+// three truths (conditional rename, the range's role, other edits unsent) kept.
 export const INSPECTOR_FACTOR_EXTERNAL_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A range you set here is a judgement for Olumi, not an edit to the shared model. Other edits here are not sent yet. Links, details and coaching still work.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A range you set here is a judgement for Olumi, not an edit to the shared model. Other edits here are not sent yet.`
 
 /**
  * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.
@@ -559,8 +594,9 @@ export const INSPECTOR_FACTOR_EXTERNAL_REASON =
  * than as silence. What was false before was the control moving with nothing
  * leaving the browser at all.
  */
+// ⚠ Paul 23 Sep contract feedback point 11: boilerplate tail dropped.
 export const INSPECTOR_EDGE_REASON =
-  'The link strength saves to the shared model. Other edits here are not sent yet. Labels, details and coaching still work.'
+  'The link strength saves to the shared model. Other edits here are not sent yet.'
 
 /**
  * ⛔ THE SAME PANEL, FOR AN EDGE WHOSE STRENGTH CANNOT BE ASSERTED.
@@ -585,7 +621,7 @@ export const INSPECTOR_EDGE_REASON =
  * lifecycle, so "sent" is honest and "saved" is not.
  */
 export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
-  'This connection is on your canvas only. Set its strength here to send it to the model. Labels, details and coaching still work.'
+  'This connection is on your canvas only. Set its strength here to send it to the model.'
 // ⛔ "SEND", NOT "SAVE", AND NOT "WITH YOUR NEXT MESSAGE" — both were in a draft
 // of this line and both were false. `useStructuralAddEdgeEvents` is NOT
 // debounced: it drains the queue as its own turn rather than riding the user's
@@ -594,8 +630,11 @@ export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
 // edge stays on the canvas and the user learns of the refusal only from CEE's
 // own sentence" — so the honest reading is "the edge is SENT", never "SAVED".
 
+// ⚠ Paul 23 Sep contract feedback point 11: boilerplate tail dropped; the
+// reason, the unsent state and the remedy (the Ask Olumi route at the top of
+// the inspector) are kept.
 export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
-  'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength. Labels, details and coaching still work.'
+  'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength.'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {

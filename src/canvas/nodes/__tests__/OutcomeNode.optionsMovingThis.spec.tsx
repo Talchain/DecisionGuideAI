@@ -2,9 +2,13 @@
  * ⭐⭐ THE OUTCOME CARD SAYS HOW MANY OPTIONS ACT ON IT — ON THE CARD, BEFORE
  * THE RUN.
  *
- * ⛔⛔ DECLARED UNRUN. This lane was instructed not to execute a test suite of
- * any kind, so nothing here has been observed passing or failing. CI at the
- * head is the authority.
+ * ⛔ Paul 23 Sep contract feedback point 8 NARROWED THIS LINE: it renders only
+ * where it differentiates (some, not all, options connect) and names its
+ * denominator — "2 of 3 options connect to this". The every-option case is
+ * pinned silent in `outcomeRisk.paulContractFeedback.spec.tsx`. This fixture's
+ * outcomes are reached by 2 and 1 of 3 options, so both still speak here.
+ *
+ * (Originally written unrun; run and green in the 23 Sep contract-feedback pass.)
  *
  * ⚠ WHAT THIS FILE PINS THAT `domain/__tests__/optionsReaching.spec.ts` CANNOT:
  * WHERE the sentence lives. The count, the de-duplication and the silence are
@@ -134,7 +138,9 @@ describe('OutcomeNode — how many options move this', () => {
     (status) => {
       applyStore({ results: { status, report: null } })
       renderOutcome()
-      expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 options move this')
+      // Locked Canvas design (23 Sep 2026): MT-20 — the verb says what was
+      // counted ("connect"), not a causal effect nothing measured ("move").
+      expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 of 3 options connect to this')
     },
   )
 
@@ -145,7 +151,8 @@ describe('OutcomeNode — how many options move this', () => {
    */
   it('gives the other outcome on the same board its own answer, in the singular', () => {
     renderOutcome('outcome-2', 'Brand reach')
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('1 option moves this')
+    // Locked Canvas design (23 Sep 2026): MT-20 wording, singular kept.
+    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('1 of 3 options connects to this')
   })
 
   it('says nothing when no option reaches this outcome', () => {
@@ -177,7 +184,8 @@ describe('OutcomeNode — how many options move this', () => {
   it('is on the card in Standard view, where the popover content is not', () => {
     applyStore({ viewMode: 'standard' })
     renderOutcome()
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 options move this')
+    // Locked Canvas design (23 Sep 2026): MT-20 wording.
+    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 of 3 options connect to this')
     expect(screen.queryByText('Explore consequences')).toBeNull()
   })
 })

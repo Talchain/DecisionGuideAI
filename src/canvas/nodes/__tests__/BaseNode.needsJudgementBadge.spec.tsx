@@ -41,7 +41,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 vi.mock('@xyflow/react', async () => {
@@ -337,25 +337,57 @@ describe('what a screen reader is handed', () => {
  * pin already records: a render assertion here would be satisfied by this
  * file's own fixture (no report, no verdict) whatever the gates say, and would
  * be a guard agreeing with itself (CLAUDE.md trap 13b).
+ *
+ * ⭐ AND THEN THE MECHANISM CHANGED AGAIN — ED #63 5799353114 DECISION 1 (23 Sep
+ * 2026): "Drop 'Most supported'. It reads as a recommendation." `OptionNode`,
+ * the ONLY caller that ever passed `cornerSlot`, no longer passes it at all. So
+ * the pair is impossible for a third, simpler reason: `cornerSlot` has NO
+ * product caller. The prop is still declared and rendered by `BaseNode`, which
+ * is why the pin is re-pointed rather than deleted: a new caller would re-open
+ * the pairing, and it must RED here so its gate is placed deliberately.
  * ──────────────────────────────────────────────────────────────────────────── */
-describe('IMPOSSIBILITY PIN — the badge and the "Most supported" pill are exact complements', () => {
-  it('the two gates test one store field in opposite directions', () => {
-    const baseNode = readFileSync(resolve(__dirname, '../BaseNode.tsx'), 'utf8')
-    const optionNode = readFileSync(resolve(__dirname, '../OptionNode.tsx'), 'utf8')
+describe('IMPOSSIBILITY PIN — the badge and the retired "Most supported" pill cannot co-occur', () => {
+  it('`cornerSlot` has NO product caller any more (ED #63 5799353114 decision 1); the badge gate is unchanged', () => {
+    const nodesDir = resolve(__dirname, '..')
+    /** Comments stripped, so prose that quotes the old call cannot fire the guard. */
+    const codeOf = (src: string) =>
+      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[^\n]*?\/\/[^\n]*$/gm, '')
+    const baseNode = readFileSync(resolve(nodesDir, 'BaseNode.tsx'), 'utf8')
     const metadataHook = readFileSync(
       resolve(__dirname, '../../hooks/useNodeDisplayMetadata.ts'), 'utf8')
 
-    // Positive controls: prove each read can SEE its file's content at all, so a
-    // false zero cannot pass as a satisfied assertion (CLAUDE.md trap 13).
-    expect(baseNode).toContain('node-corner-stack-')
-    expect(optionNode).toContain('cornerSlot=')
-    expect(metadataHook).toContain('useNodeDisplayMetadata')
+    // THE MANIFEST — derived, not listed: every node renderer that mounts
+    // `<BaseNode` (the only component that consumes `cornerSlot`). Scope: the
+    // top-level renderers in `src/canvas/nodes/`; a caller elsewhere, or one
+    // forwarding the prop through a spread, is outside what this proves.
+    const callers = readdirSync(nodesDir)
+      .filter(f => f.endsWith('.tsx') && f !== 'BaseNode.tsx')
+      .map(f => ({ f, code: codeOf(readFileSync(resolve(nodesDir, f), 'utf8')) }))
+      .filter(({ code }) => /<BaseNode\b/.test(code))
+    // Positive control on the manifest: it reached the option renderer and
+    // more than one caller, so an empty sweep cannot read as a clean one.
+    expect(callers.map(c => c.f)).toContain('OptionNode.tsx')
+    expect(callers.length).toBeGreaterThan(1)
 
-    // The badge mounts only before a run…
+    // CONTRAST CONTROL — a same-family `BaseNode` slot prop IS passed by the
+    // option renderer, so the probe can see a slot prop when there is one.
+    const optionCode = callers.find(c => c.f === 'OptionNode.tsx')!.code
+    expect(optionCode).toMatch(/\bheaderSlot=/)
+    // …and the target: no caller passes `cornerSlot`, and the option card no
+    // longer builds the pill it used to put there.
+    for (const { f, code } of callers) {
+      expect(code, `${f} passes cornerSlot again — re-derive its gate against the StatusPill`).not.toMatch(/\bcornerSlot=/)
+    }
+    expect(optionCode).not.toMatch(/leading-option-pill-/)
+    expect(optionCode).not.toMatch(/Most supported/)
+
+    // The prop is still consumed, which is why a new caller would matter.
+    expect(codeOf(baseNode)).toContain('{cornerSlot}')
+
+    // The badge still mounts only before a run (unchanged half of the old pin).
+    expect(baseNode).toContain('node-corner-stack-')
     expect(baseNode).toContain("const isPreRunMode = resultsStatus !== 'complete'")
-    // …and `cornerSlot`'s only caller only after one.
-    expect(optionNode).toContain('cornerSlot={isRecommended ? (')
-    expect(optionNode).toContain('if (!displayMetadata.isResultsMode')
+    expect(metadataHook).toContain('useNodeDisplayMetadata')
     expect(metadataHook).toContain("const isResultsMode = resultsStatus === 'complete'")
   })
 

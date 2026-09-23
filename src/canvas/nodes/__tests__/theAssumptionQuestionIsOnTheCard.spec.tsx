@@ -21,12 +21,24 @@
  * WHAT THE PRODUCER SAYS THE VALUE IS, that it survives the run, and that it
  * stays absent where there is no assumption to interrogate — because a chip on
  * every card is wallpaper, not coaching.
+ *
+ * ## Locked Canvas design (23 Sep 2026) — the question MOVED, it did not go
+ *
+ * Spec §2 / ED 11:52Z point 3 / ED 02:31Z D4: "Coaching is one consistent
+ * icon". The face's chip row (`factor-card-question`) is removed and the card's
+ * ONE question is asked by the rail's coaching icon (`node-coaching-icon-<id>`),
+ * which sits in the resting band BaseNode already reserves — still on the card,
+ * still no hover. Every claim below is re-pointed to that icon at the same
+ * identity: its accessible name IS the chip's label, from the same resolver.
+ * The chip row's absence from the face is asserted beside each presence.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+import { ASK_OLUMI_CHIP_ID } from '../shared/NodeCoachingIcon'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -68,10 +80,27 @@ function renderFactor(data: Record<string, unknown>, resultsStatus = 'idle') {
 
 const INFERRED = { observedState: { value: 0.4, extractionType: 'inferred' }, category: 'controllable' }
 
+/** The rail's coaching icon for this card — the question's home since 23 Sep 2026. */
+const ICON = `node-coaching-icon-${ID}`
+
+/**
+ * The icon asks only where an ask surface is registered (`canReceiveAsk`) — it
+ * renders nothing in a harness with no chat. Registered here so absence below
+ * means "no question", never "no chat".
+ */
+beforeEach(() => {
+  useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
+})
+
 describe('the factor card carries its own question, like every other kind', () => {
   it('⭐ an INFERRED value asks what evidence supports it — on the card, no hover', () => {
     renderFactor(INFERRED)
-    expect(screen.getByTestId('factor-card-question')).toHaveTextContent('What’s the evidence?')
+    // Locked Canvas design (23 Sep 2026), spec §2: no chip row on the face…
+    expect(screen.queryByTestId('factor-card-question')).toBeNull()
+    // …the rail's one coaching icon asks it, at rest (no hover needed).
+    expect(screen.getByTestId(ICON)).toHaveAccessibleName('What’s the evidence?')
+    // …and no duplicate generic "Ask Olumi" beside it (ED 02:31Z D4).
+    expect(screen.queryByTestId(`node-action-ask-${ID}`)).toBeNull()
   })
 
   /**
@@ -81,7 +110,8 @@ describe('the factor card carries its own question, like every other kind', () =
    */
   it('⭐ and it SURVIVES the run — the assumption does not stop being one', () => {
     renderFactor(INFERRED, 'complete')
-    expect(screen.getByTestId('factor-card-question')).toHaveTextContent('What’s the evidence?')
+    expect(screen.queryByTestId('factor-card-question')).toBeNull()
+    expect(screen.getByTestId(ICON)).toHaveAccessibleName('What’s the evidence?')
   })
 
   /**
@@ -90,9 +120,10 @@ describe('the factor card carries its own question, like every other kind', () =
    */
   it('⛔ CONTRAST: an EXTERNAL factor asks a different question', () => {
     renderFactor({ observedState: { value: 0.4, extractionType: 'inferred' }, category: 'external' })
-    const q = screen.getByTestId('factor-card-question')
-    expect(q).toHaveTextContent('What if this changes?')
-    expect(q).not.toHaveTextContent('What’s the evidence?')
+    expect(screen.queryByTestId('factor-card-question')).toBeNull()
+    const q = screen.getByTestId(ICON)
+    expect(q).toHaveAccessibleName('What if this changes?')
+    expect(q).not.toHaveAccessibleName('What’s the evidence?')
   })
 
   /**
@@ -103,5 +134,13 @@ describe('the factor card carries its own question, like every other kind', () =
   it('⛔ CONTRAST: an OWNED, observed value gets no question at all', () => {
     renderFactor({ observedState: { value: 0.4, extractionType: 'observed', source: 'user' }, category: 'controllable' })
     expect(screen.queryByTestId('factor-card-question')).toBeNull()
+    // Paul 23 Sep contract feedback point 6: the coaching ICON stays on every
+    // card at Normal zoom, so the silence moved from the icon to its QUESTION —
+    // the icon is the generic "Ask Olumi" door and asks no assumption question.
+    const icon = screen.getByTestId(ICON)
+    expect(icon.getAttribute('data-coaching-chip-id')).toBe(ASK_OLUMI_CHIP_ID)
+    expect(icon).not.toHaveAccessibleName('What’s the evidence?')
+    // …and it REPLACES the hover-only "Ask Olumi" rather than duplicating it.
+    expect(screen.queryByTestId(`node-action-ask-${ID}`)).toBeNull()
   })
 })

@@ -178,7 +178,12 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
     'assistant-focus-chip',
     'focus-mode-chip',
   ],
-  'bottom-right': [],
+  /**
+   * Paul 23 Sep contract feedback point 14 — the one canvas-level sentence that
+   * explains the cards' `Last run ·` labels (`AnalysisStateCue`). The cell had
+   * no claimant, so it takes nothing from the notices in bottom-centre.
+   */
+  'bottom-right': ['analysis-state-cue'],
 }
 
 /** The band, spelled ONCE, for `computeFitPadding` and for the geometry harness. */

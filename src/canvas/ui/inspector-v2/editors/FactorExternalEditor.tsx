@@ -36,6 +36,7 @@ import { useNodeMutations } from '../useInspectorMutations'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
+import { userValueReplacesPrior } from '../../../nodes/shared/factorPriorRange'
 
 interface FactorExternalEditorProps {
   nodeId: string
@@ -77,6 +78,17 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
   const distribution = typeof prior?.distribution === 'string' && prior.distribution.length > 0
     ? prior.distribution
     : undefined
+
+  /**
+   * ⛔ THE SAME PLOT FUNCTION GATES ONE STEP EARLIER. The `distribution` gate
+   * above mirrors `buildParameterUncertaintiesV3`'s uniform check; the pass it
+   * sits in is skipped outright for a factor carrying `observed_state.value`
+   * ("a stated value always wins"). While a user-owned value stands, ISL
+   * samples a Normal around THAT value and never sees this range, so the claim
+   * below would be false. Read from the card's owner, not re-derived; the panel's
+   * role note above says what replaced it.
+   */
+  const valueReplacesRange = userValueReplacesPrior(data)
 
   if (!node) return null
 
@@ -120,7 +132,7 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
           rule is asserted on the EXPANDED surface by
           `FactorExternalPanel.priorRangeHonesty.spec.tsx`.
         */}
-        {hasRange && distribution === 'uniform' && (
+        {hasRange && distribution === 'uniform' && !valueReplacesRange && (
           <p className={`${typography.panelMeta} text-text-light mt-1`}>
             ISL samples Uniform({rangeMin!.toFixed(2)}, {rangeMax!.toFixed(2)}); mean {mu}, sd {sigma}
           </p>

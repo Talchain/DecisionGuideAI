@@ -26,13 +26,27 @@
  *   - click-through → the coaching button's onClick still fires with the rank
  *                     badge (and with the edited dot) present — it is a sibling,
  *                     never covered
+ *
+ * ⭐ Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: "RETIRE the Key-driver
+ * badge once the body driver line is present." The rank is now stated once, by
+ * the factor card's driver line ("Driver N of M analysed"), never in this
+ * corner. ITS SLOT is held by the ONE "Worth reviewing" marker
+ * (`attention-marker-<id>`, spec §2, ED 02:31Z D1b), so every structural pin
+ * below is re-pointed from the rank badge to that marker — the same slot, the
+ * same non-overlap contract (marker · edited-dot · coaching) — and each case
+ * that set a rank now also asserts the retired badge does NOT render.
+ *
+ * The attention PLAN (which elements are marked, and why) is pure and pinned in
+ * `shared/__tests__/nodeAttention.spec.ts`; this file is about the corner's
+ * geometry, so `useNodeAttention` is stubbed to a marked / unmarked answer.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CANVAS_CORNER_STACK_CLASSES } from '../shared/canvasGlyphScale'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
-import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
+import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
+import { attentionSentence, type AttentionReason } from '../shared/nodeAttention'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
@@ -72,8 +86,28 @@ vi.mock('../../store', () => {
   return { useCanvasStore }
 })
 
-// sensitivityRank drives the rank badge; toggled per test.
+// sensitivityRank used to drive the rank badge; it is still toggled per test so
+// each case proves the RETIRED badge stays gone even when a rank is present.
 let sensitivityRank: number | null = null
+
+// The "Worth reviewing" marker now holds the rank's slot. Stubbed per test (see
+// the header): `attentionMarked` toggles whether this node is in the budgeted
+// selection. The reason is a real plan reason's shape and wording.
+const REASON: AttentionReason = {
+  kind: 'fragile_link',
+  order: 1,
+  label: 'The comparison depends on a link from here. How sure are you of it?',
+}
+let attentionMarked = false
+vi.mock('../shared/useNodeAttention', () => ({
+  useNodeAttention: vi.fn(() =>
+    attentionMarked
+      ? { reasons: [REASON], marked: true, markedCount: 1, candidateCount: 1 }
+      : { reasons: [], marked: false, markedCount: 0, candidateCount: 0 },
+  ),
+}))
+/** The marker's one sentence — visible tooltip AND accessible name. */
+const MARKER_SENTENCE = attentionSentence([REASON], { unconfirmedEstimate: false, marked: 1, candidates: 1 })
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank,
@@ -126,82 +160,52 @@ const renderNode = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   sensitivityRank = null
+  attentionMarked = false
   editedNodeIds.clear()
   useGuidanceStore.getState().clearGuidanceItems()
 })
 
 describe('BaseNode — top-right corner stack (rank + coaching)', () => {
-  it('BOTH present: rank and coaching render inside ONE stack, rank first, no overlapping offsets', () => {
+  it('BOTH present: the attention marker (the rank badge\'s slot) and coaching render inside ONE stack, marker first, no overlapping offsets', () => {
+    // A rank IS present in the metadata — the retired badge must not come back.
     sensitivityRank = 1
+    attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderNode()
 
     const stack = screen.getByTestId('node-corner-stack-node-a')
-    const rank = screen.getByTestId('sensitivity-rank-node-a')
+    const marker = screen.getByTestId('attention-marker-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
 
+    // Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: the Key-driver badge is
+    // RETIRED — no test id, no word, no bare numeral, even with a rank present.
+    expect(screen.queryByTestId('sensitivity-rank-node-a')).toBeNull()
+    expect(stack.textContent).not.toContain(sensitivityRankBadgeLabel(1))
+    expect(stack.textContent).not.toContain('#')
+
     // Both live inside the single positioned container.
-    expect(stack).toContainElement(rank)
+    expect(stack).toContainElement(marker)
     expect(stack).toContainElement(coaching)
 
     /**
-     * ⭐⭐ THE RANK BADGE MUST CARRY ITS OWN MEANING, AND NOT VIA `title`.
+     * ⭐⭐ THE SLOT'S OCCUPANT MUST CARRY ITS OWN MEANING, AND NOT VIA `title`.
      *
-     * It had `title="Key driver #N: ranked by influence…"` sitting on the SAME
-     * element as `pointerEvents: 'none'`. A `title` needs a hover the browser
-     * never raises there, so the tooltip could not fire — while reading, in
-     * source and in review, exactly like an explanation already provided. A
-     * screen reader got the bare string "#1".
-     *
-     * ⛔ ASSERTED BOTH WAYS ON PURPOSE. Only checking the accessible name would
-     * stay green if someone re-added the dead `title` beside it, and the point
-     * is that a title on this element is NOT a way to explain the badge.
+     * The retired badge taught this: a `title` on a corner member read, in
+     * source and review, like an explanation already provided, while it could
+     * never fire. The marker explains itself through a focusable tooltip AND its
+     * accessible name (ED 02:31Z: native title is not full-text recovery), built
+     * ONCE by `attentionSentence` — so both are bound here by identity, and a
+     * re-added `title` REDs.
      */
-    // ⚠ REPAIRED, AND THE `#` IS THE REPAIR. This read `Key driver #\d+`.
-    //   The sigil is gone from both channels on purpose: `#1` reads as a
-    //   FIRST PLACE, and the rank means most-sensitive — usually the factor
-    //   the team knows least about. The literal stays a literal because it is
-    //   the corpus that notices a wrong sentence (trap 12d).
-    expect(rank).toHaveAccessibleName(/^Key driver \d+: one of the factors the result is most sensitive to$/)
-    expect(rank).not.toHaveAttribute('title')
+    expect(marker).toHaveAccessibleName(MARKER_SENTENCE)
+    expect(marker.getAttribute('aria-label')!.startsWith('Worth reviewing:')).toBe(true)
+    // The shared Tooltip blanks any native title (`title=""`) — so assert there
+    // is no native-title TEXT, which is the explanation-by-title this rules out.
+    expect(marker.getAttribute('title') ?? '').toBe('')
 
-    /**
-     * ⭐⭐⭐ THE DEFECT THIS PR CLOSES, PINNED ON THE RENDERED CARD.
-     *
-     * The badge's VISIBLE text was `#1` and nothing else — no word anywhere a
-     * sighted reader could reach without a hover the element structurally
-     * cannot raise (`pointerEvents: 'none'`, see the component). So the only
-     * thing on screen was a numeral, and a bare numeral in a card header is
-     * read as a placing.
-     *
-     * Bound to the builder's output for THIS rank (trap 19: by identity, not
-     * by a pattern another badge could satisfy), and asserted alongside the
-     * accessible name so a future change cannot fix one channel and leave the
-     * other — which is the exact shape of the defect #1414 shipped.
-     */
-    expect(rank).toHaveTextContent(sensitivityRankBadgeLabel(1))
-    expect(rank.textContent, 'the badge is back to a bare numeral').not.toBe('#1')
-    expect(rank.textContent).not.toContain('#')
-    // …and the visible string is a PREFIX of the spoken one (WCAG 2.5.3).
-    expect(rank.getAttribute('aria-label')!.startsWith(rank.textContent!)).toBe(true)
-
-    /**
-     * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
-     * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
-     * legend row; it cannot see this component dropping the builder and
-     * re-typing the sentence, which is how the defect arrived (a comment
-     * claiming a derivation with no import behind it). This binds the RENDERED
-     * name to the builder's output for THIS number, so a re-inlined literal
-     * REDs here while the register guard stays green. The literal stays — it is
-     * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
-     */
-    // `sensitivityRank` is 1 in this test's fixture — bound by identity, not by
-    // a pattern another rank could satisfy.
-    expect(rank).toHaveAccessibleName(sensitivityRankBadgeAccessibleName(1))
-
-    // Deterministic order: rank FIRST, coaching beside it.
+    // Deterministic order: the marker FIRST (the rank's old position), coaching beside it.
     const kids = Array.from(stack.children)
-    expect(kids[0]).toBe(rank)
+    expect(kids[0]).toBe(marker)
     expect(kids[1]).toBe(coaching)
 
     // The STACK owns the corner + z; children carry NO absolute/offset of their
@@ -221,33 +225,37 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(stack.className).toBe(CANVAS_CORNER_STACK_CLASSES)
     expect(stack.className).toContain('z-10')
     expect(stack.className).toContain('flex')
-    expect(rank.className).not.toContain('absolute')
+    expect(marker.className).not.toContain('absolute')
     expect(coaching.className).not.toContain('absolute')
     expect(coaching.className).not.toContain('-right-2')
   })
 
-  it('ALL THREE present: rank, edited-dot and coaching are distinct siblings in order, none absolute', () => {
+  it('ALL THREE present: attention marker, edited-dot and coaching are distinct siblings in order, none absolute', () => {
     sensitivityRank = 1
+    attentionMarked = true
     editedNodeIds.add('node-a')
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderNode()
 
     const stack = screen.getByTestId('node-corner-stack-node-a')
-    const rank = screen.getByTestId('sensitivity-rank-node-a')
+    // Locked Canvas design (23 Sep 2026): the marker holds the retired rank badge's slot.
+    const marker = screen.getByTestId('attention-marker-node-a')
     const edited = screen.getByTestId('edited-since-run-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
+    expect(screen.queryByTestId('sensitivity-rank-node-a')).toBeNull()
 
     // Three distinct children, all inside the single positioned stack.
-    expect(stack).toContainElement(rank)
+    expect(stack).toContainElement(marker)
     expect(stack).toContainElement(edited)
     expect(stack).toContainElement(coaching)
 
-    // Deterministic order: rank · edited-dot · coaching (smallest in the middle).
+    // Deterministic order: marker · edited-dot · coaching (smallest in the middle).
     const kids = Array.from(stack.children)
     expect(kids).toHaveLength(3)
-    expect(kids[0]).toBe(rank)
+    expect(kids[0]).toBe(marker)
     expect(kids[1]).toBe(edited)
     expect(kids[2]).toBe(coaching)
+    expect(marker.className).not.toContain('absolute')
 
     // The edited dot is a static flex child — no absolute/offset of its own, so
     // it can no longer be drawn under the coaching marker (the P2 defect).
@@ -262,6 +270,7 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     const stack = screen.getByTestId('node-corner-stack-node-a')
     expect(stack).toContainElement(screen.getByTestId('edited-since-run-node-a'))
     expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('attention-marker-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
   })
 
@@ -275,11 +284,28 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(useGuidanceStore.getState().activeGuidanceItemId).toBe('edit-item')
   })
 
-  it('RANK alone: rank badge renders in the stack, no coaching marker', () => {
+  // Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: a rank ALONE no longer
+  // puts anything in the corner — the badge is retired and the rank is stated by
+  // the factor card's driver line. The stack is empty rather than holding it.
+  it('RANK alone: the retired rank badge does NOT render — the corner stays empty', () => {
     sensitivityRank = 2
     renderNode()
     const stack = screen.getByTestId('node-corner-stack-node-a')
-    expect(stack).toContainElement(screen.getByTestId('sensitivity-rank-node-a'))
+    expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
+    expect(stack.textContent).not.toContain(sensitivityRankBadgeLabel(2))
+    expect(stack.textContent).not.toContain('#2')
+    expect(stack.children).toHaveLength(0)
+    expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
+  })
+
+  // The slot's new occupant, alone — the old "RANK alone" case at its new identity.
+  it('ATTENTION alone: the "Worth reviewing" marker renders in the stack, no coaching marker', () => {
+    attentionMarked = true
+    renderNode()
+    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const marker = screen.getByTestId('attention-marker-node-a')
+    expect(stack).toContainElement(marker)
+    expect(Array.from(stack.children)).toEqual([marker])
     expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
   })
 
@@ -290,18 +316,23 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     const stack = screen.getByTestId('node-corner-stack-node-a')
     expect(stack).toContainElement(screen.getByTestId('node-coaching-marker-node-a'))
     expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('attention-marker-node-a')).not.toBeInTheDocument()
   })
 
-  it('CLICK-THROUGH: coaching onClick still fires with the rank badge present', () => {
+  it('CLICK-THROUGH: coaching onClick still fires with the attention marker (the rank\'s slot) present', () => {
     let inspectorOpened = false
     const onOpen = () => { inspectorOpened = true }
     window.addEventListener('olumi:open-full-inspector', onOpen)
     sensitivityRank = 1
+    attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([makeItem({ item_id: 'the-item' })])
     renderNode()
 
-    // Rank present alongside — the coaching button must remain clickable.
-    expect(screen.getByTestId('sensitivity-rank-node-a')).toBeInTheDocument()
+    // Locked Canvas design (23 Sep 2026): the marker holds the retired badge's
+    // slot, and it is a BUTTON now (it opens the inspector itself) — so the
+    // coaching button beside it must still receive its own click.
+    expect(screen.queryByTestId('sensitivity-rank-node-a')).toBeNull()
+    expect(screen.getByTestId('attention-marker-node-a')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('node-coaching-marker-node-a'))
 
     // The marker used to write `showInspectorPanel`, a store field with zero

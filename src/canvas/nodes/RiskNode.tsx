@@ -2,10 +2,10 @@ import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY, RiskNodeDataSchema } from '../domain/nodes'
-import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
+import { calculateRiskSeverity, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
+import { METRIC_UNSET } from './shared/metricVocabulary'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
@@ -18,7 +18,7 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisIn
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
+import { LinkStrengthRow, linkStrengthLodLine } from './shared/LinkStrengthRow'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 
 /**
@@ -180,7 +180,6 @@ export const RiskNode = memo((props: NodeProps) => {
     () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
     [props.data],
   )
-  const severityColors = getRiskSeverityColors(severity)
 
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
   const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
@@ -360,11 +359,8 @@ export const RiskNode = memo((props: NodeProps) => {
      * figure about itself.
      */
     if (recordedValue) return recordedValue
-    const pct = bridgeEdgeData.bridgeStrengthPct
-    if (pct != null) return `${METRIC_NOUN.strength} ${pct}%`
-    // The connection exists and nobody has said how strong it is. Saying so is
-    // the same true thing the full card says, in the width one line allows.
-    return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
+    // One wording on every rung — the row's own (`LinkStrengthRow`).
+    return linkStrengthLodLine(bridgeEdgeData)
   }, [bridgeEdgeData, recordedValue])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
@@ -467,12 +463,10 @@ export const RiskNode = memo((props: NodeProps) => {
     [cleanedLabel, riskContext],
   )
 
-  const riskFaceChip = useMemo(() => (
-    <CoachingChipRow
-      className="flex gap-1 flex-wrap mt-1.5"
-      chips={resolveNodeCoaching({ kind: 'risk', surface: 'card', state: riskCoachingState, context: riskCoachingContext })}
-    />
-  ), [riskCoachingState, riskCoachingContext])
+  const riskFaceCoaching = useMemo(
+    () => resolveNodeCoaching({ kind: 'risk', surface: 'card', state: riskCoachingState, context: riskCoachingContext }),
+    [riskCoachingState, riskCoachingContext],
+  )
 
   const riskPopoverChips = useMemo(() => (
     <CoachingChipRow
@@ -490,24 +484,33 @@ export const RiskNode = memo((props: NodeProps) => {
   ), [riskCoachingState, riskCoachingContext])
 
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
-  // (the existing probability×impact derivation, reused not re-added). P1.7: now
-  // rendered in the always-visible Standard body (Layer 1), not Expert/popover-only.
+  // (the existing probability×impact derivation, reused not re-added). P1.7 put it
+  // in the Standard body; since the locked Canvas design (23 Sep 2026) it is
+  // DETAILED-ONLY — its cut-offs are UI-chosen, so it is not a resting claim.
   const detailedMetrics = severity ? (
     <div
       // The `textAlign: 'center'` that was here is gone. This div carries no
       // `inline-flex`, no `w-fit` and no width, so it is a full-bleed block
       // inside the card: the badge text sat centred while every other line of
       // the node was left-aligned.
-      className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
+      //
+      // ⛔ Paul 23 Sep contract feedback point 9: "risk = existing Danger
+      // treatment … do not invent new colours". `getRiskSeverityColors` painted
+      // low/medium in Tailwind yellow/orange defaults that are not in the design
+      // system, and high/critical as `text-danger`, which fails small-text
+      // contrast (`nodeSystem.semanticColourOnText.spec.ts`). Every band is now
+      // the design-system outlined pill — danger border at /30, body text — and
+      // the WORD carries the severity, not a colour.
+      className={`bg-transparent border border-danger/30 text-text-body rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
     >
       {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
     </div>
   ) : null
 
   const riskExposureLine = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light mt-1`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
+    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
   ) : (
-    <div className={`${typography.edgeLabel} text-text-light mt-1`} data-testid="risk-exposure-unset">
+    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-unset">
       {RISK_EXPOSURE_UNSET_LINE}
     </div>
   )
@@ -597,7 +600,8 @@ export const RiskNode = memo((props: NodeProps) => {
         nodeType="risk"
         lodMetric={lodMetric}
         icon={metadata.icon}
-        headerSlot={scienceIcons.length > 0 ? (
+        coaching={riskFaceCoaching}
+        headerSlot={isDetailed && scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
@@ -652,8 +656,8 @@ export const RiskNode = memo((props: NodeProps) => {
             `shared/metricVocabulary.ts`.) The `est.`-beside-the-figure
             branch is gone; where nobody set the weight there is no figure. */}
         {/* ⭐⭐ THE RISK'S OWN MAGNITUDE, ABOVE EVERY FIGURE THAT IS ABOUT
-            SOMETHING ELSE. The row beneath describes a CONNECTION's strength and
-            the block below it a severity derived from probability × impact —
+            SOMETHING ELSE. The severity band beneath is derived from probability ×
+            impact and the link row after it describes a CONNECTION's strength —
             neither of which is this risk's size. A risk labelled "Time to Reach
             Customer Target" holds `12 months` in its own data and printed none
             of it (`RiskNode` carried zero `observedState` references against a
@@ -679,6 +683,24 @@ export const RiskNode = memo((props: NodeProps) => {
           </p>
         )}
 
+        {/* The probability × impact pair is the node's OWN entered data and stays
+            on the face; the derived severity badge beside it is Detailed-only
+            (locked design, 23 Sep 2026 — see the gate below). No fabrication
+            when data is absent. */}
+        {/* ⭐ The derived severity badge ("High Risk") is Detailed information
+            (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
+            it is not a resting claim. The node's OWN entered likelihood/impact
+            below stays on the face — it is the user's data, not a verdict. */}
+        {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
+        {riskExposureLine}
+
+        {/* ⭐ THE LINK ROW COMES AFTER THE RISK'S OWN SIZE (Paul 23 Sep contract
+            feedback point 13, with the contract's rule "outcome/risk records are
+            distinct from the strength of their connections"). The recorded
+            magnitude, the severity band and likelihood/impact are ONE group
+            about the risk; they used to sit split around this row. Outcome
+            and risk now share one anatomy — own state, then the link — so a
+            mixed row reads alike without any filler line. */}
         {bridgeEdgeData && (
           /* ⭐ TWO ROWS, ONE CAPTION COLUMN — AND THE BAR IS THE THING THAT MOVES.
 
@@ -706,40 +728,19 @@ export const RiskNode = memo((props: NodeProps) => {
              `title` and the screen-reader phrase, stated as an assumption.
              `NodeMetricRow` requires BOTH carriers: a `title` is unreachable by
              keyboard on a non-focusable row and absent on touch. */
-          bridgeEdgeData.strengthIsSettled ? (
-            <NodeMetricRow
-              label={METRIC_NOUN.strength}
-              value={bridgeEdgeData.bridgeStrengthPct / 100}
-              formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
-              fillClass="bg-danger"
-              testId="risk-strength-row"
-            />
-          ) : (
-            <NodeMetricRow
-              label={METRIC_NOUN.strength}
-              value={null}
-              unsetText={METRIC_UNSET.standalone}
-              testId="risk-strength-row"
-              title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
-              phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
-            />
-          )
+          <LinkStrengthRow bridge={bridgeEdgeData} fillClass="bg-danger" testId="risk-strength-row" />
         )}
-
-        {/* Severity badge + probability × impact pair — visible in STANDARD view
-            (P1.7). Both are derived/read straight from node data; no fabrication
-            when data is absent. */}
-        {detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
-        {riskExposureLine}
 
         {/* The leading-indicator question rides the CARD in Standard view; the
             reduce/mitigate pair stays in the popover. Detailed renders all
             three inline below. See `riskFaceChip` for the measurement. */}
-        {!isDetailed && riskFaceChip}
+        {/* ⛔ NO COACHING CHIPS ON THE FACE (ED 11:52Z point 5). The rail's coaching
+            icon asks "What would we see first?"; "How likely is this?" moves to
+            the popover and Detailed (ED 02:31Z D4 — not deleted). */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
-            Graph v1.1 Task 4: align with wireframe v4. The severity badge now
-            lives in Layer 1 (Standard-visible, P1.7) so it is NOT repeated here. */}
+            Graph v1.1 Task 4: align with wireframe v4. The severity badge renders
+            once, in the body above, Detailed-only — so it is NOT repeated here. */}
         {isDetailed && layer2ContentPost}
 
         {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
@@ -767,8 +768,8 @@ export const RiskNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {/* Severity badge lives in Layer 1 (Standard-visible, P1.7) — the popover
-              carries only the post-analysis detail + coaching chips. */}
+          {/* The popover carries only the post-analysis detail + coaching chips;
+              the severity badge is Detailed-only (locked design, 23 Sep 2026). */}
           {layer2ContentPost}
           {riskPopoverChips}
         </NodePopover>

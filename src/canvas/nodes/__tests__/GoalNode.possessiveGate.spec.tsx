@@ -40,6 +40,15 @@
  *
  * Scope limit (trap 3): jsdom pins string presence/absence only. Nothing here
  * claims anything about layout, visibility or above-the-fold.
+ *
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2). The prose readout
+ * is OFF the face: ONE NodeMetricRow (`goal-achievement-metric-row`, visible
+ * "Chance" + "N%") carries the figure, and the possessive sentence is its
+ * ACCESSIBLE NAME and tooltip; a no-probability run is the unset row
+ * `goal-achievement-unset`, whose accessible name is the old full sentence.
+ * So every voice assertion here reads accessible names BY TESTID, and every
+ * absence covers accessible names as well as text — a text scan alone can no
+ * longer see the sentence and would pass vacuously.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -131,6 +140,13 @@ function renderGoalWith(option: Record<string, unknown>) {
 }
 
 const POSSESSIVE = 'chance of reaching target'
+const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
+const ACHIEVEMENT_UNSET = 'goal-achievement-unset'
+/** Locked Canvas design (23 Sep 2026): the row's sentence lives in its accessible name. */
+const rowName = (testId: string): string => screen.getByTestId(testId).getAttribute('aria-label') ?? ''
+/** Every accessible name in the render, so an absence covers the rows' sentences too. */
+const allAccessibleNames = (container: HTMLElement): string =>
+  Array.from(container.querySelectorAll('[aria-label]')).map(el => el.getAttribute('aria-label')).join('\n')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -162,6 +178,13 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     expect(screen.queryByText(GOAL_ANCHOR_COPY.phrase('< 1%', true))).not.toBeInTheDocument()
     expect(screen.queryByText(new RegExp(POSSESSIVE))).not.toBeInTheDocument()
     expect(container.textContent ?? '').not.toContain('< 1%')
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the figure's home
+    // is the Chance row and its voice is the row's accessible name, so both
+    // absences are asserted there too.
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).not.toBeInTheDocument()
+    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('< 1%', true))
+    expect(allAccessibleNames(container)).not.toContain(POSSESSIVE)
+    expect(allAccessibleNames(container)).not.toContain('< 1%')
     // The node's own honest-absence line takes over.
     //
     // ⭐ AND NOTE WHICH ONE. Before L62 this run rendered "No overall goal
@@ -174,16 +197,26 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // nothing admissible, so the node states the simpler truth and the two
     // surfaces finally agree. Pinned by string because the DIFFERENCE between
     // these two sentences is the user-visible consequence of the fix.
-    expect(container.textContent ?? '').toContain(
+    //
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the absence line
+    // is the unset Chance row. Its visible text is the short form, and the
+    // sentence pinned here is its accessible name (and tooltip).
+    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Not produced by this run')
+    expect(rowName(ACHIEVEMENT_UNSET)).toContain(
       'Target set. This run did not produce a goal probability.',
     )
     expect(container.textContent ?? '').not.toContain('see Goal fit for each option')
+    expect(allAccessibleNames(container)).not.toContain('see Goal fit for each option')
+    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).not.toContain('See each option')
   })
 
   it('positive control: a REAL probability_of_goal keeps the possessive', () => {
-    renderGoalWith(REAL_GOAL_OPTION)
-    expect(screen.getByText(`55% ${POSSESSIVE}`)).toBeInTheDocument()
-    expect(screen.queryByText(GOAL_ANCHOR_COPY.phrase('55%', true))).not.toBeInTheDocument()
+    const { container } = renderGoalWith(REAL_GOAL_OPTION)
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the possessive is
+    // the Chance row's accessible name; the row shows the bare figure.
+    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain('55%')
+    expect(rowName(ACHIEVEMENT_ROW)).toContain(`55% ${POSSESSIVE}`)
+    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
   it('positive control: joint_goal_constrained keeps the possessive (ROADMAP 1.49)', () => {
@@ -191,9 +224,11 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // user's own goal AND their own limits, so the possessive is EARNED. A gate
     // widened from `basis === 'joint_goal_substituted'` to
     // `goalProbabilityIsJoint` REDs exactly this test and nothing else.
-    renderGoalWith(CONSTRAINED_OPTION)
-    expect(screen.getByText(`42% ${POSSESSIVE}`)).toBeInTheDocument()
-    expect(screen.queryByText(GOAL_ANCHOR_COPY.phrase('42%', true))).not.toBeInTheDocument()
+    const { container } = renderGoalWith(CONSTRAINED_OPTION)
+    // Locked Canvas design (23 Sep 2026): read off the Chance row's accessible name.
+    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain('42%')
+    expect(rowName(ACHIEVEMENT_ROW)).toContain(`42% ${POSSESSIVE}`)
+    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('42%', true))
   })
 
   it('L62: NEITHER voice appears on a withheld run — the mutual-exclusion test, with both arms now empty', () => {
@@ -201,8 +236,13 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // both: there is no number for either voice to caption. The CONSTRAINED
     // positive control above is what stops this degenerating into "the gate
     // silenced everything".
-    renderGoalWith(SUBSTITUTED_OPTION)
+    const { container } = renderGoalWith(SUBSTITUTED_OPTION)
     expect(screen.queryAllByText(GOAL_ANCHOR_COPY.phrase('< 1%', true))).toHaveLength(0)
     expect(screen.queryAllByText(new RegExp(POSSESSIVE))).toHaveLength(0)
+    // Locked Canvas design (23 Sep 2026): the voices now live in accessible
+    // names — counted there too.
+    const names = allAccessibleNames(container)
+    expect(names.split(GOAL_ANCHOR_COPY.phrase('< 1%', true)).length - 1).toBe(0)
+    expect(names.split(POSSESSIVE).length - 1).toBe(0)
   })
 })

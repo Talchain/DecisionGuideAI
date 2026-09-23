@@ -68,13 +68,14 @@
  *   than inferred from a render (see test 8).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { NodeProps } from '@xyflow/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode, RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
 import { METRIC_UNSET } from '../shared/metricVocabulary'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -166,9 +167,21 @@ const unsetLine = () => screen.queryByTestId('risk-exposure-unset')
 const exposureLine = () => screen.queryByTestId('risk-exposure-line')?.textContent ?? null
 const sizingChip = () => screen.queryByRole('button', { name: 'How likely is this?' })
 const indicatorChip = () => screen.queryByRole('button', { name: 'What would we see first?' })
+/** The card's ONE coaching affordance (locked Canvas design), bound by node identity. */
+const coachingIcon = (id: string) => screen.queryByTestId(`node-coaching-icon-${id}`)
+/** `a` sits before `b` in document order — "leads" as a DOM fact, not a guess. */
+const precedes = (a: Element, b: Element) =>
+  (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+/** Opens the REAL (unmocked) popover the way a pointer does: hover the node wrapper. */
+const hoverCard = (container: HTMLElement) => fireEvent.mouseEnter(container.firstElementChild as Element)
 
 describe('a thin risk card says the MODEL is thin', () => {
-  beforeEach(() => { cleanup(); vi.clearAllMocks() })
+  beforeEach(() => {
+    cleanup(); vi.clearAllMocks()
+    // Locked Canvas design (23 Sep 2026): the rail coaching icon renders only when
+    // an ask surface is registered (`canReceiveAsk`), as it is in the product.
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
+  })
 
   // ── 1. The target ────────────────────────────────────────────────────────
   it('⭐ RED-FIRST: a risk with no likelihood and no impact says so, on the card', () => {
@@ -211,18 +224,55 @@ describe('a thin risk card says the MODEL is thin', () => {
   })
 
   // ── 4. The next-step half moves in step with the diagnosis ────────────────
-  it('⭐ THE COACHING HALF: the sizing question appears exactly where the sentence does', () => {
-    draw('risk-gdpr', UNSIZED)
-    expect(sizingChip()).toBeTruthy()
-    // ADDED, NOT SWAPPED — the leading-indicator question was promoted to the
-    // face by a separate reasoned decision and must survive this one.
-    expect(indicatorChip()).toBeTruthy()
+  //
+  // Locked Canvas design (23 Sep 2026): ED 11:52Z point 5 — no coaching chips on
+  // the card face; the ONE rail coaching icon asks the card's first question
+  // ("What would we see first?"). ED 02:31Z D4 — "How likely is this?" is MOVED,
+  // NOT DELETED: it now LEADS the popover and Detailed, under the same thin-card
+  // predicate. So "in step with the sentence" is asserted at its new homes, and
+  // its absence on the face is asserted in the same render.
+  it('⭐ THE COACHING HALF: the sizing question appears exactly where the sentence does', async () => {
+    const { container } = draw('risk-gdpr', UNSIZED)
+    // Face: not a chip any more…
+    expect(sizingChip()).toBeNull()
+    // …and the leading indicator (ADDED, NOT SWAPPED) survives as the ONE icon —
+    // the only control on the face carrying that name, so no face chip remains.
+    const faceAsks = screen.getAllByRole('button', { name: 'What would we see first?' })
+    expect(faceAsks).toHaveLength(1)
+    expect(faceAsks[0]).toBe(coachingIcon('risk-gdpr'))
+
+    // Popover (the real one, opened by hover): the sizing question is there and LEADS.
+    hoverCard(container)
+    const inPopover = await screen.findByRole('button', { name: 'How likely is this?' })
+    expect(precedes(inPopover, screen.getByRole('button', { name: 'What reduces this?' }))).toBe(true)
+    cleanup()
+
+    // Detailed: the same, inline.
+    draw('risk-gdpr', UNSIZED, { viewMode: 'expert' })
+    const inDetailed = sizingChip()
+    expect(inDetailed).toBeTruthy()
+    expect(precedes(inDetailed!, screen.getByRole('button', { name: 'What reduces this?' }))).toBe(true)
   })
 
-  it('⛔ AND IT IS ABSENT ON A SIZED RISK, so the chip is a response and not wallpaper', () => {
-    draw('risk-migration', SIZED)
+  it('⛔ AND IT IS ABSENT ON A SIZED RISK, so the chip is a response and not wallpaper', async () => {
+    // Locked Canvas design (23 Sep 2026): re-pointed to the question's new homes
+    // (popover + Detailed, ED 02:31Z D4); each absence carries a positive control
+    // in the same render proving that surface's chips DID render.
+    const { container } = draw('risk-migration', SIZED)
     expect(sizingChip()).toBeNull()
+    // The leading indicator still stands on a sized risk — as the ONE icon, the
+    // only control on the face carrying that name.
+    expect(indicatorChip()).toBe(coachingIcon('risk-migration'))
     expect(indicatorChip()).toBeTruthy()
+
+    hoverCard(container)
+    expect(await screen.findByRole('button', { name: 'What reduces this?' })).toBeTruthy()
+    expect(sizingChip()).toBeNull()
+    cleanup()
+
+    draw('risk-migration', SIZED, { viewMode: 'expert' })
+    expect(screen.getByRole('button', { name: 'What reduces this?' })).toBeTruthy()
+    expect(sizingChip()).toBeNull()
   })
 
   // ── 5. It makes no claim about importance ─────────────────────────────────

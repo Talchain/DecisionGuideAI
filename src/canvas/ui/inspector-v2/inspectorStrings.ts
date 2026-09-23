@@ -7,6 +7,7 @@ import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
+import { fragileEdgeSentence } from '../../edges/connectorCopy'
 
 // ─── Section titles (spec §3.1) ────────────────────────────────────
 export const SECTION_TITLES = {
@@ -507,8 +508,13 @@ export function resolveEdgeLinkTemplate(
 // ─── Edge panel copy (v6.2) ───────────────────────────────────────
 export const EDGE_COPY = {
   sensitiveContext: 'Small changes here could shift which option the data supports.',
-  flipRiskTooltip: (pct: number) =>
-    `If this edge's strength changes significantly, there is a ${pct}% probability the most-supported option would change.`,
+  /**
+   * The SAME sentence the canvas cue, the edge hover and the key carry
+   * (`fragileEdgeSentence`), so the panel cannot size the change one way on its
+   * heading and another on this tooltip ("small" vs "significantly" was the
+   * reviewer blocker on Paul 23 Sep contract feedback point 4). No size claim.
+   */
+  flipRiskTooltip: (pct: number) => `${fragileEdgeSentence(pct / 100)}.`,
   sliderMinUnlikely: 'Unlikely',
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',

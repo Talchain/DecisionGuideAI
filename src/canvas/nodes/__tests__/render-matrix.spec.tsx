@@ -16,8 +16,8 @@
  *     BEFORE AND AFTER the run (it used to be pre-analysis only; the run
  *     ranks options, it does not change which factor differentiates them)
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, within, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -60,6 +60,32 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+
+/**
+ * Locked Canvas design (23 Sep 2026): a card's ONE question is now its rail
+ * coaching icon (`node-coaching-icon-<id>`, accessible name = the chip label),
+ * and the face carries no chip row (spec §2; ED 02:31Z D4; ED 11:52Z). The
+ * icon renders only where an ask surface is registered (`canReceiveAsk`), so
+ * the cases that assert its presence register one — the real guidance store,
+ * not a mock — and every case restores the store's own nulls afterwards.
+ */
+const ASK_SURFACE_NULLS = {
+  _prefillChat: useGuidanceStore.getState()._prefillChat,
+  _sendMessage: useGuidanceStore.getState()._sendMessage,
+  _dispatchAction: useGuidanceStore.getState()._dispatchAction,
+  guidanceItems: useGuidanceStore.getState().guidanceItems,
+}
+function registerAskSurface() {
+  useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
+}
+afterEach(() => {
+  useGuidanceStore.setState(ASK_SURFACE_NULLS as never)
+})
+
+/** The card's own face — BaseNode's root group, which excludes the sibling popover. */
+const faceOf = (label: string) =>
+  screen.getByRole('group', { name: new RegExp(`node: ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
 
 // Make NodePopover transparent so we can read its rendered content directly
 // (otherwise the popover is hidden behind a 300ms hover delay).
@@ -182,6 +208,7 @@ describe('Render matrix — FactorNode × view × phase', () => {
 
   it('Standard pre: top inferred factor shows the evidence chip ONCE on the card, no popover duplicate', () => {
     applyStore(topInferredTopology('standard', 'pre'))
+    registerAskSurface()
     renderFactor({
       label: 'Marketing Expertise Available',
       type: 'factor',
@@ -196,11 +223,24 @@ describe('Render matrix — FactorNode × view × phase', () => {
     // See FactorNode.tsx's `cardQuestion`. ⚠ The single render site is now
     // structural: `factorChips` was deleted, so "exactly once" is a property
     // of the component rather than two surfaces that must agree.
-    const chips = screen.getAllByText('What’s the evidence?')
-    expect(chips).toHaveLength(1)
+    //
+    // Locked Canvas design (23 Sep 2026): the question is still asked EXACTLY
+    // ONCE, ON THE CARD — but by the rail's coaching icon, not a face chip row
+    // (spec §2 "Coaching is one consistent icon"; ED 02:31Z D4; ED 11:52Z
+    // point 3). So "once" is counted over every control that asks it, across
+    // the card AND the (inline-mocked) popover, and the face chip row is gone.
+    const face = faceOf('Marketing Expertise Available')
+    const askers = screen.getAllByRole('button', { name: 'What’s the evidence?' })
+    expect(askers).toHaveLength(1)
+    expect(askers[0].getAttribute('data-testid')).toBe('node-coaching-icon-factor-1')
+    expect(face.contains(askers[0])).toBe(true)
+    // No chip-row copy of it anywhere — face or popover.
+    expect(screen.queryByText('What’s the evidence?')).toBeNull()
+    expect(within(face).queryByTestId('factor-card-question')).toBeNull()
     // ⛔ The discriminating half: the retired literal must be GONE, not merely
     // outnumbered — a card rendering both would satisfy the count above.
     expect(screen.queryByText('What evidence supports this?')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'What evidence supports this?' })).toBeNull()
     // Value suppression: scale-no-raw fractional value is hidden.
     expect(screen.queryByText(/0\.5/)).toBeNull()
     expect(screen.queryByText(/scale/i)).toBeNull()
@@ -377,19 +417,34 @@ describe('Render matrix — OptionNode × view × phase', () => {
         interventions: { 'factor-1': 0.3 },
       },
     }] })
+    registerAskSurface()
     const { container } = renderOption({})
-    expect(screen.getByText('What could go wrong?')).toBeDefined()
-    expect(screen.getByText('Reference: Keep current hiring')).toBeDefined()
+    const face = faceOf('Aggressive plan')
+    // Locked Canvas design (23 Sep 2026): the card's question is the rail's
+    // coaching icon, not a face chip (spec §2; ED 02:31Z D4; design summary
+    // "Option … Coaching icon: pre-analysis card chip ('What could go wrong?')").
+    expect(within(face).getByTestId('node-coaching-icon-option-1')).toHaveAccessibleName('What could go wrong?')
+    expect(within(face).queryByText('What could go wrong?')).toBeNull()
+    expect(within(face).queryByTestId('option-card-question')).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the "Reference: …" line is gone with
+    // the old delta list (spec §4 change rows). The reference IDENTITY is kept —
+    // on the change row it qualifies, as that row's recovery title.
+    expect(screen.queryByText('Reference: Keep current hiring')).toBeNull()
+    const row = within(face).getByTestId('option-change-row-option-1-factor-1')
+    expect(row.getAttribute('title')).toContain('From Keep current hiring (the baseline option)')
     // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
-    // "9 engineers"), so the chip reads "3 engineers → 9 engineers".
+    // "9 engineers"), so the change reads "3 engineers → 9 engineers".
     // ⚠ WAS `expect(differentiatorP).toBeUndefined()` — brief scope 7 dropped
     // the footer as a duplicate. Paul's ruling 10 Sep 2026 — "both stay": the chip states the CHANGE, the footer states WHICH FACTOR differentiates. The dedup that dropped the footer is retired.
-    // getAllByText: BOTH STAY, so the chip and the footer both match.
-    const chips = screen.getAllByText((t: string) => t.includes('9 engineers') && t.includes('→'))
-    expect(chips.length).toBeGreaterThan(0)
+    // Locked Canvas design (23 Sep 2026): the CHANGE is now the change row
+    // (`option-change-row-*`, a `<dd>`), bound by identity; the footer is the
+    // differentiator `<p>` — both stay.
+    expect(row.textContent).toContain('9 engineers')
+    expect(row.textContent).toContain('→')
     const allPs = container.querySelectorAll('p')
     const differentiatorP = Array.from(allPs).find(p => p.textContent?.includes('→'))
     expect(differentiatorP).toBeDefined()
+    expect(differentiatorP!.getAttribute('data-testid')).toBe('option-differentiator-option-1')
   })
 
   it('Standard pre: identical shared-factor values suppress differentiator on both options', () => {
@@ -432,10 +487,16 @@ describe('Render matrix — OptionNode × view × phase', () => {
 
   it('Detailed pre non-baseline: differentiator line is hidden (Standard-only)', () => {
     applyStore(twoOptionTopology('expert', 'pre'))
+    registerAskSurface()
     renderOption({})
     expect(screen.queryByText(/key difference/i)).toBeNull()
-    // Pre-analysis chip still present.
-    expect(screen.getByText('What could go wrong?')).toBeDefined()
+    expect(screen.queryByTestId('option-differentiator-option-1')).toBeNull()
+    // Pre-analysis question still present — Locked Canvas design (23 Sep 2026):
+    // as the rail's coaching icon in BOTH views (the card question was never a
+    // Detailed layer-2 chip; spec §2, ED 02:31Z D4), and no face chip copy.
+    const face = faceOf('Aggressive plan')
+    expect(within(face).getByTestId('node-coaching-icon-option-1')).toHaveAccessibleName('What could go wrong?')
+    expect(within(face).queryByText('What could go wrong?')).toBeNull()
   })
 
   it('Detailed post: chips render but differentiator never appears', () => {
@@ -460,6 +521,21 @@ describe('Render matrix — OptionNode × view × phase', () => {
   // Topology where option-1 (the rendered node) is non-leader within 5pp
   // of option-2 (the leader). Includes the report so the close-call useMemo
   // can read win probabilities.
+  //
+  // Locked Canvas design (23 Sep 2026): "Within a small margin of the
+  // most-supported option" and "Held back by:" are DETAILED-ONLY now (design
+  // summary, Option: "'Factor to examine:', 'Within a small margin of the
+  // most-supported option', 'Held back by:' are Detailed-only now"; ED 11:52Z
+  // point 4 — the Standard option face is change rows + one model-relative
+  // result). Each close-call case below therefore asserts the marker's
+  // ABSENCE on the Standard face and its behaviour where it now lives, in
+  // Detailed, on the SAME fixture — so the window (1pp in, sub-percent in,
+  // 10pp out, leader never, pre-analysis never) stays pinned.
+  const renderCloseCallIn = (view: ViewMode, state: MatrixState) => {
+    cleanup()
+    applyStore({ ...state, viewMode: view })
+    return renderOption({})
+  }
   const closeCallTopology = (gapPp: number): MatrixState => ({
     viewMode: 'standard',
     phase: 'post',
@@ -512,11 +588,16 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
+    // Locked Canvas design (23 Sep 2026): Standard face carries neither line.
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
+    // …Detailed does, on the same fixture.
+    renderCloseCallIn('expert', closeCallTopology(3))
     // ⭐ SUPERSEDED 2026-08-10: was 'Close call: within 3 percentage points'.
     // The tie-ness SIGNAL is valuable and stays; the percentage-point gap is
     // the banned statistic and is gone. The node already states this option's
     // own win probability directly above.
-    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
+    expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
     expect(screen.getByText(/Held back by:/)).toBeDefined()
   })
@@ -534,10 +615,13 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
+    // Locked Canvas design (23 Sep 2026): Detailed-only — absent on Standard…
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
+    renderCloseCallIn('expert', closeCallTopology(1))
     // ⭐ SUPERSEDED 2026-08-10: this asserted the singular 'point' form. With
     // no number rendered there is no pluralisation left to pin — what remains
     // worth pinning is that a 1pp gap is still INSIDE the close-call window.
-    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
+    expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
@@ -545,7 +629,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Gap of 0.004 → Math.round → 0; the 1pp floor keeps the predicate
     // non-null so the marker still fires. The floor no longer has a phrasing
     // job — the rendered marker carries no number at all.
-    applyStore({
+    const subPercent: MatrixState = {
       viewMode: 'standard',
       phase: 'post',
       nodes: [
@@ -565,7 +649,8 @@ describe('Render matrix — OptionNode × view × phase', () => {
           'option-2': { win_probability: 0.500 },
         },
       },
-    })
+    }
+    applyStore(subPercent)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -577,7 +662,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): Detailed-only — absent on Standard…
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
+    renderCloseCallIn('expert', subPercent)
+    expect(screen.getByText('Close to the option most runs favour in this model')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
@@ -611,18 +699,23 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    // Bound to the marker that actually renders — the old /Within a small margin/ pattern
+    // Bound to the marker that actually renders — the old /Close to the option most runs favour/ pattern
     // stops matching once the colon-and-number form is gone, which would make
     // this absence assertion pass by testing nothing.
     //
     // ⚠ RE-BOUND 7 Sep 2026, FOR THE SECOND TIME AND FOR THE SAME REASON. The
     // marker stopped saying "Close call" at all (Paul's no-contest ruling), so
-    // /Within a small margin/i would now pass against a card that renders the marker in
+    // /Close to the option most runs favour/i would now pass against a card that renders the marker in
     // full. The comment above was already the warning; this is it firing.
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
     expect(screen.queryByText('What would change this?')).toBeNull()
     // The standard "What would make this better supported?" chip is still present.
     expect(screen.getByText('What would make this better supported?')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): the marker is Detailed-only, so the
+    // Standard absence above is no longer discriminating on its own — the
+    // window's OUTER edge is pinned where the marker can render.
+    renderCloseCallIn('expert', closeCallTopology(10))
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 
   it('Standard post leader: NO close-call line on the leader itself', () => {
@@ -650,13 +743,30 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): Detailed-only marker — the leader
+    // exclusion is pinned where the marker can render.
+    renderCloseCallIn('expert', {
+      ...closeCallTopology(3),
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: {
+          'option-1': { win_probability: 0.55 },
+          'option-2': { win_probability: 0.45 },
+        },
+      },
+    })
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 
   it('Pre Standard non-baseline: close-call line never renders pre-analysis', () => {
     applyStore({ ...closeCallTopology(3), phase: 'pre' })
     renderOption({})
-    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): Detailed-only marker — the
+    // pre-analysis exclusion is pinned where the marker can render.
+    renderCloseCallIn('expert', { ...closeCallTopology(3), phase: 'pre' })
+    expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
   })
 })
 
@@ -764,18 +874,80 @@ describe('Render matrix — DecisionNode chip audit', () => {
 
   it('Standard pre: shows "Explore more options" + ("Run analysis" XOR "What could go wrong?") — never 3 chips', () => {
     applyStore(decisionTopology('standard', 'pre'))
+    registerAskSurface()
     renderDecision()
-    expect(screen.getByText('Explore more options')).toBeDefined()
-    // Exactly one of the secondary chips renders, never both at once.
-    const runAnalysis = screen.queryAllByText('Run analysis').length
-    const couldGoWrong = screen.queryAllByText('What could go wrong?').length
-    expect(runAnalysis + couldGoWrong).toBe(1)
+    // Locked Canvas design (23 Sep 2026): the Question card is wide and shallow
+    // — "coaching behind the one icon" (ED 11:52Z point 1). The chip row left
+    // the Standard FACE: the rail's coaching icon asks "Explore more options",
+    // "Run analysis" is a rail ACTION (`decision-run-analysis-<id>`), and the
+    // remaining invitation moves to the Standard popover
+    // (`decision-popover-invitations`) — minus the icon's own question, so
+    // nothing is asked twice. Detailed keeps the full row (pinned below).
+    const face = faceOf('Hiring decision')
+    expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Explore more options')
+    expect(within(face).queryByText('What could go wrong?')).toBeNull()
+    expect(screen.queryByText('Explore more options')).toBeNull()
+    expect(screen.queryByText('Run analysis')).toBeNull()
+    // Exactly one of the two secondary routes exists, never both — the XOR is
+    // unchanged, only where each lives moved. This fixture has no goal, so the
+    // run route is withheld and "What could go wrong?" is the one offered.
+    const popover = screen.getByTestId('node-popover')
+    const runRoute = within(face).queryAllByTestId('decision-run-analysis-decision-1').length
+    const couldGoWrong = within(popover).queryAllByText('What could go wrong?').length
+    expect(runRoute + couldGoWrong).toBe(1)
+    expect(within(within(popover).getByTestId('decision-popover-invitations')).getByText('What could go wrong?')).toBeDefined()
     // No legacy "Review model readiness" chip leaks into the popover.
     expect(screen.queryByText('Review model readiness')).toBeNull()
   })
 
+  it('Standard pre WITH a goal: the run route is the rail action, and "What could go wrong?" is withheld — the other arm of the XOR', () => {
+    // Locked Canvas design (23 Sep 2026): the positive arm of the XOR above,
+    // now that "Run analysis" is a rail action (design summary, Question:
+    // "'Run analysis' NodeChip (now rail icon `decision-run-analysis-<id>`)").
+    // The run route needs every factor valued AND a goal (`showRunAnalysis`),
+    // so this arm drops the fixture's deliberately unvalued factor.
+    const runnable = (view: ViewMode): MatrixState => {
+      const t = decisionTopology(view, 'pre')
+      return { ...t, goalThreshold: 100000, nodes: t.nodes.filter(n => n.id !== 'factor-missing') }
+    }
+    applyStore(runnable('standard'))
+    registerAskSurface()
+    renderDecision()
+    const face = faceOf('Hiring decision')
+    expect(within(face).getByTestId('decision-run-analysis-decision-1')).toBeDefined()
+    expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Explore more options')
+    expect(screen.queryByText('Run analysis')).toBeNull()
+    // …and the Standard popover withholds the other arm too.
+    expect(screen.queryByText('What could go wrong?')).toBeNull()
+    cleanup()
+    applyStore(runnable('expert'))
+    renderDecision()
+    // Positive control: Detailed's chip row IS rendering here…
+    expect(screen.getByText('Explore more options')).toBeDefined()
+    // …and it withholds the other arm.
+    expect(screen.queryByText('What could go wrong?')).toBeNull()
+  })
+
   it('Standard post: shows "Challenge this result" + "Compare options"', () => {
     applyStore(decisionTopology('standard', 'post'))
+    registerAskSurface()
+    renderDecision()
+    // Locked Canvas design (23 Sep 2026): the rail's coaching icon asks
+    // "Challenge this result" and keeps its TYPED route (`what_would_flip`,
+    // ED 02:31Z: never demoted to a generic discuss). The post chip row left
+    // the Standard FACE (ED 11:52Z point 1); "Compare options" is in the
+    // Standard popover (`decision-popover-post-run`), minus the icon's own
+    // question, and Detailed keeps both as chips.
+    const face = faceOf('Hiring decision')
+    const icon = within(face).getByTestId('node-coaching-icon-decision-1')
+    expect(icon).toHaveAccessibleName('Challenge this result')
+    expect(icon.getAttribute('data-coaching-typed')).toBe('true')
+    expect(screen.queryByText('Challenge this result')).toBeNull()
+    expect(within(face).queryByText('Compare options')).toBeNull()
+    const popover = screen.getByTestId('node-popover')
+    expect(within(within(popover).getByTestId('decision-popover-post-run')).getByText('Compare options')).toBeDefined()
+    cleanup()
+    applyStore(decisionTopology('expert', 'post'))
     renderDecision()
     expect(screen.getByText('Challenge this result')).toBeDefined()
     expect(screen.getByText('Compare options')).toBeDefined()
@@ -922,8 +1094,32 @@ describe('Render matrix — GoalNode chip audit', () => {
   it('Goal with-target Standard pre: shows "Run analysis" chip', () => {
     applyStore(goalTopology('standard', 'pre', true))
     renderGoal({ goal_threshold_raw: 100000 })
-    expect(screen.getByText('Run analysis')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): the goal card's "Run analysis" chip
+    // was a DUPLICATE of the Question card's run route and is gone from the
+    // goal face (design summary, Goal: "REMOVED from face: … 'Run analysis'
+    // chip (goal_run_analysis)"; ED 11:52Z point 2 "wide + shallow"). Absent
+    // here, present at its one home — the Question card's rail action.
+    expect(within(faceOf('Reach revenue')).queryByText('Run analysis')).toBeNull()
+    expect(screen.queryByText('Run analysis')).toBeNull()
     expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
+    cleanup()
+    applyStore({
+      viewMode: 'standard',
+      phase: 'pre',
+      goalThreshold: 100000,
+      nodes: [
+        { id: 'decision-1', type: 'decision', data: { label: 'Hiring decision', type: 'decision' } },
+        { id: 'option-1', type: 'option', data: { label: 'Hire 3', type: 'option' } },
+        { id: 'option-2', type: 'option', data: { label: 'Hire none', type: 'option' } },
+        { id: 'goal-1', type: 'goal', data: { label: 'Reach revenue', type: 'goal', goal_threshold_raw: 100000 } },
+      ],
+      edges: [
+        { id: 'e1', source: 'decision-1', target: 'option-1', data: {} },
+        { id: 'e2', source: 'decision-1', target: 'option-2', data: {} },
+      ],
+    })
+    renderDecision()
+    expect(within(faceOf('Hiring decision')).getByTestId('decision-run-analysis-decision-1')).toBeDefined()
   })
 
   it('Goal with-target Standard post: shows "Is my target realistic?" chip', () => {
@@ -942,8 +1138,15 @@ describe('Render matrix — GoalNode chip audit', () => {
    */
   it('Goal with-target Standard post: asks whether the target is the REAL goal, not just a reachable one', () => {
     applyStore(goalTopology('standard', 'post', true))
+    registerAskSurface()
     renderGoal({ goal_threshold_raw: 100000 })
-    expect(screen.getAllByText('Is this the real goal?').length).toBeGreaterThanOrEqual(1)
+    // Locked Canvas design (23 Sep 2026): the question is still ON THE CARD —
+    // as the rail's coaching icon, not a face chip (design summary, Goal:
+    // "'Is this the real goal?' chip (now the coaching icon)"; ED 11:52Z
+    // point 2 "coaching behind icon").
+    const face = faceOf('Reach revenue')
+    expect(within(face).getByTestId('node-coaching-icon-goal-1')).toHaveAccessibleName('Is this the real goal?')
+    expect(within(face).queryByText('Is this the real goal?')).toBeNull()
     // Sits beside the realism question rather than replacing it: "can we hit
     // this number" and "is this the right number" are different questions.
     expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
@@ -992,8 +1195,19 @@ describe('Render matrix — OutcomeNode chip audit', () => {
   // treatment. Consequence exploration separately stays available in both phases.
   it.each(['standard', 'expert'] as const)('%s pre: preserves falsification beside upstream exploration', (view) => {
     applyStore(outcomeTopology(view, 'pre'))
+    registerAskSurface()
     renderOutcome()
-    expect(screen.getByText('What would falsify this?')).toBeDefined()
+    if (view === 'standard') {
+      // Locked Canvas design (23 Sep 2026): the outcome face's chip row is
+      // gone; the rail's coaching icon asks the falsification question (design
+      // summary, Outcome/Risk: "icon asks: outcome 'What would falsify
+      // this?'"; spec §2, ED 02:31Z D4). Preserved — asked, not as face text.
+      const face = faceOf('Revenue growth')
+      expect(within(face).getByTestId('node-coaching-icon-outcome-1')).toHaveAccessibleName('What would falsify this?')
+      expect(within(face).queryByText('What would falsify this?')).toBeNull()
+    } else {
+      expect(screen.getByText('What would falsify this?')).toBeDefined()
+    }
     expect(screen.getByText('What affects this?')).toBeDefined()
   })
 
@@ -1066,8 +1280,14 @@ describe('Render matrix — RiskNode chip audit', () => {
    */
   it.each(['pre', 'post'] as const)('%s: asks what we would see first — the risk is monitorable, not just loggable', (phase) => {
     applyStore(riskTopology('standard', phase))
+    registerAskSurface()
     renderRisk()
-    expect(screen.getByText('What would we see first?')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): the leading-indicator question is
+    // the rail's coaching icon on the Standard face, not a face chip (design
+    // summary, Outcome/Risk: "risk 'What would we see first?'"; ED 02:31Z D4).
+    const face = faceOf('Key person dependency')
+    expect(within(face).getByTestId('node-coaching-icon-risk-1')).toHaveAccessibleName('What would we see first?')
+    expect(within(face).queryByText('What would we see first?')).toBeNull()
     // The reduce/mitigate pair is not displaced by the addition.
     expect(screen.getByText('What reduces this?')).toBeDefined()
     expect(screen.getByText('Explore mitigation')).toBeDefined()

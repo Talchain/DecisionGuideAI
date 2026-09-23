@@ -1,13 +1,16 @@
 /**
  * OptionNode render tests
- * T7: Win probability bar + Most supported badge
+ * T7: Win probability bar (+ the RETIRED "Most supported" badge — ED #63
+ *     5799353114 decision 1: "Drop 'Most supported'. It reads as a
+ *     recommendation." The badge cases now assert the card NEVER names a
+ *     leader, in the strongest case, each with a same-render contrast control.)
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { optionOrdinalBadgeAccessibleName } from '../shared/metricVocabulary'
+import { optionOrdinalBadgeAccessibleName, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
 import {
@@ -122,12 +125,36 @@ const baseProps = {
   zIndex: 0,
 }
 
+/**
+ * Locked Canvas design (23 Sep 2026; spec §4, ED 11:52Z point 4): the card's
+ * change rows are chosen in ONE order across the whole option SET
+ * (`shared/optionChangeRows.ts`), read from the store's option nodes. A
+ * fixture must therefore carry THIS option as a typed option node — as the
+ * real store always does — or the card has no set to place itself in.
+ */
+const SELF_OPTION = { id: 'option-1', type: 'option', data: { label: 'Hire 3 engineers', type: 'option' } }
+
 const renderOption = (data: Record<string, unknown> = {}) =>
   render(
     <ReactFlowProvider>
       <OptionNode {...baseProps} data={{ label: 'Hire 3 engineers', type: 'option', ...data }} />
     </ReactFlowProvider>
   )
+
+/**
+ * ED #63 5799353114 decision 1 — the option card never names a leader: no
+ * pill by identity, no robustness grade beside it, no "Most supported" in the
+ * card's text. CONTRAST CONTROL FIRST, from the same render: the card's label
+ * and its own "N% of runs" result row — so a blank render cannot pass.
+ */
+function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share: string) {
+  expect(screen.getByText('Hire 3 engineers')).toBeDefined()
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(OPTION_RESULT_COPY.share(share))
+  expect(screen.queryByTestId(`leading-option-pill-${id}`)).toBeNull()
+  expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()
+  expect(screen.queryByText(/most supported/i)).toBeNull()
+  expect(container.textContent ?? '').not.toMatch(/most supported/i)
+}
 
 describe('OptionNode', () => {
   beforeEach(() => {
@@ -183,13 +210,19 @@ describe('OptionNode', () => {
       voiRank: null,
     })
     renderOption()
-    expect(screen.getByRole('img', { name: /Supported in 72% of simulated scenarios/ })).toBeDefined()
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4 — never "Support",
+    // results are explicitly model-relative): the row's accessible name is the
+    // caption + "N% of runs", then OPTION_RESULT_COPY's sentence.
+    const row = screen.getByRole('img', { name: new RegExp(`· 72% of runs\\. ${OPTION_RESULT_COPY.sentence('72%').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
+    expect(row.getAttribute('data-testid')).toBe('option-analysis-currency-option-1')
+    expect(row.getAttribute('aria-label')).not.toMatch(/\bSupport/)
   })
 
-  // T7: Most supported badge. Post-1.223 this is the POSITIVE CONTROL against
-  // over-suppression: with the producer's own leader claim on the report, the
-  // badge must still render on the option that claim names.
-  it('shows Most supported badge for highest winRate option', () => {
+  // T7: Most supported badge — RETIRED (ED #63 5799353114 decision 1). This was
+  // the positive control against over-suppression; with the producer's own
+  // leader claim naming THIS option it is now the STRONGEST case for the
+  // retired badge to reappear in, and the card must still name no leader.
+  it('ED 5799353114 decision 1: the win-max leader named by the producer gets NO "Most supported" badge', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -223,8 +256,8 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    renderOption()
-    expect(screen.getByText('Most supported')).toBeDefined()
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '72%')
   })
 
   // Discrimination pin: the producer claim names option-2, and the rendered
@@ -309,7 +342,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Most supported')).toBeNull()
   })
 
-  it('badges the recommended option even when it is not the win-max leader (recommended_option_id wins)', () => {
+  it('ED 5799353114 decision 1: the producer-recommended option gets NO badge either (recommended_option_id)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
       achievementProbability: null, stabilityPercentage: null, winRate: 0.28, isResultsMode: true,
@@ -337,9 +370,10 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    // Rendered node is option-1, recommended by the backend despite a lower win.
-    renderOption()
-    expect(screen.getByText('Most supported')).toBeDefined()
+    // Rendered node is option-1, recommended by the backend despite a lower win
+    // — the identity the retired badge used to follow. It names no leader now.
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '28%')
   })
 
   // T8: Intervention chips
@@ -353,7 +387,7 @@ describe('OptionNode', () => {
           }],
         },
         nodes: [
-          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.2 } } },{
+          SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.2 } } },{
           id: 'factor-1',
           // observedState.value provides the baseline so the from→to chip renders
           // (brief scope 7: a chip needs both a baseline and an intervention value).
@@ -378,7 +412,7 @@ describe('OptionNode', () => {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.804 } }],
         },
         nodes: [
-          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.3 } } },{
+          SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.3 } } },{
           id: 'factor-1',
           data: { label: 'Developer Headcount', observedState: { unit: 'developers', value: 0.3, cap: 20 } },
         }],
@@ -400,7 +434,7 @@ describe('OptionNode', () => {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.15 } }],
         },
         nodes: [
-          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.1 } } },{
+          SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.1 } } },{
           id: 'factor-1',
           data: { label: 'Engineering Capacity', observedState: { unit: 'FTE', value: 0.1, cap: 10 } },
         }],
@@ -424,7 +458,7 @@ describe('OptionNode', () => {
           options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } }],
         },
         nodes: [
-          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } } },{
+          SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } } },{
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
@@ -451,7 +485,7 @@ describe('OptionNode', () => {
           options: [{ id: 'option-1', interventions: { 'factor-tl': 1 } }],
         },
         nodes: [
-          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': 0 } } },{
+          SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': 0 } } },{
           id: 'factor-tl',
           data: { label: 'Tech lead in place', observedState: { value: 0, factor_type: 'quality' } },
         }],
@@ -484,7 +518,7 @@ describe('OptionNode', () => {
           options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } }],
         },
         nodes: [
-          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } } },{
+          SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } } },{
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
@@ -588,7 +622,9 @@ describe('OptionNode', () => {
     // Bound by test id, not by text (trap 19): "72%" is a value another
     // element on a results card could carry.
     const percentEl = screen.getByTestId('option-win-readout-option-1')
-    expect(percentEl.textContent).toBe('72%')
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout reads
+    // "N% of runs" — model-relative — not a bare "N%".
+    expect(percentEl.textContent).toBe(OPTION_RESULT_COPY.share('72%'))
     expect(percentEl.className).toContain('text-text-body')
     expect(percentEl.className).not.toContain('text-success')
     expect(percentEl.className).not.toContain('text-option')
@@ -642,7 +678,13 @@ describe('OptionNode', () => {
     renderOption()
 
     const anchorEl = screen.getByTestId('option-win-anchor-option-1')
-    expect(anchorEl.textContent).toBe(COMPARATIVE_COPY.anchor)
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4: "Do not use
+    // `Support` as the result label"): the visible anchor is the run-currency
+    // caption. This fixture's store carries no freshness verdict, so currency
+    // cannot be confirmed → 'Model result' (claims neither current nor a later
+    // model; ED 02:31Z).
+    expect(anchorEl.textContent).toBe(OPTION_RESULT_COPY.unconfirmed)
+    expect(anchorEl.textContent).not.toBe(COMPARATIVE_COPY.anchor)
 
     // NOT screen-reader-only: an `sr-only` anchor would satisfy a naive
     // "the word is present" check while remaining invisible to the two input
@@ -661,9 +703,13 @@ describe('OptionNode', () => {
     // property it exists to check — one word, two arms — still held. The
     // claim is about the WORD, not about where the sentence happens to put
     // it, so both sides are folded.
-    expect(COMPARATIVE_COPY.phrase('72%').toLowerCase()).toContain(
-      COMPARATIVE_COPY.anchor.toLowerCase(),
-    )
+    //
+    // Locked Canvas design (23 Sep 2026): the same property on the new pair —
+    // the row's accessible name is BUILT ON the visible anchor, so the two arms
+    // name the result with one word.
+    expect(
+      screen.getByTestId('option-analysis-currency-option-1').getAttribute('aria-label'),
+    ).toMatch(new RegExp(`^${anchorEl.textContent} · ${OPTION_RESULT_COPY.share('72%')}\\. `))
   })
 
   it('density: the VISIBLE readout is the bare percentage, and it is hidden from assistive tech', () => {
@@ -672,7 +718,10 @@ describe('OptionNode', () => {
     const percentEl = screen.getByTestId('option-win-readout-option-1')
     // The sentence must NOT be repeated in the visible line — that repetition
     // across five option cards is the whole defect being fixed.
-    expect(percentEl.textContent).toBe('72%')
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the short visible
+    // form is now "N% of runs", still not the sentence.
+    expect(percentEl.textContent).toBe(OPTION_RESULT_COPY.share('72%'))
+    expect(percentEl.textContent).not.toContain(OPTION_RESULT_COPY.sentence('72%'))
     // Hidden from assistive tech so the statistic is announced once, in full,
     // by the row's accessible name rather than as a number with no referent.
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
@@ -681,7 +730,9 @@ describe('OptionNode', () => {
   it('density: the ratified sentence survives in the positioned tooltip and accessible text', async () => {
     mockWinRate72()
     renderOption()
-    const expected = COMPARATIVE_COPY.phrase('72%')
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the ratified
+    // sentence is now OPTION_RESULT_COPY's model-relative one, never "Supported".
+    const expected = OPTION_RESULT_COPY.sentence('72%')
 
     // The explanation belongs to this row, and it cannot spawn a native title.
     const row = screen.getByTestId('option-win-readout-option-1').closest('[data-node-tooltip]')
@@ -691,7 +742,7 @@ describe('OptionNode', () => {
 
     // The graphic has one complete accessible name even before its tooltip
     // opens. Its presentational descendants must not carry a redundant span.
-    expect(screen.getByRole('img', { name: /Supported in 72% of simulated scenarios/ })).toBe(row)
+    expect(screen.getByRole('img', { name: row!.getAttribute('aria-label')! })).toBe(row)
     expect(row?.querySelector('.sr-only')).toBeNull()
     expect(screen.queryByText(expected)).toBeNull()
 
@@ -703,7 +754,10 @@ describe('OptionNode', () => {
 
     // Positive control (trap 13): the copy comes from the ratified register,
     // and this test would be vacuous if that register were empty.
-    expect(expected).toBe('Supported in 72% of simulated scenarios')
+    expect(expected).toBe(
+      'In 72% of the simulated runs, the model favoured this option over the others. ' +
+        'A finding about the model as it stands, not a recommendation.',
+    )
   })
 
   it('density: the visible number and the sentence report the SAME statistic', () => {
@@ -711,20 +765,25 @@ describe('OptionNode', () => {
     // cannot leave a card whose bar, number and sentence disagree.
     mockWinRate72()
     renderOption()
-    const percent = screen.getByTestId('option-win-readout-option-1').textContent
+    const readout = screen.getByTestId('option-win-readout-option-1').textContent
     // Not `!== ''`: an empty or null readout would make the assertion below
     // pass on a sentence the user never sees a number for.
-    expect(percent).toMatch(/^[<>]?\s*[\d.]+%$/)
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the visible
+    // readout is "N% of runs"; the NUMBER inside it is the statistic.
+    const match = /^([<>]?\s*[\d.]+%) of runs$/.exec(readout ?? '')
+    expect(match, `readout "${readout}" is not "N% of runs"`).not.toBeNull()
+    const percent = match![1]
     const row = screen.getByTestId('option-analysis-currency-option-1')
-    expect(row.getAttribute('aria-label')).toContain(COMPARATIVE_COPY.phrase(percent as string))
+    expect(row.getAttribute('aria-label')).toContain(OPTION_RESULT_COPY.share(percent))
+    expect(row.getAttribute('aria-label')).toContain(OPTION_RESULT_COPY.sentence(percent))
   })
 
-  // V3: Most supported badge uses text-text-body (WCAG AA contrast on bg-success-light)
-  //
-  // Producer signal here is `decision_brief.headline_banded` rather than
-  // `near_tie`, so the canvas badge is pinned against BOTH producer authorities
-  // somewhere in this suite, not just the first one.
-  it('Most supported badge uses text-text-body (not text-success)', () => {
+  // V3: WAS "Most supported badge uses text-text-body (WCAG AA contrast)". The
+  // badge is retired (ED #63 5799353114 decision 1), so there is no badge whose
+  // contrast to pin. The fixture is kept because its producer signal is
+  // `decision_brief.headline_banded` rather than `near_tie`: the card's
+  // no-leader-claim is pinned against BOTH producer authorities in this suite.
+  it('ED 5799353114 decision 1: a `headline_banded` leader claim puts no badge on the card either', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -762,11 +821,8 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    renderOption()
-    const badge = screen.getByTestId('leading-option-pill-option-1')
-    expect(badge).toContainElement(screen.getByText('Most supported'))
-    expect(badge.className).toContain('text-text-body')
-    expect(badge.className).not.toContain('text-success')
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '72%')
   })
 
   // Null-safe paths — most likely regression sources in production
@@ -1071,7 +1127,11 @@ describe('OptionNode', () => {
     )
     renderOption()
     // Differentiator sentence uses compactFactorLabel → "→ Best in class"
-    expect(screen.getByText(/Best in class/)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026; ED 02:31Z D2): the face now also leads
+    // with the change row for the same target, so "Best in class" appears in
+    // TWO carriers. Bound by identity to each, both verbatim.
+    expect(screen.getByTestId('option-differentiator-option-1').textContent).toContain('Best in class')
+    expect(screen.getByTestId('option-change-row-option-1-factor-1').textContent).toContain('Best in class')
     // Must NOT fabricate a tier label.
     expect(screen.queryByText(/Very high/)).toBeNull()
     expect(screen.queryByText(/^High$/)).toBeNull()
@@ -1122,7 +1182,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Most supported')).toBeNull()
   })
 
-  it('shows Most supported badge when a non-canvas option has higher rate in report', () => {
+  it('ED 5799353114 decision 1: no badge when a non-canvas option has a higher rate in the report', () => {
     // P0-2: only visible canvas option IDs count when computing max.
     //
     // Post-1.223 the fixture also pins WHICH argmax the producer's identity gate
@@ -1167,9 +1227,10 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    renderOption()
-    // option-1 has highest win rate among visible options → Most supported
-    expect(screen.getByText('Most supported')).toBeDefined()
+    // option-1 has the highest win rate among VISIBLE options — the retired
+    // badge's strongest case under the visible-option filter. No badge now.
+    const { container } = renderOption()
+    expectCardMakesNoLeaderClaim(container, 'option-1', '72%')
   })
 
   it('does not show Most supported badge when only one option node exists', () => {
@@ -1768,7 +1829,18 @@ describe('OptionNode — QA Brief C-series', () => {
       fireEvent.mouseEnter(container.firstElementChild!)
       expect((await screen.findAllByText(/marketing expertise/i)).length).toBeGreaterThan(0)
       expect(screen.queryByText(/scale/i)).toBeNull()
-      expect(screen.queryByText(/→/)).toBeNull()
+      // Locked Canvas design (23 Sep 2026; spec §4, ED 02:31Z D2): a change row
+      // with no reference legitimately reads "→ <target>", so a bare arrow is no
+      // longer the tell. What must still hold with no reference pair: no
+      // invented "from" side, and never an arrow pointing at nothing.
+      // ⚠ SUSPECTED PRODUCTION REGRESSION, left RED on purpose: this unframed
+      // scale target renders the row "→ " (title "Marketing expertise
+      // available: → .") — `buildOptionChangeRow` emits `→ ${targetText}` with
+      // an EMPTY `targetText` (optionChangeRows.ts) — the orphan-arrow defect
+      // "Self-assessment fix #4" below exists to prevent.
+      const row = screen.getByTestId('option-change-row-option-1-factor-1')
+      expect(row.textContent).not.toMatch(/\S\s*→/)
+      expect(row.textContent).not.toMatch(/→\s*$/)
     })
 
     // Self-assessment fix #4: scale-unit factor with cap (so the deltaDisplay
@@ -1806,7 +1878,14 @@ describe('OptionNode — QA Brief C-series', () => {
       // No empty parentheses, no orphan arrow.
       expect(screen.queryByText(/→ \(/)).toBeNull()
       expect(screen.queryByText(/\(\)/)).toBeNull()
-      expect(screen.queryByText(/→ \s*$/)).toBeNull()
+      // Locked Canvas design (23 Sep 2026): Testing Library TRIMS text before
+      // matching, so `/→ \s*$/` (arrow + mandatory space) can never match an
+      // orphan arrow — this guard was blind to the defect it names. The
+      // trim-proof form below is the same claim. ⚠ It REDs on the new change
+      // row, which renders "→ " for this capped scale target — a SUSPECTED
+      // PRODUCTION REGRESSION (optionChangeRows.ts `→ ${targetText}` with an
+      // empty target), left RED on purpose.
+      expect(screen.queryByText(/→\s*$/)).toBeNull()
     })
   })
 
@@ -2179,7 +2258,10 @@ describe('OptionNode — display coherence (audit §8)', () => {
       }) as any)
     )
     renderOption({ label: 'Status Quo', is_baseline: true })
-    expect(screen.getByRole('img', { name: /Supported in 28% of simulated scenarios/ })).toBeDefined()
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout's
+    // accessible name is model-relative ("… · 28% of runs. In 28% of the
+    // simulated runs…"), rendered ONCE.
+    expect(screen.getAllByRole('img', { name: new RegExp(`· 28% of runs\\. In 28% of the simulated runs`) })).toHaveLength(1)
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
     expect(screen.getByText('Baseline option.')).toBeDefined()
   })
@@ -2378,7 +2460,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.8 } }],
         },
         nodes: [
-          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.4 } } },
+          SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.4 } } },
           { id: 'factor-1', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.4 } } },
         ],
       }) as any)
@@ -2432,6 +2514,19 @@ describe('OptionNode — display coherence (audit §8)', () => {
      * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
      */
     expect(badge).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(2))
+  })
+
+  it('MT-18: the stable option numeral is Detailed-only — absent from the Standard face', () => {
+    // Locked Canvas design (23 Sep 2026; manual-test finding MT-18): a bare
+    // numeral at rest read as a RANK beside the factors' driver ranks. The
+    // positive case above renders Detailed (`viewMode: 'expert'`); the same
+    // registration in Standard carries no numeral.
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ optionNumbering: { 'option-1': 2 }, viewMode: 'standard' }) as any),
+    )
+    renderOption()
+    expect(screen.getByTestId('node-title')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
 
   it('renders no stable-number badge before the option is registered', () => {
@@ -2883,7 +2978,7 @@ describe('OptionNode — pre-analysis delta rows', () => {
         options: [{ id: 'option-1', interventions: { 'factor-long': 0.8, 'factor-short': 0.9 } }],
       },
       nodes: [
-        { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-long': 0.4, 'factor-short': 0.5 } } },
+        SELF_OPTION, { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-long': 0.4, 'factor-short': 0.5 } } },
         { id: 'factor-long', data: { label: 'Enterprise Revenue Cannibalization Risk', observedState: { unit: 'fraction', value: 0.4 } } },
         { id: 'factor-short', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.5 } } },
       ],
@@ -2902,7 +2997,13 @@ describe('OptionNode — pre-analysis delta rows', () => {
     // Sentence-casing happens UPSTREAM of this component, so a test written
     // against the fixture's own string silently misses (it did, first run).
     // The uncompacted string is NOT what the card paints.
-    expect(screen.queryByText('Enterprise revenue cannibalization risk')).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the change row's `<dt>` now also
+    // carries the full label for assistive tech in an `sr-only` span, so the
+    // full string exists ONLY there — never painted.
+    const full = screen.queryAllByText('Enterprise revenue cannibalization risk')
+    expect(full).toHaveLength(1)
+    expect(full[0].className).toContain(typography.screenReaderOnly)
+    expect(screen.getByText('Enterprise revenue…').getAttribute('aria-hidden')).toBe('true')
   })
 
   it('leaves a short factor label alone — the shortening is not indiscriminate', () => {
@@ -2915,9 +3016,13 @@ describe('OptionNode — pre-analysis delta rows', () => {
     // to go is hiding. This is the binding constraint on the whole change.
     renderOption()
     const shortened = screen.getByText('Enterprise revenue…')
-    const row = shortened.closest('li')
+    // Locked Canvas design (23 Sep 2026): the row is a `<dt>`/`<dd>` pair in
+    // the change-rows `<dl>`; the label cell carries the full label as its
+    // title (sighted recovery) and in an sr-only span (assistive tech).
+    const row = shortened.closest('dt')
     expect(row).not.toBeNull()
     expect(row!.getAttribute('title')).toContain('Enterprise revenue cannibalization risk')
+    expect(row!.textContent).toContain('Enterprise revenue cannibalization risk')
   })
 
   it('⭐ never shortens the VALUE, however long it is', () => {
@@ -2936,17 +3041,28 @@ describe('OptionNode — pre-analysis delta rows', () => {
     expect(label).not.toBe(value)
     expect(label.contains(value)).toBe(false)
     expect(value.contains(label)).toBe(false)
-    // Both are block-level, so they occupy their own lines rather than flowing.
-    expect(label.className).toContain('block')
-    expect(value.className).toContain('block')
+    // Locked Canvas design (23 Sep 2026; ED 02:31Z D2): the label and its
+    // value are separate CELLS of a two-column grid (`<dt>` | `<dd>`), so they
+    // can wrap but can never flow into one string — was two block spans.
+    const dt = label.closest('dt')
+    expect(dt).not.toBeNull()
+    expect(value.tagName).toBe('DD')
+    expect(dt!.nextElementSibling).toBe(value)
+    expect(value.parentElement!.tagName).toBe('DL')
+    expect(value.parentElement!.className).toContain('grid')
   })
 
   it('binds each row to its own factor — two changes produce two rows', () => {
     renderOption()
-    const rows = document.querySelectorAll('li[title]')
+    // Locked Canvas design (23 Sep 2026): one `<dd>` per factor, bound by
+    // IDENTITY in its testid, its title opening with that factor's full label.
+    const rows = document.querySelectorAll('[data-testid^="option-change-row-option-1-"]:not([data-testid*="-estimate-"])')
     expect(rows.length).toBe(2)
-    const titles = [...rows].map(r => r.getAttribute('title') ?? '')
-    expect(titles.some(t => t.startsWith('Enterprise revenue cannibalization risk'))).toBe(true)
-    expect(titles.some(t => t.startsWith('Budget'))).toBe(true)
+    expect(screen.getByTestId('option-change-row-option-1-factor-long').getAttribute('title'))
+      .toMatch(/^Enterprise revenue cannibalization risk: /)
+    expect(screen.getByTestId('option-change-row-option-1-factor-short').getAttribute('title'))
+      .toMatch(/^Budget: /)
+    // Two targets, two rows: nothing left for `+N more`.
+    expect(screen.queryByTestId('option-change-more-option-1')).toBeNull()
   })
 })

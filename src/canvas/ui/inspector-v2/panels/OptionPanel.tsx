@@ -14,7 +14,7 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
-import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
+import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
@@ -766,7 +766,12 @@ export const OptionPanel = memo(function OptionPanel({
                     <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
                       {formatWinProbability(displayMetadata.winRate)}
                     </div>
-                    <div className={`${typography.panelMeta} text-text-light`}>{METRIC_NOUN.support}</div>
+                    <div
+                      className={`${typography.panelMeta} text-text-light`}
+                      title={OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate))}
+                    >
+                      {OPTION_RESULT_COPY.current} · of runs
+                    </div>
                     <ResultsLink label="Compare all options" tab="compare" />
                   </div>
                 </div>

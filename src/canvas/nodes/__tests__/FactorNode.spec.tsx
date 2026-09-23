@@ -6,12 +6,13 @@
  * T5: "estimated" pill for inferred values
  * T6: Sensitivity/Evidence tier labels (results mode)
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CANVAS_CORNER_STACK_CLASSES } from '../shared/canvasGlyphScale'
 import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -79,7 +80,12 @@ vi.mock('../shared/NodePopover', () => ({
 }))
 
 // Default: graph badges OFF, lens OFF. Individual tests override as needed.
-vi.mock('../../../flags', () => ({
+// Spread the real flags module: `FactorNode` now reads the composed analysis
+// verdict (`useModelChangedSinceRun`), whose source classifier calls a flag
+// this factory never listed. A `vi.mock` factory REPLACES the module, so an
+// unlisted flag is `undefined` and throws at render (CLAUDE.md trap 12).
+vi.mock('../../../flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../flags')>()),
   isGraphBadgesEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
   isGraphLensEnabled: vi.fn(() => false),
@@ -109,6 +115,25 @@ const renderFactor = (data: Record<string, unknown>) =>
       <FactorNode {...baseProps} data={data} />
     </ReactFlowProvider>
   )
+
+/**
+ * Locked Canvas design (23 Sep 2026), spec §2 / ED 02:31Z D4: the card's ONE
+ * coaching question is the rail's coaching icon (`node-coaching-icon-<id>`),
+ * and the icon asks only where an ask surface is registered (`canReceiveAsk`).
+ * Registered per test that needs it, and reset after EVERY test so no other
+ * case in this file renders differently because of it.
+ */
+const registerAskSurface = () =>
+  useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
+afterEach(() => {
+  useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
+})
+const COACHING_ICON = 'node-coaching-icon-factor-1'
+
+/** The driver line's caption / fill, bound by the line's own test id. */
+const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).textContent
+const fillOf = (line: HTMLElement) =>
+  (within(line).getByTestId(/-bar$/).firstElementChild as HTMLElement).style.width
 
 describe('FactorNode', () => {
   beforeEach(() => { vi.clearAllMocks() })
@@ -292,7 +317,8 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Outside your control.')).toBeNull()
   })
 
-  it('shows "Help me estimate this" chip for factor with observedState but no value', () => {
+  it('asks "Help me estimate this" for factor with observedState but no value', () => {
+    registerAskSurface()
     renderFactor({
       label: 'Metric',
       type: 'factor',
@@ -300,7 +326,10 @@ describe('FactorNode', () => {
     })
     // "Missing value. Weakens analysis." text removed — chip only
     expect(screen.queryByText('Missing value. Weakens analysis.')).toBeNull()
-    expect(screen.getByText('Help me estimate this')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026), spec §2 / ED 11:52Z point 3: the chip
+    // row is off the face; the rail's coaching icon asks the same question.
+    expect(screen.queryByTestId('factor-card-question')).toBeNull()
+    expect(screen.getByTestId(COACHING_ICON)).toHaveAccessibleName('Help me estimate this')
   })
 
   // T6: Influence/Confidence bars in results mode — only in Layer 2 (Detailed view)
@@ -344,22 +373,29 @@ describe('FactorNode', () => {
     })
     renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     // In Detailed mode, Layer 2 is inline so bars appear
-    /* ⚠ 'Influence' -> 'Relative influence'. The card's VISIBLE noun is now
-       `influenceBasisNoun(provenance)`, which returns 'Relative influence' for both
-       stamped bases. Measured on staging `6497a251`: the board read "Influence 100%"
-       on a factor whose figure PLoT max-normalises (`factor-influence.ts:556`,
-       `Math.abs(influence) / maxAbsInfluence`), so exactly one factor reads 100% on
-       every board BY CONSTRUCTION. The basis was disclosed only via <Tooltip>/title,
-       which `NodeMetricRow`'s own header forbids: "THE CAPTION IS VISIBLE TEXT, NEVER
-       A `title` ... absent on touch". See theInfluenceBasisIsVisible.spec.tsx. */
-    expect(screen.getByText('Relative influence')).toBeDefined()
-    expect(screen.getByText('80%')).toBeDefined()
+    /* ⭐ Locked Canvas design (23 Sep 2026), spec §3 + ED 11:52Z point 3: the
+       Detailed influence row is the SAME `FactorDriverLine` the face uses
+       (`factor-driver-line-detail`). Its VISIBLE caption is the quantity's own
+       noun — "Structural influence" on the producer basis, never a bare bar —
+       and the 80% moves into its accessible name beside "of the strongest
+       factor", so the per-set-normalised figure is never read as absolute.
+       (History: this row read "Relative influence 80%"; measured on staging
+       `6497a251` the unqualified "Influence 100%" read as absolute.) */
+    const line = screen.getByTestId('factor-driver-line-detail')
+    expect(captionOf(line)).toBe('Structural influence')
+    expect(line).toHaveAccessibleName(/80% of the strongest factor/)
+    expect(line.textContent).not.toContain('80%')
     expect(screen.getByText('Confidence')).toBeDefined()
     expect(screen.getByText('45%')).toBeDefined()
   })
 
   it('hides Influence/Confidence bars outside results mode', () => {
     renderFactor({ label: 'Salary', type: 'factor' })
+    // Locked Canvas design (23 Sep 2026): the influence reading is the driver
+    // line now, which carries neither word — bound by its test ids so this
+    // absence cannot go vacuous.
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
     expect(screen.queryByText('Influence')).toBeNull()
     // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
     // the card no longer renders the bare noun under a stamped basis, so a
@@ -391,10 +427,13 @@ describe('FactorNode', () => {
     expect(() => renderFactor({ label: 'X', type: 'factor' })).not.toThrow()
   })
 
-  it('shows "Help me estimate this" chip when observedState has only unit (no value)', () => {
+  it('asks "Help me estimate this" when observedState has only unit (no value)', () => {
+    registerAskSurface()
     renderFactor({ label: 'X', type: 'factor', observedState: { unit: 'k' } })
     expect(screen.queryByText('Missing value. Weakens analysis.')).toBeNull()
-    expect(screen.getByText('Help me estimate this')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): the question's home is the rail icon.
+    expect(screen.queryByTestId('factor-card-question')).toBeNull()
+    expect(screen.getByTestId(COACHING_ICON)).toHaveAccessibleName('Help me estimate this')
   })
 
   it('does not show Influence/Confidence bars in results mode when both influence and confidence are null', () => {
@@ -412,6 +451,9 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'X', type: 'factor' })
+    // Locked Canvas design (23 Sep 2026): bound by the driver line's test ids.
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
     expect(screen.queryByText('Influence')).toBeNull()
     // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
     // the card no longer renders the bare noun under a stamped basis, so a
@@ -435,6 +477,9 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'X', type: 'factor' })
+    // Locked Canvas design (23 Sep 2026): bound by the driver line's test ids.
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
     expect(screen.queryByText('Influence')).toBeNull()
     // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
     // the card no longer renders the bare noun under a stamped basis, so a
@@ -448,38 +493,63 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Measurable')).toBeNull()
   })
 
-  // P3: Rank badge in the top-right corner stack
-  it('rank badge renders inside the top-right corner stack (P3)', () => {
+  // P3: Rank badge in the top-right corner stack.
+  // ⭐ Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: "RETIRE the Key-driver
+  // badge once the body driver line is present." The rank is stated ONCE, by the
+  // driver line on the card face ("Driver N of M analysed"), and the corner
+  // stack no longer holds a badge. What this test still pins: the stack owns the
+  // corner (its own constant), and the rank reaches the reader — now on the line.
+  it('the retired rank badge does NOT render; the rank is stated by the driver line (P3, ED 02:31Z D1a)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: null,
+        nodes: [],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'complete', report: null },
+        // The driver line's currency precondition — see the module-level note.
+        analysisFreshness: { freshness: 'fresh' },
+        analysisFreshnessDirty: false,
+        importPendingServerRegistration: false,
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'standard',
+      })
+    )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: 1,
-      influence: null,
+      influence: 1,
+      influenceProvenance: 'normalised_elasticity',
+      influenceImportanceBasis: null,
+      influenceSetSize: 5,
       confidence: null,
-      inSensitivityAnalysis: false,
+      confidenceIsDefaulted: false,
+      confidenceIsProvisional: false,
+      inSensitivityAnalysis: true,
       achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
-      isResultsMode: false,
+      isResultsMode: true,
       predictedOutcome: null,
       valueOfInformation: null,
       voiRank: null,
     })
-    renderFactor({
+    const { container } = renderFactor({
       label: 'Revenue',
       type: 'factor',
       category: 'controllable',
     })
-    // Badge renders with expected text.
-    // ⚠ REPAIRED: this read `getByText('#1')`. The badge no longer renders a
-    //   bare numeral — a lone `#1` in a card header reads as a first place,
-    //   and this rank means MOST SENSITIVE. Queried through the builder so the
-    //   spec cannot drift from the word the card ships (trap 12).
-    const badge = screen.getByText(sensitivityRankBadgeLabel(1))
-    expect(badge).toBeDefined()
-    // Positioning is owned by the shared corner STACK (Codex P1-5), not the
-    // badge itself — that is what stops the rank badge and the coaching marker
-    // colliding in the same corner. The badge is a static flex child.
-    const stack = badge.parentElement!
-    expect(stack.getAttribute('data-testid')).toMatch(/^node-corner-stack-/)
+    // The badge is gone — no test id, no word, no bare numeral.
+    expect(screen.queryByTestId('sensitivity-rank-factor-1')).toBeNull()
+    expect(screen.queryByText(sensitivityRankBadgeLabel(1))).toBeNull()
+    expect(container.textContent).not.toContain('#1')
+    // The rank is stated by the driver line on the face instead.
+    expect(captionOf(screen.getByTestId('factor-driver-line'))).toBe('Driver 1 of 5 analysed')
+    // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
+    // members that remain in it are static flex children.
     // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
     // `toContain('-top-2')` / `toContain('-right-2')` — the measuring stick,
     // not the property in this test's title. The `-top-2` half was an UNSCALED
@@ -488,9 +558,12 @@ describe('FactorNode', () => {
     // Asserting the exported constant keeps the invariant that matters (the
     // stack owns the corner; its children carry no positioning) while letting
     // the anchor move in one place.
+    const stack = screen.getByTestId('node-corner-stack-factor-1')
     expect(stack.className).toContain('absolute')
     expect(stack.className).toBe(CANVAS_CORNER_STACK_CLASSES)
-    expect(badge.className).not.toContain('absolute')
+    Array.from(stack.children).forEach(child => {
+      expect(child.className).not.toContain('absolute')
+    })
     // Category icons removed — science icons replace them
   })
 
@@ -516,8 +589,11 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Medium')).toBeNull()
   })
 
-  // P4: Evidence bar uses bg-info (not bg-factor) — Detailed results mode
-  it('evidence bar uses bg-info class in Detailed results mode (P4)', () => {
+  // P4: Evidence bar uses bg-info (not bg-factor) — Detailed results mode.
+  // Paul 23 Sep contract feedback point 9: driver bar neutral — the driver
+  // bar's fill is now the muted neutral token so it does not compete with the
+  // Info-blue attention marker; the confidence/evidence bar keeps bg-info.
+  it('evidence bar uses bg-info; the driver bar is neutral (P4 + Paul 23 Sep point 9)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -557,8 +633,12 @@ describe('FactorNode', () => {
     })
     const { container } = renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     const bars = container.querySelectorAll('.bg-info')
-    // Both sensitivity and evidence bars should be bg-info
-    expect(bars.length).toBeGreaterThanOrEqual(2)
+    // The evidence bar stays bg-info …
+    expect(bars.length).toBeGreaterThanOrEqual(1)
+    // … the driver bar does not (contrast control within the same render).
+    const driverFill = screen.getByTestId('factor-driver-line-detail-bar-fill')
+    expect(driverFill.className).toContain('bg-text-light')
+    expect(driverFill.className).not.toContain('bg-info')
     expect(container.querySelector('.bg-factor')).toBeNull()
   })
 
@@ -700,14 +780,21 @@ describe('FactorNode', () => {
     })
     const { container } = renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     const progressbars = container.querySelectorAll('[role="progressbar"]')
-    // Two bars: Influence + Confidence
-    expect(progressbars.length).toBeGreaterThanOrEqual(2)
+    // Locked Canvas design (23 Sep 2026), spec §3: influence is the driver line
+    // (`factor-driver-line-detail`) — its bar is decorative (aria-hidden) and the
+    // figure is announced in the line's accessible name, so the Confidence bar
+    // is now the one progressbar here. Both readings are still present.
+    expect(progressbars.length).toBeGreaterThanOrEqual(1)
+    const driver = screen.getByTestId('factor-driver-line-detail')
+    expect(driver).toHaveAccessibleName(/80% of the strongest factor/)
+    expect(within(driver).getByTestId('factor-driver-line-detail-bar')).toHaveAttribute('aria-hidden', 'true')
     // A confidence without a default/provisional qualifier has no explanation
     // to open. Retain the value, without adding a redundant keyboard stop.
     const confidence = screen.getByRole('group', { name: 'Confidence' })
     expect(confidence).not.toHaveAttribute('tabindex')
     expect(confidence).not.toHaveAttribute('data-node-tooltip')
     expect(confidence).toHaveTextContent('60%')
+    expect(within(confidence).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('60')
     // Each bar has a valid aria-valuenow between 0 and 100
     progressbars.forEach(bar => {
       const valuenow = Number(bar.getAttribute('aria-valuenow'))
@@ -726,7 +813,7 @@ describe('FactorNode', () => {
   // (set-relative) basis, FactorNode must pass that provenance through so the
   // pill discloses "top driver always shows 100%" instead of reading as an
   // absolute causal share.
-  it('discloses the relative influence scale on the Standard row (C4)', async () => {
+  it('discloses the relative influence scale on the Standard driver line (C4)', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -792,78 +879,54 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
-    // ⚠ THE SURFACE MOVED, THE CLAIM DID NOT (1 Sep 2026). Standard-view
-    // influence is now the shared `NodeMetricRow` rather than a MetricPills
-    // pill, so this binds to the row — but it asserts exactly what it asserted
-    // before, and deliberately so: the whole risk of that conversion was moving
-    // a per-set-normalised figure onto a MORE prominent surface while dropping
-    // the sentence that stops it being read as an absolute. This test is the
-    // thing that would have caught that, so it is re-pointed, never relaxed.
-    // Both channels stay pinned: the opened tooltip and the graphic's
-    // accessible name, now including the value as well as its scale.
-    const row = screen.getByTestId('factor-influence-row')
-    fireEvent.mouseEnter(row)
-    // ⭐ THE DISCLOSURE IS STRICTLY LONGER THAN IT WAS: the ranked sentence is
-    // PREPENDED and the scale sentence is carried verbatim, so this still pins
-    // every word the pre-ranking assertion pinned.
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Most influential of 5 factors compared in this model, at 100% of the strongest factor. Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
-    )
-    // The visible row is now a RANKING, which is the claim a reader can push
-    // back on. Bound to the two columns by their exact strings.
-    expect(row.textContent).toContain('Most influential')
-    expect(row.textContent).toContain('of 5')
-    // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is
-    // the assertion that would RED if either call site reverted to the
-    // pre-ranking render. Without it the two `toContain`s above could both pass
-    // on a row that ALSO still printed `100%`.
-    expect(row.textContent).not.toContain('100%')
-    expect(row.textContent).not.toContain('Relative influence')
-    // ⚠ THE **BAR** PHRASE, NOT THE PILL'S — and that is a deliberate upgrade,
-    // not a relaxation. `influenceScaleCopy` carries both spellings and the row
-    // is a bar, so it now reads the SAME string the Detailed-view Influence bar
-    // reads. Before this, one surface said "Relative influence 100%, scaled
-    // against…" and the other said "Influence, relative to the strongest…" for
-    // one number on one card. Both still come from that one module, so neither
-    // can drift; they now also agree with each other.
-    expect(row).toHaveAccessibleName(
-      // ⚠ THE ROW NOW OWNS ITS WHOLE ACCESSIBLE NAME (`NodeMetricRow`'s
-      // `accessibleName` override), because the default composition
-      // `${label}: ${formatted}. ${phrase}` would announce "Most influential:
-      // of 5." — a colon between a phrase and its own tail. Pinned verbatim so
-      // a change to either channel has to come back here and be argued.
-      //
-      // ⭐⭐ AND THE PERCENTAGE IS HERE, WHICH IS WHY REMOVING IT FROM THE FACE
-      // OF THE CARD IS A DEMOTION AND NOT A DELETION. This assertion is the
-      // NO-HIDING half of the claim: a reader who wants the figure still gets
-      // it, stated WITH the scale that makes it meaningful. If a later change
-      // drops the percentage from the disclosure as well, this REDs — which is
-      // the only thing standing between "demoted" and "hidden a finding".
-      //
-      // ⚠ CONTAINMENT, VISIBLE AND DERIVABLE: this name OPENS with the visible
-      // caption and contains the visible figure string. The general invariant
-      // is guarded in `influenceRankReadout.spec.ts`; what is pinned here is
-      // that the ROW actually publishes it.
-      'Most influential of 5 factors compared in this model, at 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%',
-    )
+    // ⚠ THE SURFACE MOVED, THE CLAIM DID NOT (1 Sep 2026, and again 23 Sep 2026).
+    // Locked Canvas design (spec §3; ED 02:31Z D1a; ED 11:52Z point 3): the
+    // Standard-view influence reading is the face's `FactorDriverLine` now, not
+    // the `NodeMetricRow`. It is re-pointed, never relaxed: the whole risk of any
+    // such conversion is a per-set-normalised figure reaching a prominent surface
+    // stripped of the sentence that stops it being read as an absolute. Both
+    // channels stay pinned — the opened tooltip and the accessible name — and
+    // both carry the value AND its scale.
+    const line = screen.getByTestId('factor-driver-line')
+    fireEvent.mouseEnter(line)
+    const RANKED_DISCLOSURE =
+      'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
+      'Bar: outcome sensitivity, 100% of the strongest factor. ' +
+      'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
+      'How much the outcome shifts when this factor changes. How sure are you of its value?'
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(RANKED_DISCLOSURE)
+    // The visible line is a RANKING, which is the claim a reader can push back on.
+    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is the
+    // assertion that would RED if the face reverted to printing the figure.
+    expect(line.textContent).not.toContain('100%')
+    expect(line.textContent).not.toContain('Relative influence')
+    expect(screen.queryByTestId('factor-influence-row')).toBeNull()
+    // ⭐⭐ AND THE PERCENTAGE IS HERE, WHICH IS WHY REMOVING IT FROM THE FACE IS
+    // A DEMOTION AND NOT A DELETION — the NO-HIDING half of the claim, stated
+    // WITH the scale that makes it meaningful. Pinned verbatim: the tooltip and
+    // the accessible name are ONE sentence, built once.
+    expect(line).toHaveAccessibleName(RANKED_DISCLOSURE)
   })
 
   /**
-   * ⭐⭐ THE FAIL-CLOSED TWIN, AND IT CARRIES THE ORIGINAL ASSERTION VERBATIM.
+   * ⭐⭐ THE FAIL-CLOSED TWIN.
    *
    * The test above was re-pointed to the ranked render. Re-pointing a guard
    * without leaving something behind on the old arm is how a claim quietly
-   * stops being policed, so the pre-ranking strings are pinned HERE instead —
-   * character for character, including the `${label}: ${formatted}. ${phrase}`
-   * accessible name that `NodeMetricRow` composes when no override is passed.
+   * stops being policed, so the unranked strings are pinned HERE — character
+   * for character.
    *
    * ⚠ THIS ARM IS REACHABLE ON THE DEPLOYED CARD, NOT A LEGACY SHIM. The
-   * denominator is withheld whenever the rank is (a tie, or below the badged
-   * depth) AND whenever the graph has been edited since the last run. So every
-   * factor ranked 4th or lower, every factor on a tied set, and EVERY factor on
-   * a model whose graph has moved renders exactly this.
+   * denominator is withheld whenever the rank is (a tie, or below the
+   * determined depth). So every factor ranked 4th or lower and every factor on
+   * a tied set renders exactly this.
+   *
+   * ⭐ Locked Canvas design (23 Sep 2026), spec §8: a model whose graph has
+   * moved since the run no longer reaches this arm — a non-current run HIDES
+   * the driver line (pinned in `FactorNode.influenceRanking.spec.tsx`).
    */
-  it('FAIL-CLOSED: with no denominator the row renders the pre-ranking caption, unchanged', async () => {
+  it('FAIL-CLOSED: with no denominator the driver line names the quantity, never a rank', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -906,19 +969,24 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
-    const row = screen.getByTestId('factor-influence-row')
-    fireEvent.mouseEnter(row)
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
-    )
-    expect(row.textContent).toContain('Relative influence')
-    expect(row.textContent).toContain('100%')
+    // Locked Canvas design (23 Sep 2026): the fail-closed arm is the SAME driver
+    // line with the quantity's own noun ("Outcome sensitivity" on this basis) in
+    // place of a rank — never a bare bar, never "Driver N of M" — and the figure
+    // stays in its disclosure with its scale. (History: this arm printed
+    // "Relative influence 100%" on the NodeMetricRow.)
+    const line = screen.getByTestId('factor-driver-line')
+    fireEvent.mouseEnter(line)
+    const UNRANKED_DISCLOSURE =
+      'Bar: outcome sensitivity, 100% of the strongest factor. ' +
+      'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
+      'How much the outcome shifts when this factor changes. How sure are you of its value?'
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(UNRANKED_DISCLOSURE)
+    expect(captionOf(line)).toBe('Outcome sensitivity')
+    expect(line.textContent).not.toContain('100%')
     // NON-VACUITY: prove this really is the OTHER arm, not the ranked one
     // rendering something that happens to contain the old words.
-    expect(row.textContent).not.toContain('Most influential')
-    expect(row).toHaveAccessibleName(
-      'Relative influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
-    )
+    expect(line.textContent).not.toContain('Driver')
+    expect(line).toHaveAccessibleName(UNRANKED_DISCLOSURE)
   })
 
   // -------------------------------------------------------------------------
@@ -930,8 +998,14 @@ describe('FactorNode', () => {
   // Standard only. "Influence NN%" is a single text node the bar never produces
   // (the bar renders "Influence" and "NN%" separately), so it uniquely
   // identifies the pill.
+  //
+  // ⭐ Locked Canvas design (23 Sep 2026), ED 11:52Z point 3 ("no pseudo-precise
+  // `% influence` on the face"): the pills are gone from Standard TOO. The face
+  // carries the driver line (the % in its disclosure); confidence is Detailed
+  // information (Layer 2) and in the popover. Each case below asserts the pill's
+  // absence AND the reading's presence at its new home.
   // -------------------------------------------------------------------------
-  describe('MetricPills are Standard-only; Detailed shows the bars, not the duplicate pills', () => {
+  describe('no MetricPills at rest; the driver line on the face, confidence in Layer 2', () => {
     const setup = (viewMode: 'standard' | 'expert') => {
       vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
         selector({
@@ -970,22 +1044,24 @@ describe('FactorNode', () => {
       renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('Standard view: influence is the shared metric row; confidence stays a pill', () => {
+    it('Standard view: influence is the face driver line; confidence is off the face, in the popover', () => {
       setup('standard')
-      // ⚠ THE HIERARCHY IS THE POINT, and it is what this now pins. Influence —
-      // the headline — renders through the same `NodeMetricRow` an option's
-      // "Ahead" and a risk's "strength" use, so a reader comparing two cards of
-      // different types is comparing the same shape. Confidence stays a pill on
-      // purpose: a second row would add a line to the densest view and put two
-      // numbers at equal weight, which says neither is the headline.
-      const row = screen.getByTestId('factor-influence-row')
-      expect(row.textContent).toContain('Relative influence')
-      expect(row.textContent).toContain('80%')
-      // The pill form of INFLUENCE is gone — asserted by its single-text-node
-      // spelling, which the row never produces (the row renders the label and
-      // the value as separate nodes).
+      // ⚠ THE HIERARCHY IS STILL THE POINT. Influence — the headline — is the
+      // driver line; the retired `% influence` row is gone, and the line prints
+      // no figure (ED 11:52Z point 3).
+      const line = screen.getByTestId('factor-driver-line')
+      expect(captionOf(line)).toBe('Structural influence')
+      expect(line.textContent).not.toContain('80%')
+      expect(line).toHaveAccessibleName(/80% of the strongest factor/)
+      expect(screen.queryByTestId('factor-influence-row')).toBeNull()
+      // The pill form of INFLUENCE and of CONFIDENCE are gone — asserted by
+      // their single-text-node spellings, which no row produces.
       expect(screen.queryByText('Influence score 80%')).toBeNull()
-      expect(screen.getByText('Confidence 45%')).toBeDefined()
+      expect(screen.queryByText('Confidence 45%')).toBeNull()
+      // …and confidence is NOT lost: it is in Layer 2, which Standard shows in
+      // the hover popover (mocked transparent here) for this top-ranked factor.
+      const popover = screen.getByTestId('factor-node-popover')
+      expect(within(popover).getByRole('group', { name: 'Confidence' })).toHaveTextContent('45%')
     })
 
     it('Detailed view: the duplicate pills are gone; the labelled bars remain', () => {
@@ -993,18 +1069,16 @@ describe('FactorNode', () => {
       // The pills (single "Influence NN%" / "Confidence NN%" nodes) are suppressed…
       expect(screen.queryByText('Relative influence 80%')).toBeNull()
       expect(screen.queryByText('Confidence 45%')).toBeNull()
-      // …while the Layer-2 bars still carry the numbers (label + value separate).
-      /* ⚠ 'Influence' -> 'Relative influence'. The card's VISIBLE noun is now
-       `influenceBasisNoun(provenance)`, which returns 'Relative influence' for both
-       stamped bases. Measured on staging `6497a251`: the board read "Influence 100%"
-       on a factor whose figure PLoT max-normalises (`factor-influence.ts:556`,
-       `Math.abs(influence) / maxAbsInfluence`), so exactly one factor reads 100% on
-       every board BY CONSTRUCTION. The basis was disclosed only via <Tooltip>/title,
-       which `NodeMetricRow`'s own header forbids: "THE CAPTION IS VISIBLE TEXT, NEVER
-       A `title` ... absent on touch". See theInfluenceBasisIsVisible.spec.tsx. */
-    expect(screen.getByText('Relative influence')).toBeDefined()
+      // …while Layer 2 still carries both readings.
+      /* ⭐ Locked Canvas design (23 Sep 2026): influence is the Detailed driver
+         line — its VISIBLE caption is the quantity's own noun ("Structural
+         influence" on the producer basis; never a bare bar), and the 80% is in
+         its accessible name beside "of the strongest factor". Confidence keeps
+         its labelled bar (label + value separate). */
+      const line = screen.getByTestId('factor-driver-line-detail')
+      expect(captionOf(line)).toBe('Structural influence')
+      expect(line).toHaveAccessibleName(/80% of the strongest factor/)
       expect(screen.getByText('Confidence')).toBeDefined()
-      expect(screen.getByText('80%')).toBeDefined()
       expect(screen.getByText('45%')).toBeDefined()
     })
   })
@@ -1059,42 +1133,50 @@ describe('FactorNode', () => {
       return renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('fallback basis: the row discloses that the top driver always shows 100%', async () => {
+    // ⭐ Locked Canvas design (23 Sep 2026): the Detailed influence row is the
+    // `FactorDriverLine` (`factor-driver-line-detail`). Its bar is decorative, so
+    // the scale disclosure lives in the line's accessible name AND its tooltip —
+    // ONE sentence, built once — and the bar's FILL still carries the fraction.
+    it('fallback basis: the line discloses that the figure is relative to the strongest factor', async () => {
       renderDetailedWithProvenance('normalised_elasticity', 1)
-      const bar = screen.getByRole('progressbar', {
-        name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
-      })
-      expect(bar.getAttribute('aria-valuenow')).toBe('100')
-      // Pointer users get the same disclosure on the row.
-      const row = screen.getByText('Relative influence').closest('div')
-      expect(row).not.toBeNull()
-      fireEvent.mouseEnter(row!)
-      expect(await screen.findByRole('tooltip')).toHaveTextContent(
-        'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
-      )
+      const line = screen.getByTestId('factor-driver-line-detail')
+      const DISCLOSURE =
+        'Bar: outcome sensitivity, 100% of the strongest factor. ' +
+        'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
+        'How much the outcome shifts when this factor changes. How sure are you of its value?'
+      expect(line).toHaveAccessibleName(DISCLOSURE)
+      expect(fillOf(line)).toBe('max(4px, 100%)')
+      // Pointer users get the same disclosure on the line.
+      fireEvent.mouseEnter(line)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(DISCLOSURE)
     })
 
-    it('producer basis: the row discloses the set-relative scale, like its sibling', async () => {
+    it('producer basis: the line discloses the set-relative scale, and names its OWN quantity', async () => {
       renderDetailedWithProvenance('influence_score', 0.6)
-      const bar = screen.getByRole('progressbar', {
-        name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
-      })
-      expect(bar.getAttribute('aria-valuenow')).toBe('60')
-      const row = screen.getByText('Relative influence').closest('div')
-      expect(row).not.toBeNull()
-      fireEvent.mouseEnter(row!)
-      expect(await screen.findByRole('tooltip')).toHaveTextContent(
-        // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
-        // deliberately NOT one string — #1221's positive control forbids
-        // collapsing them and is right: the scale is shared, the measurement
-        // is not. #1228 changed only that this one stopped calling itself
-        // absolute.
-        "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The top driver always shows 100%."
-      )
+      const line = screen.getByTestId('factor-driver-line-detail')
+      // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
+      // deliberately NOT one string — #1221's positive control forbids
+      // collapsing them and is right: the scale is shared, the measurement is
+      // not. Here: "structural influence" + its own gloss, vs the fallback's
+      // "outcome sensitivity" above.
+      const DISCLOSURE =
+        'Bar: structural influence, 60% of the strongest factor. ' +
+        'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
+        'How strongly this factor connects to the goal in your model. How sure are you of its value?'
+      expect(captionOf(line)).toBe('Structural influence')
+      expect(line).toHaveAccessibleName(DISCLOSURE)
+      expect(line.getAttribute('aria-label')).not.toContain('outcome sensitivity')
+      expect(fillOf(line)).toBe('max(4px, 60%)')
+      fireEvent.mouseEnter(line)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(DISCLOSURE)
     })
 
     it('no provenance stamp: withholds the influence value and its scale claim', () => {
       renderDetailedWithProvenance(null, 0.6)
+      // Locked Canvas design (23 Sep 2026): bound by the driver line's test ids,
+      // on both mounts, so the absence cannot go vacuous under the new wording.
+      expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
+      expect(screen.queryByTestId('factor-driver-line')).toBeNull()
       expect(screen.queryByRole('progressbar', { name: /Influence/ })).toBeNull()
       expect(screen.queryByText('Influence')).toBeNull()
     // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
@@ -1198,16 +1280,23 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
-  // A16: source='user' → no provenance icon
-  it('A16: source="user" renders no provenance icon', () => {
-    renderFactor({
+  // A16: source='user' → no Olumi/brief provenance ICON — and, since Paul 23 Sep
+  // contract feedback point 1 ("User-set/evidence-backed values get their own
+  // provenance. Do not rely on 'unmarked = Olumi'"), ONE quiet `you` word mark
+  // whose accessible name is "Set by you". The old third assertion (no "Set by
+  // you" anywhere) pinned the unmarked-user rule point 1 retires.
+  it('A16: source="user" renders no provenance icon, and its own `you` mark', () => {
+    const { container } = renderFactor({
       label: 'Budget',
       type: 'factor',
       observedState: { value: 0.7, source: 'user' },
     })
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
     expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
-    expect(screen.queryByText('Set by you')).toBeNull()
+    expect(container.querySelector('[data-testid="estimate-marker"]')).toBeNull()
+    const mark = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')
+    expect(mark).not.toBeNull()
+    expect(mark!.textContent).toBe('youSet by you')
   })
 
   // A17: Contextual value text + science icon are separate elements
@@ -1818,6 +1907,7 @@ describe('FactorNode — intervention hover', () => {
   // card height instead of 12%. The MESSAGE Olumi receives is unchanged.
   describe('chip audit drift guard', () => {
     it('top inferred factor renders its evidence question exactly once across body + popover', () => {
+      registerAskSurface()
       vi.mocked(useScienceIcons).mockReturnValue([])
       vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
         selector({
@@ -1849,9 +1939,15 @@ describe('FactorNode — intervention hover', () => {
         category: 'controllable',
         observedState: { value: 0.5, extractionType: 'inferred' },
       })
-      // Body chip is canonical; popover does not duplicate it.
-      const matches = screen.getAllByText('What’s the evidence?')
-      expect(matches.length).toBe(1)
+      // Locked Canvas design (23 Sep 2026), spec §2 / ED 02:31Z D4: the ONE
+      // render site is the rail's coaching icon — the question is its
+      // accessible name. EXACTLY ONCE across the whole card: one control asks
+      // it, and no chip row (face or popover) prints it as text.
+      const asking = screen.getAllByRole('button', { name: 'What’s the evidence?' })
+      expect(asking).toHaveLength(1)
+      expect(asking[0].getAttribute('data-testid')).toBe(COACHING_ICON)
+      expect(screen.queryAllByText('What’s the evidence?')).toHaveLength(0)
+      expect(screen.queryByTestId('factor-card-question')).toBeNull()
     })
   })
 })

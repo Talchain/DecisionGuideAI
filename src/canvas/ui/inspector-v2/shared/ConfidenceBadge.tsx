@@ -17,18 +17,31 @@ const LEVELS = {
   low:    { glyph: '?',      colorClass: 'text-danger',  borderStyle: 'dotted' as const, borderColor: 'var(--danger)' },
 } as const
 
+/**
+ * Paul 23 Sep contract feedback point 12: the glyph and colour are not the
+ * only channel. One sentence is both the accessible name and the hover label,
+ * so the two cannot say different things.
+ */
+export function confidenceBadgeLabel(level: ConfidenceBadgeProps['level'], value?: number): string {
+  return value != null ? `Confidence: ${level}, ${value}%` : `Confidence: ${level}`
+}
+
 export function ConfidenceBadge({ level, value }: ConfidenceBadgeProps) {
   const cfg = LEVELS[level]
+  const label = confidenceBadgeLabel(level, value)
 
   return (
     <span
       data-testid="inspector-confidence-badge"
+      role="img"
+      aria-label={label}
+      title={label}
       className={`${typography.panelMeta} inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-transparent`}
       style={{ border: `1.5px ${cfg.borderStyle} ${cfg.borderColor}` }}
     >
-      <span className={cfg.colorClass}>{cfg.glyph}</span>
+      <span className={cfg.colorClass} aria-hidden="true">{cfg.glyph}</span>
       {value != null && (
-        <span className="text-text-body">{value}%</span>
+        <span className="text-text-body" aria-hidden="true">{value}%</span>
       )}
     </span>
   )

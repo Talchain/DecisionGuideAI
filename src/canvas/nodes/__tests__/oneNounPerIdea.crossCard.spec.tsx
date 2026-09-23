@@ -53,7 +53,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 import { OptionNode } from '../OptionNode'
-import { METRIC_NOUN, RETIRED_METRIC_NOUNS } from '../shared/metricVocabulary'
+import { RETIRED_METRIC_NOUNS, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 import {
   LEADER_ID,
   LEADER_LABEL,
@@ -211,7 +211,18 @@ describe('one noun per idea — the option card speaks the register', () => {
     }
     // …and it DOES speak the register's own word, so the arm cannot pass on a
     // card that says nothing at all.
-    expect(spoken.toLowerCase()).toContain(METRIC_NOUN.support.toLowerCase())
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 4 — "Do not use
+    // `Support` as the result label. It reads as endorsement. Any result shown at
+    // rest must be explicitly model-relative, e.g. `Current model · 55% of runs`."
+    // The register's words for this quantity are now `OPTION_RESULT_COPY`: a
+    // currency caption + "N% of runs". Positive half bound to the row's own
+    // anchor/readout by test id; "Support" asserted ABSENT in any form.
+    const anchor = screen.getByTestId(`option-win-anchor-${LEADER_ID}`).textContent ?? ''
+    expect([OPTION_RESULT_COPY.current, OPTION_RESULT_COPY.lastRun, OPTION_RESULT_COPY.unconfirmed]).toContain(anchor)
+    const readout = screen.getByTestId(`option-win-readout-${LEADER_ID}`).textContent ?? ''
+    expect(readout).toBe(OPTION_RESULT_COPY.share(`${Math.round(WIN_LEADER * 100)}%`))
+    expect(spoken).toContain(`${anchor} · ${readout}`)
+    expect(spoken, 'the option card still speaks "Support"').not.toMatch(/\bsupport/i)
     // "Leads" stays retired as a caption, which is what the register ruled.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
   })
@@ -233,7 +244,14 @@ describe('one noun per idea — the option card speaks the register', () => {
     // `getByRole` THROWS on more than one match, so this is the "exactly once"
     // assertion — and binding the result to the row by identity is what makes
     // it about THIS surface rather than whichever element matched first.
-    expect(screen.getByRole('img', { name: /supported in \d+% of simulated scenarios/i })).toBe(optionRow)
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 4 — the comparative
+    // claim is now the model-relative `OPTION_RESULT_COPY.sentence` ("In N% of
+    // the simulated runs, the model favoured this option over the others. …"),
+    // never "supported in …". Same carrier (`role="img"` + aria-label), same
+    // exactly-once property; the retired wording is asserted gone.
+    const claim = OPTION_RESULT_COPY.sentence(`${Math.round(WIN_LEADER * 100)}%`)
+    expect(screen.getByRole('img', { name: (name) => name.includes(claim) })).toBe(optionRow)
+    expect(screen.queryByRole('img', { name: /supported in \d+% of simulated scenarios/i })).toBeNull()
   })
 
   it('global factor importance offers examination without asserting option-specific support', () => {

@@ -299,8 +299,17 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     // footer was SUPPRESSED there; under the ruling both render, so it now
     // asserts both are present rather than that one is missing.
     const pre = renderShared({ results: { status: 'idle', report: null } })
-    const chips = Array.from(pre.container.querySelectorAll('li')).map((li) => li.textContent ?? '')
-    expect(chips.join(' | ')).toContain('3 engineers')
+    // Locked Canvas design (23 Sep 2026; spec §4, ED 02:31Z D2): the delta
+    // `<li>` list is replaced by the compact change rows. Bound by identity to
+    // THIS option's row for the shared factor, from the baseline's value.
+    expect(pre.container.querySelectorAll('li').length).toBe(0)
+    const row = pre.container.querySelector('[data-testid="option-change-row-option-1-f-head"]')
+    expect(row, 'the change row for the shared factor must render').not.toBeNull()
+    // Paul 23 Sep contract feedback point 7: an unsourced target is marked on
+    // the row (never left bare, never "you") — as "no source", not as Olumi's
+    // estimate (Codex #63 5801529767; reviewer blocker, 23 Sep).
+    expect(row!.textContent).toBe('0 engineers → 3 engineers no sourceSource not recorded')
+    expect(row!.querySelector('[data-testid="option-change-row-source-option-1-f-head"]')?.getAttribute('data-value-source')).toBe('unknown')
     expect(paragraphTexts(pre.container).join(' | ')).toContain('→')
   })
 })

@@ -42,6 +42,21 @@
  *
  * CLAUDE.md trap 3: these assert the presence/absence of TEXT. jsdom cannot
  * prove visibility and nothing here claims it does.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026) — THE SUMMARY IS OFF THE FACE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ED 11:52Z point 1 made the Question card WIDE AND SHALLOW: title + ONE row
+ * (`decision-node-resting-state`) carrying the option count and at most ONE
+ * reasoning-focus signal. The readiness summary and the "Hover for this node's
+ * detail" wayfinding line are NOT on that row any more; the readiness
+ * breakdown's home is the pre-analysis popover (unchanged, §7).
+ * `composeReadinessSummary` is still exported, so its pure tests (§1, §5) are
+ * kept verbatim. The card-level tests are re-pointed, never deleted: each now
+ * asserts the summary's ABSENCE from the face AND the property it guarded on
+ * the surface that carries it now — the leader-claim constraint (§4) on the
+ * one face row, "reads no report" on the graph-derived option count, and
+ * "counts only factors with data" on the pre-analysis popover.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, cleanup } from '@testing-library/react'
@@ -51,6 +66,7 @@ import {
   DECISION_RESTING_COPY,
   DECISION_READINESS_COPY,
   READINESS_SEPARATOR,
+  composeOptionCountLine,
   composeReadinessSummary,
   popoverLabel,
   type ModelReadiness,
@@ -100,6 +116,13 @@ vi.mock('../../store', () => ({
 const DECISION_ID = 'decision-1'
 const SUMMARY = 'decision-node-readiness-summary'
 const RESTING = 'decision-node-resting-state'
+const OPTION_COUNT = 'decision-node-option-count'
+/**
+ * Every static line the old resting fallback could render. The shallow face
+ * may carry `unnamedLine` / `noOptionsLine` (the CTA arms) but never the two
+ * content-free lines, which the locked design retired from the face.
+ */
+const RETIRED_FACE_LINES = [DECISION_RESTING_COPY.completedRunLine, DECISION_RESTING_COPY.emptyLine]
 
 const decisionNode = { id: DECISION_ID, type: 'decision', data: { type: 'decision' } }
 const optionNodes = [
@@ -367,8 +390,8 @@ describe('DecisionNode — the readiness summary on the card', () => {
 
   // ── §2 THE STATE PAUL SAW ────────────────────────────────────────────────
 
-  it('post-analysis Standard with the leader withheld: the card states the readiness breakdown', () => {
-    mountCompletedRun([
+  it('post-analysis Standard with the leader withheld: the readiness breakdown is OFF the shallow face; the one row states the option count', () => {
+    const { container } = mountCompletedRun([
       explicitFactor('f1'),
       inferredFactor('f2'),
       inferredFactor('f3'),
@@ -388,18 +411,30 @@ describe('DecisionNode — the readiness summary on the card', () => {
         `2 ${DECISION_READINESS_COPY.inferred}${READINESS_SEPARATOR}` +
         `1 ${DECISION_READINESS_COPY.missing}`,
     )
-    expect(screen.getByTestId(SUMMARY).textContent).toBe(expected)
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the face is the
+    // option count + at most ONE focus signal, so the breakdown is not on it.
+    // Absent by testid AND by its composed text anywhere in the card, so a
+    // re-home under another testid still REDs here.
+    expect(screen.queryByTestId(SUMMARY)).toBeNull()
+    expect(container.textContent).not.toContain(expected as string)
+    // …and the one row the face DOES carry is the graph's own option count.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
   })
 
-  it('the summary sits INSIDE the guarded resting subtree, above the wayfinding line', () => {
+  it('the guarded resting row holds neither the summary nor the retired wayfinding line; the popover still holds the robustness detail', () => {
     mountCompletedRun([explicitFactor('f1'), missingFactor('f2')])
 
     const resting = screen.getByTestId(RESTING)
-    // Containment is the honesty claim: the guard only covers what is inside.
-    expect(within(resting).getByTestId(SUMMARY)).toBeDefined()
-    // The wayfinding line is NOT displaced — it points at a popover that really
-    // does hold stability detail, which the control below proves.
-    expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the summary and
+    // the content-free "Hover for this node's detail" line are both off the
+    // shallow face. The row itself still renders (positive control: its option
+    // count), so these absences are about the rule, not an unmounted card.
+    expect(within(resting).getByTestId(OPTION_COUNT)).toBeDefined()
+    expect(within(resting).queryByTestId(SUMMARY)).toBeNull()
+    expect(screen.queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
+    // The post-analysis popover is unchanged by the design (popovers keep
+    // their detail), and it must still really hold something.
     const popover = screen.getByTestId('decision-node-popover')
     // ⛔ RE-POINTED, NOT NARROWED. This was `/62%/` — the leading option's win
     // probability relabelled, which this card no longer renders. The pointer's
@@ -413,31 +448,44 @@ describe('DecisionNode — the readiness summary on the card', () => {
   })
 
   it('the total counts factors the breakdown can actually account for, not factor NODES', () => {
-    // Three counted factors plus one with no `data` at all, which
-    // `useModelReadiness` skips. A total read off the node list would say four.
-    mountCompletedRun([
-      explicitFactor('f1'),
-      inferredFactor('f2'),
-      missingFactor('f3'),
-      dataLessFactor('f4'),
-    ])
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the summary is off
+    // the face, and the readiness breakdown's home is the PRE-ANALYSIS popover.
+    // The property is re-pointed there, at the same fixture: three counted
+    // factors plus one with no `data` at all, which `useModelReadiness` skips.
+    // A breakdown read off the node list would account for four. (The
+    // composer-level "total is the sum of the buckets" rule stays pinned in §1.)
+    setStore({
+      nodes: [decisionNode, ...optionNodes, explicitFactor('f1'), inferredFactor('f2'), missingFactor('f3'), dataLessFactor('f4')],
+      edges: optionEdges,
+    })
+    renderDecision()
 
-    const text = screen.getByTestId(SUMMARY).textContent ?? ''
-    expect(text).toBe(
-      composeReadinessSummary(readiness({ explicitCount: 1, inferredCount: 1, missingCount: 1 })),
-    )
-    expect(text.startsWith(`3 ${DECISION_READINESS_COPY.factorPlural}`)).toBe(true)
+    const popover = screen.getByTestId('decision-node-popover')
+    const buckets = Array.from(popover.querySelectorAll('div'))
+      .map(el => /^(Explicit|Estimated|Missing|External): (\d+)$/.exec(el.textContent ?? ''))
+      .filter((m): m is RegExpExecArray => m !== null)
+    // Positive control: the popover really states a breakdown (three buckets).
+    expect(buckets.map(m => `${m[1]}: ${m[2]}`)).toEqual(['Explicit: 1', 'Estimated: 1', 'Missing: 1'])
+    const total = buckets.reduce((sum, m) => sum + Number(m[2]), 0)
+    expect(total).toBe(3)
     // The failure this pins, stated as its own assertion so the reason survives.
-    expect(text).not.toContain(`4 ${DECISION_READINESS_COPY.factorPlural}`)
+    expect(total).not.toBe(4)
+    // And the face carries no summary to disagree with it.
+    expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
 
-  it('a completed run with no factors keeps its wayfinding line and adds no empty count', () => {
+  it('a completed run with no factors keeps its one face row and adds no empty count', () => {
     mountCompletedRun([])
-    // Precondition: the fallback really is on screen, so this is a claim about
+    // Precondition: the face row really is on screen, so this is a claim about
     // the summary and not about a card that failed to mount (trap 13b).
-    expect(screen.getByTestId(RESTING)).toBeDefined()
-    expect(screen.getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the row now
+    // carries the option count; the "Hover for this node's detail" wayfinding
+    // line it used to carry here is retired from the face.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
+    expect(screen.queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
+    expect(resting.textContent).not.toMatch(new RegExp(`\\b0 ${DECISION_READINESS_COPY.factorPlural}`))
   })
 
   // ── §3 WHERE IT MUST NOT RENDER ──────────────────────────────────────────
@@ -465,7 +513,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
 
-  it('⭐ NEW: a PERMITTED completed run reaches the readiness breakdown too', () => {
+  it('⭐ a PERMITTED and a WITHHELD completed run reach the SAME shallow face — neither carries the breakdown', () => {
     // ⚠ THIS CASE WAS UNREACHABLE BEFORE, WHICH IS WHY IT IS WORTH AN ARM.
     //
     // On a permitted run the leader sentence used to occupy the post-analysis
@@ -477,6 +525,11 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // With the duplicated verdict removed, both permissions reach the same
     // content. `PERMITTED_REPORT` is the fixture that proves it, and this arm
     // is the reason the removal is an improvement rather than a subtraction.
+    //
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 took the summary off
+    // the face for BOTH permissions. The property this arm holds — the reader
+    // who was given a verdict is not shown LESS than the one who was not — is
+    // kept as a parity claim: the two runs render byte-identical face rows.
     setStore({
       nodes: [decisionNode, ...optionNodes, explicitFactor('f1'), missingFactor('f2')],
       edges: optionEdges,
@@ -484,10 +537,17 @@ describe('DecisionNode — the readiness summary on the card', () => {
       viewMode: 'standard',
     })
     renderDecision()
-    const resting = screen.getByTestId(RESTING)
-    // Containment: still INSIDE the guarded subtree, so no copy moved out from
-    // under the honesty corpus.
-    expect(resting.querySelector(`[data-testid="${SUMMARY}"]`)).not.toBeNull()
+    const permittedRow = screen.getByTestId(RESTING)
+    expect(permittedRow.querySelector(`[data-testid="${SUMMARY}"]`)).toBeNull()
+    const permittedText = permittedRow.textContent
+    // Positive control: the row is not empty — it states the option count.
+    expect(within(permittedRow).getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
+    cleanup()
+
+    mountCompletedRun([explicitFactor('f1'), missingFactor('f2')])
+    const withheldRow = screen.getByTestId(RESTING)
+    expect(withheldRow.querySelector(`[data-testid="${SUMMARY}"]`)).toBeNull()
+    expect(withheldRow.textContent).toBe(permittedText)
   })
 
   it('a card that already has content does not get a summary bolted underneath', () => {
@@ -519,7 +579,12 @@ describe('DecisionNode — the readiness summary on the card', () => {
     renderDecision()
     // Precondition, re-pointed to content this node actually owns.
     expect(screen.getByText(/Robustness: moderate/i)).toBeDefined()
-    expect(screen.queryByTestId(RESTING)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — `RESTING` is now
+    // the card's ONE face row and renders in every state, so "stays shut" is
+    // re-pointed to what it guarded: no content-free fallback line and no
+    // summary is bolted onto a body that already has content.
+    const resting = screen.getByTestId(RESTING)
+    for (const line of RETIRED_FACE_LINES) expect(resting.textContent).not.toContain(line)
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
 
@@ -540,8 +605,19 @@ describe('DecisionNode — the readiness summary on the card', () => {
     })
     renderDecision()
     // Precondition: the pre-analysis branch really did render its own content.
-    expect(screen.getByText(/Top gap:/i)).toBeDefined()
-    expect(screen.queryByTestId(RESTING)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the triage line is
+    // now the row's ONE focus signal, `decision-node-top-gap`.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId('decision-node-top-gap').textContent).toMatch(/Top gap:/i)
+    // The row is always the face now, so "never reaches the fallback" is its
+    // text: none of the four resting lines, and no summary.
+    for (const line of [
+      ...RETIRED_FACE_LINES,
+      DECISION_RESTING_COPY.unnamedLine,
+      DECISION_RESTING_COPY.noOptionsLine,
+    ]) {
+      expect(resting.textContent).not.toContain(line)
+    }
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
 
@@ -561,12 +637,14 @@ describe('DecisionNode — the readiness summary on the card', () => {
 
   // ── §4 THE LEADER-CLAIM CONSTRAINT ───────────────────────────────────────
 
-  it('⛔ the summary carries no leader claim: it renders while the verdict is WITHHELD', () => {
+  it('⛔ the face carries no leader claim while the verdict is WITHHELD — and no summary', () => {
     mountCompletedRun([explicitFactor('f1'), inferredFactor('f2')])
 
-    // The summary is on screen…
-    expect(screen.getByTestId(SUMMARY).textContent).toBe(
-      composeReadinessSummary(readiness({ explicitCount: 1, inferredCount: 1 })),
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the summary is off
+    // the face; the ONE face row renders in its place (positive control)…
+    expect(screen.queryByTestId(SUMMARY)).toBeNull()
+    expect(within(screen.getByTestId(RESTING)).getByTestId(OPTION_COUNT).textContent).toBe(
+      composeOptionCountLine(optionNodes.length),
     )
     // ⚠ THESE TWO ASSERTIONS ARE NOW STRUCTURAL, NOT DISCRIMINATING, AND ARE
     // KEPT DELIBERATELY RATHER THAN DELETED OR PRETENDED TO BE GATES.
@@ -586,9 +664,14 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(screen.queryByTestId('decision-leader-metric-row')).toBeNull()
   })
 
-  it('⛔ the summary names no option and states no probability', () => {
+  it('⛔ the face row names no option and states no probability', () => {
     mountCompletedRun([explicitFactor('f1'), inferredFactor('f2'), missingFactor('f3')])
-    const text = screen.getByTestId(SUMMARY).textContent ?? ''
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the summary is off
+    // the face, so the constraint is re-pointed to the ONE row that replaced it.
+    expect(screen.queryByTestId(SUMMARY)).toBeNull()
+    const text = screen.getByTestId(RESTING).textContent ?? ''
+    // Positive control: the row has text to scan.
+    expect(text).toContain(composeOptionCountLine(optionNodes.length) as string)
     // The option labels are in the store on this fixture, so their absence here
     // is a property of the line and not of an empty graph.
     for (const option of optionNodes) {
@@ -648,11 +731,13 @@ describe('DecisionNode — the readiness summary on the card', () => {
    * recommended option, stability present in one arm and absent in the other —
    * while holding the graph fixed, and asserts the line is byte-identical.
    */
-  it('⛔ the summary reads no report: materially different runs, byte-identical line', () => {
+  it('⛔ the face\'s structural fact reads no report: materially different runs, byte-identical option count', () => {
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the summary is off
+    // the face. The structural fact the face now states is the option count, so
+    // "reads no report" is re-pointed to it, and the summary's absence is
+    // asserted in both arms.
     const factors = [explicitFactor('f1'), inferredFactor('f2'), missingFactor('f3')]
-    const expected = composeReadinessSummary(
-      readiness({ explicitCount: 1, inferredCount: 1, missingCount: 1 }),
-    )
+    const expected = composeOptionCountLine(optionNodes.length)
 
     /**
      * The SECOND run. Every analysis-owned field differs from `WITHHELD_REPORT`
@@ -696,7 +781,8 @@ describe('DecisionNode — the readiness summary on the card', () => {
 
     // ── ARM A ────────────────────────────────────────────────────────────────
     mountCompletedRun(factors)
-    const armA = screen.getByTestId(SUMMARY).textContent
+    expect(screen.queryByTestId(SUMMARY)).toBeNull()
+    const armA = screen.getByTestId(OPTION_COUNT).textContent
     expect(armA).toBe(expected)
     cleanup()
 
@@ -708,9 +794,10 @@ describe('DecisionNode — the readiness summary on the card', () => {
       viewMode: 'standard',
     })
     renderDecision()
-    // The summary really did render in this arm too — without this the arms
+    // The count really did render in this arm too — without this the arms
     // could "agree" by both being absent.
-    const armB = screen.getByTestId(SUMMARY).textContent
+    expect(screen.queryByTestId(SUMMARY)).toBeNull()
+    const armB = screen.getByTestId(OPTION_COUNT).textContent
     expect(armB).toBe(expected)
 
     // The line is a function of the graph, which did not move.
@@ -764,7 +851,9 @@ describe('DecisionNode — the readiness summary on the card', () => {
     mountCompletedRun([explicitFactor('f1'), missingFactor('f2')])
     // Positive control: the card mounted and its body has content, so these two
     // absences are about the removal and not about a component that failed.
-    expect(screen.getByTestId(SUMMARY)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): re-pointed from the summary (off the
+    // face, ED 11:52Z point 1) to the face row's option count.
+    expect(screen.getByTestId(OPTION_COUNT).textContent).toBe(composeOptionCountLine(optionNodes.length))
     expect(screen.queryByTestId('decision-node-brief')).toBeNull()
     expect(screen.queryByTestId('decision-node-brief-text')).toBeNull()
     expect(screen.queryByText('What you gave me')).toBeNull()

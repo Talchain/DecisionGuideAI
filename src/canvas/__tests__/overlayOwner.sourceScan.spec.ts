@@ -42,6 +42,8 @@ const MIGRATED = [
   'FocusModeChip.tsx',
   'StarterProvenanceBanner.tsx',
   'LensInfoPanel.tsx',
+  // Paul 23 Sep contract feedback point 14 — the bottom-right cell's claimant.
+  'AnalysisStateCue.tsx',
 ] as const
 
 function readComponent(file: string): string {

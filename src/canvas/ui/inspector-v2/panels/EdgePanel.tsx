@@ -6,7 +6,8 @@
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { Activity } from 'lucide-react'
+import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { useCanvasStore } from '../../../store'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -799,17 +800,18 @@ export const EdgePanel = memo(function EdgePanel({
           {isFragile && isResultsMode && (
             <PanelGroup kind="context" label={GROUP_LABELS.context}>
               <StaleGuardBanner hasResults={isResultsMode}>
-                <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
-                  <div className={`${typography.panelBody} text-danger flex items-center gap-1`}>
-                    <AlertTriangle size={13} className="text-danger" />
-                    {INLINE_LABELS.sensitiveAssumption}
+                {/* Paul 23 Sep contract feedback point 4 (inspector parity with the
+                    canvas cue): one neutral fragility mark (`Activity`, body ink),
+                    the canvas's own sentence (`FRAGILE_CUE_SENTENCE`), no warning
+                    triangle, no Danger — Danger is the RISK treatment (point 9). */}
+                <div className="bg-panel border border-panel-border p-2.5 rounded-lg" data-testid="edge-fragility-context">
+                  <div className={`${typography.panelBody} text-text-body flex items-center gap-1`}>
+                    <Activity size={13} className="text-text-body shrink-0" aria-hidden="true" />
+                    {FRAGILE_CUE_SENTENCE}
                   </div>
-                  <p className={`${typography.panelBody} text-text-body mt-1`}>
-                    {EDGE_COPY.sensitiveContext}
-                  </p>
                   {fragileEdgeSwitchProb !== null && (
                     <p
-                      className={`${typography.panelMeta} text-danger mt-1.5`}
+                      className={`${typography.panelMeta} text-text-body mt-1.5`}
                       title={EDGE_COPY.flipRiskTooltip(Math.round(fragileEdgeSwitchProb * 100))}
                     >
                       {Math.round(fragileEdgeSwitchProb * 100)}% flip risk

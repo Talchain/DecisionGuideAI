@@ -29,6 +29,8 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
+  CURRENT_MODEL_NOUN,
+  OPTION_RESULT_COPY,
   METRIC_NOUN,
   METRIC_UNSET,
   METRIC_LEGEND_ROWS,
@@ -39,7 +41,6 @@ import {
   sensitivityRankBadgeLabel,
   SENSITIVITY_RANK_LEGEND_NOUN,
   optionOrdinalBadgeAccessibleName,
-  SENSITIVITY_RANK_CLAUSE,
   ORDINAL_MINT_CLAUSE,
 } from '../metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
@@ -85,9 +86,19 @@ describe('METRIC_NOUN', () => {
     expect(quoted.test(`support: '${COMPARATIVE_COPY.anchor}',`), 'the literal detector never fires').toBe(true)
   })
 
-  it('every noun is a single sentence-case word', () => {
+  it('every noun is a single sentence-case word — except the one ED ruled two words', () => {
+    // ⭐ Locked Canvas design (23 Sep 2026): ED 11:52Z point 5 — "if strength is
+    // shown on-node, call it **link strength**". The noun names the LINK so it
+    // cannot be read as the node's own quantity; that ruling outranks the
+    // one-word rule, for this one noun, and the exception is NAMED here rather
+    // than the rule loosened for all four.
+    const TWO_WORD_BY_RULING: Record<string, string> = { strength: 'Link strength' }
     for (const [key, noun] of Object.entries(METRIC_NOUN)) {
       expect(noun, `${key} is empty`).toBeTruthy()
+      if (key in TWO_WORD_BY_RULING) {
+        expect(noun, `${key} is the ruled two-word noun`).toBe(TWO_WORD_BY_RULING[key])
+        continue
+      }
       expect(noun, `${key} ("${noun}") is more than one word`).not.toMatch(/\s/)
       expect(noun, `${key} ("${noun}") is not sentence case`).toMatch(/^[A-Z][a-z]+$/)
     }
@@ -127,10 +138,33 @@ describe('METRIC_LEGEND_ROWS', () => {
     // The binding that makes the legend COMPLETE rather than merely present:
     // adding a fifth noun without a row REDs here. Derived from the register,
     // so there is no second list to keep in sync.
+    //
+    // ⭐ ED #63 5799353114 decision 2: "Rename 'Support' → 'Current model'
+    // wherever that result family remains visible". On the CANVAS the
+    // comparative family is captioned `CURRENT_MODEL_NOUN` — the option card's
+    // `OPTION_RESULT_COPY.current` — so that is the noun the legend row must
+    // carry. `METRIC_NOUN.support` stays in the register for the panel-owned
+    // surfaces, and is exactly what the canvas legend must NOT say.
     const explained = METRIC_LEGEND_ROWS.map((r) => r.noun)
-    for (const noun of Object.values(METRIC_NOUN)) {
+    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN })
+    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length)
+    for (const noun of canvasCaptions) {
       expect(explained, `"${noun}" is captioned on a card but absent from the legend`).toContain(noun)
     }
+    // The card's caption and the legend's noun are ONE value…
+    expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
+    // …and the literal, so the register changing its own word is noticed (trap 12d).
+    expect(CURRENT_MODEL_NOUN).toBe('Current model')
+    // CONTRAST: the retired canvas caption is not a legend noun, while the
+    // present row above IS — so this absence is read from a populated list.
+    expect(explained).not.toContain(METRIC_NOUN.support)
+    // ED decision 2's second half, on the row itself: conditional on the model
+    // and its assumptions, and not a recommendation. Asserted on the PROPERTY,
+    // not the sentence, so a rewording that keeps the condition stays green.
+    const row = METRIC_LEGEND_ROWS.find((r) => r.noun === CURRENT_MODEL_NOUN)!
+    expect(row.gloss).toMatch(/\bmodel\b/)
+    expect(row.gloss).toMatch(/\bassumptions?\b/)
+    expect(row.gloss).toMatch(/not a recommendation/)
   })
 
   it('the influence gloss is DERIVED from the producer, not re-worded', () => {
@@ -354,7 +388,11 @@ describe('METRIC_LEGEND_ROWS', () => {
   it('⭐⭐ the badge call sites CALL the builders — a byte-identical copy REDs here', () => {
     const sites = [
       { file: '../../OptionNode.tsx', builder: 'optionOrdinalBadgeAccessibleName', clause: ORDINAL_MINT_CLAUSE },
-      { file: '../../BaseNode.tsx', builder: 'sensitivityRankBadgeAccessibleName', clause: SENSITIVITY_RANK_CLAUSE },
+      // ⭐ The BaseNode "Key driver" badge site is RETIRED (ED 02:31Z D1a: "RETIRE
+      // the Key-driver badge once the body driver line is present"); the rank
+      // now reads through `DRIVER_LINE_COPY`, pinned by
+      // `lockedNodeCardDesign.spec.tsx`. `SENSITIVITY_RANK_CLAUSE` stays pinned
+      // by the legend row assertions above.
     ] as const
 
     for (const site of sites) {

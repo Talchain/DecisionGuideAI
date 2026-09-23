@@ -132,6 +132,9 @@ export function calculateRiskSeverity(
  *                      DESIGN_SYSTEM v5's confidence table pins `Low` to
  *                      `border-dotted`). An unset edge drawn dotted reads "low".
  *   · the contested dash — reserved for a live, divergence-scaled dispute.
+ *     (⚠ DELETED 23 Sep 2026 by the locked connector grammar, "dash = existence
+ *     certainty only". The channel is now existence's alone — which makes it
+ *     MORE important, not less, that an unset likelihood is not marked on it.)
  * `UNSET_EDGE_STROKE_WIDTH` below reached the same verdict about dash from the
  * STRENGTH side ("dash is already spent three times over"). Re-derived here for
  * the EXISTENCE axis it holds again, on the dotted evidence above — which that
@@ -196,9 +199,11 @@ export const EXISTENCE_UNCERTAIN_DASH = '6,4'
  * an AI-drafted board (Paul's 17 Aug ruling, quoted in the header above);
  * removing it deletes the only honest use of the channel. **The union is the
  * thing the caption must describe**, and `CanvasLegendPopover.CONNECTION_ROWS`
- * now does — *"no doubt recorded, or only a small one"*. Any change to this
- * cut, or to the `kind` members, is a change to that sentence's truth
- * conditions: re-derive the caption in the same commit.
+ * does — since 23 Sep 2026 *"Solid: the model records little or no doubt that
+ * this connection exists"* (`edges/connectorCopy.LEGEND_SOLID_CAPTION`), scoped
+ * to the MODEL because a review disagreement no longer dashes and so can sit on
+ * a solid line. Any change to this cut, or to the `kind` members, is a change to
+ * that sentence's truth conditions: re-derive the caption in the same commit.
  */
 export function resolveExistenceDash(display: EdgeValueDisplay): ExistenceDash {
   if (!display.show) return { kind: 'unset' }
@@ -329,9 +334,11 @@ export const MEASURED_EDGE_STROKE_WIDTH_FLOOR = Math.min(
  * it from a lane scoped to a card row (*"⛔ DELIBERATELY NOT BUILT … a live
  * product question with Paul"*). Cleared 8 Sep 2026; this is the answer.
  *
- * ⚠ WHY NOT A DASH, THE OBVIOUS CHOICE. Dash is already spent three times over
- * on this canvas — `EDGE_DASH_RULES` (`edges/edgePresentation.ts`) carries
- * `contested`, `existence_certainty` and `visual_props`, and ghost/suggestion
+ * ⚠ WHY NOT A DASH, THE OBVIOUS CHOICE. Dash is already spent on this canvas —
+ * `EDGE_DASH_RULES` (`edges/edgePresentation.ts`) carries `existence_certainty`
+ * (it carried `contested` until the locked connector grammar of 23 Sep 2026,
+ * and `visual_props` until Paul 23 Sep contract feedback point 4 made dash
+ * existence-certainty only), and ghost/suggestion
  * edges dash too. Ambiguity is the smaller half of the problem: `resolveEdgeDash`
  * returns the FIRST rule that matches, so a `strength_unset` rule would be
  * INVISIBLE on exactly the edges most in question (an unset edge that is also
@@ -371,10 +378,9 @@ export function weightMagnitudeToStrokeWidth(signedMean: number): number {
  * Every channel the line itself owns is already spent, and this module and
  * `edges/edgePresentation.ts` between them say so explicitly: WIDTH is
  * strength (`EDGE_STROKE_WIDTH_BANDS` above, and the legend teaches it),
- * COLOUR is polarity (`EDGE_STROKE_RULES` rule A), DASH is spent three times
- * over (`EDGE_DASH_RULES` carries `contested`, `existence_certainty` and
- * `visual_props`, and `resolveEdgeDash` returns the FIRST match — so a fourth
- * rule is invisible on exactly the edges most in question), and OPACITY is
+ * COLOUR is polarity (`EDGE_STROKE_RULES` rule A), DASH is existence
+ * certainty's alone (`EDGE_DASH_RULES`; the locked connector grammar of
+ * 23 Sep 2026 removed `contested` from it — "dash = existence certainty only"), and OPACITY is
  * refused outright as a data channel (`StyledEdge.tsx` P2.9: *"two channels for
  * one variable is exactly the encoding overload the audit flags"*).
  *

@@ -19,7 +19,7 @@ import {
   visibleMetricRows,
 } from '../CanvasLegendPopover'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
-import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, OPTION_RESULT_COPY, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
 
@@ -127,21 +127,17 @@ const THICKNESS_LABELS = CANVAS_STRENGTH_BANDS.map(b => `${b.label} effect`)
 const APPROVED = [
   DECISION_NODE_LABEL, 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
   'Raises', 'Lowers',
-  // Solid is TWO populations — nobody stated a likelihood, and somebody stated
-  // one at or above `EDGE_VALUE_BAND_CUTS.high`. `graphDisplayCalculations.spec.ts`
-  // pins both. The caption must stay true of both; a bare absence claim here
-  // ("no doubt recorded") is false across the whole stated-high band and is
-  // what this change removed.
-  'Solid connection: no doubt recorded, or only a small one',
-  // Dashed is TWO causes, and the caption must be true of BOTH — the standard
-  // the solid row above was already held to. `resolveEdgeDash` fires the
-  // `contested` rule for EVERY contested edge without reading
-  // `contested_reasons`, and three of the five `ContestedReason` members
-  // (`strength_band_change`, `confidence_band_change`, `raw_magnitude`) are
-  // disagreements about HOW STRONG or HOW CERTAIN, with both passes agreeing the
-  // connection exists. "someone recorded a doubt" was false across that whole
-  // population and is what this change removes. See `CanvasLegendPopover.tsx`.
-  'Dashed connection: a doubt or a disagreement was recorded',
+  // ⭐ REWRITTEN 23 Sep 2026 — the locked connector grammar ("dash = existence
+  // certainty only"). Solid is still TWO existence populations (nobody stated a
+  // likelihood; somebody stated one at or above `EDGE_VALUE_BAND_CUTS.high`),
+  // and since the contest dash was removed it ALSO carries Olumi's review
+  // disagreements. So the caption is scoped to what the line reads — the
+  // MODEL's likelihood — and a separate row says where the review's view is.
+  // `CanvasLegendPopover.connectorGrammar.spec.tsx` pins the derivation.
+  'Solid: the model records little or no doubt that this connection exists',
+  // Experience Design's banked D3 wording: existence, and nothing else.
+  'Dashed: lower certainty that this connection exists is recorded',
+  'Other review disagreements: shown when you open the connection',
   // ⚠ The three thickness literals are replaced by the derivation above —
   // keeping them would make this allowlist a mirror of a mirror.
   ...THICKNESS_LABELS,
@@ -256,9 +252,11 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     fireEvent.click(screen.getByTestId('btn-canvas-legend'))
   }
 
-  it('explains the ONE reserved colour: orange means the reviews disagree', () => {
+  // ⭐ 23 Sep 2026: orange is narrowed to a SIGN disagreement between Olumi's
+  // two review passes, in Experience Design's banked wording (no "your call").
+  it('explains the ONE reserved colour: orange means the review passes disagree on direction', () => {
     open()
-    expect(screen.getByText('Orange: reviews disagree — your call')).toBeInTheDocument()
+    expect(screen.getByText("Orange: Olumi's two review passes disagree on direction")).toBeInTheDocument()
   })
 
   it('explains grey as "not stated yet", the signal with no other channel', () => {
@@ -410,12 +408,33 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
   it('POST-RUN: explains the four captions a reader meets on a card', () => {
     // Named explicitly as well as derived — so deleting a noun from the
     // register cannot make the derived test above pass by iterating less.
+    //
+    // ⭐ ED #63 5799353114 decision 2: "Rename 'Support' → 'Current model'
+    // wherever that result family remains visible". The canvas captions the
+    // comparative family `Current model` (the option card's own caption,
+    // `OPTION_RESULT_COPY.current`), so that — not `METRIC_NOUN.support`, which
+    // the panel-owned surfaces still read — is the noun the key must explain.
     setBoard('complete', { numberedNodes: true })
     open()
     const text = screen.getByRole('dialog').textContent ?? ''
-    for (const noun of Object.values(METRIC_NOUN)) {
+    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN })
+    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length)
+    for (const noun of canvasCaptions) {
       expect(text, `"${noun}" is captioned on a card but absent from the key`).toContain(noun)
     }
+    // The noun the key explains IS the caption the option card prints (one
+    // noun per idea, across the key and the card)…
+    expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
+    // …and the literal, so the register changing its own word is noticed (trap 12d).
+    expect(text).toContain('Current model')
+    // ED decision 2's second half: the explanation ON SCREEN says it is
+    // conditional on the model and its assumptions, and is not a
+    // recommendation — the property, read from the row the key renders.
+    const currentModelRow = METRIC_LEGEND_ROWS.find(r => r.noun === CURRENT_MODEL_NOUN)!
+    expect(text).toContain(currentModelRow.gloss)
+    expect(currentModelRow.gloss).toMatch(/\bmodel\b/)
+    expect(currentModelRow.gloss).toMatch(/\bassumptions?\b/)
+    expect(currentModelRow.gloss).toMatch(/not a recommendation/)
   })
 
   it('⭐ CONTRAST: the RETIRED synonyms appear nowhere in the key', () => {
@@ -431,10 +450,28 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     expect(text).not.toContain('Leads')
     expect(text).not.toContain('Achievement')
     expect(text).not.toContain('Chance of leading')
+    // ⭐ ED #63 5799353114 decisions 1–2: the canvas no longer says "Support"
+    // for this result family, nor "Most supported" for a leader. A key that
+    // explained both would document the confusion rather than end it.
+    //
+    // ⚠ NO LEADING `\b`. `textContent` glues adjacent rows together — the row
+    // before this one ends "…suggested this", so a retired noun would read
+    // "thisSupport:" and a word-boundary probe would MISS it (measured: a
+    // `\bSupport\b` probe stayed green with the noun reverted to "Support").
+    // The probe below is bounded on the right only, and a noun-element probe
+    // (each row's noun is its own <span>) sits beside it.
+    const RETIRED_SUPPORT = /Support(?![a-z])/
+    expect(text).not.toMatch(RETIRED_SUPPORT)
+    expect(screen.queryByText(METRIC_NOUN.support)).toBeNull()
+    expect(text).not.toMatch(/most supported/i)
+    expect(text).not.toMatch(/most-supported/i)
     // Discrimination: the popover HAS text and the live noun IS there, so the
-    // three absences above are not passing on an empty container.
+    // absences above are not passing on an empty container.
     expect(text.length).toBeGreaterThan(200)
-    expect(text).toContain(METRIC_NOUN.support)
+    expect(text).toContain(CURRENT_MODEL_NOUN)
+    expect(screen.getByText(CURRENT_MODEL_NOUN)).toBeInTheDocument()
+    // …and the retired-word probe can fire on GLUED text, the shape it meets.
+    expect(RETIRED_SUPPORT.test(`Olumi suggested this${METRIC_NOUN.support}: on option cards`)).toBe(true)
   })
 
   it('the numbers copy respects the popover vocabulary ban', () => {
@@ -741,7 +778,15 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     files: readonly string[]
     pattern: RegExp
   }> = [
-    { noun: METRIC_NOUN.support, files: ['OptionNode.tsx', 'DecisionNode.tsx'], pattern: /METRIC_NOUN\.support/ },
+    // ⚠ PRODUCER RE-DERIVED (locked node-card design, 23 Sep 2026; ED 11:52Z
+    // point 4: "Do not use `Support` as the result label"). The option card
+    // still renders this quantity — the share of simulated runs — as its
+    // model-relative readout "N% of runs" (`OPTION_RESULT_COPY.share`), and the
+    // register row's gloss now names that caption.
+    // ⚠ NOUN RE-DERIVED (ED #63 5799353114 decision 2): the row's HEADING is
+    // now `CURRENT_MODEL_NOUN` ("Current model"), the caption the card prints;
+    // `METRIC_NOUN.support` stays the panel-owned surfaces' anchor.
+    { noun: CURRENT_MODEL_NOUN, files: ['OptionNode.tsx'], pattern: /OPTION_RESULT_COPY\.share\(/ },
     { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
     // ⚠ PATTERN RE-DERIVED, CLAIM UNCHANGED. FactorNode no longer reaches the
     // influence caption through `METRIC_NOUN.influence`: it calls
@@ -753,8 +798,14 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // This probe asks "does a card still render this marking"; it binds to the
     // new producer by identity, exactly as the header requires. The noun in the
     // manifest stays METRIC_NOUN.influence because that is the LEGEND's row.
-    { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /influenceBasisNoun\(/ },
-    { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.strength/ },
+    // ⚠ RE-DERIVED AGAIN (locked design, 23 Sep 2026): the factor card's bar is
+    // now the relative DRIVER line (`FactorDriverLine`), which owns the basis
+    // noun and the relative-to-strongest disclosure this row explains.
+    { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
+    // ⚠ RE-DERIVED (locked design, 23 Sep 2026; ED 11:52Z point 5): the noun is
+    // now "Link strength" (`METRIC_NOUN.strength`'s value), rendered by the
+    // shared `LinkStrengthRow` both cards mount.
+    { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /<LinkStrengthRow\b/ },
     // ⚠ PATTERN AND NOUN BOTH RE-DERIVED; THE CLAIM IS UNCHANGED. The comment
     //   here read "The rank badge prints the numeral itself — there is no noun
     //   constant", and BaseNode's JSX was `#{displayMetadata.sensitivityRank}`.
@@ -763,12 +814,19 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     //   badge now renders `sensitivityRankBadgeLabel(...)` — `Key driver 1` —
     //   so the noun constant exists and the probe binds to the builder call,
     //   which is this marking's identity now (trap 19).
-    { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['BaseNode.tsx'], pattern: /\{sensitivityRankBadgeLabel\(/ },
+    // ⚠ RE-DERIVED (locked design, 23 Sep 2026; ED 02:31Z D1a): the corner
+    // badge is RETIRED; the rank is stated once, on the factor card's driver
+    // line ("Driver N of M analysed"), and the heading moved with it.
+    { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
     { noun: ORDINAL_NOUN, files: ['OptionNode.tsx'], pattern: /\{stableOptionNumber\}/ },
+    // ⚠ RE-DERIVED (locked design, 23 Sep 2026): a link with NO value reads
+    // "Link strength · not set yet" — the register's inline form — through the
+    // shared row both cards mount (MT-15b: an unconfirmed producer value now
+    // reads as Olumi's estimate instead).
     {
       noun: METRIC_UNSET.standalone,
-      files: ['RiskNode.tsx', 'OutcomeNode.tsx'],
-      pattern: /unsetText=\{METRIC_UNSET\.standalone\}/,
+      files: ['shared/LinkStrengthRow.tsx'],
+      pattern: /LINK_STRENGTH_COPY\.notSet/,
     },
     // ⭐ THE ONE THE DEFECT WAS IN. Three sites → one; this is what would have
     // REDded had it gone to zero, and what will RED if the last one goes.

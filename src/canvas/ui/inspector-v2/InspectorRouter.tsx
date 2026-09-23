@@ -28,9 +28,11 @@ import { OutcomePanel } from './panels/OutcomePanel'
 import { RiskPanel } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
+import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
+import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
+import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
-import { typography } from '../../../styles/typography'
 import { nodeConfidenceBadgeReadout } from './nodeConfidenceBadge'
 
 // Entity colour map — used as fallback for inspector header entity colour
@@ -187,6 +189,12 @@ export const InspectorRouter = memo(function InspectorRouter({
     }
   }, [])
 
+  // Paul 23 Sep contract feedback point 11 — the "Worth reviewing" reasons the
+  // canvas marker opened this inspector for, read from the SAME plan the card
+  // reads. Above every early return for the rules of hooks (see the note on
+  // `handleLabelChange`); an edge or empty selection simply has no reasons.
+  const attention = useNodeAttention(nodeId ?? '')
+
   if (!panelType) return null
 
   // ─── Edge panel ────────────────────────────────────────────────
@@ -262,18 +270,13 @@ export const InspectorRouter = memo(function InspectorRouter({
           />
         }
       >
-        <div
-          id="inspector-authority-notice"
-          role="note"
-          data-testid="inspector-authority-notice"
-          className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
-        >
+        <InspectorAgencyNote>
           {edgeStrengthReaches
             ? INSPECTOR_EDGE_REASON
             : edgeAwaitingStatedStrength
               ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
               : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
-        </div>
+        </InspectorAgencyNote>
         {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
             This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
             `<fieldset disabled>` below. A disabled fieldset natively inerts every
@@ -499,11 +502,17 @@ export const InspectorRouter = memo(function InspectorRouter({
          reload, which is the exact defect UI #1025 reverted #1024 for. */
       onLabelChange={handleLabelChange}
       quickActions={
-        <InspectorQuickActions
-          elementId={nodeId}
-          elementLabel={label}
-          panelType={panelType}
-        />
+        <>
+          {/* Paul 23 Sep point 11: the reason first, then the route to the
+              conversation directly beneath it. */}
+          <InspectorAttentionContext reasons={attention.reasons} />
+          <InspectorQuickActions
+            elementId={nodeId}
+            elementLabel={label}
+            panelType={panelType}
+            askContext={attentionAskContext(attention.reasons)}
+          />
+        </>
       }
     >
       {/* Full raw label in disclosure only when truncated */}
@@ -512,12 +521,7 @@ export const InspectorRouter = memo(function InspectorRouter({
           <div>System: raw_label: {rawLabel}</div>
         </TechnicalDisclosure>
       )}
-      <div
-        id="inspector-authority-notice"
-        role="note"
-        data-testid="inspector-authority-notice"
-        className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
-      >
+      <InspectorAgencyNote>
         {/* ⚠ A BOOLEAN CANNOT PICK THIS ANY MORE. With one opting-in panel the
             notice was "self-fenced or not"; with two it is "WHAT saves here",
             and the two panes answer differently — the option pane saves the
@@ -531,7 +535,7 @@ export const InspectorRouter = memo(function InspectorRouter({
             : panelType === 'factor-external'
               ? INSPECTOR_FACTOR_EXTERNAL_REASON
               : INSPECTOR_OPTION_READ_ONLY_REASON}
-      </div>
+      </InspectorAgencyNote>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto
           node B and keeps the instance — so any state a panel seeds ONCE at

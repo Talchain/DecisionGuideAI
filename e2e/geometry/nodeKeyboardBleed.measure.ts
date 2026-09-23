@@ -252,7 +252,14 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
  */
 const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?: string }> = [
   { kind: 'node-action-ask', starter: 'vendor-selection', why: 'NodeQuickActions — the shared row on every node' },
-  { kind: 'BUTTON:Explore more options', starter: 'vendor-selection', why: "DecisionNode's own call-to-action button" },
+  /*
+   * ⭐ RE-POINTED, 23 Sep 2026 — LOCKED NODE-CARD DESIGN (ED 11:52Z point 1;
+   * ED 02:31Z D4). The Question card's "Explore more options" chip is now its
+   * ONE rail coaching icon — the same invitation, the same card, a different
+   * render path (`node-coaching-icon`). The instance is pinned by its name so
+   * the row still drives DecisionNode's own control, not another card's icon.
+   */
+  { kind: 'node-coaching-icon', name: 'Explore more options', starter: 'vendor-selection', why: "DecisionNode's own invitation — its rail coaching icon (was the chip)" },
   /*
    * ⚠⚠ RE-POINTED TWICE, BY TWO PRs, FOR TWO DIFFERENT REASONS — AND BOTH
    * CHANGES ARE KEPT. Either side taken alone REDs this row, so this is a
@@ -275,11 +282,19 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
    * (`kind`). Keeping only #1274's would name a deleted badge; keeping only
    * #1277's would name a kind the census no longer emits.
    */
+  /*
+   * ⭐ RE-POINTED A FOURTH TIME, 23 Sep 2026 — LOCKED NODE-CARD DESIGN. The
+   * `useScienceIcons` badges (UI-computed hints like "options clustered") are
+   * DETAILED-ONLY now (spec §7: no UI-only behavioural cue at rest), so this
+   * Standard-view harness no longer meets them. The in-node control that took
+   * their place on a FACTOR's resting face is the rail's coaching icon — the
+   * same "a control inside the card body" door this row exists to drive.
+   */
   {
-    kind: 'science-icon-trigger',
-    name: 'Options clustered around',
+    kind: 'node-coaching-icon',
+    name: 'What’s the evidence?',
     starter: 'vendor-selection',
-    why: 'a science/provenance badge (useScienceIcons) on a FACTOR node — the anchoring badge, after #1277 deleted the olumi-estimate one',
+    why: 'the rail coaching icon on a FACTOR node (the ScienceIcon badges it replaced are Detailed-only)',
   },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
   /*
@@ -302,11 +317,16 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
    * `is_baseline === true` branch, same render path. Only the instance's name
    * moved, so only `name` moves.
    */
+  /*
+   * ⭐ RE-POINTED, 23 Sep 2026 — same reason as the row above: the baseline
+   * option's ScienceIcon is Detailed-only. The option card's resting RAIL icon
+   * (`option-edit-targets`, a `NodeRailIcon` — the component every rail data
+   * icon uses) is the in-node control on an OPTION node now.
+   */
   {
-    kind: 'science-icon-trigger',
-    name: 'Baseline',
+    kind: 'option-edit-targets',
     starter: 'vendor-selection',
-    why: 'the same ScienceIcon path on the BASELINE OPTION node — NOT NodeCoachingMarker, see above',
+    why: 'a NodeRailIcon (the rail data/action icon path) on an OPTION node — the ScienceIcon it replaced is Detailed-only',
   },
 ]
 
@@ -862,6 +882,37 @@ async function reseed(page: Page, starter: StarterId): Promise<void> {
   await resetSelection(page)
 }
 
+/**
+ * ⭐ THE DRIVE RUNS AT NORMAL ZOOM (Paul, 23 Sep contract feedback point 6):
+ * "Keep one very discreet, consistent coaching icon at Normal zoom. Hide it at
+ * quiet/far zoom." A dense starter lands at the auto-fit floor (0.5), which is
+ * the QUIET rung, so the rail coaching icon — two of the render paths this
+ * drive covers — is correctly absent there, and censusing at landing zoom
+ * would drop them. Every node renders at any zoom (no
+ * `onlyRenderVisibleElements`), so resetting to 100% loses no control; it
+ * only restores the one the rule hides. The census TEST (all five starters)
+ * is unchanged and still gates whatever the landing zoom shows.
+ */
+async function showNormalZoom(page: Page): Promise<void> {
+  const reset = page.locator('button[aria-label^="Zoom level"]').first()
+  if (await reset.count()) {
+    await reset.click()
+    await waitForVisualQuiescence(page)
+  }
+}
+
+/**
+ * ⭐ EACH DRIVEN ROW AT THE ZOOM WHERE ITS CONTROL LIVES. Point 6 made the two
+ * "ask Olumi" doors mutually exclusive by zoom rung: the rail coaching icon at
+ * Normal (full) zoom, the hover `node-action-ask` below it. Landing-rung rows
+ * are driven FIRST on the untouched landing view (a fresh load — "Fit to view"
+ * frames differently from the landing auto-fit, so it is never used to get
+ * back); the coaching rows run LAST at 100%.
+ */
+async function showZoomForKind(page: Page, kind: string): Promise<void> {
+  if (kind.startsWith('node-coaching-icon')) await showNormalZoom(page)
+}
+
 /** A genuinely fresh document, for the first seed and when the starter changes. */
 async function loadCanvas(page: Page, starter: StarterId): Promise<void> {
   // ⚠ `page.goto('about:blank')` FIRST WAS TRIED AND IS WORSE: the second
@@ -1045,7 +1096,14 @@ test.describe('in-node keyboard bleed', () => {
     for (const starter of new Set(DRIVEN_KINDS.map((k) => k.starter))) {
       await loadCanvas(page, starter)
       loaded = starter
-      const rows = await censusFocusables(page)
+      // Census at BOTH rungs and merge: each "ask Olumi" door exists at exactly one.
+      const landingRows = await censusFocusables(page)
+      await showNormalZoom(page)
+      const normalRows = await censusFocusables(page)
+      // Back to the TRUE landing view for the landing-rung rows (see showZoomForKind).
+      await loadCanvas(page, starter)
+      const seen = new Set(landingRows.map((r) => `${r.nodeId}|${r.kind}|${r.name}`))
+      const rows = [...landingRows, ...normalRows.filter((r) => !seen.has(`${r.nodeId}|${r.kind}|${r.name}`))]
       expect(rows.length, `no focusable control found inside any node of "${starter}" — the probe is blind`).toBeGreaterThan(0)
       censusByStarter.set(starter, rows)
     }
@@ -1107,6 +1165,8 @@ test.describe('in-node keyboard bleed', () => {
     let contrastSelections = 0
     let selfSelecting = 0
 
+    // Landing-rung rows first, the Normal-zoom coaching rows last (showZoomForKind).
+    targets.sort((a, b) => Number(a.kind.startsWith('node-coaching-icon')) - Number(b.kind.startsWith('node-coaching-icon')))
     for (const { kind, starter, row: c } of targets) {
       const read: Record<string, string[]> = {}
       /*
@@ -1121,9 +1181,11 @@ test.describe('in-node keyboard bleed', () => {
         console.log(`[bleed] ${starter} ${kind} <- ${JSON.stringify(key)}`)
         if (starter !== loaded) {
           await loadCanvas(page, starter)
+          await showZoomForKind(page, kind)
           loaded = starter
         } else {
           await reseed(page, starter)
+          await showZoomForKind(page, kind)
           // ⚠ RE-APPLYING THE GRAPH DOES NOT UNDO EVERYTHING. An earlier press
           // can start an analysis, and the ghost nodes hide themselves
           // post-analysis — so the target can be present and unfocusable. When
@@ -1131,6 +1193,7 @@ test.describe('in-node keyboard bleed', () => {
           // at something the browser will not focus.
           if (!(await tryFocus(page, c.nodeId, c.name)).ok) {
             await loadCanvas(page, starter)
+            await showZoomForKind(page, kind)
             loaded = starter
           }
         }

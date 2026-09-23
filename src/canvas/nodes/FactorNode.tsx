@@ -20,16 +20,17 @@ import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud, Target } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
-import { influenceExplanation, influenceBarAriaLabel, influenceBasisNoun, influenceRankExplanation } from '../../components/results/influenceScaleCopy'
-import { useInfluenceRank } from '../hooks/useInfluenceRank'
+import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
+import { useRunCurrency } from './shared/runCurrency'
+import { FactorDriverLine } from './shared/FactorDriverLine'
+import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
+import { selectFactorTurningPointState } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
-import { CoachingChipRow } from './coaching/CoachingChipRow'
+import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
@@ -40,6 +41,7 @@ import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/v
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark } from './shared/valueSourceMark'
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -252,6 +254,20 @@ export const FactorNode = memo((props: NodeProps) => {
   const recordedValueReadout =
     isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
 
+  // ⭐ WHOSE NUMBER THIS IS, ON THE FACE — Paul 23 Sep contract feedback point 1:
+  // "Mark Olumi estimates explicitly … User-set/evidence-backed values get their
+  // own provenance. Do not rely on 'unmarked = Olumi'." One mark per figure
+  // (`est.` / `you` / `brief` / `panel`), in BOTH the standard and Detailed
+  // views, on the value line. (A range that is the only figure gets its own
+  // neutral "no source" mark, never this one — see the range line below.) This supersedes R6's rest-only `est.` (the collapse above stays
+  // rest-only; only the MARK now also shows in Detailed, where the full
+  // "Moderate (0.5)" string otherwise read as unattributed).
+  const valueSourceMark = factorValueSourceMark(props.data)
+  const renderValueSourceMark = () =>
+    valueSourceMark === null ? null
+      : valueSourceMark.kind === 'olumi' ? <EstimateMarker />
+        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} />
+
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
   // `extractionType` alone cannot answer it. `inferred` is the state CEE
@@ -400,8 +416,9 @@ export const FactorNode = memo((props: NodeProps) => {
 
   /**
    * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
-   * BOTH influence renders on this card (the Standard-view `NodeMetricRow` and
-   * the Detailed-view `DataBar`). They show the same figure, so they carry the
+   * every driver render on this card. (Historical: it fed the Standard-view
+   * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
+   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
    * same misread, and fixing one would have left `Relative influence … 100%`
    * reachable one view away — four presentations of one idea, which is the
    * inconsistency this card's rows were unified to remove.
@@ -462,10 +479,69 @@ export const FactorNode = memo((props: NodeProps) => {
     displayMetadata.sensitivityRank,
     displayMetadata.influenceSetSize,
   )
+
+  /**
+   * ⭐ THE LOCKED FACTOR FACE (spec §3 Normal; ED 02:31Z D1a; ED 11:52Z point 3):
+   *   title → value + unit → tiny relative DRIVER line → at most ONE mini-visual
+   *   (turning point, else a genuine range, else nothing) → the rail.
+   *
+   * ⭐ BOTH ANALYSIS-DERIVED CUES SPEAK ONLY ABOUT A RUN THE STATE CAN NAME
+   * (design integration, 23 Sep 2026 — #1891's rule applied to this face):
+   *   · CURRENT run → shown, unlabelled;
+   *   · model KNOWN to have changed since the run → shown and LABELLED
+   *     `Last run · ` (Paul's Ruling 3, ROADMAP 2.651: "out-of-date results are
+   *     labelled, not withheld"; visual contract v3: "retain valid historical
+   *     figures with Last run · when a model change is known");
+   *   · never-run / cannot-confirm → hidden (ED 02:31Z Q2: must not manufacture
+   *     a "last run" claim; spec §8 for the unknown case).
+   *
+   * ⚠ TWO QUESTIONS, TWO OWNERS, deliberately not merged: `resultsAreCurrent`
+   * (the derived "is this about the graph on screen?") and
+   * `resultsFromLastRun` (#1891's `useModelChangedSinceRun`, the composed
+   * verdict's `'changed'`). Where both answer yes the label wins — a label is
+   * never a false claim; its absence could be.
+   *
+   * ⚠ ONE LOCAL, EVERY RUNG: `resultsFromLastRun` is passed to `BaseNode` for
+   * the reduced line, and `driverRankFor` is the one rank rule both read, so
+   * the card cannot label the rank on one rung and assert it on another.
+   */
+  //
+  // ⛔ SUPERSEDED IN PART (Codex EARLY_REVIEW, #63 5801431996; spec
+  // `runCuesFollowOneComposedCurrency.spec.tsx`): visibility and label now come
+  // from ONE composed verdict, `useRunCurrency()`. The local-only
+  // `useAnalysisResultsAreCurrent()` let a wire `refused` / `unknown_degraded`
+  // (cannot-confirm) still show an UNQUALIFIED cue over locally fresh fields.
+  const runCurrency = useRunCurrency()
+  const resultsFromLastRun = runCurrency === 'changed'
+  const runCuesShown = runCurrency === 'current' || resultsFromLastRun
+  const resultsReport = useCanvasStore(state => state.results.report)
+  const driverLine =
+    isPostAnalysis && runCuesShown && influencePct != null && displayMetadata.influenceProvenance != null
+      ? {
+          rank: driverRankFor(
+            influenceRank,
+            displayMetadata.sensitivityRank,
+            displayMetadata.influenceSetSize,
+            resultsFromLastRun,
+          ),
+          value: influencePct / 100,
+          provenance: displayMetadata.influenceProvenance,
+          importanceBasis: displayMetadata.influenceImportanceBasis,
+        }
+      : null
+  // Paul 23 Sep contract feedback point 3(d): the slot always says something
+  // after a run it may speak for — the track for a PLoT `found` row, else the
+  // quiet "No turning point …" fallback. Never-run / cannot-confirm stay null
+  // (the same `isPostAnalysis && runCuesShown` gate), so no past run is invented.
+  const turningPointState = useMemo(
+    () => (isPostAnalysis && runCuesShown ? selectFactorTurningPointState(resultsReport, props.id) : null),
+    [isPostAnalysis, runCuesShown, resultsReport, props.id],
+  )
+  const turningPoint = turningPointState?.kind === 'found' ? turningPointState.turningPoint : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
-  // is why every confidence surface on this node (pill, bar, AND the
-  // synthesised coaching line below) goes quiet together.
+  // is why every confidence surface on this node (the Detailed bar and the
+  // popover) goes quiet together.
   const confidencePct = displayMetadata.confidence != null ? Math.round(displayMetadata.confidence * 100) : null
   // Converged (F9): this array used to live here and NOWHERE ELSE, so
   // `NodeInspector` — which renders the same signal — had no disclosure at all.
@@ -475,30 +551,9 @@ export const FactorNode = memo((props: NodeProps) => {
     isProvisional: displayMetadata.confidenceIsProvisional,
   })
 
-  // Graph v1.1 Task 3: synthesised one-line coaching for Standard view post-analysis
-  // top-ranked factors. This replaces standalone coaching text (BiasNote etc.) on
-  // the same node so there's a single source of guidance.
-  //
-  // ⛔ EVERY branch below is a CLAIM ABOUT CONFIDENCE spoken in prose — "High
-  // influence, low confidence.", "Low confidence." Fed by the ungated raw
-  // field, this node was telling the user their factor had "low confidence" on
-  // the strength of a defaulted 0.25 the Drivers panel refuses to print. The
-  // `confidencePct == null` guard was already here; what changed is that
-  // `confidencePct` is now null whenever the confidence is not display-safe, so
-  // the prose falls silent with the numbers instead of outliving them.
-  const synthesisedCoaching = useMemo<{ prefix: string } | null>(() => {
-    if (!isPostAnalysis || !isHighPriority) return null
-    if (influencePct == null || confidencePct == null) return null
-    /**
-     * ⛔ DELETED 15 Sep 2026 — three prefixes chosen by thresholds this file
-     * invented (70 / 40), restating two numbers the card already displays.
-     * "High influence, low confidence" is not a producer finding; it is this
-     * component deciding what 70 and 40 mean. Founder's rule: render the data,
-     * do not decide what it means. The numbers stay; the verdict goes — and the
-     * card gets shorter, which is the other thing that was wrong with it.
-     */
-    return null
-  }, [isPostAnalysis, isHighPriority, influencePct, confidencePct, isInferred])
+  // ⛔ The synthesised "Gather evidence" coaching line is deleted (locked design,
+  // 23 Sep 2026): its verdict half was already gone (15 Sep), and the resting
+  // face now asks its one question through the rail's coaching icon.
 
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
 
@@ -796,7 +851,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const postAnalysisLayer2 = isPostAnalysis ? (
     <>
       {/* Influence & Confidence bars */}
-      {((influencePct != null && displayMetadata.influenceProvenance != null) || confidencePct != null && confidencePct > 0) && (
+      {((isDetailed && driverLine !== null) || confidencePct != null && confidencePct > 0) && (
         <div className="space-y-1.5 mb-1">
           {/* Review fix 4: the detailed view renders the SAME display-model
               number as the Standard-view pill one level up, so it carries the
@@ -807,52 +862,22 @@ export const FactorNode = memo((props: NodeProps) => {
               name carries the basis only). Copy from the ONE shared module, so
               this row cannot drift from the pill or the panel. Fail-closed: no
               provenance means no influence number is rendered. */}
-          {influencePct != null && displayMetadata.influenceProvenance != null && (
-            /* ⭐ THE SAME RANKED READING AS THE STANDARD-VIEW ROW, from the
-               SAME `influenceRank`. This bar renders the same display-model
-               number one view away, so it carried the same misread; leaving it
-               on `Relative influence … 100%` would have made the fix a
-               per-view accident rather than a property of the card.
-               `value` is untouched here too — the fill is still the fraction. */
-            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={influenceRank
-              ? influenceRankExplanation(
-                  influenceRank,
-                  influencePct,
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )
-              : influenceExplanation(
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )}>
-              <div
-                className="flex items-center gap-1.5"
-                role="group"
-                aria-label={influenceRank ? influenceRank.phrase : influenceBasisNoun(displayMetadata.influenceProvenance)}
-                tabIndex={0}
-                data-node-tooltip
-              >
-                <span className={`${typography.edgeLabel} text-text-light min-w-[3.5rem] shrink-0`}>{influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}</span>
-                <div className="flex-1 min-w-0">
-                  <DataBar
-                    value={influencePct / 100}
-                    label={influenceBarAriaLabel(
-                      displayMetadata.influenceProvenance,
-                      displayMetadata.influenceImportanceBasis,
-                    )}
-                    colour="info"
-                  />
-                </div>
-                {/* ⚠ `min-w-7`, NOT `w-7`. The fixed width was measured for
-                    `100%`; `of 5` fits it but a two-digit set size ("of 12")
-                    does not, and a FIXED width in a flex row overflows its box
-                    rather than growing. A floor keeps today's alignment at the
-                    common case and lets the rare wider string take the space
-                    from the bar beside it — the same floor-not-fixed-width
-                    ruling `NodeMetricRow` records for its caption column. */}
-                <span className={`${typography.edgeLabel} text-text-light min-w-7 text-right shrink-0`}>{influenceRank ? influenceRank.setSizeText : `${influencePct}%`}</span>
-              </div>
-            </Tooltip>
+          {/* ⭐ ONE DRIVER VOCABULARY IN EVERY VIEW. Detailed and the popover
+              render the SAME `FactorDriverLine` the resting face does ("Driver N
+              of M analysed" + relative bar, the % in its tooltip), and it
+              is withheld on a stale run exactly as it is there. The old
+              "Most influential ▬ of 5" row here was the fourth wording of one
+              rank (purpose audit, #1899 finding 3). */}
+          {isDetailed && driverLine && (
+            <FactorDriverLine
+              nodeId={props.id}
+              testId="factor-driver-line-detail"
+              rank={driverLine.rank}
+              value={driverLine.value}
+              provenance={driverLine.provenance}
+              importanceBasis={driverLine.importanceBasis}
+              fromLastRun={resultsFromLastRun}
+            />
           )}
           {/* Confidence — gated upstream by the shared display policy
               (components/results/driverConfidenceDisplayPolicy): `confidencePct`
@@ -962,6 +987,8 @@ export const FactorNode = memo((props: NodeProps) => {
         data={{ ...cleanedData, controllability }}
         nodeType="factor"
         icon={metadata.icon}
+        coaching={cardQuestion}
+        resultsFromLastRun={resultsFromLastRun}
         headerSlot={(() => {
           // Graph v1.1 Task 2: low-priority factors keep their identity cue
           // (fileQuestion for needs-input) but lose extra science icons in
@@ -973,10 +1000,18 @@ export const FactorNode = memo((props: NodeProps) => {
           // was the THIRD statement of "Olumi estimated this" on one factor
           // card, 99px from `node-provenance-mark`, drawn with the SAME lucide
           // Sparkles glyph. `node-provenance-mark` is the surviving one.
-          const KEEP_LOW_PRIORITY = new Set(['evidence-gap'])
-          const visibleIcons = (!isDetailed && isLowPriority)
-            ? scienceIcons.filter(si => KEEP_LOW_PRIORITY.has(si.id))
-            : scienceIcons
+          //
+          // ⭐ LOCKED DESIGN (23 Sep 2026): NO HEADER ICONS AT REST. The rail is
+          // the ONE place for data icons (spec §2), and the icons it carries
+          // are GROUNDED — a targeted VoI evidence gap, a producer bias finding
+          // (`NodeSignalRailIcons`). These header icons are UI-computed hints
+          // ("options clustered", "no observed data"), which the spec forbids
+          // as resting behavioural cues (§7: "never add a UI-only behavioural
+          // inference"); `Not set` already states the needs-input one (§2: do
+          // not duplicate an explicit state). Detailed keeps the full set —
+          // "Detailed adds information, not a bigger card".
+          if (!isDetailed) return undefined
+          const visibleIcons = scienceIcons
           if (visibleIcons.length === 0) return undefined
           return (
             <span className="inline-flex items-center gap-1">
@@ -1002,7 +1037,9 @@ export const FactorNode = memo((props: NodeProps) => {
             ("Moderate (0.5)" -> "Moderate") and carries ONE quiet `est.`
             marker instead of the stack of stamps S17 showed. Detailed view,
             the popover and the inspector keep the full string. A value the
-            user stated is never touched and never marked. */}
+            user stated is never collapsed — and, since Paul 23 Sep contract
+            feedback point 1, it carries its OWN mark (`you`) rather than none,
+            so "unmarked" never has to be read as "Olumi's". */}
         {valueDisplay !== null && (
           <div
             className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}
@@ -1058,13 +1095,69 @@ export const FactorNode = memo((props: NodeProps) => {
             ) : (
               <span>{recordedValueReadout}</span>
             )}
-            {isInferred && !isDetailed && <EstimateMarker />}
+            {renderValueSourceMark()}
           </div>
         )}
 
-        {/* External factor: prior range (if available) */}
-        {nodeCategory === 'external' && priorRangeDisplay && (
-          <div className={`${typography.edgeLabel} mt-0.5 text-text-light`}>{priorRangeDisplay}</div>
+        {/* ⭐ THE TINY RELATIVE DRIVER VISUAL — a current run, or a known-changed
+            model's last run LABELLED `Last run · ` (never-run / cannot-confirm
+            hide it). Detailed renders the same line once, inside its Layer 2
+            block (with the confidence row), so the rank is never stated twice
+            on one card. */}
+        {!isDetailed && driverLine && (
+          <FactorDriverLine
+            nodeId={props.id}
+            rank={driverLine.rank}
+            value={driverLine.value}
+            provenance={driverLine.provenance}
+            importanceBasis={driverLine.importanceBasis}
+            fromLastRun={resultsFromLastRun}
+          />
+        )}
+
+        {/* ⭐ AT MOST ONE MINI-VISUAL (spec §3 precedence): a real turning point
+            (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external
+            factor's producer prior — never a fabricated fallback), else nothing.
+            Detailed shows the range beside the turning point: it adds
+            information, not a different card. */}
+        {turningPointState ? (
+          <FactorTurningPointSlot
+            nodeId={props.id}
+            factorLabel={cleanedLabel}
+            state={turningPointState}
+            fromLastRun={resultsFromLastRun}
+            // Contract "compatible units": checked only when the card shows a
+            // value — an unvalued factor has no unit to disagree with.
+            factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
+          />
+        ) : null}
+        {/* The range is a TEXT line on the locked face (#1915 deviation 3). Once
+            the user has stated a value the owner restates it as REPLACED ("Your
+            value replaces the range a to b"), because the analysis no longer
+            samples it — see `userValueReplacesPrior` (#1889). Same slot, same
+            type; the turning-point precedence above is unchanged (visual
+            contract v3: a displaced range stays "disclosed as superseded, not
+            plotted as active uncertainty"). The test id carries the node id
+            (#1889) so a reader binds to THIS card's line by identity. */}
+        {nodeCategory === 'external' && priorRangeDisplay && (!turningPoint || isDetailed) && (
+          <div
+            className={`${typography.edgeLabel} mt-0.5 text-text-light`}
+            data-testid={`factor-prior-range-${props.id}`}
+          >
+            {priorRangeDisplay}
+            {/* Point 1: a range that is the card's ONLY figure is never left
+                unmarked — but it does NOT borrow the VALUE's mark. Who set a
+                range is unknowable from the node: the inspector's quick-set
+                (`setPriorRange`) writes `prior` with no stamp, so `est.` / "filled
+                in for you" would label a person's judgement as Olumi's
+                (`factorPriorRange.ts`: "drafted" is an attribution the node
+                cannot support). It says so instead: "no source" / "Source not
+                recorded". When a value line exists it carries the mark, and a
+                user value restates this line as replaced — so never twice. */}
+            {valueDisplay === null && (
+              <> <ValueSourceMark mark={PRIOR_RANGE_SOURCE_MARK} testId={`factor-range-source-${props.id}`} /></>
+            )}
+          </div>
         )}
 
         {/* ⭐⭐ EDGE PILLS — DIRECTION + STRENGTH + TARGET, AND THEY NO LONGER
@@ -1091,7 +1184,15 @@ export const FactorNode = memo((props: NodeProps) => {
             honest strength to announce — `EdgePills` already refuses to render
             a pill whose edge carries only `USER_EDGE_DEFAULTS`, and this gate is
             the same refusal one level up. Removing it would invent numbers. */}
-        {!needsInput && (!isPostAnalysis || !isDetailed) && (
+        {/* ⭐⭐ MT-19 + LOCKED FACE: the pills are NOT on the resting face. Spec
+            §3's Normal order has no relationship row; "key relationship(s)"
+            are Detailed information, and the connectors themselves carry
+            direction (colour/sign) on the board. In Detailed they say what they
+            are — a visible verb, neutral ink, "Link strength" and `est.` for
+            Olumi's estimate (see `EdgePills`). Post-analysis Detailed already
+            lists these targets as "Influences:" rows, so the pills stay
+            pre-analysis there, as before. */}
+        {isDetailed && !needsInput && !isPostAnalysis && (
           <EdgePills nodeId={props.id} />
         )}
 
@@ -1104,25 +1205,10 @@ export const FactorNode = memo((props: NodeProps) => {
             `getMultipleElementsFoundError` on "Help me estimate this".
             One question, one place. The popover keeps its other content. */}
 
-        {/* Post-analysis: synthesised coaching line (Graph v1.1 Task 3).
-            Standard view only, top-ranked factors only. Detailed view keeps
-            the full ConnRows + bars treatment in Layer 2. */}
-        {!isDetailed && synthesisedCoaching && (
-          <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
-            {synthesisedCoaching.prefix}{' '}
-            <button
-              type="button"
-              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-              onClick={(e) => {
-                e.stopPropagation()
-                useGuidanceStore.getState()._sendMessage?.(`How can I gather better evidence about ${cleanedLabel}?`)
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              Gather evidence
-            </button>
-          </p>
-        )}
+        {/* ⛔ THE "Gather evidence" PROSE LINE IS OFF THE FACE (ED 11:52Z point 3:
+            "repeated 'What's the evidence?' prose moves behind coaching"). The
+            rail's coaching icon asks this card's question; a targeted evidence
+            gap is the rail's evidence icon. */}
 
         {/* Post-analysis external: scenario link — high-priority only in
             Standard. Detailed always. */}
@@ -1131,7 +1217,7 @@ export const FactorNode = memo((props: NodeProps) => {
             `cleanedLabel.toLowerCase()` while sending the label un-lowercased,
             plus a trailing "How should I plan for that scenario?" that appeared
             nowhere on screen. The user read one question and asked another. */}
-        {isPostAnalysis && nodeCategory === 'external' && (isDetailed || isHighPriority) && counterfactualQuestion && (
+        {isPostAnalysis && nodeCategory === 'external' && isDetailed && counterfactualQuestion && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             <button
               type="button"
@@ -1147,115 +1233,16 @@ export const FactorNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Post-analysis: MetricPills — the Standard-view compact influence/
-            confidence summary. Lane C4: provenance passes through so the pill
-            discloses its set-relative basis (producer structural score or
-            normalised elasticity). P2.9 item 4 (factor-badge de-noise): gated to Standard only —
-            in Detailed the Layer-2 Influence/Confidence bars below carry the same
-            two numbers with more context, so the pills were a duplicate % channel
-            in the densest view. No information is lost; the bars remain. */}
-        {/* ⭐ INFLUENCE IS THE SHARED ROW NOW — the same shape an option's
-            "Ahead", a risk's "strength" and an outcome's "strength" use. It was
-            the last of the four still rendering its primary number as a pill
-            with no bar, which is the inconsistency Paul named on 1 Sep: four
-            presentations of one idea on one screen, so a reader has to work out
-            which format each card is using before they can compare two cards.
+        {/* ⛔ NO `% influence` ROW AND NO METRIC PILLS AT REST (ED 11:52Z point 3:
+            "staging still shows `Relative influence — 100%`, `74%` … no
+            pseudo-precise `% influence` on the face"). The driver line above
+            replaces the row; confidence is Detailed information (Layer 2 below)
+            and in the popover. The % is moved into the driver line's tooltip,
+            not deleted.
 
-            ⚠ THE BASIS DISCLOSURE TRAVELS WITH IT, on both channels. On the
-            fallback basis this number is per-set normalised — the top driver
-            reads 100% BY CONSTRUCTION — the positioned tooltip exposes the
-            explanation on hover/focus and `phrase` names its meaning, both from
-            `influenceScaleCopy`, the one module `DriversSection` and the
-            Detailed-view bars also read. Fail-closed is preserved structurally:
-            `influencePct` is only passed when provenance is non-null, so no
-            provenance renders no row, exactly as the pill behaved.
-
-            ⚠ CONFIDENCE DELIBERATELY STAYS A PILL. Making it a second row would
-            add a line to the densest view and re-introduce the height variance
-            #1067 had just removed — and a card whose two numbers sit at equal
-            weight says neither is the headline. One row, one pill, is a
-            hierarchy; two rows is a list. */}
-        {isPostAnalysis && !isDetailed && influencePct != null && displayMetadata.influenceProvenance != null && (
-          /* ⭐ THE CAPTION IS THE RANKING; THE BAR STILL CARRIES THE MAGNITUDE.
-             Measured on deployed staging: this row reads `Relative influence
-             … 100%`. The noun is already right, and the number still reads as
-             certainty about the world. Ranked, it reads
-             `Most influential ▬▬▬▬ of 5` — a claim about THIS model's factor
-             set, which is a claim a team can push back on.
-
-             ⚠ `value` IS UNCHANGED, DELIBERATELY. The bar geometry is the
-             normalised fraction and stays the normalised fraction: the ranked
-             words replace the PRINTED figure, not the measurement driving the
-             fill. Removing the fraction here would have flattened every bar to
-             the same length and thrown away the one channel that still shows
-             HOW FAR ahead the leader is.
-
-             ⭐ AND THE TWO COLUMNS WERE CHOSEN AGAINST THIS COMPONENT'S OWN
-             MEASURED LAYOUT RULING, not for prose. `NodeMetricRow`'s caption
-             column is `shrink-0` with a 3.5rem floor, and its docblock records
-             that a caption sized to its content collapses the track to 0px on
-             the narrowest card — "the bar is the constant". So the ranked word
-             takes the caption column and the set size takes the figure column:
-             `Most influential` (16 chars) is SHORTER than the `Relative
-             influence` (18) it replaces, and `of 5` is the same width as
-             `100%`. At rank 1 the row is narrower than it is today, and at
-             ranks 2-3 it is two characters wider. A single long caption would
-             have bought the wording by destroying the bar.
-             ⚠ Those are CHARACTER counts, not pixels — I did not run the
-             visual harness (see the report). The pixel claim in that docblock
-             is the component author's, not re-derived here. */
-          <NodeMetricRow
-            label={influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}
-            value={influencePct / 100}
-            formatted={influenceRank ? influenceRank.setSizeText : `${influencePct}%`}
-            fillClass="bg-info"
-            testId="factor-influence-row"
-            title={influenceRank
-              ? influenceRankExplanation(
-                  influenceRank,
-                  influencePct,
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )
-              : influenceExplanation(
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )}
-            phrase={influenceBarAriaLabel(
-              displayMetadata.influenceProvenance,
-              displayMetadata.influenceImportanceBasis,
-            )}
-            /* ⚠ THE RANKED ROW OWNS ITS WHOLE ACCESSIBLE NAME. The row's default
-               composition is `"{label}: {formatted}. {phrase}"`, which is right
-               for a noun-and-value row and wrong here: the caption and the
-               figure are two halves of one sentence, so the default would
-               announce "Most influential: of 5." Unranked rows pass nothing and
-               keep the default, unchanged. */
-            accessibleName={influenceRank
-              ? `${influenceRank.phrase}, at ${influencePct}% of the strongest factor. ${influenceBarAriaLabel(
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )}`
-              : undefined}
-          />
-        )}
-        {isPostAnalysis && !isDetailed && (
-          <MetricPills
-            confidencePct={confidencePct}
-            confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
-            confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
-          />
-        )}
-
-        {/* ⭐ The one question, on the face of the card, in BOTH phases — the
-            same treatment Risk, Outcome, Action and Goal already get. The
-            fuller pre-analysis cluster stays in the popover; this is the one
-            that must be reachable without hovering. */}
-        <CoachingChipRow
-          className="flex gap-1 flex-wrap mt-1.5"
-          testId="factor-card-question"
-          chips={cardQuestion}
-        />
+            ⛔ NO COACHING CHIP ROW. The card's one question is the rail's
+            coaching icon (`coaching={cardQuestion}` on BaseNode) — the same
+            chip, the same resolver, no extra row of height. */}
 
         {/* ===== LAYER 2: Detailed inline ===== */}
         {isDetailed && layer2Content}

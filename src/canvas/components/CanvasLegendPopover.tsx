@@ -27,6 +27,14 @@
  * is unchanged and still enforced by this component's spec. Any FURTHER copy
  * still stops and asks.
  *
+ * ⭐ 23 Sep 2026 — Experience Design's locked connector grammar is that
+ * instruction given again, and it NARROWS R6: orange is a SIGN disagreement
+ * between Olumi's two review passes, dash is existence certainty only, and
+ * fragility is an icon cue. The line-style, colour and fragility rows and the
+ * thickness caption take their words from `edges/connectorCopy.ts` — Experience
+ * Design's banked wording where it exists, and the one owner the edge and the
+ * key both import where it does not.
+ *
  * L-49: the canvas spoke four vocabularies with no key — solid vs dashed, +/-
  * markers, thickness, and colour. The legend explained the first and the third.
  * Worse, it taught up/down ARROWS for direction, which the canvas has never
@@ -34,8 +42,10 @@
  * derived from what StyledEdge actually paints.
  */
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
+import { factorValueSourceMark } from '../nodes/shared/valueSourceMark'
+import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, type ReactNode } from 'react'
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle, Activity } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
@@ -43,13 +53,24 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
+import { DIRECTION_DISPUTED_STROKE } from '../edges/edgePresentation'
+import {
+  LEGEND_SOLID_CAPTION,
+  LEGEND_DASHED_CAPTION,
+  LEGEND_ORANGE_CAPTION,
+  LEGEND_OTHER_REVIEW_CAPTION,
+  LEGEND_THICKNESS_CAPTION,
+  LEGEND_SENSITIVE_CAPTION,
+} from '../edges/connectorCopy'
 
 interface LegendRow {
   label: string
   swatch: ReactNode
+  /** Identity for a spec to bind to, where a row needs more than its words. */
+  testId?: string
 }
 
 // Shape swatches reuse the same indicators users see on the cards.
@@ -72,9 +93,16 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
   stroke?: string
   width?: number
   /**
-   * The dasharray to draw when `dashed`. Defaults to a GENERIC SAMPLE, and the
-   * default is load-bearing rather than lazy: the CONTESTED dash is
-   * divergence-scaled, so no single constant is true of it.
+   * The dasharray to draw when `dashed`. Defaults to a GENERIC SAMPLE.
+   *
+   * ⚠ SINCE 23 SEP 2026 NO ROW IN THIS KEY USES THE DEFAULT. The only caller
+   * that relied on it was the orange row, which drew the divergence-scaled
+   * CONTESTED dash — and the locked connector grammar deleted that dash
+   * ("dash = existence certainty only"), so the orange swatch is now solid.
+   * The paragraphs below are kept as the record of why the default existed.
+   *
+   * (Former text: the default is load-bearing rather than lazy: the CONTESTED
+   * dash is divergence-scaled, so no single constant is true of it.)
    *
    * ⚠ THIS DOCBLOCK SAID THE SCALED FAMILY WAS `4 4`…`4 8`. IT IS NOT, AND THAT
    * RANGE IS IN NO SOURCE FILE. `readContestedState` (`edges/edgePresentation.ts`
@@ -88,16 +116,18 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
    * A fabricated range inside the comment that LICENSES the generic sample is
    * the hand-maintained mirror this component is otherwise removing (trap 12).
    *
-   * ⚠ AND `'6,4'` ON THE CONNECTION ROW IS AN EXEMPLAR, NOT AN ENUMERATION.
-   * That row's caption names TWO dash causes and one swatch can draw one of
-   * them. It is kept because it is a pattern the canvas genuinely paints, where
-   * the generic sample is one it never paints — the smaller of the two
-   * inaccuracies, chosen deliberately. It does NOT illustrate the contested
-   * cause, and no single dasharray can. See `CONNECTION_ROWS`.
+   * ⚠ `'6,4'` ON THE DASHED ROW WAS AN EXEMPLAR, NOT AN ENUMERATION, while
+   * its caption named two dash causes. ⭐ SINCE 23 SEP 2026 IT IS EXACT: the
+   * dash has one cause (existence certainty) and this is its one pattern.
    */
   dash?: string
-  /** Optional polarity marker drawn beside the line, as the canvas draws it. */
-  mark?: '+' | '−'
+  /**
+   * Optional polarity marker drawn beside the line, AS THE CANVAS DRAWS IT:
+   * `StyledEdge`'s glyph is a character in body ink, semibold, at the edge-label
+   * size — never the stroke's hue (the SHAPE carries the sign; Paul 23 Sep
+   * contract feedback point 12). `±` is the sign-disagreement glyph (point 9).
+   */
+  mark?: '+' | '−' | '±'
 }) {
   return (
     <span className="inline-flex items-center gap-0.5" style={{ flexShrink: 0 }}>
@@ -114,7 +144,11 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
         />
       </svg>
       {mark && (
-        <span aria-hidden="true" style={{ color: stroke, fontWeight: 700, fontSize: '11px', lineHeight: 1 }}>
+        <span
+          aria-hidden="true"
+          data-testid="legend-polarity-mark"
+          style={{ color: 'var(--text-body)', fontWeight: 600, fontSize: '11px', lineHeight: 1 }}
+        >
           {mark}
         </span>
       )}
@@ -248,10 +282,34 @@ function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, dash, ma
 // so no disagreement is ever recorded on a solid line; "no doubt recorded, or
 // only a small one" is incomplete about disagreement, not false about it.
 // Widening it is new copy for no defect, so it is not taken.
+//
+// ⭐⭐⭐ 23 SEP 2026 — THE LOCKED CONNECTOR GRAMMAR, AND BOTH ROWS RE-DERIVED.
+//
+// Experience Design ruled "dash = existence certainty ONLY", and
+// `EDGE_DASH_RULES` lost its `contested` rule in the same change. So the
+// analysis above changes in both directions, and it is re-derived here rather
+// than patched (the lesson of 18 Sep, one row over):
+//
+//   DASHED — ONE cause now: a stated sub-threshold likelihood
+//     (`existence_certainty`, drawn `EXISTENCE_UNCERTAIN_DASH`). "or a
+//     disagreement" is FALSE and goes; the swatch is now an exact illustration
+//     of the only dash the canvas draws rather than an exemplar of one of two.
+//     Wording: Experience Design's banked D3 copy, verbatim.
+//   SOLID — gained a population. A review disagreement no longer dashes, so an
+//     `existence_boundary_crossing` where the MODEL's likelihood (`pass1`,
+//     "what the graph currently uses") clears 0.7 and the review's does not
+//     now draws SOLID. "no doubt recorded, or only a small one" was false of it:
+//     Olumi's review recorded one (purpose audit of the banked draft,
+//     DRIFT-RISK). What the line reads is the MODEL's likelihood, or nobody's,
+//     so the caption says exactly that — and `LEGEND_OTHER_REVIEW_CAPTION`, in
+//     the colour group, says where the review's view is shown instead.
+//
+// The premise above that "a contested edge always dashes" is WITHDRAWN with the
+// rule it described. The structural-scaffolding residual is unchanged.
 const CONNECTION_ROWS: LegendRow[] = [
-  { label: 'Solid connection: no doubt recorded, or only a small one', swatch: <LineSwatch dashed={false} /> },
+  { label: LEGEND_SOLID_CAPTION, swatch: <LineSwatch dashed={false} /> },
   {
-    label: 'Dashed connection: a doubt or a disagreement was recorded',
+    label: LEGEND_DASHED_CAPTION,
     swatch: <LineSwatch dashed dash={EXISTENCE_UNCERTAIN_DASH} />,
   },
 ]
@@ -270,14 +328,50 @@ const DIRECTION_ROWS: LegendRow[] = [
   { label: 'Grey: direction not set yet', swatch: <LineSwatch stroke="var(--edge-neutral)" width={2} /> },
 ]
 
-// Colour, R6. Exactly one meaning is reserved on a connection: orange means the
-// two reviews disagreed and it is waiting on the person. Every other orange the
-// canvas used to paint on a connection (fragility, assumption flags, who set a
-// value) has moved off the hue, so this row is true.
+// Colour, R6. Exactly one meaning is reserved on a connection's LINE.
+//
+// ⭐ NARROWED 23 Sep 2026 (the locked connector grammar): orange means Olumi's
+// two review passes disagree about the SIGN, and nothing else. The
+// `needs_user_input` orange and the contest dash are gone, so the swatch is
+// SOLID and draws `DIRECTION_DISPUTED_STROKE` — the canvas's own value,
+// imported, never a hand-typed `var(--semantic-warning)` (trap 12). "— your
+// call" is dropped as Experience Design ruled: it asked for a verdict before
+// the reader had seen the two readings.
+//
+// The SECOND row keys what left the line: every other review disagreement is
+// shown in the connection's inspector. No swatch, because there is nothing on
+// the canvas to draw — which is exactly what the row says.
 const COLOUR_ROWS: LegendRow[] = [
   {
-    label: 'Orange: reviews disagree — your call',
-    swatch: <LineSwatch stroke="var(--semantic-warning)" width={2} dashed />,
+    label: LEGEND_ORANGE_CAPTION,
+    // `±` — Paul 23 Sep contract feedback point 9: amber AND a shape, as the
+    // canvas now draws a sign-disputed connection's glyph.
+    swatch: <LineSwatch stroke={DIRECTION_DISPUTED_STROKE} width={2} mark="±" />,
+  },
+  { label: LEGEND_OTHER_REVIEW_CAPTION, swatch: null },
+]
+
+/**
+ * ⭐ THE FRAGILITY CUE — keyed, because the canvas now draws it as an ICON.
+ *
+ * The locked grammar made fragility a discreet exception cue: an icon-only mark
+ * in the connection's chip, its figure on its name. An icon nobody can decode is
+ * a private code, so the key names it, with the SAME glyph at the SAME size the
+ * canvas draws (`Activity`, 12, body ink — Paul 23 Sep contract feedback point
+ * 4 retired the warning triangle and the "Sensitive" label).
+ *
+ * ⚠ POST-RUN ONLY — the rule at `METRIC_ROW_VISIBLE` below: a pre-run reader is
+ * not shown a row for a marking no connection can carry yet (the canvas cue is
+ * gated on `results.status === 'complete'`, the same predicate read here).
+ *
+ * ⚠ IT DISCLOSES THE BUDGET. Standard view marks only the single most sensitive
+ * connection; without saying so, one marked line reads as "only one matters".
+ */
+const FRAGILITY_ROWS: LegendRow[] = [
+  {
+    label: LEGEND_SENSITIVE_CAPTION,
+    swatch: <Activity size={12} className="text-text-body shrink-0" aria-hidden="true" />,
+    testId: 'legend-fragile-cue',
   },
 ]
 
@@ -740,7 +834,7 @@ export interface LegendBoardState {
  * register (three keys are re-typed literals with no exported constant).
  */
 const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boolean>> = {
-  [METRIC_NOUN.support]: (b) => b.isPostAnalysis,
+  [CURRENT_MODEL_NOUN]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.strength]: () => true,
@@ -794,7 +888,7 @@ function LegendGroup({ rows }: { rows: LegendRow[] }) {
   return (
     <div className="space-y-1.5">
       {rows.map(r => (
-        <div key={r.label} className="flex items-center gap-2">
+        <div key={r.label} className="flex items-center gap-2" data-testid={r.testId}>
           <span className="w-6 flex items-center justify-center">{r.swatch}</span>
           <span className={`${typography.panelMeta} text-text-light`}>{r.label}</span>
         </div>
@@ -933,7 +1027,13 @@ export function CanvasLegendPopover() {
     // there was nothing to explain. Measured on the deployed
     // `usage-based-billing` starter, where `Vendor Licensing Cost` is exactly
     // that shape. An honest mirror is still a mirror (CLAUDE.md trap 12).
-    return s.nodes.some(n => n.type === 'factor' && factorValueIsUnconfirmedEstimate(n.data))
+    // Paul 23 Sep contract feedback point 1: the card face now also marks a
+    // stated value with NO stamp as `est.` (`factorValueSourceMark`), so the key
+    // explains the mark whenever either owner puts it on a card.
+    return s.nodes.some(n => n.type === 'factor' && (
+      factorValueIsUnconfirmedEstimate(n.data) ||
+      (hasAnyStatedValue(n.data) && factorValueSourceMark(n.data)?.kind === 'olumi')
+    ))
   })
   const board: LegendBoardState = { isPostAnalysis, ordinalsOnScreen, estimateMarkersOnScreen }
 
@@ -1056,6 +1156,20 @@ export function CanvasLegendPopover() {
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={CONNECTION_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            {/* ⭐ WHAT THICKNESS MEANS, IN BOTH PHASES — because the canvas does
+                not switch. Spec §5 asks for "greater relative consequential
+                importance" after a run, but only if the code switches, and it
+                does not (P2.9; Experience Design: "thickness = relationship
+                magnitude"). One caption, rendered unconditionally, so the key
+                cannot describe a switch the line never makes. */}
+            <div
+              className={`${typography.panelMeta} text-text-light mb-1.5`}
+              // NOT `legend-thickness-*`: that prefix is the swatch census
+              // the thickness spec counts (one per band plus the unset floor).
+              data-testid="legend-caption-thickness"
+            >
+              {LEGEND_THICKNESS_CAPTION}
+            </div>
             <LegendGroup rows={THICKNESS_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={UNCERTAINTY_ROWS} />
@@ -1063,6 +1177,12 @@ export function CanvasLegendPopover() {
             <LegendGroup rows={DIRECTION_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={COLOUR_ROWS} />
+            {isPostAnalysis && (
+              <>
+                <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+                <LegendGroup rows={FRAGILITY_ROWS} />
+              </>
+            )}
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={PROVENANCE_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />

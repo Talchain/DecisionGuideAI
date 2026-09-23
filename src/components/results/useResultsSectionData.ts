@@ -70,6 +70,7 @@ import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { collectStructurallyProvenNoFlipIds } from './utils/flipReasonVocabulary'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
+import { resolveOptionInterventionCount } from '../../canvas/nodes/shared/optionInterventionCount'
 import {
   deriveNotAnalysedReason,
   isAnalysedOption,
@@ -2269,7 +2270,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ...(notAnalysed
           ? {
               notAnalysed: true as const,
-              notAnalysedReason: deriveNotAnalysedReason(nodeId, edges, optionNodeIds),
+              // MT-21: a linked option with NO values is `no_interventions`, so
+              // the panel offers "Tell Olumi what it changes" instead of blaming
+              // the engine — counted by the canvas card's own owner of the total.
+              notAnalysedReason: deriveNotAnalysedReason(nodeId, edges, optionNodeIds, (oid) =>
+                resolveOptionInterventionCount(oid, {
+                  ceeOptions: ceeAnalysisReady?.options,
+                  nodeInterventions: (optionNodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
+                }),
+              ),
             }
           : {}),
       }

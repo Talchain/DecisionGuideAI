@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { OutcomePanel } from '../panels/OutcomePanel'
 import { useCanvasStore } from '../../../store'
-import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
 
 function setStoreState(overrides: Record<string, unknown>) {
   const state = useCanvasStore.getState()
@@ -51,7 +51,20 @@ describe('OutcomePanel — option comparison section', () => {
     // two-word tail `% win`, after an interpolation. Bound to the REGISTER
     // rather than to the replacement literal, so the caption and this guard
     // cannot drift apart the way the sentence and the bar once did.
-    expect(section?.textContent).toContain(`${METRIC_NOUN.support} 65%`)
+    //
+    // ⭐ ED #63 5799353114 decision 2: "Rename Support → Current model wherever
+    // that result family remains visible". The derived form proves the panel
+    // reads the register; the literal beside it is the corpus that notices the
+    // register itself changing its words (trap 12d).
+    expect(section?.textContent).toContain(`${OPTION_RESULT_COPY.current} · ${OPTION_RESULT_COPY.share('65%')}`)
+    expect(section?.textContent).toContain('Current model · 65% of runs')
+    expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
+    // The retired caption is gone from this section — asserted against the
+    // same `textContent` the two option labels above were read from. No
+    // leading `\b`: `textContent` glues the label to the caption ("Option
+    // ASupport 65%"), which a word-boundary probe would miss.
+    expect(section?.textContent).not.toMatch(/Support(?![a-z])/)
+    expect(/Support(?![a-z])/.test('Option ASupport 65%')).toBe(true)
   })
 
   it('hides entire predicted-range block when status is failed', () => {

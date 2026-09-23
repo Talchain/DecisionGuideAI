@@ -92,6 +92,40 @@ interface NodeChipProps {
   actionType: ActionTypeLiteral | PendingWireActionType | null
 }
 
+/**
+ * ⭐ THE CARD'S RUN AFFORDANCE → the one canonical pipeline, shared by this chip
+ * and the card rail's run icon (locked Canvas design: the Question card's run
+ * action lives in its rail, not a row of its own). `chip_id` provenance rides
+ * through the registry's `parameters` channel, so the wire still carries which
+ * affordance started the run.
+ */
+export function runAnalysisFromCard(
+  chipId: string,
+  showToast: (message: string, kind: 'warning' | 'error' | 'info') => void,
+): void {
+  void executeCanonicalRun({
+    source: 'node-chip',
+    parameters: { chip_id: chipId },
+  }).then((outcome) => {
+    // Never a silent click: every non-start outcome carries a reason or
+    // a state the user can see.
+    if (outcome.status === 'blocked') {
+      showToast(outcome.reason, 'warning')
+    } else if (outcome.status === 'unavailable') {
+      showToast(outcome.reason, 'error')
+    } else if (outcome.status === 'already-running') {
+      showToast('An analysis is already running.', 'info')
+    }
+    // ROADMAP 2.1229 — the direct-V2 arm and its 'Running analysis…' toast
+    // are gone with the `/v2/run` seam. The surviving 'dispatched' arm
+    // needs no toast: its V5 chip turn is itself visible in the
+    // conversation.
+  }).catch((err: unknown) => {
+    console.error('[NodeChip] canonical run failed:', err)
+    showToast('Analysis failed. Please try again.', 'error')
+  })
+}
+
 export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) {
   const showToast = useShowToastSafe()
   const [unavailable, setUnavailable] = useState(false)
@@ -128,27 +162,7 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
     // which chip started the run; OutputsDock merges the stored
     // `goal_threshold` alongside it.
     if (actionType === 'run_analysis') {
-      void executeCanonicalRun({
-        source: 'node-chip',
-        parameters: { chip_id: chipId },
-      }).then((outcome) => {
-        // Never a silent click: every non-start outcome carries a reason or
-        // a state the user can see.
-        if (outcome.status === 'blocked') {
-          showToast(outcome.reason, 'warning')
-        } else if (outcome.status === 'unavailable') {
-          showToast(outcome.reason, 'error')
-        } else if (outcome.status === 'already-running') {
-          showToast('An analysis is already running.', 'info')
-        }
-        // ROADMAP 2.1229 — the direct-V2 arm and its 'Running analysis…' toast
-        // are gone with the `/v2/run` seam. The surviving 'dispatched' arm
-        // needs no toast: its V5 chip turn is itself visible in the
-        // conversation.
-      }).catch((err: unknown) => {
-        console.error('[NodeChip] canonical run failed:', err)
-        showToast('Analysis failed. Please try again.', 'error')
-      })
+      runAnalysisFromCard(chipId, showToast)
       return
     }
 

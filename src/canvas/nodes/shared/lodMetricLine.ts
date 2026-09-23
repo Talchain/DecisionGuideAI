@@ -136,8 +136,8 @@ import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
-import { factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
-import { METRIC_NOUN } from './metricVocabulary'
+import { factorValueSourceMark } from './valueSourceMark'
+import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, METRIC_NOUN, OPTION_RESULT_COPY } from './metricVocabulary'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
@@ -176,6 +176,32 @@ export interface LodMetricFacts {
    * rank existed, so one number carried two claims at two zoom levels.
    */
   influenceRank?: { caption: string; setSizeText: string } | null
+  /**
+   * ⭐ THE DRIVER RANK, in the one wording every rung uses (ED 02:31Z D1a:
+   * "`Driver N of M`, not `Driver #N of M`"; ED 11:52Z: "no pseudo-precise
+   * `% influence` on the face"). Resolved by `BaseNode` from the SAME
+   * licence as the card's driver line (`driverRankFor`): a current run, or a
+   * known-changed model's last run (labelled through `influenceFromLastRun`).
+   * Never-run / cannot-confirm withhold it on both rungs. Absent ⇒ no
+   * analysis-derived line at all.
+   */
+  driverRank?: { rank: number; setSize: number } | null
+  /**
+   * The option result's caption, by run currency (`OPTION_RESULT_COPY`) — the
+   * same caption the card shows at full zoom. Absent ⇒ the result is withheld.
+   */
+  optionResultCaption?: string | null
+  /**
+   * The model has changed since the run the influence figure came from — the
+   * card's own `useModelChangedSinceRun()`, passed through `BaseNode`.
+   *
+   * ⭐ LABELS THE DRIVER ARM ONLY. A stated value and a prior range are not
+   * run-derived, so "Last run" beside them would be a claim about the wrong
+   * object. And it is a PREFIX, not a suffix, for this line's own reason (see
+   * the `est.` mark in `BaseNode`): the line is `truncate`d, so the first thing
+   * an ellipsis eats is the END — the figure gives way and the label cannot.
+   */
+  influenceFromLastRun?: boolean
 }
 
 export interface LodMetricLineInputs {
@@ -241,7 +267,10 @@ export function resolveLodMetricLineDetail({
    * factor arms REDs instead of silently marking the wrong number.
    */
   const stated = factorStatedValue(data, label)
-  return { text, unconfirmedEstimate: stated !== null && factorValueIsUnconfirmedEstimate(data) }
+  // Paul 23 Sep contract feedback point 1: the reduced line reads the SAME
+  // owner as the card face (`factorValueSourceMark`), so a value with no stamp
+  // is `est.` at every zoom — never "unmarked = Olumi" at far zoom only.
+  return { text, unconfirmedEstimate: stated !== null && factorValueSourceMark(data)?.kind === 'olumi' }
 }
 
 /**
@@ -293,22 +322,18 @@ function resolveText({
          * `influenceRankReadout` composes its own `phrase` from both for
          * exactly that reason.
          */
-        const rank = facts?.influenceRank
-        if (rank) return `${rank.caption} · ${rank.setSizeText}`
-        // ⚠ THE REGISTER, for the same reason as the `ahead` arm below — and
-        // this line is why round 3 of #1209 was not enough. That round fixed
-        // ONE hardcoded noun in this function and its body then claimed "every
-        // other surface read the register". This one, 44 lines up the same
-        // live low-zoom path, had been hardcoded the whole time, while
-        // `FactorNode.tsx:733` reads `METRIC_NOUN.influence` by reference at
-        // full zoom. The identical two-words-for-one-number-at-two-zoom-levels
-        // defect, live for `influence` while it was being closed for `ahead`.
-        //
-        // ⭐ CLOSED AGAINST THE ENUMERATION, NOT THE INSTANCE FOUND. Both arms
-        // are now pinned by widening `metricNounVocabulary.canvas.spec.ts`
-        // past its `cards` filter — see the note there. Nothing had been
-        // watching this file.
-        return `${METRIC_NOUN.influence} ${Math.round(influence * 100)}%`
+        // ⛔ NO BARE `Influence N%` (ED 11:52Z: "no pseudo-precise `% influence`
+        // on the face" — and this line IS the face at far zoom). The rank, in the
+        // driver line's own words, or nothing analysis-derived: the prior range
+        // below still speaks where one exists. (The #1209 register note that
+        // lived here is honoured by construction — the words come from
+        // `DRIVER_LINE_COPY`, the one register the card also reads.)
+        // Ruling 3 (ROADMAP 2.651; #1891): a known-changed model's rank is
+        // labelled, never withheld — and never invented on never-run or
+        // cannot-confirm (`driverRank` is absent there).
+        const driver = facts?.driverRank
+        const lastRun = facts?.influenceFromLastRun === true ? LAST_RUN_PREFIX : ''
+        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules
@@ -352,7 +377,15 @@ function resolveText({
         // than deferring, precisely so the board could not say two words for
         // one number at two zoom levels. Nothing REDded because the canvas
         // noun guard filters sources to `*Node.tsx` and this file is not one.
-        return `${METRIC_NOUN.support} ${formatWinProbability(displayMetadata.winRate)}`
+        // ⭐ MODEL-RELATIVE, NEVER `Support` (ED 11:52Z: "Do not use `Support`
+        // as the result label … Any result shown at rest must be explicitly
+        // model-relative, e.g. `Current model · 55% of runs`"). The caption is
+        // resolved by BaseNode from the run's currency; absent, the line
+        // falls through to the option's own change count.
+        const caption = facts?.optionResultCaption
+        if (caption) {
+          return `${caption} · ${OPTION_RESULT_COPY.share(formatWinProbability(displayMetadata.winRate))}`
+        }
       }
 
       // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and

@@ -161,13 +161,35 @@ describe('OptionNode — the run must not delete the model content', () => {
   const COMPLETE = { status: 'complete', report: {} }
   /** Bound by IDENTITY to this fixture's pair, not a substring another chip could satisfy. */
   const CHIP = '0 engineers → 3 engineers'
+  /**
+   * Locked Canvas design (23 Sep 2026; spec §4, ED 11:52Z point 4): the
+   * "Reference: <baseline>" line is gone from the face. The reference now
+   * travels ON the change row: its `from` IS the baseline option's own value,
+   * and the row's title names the basis. Bound by identity to this option's
+   * row for this factor.
+   */
+  const ROW = 'option-change-row-option-1-f-head'
+  const REFERENCE_TITLE = 'From Status quo (the baseline option)'
+  const expectReferenceOnTheRow = () => {
+    const row = screen.getByTestId(ROW)
+    // Paul 23 Sep contract feedback point 7: the target's source is named on the
+    // row. This fixture's intervention carries no `source`, so the row says
+    // "no source" — never "you", and never Olumi's estimate (Codex #63
+    // 5801529767; reviewer blocker, 23 Sep).
+    expect(row.textContent).toBe(`${CHIP} no sourceSource not recorded`)
+    // The title also restates the full row ("<factor>: <from> → <to>."); the
+    // reference clause is the claim this file owns.
+    expect(row.getAttribute('title')).toContain(REFERENCE_TITLE)
+    // The old face line must not come back beside it.
+    expect(screen.queryByText(/Reference: Status quo/)).toBeNull()
+  }
 
   it('PRECONDITION: pre-analysis the card renders the delta chip and its reference', () => {
     // Without this the two POST cases below can pass on an empty fixture — the
     // exact way the first cut of this file was vacuous.
     renderCard(IDLE)
     expect(screen.getByText(CHIP)).toBeInTheDocument()
-    expect(screen.getByText(/Reference: Status quo/)).toBeInTheDocument()
+    expectReferenceOnTheRow()
   })
 
   it('⭐ POST-ANALYSIS: the delta chip is still on the card', () => {
@@ -179,7 +201,7 @@ describe('OptionNode — the run must not delete the model content', () => {
     // What the option is measured AGAINST. Without it a delta names a number
     // with no basis, and a ranking has nothing to be a ranking of.
     renderCard(COMPLETE)
-    expect(screen.getByText(/Reference: Status quo/)).toBeInTheDocument()
+    expectReferenceOnTheRow()
   })
 
   it('⭐ POST-ANALYSIS: the baseline card still says it is the baseline', () => {
@@ -204,6 +226,8 @@ describe('OptionNode — the run must not delete the model content', () => {
     for (const results of [COMPLETE, IDLE]) {
       const { unmount } = renderCard(results, { is_baseline: true }, 'option-b')
       expect(screen.queryByText(CHIP)).toBeNull()
+      // Locked Canvas design (23 Sep 2026): the change rows are the delta's home.
+      expect(screen.queryByTestId('option-change-rows-option-b')).toBeNull()
       unmount()
     }
   })

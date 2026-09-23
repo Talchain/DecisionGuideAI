@@ -55,3 +55,34 @@ export const FORBIDDEN =
  * and pins it with its own extraction control.
  */
 export const canvasCopyIsHonest = (text: string): boolean => !FORBIDDEN.test(text)
+
+/**
+ * ⭐ THE LOCKED NODE-CARD DESIGN'S BAN LIST (23 Sep 2026) — a SECOND predicate,
+ * for EVERY card's rendered copy (visible text, accessible names and titles),
+ * not only the Question card's resting lines that `FORBIDDEN` above governs.
+ *
+ * Each row names the ruling it enforces, so a failure says which one broke.
+ * ⛔ EXTENDED, NEVER WEAKENED — the same rule as `FORBIDDEN`.
+ */
+export const LOCKED_CARD_FORBIDDEN: ReadonlyArray<{ rule: string; pattern: RegExp }> = [
+  // ED 11:52Z point 3: "no pseudo-precise `% influence` on the face".
+  { rule: 'no "% influence" / "Relative influence N%"', pattern: /\d+\s*%\s*influence|influence\s*\d+\s*%|Relative influence/i },
+  // ED 11:52Z point 4: "Do not use `Support` as the result label."
+  { rule: 'no "Support" result label', pattern: /\bSupport\b/ },
+  // ED 02:31Z D1a: "`Driver N of M`, not `Driver #N of M`".
+  { rule: 'no "Driver #"', pattern: /Driver\s*#/ },
+  // ED 02:31Z D1a: the Key-driver badge is RETIRED once the driver line is present.
+  { rule: 'no "Key driver" badge', pattern: /Key driver/ },
+  // Spec §5: "Contested is design-ready but must not ship as factual state."
+  { rule: 'no "contested"', pattern: /contested/i },
+  // Spec §7: "never `You are anchored` / `You have anchoring bias`".
+  {
+    rule: 'no diagnostic behavioural wording',
+    pattern: /\byou(?:'re|’re| are| have| seem(?: to be)?)\b[^.?!]*\b(?:bias(?:ed)?|anchored|overconfident)\b|\b(?:are|is) biased\b/i,
+  },
+]
+
+/** The rules a piece of card copy breaks — empty when it is clean. */
+export function lockedCardCopyViolations(text: string): string[] {
+  return LOCKED_CARD_FORBIDDEN.filter(({ pattern }) => pattern.test(text)).map(({ rule }) => rule)
+}

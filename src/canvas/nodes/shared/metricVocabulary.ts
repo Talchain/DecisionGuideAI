@@ -58,6 +58,14 @@ import { INFLUENCE_EXPLANATION_RELATIVE } from '../../../components/results/infl
  * outright), and `FactorNode`'s influence row already shipped it. The two
  * `strength` captions were the outliers, not the rule.
  */
+/**
+ * The canvas's name for the comparative result family — never `Support`
+ * (ED #63 5799353114, decision 2: "Rename Support → Current model wherever that
+ * result family remains visible"). Declared ABOVE its readers: the legend rows
+ * below are evaluated at module load, so a later `const` would be in its TDZ.
+ */
+export const CURRENT_MODEL_NOUN = 'Current model'
+
 export const METRIC_NOUN = {
   /**
    * The comparative quantity — how much of the simulated evidence supports an
@@ -77,9 +85,43 @@ export const METRIC_NOUN = {
   chance: 'Chance',
   /** How much a factor moves the result. Already correct; here so it is one set. */
   influence: 'Influence',
-  /** Bridge weight — how strongly a risk or outcome connects to the goal. */
-  strength: 'Strength',
+  /**
+   * Bridge weight — how strongly a risk or outcome connects to the goal.
+   *
+   * ⭐ 'Link strength', NOT 'Strength' (locked Canvas design, 23 Sep 2026; ED
+   * 11:52Z point 5: "if strength is shown on-node, call it **link strength**").
+   * The noun names the LINK, so it can never be read as the node's own
+   * likelihood or value. One value, so the card row (`LinkStrengthRow`) and the
+   * legend's row heading move together.
+   */
+  strength: 'Link strength',
 } as const
+
+/**
+ * ⭐ THE LABEL A RUN-DERIVED FIGURE OR RANK CARRIES ONCE THE MODEL HAS CHANGED
+ * SINCE THAT RUN.
+ *
+ * Paul's Ruling 3 (ROADMAP 2.651, quoted at
+ * `components/results/analysisState/analysisStateContract.ts`): "out-of-date
+ * results are labelled, not withheld … No dimming, no aria-disabled lockout."
+ * So a stale `Influence 62%` or `Key driver 1` stays on the card and SAYS which
+ * run it belongs to, rather than asserting it about the model now on screen.
+ *
+ * ⚠ THE STRING IS THE OPTION CARD'S, NOT A NEW ONE. `OptionNode`'s leading pill
+ * already renders `Last run · Most supported` from a literal; this is that
+ * literal, and `staleRun.labelsLastRun.spec.tsx` pins the pill against this
+ * constant so the two cannot drift into two wordings for one state.
+ *
+ * ⚠ THE LICENCE IS `useModelChangedSinceRun()` (`canvas/hooks`) — the composed
+ * verdict's `'changed'`, never `!useAnalysisResultsAreCurrent()`, whose `false`
+ * also covers never-run and cannot-confirm (ED 02:31Z, Q2: `changed` only).
+ *
+ * ⭐ LOCKED DESIGN (23 Sep 2026): the factor card's `FactorDriverLine`, its
+ * turning-point track and its reduced line carry this prefix on `changed`
+ * (visual contract v3: "retain valid historical figures with Last run · when a
+ * model change is known"); never-run and cannot-confirm withhold them.
+ */
+export const LAST_RUN_PREFIX = 'Last run · '
 
 /**
  * ⭐ WHAT A CAPTIONED QUANTITY SAYS WHEN NOBODY HAS SET IT.
@@ -190,8 +232,10 @@ export const METRIC_NOUN = {
  *
  * ⚠ THE PARENTHETICAL THAT USED TO SIT HERE SUGGESTED DASH, AND THE BUILD LANE
  * MEASURED IT AND REFUSED. *"The canvas already uses DASH to mean uncertainty"*
- * is precisely the problem: `EDGE_DASH_RULES` already carries `contested`,
- * `existence_certainty` and `visual_props`, and `resolveEdgeDash` returns the
+ * is precisely the problem: `EDGE_DASH_RULES` already carried `contested`,
+ * `existence_certainty` and `visual_props` (since Paul 23 Sep contract feedback
+ * point 4 the rules are structural → existence_unset → existence_certainty:
+ * dash means existence certainty only), and `resolveEdgeDash` returns the
  * FIRST match — so a fourth rule would be invisible on exactly the edges most
  * in question. Recorded so the dead suggestion is not re-proposed.
  *
@@ -508,12 +552,18 @@ export const SENSITIVITY_RANK_NOUN = 'Key driver'
 /**
  * What the badge RENDERS. One builder, two consumers — the visible text and
  * the accessible name below — so the card and the screen reader cannot be
- * given different words for the same badge. That drift is not hypothetical
+ * given different words for the same badge.
+ *
+ * ⭐ `fromLastRun` (the card's `useModelChangedSinceRun()`) opens the badge
+ * with `LAST_RUN_PREFIX` — a stale rank is LABELLED, never withdrawn (Paul's
+ * Ruling 3, ROADMAP 2.651). It lives HERE rather than at the call site so the
+ * accessible name, built from this string, still opens with the visible one
+ * by construction (WCAG 2.5.3) on the stale arm too. That drift is not hypothetical
  * here: it is exactly what #1414 shipped, and the comment block above
  * `SENSITIVITY_RANK_CLAUSE` is its post-mortem.
  */
-export const sensitivityRankBadgeLabel = (rank: number): string =>
-  `${SENSITIVITY_RANK_NOUN} ${rank}`
+export const sensitivityRankBadgeLabel = (rank: number, fromLastRun = false): string =>
+  `${fromLastRun ? LAST_RUN_PREFIX : ''}${SENSITIVITY_RANK_NOUN} ${rank}`
 
 /**
  * The legend's row heading for this badge. `MetricLegendRow.noun` is
@@ -528,7 +578,11 @@ export const sensitivityRankBadgeLabel = (rank: number): string =>
  * "re-typed literals with no exported constant … a hand-maintained mirror of
  * a register in another file (trap 12)". This makes one of the three derived.
  */
-export const SENSITIVITY_RANK_LEGEND_NOUN = `${SENSITIVITY_RANK_NOUN} 1, 2, 3`
+export const SENSITIVITY_RANK_LEGEND_NOUN = 'Driver N of M'
+// ⭐ LOCKED DESIGN (23 Sep 2026; ED 02:31Z D1a): the corner "Key driver N" badge
+// is RETIRED and the rank is stated once, on the factor card's driver line —
+// "Driver N of M analysed" (`DRIVER_LINE_COPY.rank`). The legend heading
+// moves with it, so the key names the marking a reader actually meets.
 
 /**
  * The rank badge's accessible name. Built from the visible label, so the
@@ -541,8 +595,8 @@ export const SENSITIVITY_RANK_LEGEND_NOUN = `${SENSITIVITY_RANK_NOUN} 1, 2, 3`
  * changed is that the sighted reader is no longer the one left with the bare
  * numeral.
  */
-export const sensitivityRankBadgeAccessibleName = (rank: number): string =>
-  `${sensitivityRankBadgeLabel(rank)}: one of ${SENSITIVITY_RANK_CLAUSE}`
+export const sensitivityRankBadgeAccessibleName = (rank: number, fromLastRun = false): string =>
+  `${sensitivityRankBadgeLabel(rank, fromLastRun)}: one of ${SENSITIVITY_RANK_CLAUSE}`
 
 /**
  * The option ordinal badge's accessible name. Deliberately NOT a bare
@@ -556,8 +610,12 @@ export const optionOrdinalBadgeAccessibleName = (optionNumber: number): string =
 
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
-    noun: METRIC_NOUN.support,
-    gloss: 'the share of simulated runs that support this option over the alternatives',
+    noun: CURRENT_MODEL_NOUN,
+    // ⭐ Locked design (ED 11:52Z point 4; ED 5799353114 decision 2): the canvas
+    // never captions this "Support" — cards read "Current model · N% of runs".
+    // The row names the quantity in the card's words and says it is
+    // conditional on the model and its assumptions, not a recommendation.
+    gloss: 'on option cards “N% of runs”: runs favouring this option under this model’s assumptions; not a recommendation',
   },
   {
     noun: METRIC_NOUN.chance,
@@ -566,7 +624,7 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     // highest comparative figure — NOT any option. Dropping the qualifier to
     // shed the race word would have widened the claim to something false.
     // "the most-supported option" is the same referent in the new vocabulary.
-    gloss: 'how often the most-supported option reached the goal target across the runs',
+    gloss: 'how often the option most runs favoured reached the goal target across the runs',
   },
   {
     noun: METRIC_NOUN.influence,
@@ -762,3 +820,116 @@ export const ORDINAL_ROW_MUST_STATE_MINT = /first laid out/
  */
 export const LEGEND_POPOVER_WIDTH_PX = 288
 export const MAX_GLOSS_LENGTH = 110
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE LOCKED NODE-CARD DESIGN (Experience Design, 22–23 Sep 2026) — the copy
+ * every card face now reads, held in ONE register so a card, its reduced line
+ * and its guard cannot drift into four wordings for one idea again.
+ *
+ * Authority: `docs/designs/canvas-final-v2/olumi-canvas-overnight-implementation-spec.md`
+ * (branch `docs/canvas-final-visual-contract`) and the ED rulings on
+ * olumi-programme-docs#63 (5787931376 at 02:31Z, 5794306145 at 11:52Z). Where a
+ * ruling refines the spec, the ruling wins, and each constant below names the
+ * ruling it follows.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * `Last run · ` — licensed ONLY when the model is known to have CHANGED since
+ * the run (ED 02:31Z, "Goal stale rule: align to Q2 — `changed` only").
+ * `cannot_confirm` and never-run must not manufacture a "last run" claim.
+ *
+ * ⚠ ONE DECLARATION: `LAST_RUN_PREFIX` is declared once, near `METRIC_NOUN`
+ * above (#1891 and #1915 each added the same constant; the design integration
+ * keeps one owner). This register reads it; it does not re-declare it.
+ */
+
+/**
+ * The factor driver line. ED 02:31Z: "`Driver N of M`, not `Driver #N of M`";
+ * ED 11:52Z: "model-relative driver treatment, e.g. `Driver 1 of 4 in this
+ * model` … no pseudo-precise `% influence` on the face."
+ *
+ * ⚠ The disclosure is basis-aware rather than the spec's verbatim sentence
+ * ("Relative model sensitivity in this analysis…"): on the `influence_score`
+ * basis the figure is STRUCTURAL and computed before the run, and
+ * `influenceScaleCopy.ts` (#1221) forbids attributing it to "this analysis".
+ * The relative/not-absolute half of the spec sentence is kept word for word.
+ */
+export const DRIVER_LINE_COPY = {
+  // Paul 23 Sep contract feedback point 5: "if it says `1 of 3`, users must
+  // understand what the 3 means". M is the factors in the last analysis's
+  // driver feed (`rankFactor`), not the cards on the board — "in this model"
+  // invited counting cards. `FactorDriverLine`'s disclosure states the rest.
+  rank: (rank: number, setSize: number): string => `Driver ${rank} of ${setSize} analysed`,
+  relativeDisclosure:
+    'Relative to the strongest factor in this model, not an absolute causal percentage.',
+  rankBasis:
+    'Ranked by how strongly the comparison responds to each factor in this model.',
+  question: 'How sure are you of its value?',
+} as const
+
+/** The turning-point mini-visual (spec §3, precedence 1). */
+export const TURNING_POINT_COPY = {
+  caption: 'Turning point',
+  /**
+   * The producer found a flip but its value is on the model's internal scale
+   * (`value_scale !== 'display'`). ROADMAP 2.1371: a raw `0.5` printed on a
+   * headcount is the acceptance failure — so no number, and the sentence says why.
+   */
+  internalScale:
+    'The point is on the model’s internal scale, so no number is shown.',
+  question: 'How likely is that?',
+} as const
+
+/**
+ * Relationship strength ON A NODE is the LINK's strength, never the node's own
+ * likelihood or value (ED 11:52Z: "if strength is shown on-node, call it
+ * **link strength**"). MT-15b: an unconfirmed producer value reads as Olumi's
+ * estimate — one wording, not "Not set yet" beside an edge that shows a value.
+ */
+export const LINK_STRENGTH_COPY = {
+  /** The register's one noun — the legend heading reads the same value. */
+  noun: METRIC_NOUN.strength,
+  olumiEstimate: 'Olumi’s estimate',
+  /** A producer value that is not Olumi's (e.g. a template's), not yet confirmed. */
+  unconfirmedEstimate: 'Estimate, not confirmed',
+  /**
+   * The EDGE hover's author words for a non-Olumi unconfirmed strength
+   * (`edges/connectorCopy.ts` `linkStrengthCaption`, #1910 R8): a template's
+   * figure, and the agentless word for an unrecognised source. Held here so
+   * every link-strength word has ONE owner (design integration, 23 Sep 2026);
+   * the card row's `unconfirmedEstimate` is a different sentence for the same
+   * state and is NOT unified here — that is copy, not a join (rowed for ED).
+   */
+  templateEstimate: 'template estimate',
+  estimate: 'estimate',
+  /** No value at all — the register's own unset wording, inline form. */
+  notSet: METRIC_UNSET.inline,
+} as const
+
+/**
+ * The option card's at-rest result. ED 11:52Z: "Do not use `Support` as the
+ * result label. It reads as endorsement. Any result shown at rest must be
+ * explicitly model-relative, e.g. `Current model · 55% of runs`."
+ *
+ * The caption follows the run's currency, and each arm is only what the state
+ * supports: `changed` → `Last run` (the one state that licenses it);
+ * `cannot_confirm` → `Model result`, which asserts neither currency nor a
+ * later model.
+ */
+export const OPTION_RESULT_COPY = {
+  current: CURRENT_MODEL_NOUN,
+  lastRun: 'Last run',
+  unconfirmed: 'Model result',
+  share: (formatted: string): string => `${formatted} of runs`,
+  sentence: (formatted: string): string =>
+    `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
+    'A finding about the model as it stands, not a recommendation.',
+  unconfirmedNote: 'Olumi can’t confirm this run reflects the current model.',
+  changedNote: 'The model has changed since this run.',
+} as const
+
+/**
+ * The one attention cue (spec §2 "Attention cue — add"; ED 11:52Z point 7).
+ * It reads as "worth thinking about", never as a warning or an error.
+ */
+export const WORTH_REVIEWING = 'Worth reviewing'

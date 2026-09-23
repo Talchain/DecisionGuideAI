@@ -1,19 +1,18 @@
-import { memo, useMemo, useCallback } from 'react'
+import { Fragment, memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
-import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN, optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
+import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, joinInterventionDetails, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../utils/nodeLayoutConstants'
 import {
@@ -131,7 +130,6 @@ export function optionTargetsChannels({
   }
 }
 
-import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import {
   selectGoalProbability,
   basisWithholdsPossessive,
@@ -148,6 +146,20 @@ import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import {
+  buildOptionChangeRow,
+  fitRowsToBudget,
+  moreCount,
+  rowFactorIdsFor,
+  sharedChangeOrder,
+  type OptionSetLike,
+  type OptionTargetLike,
+} from './shared/optionChangeRows'
+import { NodeRailIcon } from './shared/NodeRailIcons'
+import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
+import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
+import { ValueSourceMark } from './shared/valueSourceMark'
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -558,14 +570,10 @@ export const OptionNode = memo((props: NodeProps) => {
   // numbering registers. undefined until analysis registers this option.
   const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
   const isPostAnalysis = resultsStatus === 'complete'
-  // The same composed authority as the panels, never a node-local hash.
-  // Keep the previous result visible, but distinguish changed from unknown.
-  const analysisTrust = useAnalysisTrust()
-  const analysisCurrencyNote = analysisTrust.semantic === 'changed'
-    ? 'Model changed since this analysis'
-    : analysisTrust.semantic === 'cannot_confirm'
-      ? 'Analysis may be out of date'
-      : null
+  // The run's currency is read ONCE, below, through `useRunCurrency` — the same
+  // composed authority as the panels (`useAnalysisTrust`), never a node-local
+  // hash — and it keeps the previous result visible with `Last run ·` only when
+  // the model is known to have changed.
 
   // SINGLE VERDICT (2026-07-25): the canvas no longer decides for itself
   // whether a leading option exists. It quotes `deriveDecisionVerdict` — the
@@ -614,30 +622,6 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!modelLicensesComparativeClaim) return false
     return verdict.hasLeadingOption && verdict.leaderId === props.id
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
-
-  /**
-   * AXIS 2 — HOW MUCH TO TRUST THE CLAIM AXIS 1 JUST LICENSED.
-   *
-   * ⚠ THE HARM THIS CLOSES, measured in ONE payload on deployed `a9c2e050`:
-   * `robustness.aggregate_level: "very_low"` with `leader_claim.permitted:
-   * true`. The prose hedged — *"not yet robust, small changes could flip it"* —
-   * and this card, reading the same run, wore the crown over a bare `Ahead 53%`
-   * with no caveat. The canvas implemented axis 1 and had no surface for axis 2.
-   *
-   * ⭐ A DISCLOSURE, NEVER A SUPPRESSION. `isRecommended` above is untouched, so
-   * a fragile lead is still a lead and still crowned — `src/lib/decisionVerdict.ts`
-   * forbids denying a lead because it is fragile, and collapsing the two axes is
-   * the defect that module exists to prevent.
-   *
-   * ⭐ GATED ON `isRecommended` SO THE TWO CANNOT SEPARATE. The disclosure may
-   * never appear without the claim it qualifies, and may never be absent when
-   * that claim is present on a fragile run. One conjunction, one invariant, and
-   * a mutant that drops either half is visible.
-   */
-  const robustnessGrade = useMemo(
-    () => (isRecommended ? leaderRobustnessGrade(resultsReport) : null),
-    [isRecommended, resultsReport],
-  )
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
@@ -1019,8 +1003,87 @@ export const OptionNode = memo((props: NodeProps) => {
    * `!isBaselineOption` stays: the baseline states no delta because it IS the
    * reference, which the line below now says on the card in both phases.
    */
-  const structuredDeltaChipsRender =
-    !isBaselineOption && structuredDeltas.length > 0
+  /**
+   * ⭐ THE LOCKED OPTION FACE — "what this option changes" (spec §4; ED 11:52Z
+   * point 4; ED 02:31Z D2). At most TWO change rows, chosen in ONE order for the
+   * whole option row so options compare like with like (`optionChangeRows.ts`),
+   * then `+N more` from the one total. Olumi-chosen targets stay marked `est.`.
+   * Nothing here grows on selection.
+   */
+  const optionSet = useMemo<OptionSetLike[]>(() => {
+    const out: OptionSetLike[] = []
+    for (const n of nodes) {
+      if (n.type !== 'option' && n.data?.type !== 'option') continue
+      const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
+      const isBaseline = typeof explicit === 'boolean' ? explicit : detectBaseline((n.data?.label as string) ?? '').isBaseline
+      const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === n.id)
+      const raw = ceeOpt?.interventions && typeof ceeOpt.interventions === 'object'
+        ? joinInterventionDetails(
+            ceeOpt.interventions as Record<string, unknown>,
+            (ceeOpt as { intervention_details?: Record<string, unknown> }).intervention_details,
+          )
+        : Object.entries(((n.data as any)?.interventions ?? {}) as Record<string, unknown>)
+      /**
+       * ⚠ A BARE NUMBER CARRIES NO PROVENANCE, SO IT MUST NOT ERASE ONE. After a
+       * user's `option_intervention_edit`, the same turn's `analysis_ready` has
+       * been witnessed carrying BARE numbers (`applyDraftResult.ts`,
+       * `mergeProducerInterventions`, 23 Sep staging) while the node holds the
+       * receipt-stamped `{value, source:'user_specified'}`. Reading the bare map
+       * alone printed the user's own target with no author. Same rule as
+       * `mergeProducerInterventions`: where the producer entry has no source and
+       * its value EXACTLY equals the node's own object, that object's `source`
+       * stands. A different value keeps the producer's (unstamped) entry.
+       */
+      const ownInterventions = ((n.data as any)?.interventions ?? {}) as Record<string, unknown>
+      const targets = new Map<string, OptionTargetLike>()
+      for (const [fid, entry] of raw) {
+        const u = unwrapInterventionValue(entry)
+        if (u.value == null) continue
+        let source = u.source ?? null
+        if (source === null && ceeOpt) {
+          const own = ownInterventions[fid]
+          if (own !== null && typeof own === 'object' && !Array.isArray(own)) {
+            const ownU = unwrapInterventionValue(own)
+            if (ownU.value === u.value) source = ownU.source ?? null
+          }
+        }
+        targets.set(fid, { value: u.value, displayValue: u.displayValue, source })
+      }
+      out.push({ id: n.id, isBaseline, targets })
+    }
+    return out
+  }, [nodes, ceeAnalysisReady])
+
+  const changeRows = useMemo(() => {
+    if (isBaselineOption) return []
+    const me = optionSet.find(o => o.id === props.id)
+    if (!me || me.targets.size === 0) return []
+    const modelOrder = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor').map(n => n.id)
+    const order = sharedChangeOrder(optionSet, modelOrder)
+    return fitRowsToBudget(rowFactorIdsFor(me, order).map(fid => {
+      const factorNode = nodes.find(n => n.id === fid)
+      const obs = factorNode?.data?.observedState as {
+        unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
+      } | undefined
+      const ref = baselineOptionReference?.values[fid]
+      return buildOptionChangeRow({
+        factorId: fid,
+        target: me.targets.get(fid)!,
+        factor: {
+          label: (factorNode?.data?.label as string | undefined) ?? fid,
+          unit: (factorNode?.data?.unit as string | undefined) ?? obs?.unit,
+          factorType: obs?.factor_type,
+          cap: obs?.cap,
+          observedValue: obs?.value,
+          observedRawValue: obs?.raw_value,
+        },
+        baselineOptionTarget: ref && ref.value != null
+          ? { value: ref.value, displayValue: ref.displayValue ?? null }
+          : null,
+      })
+    }))
+  }, [isBaselineOption, optionSet, props.id, nodes, baselineOptionReference])
+  const changeRowsMore = moreCount(totalInterventionCount, changeRows.length)
 
   /**
    * ⭐⭐ THE DIFFERENTIATOR DE-DUPLICATION IS RETIRED — Paul, 10 Sep 2026:
@@ -1324,23 +1387,24 @@ export const OptionNode = memo((props: NodeProps) => {
   // promoted to the card face, and an option whose win rate the producer could
   // not compute still asks no comparative question. The reasons are carried in
   // the resolver's docblock.
+  const clusterCoaching = useMemo(() => resolveNodeCoaching({
+    kind: 'option',
+    surface: 'cluster',
+    state: {
+      isPostAnalysis,
+      isBaselineOption,
+      isRecommended,
+      winRateIsKnown: displayMetadata.winRate !== null,
+      closeCallGapIsSet: closeCallGapPp != null,
+    },
+    context: { label: (props.data?.label as string) ?? 'this option' },
+  }), [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
   const optionChips = useMemo(() => (
     <CoachingChipRow
       className="flex gap-1 flex-wrap mt-1.5"
-      chips={resolveNodeCoaching({
-        kind: 'option',
-        surface: 'cluster',
-        state: {
-          isPostAnalysis,
-          isBaselineOption,
-          isRecommended,
-          winRateIsKnown: displayMetadata.winRate !== null,
-          closeCallGapIsSet: closeCallGapPp != null,
-        },
-        context: { label: (props.data?.label as string) ?? 'this option' },
-      })}
+      chips={clusterCoaching}
     />
-  ), [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
+  ), [clusterCoaching])
 
   /**
    * ⭐⭐ THE QUESTION THE CARD ASKS ON ITS OWN FACE.
@@ -1766,8 +1830,18 @@ export const OptionNode = memo((props: NodeProps) => {
       phrase: COMPARATIVE_COPY.phrase(formatted),
     }
   }, [displayMetadata.isResultsMode, displayMetadata.winRate])
+  const runCurrency = useRunCurrency()
+  const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
   const winReadoutDescription = winReadout
-    ? (analysisCurrencyNote ? `${analysisCurrencyNote}. Last analysis: ${winReadout.phrase}` : winReadout.phrase)
+    ? [
+        `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)}.`,
+        OPTION_RESULT_COPY.sentence(winReadout.formatted),
+        runCurrency === 'changed'
+          ? OPTION_RESULT_COPY.changedNote
+          : runCurrency === 'current'
+            ? null
+            : OPTION_RESULT_COPY.unconfirmedNote,
+      ].filter(Boolean).join(' ')
     : ''
 
   return (
@@ -1794,95 +1868,35 @@ export const OptionNode = memo((props: NodeProps) => {
         nodeType="option"
         icon={metadata.icon}
         lodKeepLabel={isRecommended}
-        /* ⭐ THE LEADING-OPTION PILL IS A MEMBER OF THE CORNER STACK, NOT A
-           SECOND CLAIM ON THE CORNER.
-
-           It used to render above, as a sibling of this BaseNode, carrying
-           `absolute -top-2 -right-2 z-10` — byte-for-byte the anchor and z of
-           `node-corner-stack-{id}`, the container built to abolish exactly this
-           overlap. So a leading option that also had an edited-since-run dot or
-           a coaching marker drew two independently positioned boxes at one
-           point. BaseNode's own source already said this corner had an owner;
-           the pill was simply never migrated when the rank badge, the edited
-           dot and the coaching marker were.
-
-           ⚠ THE RANK BADGE IS NOT ONE OF THE BOXES IT COULD COLLIDE WITH, and
-           saying otherwise would be inventing the harm. In
-           `useNodeDisplayMetadata.ts`, `sensitivityRank` is declared `null` and
-           REASSIGNED in exactly one place — inside that hook's
-           `if (nodeType === 'factor')` branch; this call site passes
-           `nodeType="option"`, so the rank badge cannot render on this card at
-           all. The reachable collision set on a leading option is the edited
-           dot and the coaching marker — which is what the spec drives, and it
-           is enough: two boxes at one point is the defect whatever the second
-           box is.
-
-           ⭐ THE LOAD-BEARING EVIDENCE IS THE DUPLICATED ANCHOR, NOT A
-           MEASUREMENT. Two boxes declaring `absolute -top-2 -right-2 z-10`
-           against the same positioned parent resolve to the same origin by
-           construction — that is a fact about the CSS, reproducible without a
-           browser, and it is why this migration is correct.
-
-           The browser run is corroboration, and its margin is thin enough that
-           it must be quoted with the margin attached. MEASURED pre-migration in
-           Chromium at 1440x900 on the build-vs-buy starter
-           (`e2e/geometry/leadingPillCorner.measure.ts`): the pill's box is
-           (317.5, 281.0) 74.5x16.5 — x-range 317.5–392.0 — and the corner stack
-           renders 0x0 at (391.5, 281.5). Its anchor therefore sits inside the
-           pill's x-range BY 0.5px, on a run where the stack itself was empty
-           and so had no width of its own. ⚠ Half a pixel is inside sub-pixel
-           rounding at this zoom: read it as CONSISTENT with a shared origin,
-           never as an independent proof of one, and do not build any later
-           claim on it. Note also that when the stack is empty its 0x0 origin is
-           its right edge; with children present it grows leftward from there,
-           which is a different rectangle than the one measured here.
-
-           ⚠ AND WHAT THE SAME MEASUREMENT REFUTED, because the suspicion is
-           the obvious one and it is wrong: the pill does NOT cover the option
-           ordinal. Their intersection is 0px^2 both pre- and post-migration and
-           at both ends of `--canvas-label-scale` — the pill sits ~27px above
-           it. A missing ordinal has a different cause entirely: exactly one
-           site POPULATES `optionNumbering` — `registerOptionNumbering`'s only
-           product caller, in `useResultsSectionData.ts` — and it passes
-           `recommendation.allOptions.map(o => o.id)`, so an option card absent
-           from the analysis recommendation renders no ordinal at all.
-           (`canvas/store.ts` also assigns the field, but only ever `{}`: an
-           initial value and four resets. Those clear the map; they never add a
-           card to it, so they cannot be the cause of one card missing while
-           others show.) That is not this seam's to fix and nothing here claims
-           to.
-
-           `shrink-0 whitespace-nowrap` keep it intact as a flex child, matching
-           how the other members declare themselves. It carries NO offset of its
-           own: the stack positions it. */
-        cornerSlot={isRecommended ? (
-          <>
-            <span
-              data-testid={`leading-option-pill-${props.id}`}
-              className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
-            >
-              {analysisCurrencyNote && <span>Last run · </span>}
-              <span>Most supported</span>
-            </span>
-            {/* The run's robustness travels WITH the designation it qualifies —
-                same stack, same row, so the claim cannot be read without the
-                caveat. `role="img"` + `aria-label` is this codebase's ratified
-                idiom for a meaningful static marker (see MetricPills), because
-                `title` alone is keyboard- and touch-unreachable. */}
-            {robustnessGrade && (
-              <span
-                data-testid={`leading-option-robustness-${props.id}`}
-                className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-danger text-text-body rounded-full px-1.5 py-0.5`}
-                role="img"
-                title={robustnessGrade.title}
-                aria-label={robustnessGrade.title}
-              >
-                {robustnessGrade.label}
-              </span>
-            )}
-          </>
-        ) : undefined}
-        headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
+        coaching={cardQuestion ?? clusterCoaching}
+        resultCaption={resultCaption}
+        railIcons={
+          /* ⭐ spec §4: "Standard view must indicate that real editable targets
+             can be changed." A persistent pencil where a durable carrier exists
+             (`OPTION_TARGETS_ROUTE_IS_LIVE`), routed to the existing option
+             editor in the inspector — never Expert-only. */
+          !isBaselineOption && OPTION_TARGETS_ROUTE_IS_LIVE ? (
+            <NodeRailIcon
+              testId={`option-edit-targets-${props.id}`}
+              label={hasInterventions
+                ? optionTargetsChannels({ count: totalInterventionCount }).full
+                : 'No factor targets yet. Open the inspector to set what this option changes.'}
+              icon={Pencil}
+              tone="muted"
+              onActivate={() => openNodeInspector(props.id)}
+            />
+          ) : undefined
+        }
+        /* ⭐ NO LEADING-OPTION PILL (ED #63 5799353114, decision 1): "Most supported"
+           read as a recommendation, so the canvas never names a leader on a card.
+           The comparative figures stay model-relative ("Current model · N% of
+           runs"); the panel owns any comparative claim and its robustness caveat. */
+        /* ⭐ MT-18: NO BARE NUMERAL AT REST. The option ordinal ("the order the
+           options were first laid out in, not a ranking") read as a RANK beside
+           the factors' driver ranks on the served board. It — and the
+           UI-computed science hints — are Detailed information now; the rail
+           carries only grounded icons at rest. */
+        headerSlot={isDetailed && (stableOptionNumber != null || scienceIcons.length > 0) ? (
           <span className="inline-flex items-center gap-1">
             {stableOptionNumber != null && (
               <span
@@ -2026,94 +2040,78 @@ export const OptionNode = memo((props: NodeProps) => {
            ⚠ AND IT IS A REORDER, NOT A PROMOTION: `structuredDeltaChipsRender`
            keeps its own gate, so a card with no structured deltas renders
            exactly what it renders today, in the order it renders it. */}
-        {structuredDeltaChipsRender && (
-          <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
-            {baselineOptionReference && (
-              <li className={`${typography.edgeLabel} text-text-light`}>Reference: {baselineOptionReference.label}</li>
-            )}
-            {structuredDeltas.map(d => (
-              <li
-                key={d.factorId}
-                className="flex items-start gap-1"
-                /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go
-                   (Paul, 29 Aug). `label` is compacted to 22 chars; the full
-                   string is here and in the hover popover below. Native
-                   `title` is the canvas-node tooltip idiom in this repo — see
-                   `nodes/shared/MetricPills.tsx`. */
-                title={`${d.fullLabel}: ${d.fromTo}`}
+        {changeRows.length > 0 && (
+          <div className="mt-1.5" data-testid={`option-change-rows-${props.id}`}>
+            <dl className="m-0 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-baseline gap-x-2 gap-y-0.5">
+              {changeRows.map(r => (
+                <Fragment key={r.factorId}>
+                  <dt
+                    className={`${typography.edgeLabel} min-w-0 break-words text-text-light`}
+                    title={r.fullLabel !== r.label ? r.fullLabel : undefined}
+                  >
+                    <span aria-hidden={r.fullLabel !== r.label ? true : undefined}>{r.label}</span>
+                    {r.fullLabel !== r.label && <span className={typography.screenReaderOnly}>{r.fullLabel}</span>}
+                  </dt>
+                  <dd
+                    className={`${typography.nodeLabel} m-0 break-words text-right text-text-body`}
+                    data-testid={`option-change-row-${props.id}-${r.factorId}`}
+                    title={[
+                      `${r.fullLabel}: ${r.fullChange}.`,
+                      r.reference === 'baseline_option' && baselineOptionReference
+                        ? `From ${baselineOptionReference.label} (the baseline option).`
+                        : r.reference === 'current_value'
+                          ? 'From the factor’s current value in the model.'
+                          : null,
+                      // Point 7 (Paul 23 Sep): where the TARGET came from, in words.
+                      r.estimated ? null : `Target: ${r.targetSource.label.toLowerCase()}.`,
+                    ].filter(Boolean).join(' ')}
+                  >
+                    {r.change}
+                    {r.estimated && (
+                      <span
+                        className="text-text-light italic"
+                        data-testid={`option-change-row-estimate-${props.id}-${r.factorId}`}
+                        title="Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it."
+                      >
+                        {' '}{UNCONFIRMED_ESTIMATE_TOKEN}
+                      </span>
+                    )}
+                    {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
+                        whether 7% came from you / Olumi / brief. Olumi keeps the
+                        served `est.` above; every OTHER source now carries its own
+                        one-word mark instead of silence, so an unmarked target is
+                        never left to be read as Olumi's. */}
+                    {!r.estimated && (
+                      <>
+                        {' '}
+                        <ValueSourceMark
+                          mark={r.targetSource}
+                          testId={`option-change-row-source-${props.id}-${r.factorId}`}
+                        />
+                      </>
+                    )}
+                  </dd>
+                </Fragment>
+              ))}
+            </dl>
+            {changeRowsMore > 0 && (
+              <button
+                type="button"
+                className={`nodrag nopan ${typography.edgeLabel} mt-0.5 block text-left text-text-light underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
+                data-testid={`option-change-more-${props.id}`}
+                aria-label={`${optionTargetsChannels({ count: totalInterventionCount }).full} ${changeRowsMore} more not shown on the card.`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openNodeInspector(props.id)
+                }}
               >
-                {d.direction === 'up' ? (
-                  <ArrowUp size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                ) : d.direction === 'down' ? (
-                  <ArrowDown size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                ) : null}
-                {/* min-w-0 so the text block may shrink and WRAP rather than
-                    overflow. Nothing here is `truncate`: a CSS ellipsis inside
-                    a canvas node REDs `nodeTextClipping.visual.spec.ts`, which
-                    exempts JS-shortened strings by design. */}
-                <span className="min-w-0 flex-1">
-                  <span className={`${typography.nodeLabel} block text-text-body`}>{d.label}</span>
-                  <span className={`${typography.nodeLabel} block text-text-light`}>{d.fromTo}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+                +{changeRowsMore} more
+              </button>
+            )}
+          </div>
         )}
-
-        {/* ⭐⭐⭐ THE ONE LINE THAT SAYS THESE CHANGES ARE EDITABLE — AND IT IS
-            NOT EXPERT-ONLY ANY MORE, AND IT NOW SITS UNDER THE CHANGES IT
-            REFERS TO.
-
-            ⛔ MEASURED on served `b5f1867d`, guest, canonical pricing board:
-            `option-change-count-*` was ABSENT from the DOM on all four option
-            cards while the delta rows rendered. The card showed three concrete
-            changes it makes to the model — "Bottom-up adoption… Very high (0.8)
-            → Moderate (0.4)" — and said nothing about editing them.
-
-            The cause was not this line's own gate, which #1871 had already
-            fixed. Walking UP the JSX, the enclosing conditional was
-            `{showLayer2Inline && !isPostAnalysis && !isBaselineOption && (`
-            where `showLayer2Inline = isDetailed = viewMode === 'expert'`, and
-            the served store reads `viewMode: "standard"`. Expert-only, on a
-            product that opens in Standard.
-
-            ⚠ ONLY THIS CHILD MOVES. The completeness line and `optionChips`
-            stay inside the Expert fragment. Standard view is deliberately
-            quieter and this is not a request for more chips: the claim is
-            narrow — a user looking at three changes should be told they can
-            change them, and where.
-
-            ⚠ The outer gate's other two conditions travel WITH the line, so
-            post-analysis and the baseline option behave exactly as before. A
-            moved element that quietly widens its own conditions is a second
-            change wearing the first one's clothes. */}
-        {!isPostAnalysis && !isBaselineOption && optionTargetsLineShows({ hasInterventions, deltasRendered: structuredDeltaChipsRender }) && (() => {
-          const { short, full } = optionTargetsChannels({ count: totalInterventionCount })
-          return (
-            /* ⭐ A CONTROL, BECAUSE THE SENTENCE ALREADY NAMED THE
-               DESTINATION. The two-carrier shape is unchanged: the count is
-               what a sighted reader needs at a glance, the sentence is what
-               makes it actionable, and neither is dropped. `nodrag nopan`
-               and the pointer stop are not optional inside a React Flow
-               node — without them a press inside the control is treated as
-               a node drag. */
-            <button
-              type="button"
-              className={`nodrag nopan ${typography.edgeLabel} text-text-light mt-0.5 m-0 block text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
-              title={full}
-              data-testid={`option-change-count-${props.id}`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation()
-                openNodeInspector(props.id)
-              }}
-            >
-              <span aria-hidden="true">{short}</span>
-              <span className={typography.screenReaderOnly}>{full}</span>
-            </button>
-          )
-        })()}
 
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
@@ -2166,12 +2164,19 @@ export const OptionNode = memo((props: NodeProps) => {
                 `w-14` column matches `FactorNode`'s "Influence" / "Confidence"
                 rows exactly, so this is the canvas's existing anchored-row
                 pattern rather than a second one. */}
+            {/* ⭐⭐ MODEL-RELATIVE, NEVER `Support` (ED 11:52Z point 4: "Do not use
+                `Support` as the result label. It reads as endorsement. Any result
+                shown at rest must be explicitly model-relative, e.g. `Current
+                model · 55% of runs`"). The caption follows the run's currency:
+                `Current model`; `Last run` only when the model is KNOWN to have
+                changed (ED 02:31Z Q2); `Model result` when currency cannot be
+                confirmed — it claims neither. */}
             <span
               data-testid={`option-win-anchor-${props.id}`}
-              className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}
+              className={`${typography.edgeLabel} text-text-light shrink-0`}
               aria-hidden="true"
             >
-              {METRIC_NOUN.support}
+              {resultCaption}
             </span>
             <div
               className="h-1 min-w-0 flex-1 bg-panel-border rounded-full overflow-hidden"
@@ -2187,7 +2192,7 @@ export const OptionNode = memo((props: NodeProps) => {
               className={`${typography.nodeLabel} text-text-body shrink-0 tabular-nums`}
               aria-hidden="true"
             >
-              {winReadout.formatted}
+              {OPTION_RESULT_COPY.share(winReadout.formatted)}
             </span>
           </div>
           </Tooltip>
@@ -2423,12 +2428,12 @@ export const OptionNode = memo((props: NodeProps) => {
             className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
             data-testid={`option-result-unavailable-${props.id}`}
           >
-            On the data so far, no {METRIC_NOUN.support.toLowerCase()} percentage for this option
+            On the data so far, the model gave no share of runs for this option
           </p>
         )}
 
         {/* Global influence identifies a factor to inspect, not why an option won. */}
-        {isPostAnalysis && isRecommended && winsVia && (
+        {isDetailed && isPostAnalysis && isRecommended && winsVia && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
             Factor to examine:{' '}
             <button
@@ -2461,15 +2466,16 @@ export const OptionNode = memo((props: NodeProps) => {
             node states this option's OWN win probability directly above
             (`COMPARATIVE_COPY.phrase`), which is the statistic the ratified
             rule licenses. */}
-        {closeCallGapPp != null && (
+        {isDetailed && closeCallGapPp != null && (
           <p className={`${typography.nodeLabel} text-text-body mt-0.5 m-0`}>
-            Within a small margin of the most-supported option
+            {/* Model-relative, never a leader title (Codex #63 5801910965; ED 5799353114 decision 1). */}
+            Close to the option most runs favour in this model
           </p>
         )}
 
         {/* "Held back by:" reason (not the most-supported option, post-analysis
             -- includes status quo) */}
-        {isPostAnalysis && !isRecommended && behindReason && (
+        {isDetailed && isPostAnalysis && !isRecommended && behindReason && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
             Held back by: {behindReason}
           </p>
@@ -2612,11 +2618,12 @@ export const OptionNode = memo((props: NodeProps) => {
             ⚠ It renders in BOTH views. The Detailed view's layer-2 carries the
             post-analysis chips, and `cardQuestion` is null there, so nothing
             doubles. */}
-        <CoachingChipRow
-          className="flex gap-1 flex-wrap mt-1.5"
-          testId="option-card-question"
-          chips={cardQuestion}
-        />
+        {/* ⛔ NO COACHING CHIP ROW AT REST — the card's one question is the
+            rail's coaching icon (`coaching` on BaseNode), costing no height
+            (ED 02:31Z D4; ED 11:52Z point 4: "multiple rows … coaching text").
+            Pre-analysis it asks this card's question; after a run it asks the
+            cluster's first question and keeps its TYPED route
+            (`what_would_flip`), never demoted to a generic discuss. */}
 
         {/* Post-analysis coaching chips live in the popover (Standard) /
             Detailed inline layer-2. See `optionChips` useMemo above and the

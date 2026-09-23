@@ -63,6 +63,9 @@
  *    every card that reads them uses `.find()` (`OptionNode:1024`,
  *    `RiskNode:46`, `OutcomeNode:39`, `DecisionNode:311`), and
  *    "byte-identical across siblings" is vacuous where there are none.
+ *  · ⚠ IT READS LEAF ELEMENTS ONLY. Text sitting beside a child element (mixed
+ *    content) is never collected — found on the Detailed edge pill during the
+ *    locked Canvas design (23 Sep 2026), whose run is therefore a hand call.
  *  · `title` and `sr-only` text are deliberately EXCLUDED from the offence
  *    set — both are the destination this change moves copy TO.
  *    ⛔⛔ SO IT CANNOT SEE AN ACCESSIBILITY REGRESSION, AND THAT IS NOT A
@@ -115,8 +118,11 @@
  *    (checked), and the guarantee is narrower than the row list looks. Stated
  *    rather than widened, because widening it needs a per-position expected-set
  *    and that is a piece of work, not a line.
+ *    Locked Canvas design (23 Sep 2026): the change-COUNT line is retired from
+ *    the face; the exact-set discipline now binds its successor, `+N more`, by
+ *    testid, and a separate assertion requires the retired testid on NO card.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { render } from '@testing-library/react'
@@ -158,6 +164,22 @@ vi.mock('../shared/NodePopover', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+
+/**
+ * Locked Canvas design (23 Sep 2026): each card's ONE question is now the rail's
+ * coaching icon (`node-coaching-icon-<id>`), which renders only where an ask
+ * surface is registered (`canReceiveAsk`) — the ordinary product state, since
+ * the assistant panel registers one. The census registers one so the icon is
+ * MOUNTED and its position can be reached; it is an icon with an accessible
+ * name and no visible text, so it contributes no run to any bucket.
+ */
+const ASK_SURFACE_NULLS = {
+  _prefillChat: useGuidanceStore.getState()._prefillChat,
+  _sendMessage: useGuidanceStore.getState()._sendMessage,
+  _dispatchAction: useGuidanceStore.getState()._dispatchAction,
+  guidanceItems: useGuidanceStore.getState().guidanceItems,
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The board. Every string and every number that reaches a card is unique to one
@@ -205,11 +227,26 @@ const EDGES = [
   { id: 'ed3', source: 'decision-1', target: 'option-3', data: {} },
 ]
 
-/** Disjoint by construction: no factor is touched by two options. */
+/**
+ * Disjoint by construction: no factor is touched by two options.
+ *
+ * ⚠ AND DISJOINT AS RENDERED, NOT ONLY AS NUMBERS. Locked Canvas design (23 Sep
+ * 2026): the option face now shows its change rows (`→ Very high`) in the
+ * `no-baseline` bucket, and a tier word bands several numbers into one string.
+ * `option-2`'s `factor-4` was 0.86 — a THIRD `→ Very high` beside 0.95 and 0.93
+ * — so the census reported the fixture's banding as repeated copy (the same
+ * failure the shared-factor label caused in the first cut; see PRECONDITION).
+ * 0.5 bands to `Medium`, so each option's leading rows read differently.
+ * The same holds for DIRECTION: where a `scale` target has no reading, the row
+ * says `Increases` / `Decreases` against the factor's value, and with every
+ * option raising something all three cards read `Increases`. `option-1`'s
+ * `factor-1` was 0.95 (above its 0.8); at 0.65 it lowers it, so no direction
+ * word is on every sibling either.
+ */
 const CEE = {
   options: [
-    { id: 'option-1', interventions: { 'factor-1': 0.95 } },
-    { id: 'option-2', interventions: { 'factor-2': 0.11, 'factor-4': 0.86 } },
+    { id: 'option-1', interventions: { 'factor-1': 0.65 } },
+    { id: 'option-2', interventions: { 'factor-2': 0.11, 'factor-4': 0.5 } },
     { id: 'option-3', interventions: { 'factor-3': 0.93, 'factor-5': 0.72, 'factor-6': 0.17 } },
   ],
 }
@@ -297,6 +334,14 @@ function applyStore(phase: Phase, viewMode: ViewMode, rung: Rung, nodes: typeof 
     // `selectLodBodyHidden` reads this; 'line' is the rung below the legibility
     // floor, where the body hides and one reduced line comes back.
     lodRung: rung,
+    // Locked Canvas design (23 Sep 2026): the driver line and the option's
+    // `Current model` caption are CURRENT-RUN claims (spec §8;
+    // `useAnalysisResultsAreCurrent`, `useRunCurrency`). A completed run with no
+    // freshness verdict reads as cannot-confirm and hides the driver line, so
+    // the post phase states the ordinary post-run fact: the run is current.
+    analysisFreshness: phase === 'post' ? { freshness: 'fresh' } : null,
+    analysisFreshnessDirty: false,
+    importPendingServerRegistration: false,
   }))
 }
 
@@ -432,105 +477,144 @@ const BUCKETS: Array<
  *            destinations Paul's ruling names for invariant wording.
  *   RESIDUAL adjudicated, kept, and named so it is not mistaken for settled.
  */
+/*
+ * ⭐⭐ LOCKED CANVAS DESIGN (23 Sep 2026) — RE-ADJUDICATED, NOT RE-RECORDED.
+ * Every change below is a named ruling, not a measurement copied back in:
+ *
+ *  · THE FACE QUESTIONS LEFT THE FACE. `What could go wrong?` (option),
+ *    `What would we see first?` (risk) and `What would falsify this?` (outcome)
+ *    were CONTROLs on the Standard face; each card's ONE question is now the
+ *    rail's coaching icon (spec §2 "Coaching is one consistent icon"; ED 02:31Z
+ *    D4; ED 11:52Z points 3–5). The icon has an accessible name and NO visible
+ *    text, so it contributes no run — its position is pinned by REACH below
+ *    (`… · the rail coaching icon`), and Detailed keeps its chip rows here.
+ *  · `Support` → `Current model` (ED 11:52Z point 4: "Do not use `Support` as
+ *    the result label … must be explicitly model-relative"). Still a CAPTION.
+ *    The post fixture now carries a CURRENT run (`applyStore`), the ordinary
+ *    state straight after a run and the one the driver line needs.
+ *  · `Strength` → `Link strength` (ED 11:52Z point 5: "if strength is shown
+ *    on-node, call it link strength"). Still a CAPTION.
+ *  · The factor `Influence` row is now the driver line (ED 02:31Z D1a); on this
+ *    fixture's unranked factors its caption is the quantity's own noun, still
+ *    `Influence` — the same CAPTION at its new surface.
+ *  · The option face now LEADS with its change rows (spec §4; ED 11:52Z
+ *    point 4). Their runs are data (a reading, a band, or a direction word), so
+ *    they enter no bucket while the fixture stays disjoint AS RENDERED — see
+ *    the note on `CEE`. This census caught a row rendering a bare `→` for a
+ *    target with no reading while this change was in review; production now
+ *    says the direction instead (`optionChangeRows.ts`, "NEVER AN ARROW
+ *    POINTING AT NOTHING"), so a bare `→` is not in the allowed set anywhere.
+ */
 const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · pre · standard': [
-    // CONTROL — ⭐ ADDED 15 Sep 2026, AND THIS CENSUS IS WHAT PROVED THE CASE.
-    // The row below shows the same chip has been on the EXPERT card all along;
-    // Standard showed nothing, so which reader got the question depended on a
-    // view toggle. Measured on deployed `79866c44`: 4 of 4 option cards asked
-    // nothing on their face. The chip, label and message are unchanged — only
-    // the surface moved, out of a hover popover. See `theOptionQuestionIsOnTheCard`.
-    'What could go wrong?',
+    // ⭐ WAS `What could go wrong?` (CONTROL, ADDED 15 Sep 2026: measured on
+    // deployed `79866c44`, 4 of 4 option cards asked nothing on their face).
+    // Locked Canvas design (23 Sep 2026): the question is still on the card, as
+    // the rail's coaching icon — no visible run. See REACH.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'option · pre · expert': [
-    'What could go wrong?', // CONTROL
+    // Locked Canvas design (23 Sep 2026): `What could go wrong?` was the card
+    // question in BOTH views; it is the rail icon in both now.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'option · post · standard': [
-    'Support', // CAPTION — `METRIC_NOUN.support`, beside the bar and the percentage.
-    //            ⭐ WAS 'Ahead' until 7 Sep 2026. Paul: "There's never a
-    //            winner." The sentence "Supported in 47% of simulated
-    //            scenarios" is on the `title` and in `sr-only` text, and the
-    //            card shows the bar and the figure.
+    'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, beside `N% of runs`.
+    //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
+    //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
+    //            sentence is on the `title` and in `sr-only` text.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
   // reshuffle and teach the next session to stop reading it.
   'option · post · expert': [
-    'Support', // CAPTION
+    'Current model', // CAPTION
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'factor · pre · standard': [],
-  'factor · pre · expert': [],
+  'factor · pre · expert': [
+    // ⚠ EMPTY BECAUSE THE COLLECTOR CANNOT SEE THE ONE INVARIANT RUN HERE — not
+    // because there is none. Locked Canvas design (23 Sep 2026), MT-19: a
+    // Detailed edge pill for an unconfirmed Olumi strength reads `· Link
+    // strength est.` on every such card, with its figure on the `title` and in
+    // an sr-only child. That child makes the span MIXED content, and
+    // `visibleRuns` reads LEAF elements only, so the run is never collected.
+    // It is adjudicated by hand in the manifest (`factor · the edge pill …`).
+  ],
   'factor · post · standard': [
-    'Influence', // CAPTION — `METRIC_NOUN.influence`, beside its bar.
+    'Influence', // CAPTION — the driver line's quantity noun (`influenceBasisNoun`)
+    //              on an unranked factor; a ranked one reads `Driver N of M in
+    //              this model`, which varies. Locked Canvas design (23 Sep 2026).
   ],
   'factor · post · expert': [
     'Confidence', // CAPTION
-    'Influence', // CAPTION
+    'Influence', // CAPTION — the driver line, face and layer 2
     'Influences:', // HEADING
     'View parameters', // CONTROL
   ],
   'risk · pre · standard': [
-    'Strength', // CAPTION — `METRIC_NOUN.strength`, beside its bar.
-    // ⭐ ADJUDICATED 9 Sep 2026 — CONTROL, promoted from the hover popover to
-    // the card face. It is byte-identical across every risk card BY DESIGN:
-    // this file's own rule is that "an affordance that read differently on
-    // each card would be a different affordance". It is here because the
-    // chips were previously invisible at rest — `NodePopover` returns null
-    // when closed, so nothing on a Standard risk card asked anything.
-    'What would we see first?', // CONTROL
+    'Link strength', // CAPTION — `LINK_STRENGTH_COPY.noun`, beside its bar or its
+    //                  unset text. WAS `Strength` (ED 11:52Z point 5).
+    // ⭐ WAS ALSO `What would we see first?` (CONTROL, ADJUDICATED 9 Sep 2026,
+    // promoted from the hover popover). Locked Canvas design (23 Sep 2026): it
+    // is the rail's coaching icon now — still on the card, no visible run.
   ],
   'risk · pre · expert': [
     'Driven by:', // HEADING
     'Explore mitigation', // CONTROL
-    'Strength', // CAPTION
+    'Link strength', // CAPTION
     'What reduces this?', // CONTROL
     'What would we see first?', // CONTROL
   ],
   'risk · post · standard': [
-    'Strength', // CAPTION
-    'What would we see first?', // CONTROL — promoted; see the pre bucket above.
+    'Link strength', // CAPTION — the face question is the rail icon; see the pre bucket.
   ],
   'risk · post · expert': [
     'Depends on:', // HEADING
     'Explore mitigation', // CONTROL
-    'Strength', // CAPTION
+    'Link strength', // CAPTION
     'What reduces this?', // CONTROL
     'What would we see first?', // CONTROL
   ],
   'outcome · pre · standard': [
-    'Strength', // CAPTION
-    // ⭐ ADJUDICATED 9 Sep 2026 — CONTROL, promoted to the card face for the
-    // same reason as the risk chip above.
-    'What would falsify this?', // CONTROL
+    'Link strength', // CAPTION
+    // ⭐ WAS ALSO `What would falsify this?` (CONTROL, ADJUDICATED 9 Sep 2026).
+    // Locked Canvas design (23 Sep 2026): the rail's coaching icon asks it now.
   ],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
     'Explore consequences', // CONTROL
-    'Strength', // CAPTION
+    'Link strength', // CAPTION
     'What affects this?', // CONTROL
     'What would falsify this?', // CONTROL
   ],
   'outcome · post · standard': [
-    'Strength', // CAPTION
-    'What would falsify this?', // CONTROL — promoted, and no longer deleted by
-    // the run: the falsification question was `!isPostAnalysis`-gated, so it
-    // vanished exactly when the outcome had a number worth falsifying.
+    'Link strength', // CAPTION — and the falsification question is still asked
+    // after a run (the `!isPostAnalysis` gate stays gone), by the rail icon.
   ],
   'outcome · post · expert': [
     'Depends on:', // HEADING
     'Explore consequences', // CONTROL
-    'Strength', // CAPTION
+    'Link strength', // CAPTION
     'Validate this assumption', // CONTROL
     // ⭐ ADJUDICATED 9 Sep 2026 — the phase gate that deleted this question on a
     // completed run is gone, so Detailed post now carries it as Detailed pre
     // always did.
     'What would falsify this?', // CONTROL
   ],
-  // ⚠⚠ EVERY LOD BUCKET IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED — DO NOT
-  // READ IT AS A CLEAN BILL. At this rung the caption and its value are ONE
+  // ⚠⚠ EVERY LOD BUCKET BUT ONE IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED —
+  // DO NOT READ IT AS A CLEAN BILL. (The one: `factor · post · lod-line`, whose
+  // cards have no reduced line since the locked Canvas design withdrew the bare
+  // `Influence N%` fallback (ED 11:52Z) — so their body is not blanked at that
+  // rung and the driver line's caption is collected there; see that bucket.) At this rung the caption and its value are ONE
   // leaf (`Ahead 47%`), so no invariant caption can be isolated here; a bucket
   // fires only if two cards' ENTIRE reduced lines match, and this fixture's
   // siblings are disjoint by construction. The zeros are consistent with the
@@ -557,6 +641,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // that explains the state is already where this lane would have put it:
     // on the `title` and in sr-only text, neither of which the census counts.
     'Not computed',
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   // The change-COUNT fallback lives here and nowhere else. It does NOT enter
   // the census — `Changes 1 factor` / `Changes 2 factors` / `Changes 3 factors`
@@ -564,12 +650,25 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   // the reach test below can prove it, and the adjudication of its wording is
   // an honest hand call rather than a claim the census never tested.
   'option · no-baseline · expert': [
-    'What could go wrong?', // CONTROL
+    // Locked Canvas design (23 Sep 2026): `What could go wrong?` is the rail
+    // icon now (see `option · pre · standard`). The change-COUNT line this
+    // bucket exists to reach is RETIRED from the face — its routes are `+N
+    // more` and the rail's edit-targets icon (REACH, and the two-carrier case).
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
   ],
   'option · pre · lod-line': [],
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
-  'factor · post · lod-line': [],
+  'factor · post · lod-line': [
+    // CAPTION — Locked Canvas design (23 Sep 2026). These unranked factors have
+    // no reduced line any more (no bare `Influence N%`, ED 11:52Z; no current
+    // rank to state), so `lodBodyBlanked` is false and the body — its driver
+    // line included — renders at this rung, exactly as the option card with no
+    // reduced line already does (see the REACH note on `option · pre ·
+    // lod-line`). The run is the same caption as `factor · post · standard`.
+    'Influence',
+  ],
   'risk · pre · lod-line': [],
   'outcome · pre · lod-line': [],
 }
@@ -650,7 +749,9 @@ const byTestId = (suffix: string) => (card: HTMLElement) =>
 
 const ADJUDICATED_POSITIONS: Position[] = [
   // ── decided BY THE CENSUS: these runs are (or are not) in EXPECTED_CENSUS
-  { what: 'option · the `Ahead` caption row', by: 'census', present: byTestId('-win-anchor-option-1') },
+  // Locked Canvas design (23 Sep 2026): the caption reads `Current model` (was
+  // `Ahead`, then `Support`; ED 11:52Z point 4). Same position, same testid.
+  { what: 'option · the model-relative result caption', by: 'census', present: byTestId('-win-anchor-option-1') },
   // ⚠ RE-CLASSIFIED (review round 2). This was marked `by: 'census'` and it
   // renders `47% / 31% / 15%` — it varies, so it sits in NO census bucket, and
   // that is byte-for-byte the status of the completeness line below, which was
@@ -662,18 +763,30 @@ const ADJUDICATED_POSITIONS: Position[] = [
     what: 'option · the win percentage',
     by: 'hand',
     why: 'KEPT — it is the varying quantity itself, which is the whole thing '
-      + "Paul's ruling says to put on the card. Its CAPTION (`Ahead`) is the "
-      + 'census-decided half, one row up.',
+      + "Paul's ruling says to put on the card, now read `N% of runs`. Its CAPTION "
+      + '(`Current model`) is the census-decided half, one row up.',
     present: byTestId('-win-readout-option-1'),
   },
-  { what: 'factor · the `Influence` metric row', by: 'census', present: byTestId('factor-influence-row') },
-  { what: 'risk · the `Strength` metric row', by: 'census', present: byTestId('risk-strength-row') },
-  { what: 'outcome · the `Strength` metric row', by: 'census', present: byTestId('outcome-strength-row') },
+  // Locked Canvas design (23 Sep 2026): the `Influence` metric row
+  // (`factor-influence-row`) is RETIRED; the driver line replaces it on the face
+  // (ED 02:31Z D1a). Bound by the new identity — an exact testid, so the
+  // Detailed copy (`factor-driver-line-detail`) cannot stand in for it.
+  { what: 'factor · the driver line', by: 'census', present: (c) => c.querySelector('[data-testid="factor-driver-line"]') != null },
+  { what: 'risk · the `Link strength` metric row', by: 'census', present: byTestId('risk-strength-row') },
+  { what: 'outcome · the `Link strength` metric row', by: 'census', present: byTestId('outcome-strength-row') },
   { what: 'option · the not-computed badge', by: 'census', present: byTestId('-not-computed-option-1') },
   { what: 'factor · the `Confidence` readout', by: 'census', present: (_c, r) => r.some((x) => x.startsWith('Confidence')) },
   { what: 'risk · the coaching chips', by: 'census', present: (_c, r) => r.includes('What reduces this?') },
   { what: 'outcome · the coaching chip', by: 'census', present: (_c, r) => r.includes('Explore consequences') },
-  { what: 'option · the coaching chip', by: 'census', present: (_c, r) => r.includes('What could go wrong?') },
+  // Locked Canvas design (23 Sep 2026): the face question is the rail's
+  // coaching icon on every kind (spec §2; ED 02:31Z D4). No visible text, so the
+  // census's verdict on it is that it adds no run — which is only a measurement
+  // if the icon is genuinely MOUNTED, hence these rows.
+  { what: 'option · the rail coaching icon', by: 'census', present: (c) => c.querySelector('[data-testid^="node-coaching-icon-option-"]') != null },
+  { what: 'risk · the rail coaching icon', by: 'census', present: (c) => c.querySelector('[data-testid^="node-coaching-icon-risk-"]') != null },
+  { what: 'outcome · the rail coaching icon', by: 'census', present: (c) => c.querySelector('[data-testid^="node-coaching-icon-outcome-"]') != null },
+  // The change-COUNT line's route, moved to the rail (no visible text).
+  { what: 'option · the rail edit-targets icon', by: 'census', present: (c) => c.querySelector('[data-testid^="option-edit-targets-"]') != null },
   { what: 'shared · the `Driven by:` / `Depends on:` headings', by: 'census', present: (_c, r) => r.includes('Driven by:') || r.includes('Depends on:') },
   { what: 'factor · the `Influences:` heading', by: 'census', present: (_c, r) => r.includes('Influences:') },
   { what: 'option · the `What this option sets:` heading', by: 'census', present: (_c, r) => r.includes('What this option sets:') },
@@ -685,12 +798,16 @@ const ADJUDICATED_POSITIONS: Position[] = [
   //    Each carries its own `why`; there is deliberately no count of them
   //    anywhere in this file.
   {
-    what: 'option · the change-COUNT line (compacted by this PR)',
+    // Locked Canvas design (23 Sep 2026): the change-COUNT line
+    // (`option-change-count-*`) is RETIRED from the face (spec §4; ED 11:52Z
+    // point 4). Its count survives as `+N more` beside the change rows — N from
+    // the ONE total — and its route as the rail's edit-targets icon (above).
+    what: 'option · the `+N more` control (the change-COUNT line, compacted)',
     by: 'hand',
-    why: 'COMPACTED — the invariant half was a wayfinding instruction, not a '
-      + 'statement about the model, and it survives on the `title` and in an '
-      + 'out-of-flow span. Reached by exactly one bucket, asserted as an exact set.',
-    present: byTestId('-change-count-option-2'),
+    why: 'COMPACTED — `+N more` varies with each option\'s own total, so the census '
+      + 'cannot rule on it; the invariant sentence it compacts (the targets and '
+      + 'where to change them) is its accessible name. Reached by an exact set.',
+    present: (c) => c.querySelector('[data-testid^="option-change-more-"]') != null,
   },
   {
     what: 'option · the completeness line (compacted by this PR)',
@@ -713,8 +830,19 @@ const ADJUDICATED_POSITIONS: Position[] = [
     by: 'hand',
     why: 'KEPT — only the noun ` Risk` is invariant, and it says what "High" is '
       + 'high ON. That is the caption shape (`Ahead 47%`) written backwards, and '
-      + 'captions stay. NOT deferred on card height, which was a false claim.',
+      + 'captions stay. NOT deferred on card height, which was a false claim. '
+      + 'Detailed only since the locked Canvas design (23 Sep 2026).',
     present: (_c, r) => r.some((x) => /^(High|Medium|Low) Risk$/.test(x)),
+  },
+  {
+    // Locked Canvas design (23 Sep 2026), MT-19 — see `factor · pre · expert`.
+    what: 'factor · the edge pill `· Link strength est.`',
+    by: 'hand',
+    why: 'KEPT — invariant on every Olumi-estimated link BY RULING (MT-19: no '
+      + 'bare-percent pill; the figure is on the `title` and an sr-only child), so '
+      + 'the words left name the quantity and its status. Hand, because the span is '
+      + 'mixed content and `visibleRuns` collects leaf elements only.',
+    present: (c) => c.querySelector('[data-testid^="edge-pill-strength-estimate-"]') != null,
   },
   {
     what: 'risk · the exposure line `N% likely · X impact`',
@@ -730,7 +858,11 @@ const ADJUDICATED_POSITIONS: Position[] = [
 ]
 
 describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
+  })
+  afterEach(() => { useGuidanceStore.setState(ASK_SURFACE_NULLS as never) })
 
   it('PRECONDITION: no two siblings share a datum, so identical copy is COPY', () => {
     // The instrument's discriminating power depends entirely on this. Two
@@ -797,9 +929,13 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // away. Both are pinned against here, by identity — the four register
     // captions are the runs that MUST be found, and they are the ones whose
     // disappearance would mean the collector had stopped reading cards.
-    expect(measured['risk · pre · standard']).toContain('Strength')
+    // Locked Canvas design (23 Sep 2026): the register captions by their new
+    // names (ED 11:52Z points 4–5), and the retired ones must NOT survive.
+    expect(measured['risk · pre · standard']).toContain('Link strength')
     expect(measured['factor · post · standard']).toContain('Influence')
-    expect(measured['option · post · standard']).toContain('Support')
+    expect(measured['option · post · standard']).toContain('Current model')
+    expect(Object.values(measured).flat()).not.toContain('Support')
+    expect(Object.values(measured).flat()).not.toContain('Strength')
     expect(Object.values(measured).flat().length).toBeGreaterThan(15)
   })
 
@@ -857,18 +993,43 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // notions of "the branch that renders it".
     applyStore('pre', 'expert', 'full', NODES_NO_BASELINE)
     const card = mountCard('option', 'option-2', 'pre')
-    twoCarrier(
-      card.querySelector('[data-testid="option-change-count-option-2"]'),
-      optionTargetsChannels({ count: 2 }).short,
-      // ⚠ DERIVED, NOT RESTATED (22 Sep 2026). The line is now a control and
-      // its sentence is composed from `modelOptionIntervention` — a real
-      // `option_intervention_edit` carrier — so the wording has an owner. A
-      // literal here would be a second hand-maintained copy of it (trap 12),
-      // and the census's job is repeated copy ACROSS cards, not pinning this
-      // one card's words.
-      optionTargetsChannels({ count: 2 }).full,
-      'change-count',
-    )
+    // ⛔ Locked Canvas design (23 Sep 2026): the change-COUNT line is RETIRED
+    // from the face (spec §4; ED 11:52Z point 4 — design summary, Option:
+    // "REMOVED: … the 'N factor targets' line (`option-change-count-<id>`) — the
+    // `+N more` button and a rail pencil icon (`option-edit-targets-<id>`) are
+    // the routes"). Absent here, and its two carriers are asserted at their new
+    // homes below — the obligation this case exists for (the sentence reaches
+    // keyboard and screen-reader users, not only the eye) is unchanged.
+    expect(card.querySelector('[data-testid="option-change-count-option-2"]')).toBeNull()
+    // Positive control: the card mounted, with its change rows.
+    expect(card.querySelector('[data-testid="option-change-rows-option-2"]')).not.toBeNull()
+
+    // ⚠ DERIVED, NOT RESTATED (22 Sep 2026). The sentence is composed from
+    // `modelOptionIntervention` — a real `option_intervention_edit` carrier — so
+    // the wording has an owner. A literal here would be a second
+    // hand-maintained copy of it (trap 12).
+    //
+    // THE ROUTE: the rail's edit-targets icon, a focusable BUTTON whose
+    // accessible name IS the sentence — announced, keyboard-reachable, and the
+    // tooltip for the pointer. No visible text for the sentence to crowd.
+    const pencil = card.querySelector('[data-testid="option-edit-targets-option-2"]')
+    expect(pencil, 'edit-targets route: the control did not mount').not.toBeNull()
+    expect(pencil!.tagName).toBe('BUTTON')
+    expect(pencil!.getAttribute('aria-label')).toBe(optionTargetsChannels({ count: 2 }).full)
+
+    // THE COUNT: `+N more`, N from the ONE total, on the option with more
+    // targets than rows (option-3: 3 targets, 2 rows). The sighted reader gets
+    // the short form; the accessible name carries the whole sentence.
+    applyStore('pre', 'expert', 'full', NODES_NO_BASELINE)
+    const card3 = mountCard('option', 'option-3', 'pre')
+    const more = card3.querySelector('[data-testid="option-change-more-option-3"]')
+    expect(more, '+N more: the control did not mount').not.toBeNull()
+    expect(more!.tagName).toBe('BUTTON')
+    expect(more!.textContent).toBe('+1 more')
+    const full3 = optionTargetsChannels({ count: 3 }).full
+    expect(more!.getAttribute('aria-label')).toContain(full3)
+    // The compaction is real: the sentence is genuinely off the visible line.
+    expect(more!.textContent).not.toContain(full3)
   })
 
   /**
@@ -879,6 +1040,7 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
    */
   it('REACH: every adjudicated position is actually collected by some bucket', () => {
     const reachedIn = new Map<string, string[]>()
+    const retiredChangeCountIn: string[] = []
     for (const [name, kind, ids, phase, viewMode, rung, metaOverlay, nodes] of BUCKETS) {
       applyStore(phase, viewMode, rung, nodes)
       for (const id of ids) {
@@ -890,6 +1052,7 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
         const runs = visibleRuns(mountCard(kind, id, phase, metaOverlay ?? {}))
         applyStore(phase, viewMode, rung, nodes)
         const card = mountCard(kind, id, phase, metaOverlay ?? {})
+        if (card.querySelector('[data-testid^="option-change-count-"]') != null) retiredChangeCountIn.push(`${name} ${id}`)
         for (const pos of ADJUDICATED_POSITIONS) {
           if (pos.present(card, runs)) {
             reachedIn.set(pos.what, [...(reachedIn.get(pos.what) ?? []), name])
@@ -916,42 +1079,46 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(reachedIn.get('option · the not-computed badge')).not.toContain('option · post · standard')
     // …and the two lines this PR edits are reached by exactly the buckets that
     // can render them, bound by name rather than by count.
-    expect(reachedIn.get('option · the change-COUNT line (compacted by this PR)'))
+    expect(reachedIn.get('option · the `+N more` control (the change-COUNT line, compacted)'))
       .toEqual(expect.arrayContaining(['option · no-baseline · expert']))
-    expect(new Set(reachedIn.get('option · the change-COUNT line (compacted by this PR)')))
-      // Both boards lack a declared reference; having observed values no
-      // longer suppresses this recovery affordance by inventing a pair.
-      //
-      // ⭐⭐ `option · pre · standard` ADDED 22 Sep 2026, AND THIS SET IS THE
-      // ADJUDICATION, NOT A RECORDING. The line moved out of the Expert-only
-      // fragment (`showLayer2Inline = isDetailed = viewMode === 'expert'`)
-      // because the product OPENS in Standard: measured on served `b5f1867d`,
-      // `[data-testid^="option-change-count-"]` was absent from all four option
-      // cards while the delta rows rendered — the card showed three concrete
-      // changes it makes to the model and offered no way to change them.
-      //
-      // ⚠ `option · pre · lod-line` IS HERE, AND MY FIRST INSTINCT ABOUT IT WAS
-      // WRONG IN A WAY THE CANVAS BROWSER GATE CAUGHT. I read the line's
-      // appearance at that rung as a regression and gated it on
-      // `selectLodBodyHidden`. That made the card's RESERVED height
-      // zoom-dependent, and `heightVsZoom` REDed at 54px of bound spread
-      // against 45px of sub-row slack — "a layout run at one zoom then reserves
-      // a stride that is wrong at every other", which is the overlap defect
-      // that measurer exists to close. Its message even names the cause: "the
-      // LOD body collapse is the usual way this regresses."
-      //
-      // The truth underneath: at the `line` rung an option card with no LOD
-      // metric line is not body-blanked at all — `lodBodyBlanked = bodyReduced
-      // && lodBodyLine !== null` — so its body already renders there. That is
-      // PRE-EXISTING behaviour of this bucket, not something this change
-      // introduced, and the honest record is to name it rather than to bolt a
-      // second, zoom-dependent gate onto one child to hide it.
+    expect(new Set(reachedIn.get('option · the `+N more` control (the change-COUNT line, compacted)')))
+      // ⭐ Locked Canvas design (23 Sep 2026) — RE-ADJUDICATED. The retired
+      // change-COUNT line was reached by the four buckets its gate allowed (the
+      // 22 Sep adjudication recorded in git history: it had moved out of the
+      // Expert-only fragment because the product OPENS in Standard). Its count
+      // now lives in `+N more`, which belongs to the change rows, and the rows
+      // are the option face's LEAD in every state (spec §4 "Always lead with
+      // what this option changes"; ED 11:52Z point 4) — so every option bucket
+      // mounts it: both views, both phases, the not-computed run, and both LOD
+      // rungs. At the LOD rungs the rows are inside the body that the reduced
+      // line blanks — present in the DOM, which is what this untouched-mount
+      // probe measures (see the note above on `option · pre · lod-line`).
       .toEqual(new Set([
         'option · pre · standard',
-        'option · pre · lod-line',
         'option · pre · expert',
+        'option · post · standard',
+        'option · post · expert',
+        'option · not-computed · standard',
         'option · no-baseline · expert',
+        'option · pre · lod-line',
+        'option · post · lod-line',
       ]))
+    // ⛔ …and the RETIRED line is reached NOWHERE (rule: absent at its old home,
+    // present at its new ones — `+N more` above and the rail's edit-targets icon).
+    expect(retiredChangeCountIn, 'the retired change-COUNT line is back on a card face').toEqual([])
+    expect(reachedIn.get('option · the rail edit-targets icon'))
+      .toEqual(expect.arrayContaining(['option · pre · standard', 'option · no-baseline · expert']))
+
+    // Locked Canvas design (23 Sep 2026): the face questions that were CONTROLs
+    // in the Standard buckets are asked by the rail's coaching icon, and it is
+    // MOUNTED in exactly those buckets — so their leaving the census is a move,
+    // not a loss (spec §2; ED 02:31Z D4).
+    expect(reachedIn.get('option · the rail coaching icon'))
+      .toEqual(expect.arrayContaining(['option · pre · standard', 'option · pre · expert', 'option · no-baseline · expert']))
+    expect(reachedIn.get('risk · the rail coaching icon'))
+      .toEqual(expect.arrayContaining(['risk · pre · standard', 'risk · post · standard']))
+    expect(reachedIn.get('outcome · the rail coaching icon'))
+      .toEqual(expect.arrayContaining(['outcome · pre · standard', 'outcome · post · standard']))
   })
 
   /**

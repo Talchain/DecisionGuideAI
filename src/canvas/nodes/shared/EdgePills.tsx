@@ -16,6 +16,21 @@
  * "Raises". Unset edges now read "Not set" with no arrow.
  *
  * Per spec Section 14: 0.5px border, default colour, 10px font, border-radius 10px.
+ *
+ * ⭐⭐ MT-19 (manual test on served `4c6ec07b`, 23 Sep 2026): the pill read
+ * "▲↑65% Feature Launch Readiness" — an ESTIMATED edge strength printed as a
+ * bare percent with no `est.`, and a GREEN ↑ even into a RISK (raising a risk is
+ * not good news). Locked design: the factor's resting face no longer carries
+ * these pills at all (spec §3 Normal order has no relationship row; "key
+ * relationship(s)" belong to Detailed), and where they do render they SAY WHAT
+ * THEY ARE:
+ *   · the verb is visible — "Raises" / "Lowers" — not only an arrow;
+ *   · the arrow is NEUTRAL ink: the direction is a fact about the link, not a
+ *     verdict on whether that is good;
+ *   · the number is named "Link strength" (ED 11:52Z), and one the producer
+ *     filled in reads as Olumi's estimate — the same predicate
+ *     (`strengthIsHumanSettled`) the outcome/risk cards and the connector use,
+ *     so a pill can never call "set" what the line calls an estimate (MT-15b).
  */
 import { useMemo } from 'react'
 import { typography } from '../../../styles/typography'
@@ -24,6 +39,8 @@ import { useCanvasStore } from '../../store'
 import { NodeShapeIndicator } from '../NodeShapeIndicator'
 import { computeSignedMean } from '../../domain/edges'
 import { isEdgeValueSet } from '../../domain/edgeValueProvenance'
+import { strengthIsHumanSettled } from '../../domain/edgeStrengthSettlement'
+import { LINK_STRENGTH_COPY } from './metricVocabulary'
 import type { NodeType } from '../../domain/nodes'
 import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
 
@@ -60,7 +77,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
         // a measurement or silently hiding the relationship.
         const edgeData = e.data as Record<string, unknown> | undefined
         if (!isEdgeValueSet(edgeData, 'weight')) {
-          return { id: e.id, kind, label, direction: null, pct: null }
+          return { id: e.id, kind, label, direction: null, pct: null, settled: false }
         }
         // Retain the sign so the pill can show direction (raises / lowers).
         const signed = computeSignedMean(edgeData)
@@ -72,6 +89,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           label,
           direction: signed >= 0 ? ('up' as const) : ('down' as const),
           pct: Math.round(strength * 100),
+          settled: strengthIsHumanSettled(edgeData),
         }
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -96,57 +114,53 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
               flow, so the visible pill layout is unchanged. Omitted entirely
               when the strength is unset: the direction would come from
               `USER_EDGE_DEFAULTS.direction`, which nobody chose. */}
-          {p.direction !== null && (
-            <span className="sr-only">{p.direction === 'up' ? 'Raises' : 'Lowers'}</span>
-          )}
-          {/* ⚠ ALL THREE GLYPHS CARRY THE CANVAS COUNTER-SCALE. The pill's TEXT
-              already did — `typography.edgeLabel` is one of the four canvas
-              tokens — so the number beside these marks rendered at its declared
-              10px while the marks themselves rendered at **7.0px** (measured on
-              the deployed board), because a `size` prop is not a token and the
-              counter-scale reaches text and only text. A row where the digits
-              are right and the shape and arrow are half-size is the same defect
-              as an unreadable label; it is just harder to notice.
-
-              `NodeShapeIndicator` takes a `className`, so it is counter-scaled
-              from HERE — its own file is untouched. These are decorative
-              (`aria-hidden`, and the direction is announced by the `sr-only`
-              span above), so they owe legibility, not a 24px target. */}
           <NodeShapeIndicator nodeKind={p.kind} size={9} className={CANVAS_GLYPH_SIZE_CLASSES[9]} />
           {p.direction === 'up' && (
             <ArrowUp
               size={9}
-              className={`text-success shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`}
+              className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`}
               aria-hidden="true"
             />
           )}
           {p.direction === 'down' && (
             <ArrowDown
               size={9}
-              className={`text-danger shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`}
+              className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`}
               aria-hidden="true"
             />
           )}
-          {/* Audit §8 P0-4: this percentage is link STRENGTH (edge weight),
-              not confidence — labelled so it can't be read as the same number
-              family as ConnRow's "N% conf." (beliefExists).
-              P1-10: when nothing set the strength we say "Not set" instead of
-              reporting the UI default. `role="img"` + aria-label so assistive
-              tech announces the disclosure rather than a bare fragment. */}
+          {p.direction !== null && (
+            <span data-testid={`edge-pill-verb-${p.id}`}>{p.direction === 'up' ? 'Raises' : 'Lowers'}</span>
+          )}
+          <span>{p.label}</span>
           {p.pct !== null ? (
-            <span title="Link strength" aria-label={`${p.pct}% link strength`}>{p.pct}%</span>
+            p.settled ? (
+              <span
+                data-testid={`edge-pill-strength-${p.id}`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, set by a person`}
+              >
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+              </span>
+            ) : (
+              <span
+                data-testid={`edge-pill-strength-estimate-${p.id}`}
+                title={`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}: ${p.pct}%, not yet confirmed`}
+              >
+                {`· ${LINK_STRENGTH_COPY.noun} est.`}
+                {/* The figure reaches assistive tech too — a `title` alone is
+                    unreachable by keyboard and absent on touch. */}
+                <span className="sr-only">{` (${LINK_STRENGTH_COPY.olumiEstimate}: ${p.pct}%, not yet confirmed)`}</span>
+              </span>
+            )
           ) : (
             <span
               className="italic"
-              role="img"
               title="Link strength not set — open this connection to estimate it"
-              aria-label="Link strength not set"
               data-testid={`edge-pill-strength-unset-${p.id}`}
             >
-              Not set
+              {`· ${LINK_STRENGTH_COPY.noun} ${LINK_STRENGTH_COPY.notSet}`}
             </span>
           )}
-          <span>{p.label}</span>
         </span>
       ))}
     </div>

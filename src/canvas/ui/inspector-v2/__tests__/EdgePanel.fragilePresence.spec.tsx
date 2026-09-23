@@ -18,6 +18,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { EdgePanel } from '../panels/EdgePanel'
+import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 
@@ -60,7 +61,7 @@ describe('EdgePanel — flip-risk percentage presence-branches on measured switc
     // The context group survives (marginal-matched fragility is visibility,
     // not a displayed quantity) — only the number is absent.
     expect(container.querySelector('[data-panel-group="context"]')).not.toBeNull()
-    expect(screen.getByText('Sensitive assumption')).toBeTruthy()
+    expect(screen.getByText("If this connection's strength changes, the current model comparison could change")).toBeTruthy()
     expect(screen.queryByText(/% flip risk/)).toBeNull()
     expect(screen.queryByText(/90%/)).toBeNull()
   })
@@ -84,6 +85,21 @@ describe('EdgePanel — flip-risk percentage presence-branches on measured switc
     render(<EdgePanel {...panelProps} />)
     expect(screen.getByText('65% flip risk')).toBeTruthy()
     expect(screen.queryByText(/90%/)).toBeNull()
+  })
+
+  it('ONE SENTENCE, NO SIZE CLAIM: the flip-risk tooltip restates the heading sentence (Paul 23 Sep point 4 reviewer blocker)', () => {
+    setStoreWithFragileEdges([
+      { edge_id: 'e1', from: 'fac1', to: 'out1', switch_probability: 0.65, marginal_switch_probability: 0.9 },
+    ])
+    render(<EdgePanel {...panelProps} />)
+    const heading = screen.getByText(FRAGILE_CUE_SENTENCE)
+    const tooltip = screen.getByText('65% flip risk').getAttribute('title') ?? ''
+    // Bound to the heading's OWN rendered text, not a second literal.
+    expect(tooltip.startsWith(heading.textContent ?? '<none>')).toBe(true)
+    expect(tooltip).toContain('65% flip risk')
+    for (const text of [heading.textContent ?? '', tooltip]) {
+      expect(text).not.toMatch(/\b(small|significant(ly)?|large|slight(ly)?|major|minor)\b/i)
+    }
   })
 
   it('CONTROL (tech mode): a measured value still prints in the technical disclosure', () => {

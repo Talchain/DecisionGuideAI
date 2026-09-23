@@ -64,7 +64,12 @@ const hintFor = (testId: string): string => {
 
 describe('quick-action hints name the action, not the node', () => {
   beforeEach(() => {
-    useCanvasStore.setState({ nodes: [NODE] } as never)
+    // Paul 23 Sep contract feedback point 6: at Normal zoom (`lodRung: 'full'`)
+    // the card's Ask Olumi door is the resting coaching icon and the hover ask
+    // is withheld (askOlumiOneGlyph.spec / coachingIconPaul23Sep.spec pin that).
+    // This spec measures the HOVER row with its Ask button, which renders at the
+    // quiet rung.
+    useCanvasStore.setState({ nodes: [NODE], lodRung: 'quiet' } as never)
     // Both AI shortcuts need the send channel; with none, only More renders and
     // the label-absence sweep below would be near-vacuous.
     useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)

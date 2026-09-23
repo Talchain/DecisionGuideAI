@@ -154,8 +154,13 @@ describe('resolveNodeCoaching — behaviour parity with the pristine per-node se
     expect(resolveNodeCoaching(riskReq('card', false))).toEqual([riskLeadingIndicator('Supplier fails')])
   })
 
-  it('risk / popover → what-reduces THEN mitigation, phase-independent', () => {
+  // ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 02:31Z D4): the risk card's face is
+  // ONE coaching icon asking the leading-indicator question, so "How likely is
+  // this?" — "NOT ACCEPTED as deletion" — leads the popover and Detailed while
+  // the risk is unsized. Sized, both surfaces are exactly what they were.
+  it('risk / popover → (size exposure while unsized) THEN what-reduces THEN mitigation', () => {
     expect(resolveNodeCoaching(riskReq('popover', true))).toEqual([
+      riskSizeExposure('Supplier fails'),
       riskWhatReduces('Supplier fails'),
       riskAddMitigation('Supplier fails'),
     ])
@@ -165,9 +170,10 @@ describe('resolveNodeCoaching — behaviour parity with the pristine per-node se
     ])
   })
 
-  it('risk / detailed → all three inline, what-reduces THEN mitigation THEN leading indicator', () => {
+  it('risk / detailed → (size exposure while unsized) THEN what-reduces THEN mitigation THEN leading indicator', () => {
     const out = resolveNodeCoaching(riskReq('detailed', true))
     expect(out).toEqual([
+      riskSizeExposure('Supplier fails'),
       riskWhatReduces('Supplier fails'),
       riskAddMitigation('Supplier fails'),
       riskLeadingIndicator('Supplier fails'),
