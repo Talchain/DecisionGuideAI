@@ -901,24 +901,16 @@ async function showNormalZoom(page: Page): Promise<void> {
   }
 }
 
-/** Back to the landing framing (the product's own Fit to view). */
-async function showLandingZoom(page: Page): Promise<void> {
-  const fit = page.locator('button[aria-label="Fit to view"]').first()
-  if (await fit.count()) {
-    await fit.click()
-    await waitForVisualQuiescence(page)
-  }
-}
-
 /**
  * ⭐ EACH DRIVEN ROW AT THE ZOOM WHERE ITS CONTROL LIVES. Point 6 made the two
  * "ask Olumi" doors mutually exclusive by zoom rung: the rail coaching icon at
- * Normal (full) zoom, the hover `node-action-ask` below it. So a coaching row
- * is driven at 100% and every other row at the landing framing.
+ * Normal (full) zoom, the hover `node-action-ask` below it. Landing-rung rows
+ * are driven FIRST on the untouched landing view (a fresh load — "Fit to view"
+ * frames differently from the landing auto-fit, so it is never used to get
+ * back); the coaching rows run LAST at 100%.
  */
 async function showZoomForKind(page: Page, kind: string): Promise<void> {
   if (kind.startsWith('node-coaching-icon')) await showNormalZoom(page)
-  else await showLandingZoom(page)
 }
 
 /** A genuinely fresh document, for the first seed and when the starter changes. */
@@ -1108,7 +1100,8 @@ test.describe('in-node keyboard bleed', () => {
       const landingRows = await censusFocusables(page)
       await showNormalZoom(page)
       const normalRows = await censusFocusables(page)
-      await showLandingZoom(page)
+      // Back to the TRUE landing view for the landing-rung rows (see showZoomForKind).
+      await loadCanvas(page, starter)
       const seen = new Set(landingRows.map((r) => `${r.nodeId}|${r.kind}|${r.name}`))
       const rows = [...landingRows, ...normalRows.filter((r) => !seen.has(`${r.nodeId}|${r.kind}|${r.name}`))]
       expect(rows.length, `no focusable control found inside any node of "${starter}" — the probe is blind`).toBeGreaterThan(0)
@@ -1172,6 +1165,8 @@ test.describe('in-node keyboard bleed', () => {
     let contrastSelections = 0
     let selfSelecting = 0
 
+    // Landing-rung rows first, the Normal-zoom coaching rows last (showZoomForKind).
+    targets.sort((a, b) => Number(a.kind.startsWith('node-coaching-icon')) - Number(b.kind.startsWith('node-coaching-icon')))
     for (const { kind, starter, row: c } of targets) {
       const read: Record<string, string[]> = {}
       /*
