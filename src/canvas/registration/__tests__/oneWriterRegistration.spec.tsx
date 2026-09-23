@@ -32,6 +32,9 @@
  *     (#1895) — option edit.
  *  9. …and PAST the edit's own optimistic write — structural delete and
  *     rename (the 4c6ec07b witness), with fail-closed, refused and 500 controls.
+ * 10. An UNCONFIRMED delete (untyped 500) holds registration after delivery
+ *     settles — #1905's residual 1 — with applied, refused, latest-attempt and
+ *     other-scenario controls.
  *
  * Assertions bind by IDENTITY — the exact register call and the exact factor's
  * `observed_state` in its payload — never by a count alone.
@@ -1259,5 +1262,140 @@ describe('9 · an applied receipt acknowledges the model PAST the edit\'s own op
     expect(nodeData(TARGET).label).toBe(RENAMED)
     expect(currentAcknowledged()).toBe(false)
     expect(registerSpy.mock.calls.filter((c) => registeredLabel(c) === RENAMED)).toEqual([])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. AN UNCONFIRMED DELETE HOLDS REGISTRATION — #1905's residual 1, the delete
+//     twin of §7's unresolved rename/add hold.
+//
+// #1905's author, verified on base and head: "An untyped 500 on delete still
+// leaks through registration. Once delivery settles, one whole-graph register
+// carries the post-delete canvas and acknowledges it. Delete has no lifecycle
+// hold, unlike rename and add." The 500 arm KEEPS the deletion on the canvas
+// (`resolveStructuralDelete`: the server may have committed), so the next
+// whole-graph `graph/register` omits the node and CEE deletes it through the
+// side channel — a deletion its own edit protocol never confirmed becomes
+// canonical. The rule: no user edit reaches CEE behind the canonical path.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const OTHER_SCENARIO = '0b6f1c2e-5d3a-4e8f-9a1b-7c2d3e4f5a6b'
+
+/** Every registration that carried the canvas WITHOUT the deleted node — by identity. */
+function registeredWithoutConcentration(scenario = SCENARIO) {
+  return registerSpy.mock.calls.filter((c) => c[0] === scenario && !nodeIdsOf(c).includes(CONCENTRATION))
+}
+function concentrationOnCanvas(): boolean {
+  return useCanvasStore.getState().nodes.some((n) => n.id === CONCENTRATION)
+}
+function removedNodeIdsSent(): unknown[] {
+  return dispatched.map((p) => (p as { event?: { removed_node_ids?: string[] } }).event?.removed_node_ids)
+}
+
+/** Delete CONCENTRATION against `reply`, then let delivery settle completely. */
+async function deleteConcentrationAndSettle(reply: unknown) {
+  replies.push(reply)
+  await deleteConcentration()
+  await act(async () => { await flush() })
+}
+
+describe('10 · an UNCONFIRMED delete holds registration after delivery settles (#1905 residual 1)', { timeout: 30_000 }, () => {
+  it('⛔ delete → untyped 500 → delivery settles: NO whole-graph registration carries the post-delete canvas, and the model stays held', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+
+    // PRECONDITIONS, by identity: ONE structural_delete turn for THIS node went
+    // out; the 500 arm kept the deletion on screen ("couldn't confirm"); and
+    // the queue has drained.
+    expect(sentKinds()).toEqual(['structural_delete'])
+    expect(removedNodeIdsSent()).toEqual([[CONCENTRATION]])
+    expect(concentrationOnCanvas()).toBe(false)
+    expect(useCanvasStore.getState().pendingStructuralDeletes).toHaveLength(0)
+
+    // ⛔ THE CLAIM. RED at c0611192 (#1905's head): once delivery settles, one
+    // whole-graph register carries the canvas without the node, and its ack
+    // makes the unconfirmed deletion look like a model CEE holds.
+    await act(async () => { await flush() })
+    expect(registeredWithoutConcentration()).toEqual([])
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(false)
+    // …and the model stays held, under the unresolved-structural-edit cause.
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBe('unresolved_structural_edit')
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).not.toBeNull()
+  })
+
+  it('CONTROL (#1905 preserved): an APPLIED delete (receipt proves it) releases — no hold, no registration, the post-delete model acknowledged', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(DELETE_APPLIED)
+
+    expect(sentKinds()).toEqual(['structural_delete'])
+    expect(concentrationOnCanvas()).toBe(false)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+  })
+
+  it('CONTROL: a REFUSED delete (409, proven no-write) reverts — released, and the post-delete canvas is never acknowledged or registered', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(DELETE_REFUSED_NO_WRITE)
+
+    expect(sentKinds()).toEqual(['structural_delete'])
+    // The refusal restored the node (CEE certified no write) …
+    expect(concentrationOnCanvas()).toBe(true)
+    // … so nothing holds: the canvas shows no deletion to protect.
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+    const withoutNode = STRUCTURAL_NODES.filter((n) => n.id !== CONCENTRATION)
+    const withoutEdges = STRUCTURAL_EDGES.filter((e) => e.source !== CONCENTRATION && e.target !== CONCENTRATION)
+    expect(isGraphServerAcknowledged(SCENARIO, withoutNode as never, withoutEdges as never)).toBe(false)
+    expect(registeredWithoutConcentration()).toEqual([])
+  })
+
+  it('LATEST ATTEMPT: an unconfirmed delete, the node restored, then an APPLIED delete of the same node — the earlier record is settled, nothing holds', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBe('unresolved_structural_edit')
+
+    // The node comes back (an undo, or a boot merge of CEE's graph): the canvas
+    // no longer shows the unconfirmed deletion, so it releases.
+    await act(async () => {
+      useCanvasStore.setState({ nodes: STRUCTURAL_NODES as never, edges: STRUCTURAL_EDGES as never } as never)
+      await flush()
+    })
+    expect(concentrationOnCanvas()).toBe(true)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+
+    // A later delete of the SAME node that CEE proves applied supersedes the
+    // stale record — otherwise the node's absence would match it again and
+    // wall registration off for the rest of the page's life.
+    await deleteConcentrationAndSettle(DELETE_APPLIED)
+    expect(sentKinds()).toEqual(['structural_delete', 'structural_delete'])
+    expect(concentrationOnCanvas()).toBe(false)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+    expect(currentAcknowledged()).toBe(true)
+    expect(registeredWithoutConcentration()).toEqual([])
+  })
+
+  it('SCOPE: another scenario is unaffected — its board, without that node id, still registers', async () => {
+    await mountAcknowledgedStructuralBoard()
+    await deleteConcentrationAndSettle(UNTYPED_500)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBe('unresolved_structural_edit')
+
+    // The user opens a different decision whose model happens not to carry
+    // that id either, and it needs registering.
+    await act(async () => {
+      useCanvasStore.setState({
+        currentScenarioId: OTHER_SCENARIO,
+        nodes: STARTER_NODES as never,
+        edges: STARTER_EDGES as never,
+        importPendingServerRegistration: true,
+      } as never)
+      await flush()
+    })
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+    const other = registerSpy.mock.calls.filter((c) => c[0] === OTHER_SCENARIO)
+    expect(other).toHaveLength(1)
+    expect(nodeIdsOf(other[0])).toEqual([BYSTANDER, TARGET].sort())
+    // …and the held scenario's post-delete canvas still went nowhere.
+    expect(registeredWithoutConcentration(SCENARIO)).toEqual([])
   })
 })
