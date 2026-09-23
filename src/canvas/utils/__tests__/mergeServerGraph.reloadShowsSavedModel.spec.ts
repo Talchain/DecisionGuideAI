@@ -194,11 +194,58 @@ describe('§2 a removal is a model change', () => {
     expect(s.analysisFreshnessDirty).toBe(true)
   })
 
-  it('pushes a PRE-MERGE history snapshot that still holds the removed factor (undoable)', () => {
+  // ⭐ NO UNDO FOR A RELOAD REMOVAL (decision, 23 Sep — replaces "pushes a
+  // PRE-MERGE history snapshot that still holds the removed factor"). An undone
+  // element would sit on the canvas while CEE does not hold it, and the reload
+  // gate (`bootGraphRead.ts`) would refuse to register it: a silent divergence.
+  // The chat line's "Add it back" goes through the ordinary add path instead.
+  it('a pure removal pushes NO history snapshot, and undo does not restore the removed factor', () => {
     mergeServerGraphOnHydrate(serverAfterDelete())
-    const past = useCanvasStore.getState().history.past as any[]
-    expect(past).toHaveLength(1)
-    expect(past[0].nodes.map((n: any) => n.id)).toContain(DELETED)
+    expect(useCanvasStore.getState().history.past).toHaveLength(0)
+    useCanvasStore.getState().undo()
+    expect(nodeById(DELETED), 'undo put back a factor the saved model lacks').toBeUndefined()
+    expect(canvasEdgePairs()).toEqual([canvasEdgePairKey({ source: KEPT, target: GOAL })])
+  })
+
+  it('removal + overwrite in one read: undo restores the overwritten value, NEVER the removed factor or its edge', () => {
+    seed(
+      [
+        node(GOAL, 'goal', 'Revenue', GOAL_POS),
+        { ...node(KEPT, 'factor', 'Usage-Based Pricing Exposure', KEPT_POS), data: { label: 'Usage-Based Pricing Exposure', kind: 'factor', value: 100 } },
+        node(DELETED, 'factor', DELETED_LABEL, DELETED_POS),
+      ],
+      staleEdges(),
+    )
+    const res = mergeServerGraphOnHydrate({
+      ...serverAfterDelete(),
+      nodes: [
+        { id: GOAL, kind: 'goal', label: 'Revenue' },
+        { id: KEPT, kind: 'factor', label: 'Usage-Based Pricing Exposure', value: 250 },
+      ],
+    })
+    expect(res.updatedNodeCount, 'precondition: an overwrite').toBe(1)
+    expect(res.removedNodeCount, 'precondition: a removal').toBe(1)
+    expect(nodeById(KEPT).data.value).toBe(250)
+
+    useCanvasStore.getState().undo()
+
+    // The overwrite stays undoable (the reason the snapshot exists)…
+    expect(nodeById(KEPT).data.value).toBe(100)
+    // …but the undo never puts back what the saved model lacks.
+    expect(nodeById(DELETED)).toBeUndefined()
+    expect(canvasEdgePairs()).toEqual([canvasEdgePairKey({ source: KEPT, target: GOAL })])
+  })
+
+  it('an EARLIER history entry (in-session draft recovery) cannot restore the removed factor either', () => {
+    // History recorded before the read, still carrying the factor and its edge.
+    const earlier = { nodes: structuredClone(staleNodes()), edges: structuredClone(staleEdges()) }
+    useCanvasStore.setState({ history: { past: [earlier], future: [] } } as never)
+    mergeServerGraphOnHydrate(serverAfterDelete())
+    useCanvasStore.getState().undo()
+    expect(nodeById(DELETED)).toBeUndefined()
+    expect(canvasEdgePairs()).toEqual([canvasEdgePairKey({ source: KEPT, target: GOAL })])
+    // …and the entry kept everything else it held.
+    expect(canvasNodeIds()).toEqual([GOAL, KEPT].sort())
   })
 })
 
