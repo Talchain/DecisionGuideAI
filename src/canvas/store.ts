@@ -102,6 +102,7 @@ import {
 } from './mutations/structuralDelete'
 import {
   captureStructuralRename,
+  nodeDataWithRenameRestored,
   STRUCTURAL_RENAME_DEFERRED_NOTICE,
   STRUCTURAL_RENAME_LIFECYCLE_LIMIT,
   type StructuralRenameIntent,
@@ -7390,18 +7391,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set((s) => ({
       nodes: s.nodes.map((n) => {
         if (n.id !== restore.nodeId) return n
-        // Annotated, not inferred: `n.data`'s inferred type is narrow, so the
-        // spread's result would not admit a `provenance` key and the two writes
-        // below would be TS2339 under the gate's stricter project.
-        const data: Record<string, unknown> = {
-          ...(n.data as Record<string, unknown>),
-          label: restore.label,
-        }
-        // "Absent" and "present with value undefined" are different bytes and
-        // only one of them is what `provenance` means, so the key is DELETED
-        // rather than written as undefined when it was not there before.
-        if (restore.provenanceWasPresent) data.provenance = restore.provenance
-        else delete data.provenance
+        // BOTH fields — the label, and the provenance a goal rename stamped
+        // (`provenanceAfterHumanAuthoredLabel`) — through the ONE implementation
+        // of a rename's `restore` record. Restoring only the label would leave a
+        // REFUSED rename having permanently cleared the "From your brief" pill.
+        // The registration snapshot's rollback (`withQueuedRenamesRolledBack`)
+        // goes through the same function, so "put this rename back" cannot mean
+        // two different things on the two paths (#1893 review B1).
+        // "Absent" and "present with value undefined" are different bytes, so a
+        // provenance key that did not exist before the rename is DELETED rather
+        // than written as undefined — the helper owns that rule too.
+        const data = nodeDataWithRenameRestored(n.data, restore)
         return { ...n, data } as typeof n
       }),
     }))

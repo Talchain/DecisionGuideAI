@@ -95,7 +95,7 @@ export const DECISION_RECORD_COPY = {
     'Your date or trigger is kept as text in this record. No review date is set automatically.',
   identityPendingRevisitHelp: 'Enter a date or a trigger for revisiting this decision.',
   rationaleLabel: 'Concise rationale',
-  rationalePlaceholder: 'Why this is the best current choice',
+  rationalePlaceholder: 'Why you chose this option',
   assumptionLabel: 'Key assumption to watch',
   assumptionPlaceholder: 'The assumption most likely to change the choice',
   cancel: 'Cancel',

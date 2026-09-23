@@ -14,6 +14,7 @@ import { setCurrentScenarioId } from '../store/scenarios'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
 // and `./turnService` still exports it. `callOrchestratorTurn` / `streamOrchestratorTurn`
@@ -171,7 +172,10 @@ import {
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
 import { settleEdgeEdit } from './pendingEdgeEdit'
-import { settleStructuralDeleteAttempt } from './unconfirmedStructuralDelete'
+import {
+  settleStructuralDeleteAttempt,
+  settleUnconfirmedDeletesProvenByReceipt,
+} from './unconfirmedStructuralDelete'
 import {
   canvasBeforeOwnAppliedWrite,
   receiptProvesOwnEdgeEdit,
@@ -3013,6 +3017,35 @@ export function useConversation(): UseConversationReturn {
     })
   }, [])
 
+  // ⭐ RELOAD SHOWS THE SAVED MODEL — the lasting line. When the boot read took
+  // elements off the canvas because the saved model lacks them, the hydration
+  // path records a scenario-keyed notice (`reloadDifferenceStore`); this appends
+  // it as ONE synthetic assistant line for the decision on screen.
+  //
+  // ⚠ DECLARED AFTER the mount restore and the scenario-switch effect, and that
+  // order is load-bearing: both replace `messages` wholesale, and the mount
+  // restore refuses to run over a non-empty panel. Same-commit effects run in
+  // declaration order, so the restored transcript lands first and this line is
+  // appended after it (pinned by the ORDERING case in
+  // `useConversation.reloadDifference.spec.tsx`).
+  // ⚠ NEVER TWICE: `delivered` lives in the store, not in this instance, so a
+  // remount of the conversation host cannot append the same notice again.
+  const reloadDifferenceId = useReloadDifferenceStore((s) => s.id)
+  useEffect(() => {
+    if (!reloadDifferenceId || !scenarioId) return
+    const notice = useReloadDifferenceStore.getState()
+    if (notice.id !== reloadDifferenceId || notice.delivered) return
+    if (notice.scenarioId !== scenarioId) return
+    notice.markDelivered(reloadDifferenceId)
+    addMessage({
+      id: `reload-difference-${reloadDifferenceId}`,
+      role: 'assistant',
+      synthetic: true,
+      content: formatReloadDifferenceNotice(notice.removedLabels),
+      timestamp: new Date(),
+    })
+  }, [reloadDifferenceId, scenarioId, addMessage])
+
   /**
    * schemas 0.48.0 — resolve a `structural_delete` against what the SERVER did.
    *
@@ -5304,6 +5337,18 @@ export function useConversation(): UseConversationReturn {
                   afterReceipt.edges as never,
                 )
               }
+              // ⭐ ANY applied receipt can prove an unconfirmed delete (Panel's
+              // #1905 item 2). A delete that answered 500 may have committed,
+              // and until this only its OWN receipt was consulted — so the
+              // canvas could equal CEE's committed graph while analysis stayed
+              // held until reload. Same scenario (the fence above), overlap
+              // with the canvas this receipt was judged against, and ALL of a
+              // record's removals absent: see the module for each guard.
+              settleUnconfirmedDeletesProvenByReceipt({
+                scenarioId: scenarioIdAtDispatch,
+                response: target.response,
+                canvasNodeIds: canvasAtReceipt.nodes.map((n) => n.id),
+              })
               // The committed graph proved the link edit applied: its magnitude
               // is no longer unconfirmed, so `editDeliveryHold` signal 5 stands
               // down HERE — where the receipt is in hand — rather than waiting
@@ -5931,7 +5976,8 @@ export function useConversation(): UseConversationReturn {
         // Its twin `structural_delete` is deliberately NOT handled here: this
         // lane measured the value-edit path and only that one, and a delete's
         // honest copy is a different claim about a different optimistic write.
-        // Naming it rather than silently widening the fix.
+        // Naming it rather than silently widening the fix. (It is now settled by
+        // its carrier's every-exit settle, `useStructuralDeleteEvents`.)
         if (
           isAbort &&
           mode === 'system' &&

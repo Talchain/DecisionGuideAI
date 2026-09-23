@@ -45,13 +45,22 @@
  */
 
 /**
- * CEE's `BROWSER_PROXY_TIMEOUT_MS` default — the outermost deadline any turn
- * response must beat. Read from CEE `src/config/index.ts` (`.default(125_000)`)
- * at staging tip `0ecf5c67`, and restated here only because the two services
- * cannot share a constant. It exists so the floor below is a DERIVED
- * relationship (`> this`) rather than an unexplained literal.
+ * CEE's `BROWSER_PROXY_TIMEOUT_MS` AS DEPLOYED — the outermost deadline any turn
+ * response must beat. Restated here only because the two services cannot share
+ * a constant. It exists so the floor below is a DERIVED relationship (`> this`)
+ * rather than an unexplained literal.
+ *
+ * ⛔ THE DEPLOYED VALUE, NOT THE CODE DEFAULT (23 Sep 2026). CEE's
+ * `src/config/index.ts` defaults to 125_000, but cee-staging's environment sets
+ * BROWSER_PROXY_TIMEOUT_MS=170000 (ROUTE_TIMEOUT_MS=180000), read from the
+ * Render API by the OpenAI Connected PoC lane (#63 5797782532). First Agent
+ * builds measured 104.2 s and 124.4 s on served CEE `2aaf794`, so turns CAN
+ * finish between 130 s and 170 s — and a 130 s client wait discarded them
+ * after CEE had committed them. Waiting longer than a deployment needs costs
+ * only a later timeout on a genuinely dead request; waiting shorter loses a
+ * committed turn. So this tracks the LARGEST deployed deadline.
  */
-export const SERVER_TURN_DEADLINE_MS = 125_000
+export const SERVER_TURN_DEADLINE_MS = 170_000
 
 /**
  * The client's wait for every V5 turn.
@@ -60,7 +69,7 @@ export const SERVER_TURN_DEADLINE_MS = 125_000
  * in the tests asserts exactly that, over every argument combination the call
  * sites can produce, so the relationship cannot be broken by editing one number.
  */
-export const TURN_WAIT_MS = 130_000
+export const TURN_WAIT_MS = 175_000
 
 /**
  * @deprecated Retained so existing importers keep compiling. Equal to

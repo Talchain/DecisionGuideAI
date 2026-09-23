@@ -374,8 +374,12 @@ export interface CaptureStructuralRenameInput {
    * acknowledged"; `applyDraftResult.ts:288` — "a fresh draft IS an
    * authoritative CEE graph"; `mergeAppliedGraph.ts:601` — "the receipt is proof
    * that CEE has seen exactly these elements"; `mergeServerGraph.ts:445` — the
-   * same sentence as the cold load. The reconciler ALREADY uses this record to
-   * answer this class of question ("only removes elements CEE has previously
+   * same sentence as the cold load. (A fifth since #1903: a `registered`
+   * receipt in `useImportRegistration` — CEE "now holds exactly" the elements
+   * it registered, i.e. every node on the registered canvas, so a rename of
+   * any of them is sent rather than stood down as client-created.) The
+   * reconciler ALREADY uses this record to answer this class of question
+   * ("only removes elements CEE has previously
    * acknowledged"), so this is a second reader of one authority rather than a
    * second authority.
    *
@@ -739,6 +743,40 @@ export const STRUCTURAL_RENAME_NOTICE = {
 } as const
 
 export type StructuralRenameNoticeKey = keyof typeof STRUCTURAL_RENAME_NOTICE
+
+/**
+ * A node's `data` with a rename's `restore` record applied — the ONE
+ * implementation of "put this rename back", for both readers:
+ *   · `applyStructuralRenameRevert` (store) — a rename the server refused;
+ *   · `withQueuedRenamesRolledBack` (registration) — a rename still queued,
+ *     which a whole-graph registration must carry as CEE holds it.
+ *
+ * ⚠ RESTORES **TWO** FIELDS. `updateNodeLabel` also stamps
+ * `provenance: 'user_set'` on a GOAL (`provenanceAfterHumanAuthoredLabel`).
+ * Restoring only the label sends the AI's goal label under a human-authorship
+ * claim (#1893 review B1, CHANGES_REQUIRED @ 8b5a6f1e: a label-only rollback
+ * registered exactly that, and CEE stored it verbatim).
+ *
+ * ⚠ "Absent" and "present with value undefined" are different bytes, and only
+ * one of them is what `provenance` means, so a key that was not there before
+ * the rename is DELETED rather than written as undefined.
+ */
+export function nodeDataWithRenameRestored(
+  data: unknown,
+  restore: {
+    readonly label: string
+    readonly provenance?: unknown
+    readonly provenanceWasPresent: boolean
+  },
+): Record<string, unknown> {
+  const next: Record<string, unknown> = {
+    ...(data as Record<string, unknown> | undefined),
+    label: restore.label,
+  }
+  if (restore.provenanceWasPresent) next.provenance = restore.provenance
+  else delete next.provenance
+  return next
+}
 
 /** What a revert did — reported, never assumed. */
 export type StructuralRenameRevertOutcome =

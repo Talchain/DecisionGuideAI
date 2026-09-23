@@ -33,6 +33,11 @@
  *     synchronously with the optimistic write. A rename queued waiting for its
  *     base hash is the case that matters: registering its label would make the
  *     rename's own `expected_label` stale and get it refused.
+ *     ⚠ ONE EXCEPTION (#1893): a rename queued with NO base anywhere — none on
+ *     the intent, none in the store — cannot be delivered until a
+ *     registration's ack seeds one, so it does not hold (`sendableQueuedRenames`);
+ *     the registration carries it rolled back to its `expected_label`
+ *     (`withQueuedRenamesRolledBack`), so its label still never rides.
  *  4. the graph CARRIES a value the server has not confirmed — a node whose
  *     current value is still the one `pendingFactorEdit` records as sent and
  *     unanswered. That register is settled only by an applied receipt or a
@@ -81,6 +86,7 @@ import {
   subscribeUnconfirmedDeletes,
   unconfirmedDeleteStillOnCanvas,
 } from '../conversation/unconfirmedStructuralDelete'
+import { nodeDataWithRenameRestored } from '../mutations/structuralRename'
 
 /** Model-changing system_event turns currently on the wire. */
 let modelEditsOnTheWire = 0
@@ -121,7 +127,9 @@ export interface EditDeliveryState {
   readonly edges?: ReadonlyArray<{ id?: unknown; data?: unknown }>
   readonly pendingEmittedEdits?: number
   readonly pendingStructuralDeletes?: ReadonlyArray<unknown>
-  readonly pendingStructuralRenames?: ReadonlyArray<unknown>
+  readonly pendingStructuralRenames?: ReadonlyArray<{ readonly baseGraphHash?: string | null } | unknown>
+  /** The write base. A queued rename with no base of its own is sendable only once this exists. */
+  readonly lastServerGraphHash?: string | null
   readonly pendingStructuralAdds?: ReadonlyArray<unknown>
   readonly pendingStructuralAddEdges?: ReadonlyArray<unknown>
   /** Settled structural attempts. An `unconfirmed` one is an edit CEE has not answered for. */
@@ -143,6 +151,90 @@ function currentValue(data: unknown): unknown {
   const d = (data ?? {}) as Record<string, unknown>
   const obs = (d.observedState ?? d.observed_state) as Record<string, unknown> | undefined
   return obs?.value
+}
+
+/**
+ * Queued renames that CAN be sent — the ones that genuinely stand between the
+ * user and the server.
+ *
+ * ⛔ THE DEADLOCK THIS EXCLUDES (#1893 × #1892). A rename queued while NO write
+ * base exists waits for a base. On a scenario CEE has not acknowledged yet, the
+ * only thing that can produce that base is a registration's ack (#1893 seeds it
+ * from the read that follows). Holding registration for such a rename closes
+ * the loop: rename → base → ack → registration → rename. It is not "in
+ * delivery" — it cannot be delivered — so it does not hold. The registration
+ * that proceeds carries the rename ROLLED BACK (`withQueuedRenamesRolledBack`),
+ * so the side channel stays shut and the rename travels the edit protocol once
+ * the base arrives.
+ */
+function sendableQueuedRenames(state: EditDeliveryState): number {
+  const queued = state.pendingStructuralRenames ?? []
+  if (typeof state.lastServerGraphHash === 'string' && state.lastServerGraphHash.length > 0) {
+    return queued.length
+  }
+  return queued.filter((intent) => {
+    const base = (intent as { baseGraphHash?: unknown } | null)?.baseGraphHash
+    return typeof base === 'string' && base.length > 0
+  }).length
+}
+
+/**
+ * The graph a registration may send while renames are queued: each queued
+ * rename's node AS CEE HOLDS IT, never the unsent new state. The FIRST queued
+ * intent per node wins — its `restore` record is the node before any queued
+ * rename of it.
+ *
+ * ⛔ THE WHOLE RESTORE RECORD, NOT JUST THE LABEL (#1893 review B1,
+ * CHANGES_REQUIRED @ 8b5a6f1e). A goal rename also stamps
+ * `provenance: 'user_set'`, which the registration carries and the analytical
+ * digest hashes. A label-only rollback therefore (G1) registered the AI's goal
+ * label under a human-authorship claim, (G2) made an in-flight goal rename read
+ * as a superseded ack and stranded it, and (G3) sent a second registration
+ * mid-read. So the rollback applies the intent's own `restore` record through
+ * `nodeDataWithRenameRestored` — the same function a refused rename's revert
+ * uses, so the two cannot drift apart.
+ *
+ * An intent with no well-formed `restore` (unreachable from
+ * `captureStructuralRename`, which always writes one) still has its label
+ * rolled back to `expectedLabel`, and its provenance is left as it is.
+ */
+export function withQueuedRenamesRolledBack<N extends { id: string; data?: unknown }>(
+  nodes: ReadonlyArray<N>,
+  queued: ReadonlyArray<unknown> | undefined,
+): ReadonlyArray<N> {
+  if (!queued || queued.length === 0) return nodes
+  type Restore = Parameters<typeof nodeDataWithRenameRestored>[1]
+  const restoreOf = new Map<string, Restore | { readonly label: string }>()
+  for (const raw of queued) {
+    const intent = raw as {
+      nodeId?: unknown
+      expectedLabel?: unknown
+      restore?: { label?: unknown; provenance?: unknown; provenanceWasPresent?: unknown }
+    } | null
+    if (typeof intent?.nodeId !== 'string' || typeof intent.expectedLabel !== 'string') continue
+    if (restoreOf.has(intent.nodeId)) continue
+    const r = intent.restore
+    restoreOf.set(
+      intent.nodeId,
+      r && typeof r.label === 'string' && typeof r.provenanceWasPresent === 'boolean'
+        ? {
+            label: r.label,
+            provenanceWasPresent: r.provenanceWasPresent,
+            ...(r.provenanceWasPresent ? { provenance: r.provenance } : {}),
+          }
+        : { label: intent.expectedLabel },
+    )
+  }
+  if (restoreOf.size === 0) return nodes
+  return nodes.map((n) => {
+    const r = restoreOf.get(n.id)
+    if (!r) return n
+    const data =
+      'provenanceWasPresent' in r
+        ? nodeDataWithRenameRestored(n.data, r)
+        : { ...(n.data as Record<string, unknown>), label: r.label }
+    return { ...n, data } as N
+  })
 }
 
 /**
@@ -238,7 +330,7 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
   if ((state.pendingEmittedEdits ?? 0) > 0) return 'edit_queued'
   if (
     (state.pendingStructuralDeletes?.length ?? 0) > 0 ||
-    (state.pendingStructuralRenames?.length ?? 0) > 0 ||
+    sendableQueuedRenames(state) > 0 ||
     (state.pendingStructuralAdds?.length ?? 0) > 0 ||
     (state.pendingStructuralAddEdges?.length ?? 0) > 0
   ) {

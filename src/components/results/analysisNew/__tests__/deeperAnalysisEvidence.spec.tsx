@@ -86,7 +86,7 @@ const renderStrips = (data: ReturnType<typeof makeData>, over: Record<string, un
   return render(
     <>
       <CritiqueWarningStrip critiques={d.critiques} />
-      <InferenceWarningStrip warnings={d.caveats} />
+      <InferenceWarningStrip heldBackListedUnder="The listing section" warnings={d.caveats} />
     </>,
   )
 }

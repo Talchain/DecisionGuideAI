@@ -94,15 +94,15 @@ describe('useResultsSectionData — the fragile-edge sentence and its subject', 
     expect(rows).toHaveLength(1)
     // The long form, with the subject quoted inside it.
     expect(rows[0].displayText).toBe(
-      'If "Pro Plan Monthly Price → Monthly Recurring Revenue" changes significantly, "Hold Price" could become the better choice',
+      'If "Pro Plan Monthly Price → Monthly Recurring Revenue" changes significantly, "Hold Price" could lead in this model',
     )
     // The short form, for a consumer that has the subject on screen already.
     expect(rows[0].messageWithSubjectNamedAbove).toBe(
-      'If this changes significantly, "Hold Price" could become the better choice',
+      'If this changes significantly, "Hold Price" could lead in this model',
     )
     // ⛔ ONE TEMPLATE. Everything after the subject is byte-identical, so the
     // two cannot drift into saying different things about the same edge.
-    const tail = 'changes significantly, "Hold Price" could become the better choice'
+    const tail = 'changes significantly, "Hold Price" could lead in this model'
     expect(rows[0].displayText?.endsWith(tail)).toBe(true)
     expect(rows[0].messageWithSubjectNamedAbove?.endsWith(tail)).toBe(true)
   })

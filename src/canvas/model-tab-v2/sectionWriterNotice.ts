@@ -26,10 +26,24 @@
  * sits inside a `<fieldset disabled>`. Two separate investigations chased those
  * as unrelated dead ends; they are the same fact.
  *
- * So there is no writer for an option intervention anywhere in the product
+ * ~~So there is no writer for an option intervention anywhere in the product
  * except a typed sentence to Olumi. **A control here would be a surface with no
- * writer** — the thing the standing direction forbids. The honest repair is for
- * the section to say so and point at what does work.
+ * writer** — the thing the standing direction forbids.~~ The honest repair WAS
+ * for the section to say so and point at what does work.
+ *
+ * ⭐⭐ CORRECTED 23 Sep 2026 — THE STRUCK SENTENCE IS NOW FALSE, AND IT WAS
+ * WHAT SENT A USER BACK TO CHAT. Paul added "Reduce Feature Scope", gave its
+ * size four times in chat, and it was never analysed: it had no effect values,
+ * and this section told him they "cannot be set from this section". There IS a
+ * writer: the option's detail region renders a direct input for every factor
+ * the option is LINKED to and does not yet change, and Save sends
+ * `option_intervention_edit` — which CEE's `prepareOptionInterventionEdit`
+ * (`option-intervention-edit.ts`) accepts for an option with no existing
+ * intervention on a factor `linkedFactorsOf` names.
+ *
+ * So the notice now fires ONLY for an option linked to NO factor — the one case
+ * this surface still cannot resolve, because CEE refuses an effect on a factor
+ * the option is not linked to — and it says what unblocks it: link it first.
  *
  * ⚠ IT DOES NOT REUSE `SHARED_MODEL_AUTHORITY_COPY`, AND THAT IS DELIBERATE.
  * That constant reads *"Change this through the Model tab or ask Olumi…"* —
@@ -72,42 +86,63 @@ export function SECTION_WRITER_NOTICE_TESTID(group: ModelGroupId): string {
  * the authority key says. The stated trigger fired and the guard did not move.
  *
  * ⭐ WHAT WOULD ACTUALLY RETIRE IT, stated so the next lane does not inherit the
- * wrong condition: something on this surface that can ADD an intervention. The
- * detail region's editor changes the MAGNITUDE of an EXISTING one — it renders
- * behind `interventions.length > 0` — and a `missing-intervention` row has none
- * by definition. So the notice's SENTENCE remains true; only its account of its
- * own ending was wrong.
+ * wrong condition: something on this surface that can ADD an intervention.
+ * ~~The detail region's editor changes the MAGNITUDE of an EXISTING one — it
+ * renders behind `interventions.length > 0` — and a `missing-intervention` row
+ * has none by definition. So the notice's SENTENCE remains true; only its
+ * account of its own ending was wrong.~~
+ *
+ * ⭐ THAT CONDITION IS MET (23 Sep 2026), and the notice retires by it — PER
+ * ROW, on the input, NOT on `editConnectedIds` (which still has no option
+ * branch). The second argument is the set of options whose detail region
+ * renders a first-value input — `optionIdsWithValueInputs`, the same
+ * `buildOptionInterventionCandidates` projection the inputs render from — so
+ * the notice and the input cannot disagree about which options are settable.
  *
  * `__tests__/theNoticeCannotSelfRetire.spec.ts` derives the authority value at
- * run time and REDs if this prose contradicts the table again — the check the
- * promise never had, which is why it could rot unobserved.
+ * run time and REDs if this prose contradicts the table again, and pins the
+ * retirement AND its limit (an option linked to nothing still gets a notice).
  *
- * `undefined` means "this host connects everything" — the same convention
- * `ModelOutline` already applies at the row cell, so a host without the concept
- * behaves exactly as it does today.
+ * `undefined` means "this host has no concept of it" — nothing is named, so a
+ * host that renders the outline without the set shows no notice at all rather
+ * than one that may be false.
  */
 export function rowsThisSectionCannotResolve(
   rows: readonly ModelRow[],
-  editConnectedIds: ReadonlySet<string> | undefined,
+  optionIdsWithValueInputs: ReadonlySet<string> | undefined,
 ): readonly string[] {
-  if (editConnectedIds === undefined) return []
+  if (optionIdsWithValueInputs === undefined) return []
   return rows
     .filter(
       r =>
-        r.attention.includes('missing-intervention') && !editConnectedIds.has(r.id),
+        r.attention.includes('missing-intervention') &&
+        !optionIdsWithValueInputs.has(r.id) &&
+        // ⛔ NEVER THE BASELINE. It has no first-value input by design (CEE
+        // holds it with no effect values), so without this conjunct a LINKED
+        // baseline would be named as "not linked to" a factor — and an
+        // unlinked one told to link itself so it can be given an effect.
+        r.isBaseline !== true,
     )
     .map(r => r.id)
 }
 
 /**
- * The sentence. It states the blocker, admits this section cannot clear it, and
- * names the affordance ALREADY on screen — quoting the action's own label
- * rather than a re-typed copy, so a rename cannot leave the notice pointing at
- * a control the user can no longer find (trap 12).
+ * The sentence. It states the blocker, says what unblocks it — a LINK to a
+ * factor, the precondition CEE's writer checks — and names the affordance
+ * ALREADY on screen, quoting the action's own label rather than a re-typed
+ * copy, so a rename cannot leave the notice pointing at a control the user can
+ * no longer find (trap 12).
+ *
+ * ⛔ IT NO LONGER SAYS THE VALUE "cannot be set from this section". Once the
+ * option is linked, it can — the input appears in its detail. A sentence that
+ * outlived its truth is what sent a user to chat four times.
  */
 export function sectionWriterNoticeText(count: number, discussLabel: string): string {
-  const subject = count === 1 ? 'One of these has' : `${count} of these have`
-  return `${subject} no effect on any factor yet, and that cannot be set from this section. Use "${discussLabel}" below.`
+  const [subject, object] =
+    count === 1
+      ? ['One of these changes no factor and is not linked to one.', 'it']
+      : [`${count} of these change no factor and are not linked to one.`, 'them']
+  return `${subject} Link ${object} to a factor first (ask Olumi, or add a link) — "${discussLabel}" is below.`
 }
 
 /** The `discuss` action for a group, or `null` when it has none. */

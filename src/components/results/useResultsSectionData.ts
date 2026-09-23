@@ -3654,7 +3654,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
        * other, because there is only one sentence here.
        */
       const fragileEdgeSentence = (subject: string) =>
-        `If ${subject} changes significantly, "${alternativeWinnerLabel}" could become the better choice`
+        `If ${subject} changes significantly, "${alternativeWinnerLabel}" could lead in this model`
       const friendlyMessage = fe.description || fragileEdgeSentence(`"${edgeLabel}"`)
 
       // UI-SEM-012: PLoT-classified severity (B1+), carried VERBATIM or

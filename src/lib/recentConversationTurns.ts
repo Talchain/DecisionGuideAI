@@ -409,6 +409,19 @@ function readRefusalCode(p: ConversationTurnSourcePayload): string | null {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
   const blocks = (body as Record<string, unknown>).blocks
   if (!Array.isArray(blocks)) return null
+  // ⭐ A LIVE HOLD IS NEVER A REFUSAL, WHATEVER SHIPS BESIDE IT. CEE ships a
+  // held structural edit as `[error, held_proposal]` — the redacted public
+  // reason (`source: 'graph_management'`, `verdict: 'held'`, no
+  // `rejection_code`) LEADS the card — so the loop below logged every routine
+  // confirmation hold as `refused / INTERNAL_ERROR` (Paul's 23 Sep run, #63
+  // 5794675550). Mirrors CEE's own `classifyUserVisibleRefusal`: presence of a
+  // `held_proposal` block, independent of order, means "not a refusal".
+  const carriesLiveHold = blocks.some(
+    (raw) =>
+      !!raw && typeof raw === 'object' && !Array.isArray(raw)
+      && (raw as Record<string, unknown>).type === 'held_proposal',
+  )
+  if (carriesLiveHold) return null
   for (const raw of blocks) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue
     const block = raw as Record<string, unknown>

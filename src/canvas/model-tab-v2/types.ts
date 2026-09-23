@@ -321,6 +321,17 @@ export interface ModelRow {
    */
   declaresNoRange?: boolean
   /**
+   * ⭐ THIS OPTION IS THE BASELINE — `is_baseline === true` on the node, read
+   * strictly, as CEE's run gate reads it (`analysable-option-gate.ts`
+   * `isBaselineOption`). Present only on such option rows.
+   *
+   * CEE holds a baseline with no effect values as READY ("every factor holds at
+   * its observed value, so no effect values are needed", `option-status.ts`),
+   * so no surface here may ask it for one: its detail offers no first-value
+   * input, and the section notice never tells it to link itself to a factor.
+   */
+  isBaseline?: true
+  /**
    * Present when a human has explicitly chosen to leave this row unresolved.
    *
    * ⚠ THIS SITS BESIDE `attention`, IT NEVER CLEARS IT. The two answer different
@@ -430,6 +441,32 @@ export interface DetailField {
 export interface OptionInterventionCandidate {
   factorId: string
   factorLabel: string
+  /**
+   * ⭐ THE FACTOR'S CURRENT VALUE, FOR REFERENCE — the SAME string the factor's
+   * own outline row shows as its value (`factorValue`, raw value with its unit).
+   * `null` when that row shows none. It is shown beside the input so the reader
+   * answers "what does this option change it TO?" knowing where it stands now.
+   *
+   * ⚠ REFERENCE ONLY, NEVER A SEED. The input opens empty (see the picker's
+   * original ruling in `ModelDetailRegion`): seeding it with the baseline would
+   * put a number on screen nobody stated.
+   */
+  factorValue: string | null
+  /**
+   * Olumi's display text for the factor, present ONLY when `factorValue` is
+   * null — the same condition `ModelRow.estimateText` uses, so a supplied value
+   * is never shown beside an estimate that contradicts it. Labelled as Olumi's
+   * where it renders.
+   */
+  factorEstimate: string | null
+  /**
+   * The factor's current value ON THE SCALE THE INPUT TAKES — the normalised
+   * `observedState.value`, only when it is a finite number in [0, 1]. The
+   * effect input follows the existing option editor's 0–1 model scale
+   * (`buildOptionInterventionEditEvent` refuses outside it), so this is the
+   * number the reader can compare their answer against. `null` otherwise.
+   */
+  factorModelValue: number | null
 }
 
 export interface OptionInterventionField {

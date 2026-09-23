@@ -1,4 +1,4 @@
- import { describe, it, expect, beforeEach, vi } from 'vitest'
+ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
@@ -79,6 +79,28 @@ vi.mock('../../../flags', async (importOriginal) => {
     // panel; the v3 panel has its own suite under pre-analysis-v3/__tests__.
     isPreAnalysisV3Enabled: vi.fn(() => false),
   }
+})
+
+// The Model tab badge now counts only what the Model tab can CONFIRM, which is
+// gated on `CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation`. `null` = the REAL
+// table (transparent for every other case in this file); a badge case that is
+// about the value shapes rather than the gate sets it to `'server_graph'`.
+// Same getter pattern as `canvas/__tests__/undoGestureAnswered.spec.ts`.
+const factorConfirmationAuthority = vi.hoisted(() => ({ current: null as string | null }))
+vi.mock('../../mutations/mutationAuthority', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../mutations/mutationAuthority')>()
+  return {
+    ...actual,
+    get CANONICAL_EDIT_AUTHORITY() {
+      return factorConfirmationAuthority.current === null
+        ? actual.CANONICAL_EDIT_AUTHORITY
+        : { ...actual.CANONICAL_EDIT_AUTHORITY, modelFactorConfirmation: factorConfirmationAuthority.current }
+    },
+  }
+})
+
+afterEach(() => {
+  factorConfirmationAuthority.current = null
 })
 
 function ensureMatchMedia() {
@@ -192,6 +214,7 @@ function resetDockEnvironment() {
   })
   mockIsOrchestratorV2Enabled.mockReturnValue(false)
   mockIsLegacyDirectRunEnabled.mockReturnValue(true)
+  factorConfirmationAuthority.current = null
 }
 
 describe('OutputsDock DOM', () => {
@@ -244,6 +267,9 @@ describe('OutputsDock DOM', () => {
   })
 
   it('shows Model tab verify badge when factors need verification', () => {
+    // Precondition stated: a Model tab that CAN confirm. Under the deployed
+    // table it cannot, and the badge is withheld — see the ⛔ cases below.
+    factorConfirmationAuthority.current = 'server_graph'
     useCanvasStore.setState({
       nodes: [
         { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
@@ -274,6 +300,8 @@ describe('OutputsDock DOM', () => {
      * authority declines. `f1` here is in the `no-value` repair queue instead,
      * which is the repair it actually needs.
      */
+    // Connected, so the ABSENCE below is the value guard's, not the authority's.
+    factorConfirmationAuthority.current = 'server_graph'
     useCanvasStore.setState({
       nodes: [
         { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
@@ -291,6 +319,7 @@ describe('OutputsDock DOM', () => {
      * the write authority accepts it, so the badge must count it and the Confirm
      * must be offered. Bound to the count, not merely to the badge's presence.
      */
+    factorConfirmationAuthority.current = 'server_graph'
     useCanvasStore.setState({
       nodes: [
         { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
@@ -302,12 +331,63 @@ describe('OutputsDock DOM', () => {
   })
 
   it('hides Model tab verify badge when no factors need verification', () => {
+    factorConfirmationAuthority.current = 'server_graph'
     useCanvasStore.setState({
       nodes: [
         { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { source: 'user' } } },
       ],
     } as any)
     renderOutputsDock()
+    expect(screen.queryByTestId('model-tab-verify-badge')).not.toBeInTheDocument()
+  })
+
+  it('⛔ under the DEPLOYED authority table the badge is WITHHELD — the Model tab cannot confirm', () => {
+    /*
+     * Measured on deployed `db758d83`: this badge invited "verify" for factors
+     * the Model tab has no way to confirm. `modelFactorConfirmation` is
+     * `'disabled'`, so the v2 panel mounts no Confirm chip, no "N to verify"
+     * chip and no confirm queue. A count of an act the product cannot take is a
+     * false claim on the panel.
+     */
+    expect(factorConfirmationAuthority.current).toBeNull() // the REAL table
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { value: 0.4, raw_value: 40, source: 'cee_inference' } } },
+        { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'B', observedState: { value: 0.7, source: 'cee_inference' } } },
+      ],
+    } as any)
+    renderOutputsDock()
+    // The tab the badge sits on IS rendered — so the absence is the badge's.
+    const tabNav = screen.getByRole('navigation', { name: 'Outputs sections' })
+    const modelTab = within(tabNav).getAllByRole('tab').find(t => t.textContent?.startsWith('Model'))
+    expect(modelTab).toBeDefined()
+    expect(screen.queryByTestId('model-tab-verify-badge')).not.toBeInTheDocument()
+  })
+
+  it('⛔ giving a valueless factor a number does NOT raise the badge (the measured 4 → 5)', () => {
+    expect(factorConfirmationAuthority.current).toBeNull() // the REAL table
+    const estimate = (id: string) => ({
+      id, type: 'factor', position: { x: 0, y: 0 },
+      data: { label: id, observedState: { value: 0.4, raw_value: 40, source: 'cee_inference' } },
+    })
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+        estimate('e1'), estimate('e2'), estimate('e3'), estimate('e4'),
+        { id: 'arr', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Current ARR', observedState: {} } },
+      ],
+    } as any)
+    renderOutputsDock()
+    expect(screen.queryByTestId('model-tab-verify-badge')).not.toBeInTheDocument()
+    // The value edit's optimistic write: a number lands, the stamp waits on the receipt.
+    act(() => {
+      useCanvasStore.setState({
+        nodes: useCanvasStore.getState().nodes.map(n =>
+          n.id === 'arr' ? { ...n, data: { ...(n.data as object), observedState: { value: 0.6, raw_value: 0.6 } } } : n,
+        ),
+      } as any)
+    })
     expect(screen.queryByTestId('model-tab-verify-badge')).not.toBeInTheDocument()
   })
 

@@ -85,6 +85,13 @@ export interface ModelOutlineProps {
    * are unchanged (back-compatible with render-only callers).
    */
   editConnectedIds?: ReadonlySet<string>
+  /**
+   * The options whose detail region renders a first-value input — linked to at
+   * least one factor they do not yet change (`optionIdsWithValueInputs`).
+   * Read ONLY by the section notice, which retires per row on it. Absent means
+   * the host has no concept of it, and the notice says nothing.
+   */
+  optionIdsWithValueInputs?: ReadonlySet<string>
   onBeginEdit?: (id: string) => void
   onDraftChange?: (id: string, draft: string, unit?: string) => void
   onProposeEdit?: (id: string) => void
@@ -318,19 +325,22 @@ export function outlineLayout(
  * ⚠ SILENT BY DEFAULT, on the same reasoning as the unknown summary above: a
  * notice that always renders is chrome, and chrome states nothing about the
  * data. This appears only where there is genuinely a blocked row with no
- * writer, and RETIRES ITSELF the moment one is connected — the predicate reads
- * the same `editConnectedIds` the row's value cell reads, so the notice cannot
- * outlive its cause or disagree with the control beside it.
+ * writer, and RETIRES PER ROW the moment that row has one — the predicate reads
+ * the same projection the detail region's first-value inputs render from
+ * (`optionIdsWithValueInputs`), so the notice cannot outlive its cause or
+ * disagree with the control it would otherwise deny. ~~reads the same
+ * `editConnectedIds` the row's value cell reads~~ — it did, and options never
+ * enter that set, so it could never retire (`theNoticeCannotSelfRetire.spec`).
  */
 function SectionWriterNotice({
   group,
   rows,
-  editConnectedIds,
+  optionIdsWithValueInputs,
   actionsWillRender,
 }: {
   group: ModelGroupId
   rows: readonly ModelRow[]
-  editConnectedIds?: ReadonlySet<string>
+  optionIdsWithValueInputs?: ReadonlySet<string>
   /**
    * ⚠ WHETHER THE ACTION ROW ACTUALLY RENDERS — not whether an action is
    * DEFINED. `ModelGroupActions` returns `null` when it has no `onAction`, so a
@@ -345,7 +355,7 @@ function SectionWriterNotice({
    */
   actionsWillRender: boolean
 }) {
-  const blocked = rowsThisSectionCannotResolve(rows, editConnectedIds)
+  const blocked = rowsThisSectionCannotResolve(rows, optionIdsWithValueInputs)
   const discuss = discussActionFor(GROUP_ACTIONS[group])
   // No blocked row, no affordance defined, or no affordance on screen: say
   // nothing. A notice pointing at an absent control is worse than silence.
@@ -516,6 +526,7 @@ export function ModelOutline({
   openGroupRequest,
   commitByRowId,
   editConnectedIds,
+  optionIdsWithValueInputs,
   onBeginEdit,
   onDraftChange,
   onProposeEdit,
@@ -1270,13 +1281,14 @@ export function ModelOutline({
                 Rendered immediately ABOVE the actions, so the sentence and the
                 control it names are in one glance — a notice that points at a
                 button the user has to go and find is a notice that arrives too
-                late. See `sectionWriterNotice.ts` for why this is a notice and
-                not an edit control: there is no writer to give it.
+                late. See `sectionWriterNotice.ts`: since 23 Sep 2026 it speaks
+                only for an option linked to NO factor — a linked option's
+                first value has a direct input in its detail.
               */}
               <SectionWriterNotice
                 group={group.id}
                 rows={group.rows}
-                editConnectedIds={editConnectedIds}
+                optionIdsWithValueInputs={optionIdsWithValueInputs}
                 actionsWillRender={typeof onGroupAction === 'function'}
               />
               {/*

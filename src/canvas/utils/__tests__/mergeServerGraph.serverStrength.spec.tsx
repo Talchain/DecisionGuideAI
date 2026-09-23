@@ -28,6 +28,15 @@ const NODES = [
   { id: TO, kind: 'goal', label: 'Delivery' },
 ]
 
+// ⚠ FIXTURE UPDATED 23 Sep 2026 (reload shows the saved model): the unrelated
+// canvas edge `OTHER` is now also in every server graph below. It used to be
+// omitted, which was harmless while boot never removed anything; under the new
+// rule an edge the saved model lacks is TAKEN OFF (a model change), so omitting
+// it would turn "an unrelated edge is left untouched" and "acquisition is not an
+// edit" into measurements of a removal instead.
+const OTHER_WIRE = { from: 'other-factor', to: TO }
+const serverGraph = (...edges: Array<Record<string, unknown>>) => ({ nodes: NODES, edges: [...edges, OTHER_WIRE] })
+
 // Exact tuple/endpoints extracted from the saved 2026-09-06 C8-restored-server-graph
 // scenario_graph.v1 response (request 1e72ae7a-aeb9-42aa-bdef-a70e47382bf7).
 // This is not claimed to be Panel's later 33-edge capture.
@@ -88,7 +97,7 @@ describe('boot hydration records a valid server tuple even when visible values a
     expect(currentEdge()).toBe(before)
 
     act(() => {
-      expect(mergeServerGraphOnHydrate({ nodes: NODES, edges: [wire] }).accepted).toBe(true)
+      expect(mergeServerGraphOnHydrate(serverGraph(wire)).accepted).toBe(true)
     })
     expect(serverStatedStrengthOf(currentEdge().data)).toEqual(expected)
     expect(edgeStrengthEditIsAssertable(currentEdge())).toBe(true)
@@ -101,7 +110,7 @@ describe('boot hydration records a valid server tuple even when visible values a
 
     const hydrated = useCanvasStore.getState().edges
     act(() => {
-      const repeat = mergeServerGraphOnHydrate({ nodes: NODES, edges: [wire] })
+      const repeat = mergeServerGraphOnHydrate(serverGraph(wire))
       expect(repeat.updatedEdgeCount).toBe(0)
     })
     expect(useCanvasStore.getState().edges).toBe(hydrated)
@@ -131,7 +140,7 @@ describe('unknown or invalid wire values do not manufacture first-edit authority
   ] as const)('%s remains unassertable after hydrate', (_name, fields) => {
     const { wire, mapped } = seedMatchingValues(fields)
     expect(mapped.data.serverStrength).toBeUndefined()
-    act(() => { mergeServerGraphOnHydrate({ nodes: NODES, edges: [wire] }) })
+    act(() => { mergeServerGraphOnHydrate(serverGraph(wire)) })
     expect(serverStatedStrengthOf(currentEdge().data)).toBeNull()
     const before = currentEdge()
     const { result } = renderHook(() => useModelEditAuthority(null, EDGE))
@@ -143,7 +152,12 @@ describe('unknown or invalid wire values do not manufacture first-edit authority
   })
 })
 
-describe('receipt overlay retains its separate no-op policy', () => {
+// ⛔ RETITLED 23 Sep (Codex 5798417040, #1913) from "receipt overlay retains its
+// separate no-op policy". The receipt caller now passes
+// `acquireServerStrengthOnNoop` too, so these cases pin the option-less
+// PRIMITIVE only; the receipt's acquisition is witnessed in
+// `mergeAppliedGraph.receiptServerStrength.spec.ts`.
+describe('option-less overlayEdge primitive keeps a strict metadata no-op', () => {
   it('does not add server authority when only metadata would change', () => {
     const { wire } = seedMatchingValues({ strength_mean: 0.5, effect_direction: 'positive' })
     const before = currentEdge()
@@ -187,7 +201,7 @@ describe('authority acquisition is not an analytical edit', () => {
     const { wire } = seedCurrentAnalysis()
     const history = useCanvasStore.getState().history
     const beforeData = currentEdge().data
-    const result = mergeServerGraphOnHydrate({ nodes: NODES, edges: [wire] })
+    const result = mergeServerGraphOnHydrate(serverGraph(wire))
     expect(result.accepted).toBe(true)
     expect(result.changed, 'the authority record is actually stored').toBe(true)
     expect(serverStatedStrengthOf(currentEdge().data)).toEqual({ mean: 0.5, effect_direction: 'positive' })
@@ -203,7 +217,7 @@ describe('authority acquisition is not an analytical edit', () => {
 
   it('still invalidates, snapshots and pulses a genuine edge-value overwrite', () => {
     const { wire } = seedCurrentAnalysis()
-    const result = mergeServerGraphOnHydrate({ nodes: NODES, edges: [{ ...wire, strength_mean: 0.7 }] })
+    const result = mergeServerGraphOnHydrate(serverGraph({ ...wire, strength_mean: 0.7 }))
     expect(result.updatedEdgeCount).toBe(1)
     expect(currentEdge().data?.weight).toBe(0.7)
     expect(useCanvasStore.getState().history.past).toHaveLength(1)
@@ -218,7 +232,7 @@ describe('authority acquisition is not an analytical edit', () => {
     const { wire } = seedCurrentAnalysis()
     const history = useCanvasStore.getState().history
     const result = mergeServerGraphOnHydrate({
-      nodes: [...NODES, { id: 'new-factor', kind: 'factor', label: 'New factor' }], edges: [wire],
+      nodes: [...NODES, { id: 'new-factor', kind: 'factor', label: 'New factor' }], edges: [wire, OTHER_WIRE],
     })
     expect(result.addedNodeCount).toBe(1)
     expect(useCanvasStore.getState().nodes.some(node => node.id === 'new-factor')).toBe(true)

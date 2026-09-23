@@ -27,7 +27,7 @@ import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
-import { AdvancedSection, RiskAppetiteFilter, LENS_ARM, type RiskAppetite } from './AdvancedSection'
+import { ADVANCED_SECTION_TITLE, AdvancedSection, RiskAppetiteFilter, LENS_ARM, type RiskAppetite } from './AdvancedSection'
 import { selectLensOption } from './utils/selectLensOption'
 import { LENS_COPY, deriveComparisonScope, runHasGoalNumbers } from './utils/goalAnchorCopy'
 import { StressTestSection } from './StressTestSection'
@@ -427,7 +427,11 @@ export const ResultsBody = memo(function ResultsBody({
           and never renders the raw producer `message`; see
           InferenceWarningStrip.tsx:11-17,70). Info-severity stays hidden;
           renders nothing when no warning-severity entries exist. */}
-      <InferenceWarningStrip warnings={resultsSectionData.confidence.inferenceWarnings} />
+      <InferenceWarningStrip
+        warnings={resultsSectionData.confidence.inferenceWarnings}
+        // The held-back entries render in AdvancedSection's complement list.
+        heldBackListedUnder={ADVANCED_SECTION_TITLE}
+      />
 
       {/* Lane 3 Car 1 residual (ROADMAP 2.358 closure): WARNING-severity
           engine critiques — the rows #585's mapper leg lands in

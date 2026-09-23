@@ -102,6 +102,8 @@ vi.mock('../../../lib/supabase', async (importOriginal) => ({
 }))
 
 import { useImportRegistration } from '../useImportRegistration'
+import { __resetBootGraphReadForTest } from '../../hydrate/bootGraphRead'
+import { recordSettledBootRead } from './__helpers__/settledBootRead'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -120,11 +122,13 @@ beforeEach(() => {
   isV5CanonicalRunPathMock.mockReturnValue(true)
   clearImportRegistrationMarkers()
   __resetPersistenceSessionForTests()
+  __resetBootGraphReadForTest()
   useCanvasStore.setState({
     nodes: [] as never,
     edges: [] as never,
     currentScenarioId: null,
     importPendingServerRegistration: false,
+    lastAuthoritativeGraph: null,
   })
 })
 
@@ -649,6 +653,10 @@ describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
     })
     expect(registerSpy).toHaveBeenCalledTimes(1)
     expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    // PRODUCTION'S CONFIGURATION: the boot read of this scenario has answered —
+    // CEE holds the starter it just acknowledged (#1903: the re-arm waits
+    // while no read is recorded).
+    recordSettledBootRead(SCENARIO, STARTER_NODES, [])
 
     // The user sets a factor value. Nothing structural moves.
     const edited = [
@@ -781,6 +789,7 @@ describe('seam 5 — the side-channel waits for the canonical edit that re-armed
       expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
     })
     expect(registerSpy).toHaveBeenCalledTimes(1)
+    recordSettledBootRead(SCENARIO, STARTER_NODES, []) // see seam 4
 
     // The Model tab's own order: the local write, then the edit is admitted in
     // flight in the same tick (`sendTurn` marks it before its first await), so

@@ -51,7 +51,7 @@ import { DetailToggleContext } from './model-tab/DetailToggleContext'
 import { ModelFooter } from './model-tab/ModelFooter'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
-import { countFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
+import { modelTabFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
 // The Model Editor v2 (16 Aug 2026 mount train). Mounted ON, no flag: the
 // no-dark-launches rule. Its factor-value edits ride the SAME canonical
@@ -412,6 +412,29 @@ export const ModelTabBody = memo(function ModelTabBody({
     useUIStore.getState().requestModelTabSection(null)
   }, [pendingSection])
 
+  /**
+   * ⭐ ONE LEVEL BELOW THE SECTION — the option whose first empty effect-value
+   * input should be focused (`canvas/utils/openOptionValueInput.ts`, called by
+   * the canvas "Not in this analysis" pill).
+   *
+   * Same shape as `pendingSection` above, for the same reason: the store field
+   * is cleared once acted on, so the request is HELD here with a locally minted
+   * `seq` and handed to the panel, which acts once per `seq`. Asking twice for
+   * the same option therefore acts twice; a re-render never replays one.
+   */
+  const pendingOptionValueInput = useUIStore(s => s.pendingOptionValueInput)
+  const [openOptionValueRequest, setOpenOptionValueRequest] = useState<
+    { optionId: string; seq: number } | null
+  >(null)
+  useEffect(() => {
+    if (!pendingOptionValueInput) return
+    setOpenOptionValueRequest(prev => ({
+      optionId: pendingOptionValueInput,
+      seq: (prev?.seq ?? 0) + 1,
+    }))
+    useUIStore.getState().requestOptionValueInput(null)
+  }, [pendingOptionValueInput])
+
   // F9 (UI brief 2026-07-16 item 3): run-state coverage. One trust surface:
   // the composed useAnalysisTrust answer drives the in-flight treatment.
   const trust = useAnalysisTrust()
@@ -601,7 +624,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     return map
   }, [fragileLookup])
 
-  const factorsToVerify = useMemo(() => countFactorsToVerify(grouped.factor), [grouped.factor])
+  const factorsToVerify = useMemo(() => modelTabFactorsToVerify(grouped.factor).length, [grouped.factor])
 
   // ── Factor sort: needs-attention first, then alpha ─────────────────────────
 
@@ -820,6 +843,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         expertMode={expertMode ?? false}
         onToggleExpert={onToggleExpert}
         onRenameRow={updateNodeLabel}
+        openOptionValueRequest={openOptionValueRequest}
       />
 
       {/* ── The model's constraints, READ-ONLY ───────────────────────────────

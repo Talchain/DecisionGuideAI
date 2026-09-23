@@ -49,7 +49,7 @@ export interface ModelImplicationProps {
    * ⚠ WHETHER ANOTHER SURFACE IS ALREADY ASKING FOR THE SUCCESS TARGET.
    *
    * The `needs_target` reading closes with "Set a success target and the same
-   * run also answers which option is most likely to hit it" — an ASK. The model
+   * run also shows which option is most likely to hit it…" — an ASK. The model
    * strip asks for the same thing, and `successTargetAskedOnce.spec.tsx` exists
    * because this panel once put one fact on screen four times, three of them
    * here. Mounting this block created a new claimant that neither ask-once

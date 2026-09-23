@@ -145,6 +145,7 @@ import {
   toRowDetail,
   nodeKind,
   resolveEdgeStrengthEditSeed,
+  optionIdsWithValueInputs,
   type ModelProjectionInput,
 } from './adapters'
 import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
@@ -288,6 +289,18 @@ export interface ModelTabV2PanelProps {
    * row renders NO rename affordance at all, instead of one that writes nowhere.
    */
   onRenameRow?: (id: string, nextLabel: string) => void
+  /**
+   * ⭐ A REQUEST TO OPEN ONE OPTION'S FIRST-VALUE INPUT — `openOptionValueInput`
+   * (`canvas/utils/openOptionValueInput.ts`), consumed by the mount host and
+   * handed down here. `seq` is minted by the host per request, so asking twice
+   * for the same option acts twice.
+   *
+   * Arrives as a prop for the reason every live-app seam does: this directory
+   * may not read a store (`modelTabV2Boundary.sourceScan`). ONE-WAY, like
+   * `openGroupRequest`: it selects the option and focuses its first empty
+   * input; it never closes or deselects anything the reader chose.
+   */
+  openOptionValueRequest?: { optionId: string; seq: number } | null
 }
 
 /**
@@ -360,6 +373,7 @@ export function ModelTabV2Panel({
   expertMode,
   onToggleExpert,
   onRenameRow,
+  openOptionValueRequest = null,
 }: ModelTabV2PanelProps) {
   /**
    * ⭐ ONE SWITCH. The tier is the product's expert preference, not a second
@@ -528,6 +542,13 @@ export function ModelTabV2Panel({
   )
 
   const rows = useMemo(() => toModelRows(projection), [projection])
+
+  /**
+   * The options whose detail region renders a first-value input. ONE projection
+   * (`buildOptionInterventionCandidates`), read by the inputs and by the section
+   * notice that retires on them — see `sectionWriterNotice.ts`.
+   */
+  const optionsWithValueInputs = useMemo(() => optionIdsWithValueInputs(projection), [projection])
 
   /**
    * ⚠ THE CHIP AND THE QUEUE ARE THE SAME DERIVATION, so they cannot disagree.
@@ -808,6 +829,39 @@ export function ModelTabV2Panel({
       return id
     })
   }, [])
+
+  /**
+   * ⭐ `openOptionValueInput` LANDING — select the option, then focus its first
+   * empty effect-value input.
+   *
+   * ⚠ HANDLED ONCE PER `seq`. The ref records the last request acted on, so a
+   * re-render (a store tick, a new `rows` array) cannot re-select an option the
+   * reader has since moved away from. Routed through `selectRow`, never
+   * `setSelectedId`, so the intervention-draft clearing rides along.
+   *
+   * ⚠ IT LEAVES A QUEUE VIEW, because the detail region does not render inside
+   * one — a request that selected a row the reader cannot see would land them
+   * nowhere.
+   *
+   * ⚠ AN UNKNOWN OR NON-OPTION ID IS IGNORED, not guessed at: the tab and the
+   * options section have already opened (the host did that), which is the
+   * honest partial landing.
+   */
+  const handledOptionValueSeq = useRef<number | null>(null)
+  const [firstValueFocus, setFirstValueFocus] = useState<{ optionId: string; seq: number } | null>(
+    null,
+  )
+  useEffect(() => {
+    if (openOptionValueRequest === null) return
+    if (handledOptionValueSeq.current === openOptionValueRequest.seq) return
+    const target = rows.find(r => r.id === openOptionValueRequest.optionId)
+    if (!target || target.kind !== 'option') return
+    handledOptionValueSeq.current = openOptionValueRequest.seq
+    setActiveQueue(null)
+    selectRow(target.id)
+    setFirstValueFocus({ optionId: target.id, seq: openOptionValueRequest.seq })
+  }, [openOptionValueRequest, rows, selectRow])
+  const acknowledgeFirstValueFocus = useCallback(() => setFirstValueFocus(null), [])
 
   const beginEdit = useCallback(
     (rowId: string) => {
@@ -1287,6 +1341,15 @@ export function ModelTabV2Panel({
               // exactly like being offline. The row states what is actually
               // known, offers no retry it cannot justify, and names the action
               // that SHOWS the user the answer instead of guessing it.
+              //
+              // ⛔ NO STORED SHAPE OVERRIDES THIS ARM. A branch here once read a
+              // canvas `interventions: null` and said "Not saved — this
+              // option's stored effect list…" on EVERY `unverified` settlement,
+              // transport failures and the retryable 500 included (Panel F1 on
+              // #1911). CEE's persistence projection coerces a null to `{}`
+              // (`sweepInvalidNodeInterventions`), so the cause it named could
+              // not occur; it was withdrawn. Only a settlement the producer
+              // certifies as no-write (`refused`) may say "not saved".
               const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
               return {
                 ...rest,
@@ -1557,6 +1620,7 @@ export function ModelTabV2Panel({
         onFocusOnCanvas={focusOnCanvas}
         commitByRowId={commitByRowId}
         editConnectedIds={editConnectedIds}
+        optionIdsWithValueInputs={optionsWithValueInputs}
         onBeginEdit={beginEdit}
         onDraftChange={changeDraft}
         onProposeEdit={proposeEdit}
@@ -1613,6 +1677,12 @@ export function ModelTabV2Panel({
           onInterventionDraftChange={OPTION_INTERVENTION_CONNECTED ? changeInterventionDraft : undefined}
           onCommitIntervention={OPTION_INTERVENTION_CONNECTED ? commitIntervention : undefined}
           onDiscardInterventionEdit={OPTION_INTERVENTION_CONNECTED ? discardInterventionEdit : undefined}
+          focusFirstValueInput={
+            firstValueFocus !== null && firstValueFocus.optionId === selectedRow.id
+              ? firstValueFocus.seq
+              : null
+          }
+          onFirstValueInputFocused={acknowledgeFirstValueFocus}
         />
       )}
     </section>
