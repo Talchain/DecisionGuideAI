@@ -278,6 +278,13 @@ describe('§3 CONTROLS — the licence', () => {
     expect(useCanvasStore.getState().nodes).toBe(before)
   })
 
+  it('a read with edges but NO NODES never blanks the canvas (no saved model has that shape)', () => {
+    const res = mergeServerGraphOnHydrate({ nodes: [], edges: [{ from: KEPT, to: GOAL }] })
+    expect(res.removedNodeCount).toBe(0)
+    expect(res.removedEdgeCount).toBe(0)
+    expect(canvasNodeIds()).toEqual([DELETED, GOAL, KEPT].sort())
+  })
+
   it('a UI-only render node (`ghost-*`) is never removed', () => {
     seed(
       [

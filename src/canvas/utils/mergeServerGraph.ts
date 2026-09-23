@@ -36,34 +36,70 @@
  *
  * What is NOT in scope, and is NOT silently half-done here:
  *   · no continuous sync — this runs at boot, not on every change;
- *   · no compare-and-swap — the UI does not write back through this path;
- *   · no DELETION. An element the canvas has and the server does not SURVIVES.
- *     The autosave can legitimately be ahead of the server (guest inspector
- *     edits never reach CEE at all — ROADMAP 2.304), so reconciling absence to
- *     deletion would trade a stale value for lost work. Absence is only ever
- *     authoritative on the applied-edit receipt path, which has a receipt to
- *     justify it; a boot read has none.
+ *   · no compare-and-swap — the UI does not write back through this path.
  *
- * The residual is therefore named rather than hidden: a local-only edit made
- * before this boot keeps its node on the canvas, but a field the server also
- * carries is overwritten by the server's value. That is the ruled behaviour
- * for this rung; a CAS/merge-policy rung is a separate row if wanted.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐ RELOAD SHOWS THE SAVED MODEL — ABSENCE IS REMOVAL, UNDER A LICENCE
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Decision, 23 Sep 2026 (lead, on Paul's standing authority): on an ACCEPTED
+ * read the canvas ends up holding exactly CEE's elements. A canvas node CEE
+ * lacks, and a canvas edge whose endpoint pair CEE lacks (or whose endpoint was
+ * removed), is TAKEN OFF; the layout of every surviving element is kept exactly.
+ * The removal is named to the user in one lasting chat line
+ * (`stores/reloadDifferenceStore.ts`, recorded by the hydration caller from
+ * `removedLabels`) and counts as a model change (see the commit block below).
+ *
+ * THIS REPLACES THE OLD "no DELETION" CLAUSE, which kept such elements because
+ * "the autosave can legitimately be ahead of the server (guest inspector edits
+ * never reach CEE at all — ROADMAP 2.304)". That premise is gone: 2.304 is
+ * recorded CLOSED / ALREADY FIXED, and canvas edits now reach CEE as canonical
+ * turns (value edits as `factor_value_edit`, adds/deletes/renames as
+ * `structural_*`). What the rule actually produced, witnessed on served
+ * `fa84d226` (23 Sep, two tabs on one scenario): tab A deleted a factor, stale
+ * tab B reloaded, and B's screen kept a factor the analysis ignores and the user
+ * could not delete. The saved model is what every turn and every analysis is
+ * computed from, so the screen must show it; and the multi-user design's
+ * stale-copy rule (`docs/designs/collab-multiuser-design-recommendations-v1.md`
+ * §5 item 6) is the same: a stale write is rejected and the client REFETCHES —
+ * the saved copy wins over a stale local one.
+ *
+ * ⚠ THE LICENCE — removal happens only when ALL of these hold:
+ *   · the merge was ACCEPTED. Every refusal returns before this point and
+ *     removes nothing: `importUnregistered` (a deliberate import still waiting
+ *     for its first registration — 2.467/2.503 — must never be trimmed),
+ *     `zeroOverlap`, `emptyServerGraph`, `unusableShape`;
+ *   · NO EDIT IS BETWEEN THE USER AND CEE: `editDeliveryHold` is null at merge
+ *     time. A node the user added seconds after load, whose add turn is still in
+ *     flight or queued, is not yet in the saved model and must not be taken off
+ *     under them. While held, this boot keeps today's behaviour (nothing
+ *     removed) and logs why;
+ *   · the element is not a UI-only render node (`ghost-*`, and edges touching
+ *     one) — composed at render, never saved, never removable by a read.
+ *
+ * The residual is named rather than hidden: a canvas element that never
+ * finished saving IS taken off at reload. The UI cannot tell that case from
+ * "removed in another tab" (nothing records which saved graph the autosave came
+ * from), so the line says both are possible and asks the user to add back what
+ * they still want; the pre-merge snapshot makes the removal undoable on screen.
  *
  * ⚠ AND BECAUSE THAT OVERWRITE IS REAL, IT IS NOT SILENT. Whenever this merge
- * moves at least one EXISTING value it (1) pushes a pre-merge history snapshot,
- * so the revert is undoable rather than unrecoverable — the autosave would
- * otherwise persist the reverted state ~1.5s later and destroy the last copy —
- * and (2) pulses the changed elements on the existing applied-edit surface, so
- * a number cannot move under the user unannounced. Neither fires on a pure
- * addition or a no-op. See the commit block below.
+ * moves at least one EXISTING value OR TAKES AN ELEMENT OFF it (1) pushes a
+ * pre-merge history snapshot, so the revert is undoable rather than
+ * unrecoverable — the autosave would otherwise persist the reverted state ~1.5s
+ * later and destroy the last copy — and (2) pulses the changed elements on the
+ * existing applied-edit surface, so a number cannot move under the user
+ * unannounced (a removed element cannot be pulsed; it is named in the chat line
+ * instead). Neither fires on a pure addition or a no-op. See the commit block
+ * below.
  *
  * ⚠ AND (3), ON A WIDER PREDICATE THAN (1)/(2) — A3: whenever this merge changes
  * the graph AT ALL, it marks the analysis STALE. Without it the canvas showed
  * the merged graph while the Analysis panel showed the pre-merge result labelled
  * CURRENT, with the 2s pulse as the only signal. (1) and (2) answer "was the
  * user's work destroyed / did a number move under their eyes", which only an
- * OVERWRITE does; this answers "does the current freshness verdict still
- * describe what is on the canvas", which an ADDITION breaks just as completely.
+ * OVERWRITE (or, for (1), a removal) does; this answers "does the current
+ * freshness verdict still describe what is on the canvas", which an ADDITION
+ * breaks just as completely.
  * Three questions, two predicates — deliberately. See the commit block below.
  */
 
@@ -73,6 +109,7 @@ import { logger } from '../../lib/logger'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { editDeliveryHold, type EditDeliveryState } from '../registration/editDeliveryHold'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
 import {
@@ -172,12 +209,21 @@ export interface MergeServerGraphResult {
   updatedNodeCount: number
   updatedEdgeCount: number
   /**
-   * Always 0. Present so the shape matches the receipt reconciler's and so the
-   * "boot never deletes" invariant is an ASSERTABLE counter rather than a
-   * promise in a comment.
+   * Elements TAKEN OFF because the saved model lacks them ("RELOAD SHOWS THE
+   * SAVED MODEL" in the header). Always 0 on a refusal and while an edit is
+   * between the user and CEE (the licence). An edge removed because its
+   * endpoint went counts here too.
    */
   removedNodeCount: number
   removedEdgeCount: number
+  /**
+   * What the user is told was taken off, in canvas order: each removed node's
+   * `data.label` (its id when it has none), then each edge removed on its OWN
+   * pair — both endpoints survive — as "the link from A to B". An edge that
+   * went with its endpoint is not listed separately; the node names it.
+   * Empty exactly when nothing was removed.
+   */
+  removedLabels: string[]
   /**
    * ⚠ WHETHER THE SERVER'S GRAPH WAS READ AT ALL — NOT WHETHER IT MOVED ANYTHING.
    *
@@ -213,7 +259,22 @@ const NO_CHANGE = Object.freeze({
 })
 
 function refused(reason: MergeServerGraphRefusal): MergeServerGraphResult {
-  return { ...NO_CHANGE, accepted: false, refusedReason: reason, changed: false }
+  return { ...NO_CHANGE, removedLabels: [], accepted: false, refusedReason: reason, changed: false }
+}
+
+/**
+ * A UI-only render node: composed at render (`ReactFlowGraph` ghost options,
+ * `ghostTiers`), never saved, so its absence from the saved model means nothing.
+ * Defensive — they should not be in the store at all.
+ */
+function isUiOnlyNode(n: { type?: unknown } | null | undefined): boolean {
+  return typeof n?.type === 'string' && n.type.startsWith('ghost-')
+}
+
+/** What the user is told a removed node was: its label, or its id. */
+function nodeDisplayName(n: { id?: unknown; data?: unknown } | undefined, fallbackId: string): string {
+  const label = (n?.data as { label?: unknown } | undefined)?.label
+  return typeof label === 'string' && label.trim().length > 0 ? label.trim() : fallbackId
 }
 
 /**
@@ -298,6 +359,71 @@ export function mergeServerGraphOnHydrate(
     if (key && !serverEdgeByPair.has(key)) serverEdgeByPair.set(key, e)
   }
 
+  // --- Removals: on the canvas, not in the saved model ("RELOAD SHOWS THE SAVED
+  // MODEL" in the header). Every refusal has already returned, so this is an
+  // ACCEPTED read by construction. Same shape as the receipt path's removal
+  // (`reconcileAppliedGraph`): a node goes by id, an edge goes with a removed
+  // endpoint or on its own missing pair. The receipt path licenses removal by
+  // `lastAuthoritativeGraph`; a boot read IS the authoritative graph, so its
+  // licence is instead that no edit is between the user and CEE.
+  const uiOnlyNodeIds = new Set<string>(
+    store.nodes.filter((n: any) => isUiOnlyNode(n)).map((n: any) => n.id as string),
+  )
+  const removedNodeIds = new Set<string>()
+  const removedEdgeIds = new Set<string>()
+  const pairRemovedEdges: any[] = []
+  for (const n of store.nodes as any[]) {
+    if (uiOnlyNodeIds.has(n.id)) continue
+    if (!serverNodeById.has(n.id)) removedNodeIds.add(n.id)
+  }
+  for (const e of store.edges as any[]) {
+    if (removedNodeIds.has(e.source) || removedNodeIds.has(e.target)) {
+      removedEdgeIds.add(e.id)
+      continue
+    }
+    if (uiOnlyNodeIds.has(e.source) || uiOnlyNodeIds.has(e.target)) continue
+    const key = canvasEdgePairKey(e)
+    // A canvas edge with no resolvable pair cannot be compared; leave it.
+    if (key !== null && !serverEdgeByPair.has(key)) {
+      removedEdgeIds.add(e.id)
+      pairRemovedEdges.push(e)
+    }
+  }
+  // ⚠ THE LICENCE: nothing is removed while an edit is between the user and CEE.
+  // Read at merge time, from the live store — a node added seconds after load
+  // whose add turn is still on the wire (or queued, or unconfirmed) is simply
+  // not in the saved model YET.
+  //
+  // ⚠ AND A READ WITH NO NODES IS NOT A MODEL TO CONVERGE ON. Edges with no
+  // nodes are all dangling — no saved model has that shape — and taking every
+  // node off would blank the canvas, which the `emptyServerGraph` refusal exists
+  // to prevent. The zero-overlap guard does not catch it (it needs server nodes
+  // to compare), so it is refused here: nothing removed, logged.
+  const somethingToRemove = removedNodeIds.size > 0 || removedEdgeIds.size > 0
+  const removalHold: string | null = !somethingToRemove
+    ? null
+    : serverNodeById.size === 0
+      ? 'server_graph_has_no_nodes'
+      : editDeliveryHold(useCanvasStore.getState() as unknown as EditDeliveryState)
+  if (removalHold !== null) {
+    logger.warn('merge_server_graph.removal_withheld', {
+      scenarioId: store.currentScenarioId ?? null,
+      reason: removalHold,
+      wouldRemoveNodeCount: removedNodeIds.size,
+      wouldRemoveEdgeCount: removedEdgeIds.size,
+    })
+    removedNodeIds.clear()
+    removedEdgeIds.clear()
+    pairRemovedEdges.length = 0
+  }
+  const survivingNodes = removedNodeIds.size > 0
+    ? store.nodes.filter((n: any) => !removedNodeIds.has(n.id))
+    : store.nodes
+  const survivingEdges = removedEdgeIds.size > 0
+    ? store.edges.filter((e: any) => !removedEdgeIds.has(e.id))
+    : store.edges
+  const survivingEdgeIds = new Set<string>(survivingEdges.map((e: any) => e.id))
+
   // --- Updates. `overlayNode` spreads the EXISTING node first and discards the
   // mapper's `position`, so every canvas-owned root field — position, width,
   // height, measured, selected, dragging, style, zIndex, parentId — survives by
@@ -312,7 +438,7 @@ export function mergeServerGraphOnHydrate(
   // by you" badge on a number the server just changed. See `hydrateProvenance`.
   let updatedNodeCount = 0
   const valueChangedNodeIds: string[] = []
-  const mergedNodes = store.nodes.map((n: any) => {
+  const mergedNodes = survivingNodes.map((n: any) => {
     const serverNode = serverNodeById.get(n.id)
     if (!serverNode) return n
 
@@ -341,7 +467,7 @@ export function mergeServerGraphOnHydrate(
 
   let updatedEdgeCount = 0
   const valueChangedEdgeIds: string[] = []
-  const mergedEdges = store.edges.map((e: any) => {
+  const mergedEdges = survivingEdges.map((e: any) => {
     const key = canvasEdgePairKey(e)
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
     if (!serverEdge) return e
@@ -466,7 +592,9 @@ export function mergeServerGraphOnHydrate(
     if (e == null) return false
     const key = wireEdgePairKey(e)
     if (key === null) return false
-    if (typeof e.id === 'string' && existingEdgeIds.has(e.id)) return false
+    // SURVIVING ids, not every id the canvas held: an id carried by an edge this
+    // merge just removed must not block the server's own edge under that id.
+    if (typeof e.id === 'string' && survivingEdgeIds.has(e.id)) return false
     if (seenEdgePairs.has(key)) return false
     // Fail closed: never add a dangling edge.
     const from = e.from ?? e.source
@@ -488,14 +616,27 @@ export function mergeServerGraphOnHydrate(
   // means, and it is the same fact that licenses the `setLastAuthoritativeGraph`
   // record twelve lines below — one rule, asserted in
   // `mergeServerGraph.acceptance.spec.ts` §3 so the two cannot drift apart.
+  //
+  // The removed labels are named against what the user sees NOW: a removed node
+  // by its own label, a pair-removed edge by its endpoints' post-merge labels.
+  const displayNodeById = new Map<string, any>(mergedNodes.map((n: any) => [n.id, n]))
+  const removedLabels = [
+    ...(store.nodes as any[])
+      .filter((n) => removedNodeIds.has(n.id))
+      .map((n) => nodeDisplayName(n, n.id)),
+    ...pairRemovedEdges.map(
+      (e) =>
+        `the link from ${nodeDisplayName(displayNodeById.get(e.source), e.source)} to ${nodeDisplayName(displayNodeById.get(e.target), e.target)}`,
+    ),
+  ]
   const result: MergeServerGraphResult = {
     addedNodeCount: addedNodes.length,
     addedEdgeCount: addedEdges.length,
     updatedNodeCount,
     updatedEdgeCount,
-    // Structural, not incidental: this path has no removal branch at all.
-    removedNodeCount: 0,
-    removedEdgeCount: 0,
+    removedNodeCount: removedNodeIds.size,
+    removedEdgeCount: removedEdgeIds.size,
+    removedLabels,
     accepted: true,
     refusedReason: null,
     changed: false, // set below, once the counts are known
@@ -519,11 +660,13 @@ export function mergeServerGraphOnHydrate(
     edgePairs: [...serverEdgeByPair.keys()],
   })
 
+  const removedAny = result.removedNodeCount > 0 || result.removedEdgeCount > 0
   const changed =
     result.addedNodeCount > 0 ||
     result.addedEdgeCount > 0 ||
     result.updatedNodeCount > 0 ||
-    result.updatedEdgeCount > 0
+    result.updatedEdgeCount > 0 ||
+    removedAny
   result.changed = changed
 
   // ⚠ ACCEPTED, NOT CHANGED. This early return is an IDEMPOTENT boot — the
@@ -546,9 +689,17 @@ export function mergeServerGraphOnHydrate(
   // So: whenever at least one EXISTING element's value changes, snapshot first.
   // Additions alone do not qualify — nothing is being overwritten — and a
   // no-op merge already returned above.
+  //
+  // ⭐ A REMOVAL QUALIFIES EXACTLY LIKE AN OVERWRITE ("RELOAD SHOWS THE SAVED
+  // MODEL" in the header): it destroys canvas content, and the autosave would
+  // persist the trimmed canvas ~1.5s later. The snapshot keeps it undoable on
+  // screen. (Undo restores the canvas only — it does not put the element back in
+  // the saved model; the chat line asks the user to add it back.)
   const overwroteExistingValues = valueChangedNodeIds.length > 0 || valueChangedEdgeIds.length > 0
-  const modelChanged = overwroteExistingValues || addedNodes.length > 0 || addedEdges.length > 0
-  if (overwroteExistingValues) {
+  const destroyedCanvasContent = overwroteExistingValues || removedAny
+  const modelChanged =
+    overwroteExistingValues || addedNodes.length > 0 || addedEdges.length > 0 || removedAny
+  if (destroyedCanvasContent) {
     useCanvasStore.getState().pushHistory()
   }
 
@@ -564,7 +715,7 @@ export function mergeServerGraphOnHydrate(
   try {
     useCanvasStore.setState({
       // Metadata acquisition still needs to be stored when it is not an edit.
-      nodes: updatedNodeCount > 0 || addedNodes.length > 0
+      nodes: updatedNodeCount > 0 || addedNodes.length > 0 || removedNodeIds.size > 0
         ? [...mergedNodes, ...addedNodes] as any : store.nodes,
       edges: [...mergedEdges, ...addedEdges] as any,
       // Requested in the SAME write as the nodes it describes: a separate
@@ -636,7 +787,7 @@ export function mergeServerGraphOnHydrate(
   // DIVERGENCE FROM THE TWO GATES EITHER SIDE OF IT IS DELIBERATE — DO NOT
   // "TIDY" THESE INTO ONE. Three different questions share this block:
   //   · pushHistory            — "is the user's work about to be destroyed?"
-  //                              Only an OVERWRITE destroys.
+  //                              Only an OVERWRITE or a REMOVAL destroys.
   //   · pulseAppliedTargets    — "did a number move under the user's eyes?"
   //                              Only an OVERWRITE moves one.
   //   · THIS                   — "is the canvas graph now different from the
@@ -649,7 +800,8 @@ export function mergeServerGraphOnHydrate(
   // false stale on the commonest boot of all, the idempotent one. The
   // early no-op return and modelChanged guard buy that. Tuple-only readback
   // and equivalent option-record acquisition are stored without invalidating
-  // unchanged analysis; real overwrites AND additions still invalidate it.
+  // unchanged analysis; real overwrites, additions AND removals still
+  // invalidate it — a removal is a model change like any other.
   if (modelChanged) useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // ── DISCLOSURE: never move a number the user is looking at in silence ──────
@@ -666,9 +818,12 @@ export function mergeServerGraphOnHydrate(
     })
   }
 
+  // Counts only: the removed labels are the user's own words and stay out of logs.
+  const { removedLabels: labelsForUser, ...counts } = result
   logger.info('merge_server_graph.applied', {
     scenarioId: store.currentScenarioId ?? null,
-    ...result,
+    ...counts,
+    removedLabelCount: labelsForUser.length,
   })
 
   return result

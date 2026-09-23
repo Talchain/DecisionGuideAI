@@ -188,10 +188,16 @@ describe('A1 probe 3 — an edge stamp must not outlive the weight it describes'
     { id: 'goal-1', type: 'goal', position: { x: 300, y: 40 }, data: { label: 'Profit', kind: 'goal' } },
   ]
 
+  // ⚠ FIXTURE UPDATED 23 Sep 2026 (reload shows the saved model): the server
+  // graph now carries `goal-1`. Omitting it was harmless shorthand while boot
+  // never removed; under the new rule the saved model would LACK the goal, so
+  // the goal — and `e1` with it — would be taken off before this is measured.
+  const serverGoal = { id: 'goal-1', kind: 'goal', label: 'Profit' }
+
   it('clears userReviewedStrength when the server changes the weight', () => {
     seed(nodes(), [edge(0.7)])
     mergeServerGraphOnHydrate({
-      nodes: [serverNode(0.6)],
+      nodes: [serverNode(0.6), serverGoal],
       edges: [{ id: 'e1', from: 'factor-1', to: 'goal-1', weight: 0.2 }],
     })
     expect((edgeById('e1').data as any).weight).toBe(0.2)
@@ -201,7 +207,7 @@ describe('A1 probe 3 — an edge stamp must not outlive the weight it describes'
   it('KEEPS userReviewedStrength when the weight is unchanged', () => {
     seed(nodes(), [edge(0.7)])
     mergeServerGraphOnHydrate({
-      nodes: [serverNode(0.6)],
+      nodes: [serverNode(0.6), serverGoal],
       edges: [{ id: 'e1', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
     })
     expect(isReviewedEdge(edgeById('e1'))).toBe(true)
