@@ -23,6 +23,10 @@ import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding } from './applyScenarioAnalysisRead'
+import { beginBootGraphRead, settleBootGraphRead } from './bootGraphRead'
+import { markGraphServerAcknowledged } from '../store/importRegistrationMarker'
+import { editDeliveryHold } from '../registration/editDeliveryHold'
+import { identityFromCanvasGraph } from '../utils/graphIdentity'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -169,6 +173,23 @@ export async function hydrateCanvasFromServer(
   if (typeof scenarioId !== 'string' || !UUID_RE.test(scenarioId)) {
     return 'skipped'
   }
+  // ⭐ THE READ'S ANSWER IS AN INPUT TO THE RELOAD RE-ARM (`bootGraphRead.ts`).
+  // Marked BEFORE the first await, so a re-arm evaluated while this read is in
+  // flight waits for it instead of writing the page's own copy over CEE's.
+  beginBootGraphRead(scenarioId)
+  let outcome: HydrationOutcome = 'skipped'
+  try {
+    outcome = await readAndMergeServerGraph(scenarioId, opts)
+    return outcome
+  } finally {
+    settleBootGraphRead(scenarioId, outcome)
+  }
+}
+
+async function readAndMergeServerGraph(
+  scenarioId: string,
+  opts: HydrateFromServerOptions,
+): Promise<HydrationOutcome> {
 
   // ⭐ THE BASE AS IT STANDS NOW, READ BEFORE THE AWAIT. `adoptServerWriteBase`
   // compares against it so a slow read cannot overwrite a newer authority —
@@ -439,6 +460,41 @@ export async function hydrateCanvasFromServer(
   )
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
+  acknowledgeCanvasThatMatchesTheRead(scenarioId)
 
   return 'merged'
+}
+
+/**
+ * ⭐ A READ THAT MATCHES THE CANVAS IS AN ACKNOWLEDGEMENT — the re-arm's own
+ * design case, without its write.
+ *
+ * The reload re-arm existed for one situation: the acknowledgement record was
+ * lost (eviction, cleared storage), so a model CEE already holds sat HELD with
+ * nothing pending, and a redundant registration was the way out. Once the re-arm
+ * may no longer register over a saved model (`bootGraphRead.ts`), that way out
+ * is gone — so the read has to provide it: the merge has just written CEE's
+ * values onto every shared element, and if the canvas holds EXACTLY CEE's
+ * elements (same node ids, same edge pairs), CEE holds this model.
+ *
+ * Not granted when the canvas carries anything CEE lacks — that is precisely the
+ * stale copy this change stops writing — nor while an edit is still between the
+ * user and CEE (`editDeliveryHold`), whose value the read cannot vouch for.
+ */
+function acknowledgeCanvasThatMatchesTheRead(scenarioId: string): void {
+  const st = useCanvasStore.getState()
+  if (st.currentScenarioId !== scenarioId) return
+  if (editDeliveryHold(st as never) !== null) return
+  const server = st.lastAuthoritativeGraph
+  if (server === null) return
+  const canvas = identityFromCanvasGraph(st.nodes as never, st.edges as never)
+  if (!sameElementSet(canvas.nodeIds, server.nodeIds)) return
+  if (!sameElementSet(canvas.edgePairs, server.edgePairs)) return
+  markGraphServerAcknowledged(scenarioId, st.nodes as never, st.edges as never)
+}
+
+function sameElementSet(a: ReadonlyArray<string>, b: ReadonlyArray<string>): boolean {
+  if (a.length !== b.length) return false
+  const bs = new Set(b)
+  return a.every((x) => bs.has(x))
 }

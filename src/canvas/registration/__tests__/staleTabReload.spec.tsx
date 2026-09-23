@@ -49,6 +49,14 @@ vi.mock('../../../lib/supabase', () => ({
 
 import { useImportRegistration } from '../useImportRegistration'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
+import { useServerGraphHydration } from '../../hooks/useServerGraphHydration'
+import {
+  __resetBootGraphReadForTest,
+  beginBootGraphRead,
+  settleBootGraphRead,
+} from '../../hydrate/bootGraphRead'
+import { isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
+import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 
 const SCENARIO = '5a1e7ab0-0d04-4dd4-89db-bb6470a98fc5'
 const GOAL = 'goal_revenue'
@@ -88,6 +96,10 @@ const SERVER_AFTER_DELETE = {
   ],
   edges: [{ from: KEPT, to: GOAL, strength_mean: 0.5 }],
 }
+
+/** Tab B's copy when nothing was deleted elsewhere: exactly CEE's elements. */
+const MATCHING_NODES = STALE_NODES.filter((n) => n.id !== DELETED)
+const MATCHING_EDGES = STALE_EDGES.filter((e) => e.source !== DELETED)
 
 function graphBody(graph: unknown) {
   return {
@@ -174,6 +186,7 @@ beforeEach(() => {
   registerSpy.mockResolvedValue(ACK)
   clearImportRegistrationMarkers()
   __resetPersistenceSessionForTests()
+  __resetBootGraphReadForTest()
   restoreStaleCopy()
 })
 
@@ -198,11 +211,77 @@ describe('§1 a stale tab reload never writes its copy over a different model CE
     expect(registrationsCarrying(DELETED)).toHaveLength(0)
     hook.unmount()
   })
+  it('CEE UNREACHABLE: a read that fails is not a licence to write — no registration', async () => {
+    fetchSpy.mockRejectedValue(new TypeError('Failed to fetch'))
+    const hook = await reload()
+    expect(registerSpy).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  it('WHILE THE READ IS IN FLIGHT the re-arm waits; it registers only once the read says CEE holds no model', async () => {
+    beginBootGraphRead(SCENARIO)
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy).not.toHaveBeenCalled()
+    await act(async () => {
+      settleBootGraphRead(SCENARIO, 'notReadable')
+      await flush()
+    })
+    expect(registrationsCarrying(DELETED).length).toBeGreaterThan(0)
+    hook.unmount()
+  })
+
+  it('MOUNTED TOGETHER, as the Canvas route mounts them: the re-arm does not race the read', async () => {
+    let answer: (r: Response) => void = () => {}
+    fetchSpy.mockImplementation(() => new Promise<Response>((res) => { answer = res }))
+    const hook = renderHook(() => {
+      useServerGraphHydration(SCENARIO)
+      useImportRegistration()
+    })
+    await act(async () => { await flush() })
+    expect(registerSpy).not.toHaveBeenCalled()
+    await act(async () => {
+      answer(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+      await flush()
+    })
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+    hook.unmount()
+  })
+})
+
+describe('§1b the re-arm\'s own design case survives without its write', () => {
+  it('LOST ACKNOWLEDGEMENT: a canvas that matches the read is acknowledged by the read — released, nothing sent', async () => {
+    useCanvasStore.setState({ nodes: MATCHING_NODES as never, edges: MATCHING_EDGES as never } as never)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).not.toBeNull()
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+    const hook = await reload()
+    const st = useCanvasStore.getState()
+    expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(true)
+    expect(analysisHeldOn(st as never)).toBeNull()
+    expect(registerSpy).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  it('a canvas that carries an element CEE lacks is NOT acknowledged by the read (stays held, nothing sent)', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+    const hook = await reload()
+    const st = useCanvasStore.getState()
+    expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(false)
+    expect(registerSpy).not.toHaveBeenCalled()
+    hook.unmount()
+  })
 })
 
 describe('§2 the two cases where the local copy IS the model to write — must survive any fix', () => {
   it('CEE holds no graph yet (404): the local model is registered, deleted-elsewhere factor and all', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(404, { error: 'not_found' }))
+    const hook = await reload()
+    expect(registrationsCarrying(DELETED).length).toBeGreaterThan(0)
+    hook.unmount()
+  })
+
+  it('CEE holds no model yet (200, graph_present false): the local model is registered', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, { ...graphBody(null), graph: null, graph_present: false }))
     const hook = await reload()
     expect(registrationsCarrying(DELETED).length).toBeGreaterThan(0)
     hook.unmount()
@@ -218,13 +297,6 @@ describe('§2 the two cases where the local copy IS the model to write — must 
   })
 })
 
-describe('§3 RULING-DEPENDENT: after the reload, the screen shows the saved model', () => {
-  it('the factor deleted elsewhere is no longer on the canvas', async () => {
-    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
-    const hook = await reload()
-    const ids = useCanvasStore.getState().nodes.map((n) => n.id)
-    expect(ids).toContain(KEPT)
-    expect(ids).not.toContain(DELETED)
-    hook.unmount()
-  })
+describe('§3 RULING-DEPENDENT (Paul, decision A): after the reload, the screen shows the saved model', () => {
+  it.todo('the element CEE lacks is taken off the canvas AND named in a lasting notice, and the analysis is marked out of date')
 })

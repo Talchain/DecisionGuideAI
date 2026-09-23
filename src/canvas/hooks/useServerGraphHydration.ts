@@ -35,6 +35,7 @@ import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useAuth } from '../../contexts/AuthContext'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
+import { beginBootGraphRead, settleBootGraphRead } from '../hydrate/bootGraphRead'
 import {
   runAbsentGraphRetrySchedule,
   waitForRetry,
@@ -61,6 +62,13 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
 
     const controller = new AbortController()
     let settled = false
+    // ⭐ SYNCHRONOUSLY, before the identity await below: the reload re-arm in
+    // `useImportRegistration` runs in this same commit, and it must see that a
+    // read of this scenario is coming rather than write the restored copy over
+    // whatever CEE holds (`bootGraphRead.ts`). `hydrateCanvasFromServer` records
+    // the answer; if it is never reached, the finally below forgets the mark.
+    beginBootGraphRead(scenarioId)
+    let readReached = false
 
     // Any stage from a previous scenario stops describing this one the moment
     // we begin. Cleared here rather than on unmount so a route change A→B never
@@ -82,6 +90,7 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
       try {
         const identity = await getSessionIdentity()
 
+        readReached = true
         const outcome = await hydrateCanvasFromServer(scenarioId, {
           userId: identity.userId,
           accessToken: identity.accessToken,
@@ -125,6 +134,7 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
 
         logger.debug('server_graph_hydration.absent_retry', { scenarioId, retry })
       } finally {
+        if (!readReached) settleBootGraphRead(scenarioId, 'skipped')
         settled = true
       }
     })()

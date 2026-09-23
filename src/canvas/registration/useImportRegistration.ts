@@ -57,6 +57,7 @@ import { buildRegistrationGraph } from './buildRegistrationGraph'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
 import { editDeliveryHold, useEditDeliveryHeld } from './editDeliveryHold'
+import { mayRegisterOverSavedModel, useBootGraphReadStore } from '../hydrate/bootGraphRead'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -164,6 +165,15 @@ export function useImportRegistration(): void {
   const editDeliveryHeld = useEditDeliveryHeld()
 
   /**
+   * What this page's boot read learned about the scenario's saved model — an
+   * INPUT to the re-arm below, subscribed so the re-arm re-evaluates when the
+   * read settles (`bootGraphRead.ts`).
+   */
+  const bootGraphRead = useBootGraphReadStore((s) =>
+    scenarioId ? s.byScenario[scenarioId] : undefined,
+  )
+
+  /**
    * A registration that stood down for an edit in delivery, waiting to be
    * re-evaluated. Bumping `retryAfterDelivery` re-runs the registration effect
    * ONCE when delivery settles — deliberately NOT by making `editDeliveryHeld`
@@ -200,12 +210,20 @@ export function useImportRegistration(): void {
     if (editDeliveryHold(st as never) !== null) return
     if (analysisHeldOn(st as never) === null) return
     if (isGraphServerAcknowledged(st.currentScenarioId, st.nodes as never, st.edges as never)) return
+    // ⭐ ONE WRITER AT RELOAD TOO: never write this page's copy over a model CEE
+    // already holds. Witnessed 23 Sep on served `fa84d226`: a stale second tab's
+    // reload read CEE's 14 nodes, then this re-arm registered its own 15 and
+    // undid a delete committed in the other tab. It now takes the boot read as
+    // an input — waits while it is in flight, registers only when CEE holds no
+    // model, and otherwise leaves the model held (a read that MATCHES the
+    // canvas acknowledges it instead: `serverGraphHydration.ts`).
+    if (mayRegisterOverSavedModel(st.currentScenarioId) !== 'permit') return
     markGraphImported(st.nodes as never, st.edges as never)
     useCanvasStore.setState({ importPendingServerRegistration: true })
     logger.info('import_registration.re_armed_after_lost_acknowledgement', {
       scenarioId: st.currentScenarioId ?? null,
     })
-  }, [nodesNow, edgesNow, scenarioId, editDeliveryHeld])
+  }, [nodesNow, edgesNow, scenarioId, editDeliveryHeld, bootGraphRead])
 
   useEffect(() => {
     if (!pending) return
