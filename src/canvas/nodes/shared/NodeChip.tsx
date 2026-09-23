@@ -46,7 +46,8 @@
  *     until clicked. Two surfaces, one state, two stories — the class this
  *     estate keeps paying for. The notice now rides the chip as its `title`,
  *     from the SAME authority the gate and the banner read
- *     (`analysisHeldNotice`), so the three cannot drift apart.
+ *     (`heldReason`, read through `useAnalysisHeldNotice`), so the three cannot
+ *     drift apart.
  *
  *     ⚠ The chip is deliberately NOT disabled and NOT hidden (Paul's ruling,
  *     29 Aug: no hiding, no workarounds, caveat instead). A disabled control
@@ -72,9 +73,8 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
 import type { PendingWireActionType } from '../../conversation/chipMeta'
 import { useGuidanceStore } from '../../stores/guidanceStore'
-import { useCanvasStore } from '../../store'
 import { executeCanonicalRun } from '../../analysis/canonicalRunRegistry'
-import { analysisHeldNotice } from '../../utils/analysisHeldOnInjectedModel'
+import { useAnalysisHeldNotice } from '../../hooks/useAnalysisHold'
 import { useShowToastSafe } from '../../ToastContext'
 import { typography } from '../../../styles/typography'
 import { CANVAS_MIN_TARGET_BOX_STYLE } from './canvasGlyphScale'
@@ -107,9 +107,10 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
    * Derived HERE rather than passed in by each node, for the reason branch 1
    * already gives: keying on the DECLARED `actionType` means a future run chip
    * carries the caveat by construction, instead of by someone remembering to
-   * thread a prop through a third node component. `analysisHeldNotice` returns
-   * one of two module constants or null, so the selector's result is reference-
-   * stable and a re-render happens only on a genuine flip.
+   * thread a prop through a third node component. The notice is a string (or
+   * null), so the selector's result compares by value and a re-render happens
+   * only on a genuine change — and it is `heldReason`'s sentence, so while the
+   * user's own edit is unconfirmed the chip names THAT, not the saved example.
    *
    * ⚠ It is NOT the whole gate. `canRunAnalysis` refuses for several other
    * reasons (in-flight, empty graph, unsettled draft, validation blockers), and
@@ -117,9 +118,7 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
    * one whose sentence has a single owner. A chip that stays silent here may
    * still be refused on click, which is why the click keeps answering.
    */
-  const heldNotice = useCanvasStore((s) =>
-    actionType === 'run_analysis' ? analysisHeldNotice(s) : null,
-  )
+  const heldNotice = useAnalysisHeldNotice(actionType === 'run_analysis')
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()

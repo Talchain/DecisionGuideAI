@@ -108,21 +108,26 @@ describe('the panel actually uses it', () => {
     expect(src.length, 'PreAnalysisPanel.tsx read as empty').toBeGreaterThan(1000)
     expect(src).toContain('applyAnalysisHold(')
     // ⚠ The argument is the COMPLETE CURRENT STATE, not the nodes and not a
-    //   two-field subset — `analysisHeldOn` needs the scenario and the edges in
-    //   the SAME snapshot (see `AnalysisHoldState`), because an acknowledgement
-    //   is for ONE scenario and ONE analytical model.
+    //   subset — `analysisHeldOn` needs the scenario and the edges in the SAME
+    //   snapshot (see `AnalysisHoldState`), because an acknowledgement is for ONE
+    //   scenario and ONE analytical model.
     //
     //   This guard previously pinned `{ nodes, importPendingServerRegistration }`
     //   and passed while that exact shape was the DEFECT: it computed an
     //   empty-edge acknowledgement key, so a real server receipt for an
     //   edge-bearing starter released the full-state selector but left this
-    //   footer held. A source-text pin is only as good as the shape it names —
-    //   it froze the wrong one, which is why the four required fields are named
-    //   individually below rather than matched as one string.
-    for (const field of ['nodes,', 'edges,', 'currentScenarioId,', 'importPendingServerRegistration,']) {
-      expect(src, `PreAnalysisPanel must pass ${field} to the hold authority`).toContain(field)
-    }
-    expect(src).toContain('analysisHeldNotice({')
+    //   footer held. It then pinned four hand-passed fields — and the hold grew
+    //   a fifth input family (the edit registers, purpose audit 23 Sep), which a
+    //   four-field literal silently omits. So the render site no longer builds
+    //   the state at all: it reads `useAnalysisHeldNotice()`, which reads the
+    //   store's WHOLE state in one snapshot. Pinned below: the hook is bound, the
+    //   bound value is what reaches the footer, and no hand-built state remains.
+    const bound = /const\s+(\w+)\s*=\s*useAnalysisHeldNotice\(\s*\)/.exec(src)
+    expect(bound, 'PreAnalysisPanel must read the hold through useAnalysisHeldNotice()').not.toBeNull()
+    expect(src, 'the bound notice must be what the footer receives').toMatch(
+      new RegExp(`applyAnalysisHold\\([\\s\\S]*?\\b${bound![1]}\\s*,?\\s*\\)`),
+    )
+    expect(src, 'a hand-built hold state is back at the render site').not.toContain('analysisHeldNotice({')
     expect(src).toContain("from './footerGate'")
   })
 })

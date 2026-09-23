@@ -27,7 +27,7 @@ import {
 } from '../../constants'
 import { findBannedTerm } from '../../../../../test/glossaryBannedTerms'
 import { BLOCKED_REASON_COPY } from '../../../../utils/composeBlockedReason'
-import { ANALYSIS_HELD_NOTICE } from '../../../../utils/analysisHeldOnInjectedModel'
+import { ANALYSIS_HELD_NOTICE, ANALYSIS_HELD_ON_EDIT_COPY } from '../../../../utils/analysisHeldOnInjectedModel'
 
 function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionInput {
   return {
@@ -245,6 +245,23 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   // gets in: the sweep is the only thing that makes "the product's copy rules"
   // mean the product's copy rather than one file's.
   push('ANALYSIS_HELD_NOTICE', ANALYSIS_HELD_NOTICE)
+  // Its edit-caused twin (purpose audit 23 Sep): the same rung, the same
+  // footer, so the same rules — every frame invoked, labelled and unlabelled,
+  // so the sweep reads the sentences a user is shown rather than the factories.
+  push('ANALYSIS_HELD_ON_EDIT_COPY', {
+    editInDelivery: ANALYSIS_HELD_ON_EDIT_COPY.editInDelivery,
+    unconfirmedValue: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue('Adoption friction', '0.42'),
+    unconfirmedValueNoValue: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue('Adoption friction', null),
+    unconfirmedValueNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, '0.42'),
+    unconfirmedValueBare: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(null, null),
+    unconfirmedRename: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename('Adoption drag'),
+    unconfirmedRenameNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(null),
+    unconfirmedAdd: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd('Partner churn'),
+    unconfirmedAddNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(null),
+    unconfirmedDelete: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete('Partner churn'),
+    unconfirmedDeleteLink: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete('the link from Partner churn to Grow revenue'),
+    unconfirmedDeleteNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(null),
+  })
   // ROADMAP 2.376 — the contested surface's own copy, with its one factory invoked so the
   // sentence a user is shown is scanned rather than the function that builds it.
   push('CONTESTED_COPY', { ...CONTESTED_COPY, meta: CONTESTED_COPY.meta(2) })
