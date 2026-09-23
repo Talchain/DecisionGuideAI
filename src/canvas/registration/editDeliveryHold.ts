@@ -51,9 +51,9 @@
  *     already in flight. The edit path does not consult this module. The
  *     receipt-acknowledgement in `optimisticFactorEdit.confirmOptimisticFactorEdit`
  *     removes the post-edit re-registration that made that race common.
- *   · an UNCONFIRMED structural edit after its turn settled (a rename whose
- *     turn 500'd keeps its label). Its settlement state is owned elsewhere
- *     (`structuralRenameLifecycle`) and is not read here.
+ *   (An UNCONFIRMED structural edit after its turn settled — a rename whose
+ *   turn 500'd keeps its label — IS covered: `unresolvedStructuralEditOnCanvas`
+ *   reads `structuralRenameLifecycle` / `structuralAddLifecycle`. #1892 review.)
  */
 import { useSyncExternalStore } from 'react'
 
@@ -104,6 +104,10 @@ export interface EditDeliveryState {
   readonly pendingStructuralRenames?: ReadonlyArray<unknown>
   readonly pendingStructuralAdds?: ReadonlyArray<unknown>
   readonly pendingStructuralAddEdges?: ReadonlyArray<unknown>
+  /** Settled structural attempts. An `unconfirmed` one is an edit CEE has not answered for. */
+  readonly structuralRenameLifecycle?: ReadonlyArray<unknown>
+  readonly structuralAddLifecycle?: ReadonlyArray<unknown>
+  readonly currentScenarioId?: string | null
 }
 
 /** Why a registration is being held back. Log vocabulary only — never user copy. */
@@ -112,11 +116,48 @@ export type EditDeliveryHold =
   | 'edit_queued'
   | 'structural_edit_queued'
   | 'unconfirmed_value_on_canvas'
+  | 'unresolved_structural_edit'
 
 function currentValue(data: unknown): unknown {
   const d = (data ?? {}) as Record<string, unknown>
   const obs = (d.observedState ?? d.observed_state) as Record<string, unknown> | undefined
   return obs?.value
+}
+
+/**
+ * ⛔ DELIVERY SETTLING IS NOT PROOF CEE ACCEPTED THE EDIT (#1892 review,
+ * CHANGES_REQUIRED @ fc0c7d91). A rename whose turn ended in an untyped 500
+ * settles `unconfirmed` and — deliberately — keeps its optimistic label (the
+ * server may have committed). Once the queue and the wire mark clear, nothing
+ * held registration, so the re-arm registered the canvas and CEE stored a label
+ * its own edit protocol never confirmed. Reload then showed it as saved.
+ *
+ * So an `unconfirmed` structural attempt for THIS scenario holds registration
+ * for as long as its optimistic state is still what the canvas shows:
+ *   · rename — the node still carries the unconfirmed label;
+ *   · add    — the added node is still on the canvas.
+ * It releases when that state is gone (renamed again, a receipt overlaid CEE's
+ * own label, the node removed) or on reload (the lifecycle is not persisted,
+ * and the boot merge then shows CEE's graph). Fail closed: an edit nobody
+ * confirmed is never promoted to canonical by the side channel.
+ */
+function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
+  const scenario = state.currentScenarioId ?? null
+  const labelOf = (id: unknown): unknown => {
+    const node = state.nodes.find((n) => n.id === id)
+    return node ? (node.data as { label?: unknown } | undefined)?.label : undefined
+  }
+  for (const raw of state.structuralRenameLifecycle ?? []) {
+    const r = raw as { status?: unknown; scenarioId?: unknown; intent?: { nodeId?: unknown; label?: unknown } }
+    if (r?.status !== 'unconfirmed' || (r.scenarioId ?? null) !== scenario) continue
+    if (r.intent && labelOf(r.intent.nodeId) === r.intent.label) return true
+  }
+  for (const raw of state.structuralAddLifecycle ?? []) {
+    const r = raw as { status?: unknown; scenarioId?: unknown; intent?: { nodeId?: unknown } }
+    if (r?.status !== 'unconfirmed' || (r.scenarioId ?? null) !== scenario) continue
+    if (r.intent && state.nodes.some((n) => n.id === r.intent!.nodeId)) return true
+  }
+  return false
 }
 
 /**
@@ -134,6 +175,7 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
   ) {
     return 'structural_edit_queued'
   }
+  if (unresolvedStructuralEditOnCanvas(state)) return 'unresolved_structural_edit'
   for (const node of state.nodes) {
     if (typeof node.id !== 'string') continue
     const pending = pendingFactorEditValue(node.id)
