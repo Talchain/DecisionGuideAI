@@ -73,12 +73,44 @@ describe('2.638 S2 · D2 — the inspector stops calling a confirmed value an Ol
     expect(label).not.toContain('user_confirmed')
   })
 
-  it('leaves the pre-existing extraction labels byte-identical', () => {
-    expect(getExtractionLabel(undefined)).toBe('Estimated by Olumi')
+  // ⚠ AMENDED, and the reason matters more than the diff.
+  //
+  // This test was written to prove S2 touched ONLY the user-owned arms — that is
+  // its purpose, and that purpose is INTACT: the three user-owned assertions
+  // below are unchanged and still pass. What it ALSO pinned, incidentally, were
+  // the two arms that were themselves the defect S2 was fixing, one layer out:
+  //
+  //   getExtractionLabel(undefined)        -> 'Estimated by Olumi'
+  //   getExtractionLabel('something_else') -> 'Estimated by Olumi'
+  //
+  // ⛔ Both are Olumi claiming an estimate it never made. `undefined` is a
+  // factor carrying NO NUMBER AT ALL (`source = obs?.source`, undefined whenever
+  // `schema-v3.ts:456` never built an `observed_state`), and `something_else`
+  // stands for every source the switch does not list — which is precisely how
+  // this defect reached `user_confirmed` (D2 above) and `panel_elicited` before
+  // it. "Byte-identical" was the right guarantee for the user-owned arms and the
+  // wrong one for a default that asserts.
+  //
+  // The default now DELEGATES to `getProvenanceLabel` instead of claiming, so an
+  // unlisted source yields that function's honest answer rather than a
+  // fabrication. `inspectorStrings.ts` carries the full reasoning; the outcomes
+  // are pinned in `extractionLabelHonesty.spec.ts` with three killed mutants.
+  it('leaves the USER-OWNED extraction labels byte-identical, and stops the default fabricating', () => {
+    // The S2 guarantee this test exists for — untouched.
     expect(getExtractionLabel('brief_extraction')).toBe('From your brief')
     expect(getExtractionLabel('user')).toBe('Set by you')
     expect(getExtractionLabel('user_calibration')).toBe('Set by you')
-    expect(getExtractionLabel('something_else')).toBe('Estimated by Olumi')
+
+    // The two arms that were fabricating. No number means no estimate was made,
+    // and an unlisted source gets the honest sibling's answer, not a claim.
+    expect(getExtractionLabel(undefined)).toBe('No evidence yet')
+    expect(getExtractionLabel(undefined)).toBe(getProvenanceLabel(undefined))
+    expect(getExtractionLabel('something_else')).not.toBe('Estimated by Olumi')
+    expect(getExtractionLabel('something_else')).toBe(getProvenanceLabel('something_else'))
+
+    // ⚠ NON-VACUITY: the claim must survive where Olumi genuinely DID infer, or
+    // this amendment would have deleted an honest disclosure instead of a false one.
+    expect(getExtractionLabel('cee_inference')).toBe('Estimated by Olumi')
   })
 })
 
