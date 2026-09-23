@@ -5890,7 +5890,9 @@ export function useConversation(): UseConversationReturn {
           // unfounded as keeping it) and the user is told it is unconfirmed
           // rather than left to discover it on the next reload.
           if (opts.structuralRename && systemEvent?.type === 'structural_rename') {
-            resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
+            // AWAITED: the resolver now reads the model back, and a verdict is
+            // terminal — it must land before the drain's own settle does.
+            await resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
               kind: 'transport',
             })
           }

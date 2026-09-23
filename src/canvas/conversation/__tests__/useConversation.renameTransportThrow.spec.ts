@@ -1,4 +1,10 @@
 /**
+ * The rename resolver's TRANSPORT arm (the turn threw before any reply) settles
+ * by the same authoritative reread as every other ambiguous arm — and the
+ * resolver is AWAITED on that path, so its verdict lands before the drain's.
+ * Unreadable keeps the arm's own uncertainty: unconfirmed, name kept.
+ */
+/**
  * A REFUSED rename must not leave the new name on the canvas.
  *
  * WITNESSED on served staging, 22 Sep 2026 (UI `d299880b`, guest, pricing
@@ -82,6 +88,15 @@ vi.mock('../../../v5/eligibility', async (importOriginal) => {
     isV5Eligible: () => ({ eligible: true }),
     isV5CanonicalRunPath: () => false,
   }
+})
+
+
+// The turn THROWS (an internal error re-raised around the network), which is the
+// only route to the resolver's `{ kind: 'transport' }` arm. A fetch reject does
+// NOT reach it — `callV5Turn` returns `parse_error` for that (see the sibling spec).
+vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, callV5Turn: vi.fn(async () => { throw new Error('internal failure before the reply') }) }
 })
 
 // ---------------------------------------------------------------------------
@@ -333,212 +348,31 @@ afterEach(() => {
 // THE DEFECT — a refusal 200 with no draft_graph
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('structural_rename — a refusal 200 (no draft_graph) puts the model’s name back', () => {
-  it('the WITNESSED refusal reverts THIS node to the name the model holds', async () => {
-    stubRefusal200(WITNESSED_REFUSAL)
-    const { labelOf, provenanceOf } = await driveRename()
 
-    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
-    // Provenance is restored from the capture, never stamped by the client.
-    expect(provenanceOf(NODE_ID)).toBe('ai_inferred')
-  })
-
-  it("CEE's own orchestrator refusal reverts too — same shape, different sentence", async () => {
-    stubRefusal200(CEE_APPLY_FAILED_REFUSAL)
-    const { labelOf } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
-  })
-
-  it('the same-labelled SIBLING is untouched — bound by id, not by label', async () => {
-    stubRefusal200(WITNESSED_REFUSAL)
-    const { labelOf } = await driveRename()
-
-    expect(labelOf(SIBLING_ID)).toBe(NEW_LABEL)
-  })
-
-  it("the user is told in the transcript: CEE's refusal sentence renders, and no second voice contradicts it", async () => {
-    stubRefusal200(WITNESSED_REFUSAL)
-    const { spoken, synthetic } = await driveRename()
-
-    expect(spoken).toContain(WITNESSED_REFUSAL)
-    // "It's on the canvas" would now be false — the name is gone.
-    expect(synthetic).not.toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
-  })
-
-  it('a SILENT refusal (no sentence from CEE) reverts and adds our one notice — which must not claim the name is still there', async () => {
-    stubRefusal200('')
-    const { labelOf, synthetic } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
-    expect(synthetic).toContain(STRUCTURAL_RENAME_NOTICE.not_applied)
-    // (The pre-existing empty-response bubble also renders; it is not this lane's.)
-    expect(synthetic).not.toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
-  })
-
-  it('the lifecycle verdict is `refused`, not `unconfirmed`', async () => {
-    stubRefusal200(WITNESSED_REFUSAL)
-    const { verdict } = await driveRename()
-
-    expect(verdict).toBe('refused')
-  })
-})
-
-// ═══════════════════════════════════════════════════════════════════════════
-// OPPOSITE TWINS — the name must SURVIVE where the model may hold it
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('structural_rename — the arms that must KEEP the new name', () => {
-  it('a success 200 (draft_graph at the new label) keeps it, adds no notice, settles `committed`', async () => {
-    stubSuccess200()
-    const { labelOf, synthetic, verdict } = await driveRename()
-
+describe('structural_rename — the transport arm (turn threw) is settled by the reread', () => {
+  it('the model holds the NEW name → keep it, `committed`', async () => {
+    stubRefusal200('unused — the turn throws before fetch')
+    readback = { label: NEW_LABEL }
+    const { labelOf, verdict } = await driveRename()
+    expect(graphReads).toBe(1)
     expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(synthetic).toHaveLength(0)
     expect(verdict).toBe('committed')
   })
 
-  it("a 500 `system_event_commit_failed` with an UNREADABLE model keeps it and says it couldn't confirm — CEE: a commit may have landed", async () => {
-    stub500CommitFailed()
-    readback = 'unreadable'
-    const { labelOf, synthetic, verdict } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(synthetic).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
-    expect(verdict).toBe('unconfirmed')
-  })
-
-  it('a refusal on a node CEE holds NO record of keeps it — reverting would discard local typing', async () => {
-    stubRefusal200(WITNESSED_REFUSAL)
-    readback = { label: null }
-    const { labelOf, synthetic, verdict } = await driveRename(false)
-
-    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(synthetic).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
-    expect(verdict).toBe('unconfirmed')
-  })
-})
-
-// ═══════════════════════════════════════════════════════════════════════════
-// #1884 REVIEW (CHANGES_REQUIRED @ 340a4996) — settle from the AUTHORITATIVE
-// readback, never from membership. `lastAuthoritativeGraph` holds ids only; it
-// cannot say what the node is CALLED.
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('structural_rename — a no-draft_graph reply is settled by reading the model back', () => {
-  it("REVIEW CONTROL 1: CEE refused and still holds the OLD label → the canvas restores it and says `refused`", async () => {
-    stubRefusal200(CEE_APPLY_FAILED_REFUSAL)
+  it('the model holds the OLD name → the canvas shows it, `refused`', async () => {
+    stubRefusal200('unused')
     readback = { label: PREVIOUS_LABEL }
     const { labelOf, verdict } = await driveRename()
-
-    expect(graphReads).toBe(1)
     expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
     expect(verdict).toBe('refused')
   })
 
-  it('REVIEW CONTROL 2: registration already stored the NEW label, CEE replies `expected_label_mismatch` with no graph → keep the saved name, never claim it was not saved', async () => {
-    stubRefusal200("That element is already called 'Hybrid Platform Fee Plus Usage RT'.")
-    readback = { label: NEW_LABEL }
-    const { labelOf, synthetic, verdict } = await driveRename()
-
-    expect(graphReads).toBe(1)
-    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(verdict).toBe('committed')
-    expect(synthetic).not.toContain(STRUCTURAL_RENAME_NOTICE.not_applied)
-    expect(synthetic).not.toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
-  })
-
-  it('the model holds a THIRD name (someone else renamed it) → the canvas shows the model’s name, `refused`', async () => {
-    stubRefusal200('')
-    readback = { label: 'Hybrid (renamed elsewhere)' }
-    const { labelOf, verdict } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe('Hybrid (renamed elsewhere)')
-    expect(labelOf(SIBLING_ID)).toBe(NEW_LABEL)
-    expect(verdict).toBe('refused')
-  })
-
-  it('the readback itself FAILS → keep the name, say it could not be confirmed, never revert on a guess', async () => {
-    stubRefusal200(WITNESSED_REFUSAL)
+  it('CONTROL: unreadable → name kept, `unconfirmed`, the transport notice', async () => {
+    stubRefusal200('unused')
     readback = 'unreadable'
     const { labelOf, synthetic, verdict } = await driveRename()
-
     expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
     expect(verdict).toBe('unconfirmed')
-    expect(synthetic).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
-  })
-
-  it('a proven-no-write 409 while CEE ALREADY holds the new name (the side channel stored it) → keep it, `committed`', async () => {
-    stub409('rpc_cas_conflict')
-    readback = { label: NEW_LABEL }
-    const { labelOf, synthetic, verdict } = await driveRename()
-
-    expect(graphReads).toBe(1)
-    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(verdict).toBe('committed')
-    expect(synthetic).not.toContain(STRUCTURAL_RENAME_NOTICE.base_hash_diverged)
-  })
-
-  it('CONTROL: a proven-no-write 409 while CEE holds the old name → revert, `refused` (unchanged)', async () => {
-    stub409('rpc_cas_conflict')
-    readback = { label: PREVIOUS_LABEL }
-    const { labelOf, synthetic, verdict } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
-    expect(verdict).toBe('refused')
-    expect(synthetic).toContain(STRUCTURAL_RENAME_NOTICE.base_hash_diverged)
-  })
-
-  it('CONTROL: a proven-no-write 409 with an UNREADABLE model keeps its own evidence → revert, `refused` (unchanged)', async () => {
-    stub409('rpc_cas_conflict')
-    readback = 'unreadable'
-    const { labelOf, verdict } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
-    expect(verdict).toBe('refused')
-  })
-
-  it('an untyped 500 while CEE holds the NEW name (the commit landed) → keep it, `committed`, no "could not confirm"', async () => {
-    stub500CommitFailed()
-    readback = { label: NEW_LABEL }
-    const { labelOf, synthetic, verdict } = await driveRename()
-
-    expect(graphReads).toBe(1)
-    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(verdict).toBe('committed')
-    expect(synthetic).not.toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
-  })
-
-  it('an untyped 500 while CEE still holds the OLD name (the commit did not land) → revert, `refused`', async () => {
-    stub500CommitFailed()
-    readback = { label: PREVIOUS_LABEL }
-    const { labelOf, verdict } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
-    expect(verdict).toBe('refused')
-  })
-
-  it('a NETWORK failure (the turn fetch rejects → `parse_error`) is settled by the same reread — the model holds the new name → `committed`', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: unknown) => {
-        const url = typeof input === 'string' ? input : String((input as { url?: string })?.url ?? input)
-        if (/\/scenarios\/[^/]+\/graph$/.test(url)) return graphReadResponse()
-        throw new TypeError('Failed to fetch')
-      }),
-    )
-    readback = { label: NEW_LABEL }
-    const { labelOf, verdict } = await driveRename()
-
-    expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
-    expect(verdict).toBe('committed')
-  })
-
-  it('CONTROL: a success 200 WITH draft_graph needs no readback', async () => {
-    stubSuccess200()
-    const { verdict } = await driveRename()
-
-    expect(verdict).toBe('committed')
-    expect(graphReads).toBe(0)
+    expect(synthetic).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_transport)
   })
 })
