@@ -52,6 +52,12 @@ export const OPTION_INTERVENTION_BLOCKED =
   'Not sent — another change is still in flight. Try again in a moment.'
 export const OPTION_INTERVENTION_REFUSED =
   'Not saved — the model moved on while this was in flight. Ask Olumi anything, then set this again.'
+/**
+ * CEE answered and the turn was fully processed, yet the model does not hold the
+ * number: its 200 refusal (`refused_no_write`). The reply in the conversation says why.
+ */
+export const OPTION_INTERVENTION_NOT_APPLIED =
+  'Not saved — Olumi answered without applying this change. Its reply says why.'
 /** ⚠ Neither saved nor unsaved: a write is not ruled out, so the copy may not pick one. */
 export const OPTION_INTERVENTION_UNVERIFIED =
   'Olumi could not confirm whether that reached the model. Ask it anything about this decision to see where it stands.'
@@ -86,10 +92,34 @@ export function useOptionInterventionCommit(nodeId: string | null): OptionInterv
   const attemptRef = useRef(0)
   const liveAttemptRef = useRef<number | null>(null)
 
-  const settle = useCallback((attempt: number, settlement: SystemEventSendSettlement) => {
-    // `sent` / `queued` say nothing about the MODEL — the store answers that.
-    if (settlement === 'sent' || settlement === 'queued') return
+  const settle = useCallback((
+    attempt: number,
+    settlement: SystemEventSendSettlement,
+    sent: { factorId: string; value: number },
+  ) => {
+    // `queued` says nothing about the MODEL — the store answers that.
+    if (settlement === 'queued') return
     if (liveAttemptRef.current !== attempt) return
+    if (settlement === 'sent') {
+      // ⭐ 'sent' RESOLVES AFTER THE TURN WAS PROCESSED, so here the store DOES
+      // answer. `sendSystemEvent` returns `await sendTurn(…)`, whose response
+      // handling reconciles an applied receipt's committed `draft_graph` into
+      // the store synchronously — and an applied `option_intervention_edit`
+      // always carries one. So a store that does not hold the sent number NOW
+      // means CEE answered without applying it (its 200 `refused_no_write`).
+      // Before this, the unsaved number stayed on screen until some unrelated
+      // store change (lane note, 22 Sep).
+      const option = useCanvasStore.getState().nodes.find(n => n.id === nodeId)
+      const map = (option?.data as Record<string, unknown> | undefined)?.interventions as
+        | Record<string, unknown>
+        | undefined
+      const held = map ? interventionNumericValue(map[sent.factorId]) : null
+      if (held === sent.value) return // applied: the effect below ends the pending state
+      liveAttemptRef.current = null
+      setPending(null)
+      setNotice(OPTION_INTERVENTION_NOT_APPLIED)
+      return
+    }
     liveAttemptRef.current = null
     setPending(null)
     setNotice(
@@ -99,7 +129,7 @@ export function useOptionInterventionCommit(nodeId: string | null): OptionInterv
           ? OPTION_INTERVENTION_REFUSED
           : OPTION_INTERVENTION_UNVERIFIED,
     )
-  }, [])
+  }, [nodeId])
 
   /**
    * ⭐ THE CONFIRMATION IS THE CANONICAL STORE, NEVER AN ECHO. Pending ends when
@@ -130,7 +160,7 @@ export function useOptionInterventionCommit(nodeId: string | null): OptionInterv
       setPending({ factorId, value })
       setNotice(null)
       const outcome = authority.proposeOptionIntervention(factorId, value, {
-        onSendSettled: settlement => settle(attempt, settlement),
+        onSendSettled: settlement => settle(attempt, settlement, { factorId, value }),
       })
       if (outcome === 'dispatched') return outcome
       // Any refusal clears the optimistic display: showing the new number
