@@ -25,11 +25,47 @@
  *
  * It is a sibling of `renamePersistence.spec.ts`, not a duplicate: that one
  * covers a node's LABEL, this one covers a factor's VALUE and its AUTHORSHIP.
+ *
+ * ⛔⛔⛔ UPGRADED 22 Sep 2026: IT NOW ASSERTS THE SYSTEM, NOT THE COMPONENT.
+ *
+ * The run quoted above asserted only the RELOADED value. That is how a
+ * value-edit FAIL was blamed on CEE's `dispatchFactorValueEdit` for an hour
+ * when the 748-byte response it was blamed on carried `_agent` — the Agent
+ * route had answered `unsupported_kind` — and how, once the route was fixed, a
+ * whole-graph `graph/register` sent in the SAME MILLISECOND as the edit turn
+ * made CEE's CAS roll the edit back while the register stored the user's number
+ * under Olumi's authorship. None of that was visible to a reload-only witness.
+ *
+ * The edit leg now prints one line per clause, from the captured wire
+ * (`_editWire.ts`):
+ *   ROUTE        — the edit turn's response has no `_agent` key. `_agent` ⇒
+ *                  NOT-MEASURED (wrong route), never a Canvas FAIL.
+ *   RECEIPT      — HTTP 200 carrying `graph_patch` `status:"applied"`,
+ *                  `operation:"set_factor_value"`, `target_id` = the edited
+ *                  factor, `after.value` = the sent value. A 5xx carrying a CEE
+ *                  code (e.g. `system_event_commit_failed`) is a FAIL, not
+ *                  "infrastructure": that is the edit the user lost. Only a
+ *                  502/503/504 gateway answer stays NOT-MEASURED.
+ *   SIDE-CHANNEL — no `graph/register` sent between the gesture and 5 s after
+ *                  the response carries the edited value UNCONFIRMED (before the
+ *                  response, or after a non-applied one). ⚠ Expected to FAIL
+ *                  intermittently on the 22 Sep served build — a known race.
+ *   SETTLEMENT   — applied: the store holds the sent value as `user_override`
+ *                  after settlement AND after a reload, with no `est.` left.
+ *                  Not applied: the refused value must NOT come back on reload
+ *                  ("failed edits do not leave misleading local state").
+ * Evidence: output/canvas-review-20260922/EVIDENCE-edits-refused-on-served-staging.md
  */
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import {
+  blocksOf, captureEditWire, errorCodeOf, isGatewayStatus, printClauses, printRegisterRows,
+  printWireLog, rollUp, routeClause, sideChannelClause, sideChannelRows,
+} from './_editWire'
+import type { ClauseResult } from './_editWire'
 
 const EXAMPLE = /Pricing Model Transition Strategy/i
+const SENT = 0.42
 
 async function pinnedOrigin() {
   const j = (await (await fetch('https://staging--olumi.netlify.app/version.json')).json()) as { commit: string; deploy_url: string }
@@ -51,14 +87,14 @@ async function obs(page: Page, id: string) {
     return n?.data?.observedState ?? null
   }, id)
 }
+const near = (v: unknown, want: number) => typeof v === 'number' && Math.abs(v - want) < 1e-9
 
 test('PERSIST + AUTHORSHIP on the pricing board', async ({ page }) => {
-  test.setTimeout(280_000)
-  const turns: Array<{ s: number }> = []
-  page.on('response', (r) => { if (/proxy\/v5\/turn/.test(r.url())) turns.push({ s: r.status() }) })
+  test.setTimeout(300_000)
+  const wire = await captureEditWire(page)
 
   const { origin, build } = await pinnedOrigin()
-  console.log(`[PERSIST] servedUI=${build}`)
+  console.log(`[PERSIST] servedUI=${build} origin=${origin}`)
   await page.goto(origin, { waitUntil: 'domcontentloaded' })
   await page.getByRole('button', { name: /continue without an account/i }).click()
   const card = page.getByRole('button', { name: EXAMPLE })
@@ -92,66 +128,138 @@ test('PERSIST + AUTHORSHIP on the pricing board', async ({ page }) => {
   })
   console.log(`[PERSIST] target=${target}`)
   expect(target, 'CONTROL: no factor advertises an edit affordance').not.toBeNull()
+  const targetId = target as string
 
-  const before = await obs(page, target as string)
+  const before = await obs(page, targetId)
   console.log(`[PERSIST] before=${JSON.stringify(before)}`)
-  expect(await clickNode(page, target as string), 'CONTROL: node had no box').toBe(true)
+  // CONTROL: the sent value must differ from the value already held, or an
+  // "applied" receipt and a persisted value would prove nothing.
+  expect(near((before as any)?.value, SENT), `CONTROL: the factor already holds ${SENT}`).toBe(false)
+  expect(await clickNode(page, targetId), 'CONTROL: node had no box').toBe(true)
   const field = page.getByPlaceholder(/enter value/i).first()
   const hasWriter = await field.count() > 0
   console.log(`[PERSIST] inspectorValueWriterPresent=${hasWriter}`)
   expect(hasWriter, 'CONTROL: the advertised affordance leads to no writer — leg is vacuous').toBe(true)
+  console.log(`[PERSIST] registersBeforeGesture=${wire.registers.length} turnsBeforeGesture=${wire.turns.length}`)
 
-  await field.click(); await field.fill('0.42'); await page.keyboard.press('Enter')
-  await page.waitForTimeout(12_000)
-  const after = await obs(page, target as string)
-  console.log(`[PERSIST] after=${JSON.stringify(after)}`)
-  console.log(`[PERSIST] turnOutcomes=${JSON.stringify(turns.map((t) => t.s))}`)
+  // ── THE EDIT, BOUND TO ITS OWN TURN BY IDENTITY ──────────────────────────
+  await field.click(); await field.fill(String(SENT))
+  const mark = wire.mark()
+  const gestureMs = Date.now()
+  await page.keyboard.press('Enter')
+  const turn = await wire.waitForTurn(
+    mark,
+    (b) => {
+      const ev = b.event as Record<string, unknown> | undefined
+      return b.kind === 'system_event' && ev?.kind === 'factor_value_edit' && ev?.target_id === targetId
+    },
+    90_000,
+  )
+  // Settlement: the receipt has been applied (or not); wait out the 5 s
+  // side-channel window from the response's end, plus a margin for the apply.
+  await page.waitForTimeout(turn?.endMs != null ? Math.max(0, turn.endMs + 7_000 - Date.now()) : 12_000)
+  await wire.drain()
+  const pageClock = await wire.syncPageClock()
+  console.log(`[PERSIST] pageClock entries=${pageClock.entries} matchedToNetwork=${pageClock.matched}/${wire.turns.length + wire.registers.length}`)
+  const settled = await obs(page, targetId)
 
-  const failed = turns.filter((t) => t.s !== 200)
-  if (failed.length > 0) {
-    console.log(`[PERSIST] VERDICT NOT-MEASURED — edit turn returned ${failed.map((f) => f.s).join(',')}; INFRASTRUCTURE, not the UI. Re-run.`)
-    return
+  console.log(`[PERSIST] editTurn=${turn ? `${turn.path} HTTP ${turn.status ?? turn.failure} requestBody.event=${JSON.stringify((turn.reqBody as any)?.event)} responseBytes=${turn.resText?.length ?? 0}` : 'NONE'}`)
+  console.log(`[PERSIST] allTurnOutcomes=${JSON.stringify(wire.turns.map((t) => t.status ?? t.failure))}`)
+  if (turn) console.log(`[PERSIST] responseBody=${(turn.resText ?? '').slice(0, 1_500)}`)
+
+  // ── CLAUSE 1 — ROUTE ─────────────────────────────────────────────────────
+  const route = routeClause(turn)
+
+  // ── CLAUSE 2 — RECEIPT ───────────────────────────────────────────────────
+  const patches = blocksOf(turn).filter((b) => b.type === 'graph_patch')
+  const receiptBlock = patches.find((b) =>
+    b.status === 'applied' && b.operation === 'set_factor_value' && b.target_id === targetId &&
+    near((b.after as Record<string, unknown> | null)?.value, SENT))
+  console.log(`[PERSIST] RECEIPT blockTypes=${JSON.stringify(blocksOf(turn).map((b) => b.type))} graphPatches=${JSON.stringify(patches)}`)
+  let receipt: ClauseResult
+  if (!turn || turn.failure || turn.status == null) {
+    receipt = { verdict: 'NOT-MEASURED', voids: turn != null, detail: turn ? `transport failure (${turn.failure})` : 'no factor_value_edit turn for this factor reached the wire within 90 s' }
+  } else if (isGatewayStatus(turn.status)) {
+    receipt = { verdict: 'NOT-MEASURED', voids: true, detail: `HTTP ${turn.status} — a gateway/availability answer, not the edit protocol's; re-run` }
+  } else if (turn.status !== 200) {
+    receipt = { verdict: 'FAIL', detail: `HTTP ${turn.status} code=${errorCodeOf(turn)} — the backend did not commit the edit` }
+  } else if (receiptBlock) {
+    /**
+     * ⭐ `before.value` IS CEE'S STORED VALUE WHEN THE EDIT ARRIVED. Printed, not
+     * asserted: if it already equals the sent value rather than the value the
+     * board opened with, something other than this edit wrote it to the stored
+     * graph first — the side-channel clause says what.
+     */
+    const storedBefore = (receiptBlock.before as any)?.value
+    const preempted = near(storedBefore, SENT) && !near((before as any)?.value, SENT)
+    receipt = { verdict: 'PASS', detail: `HTTP 200; graph_patch applied set_factor_value target_id=${targetId} after.value=${JSON.stringify((receiptBlock.after as any)?.value)} before.value=${JSON.stringify(storedBefore)}${preempted ? ` (OBSERVED: the stored graph ALREADY held ${SENT} when the edit arrived; the board opened at ${JSON.stringify((before as any)?.value)})` : ''}` }
+  } else {
+    receipt = { verdict: 'FAIL', detail: `HTTP 200 but NO applied set_factor_value graph_patch for ${targetId} at ${SENT}; assistant_text=${JSON.stringify(String((turn.resJson as any)?.assistant_text ?? '').slice(0, 200))}` }
   }
+  const confirmed = receipt.verdict === 'PASS'
 
+  // ── CLAUSE 3 — SIDE-CHANNEL ──────────────────────────────────────────────
+  const rows = sideChannelRows(
+    wire.registersInWindow(mark, turn), turn, targetId,
+    (n) => near((n.observed_state as Record<string, unknown> | undefined)?.value, SENT),
+    confirmed,
+  )
+  printRegisterRows('[PERSIST]', rows)
+  printWireLog('[PERSIST]', wire, gestureMs)
+
+  // ── CLAUSE 4 — SETTLEMENT + RELOAD ───────────────────────────────────────
+  console.log(`[PERSIST] settled=${JSON.stringify(settled)}`)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(15_000)
-  const reloaded = await obs(page, target as string)
+  const reloaded = await obs(page, targetId)
   console.log(`[PERSIST] afterReload=${JSON.stringify(reloaded)}`)
+  const side = sideChannelClause(rows, wire.bffFamilySeen())
 
   /**
-   * ⛔⛔ TWO OF THESE ASSERTED MORE THAN THE CONTRACT PROMISES, AND THAT MAKES A
-   * WITNESS A FALSE-FAIL GENERATOR. Corrected 22 Sep 2026 after measuring the
-   * seam at the bytes.
-   *
-   * `useModelEditAuthority.ts:503-542` — on a DISPATCHED `factor_value_edit` the
-   * client deliberately writes NOTHING locally, neither value nor authorship:
-   *
-   *   "THE STAMP IS WRITTEN LOCALLY ONLY WHERE NOTHING ELSE WILL EVER OWN IT …
-   *    a dispatched edit was stamped 'checked by you' before the engine had seen
-   *    it. That is the fabricated provenance … The local write SURVIVES on the
-   *    `local_only` path only."
-   *
-   * The stamp is meant to be written by `confirmOptimisticFactorEdit` AGAINST
-   * CEE'S RECEIPT. A turn IS dispatched here (captured on the wire), so this run
-   * is on the dispatched path and **an immediate local value/authorship is not
-   * promised**. Failing the run on it blames the client for honouring the
-   * estate's own anti-fabrication ruling.
-   *
-   * ⭐ They are still MEASURED and printed — the user-visible fact that nothing
-   * appears until a reload is real and worth watching — but the VERDICT now
-   * rests only on what the contract does promise: the value persists, the
-   * authorship is the user's, and no false `est.` survives.
+   * ⛔⛔ THE IMMEDIATE LOCAL WRITE IS STILL NOT ASSERTED — the contract does not
+   * promise it. `useModelEditAuthority.ts:503-542`: on a DISPATCHED
+   * `factor_value_edit` the client writes neither value nor authorship until
+   * `confirmOptimisticFactorEdit` runs AGAINST CEE'S RECEIPT ("THE STAMP IS
+   * WRITTEN LOCALLY ONLY WHERE NOTHING ELSE WILL EVER OWN IT"). What IS promised
+   * once an applied receipt is in hand is asserted: `settled` is read after the
+   * receipt and the 5 s window, so the stamp has had its chance to land.
    */
-  const immediateLocalValue = (after as any)?.value === 0.42
-  const immediateLocalAuthorship = /user/.test(String((after as any)?.source ?? ''))
-  const retained = (reloaded as any)?.value === 0.42
+  const settledValue = near((settled as any)?.value, SENT)
+  const settledUser = (settled as any)?.source === 'user_override'
+  const retained = near((reloaded as any)?.value, SENT)
   const retainedAuthorship = /user/.test(String((reloaded as any)?.source ?? ''))
+  const retainedOverride = (reloaded as any)?.source === 'user_override'
   const noFalseEst = (reloaded as any)?.extractionType !== 'inferred'
-  console.log(`[PERSIST] OBSERVED-NOT-ASSERTED immediateLocalValue=${immediateLocalValue} immediateLocalAuthorship=${immediateLocalAuthorship} (dispatched path promises neither)`)
-  console.log(`[PERSIST] ASSERTED retainedAfterReload=${retained} authorshipRetained=${retainedAuthorship} noFalseEstAfterReload=${noFalseEst}`)
-  const verdict = retained && retainedAuthorship && noFalseEst ? 'PASS' : 'FAIL'
-  console.log(`[PERSIST] VERDICT ${verdict}`)
-  if (!retainedAuthorship) {
-    console.log(`[PERSIST] ⛔ THE FAILING CLAUSE IS AUTHORSHIP: the user's own value came back as source=${JSON.stringify((reloaded as any)?.source)}. CEE sends no receipt on factor_value_edit (748-byte conversational response, zero observed_state), so confirmOptimisticFactorEdit never fires. olumi-programme-docs#63.`)
+  console.log(`[PERSIST] ASSERTED settledValue=${settledValue} settledUserOverride=${settledUser} retainedAfterReload=${retained} authorshipRetained=${retainedAuthorship} userOverrideAfterReload=${retainedOverride} noFalseEstAfterReload=${noFalseEst}`)
+  let settlement: ClauseResult
+  if (confirmed) {
+    const ok = settledValue && settledUser && retained && retainedAuthorship && retainedOverride && noFalseEst
+    settlement = {
+      verdict: ok ? 'PASS' : 'FAIL',
+      detail: `applied edit ⇒ expect ${SENT} user_override settled and after reload; settled=${JSON.stringify((settled as any)?.value)}/${JSON.stringify((settled as any)?.source)} reloaded=${JSON.stringify((reloaded as any)?.value)}/${JSON.stringify((reloaded as any)?.source)} extractionType=${JSON.stringify((reloaded as any)?.extractionType)}`,
+    }
+  } else if (receipt.verdict === 'NOT-MEASURED' && receipt.voids) {
+    settlement = { verdict: 'NOT-MEASURED', detail: `the receipt could not be measured, so there is no expectation to hold the store to; observed settled=${JSON.stringify((settled as any)?.value)}/${JSON.stringify((settled as any)?.source)} reloaded=${JSON.stringify((reloaded as any)?.value)}/${JSON.stringify((reloaded as any)?.source)}` }
+  } else if (turn == null) {
+    // No edit turn was ever sent: the pre-upgrade assertion, on the
+    // user-visible outcome — the SIDE-CHANNEL clause says how it got there.
+    const ok = retained && retainedAuthorship && noFalseEst
+    settlement = { verdict: ok ? 'PASS' : 'FAIL', detail: `NO edit turn was sent ⇒ judged on the user-visible outcome (retained, user authorship, no est.): reloaded=${JSON.stringify((reloaded as any)?.value)}/${JSON.stringify((reloaded as any)?.source)}` }
+  } else {
+    settlement = {
+      verdict: retained ? 'FAIL' : 'PASS',
+      detail: `edit answered but NOT confirmed ⇒ the refused value must not come back on reload; settled=${JSON.stringify((settled as any)?.value)}/${JSON.stringify((settled as any)?.source)} reloaded=${JSON.stringify((reloaded as any)?.value)}/${JSON.stringify((reloaded as any)?.source)}${retained ? ' — THE UNCONFIRMED VALUE PERSISTED' : ''}`,
+    }
+  }
+
+  const clauses = { ROUTE: route, RECEIPT: receipt, 'SIDE-CHANNEL': side, SETTLEMENT: settlement }
+  printClauses('[PERSIST]', clauses)
+  const overall = rollUp(clauses)
+  console.log(`[PERSIST] VERDICT ${overall.verdict} — ${overall.why}`)
+  if (side.verdict === 'FAIL') {
+    console.log(`[PERSIST] ⛔ THE FAILING CLAUSE IS SIDE-CHANNEL: a whole-graph graph/register carried ${SENT} before the backend confirmed it. That is a second writer to canonical state, outside the edit protocol, receipts and authorship.`)
+  }
+  if (confirmed && !retainedOverride) {
+    console.log(`[PERSIST] ⛔ THE FAILING CLAUSE IS AUTHORSHIP: CEE applied the edit (receipt above) yet the value came back as source=${JSON.stringify((reloaded as any)?.source)}.`)
   }
 })

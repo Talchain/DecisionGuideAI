@@ -33,6 +33,7 @@
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { leaderDesignationPermitted } from '../leaderDesignation'
+import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { useCanvasStore } from '../../../canvas/store'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import {
@@ -146,6 +147,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // Undefined when a legacy caller supplies no verdict; the engine's read
       // is strict (`=== false`), so only an explicit withheld claim suppresses.
       hasLeadingOption: leaderDesignationPermitted(data.recommendation),
+      stabilityLicensed: analysisClaimPolicy(data.recommendation).mayStateStability,
       // ⭐ IDENTITY, BESIDE THE PERMISSION ABOVE — two questions, two fields.
       // The line above says a leader MAY be designated on this run; this says
       // what that option is CALLED, so a permitted trigger names it rather than

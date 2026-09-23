@@ -2756,6 +2756,16 @@ export const ANALYSIS_NEW_COPY = {
      * never carried the verdict. Collapsing them would attribute a statement
      * to a producer that never made one.
      */
+    /**
+     * ⛔ THE PRODUCER DID ASSESS — the admission forbids stating what it found.
+     * Not `robustness_not_assessed` (which would say it was never tested) and
+     * not `robustness_unknown`. Same words as the Analysis tab's twin row.
+     */
+    robustness_not_established: {
+      label: 'Robustness not established',
+      meaning:
+        'A robustness check ran, but until at least one of the estimates it rests on is yours, its result cannot be called stable or sensitive.',
+    },
     robustness_unknown: {
       label: 'Robustness unknown',
       meaning:

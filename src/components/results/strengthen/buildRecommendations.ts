@@ -1131,7 +1131,10 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   if (
     inputs.analysisComplete &&
     inputs.robustness.status === 'computed' &&
-    level === 'high'
+    level === 'high' &&
+    // ⛔ "held up under stress-testing … result stable" is a strength claim;
+    // not stated where the admission licenses none (#1206).
+    inputs.stabilityLicensed !== false
   ) {
     recs.push({
       id: 'strengthen:commit',
