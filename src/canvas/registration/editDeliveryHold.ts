@@ -19,7 +19,7 @@
  * ## What this module answers
  *
  * "Is any Canvas edit still between the user and the server?" — and while the
- * answer is yes, no registration may leave. Four signals, each the existing
+ * answer is yes, no registration may leave. Five signals, each the existing
  * owner of its own window, none re-derived here:
  *
  *  1. a model-changing `system_event` turn is ON THE WIRE — the dispatcher marks
@@ -39,6 +39,14 @@
  *     revert, so after the untyped 500 (value kept, "couldn't confirm") it
  *     stays up — and a registration must never launder that number into
  *     canonical state under Olumi's name.
+ *  5. the graph CARRIES A LINK MAGNITUDE the server has not confirmed — the
+ *     edge twin of 4 (`pendingEdgeEdit`). Witnessed 23 Sep 02:49Z: a refused
+ *     `edge_strength_edit` left its magnitude on the canvas and, once the wire
+ *     mark cleared, the side channel wrote the refused value into CEE. Settled
+ *     by the applied receipt (the committed graph shows the magnitude) or by
+ *     the carrier: reverted ONLY on a proven no-write, otherwise (500, or a 200
+ *     that shows no committed graph) kept on screen and held off the side
+ *     channel — absence of a confirmation is not a refusal.
  *
  * ⚠ SIGNAL 4 IS BOUND TO THE GRAPH, NOT TO THE REGISTER'S NON-EMPTINESS. The
  *   register is module-level and not scenario-scoped; "anything pending
@@ -53,7 +61,9 @@
  *     removes the post-edit re-registration that made that race common.
  *   (An UNCONFIRMED structural edit after its turn settled — a rename whose
  *   turn 500'd keeps its label — IS covered: `unresolvedStructuralEditOnCanvas`
- *   reads `structuralRenameLifecycle` / `structuralAddLifecycle`. #1892 review.)
+ *   reads `structuralRenameLifecycle` / `structuralAddLifecycle`. #1892 review.
+ *   Its delete twin — a delete whose turn 500'd keeps the deletion — reads
+ *   `unconfirmedStructuralDelete`. #1905 residual 1.)
  */
 import { useSyncExternalStore } from 'react'
 
@@ -63,6 +73,14 @@ import {
   pendingFactorEditValue,
   subscribePendingFactorEdits,
 } from '../conversation/pendingFactorEdit'
+import {
+  graphCarriesUnconfirmedEdgeEdit,
+  subscribePendingEdgeEdits,
+} from '../conversation/pendingEdgeEdit'
+import {
+  subscribeUnconfirmedDeletes,
+  unconfirmedDeleteStillOnCanvas,
+} from '../conversation/unconfirmedStructuralDelete'
 
 /** Model-changing system_event turns currently on the wire. */
 let modelEditsOnTheWire = 0
@@ -99,6 +117,8 @@ export function beginModelEditDelivery(eventType: string | undefined): () => voi
 /** The store slice this module reads. Structural so tests can pass a literal. */
 export interface EditDeliveryState {
   readonly nodes: ReadonlyArray<{ id?: unknown; data?: unknown }>
+  /** Read by signal 5 only (an unconfirmed link magnitude). */
+  readonly edges?: ReadonlyArray<{ id?: unknown; data?: unknown }>
   readonly pendingEmittedEdits?: number
   readonly pendingStructuralDeletes?: ReadonlyArray<unknown>
   readonly pendingStructuralRenames?: ReadonlyArray<unknown>
@@ -116,6 +136,7 @@ export type EditDeliveryHold =
   | 'edit_queued'
   | 'structural_edit_queued'
   | 'unconfirmed_value_on_canvas'
+  | 'unconfirmed_edge_on_canvas'
   | 'unresolved_structural_edit'
 
 function currentValue(data: unknown): unknown {
@@ -201,7 +222,11 @@ function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
     const nodeId = (r.intent as { nodeId?: unknown }).nodeId
     if (state.nodes.some((n) => n.id === nodeId)) return true
   }
-  return false
+  // The delete twin: an ambiguous 500 / transport loss keeps the deletion on
+  // the canvas, and the side channel must not make it canonical
+  // (`unconfirmedStructuralDelete.ts`; #1892 review residual row "Delete",
+  // #1905 residual 1). Scenario-scoped there, read against THIS graph here.
+  return unconfirmedDeleteStillOnCanvas(state)
 }
 
 /**
@@ -227,16 +252,21 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
       return 'unconfirmed_value_on_canvas'
     }
   }
+  if (graphCarriesUnconfirmedEdgeEdit((state.edges ?? []) as never)) return 'unconfirmed_edge_on_canvas'
   return null
 }
 
 function subscribe(listener: Listener): () => void {
   listeners.add(listener)
   const unsubscribePending = subscribePendingFactorEdits(listener)
+  const unsubscribePendingEdges = subscribePendingEdgeEdits(listener)
+  const unsubscribeDeletes = subscribeUnconfirmedDeletes(listener)
   const unsubscribeStore = useCanvasStore.subscribe(listener)
   return () => {
     listeners.delete(listener)
     unsubscribePending()
+    unsubscribePendingEdges()
+    unsubscribeDeletes()
     unsubscribeStore()
   }
 }

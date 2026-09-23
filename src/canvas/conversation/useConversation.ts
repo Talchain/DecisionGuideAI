@@ -170,6 +170,13 @@ import {
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
+import { settleEdgeEdit } from './pendingEdgeEdit'
+import { settleStructuralDeleteAttempt } from './unconfirmedStructuralDelete'
+import {
+  canvasBeforeOwnAppliedWrite,
+  receiptProvesOwnEdgeEdit,
+  type OptimisticEdgeEdit,
+} from './ownOptimisticWrite'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
@@ -2394,6 +2401,13 @@ export interface SendTurnOpts {
   /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
   structuralAdd?: StructuralAddIntent
   /**
+   * The optimistic link-strength write this `edge_strength_edit` announces.
+   * NOT part of the wire payload; it rides here for the reason the three above
+   * do — the applied receipt must know which canvas write is ITS OWN
+   * (`ownOptimisticWrite.ts`), deferred sends included.
+   */
+  optimisticEdgeEdit?: OptimisticEdgeEdit
+  /**
    * Keep this system event with its caller when another turn owns the lock.
    *
    * Default true preserves the established singleton sender queue. Callers
@@ -2538,6 +2552,8 @@ export interface UseConversationReturn {
     structuralRename?: StructuralRenameIntent
     /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
     structuralAdd?: StructuralAddIntent
+    /** The optimistic link-strength write this `edge_strength_edit` announces. */
+    optimisticEdgeEdit?: OptimisticEdgeEdit
     /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
     deferIfBusy?: boolean
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
@@ -3070,6 +3086,9 @@ export function useConversation(): UseConversationReturn {
               edgeIds: intent.claimedEdgeIds,
             })
           }
+          // The receipt proves the removal: it settles every earlier
+          // unconfirmed attempt that shares an element with it (one writer).
+          settleStructuralDeleteAttempt(intent, capturedScenarioId, 'proven')
           return
         }
         shouldRevert = true
@@ -3114,6 +3133,14 @@ export function useConversation(): UseConversationReturn {
       } else {
         notice = 'unconfirmed_transport'
       }
+
+      // ONE WRITER (#1905 residual 1; #1892 review, residual row "Delete"): an
+      // arm that KEEPS the deletion without proof is recorded, so registration
+      // holds while the canvas still shows it — otherwise the next whole-graph
+      // register carries the post-delete canvas and CEE deletes the node through
+      // the side channel. A reverted arm releases nothing (a refusal is not
+      // proof); only the proven arm above supersedes.
+      settleStructuralDeleteAttempt(intent, capturedScenarioId, shouldRevert ? 'reverted' : 'unconfirmed')
 
       if (shouldRevert) {
         const revertOutcome = revertStructuralDelete(
@@ -5223,12 +5250,51 @@ export function useConversation(): UseConversationReturn {
               // unanswered, a local-only edit) makes G₀ unacknowledged, the
               // chain does not fire, and a registration offers the model once
               // delivery settles — fail CLOSED, #1855 preserved.
+              //
+              // ⭐ G₀ IS THE CANVAS BEFORE THIS EDIT'S OWN OPTIMISTIC WRITE
+              // (served witness 23 Sep, UI 4c6ec07b). A structural delete, a
+              // structural rename and a link-strength edit each write the
+              // canvas BEFORE their turn is sent, so the canvas just before
+              // this receipt already carries the edit's own write: it was never
+              // acknowledged, the chain never fired, and a whole-graph register
+              // followed each receipt (+51 / +70 / +58 ms — the last dropping
+              // the edge provenance CEE had just recorded). The rule:
+              //   CEE held G₀ (the canvas as it stood before THIS edit's own
+              //   optimistic write) ∧ CEE applied this edit and returned its
+              //   committed postimage ∧ the canvas has been reconciled to that
+              //   postimage ⇒ CEE holds the canvas.
+              // `canvasBeforeOwnAppliedWrite` undoes ONLY this turn's write —
+              // tied to the turn by the intent it was sent with, not guessed —
+              // and only when the committed graph PROVES that write applied and
+              // the canvas still shows exactly it; otherwise it answers null
+              // and G₀ is the canvas as it is (#1895 unchanged). Any OTHER
+              // unacknowledged change survives the undo, so it still fails
+              // CLOSED. A refused or unconfirmed turn (409 / 500) carries no
+              // committed graph and never reaches this branch.
               const beforeReceipt = useCanvasStore.getState()
-              const receiptExtendsAcknowledgement = isGraphServerAcknowledged(
-                beforeReceipt.currentScenarioId,
-                beforeReceipt.nodes as never,
-                beforeReceipt.edges as never,
+              const canvasAtReceipt = { nodes: beforeReceipt.nodes, edges: beforeReceipt.edges }
+              const canvasBeforeOwnWrite = canvasBeforeOwnAppliedWrite(
+                systemEvent?.type,
+                {
+                  structuralDelete: opts.structuralDelete,
+                  structuralRename: opts.structuralRename,
+                  optimisticEdgeEdit: opts.optimisticEdgeEdit,
+                },
+                target.response,
+                canvasAtReceipt,
               )
+              const receiptExtendsAcknowledgement =
+                isGraphServerAcknowledged(
+                  beforeReceipt.currentScenarioId,
+                  canvasAtReceipt.nodes as never,
+                  canvasAtReceipt.edges as never,
+                ) ||
+                (canvasBeforeOwnWrite !== null &&
+                  isGraphServerAcknowledged(
+                    beforeReceipt.currentScenarioId,
+                    canvasBeforeOwnWrite.nodes as never,
+                    canvasBeforeOwnWrite.edges as never,
+                  ))
               const merged = reconcileAppliedGraph(inlineGraph as any)
               if (receiptExtendsAcknowledgement) {
                 const afterReceipt = useCanvasStore.getState()
@@ -5237,6 +5303,20 @@ export function useConversation(): UseConversationReturn {
                   afterReceipt.nodes as never,
                   afterReceipt.edges as never,
                 )
+              }
+              // The committed graph proved the link edit applied: its magnitude
+              // is no longer unconfirmed, so `editDeliveryHold` signal 5 stands
+              // down HERE — where the receipt is in hand — rather than waiting
+              // on the carrier, whose deferred send heard only 'queued'. Asked of
+              // the COMMITTED graph, never of the canvas (an earlier receipt may
+              // have overwritten this pick on screen). A newer pick of the same
+              // link keeps its own entry: `settleEdgeEdit` stands down on it.
+              if (
+                systemEvent?.type === 'edge_strength_edit' &&
+                opts.optimisticEdgeEdit &&
+                receiptProvesOwnEdgeEdit(opts.optimisticEdgeEdit, target.response, beforeReceipt.edges)
+              ) {
+                settleEdgeEdit(opts.optimisticEdgeEdit.edgeId, opts.optimisticEdgeEdit.sentMagnitude)
               }
               if (
                 import.meta.env.DEV &&
@@ -6175,6 +6255,8 @@ export function useConversation(): UseConversationReturn {
       structuralRename?: StructuralRenameIntent
       /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
       structuralAdd?: StructuralAddIntent
+      /** The optimistic link-strength write this `edge_strength_edit` announces. */
+      optimisticEdgeEdit?: OptimisticEdgeEdit
       deferIfBusy?: boolean
     }) => {
       // No-op when orchestrator V2 is OFF
@@ -6254,6 +6336,10 @@ export function useConversation(): UseConversationReturn {
         // spec found it, which is why
         // `useConversation.structuralAddOutcome.spec.ts` exists.
         structuralAdd: opts?.structuralAdd,
+        // Same invisibility if forgotten: without it an applied link edit can
+        // never acknowledge the model past its own write, and a whole-graph
+        // registration follows every one (`edgeStrengthOneWriter.spec` case C).
+        optimisticEdgeEdit: opts?.optimisticEdgeEdit,
         // ⚠ A DELETE MAY DEFER, AND THE DEDUPE KEY IS WHY THAT IS SAFE.
         // `enqueueDeferredSystemSend` collapses only `factor_value_edit`
         // (last-write-wins per target); every other type gets a per-enqueue
