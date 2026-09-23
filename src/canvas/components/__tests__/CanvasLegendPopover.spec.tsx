@@ -741,7 +741,14 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     files: readonly string[]
     pattern: RegExp
   }> = [
-    { noun: METRIC_NOUN.support, files: ['OptionNode.tsx', 'DecisionNode.tsx'], pattern: /METRIC_NOUN\.support/ },
+    // ⚠ PRODUCER RE-DERIVED (locked node-card design, 23 Sep 2026; ED 11:52Z
+    // point 4: "Do not use `Support` as the result label"). The option card
+    // still renders this quantity — the share of simulated runs — as its
+    // model-relative readout "N% of runs" (`OPTION_RESULT_COPY.share`), and the
+    // register row's gloss now names that caption. The HEADING stays the
+    // register's comparative anchor (`METRIC_NOUN.support`, shared with the
+    // inspector and compare surfaces), which this probe does not decide.
+    { noun: METRIC_NOUN.support, files: ['OptionNode.tsx'], pattern: /OPTION_RESULT_COPY\.share\(/ },
     { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
     // ⚠ PATTERN RE-DERIVED, CLAIM UNCHANGED. FactorNode no longer reaches the
     // influence caption through `METRIC_NOUN.influence`: it calls
@@ -753,8 +760,14 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // This probe asks "does a card still render this marking"; it binds to the
     // new producer by identity, exactly as the header requires. The noun in the
     // manifest stays METRIC_NOUN.influence because that is the LEGEND's row.
-    { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /influenceBasisNoun\(/ },
-    { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.strength/ },
+    // ⚠ RE-DERIVED AGAIN (locked design, 23 Sep 2026): the factor card's bar is
+    // now the relative DRIVER line (`FactorDriverLine`), which owns the basis
+    // noun and the relative-to-strongest disclosure this row explains.
+    { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
+    // ⚠ RE-DERIVED (locked design, 23 Sep 2026; ED 11:52Z point 5): the noun is
+    // now "Link strength" (`METRIC_NOUN.strength`'s value), rendered by the
+    // shared `LinkStrengthRow` both cards mount.
+    { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /<LinkStrengthRow\b/ },
     // ⚠ PATTERN AND NOUN BOTH RE-DERIVED; THE CLAIM IS UNCHANGED. The comment
     //   here read "The rank badge prints the numeral itself — there is no noun
     //   constant", and BaseNode's JSX was `#{displayMetadata.sensitivityRank}`.
@@ -763,12 +776,19 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     //   badge now renders `sensitivityRankBadgeLabel(...)` — `Key driver 1` —
     //   so the noun constant exists and the probe binds to the builder call,
     //   which is this marking's identity now (trap 19).
-    { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['BaseNode.tsx'], pattern: /\{sensitivityRankBadgeLabel\(/ },
+    // ⚠ RE-DERIVED (locked design, 23 Sep 2026; ED 02:31Z D1a): the corner
+    // badge is RETIRED; the rank is stated once, on the factor card's driver
+    // line ("Driver N of M in this model"), and the heading moved with it.
+    { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
     { noun: ORDINAL_NOUN, files: ['OptionNode.tsx'], pattern: /\{stableOptionNumber\}/ },
+    // ⚠ RE-DERIVED (locked design, 23 Sep 2026): a link with NO value reads
+    // "Link strength · not set yet" — the register's inline form — through the
+    // shared row both cards mount (MT-15b: an unconfirmed producer value now
+    // reads as Olumi's estimate instead).
     {
       noun: METRIC_UNSET.standalone,
-      files: ['RiskNode.tsx', 'OutcomeNode.tsx'],
-      pattern: /unsetText=\{METRIC_UNSET\.standalone\}/,
+      files: ['shared/LinkStrengthRow.tsx'],
+      pattern: /LINK_STRENGTH_COPY\.notSet/,
     },
     // ⭐ THE ONE THE DEFECT WAS IN. Three sites → one; this is what would have
     // REDded had it gone to zero, and what will RED if the last one goes.
