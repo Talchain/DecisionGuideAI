@@ -74,8 +74,8 @@ import {
   subscribePendingFactorEdits,
 } from '../conversation/pendingFactorEdit'
 import {
-  graphCarriesUnconfirmedEdgeEdit,
   subscribePendingEdgeEdits,
+  unconfirmedEdgeEditOnGraph,
 } from '../conversation/pendingEdgeEdit'
 import {
   subscribeUnconfirmedDeletes,
@@ -91,8 +91,8 @@ const listeners = new Set<Listener>()
 
 /**
  * Moves whenever a MODULE-LEVEL delivery register moves (the wire mark here,
- * the pending factor-edit register, the unconfirmed-delete register). None is
- * canvas-store state, so a store
+ * the pending factor- and link-edit registers, the unconfirmed-delete
+ * register). None is canvas-store state, so a store
  * selector alone never re-runs when the untyped 500 releases the wire mark and
  * leaves the value pending — a surface built that way would keep saying "still
  * being saved" about a turn that has settled. See `subscribeDeliveryRegisters`.
@@ -167,7 +167,7 @@ export type EditDeliveryHoldDetail =
   | { readonly cause: 'unresolved_structural_edit'; readonly edit: 'rename' | 'add'; readonly nodeId: string }
   | { readonly cause: 'unresolved_structural_edit'; readonly edit: 'delete'; readonly removed: UnconfirmedDeleteSubject }
   | { readonly cause: 'unconfirmed_value_on_canvas'; readonly nodeId: string; readonly sentValue: number }
-  | { readonly cause: 'unconfirmed_edge_on_canvas' }
+  | { readonly cause: 'unconfirmed_edge_on_canvas'; readonly edgeId: string }
 
 function currentValue(data: unknown): unknown {
   const d = (data ?? {}) as Record<string, unknown>
@@ -292,7 +292,8 @@ export function editDeliveryHoldDetail(state: EditDeliveryState): EditDeliveryHo
       return { cause: 'unconfirmed_value_on_canvas', nodeId: node.id, sentValue: pending }
     }
   }
-  if (graphCarriesUnconfirmedEdgeEdit((state.edges ?? []) as never)) return { cause: 'unconfirmed_edge_on_canvas' }
+  const edgeId = unconfirmedEdgeEditOnGraph((state.edges ?? []) as never)
+  if (edgeId !== null) return { cause: 'unconfirmed_edge_on_canvas', edgeId }
   return null
 }
 
@@ -306,8 +307,9 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
 
 /**
  * Subscribe to the MODULE-LEVEL registers only — the wire mark, the pending
- * factor-edit register and the unconfirmed-delete register — never to the
- * canvas store. (Recording or settling a delete is not a store write either.)
+ * factor- and link-edit registers and the unconfirmed-delete register — never
+ * to the canvas store. (Settling a link edit or recording a delete is not a
+ * store write either.)
  *
  * For a surface that already reads the store through a selector and needs to
  * re-render when a register moves as well. Deliberately store-free: component
@@ -323,10 +325,12 @@ export function subscribeDeliveryRegisters(listener: Listener): () => void {
     listener()
   }
   const unsubscribePending = subscribePendingFactorEdits(onRegister)
+  const unsubscribePendingEdges = subscribePendingEdgeEdits(onRegister)
   const unsubscribeDeletes = subscribeUnconfirmedDeletes(onRegister)
   return () => {
     listeners.delete(listener)
     unsubscribePending()
+    unsubscribePendingEdges()
     unsubscribeDeletes()
   }
 }

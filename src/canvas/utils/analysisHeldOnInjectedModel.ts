@@ -312,7 +312,8 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
  *    rungs of the gate can still refuse once the hold lifts.
  *  · UNCONFIRMED VALUE (the untyped 500: value kept, register still pending) —
  *    names the factor and the number the USER set, rendered by the card's own
- *    projection. It does NOT name the model's value: nothing on the client
+ *    projection. An unconfirmed LINK STRENGTH (#1905 signal 5) takes the same
+ *    frame, naming "the link from {A} to {B}" and no number. It does NOT name the model's value: nothing on the client
  *    knows what CEE holds, and inventing it is the defect class. The one remedy
  *    offered is the one the hold is known to clear on: setting the value again
  *    (an applied receipt settles the register). ⛔ NOT "reload": #1892's
@@ -449,14 +450,27 @@ function removedName(state: AnalysisHoldReasonState, removed: UnconfirmedDeleteS
   switch (removed.kind) {
     case 'node':
       return removed.label
-    case 'link': {
-      const from = labelOf(nodeDataOf(state, removed.sourceId)) ?? removed.sourceLabel
-      const to = labelOf(nodeDataOf(state, removed.targetId)) ?? removed.targetLabel
-      return from !== null && to !== null ? `the link from ${from} to ${to}` : null
-    }
+    case 'link':
+      return linkName(
+        labelOf(nodeDataOf(state, removed.sourceId)) ?? removed.sourceLabel,
+        labelOf(nodeDataOf(state, removed.targetId)) ?? removed.targetLabel,
+      )
     case 'several':
       return null
   }
+}
+
+/** "the link from {A} to {B}", or `null` when either end has no name. */
+function linkName(from: string | null, to: string | null): string | null {
+  return from !== null && to !== null ? `the link from ${from} to ${to}` : null
+}
+
+/** A link still on the canvas, named by its ends' current labels, or `null`. */
+function linkOnCanvasName(state: AnalysisHoldReasonState, edgeId: string): string | null {
+  const edges = state.edges as ReadonlyArray<{ id?: unknown; source?: unknown; target?: unknown }>
+  const edge = edges.find((e) => e.id === edgeId)
+  if (!edge || typeof edge.source !== 'string' || typeof edge.target !== 'string') return null
+  return linkName(labelOf(nodeDataOf(state, edge.source)), labelOf(nodeDataOf(state, edge.target)))
 }
 
 /**
@@ -508,10 +522,14 @@ export function heldReason(state: AnalysisHoldReasonState): AnalysisHoldReason |
         ? intern('unconfirmed_rename', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(label))
         : intern('unconfirmed_add', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(label))
     }
-    // Merge of #1905 (signal 5, an unconfirmed link strength): not named yet,
-    // so it keeps the sentence #1905 shipped for it.
+    // #1905's signal 5: an unconfirmed link strength. The value frame, naming
+    // the link; no number (the link has no projection of the user's, and the
+    // model's is unknown to the client).
     case 'unconfirmed_edge_on_canvas':
-      return savedExampleHold(held)
+      return intern(
+        'unconfirmed_value',
+        ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(linkOnCanvasName(state, edit.edgeId), null),
+      )
   }
 }
 
