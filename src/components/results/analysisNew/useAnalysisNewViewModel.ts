@@ -239,6 +239,10 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
      */
     [
       data,
+      // The builder reads it (`checks.sharesExcludeLimits`, the withheld
+      // cause); a later turn can change it while every result input is the
+      // same object (Codex pre-read on #1922).
+      producerLeaderWithholdReason,
       recommendations,
       isPreRun,
       isRunning,
