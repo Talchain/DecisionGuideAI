@@ -82,6 +82,8 @@ function makeFakeCee() {
     stored: null as null | { graph: { nodes: Array<Record<string, unknown>>; edges: unknown[] }; identity: string },
     registrations: 0,
     log: [] as string[],
+    /** Every graph a registration carried, in arrival order. */
+    registeredGraphs: [] as Array<{ nodes: Array<Record<string, unknown>>; edges: unknown[] }>,
     registerGate: deferred(),
     readGate: null as Deferred | null,
     /** When set, the read names a DIFFERENT stored graph than the ack did. */
@@ -107,6 +109,7 @@ function makeFakeCee() {
     if (url === REGISTER_URL) {
       cee.log.push('register')
       const body = JSON.parse(String(init?.body)) as { graph: { nodes: Array<Record<string, unknown>>; edges: unknown[] } }
+      cee.registeredGraphs.push(body.graph)
       await cee.registerGate.promise
       cee.registrations += 1
       const identity = `idv1-registration-${cee.registrations}`
@@ -368,7 +371,10 @@ describe('a rename queued BEFORE the first registration neither blocks it nor ri
     expect(useCanvasStore.getState().pendingStructuralRenames).toHaveLength(1)
     expect(useCanvasStore.getState().pendingStructuralRenames[0]!.baseGraphHash).toBeNull()
 
-    const sent = vi.fn().mockResolvedValue({})
+    const sent = vi.fn(async () => {
+      fake.cee.log.push('send:structural_rename')
+      return {}
+    })
     mountCanvasHooks(sent)
 
     // The registration is NOT held forever by a rename that is waiting for it…
@@ -380,9 +386,9 @@ describe('a rename queued BEFORE the first registration neither blocks it nor ri
       expect(fake.cee.stored).not.toBeNull()
     })
     // …and it carried the model CEE is about to hold, NOT the unsent new label:
-    // the side channel stays shut.
-    const registered = fake.cee.stored!.graph.nodes.find((n) => n.id === NODE_ID)
-    expect(registered?.label).toBe(previousLabel)
+    // the side channel stays shut. Bound to the FIRST registration by order.
+    const first = fake.cee.registeredGraphs[0]!.nodes.find((n) => n.id === NODE_ID)
+    expect(first?.label).toBe(previousLabel)
 
     // The ack seeds the base, and the queued rename goes out on the protocol.
     await waitFor(() => {
@@ -398,6 +404,15 @@ describe('a rename queued BEFORE the first registration neither blocks it nor ri
     })
     // The user's name stands on the canvas throughout.
     expect(canvasLabelOf(NODE_ID)).toBe(NEW_LABEL)
+    // No registration carried the new name BEFORE the rename went out on the
+    // protocol. (After it, this spec's sender double sets no on-the-wire mark,
+    // so a later registration is a harness artefact, not the product.)
+    const sendAt = fake.cee.log.indexOf('send:structural_rename')
+    const registersBeforeSend = fake.cee.log.slice(0, sendAt).filter((l) => l === 'register').length
+    expect(sendAt).toBeGreaterThan(-1)
+    for (const g of fake.cee.registeredGraphs.slice(0, registersBeforeSend)) {
+      expect(g.nodes.find((n) => n.id === NODE_ID)?.label).toBe(previousLabel)
+    }
   })
 
   // CONTROLS on the rule itself (pure): only a rename that CANNOT be sent — no
