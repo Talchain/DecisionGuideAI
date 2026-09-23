@@ -41,9 +41,9 @@ import type { FactorTurningPoint } from './factorTurningPoint'
 
 export const TURNING_POINT_CAPTION = 'Turning point'
 
-/** Marker positions, as a percentage of the track. Order only — see header. */
-const NEAR = 20
-const FAR = 80
+/** Marker positions, as a percentage of the TRACK WIDTH (geometry, not a value). Order only — see header. */
+const NEAR_PCT = 20
+const FAR_PCT = 80
 
 export interface FactorFlipTrackProps {
   nodeId: string
@@ -64,8 +64,8 @@ export function FactorFlipTrack({ nodeId, factorLabel, turningPoint, fromLastRun
     : FLIP_THRESHOLD_COPY.flipRiskNoAlternative(subject, direction, value, true)
   const caption = `${fromLastRun ? LAST_RUN_PREFIX : ''}${TURNING_POINT_CAPTION}`
   const rises = flipValue > currentValue
-  const currentAt = rises ? NEAR : FAR
-  const flipAt = rises ? FAR : NEAR
+  const currentAtPct = rises ? NEAR_PCT : FAR_PCT
+  const flipAtPct = rises ? FAR_PCT : NEAR_PCT
 
   return (
     <Tooltip asChild content={sentence} delay={NODE_TOOLTIP_DELAY_MS}>
@@ -88,12 +88,12 @@ export function FactorFlipTrack({ nodeId, factorLabel, turningPoint, fromLastRun
           <span
             data-testid="factor-flip-track-current"
             className="absolute top-1/2 h-2 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-text-light"
-            style={{ left: `${currentAt}%` }}
+            style={{ left: `${currentAtPct}%` }}
           />
           <span
             data-testid="factor-flip-track-flip"
             className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-warning"
-            style={{ left: `${flipAt}%` }}
+            style={{ left: `${flipAtPct}%` }}
           />
         </span>
         <span className={`${typography.edgeLabel} shrink-0 text-text-body`} aria-hidden="true">

@@ -22,7 +22,7 @@ import { LAST_RUN_PREFIX } from './metricVocabulary'
  * `influenceRankExplanation` records it (`influenceScaleCopy.ts:476-478`):
  * "taking the figure away from a reader who wants it would be hiding a
  * finding". So the tooltip and the accessible name carry it, stated WITH the
- * scale that makes it relative (`62% of the strongest factor`), and the
+ * scale that makes it relative (`At 62% of the strongest factor.`), and the
  * Detailed view and the inspector's `ImportanceBar` keep printing it exactly as
  * before.
  *
@@ -54,8 +54,15 @@ export interface FactorDriverLineProps {
   fromLastRun: boolean
   /** The existing normalised display value, 0..1, relative to the strongest factor. */
   value: number
-  /** The existing basis explanation (`influenceExplanation`), appended verbatim. */
+  /** The tooltip's basis sentence — `influenceExplanation(…)`, appended verbatim. */
   basisExplanation: string
+  /**
+   * The accessible name's basis sentence — `influenceBarAriaLabel(…)`, the SAME
+   * string the Detailed-view influence bar announces, so one number is not
+   * described two ways to a screen-reader user one view apart (the choice the
+   * row this replaces had already made; `FactorNode.spec`, C4).
+   */
+  basisAccessibleName: string
   testId?: string
 }
 
@@ -64,6 +71,7 @@ export function FactorDriverLine({
   fromLastRun,
   value,
   basisExplanation,
+  basisAccessibleName,
   testId = 'factor-driver-line',
 }: FactorDriverLineProps) {
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
@@ -71,16 +79,18 @@ export function FactorDriverLine({
   // The spoken lead is the visible words, minus a dangling separator when the
   // stale label stands alone (no rank published): "Last run", not "Last run ·".
   const lead = visible.replace(/\s*·\s*$/, '').trim()
-  const disclosure = `${DRIVER_LINE_DISCLOSURE} ${pct}% of the strongest factor. ${basisExplanation}`
+  const figure = `At ${pct}% of the strongest factor.`
+  const tooltip = `${DRIVER_LINE_DISCLOSURE} ${figure} ${basisExplanation}`
+  const spoken = `${DRIVER_LINE_DISCLOSURE} ${figure} ${basisAccessibleName}`
 
   return (
-    <Tooltip asChild content={disclosure} delay={NODE_TOOLTIP_DELAY_MS}>
+    <Tooltip asChild content={tooltip} delay={NODE_TOOLTIP_DELAY_MS}>
       <div
         className="mt-1 flex items-center gap-1.5"
         data-testid={testId}
         role="img"
         /* Label in Name: the visible words OPEN the accessible name. */
-        aria-label={lead ? `${lead}. ${disclosure}` : disclosure}
+        aria-label={lead ? `${lead}. ${spoken}` : spoken}
         tabIndex={0}
         data-node-tooltip
       >

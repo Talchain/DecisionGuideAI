@@ -1145,6 +1145,10 @@ export const FactorNode = memo((props: NodeProps) => {
               displayMetadata.influenceProvenance,
               displayMetadata.influenceImportanceBasis,
             )}
+            basisAccessibleName={influenceBarAriaLabel(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}
           />
         )}
 
