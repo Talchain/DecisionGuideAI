@@ -58,6 +58,14 @@ import { INFLUENCE_EXPLANATION_RELATIVE } from '../../../components/results/infl
  * outright), and `FactorNode`'s influence row already shipped it. The two
  * `strength` captions were the outliers, not the rule.
  */
+/**
+ * The canvas's name for the comparative result family — never `Support`
+ * (ED #63 5799353114, decision 2: "Rename Support → Current model wherever that
+ * result family remains visible"). Declared ABOVE its readers: the legend rows
+ * below are evaluated at module load, so a later `const` would be in its TDZ.
+ */
+export const CURRENT_MODEL_NOUN = 'Current model'
+
 export const METRIC_NOUN = {
   /**
    * The comparative quantity — how much of the simulated evidence supports an
@@ -600,11 +608,12 @@ export const optionOrdinalBadgeAccessibleName = (optionNumber: number): string =
 
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
-    noun: METRIC_NOUN.support,
-    // ⭐ Locked design (ED 11:52Z point 4): option cards no longer caption this
-    // "Support" — they read "Current model · N% of runs". The row explains the
-    // same quantity, in the card's words, and says it is not a recommendation.
-    gloss: 'on option cards “N% of runs”: the share of simulated runs that favour this option, not a recommendation',
+    noun: CURRENT_MODEL_NOUN,
+    // ⭐ Locked design (ED 11:52Z point 4; ED 5799353114 decision 2): the canvas
+    // never captions this "Support" — cards read "Current model · N% of runs".
+    // The row names the quantity in the card's words and says it is
+    // conditional on the model and its assumptions, not a recommendation.
+    gloss: 'on option cards “N% of runs”: the share of simulated runs that favour this option under the current model and its assumptions, not a recommendation',
   },
   {
     noun: METRIC_NOUN.chance,
@@ -613,7 +622,7 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     // highest comparative figure — NOT any option. Dropping the qualifier to
     // shed the race word would have widened the claim to something false.
     // "the most-supported option" is the same referent in the new vocabulary.
-    gloss: 'how often the most-supported option reached the goal target across the runs',
+    gloss: 'how often the option most runs favoured reached the goal target across the runs',
   },
   {
     noun: METRIC_NOUN.influence,
@@ -902,7 +911,7 @@ export const LINK_STRENGTH_COPY = {
  * later model.
  */
 export const OPTION_RESULT_COPY = {
-  current: 'Current model',
+  current: CURRENT_MODEL_NOUN,
   lastRun: 'Last run',
   unconfirmed: 'Model result',
   share: (formatted: string): string => `${formatted} of runs`,

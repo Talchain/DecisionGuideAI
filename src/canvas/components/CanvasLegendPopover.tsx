@@ -51,7 +51,7 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 import { DIRECTION_DISPUTED_STROKE } from '../edges/edgePresentation'
@@ -820,7 +820,7 @@ export interface LegendBoardState {
  * register (three keys are re-typed literals with no exported constant).
  */
 const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boolean>> = {
-  [METRIC_NOUN.support]: (b) => b.isPostAnalysis,
+  [CURRENT_MODEL_NOUN]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.strength]: () => true,
