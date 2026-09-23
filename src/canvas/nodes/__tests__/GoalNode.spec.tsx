@@ -77,6 +77,22 @@ const renderGoal = (data: Record<string, unknown> = {}) =>
     </ReactFlowProvider>
   )
 
+/**
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2) — the prose readout
+ * "X chance of reaching target" is OFF the face. ONE NodeMetricRow carries the
+ * figure (`goal-achievement-metric-row`, visible "Chance" + "N%"), and the
+ * sentence rides its accessible name and tooltip; a no-probability state is the
+ * unset row `goal-achievement-unset`, whose accessible name carries the old full
+ * sentence. These read those accessible names BY TESTID, so a sentence can
+ * only satisfy an assertion from the row it belongs to.
+ */
+const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
+const ACHIEVEMENT_UNSET = 'goal-achievement-unset'
+const rowName = (testId: string): string => screen.getByTestId(testId).getAttribute('aria-label') ?? ''
+/** Every accessible name on the card — so an absence claim covers the row's sentence too. */
+const allAccessibleNames = (): string =>
+  Array.from(document.querySelectorAll('[aria-label]')).map(el => el.getAttribute('aria-label')).join('\n')
+
 
 // ---------------------------------------------------------------------------
 // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes: no."
@@ -133,7 +149,13 @@ describe('GoalNode', () => {
     })
     // UI-SEM-082: the probability only renders with a user target set.
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — ONE Chance row;
+    // the sentence is its accessible name, the prose is off the face.
+    const row = screen.getByTestId(ACHIEVEMENT_ROW)
+    expect(row.textContent).toContain('Chance')
+    expect(row.textContent).toContain('73%')
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/73.*% chance of reaching target/)
+    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
   })
 
   // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): modelled-basis
@@ -179,8 +201,13 @@ describe('GoalNode', () => {
     // caveat is absent because the FLAG is false, not because the whole block
     // is gated away.
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the figure's
+    // presence is read off the Chance row's accessible name.
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/73.*% chance of reaching target/)
     expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
+    // …and the row does not carry the caveat either (it rides the row's name
+    // only when flagged).
+    expect(rowName(ACHIEVEMENT_ROW)).not.toContain("Modelled from the target's projected outcome distribution")
   })
 
   // T10: Stability bar
@@ -740,8 +767,12 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByText('Target set. This run did not produce a goal probability.')).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the absent state
+    // is the unset Chance row; its accessible name is the old full sentence.
+    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Not produced by this run')
+    expect(rowName(ACHIEVEMENT_UNSET)).toContain('Target set. This run did not produce a goal probability.')
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
     // The live bug: card said "Analysis complete. Set a target to see your
     // chances." while a target was set. Must never render here.
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
@@ -785,14 +816,17 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
 
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the absent state
+    // is the unset Chance row ("See each option"); its accessible name carries
+    // the full acknowledgement. Every absence below covers accessible names too.
     // The flat denial is the defect — it must be gone.
-    expect(screen.queryByText('Target set. This run did not produce a goal probability.')).toBeNull()
-    expect(
-      screen.getByText(/No overall goal probability for this run — see Goal fit for each option/),
-    ).toBeDefined()
+    expect(allAccessibleNames()).not.toContain('Target set. This run did not produce a goal probability.')
+    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('See each option')
+    expect(rowName(ACHIEVEMENT_UNSET)).toMatch(/No overall goal probability for this run — see Goal fit for each option/)
     // No fabricated number, no designated option.
-    expect(screen.queryByText(/% chance of reaching target/)).toBeNull()
-    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(allAccessibleNames()).not.toMatch(/% chance of reaching target/)
+    expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
   })
 
   it('keeps the flat absent-state copy when the run really carries no goal figure anywhere', () => {
@@ -806,8 +840,11 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByText('Target set. This run did not produce a goal probability.')).toBeDefined()
-    expect(screen.queryByText(/see Goal fit/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — read off the unset
+    // Chance row's visible text and accessible name.
+    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Not produced by this run')
+    expect(rowName(ACHIEVEMENT_UNSET)).toContain('Target set. This run did not produce a goal probability.')
+    expect(allAccessibleNames()).not.toMatch(/see Goal fit/)
   })
 
   // Positive control: a GENUINELY stale/changed model (freshness 'stale' →
@@ -821,8 +858,11 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByText('Target set. Rerun the analysis to update your results.')).toBeDefined()
-    expect(screen.queryByText(/This run did not produce a goal probability/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the rerun demand
+    // is the unset Chance row ("Rerun to update"), full sentence as its name.
+    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Rerun to update')
+    expect(rowName(ACHIEVEMENT_UNSET)).toContain('Target set. Rerun the analysis to update your results.')
+    expect(allAccessibleNames()).not.toMatch(/This run did not produce a goal probability/)
     expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
   })
 
@@ -846,8 +886,11 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
-    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the Chance row wins
+    // and the unset row (which would carry any rerun line) is absent.
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/73.*% chance of reaching target/)
+    expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).toBeNull()
+    expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
   })
 
@@ -886,6 +929,11 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     // …and the goal-fit claim SUPPRESSED — the two strings never co-render.
     expect(screen.queryByText(/chance of reaching target/)).toBeNull()
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the claim now
+    // lives on the Chance row, so its absence is asserted there too; a text
+    // scan alone can no longer see the sentence.
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(allAccessibleNames()).not.toMatch(/chance of reaching target/)
   })
 
   it('target unset + low auto-probability: the "Target may be ambitious" guidance is also suppressed', () => {
@@ -917,6 +965,10 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
     expect(screen.queryByText(/chance of reaching target/)).toBeNull()
     expect(screen.queryByText(/Target may be ambitious/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the claim's new home is the Chance
+    // row — asserted absent there as well (this spec renders Detailed, where
+    // "Target may be ambitious" still lives, so that scan stays meaningful).
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
   })
 
   it('mutual-exclusivity invariant: with a user target the probability shows and the invitation is absent', () => {
@@ -940,7 +992,10 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '60', goal_threshold_unit: '%' }) // hasThreshold === true
-    expect(screen.getByText(/40.*% chance of reaching target/)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the probability is
+    // the Chance row; the invitation is the no-target chip.
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/40.*% chance of reaching target/)
+    expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
   })
 })

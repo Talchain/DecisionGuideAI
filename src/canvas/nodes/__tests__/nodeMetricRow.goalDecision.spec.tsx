@@ -33,10 +33,17 @@
  *
  * CLAUDE.md trap 3: these assert presence/absence of NODES IN THE TREE. jsdom
  * cannot prove visibility and nothing here claims it does.
+ *
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2). The goal row is no
+ * longer ADDITIVE to a prose readout — it REPLACES it. "X chance of reaching
+ * target" and the modelled-basis caveat ride the row's accessible name and
+ * tooltip; the caveat paragraph (`goal-fit-basis-caveat-node`) is Detailed-only.
+ * The two goal arms that pinned the old face are re-pointed to those homes.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { METRIC_NOUN } from '../shared/metricVocabulary'
-import { render, screen } from '@testing-library/react'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
+import { render, screen, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import {
   LEADER_ID,
@@ -179,9 +186,10 @@ const BASE_METADATA = {
 function renderGoal(
   metadata: Record<string, unknown>,
   data: Record<string, unknown> = {},
+  state: Record<string, unknown> = {},
 ) {
   vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
-    selector(makeGoalState() as any),
+    selector(makeGoalState(state) as any),
   )
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
     ...BASE_METADATA,
@@ -293,22 +301,45 @@ describe('GoalNode — the achievement figure gets the shared metric row', () =>
     expect(screen.getByText('Increase revenue')).toBeDefined()
   })
 
-  it('MODELLED BASIS: the caveat still renders — the row does not displace it', () => {
-    renderGoal(
-      { achievementProbability: 0.73, achievementProbabilityIsModelledBasis: true },
-      { goal_threshold_raw: '100', goal_threshold_unit: '%' },
-    )
-    expect(screen.getByTestId(GOAL_ROW)).toBeDefined()
+  it('MODELLED BASIS: the caveat still travels with the figure — the row does not displace it', () => {
+    const modelled = { achievementProbability: 0.73, achievementProbabilityIsModelledBasis: true }
+    const target = { goal_threshold_raw: '100', goal_threshold_unit: '%' }
+    renderGoal(modelled, target)
+    const row = screen.getByTestId(GOAL_ROW)
     // The figure must never be shown BARE on a modelled basis. The disclosure
     // that makes it honest is the reason the low-zoom line withholds it.
-    expect(screen.getByTestId('goal-fit-basis-caveat-node')).toBeDefined()
+    //
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2): on the Standard
+    // face the caveat rides the Chance row itself — its accessible name and
+    // tooltip — and the separate caveat paragraph is Detailed-only.
+    expect(row.getAttribute('aria-label')).toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
+    expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
+    cleanup()
+
+    // …and the paragraph's home, Detailed, still renders it beside the row.
+    renderGoal(modelled, target, { viewMode: 'expert' })
+    expect(screen.getByTestId(GOAL_ROW)).toBeDefined()
+    expect(screen.getByTestId('goal-fit-basis-caveat-node').textContent).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
   })
 
-  it('the prose sentence the row encodes is UNCHANGED — the row is additive', () => {
+  it('NOT MODELLED: the row carries no caveat it has not earned (control for the arm above)', () => {
+    renderGoal(
+      { achievementProbability: 0.73, achievementProbabilityIsModelledBasis: false },
+      { goal_threshold_raw: '100', goal_threshold_unit: '%' },
+    )
+    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
+  })
+
+  it('the prose sentence the row encodes is UNCHANGED — now the row\'s accessible name, off the face', () => {
     renderGoal(
       { achievementProbability: 0.73 },
       { goal_threshold_raw: '100', goal_threshold_unit: '%' },
     )
-    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2): the row replaces
+    // the prose readout rather than sitting beside it. The WORDING is unchanged
+    // and is bound to the row by identity (its accessible name); the prose line
+    // is gone from the visible face.
+    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).toMatch(/73.*% chance of reaching target\./)
+    expect(screen.queryByText(/73.*% chance of reaching target/)).toBeNull()
   })
 })

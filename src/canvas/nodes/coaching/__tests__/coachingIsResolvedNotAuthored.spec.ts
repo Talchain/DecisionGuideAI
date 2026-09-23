@@ -59,16 +59,25 @@ const NODE_FILES = [
  * The only two `<NodeChip>` usages permitted to remain inline, by chip id, each
  * because its own file classifies it as a primary action rather than coaching.
  */
-const RUN_AFFORDANCES = ['goal_run_analysis', 'decision_run_analysis'] as const
+// ⭐ Locked Canvas design (23 Sep 2026): the Goal card's duplicate "Run
+// analysis" chip is gone (its Question card carries the run), and the Question
+// card's run is a RAIL action through the shared `runAnalysisFromCard` — the
+// same canonical pipeline and the same chip id, just not a text chip. The
+// allowlist keeps the one live run affordance.
+const RUN_AFFORDANCES = ['decision_run_analysis'] as const
 
 const readNode = (file: string) =>
   stripComments(readFileSync(resolve(__dirname, '../..', file), 'utf8'), file)
 
 /** Every `<NodeChip …>` occurrence's chipId, or `'(no chipId)'` when it has none. */
-const inlineChipIds = (source: string): string[] =>
-  [...source.matchAll(/<NodeChip\b[\s\S]{0,600}?\/>/g)].map(
+const inlineChipIds = (source: string): string[] => [
+  // A run affordance may also be the rail's action through the shared run
+  // function (`runAnalysisFromCard('<chip id>', …)`) — same id, same pipeline.
+  ...[...source.matchAll(/runAnalysisFromCard\(\s*["']([^"']+)["']/g)].map(m => m[1]),
+  ...[...source.matchAll(/<NodeChip\b[\s\S]{0,600}?\/>/g)].map(
     m => m[0].match(/chipId=["']([^"']+)["']/)?.[1] ?? '(no literal chipId)',
-  )
+  ),
+]
 
 describe('node coaching is resolved, never authored inline', () => {
   /**

@@ -152,6 +152,10 @@ describe('DecisionNode triage — leverage ranking is provenance-gated', () => {
     renderDecision()
     expect(screen.queryByText(/Top gap: validate/)).toBeNull()
     expect(screen.queryByText(/Brand perception/)).toBeNull()
+    // Locked Canvas design (23 Sep 2026): the same absence, bound to the new
+    // element's identity too, so a recommendation that moved into an attribute
+    // or tooltip could not slip past a text-only scan.
+    expect(screen.queryByTestId('decision-node-top-gap')?.textContent ?? '').not.toMatch(/validate/)
   })
 
   it('DOES recommend it once the strengths are sourced', () => {
@@ -159,6 +163,13 @@ describe('DecisionNode triage — leverage ranking is provenance-gated', () => {
       selector(graph(true) as never),
     )
     renderDecision()
-    expect(screen.getByText(/Top gap: validate Brand perception/)).toBeTruthy()
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 1, ED 02:31Z): the
+    // triage line is the Question card's one focus signal `decision-node-top-gap`
+    // — its visible span and its sr-only full-text recovery both carry the
+    // sentence, so it is read by identity rather than by a text match that now
+    // finds both halves.
+    const gap = screen.getByTestId('decision-node-top-gap')
+    expect(gap.querySelector('[aria-hidden="true"]')?.textContent).toBe('Top gap: validate Brand perception')
+    expect(gap.querySelector('.sr-only')?.textContent).toBe('Top gap: validate Brand perception')
   })
 })
