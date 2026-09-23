@@ -50,6 +50,7 @@ import {
   type AnalysisHoldState,
 } from '../../utils/analysisHeldOnInjectedModel'
 import { useCanvasStore } from '../../store'
+import { __resetCeeHeldModelLatchForTest } from '../ceeHeldModel'
 import {
   clearImportRegistrationMarkers,
   isGraphPendingImportRegistration,
@@ -121,6 +122,8 @@ beforeEach(() => {
   mockAuthUser = null
   isV5CanonicalRunPathMock.mockReturnValue(true)
   clearImportRegistrationMarkers()
+  // OW-1: the one-writer latch is page-life state keyed by scenario; each case is a fresh page.
+  __resetCeeHeldModelLatchForTest()
   __resetPersistenceSessionForTests()
   __resetBootGraphReadForTest()
   useCanvasStore.setState({
@@ -612,10 +615,23 @@ describe('acknowledgement identity is derived from the registration projection',
  *   moved a count, the old key would differ too and this case would pass
  *   against the defect — the assertion below is what makes it discriminating.
  */
+/**
+ * ⚠ OW-1 (programme-docs #63 5795173355) FLIPPED SEAM 4's FIRST CASE. Its
+ * route back to released WAS a second whole-graph registration of the edited
+ * model — exactly the re-offer the one-writer contract retires: after ANY
+ * acknowledgement (here, the starter's own 200) the page never registers that
+ * scenario again. A value-only edit the user makes through the product is a
+ * canonical `factor_value_edit`, whose applied receipt extends the
+ * acknowledgement (`optimisticFactorEdit.confirmOptimisticFactorEdit`); the bare
+ * store write this case makes is a LOCAL-ONLY change, which is no longer
+ * written to CEE — and which re-holds Run on the digest path until Panel's
+ * 5(c) releases it on the latch. The attempt-key guard (the second case) is
+ * unchanged: that model was never acknowledged, so nothing latched it.
+ */
 describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
   const SCENARIO = '77777777-7777-4777-8777-777777777777'
 
-  it('registers AGAIN after a value-only edit, so the re-armed hold can clear', async () => {
+  it('OW-1 (flipped): a LOCAL-ONLY value change after the acknowledgement is NOT registered again — the scenario is latched, and Run re-holds until Panel 5(c)', async () => {
     const ACK = {
       status: 'registered' as const,
       identity: { value: 'abc', projectionVersion: 'identity.v1' },
@@ -623,21 +639,7 @@ describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
       edgeCount: 0,
       requestId: 'req_1',
     }
-    // ⚠ THE SECOND REGISTRATION IS DEFERRED ON PURPOSE. With both calls
-    //   resolving immediately, the intermediate assertion below raced the
-    //   second acknowledgement and the hold had already released by the time it
-    //   ran — the test failed while the behaviour was correct. Holding the
-    //   second answer open makes "re-armed, not yet converted" a state the test
-    //   can actually stand in, rather than a window it has to win.
-    let releaseSecond: () => void = () => {}
-    registerSpy
-      .mockResolvedValueOnce(ACK)
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            releaseSecond = () => resolve(ACK)
-          }),
-      )
+    registerSpy.mockResolvedValue(ACK)
     useCanvasStore.setState({
       nodes: STARTER_NODES as never,
       edges: [] as never,
@@ -673,32 +675,18 @@ describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
     expect(edited.length).toBe(STARTER_NODES.length)
     expect(useCanvasStore.getState().edges.length).toBe(0)
 
-    // The hold is correctly re-armed — seam 3's contract, restated as a
-    // precondition rather than assumed.
-    await waitFor(() => {
-      expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
-    })
+    // The hold is correctly re-armed on the digest path — seam 3's contract,
+    // restated as a precondition rather than assumed.
     expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
 
-    // ⭐ THE CLAIM: the edited model is offered to the server, so the hold it
-    // just re-armed has a route back to released.
-    await waitFor(() => {
-      expect(registerSpy).toHaveBeenCalledTimes(2)
-    })
-    // It was offered as the EDITED model, not a stale snapshot of the old one.
-    const sentGraph = registerSpy.mock.calls[1][1] as { nodes: Array<Record<string, unknown>> }
-    expect(sentGraph.nodes.find((n) => n.id === 'n1')?.observed_state).toEqual({ value: 0.6 })
-
-    // Still held until the server actually answers — the release is on the
-    // acknowledgement, never on having asked.
+    // ⭐ THE CLAIM (OW-1): the edited model is NOT offered to the server — the
+    // scenario is latched, so no whole-graph write carries the local value.
+    await new Promise((r) => setTimeout(r, 30))
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+    // ⚠ INTERIM, accepted by Panel (#63 5797440981): still held on the digest
+    // path, released by 5(c) on the latch. Pinned so that swap is deliberate.
     expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
-
-    await act(async () => {
-      releaseSecond()
-    })
-    await waitFor(() => {
-      expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
-    })
   })
 
   it('DISCRIMINATES: the SAME model is registered once even when auth resolves under it', async () => {
@@ -755,6 +743,13 @@ describe('seam 4 — a hold re-armed by an edit can still be converted', () => {
  * The registration is still owed (seam 4); it just waits until the edit that
  * armed it has settled, so the two writes are sequenced rather than racing.
  */
+/**
+ * ⚠ OW-1 FLIPPED SEAM 5's ENDING. The side-channel no longer fires AT ALL on a
+ * scenario CEE is known to hold (rule 2) — not while the edit is in flight, and
+ * not after it settles. The "waits while in flight" half is pinned where a
+ * registration can still legitimately go (a scenario the page has not latched):
+ * `oneWriterRegistration.spec.tsx` §1, the two deferral cases.
+ */
 describe('seam 5 — the side-channel waits for the canonical edit that re-armed it', () => {
   const SCENARIO = '88888888-8888-4888-8888-888888888888'
   const ACK = {
@@ -767,16 +762,8 @@ describe('seam 5 — the side-channel waits for the canonical edit that re-armed
 
   afterEach(() => __resetPendingFactorEditsForTest())
 
-  it('sends nothing while the edit is with the engine, then registers the settled model once', async () => {
-    // The second answer is held open so "re-armed, not yet converted" is a
-    // state the assertions can stand in (seam 4's lesson).
-    let releaseSecond: () => void = () => {}
-    registerSpy.mockResolvedValueOnce(ACK).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          releaseSecond = () => resolve(ACK)
-        }),
-    )
+  it('sends nothing while the edit is with the engine — and (OW-1) nothing after it settles either', async () => {
+    registerSpy.mockResolvedValue(ACK)
     useCanvasStore.setState({
       nodes: STARTER_NODES as never,
       edges: [] as never,
@@ -815,17 +802,8 @@ describe('seam 5 — the side-channel waits for the canonical edit that re-armed
       expect(settleFactorEditInFlight('n1', 0.6)).toBe(true)
     })
 
-    await waitFor(() => {
-      expect(registerSpy).toHaveBeenCalledTimes(2)
-    })
-    const sentGraph = registerSpy.mock.calls[1][1] as { nodes: Array<Record<string, unknown>> }
-    expect(sentGraph.nodes.find((n) => n.id === 'n1')?.observed_state).toEqual({ value: 0.6 })
-
-    await act(async () => {
-      releaseSecond()
-    })
-    await waitFor(() => {
-      expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
-    })
+    // OW-1: the scenario was latched by the starter's own 200 — nothing follows.
+    await new Promise((r) => setTimeout(r, 30))
+    expect(registerSpy).toHaveBeenCalledTimes(1)
   })
 })

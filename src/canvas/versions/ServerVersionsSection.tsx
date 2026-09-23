@@ -45,6 +45,7 @@ import {
 } from '../../adapters/cee/modelVersions'
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { latchCeeHeldModel } from '../registration/ceeHeldModel'
 import { findRestoredInterventionMismatches } from './restoreInterventionAudit'
 import { logger } from '../../lib/logger'
 // ⚠ THE ADDRESSABILITY AND IDENTITY GATES ARE NOT DEFINED HERE ANY MORE.
@@ -637,6 +638,10 @@ export function ServerVersionsSection() {
       mutationId,
       expectedGraphIdentityHash: head.graphIdentityHash,
     })
+    // ⭐ OW-1 RULE 2: a restore CEE carried out means CEE holds this scenario's
+    // model — latched for the scenario the restore was SENT for, and before the
+    // unmount return: the fact stands whether or not this panel is still open.
+    if (result.status === 'restored') latchCeeHeldModel(scenarioId, 'version_restore')
     if (!mountedRef.current) return
     setBusy(false)
 

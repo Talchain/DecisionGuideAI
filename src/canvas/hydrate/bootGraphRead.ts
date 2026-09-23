@@ -26,28 +26,25 @@
  *   · a read is in flight               → 'wait'
  *   · CEE holds no model (`absent`,
  *     `notReadable`)                     → 'permit' — the first registration
- *   · CEE holds a model the page read
- *     (`merged`, `unchanged`), or one
- *     this page REGISTERED and CEE
- *     acknowledged (`registered`)        → 'permit' ONLY while the canvas holds
- *                                         no element CEE lacks — every node id
- *                                         and edge pair ⊆ `lastAuthoritativeGraph`
- *                                         (review B2 option (i)); otherwise
- *                                         'refuse'. A registration of a subset
- *                                         cannot resurrect a delete; one that
- *                                         carries an element CEE lacks can.
- *                                         ⚠ It is an ELEMENT check, not a value
- *                                         check: a subset canvas can still carry
- *                                         a value CEE lacks, and the re-offer
- *                                         writes it (Panel V1, see
- *                                         `serverGraphHydration.ts`).
- *   · anything else                      → 'refuse' — the page could not find
- *                                         out (unavailable, unusable, refused,
- *                                         signInRequired), the merge refused
- *                                         the graph (mergeRefused), or the read
- *                                         was abandoned (skipped). Fail CLOSED:
- *                                         an unknown is not a licence to
- *                                         overwrite.
+ *   · anything else                      → 'refuse'. Either CEE holds a model
+ *                                         (`merged`, `unchanged`, `registered`,
+ *                                         `mergeRefused`), or the page could not
+ *                                         find out (unavailable, unusable,
+ *                                         refused, signInRequired) or abandoned
+ *                                         the read (skipped). Fail CLOSED: an
+ *                                         unknown is not a licence to overwrite
+ *                                         (the boot hook reads again —
+ *                                         `unknownGraphReadRetry.ts`).
+ *
+ * ⭐ OW-1 RULE 1 (programme-docs #63): "`graph/register` is sent only when CEE
+ *   holds no model." This used to 'permit' a canvas whose ELEMENTS were a
+ *   subset of CEE's after `merged`/`unchanged`/`registered` (review B2 option
+ *   (i), the #1855 in-page re-offer). That re-offer is gone: it could still
+ *   write a VALUE CEE lacked (Panel V1), and under rule 2 a read that returned
+ *   the graph, or an acknowledged registration, LATCHES the scenario
+ *   (`registration/ceeHeldModel.ts`), so the page never registers it again. The
+ *   re-arm asks the latch first; this verdict is the read's half of the same
+ *   rule and refuses on its own when CEE is known to hold a model.
  *
  * ── ONE READ, ONE TOKEN (review B1 E) ──────────────────────────────────────
  * `beginBootGraphRead` returns a token; `settleBootGraphRead` applies only while
@@ -61,11 +58,9 @@
  * A successful `graph/register` REPLACED the scenario's model with exactly the
  * elements it carried; the ack path records them in `lastAuthoritativeGraph`
  * and calls `recordRegistrationAcknowledged`, which settles this record as
- * `registered` under a NEW token. Without it, a reload while a starter/import
- * registration was still pending read first, the merge refused the pending
- * import (`mergeRefused`, verdict 'refuse'), and that refusal outlived the
- * registration that answered it: every later value-only change was walled off
- * for the page's life. The new token supersedes any read still in flight — its
+ * `registered` under a NEW token. (It also latches the scenario — OW-1 rule 2 —
+ * so the re-arm never offers it again; the settled record is kept for the
+ * token rule below.) The new token supersedes any read still in flight — its
  * answer predates, or at best races, what CEE acknowledged — so that answer
  * changes NOTHING: not this record, and (`isCurrentBootGraphRead`, asked at the
  * read's write boundary) not the canvas, the removal notice,
@@ -75,7 +70,10 @@
  * ⚠ SCOPE. This gates the reload/in-page RE-ARM only (a model that lost, or
  *   never had, its acknowledgement). A deliberate import still waiting for its
  *   first registration (ROADMAP 2.467 / 2.503) is carried by the pending marker,
- *   which the re-arm never touches, and is unchanged here.
+ *   which the re-arm never touches, and is not gated by this verdict. The OW-1
+ *   LATCH does gate it (`useImportRegistration`): once CEE is known to hold the
+ *   scenario's model on this page, a deliberate import is not written over it
+ *   either — it stays pending, visibly unconfirmed.
  *
  * Keyed by scenario for the reason `serverGraphRetryStore` gives: an unkeyed
  * value survives a scenario change and answers for the wrong decision.
@@ -83,10 +81,6 @@
 import { create } from 'zustand'
 
 import type { HydrationOutcome } from './serverGraphHydration'
-import {
-  identityFromCanvasGraph,
-  type AuthoritativeGraphIdentity,
-} from '../utils/graphIdentity'
 
 /**
  * `reading` — a read is in flight; `registered` — no read answer is current, but
@@ -125,16 +119,6 @@ export function isCeeAddressableScenarioId(scenarioId: unknown): scenarioId is s
 const NO_SAVED_MODEL: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadState>([
   'absent',
   'notReadable',
-])
-
-/**
- * States that mean "CEE holds a model, and this page knows which elements":
- * it read them, or CEE acknowledged registering them.
- */
-const SAVED_MODEL_READ: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadState>([
-  'merged',
-  'unchanged',
-  'registered',
 ])
 
 /** Monotonic across the page, so a token is never reused for a later read. */
@@ -187,8 +171,8 @@ export function isCurrentBootGraphRead(scenarioId: string, token: number): boole
  * A registration CEE ACKNOWLEDGED for this scenario is a settled answer about
  * what CEE holds (the header's "A REGISTRATION CEE ACKNOWLEDGED IS A SETTLED
  * READ"). Called from the registration ack path, only while the canvas is still
- * this scenario's, alongside the `lastAuthoritativeGraph` record the subset rule
- * reads. A fresh token: a read still in flight cannot overwrite it.
+ * this scenario's, alongside the `lastAuthoritativeGraph` record. A fresh token:
+ * a read still in flight cannot overwrite it.
  */
 export function recordRegistrationAcknowledged(scenarioId: string): void {
   if (!isCeeAddressableScenarioId(scenarioId)) return
@@ -202,32 +186,9 @@ export interface RegisterOverSavedModelInput {
   readonly scenarioId: string | null | undefined
   /** The scenario's recorded read state, or undefined when none is recorded. */
   readonly read: BootGraphReadState | undefined
-  /**
-   * The element set CEE is known to hold — `store.lastAuthoritativeGraph`,
-   * READ. Named for its meaning, not the store field, so this read never looks
-   * like a write to the recorder scan in
-   * `provisionalDelivery.graphAcceptance.reachability.spec.ts`.
-   */
-  readonly ceeHolds: AuthoritativeGraphIdentity | null
-  /** The element set on the canvas now. */
-  readonly canvas: AuthoritativeGraphIdentity
 }
 
-/** Every canvas node id and edge pair is one CEE is known to hold. */
-function canvasHoldsNothingCeeLacks(
-  canvas: AuthoritativeGraphIdentity,
-  cee: AuthoritativeGraphIdentity | null,
-): boolean {
-  if (cee === null) return false
-  const nodeIds = new Set(cee.nodeIds)
-  const edgePairs = new Set(cee.edgePairs)
-  return (
-    canvas.nodeIds.every((id) => nodeIds.has(id)) &&
-    canvas.edgePairs.every((pair) => edgePairs.has(pair))
-  )
-}
-
-/** Pure: the whole rule, with every input explicit. */
+/** Pure: the whole rule, with every input explicit (OW-1 rule 1, see the header). */
 export function registerOverSavedModelVerdict(
   input: RegisterOverSavedModelInput,
 ): RegisterOverSavedModel {
@@ -235,19 +196,11 @@ export function registerOverSavedModelVerdict(
   const read = input.read
   if (read === undefined || read === 'reading') return 'wait'
   if (NO_SAVED_MODEL.has(read)) return 'permit'
-  if (SAVED_MODEL_READ.has(read)) {
-    return canvasHoldsNothingCeeLacks(input.canvas, input.ceeHolds)
-      ? 'permit'
-      : 'refuse'
-  }
   return 'refuse'
 }
 
 export interface RegisterOverSavedModelState {
   readonly currentScenarioId: string | null | undefined
-  readonly nodes: ReadonlyArray<{ id?: unknown }>
-  readonly edges: ReadonlyArray<{ source?: unknown; target?: unknown }>
-  readonly lastAuthoritativeGraph: AuthoritativeGraphIdentity | null
 }
 
 /** The thin store-reading wrapper the re-arm calls. */
@@ -258,8 +211,6 @@ export function mayRegisterOverSavedModel(state: RegisterOverSavedModelState): R
     read: isCeeAddressableScenarioId(scenarioId)
       ? useBootGraphReadStore.getState().byScenario[scenarioId]?.state
       : undefined,
-    ceeHolds: state.lastAuthoritativeGraph,
-    canvas: identityFromCanvasGraph(state.nodes, state.edges),
   })
 }
 

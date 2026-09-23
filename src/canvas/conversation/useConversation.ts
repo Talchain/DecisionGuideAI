@@ -148,6 +148,7 @@ import {
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { latchCeeHeldModel } from '../registration/ceeHeldModel'
 import {
   isGraphServerAcknowledged,
   markGraphServerAcknowledged,
@@ -4879,6 +4880,10 @@ export function useConversation(): UseConversationReturn {
               // are unaffected: `confirmOptimisticFactorEdit` returns
               // 'no_stamp' and writes nothing.
               const outcome = confirmOptimisticFactorEdit(optimisticEdit)
+              // ⭐ OW-1 RULE 2: CEE APPLIED this edit (its `graph_patch` receipt
+              // says so), so it holds this scenario's model — latched for the
+              // scenario the turn was DISPATCHED for, past the scenario fence.
+              latchCeeHeldModel(scenarioIdAtDispatch, 'applied_receipt')
               if (import.meta.env.DEV && outcome === 'value_moved_on') {
                 console.warn(
                   `[sendTurn] receipt for ${optimisticEdit.nodeId} arrived after the value moved on; reviewed stamp withheld`,
@@ -5329,6 +5334,12 @@ export function useConversation(): UseConversationReturn {
                     canvasBeforeOwnWrite.edges as never,
                   ))
               const merged = reconcileAppliedGraph(inlineGraph as any)
+              // ⭐ OW-1 RULE 2: an applied receipt carries CEE's COMMITTED graph
+              // (post-commit only, CEE #414/#424), so CEE holds this scenario's
+              // model — latched for the scenario the turn was DISPATCHED for
+              // (the fence above guarantees it is still the live one). No
+              // whole-graph registration is ever sent for it again.
+              latchCeeHeldModel(scenarioIdAtDispatch, 'applied_receipt')
               if (receiptExtendsAcknowledgement) {
                 const afterReceipt = useCanvasStore.getState()
                 markGraphServerAcknowledged(

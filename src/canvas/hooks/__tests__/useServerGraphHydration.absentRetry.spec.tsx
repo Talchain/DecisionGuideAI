@@ -36,6 +36,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useServerGraphHydration } from '../useServerGraphHydration'
 import * as hydration from '../../hydrate/serverGraphHydration'
 import type { HydrationOutcome } from '../../hydrate/serverGraphHydration'
+import { UNKNOWN_GRAPH_READ_RETRY_DELAYS_MS } from '../../hydrate/unknownGraphReadRetry'
 
 const A = '11111111-2222-4333-8444-555555555555'
 const B = '22222222-3333-4444-8555-666666666666'
@@ -177,8 +178,13 @@ describe('useServerGraphHydration — 404 is UNCHANGED (byte-identical to today)
    * The DISCRIMINATING half. If the guard were "retry on anything that is not
    * a graph", this test and the 404 test would both pass while the product
    * hammered a dead server. Each stable non-absent answer is pinned by NAME.
+   *
+   * ⚠ OW-1 MOVED TWO NAMES OUT OF THIS LIST. `unusable` and `unavailable` (a
+   * transport failure or a 5xx) are UNKNOWN, not stable answers: the one-writer
+   * contract (#63 5795173355 rule 1) reads them again, on their own BOUNDED
+   * schedule — pinned below, including that it terminates.
    */
-  it.each<HydrationOutcome>(['refused', 'unusable', 'unavailable', 'mergeRefused'])(
+  it.each<HydrationOutcome>(['refused', 'mergeRefused'])(
     'makes EXACTLY ONE call for %s and never re-asks',
     async (outcome) => {
       spy.mockResolvedValue(outcome)
@@ -191,6 +197,50 @@ describe('useServerGraphHydration — 404 is UNCHANGED (byte-identical to today)
       expect(callsFor(spy, A)).toHaveLength(1)
     },
   )
+})
+
+describe('useServerGraphHydration — OW-1: an UNKNOWN answer is read again, and the schedule TERMINATES', () => {
+  it.each<HydrationOutcome>(['unusable', 'unavailable'])(
+    're-reads THIS scenario after %s, a bounded number of times, then stops',
+    async (outcome) => {
+      spy.mockResolvedValue(outcome)
+
+      renderHook(() => useServerGraphHydration(A))
+      await flush()
+      expect(callsFor(spy, A)).toHaveLength(1)
+
+      await advance(300_000)
+      const settled = callsFor(spy, A).length
+      expect(settled).toBe(1 + UNKNOWN_GRAPH_READ_RETRY_DELAYS_MS.length)
+      // IDENTITY: every re-read was for A.
+      expect(spy.mock.calls.every((c) => c[0] === A)).toBe(true)
+
+      // TEN MORE MINUTES. A bounded schedule has stopped.
+      await advance(600_000)
+      expect(callsFor(spy, A)).toHaveLength(settled)
+    },
+  )
+
+  it('stops re-reading as soon as an answer is KNOWN — a graph ends it', async () => {
+    spy.mockResolvedValueOnce('unusable').mockResolvedValue('merged')
+
+    renderHook(() => useServerGraphHydration(A))
+    await flush()
+    await advance(300_000)
+    expect(callsFor(spy, A)).toHaveLength(2)
+    await advance(600_000)
+    expect(callsFor(spy, A)).toHaveLength(2)
+  })
+
+  it('an unknown that resolves to `absent` hands over to the write-back re-ask', async () => {
+    spy.mockResolvedValueOnce('unavailable').mockResolvedValueOnce('absent').mockResolvedValue('merged')
+
+    renderHook(() => useServerGraphHydration(A))
+    await flush()
+    await advance(300_000)
+    // unknown → re-read (absent) → the absent schedule's re-ask (merged).
+    expect(callsFor(spy, A)).toHaveLength(3)
+  })
 })
 
 describe('useServerGraphHydration — the retry follows the live scenario', () => {

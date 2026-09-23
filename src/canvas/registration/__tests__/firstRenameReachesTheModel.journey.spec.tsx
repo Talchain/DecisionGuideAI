@@ -17,6 +17,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
+import { __resetCeeHeldModelLatchForTest } from '../ceeHeldModel'
 import { clearImportRegistrationMarkers } from '../../store/importRegistrationMarker'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { __resetPendingFactorEditsForTest } from '../../conversation/pendingFactorEdit'
@@ -143,6 +144,8 @@ beforeEach(() => {
   dispatched.length = 0
   replies.length = 0
   clearImportRegistrationMarkers()
+  // OW-1: the one-writer latch is page-life state keyed by scenario; each case is a fresh page.
+  __resetCeeHeldModelLatchForTest()
   __resetPendingFactorEditsForTest()
   __resetPersistenceSessionForTests()
   useCanvasStore.setState({
