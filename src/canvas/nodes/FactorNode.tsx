@@ -30,7 +30,10 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, MetricPills, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { FactorDriverLine } from './shared/FactorDriverLine'
+import { FactorFlipTrack } from './shared/FactorFlipTrack'
+import { useFactorTurningPoint } from './shared/factorTurningPoint'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
@@ -233,6 +236,13 @@ export const FactorNode = memo((props: NodeProps) => {
     }),
     [nodeCategory, observedState, props.data, valueDisplay],
   )
+
+  /**
+   * ⭐ THE TURNING POINT — a PLoT `flip_thresholds[]` row for THIS node marked
+   * `found`, or `null`. Every gate lives in its owner (`factorTurningPoint.ts`,
+   * UI-SEM-097); only its PLACE on the card is decided here, below.
+   */
+  const turningPoint = useFactorTurningPoint(props.id)
 
   /**
    * ⭐ THE MARKER'S GATE, NOW READ FROM ITS OWNER. The spelling used to live
@@ -447,8 +457,10 @@ export const FactorNode = memo((props: NodeProps) => {
    * questions, and they now live in two places (CLAUDE.md trap 21).
    *
    * ⚠ ONE GATE, ONE LOCAL, NO DIVERGENCE. Both influence renders read this
-   * `influenceRank`, and both `influenceRankExplanation` calls read it too, so
-   * the two views cannot disagree about whether the denominator is licensed.
+   * `influenceRank` — the Standard-view driver line (`Driver #N of M`, since
+   * 23 Sep) and the Detailed-view bar row with its `influenceRankExplanation`
+   * — so the two views cannot disagree about whether the denominator is
+   * licensed.
    *
    * ⚠ THE RANK ITSELF IS UNTOUCHED, deliberately and narrowly. `sensitivityRank`
    * is read by the `#N` badge, the inspector and the edge label; withdrawing it
@@ -465,6 +477,18 @@ export const FactorNode = memo((props: NodeProps) => {
     displayMetadata.influenceSetSize,
   )
   /**
+   * ⭐ THE RANK AS A LICENCE TO ACT — current results ONLY.
+   *
+   * Since 23 Sep `influenceRank` is also returned on a STALE run the model is
+   * known to have moved past, marked `fromLastRun`, so the card can SAY it
+   * (Paul accepted Q2, 22 Sep: keep the figure and the rank, labelled
+   * 'Last run ·' when the model has changed). Saying a rank is not the same as
+   * asking the user to act on it: the top-influence coaching chip below reads
+   * THIS local, which keeps the chip's old guarantee — it "cannot outlive a
+   * stale run".
+   */
+  const currentInfluenceRank = influenceRank && !influenceRank.fromLastRun ? influenceRank : null
+  /**
    * ⭐ A STALE RUN'S FIGURE IS LABELLED, NEVER WITHHELD — Paul's Ruling 3
    * (ROADMAP 2.651): "out-of-date results are labelled, not withheld … No
    * dimming, no aria-disabled lockout." Once the model has changed since the
@@ -474,10 +498,10 @@ export const FactorNode = memo((props: NodeProps) => {
    * ⚠ ONE LOCAL, BOTH ROWS, AND PASSED DOWN to `BaseNode` for the rank badge
    * and the reduced line — so the card cannot label the figure on one rung
    * and assert it on another. The licence is `useModelChangedSinceRun` (the
-   * composed `'changed'`), which is a DIFFERENT question from the rank gate
-   * above and deliberately not merged with it: that gate withholds the
-   * countable half on anything short of confirmably current; this one labels
-   * only where the model is known to have moved.
+   * composed `'changed'`). ⚠ 23 Sep: the rank gate above now keys its stale
+   * arm on the SAME `'changed'` (a labelled readout) and still withholds on
+   * anything else short of confirmably current (cannot-confirm, never-run), so
+   * a rank is never shown on a stale run without this prefix.
    *
    * ⚠ GEOMETRY: the prefix is inline in the caption column, which is
    * `shrink-0`, so it takes width from the bar (`flex-1 min-w-0`) and cannot
@@ -608,24 +632,26 @@ export const FactorNode = memo((props: NodeProps) => {
           /*
            * ⭐⭐ THE LICENCE AND THE RANK, READ FROM THEIR EXISTING OWNERS.
            *
-           * `influenceRank` is already this component's licensed readout — it
+           * `currentInfluenceRank` is this component's licensed readout — it
            * is `null` whenever the claim is not permitted (withheld on ties,
            * capped at `MAX_BADGED_RANK`, and gated on the results being
            * CURRENT). Requiring it to be non-null means this chip inherits
            * every one of those rules for free and cannot outlive a stale run.
+           * ⚠ 23 Sep: NOT `influenceRank`, which now also carries a labelled
+           * last-run readout — see `currentInfluenceRank` above.
            * `sensitivityRank === 1` then supplies the value. Nothing new is
            * decided here, which is what `influenceScaleCopy.ts:347-361`
            * requires.
            */
-          leadsInfluence: influenceRank !== null && displayMetadata.sensitivityRank === 1,
+          leadsInfluence: currentInfluenceRank !== null && displayMetadata.sensitivityRank === 1,
         },
         context: {
           label: cleanedLabel,
           // The readout's own sentence, never a re-wording of it.
-          influencePhrase: influenceRank?.phrase,
+          influencePhrase: currentInfluenceRank?.phrase,
         },
       }),
-    [needsInput, nodeCategory, isInferred, cleanedLabel, influenceRank, displayMetadata.sensitivityRank],
+    [needsInput, nodeCategory, isInferred, cleanedLabel, currentInfluenceRank, displayMetadata.sensitivityRank],
   )
 
 
@@ -1087,8 +1113,58 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* ⭐⭐ D1a — THE DRIVER LINE (locked Experience Design, Paul-approved
+            23 Sep 2026): title → value → a tiny RELATIVE driver line → at most
+            one mini-visual. It REPLACES the Standard-view `NodeMetricRow`
+            (`factor-influence-row`) that read `Relative influence ▬ 62%` /
+            `Most influential ▬ of 5`.
+
+            What survives from that row, deliberately:
+              · the BAR, from the SAME normalised display value — it still
+                shows how far ahead the leader is; nothing is re-scaled;
+              · the SET SIZE, from the readout's own `setSizeText` — the half a
+                reader can check by counting;
+              · the gate: no provenance, no line (fail-closed, as before);
+              · the basis disclosure, on hover/focus and in the accessible name.
+            What goes: the printed percentage at rest. It is DEMOTED to the
+            disclosure, never deleted (`influenceScaleCopy.ts`,
+            `influenceRankExplanation`: the NO-HIDING ruling), and the Detailed
+            view and the inspector keep printing it.
+
+            Stale: 'changed' keeps the rank and the bar, labelled `Last run · `
+            (Ruling 3; Paul accepted Q2, 22 Sep). Cannot-confirm and never-run
+            still withhold the rank, exactly as before — `useInfluenceRank`. */}
+        {isPostAnalysis && !isDetailed && influencePct != null && displayMetadata.influenceProvenance != null && (
+          <FactorDriverLine
+            rank={influenceRank && displayMetadata.sensitivityRank != null
+              ? { rank: displayMetadata.sensitivityRank, setSizeText: influenceRank.setSizeText }
+              : null}
+            fromLastRun={resultsFromLastRun}
+            value={influencePct / 100}
+            basisExplanation={influenceExplanation(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}
+          />
+        )}
+
+        {/* ⭐ AT MOST ONE MINI-VISUAL AT REST: a real turning point first, a
+            genuine range second, otherwise nothing — no placeholder chart.
+            The turning point exists only after a run (a PLoT row); the range is
+            today's external-factor prior line, unchanged in semantics and
+            wording. The Detailed view is the richer surface, so it keeps the
+            range beside a turning point rather than trading one for the other;
+            the inspector carries both in every view. */}
+        {isPostAnalysis && turningPoint && (
+          <FactorFlipTrack
+            nodeId={props.id}
+            factorLabel={cleanedLabel}
+            turningPoint={turningPoint}
+            fromLastRun={resultsFromLastRun}
+          />
+        )}
         {/* External factor: prior range (if available) */}
-        {nodeCategory === 'external' && priorRangeDisplay && (
+        {nodeCategory === 'external' && priorRangeDisplay && (isDetailed || !(isPostAnalysis && turningPoint)) && (
           <div className={`${typography.edgeLabel} mt-0.5 text-text-light`}>{priorRangeDisplay}</div>
         )}
 
@@ -1179,91 +1255,23 @@ export const FactorNode = memo((props: NodeProps) => {
             in Detailed the Layer-2 Influence/Confidence bars below carry the same
             two numbers with more context, so the pills were a duplicate % channel
             in the densest view. No information is lost; the bars remain. */}
-        {/* ⭐ INFLUENCE IS THE SHARED ROW NOW — the same shape an option's
-            "Ahead", a risk's "strength" and an outcome's "strength" use. It was
-            the last of the four still rendering its primary number as a pill
-            with no bar, which is the inconsistency Paul named on 1 Sep: four
-            presentations of one idea on one screen, so a reader has to work out
-            which format each card is using before they can compare two cards.
+        {/* ⛔ THE STANDARD-VIEW INFLUENCE ROW (`NodeMetricRow`,
+            `factor-influence-row`) THAT STOOD HERE IS REPLACED, NOT HIDDEN — by
+            the D1a driver line directly under the value (`FactorDriverLine`,
+            above). Its reasoning moved with it: the bar still draws the SAME
+            normalised fraction (so it still shows how far ahead the leader is),
+            the set size still rides with the rank, the gate is still
+            provenance-or-nothing, and the basis disclosure still reaches hover,
+            focus and the accessible name. The one thing that left the face of
+            the card is the printed percentage, demoted to that disclosure per
+            the NO-HIDING ruling (`influenceScaleCopy.ts`,
+            `influenceRankExplanation`); the Detailed-view bar row and the
+            inspector's `ImportanceBar` still print it.
 
-            ⚠ THE BASIS DISCLOSURE TRAVELS WITH IT, on both channels. On the
-            fallback basis this number is per-set normalised — the top driver
-            reads 100% BY CONSTRUCTION — the positioned tooltip exposes the
-            explanation on hover/focus and `phrase` names its meaning, both from
-            `influenceScaleCopy`, the one module `DriversSection` and the
-            Detailed-view bars also read. Fail-closed is preserved structurally:
-            `influencePct` is only passed when provenance is non-null, so no
-            provenance renders no row, exactly as the pill behaved.
-
-            ⚠ CONFIDENCE DELIBERATELY STAYS A PILL. Making it a second row would
-            add a line to the densest view and re-introduce the height variance
-            #1067 had just removed — and a card whose two numbers sit at equal
-            weight says neither is the headline. One row, one pill, is a
-            hierarchy; two rows is a list. */}
-        {isPostAnalysis && !isDetailed && influencePct != null && displayMetadata.influenceProvenance != null && (
-          /* ⭐ THE CAPTION IS THE RANKING; THE BAR STILL CARRIES THE MAGNITUDE.
-             Measured on deployed staging: this row reads `Relative influence
-             … 100%`. The noun is already right, and the number still reads as
-             certainty about the world. Ranked, it reads
-             `Most influential ▬▬▬▬ of 5` — a claim about THIS model's factor
-             set, which is a claim a team can push back on.
-
-             ⚠ `value` IS UNCHANGED, DELIBERATELY. The bar geometry is the
-             normalised fraction and stays the normalised fraction: the ranked
-             words replace the PRINTED figure, not the measurement driving the
-             fill. Removing the fraction here would have flattened every bar to
-             the same length and thrown away the one channel that still shows
-             HOW FAR ahead the leader is.
-
-             ⭐ AND THE TWO COLUMNS WERE CHOSEN AGAINST THIS COMPONENT'S OWN
-             MEASURED LAYOUT RULING, not for prose. `NodeMetricRow`'s caption
-             column is `shrink-0` with a 3.5rem floor, and its docblock records
-             that a caption sized to its content collapses the track to 0px on
-             the narrowest card — "the bar is the constant". So the ranked word
-             takes the caption column and the set size takes the figure column:
-             `Most influential` (16 chars) is SHORTER than the `Relative
-             influence` (18) it replaces, and `of 5` is the same width as
-             `100%`. At rank 1 the row is narrower than it is today, and at
-             ranks 2-3 it is two characters wider. A single long caption would
-             have bought the wording by destroying the bar.
-             ⚠ Those are CHARACTER counts, not pixels — I did not run the
-             visual harness (see the report). The pixel claim in that docblock
-             is the component author's, not re-derived here. */
-          <NodeMetricRow
-            label={`${lastRunPrefix}${influenceRank ? influenceRank.caption : influenceBasisNoun(displayMetadata.influenceProvenance)}`}
-            value={influencePct / 100}
-            formatted={influenceRank ? influenceRank.setSizeText : `${influencePct}%`}
-            fillClass="bg-info"
-            testId="factor-influence-row"
-            title={influenceRank
-              ? influenceRankExplanation(
-                  influenceRank,
-                  influencePct,
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )
-              : influenceExplanation(
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )}
-            phrase={influenceBarAriaLabel(
-              displayMetadata.influenceProvenance,
-              displayMetadata.influenceImportanceBasis,
-            )}
-            /* ⚠ THE RANKED ROW OWNS ITS WHOLE ACCESSIBLE NAME. The row's default
-               composition is `"{label}: {formatted}. {phrase}"`, which is right
-               for a noun-and-value row and wrong here: the caption and the
-               figure are two halves of one sentence, so the default would
-               announce "Most influential: of 5." Unranked rows pass nothing and
-               keep the default, unchanged. */
-            accessibleName={influenceRank
-              ? `${lastRunPrefix}${influenceRank.phrase}, at ${influencePct}% of the strongest factor. ${influenceBarAriaLabel(
-                  displayMetadata.influenceProvenance,
-                  displayMetadata.influenceImportanceBasis,
-                )}`
-              : undefined}
-          />
-        )}
+            ⚠ CONFIDENCE DELIBERATELY STAYS A PILL (unchanged). Making it a
+            second row would add a line to the densest view and re-introduce the
+            height variance #1067 had just removed — and a card whose two
+            numbers sit at equal weight says neither is the headline. */}
         {isPostAnalysis && !isDetailed && (
           <MetricPills
             confidencePct={confidencePct}
