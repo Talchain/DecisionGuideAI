@@ -138,9 +138,10 @@ const REGISTRY: Record<string, Entry> = {
     reason: 'Boot hydrate; calls markGraphStructurallyEdited (which sets the overlay).',
   },
   'canvas/utils/mergeAppliedGraph.ts': {
-    sites: 1,
+    sites: 2,
     disposition: 'invalidates',
-    reason: 'Envelope apply; calls markGraphStructurallyEdited (which sets the overlay).',
+    reason:
+      'Envelope apply; its commit site calls markGraphStructurallyEdited (which sets the overlay). The second site (23 Sep, Codex 5798417040) is a METADATA STAMP reached only when no value moved: it records the receipt\'s validated `serverStrength` tuple, which is outside the analytical field registry and the registration projection, so invalidating would mark a still-current analysis stale.',
   },
 
   'canvas/hooks/useFocusCamera.ts': {

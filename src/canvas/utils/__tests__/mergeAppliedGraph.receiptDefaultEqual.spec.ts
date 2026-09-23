@@ -25,9 +25,11 @@
  *   1. A key the wire ACTUALLY SUPPLIES applies when its value differs from the
  *      CANVAS's current value — even when it equals the mapper default.
  *   2. A key the wire does NOT supply never overwrites the canvas.
- *   3. A receipt whose supplied values all equal the canvas is a STRICT no-op:
- *      same object identity, no history entry. Stamps and `serverStrength` are
- *      metadata and still never trigger a write on their own.
+ *   3. A receipt whose supplied values all equal the canvas is a no-op for
+ *      values: no history entry, no counted update. Stamps are metadata and
+ *      never trigger a write on their own; a missing validated `serverStrength`
+ *      tuple is ACQUIRED (Codex 5798417040), and once it matches too the edge
+ *      keeps its object identity.
  *
  * Every case binds the edge by its own id (never a value predicate), and every
  * "did not overwrite" case is made to WRITE something else on the same edge, so
@@ -164,14 +166,17 @@ describe('§1 a receipt value equal to the UI default still reaches the canvas',
  * ══════════════════════════════════════════════════════════════════════════ */
 
 describe('§2 controls — no-op identity and absence-never-overwrites survive', () => {
-  it('(a) a receipt identical to the canvas is a STRICT no-op — identity preserved, no history', () => {
-    seedEdge({ weight: 0.5, direction: 'positive', weightSource: 'user' })
+  it('(a) a receipt identical to the canvas — values AND server tuple — is a STRICT no-op', () => {
+    seedEdge({
+      weight: 0.5, direction: 'positive', weightSource: 'user',
+      serverStrength: { mean: 0.5, effect_direction: 'positive' },
+    })
     const edgesBefore = useCanvasStore.getState().edges
     const edgeBefore = theEdge()
     const before = historyDepth()
 
-    // The wire would stamp 'cee' and carries a server tuple the canvas lacks —
-    // both are METADATA and must not earn a write on an unchanged number.
+    // The wire would stamp 'cee' — METADATA that must not earn a write on an
+    // unchanged number. Its tuple already matches, so nothing is acquired.
     const result = reconcileAppliedGraph(
       receipt({ strength: { mean: 0.5 }, effect_direction: 'positive' }),
     )
@@ -181,10 +186,35 @@ describe('§2 controls — no-op identity and absence-never-overwrites survive',
     expect(theEdge()).toBe(edgeBefore)
     expect(historyDepth()).toBe(before)
     expect(theEdge().data.weightSource, 'the user stamp on an unchanged number survives').toBe('user')
-    expect(theEdge().data.serverStrength).toBeUndefined()
   })
 
-  it('(a) the same no-op holds at the overlayEdge seam — the SAME reference comes back', () => {
+  // ⛔ UPDATED 23 Sep (Codex 5798417040, #1913). This case used to be the one
+  // above with no tuple on the canvas, and it expected `serverStrength` to stay
+  // UNDEFINED. That expectation encoded the defect: the receipt is the server's
+  // proof of the saved value, and without the tuple `buildEdgeStrengthEditEvent`
+  // refuses the person's NEXT strength edit until a reload. The tuple is now
+  // acquired — and only the tuple: still no history, no counted update, and the
+  // user's stamp survives. Full witness: `mergeAppliedGraph.receiptServerStrength.spec.ts`.
+  it('(a) a matching receipt on an edge WITHOUT a tuple acquires ONLY the tuple — no history, stamps kept', () => {
+    seedEdge({ weight: 0.5, direction: 'positive', weightSource: 'user' })
+    const before = historyDepth()
+
+    const result = reconcileAppliedGraph(
+      receipt({ strength: { mean: 0.5 }, effect_direction: 'positive' }),
+    )
+
+    expect(result).toEqual(counts())
+    expect(historyDepth()).toBe(before)
+    expect(theEdge().data).toEqual({
+      weight: 0.5, direction: 'positive', weightSource: 'user',
+      serverStrength: { mean: 0.5, effect_direction: 'positive' },
+    })
+  })
+
+  // Pins the option-less PRIMITIVE. Both production callers pass
+  // `acquireServerStrengthOnNoop` (the receipt since 23 Sep), so this is the
+  // strict-identity rule the acquisition is layered on, not the receipt's policy.
+  it('(a) the option-less overlayEdge seam is a strict no-op — the SAME reference comes back', () => {
     const existing = {
       id: EDGE_ID, source: 'factor-1', target: 'goal-1',
       // `exists_probability` is its own mapped key beside `beliefExists`; an
