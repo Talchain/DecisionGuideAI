@@ -125,15 +125,36 @@ function beforeOwnRename(intent: StructuralRenameIntent, response: unknown, canv
   }
 }
 
-function beforeOwnEdgeEdit(write: OptimisticEdgeEdit, response: unknown, canvas: CanvasGraph): CanvasGraph | null {
-  const edge = canvas.edges.find((e) => e.id === write.edgeId)
-  if (!edge || edgeMagnitudeOf(edge) !== write.sentMagnitude) return null
-  const pair = canvasEdgePairKey(edge)
+/**
+ * Does this receipt's committed graph show THIS turn's link magnitude — the
+ * link found by its endpoint pair, its |mean| equal to the magnitude sent?
+ *
+ * ⚠ DELIBERATELY SILENT ON WHAT THE CANVAS SHOWS NOW. This is the question that
+ * settles the edit's pending state (`editDeliveryHold` signal 5), and the canvas
+ * is not evidence about it: a pick queued behind another turn is overwritten on
+ * screen by the EARLIER receipt's reconcile before its own receipt lands, so
+ * "the canvas still shows it" was false for exactly the deferred edit whose
+ * carrier had heard only 'queued' — and the hold then never released.
+ * The acknowledgement undo below asks the canvas question as well.
+ */
+export function receiptProvesOwnEdgeEdit(
+  write: OptimisticEdgeEdit,
+  response: unknown,
+  edges: readonly Edge[],
+): boolean {
+  const edge = edges.find((e) => e.id === write.edgeId)
+  const pair = edge ? canvasEdgePairKey(edge) : null
   const wire = committedEdges(response)
-  if (pair === null || wire === null) return null
+  if (pair === null || wire === null) return false
   const committed = wire.find((e) => wireEdgePairKey(e) === pair)
   const mean = committed?.strength?.mean
-  if (typeof mean !== 'number' || Math.abs(mean) !== write.sentMagnitude) return null
+  return typeof mean === 'number' && Math.abs(mean) === write.sentMagnitude
+}
+
+function beforeOwnEdgeEdit(write: OptimisticEdgeEdit, response: unknown, canvas: CanvasGraph): CanvasGraph | null {
+  if (!receiptProvesOwnEdgeEdit(write, response, canvas.edges)) return null
+  const edge = canvas.edges.find((e) => e.id === write.edgeId)
+  if (!edge || edgeMagnitudeOf(edge) !== write.sentMagnitude) return null
   return {
     nodes: canvas.nodes,
     edges: canvas.edges.map((e) =>

@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 
-import { canvasBeforeOwnAppliedWrite, type CanvasGraph } from '../ownOptimisticWrite'
+import { canvasBeforeOwnAppliedWrite, receiptProvesOwnEdgeEdit, type CanvasGraph } from '../ownOptimisticWrite'
 import type { StructuralDeleteIntent } from '../../mutations/structuralDelete'
 import type { StructuralRenameIntent } from '../../mutations/structuralRename'
 
@@ -153,6 +153,17 @@ describe('edge_strength_edit', () => {
   it('the canvas has moved on from the sent magnitude: null', () => {
     const movedOn = { nodes: [A], edges: [edge('e-13', 'fac_a', 'out_nrr', { ...before, weight: 0.8, weightSource: 'user' })] }
     expect(canvasBeforeOwnAppliedWrite('edge_strength_edit', own, proven, movedOn)).toBeNull()
+  })
+
+  it('the settle question is asked of the COMMITTED graph only — a pick overwritten on screen is still proven', () => {
+    const movedOn = [edge('e-13', 'fac_a', 'out_nrr', { ...before, weight: 0.25 })]
+    expect(receiptProvesOwnEdgeEdit(own.optimisticEdgeEdit, proven, movedOn)).toBe(true)
+    // …while the acknowledgement undo, which needs the canvas to show the write, declines.
+    expect(canvasBeforeOwnAppliedWrite('edge_strength_edit', own, proven, { nodes: [A], edges: movedOn })).toBeNull()
+    // Contrast: another magnitude committed, or the link unknown to the canvas, proves nothing.
+    const other = committed([{ id: 'fac_a' }], [{ from: 'fac_a', to: 'out_nrr', strength: { mean: -0.3 } }])
+    expect(receiptProvesOwnEdgeEdit(own.optimisticEdgeEdit, other, movedOn)).toBe(false)
+    expect(receiptProvesOwnEdgeEdit(own.optimisticEdgeEdit, proven, [])).toBe(false)
   })
 
   it('no turn-carried write, or a different event type: null', () => {

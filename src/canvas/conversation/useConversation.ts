@@ -171,7 +171,11 @@ import {
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
 import { settleEdgeEdit } from './pendingEdgeEdit'
-import { canvasBeforeOwnAppliedWrite, type OptimisticEdgeEdit } from './ownOptimisticWrite'
+import {
+  canvasBeforeOwnAppliedWrite,
+  receiptProvesOwnEdgeEdit,
+  type OptimisticEdgeEdit,
+} from './ownOptimisticWrite'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
@@ -5290,9 +5294,16 @@ export function useConversation(): UseConversationReturn {
               }
               // The committed graph proved the link edit applied: its magnitude
               // is no longer unconfirmed, so `editDeliveryHold` signal 5 stands
-              // down HERE — where the receipt is in hand, deferred sends
-              // included — rather than waiting on the carrier's settlement.
-              if (canvasBeforeOwnWrite !== null && opts.optimisticEdgeEdit && systemEvent?.type === 'edge_strength_edit') {
+              // down HERE — where the receipt is in hand — rather than waiting
+              // on the carrier, whose deferred send heard only 'queued'. Asked of
+              // the COMMITTED graph, never of the canvas (an earlier receipt may
+              // have overwritten this pick on screen). A newer pick of the same
+              // link keeps its own entry: `settleEdgeEdit` stands down on it.
+              if (
+                systemEvent?.type === 'edge_strength_edit' &&
+                opts.optimisticEdgeEdit &&
+                receiptProvesOwnEdgeEdit(opts.optimisticEdgeEdit, target.response, beforeReceipt.edges)
+              ) {
                 settleEdgeEdit(opts.optimisticEdgeEdit.edgeId, opts.optimisticEdgeEdit.sentMagnitude)
               }
               if (
