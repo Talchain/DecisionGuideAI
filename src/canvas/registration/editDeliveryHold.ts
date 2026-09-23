@@ -63,6 +63,10 @@ import {
   pendingFactorEditValue,
   subscribePendingFactorEdits,
 } from '../conversation/pendingFactorEdit'
+import {
+  subscribeUnconfirmedDeletes,
+  unconfirmedDeleteStillOnCanvas,
+} from '../conversation/unconfirmedStructuralDelete'
 
 /** Model-changing system_event turns currently on the wire. */
 let modelEditsOnTheWire = 0
@@ -99,6 +103,8 @@ export function beginModelEditDelivery(eventType: string | undefined): () => voi
 /** The store slice this module reads. Structural so tests can pass a literal. */
 export interface EditDeliveryState {
   readonly nodes: ReadonlyArray<{ id?: unknown; data?: unknown }>
+  /** Read only by the unconfirmed-delete rule (an edge-only deletion). */
+  readonly edges?: ReadonlyArray<{ id?: unknown }>
   readonly pendingEmittedEdits?: number
   readonly pendingStructuralDeletes?: ReadonlyArray<unknown>
   readonly pendingStructuralRenames?: ReadonlyArray<unknown>
@@ -179,7 +185,10 @@ function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
     if (r?.status !== 'unconfirmed' || (r.scenarioId ?? null) !== scenario) continue
     if (r.intent && state.nodes.some((n) => n.id === r.intent!.nodeId)) return true
   }
-  return false
+  // The delete twin: an ambiguous 500 / transport loss keeps the deletion on
+  // the canvas, and the side channel must not make it canonical
+  // (`unconfirmedStructuralDelete.ts`; #1892 review, residual row "Delete").
+  return unconfirmedDeleteStillOnCanvas(state)
 }
 
 /**
@@ -211,10 +220,12 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
 function subscribe(listener: Listener): () => void {
   listeners.add(listener)
   const unsubscribePending = subscribePendingFactorEdits(listener)
+  const unsubscribeDeletes = subscribeUnconfirmedDeletes(listener)
   const unsubscribeStore = useCanvasStore.subscribe(listener)
   return () => {
     listeners.delete(listener)
     unsubscribePending()
+    unsubscribeDeletes()
     unsubscribeStore()
   }
 }
