@@ -917,16 +917,20 @@ describe('9 · an UNCONFIRMED delete holds registration after delivery settles',
 describe('9 · the unconfirmed-delete rule, pure', () => {
   const del = (nodeIds: string[], edgeIds: string[] = []) => ({ claimedNodeIds: nodeIds, claimedEdgeIds: edgeIds }) as never
   it('holds only for the scenario it was made in, and only while every removed element is still absent', () => {
-    settleStructuralDeleteAttempt(del(['n9']), 's2', true)
+    settleStructuralDeleteAttempt(del(['n9']), 's2', 'unconfirmed')
     expect(editDeliveryHold({ nodes: [{ id: 'n1' }], currentScenarioId: 's1' } as never)).toBeNull()
     expect(editDeliveryHold({ nodes: [{ id: 'n1' }], currentScenarioId: 's2' } as never)).toBe('unresolved_structural_edit')
     expect(editDeliveryHold({ nodes: [{ id: 'n1' }, { id: 'n9' }], currentScenarioId: 's2' } as never)).toBeNull()
   })
-  it('an edge-only unconfirmed delete holds while the edge is gone, and a settled attempt on it supersedes', () => {
-    settleStructuralDeleteAttempt(del([], ['e7']), 's1', true)
-    expect(editDeliveryHold({ nodes: [], edges: [{ id: 'e1' }], currentScenarioId: 's1' } as never)).toBe('unresolved_structural_edit')
-    settleStructuralDeleteAttempt(del([], ['e7']), 's1', false)
-    expect(editDeliveryHold({ nodes: [], edges: [{ id: 'e1' }], currentScenarioId: 's1' } as never)).toBeNull()
+  it('an edge-only unconfirmed delete holds while the edge is gone; a REVERTED attempt releases nothing, a PROVEN one supersedes', () => {
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', 'unconfirmed')
+    const hold = () => editDeliveryHold({ nodes: [], edges: [{ id: 'e1' }], currentScenarioId: 's1' } as never)
+    expect(hold()).toBe('unresolved_structural_edit')
+    // #1892 review @ 9dac7d3e, delete form: a refusal is not proof.
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', 'reverted')
+    expect(hold()).toBe('unresolved_structural_edit')
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', 'proven')
+    expect(hold()).toBeNull()
   })
 })
 

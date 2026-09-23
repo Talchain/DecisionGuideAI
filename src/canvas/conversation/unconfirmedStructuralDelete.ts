@@ -22,10 +22,11 @@
  * element came back — undo, a receipt, a boot merge of CEE's graph) or on reload
  * (the register is not persisted).
  *
- * ⛔ ONLY THE LATEST ATTEMPT SPEAKS (the #1892 review's blocker, in its delete
- * form): every settled delete attempt — proven, reverted or unconfirmed —
- * first drops the earlier records that share an element with it, so a later
- * committed delete of a restored node can never be walled off by a stale one.
+ * ⛔ ONLY A LATER PROVEN DELETE SUPERSEDES (the #1892 review's rule, delete
+ * form — its second verdict, @ 9dac7d3e: "a later refusal alone is not proof").
+ * A proven attempt drops the earlier records that share an element with it, so
+ * a later committed delete of a restored node is never walled off by a stale
+ * one; a reverted/refused attempt releases nothing.
  */
 import type { StructuralDeleteIntent } from '../mutations/structuralDelete'
 
@@ -49,27 +50,34 @@ function claimedOf(intent: StructuralDeleteIntent): { nodeIds: string[]; edgeIds
 }
 
 /**
- * Settle one delete attempt. `unconfirmed` is true only on the arms that keep
- * the deletion without proof (ambiguous typed error, transport loss).
+ * Settle one delete attempt.
+ *   'proven'      — the committed graph proves the removal: supersedes earlier
+ *                   records sharing an element.
+ *   'reverted'    — refused / unproven, the canvas was restored: releases nothing.
+ *   'unconfirmed' — kept without proof (ambiguous typed error, transport loss):
+ *                   recorded, so registration holds while it stands.
  */
+export type StructuralDeleteSettlement = 'proven' | 'reverted' | 'unconfirmed'
+
 export function settleStructuralDeleteAttempt(
   intent: StructuralDeleteIntent,
   scenarioId: string | null,
-  unconfirmed: boolean,
+  settlement: StructuralDeleteSettlement,
 ): void {
   const { nodeIds, edgeIds } = claimedOf(intent)
-  const nodes = new Set(nodeIds)
-  const edges = new Set(edgeIds)
   const before = records.length
-  records = records.filter(
-    (r) =>
-      r.scenarioId !== scenarioId ||
-      (!r.nodeIds.some((id) => nodes.has(id)) && !r.edgeIds.some((id) => edges.has(id))),
-  )
-  if (unconfirmed && (nodeIds.length > 0 || edgeIds.length > 0)) {
-    records.push({ scenarioId, nodeIds, edgeIds })
+  if (settlement === 'proven') {
+    const nodes = new Set(nodeIds)
+    const edges = new Set(edgeIds)
+    records = records.filter(
+      (r) =>
+        r.scenarioId !== scenarioId ||
+        (!r.nodeIds.some((id) => nodes.has(id)) && !r.edgeIds.some((id) => edges.has(id))),
+    )
   }
-  if (records.length !== before || unconfirmed) emit()
+  const recorded = settlement === 'unconfirmed' && (nodeIds.length > 0 || edgeIds.length > 0)
+  if (recorded) records.push({ scenarioId, nodeIds, edgeIds })
+  if (records.length !== before || recorded) emit()
 }
 
 /** Structural so `editDeliveryHold` and its tests can pass a literal. */

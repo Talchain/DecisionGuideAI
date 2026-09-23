@@ -3066,7 +3066,7 @@ export function useConversation(): UseConversationReturn {
               edgeIds: intent.claimedEdgeIds,
             })
           }
-          settleStructuralDeleteAttempt(intent, capturedScenarioId, false)
+          settleStructuralDeleteAttempt(intent, capturedScenarioId, 'proven')
           return
         }
         shouldRevert = true
@@ -3114,8 +3114,9 @@ export function useConversation(): UseConversationReturn {
 
       // ONE WRITER (#1892 review, residual row "Delete"): an arm that KEEPS the
       // deletion without proof is recorded, so registration holds while the
-      // canvas still shows it; every other arm supersedes earlier records.
-      settleStructuralDeleteAttempt(intent, capturedScenarioId, !shouldRevert)
+      // canvas still shows it. A reverted arm releases nothing (a refusal is
+      // not proof); only the proven arm above supersedes.
+      settleStructuralDeleteAttempt(intent, capturedScenarioId, shouldRevert ? 'reverted' : 'unconfirmed')
 
       if (shouldRevert) {
         const revertOutcome = revertStructuralDelete(
