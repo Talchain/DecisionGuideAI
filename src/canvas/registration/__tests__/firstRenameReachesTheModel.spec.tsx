@@ -371,7 +371,7 @@ describe('a rename queued BEFORE the first registration neither blocks it nor ri
     expect(useCanvasStore.getState().pendingStructuralRenames).toHaveLength(1)
     expect(useCanvasStore.getState().pendingStructuralRenames[0]!.baseGraphHash).toBeNull()
 
-    const sent = vi.fn(async () => {
+    const sent = vi.fn().mockImplementation(async () => {
       fake.cee.log.push('send:structural_rename')
       return {}
     })
@@ -394,7 +394,7 @@ describe('a rename queued BEFORE the first registration neither blocks it nor ri
     await waitFor(() => {
       expect(sent).toHaveBeenCalledTimes(1)
     }, { timeout: 3000 })
-    const [event] = sent.mock.calls[0]!
+    const event = sent.mock.calls[0]![0] as { type: string; payload: unknown }
     expect(event.type).toBe('structural_rename')
     expect(event.payload).toEqual({
       node_id: NODE_ID,
