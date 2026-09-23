@@ -27,7 +27,9 @@
  *   · CEE holds no model (`absent`,
  *     `notReadable`)                     → 'permit' — the first registration
  *   · CEE holds a model the page read
- *     (`merged`, `unchanged`)            → 'permit' ONLY while the canvas holds
+ *     (`merged`, `unchanged`), or one
+ *     this page REGISTERED and CEE
+ *     acknowledged (`registered`)        → 'permit' ONLY while the canvas holds
  *                                         no element CEE lacks — every node id
  *                                         and edge pair ⊆ `lastAuthoritativeGraph`
  *                                         (review B2 option (i)); otherwise
@@ -50,6 +52,18 @@
  * settle of the current token is RECORDED (it verdicts 'refuse'), never deleted:
  * deleting it used to turn "in flight" into "no record", which then permitted.
  *
+ * ── A REGISTRATION CEE ACKNOWLEDGED IS A SETTLED READ ──────────────────────
+ * A successful `graph/register` REPLACED the scenario's model with exactly the
+ * elements it carried; the ack path records them in `lastAuthoritativeGraph`
+ * and calls `recordRegistrationAcknowledged`, which settles this record as
+ * `registered` under a NEW token. Without it, a reload while a starter/import
+ * registration was still pending read first, the merge refused the pending
+ * import (`mergeRefused`, verdict 'refuse'), and that refusal outlived the
+ * registration that answered it: every later value-only change was walled off
+ * for the page's life. The new token supersedes any read still in flight — its
+ * answer predates, or at best races, what CEE acknowledged. A LATER read begins
+ * its own token and replaces this record as usual.
+ *
  * ⚠ SCOPE. This gates the reload/in-page RE-ARM only (a model that lost, or
  *   never had, its acknowledgement). A deliberate import still waiting for its
  *   first registration (ROADMAP 2.467 / 2.503) is carried by the pending marker,
@@ -66,7 +80,12 @@ import {
   type AuthoritativeGraphIdentity,
 } from '../utils/graphIdentity'
 
-export type BootGraphReadState = 'reading' | HydrationOutcome
+/**
+ * `reading` — a read is in flight; `registered` — no read answer is current, but
+ * CEE acknowledged a registration of this page's copy (see the header); every
+ * other state is the read's own `HydrationOutcome`.
+ */
+export type BootGraphReadState = 'reading' | 'registered' | HydrationOutcome
 
 export interface BootGraphReadRecord {
   /** The read that owns this record; only it may settle it. */
@@ -100,10 +119,14 @@ const NO_SAVED_MODEL: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadSta
   'notReadable',
 ])
 
-/** Outcomes that mean "CEE holds a model, and this page read it". */
+/**
+ * States that mean "CEE holds a model, and this page knows which elements":
+ * it read them, or CEE acknowledged registering them.
+ */
 const SAVED_MODEL_READ: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadState>([
   'merged',
   'unchanged',
+  'registered',
 ])
 
 /** Monotonic across the page, so a token is never reused for a later read. */
@@ -137,6 +160,19 @@ export function settleBootGraphRead(
   if (current === undefined || current.token !== token) return false
   write(scenarioId, { token, state: outcome })
   return true
+}
+
+/**
+ * A registration CEE ACKNOWLEDGED for this scenario is a settled answer about
+ * what CEE holds (the header's "A REGISTRATION CEE ACKNOWLEDGED IS A SETTLED
+ * READ"). Called from the registration ack path, only while the canvas is still
+ * this scenario's, alongside the `lastAuthoritativeGraph` record the subset rule
+ * reads. A fresh token: a read still in flight cannot overwrite it.
+ */
+export function recordRegistrationAcknowledged(scenarioId: string): void {
+  if (!isCeeAddressableScenarioId(scenarioId)) return
+  lastToken += 1
+  write(scenarioId, { token: lastToken, state: 'registered' })
 }
 
 export type RegisterOverSavedModel = 'permit' | 'wait' | 'refuse'

@@ -57,7 +57,11 @@ import { buildRegistrationGraph } from './buildRegistrationGraph'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
 import { editDeliveryHold, useEditDeliveryHeld } from './editDeliveryHold'
-import { mayRegisterOverSavedModel, useBootGraphReadStore } from '../hydrate/bootGraphRead'
+import {
+  mayRegisterOverSavedModel,
+  recordRegistrationAcknowledged,
+  useBootGraphReadStore,
+} from '../hydrate/bootGraphRead'
 import { identityFromCanvasGraph } from '../utils/graphIdentity'
 
 /**
@@ -388,8 +392,13 @@ export function useImportRegistration(): void {
       // `lastAuthoritativeGraph`, and the record the re-arm's gate reads
       // (`bootGraphRead.ts`). Recorded against WHAT WAS SENT, and only while the
       // canvas is still this scenario's: the record is not keyed by scenario.
+      // ⭐ AND IT SETTLES THE BOOT READ. The acknowledgement is a settled answer
+      // about what CEE holds, so a read that refused the pending import
+      // (`mergeRefused`) no longer walls the re-arm for the page's life; the
+      // subset rule over the record just written governs from here.
       if (live.currentScenarioId === scenarioId) {
         live.setLastAuthoritativeGraph(identityFromCanvasGraph(nodes, edges))
+        recordRegistrationAcknowledged(scenarioId)
       }
       if (!stillCurrent) {
         logger.info('import_registration.superseded', { scenarioId })
