@@ -257,7 +257,10 @@ export function analysisHeldOn(
   //   "Not saved · Discard") is what produces that signal; until it exists
   //   there is no stored CEE value to compare against, and CEE's own readiness
   //   gate still judges the model it analyses.
-  if (ceeHoldsModel(state, state.currentScenarioId)) {
+  // A state without the latch set (only reachable through a cast; the type
+  // requires it) reads as NOT latched, which keeps the digest hold below:
+  // fail CLOSED, never a release the latch did not grant.
+  if (state.ceeHeldScenarioIds !== undefined && ceeHoldsModel(state, state.currentScenarioId)) {
     return editDeliveryHoldDetail(state) === null ? null : stamp
   }
   // ⭐ RELEASE ON POSITIVE ACKNOWLEDGEMENT, NEVER ON THE ABSENCE OF A PENDING
