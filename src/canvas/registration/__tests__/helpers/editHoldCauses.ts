@@ -20,6 +20,11 @@ import {
   clearImportRegistrationMarkers,
   markGraphServerAcknowledged,
 } from '../../../store/importRegistrationMarker'
+import {
+  __resetUnconfirmedDeletesForTest,
+  settleStructuralDeleteAttempt,
+} from '../../../conversation/unconfirmedStructuralDelete'
+import { captureStructuralDelete } from '../../../mutations/structuralDelete'
 
 export const SCENARIO = 'scn-hold-names-cause'
 export const FACTOR_ID = 'fac_adoption'
@@ -38,6 +43,17 @@ export const RENAMED_LABEL = 'Adoption drag'
  */
 export const ADDED_LABEL = 'Edge sales capacity'
 export const ADDED_ID = 'fac_added'
+/**
+ * A node the user deleted (with its one incident link). ⚠ Also contains "Edge",
+ * for the same parity reason as `ADDED_LABEL`. Once the delete is applied the
+ * node is NOT on the canvas, so the only place its name can come from is the
+ * delete record itself (the intent's `restore` payload).
+ */
+export const DELETED_LABEL = 'Edge reseller churn'
+export const DELETED_ID = 'fac_reseller'
+export const GOAL_LABEL = 'Grow revenue'
+/** The fixture's one link (`e1`: the factor to the goal), as the hold sentence names it. */
+export const LINK_NAME = `the link from ${FACTOR_LABEL} to ${GOAL_LABEL}`
 
 export type HoldCause =
   | 'edit_on_the_wire'
@@ -46,6 +62,8 @@ export type HoldCause =
   | 'unresolved_rename'
   | 'unresolved_add'
   | 'unconfirmed_value'
+  | 'unresolved_delete'
+  | 'unresolved_delete_link'
 
 export const HOLD_CAUSES: readonly HoldCause[] = [
   'edit_on_the_wire',
@@ -54,6 +72,8 @@ export const HOLD_CAUSES: readonly HoldCause[] = [
   'unresolved_rename',
   'unresolved_add',
   'unconfirmed_value',
+  'unresolved_delete',
+  'unresolved_delete_link',
 ]
 
 type Stamp = Record<string, unknown>
@@ -65,12 +85,20 @@ interface CanvasOptions {
   factorLabel?: string
   factorValue?: number
   withAddedNode?: boolean
+  /** The canvas BEFORE the delete: the node the user then deleted, and its incident link. */
+  withDeletedNode?: boolean
 }
 
-function canvas({ stamp = STARTER_STAMP, factorLabel = FACTOR_LABEL, factorValue = 0.55, withAddedNode = false }: CanvasOptions) {
+function canvas({
+  stamp = STARTER_STAMP,
+  factorLabel = FACTOR_LABEL,
+  factorValue = 0.55,
+  withAddedNode = false,
+  withDeletedNode = false,
+}: CanvasOptions) {
   const nodes = [
     { id: 'dec_1', type: 'decision', position: { x: 0, y: 0 }, data: { kind: 'decision', label: 'Enter the German market?', ...stamp } },
-    { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Grow revenue', ...stamp } },
+    { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: GOAL_LABEL, ...stamp } },
     { id: 'opt_a', type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: 'Enter now', ...stamp } },
     { id: 'opt_b', type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: 'Wait a year', ...stamp } },
     {
@@ -82,8 +110,16 @@ function canvas({ stamp = STARTER_STAMP, factorLabel = FACTOR_LABEL, factorValue
     ...(withAddedNode
       ? [{ id: ADDED_ID, type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: ADDED_LABEL } }]
       : []),
+    ...(withDeletedNode
+      ? [{ id: DELETED_ID, type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: DELETED_LABEL, ...stamp } }]
+      : []),
   ]
-  const edges = [{ id: 'e1', source: FACTOR_ID, target: 'goal_1', data: { weight: 0.5, direction: 'positive' } }]
+  const edges = [
+    { id: 'e1', source: FACTOR_ID, target: 'goal_1', data: { weight: 0.5, direction: 'positive' } },
+    ...(withDeletedNode
+      ? [{ id: 'e_reseller', source: DELETED_ID, target: 'goal_1', data: { weight: 0.3, direction: 'negative' } }]
+      : []),
+  ]
   return { nodes, edges }
 }
 
@@ -117,6 +153,36 @@ export function acknowledgeCurrentGraph(): void {
 }
 
 let releaseWire: (() => void) | null = null
+
+/**
+ * A delete captured the way the canvas captures it (`captureStructuralDelete`
+ * over the PRE-delete graph), so its `restore` payload is the real shape.
+ */
+export function captureDelete(removedNodeIds: string[], removedEdgeIds: string[] = []) {
+  const before = canvas({ withDeletedNode: removedNodeIds.includes(DELETED_ID) })
+  const captured = captureStructuralDelete({
+    nodesBefore: before.nodes as never,
+    edgesBefore: before.edges as never,
+    removedNodeIds,
+    removedEdgeIds,
+    baseGraphHash: 'aag_v1:before-delete',
+    externalMutationActive: false,
+    makeId: () => `del-${removedNodeIds.join('+')}-${removedEdgeIds.join('+')}`,
+  })
+  if (!captured.ok) throw new Error(`fixture delete did not capture: ${captured.reason}`)
+  return captured.intent
+}
+
+/** The canvas AFTER `captureDelete(...)` was applied: every element it removed is gone. */
+export function applyDeleteToStore(intent: ReturnType<typeof captureDelete>): void {
+  const before = canvas({ withDeletedNode: intent.claimedNodeIds.includes(DELETED_ID) })
+  const nodes = new Set(intent.claimedNodeIds)
+  const edges = new Set(intent.claimedEdgeIds)
+  useCanvasStore.setState({
+    nodes: before.nodes.filter((n) => !nodes.has(n.id)) as never,
+    edges: before.edges.filter((e) => !edges.has(e.id)) as never,
+  } as never)
+}
 
 /**
  * Arrange ONE cause on top of `seedHeldCanvas`, through the register that
@@ -166,6 +232,21 @@ export function arrangeHoldCause(cause: HoldCause): void {
       markFactorEditInFlight(FACTOR_ID, USER_VALUE)
       return
     }
+    case 'unresolved_delete': {
+      // A node delete whose turn ended in an untyped 500: the deletion stays on
+      // the canvas and the attempt is recorded `unconfirmed` (#1905 residual 1).
+      const intent = captureDelete([DELETED_ID])
+      applyDeleteToStore(intent)
+      settleStructuralDeleteAttempt(intent, SCENARIO, 'unconfirmed')
+      return
+    }
+    case 'unresolved_delete_link': {
+      // The same, for a link deleted on its own: both of its ends stay on the canvas.
+      const intent = captureDelete([], ['e1'])
+      applyDeleteToStore(intent)
+      settleStructuralDeleteAttempt(intent, SCENARIO, 'unconfirmed')
+      return
+    }
   }
 }
 
@@ -174,6 +255,7 @@ export function resetEditHoldRegisters(): void {
   releaseWire?.()
   releaseWire = null
   __resetPendingFactorEditsForTest()
+  __resetUnconfirmedDeletesForTest()
   clearImportRegistrationMarkers()
   useCanvasStore.setState(QUIET as never)
 }
@@ -186,4 +268,6 @@ export const CAUSE_MUST_NAME: Record<HoldCause, readonly (string | RegExp)[]> = 
   unresolved_rename: [/couldn['’]t confirm/i, RENAMED_LABEL],
   unresolved_add: [/couldn['’]t confirm/i, ADDED_LABEL],
   unconfirmed_value: [/couldn['’]t confirm/i, FACTOR_LABEL, USER_VALUE_TEXT],
+  unresolved_delete: [/couldn['’]t confirm/i, `that ${DELETED_LABEL} was removed from the saved model`],
+  unresolved_delete_link: [/couldn['’]t confirm/i, `that ${LINK_NAME} was removed from the saved model`],
 }
