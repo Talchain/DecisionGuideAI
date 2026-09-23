@@ -111,12 +111,6 @@ const BASE_GRAPH_HASH = 'cfded3af0aa14ebd'
 const PREVIOUS_LABEL = 'Hybrid platform fee plus usage'
 const NEW_LABEL = 'Hybrid Platform Fee Plus Usage RT'
 
-/** The witnessed refusal sentence (served staging, 22 Sep, evidence §4). */
-const WITNESSED_REFUSAL =
-  'That kind of change does not come through this conversation route. Nothing has been changed.'
-/** CEE's own `apply_failed` refusal copy (`structural-rename.ts`, step 5). */
-const CEE_APPLY_FAILED_REFUSAL =
-  "I couldn't apply that rename to the saved model, so I haven't changed anything. Reload it and try again."
 
 function renameIntent(): StructuralRenameIntent {
   return {
@@ -235,65 +229,8 @@ function stubRefusal200(assistantText: string, extra: Record<string, unknown> = 
   })
 }
 
-/** CEE's 409, byte-shaped from `route-v2.ts` (as in the sibling outcome spec). */
-function stub409(category: string) {
-  stubFetch(409, {
-    error: 'GRAPH_DIVERGED',
-    boundary: 'B1',
-    direction: 'egress',
-    validator: 'turn_commit',
-    details: {
-      phase: 'commit',
-      failure_type: 'GRAPH_DIVERGED',
-      event_kind: 'structural_rename',
-      recovery_action: 'refresh_and_reconfirm',
-      conflict_category: category,
-      expected_base_graph_hash: BASE_GRAPH_HASH,
-    },
-    request_id: `req_${category}`,
-    retryable: false,
-  })
-}
 
-/** CEE's success 200 — the committed graph rides `draft_graph`. */
-function stubSuccess200() {
-  stubFetch(200, {
-    response_version: 2,
-    assistant_text: `Renamed '${PREVIOUS_LABEL}' to '${NEW_LABEL}'.`,
-    blocks: [],
-    suggested_actions: [],
-    insights: [],
-    stage_indicator: 'frame',
-    graph_hash: BASE_GRAPH_HASH,
-    draft_graph: {
-      nodes: [
-        { id: NODE_ID, kind: 'option', label: NEW_LABEL },
-        { id: SIBLING_ID, kind: 'option', label: NEW_LABEL },
-      ],
-      edges: [],
-      node_count: 2,
-      edge_count: 0,
-    },
-  })
-}
 
-/** CEE's 500 — `buildCommitFailureBoundaryError`, reason `system_event_commit_failed`. */
-function stub500CommitFailed() {
-  stubFetch(500, {
-    error: 'INTERNAL_ERROR',
-    boundary: 'B1',
-    direction: 'egress',
-    validator: 'turn_commit',
-    details: {
-      retryable: true,
-      reason: 'system_event_commit_failed',
-      event_kind: 'structural_rename',
-      stage: 'frame',
-    },
-    request_id: 'req_commit_failed',
-    retryable: true,
-  })
-}
 
 async function driveRename(serverHeld = true) {
   seed(serverHeld)
