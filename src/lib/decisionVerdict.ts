@@ -256,6 +256,18 @@ export interface ProducerLeaderPermission {
   /** The producer's `leader_claim.withheld_reason`, or this UI's own reason
    *  code when the withholding came from a sibling fact (`blocked_unusable`). */
   withheld_reason?: string
+  /**
+   * ⭐ THE PRODUCER'S OWN CAUSE, CARRIED WITH THE RESULT IT QUALIFIES (Codex
+   * #1921 5804215687). `withheld_reason` above is collapsed to this UI's
+   * two-value enum at the boundary, so it cannot tell `constraint_verdict_withheld`
+   * from any other refusal. This keeps the producer's `leader_claim.withheld_reason`
+   * token verbatim, and only when the withholding came FROM `leader_claim` —
+   * never inferred from the generic stamp, never the whole live envelope
+   * (which would confer unrelated readiness/currentness authority). Persisted
+   * with the report, so a reload or a later turn with no `analysis_state`
+   * keeps the qualification that belongs to the still-displayed result.
+   */
+  producer_cause?: string
 }
 
 /**

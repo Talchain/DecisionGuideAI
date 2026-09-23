@@ -87,6 +87,7 @@ import {
 } from '../canvas/store/analysisRefusalNotice'
 import {
   leaderClaimWithholdingReason,
+  producerLeaderClaimCause,
   type LeaderClaimWithholdingReason,
 } from '../canvas/hydrate/applyScenarioAnalysisRead'
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
@@ -286,7 +287,7 @@ export interface V5ApplicatorStore {
    *
    * ⚠ IT MARKS, IT DOES NOT DELETE. The user's numbers stay; the CLAIM goes.
    */
-  resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason, producerCause?: string | null) => void
   /**
    * Record the admission THIS ENVELOPE delivered its `analysis_result` under,
    * onto the report the slice holds (`ReportV1.run_analysis_admission`, #1206).
@@ -2576,7 +2577,7 @@ export function applyV5State(
   }
 
   if (withholdingReason !== null) {
-    store.resultsWithholdLeaderClaim?.(withholdingReason)
+    store.resultsWithholdLeaderClaim?.(withholdingReason, producerLeaderClaimCause(turnVerdict))
     applied.push(`leader_claim:withheld:${withholdingReason}`)
     logV5StateStep({
       step_number: 5,

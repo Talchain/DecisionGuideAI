@@ -35,7 +35,7 @@ const envelope = (leaderClaim: Record<string, unknown>) => ({
   requires_rerun: false, blocked_unusable: false, contradictions: [],
 })
 
-const seed = (analysisStateV1: unknown) => {
+const seed = (analysisStateV1: unknown, permission?: Record<string, unknown>) => {
   useCanvasStore.setState({
     nodes: [candidate, { ...candidate, id: 'alternative', data: { label: 'Usage-based for all', type: 'option' } }],
     edges: [], ceeAnalysisReady: null, viewMode: 'standard',
@@ -50,6 +50,7 @@ const seed = (analysisStateV1: unknown) => {
         alternative: { status: 'computed', win_probability: 0.19 },
       },
       robustness: { near_tie: { is_tie: false, top_option_id: 'candidate' } },
+      ...(permission ? { producer_leader_permission: permission } : {}),
     } },
   } as never)
 }
@@ -74,7 +75,8 @@ afterEach(() => {
 
 describe('an option share under a withheld limit verdict says it is goal-only (RC P0 #3c)', () => {
   it('constraint_verdict_withheld → the share keeps its number AND carries the goal-only qualifier (visible + accessible)', () => {
-    seed(envelope({ permitted: false, withheld_reason: 'constraint_verdict_withheld' }))
+    seed(envelope({ permitted: false, withheld_reason: 'constraint_verdict_withheld' }),
+      { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' })
     renderCard()
     expect(readout().textContent).toBe('81% of runs') // the data is not withheld — only the claim
     expect(qualifier()).not.toBeNull()
@@ -92,7 +94,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
   })
 
   it('CONTRAST — withheld for a DIFFERENT reason (separation_unavailable): no goal-only qualifier', () => {
-    seed(envelope({ permitted: false, withheld_reason: 'separation_unavailable' }))
+    seed(envelope({ permitted: false, withheld_reason: 'separation_unavailable' }),
+      { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'separation_unavailable' })
     renderCard()
     expect(readout().textContent).toBe('81% of runs')
     expect(qualifier()).toBeNull()
@@ -102,6 +105,17 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     seed(null)
     renderCard()
     expect(readout().textContent).toBe('81% of runs')
+    expect(qualifier()).toBeNull()
+  })
+  it('RESULT-BOUND — no live envelope (reload / a later turn without analysis_state): the stamped cause still qualifies the share', () => {
+    seed(null, { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' })
+    renderCard()
+    expect(qualifier()).not.toBeNull()
+  })
+
+  it('CONTRAST — a live withheld envelope but NO stamped cause on the result: nothing (the card reads the result, not the session)', () => {
+    seed(envelope({ permitted: false, withheld_reason: 'constraint_verdict_withheld' }))
+    renderCard()
     expect(qualifier()).toBeNull()
   })
 })

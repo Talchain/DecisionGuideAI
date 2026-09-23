@@ -1835,13 +1835,18 @@ export const OptionNode = memo((props: NodeProps) => {
   const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
   /**
    * ⭐ THE SHARE IS GOAL-ONLY — SAID WHEN THE LIMIT VERDICT WITHHELD THE LEADER
-   * CLAIM (RC P0 #3(c)). Read from CEE's own `analysis_state.leader_claim`, by
-   * exact token; any other reason (or no wire state) adds nothing, so nothing is
-   * inferred. A boolean selector keeps the React-185 guard satisfied.
+   * CLAIM (RC P0 #3(c)). The producer's own `leader_claim.withheld_reason`,
+   * carried with the result it qualifies (`producer_cause`), by exact token; any
+   * other reason (or none) adds nothing, so nothing is inferred. A boolean
+   * selector keeps the React-185 guard satisfied.
    */
   const shareIsGoalOnly = useCanvasStore(s => {
-    const claim = (s.analysisStateV1 as { leader_claim?: { permitted?: boolean; withheld_reason?: string } } | null)?.leader_claim
-    return claim?.permitted === false && claim.withheld_reason === 'constraint_verdict_withheld'
+    // Read from the RESULT (its persisted stamp), never the session-local
+    // `analysisStateV1` envelope: that is not persisted and a later turn without
+    // it would strip the qualification from a still-displayed result (Codex
+    // #1921 5804215687).
+    const permission = s.results.report?.producer_leader_permission
+    return permission?.permitted === false && permission.producer_cause === 'constraint_verdict_withheld'
   })
   const winReadoutDescription = winReadout
     ? [
