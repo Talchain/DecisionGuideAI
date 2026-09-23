@@ -36,6 +36,11 @@
  *                                         'refuse'. A registration of a subset
  *                                         cannot resurrect a delete; one that
  *                                         carries an element CEE lacks can.
+ *                                         ⚠ It is an ELEMENT check, not a value
+ *                                         check: a subset canvas can still carry
+ *                                         a value CEE lacks, and the re-offer
+ *                                         writes it (Panel V1, see
+ *                                         `serverGraphHydration.ts`).
  *   · anything else                      → 'refuse' — the page could not find
  *                                         out (unavailable, unusable, refused,
  *                                         signInRequired), the merge refused

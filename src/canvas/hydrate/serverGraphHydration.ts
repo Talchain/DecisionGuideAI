@@ -537,8 +537,21 @@ async function readAndMergeServerGraph(
  *   EVERY analytical key the projection carries, present and deep-equal
  *   (`canonicalJson`: key order is not part of a value). Anything else fails
  *   CLOSED: no acknowledgement, the model stays held, and the re-arm may offer
- *   it again — which, for a canvas holding nothing CEE lacks, is one redundant
- *   registration (`bootGraphRead.ts`), never a wall.
+ *   it again (`bootGraphRead.ts` subset rule), never a wall.
+ *
+ * ⚠ THAT RE-OFFER IS NOT ALWAYS REDUNDANT (Panel V1, #1903 5797312829). The
+ *   subset rule checks ELEMENTS, not values. `overlayNode` keeps a canvas key
+ *   the wire omits, so a reloaded canvas can hold a value CEE has none for
+ *   (e.g. a factor's `observed_state {value: 0.7}` where CEE's factor has no
+ *   `observed_state`). The acknowledgement correctly declines, and the re-offer
+ *   then WRITES that value into CEE. Measured: `{merged, acked: false,
+ *   registrations: 1, observed_state 0.7 sent}`; control with CEE holding 0.4:
+ *   `{merged, acked: true, registrations: 0}`. So this PR guarantees a reload
+ *   never RESURRECTS A DELETE, not that it never writes a value CEE lacks.
+ *   Not a regression: staging's re-arm registered any unacknowledged copy.
+ *   Closing it (clear the omitted analytical keys on an accepted read) needs the
+ *   owner of `overlayNode`'s no-clear ruling; the one-writer contract (#63
+ *   5794896612) removes the re-arm write altogether.
  *
  * Also not granted when the canvas holds an element the wire lacks (or vice
  * versa) — the stale copy the gate stops writing — nor while an edit is still
@@ -566,8 +579,9 @@ function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unkn
  *     (`graph-hash.ts` `computeAnalysisAffectingGraphHash`, CEE staging
  *     `cc7b26cb`).
  * Every other projected key — `label` and `kind` included — must match. A key
- * missing from this list costs a redundant registration, never a false
- * acknowledgement, which is the direction this list is allowed to be wrong in.
+ * missing from this list costs a re-offered registration (see the V1 note
+ * above: not always redundant), never a false acknowledgement, which is the
+ * direction this list is allowed to be wrong in.
  */
 const NOT_VOUCHED_NODE_KEYS: ReadonlySet<string> = new Set([
   'starterId',
