@@ -27,6 +27,7 @@ import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding } from './app
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
+  isCurrentBootGraphRead,
   settleBootGraphRead,
 } from './bootGraphRead'
 import { markGraphServerAcknowledged } from '../store/importRegistrationMarker'
@@ -192,7 +193,7 @@ export async function hydrateCanvasFromServer(
   const token = opts.bootReadToken ?? beginBootGraphRead(scenarioId)
   let outcome: HydrationOutcome = 'skipped'
   try {
-    outcome = await readAndMergeServerGraph(scenarioId, opts)
+    outcome = await readAndMergeServerGraph(scenarioId, token, opts)
     return outcome
   } finally {
     settleBootGraphRead(scenarioId, token, outcome)
@@ -201,6 +202,7 @@ export async function hydrateCanvasFromServer(
 
 async function readAndMergeServerGraph(
   scenarioId: string,
+  token: number,
   opts: HydrateFromServerOptions,
 ): Promise<HydrationOutcome> {
 
@@ -219,6 +221,23 @@ async function readAndMergeServerGraph(
   // A response body can finish after fetch was aborted. Check at the write
   // boundary too, including caller-specific turn/canvas ownership.
   if (opts.signal?.aborted || opts.canApply?.() === false) return 'skipped'
+
+  // ── A SUPERSEDED READ CHANGES NOTHING ────────────────────────────────────
+  // The token this read began under must still be the scenario's CURRENT one
+  // (`bootGraphRead.ts`). A registration CEE acknowledged while this read was in
+  // flight writes a NEW token, and so does a newer read: either way this answer
+  // predates, or at best races, what CEE now holds. The settle already refuses
+  // it; the WRITES below must refuse it too. Probed (23 Sep): CEE acknowledged
+  // [goal, kept, "Churn Risk"], this read then answered with the older model,
+  // and decision A's merge took "Churn Risk" off the canvas, named it in the chat
+  // line and reset `lastAuthoritativeGraph` to the older set. So: no merge, no
+  // removal notice, no identity, no write base, no acknowledgement, no verdict —
+  // nothing. Everything below is synchronous, so this one check at the answer
+  // covers every write it guards.
+  if (!isCurrentBootGraphRead(scenarioId, token)) {
+    logger.debug('server_graph_hydration.superseded', { scenarioId })
+    return 'skipped'
+  }
 
   // ── Every non-graph answer: leave the canvas alone, say why, surface nothing.
   if (result.status !== 'graph') {

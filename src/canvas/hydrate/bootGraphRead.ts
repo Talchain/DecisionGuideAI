@@ -61,8 +61,11 @@
  * import (`mergeRefused`, verdict 'refuse'), and that refusal outlived the
  * registration that answered it: every later value-only change was walled off
  * for the page's life. The new token supersedes any read still in flight — its
- * answer predates, or at best races, what CEE acknowledged. A LATER read begins
- * its own token and replaces this record as usual.
+ * answer predates, or at best races, what CEE acknowledged — so that answer
+ * changes NOTHING: not this record, and (`isCurrentBootGraphRead`, asked at the
+ * read's write boundary) not the canvas, the removal notice,
+ * `lastAuthoritativeGraph` or the acknowledgement. A LATER read begins its own
+ * token and replaces this record as usual.
  *
  * ⚠ SCOPE. This gates the reload/in-page RE-ARM only (a model that lost, or
  *   never had, its acknowledgement). A deliberate import still waiting for its
@@ -160,6 +163,19 @@ export function settleBootGraphRead(
   if (current === undefined || current.token !== token) return false
   write(scenarioId, { token, state: outcome })
   return true
+}
+
+/**
+ * Whether `token` is still the scenario's CURRENT read — the same test
+ * `settleBootGraphRead` applies, asked at the read's WRITE boundary. A read a
+ * registration acknowledgement or a newer read has superseded answers for a
+ * model that is no longer the latest word on what CEE holds, so its answer must
+ * change nothing: not the record (the settle refuses), and not the canvas, the
+ * removal notice, `lastAuthoritativeGraph` or the acknowledgement either
+ * (`serverGraphHydration.ts` "A SUPERSEDED READ CHANGES NOTHING").
+ */
+export function isCurrentBootGraphRead(scenarioId: string, token: number): boolean {
+  return useBootGraphReadStore.getState().byScenario[scenarioId]?.token === token
 }
 
 /**
