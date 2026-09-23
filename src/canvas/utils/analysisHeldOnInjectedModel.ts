@@ -71,6 +71,7 @@
 
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
 import { isGraphServerAcknowledged } from '../store/importRegistrationMarker'
+import { ceeHoldsModel } from '../registration/ceeHeldModel'
 import {
   editDeliveryHoldDetail,
   type EditDeliveryState,
@@ -165,6 +166,14 @@ export interface AnalysisHoldState {
    * enabled BECAUSE the write reached the server, never optimistically.
    */
   readonly importPendingServerRegistration: boolean
+  /**
+   * ⭐ REQUIRED — the OW-1 latch (`ceeHeldModel.ts`): the scenarios this page
+   * has seen CEE acknowledge holding. Read by identity through `ceeHoldsModel`,
+   * never re-derived here. Required for the same reason `edges` is: an optional
+   * input lets a caller hand over a partial state that silently keeps the old
+   * answer (rule 5(c), programme-docs #63 5795221415).
+   */
+  readonly ceeHeldScenarioIds: ReadonlySet<string>
 }
 
 /**
@@ -228,11 +237,29 @@ function readInjectionStamp(
  *   estate keeps paying for. The stamp stays; only the hold lifts.
  */
 export function analysisHeldOn(
-  state: AnalysisHoldState,
+  state: AnalysisHoldState & EditDeliveryState,
 ): ClientInjectedProvenance | null {
   if (!isV5CanonicalRunPath()) return null
   const stamp = readInjectionStamp(state.nodes)
   if (stamp === null) return null
+  // ⭐⭐ RULE 5(c) — CEE HOLDS THIS SCENARIO'S MODEL (the OW-1 latch). The
+  //   saved-example hold is over: the engine has the model, whatever the digest
+  //   says. The digest can stop matching for good once the latch is set — a
+  //   reload whose boot read cannot vouch for every canvas value (Wall 1), or a
+  //   rename answered by an untyped 500 and then applied (Wall 2) — and OW-1
+  //   rightly never re-registers to earn it back. So only the user's OWN change,
+  //   still on its way or still unconfirmed, holds Run here, and `heldReason`
+  //   names that change. In flight holds even over an acknowledged digest: fail
+  //   closed, CAS at commit (#63 5795221415).
+  //
+  //   ⚠ NOT DETECTED HERE: a LOCAL-ONLY analytical gesture on a latched model.
+  //   Rule 5 (classing every store mutator canonical or local-only, with
+  //   "Not saved · Discard") is what produces that signal; until it exists
+  //   there is no stored CEE value to compare against, and CEE's own readiness
+  //   gate still judges the model it analyses.
+  if (ceeHoldsModel(state, state.currentScenarioId)) {
+    return editDeliveryHoldDetail(state) === null ? null : stamp
+  }
   // ⭐ RELEASE ON POSITIVE ACKNOWLEDGEMENT, NEVER ON THE ABSENCE OF A PENDING
   //   MARKER. Both markers live in localStorage, so both can vanish — but the
   //   two absences mean opposite things. "No pending marker" was being read as

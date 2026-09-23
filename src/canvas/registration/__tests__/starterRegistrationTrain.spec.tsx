@@ -259,6 +259,8 @@ function heldState(nodes: AnalysisHoldState['nodes']): AnalysisHoldState {
     edges: [],
     currentScenarioId: '66666666-6666-4666-8666-666666666666',
     importPendingServerRegistration: true,
+    // Unlatched: this train is about the digest path before any acknowledgement.
+    ceeHeldScenarioIds: new Set<string>(),
   }
 }
 
