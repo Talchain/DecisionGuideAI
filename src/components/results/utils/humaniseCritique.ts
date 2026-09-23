@@ -522,9 +522,9 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // Reasons: request_budget_exhausted | e_value_budget_exceeded.
   E_VALUES_UNAVAILABLE: () => ({
     title:
-      'The check on how wrong your assumptions could be before the recommendation changes didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
+      'The check on how wrong your assumptions could be before a different option leads in this model didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
-      'E-value analysis was skipped for time. It does not affect the recommendation, the probabilities, or anything else already shown.',
+      'E-value analysis was skipped for time. It does not affect which option leads in this model, the probabilities, or anything else already shown.',
   }),
 
   // Reasons: e_values_unavailable | request_budget_exhausted |
@@ -542,7 +542,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // All-or-nothing at the producer, so this is never a partial set.
   FACTOR_FLIPS_UNAVAILABLE: () => ({
     title:
-      'How far each factor would have to move to change the recommendation wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
+      'How far each factor would have to move before a different option leads in this model wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Factor-flip analysis was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),

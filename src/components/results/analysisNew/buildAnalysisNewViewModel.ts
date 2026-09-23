@@ -417,7 +417,7 @@ function buildKeyInsights(
   // ⚠ THE ATTESTATION GATE IS PART OF EMITTING MORE THAN ONE, NOT A SEPARATE
   // TIDY-UP. `winner_flips` is the producer's statement that the winning option
   // CHANGES across the split (`types.ts:891-899` — "says THAT the winner
-  // changes, never WHICH option"), and "The answer turns on X" is precisely that
+  // changes, never WHICH option"), and the headline below is precisely that
   // claim. An explicit `false` denies it, so such a row is dropped rather than
   // headlined — the read `analysisSnapshotFactory.ts:285` and the Compare tab's
   // D7 already make of the same field. Taking `[0]` risked this claim once;
@@ -450,7 +450,7 @@ function buildKeyInsights(
     const splitValue = formatThresholdValue(cw.split_value)
     out.push({
       id: `insight:conditional-winner:${cw.factor_id}`,
-      headline: `The answer turns on ${cw.factor_label}`,
+      headline: `In this model, which option leads depends on ${cw.factor_label}`,
       implication: namesBoth
         ? `Above ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}, ${high} scores higher; below it, ${low} does.`
         : `The preferred direction changes around ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}.`,
@@ -488,7 +488,7 @@ function buildKeyInsights(
       groundedIn: 'the fragile-relationship analysis',
       marker: staleMarker,
       targetId: hinge.fromId,
-      inspect: rows(row('Chance the answer changes', pctOrNull(hinge.switchProbability))),
+      inspect: rows(row('Chance another option leads in this model', pctOrNull(hinge.switchProbability))),
       intervention: interventionFor(recommendations, hinge.fromId),
     })
   }
@@ -665,7 +665,7 @@ function driverFinding(
       // ⚠ ONLY `true` RENDERS. `false` is "no contested edge found", which is
       // not a finding, and printing it would fill every row with a negative.
       row('Contested evidence', d.hasContestedEdge === true ? 'yes' : null),
-      row('Chance the answer changes', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
+      row('Chance another option leads in this model', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
     ),
     intervention: interventionFor(recommendations, target),
   }
@@ -1255,7 +1255,7 @@ function buildUncertainty(
      */
     const labelLength = truncateAtWordBoundary(text, 80)
     const headlineText = u.threshold
-      ? `${u.threshold.variable} could change the answer`
+      ? `${u.threshold.variable} could change which option leads in this model`
       : labelLength === text
         ? text
         : rowTitle(u)
@@ -2449,7 +2449,7 @@ function buildAtAGlance(
   // probability of reaching the goal. "Achieves your goal in 99%" would have
   // been a worse claim than the contest framing it replaced, so the wording
   // keeps the ranking meaning and drops the contest metaphor only.
-  const winShare = winPct ? `One option scored highest in ${winPct} of simulated futures.` : null
+  const winShare = winPct ? `In this model, one option had the highest score in ${winPct} of simulated futures.` : null
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.

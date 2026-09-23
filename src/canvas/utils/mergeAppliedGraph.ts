@@ -85,7 +85,10 @@
  *     receipt without having been deleted. Removing it would trade B2's
  *     value-loss for a worse node-loss. Unacknowledged local work survives.
  *   - A receipt that changes nothing is a strict no-op — no history entry, no
- *     store write, no autosave, no freshness dirtying.
+ *     store write, no autosave, no freshness dirtying. The single exception is
+ *     metadata, not a change: a receipt whose values all match may still record
+ *     a missing or superseded validated `serverStrength` tuple — one edges
+ *     write, and nothing else (see "TUPLE-ONLY ACQUISITION" below).
  *   - Zero node-id overlap with a non-empty canvas => DROP + structured warn.
  *
  * ---------------------------------------------------------------------------
@@ -155,16 +158,19 @@ const EDGE_SOURCE_KEYS: ReadonlySet<string> = new Set(EDGE_PROVENANCED_FIELDS.ma
  * make every default-equal receipt write, silently reversing the reviewed
  * decision above for every edge on every turn.
  *
- * The divergence is narrow and fails SAFE: it needs a receipt whose every
- * supplied value ALREADY equals the canvas — a genuine no-op — on an edge that
- * holds no server tuple yet. The edge then refuses to assert until the next
- * receipt that moves something — under-disclosure, never an over-claim, which
- * is the same direction of error the provenance markers are built on. (Until
- * 23 Sep it also covered a receipt whose strength merely equalled the mapper's
- * DEFAULT while the canvas showed something else; `overlayEdge` now applies
- * that value, so the tuple rides along with it — see "PRESENCE ON BOTH PATHS".)
- * Boot hydration is different: recording a validated server tuple enables the
- * first edit even when display values match, so its no-op check includes it.
+ * ⛔ SUPERSEDED 23 Sep (Codex 5798417040, #1913) — the paragraph that stood
+ * here called the resulting divergence "narrow and fail-safe": a receipt whose
+ * every value already matched, on an edge with no tuple, left the edge refusing
+ * to assert "until the next receipt that moves something". That was the wrong
+ * boundary. The receipt is the server's proof of the saved value, and the
+ * refusal it left behind is FUNCTIONAL — the person could not make their next
+ * strength edit until a reload, where boot readback recorded the very same
+ * tuple. So both callers now ACQUIRE a validated tuple on an otherwise-no-op
+ * overlay (`acquireServerStrengthOnNoop`). What this set still guarantees is
+ * unchanged: none of these keys decides whether VALUES changed, so an
+ * acquisition is never an edit — no history entry, no counted update, no
+ * freshness dirtying, no pulse (`reconcileAppliedGraph`, "TUPLE-ONLY
+ * ACQUISITION"), and no stamp is rewritten on an unchanged value.
  */
 const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   ...EDGE_SOURCE_KEYS,
@@ -340,14 +346,17 @@ export function overlayNode(existing: any, wireNode: any): any {
 
 export interface OverlayEdgeOptions {
   /**
-   * BOOT HYDRATION ONLY: on an otherwise-no-op overlay, still record the
-   * server's validated strength tuple (`serverStrength`).
+   * On an otherwise-no-op overlay, still record the server's validated strength
+   * tuple (`serverStrength`) when the canvas lacks it or holds a different one —
+   * that key and nothing else; every existing field and stamp is preserved.
    *
-   * This is the ONE place the two callers differ, and it is a recorded rule, not
-   * drift: a validated readback at boot enables the first strength edit even
-   * when every display value already matches, while the RECEIPT path stays a
-   * strict metadata no-op (see EDGE_METADATA_ONLY_KEYS). What counts as
-   * "supplied" is NOT an option — both callers share one presence rule.
+   * BOTH production callers pass it: boot hydration, and — since 23 Sep (Codex
+   * 5798417040, #1913) — the applied-edit receipt. The receipt used to stay a
+   * strict metadata no-op, which discarded the server's proof of a saved value
+   * whenever the canvas already DISPLAYED it and left the next strength edit
+   * refused until reload. Omitting it keeps the strict primitive, which only
+   * tests now exercise. What counts as "supplied" is NOT an option — both
+   * callers share one presence rule.
    *
    * (Renamed 23 Sep from `presenceFromProvenanceStamps`, which also switched
    * presence on. Presence is now unconditional, so that name would describe
@@ -423,9 +432,13 @@ function wireSuppliedEdgeData(mappedData: Record<string, unknown>): Record<strin
  * WHAT DID NOT CHANGE, and is pinned in
  * `mergeAppliedGraph.receiptDefaultEqual.spec.ts`:
  *   · a key the wire does NOT supply never overwrites the canvas;
- *   · a receipt whose supplied values all equal the canvas is a STRICT no-op —
- *     same reference, no history entry — and stamps / `serverStrength` still
- *     never trigger a write on their own (EDGE_METADATA_ONLY_KEYS).
+ *   · a receipt whose supplied values all equal the canvas is a no-op for
+ *     VALUES — no history entry, no counted update — and a stamp never triggers
+ *     a write on its own (EDGE_METADATA_ONLY_KEYS). The one metadata write an
+ *     unchanged value may carry is ACQUIRING the validated `serverStrength`
+ *     tuple (Codex 5798417040, pinned in
+ *     `mergeAppliedGraph.receiptServerStrength.spec.ts`); once the tuple also
+ *     matches, the same reference comes back.
  *
  * ⚠ WHAT THIS DOES NOT FIX, NAMED RATHER THAN GLOSSED. `direction` counts as
  * supplied only when `effect_direction` is explicit (the ROADMAP 2.263 stamp
@@ -472,9 +485,10 @@ export function overlayEdge(
     if (!EDGE_METADATA_ONLY_KEYS.has(k)) nextDataWithoutStamps[k] = v
   }
   if (sameValue(existing.data, nextDataWithoutStamps)) {
-    // A validated readback enables the first edit, but does not restate who
-    // supplied an unchanged value. Preserve every existing field/stamp and
-    // acquire only the tuple; the receipt path stays a strict metadata no-op.
+    // A validated readback (boot) or receipt enables the next edit, but does
+    // not restate who supplied an unchanged value. Preserve every existing
+    // field/stamp and acquire only the tuple — which the mapper emits only
+    // when `readServerStatedStrength` validated it, so no tuple is invented.
     if (opts?.acquireServerStrengthOnNoop
       && supplied.serverStrength !== undefined
       && !sameValue(existing.data?.serverStrength, supplied.serverStrength)) {
@@ -486,6 +500,21 @@ export function overlayEdge(
   const nextData = { ...(existing.data ?? {}), ...supplied }
   if (sameValue(existing.data, nextData)) return existing
   return { ...existing, data: nextData }
+}
+
+/**
+ * True when `after` differs from `before` ONLY in `data.serverStrength` — the
+ * overlay's tuple acquisition, which is metadata and never a counted update.
+ * Anything else (a value, a stamp riding with a value) is a real change.
+ */
+function isServerStrengthAcquisitionOnly(before: any, after: any): boolean {
+  if (before === after) return false
+  const withoutTuple = (edge: any): Record<string, unknown> => {
+    const data = { ...(edge.data ?? {}) } as Record<string, unknown>
+    delete data.serverStrength
+    return { ...edge, data }
+  }
+  return sameValue(withoutTuple(before), withoutTuple(after))
 }
 
 export function reconcileAppliedGraph(
@@ -579,13 +608,18 @@ export function reconcileAppliedGraph(
   })
 
   let updatedEdgeCount = 0
+  // Edges whose ONLY change is acquiring the receipt's validated server tuple.
+  // Not counted as updates and never pulsed: no value the person sees moved.
+  const tupleOnlyEdgeIds = new Set<string>()
   const survivingEdges = store.edges.filter((e) => !removedEdgeIds.has(e.id))
   const reconciledEdges = survivingEdges.map((e: any) => {
     const key = canvasEdgePairKey(e)
     const wireEdge = key ? wireEdgeByPair.get(key) : undefined
     if (!wireEdge) return e
-    const next = overlayEdge(e, wireEdge)
-    if (next !== e) updatedEdgeCount += 1
+    const next = overlayEdge(e, wireEdge, { acquireServerStrengthOnNoop: true })
+    if (next === e) return e
+    if (isServerStrengthAcquisitionOnly(e, next)) tupleOnlyEdgeIds.add(e.id)
+    else updatedEdgeCount += 1
     return next
   })
 
@@ -757,7 +791,29 @@ export function reconcileAppliedGraph(
     }
   }
 
-  if (!changed) return result
+  // --- TUPLE-ONLY ACQUISITION (Codex 5798417040, #1913) ---
+  //
+  // No value moved, but the receipt proved what the server holds for at least
+  // one edge whose tuple was missing or superseded. Record it, and NOTHING
+  // else: no pushHistory (nothing the person could want to undo), no
+  // markGraphStructurallyEdited (the analysis still describes these values),
+  // no pulse, no autosave call. `serverStrength` is outside the registration
+  // projection, so the acknowledgement digest is unchanged by this write; the
+  // ordinary debounced graph save observes it exactly as it observes any
+  // receipt write. Once value and tuple both match, the overlay returns the
+  // same reference and this branch is not reached — replay stays idempotent.
+  if (!changed) {
+    if (tupleOnlyEdgeIds.size > 0) {
+      // Same producer-write suppression as the commit below.
+      useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
+      try {
+        useCanvasStore.setState({ edges: reconciledEdges as any })
+      } finally {
+        useCanvasStore.getState().endExternalGraphMutation?.()
+      }
+    }
+    return result
+  }
 
   // --- Commit: one history entry, one atomic store write ---
   const canvas = useCanvasStore.getState()
@@ -805,7 +861,7 @@ export function reconcileAppliedGraph(
     edgeIds: [
       ...addedEdges.map((e: any) => e.id as string),
       ...reconciledEdges
-        .filter((e: any, i: number) => e !== survivingEdges[i])
+        .filter((e: any, i: number) => e !== survivingEdges[i] && !tupleOnlyEdgeIds.has(e.id))
         .map((e: any) => e.id as string),
     ],
   })

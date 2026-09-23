@@ -51,7 +51,7 @@ import { DetailToggleContext } from './model-tab/DetailToggleContext'
 import { ModelFooter } from './model-tab/ModelFooter'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
-import { countFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
+import { modelTabFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
 // The Model Editor v2 (16 Aug 2026 mount train). Mounted ON, no flag: the
 // no-dark-launches rule. Its factor-value edits ride the SAME canonical
@@ -601,7 +601,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     return map
   }, [fragileLookup])
 
-  const factorsToVerify = useMemo(() => countFactorsToVerify(grouped.factor), [grouped.factor])
+  const factorsToVerify = useMemo(() => modelTabFactorsToVerify(grouped.factor).length, [grouped.factor])
 
   // ── Factor sort: needs-attention first, then alpha ─────────────────────────
 

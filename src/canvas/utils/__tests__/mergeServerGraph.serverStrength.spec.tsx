@@ -152,7 +152,12 @@ describe('unknown or invalid wire values do not manufacture first-edit authority
   })
 })
 
-describe('receipt overlay retains its separate no-op policy', () => {
+// ⛔ RETITLED 23 Sep (Codex 5798417040, #1913) from "receipt overlay retains its
+// separate no-op policy". The receipt caller now passes
+// `acquireServerStrengthOnNoop` too, so these cases pin the option-less
+// PRIMITIVE only; the receipt's acquisition is witnessed in
+// `mergeAppliedGraph.receiptServerStrength.spec.ts`.
+describe('option-less overlayEdge primitive keeps a strict metadata no-op', () => {
   it('does not add server authority when only metadata would change', () => {
     const { wire } = seedMatchingValues({ strength_mean: 0.5, effect_direction: 'positive' })
     const before = currentEdge()

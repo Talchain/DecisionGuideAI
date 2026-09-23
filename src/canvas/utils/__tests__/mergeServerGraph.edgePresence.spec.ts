@@ -218,10 +218,11 @@ describe('§3 the RECEIPT path shares the presence rule (23 Sep)', () => {
   // default-positive direction". They pinned the receipt path's under-
   // application as reviewed behaviour; that behaviour IS the defect witnessed on
   // scenario 58af9704 (a user-confirmed strength.mean 0.5 never reached the
-  // canvas). They now pin the opposite. The receipt path's no-op half (identity
-  // preserved, stamps and serverStrength never write alone) is pinned in
-  // `mergeAppliedGraph.receiptDefaultEqual.spec.ts` §2 and
-  // `mergeServerGraph.serverStrength.spec.tsx`.
+  // canvas). They now pin the opposite. The receipt path's no-op half (no
+  // history, stamps never write alone) is pinned in
+  // `mergeAppliedGraph.receiptDefaultEqual.spec.ts` §2; its one metadata write —
+  // acquiring a validated serverStrength tuple (Codex 5798417040) — in
+  // `mergeAppliedGraph.receiptServerStrength.spec.ts`.
   it('overlayEdge with NO options applies a supplied default-equal value', () => {
     const existing = { id: 'e1', source: 'a', target: 'b', data: { weight: 0.7 } }
     const next = overlayEdge(existing, { from: 'a', to: 'b', strength: { mean: 0.5 } })

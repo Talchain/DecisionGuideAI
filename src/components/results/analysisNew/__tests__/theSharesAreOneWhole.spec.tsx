@@ -80,7 +80,7 @@ describe('the shares are one whole', () => {
   it('⭐ THEY PARTITION — one track, one segment per option, each its own share', () => {
     renderBody(withWins([0.31, 0.69]))
     expect(segments(), 'the segments are the shares, in producer order').toEqual(['31%', '69%'])
-    expect(screen.getByTestId(`${BAR}-caption`).textContent).toContain('Every simulated scenario')
+    expect(screen.getByTestId(`${BAR}-caption`).textContent).toContain('In this model, every simulated scenario')
   })
 
   it('⭐ A TIE READS AS A TIE — the case the separate bars make you compare across rows', () => {

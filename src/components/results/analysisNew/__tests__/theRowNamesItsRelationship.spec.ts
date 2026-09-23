@@ -73,11 +73,11 @@ const withUncertainties = (uncertainties: UncertaintyItem[]) =>
  * play, which is what every claim below is about.
  */
 const sentence = (from: string, to: string, winner: string) =>
-  `If "${from} → ${to}" changes significantly, "${winner}" could become the better choice`
+  `If "${from} → ${to}" changes significantly, "${winner}" could lead in this model`
 
 /** The same sentence with its subject unnamed — what the hook offers a titled row. */
 const shortSentence = (winner: string) =>
-  `If this changes significantly, "${winner}" could become the better choice`
+  `If this changes significantly, "${winner}" could lead in this model`
 
 const edgeRow = (
   from: string,
@@ -119,7 +119,7 @@ describe('a fragile-edge row names the relationship it is about', () => {
       // with its subject standing above it instead of quoted inside it. The
       // consequence clause, which the old truncation cut away, is intact.
       expect(rows[i].implication).toBe(shortSentence(winner))
-      expect(rows[i].implication).toContain('could become the better choice')
+      expect(rows[i].implication).toContain('could lead in this model')
       // ⛔ AND THE LABEL IS NOT A PREFIX OF THE BODY — the property that makes
       // this branch legitimate where the cut one was not.
       expect(rows[i].implication.startsWith(rows[i].headline)).toBe(false)
@@ -241,8 +241,8 @@ describe('a fragile-edge row names the relationship it is about', () => {
     )
 
     expect(rows).toHaveLength(2)
-    const threshold = rows.find((r) => r.headline.endsWith('could change the answer'))
-    expect(threshold?.headline).toBe('Peak Fulfilment Capacity could change the answer')
+    const threshold = rows.find((r) => r.headline.endsWith('could change which option leads in this model'))
+    expect(threshold?.headline).toBe('Peak Fulfilment Capacity could change which option leads in this model')
     expect(threshold?.implication).toBe(long)
     const shortRow = rows.find((r) => r.headline === short)
     expect(shortRow?.implication).toBe('')
@@ -276,7 +276,7 @@ describe('a fragile-edge row names the relationship it is about', () => {
         }),
       ]),
     )
-    expect(rows[0].headline).toBe('fac_capacity could change the answer')
+    expect(rows[0].headline).toBe('fac_capacity could change which option leads in this model')
     expect(rows[0].implication).toBe(long)
   })
 

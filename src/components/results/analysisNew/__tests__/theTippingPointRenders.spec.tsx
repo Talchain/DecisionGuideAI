@@ -78,7 +78,7 @@ describe('the tipping point reaches the screen', () => {
     const lines = screen.getAllByTestId('analysis-new-sensitivity-tipping-point')
     expect(lines).toHaveLength(1)
     expect(lines[0]).toHaveTextContent(
-      'Tech Lead Presence would have to rise from 0.6 to 0.96 before Two Developers comes out ahead.',
+      'Tech Lead Presence would have to rise from 0.6 to 0.96 before Two Developers leads in this model.',
     )
   })
 

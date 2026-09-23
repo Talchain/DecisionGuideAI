@@ -11,6 +11,11 @@
 
 import type { ObservedState } from './types'
 import { factorIsConfirmable } from '../../domain/valueProvenance'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+  type MutationAuthority,
+} from '../../mutations/mutationAuthority'
 import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
 import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
@@ -133,6 +138,11 @@ export function mapSourceToDisplay(source: string | undefined): string | null {
  * renders (`StatusBar`, `WorkspaceShellTabStrip`, `ModelHealthSection`,
  * `FactorsSection`'s accordion label, and the v2 attention chip).
  *
+ * ⚠⚠ THE SENTENCE ABOVE HAS EXPIRED FOR THE MODEL TAB (23 Sep 2026). Its two
+ * live count sites — the tab-strip badge (`OutputsDock`) and
+ * `ModelHealthSection` (`ModelTabBody`) — now read `modelTabFactorsToVerify`
+ * below, which also asks whether the tab can take a confirmation at all.
+ *
  * ⚠ IT IS `factorIsConfirmable`, NOT `factorNeedsVerification` (narrowed 19 Aug
  * 2026). The bare predicate counted factors with NO VALUE AT ALL — nothing to
  * confirm, an enabled Confirm the authority declines, and a number the user
@@ -146,6 +156,40 @@ export function mapSourceToDisplay(source: string | undefined): string | null {
  */
 export function countFactorsToVerify(factorNodes: ReadonlyArray<{ data: unknown }>): number {
   return factorNodes.filter(n => factorIsConfirmable(n.data)).length
+}
+
+/**
+ * The factors the MODEL TAB's "N to verify" may name — ids, in node order.
+ *
+ * ⛔ A COUNT OF AN ACT THE TAB CANNOT TAKE IS A FALSE CLAIM, and it shipped.
+ * Measured on deployed `db758d83` (22 Sep 2026): the tab badge read 4, the user
+ * set a value on a factor that had none, and it read **5** — progress moved the
+ * number the wrong way, and nothing on the tab could bring it down, because
+ * CONFIRMING is not mounted there. `modelFactorConfirmation` is `'disabled'`, so
+ * `ModelTabV2Panel` renders no Confirm chip, no "N to verify" chip and no confirm
+ * queue. The badge counted `factorIsConfirmable` ALONE; the confirm path offers
+ * `hasServerGraphAuthority(modelFactorConfirmation) && factorIsConfirmable`.
+ *
+ * ⭐ SO THIS IS THE CONFIRM PATH'S OWN TWO READERS, COMPOSED — not a third rule.
+ * The table key and `hasServerGraphAuthority` are what `ModelTabV2Panel` reads
+ * for `FACTOR_CONFIRMATION_CONNECTED`; `factorIsConfirmable` is what its queue
+ * and `proposeFactorConfirmation`'s refusal read. The default argument reads the
+ * table AT CALL TIME, so a key flip lights the badge with no edit here.
+ *
+ * ⚠ `countFactorsToVerify` IS DELIBERATELY UNCHANGED. It answers "which numbers
+ * has nobody confirmed?" — a fact about the model that other surfaces state
+ * (the Analysis strip's filter) and pin agreement with. This answers "which of
+ * them can THIS TAB take a confirmation for?" (trap 21: two questions, two names).
+ *
+ * ⚠ WHAT IT WITHHOLDS IS THE COUNT, NOT THE SIGNAL. Each row still wears its
+ * `unconfirmed-estimate` mark (`model-tab-v2/rowPresentation.ts`).
+ */
+export function modelTabFactorsToVerify(
+  factorNodes: ReadonlyArray<{ id: string; data: unknown }>,
+  confirmationAuthority: MutationAuthority = CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation,
+): string[] {
+  if (!hasServerGraphAuthority(confirmationAuthority)) return []
+  return factorNodes.filter(n => factorIsConfirmable(n.data)).map(n => n.id)
 }
 
 // ── Strength semantic labels ──────────────────────────────────────────────────

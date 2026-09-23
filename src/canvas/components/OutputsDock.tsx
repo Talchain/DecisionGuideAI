@@ -107,7 +107,7 @@ import {
 import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
-import { countFactorsToVerify } from './model-tab/utils'
+import { modelTabFactorsToVerify } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
@@ -1043,7 +1043,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   // Factors needing user verification (for Model tab badge)
   const factorsToVerify = useMemo(
-    () => countFactorsToVerify(nodes.filter(n => n.type === 'factor' || (n.data as any)?.kind === 'factor')),
+    () => modelTabFactorsToVerify(nodes.filter(n => n.type === 'factor' || (n.data as any)?.kind === 'factor')).length,
     [nodes],
   )
 

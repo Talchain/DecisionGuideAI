@@ -138,7 +138,7 @@ const run = (): ResultsSectionDataReturn => {
     // empty — or withheld — census agrees with every rule ever written.
     expect(lines.length, 'the glance rendered no text — this census is vacuous').toBeGreaterThan(0)
     expect(
-      lines.some((l) => /scored highest in/i.test(l)),
+      lines.some((l) => /had the highest score in/i.test(l)),
       'the entitled fixture no longer renders a share — the case this arm exists for is gone',
     ).toBe(true)
     // PRECONDITION: the producer's clause is on screen. Without it this census
@@ -163,7 +163,7 @@ const run = (): ResultsSectionDataReturn => {
     const share = screen.getByTestId('analysis-new-glance-win-share').textContent ?? ''
     expect(share, 'the share rendered empty — nothing below is being tested').not.toBe('')
     // A subject, and a full stop: this is a sentence, not a predicate.
-    expect(share.startsWith('One option scored highest in')).toBe(true)
+    expect(share.startsWith('In this model, one option had the highest score in')).toBe(true)
     expect(share.endsWith('.')).toBe(true)
 
     // ⛔ AND IT MUST NOT REINSTATE THE CONCLUSION. The repair supplies a

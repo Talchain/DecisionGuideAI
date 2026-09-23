@@ -1644,7 +1644,12 @@ export function AnalysisNewTabBody({
             They stay OUTSIDE any collapsible: a warning behind a toggle is a
             warning the reader has to already suspect in order to find. */}
         <CritiqueWarningStrip critiques={vm.deeper.critiques} className="mb-2" />
-        <InferenceWarningStrip warnings={vm.deeper.caveats} className="mb-2" />
+        <InferenceWarningStrip
+          warnings={vm.deeper.caveats}
+          className="mb-2"
+          // The held-back entries render in DeeperAnalysis, inside this section.
+          heldBackListedUnder={COPY.sections.whatMovesTheOutcome}
+        />
 
         {/* ── YOUR MODEL SO FAR ────────────────────────────────────────────
             First, because it is the only element that is true in every state:
