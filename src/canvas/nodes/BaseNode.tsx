@@ -1722,6 +1722,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 : 'Open its details.',
             ].filter(Boolean).join(' ')}
             onActivate={() => {
+              /* TODO(#1911): route the "no values yet" arm to
+                 `openOptionValueInput` (src/canvas/utils/openOptionValueInput.ts,
+                 added by #1911 "set an option's first effect value directly —
+                 no longer only by a chat sentence") once #1911 is merged, so the
+                 pill opens the option's value input rather than a chat draft
+                 (Experience Design, #63 5796039276 priority 2; design-integration
+                 checklist). #1911 is NOT merged at the design-integration head,
+                 so this arm still reuses #1915's MT-21 route below (the results
+                 panel's `openAskOlumi` prefill-and-confirm, never auto-sent).
+                 The design integration deliberately adds no new chat wiring. */
               if (exclusionAction?.tellOlumi) {
                 openAskOlumi({
                   context: `About "${label}"`,
