@@ -117,7 +117,6 @@ const seedCompletedRun = (
       scenarioId: 'driver-line-scenario', analysisHash: 'last-run', hasRunAnalysisFact: true,
     },
     hasCompletedFirstRun: true,
-    selectedNodeId: null,
     results: { status: 'complete', hash: 'last-run', report: {
       option_probabilities: {
         opt_a: { status: 'computed', win_probability: 0.72 },
@@ -165,7 +164,7 @@ afterEach(() => {
   useCanvasStore.setState({
     analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false,
     v5AnalysisFact: null, results: { status: 'idle', report: null }, lodRung: 'full',
-    viewMode: 'standard', selectedNodeId: null,
+    viewMode: 'standard',
   } as never)
 })
 
@@ -269,7 +268,9 @@ describe('(d) the turning point — a PLoT flip row for THIS node, marked "found
     fireEvent.click(track)
     window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
     expect(opened).toHaveBeenCalledTimes(1)
-    expect(useCanvasStore.getState().selectedNodeId).toBe(FACTOR_ID)
+    // `openNodeInspector` selects through `selectNodeWithoutHistory`, which
+    // writes `selection.nodeIds` — the set `InspectorModal` reads.
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([FACTOR_ID])
   })
 
   it('reads the legacy nested `robustness.flip_thresholds` too, bound by `node_id`', () => {
