@@ -888,3 +888,112 @@ describe('§3 decision A: after the reload, the screen shows the saved model', (
     hook.unmount()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §9 — a SUPERSEDED read changes nothing. `b1eaee0a` pins that a read still in
+// flight cannot overwrite the settle RECORD; the canvas MERGE still ran. Probe
+// (23 Sep): CEE acknowledged a registration of [goal, kept, "Churn Risk"]; the
+// read issued before it then answered with the OLDER model and merged — "Churn
+// Risk" was taken off the canvas, named in the chat line, and
+// `lastAuthoritativeGraph` was reset to the older set. Under decision A that
+// merge REMOVES what CEE has just acknowledged.
+//
+// Contract: a read whose token is no longer current when it answers (a
+// registration acknowledgement, or a newer read, has superseded it) makes no
+// canvas merge, no `recordRemoval`, no `lastAuthoritativeGraph` reset and no
+// acknowledgement. A CURRENT read behaves exactly as before (§3, and the second
+// half of the newer-read case below).
+// ═══════════════════════════════════════════════════════════════════════════
+describe('§9 a superseded read changes nothing (the late-read race)', () => {
+  it('THE PROBE: a read answered AFTER CEE acknowledged a registration does not take the acknowledged element off', async () => {
+    const calls = pendingFetches()
+    const withAdded = [...MATCHING_NODES, ADDED_NODE]
+    const withAddedEdges = [...MATCHING_EDGES, ADDED_EDGE]
+    setCanvas(withAdded, withAddedEdges)
+    markGraphImported(withAdded as never, withAddedEdges as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+
+    let read: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      read = hydrateCanvasFromServer(SCENARIO)
+      await flush()
+    })
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state, 'precondition: the read is in flight').toBe('reading')
+
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registrationsCarrying(ADDED), 'precondition: the registration carried Churn Risk').toHaveLength(1)
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state, 'precondition: CEE acknowledged it').toBe('registered')
+    const acknowledged = useCanvasStore.getState().lastAuthoritativeGraph
+    expect(acknowledged && [...acknowledged.nodeIds].sort()).toEqual([GOAL, KEPT, ADDED].sort())
+
+    // The read issued BEFORE the acknowledgement answers with the older model.
+    let outcome: unknown
+    await act(async () => {
+      calls[0].answer(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+      outcome = await read
+      await flush()
+    })
+
+    const st = useCanvasStore.getState()
+    // No canvas merge: the acknowledged element and its link are still on screen.
+    expect(st.nodes.map((n) => n.id).sort()).toEqual([GOAL, KEPT, ADDED].sort())
+    expect(st.edges.map((e) => edgePairKey(e.source, e.target)).sort()).toEqual(
+      [edgePairKey(KEPT, GOAL), edgePairKey(ADDED, GOAL)].sort(),
+    )
+    // No recordRemoval: nothing is named in the chat line.
+    expect(useReloadDifferenceStore.getState().scenarioId).toBeNull()
+    expect(useReloadDifferenceStore.getState().removedLabels).toEqual([])
+    // No lastAuthoritativeGraph reset: CEE's record is still what it acknowledged.
+    const record = useCanvasStore.getState().lastAuthoritativeGraph
+    expect(record && [...record.nodeIds].sort()).toEqual([GOAL, KEPT, ADDED].sort())
+    expect(st.serverGraphIdentity).toBeNull()
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('registered')
+    expect(outcome).toBe('skipped')
+    hook.unmount()
+  })
+
+  it('A NEWER READ supersedes: the older read\'s answer merges, removes, records and acknowledges nothing — the current read then does all four', async () => {
+    const calls = pendingFetches()
+    let first: Promise<unknown> = Promise.resolve()
+    let second: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      first = hydrateCanvasFromServer(SCENARIO)
+      second = hydrateCanvasFromServer(SCENARIO)
+      await flush()
+    })
+    expect(calls.length).toBe(2)
+
+    let firstOutcome: unknown
+    await act(async () => {
+      calls[0].answer(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+      firstOutcome = await first
+      await flush()
+    })
+    {
+      const st = useCanvasStore.getState()
+      expect(st.nodes.some((n) => n.id === DELETED), 'no merge: the stale copy is untouched').toBe(true)
+      expect(useReloadDifferenceStore.getState().removedLabels).toEqual([])
+      expect(st.lastAuthoritativeGraph).toBeNull()
+      expect(st.serverGraphIdentity).toBeNull()
+      expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(false)
+      expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('reading')
+      expect(firstOutcome).toBe('skipped')
+    }
+
+    // CONTRAST, same run: the CURRENT read answers the same body and does all four.
+    let secondOutcome: unknown
+    await act(async () => {
+      calls[1].answer(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
+      secondOutcome = await second
+      await flush()
+    })
+    const st = useCanvasStore.getState()
+    expect(secondOutcome).toBe('merged')
+    expect(st.nodes.map((n) => n.id).sort()).toEqual([GOAL, KEPT].sort())
+    expect(useReloadDifferenceStore.getState().removedLabels).toEqual(['Competitive Pressure'])
+    expect(st.lastAuthoritativeGraph && [...st.lastAuthoritativeGraph.nodeIds].sort()).toEqual([GOAL, KEPT].sort())
+    expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(true)
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('merged')
+  })
+})
