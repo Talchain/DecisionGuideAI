@@ -60,6 +60,7 @@ vi.mock('../../../adapters/cee/scenarioGraph', async (importOriginal) => {
 })
 
 import { useCanvasStore } from '../../store'
+import { __resetCeeHeldModelLatchForTest } from '../ceeHeldModel'
 import { clearImportRegistrationMarkers } from '../../store/importRegistrationMarker'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 import { useImportRegistration } from '../useImportRegistration'
@@ -169,6 +170,8 @@ let fake: ReturnType<typeof makeFakeCee>
 
 beforeEach(() => {
   clearImportRegistrationMarkers()
+  // OW-1: the one-writer latch is page-life state keyed by scenario; each case is a fresh page.
+  __resetCeeHeldModelLatchForTest()
   __resetPersistenceSessionForTests()
   fake = makeFakeCee()
   vi.stubGlobal('fetch', vi.fn(fake.fetchFake))

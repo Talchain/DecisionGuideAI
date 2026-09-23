@@ -35,6 +35,11 @@
  * superseded read, and a re-arm that runs before the read begins), B2 option
  * (i) (the in-page re-arm is refused only for an element CEE lacks), and the
  * one authoritative record a successful registration leaves behind.
+ *
+ * §10 is OW-1, the one-writer contract's rules 1 and 2 (#63): a registration
+ * only when CEE holds no model, and a per-scenario latch after any
+ * acknowledgement. It SUPERSEDES the in-page re-offer §6 and §8 used to pin
+ * (each flipped case says so where it stands).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, renderHook } from '@testing-library/react'
@@ -310,13 +315,6 @@ function addAfterTheRead() {
     nodes: [...st.nodes, ADDED_NODE] as never,
     edges: [...st.edges, ADDED_EDGE] as never,
   } as never)
-}
-
-function registeredEdgePairs(call: unknown[]): string[] {
-  const payload = call.find(
-    (a) => a != null && typeof a === 'object' && Array.isArray((a as { edges?: unknown }).edges),
-  ) as { edges: Array<{ from: string; to: string }> } | undefined
-  return (payload?.edges ?? []).map((e) => edgePairKey(e.from, e.to))
 }
 
 afterEach(async () => {
@@ -684,12 +682,15 @@ describe('§5 no timing lets the re-arm write before the read has answered (revi
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §6 — review B2, option (i): the in-page re-arm survives a merged boot read
-// for a canvas that holds nothing CEE lacks, and is refused only for one that
-// does (the write that could resurrect a delete).
+// §6 — review B2, option (i), SUPERSEDED BY OW-1 (#63 5795173355). B2 (i) let
+// the in-page re-arm re-offer a canvas holding no element CEE lacks after a
+// merged read (the #1855 re-offer), refusing only one that does. Under the
+// one-writer contract a read that returned the graph LATCHES the scenario and
+// nothing is re-offered at all; the element-CEE-lacks refusal (J-control) holds
+// unchanged. J and the record-follows case flipped: they asserted the re-offer.
 // ═══════════════════════════════════════════════════════════════════════════
-describe('§6 after a merged boot read the re-arm is refused only for an element CEE lacks (review B2 (i))', () => {
-  it('J: a later value-only change no receipt acknowledges IS re-offered — once, carrying no element CEE lacks', async () => {
+describe('§6 after a merged boot read nothing is re-offered (review B2 (i), superseded by OW-1)', () => {
+  it('J (flipped by OW-1): a later value-only change no receipt acknowledges is NOT re-offered — the read latched the scenario', async () => {
     setCanvas(MATCHING_NODES, MATCHING_EDGES)
     const r = await hydrate(SERVER_AS_REGISTERED)
     expect(r.outcome).toBe('merged')
@@ -699,11 +700,8 @@ describe('§6 after a merged boot read the re-arm is refused only for an element
     expect(registerSpy).not.toHaveBeenCalled()
 
     await localValueOnlyChange(0.6)
-    expect(registerSpy).toHaveBeenCalledTimes(1)
-    const serverIds = SERVER_AS_REGISTERED.nodes.map((n) => n.id)
-    const serverPairs = SERVER_AS_REGISTERED.edges.map((e) => edgePairKey(e.from, e.to))
-    expect(registeredNodeIds(registerSpy.mock.calls[0]).every((id) => serverIds.includes(id))).toBe(true)
-    expect(registeredEdgePairs(registerSpy.mock.calls[0]).every((p) => serverPairs.includes(p))).toBe(true)
+    expect(registerSpy).not.toHaveBeenCalled()
+    expect(ceeHolds(SCENARIO)).toBe(true)
     hook.unmount()
   })
 
@@ -723,7 +721,10 @@ describe('§6 after a merged boot read the re-arm is refused only for an element
     hook.unmount()
   })
 
-  it('the verdict follows CEE\'s record: when a later authoritative graph holds the element too, the model is re-offered', async () => {
+  // ⚠ FLIPPED BY OW-1: this asserted that the re-offer followed CEE's record
+  // (`lastAuthoritativeGraph`) once it grew to hold the added element. The
+  // record no longer gates anything: the scenario is latched.
+  it('the record no longer licenses a re-offer: when a later authoritative graph holds the element too, still nothing is sent', async () => {
     const r = await hydrate(SERVER_AS_REGISTERED)
     expect(r.outcome).toBe('merged')
     expect(useCanvasStore.getState().nodes.some((n) => n.id === DELETED), 'precondition: the reload took DELETED off').toBe(false)
@@ -740,8 +741,8 @@ describe('§6 after a merged boot read the re-arm is refused only for an element
       })
       await flush()
     })
-    expect(registerSpy).toHaveBeenCalledTimes(1)
-    expect(registeredNodeIds(registerSpy.mock.calls[0]).sort()).toEqual([GOAL, KEPT, ADDED].sort())
+    expect(registerSpy).not.toHaveBeenCalled()
+    expect(ceeHolds(SCENARIO)).toBe(true)
     hook.unmount()
   })
 })
@@ -797,22 +798,20 @@ describe('§8 a registration CEE acknowledged settles the boot read (the mergeRe
     expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('mergeRefused')
   }
 
-  it('the read refuses, the registration succeeds, then a value-only change leaving the element set a subset IS re-offered — once', async () => {
+  // ⚠ FLIPPED BY OW-1: this asserted that, once the registration settled the
+  // refused read, a later value-only change WAS re-offered. The registration's
+  // 200 now latches the scenario (rule 2), so nothing follows it.
+  it('the read refuses, the registration succeeds and latches — a later value-only change is NOT re-offered', async () => {
     await reloadWithPendingRegistrationReadFirst()
     const hook = renderHook(() => useImportRegistration())
     await act(async () => { await flush() })
     expect(registerSpy, 'precondition: the pending registration was sent').toHaveBeenCalledTimes(1)
     expect(analysisHeldOn(useCanvasStore.getState() as never), 'precondition: CEE acknowledged it').toBeNull()
+    expect(ceeHolds(SCENARIO)).toBe(true)
 
     await localValueOnlyChange(0.6)
-    expect(registerSpy).toHaveBeenCalledTimes(2)
-    const reOffer = registerSpy.mock.calls[1]
-    expect(registeredNodeIds(reOffer).sort()).toEqual([GOAL, KEPT].sort())
-    expect(registeredEdgePairs(reOffer)).toEqual([edgePairKey(KEPT, GOAL)])
-    // Once: the re-offer's own acknowledgement releases the model.
     await act(async () => { await flush() })
-    expect(registerSpy).toHaveBeenCalledTimes(2)
-    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    expect(registerSpy).toHaveBeenCalledTimes(1)
     hook.unmount()
   })
 
@@ -840,8 +839,12 @@ describe('§8 a registration CEE acknowledged settles the boot read (the mergeRe
       await flush()
     })
     expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('registered')
+    // ⚠ FLIPPED BY OW-1: this ended "a later value-only change IS re-offered"
+    // (2 registrations). The acknowledgement latched the scenario; the token
+    // rule above is what this case still pins.
     await localValueOnlyChange(0.6)
-    expect(registerSpy).toHaveBeenCalledTimes(2)
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(ceeHolds(SCENARIO)).toBe(true)
     hook.unmount()
   })
 

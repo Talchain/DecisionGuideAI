@@ -29,6 +29,12 @@
  * so it — and only it — arms a bounded re-ask. Every other outcome, the 404
  * included, still fires exactly once and behaves byte-identically to before.
  * See `hydrate/absentGraphRetry.ts` for the schedule and the allow-list.
+ *
+ * ⭐ OW-1 (programme-docs #63): an UNKNOWN answer (`unavailable`, `unusable` —
+ * a 5xx or a transport failure) is read again too, on its own bounded schedule
+ * (`hydrate/unknownGraphReadRetry.ts`). Until it resolves the re-arm refuses
+ * (fail closed) and nothing is latched; `notReadable`, `refused` and
+ * `mergeRefused` still fire exactly once.
  */
 
 import { useEffect, useRef } from 'react'
@@ -44,6 +50,10 @@ import {
   runAbsentGraphRetrySchedule,
   waitForRetry,
 } from '../hydrate/absentGraphRetry'
+import {
+  isUnknownGraphRead,
+  runUnknownGraphReadRetrySchedule,
+} from '../hydrate/unknownGraphReadRetry'
 import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -103,13 +113,33 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
         const identity = await getSessionIdentity()
 
         readReached = true
-        const outcome = await hydrateCanvasFromServer(scenarioId, {
+        let outcome = await hydrateCanvasFromServer(scenarioId, {
           userId: identity.userId,
           accessToken: identity.accessToken,
           signal: controller.signal,
           ...(readToken !== null ? { bootReadToken: readToken } : {}),
         })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
+
+        // ── OW-1 RULE 1: AN UNKNOWN IS READ AGAIN ───────────────────────────
+        // A 5xx or a transport failure says nothing about whether CEE holds a
+        // model. The re-arm already refuses on it (fail closed); reading again
+        // is how it resolves — to CEE's graph (latched) or to "none" (the first
+        // registration). Bounded: `unknownGraphReadRetry.ts`. A read that
+        // resolves to `absent` then takes the returning-guest re-ask below.
+        if (isUnknownGraphRead(outcome)) {
+          const resolved = await runUnknownGraphReadRetrySchedule({
+            scenarioId,
+            userId: identity.userId,
+            accessToken: identity.accessToken,
+            signal: controller.signal,
+            hydrate: hydrateCanvasFromServer,
+            wait: waitForRetry,
+          })
+          logger.debug('server_graph_hydration.unknown_retry', { scenarioId, outcome: resolved })
+          if (resolved === 'aborted') return
+          outcome = resolved
+        }
 
         // ── THE RETURNING-GUEST WINDOW ────────────────────────────────────
         // `absent` alone means "exists, no graph YET". Everything else is a

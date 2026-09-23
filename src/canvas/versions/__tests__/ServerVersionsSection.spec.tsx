@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 
 const SCENARIO = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const USER = '0f8a1b2c-3d4e-4f50-9a6b-7c8d9e0f1a2b'
@@ -84,6 +84,7 @@ vi.mock('../../../lib/supabase', async (importOriginal) => ({
 
 import { ServerVersionsSection } from '../ServerVersionsSection'
 import { useCanvasStore } from '../../store'
+import { ceeHoldsModel } from '../../registration/ceeHeldModel'
 
 function serverVersion(overrides: Record<string, unknown> = {}) {
   return {
@@ -263,6 +264,46 @@ describe('ServerVersionsSection — restore (pins 1–4)', () => {
 
     await waitFor(() => expect(restoreModelVersion).toHaveBeenCalledTimes(1))
     expect(restoreModelVersion.mock.calls[0][1]).toMatchObject({ versionId: UNDO_VERSION })
+  })
+
+  // ── OW-1 (programme-docs #63 5795148042 (d)): a server version restore is
+  // one of the four acknowledgements that CEE holds the scenario's model, so
+  // it LATCHES the scenario — for the scenario the restore was SENT for, even
+  // when the user has opened another decision before the answer lands.
+  it('OW-1 — a restore CEE carried out latches the scenario it was sent for, not the one open when it lands', async () => {
+    const OTHER = 'e1e1e1e1-5555-4555-8555-e1e1e1e1e1e1'
+    useCanvasStore.setState({ ceeHeldScenarioIds: new Set<string>() } as never)
+    let answer: (v: unknown) => void = () => {}
+    restoreModelVersion.mockImplementation(() => new Promise((res) => { answer = res }))
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+
+    fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm restore/i }))
+    await waitFor(() => expect(restoreModelVersion).toHaveBeenCalledTimes(1))
+    expect(ceeHoldsModel(useCanvasStore.getState(), SCENARIO)).toBe(false)
+
+    await act(async () => {
+      useCanvasStore.setState({ currentScenarioId: OTHER } as never)
+    })
+    await act(async () => {
+      answer(restoredResponse())
+    })
+    await waitFor(() => expect(ceeHoldsModel(useCanvasStore.getState(), SCENARIO)).toBe(true))
+    expect(ceeHoldsModel(useCanvasStore.getState(), OTHER)).toBe(false)
+  })
+
+  it('OW-1 — a conflict is no acknowledgement: nothing is latched', async () => {
+    useCanvasStore.setState({ ceeHeldScenarioIds: new Set<string>() } as never)
+    restoreModelVersion.mockResolvedValue({ status: 'conflict' })
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm restore/i }))
+    await waitFor(() =>
+      expect(screen.getByTestId('server-versions-message')).toHaveTextContent(/changed/i),
+    )
+    expect(ceeHoldsModel(useCanvasStore.getState(), SCENARIO)).toBe(false)
   })
 
   it('a conflict answers with honest copy and a refreshed list, not a silent nothing', async () => {

@@ -44,6 +44,7 @@ import type { ReactNode } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
+import { __resetCeeHeldModelLatchForTest } from '../ceeHeldModel'
 import { clearImportRegistrationMarkers, isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { __resetPendingFactorEditsForTest } from '../../conversation/pendingFactorEdit'
@@ -329,6 +330,8 @@ beforeEach(() => {
   holdTurn = false
   releaseTurn = null
   clearImportRegistrationMarkers()
+  // OW-1: the one-writer latch is page-life state keyed by scenario; each case is a fresh page.
+  __resetCeeHeldModelLatchForTest()
   __resetPendingFactorEditsForTest()
   __resetPendingEdgeEditsForTest()
   __resetPersistenceSessionForTests()
@@ -467,7 +470,12 @@ describe('one writer — a link-strength edit never reaches CEE behind its own t
     for (const call of registerSpy.mock.calls.slice(1)) expect(registeredMean(call)).toBe(STRONGER)
   })
 
-  it('CONTROL (fail closed): a local-only change made while the edit is in flight is still re-offered after the receipt', async () => {
+  // ⚠ OW-1 FLIPPED THIS CASE. It asserted the post-receipt re-offer (the #1855
+  // whole-graph write). The one-writer contract retires it: the starter's own
+  // 200, and this receipt, latched the scenario. Fail-closed still means the
+  // receipt does not vouch for the change it never saw — it is just no longer
+  // WRITTEN to CEE behind the canonical path.
+  it('CONTROL (fail closed): a local-only change made while the edit is in flight is not acknowledged — and (OW-1) nothing is re-offered', async () => {
     const hook = await mountAcknowledgedStarter()
     holdTurn = true
     replies.push(APPLIED(USER_MEAN))
@@ -483,20 +491,27 @@ describe('one writer — a link-strength edit never reaches CEE behind its own t
     })
     const before = registerSpy.mock.calls.length
     await releaseAndDrain()
-    // The receipt vouches for the link, not for a change it never saw.
-    expect(registerSpy.mock.calls.length).toBeGreaterThan(before)
-    // …and what is re-offered carries this link as CEE committed it, nothing
-    // CEE lacks on it — never the pre-receipt snapshot.
-    const offered = registerSpy.mock.calls.slice(before)
-    expect(offered.map((call) => registeredMean(call))).toEqual(offered.map(() => USER_MEAN))
+    // The receipt vouches for the link, not for a change it never saw…
+    const st = useCanvasStore.getState()
+    expect(isGraphServerAcknowledged(st.currentScenarioId, st.nodes as never, st.edges as never)).toBe(false)
+    // …and nothing is written over the scenario CEE holds (rule 2).
+    expect(registerSpy.mock.calls.slice(before)).toEqual([])
   })
 
-  it('CONTROL (#1855 preserved): a local-only edge change with NOTHING in flight still re-registers', async () => {
+  // ⚠ OW-1 FLIPPED THIS CASE. It was "CONTROL (#1855 preserved): a local-only
+  // edge change with NOTHING in flight still re-registers". σ is one of the
+  // manifest's reachable LOCAL-ONLY gestures (no turn carries it): under the
+  // one-writer contract it is never written to CEE by a whole-graph register
+  // (rule 2), and making it canonical or visibly unsaved is rule 5's.
+  it('OW-1 (was "#1855 preserved"): a local-only edge change on a scenario CEE holds is NOT re-registered', async () => {
     const hook = await mountAcknowledgedStarter()
     await act(async () => {
       hook.result.current.setStd(0.3)
       await flush()
     })
-    expect(registerSpy.mock.calls.length).toBeGreaterThan(1)
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    // ⚠ INTERIM, accepted by Panel (#63 5797440981): Run re-holds on the digest
+    // path until 5(c) releases it on the latch.
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
   })
 })

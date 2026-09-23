@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook, waitFor } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
+import { __resetCeeHeldModelLatchForTest } from '../ceeHeldModel'
 import { applyStarter, getStarter } from '../../starters/loadStarter'
 import { clearImportRegistrationMarkers } from '../../store/importRegistrationMarker'
 import { loadAutosave, type AutosaveData } from '../../store/scenarios'
@@ -37,6 +38,8 @@ function assertSavedEdgesMatch(
 beforeEach(() => {
   localStorage.clear()
   clearImportRegistrationMarkers()
+  // OW-1: the one-writer latch is page-life state keyed by scenario; each case is a fresh page.
+  __resetCeeHeldModelLatchForTest()
   __resetPersistenceSessionForTests()
   requests.length = 0
   fetchMock.mockImplementation(async (url, init) => {

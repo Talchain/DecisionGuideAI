@@ -64,6 +64,7 @@ import {
   useBootGraphReadStore,
 } from '../hydrate/bootGraphRead'
 import { identityFromCanvasGraph } from '../utils/graphIdentity'
+import { ceeHoldsModel, latchCeeHeldModel } from './ceeHeldModel'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -171,15 +172,15 @@ export function useImportRegistration(): void {
   const editDeliveryHeld = useEditDeliveryHeld()
 
   /**
-   * What this page's boot read learned about the scenario's saved model, and
-   * the element set CEE is known to hold — both INPUTS to the re-arm below,
-   * subscribed so it re-evaluates when the read settles OR CEE's record moves
-   * (a receipt, a draft, a registration: `bootGraphRead.ts`).
+   * What this page's boot read learned about the scenario's saved model — the
+   * INPUT to the re-arm's rule-1 gate below, subscribed so it re-evaluates when
+   * the read settles (`bootGraphRead.ts`). The latch (rule 2) is read inside
+   * the effect: it only ever stops the re-arm, so a latch landing needs no
+   * re-evaluation.
    */
   const bootGraphRead = useBootGraphReadStore((s) =>
     scenarioId ? s.byScenario[scenarioId]?.state : undefined,
   )
-  const lastAuthoritativeGraph = useCanvasStore((s) => s.lastAuthoritativeGraph)
 
   /**
    * A registration that stood down for an edit in delivery, waiting to be
@@ -208,10 +209,24 @@ export function useImportRegistration(): void {
    * registration was ever attempted: reproduced as one fetch where two were
    * expected. Re-arming turns that dead end into the redundant registration the
    * design always claimed it was.
+   *
+   * ⭐ OW-1 NARROWS IT TO "CEE HOLDS NO MODEL" (programme-docs #63). It fires
+   *   only while the page has NOT seen CEE acknowledge the scenario (rule 2,
+   *   the latch) and the boot read said CEE holds none (rule 1,
+   *   `mayRegisterOverSavedModel`). When CEE holds the model, the read's own
+   *   acknowledgement is the release (`serverGraphHydration.ts`
+   *   `acknowledgeCanvasThatMatchesTheRead`), and a canvas the read cannot
+   *   vouch for stays held until the Run gate releases on the latch (Panel's
+   *   5(c)) — it is never written over CEE's model to earn a release.
    */
   useEffect(() => {
     const st = useCanvasStore.getState()
     if (st.importPendingServerRegistration) return
+    // ⭐ OW-1 RULE 2 — THE LATCH. Once this page has seen ANY acknowledgement
+    // that CEE holds this scenario's model (a register 200, a read that
+    // returned the graph, an applied receipt, a version restore), nothing is
+    // ever re-offered for it: not after a reload, not after a local change.
+    if (ceeHoldsModel(st, st.currentScenarioId)) return
     // ONE WRITER: an optimistic write is not a model the server lacks — it is
     // an edit the server is about to answer. Re-arming on it is what raced the
     // edit turn. Re-evaluated when delivery settles (`editDeliveryHeld` dep).
@@ -221,23 +236,29 @@ export function useImportRegistration(): void {
     // ⭐ ONE WRITER AT RELOAD TOO: never write this page's copy over a model CEE
     // already holds. Witnessed 23 Sep on served `fa84d226`: a stale second tab's
     // reload read CEE's 14 nodes, then this re-arm registered its own 15 and
-    // undid a delete committed in the other tab. It now takes the boot read as
-    // an input — waits until a read of a CEE-addressable scenario has answered,
-    // registers when CEE holds no model, and, when CEE holds one, registers only
-    // a canvas holding NO element CEE lacks (so a write can never resurrect a
-    // delete, while the #1855 in-page re-offer survives — review B2 (i)). A read
-    // that carries every value the canvas would send acknowledges it instead
-    // (`serverGraphHydration.ts`), so nothing is sent at all.
+    // undid a delete committed in the other tab. It takes the boot read as an
+    // input — waits until a read of a CEE-addressable scenario has answered, and
+    // registers ONLY when CEE holds no model (`absent` / 404): OW-1 rule 1. The
+    // #1855 subset re-offer after a read that returned the graph is retired —
+    // it could write a value CEE lacked (Panel V1). An unknown read refuses, and
+    // the boot hook reads again (`unknownGraphReadRetry.ts`).
     if (mayRegisterOverSavedModel(st as never) !== 'permit') return
     markGraphImported(st.nodes as never, st.edges as never)
     useCanvasStore.setState({ importPendingServerRegistration: true })
     logger.info('import_registration.re_armed_after_lost_acknowledgement', {
       scenarioId: st.currentScenarioId ?? null,
     })
-  }, [nodesNow, edgesNow, scenarioId, editDeliveryHeld, bootGraphRead, lastAuthoritativeGraph])
+  }, [nodesNow, edgesNow, scenarioId, editDeliveryHeld, bootGraphRead])
 
   useEffect(() => {
     if (!pending) return
+    // ⭐ OW-1 RULE 2: a scenario CEE is known to hold is never written over by a
+    // whole-graph registration — a re-offer OR a deliberate import. The import
+    // stays pending (visibly unconfirmed); making it canonical is rule 5's.
+    if (scenarioId && ceeHoldsModel(useCanvasStore.getState(), scenarioId)) {
+      logger.info('import_registration.cee_holds_model', { scenarioId })
+      return
+    }
     // ONE WRITER: stand down BEFORE the attempt key is spent, so the same
     // model can still be offered once delivery settles.
     {
@@ -341,6 +362,13 @@ export function useImportRegistration(): void {
       //    disagree. `userId` (from `useAuth`) remains the effect DEPENDENCY;
       //    it is not what is sent.
       const identity = await getSessionIdentity()
+      // OW-1 RULE 2, re-checked at the last synchronous moment before the POST:
+      // an acknowledgement that landed during the await above (a receipt, a
+      // read that returned the graph) means CEE now holds this scenario's model.
+      if (!cancelled && ceeHoldsModel(useCanvasStore.getState(), scenarioId)) {
+        logger.info('import_registration.cee_holds_model', { scenarioId, hold: 'late' })
+        return
+      }
       // ONE WRITER, re-checked at the last synchronous moment before the POST:
       // an edit admitted during the await above must win. Un-spend the key so
       // the retry after delivery can offer this model again.
@@ -356,6 +384,12 @@ export function useImportRegistration(): void {
         signal: controller.signal,
         initialBriefText,
       })
+      // ⭐ OW-1 RULE 2 — THE ACKNOWLEDGEMENT LATCHES THE SCENARIO IT BELONGS TO:
+      // `scenarioId`, the id this request was sent for — never whichever
+      // scenario is current when it lands — and BEFORE the `cancelled` return.
+      // A 200 that arrives after the user opened another decision is still a
+      // fact about THIS one: CEE now holds its model.
+      if (result.status === 'registered') latchCeeHeldModel(scenarioId, 'registration')
       if (cancelled) return
 
       if (result.status !== 'registered') {
@@ -407,13 +441,13 @@ export function useImportRegistration(): void {
       // ⭐ ONE AUTHORITATIVE RECORD. A registration CEE acknowledged REPLACED
       // the scenario's model with exactly the elements it carried, so they are
       // what CEE now holds — the same fact a receipt or a boot read records in
-      // `lastAuthoritativeGraph`, and the record the re-arm's gate reads
-      // (`bootGraphRead.ts`). Recorded against WHAT WAS SENT, and only while the
-      // canvas is still this scenario's: the record is not keyed by scenario.
-      // ⭐ AND IT SETTLES THE BOOT READ. The acknowledgement is a settled answer
-      // about what CEE holds, so a read that refused the pending import
-      // (`mergeRefused`) no longer walls the re-arm for the page's life; the
-      // subset rule over the record just written governs from here.
+      // `lastAuthoritativeGraph` (which authorises a later receipt's removals).
+      // Recorded against WHAT WAS SENT, and only while the canvas is still this
+      // scenario's: the record is not keyed by scenario.
+      // ⭐ AND IT SETTLES THE BOOT READ under a new token, so a read still in
+      // flight — whose answer predates this acknowledgement — changes nothing
+      // (`bootGraphRead.ts`). The latch above already stops every later
+      // registration for this scenario.
       if (live.currentScenarioId === scenarioId) {
         live.setLastAuthoritativeGraph(identityFromCanvasGraph(nodes, edges))
         recordRegistrationAcknowledged(scenarioId)

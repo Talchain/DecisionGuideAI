@@ -8506,7 +8506,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       },
       isDirty: true,
     }))
-  }
+  },
+
+  // OW-1: no acknowledgement seen yet — nothing latched. (Declared with the
+  // field, below the store: see the `CanvasState` merge at the end of the file.)
+  ceeHeldScenarioIds: new Set<string>(),
 }})
 
 // Expose store on window for E2E tests (Playwright helpers and direct injection)
@@ -8660,3 +8664,27 @@ export const selectLensOptionId = (state: CanvasState): string | null => state.l
  */
 export type ViewMode = 'standard' | 'expert'
 export const selectViewMode = (state: CanvasState): ViewMode => state.viewMode
+
+/**
+ * OW-1 — THE ONE-WRITER LATCH: the scenarios this page has seen CEE acknowledge
+ * holding a model for (a register 200, a boot read that returned the graph, an
+ * applied receipt, a server version restore). Once a scenario is here the page
+ * never sends a whole-graph `graph/register` for it again (programme-docs #63
+ * 5795173355 rule 2).
+ *
+ * Stored, not derived, so a Run-gate selector re-runs when an acknowledgement
+ * lands although the graph does not change (Panel, #63 5797440981). Keyed by
+ * scenario and deliberately NOT in `DECISION_CONTEXT_CLEAR`: switching
+ * decisions does not change what CEE holds. Read through
+ * `ceeHoldsModel(state, scenarioId)`, written only through `latchCeeHeldModel`
+ * (`registration/ceeHeldModel.ts`).
+ *
+ * ⚠ DECLARED DOWN HERE BY INTERFACE MERGING, not beside `lastAuthoritativeGraph`,
+ *   ON PURPOSE: `scripts/ci/ui-decides-baseline.txt` keys its `store.ts` sites
+ *   by LINE, so a field declared above them moves every baselined line and the
+ *   ratchet reads the move as a new site. Appending here changes no line above.
+ */
+// eslint-disable-next-line no-redeclare -- a deliberate interface MERGE (see above), not a redeclaration
+interface CanvasState {
+  ceeHeldScenarioIds: ReadonlySet<string>
+}

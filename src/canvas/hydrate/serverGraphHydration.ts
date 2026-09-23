@@ -35,6 +35,7 @@ import { editDeliveryHold } from '../registration/editDeliveryHold'
 import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
 import { edgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
 import { canonicalJson } from '../../lib/canonical-hash'
+import { latchCeeHeldModel } from '../registration/ceeHeldModel'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -418,6 +419,9 @@ async function readAndMergeServerGraph(
     // user is looking at. Skipping here would leave the ordinary restore with no
     // base, which is the whole defect.
     adoptServerWriteBase(result.graphHash, baseAtDispatch)
+    // ⭐ OW-1 RULE 2: a read that returned CEE's graph is an acknowledgement
+    // that CEE holds this scenario's model — latched for the scenario READ.
+    latchCeeHeldModel(scenarioId, 'boot_read')
     return 'unchanged'
   }
 
@@ -506,6 +510,11 @@ async function readAndMergeServerGraph(
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
   acknowledgeCanvasThatMatchesTheRead(scenarioId, result.graph)
+  // ⭐ OW-1 RULE 2: CEE returned this scenario's graph, so it holds a model —
+  // latched for the scenario READ (the id this answer came back for), and
+  // whether or not the canvas-level acknowledgement above could vouch for it:
+  // "CEE holds a model" and "CEE holds THIS canvas" are different questions.
+  latchCeeHeldModel(scenarioId, 'boot_read')
 
   return 'merged'
 }
@@ -536,8 +545,9 @@ async function readAndMergeServerGraph(
  *   the corresponding wire element (nodes by id, edges by from/to pair) carries
  *   EVERY analytical key the projection carries, present and deep-equal
  *   (`canonicalJson`: key order is not part of a value). Anything else fails
- *   CLOSED: no acknowledgement, the model stays held, and the re-arm may offer
- *   it again (`bootGraphRead.ts` subset rule), never a wall.
+ *   CLOSED: no acknowledgement, and the model stays held. (Before OW-1 the
+ *   re-arm then offered it again under the `bootGraphRead.ts` subset rule; that
+ *   re-offer is retired — see the V1 note below.)
  *
  * ⚠ THAT RE-OFFER IS NOT ALWAYS REDUNDANT (Panel V1, #1903 5797312829). The
  *   subset rule checks ELEMENTS, not values. `overlayNode` keeps a canvas key
@@ -549,9 +559,15 @@ async function readAndMergeServerGraph(
  *   `{merged, acked: true, registrations: 0}`. So this PR guarantees a reload
  *   never RESURRECTS A DELETE, not that it never writes a value CEE lacks.
  *   Not a regression: staging's re-arm registered any unacknowledged copy.
- *   Closing it (clear the omitted analytical keys on an accepted read) needs the
- *   owner of `overlayNode`'s no-clear ruling; the one-writer contract (#63
- *   5794896612) removes the re-arm write altogether.
+ *   ⭐ CLOSED BY OW-1 (#63 5794896612 → 5797440981): this read LATCHES the
+ *   scenario (below), and a latched scenario is never registered again, so the
+ *   value CEE lacks is no longer written. ⚠ The cost, flagged not hidden: the
+ *   declined acknowledgement now leaves a starter/template model HELD on the
+ *   digest path with no re-offer to release it — released only when the Run
+ *   gate reads the latch (Panel's 5(c)); pinned in `staleTabReload.spec.tsx`
+ *   §10 case 8. Clearing the omitted analytical keys on an accepted read would
+ *   let this acknowledgement vouch instead; that needs the owner of
+ *   `overlayNode`'s no-clear ruling.
  *
  * Also not granted when the canvas holds an element the wire lacks (or vice
  * versa) — the stale copy the gate stops writing — nor while an edit is still
@@ -579,8 +595,8 @@ function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unkn
  *     (`graph-hash.ts` `computeAnalysisAffectingGraphHash`, CEE staging
  *     `cc7b26cb`).
  * Every other projected key — `label` and `kind` included — must match. A key
- * missing from this list costs a re-offered registration (see the V1 note
- * above: not always redundant), never a false acknowledgement, which is the
+ * missing from this list costs a declined acknowledgement (the model stays
+ * held: see the V1 note above), never a false acknowledgement, which is the
  * direction this list is allowed to be wrong in.
  */
 const NOT_VOUCHED_NODE_KEYS: ReadonlySet<string> = new Set([

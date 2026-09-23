@@ -26,8 +26,9 @@
  *  6. ANY model-changing system_event in flight holds registration — even one
  *     carrying no optimistic snapshot, so the in-flight signal is not the
  *     value-edit register in disguise.
- *  7. CONTROL (#1855 preserved): a local-only change with nothing in flight
- *     still re-registers, so the gate is not "never re-register".
+ *  7. OW-1 (was "#1855 preserved"): a local-only change on a scenario CEE
+ *     holds is NOT re-registered — the one-writer latch (rule 2) retired the
+ *     #1855 re-offer; Run re-holds on the digest path until Panel's 5(c).
  *  8. An applied receipt carrying the committed graph acknowledges the model
  *     (#1895) — option edit.
  *  9. …and PAST the edit's own optimistic write — structural delete and
@@ -44,6 +45,16 @@
  * 13. The delete hold's ONE exit — "ask Olumi to remove it" — releases it
  *     through the chat, whichever way CEE's committed graph answers (Panel
  *     #1917 F1), with a no-receipt control.
+ * 14. OW-1: an applied receipt LATCHES the scenario (rule 2) — then nothing is
+ *     registered over it under any local gesture.
+ *
+ * ⚠ OW-1 AND THE CASES ABOVE. Every case that mounts an ACKNOWLEDGED starter
+ *   stands on a LATCHED scenario (its own registration's 200 latched it), so a
+ *   "must not register" assertion there now holds by construction, as the
+ *   contract predicted (#63 5794896612 "Controls available now"). The delivery
+ *   gates those cases were written for (`editDeliveryHold`) are therefore
+ *   pinned where a registration can still legitimately go — a scenario the page
+ *   has NOT latched (`mountUnlatchedStarter`, §14) — in the two deferral cases.
  *
  * Assertions bind by IDENTITY — the exact register call and the exact factor's
  * `observed_state` in its payload — never by a count alone.
@@ -548,8 +559,15 @@ describe('one writer — no registration while a Canvas edit is in flight', { ti
     await settleTurn(send)
   })
 
-  it('a registration ARMED while an edit is on the wire waits, then goes once — after delivery settles', async () => {
-    const hook = await mountAcknowledgedStarter()
+  // ⚠ OW-1 CHANGED THIS CASE. It used to arm the registration on the
+  // ACKNOWLEDGED starter and settle the edit APPLIED, then expect a second
+  // registration carrying the confirmed value. Under the one-writer contract
+  // neither acknowledgement permits one (rule 2: the starter's 200 latched the
+  // scenario, and so would the receipt — §13 case 4). The deferral it pins is
+  // real only where a registration may still go: a scenario the page has NOT
+  // latched, and an edit that earns no acknowledgement (REFUSED).
+  it('a registration ARMED while an edit is on the wire waits, then goes once — after delivery settles (unlatched scenario, refused edit)', async () => {
+    const hook = await mountUnlatchedStarter()
     holdTurn = true
     const { send } = await commitValueEdit(hook, USER_VALUE)
 
@@ -559,32 +577,38 @@ describe('one writer — no registration while a Canvas edit is in flight', { ti
       useCanvasStore.setState({ importPendingServerRegistration: true })
       await flush()
     })
-    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(registerSpy).not.toHaveBeenCalled()
 
-    replies.push(APPLIED(USER_VALUE))
+    replies.push(REFUSED)
     await settleTurn(send)
 
-    // ⭐ Offered exactly once, AFTER the receipt — so it carries the value the
-    //    server confirmed, under the user's name, never Olumi's.
-    expect(registerSpy).toHaveBeenCalledTimes(2)
-    expect(registeredTarget(registerSpy.mock.calls[1])).toMatchObject({
-      value: USER_VALUE,
-      source: 'user_override',
+    // ⭐ Offered exactly once, AFTER the answer — carrying the value CEE holds
+    //    (the refusal reverted the typed number), never the unconfirmed one.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(registeredTarget(registerSpy.mock.calls[0])).toMatchObject({
+      value: SERVER_VALUE,
+      source: 'cee_inference',
     })
+    expect(registrationsCarrying(USER_VALUE)).toEqual([])
   })
 
-  it('an edit admitted while a registration awaits its last hop wins — the POST stands down and goes after', async () => {
-    const hook = await mountAcknowledgedStarter()
+  // ⚠ OW-1 CHANGED THIS CASE (same reason as the one above): it armed the
+  // registration with a local-only change on the ACKNOWLEDGED — now latched —
+  // starter, which rule 2 no longer re-offers at all. The late stand-down it
+  // pins is exercised on a scenario the page has not latched, armed by a
+  // deliberate import, with an edit that earns no acknowledgement.
+  it('an edit admitted while a registration awaits its last hop wins — the POST stands down and goes after (unlatched scenario, refused edit)', async () => {
+    const hook = await mountUnlatchedStarter()
 
     // Arm a registration and hold it inside its identity await.
     let openIdentity: () => void = () => {}
     identityGate = new Promise<void>((res) => { openIdentity = res })
     await act(async () => {
-      writeOptimistically(BYSTANDER, 0.3) // local-only: nothing in flight, so it arms
+      useCanvasStore.setState({ importPendingServerRegistration: true }) // a deliberate import arms it
       await flush()
     })
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
-    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(registerSpy).not.toHaveBeenCalled()
 
     // The user edits while that registration is still on its way out.
     holdTurn = true
@@ -600,21 +624,26 @@ describe('one writer — no registration while a Canvas edit is in flight', { ti
     //    It carries the PRE-edit snapshot, so the count is the discriminator
     //    here, not the value.
     expect(registrationsCarrying(USER_VALUE)).toEqual([])
-    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(registerSpy).not.toHaveBeenCalled()
 
-    replies.push(APPLIED(USER_VALUE))
+    replies.push(REFUSED)
     await settleTurn(send)
 
     // …and the stood-down registration is not lost: it goes once, after the
-    // receipt, carrying only confirmed values.
-    expect(registerSpy).toHaveBeenCalledTimes(2)
-    expect(registeredTarget(registerSpy.mock.calls[1])).toMatchObject({
-      value: USER_VALUE,
-      source: 'user_override',
+    // answer, carrying only the value CEE holds.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(registeredTarget(registerSpy.mock.calls[0])).toMatchObject({
+      value: SERVER_VALUE,
+      source: 'cee_inference',
     })
   })
 
-  it('CONTROL (#1855 preserved): a local-only change with NOTHING in flight still re-registers', async () => {
+  // ⚠ OW-1 FLIPPED THIS CASE. It was "CONTROL (#1855 preserved): a local-only
+  // change with NOTHING in flight still re-registers" — the whole-graph re-offer
+  // the one-writer contract retires (#63 5795173355 rule 2: after ANY
+  // acknowledgement, no more whole-graph registers). The starter's own 200
+  // latched this scenario, so the unsent local value is NOT written to CEE.
+  it('OW-1 (was "#1855 preserved"): a local-only change on a scenario CEE holds is NOT re-registered', async () => {
     await mountAcknowledgedStarter()
 
     await act(async () => {
@@ -622,11 +651,12 @@ describe('one writer — no registration while a Canvas edit is in flight', { ti
       await flush()
     })
 
-    // The gate is "not while an edit is in flight", never "not at all": a
-    // model the server has not seen, with nothing pending, is still offered.
-    expect(registerSpy).toHaveBeenCalledTimes(2)
-    const sent = (registerSpy.mock.calls[1][1] as { nodes: Array<Record<string, unknown>> }).nodes
-    expect((sent.find((n) => n.id === BYSTANDER)?.observed_state as Record<string, unknown>).value).toBe(0.3)
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(ceeHolds(SCENARIO)).toBe(true)
+    // ⚠ INTERIM, accepted by Panel (#63 5797440981): the unsent value moves the
+    // digest, so Run re-holds under the saved-example copy until 5(c) releases
+    // it on the latch. Pinned so that swap is a deliberate change.
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
   })
 })
 
@@ -769,7 +799,7 @@ const RENAME_REFUSED_NO_WRITE = {
 }
 
 describe('#1892 review (846997a1): only the LATEST attempt per node may hold', () => {
-  it('⛔ rename "Foo" → untyped 500, "Bar" → applied, "Foo" → applied: the stale record does not wall registration off', async () => {
+  it('⛔ rename "Foo" → untyped 500, "Bar" → applied, "Foo" → applied: the stale record holds nothing — and (OW-1, flagged) Run stays held until Panel 5(c)', async () => {
     await mountAcknowledgedStarterWithRenameDrain()
     const rename = async (label: string, reply: unknown) => {
       replies.push(reply)
@@ -780,8 +810,10 @@ describe('#1892 review (846997a1): only the LATEST attempt per node may hold', (
     }
     await rename('Foo', UNTYPED_500)
     await rename('Bar', renameApplied('Bar'))
-    // Contrast, from the review's own run: after "Bar" the post-commit registration went.
-    expect(registerSpy.mock.calls.some((c) => registeredLabel(c) === 'Bar')).toBe(true)
+    // ⚠ OW-1 FLIPPED THIS CONTRAST. It read "after 'Bar' the post-commit
+    // registration went" — the whole-graph write behind an applied rename that
+    // rule 2 retires: the starter's 200 (and this receipt) latched the scenario.
+    expect(registerSpy.mock.calls.some((c) => registeredLabel(c) === 'Bar')).toBe(false)
     const beforeFoo = registerSpy.mock.calls.length
     await rename('Foo', renameApplied('Foo'))
     await act(async () => { await flush() })
@@ -795,14 +827,19 @@ describe('#1892 review (846997a1): only the LATEST attempt per node may hold', (
 
     // CEE applied "Foo": nothing may still be holding for the superseded attempt…
     expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
-    // …and nothing walls the model off. ⚠ The discriminator USED to be "a
-    // registration carrying 'Foo' follows" — which is the post-commit register
-    // the 4c6ec07b witness recorded as the defect (+70 ms after an applied
-    // rename). "Bar" was acknowledged by its own registration, "Foo" is CEE's
-    // committed postimage of that model, so the receipt acknowledges it: the
-    // model is released with NO second write, not walled and not re-offered.
-    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    // …and no second write.
     expect(registerSpy.mock.calls.slice(beforeFoo)).toEqual([])
+    expect(ceeHolds(SCENARIO)).toBe(true)
+    // ⛔ FLAGGED WALL (OW-1 report). This used to assert the model RELEASED:
+    // "Bar" was acknowledged by its own post-commit registration, and "Foo"'s
+    // receipt extended that acknowledgement. Rule 2 retires that registration,
+    // and nothing else re-establishes the digest acknowledgement the untyped
+    // 500 on the first "Foo" broke: each later receipt can extend only an
+    // acknowledgement its G₀ already had, and G₀ carried the unconfirmed label.
+    // So Run stays held on the digest path for the page's life, although CEE
+    // holds the model (latched). The release belongs on the latch — Panel's
+    // 5(c) — and this pin must flip when it lands.
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
   })
 
   it('⛔ (#1892 review @ 9dac7d3e) "Foo" → untyped 500, then "Bar" REFUSED (rolls back to "Foo"): a refusal is not proof — Foo stays held', async () => {
@@ -1014,7 +1051,11 @@ describe('8 · an applied receipt carrying the committed graph acknowledges the 
     expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
   })
 
-  it('CONTROL: an unacknowledged local change made while the edit is in flight keeps the chain closed — the model is re-offered', async () => {
+  // ⚠ OW-1 FLIPPED THE LAST ASSERTION. It ended "a registration offers the
+  // model once delivery settles (#1855 preserved)" — the re-offer rule 2
+  // retires. The chain still fails CLOSED (the receipt does not vouch for a
+  // canvas it never saw), but nothing is written over the latched scenario.
+  it('CONTROL: an unacknowledged local change made while the edit is in flight keeps the chain closed — and (OW-1) nothing is re-offered', async () => {
     const hook = await mountAcknowledgedStarterWithOption()
     holdTurn = true
     let send: Promise<unknown> = Promise.resolve()
@@ -1034,9 +1075,11 @@ describe('8 · an applied receipt carrying the committed graph acknowledges the 
     replies.push(APPLIED_OPTION(0.6))
     await settleTurn(send)
 
-    // Fail CLOSED: the receipt does not vouch for a canvas it never saw, so a
-    // registration offers the model once delivery settles (#1855 preserved).
-    expect(registerSpy.mock.calls.length).toBeGreaterThan(1)
+    // Fail CLOSED: the receipt does not vouch for a canvas it never saw…
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBe('starter')
+    // …and the scenario CEE holds is never written over (rule 2).
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(ceeHolds(SCENARIO)).toBe(true)
   })
 })
 
@@ -1170,9 +1213,6 @@ function registeredGraph(call: unknown[]) {
 function nodeIdsOf(call: unknown[]): string[] {
   return registeredGraph(call).nodes.map((n) => String(n.id)).sort()
 }
-function touches(call: unknown[], id: string): boolean {
-  return registeredGraph(call).edges.some((e) => (e.from ?? e.source) === id || (e.to ?? e.target) === id)
-}
 function currentAcknowledged(): boolean {
   const s = useCanvasStore.getState()
   return isGraphServerAcknowledged(s.currentScenarioId, s.nodes as never, s.edges as never)
@@ -1238,7 +1278,10 @@ describe('9 · an applied receipt acknowledges the model PAST the edit\'s own op
     expect(currentAcknowledged()).toBe(true)
   })
 
-  it('CONTROL (fail closed): a local change made while the DELETE is in flight is re-offered — carrying nothing of the deleted node', async () => {
+  // ⚠ OW-1 FLIPPED THIS CASE: it asserted the post-settle re-offer (#1855),
+  // which rule 2 retires. Fail-closed now means: not acknowledged, and nothing
+  // — least of all the deleted node — written over the latched scenario.
+  it('CONTROL (fail closed): a local change made while the DELETE is in flight is not acknowledged — and (OW-1) nothing is re-offered', async () => {
     await mountAcknowledgedStructuralBoard()
     holdTurn = true
     await deleteConcentration()
@@ -1255,18 +1298,15 @@ describe('9 · an applied receipt acknowledges the model PAST the edit\'s own op
     await releaseHeldTurn()
 
     // G₀ rolled back is still not a model CEE holds, so the receipt vouches
-    // for nothing and the model is offered once delivery settles (#1855).
-    const offered = registerSpy.mock.calls.slice(before)
-    expect(offered.length).toBeGreaterThan(0)
-    // …and what is offered is CEE's postimage plus that change — the deleted
-    // node and its two connections are in none of it.
-    for (const call of offered) {
-      expect(nodeIdsOf(call)).toEqual([BYSTANDER, TARGET].sort())
-      expect(touches(call, CONCENTRATION)).toBe(false)
-    }
+    // for nothing…
+    expect(currentAcknowledged()).toBe(false)
+    // …and nothing is offered over the scenario CEE holds (rule 2).
+    expect(registerSpy.mock.calls.slice(before)).toEqual([])
+    expect(ceeHolds(SCENARIO)).toBe(true)
   })
 
-  it('CONTROL (fail closed): a local change made while the RENAME is in flight is re-offered — at the committed label', async () => {
+  // ⚠ OW-1 FLIPPED THIS CASE (the rename twin of the one above).
+  it('CONTROL (fail closed): a local change made while the RENAME is in flight is not acknowledged — and (OW-1) nothing is re-offered', async () => {
     await mountAcknowledgedStructuralBoard()
     holdTurn = true
     await renameTarget()
@@ -1281,9 +1321,9 @@ describe('9 · an applied receipt acknowledges the model PAST the edit\'s own op
     const before = registerSpy.mock.calls.length
     await releaseHeldTurn()
 
-    const offered = registerSpy.mock.calls.slice(before)
-    expect(offered.length).toBeGreaterThan(0)
-    for (const call of offered) expect(registeredLabel(call)).toBe(RENAMED)
+    expect(currentAcknowledged()).toBe(false)
+    expect(registerSpy.mock.calls.slice(before)).toEqual([])
+    expect(ceeHolds(SCENARIO)).toBe(true)
   })
 
   it('CONTROL: a REFUSED delete (409 BASE_HASH_DIVERGED) is never acknowledged — the node comes back and nothing is written', async () => {
