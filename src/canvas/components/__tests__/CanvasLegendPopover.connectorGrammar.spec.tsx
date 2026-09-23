@@ -129,7 +129,7 @@ describe('the thickness key says the same thing in both phases, because the canv
   it.each(['idle', 'complete'] as const)('in phase %s, thicker = a stronger modelled relationship', (status) => {
     setPhase(status)
     const popover = open()
-    const caption = screen.getByTestId('legend-thickness-caption')
+    const caption = screen.getByTestId('legend-caption-thickness')
     expect(caption.textContent).toBe('Thicker line: a stronger modelled relationship, before and after a run')
     // Never "importance": the canvas does not encode it in width in either phase.
     expect(popover.textContent ?? '').not.toMatch(/importance|consequential/i)

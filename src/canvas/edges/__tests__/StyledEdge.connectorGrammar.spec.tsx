@@ -108,7 +108,10 @@ vi.mock('../../ui/inspector-v2/inspectorStrings', () => ({
 const CEE_EDGE = {
   strength_mean: 0.6,
   effect_direction: 'positive' as const,
-  exists_probability: 0.8,
+  // The likelihood channel reads `beliefExists` + its stamp (the draft path's
+  // shape, `applyDraftResult`), NOT the raw `exists_probability`.
+  beliefExists: 0.8,
+  beliefExistsSource: 'cee' as const,
 }
 /** The same numbers, typed by the person — a SETTLED strength. */
 const USER_EDGE = {
@@ -225,7 +228,7 @@ describe('R1 — the rendered dash is existence certainty only', () => {
     // (At the base this read the contest's divergence-scaled dash instead: the
     // contest rule OUTRANKED existence, so the one honest existence mark was
     // replaced by a disagreement mark on exactly the edges most in doubt.)
-    renderEdge({ ...CEE_EDGE, exists_probability: 0.3, validation: validation('raw_magnitude', true) })
+    renderEdge({ ...CEE_EDGE, beliefExists: 0.3, validation: validation('raw_magnitude', true) })
     expect(capturedStyle?.strokeDasharray).toBe('6,4')
   })
 })
