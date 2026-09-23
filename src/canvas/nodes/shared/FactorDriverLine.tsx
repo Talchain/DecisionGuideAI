@@ -19,7 +19,7 @@ import { LAST_RUN_PREFIX } from './metricVocabulary'
  * without printing a number that invites that reading.
  *
  * ⭐ AND THE FIGURE IS DEMOTED, NOT DELETED — the estate's NO-HIDING ruling as
- * `influenceRankExplanation` records it (`influenceScaleCopy.ts:476-478`):
+ * `influenceRankExplanation` records it (`influenceScaleCopy.ts:475-477`):
  * "taking the figure away from a reader who wants it would be hiding a
  * finding". So the tooltip and the accessible name carry it, stated WITH the
  * scale that makes it relative (`At 62% of the strongest factor.`), and the
