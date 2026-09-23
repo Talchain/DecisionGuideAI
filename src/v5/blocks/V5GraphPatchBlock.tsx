@@ -27,6 +27,7 @@ import { claimStalenessVoice } from '../../canvas/conversation/stalenessVoice'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 import { ExplainDiffButton } from '../../components/assistants/ExplainDiffButton'
+import { resolveAiComparisonMode } from '../aiComparisonMode'
 
 export interface V5GraphPatchBlockProps {
   block: V5GraphPatchBlockType
@@ -159,8 +160,15 @@ export function V5GraphPatchBlock({
         there would advertise an action that terminates in refusal.
 
         The answer shown is always CEE's; see ExplainDiffButton for the rules.
+
+        ⛔ NOT OFFERED IN OPENAI MODE (RC Paul Test Candidate item 2, #63
+        5800519725). `/bff/cee/explain-diff`'s task capability list is
+        anthropic|fixtures and OpenAI `explainDiff` throws, so this button is an
+        Anthropic call no config override can re-point — and it is a separate
+        browser request the request-scoped provider guard (#1749) cannot see.
+        The mode is re-read from the URL on every render, as every send does.
       */}
-      {isApplied && (
+      {isApplied && resolveAiComparisonMode() !== 'openai' && (
         <ExplainDiffButton
           block={block}
           graphSummary={{ node_count: nodes.length, edge_count: edges.length }}
