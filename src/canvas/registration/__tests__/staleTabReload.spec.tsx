@@ -813,6 +813,35 @@ describe('§8 a registration CEE acknowledged settles the boot read (the mergeRe
     hook.unmount()
   })
 
+  it('a read still IN FLIGHT when CEE acknowledges the registration cannot overwrite the settle — its later refusal is not a wall', async () => {
+    const calls = pendingFetches()
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    markGraphImported(MATCHING_NODES as never, MATCHING_EDGES as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+    let read: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      read = hydrateCanvasFromServer(SCENARIO)
+      await flush()
+    })
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state, 'precondition: the read is in flight').toBe('reading')
+
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy, 'precondition: the pending registration was sent and acknowledged').toHaveBeenCalledTimes(1)
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('registered')
+
+    // The superseded read now answers with a refusal (429 → `refused`, verdict 'refuse').
+    await act(async () => {
+      calls[0].answer(jsonResponse(429, { error: 'rate_limited' }))
+      await read
+      await flush()
+    })
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]?.state).toBe('registered')
+    await localValueOnlyChange(0.6)
+    expect(registerSpy).toHaveBeenCalledTimes(2)
+    hook.unmount()
+  })
+
   it('CONTROL: a registration CEE did NOT acknowledge settles nothing — the refused read stands, nothing is re-offered', async () => {
     registerSpy.mockResolvedValue({ status: 'unavailable' })
     await reloadWithPendingRegistrationReadFirst()
