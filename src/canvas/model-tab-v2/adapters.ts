@@ -292,6 +292,21 @@ export function optionHasNoInterventions(data: unknown): boolean {
   return !interventions || Object.keys(interventions).length === 0
 }
 
+/**
+ * Whether this option is the BASELINE — the strict flag CEE's run gate reads
+ * (`analysable-option-gate.ts` `isBaselineOption`: `option.is_baseline ===
+ * true`), the same reading as `useModelReadiness` and
+ * `computeOptionDifferentiation`.
+ *
+ * ⚠ NEVER THE LABEL. The label-idiom fallback other surfaces use for a BADGE is
+ * not what the run gate holds: an option labelled "Status quo" without the
+ * flag is not held by CEE, still needs an effect value, and must keep its
+ * first-value input.
+ */
+function optionIsBaseline(data: unknown): boolean {
+  return (data as { is_baseline?: unknown } | undefined)?.is_baseline === true
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Relationships in plain English
 // ─────────────────────────────────────────────────────────────────────────────
@@ -756,6 +771,10 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         primaryValue: unmapped ? null : `${count} ${count === 1 ? 'change' : 'changes'}`,
         attention: unmapped ? ['missing-intervention'] : [],
         editable: true,
+        // Read by the section notice, which must never tell the baseline to
+        // link itself to a factor (Panel N2 on #1911). Present only when true,
+        // so every other option row is unchanged.
+        ...(optionIsBaseline(data) ? { isBaseline: true as const } : {}),
       })
       continue
     }
@@ -1219,6 +1238,16 @@ function buildOptionInterventionCandidates(
   nodesById: ReadonlyMap<string, Node>,
 ): OptionInterventionCandidate[] {
   if (nodeKind(node) !== 'option') return []
+  /*
+   * ⛔ THE BASELINE IS NOT ASKED WHAT IT CHANGES (Panel N2 on #1911, probe R6).
+   * CEE holds a baseline with `{}` as ready — "every factor holds at its
+   * observed value, so no effect values are needed" (`option-status.ts`) — so
+   * "What does Status Quo change Team capacity to?" invites the user to give
+   * the counterfactual an effect, and supplying one stops it being the status
+   * quo. No candidates, so no input; and `optionIdsWithValueInputs`, which asks
+   * this same function, agrees by construction.
+   */
+  if (optionIsBaseline(node.data)) return []
   const already = new Set(
     Object.keys(
       ((node.data as Record<string, unknown> | undefined)?.interventions as
@@ -1236,8 +1265,60 @@ function buildOptionInterventionCandidates(
     const factorLabel = resolveCanvasLabel(factorId, labels)
     if (factorLabel === null) return []
     seen.add(factorId)
-    return [{ factorId, factorLabel }]
+    return [{ factorId, factorLabel, ...factorReference(target.data, factorLabel) }]
   })
+}
+
+/**
+ * The factor's current value, for the reference line beside a first-value
+ * input — read by the SAME readers the factor's own outline row uses, so the
+ * two cannot show different "current" values for one factor.
+ *
+ *   · `factorValue`    — `factorValue(data)`, the row's `primaryValue`.
+ *   · `factorEstimate` — `factorDisplayText(data, label)` ONLY when there is no
+ *                        `factorValue`: the row's `estimateText` condition.
+ *   · `factorModelValue` — the normalised `observedState.value` when it is a
+ *                        finite number in [0, 1], the scale the input takes.
+ */
+function factorReference(
+  data: unknown,
+  label: string,
+): Pick<OptionInterventionCandidate, 'factorValue' | 'factorEstimate' | 'factorModelValue'> {
+  const value = factorValue(data)
+  const estimate =
+    value === null ? factorDisplayText(data as Record<string, unknown> | undefined, label) : null
+  const normalised = (observedStateOf(data) as { value?: unknown } | undefined)?.value
+  return {
+    factorValue: value,
+    factorEstimate: estimate,
+    factorModelValue:
+      typeof normalised === 'number' && Number.isFinite(normalised) && normalised >= 0 && normalised <= 1
+        ? normalised
+        : null,
+  }
+}
+
+/**
+ * The options that HAVE a first-value input on this surface — at least one
+ * factor they are linked to and do not yet change.
+ *
+ * ⭐ ONE PROJECTION, TWO READERS. It is `buildOptionInterventionCandidates`
+ * asked once per option — the very list the detail region renders its inputs
+ * from — so the section notice that retires on this set and the inputs that
+ * justify retiring it cannot disagree about which options are settable
+ * (`theNoticeCannotSelfRetire.spec.ts` pins the agreement).
+ */
+export function optionIdsWithValueInputs(input: ModelProjectionInput): ReadonlySet<string> {
+  const labels = buildCanvasLabelMap(input.nodes)
+  const nodesById = new Map(input.nodes.map(n => [n.id, n]))
+  const ids = new Set<string>()
+  for (const node of input.nodes) {
+    if (nodeKind(node) !== 'option') continue
+    if (buildOptionInterventionCandidates(node, input.edges, labels, nodesById).length > 0) {
+      ids.add(node.id)
+    }
+  }
+  return ids
 }
 
 function buildOptionInterventions(

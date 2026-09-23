@@ -38,6 +38,30 @@
  * written promise, and it will not. That is trap 13b — a guard whose
  * discrimination rests on an unstated precondition — applied to a retirement
  * condition rather than to an assertion.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⭐⭐ 23 Sep 2026 — THE REAL RETIREMENT CONDITION WAS MET, AND THIS GUARD WAS
+ * UPDATED DELIBERATELY, AS IT EXISTS TO DEMAND.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * The condition this file named — "something on this surface that can ADD an
+ * intervention" — now exists: the option's detail region renders a direct
+ * input for every factor the option is LINKED to and does not yet change, and
+ * Save sends `option_intervention_edit`, which CEE's
+ * `prepareOptionInterventionEdit` accepts for an option with no existing
+ * intervention on a factor `linkedFactorsOf` names.
+ *
+ * So the user-facing sentence "that cannot be set from this section" became
+ * FALSE for every linked option — and it was what sent Paul back to chat on
+ * 23 Sep. It is retired PER ROW, and it retires by the mechanism this file said
+ * was the real one (an input), NOT by `editConnectedIds`, which still has no
+ * option branch (pinned below, unchanged). What remains is the one case this
+ * surface still cannot resolve — an option linked to NO factor — and its
+ * sentence says what unblocks it.
+ *
+ * The cases below that pinned "the notice still fires for a blocked option"
+ * were the real behaviour of their day. They are replaced, not weakened: the
+ * new pins assert the retirement AND its limit, from the same projection the
+ * detail region renders from, so the notice and the input cannot disagree.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -45,8 +69,11 @@ import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import type { Edge, Node } from '@xyflow/react'
+
 import { CANONICAL_EDIT_AUTHORITY } from '../../mutations/mutationAuthority'
-import { rowsThisSectionCannotResolve } from '../sectionWriterNotice'
+import { rowsThisSectionCannotResolve, sectionWriterNoticeText } from '../sectionWriterNotice'
+import { optionIdsWithValueInputs, toRowDetail, type ModelProjectionInput } from '../adapters'
 import type { ModelRow } from '../types'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -131,18 +158,47 @@ describe('the notice cannot self-retire the way it says it will', () => {
     expect(PANEL_SRC).toContain("nodeKind(node) === 'factor'")
   })
 
-  it('⭐ so the notice still fires for a blocked option — pinned as the real behaviour', () => {
-    // Built the way the panel builds it: factors and edges only, never options.
-    const editConnectedIds: ReadonlySet<string> = new Set(['fac_a', 'e_1'])
-    const blocked = rowsThisSectionCannotResolve([optionRow('opt_a')], editConnectedIds)
+  it('⭐ the notice RETIRES for a blocked option that has a value input — the real mechanism', () => {
+    // Built the way the panel builds it: the options whose detail region
+    // renders a first-value input.
+    expect(rowsThisSectionCannotResolve([optionRow('opt_a')], new Set(['opt_a']))).toEqual([])
+  })
 
-    expect(blocked).toEqual(['opt_a'])
+  it('⚠ and STILL fires for a blocked option with NO value input — its limit, pinned', () => {
+    expect(rowsThisSectionCannotResolve([optionRow('opt_a')], new Set())).toEqual(['opt_a'])
+  })
+
+  it('⭐ the retirement set and the detail region read ONE projection, so they cannot disagree', () => {
+    const node = (id: string, type: string, label: string): Node =>
+      ({ id, type, position: { x: 0, y: 0 }, data: { label, type } }) as Node
+    const board = {
+      nodes: [
+        node('opt_linked', 'option', 'Reduce scope'),
+        node('opt_unlinked', 'option', 'Outsource'),
+        node('fac_a', 'factor', 'Team capacity'),
+      ],
+      edges: [{ id: 'e1', source: 'opt_linked', target: 'fac_a', data: {} } as Edge],
+      goalThreshold: null,
+    } as unknown as ModelProjectionInput
+    const withInputs = optionIdsWithValueInputs(board)
+    for (const id of ['opt_linked', 'opt_unlinked']) {
+      const offersAnInput = (toRowDetail(board, id)?.interventionCandidates.length ?? 0) > 0
+      expect(withInputs.has(id), id).toBe(offersAnInput)
+    }
+    // POSITIVE CONTROL: both answers occur, so the agreement is not two empties.
+    expect([...withInputs]).toEqual(['opt_linked'])
+  })
+
+  it('⭐ the retired sentence is gone, and what remains says what unblocks the row', () => {
+    const one = sectionWriterNoticeText(1, 'Discuss the options with Olumi')
+    expect(one).not.toMatch(/cannot be set from this section/i)
+    expect(one).toContain('Link it to a factor first (ask Olumi, or add a link)')
   })
 
   it('CONTRAST CONTROL: it DOES retire for a row the section can resolve', () => {
     // Proves the case above is discriminating — the function is capable of
     // returning empty, so the non-empty result is about options specifically.
-    const editConnectedIds: ReadonlySet<string> = new Set(['opt_a'])
-    expect(rowsThisSectionCannotResolve([optionRow('opt_a')], editConnectedIds)).toEqual([])
+    const withInputs: ReadonlySet<string> = new Set(['opt_a'])
+    expect(rowsThisSectionCannotResolve([optionRow('opt_a')], withInputs)).toEqual([])
   })
 })
