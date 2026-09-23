@@ -64,6 +64,8 @@ import {
   CANVAS_HEADER_GLYPH_GROUP_CLASSES,
 } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
+import { NodeAttentionMarker } from './shared/NodeAttentionMarker'
+import { useNodeAttention } from '../hooks/useNodeAttention'
 import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
@@ -295,6 +297,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * would come to disagree (trap 21).
    */
   const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
+  // ⭐ "WORTH REVIEWING" — one aggregated attention signal (locked Canvas
+  // design, 23 Sep 2026; `nodes/shared/nodeAttention.ts`). Producer signals only,
+  // budgeted across the graph (UI-SEM-098). Null for almost every node.
+  const attentionReasons = useNodeAttention(id)
   /**
    * ⭐⭐⭐ THE LENS, NOT THE CAMERA, DECIDES DETAIL AT `quiet`.
    *
@@ -1075,6 +1081,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
+        ${attentionReasons && lodBodyHidden && !selected && !isHighlighted && !isAttended ? 'ring-2 ring-warning/70' : ''}
         ${isAttentionDimmed ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
@@ -1725,8 +1732,19 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           )
         ) : null}
 
+        {/* ⭐ THE ATTENTION MARKER TAKES THE RANK BADGE'S SLOT — it does not add a
+            fourth sibling (`BaseNode.cornerStack.spec.tsx` pins this stack's
+            layout). A node in the attention plan shows ONE marker whose reasons
+            include its published rank ("Driver #N in this analysis"); a ranked
+            node outside the budget keeps the rank badge exactly as before. At
+            the far rung the marker gives way to a scalable card outline (above):
+            a ring glyph at zoom 0.27 would be illegible. */}
+        {attentionReasons && !lodBodyHidden && (
+          <NodeAttentionMarker nodeId={id} reasons={attentionReasons} />
+        )}
+
         {/* Sensitivity rank badge — Results mode, top 3 factors. */}
-        {typeof displayMetadata.sensitivityRank === 'number' && (
+        {!attentionReasons && typeof displayMetadata.sensitivityRank === 'number' && (
           <span
             data-testid={`sensitivity-rank-${id}`}
             /* ⛔⛔ IT WAS A FIXED ROUND BOX HOLDING `#N`, AND IT CARRIED NO
