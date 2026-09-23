@@ -49,7 +49,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { IconBtn } from '../components/pre-analysis/primitives/IconBtn'
 import { typography } from '../../styles/typography'
@@ -889,11 +889,25 @@ export function ModelRowView({
         is a browser question and it is not answered here.
       */}
       {renameAvailable && !renaming && (
-        <button
-          type="button"
-          data-testid={`model-row-v2-${row.id}-rename-start`}
-          title="Rename this element"
-          aria-label={`Rename ${row.label}`}
+        /*
+         * ⭐⭐ A PENCIL, NOT THE WORD (23 Sep 2026, Paul). "Rename" rendered on
+         * 18 of 18 node rows of the captured market-entry draft (19 of 19 on
+         * build-vs-buy), at a uniform 46.91px. `Pencil` is the panel's EDIT
+         * ACT (R2) — possible only because R2 moved the "User edited" STATUS
+         * off it (`valueProvenanceIcon.ts`), so a user-edited row does not draw
+         * two pencils meaning two things.
+         *
+         * ⚠ The accessible name ("Rename <label>") is unchanged; the tooltip
+         * leads with "Rename". Same shared `IconBtn`, `-my-1` and
+         * `stopPropagation` as the row's confirm tick — see there for why.
+         */
+        <IconBtn
+          icon={Pencil}
+          testId={`model-row-v2-${row.id}-rename-start`}
+          tooltip="Rename this element"
+          ariaLabel={`Rename ${row.label}`}
+          stopPropagation
+          onClick={beginRename}
           /*
            * ⛔⛔ `min-w-0 truncate`, NOT `shrink-0 whitespace-nowrap` — AN ACTION
            * MUST NOT DRAW OVER THE MODEL.
@@ -933,18 +947,16 @@ export function ModelRowView({
            * under the same 24px bar — before this change as well as after. It is
            * pre-existing and out of scope here, but it is real and nothing else
            * records it.
+           *
+           * ⭐ SUPERSEDED BY THE ICON (23 Sep 2026), AND THE HISTORY ABOVE IS
+           * KEPT BECAUSE IT SAYS WHY THE ICON IS SAFE. The pencil is a fixed
+           * 28px visual — under the 2rem floor that was chosen — with the
+           * shared 44px touch target, so it neither draws over the value nor
+           * shrinks to nothing, and the 12px box height noted above is gone.
+           * None of that is re-measured in a browser here; jsdom has no layout.
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted min-w-[2rem] truncate`}
-          onClick={e => {
-            /* The row is `role="option"` with its own `onClick`; without this,
-               starting a rename would also select the row. Same reason, same
-               line, as the editor and the two sibling action buttons. */
-            e.stopPropagation()
-            beginRename()
-          }}
-        >
-          Rename
-        </button>
+          className="shrink-0 -my-1"
+        />
       )}
 
       </span>
