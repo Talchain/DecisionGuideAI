@@ -28,6 +28,10 @@
  *     value-edit register in disguise.
  *  7. CONTROL (#1855 preserved): a local-only change with nothing in flight
  *     still re-registers, so the gate is not "never re-register".
+ *  8. An applied receipt carrying the committed graph acknowledges the model
+ *     (#1895) — option edit.
+ *  9. …and PAST the edit's own optimistic write — structural delete and
+ *     rename (the 4c6ec07b witness), with fail-closed, refused and 500 controls.
  *
  * Assertions bind by IDENTITY — the exact register call and the exact factor's
  * `observed_state` in its payload — never by a count alone.
@@ -37,7 +41,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
-import { clearImportRegistrationMarkers } from '../../store/importRegistrationMarker'
+import { clearImportRegistrationMarkers, isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { captureOptimisticFactorEdit } from '../../conversation/optimisticFactorEdit'
 import { __resetPendingFactorEditsForTest } from '../../conversation/pendingFactorEdit'
@@ -107,6 +111,7 @@ import { useImportRegistration } from '../useImportRegistration'
 import { useConversation } from '../../conversation/useConversation'
 import { editDeliveryHold } from '../editDeliveryHold'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
+import { useStructuralDeleteEvents } from '../../conversation/useStructuralDeleteEvents'
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -710,8 +715,14 @@ describe('#1892 review (846997a1): only the LATEST attempt per node may hold', (
 
     // CEE applied "Foo": nothing may still be holding for the superseded attempt…
     expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
-    // …and the model is offered exactly as it was after "Bar".
-    expect(registerSpy.mock.calls.slice(beforeFoo).some((c) => registeredLabel(c) === 'Foo')).toBe(true)
+    // …and nothing walls the model off. ⚠ The discriminator USED to be "a
+    // registration carrying 'Foo' follows" — which is the post-commit register
+    // the 4c6ec07b witness recorded as the defect (+70 ms after an applied
+    // rename). "Bar" was acknowledged by its own registration, "Foo" is CEE's
+    // committed postimage of that model, so the receipt acknowledges it: the
+    // model is released with NO second write, not walled and not re-offered.
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    expect(registerSpy.mock.calls.slice(beforeFoo)).toEqual([])
   })
 
   it('⛔ (#1892 review @ 9dac7d3e) "Foo" → untyped 500, then "Bar" REFUSED (rolls back to "Foo"): a refusal is not proof — Foo stays held', async () => {
@@ -945,5 +956,308 @@ describe('8 · an applied receipt carrying the committed graph acknowledges the 
     // Fail CLOSED: the receipt does not vouch for a canvas it never saw, so a
     // registration offers the model once delivery settles (#1855 preserved).
     expect(registerSpy.mock.calls.length).toBeGreaterThan(1)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. THE EDIT'S OWN OPTIMISTIC WRITE IS NOT A STRANGER — structural delete and
+//    rename (the #1895 residual).
+//
+// WITNESSED on served staging 23 Sep 09:29–09:51Z (UI 4c6ec07b, pricing
+// example, `output/canvas-completion-20260923/WITNESS-1895-4c6ec07b.md`):
+// option edits sent 0 post-settle registrations, but an APPLIED
+// `structural_rename` (draft_graph 15/30) was followed by a whole-graph
+// `graph/register` at +70 ms and an APPLIED `structural_delete` (draft_graph
+// 14/28, "Top Account Revenue Concentration" and its 2 connections) at +51 ms.
+// Both gestures write the canvas BEFORE their turn is sent, so the canvas just
+// before the receipt already carries the edit's own write, is unacknowledged,
+// and #1895's chain never fired.
+//
+// The rule these pin: CEE held G₀ (the canvas before THIS edit's own write) ∧
+// CEE applied this edit and returned its committed postimage ∧ the canvas is
+// reconciled to it ⇒ CEE holds the canvas. Fail CLOSED on anything else.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** The witnessed delete target: a factor with two connections. */
+const CONCENTRATION = 'fac_top_account_concentration'
+const RENAMED = 'Competitor Usage-Pricing Pressure'
+
+const STRUCTURAL_NODES: Node[] = [
+  ...STARTER_NODES,
+  starterFactor(CONCENTRATION, 'Top Account Revenue Concentration', 0.6, 'High (0.6)'),
+]
+const STRUCTURAL_EDGES: Edge[] = [
+  ...STARTER_EDGES,
+  { id: `e_${CONCENTRATION}_${TARGET}`, source: CONCENTRATION, target: TARGET, data: { weight: 0.3, direction: 'positive' } } as unknown as Edge,
+  { id: `e_${CONCENTRATION}_${BYSTANDER}`, source: CONCENTRATION, target: BYSTANDER, data: { weight: 0.4, direction: 'negative' } } as unknown as Edge,
+]
+
+/** CEE's committed graph for this board, as the receipt's `draft_graph` carries it. */
+function committedGraph(opts: { without?: string; labelOf?: Record<string, string> } = {}) {
+  const wireFactor = (id: string, label: string, value: number) => ({
+    id,
+    kind: 'factor',
+    label: opts.labelOf?.[id] ?? label,
+    category: 'controllable',
+    observed_state: { value, source: 'cee_inference', extractionType: 'inferred', factor_type: 'other' },
+  })
+  const nodes = [
+    wireFactor(TARGET, 'Bottom-Up Adoption Friction', SERVER_VALUE),
+    wireFactor(BYSTANDER, 'Seat Price', 0.4),
+    wireFactor(CONCENTRATION, 'Top Account Revenue Concentration', 0.6),
+  ].filter((n) => n.id !== opts.without)
+  const edges = [
+    { from: TARGET, to: BYSTANDER, strength: { mean: -0.6 } },
+    { from: CONCENTRATION, to: TARGET, strength: { mean: 0.3 } },
+    { from: CONCENTRATION, to: BYSTANDER, strength: { mean: -0.4 } },
+  ].filter((e) => e.from !== opts.without && e.to !== opts.without)
+  return { nodes, edges }
+}
+
+/** 200 `structural_delete`: prose, `blocks: []`, the committed graph WITHOUT the node (witness step 4). */
+const DELETE_APPLIED = {
+  ok: true,
+  response: {
+    assistant_text: "Removed 'Top Account Revenue Concentration' along with 2 connections. That change is saved.",
+    blocks: [],
+    graph_hash: 'aag_after_delete',
+    draft_graph: committedGraph({ without: CONCENTRATION }),
+  },
+}
+
+/** 200 `structural_rename`: prose, `blocks: []`, the committed graph at the new label (witness step 2). */
+const RENAME_APPLIED = {
+  ok: true,
+  response: {
+    assistant_text: `Renamed 'Bottom-Up Adoption Friction' to '${RENAMED}'. That change is saved.`,
+    blocks: [],
+    graph_hash: 'aag_after_rename',
+    draft_graph: committedGraph({ labelOf: { [TARGET]: RENAMED } }),
+  },
+}
+
+/** A proven-no-write refusal of the delete (409 `BASE_HASH_DIVERGED`). */
+const DELETE_REFUSED_NO_WRITE = {
+  kind: 'boundary_error',
+  error: {
+    error: 'GRAPH_DIVERGED', boundary: 'B1', direction: 'egress', validator: 'turn_commit',
+    details: { phase: 'commit', failure_type: 'GRAPH_DIVERGED', event_kind: 'structural_delete', recovery_action: 'refresh_and_reconfirm', conflict_category: 'BASE_HASH_DIVERGED', expected_base_graph_hash: 'aag_other' },
+    request_id: 'req_delete_409', retryable: false,
+  },
+}
+
+async function mountAcknowledgedStructuralBoard() {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: STRUCTURAL_NODES as never,
+    edges: STRUCTURAL_EDGES as never,
+    importPendingServerRegistration: true,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: 'aag_before_structural_edit',
+    lastAuthoritativeGraph: null,
+    pendingStructuralDeletes: [],
+    pendingStructuralRenames: [],
+    structuralRenameLifecycle: [],
+    _externalMutationActive: 0,
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const hook = renderHook(() => {
+    useImportRegistration()
+    const conversation = useConversation()
+    useStructuralDeleteEvents(conversation.sendSystemEvent as never)
+    useStructuralRenameEvents(conversation.sendSystemEvent as never)
+    return conversation
+  })
+  await act(async () => { await flush() })
+  // PRECONDITIONS: the board was registered ONCE, and that acknowledgement
+  // released the hold — G₀ is a model CEE holds.
+  expect(registerSpy).toHaveBeenCalledTimes(1)
+  expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  return hook
+}
+
+function registeredGraph(call: unknown[]) {
+  return call[1] as { nodes: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> }
+}
+function nodeIdsOf(call: unknown[]): string[] {
+  return registeredGraph(call).nodes.map((n) => String(n.id)).sort()
+}
+function touches(call: unknown[], id: string): boolean {
+  return registeredGraph(call).edges.some((e) => (e.from ?? e.source) === id || (e.to ?? e.target) === id)
+}
+function currentAcknowledged(): boolean {
+  const s = useCanvasStore.getState()
+  return isGraphServerAcknowledged(s.currentScenarioId, s.nodes as never, s.edges as never)
+}
+function sentKinds(): unknown[] {
+  return dispatched.map((p) => (p as { event?: { kind?: string } }).event?.kind)
+}
+
+async function deleteConcentration() {
+  await act(async () => {
+    useCanvasStore.getState().deleteNodeById(CONCENTRATION)
+    await flush()
+  })
+}
+async function renameTarget() {
+  await act(async () => {
+    useCanvasStore.getState().updateNodeLabel(TARGET, RENAMED)
+    await flush()
+  })
+}
+async function releaseHeldTurn() {
+  await act(async () => {
+    releaseTurn?.()
+    await flush()
+    await flush()
+  })
+}
+
+describe('9 · an applied receipt acknowledges the model PAST the edit\'s own optimistic write', { timeout: 30_000 }, () => {
+  it('⭐ an APPLIED structural_delete (committed graph without the node) sends NO registration after it settles, and the model is acknowledged', async () => {
+    await mountAcknowledgedStructuralBoard()
+    replies.push(DELETE_APPLIED)
+    await deleteConcentration()
+
+    // PRECONDITIONS, by identity: the delete went out as ONE durable turn for
+    // this node, and the canvas carries exactly what CEE committed.
+    expect(sentKinds()).toEqual(['structural_delete'])
+    expect((dispatched[0] as { event?: { removed_node_ids?: string[] } }).event?.removed_node_ids).toEqual([CONCENTRATION])
+    expect(useCanvasStore.getState().nodes.map((n) => n.id).sort()).toEqual([BYSTANDER, TARGET].sort())
+    expect(useCanvasStore.getState().edges).toHaveLength(1)
+
+    // ⭐ THE CLAIM. RED at 4c6ec07b: a whole-graph registration follows (+51 ms served).
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    expect(currentAcknowledged()).toBe(true)
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  })
+
+  it('⭐ an APPLIED structural_rename (committed graph at the new label) sends NO registration after it settles, and the model is acknowledged', async () => {
+    await mountAcknowledgedStructuralBoard()
+    replies.push(RENAME_APPLIED)
+    await renameTarget()
+
+    // PRECONDITIONS: one rename turn, committed, and the canvas shows the name.
+    expect(sentKinds()).toEqual(['structural_rename'])
+    const record = useCanvasStore.getState().structuralRenameLifecycle.find((r) => r.intent.nodeId === TARGET)
+    expect(record?.status).toBe('committed')
+    expect(nodeData(TARGET).label).toBe(RENAMED)
+
+    // ⭐ THE CLAIM. RED at 4c6ec07b: a whole-graph registration follows (+70 ms served).
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+    expect(currentAcknowledged()).toBe(true)
+  })
+
+  it('CONTROL (fail closed): a local change made while the DELETE is in flight is re-offered — carrying nothing of the deleted node', async () => {
+    await mountAcknowledgedStructuralBoard()
+    holdTurn = true
+    await deleteConcentration()
+    expect(sentKinds()).toEqual(['structural_delete'])
+    // A local-only analytical change nobody sent, made while the turn is out.
+    await act(async () => {
+      writeOptimistically(BYSTANDER, 0.9)
+      await flush()
+    })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+
+    replies.push(DELETE_APPLIED)
+    const before = registerSpy.mock.calls.length
+    await releaseHeldTurn()
+
+    // G₀ rolled back is still not a model CEE holds, so the receipt vouches
+    // for nothing and the model is offered once delivery settles (#1855).
+    const offered = registerSpy.mock.calls.slice(before)
+    expect(offered.length).toBeGreaterThan(0)
+    // …and what is offered is CEE's postimage plus that change — the deleted
+    // node and its two connections are in none of it.
+    for (const call of offered) {
+      expect(nodeIdsOf(call)).toEqual([BYSTANDER, TARGET].sort())
+      expect(touches(call, CONCENTRATION)).toBe(false)
+    }
+  })
+
+  it('CONTROL (fail closed): a local change made while the RENAME is in flight is re-offered — at the committed label', async () => {
+    await mountAcknowledgedStructuralBoard()
+    holdTurn = true
+    await renameTarget()
+    expect(sentKinds()).toEqual(['structural_rename'])
+    await act(async () => {
+      writeOptimistically(BYSTANDER, 0.9)
+      await flush()
+    })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+
+    replies.push(RENAME_APPLIED)
+    const before = registerSpy.mock.calls.length
+    await releaseHeldTurn()
+
+    const offered = registerSpy.mock.calls.slice(before)
+    expect(offered.length).toBeGreaterThan(0)
+    for (const call of offered) expect(registeredLabel(call)).toBe(RENAMED)
+  })
+
+  it('CONTROL: a REFUSED delete (409 BASE_HASH_DIVERGED) is never acknowledged — the node comes back and nothing is written', async () => {
+    await mountAcknowledgedStructuralBoard()
+    replies.push(DELETE_REFUSED_NO_WRITE)
+    await deleteConcentration()
+
+    // PRECONDITION: the refusal reverted the gesture (CEE certified no write).
+    expect(useCanvasStore.getState().nodes.some((n) => n.id === CONCENTRATION)).toBe(true)
+    // The post-delete model is not one CEE holds — the contrast is the board it does.
+    const withoutNode = STRUCTURAL_NODES.filter((n) => n.id !== CONCENTRATION)
+    const withoutEdges = STRUCTURAL_EDGES.filter((e) => e.source !== CONCENTRATION && e.target !== CONCENTRATION)
+    expect(isGraphServerAcknowledged(SCENARIO, STRUCTURAL_NODES as never, STRUCTURAL_EDGES as never)).toBe(true)
+    expect(isGraphServerAcknowledged(SCENARIO, withoutNode as never, withoutEdges as never)).toBe(false)
+    expect(registerSpy.mock.calls.filter((c) => !nodeIdsOf(c).includes(CONCENTRATION))).toEqual([])
+  })
+
+  it('CONTROL: a REFUSED rename (409 BASE_HASH_DIVERGED) is never acknowledged — the old name comes back and nothing is written', async () => {
+    await mountAcknowledgedStructuralBoard()
+    replies.push(RENAME_REFUSED_NO_WRITE)
+    await renameTarget()
+
+    expect(nodeData(TARGET).label).toBe('Bottom-Up Adoption Friction')
+    const renamedNodes = STRUCTURAL_NODES.map((n) =>
+      n.id === TARGET ? { ...n, data: { ...(n.data as object), label: RENAMED } } : n,
+    )
+    expect(isGraphServerAcknowledged(SCENARIO, renamedNodes as never, STRUCTURAL_EDGES as never)).toBe(false)
+    expect(registerSpy.mock.calls.filter((c) => registeredLabel(c) === RENAMED)).toEqual([])
+  })
+
+  it('CONTROL: an untyped 500 on the DELETE is never acknowledged by the receipt path', async () => {
+    await mountAcknowledgedStructuralBoard()
+    // Hold any registration at its last hop, so an acknowledgement could only
+    // have come from the turn's own handling.
+    let openIdentity: () => void = () => {}
+    identityGate = new Promise<void>((res) => { openIdentity = res })
+    replies.push(UNTYPED_500)
+    await deleteConcentration()
+
+    // PRECONDITION: the 500 arm keeps the deletion on screen ("couldn't confirm").
+    expect(useCanvasStore.getState().nodes.some((n) => n.id === CONCENTRATION)).toBe(false)
+    expect(currentAcknowledged()).toBe(false)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).not.toBeNull()
+    await act(async () => {
+      identityGate = null
+      openIdentity()
+      await flush()
+    })
+  })
+
+  it('CONTROL: an untyped 500 on the RENAME is never acknowledged, and no registration carries the label', async () => {
+    await mountAcknowledgedStructuralBoard()
+    replies.push(UNTYPED_500)
+    await renameTarget()
+
+    const record = useCanvasStore.getState().structuralRenameLifecycle.find((r) => r.intent.nodeId === TARGET)
+    expect(record?.status).toBe('unconfirmed')
+    expect(nodeData(TARGET).label).toBe(RENAMED)
+    expect(currentAcknowledged()).toBe(false)
+    expect(registerSpy.mock.calls.filter((c) => registeredLabel(c) === RENAMED)).toEqual([])
   })
 })
