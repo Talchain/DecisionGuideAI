@@ -61,7 +61,9 @@
  *     removes the post-edit re-registration that made that race common.
  *   (An UNCONFIRMED structural edit after its turn settled — a rename whose
  *   turn 500'd keeps its label — IS covered: `unresolvedStructuralEditOnCanvas`
- *   reads `structuralRenameLifecycle` / `structuralAddLifecycle`. #1892 review.)
+ *   reads `structuralRenameLifecycle` / `structuralAddLifecycle`. #1892 review.
+ *   Its delete twin — a delete whose turn 500'd keeps the deletion — reads
+ *   `unconfirmedStructuralDelete`. #1905 residual 1.)
  */
 import { useSyncExternalStore } from 'react'
 
@@ -75,6 +77,10 @@ import {
   graphCarriesUnconfirmedEdgeEdit,
   subscribePendingEdgeEdits,
 } from '../conversation/pendingEdgeEdit'
+import {
+  subscribeUnconfirmedDeletes,
+  unconfirmedDeleteStillOnCanvas,
+} from '../conversation/unconfirmedStructuralDelete'
 
 /** Model-changing system_event turns currently on the wire. */
 let modelEditsOnTheWire = 0
@@ -216,7 +222,11 @@ function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
     const nodeId = (r.intent as { nodeId?: unknown }).nodeId
     if (state.nodes.some((n) => n.id === nodeId)) return true
   }
-  return false
+  // The delete twin: an ambiguous 500 / transport loss keeps the deletion on
+  // the canvas, and the side channel must not make it canonical
+  // (`unconfirmedStructuralDelete.ts`; #1892 review residual row "Delete",
+  // #1905 residual 1). Scenario-scoped there, read against THIS graph here.
+  return unconfirmedDeleteStillOnCanvas(state)
 }
 
 /**
@@ -250,11 +260,13 @@ function subscribe(listener: Listener): () => void {
   listeners.add(listener)
   const unsubscribePending = subscribePendingFactorEdits(listener)
   const unsubscribePendingEdges = subscribePendingEdgeEdits(listener)
+  const unsubscribeDeletes = subscribeUnconfirmedDeletes(listener)
   const unsubscribeStore = useCanvasStore.subscribe(listener)
   return () => {
     listeners.delete(listener)
     unsubscribePending()
     unsubscribePendingEdges()
+    unsubscribeDeletes()
     unsubscribeStore()
   }
 }

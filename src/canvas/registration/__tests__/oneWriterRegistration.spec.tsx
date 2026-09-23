@@ -115,6 +115,10 @@ import { useConversation } from '../../conversation/useConversation'
 import { editDeliveryHold } from '../editDeliveryHold'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
 import { useStructuralDeleteEvents } from '../../conversation/useStructuralDeleteEvents'
+import {
+  __resetUnconfirmedDeletesForTest,
+  settleStructuralDeleteAttempt,
+} from '../../conversation/unconfirmedStructuralDelete'
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -323,6 +327,7 @@ beforeEach(() => {
   identityGate = null
   clearImportRegistrationMarkers()
   __resetPendingFactorEditsForTest()
+  __resetUnconfirmedDeletesForTest()
   __resetPersistenceSessionForTests()
   useCanvasStore.setState({
     nodes: [] as never,
@@ -1397,5 +1402,45 @@ describe('10 · an UNCONFIRMED delete holds registration after delivery settles 
     expect(nodeIdsOf(other[0])).toEqual([BYSTANDER, TARGET].sort())
     // …and the held scenario's post-delete canvas still went nowhere.
     expect(registeredWithoutConcentration(SCENARIO)).toEqual([])
+  })
+})
+
+describe('10 · the unconfirmed-delete rule, pure (through `editDeliveryHold`)', () => {
+  const del = (nodeIds: string[], edgeIds: string[] = []) =>
+    ({ claimedNodeIds: nodeIds, claimedEdgeIds: edgeIds }) as never
+  const hold = (nodes: string[], scenario: string | null, edges: string[] = []) =>
+    editDeliveryHold({
+      nodes: nodes.map((id) => ({ id })),
+      edges: edges.map((id) => ({ id })),
+      currentScenarioId: scenario,
+    } as never)
+
+  it('holds only for the scenario it was made in, and only while every removed element is still absent', () => {
+    settleStructuralDeleteAttempt(del(['n9']), 's2', 'unconfirmed')
+    expect(hold(['n1'], 's1')).toBeNull()
+    expect(hold(['n1'], 's2')).toBe('unresolved_structural_edit')
+    expect(hold(['n1', 'n9'], 's2')).toBeNull()
+  })
+
+  it('an edge-only unconfirmed delete holds while the edge is gone; a REVERTED attempt releases nothing, a PROVEN one supersedes', () => {
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', 'unconfirmed')
+    expect(hold([], 's1', ['e1'])).toBe('unresolved_structural_edit')
+    // #1892 review @ 9dac7d3e, delete form: a refusal is not proof.
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', 'reverted')
+    expect(hold([], 's1', ['e1'])).toBe('unresolved_structural_edit')
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', 'proven')
+    expect(hold([], 's1', ['e1'])).toBeNull()
+  })
+
+  it('SCOPE: a PROVEN delete of the same id in ANOTHER scenario settles nothing here', () => {
+    settleStructuralDeleteAttempt(del(['n9']), 's1', 'unconfirmed')
+    settleStructuralDeleteAttempt(del(['n9']), 's2', 'proven')
+    expect(hold(['n1'], 's1')).toBe('unresolved_structural_edit')
+  })
+
+  it('CONTROL: a reverted or a proven attempt with no earlier record holds nothing', () => {
+    settleStructuralDeleteAttempt(del(['n9']), 's1', 'reverted')
+    settleStructuralDeleteAttempt(del(['n8']), 's1', 'proven')
+    expect(hold(['n1'], 's1')).toBeNull()
   })
 })

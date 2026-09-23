@@ -171,6 +171,7 @@ import {
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
 import { settleEdgeEdit } from './pendingEdgeEdit'
+import { settleStructuralDeleteAttempt } from './unconfirmedStructuralDelete'
 import {
   canvasBeforeOwnAppliedWrite,
   receiptProvesOwnEdgeEdit,
@@ -3085,6 +3086,9 @@ export function useConversation(): UseConversationReturn {
               edgeIds: intent.claimedEdgeIds,
             })
           }
+          // The receipt proves the removal: it settles every earlier
+          // unconfirmed attempt that shares an element with it (one writer).
+          settleStructuralDeleteAttempt(intent, capturedScenarioId, 'proven')
           return
         }
         shouldRevert = true
@@ -3129,6 +3133,14 @@ export function useConversation(): UseConversationReturn {
       } else {
         notice = 'unconfirmed_transport'
       }
+
+      // ONE WRITER (#1905 residual 1; #1892 review, residual row "Delete"): an
+      // arm that KEEPS the deletion without proof is recorded, so registration
+      // holds while the canvas still shows it — otherwise the next whole-graph
+      // register carries the post-delete canvas and CEE deletes the node through
+      // the side channel. A reverted arm releases nothing (a refusal is not
+      // proof); only the proven arm above supersedes.
+      settleStructuralDeleteAttempt(intent, capturedScenarioId, shouldRevert ? 'reverted' : 'unconfirmed')
 
       if (shouldRevert) {
         const revertOutcome = revertStructuralDelete(
