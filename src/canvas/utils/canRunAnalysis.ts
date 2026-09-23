@@ -51,10 +51,7 @@ import {
 
 /** Re-exported so the gate's consumers have one import for the listing shape. */
 export type { GateBlockedItem }
-import {
-  ANALYSIS_HELD_NOTICE as HELD_NOTICE,
-  type ClientInjectedProvenance,
-} from './analysisHeldOnInjectedModel'
+import type { AnalysisHoldReason } from './analysisHeldOnInjectedModel'
 
 /**
  * The refusal for a model the engine did not draft.
@@ -73,8 +70,12 @@ import {
  */
 export {
   ANALYSIS_HELD_NOTICE,
+  ANALYSIS_HELD_ON_EDIT_COPY,
   analysisHeldNotice,
   analysisHeldOn,
+  heldReason,
+  savedExampleHold,
+  type AnalysisHoldReason,
   type ClientInjectedProvenance,
 } from './analysisHeldOnInjectedModel'
 
@@ -285,20 +286,28 @@ export interface CanRunAnalysisParams {
   /** Whether analysis is currently running */
   isRunning?: boolean
   /**
-   * ⭐ ONE INPUT for the injected-model rung — `analysisHeldOn(nodes)`, passed
-   * THROUGH raw, never pre-worded by the caller (the same rule as
-   * `draftStreamPhase`: a sentence chosen at a call site is a hand-maintained
-   * mirror, and the mutant that picks the wrong variant survives).
+   * ⭐ ONE INPUT for the injected-model rung — `heldReason(state)`, read through
+   * `useAnalysisHoldReason()`, passed THROUGH, never pre-worded by the caller
+   * (the same rule as `draftStreamPhase`: a sentence chosen at a call site is a
+   * hand-maintained mirror, and the mutant that picks the wrong variant
+   * survives).
    *
    * Non-null ⇒ the model exists only client-side while the run routes through
    * CEE, so the engine would answer about a graph it never received (#343) —
-   * AND the value names which ready-made model it is, so the refusal can
-   * describe it. This used to be two parameters (a gating boolean plus a
-   * provenance), which is how `OutputsDock` and `ConversationPanel` came within
-   * one review of describing the SAME state with two different nouns. One
-   * value cannot half-arrive.
+   * AND the value carries the ONE sentence for that hold. This used to be two
+   * parameters (a gating boolean plus a provenance), which is how `OutputsDock`
+   * and `ConversationPanel` came within one review of describing the SAME state
+   * with two different nouns. One value cannot half-arrive.
+   *
+   * ⚠ IT WAS THE RAW PROVENANCE, AND THAT IS WHY IT IS NOW THE REASON (purpose
+   * audit 23 Sep, #1892). With only `'starter' | 'template'` to go on, the rung
+   * could say nothing but "held on a saved example. Re-draft it live" — also
+   * when the hold was the user's own unconfirmed edit, where re-drafting would
+   * replace the change they are trying to settle. The type now admits only the
+   * authority's value, so no caller can hand the rung a provenance and get the
+   * saved-example sentence back over an unresolved edit.
    */
-  analysisHeldOn?: ClientInjectedProvenance | null
+  analysisHeldOn?: AnalysisHoldReason | null
   /**
    * ROADMAP 2.122 — the streamed draft's phase, passed THROUGH rather than
    * pre-derived by the caller.
@@ -832,11 +841,13 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
 
   // 2.5 Model invisible to the analysis engine (see `analysisHeldOn`). The
   // gating answer and the sentence come from the SAME value, so this rung
-  // cannot refuse for one reason and explain itself with another.
+  // cannot refuse for one reason and explain itself with another — and the
+  // sentence is `heldReason`'s, so it names an unresolved user edit when that
+  // is what the hold is waiting on.
   if (analysisHeldOn !== null) {
     return {
       allowed: false,
-      reason: HELD_NOTICE[analysisHeldOn],
+      reason: analysisHeldOn.sentence,
       blockingReasons: ['Model not in Olumi scenario state (client-injected graph)'],
     }
   }

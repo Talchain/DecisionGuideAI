@@ -79,12 +79,13 @@ import {
   subscribePendingFactorEdits,
 } from '../conversation/pendingFactorEdit'
 import {
-  graphCarriesUnconfirmedEdgeEdit,
   subscribePendingEdgeEdits,
+  unconfirmedEdgeEditOnGraph,
 } from '../conversation/pendingEdgeEdit'
 import {
   subscribeUnconfirmedDeletes,
-  unconfirmedDeleteStillOnCanvas,
+  unconfirmedDeleteOnCanvas,
+  type UnconfirmedDeleteSubject,
 } from '../conversation/unconfirmedStructuralDelete'
 import { nodeDataWithRenameRestored } from '../mutations/structuralRename'
 
@@ -94,7 +95,18 @@ let modelEditsOnTheWire = 0
 type Listener = () => void
 const listeners = new Set<Listener>()
 
+/**
+ * Moves whenever a MODULE-LEVEL delivery register moves (the wire mark here,
+ * the pending factor- and link-edit registers, the unconfirmed-delete
+ * register). None is canvas-store state, so a store
+ * selector alone never re-runs when the untyped 500 releases the wire mark and
+ * leaves the value pending — a surface built that way would keep saying "still
+ * being saved" about a turn that has settled. See `subscribeDeliveryRegisters`.
+ */
+let registersVersion = 0
+
 function emit(): void {
+  registersVersion += 1
   for (const l of [...listeners]) l()
 }
 
@@ -146,6 +158,24 @@ export type EditDeliveryHold =
   | 'unconfirmed_value_on_canvas'
   | 'unconfirmed_edge_on_canvas'
   | 'unresolved_structural_edit'
+
+/**
+ * The same hold, with the facts a USER sentence needs: which element, and for
+ * a value, which number was sent.
+ *
+ * ⚠ STILL NO COPY HERE. The cause names stay log vocabulary; the sentence a
+ * person reads is `heldReason`'s (`utils/analysisHeldOnInjectedModel.ts`). This
+ * only stops that sentence having to re-derive WHICH edit is unresolved — a
+ * second derivation of this module's rules is the mirror its header forbids.
+ * `editDeliveryHold` is `editDeliveryHoldDetail(...)?.cause`, so the log line
+ * and the user sentence cannot describe two different holds.
+ */
+export type EditDeliveryHoldDetail =
+  | { readonly cause: 'edit_on_the_wire' | 'edit_queued' | 'structural_edit_queued' }
+  | { readonly cause: 'unresolved_structural_edit'; readonly edit: 'rename' | 'add'; readonly nodeId: string }
+  | { readonly cause: 'unresolved_structural_edit'; readonly edit: 'delete'; readonly removed: UnconfirmedDeleteSubject }
+  | { readonly cause: 'unconfirmed_value_on_canvas'; readonly nodeId: string; readonly sentValue: number }
+  | { readonly cause: 'unconfirmed_edge_on_canvas'; readonly edgeId: string }
 
 function currentValue(data: unknown): unknown {
   const d = (data ?? {}) as Record<string, unknown>
@@ -292,7 +322,10 @@ function unconfirmedAttemptsStillStanding(
 
 const labelOfIntent = (r: Record<string, unknown>) => (r.intent as { label?: unknown } | undefined)?.label
 
-function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
+/** The first unconfirmed structural edit still on the canvas — renames, then adds, then deletes, as before. */
+function unresolvedStructuralEditOnCanvas(
+  state: EditDeliveryState,
+): { edit: 'rename' | 'add'; nodeId: string } | { edit: 'delete'; removed: UnconfirmedDeleteSubject } | null {
   const scenario = state.currentScenarioId ?? null
   const labelOf = (id: unknown): unknown => {
     const node = state.nodes.find((n) => n.id === id)
@@ -305,20 +338,55 @@ function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
   for (const r of renames) {
     if ((r.scenarioId ?? null) !== scenario) continue
     const intent = r.intent as { nodeId?: unknown; label?: unknown }
-    if (labelOf(intent.nodeId) === intent.label) return true
+    // `unconfirmedAttemptsStillStanding` admits only a string node id.
+    if (labelOf(intent.nodeId) === intent.label) return { edit: 'rename', nodeId: intent.nodeId as string }
   }
   // An add's state is the node's existence: any later committed add of it establishes it.
   const adds = unconfirmedAttemptsStillStanding(state.structuralAddLifecycle ?? [], () => true)
   for (const r of adds) {
     if ((r.scenarioId ?? null) !== scenario) continue
     const nodeId = (r.intent as { nodeId?: unknown }).nodeId
-    if (state.nodes.some((n) => n.id === nodeId)) return true
+    if (state.nodes.some((n) => n.id === nodeId)) return { edit: 'add', nodeId: nodeId as string }
   }
   // The delete twin: an ambiguous 500 / transport loss keeps the deletion on
   // the canvas, and the side channel must not make it canonical
   // (`unconfirmedStructuralDelete.ts`; #1892 review residual row "Delete",
   // #1905 residual 1). Scenario-scoped there, read against THIS graph here.
-  return unconfirmedDeleteStillOnCanvas(state)
+  const removed = unconfirmedDeleteOnCanvas(state)
+  if (removed !== null) return { edit: 'delete', removed }
+  return null
+}
+
+/**
+ * Non-null while any Canvas edit is still between the user and the server —
+ * with which element, where the hold is about one. The ONE derivation;
+ * `editDeliveryHold` is its `cause`. Pure over its argument plus the
+ * module-level registers it names (the wire mark, the pending factor- and
+ * link-edit registers, the unconfirmed-delete register).
+ */
+export function editDeliveryHoldDetail(state: EditDeliveryState): EditDeliveryHoldDetail | null {
+  if (modelEditsOnTheWire > 0) return { cause: 'edit_on_the_wire' }
+  if ((state.pendingEmittedEdits ?? 0) > 0) return { cause: 'edit_queued' }
+  if (
+    (state.pendingStructuralDeletes?.length ?? 0) > 0 ||
+    sendableQueuedRenames(state) > 0 ||
+    (state.pendingStructuralAdds?.length ?? 0) > 0 ||
+    (state.pendingStructuralAddEdges?.length ?? 0) > 0
+  ) {
+    return { cause: 'structural_edit_queued' }
+  }
+  const structural = unresolvedStructuralEditOnCanvas(state)
+  if (structural !== null) return { cause: 'unresolved_structural_edit', ...structural }
+  for (const node of state.nodes) {
+    if (typeof node.id !== 'string') continue
+    const pending = pendingFactorEditValue(node.id)
+    if (pending !== null && currentValue(node.data) === pending) {
+      return { cause: 'unconfirmed_value_on_canvas', nodeId: node.id, sentValue: pending }
+    }
+  }
+  const edgeId = unconfirmedEdgeEditOnGraph((state.edges ?? []) as never)
+  if (edgeId !== null) return { cause: 'unconfirmed_edge_on_canvas', edgeId }
+  return null
 }
 
 /**
@@ -326,26 +394,42 @@ function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
  * Pure over its argument plus the two module-level registers it names.
  */
 export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | null {
-  if (modelEditsOnTheWire > 0) return 'edit_on_the_wire'
-  if ((state.pendingEmittedEdits ?? 0) > 0) return 'edit_queued'
-  if (
-    (state.pendingStructuralDeletes?.length ?? 0) > 0 ||
-    sendableQueuedRenames(state) > 0 ||
-    (state.pendingStructuralAdds?.length ?? 0) > 0 ||
-    (state.pendingStructuralAddEdges?.length ?? 0) > 0
-  ) {
-    return 'structural_edit_queued'
+  return editDeliveryHoldDetail(state)?.cause ?? null
+}
+
+/**
+ * Subscribe to the MODULE-LEVEL registers only — the wire mark, the pending
+ * factor- and link-edit registers and the unconfirmed-delete register — never
+ * to the canvas store. (Settling a link edit or recording a delete is not a
+ * store write either.)
+ *
+ * For a surface that already reads the store through a selector and needs to
+ * re-render when a register moves as well. Deliberately store-free: component
+ * specs across this tree replace `useCanvasStore` with a bare selector function,
+ * and a hook that called `.subscribe`/`.getState` on it would crash every one
+ * of them for a reason unrelated to what they test. Pair with
+ * `deliveryRegistersVersion` in `useSyncExternalStore`.
+ */
+export function subscribeDeliveryRegisters(listener: Listener): () => void {
+  listeners.add(listener)
+  const onRegister = () => {
+    registersVersion += 1
+    listener()
   }
-  if (unresolvedStructuralEditOnCanvas(state)) return 'unresolved_structural_edit'
-  for (const node of state.nodes) {
-    if (typeof node.id !== 'string') continue
-    const pending = pendingFactorEditValue(node.id)
-    if (pending !== null && currentValue(node.data) === pending) {
-      return 'unconfirmed_value_on_canvas'
-    }
+  const unsubscribePending = subscribePendingFactorEdits(onRegister)
+  const unsubscribePendingEdges = subscribePendingEdgeEdits(onRegister)
+  const unsubscribeDeletes = subscribeUnconfirmedDeletes(onRegister)
+  return () => {
+    listeners.delete(listener)
+    unsubscribePending()
+    unsubscribePendingEdges()
+    unsubscribeDeletes()
   }
-  if (graphCarriesUnconfirmedEdgeEdit((state.edges ?? []) as never)) return 'unconfirmed_edge_on_canvas'
-  return null
+}
+
+/** A snapshot that changes whenever a module-level delivery register does. */
+export function deliveryRegistersVersion(): number {
+  return registersVersion
 }
 
 function subscribe(listener: Listener): () => void {

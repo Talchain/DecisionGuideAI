@@ -9,7 +9,7 @@ import {
   getRunButtonAriaLabel,
   type CanRunAnalysisParams,
 } from '../canRunAnalysis'
-import { ANALYSIS_HELD_NOTICE, analysisHeldOn } from '../analysisHeldOnInjectedModel'
+import { ANALYSIS_HELD_NOTICE, analysisHeldOn, heldReason, savedExampleHold } from '../analysisHeldOnInjectedModel'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 
 
@@ -442,7 +442,7 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
     // wrong question's answer in place — see `analysisHeldOnInjectedModel.ts`'s
     // header, and `analyseAffordanceTruthfulness.spec.ts` for the pins that
     // now hold the sentence to THIS rung's facts.
-    const result = canRunAnalysis({ ...base, analysisHeldOn: 'starter' })
+    const result = canRunAnalysis({ ...base, analysisHeldOn: savedExampleHold('starter') })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
   })
@@ -453,7 +453,7 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
   })
 
   it('empty canvas still wins over the CEE-visibility blocker (more fundamental reason first)', () => {
-    const result = canRunAnalysis({ ...base, nodeCount: 0, analysisHeldOn: 'starter' })
+    const result = canRunAnalysis({ ...base, nodeCount: 0, analysisHeldOn: savedExampleHold('starter') })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe('Add some nodes to get started')
   })
@@ -476,7 +476,7 @@ describe('analysisHeldOn — the ONE home for the honest-gate predicate', () => 
 
   it('the exported refusal constant IS the sentence the gate emits (one home, no drift)', () => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
-    const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, analysisHeldOn: analysisHeldOn(unregistered(templateNodes)) })
+    const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, analysisHeldOn: heldReason(unregistered(templateNodes)) })
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.template)
   })
 })
