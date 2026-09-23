@@ -771,6 +771,66 @@ export const STRUCTURAL_RENAME_NOTICE = {
 
 export type StructuralRenameNoticeKey = keyof typeof STRUCTURAL_RENAME_NOTICE
 
+/**
+ * ⭐⭐ THE READBACK — what CEE's PERSISTED graph calls this node, read after a
+ * rename reply that carried no committed graph (`not_applied`).
+ *
+ * WHY IT EXISTS (#1884 review, CHANGES_REQUIRED @ `340a4996`): "a 200 reply
+ * without `draft_graph` does not prove that the saved node still has its
+ * previous label." While the whole-graph `graph/register` side channel exists,
+ * it can store the NEW label before CEE answers `expected_label_mismatch` with
+ * no graph (witnessed 22 Sep 21:57Z, 23 Sep 00:14Z). Settling that reply as a
+ * refusal would revert the canvas and say "not saved" while reload shows the
+ * name WAS saved: the false save-status this repair exists to remove.
+ * `lastAuthoritativeGraph` cannot answer it either — it holds ids, not labels.
+ *
+ * BOUND BY IDENTITY: this intent's exact node id, never a label predicate.
+ */
+export type StructuralRenameReadback =
+  /** CEE holds this node, at this label. */
+  | { readonly kind: 'label'; readonly label: string }
+  /** CEE's graph was read and holds NO node with this id. */
+  | { readonly kind: 'absent' }
+  /** No usable graph came back. We know nothing. */
+  | { readonly kind: 'unreadable' }
+
+/** Read one node's label out of a persisted graph (`scenarios.graph`, verbatim). */
+export function readRenameReadback(nodeId: string, graph: unknown): StructuralRenameReadback {
+  if (!graph || typeof graph !== 'object') return { kind: 'unreadable' }
+  const nodes = (graph as { nodes?: unknown }).nodes
+  if (!Array.isArray(nodes)) return { kind: 'unreadable' }
+  const match = nodes.find((n) => (n as { id?: unknown } | null)?.id === nodeId) as
+    | { label?: unknown }
+    | undefined
+  if (match === undefined) return { kind: 'absent' }
+  return typeof match.label === 'string'
+    ? { kind: 'label', label: match.label }
+    : { kind: 'unreadable' }
+}
+
+/**
+ * How a `not_applied` rename settles, given the readback.
+ *   · CEE holds the NEW label → `committed`. It IS saved; saying otherwise is
+ *     the false claim.
+ *   · CEE holds any OTHER label → `refused`, and the canvas shows the model's
+ *     label (usually the previous one; a third name if someone else renamed it).
+ *   · absent / unreadable → `unconfirmed`. Keep the user's typing; never revert
+ *     on a guess.
+ */
+export type NotAppliedRenameSettlement =
+  | { readonly status: 'committed' }
+  | { readonly status: 'refused'; readonly canvasLabel: string }
+  | { readonly status: 'unconfirmed' }
+
+export function settleNotAppliedRename(
+  intent: StructuralRenameIntent,
+  readback: StructuralRenameReadback,
+): NotAppliedRenameSettlement {
+  if (readback.kind !== 'label') return { status: 'unconfirmed' }
+  if (readback.label === intent.label) return { status: 'committed' }
+  return { status: 'refused', canvasLabel: readback.label }
+}
+
 /** What a revert did — reported, never assumed. */
 export type StructuralRenameRevertOutcome =
   /** The previous label (and provenance) are back. */
