@@ -463,9 +463,14 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [],
-  'factor · post · standard': [
-    'Influence', // CAPTION — `METRIC_NOUN.influence`, beside its bar.
-  ],
+  // ⭐ EMPTIED 23 Sep 2026 (D1a, locked Experience Design). The `Influence`
+  // CAPTION row is REPLACED by the driver line, whose only visible words are
+  // `Driver #N of M` — present only where a rank is published and different on
+  // every ranked card by construction — so no invariant run is left at rest.
+  // What the caption used to say is carried by the line's tooltip and
+  // accessible name (both excluded from this census as destinations, see the
+  // header). The Detailed-view `Influence` caption is unchanged, one bucket down.
+  'factor · post · standard': [],
   'factor · post · expert': [
     'Confidence', // CAPTION
     'Influence', // CAPTION
@@ -666,7 +671,9 @@ const ADJUDICATED_POSITIONS: Position[] = [
       + 'census-decided half, one row up.',
     present: byTestId('-win-readout-option-1'),
   },
-  { what: 'factor · the `Influence` metric row', by: 'census', present: byTestId('factor-influence-row') },
+  // ⚠ 23 Sep 2026 (D1a): was "the `Influence` metric row" (`factor-influence-row`),
+  // replaced on the resting card by the driver line.
+  { what: 'factor · the driver line', by: 'census', present: byTestId('factor-driver-line') },
   { what: 'risk · the `Strength` metric row', by: 'census', present: byTestId('risk-strength-row') },
   { what: 'outcome · the `Strength` metric row', by: 'census', present: byTestId('outcome-strength-row') },
   { what: 'option · the not-computed badge', by: 'census', present: byTestId('-not-computed-option-1') },
@@ -798,7 +805,9 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // captions are the runs that MUST be found, and they are the ones whose
     // disappearance would mean the collector had stopped reading cards.
     expect(measured['risk · pre · standard']).toContain('Strength')
-    expect(measured['factor · post · standard']).toContain('Influence')
+    // ⚠ 23 Sep 2026: the factor control moved to the Detailed bucket — the
+    // Standard `Influence` caption was replaced by the driver line (D1a).
+    expect(measured['factor · post · expert']).toContain('Influence')
     expect(measured['option · post · standard']).toContain('Support')
     expect(Object.values(measured).flat().length).toBeGreaterThan(15)
   })

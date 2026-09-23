@@ -156,28 +156,42 @@ afterEach(() => {
   } as never)
 })
 
-describe('factor card, Standard view — the influence row', () => {
-  it('a stale run keeps the figure and prefixes the caption "Last run · "', () => {
+/**
+ * ⚠ RE-POINTED 23 Sep 2026 (D1a): the Standard-view influence row
+ * (`factor-influence-row`, `Relative influence ▬ 62%`) is REPLACED by the
+ * driver line (`factor-driver-line`: `Driver #N of M` + a bar, no percentage at
+ * rest). The Ruling 3 claim these tests pin is unchanged — a stale run keeps
+ * its reading and SAYS which run it belongs to; cannot-confirm is not labelled.
+ * The fuller D1a matrix lives in `FactorNode.driverLineAndTurningPoint.spec.tsx`.
+ */
+describe('factor card, Standard view — the driver line', () => {
+  const barWidth = () =>
+    (screen.getByTestId('factor-driver-bar').firstElementChild as HTMLElement | null)?.style.width
+
+  it('a stale run keeps the bar and opens the line with "Last run · "', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    // FRESH: exactly what shipped before this change.
-    expect(screen.getByTestId('factor-influence-row').textContent).toBe('Relative influence62%')
+    // FRESH, unranked: the bar alone — no rank to name, no figure at rest.
+    expect(screen.getByTestId('factor-driver-line').textContent).toBe('')
+    expect(barWidth()).toBe('max(4px, 62%)')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).toBe('Last run · Relative influence62%')
-    // The accessible name carries the same words the eye gets.
-    expect(row.getAttribute('aria-label')).toMatch(/^Last run · Relative influence: 62%\./)
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).toBe('Last run · ')
+    expect(barWidth()).toBe('max(4px, 62%)')
+    // The accessible name carries the same words the eye gets, and the figure.
+    expect(line.getAttribute('aria-label')).toMatch(/^Last run\. /)
+    expect(line.getAttribute('aria-label')).toContain('At 62% of the strongest factor.')
   })
 
-  it('a fresh RANKED row is unchanged — the label never touches a current result', () => {
+  it('a fresh RANKED line is unlabelled — the label never touches a current result', () => {
     displayMetadata = metadata(1, 5, 1)
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-influence-row').textContent).toBe('Most influentialof 5')
+    expect(screen.getByTestId('factor-driver-line').textContent).toBe('Driver #1 of 5')
   })
 
   it('cannot-confirm is NOT "changed" — no Last-run label (the brief\'s predicate)', () => {
@@ -186,7 +200,7 @@ describe('factor card, Standard view — the influence row', () => {
     })
     renderFactor(UNVALUED)
     expect(semantic()).toBe('cannot_confirm')
-    expect(screen.getByTestId('factor-influence-row').textContent).toBe('Relative influence62%')
+    expect(screen.getByTestId('factor-driver-line').textContent).toBe('')
   })
 })
 

@@ -55,7 +55,7 @@ import {
   selectDriverDisplayModel,
 } from '../driverDisplayModel'
 import { selectDriverPolicyFeed } from '../useResultsSectionData'
-import { NodeMetricRow } from '../../../canvas/nodes/shared/NodeMetricRow'
+import { FactorDriverLine } from '../../../canvas/nodes/shared/FactorDriverLine'
 
 import walkAFixture from '../../../v5/__tests__/fixtures/live-analysis-turn-walkA-2026-08-04.json'
 
@@ -200,27 +200,32 @@ describe('the canvas influence row renders the disclosure it is given', () => {
    *
    * The PROPERTY this block exists to pin is unchanged and is not weakened: the
    * structural note must reach BOTH channels — the hover/focus tooltip and an
-   * accessible name. The `title` prop now supplies positioned tooltip content,
-   * not a native browser title. `FactorNode` is the caller: it mounts exactly
-   * the shape below, `title={influenceExplanation(…)}` and
-   * `phrase={influenceBarAriaLabel(…)}`, with `testId="factor-influence-row"`.
+   * accessible name.
    *
-   * Bound by IDENTITY: the row is found by that test id, so another metric row
-   * on the same card (an option's "Ahead", a risk's "strength") cannot satisfy
-   * the query.
+   * ⚠ RE-POINTED AGAIN, 23 Sep 2026, FOR THE SAME TRAP-3b REASON. This block
+   * then mounted `<NodeMetricRow testId="factor-influence-row" …>`, the shape
+   * `FactorNode` rendered in the Standard view. D1a (locked Experience Design)
+   * REPLACED that row with the driver line, so `FactorNode` no longer mounts it
+   * and a guard bound to it would be asserting about nothing the product
+   * renders. `FactorNode` now mounts exactly the shape below:
+   * `basisExplanation={influenceExplanation(…)}` (the tooltip) and
+   * `basisAccessibleName={influenceBarAriaLabel(…)}` (the accessible name),
+   * with the default `testId="factor-driver-line"`.
+   *
+   * Bound by IDENTITY: the line is found by that test id, so another metric row
+   * on the same card (an option's "Support", a risk's "Strength") cannot
+   * satisfy the query.
    */
-  const influenceRow = () => screen.getByTestId('factor-influence-row')
+  const influenceRow = () => screen.getByTestId('factor-driver-line')
 
   function renderInfluenceRow(importanceBasis?: string | null) {
     render(
-      <NodeMetricRow
-        label="Influence"
+      <FactorDriverLine
+        rank={null}
+        fromLastRun={false}
         value={0.62}
-        formatted="62%"
-        fillClass="bg-info"
-        testId="factor-influence-row"
-        title={influenceExplanation('influence_score', importanceBasis)}
-        phrase={influenceBarAriaLabel('influence_score', importanceBasis)}
+        basisExplanation={influenceExplanation('influence_score', importanceBasis)}
+        basisAccessibleName={influenceBarAriaLabel('influence_score', importanceBasis)}
       />,
     )
   }

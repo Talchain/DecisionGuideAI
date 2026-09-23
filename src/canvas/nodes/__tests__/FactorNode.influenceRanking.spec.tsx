@@ -177,63 +177,58 @@ const RANKED_NAME_LEADER =
 
 beforeEach(() => { vi.clearAllMocks() })
 
-describe('Standard view — the shared metric row states the ranking', () => {
-  it('renders the ranked caption and the set size, and NOT a bare percentage', () => {
+/**
+ * ⚠ RE-POINTED 23 Sep 2026 (D1a, locked Experience Design): the Standard-view
+ * `NodeMetricRow` (`factor-influence-row`) is REPLACED by the driver line
+ * (`factor-driver-line`) — `Driver #N of M` where a rank is published, a bar
+ * from the same fraction, and NO percentage at rest. The claims this block
+ * exists for are unchanged and asserted by identity: the rank is stated, the
+ * set size rides with it, the bare figure is off the face of the card, and the
+ * figure survives in the disclosure (NO-HIDING).
+ */
+describe('Standard view — the driver line states the ranking', () => {
+  const RANKED_LINE_NAME_LEADER =
+    'Driver #1 of 5. Relative model sensitivity in this analysis, not an absolute causal percentage. At 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%'
+
+  it('renders the rank and the set size, and NOT a bare percentage', () => {
     setStore('standard')
     setMetadata(1, 5, 1)
     renderFactor()
-    /* ⚠ BOUND BY TEST ID, NOT BY TEXT. In Standard view a top-three factor
-       mounts `layer2Content` a SECOND time inside the hover popover (mocked
-       transparent here), so the detailed DataBar's caption is also in the
-       document. A `getByText('Most influential')` would be ambiguous — and
-       worse, could pass while pointed at the wrong one of the two mounts
-       (CLAUDE.md trap 19: bind by identity, never by a predicate another
-       object satisfies). */
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).toContain('Most influential')
-    expect(row.textContent).toContain('of 5')
-    /* ⛔ THE DELETE-MUTANT ASSERTION. Remove `influenceRankReadout` from this
-       call site and the row falls back to `Relative influence` / `100%`, which
-       these two REJECT. Without them the pair above could pass on a row that
-       also still printed the percentage — i.e. on a change that did nothing. */
-    expect(row.textContent).not.toContain('100%')
-    expect(row.textContent).not.toContain('Relative influence')
+    /* ⚠ BOUND BY TEST ID, NOT BY TEXT — the Detailed-view row is also mounted
+       inside the (mocked-transparent) hover popover (CLAUDE.md trap 19). */
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).toBe('Driver #1 of 5')
+    /* ⛔ THE DELETE-MUTANT ASSERTION: a line that also printed the figure, or
+       fell back to the basis noun, REDs here. */
+    expect(line.textContent).not.toContain('100%')
+    expect(line.textContent).not.toContain('Relative influence')
   })
 
-  it('the row owns its whole accessible name — no colon between a phrase and its own tail', () => {
+  it('the line owns its whole accessible name, opening with the visible words', () => {
     setStore('standard')
     setMetadata(1, 5, 1)
     renderFactor()
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row).toHaveAccessibleName(RANKED_NAME_LEADER)
-    /* ⚠ THE NEGATIVE CONTROL FOR THE `accessibleName` OVERRIDE ITSELF.
-       `NodeMetricRow`'s default composition is `${label}: ${formatted}.
-       ${phrase}`, which would announce "Most influential: of 5." — the exact
-       mangling the override exists to prevent. Delete the `accessibleName` prop
-       and this REDs; the assertion above alone would too, but this names the
-       defect so the next reader knows WHAT broke. */
-    expect(row.getAttribute('aria-label')).not.toContain('Most influential: of 5')
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line).toHaveAccessibleName(RANKED_LINE_NAME_LEADER)
+    expect(line.getAttribute('aria-label')).not.toContain('Most influential: of 5')
   })
 
   it('the percentage is DEMOTED, not deleted — it survives in the disclosure', () => {
     setStore('standard')
     setMetadata(1, 5, 1)
     renderFactor()
-    const row = screen.getByTestId('factor-influence-row')
-    // The NO-HIDING half of the claim. Taking the figure off the face of the
-    // card is the change; taking it away from a reader who wants it would be
-    // hiding a finding, which this estate forbids.
-    expect(row).toHaveAccessibleName(/100% of the strongest factor/)
+    const line = screen.getByTestId('factor-driver-line')
+    // The NO-HIDING half of the claim.
+    expect(line).toHaveAccessibleName(/100% of the strongest factor/)
   })
 
-  it('rank 2 takes the ordinal — the leader is not the only case that renders', () => {
+  it('rank 2 is named too — the leader is not the only case that renders', () => {
     setStore('standard')
     setMetadata(2, 5, 0.62)
     renderFactor()
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).toContain('2nd most influential')
-    expect(row.textContent).toContain('of 5')
-    expect(row.textContent).not.toContain('62%')
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).toBe('Driver #2 of 5')
+    expect(line.textContent).not.toContain('62%')
   })
 })
 
@@ -291,17 +286,22 @@ describe('Detailed view — the DataBar row states the same ranking', () => {
  * model whose result the product cannot confirm is about the current graph (see
  * the currency describe at the foot of this file).
  */
-describe('no denominator — both views render exactly what they rendered before', () => {
-  it('Standard view falls back to the basis noun and the percentage', () => {
+/**
+ * ⚠ 23 Sep 2026 (D1a): the Standard view's fail-closed arm is now the driver
+ * line's BAR ALONE (no rank, no figure at rest); the Detailed view still
+ * renders exactly what it rendered before.
+ */
+describe('no denominator — no rank is named; Standard keeps the bar, Detailed keeps the figure', () => {
+  it('Standard view names no rank and keeps the bar, with the figure in the disclosure', () => {
     setStore('standard')
     setMetadata(1, null, 1)
     renderFactor()
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).toContain('Relative influence')
-    expect(row.textContent).toContain('100%')
-    expect(row.textContent).not.toContain('Most influential')
-    expect(row).toHaveAccessibleName(
-      'Relative influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).toBe('')
+    expect(line.textContent).not.toContain('Most influential')
+    expect(screen.getByTestId('factor-driver-bar')).toBeTruthy()
+    expect(line).toHaveAccessibleName(
+      'Relative model sensitivity in this analysis, not an absolute causal percentage. At 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%',
     )
   })
 
@@ -321,18 +321,18 @@ describe('no denominator — both views render exactly what they rendered before
     setStore('standard')
     setMetadata(null, 5, 1)
     renderFactor()
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).toContain('Relative influence')
-    expect(row.textContent).not.toContain('of 5')
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).not.toContain('#')
+    expect(line.textContent).not.toContain('of 5')
   })
 
   it('a set of one is a maximum, not a ranking', () => {
     setStore('standard')
     setMetadata(1, 1, 1)
     renderFactor()
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).toContain('Relative influence')
-    expect(row.textContent).not.toContain('Most influential')
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).not.toContain('#')
+    expect(line.textContent).not.toContain('of 1')
   })
 })
 
@@ -359,7 +359,15 @@ describe('no denominator — both views render exactly what they rendered before
  * separately — see `useNodeDisplayMetadata.influenceSetSize.spec.ts`, which
  * pins the restored implication.
  */
-describe('the ranked claim is withheld when the result is not confirmably current', () => {
+/**
+ * ⭐⭐ 23 Sep 2026 — SPLIT BY WHAT THE COMPOSED VERDICT KNOWS. Paul accepted Q2,
+ * 22 Sep: keep the figure and the rank, labelled 'Last run ·' when the model
+ * has changed. So a model KNOWN to have changed since the run keeps its rank,
+ * labelled — the countable claim is then a claim about THAT run, which the
+ * reader can no longer refute by counting today's cards. A result whose
+ * currency CANNOT be confirmed (a restored run) still publishes no rank.
+ */
+describe('the ranked claim: withheld when currency cannot be confirmed, labelled when the model has changed', () => {
   it('THE DEFECT THIS ROUND CLOSES: a RESTORED run publishes no denominator', () => {
     // The exact slice both restore actions write: an 'unknown' verdict whose
     // reason is `hydrated_without_capture`, with the dirty overlay CLEARED.
@@ -372,19 +380,18 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).not.toContain('Most influential')
-    expect(row.textContent).not.toContain('of 5')
-    // ⚠ AND IT FALLS BACK RATHER THAN GOING BLANK. Withholding reuses the
-    // existing fail-closed arm, so the row renders what it rendered before the
-    // ranked readout existed — never a third, ranked-but-uncountable variant.
-    expect(row.textContent).toContain('Relative influence')
-    expect(row.textContent).toContain('100%')
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).not.toContain('#1')
+    expect(line.textContent).not.toContain('of 5')
+    // ⚠ AND IT FALLS BACK RATHER THAN GOING BLANK: the fail-closed arm keeps
+    // the bar (D1a) — never a third, ranked-but-uncountable variant.
+    expect(screen.getByTestId('factor-driver-bar')).toBeTruthy()
   })
 
-  it('a local analysis-affecting edit withholds it too', () => {
+  it('a local analysis-affecting edit KEEPS the rank, labelled as the last run\'s', () => {
     // The dirty overlay over a retained CEE 'fresh' — what an ordinary
     // in-canvas add produces via `invalidateAnalysisReady` (`store.ts:2890`).
+    // ⚠ WAS "withholds it too" until 23 Sep 2026 (Paul accepted Q2, 22 Sep).
     setStore('standard', {
       analysisFreshness: { freshness: 'fresh' },
       analysisFreshnessDirty: true,
@@ -392,9 +399,9 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).not.toContain('of 5')
-    expect(row.textContent).toContain('100%')
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).toBe('Last run · Driver #1 of 5')
+    expect(line.textContent).not.toContain('100%')
   })
 
   it('CONTROL: the same rank and the same set size on a current result DO publish', () => {
@@ -405,12 +412,11 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    const row = screen.getByTestId('factor-influence-row')
-    expect(row.textContent).toContain('Most influential')
-    expect(row.textContent).toContain('of 5')
+    const line = screen.getByTestId('factor-driver-line')
+    expect(line.textContent).toBe('Driver #1 of 5')
   })
 
-  it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {
+  it('the Detailed view LABELS on the same signal — the two views cannot disagree', () => {
     // One gate, one local, both renders. Without this the fix could be a
     // per-view accident, which is the defect this whole file was written for.
     setStore('expert', {
@@ -420,13 +426,13 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    // A CEE-stated 'stale' composes to 'changed', so the withheld-rank row is
-    // also LABELLED as the last run's (Ruling 3, ROADMAP 2.651 — labelled, not
-    // withheld; pinned in `staleRun.labelsLastRun.spec.tsx`). The rank
-    // withholding this test is about is unchanged.
-    const group = screen.getByRole('group', { name: 'Last run · Relative influence' })
-    expect(group.textContent).not.toContain('Most influential')
-    expect(group.textContent).not.toContain('of 5')
-    expect(group.textContent).toContain('100%')
+    // A CEE-stated 'stale' composes to 'changed'. ⚠ 23 Sep 2026: the rank is
+    // now KEPT on 'changed' and labelled as the last run's (Ruling 3; Paul
+    // accepted Q2, 22 Sep) — in this view as in the Standard driver line, from
+    // the one `influenceRank` local, so the two views still cannot disagree.
+    const group = screen.getByRole('group', { name: 'Last run · Most influential of 5 factors compared in this model' })
+    expect(group.textContent).toContain('Last run · Most influential')
+    expect(group.textContent).toContain('of 5')
+    expect(group.textContent).not.toContain('100%')
   })
 })

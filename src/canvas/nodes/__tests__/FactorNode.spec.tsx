@@ -797,59 +797,37 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
-    // ⚠ THE SURFACE MOVED, THE CLAIM DID NOT (1 Sep 2026). Standard-view
-    // influence is now the shared `NodeMetricRow` rather than a MetricPills
-    // pill, so this binds to the row — but it asserts exactly what it asserted
-    // before, and deliberately so: the whole risk of that conversion was moving
-    // a per-set-normalised figure onto a MORE prominent surface while dropping
-    // the sentence that stops it being read as an absolute. This test is the
-    // thing that would have caught that, so it is re-pointed, never relaxed.
-    // Both channels stay pinned: the opened tooltip and the graphic's
-    // accessible name, now including the value as well as its scale.
-    const row = screen.getByTestId('factor-influence-row')
+    // ⚠ THE SURFACE MOVED, THE CLAIM DID NOT — TWICE NOW. 1 Sep 2026: pill →
+    // shared `NodeMetricRow`. 23 Sep 2026 (D1a, locked Experience Design):
+    // `NodeMetricRow` → the driver line (`factor-driver-line`: `Driver #N of M`
+    // + a bar, no percentage at rest). The risk this test exists for is
+    // unchanged — a per-set-normalised figure must never reach the card
+    // stripped of the sentence that stops it being read as an absolute — so it
+    // is re-pointed, never relaxed. Both channels stay pinned: the opened
+    // tooltip and the accessible name, each carrying the figure AND its scale.
+    const row = screen.getByTestId('factor-driver-line')
     fireEvent.mouseEnter(row)
-    // ⭐ THE DISCLOSURE IS STRICTLY LONGER THAN IT WAS: the ranked sentence is
-    // PREPENDED and the scale sentence is carried verbatim, so this still pins
-    // every word the pre-ranking assertion pinned.
+    // ⭐ THE SCALE SENTENCE IS STILL CARRIED VERBATIM, after the locked design's
+    // own disclosure and the relative figure.
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Most influential of 5 factors compared in this model, at 100% of the strongest factor. Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+      'Relative model sensitivity in this analysis, not an absolute causal percentage. At 100% of the strongest factor. Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
-    // The visible row is now a RANKING, which is the claim a reader can push
-    // back on. Bound to the two columns by their exact strings.
-    expect(row.textContent).toContain('Most influential')
-    expect(row.textContent).toContain('of 5')
-    // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is
-    // the assertion that would RED if either call site reverted to the
-    // pre-ranking render. Without it the two `toContain`s above could both pass
-    // on a row that ALSO still printed `100%`.
+    // The visible line is the RANK, which is the claim a reader can push back
+    // on — bound by its exact string.
+    expect(row.textContent).toBe('Driver #1 of 5')
+    // ⛔ AND NO PERCENTAGE ON THE FACE OF THE CARD — this REDs if the line ever
+    // prints the figure at rest again.
     expect(row.textContent).not.toContain('100%')
     expect(row.textContent).not.toContain('Relative influence')
-    // ⚠ THE **BAR** PHRASE, NOT THE PILL'S — and that is a deliberate upgrade,
-    // not a relaxation. `influenceScaleCopy` carries both spellings and the row
-    // is a bar, so it now reads the SAME string the Detailed-view Influence bar
-    // reads. Before this, one surface said "Relative influence 100%, scaled
-    // against…" and the other said "Influence, relative to the strongest…" for
-    // one number on one card. Both still come from that one module, so neither
-    // can drift; they now also agree with each other.
+    // ⚠ THE **BAR** PHRASE in the accessible name, as before: the SAME string
+    // the Detailed-view influence bar announces, so one number is not described
+    // two ways one view apart.
     expect(row).toHaveAccessibleName(
-      // ⚠ THE ROW NOW OWNS ITS WHOLE ACCESSIBLE NAME (`NodeMetricRow`'s
-      // `accessibleName` override), because the default composition
-      // `${label}: ${formatted}. ${phrase}` would announce "Most influential:
-      // of 5." — a colon between a phrase and its own tail. Pinned verbatim so
-      // a change to either channel has to come back here and be argued.
-      //
-      // ⭐⭐ AND THE PERCENTAGE IS HERE, WHICH IS WHY REMOVING IT FROM THE FACE
-      // OF THE CARD IS A DEMOTION AND NOT A DELETION. This assertion is the
-      // NO-HIDING half of the claim: a reader who wants the figure still gets
-      // it, stated WITH the scale that makes it meaningful. If a later change
-      // drops the percentage from the disclosure as well, this REDs — which is
-      // the only thing standing between "demoted" and "hidden a finding".
-      //
-      // ⚠ CONTAINMENT, VISIBLE AND DERIVABLE: this name OPENS with the visible
-      // caption and contains the visible figure string. The general invariant
-      // is guarded in `influenceRankReadout.spec.ts`; what is pinned here is
-      // that the ROW actually publishes it.
-      'Most influential of 5 factors compared in this model, at 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%',
+      // ⭐⭐ THE PERCENTAGE IS HERE, WHICH IS WHY REMOVING IT FROM THE FACE OF
+      // THE CARD IS A DEMOTION AND NOT A DELETION — the NO-HIDING half of the
+      // claim. If a later change drops it from the disclosure as well, this
+      // REDs. The name OPENS with the visible words (Label in Name).
+      'Driver #1 of 5. Relative model sensitivity in this analysis, not an absolute causal percentage. At 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%',
     )
   })
 
@@ -864,11 +842,17 @@ describe('FactorNode', () => {
    *
    * ⚠ THIS ARM IS REACHABLE ON THE DEPLOYED CARD, NOT A LEGACY SHIM. The
    * denominator is withheld whenever the rank is (a tie, or below the badged
-   * depth) AND whenever the graph has been edited since the last run. So every
-   * factor ranked 4th or lower, every factor on a tied set, and EVERY factor on
-   * a model whose graph has moved renders exactly this.
+   * depth) AND whenever the result's currency cannot be confirmed. So every
+   * factor ranked 4th or lower, every factor on a tied set, and every factor on
+   * a cannot-confirm or never-run model renders exactly this. (⚠ 23 Sep 2026:
+   * a model KNOWN to have changed since the run no longer lands here — it keeps
+   * the rank, labelled `Last run · ` — Paul accepted Q2, 22 Sep.)
+   *
+   * ⚠ 23 Sep 2026 (D1a): the at-rest render of this arm is now the driver
+   * line's BAR ALONE; the pre-ranking caption and printed figure left the face
+   * of the card by design. What is pinned verbatim is the disclosure.
    */
-  it('FAIL-CLOSED: with no denominator the row renders the pre-ranking caption, unchanged', async () => {
+  it('FAIL-CLOSED: with no denominator the driver line names no rank, and the disclosure is intact', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -911,18 +895,21 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
-    const row = screen.getByTestId('factor-influence-row')
+    // ⚠ RE-POINTED 23 Sep 2026 (D1a). With no denominator no rank is named, and
+    // the at-rest line is now the BAR ALONE — the pre-ranking caption and its
+    // printed `100%` are gone from the face of the card, by design. What this
+    // twin still pins, character for character, is the disclosure on the
+    // unranked arm: the scale sentence and the figure, on both channels.
+    const row = screen.getByTestId('factor-driver-line')
     fireEvent.mouseEnter(row)
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+      'Relative model sensitivity in this analysis, not an absolute causal percentage. At 100% of the strongest factor. Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
-    expect(row.textContent).toContain('Relative influence')
-    expect(row.textContent).toContain('100%')
-    // NON-VACUITY: prove this really is the OTHER arm, not the ranked one
-    // rendering something that happens to contain the old words.
-    expect(row.textContent).not.toContain('Most influential')
+    // NON-VACUITY: prove this really is the UNRANKED arm.
+    expect(row.textContent).toBe('')
+    expect(row.textContent).not.toContain('#')
     expect(row).toHaveAccessibleName(
-      'Relative influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
+      'Relative model sensitivity in this analysis, not an absolute causal percentage. At 100% of the strongest factor. Influence, relative to the strongest factor. The top driver always shows 100%',
     )
   })
 
@@ -983,9 +970,13 @@ describe('FactorNode', () => {
       // different types is comparing the same shape. Confidence stays a pill on
       // purpose: a second row would add a line to the densest view and put two
       // numbers at equal weight, which says neither is the headline.
-      const row = screen.getByTestId('factor-influence-row')
-      expect(row.textContent).toContain('Relative influence')
-      expect(row.textContent).toContain('80%')
+      // ⚠ RE-POINTED 23 Sep 2026 (D1a): influence at rest is the driver line
+      // — a bar, and here no rank (the fixture is on the fail-closed arm) — so
+      // the headline is still the bar and confidence is still the pill. The
+      // figure is on the line's disclosure, not its face.
+      const row = screen.getByTestId('factor-driver-line')
+      expect(row.textContent).not.toContain('80%')
+      expect(row).toHaveAccessibleName(/At 80% of the strongest factor\./)
       // The pill form of INFLUENCE is gone — asserted by its single-text-node
       // spelling, which the row never produces (the row renders the label and
       // the value as separate nodes).

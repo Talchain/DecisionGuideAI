@@ -348,3 +348,34 @@ describe('(g) the Detailed view keeps today\'s influence treatment', () => {
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()
   })
 })
+
+/**
+ * ⚠ THE CROSS-RUNG CONSEQUENCE, PINNED WHERE IT IS CAUSED. `BaseNode`'s reduced
+ * line reads the same `useInfluenceRank` owner, so on 'changed' it now keeps
+ * the rank too — already prefixed by #1891's `influenceFromLastRun`. Its WORDS
+ * are unchanged (`Most influential · of 5`); only when it may speak moved.
+ */
+describe('below the legibility floor — the reduced line follows the same rank licence', () => {
+  it('"changed" keeps the rank on the reduced line, labelled "Last run · "', () => {
+    displayMetadata = metadata(1, 5, 1)
+    seedCompletedRun(PLAIN, { lodRung: 'line' })
+    renderFactor(PLAIN)
+    expect(semantic()).toBe('current')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Most influential · of 5')
+
+    editTheModel()
+    expect(semantic()).toBe('changed')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Most influential · of 5')
+  })
+
+  it('CONTROL — "cannot_confirm" names no rank on the reduced line', () => {
+    displayMetadata = metadata(1, 5, 1)
+    seedCompletedRun(PLAIN, {
+      lodRung: 'line',
+      analysisFreshness: { ...FRESH_VERDICT, freshness: 'unknown', freshnessReason: 'cee_unknown' },
+    })
+    renderFactor(PLAIN)
+    expect(semantic()).toBe('cannot_confirm')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Influence 100%')
+  })
+})
