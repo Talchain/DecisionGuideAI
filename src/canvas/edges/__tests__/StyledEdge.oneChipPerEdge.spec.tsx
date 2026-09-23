@@ -149,8 +149,10 @@ describe('StyledEdge — one placed chip per edge', () => {
     expect(tag, 'the fragility row did not render').not.toBeNull()
     // It lives INSIDE the placed chip — not as a free-floating sibling.
     expect(chip(container)!.contains(tag!)).toBe(true)
-    // Verbatim, unchanged copy.
-    expect(tag!.textContent).toContain('Sensitive · 49%')
+    // ⭐ 23 Sep 2026: the row is now the DISCREET cue (Experience Design's
+    // locked grammar) — it paints no figure; the sentence rides its name.
+    expect(tag!.textContent ?? '').not.toMatch(/\d/)
+    expect(tag!.getAttribute('aria-label')).toContain('49% chance the result flips')
     // …and no strength row, because this edge is not in the persistent set.
     expect(strengthText(container)).toBeNull()
   })
@@ -165,7 +167,7 @@ describe('StyledEdge — one placed chip per edge', () => {
     expect(el.contains(strengthText(container)!)).toBe(true)
     expect(el.contains(fragileTag(container)!)).toBe(true)
     expect(strengthText(container)!.textContent).toContain('boost')
-    expect(fragileTag(container)!.textContent).toContain('Sensitive · 49%')
+    expect(fragileTag(container)!.getAttribute('aria-label')).toContain('49% chance the result flips')
   })
 
   it('THE DELETED OFFSET: no element in the tree is transformed to labelX + 30', () => {

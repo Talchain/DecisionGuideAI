@@ -72,7 +72,14 @@ import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
-import { PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } from '../ui/truncation'
+import { selectLodBodyHidden } from '../utils/zoomLegibility'
+import {
+  fragileEdgeSentence,
+  fragilePopoverLine,
+  DIRECTION_DISPUTED_SENTENCE,
+  directionInUseSentence,
+  linkStrengthCaption,
+} from './connectorCopy'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -209,7 +216,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode, isLodBodyHidden } = useCanvasStore(
     useShallow(s => ({
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
@@ -224,6 +231,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // store doubles without the slice stay safe.
       isSelectionDimmed: s.dimmedEdgeIds?.has(edgeIdKey) === true,
       viewMode: s.viewMode,
+      // The far rung of the semantic-zoom ladder, read through THE shared
+      // predicate the cards blank their bodies on (`selectLodBodyHidden`), so
+      // the edge's exception cue and the cards agree on what "readable zoom"
+      // is. A primitive boolean (React #185), and undefined-safe: a store
+      // double with no rung slice reads as ORDINARY, never as far.
+      isLodBodyHidden: selectLodBodyHidden(s),
     })),
   )
   const isResultsMode = resultsStatus === 'complete'
@@ -312,15 +325,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isFragileEdge, report, id, source, target])
 
   /**
-   * The fragility sentence — ONE owner, two readers (the row's own `title`
-   * and the chip container's composed one), so the two cannot drift apart.
+   * The fragility sentence — ONE owner (`connectorCopy.fragileEdgeSentence`,
+   * moved there verbatim), three readers here: the cue's accessible name, the
+   * cue's `title`, and the chip container's composed title and name. So the
+   * figure is never stated without its noun on any of them.
    * Presence-branched on a MEASURED switch probability: absent means NOT
    * COMPUTED, and `marginal_switch_probability` is a different Monte Carlo,
    * never a fallback (pinned by StyledEdge.fragilePresence.spec).
    */
-  const fragileSentence = fragileEdgeSwitchProb !== null
-    ? `Sensitive assumption: ${Math.round(fragileEdgeSwitchProb * 100)}% chance the result flips if this relationship changes`
-    : 'Sensitive assumption: outcome may flip if this relationship changes'
+  const fragileSentence = fragileEdgeSentence(fragileEdgeSwitchProb)
 
   /**
    * Every edge whose chip will carry a fragility ROW, graph-wide.
@@ -477,9 +490,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // key teaching people to read it. Width is now a total order that the reader
   // can follow in one look: unset < weak < moderate < strong. See
   // `graphDisplayCalculations.UNSET_EDGE_STROKE_WIDTH` for why the fix lands on
-  // width rather than on a dash (dash is spent three times over, and
-  // `resolveEdgeDash`'s first-match precedence would hide a fourth rule on
-  // exactly the edges most in question).
+  // width rather than on a dash (dash belongs to existence certainty — since
+  // 23 Sep 2026 to existence ALONE, by the locked connector grammar).
   //
   // Colour still carries the "no verdict" claim in the DEFAULT view
   // (`computeDirectionStroke` returns neutral on `!show`) — but NOT in the
@@ -516,8 +528,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    *
    * ⛔ AND NOT A DASH, A COLOUR, A WIDTH OR AN OPACITY. Every geometric channel
    * on this path is already claimed by a reasoned rule — polarity
-   * (`EDGE_STROKE_RULES`), existence certainty and contest
-   * (`EDGE_DASH_RULES`), magnitude (`weightMagnitudeToStrokeWidth`), lens and
+   * (`EDGE_STROKE_RULES`), existence certainty and nothing else
+   * (`EDGE_DASH_RULES`, 23 Sep 2026), magnitude (`weightMagnitudeToStrokeWidth`), lens and
    * selection (the `opacity` note below). Two of them are fenced by a standing
    * ruling: `EDGE_DASH_RULES` removed `pre_run_incomplete` BECAUSE a marker
    * keyed on a predicate that is true of every edge on a fresh draft marks
@@ -604,10 +616,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeLikelihood]
   )
 
-  // Contested edge state — reduced to four named facts by the one authority
-  // (`edgePresentation.readContestedState`), which also owns the
-  // divergence-scaled dash. The gate itself is unchanged: status contested AND
-  // user_action pending AND a divergence actually supplied.
+  // AI-review disagreement state — reduced to two named facts by the one
+  // authority (`edgePresentation.readContestedState`). The gate itself is
+  // unchanged: status contested AND user_action pending AND a divergence
+  // actually supplied. Since 23 Sep 2026 (the locked connector grammar) it
+  // reaches the line ONLY as the sign-dispute orange and never sets the dash;
+  // the hover reads it too, so a disputed sign is not stated there as fact.
   const validation = edgeData?.validation
   const contested = useMemo(() => readContestedState(validation), [validation])
 
@@ -740,7 +754,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    *
    * Gated on `strengthUnconfirmed` alone rather than `showLabel && …`: this
    * name has exactly one consumer and that consumer already requires
-   * `showLabel` (`aria-label={showLabel ? ariaLabel : fragileSentence}`).
+   * `showLabel` (the chip's `aria-label`, which appends the fragility sentence
+   * when the cue shares the chip).
    */
   /**
    * Can a double-click here actually change the model?
@@ -1138,6 +1153,29 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const showFragileRow =
     (viewMode !== 'standard' ? isFragileEdge : isTopFragileEdge) && !isStructuralEdge
 
+  /**
+   * ⭐ WHETHER THE CUE IS PAINTED — a different question from whether the edge
+   * is a MEMBER (`showFragileRow`), and kept separate on purpose.
+   *
+   * Experience Design, 23 Sep 2026: fragility is a DISCREET EXCEPTION CUE, and
+   * the spec's §5 "Exception markers" allows one "at readable zoom" only. The
+   * far `line` rung is where the ladder itself says card text would paint below
+   * the canvas floor (`lodBodyHiddenAt` — the cards blank their bodies there),
+   * and a 12px triangle beside it would paint as a speck that says nothing. So
+   * the cue is not painted at `line`. The fact is not lost: the hover still
+   * names it ("NN% flip risk"), and zooming in brings the cue back.
+   *
+   * ⚠ MEMBERSHIP, AND THEREFORE PLACEMENT, DO NOT READ THE RUNG. The placement
+   * pass (`isPersistentChipEdge`, `fragileLabelIds`) still clears this row's box
+   * at every rung, so crossing the rung never moves a neighbouring chip — the
+   * only zoom behaviour this adds is the cue's absence at `line`. No new
+   * threshold: `line` is the ladder's own rung, written by `LodSync`.
+   *
+   * The BUDGET is unchanged and is not re-decided here: every sensitive
+   * connection in Detailed view, the single top one in Standard (E4).
+   */
+  const paintFragileCue = showFragileRow && !isLodBodyHidden
+
   const isPersistentChipEdge = isTopStrengthEdge || showFragileRow
 
   // E3 part 2 (C2): subscribe to node geometry so a label re-dodges when ANY
@@ -1253,7 +1291,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     showEdgeHint: Boolean(showEdgeHint),
   })
 
-  const showChip = showLabel || showFragileRow
+  const showChip = showLabel || paintFragileCue
 
   /**
    * The word beside the glyph. Where a PERSISTENT strength row is on screen,
@@ -1596,7 +1634,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         />
       )}
       {/* ⭐ THE DIRECTION MARK. One `<marker>` per marked edge, and the reason is
-          COLOUR: stroke colour is decided by a seven-rule ordered precedence
+          COLOUR: stroke colour is decided by an ordered rule precedence
           (`EDGE_STROKE_RULES`) whose outputs include a `color-mix(…)`, two
           `var(…)` tokens and the polarity stroke. A single shared `<defs>` entry
           cannot know which rule won, so it would be a second copy of a decision
@@ -1774,7 +1812,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             if (isAnalysisFragileEdge && !isStructuralEdge)
               // R6: the fragility halo moves off the warning hue with the
               // fragility chips it accompanies — under the DEFAULT lens, orange
-              // on an edge means contested. (The evidence LENS keeps its own
+              // on an edge means Olumi's two review passes disagree about its
+              // SIGN, and nothing else (23 Sep 2026). (The evidence LENS keeps its own
               // orange for 'assumed': a lens is an explicit alternative
               // encoding with its own key, not the default vocabulary.)
               shadows.push('drop-shadow(0 0 4px var(--semantic-info, #3b82f6))')
@@ -2043,7 +2082,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // placed by the resolver. Selected as ONE class rather than
               // appended after another border colour: Tailwind resolves by
               // stylesheet order, not by the order classes appear here.
-              showFragileRow
+              paintFragileCue
                 ? 'border-info/30'
                 : isDark
                   ? 'border-gray-600'
@@ -2051,7 +2090,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             } ${hasSuggestion ? 'ring-2 ring-info ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
             role="note"
             data-testid="edge-influence-label"
-            aria-label={showLabel ? ariaLabel : fragileSentence}
+            // ⭐ THE CUE IS NAMED ON THE ASSISTIVE CHANNEL WHEN IT SHARES A CHIP.
+            // `aria-label` REPLACES descendant text, so on a chip carrying BOTH
+            // rows the fragility row was announced NOWHERE — the gap the `est.`
+            // marker hit before it (see `ariaLabel` above). One sentence, one
+            // owner, both channels.
+            aria-label={
+              showLabel
+                ? `${ariaLabel}${paintFragileCue ? `. ${fragileSentence}` : ''}`
+                : fragileSentence
+            }
             title={(() => {
               // ⭐ CANVAS-BACKLOG S1 — THE SENTENCE THE PLATE CUTS OFF LIVES HERE NOW.
               //
@@ -2095,7 +2143,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 // carries what it means. Derived from `ESTIMATE_SUBJECT_TITLE`,
                 // never re-typed — the cards say this in exactly one place.
                 ...(showLabel && strengthUnconfirmed ? [ESTIMATE_SUBJECT_TITLE.strength] : []),
-                ...(showFragileRow ? [fragileSentence] : []),
+                ...(paintFragileCue ? [fragileSentence] : []),
               ]
               // ⭐⭐ SAY WHAT THE DOUBLE-CLICK ACTUALLY DOES.
               //
@@ -2221,8 +2269,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                         flexShrink: 0,
                       }}
                       className={
-                        // R6: orange on an edge means CONTESTED and nothing
-                        // else. This dot used to paint `user` provenance in the
+                        // R6: orange on an edge means a SIGN disagreement between
+                        // Olumi's review passes and nothing else (narrowed
+                        // 23 Sep 2026). This dot used to paint `user` provenance in the
                         // warning hue — the semantic inverse, since a
                         // user-stated value is the most trustworthy kind. It is
                         // now the success hue, matching every other
@@ -2241,67 +2290,52 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               </div>
             )}
 
-            {/* THE FRAGILITY ROW — the former standalone badge, verbatim.
-                It kept its own copy, its own `title` and its own owner
-                (`getFragileEdgeSwitchProbability`); all it lost is the
-                hard-coded `labelX + 30` that put it outside the placement
-                pass and left it floating with no visible referent. */}
-            {showFragileRow && (
+            {/* ⭐ THE FRAGILITY CUE — DISCREET, AND IT PAINTS NO FIGURE.
+
+                Experience Design, 23 Sep 2026: "fragility = a discreet
+                exception cue, not a repurposed line style", and "labels must
+                not be verbose". This row painted `△ Sensitive · 70%` — and the
+                manual test on served `4c6ec07b` found the figure read as a
+                STRENGTH, because it sat directly under "Strong boost est." with
+                no noun of its own (MANUAL-TEST MT-15b). The figure is the flip
+                figure (`getFragileEdgeSwitchProbability`), not a strength.
+
+                So the cue is the icon alone, at the design reference's
+                "consequential relationship" position in the chip, and the
+                figure rides its NAME and TITLE inside the sentence that says
+                what it is (`fragileEdgeSentence`: "NN% chance the result flips
+                if this relationship changes"). The hover popover states it too,
+                as "NN% flip risk". Nothing about WHICH figure is shown changed:
+                measured only, never the marginal quantity.
+
+                `role="img"` + `aria-label` because an icon-only mark must be
+                named for assistive tech; `title` because a pointer user needs
+                the same sentence on hover. The chip container's own title and
+                name carry it as well (see `aria-label` above), which is the
+                keyboard and touch route — a `title` alone is neither.
+
+                ⚠ IT STAYS A ROW OF THIS CHIP, deliberately. It used to float at
+                a hard-coded `labelX + 30` with no referent; the placement pass
+                (`resolvePersistentLabelPlacements`) still clears a two-row box
+                for it, so the geometry every label-collision spec pins is
+                unchanged. The two truncation spans that lived here are gone
+                with the text: there is no word to truncate and no number to
+                protect. */}
+            {paintFragileCue && (
               <div
                 data-testid="edge-fragile-tag"
+                role="img"
+                aria-label={fragileSentence}
+                title={fragileSentence}
                 style={{
                   display: 'flex',
                   flexWrap: 'nowrap',
                   alignItems: 'center',
-                  gap: '4px',
                   minWidth: 0,
-                  overflow: 'hidden',
                 }}
                 className="text-text-body"
-                title={fragileSentence}
               >
-                <AlertTriangle size={12} className="flex-shrink-0" />
-                {/* 10px via the canvas token so it sees the counter-scale;
-                    inline it rendered at 5.0px.
-
-                    ⭐ TWO SPANS, AND THE SPLIT IS THE FIX. This was ONE span
-                    carrying both the word and the percentage under
-                    `textOverflow: 'ellipsis'`, and the ellipsis cuts from the
-                    END — so the digits went before the word. The deployed build
-                    painted `Sensitive · 5…`: the reader is shown a magnitude,
-                    and it is the wrong one, on the product's own sensitivity
-                    signal. (That sighting recorded the CUT string only. The
-                    full `Sensitive · 49%` at :299 is a separate founder
-                    sighting, of the placement defect, on an unestablished edge
-                    — do not read the two as one reading.) The row
-                    is `nowrap` inside a container
-                    whose `maxWidth` WAS fixed at `LABEL_HALF_WIDTH * 2` while
-                    this text COUNTER-SCALES — so the pressure grew the further
-                    the user zoomed out, and was at its worst exactly where the
-                    auto-fit parks. ⭐ FIXED 14 Sep 2026: the cap now carries the
-                    same `--canvas-label-scale` as the text. Measured in
-                    Chromium at scale 2, `Sensitive assumption · 32%` needed
-                    288px and was given 160; it now gets all 288. The
-                    truncation RULE below stays — a longer sentence, a narrower
-                    viewport or a future type ramp can still apply pressure, and
-                    when it does the word must yield before the number.
-
-                    Now the word is the truncating half and the number is
-                    `PROTECTED_VALUE_STYLE`: under pressure "Sensitive" becomes
-                    "Sensi…" and `· 49%` survives intact. See
-                    `../ui/truncation.ts` for the rule and the gate. */}
-                <span className={typography.edgeLabel} style={{ fontWeight: 600, ...TRUNCATING_LABEL_STYLE }}>
-                  Sensitive
-                </span>
-                {fragileEdgeSwitchProb !== null && (
-                  <span
-                    data-testid="edge-fragile-tag-value"
-                    className={typography.edgeLabel}
-                    style={{ fontWeight: 600, ...PROTECTED_VALUE_STYLE }}
-                  >
-                    {` · ${Math.round(fragileEdgeSwitchProb * 100)}%`}
-                  </span>
-                )}
+                <AlertTriangle size={12} className="flex-shrink-0" aria-hidden="true" />
               </div>
             )}
           </div>
@@ -2321,8 +2355,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             title="Flagged as assumption"
             data-testid="edge-assumption-badge"
           >
-            {/* R6: not orange — this is a user annotation, not a contested
-                verdict. Orange on an edge is reserved for contested. */}
+            {/* R6: not orange — this is a user annotation. Orange on an edge
+                is reserved for a SIGN disagreement between Olumi's review
+                passes (23 Sep 2026). */}
             <Flag size={12} className="text-text-light" />
           </div>
         </EdgeLabelRenderer>
@@ -2381,12 +2416,30 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         const dirLabel = statedDirection === null
           ? null
           : statedDirection === 'positive' ? 'Positive' : 'Negative'
+        /**
+         * ⭐ A DISPUTED SIGN IS NOT A FACT, AND THIS POPOVER USED TO STATE IT AS ONE.
+         *
+         * On a live `sign_flip` the line is orange — the ONE disagreement the
+         * locked grammar lets onto the canvas — while this popover printed a
+         * bold "Positive" and a green bar: the first pass's sign, stated as
+         * settled, on the very connection whose sign Olumi's own review
+         * disputes (purpose audit of the banked draft, DRIFT-RISK). The
+         * direction is still NAMED — it is what the model runs on for now
+         * (`pass1`) — but inside a sentence that says so, and the bar goes to
+         * the no-verdict grey.
+         *
+         * ⚠ It also stops the coaching chips below asserting that sign to the
+         * model: their messages are dispatched to CEE verbatim as the user's
+         * own words (see their LLM-FACING note).
+         */
+        const signDisputed = contested.isContested && contested.directionDisputed
+        const dirLabelForClaims = signDisputed ? null : dirLabel
         // Which half-colour the bar paints IS a direction claim, so it is gated
         // the same way. Grey is this canvas's stated NO-VERDICT colour for
         // exactly this case — `directionStroke.ts` calls it
         // "weight-set-but-no-direction" — and it is the same token the stroke
         // and the legend row already use, so no new vocabulary is introduced.
-        const strengthBarTone = statedDirection === null
+        const strengthBarTone = statedDirection === null || signDisputed
           ? (isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)')
           : null
         const causalPopoverStyle: React.CSSProperties = {
@@ -2415,8 +2468,20 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               onMouseEnter={handlePopoverEnter}
               onMouseLeave={handlePopoverLeave}
             >
-              {/* Direction — only when the producer or the user STATED one. */}
-              {dirLabel !== null && (
+              {/* Direction — only when the producer or the user STATED one, and
+                  never as a bare fact while Olumi's review passes dispute it. */}
+              {signDisputed ? (
+                <div data-testid="edge-hover-direction-disputed" className="space-y-0.5">
+                  <div className={`${typography.edgeLabel} font-bold text-text-body`}>
+                    {DIRECTION_DISPUTED_SENTENCE}
+                  </div>
+                  {dirLabel !== null && (
+                    <div className={`${typography.edgeLabel} text-text-light`}>
+                      {directionInUseSentence(dirLabel)}
+                    </div>
+                  )}
+                </div>
+              ) : dirLabel !== null && (
                 <div className={`${typography.edgeLabel} font-bold text-text-body`}>
                   {dirLabel}
                 </div>
@@ -2425,6 +2490,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               {confidencePct !== null && (
                 <div className={`${typography.edgeLabel} text-text-light`}>
                   {confidencePct}% confident
+                </div>
+              )}
+              {/* ⭐ THE STRENGTH ROW'S NOUN, AND WHETHER ANYONE STOOD BEHIND IT.
+                  The bar and its percentage used to sit here with no noun at
+                  all, so an unconfirmed producer's figure read exactly like one
+                  the person typed — while the outcome card, for the SAME edge
+                  and the SAME predicate (`strengthIsHumanSettled`), said
+                  "Strength not set yet" (manual test MT-15b). The caption now
+                  says it is a strength, and — when nobody has settled it —
+                  whose estimate it is, named from the data
+                  (`linkStrengthCaption`): "Link strength · Olumi's estimate",
+                  the wording the node-card change puts on the card. The chip
+                  keeps its short band word and `est.` marker. */}
+              {signedVal !== null && strengthPct !== null && (
+                <div
+                  data-testid="edge-hover-strength-caption"
+                  className={`${typography.edgeLabel} text-text-light`}
+                >
+                  {linkStrengthCaption(
+                    strengthUnconfirmed,
+                    edgeSignedStrength.show ? edgeSignedStrength.source : null,
+                  )}
                 </div>
               )}
               {/* Strength bar */}
@@ -2464,11 +2551,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   Strength and likelihood not set
                 </div>
               )}
-              {/* Fragile warning with switch probability */}
+              {/* Fragility, WITH its noun ("NN% flip risk" — the name
+                  `fragileEdgeMatch` gives this figure). Shown on every fragile
+                  connection and at every zoom: the canvas cue is budgeted and
+                  hidden at the far rung, the hover is where the fact is never
+                  lost. */}
               {isFragileEdge && (
                 <div className={`${typography.edgeLabel} text-info flex items-center gap-1`}>
-                  <AlertTriangle size={10} />
-                  Sensitive{fragileEdgeSwitchProb !== null ? `: ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ''}
+                  <AlertTriangle size={10} aria-hidden="true" />
+                  {fragilePopoverLine(fragileEdgeSwitchProb)}
                 </div>
               )}
               {/* Coaching chips */}
@@ -2489,8 +2580,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   actionType={null}
                   label="What evidence supports this?"
                   message={
-                    dirLabel !== null
-                      ? `What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`
+                    dirLabelForClaims !== null
+                      ? `What evidence supports the ${dirLabelForClaims.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`
                       : `What evidence supports the relationship between ${srcTitle} and ${tgtTitle}?`
                   }
                 />

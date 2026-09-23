@@ -66,11 +66,34 @@ export function EdgeReviewDisagreement({ validation, techMode }: EdgeReviewDisag
   )
   const basisLabel = basisSentence(validation.pass2?.basis)
 
+  /**
+   * ⭐ `pass2.needs_user_input` IS READ HERE NOW — the inspector is where the
+   * locked connector grammar puts AI-review disagreement (Experience Design,
+   * 23 Sep 2026: orange on the canvas is a SIGN disagreement only).
+   *
+   * Until then the flag's ONE non-test reader was the canvas rule that painted
+   * the line full-strength orange (`contested_needs_user_input`, deleted from
+   * `edgePresentation`). Deleting that rule without moving the reader would
+   * have left Olumi's own "I cannot settle this without you" computed by the
+   * producer and read by nothing, and this panel headed EVERY disagreement
+   * "Needs your judgement" whatever the flag said — asking the same question
+   * of a small difference as of an unresolvable one.
+   *
+   * Two headings this surface already owns, so no new copy: the flag set →
+   * "Needs your judgement"; otherwise → "Our two reviews disagree here".
+   * Absence-safe towards the quieter claim: a payload that cannot say is not
+   * told it must judge.
+   */
+  const needsUserInput = validation.pass2?.needs_user_input === true
+
   return (
     <div className="bg-panel border border-warning/30 rounded-lg p-2.5">
-      <div className={`${typography.panelBody} text-warning flex items-center gap-1`}>
-        <AlertTriangle size={13} className="text-warning" />
-        {EDGE_COPY.needsYourJudgement}
+      <div
+        data-testid="edge-review-heading"
+        className={`${typography.panelBody} text-warning flex items-center gap-1`}
+      >
+        <AlertTriangle size={13} className="text-warning" aria-hidden="true" />
+        {needsUserInput ? EDGE_COPY.needsYourJudgement : EDGE_REVIEW_COPY.heading}
       </div>
 
       {reasons.length > 0 && (
