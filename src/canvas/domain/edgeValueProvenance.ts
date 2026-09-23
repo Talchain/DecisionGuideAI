@@ -23,8 +23,8 @@
  * WHY FLAT KEYS AND NOT A NESTED `valueProvenance` OBJECT
  * ------------------------------------------------------
  * `mergeAppliedGraph.overlayEdge` overlays a wire edge onto an existing canvas
- * edge KEY BY KEY, applying only keys whose mapped value differs from the
- * mapper's derived default baseline. Flat keys ride that merge for free: a
+ * edge KEY BY KEY, applying only keys the wire actually supplied (presence,
+ * read off these very stamps). Flat keys ride that merge for free: a
  * wire edge carrying a belief but no weight applies `beliefExistsSource` and
  * leaves a local `weightSource: 'user'` untouched. A nested object would be
  * replaced wholesale and would silently drop the user's weight stamp.

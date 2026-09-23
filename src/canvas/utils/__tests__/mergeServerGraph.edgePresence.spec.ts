@@ -13,9 +13,12 @@
  * `0.7` on screen while the NEXT analysis is computed from the server's `0.5`.
  *
  * That is a screen-vs-compute divergence: the number the user is looking at is
- * not the number the recommendation came from. Under-application is a defensible
- * default on the RECEIPT path (a receipt is an echo of an edit the user just
- * made). At BOOT it is not: the server row IS what the next turn rebases from.
+ * not the number the recommendation came from. This spec was written when the
+ * RECEIPT path was left on under-application ("a receipt is an echo of an edit
+ * the user just made"). That premise was withdrawn on 23 Sep: a conversational
+ * edit's receipt is the ONLY transport of its result, and a user-confirmed 0.5
+ * was witnessed never reaching the canvas. Both paths now share the presence
+ * rule — §3 below, and `mergeAppliedGraph.receiptDefaultEqual.spec.ts`.
  *
  * The same shape hits `direction` — the synthetic baseline's direction is
  * `'positive'` (derived from the default weight `0.5 >= 0`), so an EXPLICIT
@@ -206,21 +209,27 @@ describe('§2 the no-op and no-overwrite guarantees survive the fix', () => {
 })
 
 /* ══════════════════════════════════════════════════════════════════════════
- * §3 RECEIPT-PATH PARITY — the change is SCOPED
+ * §3 RECEIPT-PATH PARITY — one presence rule for both callers
  * ══════════════════════════════════════════════════════════════════════════ */
 
-describe('§3 the RECEIPT path is byte-unchanged', () => {
-  it('overlayEdge with NO options still under-applies a default-equal value', () => {
-    // The receipt path's declared, accepted under-application (mergeAppliedGraph
-    // :177-179). If this flips, the change leaked out of the hydrate path and
-    // the #570 provenance semantics are no longer the ones that were reviewed.
+describe('§3 the RECEIPT path shares the presence rule (23 Sep)', () => {
+  // UPDATED 23 Sep — the two cases below were "overlayEdge with NO options still
+  // under-applies a default-equal value" and "...still drops an explicit
+  // default-positive direction". They pinned the receipt path's under-
+  // application as reviewed behaviour; that behaviour IS the defect witnessed on
+  // scenario 58af9704 (a user-confirmed strength.mean 0.5 never reached the
+  // canvas). They now pin the opposite. The receipt path's no-op half (identity
+  // preserved, stamps and serverStrength never write alone) is pinned in
+  // `mergeAppliedGraph.receiptDefaultEqual.spec.ts` §2 and
+  // `mergeServerGraph.serverStrength.spec.tsx`.
+  it('overlayEdge with NO options applies a supplied default-equal value', () => {
     const existing = { id: 'e1', source: 'a', target: 'b', data: { weight: 0.7 } }
     const next = overlayEdge(existing, { from: 'a', to: 'b', strength: { mean: 0.5 } })
-    expect(next, 'default-equal weight is not "supplied" on the receipt path').toBe(existing)
-    expect(next.data.weight).toBe(0.7)
+    expect(next, 'a supplied 0.5 is supplied, whatever the default is').not.toBe(existing)
+    expect(next.data.weight).toBe(0.5)
   })
 
-  it('overlayEdge with NO options still drops an explicit default-positive direction', () => {
+  it('overlayEdge with NO options applies an explicit default-positive direction', () => {
     const existing = { id: 'e1', source: 'a', target: 'b', data: { direction: 'negative' } }
     const next = overlayEdge(existing, {
       from: 'a',
@@ -228,8 +237,8 @@ describe('§3 the RECEIPT path is byte-unchanged', () => {
       strength: { mean: 0.5 },
       effect_direction: 'positive',
     })
-    expect(next).toBe(existing)
-    expect(next.data.direction).toBe('negative')
+    expect(next).not.toBe(existing)
+    expect(next.data.direction).toBe('positive')
   })
 
   it('overlayEdge with NO options still applies a value that DIFFERS from the default', () => {
