@@ -62,7 +62,9 @@ describe('level 1 — scan', () => {
 
   it('renders the provisional/not-assessed marker at level 1 where it can be seen', () => {
     renderRow(rich)
-    expect(screen.getByTestId('row-marker')).toHaveTextContent('Not assessed')
+    // ⚠ 23 Sep 2026: "Not assessed" is now a status MARK (HelpCircle) whose
+    // words are its accessible name and hover text, not visible text.
+    expect(screen.getByTestId('row-marker')).toHaveAccessibleName('Not assessed')
   })
 })
 

@@ -19,7 +19,7 @@
 
 import { useId, useState } from 'react'
 import { PanelFigure } from './PanelFigure'
-import { ChevronDown, ChevronRight, Crosshair, MessageCircle, Pencil } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, HelpCircle, MessageCircle, Pencil } from 'lucide-react'
 import { IconBtn } from '../../../canvas/components/pre-analysis/primitives/IconBtn'
 import { typography } from '../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
@@ -141,7 +141,28 @@ export function DisclosureRow({
         <span className="min-w-0 flex-1">
           <span className={`${typography.panelHeader} text-text-header block`}>
             {finding.headline}
-            {marker ? (
+            {/* ⭐ "NOT ASSESSED" IS A STATUS, SO IT IS A MARK (23 Sep 2026, Paul:
+                repeated row text becomes icons; the DS's Tier 3 — status icons
+                replace text labels). It rendered on 5 rows of the market-entry
+                render. R1 makes `HelpCircle` the panel's one glyph for an
+                UNRESOLVED question, and it is already this tab's own "not
+                assessed" glyph (`WhatWeChecked`). `role="img"` + `aria-label`
+                keeps the words in the row toggle's accessible name, and `title`
+                on hover — the shape the Model tab's attention marks use.
+
+                ⚠ ONLY `not_assessed`. "Provisional" and "From an earlier run"
+                are different claims with no ruled glyph, and stay words. */}
+            {marker && finding.marker === 'not_assessed' ? (
+              <span
+                role="img"
+                aria-label={marker}
+                title={marker}
+                className="inline-flex align-middle text-text-light ml-2"
+                data-testid={`${testIdPrefix}-marker`}
+              >
+                <HelpCircle className={icon('row')} aria-hidden="true" />
+              </span>
+            ) : marker ? (
               <span
                 className={`${typography.panelMeta} text-text-light ml-2`}
                 data-testid={`${testIdPrefix}-marker`}
