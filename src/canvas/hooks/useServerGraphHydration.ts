@@ -35,7 +35,11 @@ import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useAuth } from '../../contexts/AuthContext'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
-import { beginBootGraphRead, settleBootGraphRead } from '../hydrate/bootGraphRead'
+import {
+  beginBootGraphRead,
+  isCeeAddressableScenarioId,
+  settleBootGraphRead,
+} from '../hydrate/bootGraphRead'
 import {
   runAbsentGraphRetrySchedule,
   waitForRetry,
@@ -65,9 +69,17 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
     // ⭐ SYNCHRONOUSLY, before the identity await below: the reload re-arm in
     // `useImportRegistration` runs in this same commit, and it must see that a
     // read of this scenario is coming rather than write the restored copy over
-    // whatever CEE holds (`bootGraphRead.ts`). `hydrateCanvasFromServer` records
-    // the answer; if it is never reached, the finally below forgets the mark.
-    beginBootGraphRead(scenarioId)
+    // whatever CEE holds (`bootGraphRead.ts`). The TOKEN is this read's claim on
+    // the mark: `hydrateCanvasFromServer` settles under it, and if the read is
+    // never reached the finally below settles it `skipped` (recorded, so the
+    // re-arm refuses — never deleted). When this effect is superseded (the
+    // `user?.id` re-run below aborts it), the next run's `begin` takes the mark
+    // and this token can no longer change it (review B1 E).
+    // Only for an id CEE can address: any other id is never read, and the gate
+    // does not wait on it.
+    const readToken = isCeeAddressableScenarioId(scenarioId)
+      ? beginBootGraphRead(scenarioId)
+      : null
     let readReached = false
 
     // Any stage from a previous scenario stops describing this one the moment
@@ -95,6 +107,7 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
           userId: identity.userId,
           accessToken: identity.accessToken,
           signal: controller.signal,
+          ...(readToken !== null ? { bootReadToken: readToken } : {}),
         })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
 
@@ -134,7 +147,7 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
 
         logger.debug('server_graph_hydration.absent_retry', { scenarioId, retry })
       } finally {
-        if (!readReached) settleBootGraphRead(scenarioId, 'skipped')
+        if (!readReached && readToken !== null) settleBootGraphRead(scenarioId, readToken, 'skipped')
         settled = true
       }
     })()

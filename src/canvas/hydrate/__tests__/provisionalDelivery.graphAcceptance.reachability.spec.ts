@@ -454,13 +454,18 @@ describe('⚠ KNOWN-OPEN: a prior recorder defeats the guard (pinned, not fixed)
     expect(files.length).toBeGreaterThan(200)
     expect(recorders.size).toBeGreaterThan(0)
 
-    // THE PIN: exactly these four, three of which do NOT imply server acceptance.
+    // THE PIN: exactly these five, three of which do NOT imply server acceptance.
+    // `useImportRegistration` joined with #1903 (review B2's "one authoritative
+    // record"): it records only on a `registered` receipt — CEE stored exactly
+    // those elements as the scenario's graph — so it is a second GENUINE
+    // acceptance and cannot widen the KNOWN-OPEN defeater set above.
     expect([...recorders].sort()).toEqual(
       [
         'canvas/store.ts', //                 cold-load seed (property-assignment form)
         'canvas/utils/applyDraftResult.ts', // a fresh DRAFT — CEE may never have seen it
         'canvas/utils/mergeAppliedGraph.ts', // applied-edit receipt
-        'canvas/utils/mergeServerGraph.ts', //  the ONLY genuine server acceptance
+        'canvas/utils/mergeServerGraph.ts', //  genuine server acceptance (boot read)
+        'canvas/registration/useImportRegistration.ts', // genuine server acceptance (registration ack)
       ].sort(),
     )
   })

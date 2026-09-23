@@ -23,10 +23,16 @@ import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding } from './applyScenarioAnalysisRead'
-import { beginBootGraphRead, settleBootGraphRead } from './bootGraphRead'
+import {
+  beginBootGraphRead,
+  isCeeAddressableScenarioId,
+  settleBootGraphRead,
+} from './bootGraphRead'
 import { markGraphServerAcknowledged } from '../store/importRegistrationMarker'
 import { editDeliveryHold } from '../registration/editDeliveryHold'
-import { identityFromCanvasGraph } from '../utils/graphIdentity'
+import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
+import { edgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
+import { canonicalJson } from '../../lib/canonical-hash'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -74,15 +80,16 @@ export interface HydrateFromServerOptions {
   timeoutMs?: number
   /** Optional in-session ownership fence, checked after the read, before any write. */
   canApply?: () => boolean
+  /**
+   * The token the CALLER got from `beginBootGraphRead` for this read. The boot
+   * hook marks the read synchronously, before its identity await, so the
+   * re-arm evaluated in the same commit waits (`bootGraphRead.ts`); it passes
+   * that token here so this function settles the caller's mark instead of
+   * beginning a second one. Omitted (the absent-retry schedule, draft recovery,
+   * direct calls) → this function begins and settles its own.
+   */
+  bootReadToken?: number
 }
-
-/**
- * A scenario id CEE can address is a UUID — `scenarios.id` is a uuid column, so
- * anything else is a local draft id and would spend a request to earn a
- * guaranteed refusal.
- */
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Whether CEE's answer is the SAME graph we already hydrated from.
@@ -170,19 +177,24 @@ export async function hydrateCanvasFromServer(
   scenarioId: string | null | undefined,
   opts: HydrateFromServerOptions = {},
 ): Promise<HydrationOutcome> {
-  if (typeof scenarioId !== 'string' || !UUID_RE.test(scenarioId)) {
+  // A scenario id CEE can address is a UUID (`isCeeAddressableScenarioId`, the
+  // one definition the re-arm gate reads too); anything else is a local draft
+  // id and would spend a request to earn a guaranteed refusal.
+  if (!isCeeAddressableScenarioId(scenarioId)) {
     return 'skipped'
   }
   // ⭐ THE READ'S ANSWER IS AN INPUT TO THE RELOAD RE-ARM (`bootGraphRead.ts`).
   // Marked BEFORE the first await, so a re-arm evaluated while this read is in
-  // flight waits for it instead of writing the page's own copy over CEE's.
-  beginBootGraphRead(scenarioId)
+  // flight waits for it instead of writing the page's own copy over CEE's —
+  // unless the caller already marked it and handed us its token. Settled under
+  // that token only: a read the caller has since superseded changes nothing.
+  const token = opts.bootReadToken ?? beginBootGraphRead(scenarioId)
   let outcome: HydrationOutcome = 'skipped'
   try {
     outcome = await readAndMergeServerGraph(scenarioId, opts)
     return outcome
   } finally {
-    settleBootGraphRead(scenarioId, outcome)
+    settleBootGraphRead(scenarioId, token, outcome)
   }
 }
 
@@ -460,41 +472,161 @@ async function readAndMergeServerGraph(
   )
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
-  acknowledgeCanvasThatMatchesTheRead(scenarioId)
+  acknowledgeCanvasThatMatchesTheRead(scenarioId, result.graph)
 
   return 'merged'
 }
 
 /**
- * ⭐ A READ THAT MATCHES THE CANVAS IS AN ACKNOWLEDGEMENT — the re-arm's own
+ * ⭐ A READ THAT CARRIES THE CANVAS IS AN ACKNOWLEDGEMENT — the re-arm's own
  * design case, without its write.
  *
  * The reload re-arm existed for one situation: the acknowledgement record was
  * lost (eviction, cleared storage), so a model CEE already holds sat HELD with
- * nothing pending, and a redundant registration was the way out. Once the re-arm
- * may no longer register over a saved model (`bootGraphRead.ts`), that way out
- * is gone — so the read has to provide it: the merge has just written CEE's
- * values onto every shared element, and if the canvas holds EXACTLY CEE's
- * elements (same node ids, same edge pairs), CEE holds this model.
+ * nothing pending, and a redundant registration was the way out. When the read
+ * PROVES CEE holds exactly what the canvas would send, that redundant write is
+ * unnecessary, so the read records the acknowledgement instead.
  *
- * Not granted when the canvas carries anything CEE lacks — that is precisely the
- * stale copy this change stops writing — nor while an edit is still between the
- * user and CEE (`editDeliveryHold`), whose value the read cannot vouch for.
+ * ⚠ WHAT "PROVES" MEANS (review B3 at `b072db1a`). Equal element sets are NOT
+ *   enough, and an earlier version of this comment claimed the merge had "just
+ *   written CEE's values onto every shared element". It had not: `overlayNode`
+ *   KEEPS a canvas key the wire omits ("a value CEE genuinely cleared stays on
+ *   the canvas"), and `overlayEdge` skips keys the wire leaves at the mapper
+ *   default. The acknowledgement digest is the canvas's WHOLE registration
+ *   projection (`importRegistrationMarker.ts` `analyticalDigest`), so marking it
+ *   on set-equality attested values CEE did not hold — e.g. a factor's
+ *   `observed_state {value: 0.7}` CEE had no value for, or an edge
+ *   `exists_probability` CEE lacked — and released Run over them.
+ *
+ *   So the read acknowledges ONLY when, for every node and edge of
+ *   `buildRegistrationGraph(canvas)` — the projection the digest is taken over —
+ *   the corresponding wire element (nodes by id, edges by from/to pair) carries
+ *   EVERY analytical key the projection carries, present and deep-equal
+ *   (`canonicalJson`: key order is not part of a value). Anything else fails
+ *   CLOSED: no acknowledgement, the model stays held, and the re-arm may offer
+ *   it again — which, for a canvas holding nothing CEE lacks, is one redundant
+ *   registration (`bootGraphRead.ts`), never a wall.
+ *
+ * Also not granted when the canvas holds an element the wire lacks (or vice
+ * versa) — the stale copy the gate stops writing — nor while an edit is still
+ * between the user and CEE (`editDeliveryHold`), nor for a canvas not bound to
+ * the scenario that was read.
  */
-function acknowledgeCanvasThatMatchesTheRead(scenarioId: string): void {
+function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unknown): void {
   const st = useCanvasStore.getState()
   if (st.currentScenarioId !== scenarioId) return
   if (editDeliveryHold(st as never) !== null) return
-  const server = st.lastAuthoritativeGraph
-  if (server === null) return
-  const canvas = identityFromCanvasGraph(st.nodes as never, st.edges as never)
-  if (!sameElementSet(canvas.nodeIds, server.nodeIds)) return
-  if (!sameElementSet(canvas.edgePairs, server.edgePairs)) return
+  if (!readCarriesEveryProjectedValue(wireGraph, st.nodes as never, st.edges as never)) return
   markGraphServerAcknowledged(scenarioId, st.nodes as never, st.edges as never)
 }
 
-function sameElementSet(a: ReadonlyArray<string>, b: ReadonlyArray<string>): boolean {
-  if (a.length !== b.length) return false
-  const bs = new Set(b)
-  return a.every((x) => bs.has(x))
+/**
+ * Projected node keys a read neither can nor needs to vouch for — the ONLY
+ * exclusions, each because it is not part of the model CEE analyses:
+ *   · `starterId`, `starterTitle` — `applyStarter`'s canvas-side stamp
+ *     (`loadStarter.ts` `stampStarterProvenance`: "a canvas-side annotation,
+ *     not a change to the captured model");
+ *   · `templateId`, `templateName` — `insertBlueprint`'s equivalent stamp
+ *     (`useBlueprintInsert.ts`);
+ *   · `provenance` — authorship metadata. CEE's own analysis-affecting
+ *     projection lists it under "Excluded (cosmetic / provenance / display)"
+ *     (`graph-hash.ts` `computeAnalysisAffectingGraphHash`, CEE staging
+ *     `cc7b26cb`).
+ * Every other projected key — `label` and `kind` included — must match. A key
+ * missing from this list costs a redundant registration, never a false
+ * acknowledgement, which is the direction this list is allowed to be wrong in.
+ */
+const NOT_VOUCHED_NODE_KEYS: ReadonlySet<string> = new Set([
+  'starterId',
+  'starterTitle',
+  'templateId',
+  'templateName',
+  'provenance',
+])
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  try {
+    return canonicalJson(a) === canonicalJson(b)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The wire node's value for a projected key. One key is DERIVED rather than
+ * carried: `interventionKeys` is the index `mapDraftNodeToCanvas` computes from
+ * the node's own `interventions`, so a wire node vouches for it through the
+ * map it indexes (order-insensitive, as the digest's `normaliseInterventionKeys`
+ * treats it). A wire node with no `interventions` object vouches for none.
+ */
+function wireNodeValue(wire: Record<string, unknown>, key: string): unknown {
+  if (key !== 'interventionKeys' || wire.interventionKeys !== undefined) return wire[key]
+  const interventions = wire.interventions
+  if (interventions === null || typeof interventions !== 'object' || Array.isArray(interventions)) {
+    return undefined
+  }
+  return Object.keys(interventions as Record<string, unknown>)
+}
+
+function sameNodeValue(key: string, projected: unknown, wire: unknown): boolean {
+  if (key === 'interventionKeys' && Array.isArray(projected) && Array.isArray(wire)) {
+    return sameValue([...projected].map(String).sort(), [...wire].map(String).sort())
+  }
+  return sameValue(projected, wire)
+}
+
+/** Does the read's graph carry every analytical value the canvas would send? */
+function readCarriesEveryProjectedValue(
+  wireGraph: unknown,
+  nodes: Parameters<typeof buildRegistrationGraph>[0],
+  edges: Parameters<typeof buildRegistrationGraph>[1],
+): boolean {
+  if (wireGraph === null || typeof wireGraph !== 'object') return false
+  const g = wireGraph as { nodes?: unknown; edges?: unknown }
+  const rawNodes = Array.isArray(g.nodes) ? (g.nodes as unknown[]) : []
+  const rawEdges = Array.isArray(g.edges) ? (g.edges as unknown[]) : []
+
+  const projected = buildRegistrationGraph(nodes, edges)
+  if (!projected.ok) return false
+
+  // Same indexing rule as the merge: first occurrence wins.
+  const wireNodeById = new Map<string, Record<string, unknown>>()
+  for (const n of rawNodes) {
+    if (n === null || typeof n !== 'object') continue
+    const id = (n as { id?: unknown }).id
+    if (typeof id === 'string' && !wireNodeById.has(id)) wireNodeById.set(id, n as Record<string, unknown>)
+  }
+  const wireEdgeByPair = new Map<string, Record<string, unknown>>()
+  for (const e of rawEdges) {
+    if (e === null || typeof e !== 'object') continue
+    const key = wireEdgePairKey(e as never)
+    if (key !== null && !wireEdgeByPair.has(key)) wireEdgeByPair.set(key, e as Record<string, unknown>)
+  }
+
+  // EXACTLY the same elements: nothing the canvas holds that CEE lacks, and
+  // nothing CEE holds that the canvas lacks (the merge adds CEE's elements, so
+  // a gap here means it declined one — e.g. a dangling edge).
+  if (projected.graph.nodes.length !== wireNodeById.size) return false
+  if (projected.graph.edges.length !== wireEdgeByPair.size) return false
+
+  for (const node of projected.graph.nodes) {
+    const wire = wireNodeById.get(String(node.id))
+    if (wire === undefined) return false
+    for (const [key, value] of Object.entries(node)) {
+      if (NOT_VOUCHED_NODE_KEYS.has(key)) continue
+      const wireValue = wireNodeValue(wire, key)
+      if (wireValue === undefined || !sameNodeValue(key, value, wireValue)) return false
+    }
+  }
+  for (const edge of projected.graph.edges) {
+    const wire = wireEdgeByPair.get(edgePairKey(String(edge.from), String(edge.to)))
+    if (wire === undefined) return false
+    for (const [key, value] of Object.entries(edge)) {
+      if (key === 'from' || key === 'to') continue
+      const wireValue = wire[key]
+      if (wireValue === undefined || !sameValue(value, wireValue)) return false
+    }
+  }
+  return true
 }

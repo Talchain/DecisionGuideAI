@@ -484,8 +484,11 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     //   RECORDERS (non-null) — complete manifest, `grep -rin setlastauthoritative`
     //   plus every direct property-assignment in `store.ts`, contrast control
     //   `setCeeAnalysisReady` = 42 non-test hits in the same run:
-    //   `mergeServerGraph.ts:461`    accepted server merge  ← the ONLY genuine
+    //   `mergeServerGraph.ts:461`    accepted server merge  ← a genuine
     //                                server acceptance
+    //   `useImportRegistration.ts`   a `registered` receipt (#1903) — CEE
+    //                                stored exactly these elements; the
+    //                                other genuine acceptance
     //   `mergeAppliedGraph.ts:606`   applied-edit receipt
     //   `store.ts:5504`              `loadScenario`'s scenario-switch seed,
     //                                property-assignment form. Seeded, never

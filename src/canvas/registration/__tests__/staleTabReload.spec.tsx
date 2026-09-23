@@ -316,12 +316,12 @@ describe('§1 a stale tab reload never writes its copy over a different model CE
   })
 
   it('WHILE THE READ IS IN FLIGHT the re-arm waits; it registers only once the read says CEE holds no model', async () => {
-    beginBootGraphRead(SCENARIO)
+    const token = beginBootGraphRead(SCENARIO)
     const hook = renderHook(() => useImportRegistration())
     await act(async () => { await flush() })
     expect(registerSpy).not.toHaveBeenCalled()
     await act(async () => {
-      settleBootGraphRead(SCENARIO, 'notReadable')
+      settleBootGraphRead(SCENARIO, token, 'notReadable')
       await flush()
     })
     expect(registrationsCarrying(DELETED).length).toBeGreaterThan(0)

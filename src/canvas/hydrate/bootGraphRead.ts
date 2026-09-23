@@ -13,26 +13,47 @@
  * is that a copy which does not match the saved model never writes over it.
  *
  * ── THE ONE QUESTION IT ANSWERS ────────────────────────────────────────────
- * `mayRegisterOverSavedModel(scenarioId)`: may this page send its own copy as
- * the scenario's whole model?
- *   · no read for this scenario        → 'permit' (unchanged behaviour: no
- *                                         scenario id yet, or no hydration
- *                                         mounted — nothing can be overwritten
- *                                         that this page knows of)
- *   · a read is in flight              → 'wait'
+ * `mayRegisterOverSavedModel(state)`: may this page send its own copy as the
+ * scenario's whole model?
+ *   · the scenario is not CEE-addressable
+ *     (no id, or a local non-UUID id)   → 'permit' — nothing CEE holds can be
+ *                                         overwritten; a registration mints
+ *   · a CEE-addressable scenario with
+ *     NO read recorded yet               → 'wait' (review B1 F: the re-arm can
+ *                                         run in the commit BEFORE the read
+ *                                         begins — "no answer yet" is not an
+ *                                         answer)
+ *   · a read is in flight               → 'wait'
  *   · CEE holds no model (`absent`,
- *     `notReadable`)                   → 'permit' — the first registration
- *   · anything else                    → 'refuse' — CEE holds a model (merged,
- *                                         unchanged, mergeRefused) or the page
- *                                         could not find out (unavailable,
- *                                         unusable, refused, signInRequired).
- *                                         Fail CLOSED: an unknown is not a
- *                                         licence to overwrite.
+ *     `notReadable`)                     → 'permit' — the first registration
+ *   · CEE holds a model the page read
+ *     (`merged`, `unchanged`)            → 'permit' ONLY while the canvas holds
+ *                                         no element CEE lacks — every node id
+ *                                         and edge pair ⊆ `lastAuthoritativeGraph`
+ *                                         (review B2 option (i)); otherwise
+ *                                         'refuse'. A registration of a subset
+ *                                         cannot resurrect a delete; one that
+ *                                         carries an element CEE lacks can.
+ *   · anything else                      → 'refuse' — the page could not find
+ *                                         out (unavailable, unusable, refused,
+ *                                         signInRequired), the merge refused
+ *                                         the graph (mergeRefused), or the read
+ *                                         was abandoned (skipped). Fail CLOSED:
+ *                                         an unknown is not a licence to
+ *                                         overwrite.
  *
- * ⚠ SCOPE. This gates the reload RE-ARM only (a model that merely lost its
- *   acknowledgement). A deliberate import still waiting for its first
- *   registration (ROADMAP 2.467 / 2.503) is carried by the pending marker, which
- *   the re-arm never touches, and is unchanged here.
+ * ── ONE READ, ONE TOKEN (review B1 E) ──────────────────────────────────────
+ * `beginBootGraphRead` returns a token; `settleBootGraphRead` applies only while
+ * that token is still the scenario's CURRENT one. So a superseded read — the
+ * hydration hook re-runs on a `user?.id` change and aborts read 1 while read 2
+ * is in flight — can neither erase nor overwrite read 2's mark. A `skipped`
+ * settle of the current token is RECORDED (it verdicts 'refuse'), never deleted:
+ * deleting it used to turn "in flight" into "no record", which then permitted.
+ *
+ * ⚠ SCOPE. This gates the reload/in-page RE-ARM only (a model that lost, or
+ *   never had, its acknowledgement). A deliberate import still waiting for its
+ *   first registration (ROADMAP 2.467 / 2.503) is carried by the pending marker,
+ *   which the re-arm never touches, and is unchanged here.
  *
  * Keyed by scenario for the reason `serverGraphRetryStore` gives: an unkeyed
  * value survives a scenario change and answers for the wrong decision.
@@ -40,14 +61,38 @@
 import { create } from 'zustand'
 
 import type { HydrationOutcome } from './serverGraphHydration'
+import {
+  identityFromCanvasGraph,
+  type AuthoritativeGraphIdentity,
+} from '../utils/graphIdentity'
 
 export type BootGraphReadState = 'reading' | HydrationOutcome
 
+export interface BootGraphReadRecord {
+  /** The read that owns this record; only it may settle it. */
+  readonly token: number
+  readonly state: BootGraphReadState
+}
+
 interface BootGraphReadStore {
-  byScenario: Readonly<Record<string, BootGraphReadState>>
+  byScenario: Readonly<Record<string, BootGraphReadRecord>>
 }
 
 export const useBootGraphReadStore = create<BootGraphReadStore>(() => ({ byScenario: {} }))
+
+/**
+ * A scenario id CEE can address is a UUID — `scenarios.id` is a uuid column, so
+ * anything else is a local draft id and would spend a request to earn a
+ * guaranteed refusal. The ONE definition: `hydrateCanvasFromServer` reads it
+ * too, so "the read would be issued" and "the gate waits for a read" cannot
+ * disagree about which ids are CEE's.
+ */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isCeeAddressableScenarioId(scenarioId: unknown): scenarioId is string {
+  return typeof scenarioId === 'string' && UUID_RE.test(scenarioId)
+}
 
 /** Outcomes that mean "CEE holds no model for this scenario". */
 const NO_SAVED_MODEL: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadState>([
@@ -55,42 +100,105 @@ const NO_SAVED_MODEL: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadSta
   'notReadable',
 ])
 
-function write(scenarioId: string, state: BootGraphReadState | null): void {
-  useBootGraphReadStore.setState((s) => {
-    const next = { ...s.byScenario }
-    if (state === null) delete next[scenarioId]
-    else next[scenarioId] = state
-    return { byScenario: next }
-  })
-}
+/** Outcomes that mean "CEE holds a model, and this page read it". */
+const SAVED_MODEL_READ: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadState>([
+  'merged',
+  'unchanged',
+])
 
-/** Called synchronously before the read's first await. */
-export function beginBootGraphRead(scenarioId: string): void {
-  write(scenarioId, 'reading')
+/** Monotonic across the page, so a token is never reused for a later read. */
+let lastToken = 0
+
+function write(scenarioId: string, record: BootGraphReadRecord): void {
+  useBootGraphReadStore.setState((s) => ({ byScenario: { ...s.byScenario, [scenarioId]: record } }))
 }
 
 /**
- * Called on every exit of the read. `skipped` (aborted, or the canvas moved to
- * another scenario) is NOT an answer about this scenario, so it forgets the
- * read rather than recording a verdict the page never reached.
+ * Called synchronously before the read's first await. The returned token is
+ * the read's claim on the record; pass it to `settleBootGraphRead`.
  */
-export function settleBootGraphRead(scenarioId: string, outcome: HydrationOutcome): void {
-  write(scenarioId, outcome === 'skipped' ? null : outcome)
+export function beginBootGraphRead(scenarioId: string): number {
+  lastToken += 1
+  write(scenarioId, { token: lastToken, state: 'reading' })
+  return lastToken
+}
+
+/**
+ * Called on every exit of the read. Applies only while `token` is still the
+ * scenario's current read; a superseded read changes nothing. Returns whether
+ * it applied.
+ */
+export function settleBootGraphRead(
+  scenarioId: string,
+  token: number,
+  outcome: HydrationOutcome,
+): boolean {
+  const current = useBootGraphReadStore.getState().byScenario[scenarioId]
+  if (current === undefined || current.token !== token) return false
+  write(scenarioId, { token, state: outcome })
+  return true
 }
 
 export type RegisterOverSavedModel = 'permit' | 'wait' | 'refuse'
 
-export function registerOverSavedModelVerdict(
-  state: BootGraphReadState | undefined,
-): RegisterOverSavedModel {
-  if (state === undefined) return 'permit'
-  if (state === 'reading') return 'wait'
-  return NO_SAVED_MODEL.has(state) ? 'permit' : 'refuse'
+export interface RegisterOverSavedModelInput {
+  readonly scenarioId: string | null | undefined
+  /** The scenario's recorded read state, or undefined when none is recorded. */
+  readonly read: BootGraphReadState | undefined
+  /** The element set CEE is known to hold (`store.lastAuthoritativeGraph`). */
+  readonly lastAuthoritativeGraph: AuthoritativeGraphIdentity | null
+  /** The element set on the canvas now. */
+  readonly canvas: AuthoritativeGraphIdentity
 }
 
-export function mayRegisterOverSavedModel(scenarioId: string | null | undefined): RegisterOverSavedModel {
-  if (typeof scenarioId !== 'string' || scenarioId.length === 0) return 'permit'
-  return registerOverSavedModelVerdict(useBootGraphReadStore.getState().byScenario[scenarioId])
+/** Every canvas node id and edge pair is one CEE is known to hold. */
+function canvasHoldsNothingCeeLacks(
+  canvas: AuthoritativeGraphIdentity,
+  cee: AuthoritativeGraphIdentity | null,
+): boolean {
+  if (cee === null) return false
+  const nodeIds = new Set(cee.nodeIds)
+  const edgePairs = new Set(cee.edgePairs)
+  return (
+    canvas.nodeIds.every((id) => nodeIds.has(id)) &&
+    canvas.edgePairs.every((pair) => edgePairs.has(pair))
+  )
+}
+
+/** Pure: the whole rule, with every input explicit. */
+export function registerOverSavedModelVerdict(
+  input: RegisterOverSavedModelInput,
+): RegisterOverSavedModel {
+  if (!isCeeAddressableScenarioId(input.scenarioId)) return 'permit'
+  const read = input.read
+  if (read === undefined || read === 'reading') return 'wait'
+  if (NO_SAVED_MODEL.has(read)) return 'permit'
+  if (SAVED_MODEL_READ.has(read)) {
+    return canvasHoldsNothingCeeLacks(input.canvas, input.lastAuthoritativeGraph)
+      ? 'permit'
+      : 'refuse'
+  }
+  return 'refuse'
+}
+
+export interface RegisterOverSavedModelState {
+  readonly currentScenarioId: string | null | undefined
+  readonly nodes: ReadonlyArray<{ id?: unknown }>
+  readonly edges: ReadonlyArray<{ source?: unknown; target?: unknown }>
+  readonly lastAuthoritativeGraph: AuthoritativeGraphIdentity | null
+}
+
+/** The thin store-reading wrapper the re-arm calls. */
+export function mayRegisterOverSavedModel(state: RegisterOverSavedModelState): RegisterOverSavedModel {
+  const scenarioId = state.currentScenarioId
+  return registerOverSavedModelVerdict({
+    scenarioId,
+    read: isCeeAddressableScenarioId(scenarioId)
+      ? useBootGraphReadStore.getState().byScenario[scenarioId]?.state
+      : undefined,
+    lastAuthoritativeGraph: state.lastAuthoritativeGraph,
+    canvas: identityFromCanvasGraph(state.nodes, state.edges),
+  })
 }
 
 /** Test/teardown helper. */
