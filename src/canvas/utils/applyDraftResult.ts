@@ -26,6 +26,7 @@ import { validateNodesBatch } from '../domain/nodes'
 import { devLog } from '../../utils/debugLog'
 import { detectBaseline } from './baselineDetection'
 import { identityFromCanvasGraph } from './graphIdentity'
+import { interventionNumericValue } from '../../utils/interventionValue'
 
 /**
  * Map one CEE wire node → React Flow canvas node.
@@ -535,6 +536,54 @@ export interface BackfillInterventionsResult {
   totalUpdatedCount: number
 }
 
+/**
+ * The producer's intervention map, merged onto what the option already holds
+ * without erasing who set a value.
+ *
+ * ⛔ WITNESSED ON SERVED STAGING, 23 Sep 2026 (UI `8f79c9e1`, CEE `29ffda8a`;
+ * `output/canvas-completion-20260923/LOG.md` § M1). An applied
+ * `option_intervention_edit` receipt carried `{value, source:'user_specified',
+ * target_match}`. `reconcileAppliedGraph` overlaid it, then called this
+ * backfill with the same turn's `analysis_ready`, whose interventions were
+ * BARE numbers. Replacing the whole map erased the user's provenance, and every
+ * brief-derived object on every option too. The post-settle registration then
+ * wrote that stripped canvas over CEE's canonical graph (all four options,
+ * model-wide), and the next edit was refused as stale.
+ *
+ * A bare number carries no provenance (`src/types/options.ts`: "explicit user
+ * fact → PRESERVE IT"). So where it agrees EXACTLY with the value the option
+ * already holds as an object, it adds nothing and the object stays. Everything
+ * else is the producer's, unchanged from before:
+ *   · a different value wins, as the producer sent it (no provenance invented);
+ *   · a producer object wins (it carries its own provenance);
+ *   · membership is the producer's: a key it omits is dropped.
+ * Exact equality, not a tolerance: this decides whether to KEEP an object, and
+ * a near-miss must fall through to the producer's value rather than keep a
+ * value the producer did not send.
+ */
+function mergeProducerInterventions(
+  existing: Record<string, unknown> | undefined,
+  producer: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!existing) return producer
+  const merged: Record<string, unknown> = {}
+  for (const [factorId, incoming] of Object.entries(producer)) {
+    const current = existing[factorId]
+    if (
+      typeof incoming === 'number' &&
+      current !== null &&
+      typeof current === 'object' &&
+      !Array.isArray(current) &&
+      interventionNumericValue(current) === incoming
+    ) {
+      merged[factorId] = current
+      continue
+    }
+    merged[factorId] = incoming
+  }
+  return merged
+}
+
 export function backfillInterventionsOntoOptionNodes(
   analysisReady: { options?: Array<{ id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }> } | null
 ): BackfillInterventionsResult {
@@ -584,10 +633,13 @@ export function backfillInterventionsOntoOptionNodes(
 
     const existing = n.data?.interventions as Record<string, unknown> | undefined
     const newKeys = hasInterventions ? Object.keys(optEntry.interventions!) : undefined
+    const nextInterventions = hasInterventions
+      ? mergeProducerInterventions(existing, optEntry.interventions!)
+      : undefined
     let interventionMapChanged = hasInterventions && !existing
     if (hasInterventions && existing) {
       try {
-        const same = JSON.stringify(existing) === JSON.stringify(optEntry.interventions)
+        const same = JSON.stringify(existing) === JSON.stringify(nextInterventions)
         if (same && !baselineChanged) continue
         interventionMapChanged = !same
       } catch {
@@ -604,7 +656,7 @@ export function backfillInterventionsOntoOptionNodes(
     patches.push({
       id: n.id,
       data: {
-        ...(hasInterventions ? { interventions: optEntry.interventions, interventionKeys: newKeys } : {}),
+        ...(hasInterventions ? { interventions: nextInterventions, interventionKeys: newKeys } : {}),
         is_baseline: newBaseline,
       },
     })
