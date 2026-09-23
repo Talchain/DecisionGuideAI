@@ -10,6 +10,7 @@ import {
 } from './mutations/mutationAuthority'
 import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../lib/persistenceSession'
+import { traceModeGesture, isModeRelevantKey } from './debug/modeFocusTrace'
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -396,7 +397,16 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       // changing tool from a text field would hijack typing, so it is guarded;
       // CLEARING is always safe, so keyup/blur/visibilitychange are not.
       const target = event.target as HTMLElement
-      if (isTextEntryElement(target)) {
+      const swallowed = isTextEntryElement(target)
+      // ⛔ DIAGNOSTIC ONLY — records, never decides. See `modeFocusTrace`'s
+      // header: the reported "select/grab needs Escape first" defect repairs
+      // itself the instant anyone opens devtools to look at focus, so the page
+      // has to record the answer BEFORE it is observed. Nothing branches on
+      // this call and the guard below is unchanged.
+      if (isModeRelevantKey(event.key)) {
+        traceModeGesture('keydown', { key: event.key, swallowed, target })
+      }
+      if (swallowed) {
         return
       }
 

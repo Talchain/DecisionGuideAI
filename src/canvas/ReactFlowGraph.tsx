@@ -36,6 +36,7 @@ import {
   resolveEffectiveInteractionMode,
   shouldReleaseTextFocusOnCanvasPointerDown,
 } from './useKeyboardShortcuts'
+import { traceModeGesture } from './debug/modeFocusTrace'
 import { loadState, saveState } from './persist'
 import { armRecoveryNotice, consumeRecoveryNotice } from './persist/recoveryNotice'
 import * as scenarios from './store/scenarios'
@@ -719,7 +720,19 @@ function StoreConfirmDialog() {
 function handleCanvasPointerDownCapture(event: React.PointerEvent): void {
   if (typeof document === 'undefined') return
   const active = document.activeElement
-  if (!shouldReleaseTextFocusOnCanvasPointerDown(event.target as Element | null, active)) return
+  const willRelease = shouldReleaseTextFocusOnCanvasPointerDown(
+    event.target as Element | null,
+    active,
+  )
+  // ⛔ DIAGNOSTIC ONLY — records, never decides. `swallowed` here means "this
+  // pointer-down had to spend itself releasing text focus", which is the
+  // candidate mechanism for the first canvas gesture after load doing nothing.
+  // See `modeFocusTrace`'s header for why a console probe cannot capture it.
+  traceModeGesture('canvas-pointerdown', {
+    swallowed: willRelease,
+    target: event.target as Element | null,
+  })
+  if (!willRelease) return
   ;(active as HTMLElement).blur()
 }
 
