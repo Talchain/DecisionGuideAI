@@ -19,7 +19,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 import { openAllSections } from './openNamedGroups'
@@ -134,5 +134,49 @@ describe('wired: the tab body reads the reason CEE sent from the store', () => {
     )
     openAllSections()
     expect(qualifier()).not.toBeNull()
+  })
+})
+
+/**
+ * ⭐ THE CAUSE CAN ARRIVE AFTER THE RESULT (Codex pre-read on #1922 @ e4704b67,
+ * `useAnalysisNewViewModel.ts`: the builder consumes the cause but the memo did
+ * not list it). A later turn can change ONLY the verdict's cause while every
+ * result input stays the same object; the tab must follow it both ways.
+ */
+describe('mounted: the qualifier follows a cause that changes after mount', () => {
+  const renderTab = () =>
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={STABLE_DATA}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="limits-left-out"
+      />,
+    )
+  const STABLE_DATA = decisionWithLeaderWithheld()
+  const setCause = (reason: string | null) =>
+    act(() => {
+      useCanvasStore.setState({
+        analysisStateV1: reason === null ? null : { leader_claim: { permitted: false, withheld_reason: reason } },
+      } as never)
+    })
+
+  it('⭐ no cause at mount → the limits cause arrives → the qualifier appears', () => {
+    setCause(null)
+    renderTab()
+    openAllSections()
+    expect(qualifier(), 'PRECONDITION: nothing to qualify yet').toBeNull()
+    setCause(LIMITS_UNSCORED)
+    expect(qualifier()).not.toBeNull()
+  })
+
+  it('⛔ the limits cause is replaced by another reason → the qualifier goes', () => {
+    setCause(LIMITS_UNSCORED)
+    renderTab()
+    openAllSections()
+    expect(qualifier(), 'PRECONDITION').not.toBeNull()
+    setCause(OTHER_REASON)
+    expect(qualifier()).toBeNull()
   })
 })
