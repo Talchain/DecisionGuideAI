@@ -107,6 +107,8 @@ import { useImportRegistration } from '../useImportRegistration'
 import { useConversation } from '../../conversation/useConversation'
 import { editDeliveryHold } from '../editDeliveryHold'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
+import { useStructuralDeleteEvents } from '../../conversation/useStructuralDeleteEvents'
+import { __resetUnconfirmedDeletesForTest, settleStructuralDeleteAttempt } from '../../conversation/unconfirmedStructuralDelete'
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -315,6 +317,7 @@ beforeEach(() => {
   identityGate = null
   clearImportRegistrationMarkers()
   __resetPendingFactorEditsForTest()
+  __resetUnconfirmedDeletesForTest()
   __resetPersistenceSessionForTests()
   useCanvasStore.setState({
     nodes: [] as never,
@@ -793,3 +796,137 @@ describe('the unresolved-edit rule, pure', () => {
     expect(editDeliveryHold({ nodes: [nodes[0]], currentScenarioId: 's1', structuralAddLifecycle: [add] } as never)).toBeNull()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. AN UNCONFIRMED DELETE HOLDS REGISTRATION — the delete twin of §7.
+//
+// #1892 review @ 846997a1, residual row "Delete": an untyped 500 keeps the
+// deletion on the canvas (`resolveStructuralDelete`), nothing held, and the next
+// registration omitted the node — CEE deleted it through the side channel.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function mountAcknowledgedStarterWithDeleteDrain() {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: STARTER_NODES as never,
+    edges: STARTER_EDGES as never,
+    importPendingServerRegistration: true,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: 'aag_before_delete',
+    lastAuthoritativeGraph: null,
+    pendingStructuralDeletes: [],
+    _externalMutationActive: 0,
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const hook = renderHook(() => {
+    useImportRegistration()
+    const conversation = useConversation()
+    useStructuralDeleteEvents(conversation.sendSystemEvent as never)
+    return conversation
+  })
+  await act(async () => { await flush() })
+  expect(registerSpy).toHaveBeenCalledTimes(1)
+  expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  return hook
+}
+
+const registeredWithout = (id: string) =>
+  registerSpy.mock.calls.filter((c) => !(c[1] as { nodes: Array<{ id: string }> }).nodes.some((n) => n.id === id))
+const onCanvas = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)
+
+async function deleteTarget(reply: unknown) {
+  replies.push(reply)
+  await act(async () => {
+    useCanvasStore.getState().deleteNodeById(TARGET)
+    await flush()
+  })
+  expect(dispatched.some((p) => (p as { event?: { kind?: string } }).event?.kind === 'structural_delete')).toBe(true)
+  await act(async () => { await flush() })
+}
+
+const DELETE_APPLIED = {
+  ok: true,
+  response: {
+    assistant_text: 'Removed Bottom-Up Adoption Friction.',
+    blocks: [],
+    graph_hash: 'aag_after_delete',
+    draft_graph: { nodes: [{ id: BYSTANDER, kind: 'factor', label: 'Seat Price' }], edges: [] },
+  },
+}
+const DELETE_409 = {
+  kind: 'boundary_error',
+  error: {
+    error: 'GRAPH_DIVERGED', boundary: 'B1', direction: 'egress', validator: 'turn_commit',
+    details: { phase: 'commit', failure_type: 'GRAPH_DIVERGED', event_kind: 'structural_delete', recovery_action: 'refresh_and_reconfirm', conflict_category: 'rpc_cas_conflict', expected_base_graph_hash: 'aag_other' },
+    request_id: 'req_delete_409', retryable: false,
+  },
+}
+
+describe('9 · an UNCONFIRMED delete holds registration after delivery settles', () => {
+  it('⛔ delete → untyped 500 → queue and wire settle: NO registration omits the node', async () => {
+    await mountAcknowledgedStarterWithDeleteDrain()
+    await deleteTarget(UNTYPED_500)
+    // Preconditions: the deletion stands on the canvas (the 500 arm never reverts)…
+    expect(onCanvas(TARGET)).toBe(false)
+    expect(useCanvasStore.getState().pendingStructuralDeletes).toHaveLength(0)
+    // …and the side channel never makes it canonical.
+    expect(registeredWithout(TARGET)).toEqual([])
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBe('unresolved_structural_edit')
+  })
+
+  it('CONTROL: an APPLIED delete (committed graph proves it) holds nothing afterwards', async () => {
+    await mountAcknowledgedStarterWithDeleteDrain()
+    await deleteTarget(DELETE_APPLIED)
+    expect(onCanvas(TARGET)).toBe(false)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+  })
+
+  it('CONTROL: a PROVEN no-write refusal (409 rpc_cas_conflict) restores the node and holds nothing', async () => {
+    await mountAcknowledgedStarterWithDeleteDrain()
+    await deleteTarget(DELETE_409)
+    expect(onCanvas(TARGET)).toBe(true)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+    expect(registeredWithout(TARGET)).toEqual([])
+  })
+
+  it('CONTROL: an unconfirmed delete stops holding once the node is back on the canvas', async () => {
+    await mountAcknowledgedStarterWithDeleteDrain()
+    await deleteTarget(UNTYPED_500)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBe('unresolved_structural_edit')
+    act(() => {
+      useCanvasStore.setState({ nodes: STARTER_NODES as never } as never)
+    })
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+  })
+
+  it('LATEST ATTEMPT: once the node is back, a later APPLIED delete of it is not walled off by the stale record', async () => {
+    await mountAcknowledgedStarterWithDeleteDrain()
+    await deleteTarget(UNTYPED_500)
+    act(() => {
+      useCanvasStore.setState({ nodes: STARTER_NODES as never, edges: STARTER_EDGES as never } as never)
+    })
+    await act(async () => { await flush() })
+    await deleteTarget(DELETE_APPLIED)
+    expect(onCanvas(TARGET)).toBe(false)
+    expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()
+  })
+})
+
+describe('9 · the unconfirmed-delete rule, pure', () => {
+  const del = (nodeIds: string[], edgeIds: string[] = []) => ({ claimedNodeIds: nodeIds, claimedEdgeIds: edgeIds }) as never
+  it('holds only for the scenario it was made in, and only while every removed element is still absent', () => {
+    settleStructuralDeleteAttempt(del(['n9']), 's2', true)
+    expect(editDeliveryHold({ nodes: [{ id: 'n1' }], currentScenarioId: 's1' } as never)).toBeNull()
+    expect(editDeliveryHold({ nodes: [{ id: 'n1' }], currentScenarioId: 's2' } as never)).toBe('unresolved_structural_edit')
+    expect(editDeliveryHold({ nodes: [{ id: 'n1' }, { id: 'n9' }], currentScenarioId: 's2' } as never)).toBeNull()
+  })
+  it('an edge-only unconfirmed delete holds while the edge is gone, and a settled attempt on it supersedes', () => {
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', true)
+    expect(editDeliveryHold({ nodes: [], edges: [{ id: 'e1' }], currentScenarioId: 's1' } as never)).toBe('unresolved_structural_edit')
+    settleStructuralDeleteAttempt(del([], ['e7']), 's1', false)
+    expect(editDeliveryHold({ nodes: [], edges: [{ id: 'e1' }], currentScenarioId: 's1' } as never)).toBeNull()
+  })
+})
+

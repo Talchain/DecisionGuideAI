@@ -164,6 +164,7 @@ import {
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
+import { settleStructuralDeleteAttempt } from './unconfirmedStructuralDelete'
 import { markFactorEditInFlight } from './pendingFactorEdit'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
@@ -3065,6 +3066,7 @@ export function useConversation(): UseConversationReturn {
               edgeIds: intent.claimedEdgeIds,
             })
           }
+          settleStructuralDeleteAttempt(intent, capturedScenarioId, false)
           return
         }
         shouldRevert = true
@@ -3109,6 +3111,11 @@ export function useConversation(): UseConversationReturn {
       } else {
         notice = 'unconfirmed_transport'
       }
+
+      // ONE WRITER (#1892 review, residual row "Delete"): an arm that KEEPS the
+      // deletion without proof is recorded, so registration holds while the
+      // canvas still shows it; every other arm supersedes earlier records.
+      settleStructuralDeleteAttempt(intent, capturedScenarioId, !shouldRevert)
 
       if (shouldRevert) {
         const revertOutcome = revertStructuralDelete(
