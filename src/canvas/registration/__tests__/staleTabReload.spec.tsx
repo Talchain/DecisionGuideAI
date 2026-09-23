@@ -20,9 +20,16 @@
  * where writing the local copy IS right and must survive any fix: CEE holds no
  * graph yet, and a deliberate import still waiting for its first registration
  * (2.503). §3 is the screen, and is ruling-dependent.
+ *
+ * §4–§7 are the independent review's probes at `b072db1a` (CHANGES_REQUIRED),
+ * kept as cases: B3 (a read acknowledges only values the wire carries), B1 (a
+ * superseded read, and a re-arm that runs before the read begins), B2 option
+ * (i) (the in-page re-arm is refused only for an element CEE lacks), and the
+ * one authoritative record a successful registration leaves behind.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { act, render, renderHook } from '@testing-library/react'
+import { useEffect } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
@@ -31,6 +38,9 @@ import {
   markGraphImported,
 } from '../../store/importRegistrationMarker'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
+
+/** Mutable so a case can drive the hydration hook's own `user?.id` re-run path. */
+const auth = vi.hoisted(() => ({ user: null as null | { id: string } }))
 
 vi.mock('../../../v5/eligibility', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
@@ -41,7 +51,7 @@ vi.mock('../../../adapters/cee/registerScenarioGraph', async (importOriginal) =>
   ...(await importOriginal<typeof import('../../../adapters/cee/registerScenarioGraph')>()),
   registerScenarioGraph: (...args: unknown[]) => registerSpy(...args),
 }))
-vi.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: null }) }))
+vi.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: auth.user }) }))
 vi.mock('../../../lib/supabase', () => ({
   getUserId: async () => null,
   getSessionIdentity: async () => ({ userId: null, accessToken: null }),
@@ -54,9 +64,11 @@ import {
   __resetBootGraphReadForTest,
   beginBootGraphRead,
   settleBootGraphRead,
+  useBootGraphReadStore,
 } from '../../hydrate/bootGraphRead'
 import { isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
+import { edgePairKey } from '../../utils/graphIdentity'
 
 const SCENARIO = '5a1e7ab0-0d04-4dd4-89db-bb6470a98fc5'
 const GOAL = 'goal_revenue'
@@ -100,6 +112,30 @@ const SERVER_AFTER_DELETE = {
 /** Tab B's copy when nothing was deleted elsewhere: exactly CEE's elements. */
 const MATCHING_NODES = STALE_NODES.filter((n) => n.id !== DELETED)
 const MATCHING_EDGES = STALE_EDGES.filter((e) => e.source !== DELETED)
+
+/**
+ * What CEE holds once THIS canvas (`MATCHING_*`) has been registered: every
+ * analytical key the registration projection sends, under CEE's own canonical
+ * keys — nested `strength`, `effect_direction`, `edge_type` (the edge fields
+ * CEE's analysis-affecting projection hashes: `graph-hash.ts` `projectEdge`,
+ * olumi-assistants-service staging `cc7b26cb`). `starterId`/`provenance` are
+ * absent: CEE never carries the UI's injection stamp.
+ *
+ * ⚠ WHY §1b READS THIS AND NOT `SERVER_AFTER_DELETE` (review B3). That wire
+ *   spells strength flat and carries no direction or type, so it does not
+ *   vouch for the `effect_direction`/`edge_type` the canvas would send. A read
+ *   that acknowledged the canvas against it would attest values CEE does not
+ *   hold — pinned as NOT acknowledged in §4 (D-flat).
+ */
+const SERVER_AS_REGISTERED = {
+  nodes: [
+    { id: GOAL, kind: 'goal', label: 'Revenue' },
+    { id: KEPT, kind: 'factor', label: 'Usage-Based Pricing Exposure' },
+  ],
+  edges: [
+    { from: KEPT, to: GOAL, strength: { mean: 0.5 }, effect_direction: 'positive', edge_type: 'directed' },
+  ],
+}
 
 function graphBody(graph: unknown) {
   return {
@@ -187,8 +223,69 @@ beforeEach(() => {
   clearImportRegistrationMarkers()
   __resetPersistenceSessionForTests()
   __resetBootGraphReadForTest()
+  auth.user = null
   restoreStaleCopy()
 })
+
+/** A fetch that stays pending until answered, and rejects like a real fetch on abort. */
+function pendingFetches() {
+  const calls: Array<{ answer: (r: Response) => void; aborted: () => boolean }> = []
+  fetchSpy.mockImplementation((_url: string, init: { signal?: AbortSignal }) =>
+    new Promise<Response>((res, rej) => {
+      calls.push({ answer: res, aborted: () => init?.signal?.aborted === true })
+      init?.signal?.addEventListener('abort', () => {
+        const err = new Error('The operation was aborted.')
+        err.name = 'AbortError'
+        rej(err)
+      })
+    }),
+  )
+  return calls
+}
+
+/** Put a canvas on the store as the reload restored it: nothing acknowledged or pending. */
+function setCanvas(nodes: Node[], edges: Edge[], scenarioId: string | null = SCENARIO) {
+  useCanvasStore.setState({
+    currentScenarioId: scenarioId,
+    nodes: nodes as never,
+    edges: edges as never,
+  } as never)
+}
+
+async function hydrate(server: unknown) {
+  fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(server)))
+  let outcome: unknown
+  await act(async () => { outcome = await hydrateCanvasFromServer(SCENARIO) })
+  const st = useCanvasStore.getState()
+  return {
+    outcome,
+    acked: isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never),
+    held: analysisHeldOn(st as never),
+  }
+}
+
+/** `MATCHING_NODES` with extra data on the kept factor. */
+function keptWith(extra: Record<string, unknown>): Node[] {
+  return MATCHING_NODES.map((n) =>
+    n.id === KEPT ? ({ ...n, data: { ...(n.data as object), ...extra } } as Node) : n)
+}
+
+/** A local value-only change nothing sends: no receipt will acknowledge it. */
+async function localValueOnlyChange(value: number) {
+  const edited = useCanvasStore.getState().nodes.map((n) =>
+    n.id === KEPT ? { ...n, data: { ...(n.data as object), observedState: { value } } } : n)
+  await act(async () => {
+    useCanvasStore.setState({ nodes: edited as never } as never)
+    await flush()
+  })
+}
+
+function registeredEdgePairs(call: unknown[]): string[] {
+  const payload = call.find(
+    (a) => a != null && typeof a === 'object' && Array.isArray((a as { edges?: unknown }).edges),
+  ) as { edges: Array<{ from: string; to: string }> } | undefined
+  return (payload?.edges ?? []).map((e) => edgePairKey(e.from, e.to))
+}
 
 afterEach(async () => {
   await flush()
@@ -253,7 +350,8 @@ describe('§1b the re-arm\'s own design case survives without its write', () => 
   it('LOST ACKNOWLEDGEMENT: a canvas that matches the read is acknowledged by the read — released, nothing sent', async () => {
     useCanvasStore.setState({ nodes: MATCHING_NODES as never, edges: MATCHING_EDGES as never } as never)
     expect(analysisHeldOn(useCanvasStore.getState() as never)).not.toBeNull()
-    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+    // The read returns what this canvas registered (see SERVER_AS_REGISTERED).
+    fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AS_REGISTERED)))
     const hook = await reload()
     const st = useCanvasStore.getState()
     expect(isGraphServerAcknowledged(SCENARIO, st.nodes as never, st.edges as never)).toBe(true)
@@ -293,6 +391,234 @@ describe('§2 the two cases where the local copy IS the model to write — must 
     fetchSpy.mockResolvedValue(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
     const hook = await reload()
     expect(registrationsCarrying(DELETED).length).toBeGreaterThan(0)
+    hook.unmount()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §4 — review B3 (CHANGES_REQUIRED @ b072db1a): a read acknowledges a canvas
+// only when the wire carries every analytical value the canvas would send.
+// Equal element sets are not enough: the boot merge KEEPS a canvas key the wire
+// omits (`overlayNode`: "the canvas KEEPS keys the wire omits"), and the
+// acknowledgement digest is the canvas's whole registration projection.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('§4 a read acknowledges only values the wire carries (review B3)', () => {
+  it('C: CEE holds NO observed value for the factor, the canvas holds 0.7 — NOT acknowledged, still held', async () => {
+    setCanvas(
+      keptWith({ observedState: { value: 0.7 } }),
+      MATCHING_EDGES,
+    )
+    const r = await hydrate(SERVER_AS_REGISTERED)
+    expect(r.outcome).toBe('merged')
+    // Precondition: the canvas-only value survived the merge (the ruled no-clear overlay).
+    const kept = useCanvasStore.getState().nodes.find((n) => n.id === KEPT)!.data as Record<string, unknown>
+    expect(kept.observedState).toEqual({ value: 0.7 })
+    expect(r.acked).toBe(false)
+    expect(r.held).not.toBeNull()
+  })
+
+  it('C-control: CEE holds a DIFFERENT value — the merge writes CEE\'s value, and the read vouches for it', async () => {
+    setCanvas(
+      keptWith({ observedState: { value: 0.7 } }),
+      MATCHING_EDGES,
+    )
+    const server = {
+      ...SERVER_AS_REGISTERED,
+      nodes: [SERVER_AS_REGISTERED.nodes[0], { ...SERVER_AS_REGISTERED.nodes[1], observed_state: { value: 0.4 } }],
+    }
+    const r = await hydrate(server)
+    const kept = useCanvasStore.getState().nodes.find((n) => n.id === KEPT)!.data as Record<string, unknown>
+    expect(kept.observedState).toEqual({ value: 0.4 })
+    expect(r.acked).toBe(true)
+    expect(r.held).toBeNull()
+  })
+
+  it('D: the canvas edge carries an exists-probability CEE lacks — NOT acknowledged', async () => {
+    setCanvas(MATCHING_NODES, [{ ...MATCHING_EDGES[0], data: { ...(MATCHING_EDGES[0].data as object), beliefExists: 0.3 } } as Edge])
+    const r = await hydrate(SERVER_AS_REGISTERED)
+    expect(r.outcome).toBe('merged')
+    const edge = useCanvasStore.getState().edges[0].data as Record<string, unknown>
+    expect(edge.beliefExists).toBe(0.3)
+    expect(r.acked).toBe(false)
+    expect(r.held).not.toBeNull()
+  })
+
+  it('D-flat: a wire in the flat legacy spelling with no direction or type does not vouch for the canvas\'s — NOT acknowledged', async () => {
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    const r = await hydrate(SERVER_AFTER_DELETE)
+    expect(r.outcome).toBe('merged')
+    expect(r.acked).toBe(false)
+  })
+
+  it('M8 pin: the read does not acknowledge while an edit is still being delivered', async () => {
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    useCanvasStore.setState({ pendingEmittedEdits: 1 } as never)
+    const r = await hydrate(SERVER_AS_REGISTERED)
+    expect(r.outcome).toBe('merged')
+    expect(r.acked).toBe(false)
+  })
+
+  it('M12 pin: the read does not acknowledge a canvas that is not bound to the scenario it read', async () => {
+    // `readAndMergeServerGraph` returns `skipped` for a canvas bound to ANOTHER
+    // scenario, so the one reachable unbound state at the acknowledgement is a
+    // null binding — the merge runs, the acknowledgement must not.
+    setCanvas(MATCHING_NODES, MATCHING_EDGES, null)
+    const r = await hydrate(SERVER_AS_REGISTERED)
+    expect(r.outcome).toBe('merged')
+    expect(r.acked).toBe(false)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §5 — review B1: the two timings that still POSTed the stale copy.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('§5 no timing lets the re-arm write before the read has answered (review B1)', () => {
+  it('E: a SUPERSEDED read settling cannot erase the live read\'s mark — nothing is sent while read 2 is pending', async () => {
+    const calls = pendingFetches()
+    auth.user = { id: 'guest' }
+    const hook = renderHook(() => {
+      useServerGraphHydration(SCENARIO)
+      useImportRegistration()
+    })
+    await act(async () => { await flush() })
+    expect(calls.length).toBe(1)
+    expect(registerSpy).not.toHaveBeenCalled()
+
+    // The hook's own documented re-run path: `user?.id` changes while read 1 is unsettled.
+    auth.user = { id: 'real-user' }
+    await act(async () => {
+      hook.rerender()
+      await flush()
+    })
+    // Preconditions, by identity: read 1 aborted, read 2 issued and still pending.
+    expect(calls.length).toBe(2)
+    expect(calls[0].aborted()).toBe(true)
+    expect(calls[1].aborted()).toBe(false)
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+
+    await act(async () => {
+      calls[1].answer(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+      await flush()
+    })
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+    hook.unmount()
+  })
+
+  function Restorer({ restoreId }: { restoreId: string }) {
+    // Mimics `ReactFlowGraph`'s PROD boot effect (a CHILD of CanvasMVP):
+    // hydrateGraphSlice(autosave) + bindRestoredScenarioId(pointer ?? autosave).
+    useEffect(() => {
+      useCanvasStore.setState({ nodes: STALE_NODES as never, edges: STALE_EDGES as never, currentScenarioId: restoreId } as never)
+    }, [restoreId])
+    return null
+  }
+  function Route() {
+    useServerGraphHydration(undefined)
+    useImportRegistration()
+    return <Restorer restoreId={SCENARIO} />
+  }
+
+  it('F: the re-arm runs before the read begins (store id bound by the child restore) — nothing is sent before or after the read', async () => {
+    const calls = pendingFetches()
+    setCanvas([], [], null)
+    let view: ReturnType<typeof render> | null = null
+    await act(async () => {
+      view = render(<Route />)
+      await flush()
+    })
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+    expect(calls.length).toBe(1)
+    await act(async () => {
+      calls[0].answer(jsonResponse(200, graphBody(SERVER_AFTER_DELETE)))
+      await flush()
+    })
+    expect(useBootGraphReadStore.getState().byScenario[SCENARIO]).toBeDefined()
+    expect(registrationsCarrying(DELETED)).toHaveLength(0)
+    view!.unmount()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §6 — review B2, option (i): the in-page re-arm survives a merged boot read
+// for a canvas that holds nothing CEE lacks, and is refused only for one that
+// does (the write that could resurrect a delete).
+// ═══════════════════════════════════════════════════════════════════════════
+describe('§6 after a merged boot read the re-arm is refused only for an element CEE lacks (review B2 (i))', () => {
+  it('J: a later value-only change no receipt acknowledges IS re-offered — once, carrying no element CEE lacks', async () => {
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    const r = await hydrate(SERVER_AS_REGISTERED)
+    expect(r.outcome).toBe('merged')
+    expect(r.held).toBeNull() // acknowledged by the read (§1b)
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy).not.toHaveBeenCalled()
+
+    await localValueOnlyChange(0.6)
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    const serverIds = SERVER_AS_REGISTERED.nodes.map((n) => n.id)
+    const serverPairs = SERVER_AS_REGISTERED.edges.map((e) => edgePairKey(e.from, e.to))
+    expect(registeredNodeIds(registerSpy.mock.calls[0]).every((id) => serverIds.includes(id))).toBe(true)
+    expect(registeredEdgePairs(registerSpy.mock.calls[0]).every((p) => serverPairs.includes(p))).toBe(true)
+    hook.unmount()
+  })
+
+  it('J-control: a canvas carrying an element CEE lacks is NOT re-registered, before or after a value-only change', async () => {
+    const r = await hydrate(SERVER_AFTER_DELETE)
+    expect(r.outcome).toBe('merged')
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    await localValueOnlyChange(0.6)
+    expect(registerSpy).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  it('the verdict follows CEE\'s record: when a later authoritative graph holds the element too, the model is re-offered', async () => {
+    const r = await hydrate(SERVER_AFTER_DELETE)
+    expect(r.outcome).toBe('merged')
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy).not.toHaveBeenCalled()
+    // No canvas change at all — only CEE's record of what it holds moves
+    // (e.g. an idempotent receipt carrying the element again).
+    await act(async () => {
+      useCanvasStore.getState().setLastAuthoritativeGraph({
+        nodeIds: [GOAL, KEPT, DELETED],
+        edgePairs: [edgePairKey(KEPT, GOAL), edgePairKey(DELETED, GOAL)],
+      })
+      await flush()
+    })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    hook.unmount()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §7 — one authoritative record: a registration CEE acknowledged is a record of
+// exactly what CEE now holds.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('§7 a registration CEE acknowledges records what CEE holds', () => {
+  it('a successful registration sets lastAuthoritativeGraph to the registered element set', async () => {
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    markGraphImported(MATCHING_NODES as never, MATCHING_EDGES as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    const record = useCanvasStore.getState().lastAuthoritativeGraph
+    expect(record && [...record.nodeIds].sort()).toEqual([GOAL, KEPT].sort())
+    expect(record && [...record.edgePairs].sort()).toEqual([edgePairKey(KEPT, GOAL)])
+    hook.unmount()
+  })
+
+  it('CONTROL: a registration CEE did not acknowledge records nothing', async () => {
+    registerSpy.mockResolvedValue({ status: 'unavailable' })
+    setCanvas(MATCHING_NODES, MATCHING_EDGES)
+    markGraphImported(MATCHING_NODES as never, MATCHING_EDGES as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true } as never)
+    const hook = renderHook(() => useImportRegistration())
+    await act(async () => { await flush() })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().lastAuthoritativeGraph).toBeNull()
     hook.unmount()
   })
 })
