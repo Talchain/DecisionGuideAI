@@ -25,6 +25,10 @@ import {
   settleStructuralDeleteAttempt,
 } from '../../../conversation/unconfirmedStructuralDelete'
 import { captureStructuralDelete } from '../../../mutations/structuralDelete'
+import {
+  __resetPendingEdgeEditsForTest,
+  markEdgeEditInFlight,
+} from '../../../conversation/pendingEdgeEdit'
 
 export const SCENARIO = 'scn-hold-names-cause'
 export const FACTOR_ID = 'fac_adoption'
@@ -54,6 +58,9 @@ export const DELETED_ID = 'fac_reseller'
 export const GOAL_LABEL = 'Grow revenue'
 /** The fixture's one link (`e1`: the factor to the goal), as the hold sentence names it. */
 export const LINK_NAME = `the link from ${FACTOR_LABEL} to ${GOAL_LABEL}`
+/** `e1`'s strength before the user's edit, and the magnitude the edit sent. */
+export const LINK_WEIGHT_BEFORE = 0.5
+export const USER_LINK_MAGNITUDE = 0.8
 
 export type HoldCause =
   | 'edit_on_the_wire'
@@ -64,6 +71,7 @@ export type HoldCause =
   | 'unconfirmed_value'
   | 'unresolved_delete'
   | 'unresolved_delete_link'
+  | 'unconfirmed_link_value'
 
 export const HOLD_CAUSES: readonly HoldCause[] = [
   'edit_on_the_wire',
@@ -74,6 +82,7 @@ export const HOLD_CAUSES: readonly HoldCause[] = [
   'unconfirmed_value',
   'unresolved_delete',
   'unresolved_delete_link',
+  'unconfirmed_link_value',
 ]
 
 type Stamp = Record<string, unknown>
@@ -87,6 +96,8 @@ interface CanvasOptions {
   withAddedNode?: boolean
   /** The canvas BEFORE the delete: the node the user then deleted, and its incident link. */
   withDeletedNode?: boolean
+  /** `e1`'s strength as the canvas shows it. */
+  linkWeight?: number
 }
 
 function canvas({
@@ -95,6 +106,7 @@ function canvas({
   factorValue = 0.55,
   withAddedNode = false,
   withDeletedNode = false,
+  linkWeight = LINK_WEIGHT_BEFORE,
 }: CanvasOptions) {
   const nodes = [
     { id: 'dec_1', type: 'decision', position: { x: 0, y: 0 }, data: { kind: 'decision', label: 'Enter the German market?', ...stamp } },
@@ -115,7 +127,7 @@ function canvas({
       : []),
   ]
   const edges = [
-    { id: 'e1', source: FACTOR_ID, target: 'goal_1', data: { weight: 0.5, direction: 'positive' } },
+    { id: 'e1', source: FACTOR_ID, target: 'goal_1', data: { weight: linkWeight, direction: 'positive' } },
     ...(withDeletedNode
       ? [{ id: 'e_reseller', source: DELETED_ID, target: 'goal_1', data: { weight: 0.3, direction: 'negative' } }]
       : []),
@@ -247,6 +259,14 @@ export function arrangeHoldCause(cause: HoldCause): void {
       settleStructuralDeleteAttempt(intent, SCENARIO, 'unconfirmed')
       return
     }
+    case 'unconfirmed_link_value': {
+      // Signal 5 (#1905): the user's link strength stays on the canvas after an
+      // unanswered send, and the pending register still records it as sent.
+      const { edges } = canvas({ linkWeight: USER_LINK_MAGNITUDE })
+      useCanvasStore.setState({ edges: edges as never } as never)
+      markEdgeEditInFlight('e1', USER_LINK_MAGNITUDE, { weight: LINK_WEIGHT_BEFORE, direction: 'positive' })
+      return
+    }
   }
 }
 
@@ -256,6 +276,7 @@ export function resetEditHoldRegisters(): void {
   releaseWire = null
   __resetPendingFactorEditsForTest()
   __resetUnconfirmedDeletesForTest()
+  __resetPendingEdgeEditsForTest()
   clearImportRegistrationMarkers()
   useCanvasStore.setState(QUIET as never)
 }
@@ -270,4 +291,5 @@ export const CAUSE_MUST_NAME: Record<HoldCause, readonly (string | RegExp)[]> = 
   unconfirmed_value: [/couldn['’]t confirm/i, FACTOR_LABEL, USER_VALUE_TEXT],
   unresolved_delete: [/couldn['’]t confirm/i, `that ${DELETED_LABEL} was removed from the saved model`],
   unresolved_delete_link: [/couldn['’]t confirm/i, `that ${LINK_NAME} was removed from the saved model`],
+  unconfirmed_link_value: [/couldn['’]t confirm/i, `your change to ${LINK_NAME}`],
 }
