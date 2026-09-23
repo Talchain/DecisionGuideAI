@@ -75,12 +75,8 @@ import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
-import {
-  ADDED_COLUMN_X_GAP,
-  ADDED_COLUMN_Y_STEP,
-  overlayEdge,
-  overlayNode,
-} from './mergeAppliedGraph'
+import { overlayEdge, overlayNode } from './mergeAppliedGraph'
+import { placeAddedNodes } from './newNodePlacement'
 import {
   captureUserProvenance,
   clearEdgeUserReviewOnValueChange,
@@ -440,16 +436,14 @@ export function mergeServerGraphOnHydrate(
   // which is exactly why the false sentence read as true.
   const hydratingEmptyCanvas = store.nodes.length === 0 && addedNodes.length > 0
 
-  // Deterministic placement, right of the existing bounding box — never a
-  // re-layout of nodes the user has already arranged. Same constants as the
-  // receipt path, imported from it.
+  // Deterministic placement: each added node joins its own row, clear of every
+  // existing card — never a re-layout of nodes the user has already arranged.
+  // The SAME helper as the receipt path (`placeAddedNodes`), so the two
+  // placements cannot drift.
   if (addedNodes.length > 0 && !hydratingEmptyCanvas) {
-    const xs = mergedNodes.map((n: any) => n.position?.x ?? 0)
-    const ys = mergedNodes.map((n: any) => n.position?.y ?? 0)
-    const baseX = (xs.length ? Math.max(...xs) : 0) + ADDED_COLUMN_X_GAP
-    const baseY = ys.length ? Math.min(...ys) : 0
+    const positions = placeAddedNodes(mergedNodes, addedNodes)
     addedNodes.forEach((n: any, idx: number) => {
-      n.position = { x: baseX, y: baseY + idx * ADDED_COLUMN_Y_STEP }
+      n.position = positions[idx]
     })
   }
 
