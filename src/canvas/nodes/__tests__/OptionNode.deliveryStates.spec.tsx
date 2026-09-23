@@ -117,8 +117,11 @@ describe('option delivery states through the real store and display selector', (
       } } },
     } as never)
     mountOptions(options)
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4 — never "Support",
+    // results are model-relative): the same absence, in the model's own words.
     expect(screen.getByTestId('option-result-unavailable-outcome-only'))
-      .toHaveTextContent('On the data so far, no support percentage for this option')
+      .toHaveTextContent('On the data so far, the model gave no share of runs for this option')
+    expect(screen.getByTestId('option-result-unavailable-outcome-only').textContent).not.toMatch(/\bsupport\b/i)
     // ⭐ THE DISCRIMINATING HALF OF THE PAIR ABOVE. This option HAS an entry —
     // the run analysed it and returned an outcome distribution without a share
     // — so it is the genuine PARTIAL case and must NOT be re-badged as one the

@@ -83,6 +83,11 @@ const kindOnly = (id: string): MockNode => ({ id, data: { label: id, kind: 'opti
 const dataTypeOnly = (id: string): MockNode => ({ id, data: { label: id, type: 'option' } })
 const bothSpellings = (id: string): MockNode => ({ id, type: 'option', data: { label: id, kind: 'option' } })
 const factorNode = (id: string): MockNode => ({ id, type: 'factor', data: { label: id } })
+/** An option that carries intervention VALUES on the factor it is wired to. */
+const withValues = (n: MockNode, factorId: string): MockNode => ({
+  ...n,
+  data: { ...(n.data as Record<string, unknown>), interventions: { [factorId]: 0.5 } },
+})
 
 /** The panel's predicate at `useResultsSectionData.ts:2024`, quoted verbatim. */
 const panelSaysOption = (n: MockNode) => (n.data as { kind?: unknown } | undefined)?.kind === 'option'
@@ -229,15 +234,29 @@ describe('useOptionLeftOutOfRun — F1: the intervention predicate reads the dom
     expect(ask('left-out')).toBe('no_interventions')
   })
 
-  it('does count an edge to a factor as an intervention', () => {
+  it('does count an edge to a factor as an intervention — when the option carries values', () => {
     // The opposite-direction twin. Without it, a hook that called EVERY edge
     // a non-intervention would pass the case above.
+    seed({
+      nodes: [bothSpellings('scored'), withValues(bothSpellings('left-out'), 'a-factor'), factorNode('a-factor')],
+      edges: [{ id: 'e1', source: 'left-out', target: 'a-factor' }],
+      results: { status: 'complete', report: { option_probabilities: { scored: {} } } },
+    })
+    expect(ask('left-out')).toBe('not_returned')
+  })
+
+  it('⭐ MT-21: a LINKED option with NO values is `no_interventions`, not an engine miss', () => {
+    // Manual test on served `4c6ec07b`: `deriveNotAnalysedReason` treated any
+    // linked option as configured, so an option wired to its factor but given no
+    // numbers read "the analysis returned no result" and lost the one action
+    // that fixes it ("Tell Olumi what it changes"). The edge is the SAME as the
+    // twin above; only the values differ — so this pair discriminates.
     seed({
       nodes: [bothSpellings('scored'), bothSpellings('left-out'), factorNode('a-factor')],
       edges: [{ id: 'e1', source: 'left-out', target: 'a-factor' }],
       results: { status: 'complete', report: { option_probabilities: { scored: {} } } },
     })
-    expect(ask('left-out')).toBe('not_returned')
+    expect(ask('left-out')).toBe('no_interventions')
   })
 })
 
@@ -263,7 +282,7 @@ describe('useOptionLeftOutOfRun — F2: a result we cannot vouch for says nothin
    * `option-result-unavailable` line.
    */
   const afterTheRun = (freshness: Partial<MockCanvasState>) => ({
-    nodes: [bothSpellings('scored'), bothSpellings('added-later'), factorNode('a-factor')],
+    nodes: [bothSpellings('scored'), withValues(bothSpellings('added-later'), 'a-factor'), factorNode('a-factor')],
     edges: [{ id: 'e1', source: 'added-later', target: 'a-factor' }],
     results: { status: 'complete', report: { option_probabilities: { scored: {} } } },
     ...freshness,

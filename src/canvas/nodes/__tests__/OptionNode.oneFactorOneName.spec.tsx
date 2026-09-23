@@ -258,7 +258,12 @@ describe('OptionNode — one factor, one name', () => {
     )
     renderOption()
 
-    const p = screen.getByText(/→ Very high \(1\)/)
+    // Locked Canvas design (23 Sep 2026; ED 02:31Z D2): the option face now
+    // leads with change rows (`option-change-row-<id>-<factor>`), which state the
+    // SAME target — so a text query for "→ Very high (1)" is ambiguous between
+    // the two carriers. The claim here is the DIFFERENTIATOR's frame, so bind by
+    // its identity rather than by text another carrier can also satisfy.
+    const p = screen.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
     expect(p.textContent).toBe('Usage-based pricing… → Very high (1)')
     expect(p.textContent).not.toMatch(/Usage-Based Pricing/)

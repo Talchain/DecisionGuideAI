@@ -53,35 +53,52 @@ describe('option results follow the composed freshness authority', () => {
       dragging={false} zIndex={0} deletable selectable draggable
     /></ReactFlowProvider>)
 
-    expect(screen.getByTestId('option-win-readout-candidate')).toHaveTextContent('72%')
-    expect(screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label'))
-      .not.toContain('Last analysis:')
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the result is
+    // model-relative and never "Support" — the row's caption follows the run's
+    // currency (`option-win-anchor`: 'Current model' | 'Last run' | 'Model
+    // result') and the readout reads "N% of runs". The accessible name leads
+    // with the same caption, then OPTION_RESULT_COPY's sentence and note.
+    const anchor = () => screen.getByTestId('option-win-anchor-candidate').textContent
+    const label = () => screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label') ?? ''
+    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
+    expect(anchor()).toBe('Current model')
+    expect(label()).toMatch(/^Current model · 72% of runs\. /)
+    expect(label()).not.toContain('The model has changed since this run.')
+    expect(label()).not.toContain('can’t confirm')
     expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent(/^Most supported$/)
 
     // A local edit supersedes the prior fresh verdict. This is the same real
     // store transition consumed by the panels, with no node-local hash.
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
-    expect(screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label'))
-      .toContain('Model changed since this analysis. Last analysis:')
+    // Locked Canvas design (23 Sep 2026): KNOWN changed → 'Last run' (ED 02:31Z Q2).
+    expect(anchor()).toBe('Last run')
+    expect(label()).toMatch(/^Last run · 72% of runs\. /)
+    expect(label()).toContain('The model has changed since this run.')
     expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent('Last run · Most supported')
-    expect(screen.getByTestId('option-win-readout-candidate')).toHaveTextContent('72%')
+    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
 
     act(() => useCanvasStore.setState({
       analysisFreshnessDirty: false,
       analysisFreshness: { ...fresh, freshness: 'unknown', freshnessReason: 'cee_unknown' },
     } as never))
-    expect(screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label'))
-      .toContain('Analysis may be out of date. Last analysis:')
-    expect(screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label'))
-      .not.toContain('Model changed')
-    expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent('Last run · Most supported')
-    expect(screen.getByTestId('option-win-readout-candidate')).toHaveTextContent('72%')
+    // Locked Canvas design (23 Sep 2026): currency that CANNOT be confirmed
+    // reads 'Model result' — it claims neither current nor a later model, and
+    // must not manufacture a last-run claim (ED 02:31Z), so the leading pill
+    // loses its "Last run ·" prefix here (it is now `changed`-only).
+    expect(anchor()).toBe('Model result')
+    expect(label()).toMatch(/^Model result · 72% of runs\. /)
+    expect(label()).toContain('Olumi can’t confirm this run reflects the current model.')
+    expect(label()).not.toContain('The model has changed')
+    expect(label()).not.toContain('Last run')
+    expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent(/^Most supported$/)
+    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
 
     act(() => useCanvasStore.setState({ analysisFreshness: fresh } as never))
-    expect(screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label'))
-      .not.toContain('Last analysis:')
+    expect(anchor()).toBe('Current model')
+    expect(label()).toMatch(/^Current model · 72% of runs\. /)
+    expect(label()).not.toContain('Last run')
     expect(screen.getByTestId('leading-option-pill-candidate')).toHaveTextContent(/^Most supported$/)
-    expect(screen.getByTestId('option-win-readout-candidate')).toHaveTextContent('72%')
+    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
 
     // An unanalysed draft must not acquire a warning about earlier results.
     act(() => useCanvasStore.setState({
