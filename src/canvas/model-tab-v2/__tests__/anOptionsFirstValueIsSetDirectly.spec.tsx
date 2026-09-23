@@ -108,12 +108,17 @@ function StoreBoundPanel({ handOff }: { handOff?: (m: string, r: string) => void
 }
 
 function renderPanel(
-  opts: { optionData?: Record<string, unknown>; extraNodes?: Node[]; handOff?: (m: string, r: string) => void } = {},
+  opts: {
+    optionData?: Record<string, unknown>
+    extraNodes?: Node[]
+    extraEdges?: Edge[]
+    handOff?: (m: string, r: string) => void
+  } = {},
 ) {
   useCanvasStore.setState(
     {
       nodes: [...nodes(opts.optionData), ...(opts.extraNodes ?? [])],
-      edges: edges(),
+      edges: [...edges(), ...(opts.extraEdges ?? [])],
       lastServerGraphHash: HASH,
       currentScenarioId: 'scn_1',
     } as never,
@@ -301,27 +306,127 @@ describe('⭐ the truth states — nothing is claimed before the receipt', () =>
   })
 
   /**
-   * ⚠ KNOWN CEE EDGE — NOTED, NOT FIXED. CEE refuses
-   * `invalid_existing_intervention` when a stored option carries
-   * `interventions: null` rather than an absent field
-   * (`option-intervention-edit.ts` `prepareOptionInterventionEdit`: present and
-   * not a plain object ⇒ refuse). The wire carries only the generic 422
-   * `system_event_refused_no_write` (the specific reason is logged, not sent),
-   * so the UI names the cause from the stored shape it can see.
+   * ⛔⛔ A CANVAS `interventions: null` NEVER TURNS "COULD NOT CONFIRM" INTO
+   * "NOT SAVED" (Panel F1 on #1911, at `1cbf10c8`).
+   *
+   * This case used to pin the opposite: a panel arm that read `null` off the
+   * canvas node and answered every `unverified` settlement with "Not saved —
+   * this option's stored effect list is in a form Olumi cannot add to yet".
+   * Two things were wrong with it, both measured by the reviewer:
+   *
+   *   · `unverified` means the write MAY HAVE LANDED — a transport failure, or
+   *     CEE's retryable 500 (`commit_not_confirmed` /
+   *     `committed_graph_mismatch`, `commitAttempted: true`). "Not saved" there
+   *     invites the user to re-send a number the model may already hold.
+   *   · the premise is unreachable from stored bytes: CEE's persistence
+   *     projection coerces a null `interventions` to `{}`
+   *     (`normalise-option-interventions.ts` `sweepInvalidNodeInterventions`,
+   *     called from `persisted-graph-projection.ts`). With the canvas holding
+   *     `null` and CEE holding `{}`, the sentence could only ever fire for some
+   *     OTHER failure, and named the wrong cause every time.
+   *
+   * So the stored shape chooses no sentence at all. Both of the reviewer's
+   * probe shapes are pinned: R1 (transport) and R2 (a server error carrying no
+   * conflict category — the retryable 500).
    */
-  it('⚠ KNOWN CEE EDGE — stored `interventions: null`: the refusal names that cause, not a generic one', async () => {
-    sendSystemEvent.mockRejectedValue(
-      new SystemEventSendError('server', { code: 'INGRESS_CONTRACT_VIOLATION' }),
-    )
+  it('⛔ stored `interventions: null` + a TRANSPORT failure → "could not confirm", never "not saved" (R1)', async () => {
+    sendSystemEvent.mockRejectedValue(new SystemEventSendError('transport'))
     renderPanel({ optionData: { interventions: null } })
     selectOption()
     setFirstValue(F_B, '0.6')
 
     const notice = await screen.findByTestId(`model-detail-v2-intervention-${F_B}-notice`)
-    expect(notice.textContent ?? '').toMatch(/stored effect list/i)
-    expect(notice.textContent ?? '').toMatch(/ask olumi/i)
-    expect(notice.textContent ?? '').not.toMatch(/could not confirm/i)
+    expect(notice.textContent ?? '').toMatch(/could not confirm/i)
+    expect(notice.textContent ?? '').not.toMatch(/not saved/i)
+    expect(notice.textContent ?? '').not.toMatch(/stored effect list/i)
     expect(input(F_B).value).toBe('0.6')
+  })
+
+  it('⛔ stored `interventions: null` + a server error with NO conflict category (the retryable 500) → "could not confirm", never "not saved" (R2)', async () => {
+    sendSystemEvent.mockRejectedValue(new SystemEventSendError('server', { code: 'INTERNAL_ERROR' }))
+    renderPanel({ optionData: { interventions: null } })
+    selectOption()
+    setFirstValue(F_B, '0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${F_B}-notice`)
+    expect(notice.textContent ?? '').toMatch(/could not confirm/i)
+    expect(notice.textContent ?? '').not.toMatch(/not saved/i)
+    expect(notice.textContent ?? '').not.toMatch(/stored effect list/i)
+    expect(input(F_B).value).toBe('0.6')
+  })
+})
+
+/**
+ * ⭐ THE BASELINE IS NOT ASKED WHAT IT CHANGES (Panel N2 on #1911, probe R6).
+ *
+ * CEE treats a baseline with `interventions: {}` as READY — `option-status.ts`
+ * `computeAnalysisReadyStatusWithReason`: "Baseline: every factor holds at its
+ * observed value, so no effect values are needed" — and the run gate HOLDS it
+ * (`analysable-option-gate.ts` `isBaselineOption`: `option.is_baseline ===
+ * true`). Asking "What does Status Quo change Team capacity to?" invites the
+ * user to give the counterfactual an effect; supplying one stops it being the
+ * status quo.
+ *
+ * The flag is read strictly (`=== true`), as CEE's run gate reads it — never
+ * the label: an option CEE does NOT hold as the baseline still needs a value,
+ * and must keep its input.
+ */
+describe('⭐ the baseline is not asked what it changes', () => {
+  const BASELINE = 'opt_status_quo'
+  const baseline: Node = {
+    id: BASELINE, type: 'option', position: { x: 0, y: 0 },
+    data: {
+      label: 'Status Quo (Hold Current Plan)',
+      kind: 'option',
+      is_baseline: true,
+      interventions: {},
+    },
+  } as unknown as Node
+  /** The baseline linked to F_B — the SAME factor OPTION is linked to. */
+  const baselineToF_B = edge('e_base', BASELINE, F_B)
+
+  it('⭐ an `is_baseline: true` option linked to a factor renders NO "What does … change … to?" input (R6)', () => {
+    renderPanel({ extraNodes: [baseline], extraEdges: [baselineToF_B] })
+    selectOption(BASELINE)
+
+    expect(screen.queryByTestId(`model-detail-v2-intervention-${F_B}-question`)).toBeNull()
+    expect(screen.queryByTestId(`model-detail-v2-intervention-${F_B}-input`)).toBeNull()
+    expect(screen.queryByTestId('model-detail-v2-intervention-candidates')).toBeNull()
+    expect(document.body.textContent ?? '').not.toMatch(/What does Status Quo/)
+  })
+
+  it('CONTRAST — a NON-baseline option linked to the SAME factor still renders it', () => {
+    renderPanel({ extraNodes: [baseline], extraEdges: [baselineToF_B] })
+    selectOption(OPTION)
+    expect(
+      screen.getByTestId(`model-detail-v2-intervention-${F_B}-question`).textContent,
+    ).toBe('What does Reduce Feature Scope change Team capacity to?')
+    expect(input(F_B).value).toBe('')
+  })
+
+  it('CONTRAST — the label alone does not make a baseline: `is_baseline` absent keeps the input', () => {
+    const labelOnly = {
+      ...baseline,
+      data: { label: 'Status Quo (Hold Current Plan)', kind: 'option', interventions: {} },
+    } as unknown as Node
+    renderPanel({ extraNodes: [labelOnly], extraEdges: [baselineToF_B] })
+    selectOption(BASELINE)
+    expect(
+      screen.getByTestId(`model-detail-v2-intervention-${F_B}-question`).textContent,
+    ).toBe('What does Status Quo (Hold Current Plan) change Team capacity to?')
+  })
+
+  it('⛔ a LINKED baseline is not named by the section notice as "not linked to" a factor', () => {
+    renderPanel({ handOff: vi.fn(), extraNodes: [baseline], extraEdges: [baselineToF_B] })
+    // POSITIVE CONTROL: the baseline row is on screen, in the options section.
+    expect(screen.getByTestId(`model-row-v2-${BASELINE}`)).toBeTruthy()
+    expect(screen.queryByTestId(SECTION_WRITER_NOTICE_TESTID('options'))).toBeNull()
+  })
+
+  it('⛔ an UNLINKED baseline is not told to link itself to a factor — it needs no effect values', () => {
+    renderPanel({ handOff: vi.fn(), extraNodes: [baseline] })
+    expect(screen.getByTestId(`model-row-v2-${BASELINE}`)).toBeTruthy()
+    expect(screen.queryByTestId(SECTION_WRITER_NOTICE_TESTID('options'))).toBeNull()
   })
 })
 
