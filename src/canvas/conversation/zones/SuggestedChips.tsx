@@ -29,7 +29,7 @@ import { useCanvasStore } from '../../store'
 import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { isChipRenderable } from '../chipDispatch'
-import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
+import { useAnalysisHoldReason } from '../../hooks/useAnalysisHold'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS } from '../../../v5/blocks/chipClass'
 import type { ActionChip } from '../types'
@@ -184,7 +184,12 @@ export function SuggestedChips({
   // (Related, same neighbourhood: the wire already carries `usable_for_chips` —
   // CEE's own chip-safety statement — surfaced at `analysisStateSelector` and
   // read today only by the coherence DIAGNOSTIC, never by this surface.)
-  const heldOn = useCanvasStore((s) => analysisHeldOn(s))
+  // ⭐ THE SHARED HOLD, through the shared hook (rule 5(c)). The hold now also
+  // reads the edit-delivery registers, which live OUTSIDE the store, so a bare
+  // `useCanvasStore` selector would not re-run when a change lands or settles;
+  // `useAnalysisHoldReason` subscribes to both. Non-null exactly when
+  // `analysisHeldOn` is (`heldReason` returns null only then).
+  const heldOn = useAnalysisHoldReason()
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
