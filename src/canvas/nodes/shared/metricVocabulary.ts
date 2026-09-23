@@ -790,20 +790,3 @@ export const ORDINAL_ROW_MUST_STATE_MINT = /first laid out/
 export const LEGEND_POPOVER_WIDTH_PX = 288
 export const MAX_GLOSS_LENGTH = 110
 
-/**
- * ⭐ THE STALE-RUN PREFIX (Ruling 3): a figure from a run the model has since
- * moved away from stays VISIBLE and is prefixed — never hidden, and never
- * presented as if it described the current model.
- *
- * It prefixes the figure; it does not explain WHY the run is stale. Which
- * trust states earn it is the adopter's `useAnalysisTrust().semantic` read
- * (`changed` or `cannot_confirm`, the pair `OptionNode` already keys on), so
- * the canvas's one freshness authority decides and no card re-derives it.
- *
- * ⚠ ONE ADOPTER READS IT BY REFERENCE TODAY (`GoalNode`). `OptionNode.tsx`
- * still spells the same bytes inline (`<span>Last run · </span>`); moving it
- * onto this constant is rowed, because that file belongs to another lane in
- * the same wave. Identical bytes, so the two cards render the same prefix in
- * the meantime.
- */
-export const LAST_RUN_PREFIX = 'Last run · '
