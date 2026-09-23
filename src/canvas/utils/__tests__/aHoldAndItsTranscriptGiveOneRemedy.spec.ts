@@ -39,9 +39,17 @@ import { ANALYSIS_HELD_ON_EDIT_COPY } from '../analysisHeldOnInjectedModel'
 import { STRUCTURAL_DELETE_NOTICE } from '../../mutations/structuralDelete'
 import { STRUCTURAL_RENAME_NOTICE, STRUCTURAL_RENAME_UNCONFIRMED_TOAST } from '../../mutations/structuralRename'
 
-/** The last sentence of a piece of copy — where both surfaces state the remedy. */
+/**
+ * The remedy clause of a piece of copy — where both surfaces state the remedy.
+ * It is the tail from the remedy's question ("Would you like…") to the end, so a
+ * remedy may be more than one sentence: the delete remedy names a fallback exit
+ * (Panel F1-residual, #1917 5798940402). With no question, the last sentence.
+ */
 function remedyClause(copy: string): string {
-  const sentences = copy.trim().split(/(?<=[.?!])\s+/)
+  const trimmed = copy.trim()
+  const at = trimmed.lastIndexOf('Would you like')
+  if (at > 0) return trimmed.slice(at)
+  const sentences = trimmed.split(/(?<=[.?!])\s+/)
   return sentences[sentences.length - 1]
 }
 
@@ -99,8 +107,10 @@ describe.each(CAUSES)('$cause: the hold and the transcript give ONE remedy', ({ 
     }
   })
 
-  it.each(transcriptLines)('%s no longer sends the user to reload the decision', (_line, copy) => {
-    expect(copy).not.toMatch(/reload this decision/i)
+  // N4: no SECOND remedy. Reload may appear only as the one remedy's own fallback
+  // clause (delete, Panel F1-residual), never as a separate instruction elsewhere.
+  it.each(transcriptLines)('%s never offers reload outside the one remedy', (_line, copy) => {
+    expect(copy.replace(remedy, '')).not.toMatch(/reload this decision/i)
   })
 })
 

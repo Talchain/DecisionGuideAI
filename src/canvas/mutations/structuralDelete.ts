@@ -514,7 +514,16 @@ export { PROVEN_NO_WRITE_CONFLICT_CATEGORIES as STRUCTURAL_DELETE_NO_WRITE_CONFL
  * reachable exit) and N4 (one remedy). Parity is pinned by
  * `utils/__tests__/aHoldAndItsTranscriptGiveOneRemedy.spec.ts`.
  */
-export const STRUCTURAL_DELETE_UNCONFIRMED_REMEDY = 'Would you like to ask Olumi to remove it?'
+// ⚠ TWO EXITS, NOT ONE (Panel F1-residual, #1917 5798940402). "Ask Olumi" releases the
+// hold when CEE still holds the element (it comes back) or removes it now (a
+// committed graph lacking it). But when CEE had ALREADY committed the delete that
+// answered 500, "remove X" is a no-op, and CEE attaches no draft_graph to a no-op
+// (edit-graph-dispatch.ts appliedGraphForWire; source reading, wire UNVERIFIED), so
+// the reply releases nothing. Reload is the exit that works in every branch
+// (editDeliveryHold: the lifecycle is not persisted; the boot merge shows CEE's
+// graph), named second so nobody is told to reload who did not need to.
+export const STRUCTURAL_DELETE_UNCONFIRMED_REMEDY =
+  'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
 
 /**
  * The one honest sentence for a delete that WAS SENT, keyed by OUTCOME rather
