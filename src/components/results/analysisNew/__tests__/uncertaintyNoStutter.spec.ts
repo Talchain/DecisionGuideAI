@@ -139,7 +139,7 @@ describe('an uncertainty row never says its own sentence twice', () => {
 
     expect(rows).toHaveLength(1)
     // A real label — the producer's own variable name, not a prefix of the body.
-    expect(rows[0].headline).toBe('Operational Overhead Burden could change the answer')
+    expect(rows[0].headline).toBe('Operational Overhead Burden could change which option leads in this model')
     expect(rows[0].implication).toBe(LONG_SENTENCE)
     // ⚠ AND IT IS GENUINELY NOT A PREFIX — the property that makes this branch
     // legitimate while the truncated one was not.

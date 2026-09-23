@@ -33,7 +33,7 @@ const INLINE = ACTION_TIER.inline.split(' ').filter(Boolean)
 
 const finding: AnalysisNewFinding = {
   id: 'f1',
-  headline: 'Pro plan price could change the answer',
+  headline: 'Pro plan price could change which option leads in this model',
   implication: 'If this link is weaker than assumed, another option leads.',
   detail: 'Review this assumption',
   groundedIn: 'the sensitivity analysis',

@@ -449,9 +449,9 @@ export const ANALYSIS_NEW_COPY = {
    * ⭐ WHAT YOUR MODEL IMPLIES — the two readings.
    *
    * ⚠⚠ ONE CLAIM IS DELEGATED AND ONE IS AUTHORED, AND THE ASYMMETRY IS FORCED.
-   * `goalClaim` returns `GOAL_ANCHOR_COPY`'s own sentence — the shared owner
-   * that the retiring hero's copy ALSO delegates to, so both surfaces print one
-   * wording of that claim and cannot drift.
+   * `goalClaim` returns `GOAL_ANCHOR_COPY`'s own sentence, framed "In this
+   * model," — the shared owner the retiring hero's copy ALSO delegates to, so
+   * both surfaces print one wording of that claim and cannot drift.
    *
    * `outcomeClaim` has no shared owner. Its only prior authoring lives inside
    * `analysis-hero`, which an allow-list guard forbids this tab from importing
@@ -490,7 +490,7 @@ export const ANALYSIS_NEW_COPY = {
       'Which reading matters more is a judgement about your appetite for risk, not a result this run can settle.',
     /** The aligned state. Agreement across two different questions is evidence. */
     alignedLead: (label: string): string =>
-      `${label} is most likely on both readings of this run.`,
+      `In this model, ${label} is most likely on both readings of this run.`,
     alignedResolve:
       'The two readings agree, so the choice does not hinge on which one you weight.',
     /**
@@ -509,7 +509,7 @@ export const ANALYSIS_NEW_COPY = {
      */
     needsTargetLead: 'Only one reading of this run is available.',
     needsTargetUnlock:
-      'Set a success target and the same run also answers which option is most likely to hit it. That second reading can disagree with this one.',
+      'Set a success target and the same run also shows which option is most likely to hit it in this model. That second reading can disagree with this one.',
 
     /**
      * READING ONE — the highest expected outcome.
@@ -520,7 +520,7 @@ export const ANALYSIS_NEW_COPY = {
      * "centre" may say "centre"; only one reading the mean may say "expected".
      */
     outcomeClaim: (label: string, readout: string): string =>
-      `${label} has the highest expected outcome: ${readout}.`,
+      `In this model, ${label} has the highest expected outcome: ${readout}.`,
 
     /**
      * READING TWO — the highest chance of meeting the user's target. DELEGATED
@@ -538,7 +538,7 @@ export const ANALYSIS_NEW_COPY = {
      * the hand-maintained mirror this estate keeps paying for (trap 12).
      */
     goalClaim: (label: string, readout: string): string =>
-      `${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
+      `In this model, ${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
   },
 
   empty: {
@@ -893,7 +893,7 @@ export const ANALYSIS_NEW_COPY = {
       const n = (v: number) =>
         applyUnitPlacement(v.toLocaleString('en-GB', { maximumFractionDigits: 2 }), unit)
       const verb = flipValue > currentValue ? 'rise' : 'fall'
-      const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} comes out ahead.`
+      const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} leads in this model.`
       /**
        * ⛔⛔ A BARE PAIR OF NUMBERS IS NOT AN INTERPRETATION, AND SAYING SO IS
        * PART OF THE FEATURE RATHER THAN A HEDGE ON IT.
@@ -925,7 +925,7 @@ export const ANALYSIS_NEW_COPY = {
      * must stay one, or it becomes a recommendation the run did not make.
      */
     convergence: (label: string) =>
-      `If any of these is wrong, they all point the same way: towards ${label}.`,
+      `If any of these is wrong, they all point the same way in this model: towards ${label}.`,
     expand: 'Show more',
     collapse: 'Show less',
     inspect: 'Inspect',
@@ -1616,14 +1616,14 @@ export const ANALYSIS_NEW_COPY = {
    * target"; this register uses the reader's words rather than the card's
    * compact stat-row label, and the possessive is the same commitment.
    *
-   * ⚠ "Ahead of the others" NAMES THE COMPARATIVE QUANTITY WITHOUT RANKING IT.
-   * It does not say "wins", "best" or "most likely" — `winner` is on the banned
+   * ⚠ "Highest in this model" NAMES THE COMPARATIVE QUANTITY AS MODEL-RELATIVE
+   * (#63 ruling). No "wins", "best" or "ahead" — `winner` is on the banned
    * list, and the section title already refuses to assert an ordering because
    * the run may withhold one.
    */
   optionFigures: {
     goalLabel: 'Reaches your target',
-    winLabel: 'Ahead of the others',
+    winLabel: 'Highest in this model',
     /**
      * ⭐ SAYS WHAT THE PICTURE IS, AND NOTHING ELSE. It states that the segments
      * account for every simulated scenario, which is the one fact three
@@ -1693,7 +1693,7 @@ export const ANALYSIS_NEW_COPY = {
       middle: 'Mid-point',
       optimistic: 'High end',
     },
-    partitionCaption: 'Every simulated scenario is accounted for above.',
+    partitionCaption: 'In this model, every simulated scenario is accounted for above.',
   },
   modelStrip: {
     /**
