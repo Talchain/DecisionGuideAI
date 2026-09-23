@@ -252,7 +252,14 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
  */
 const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?: string }> = [
   { kind: 'node-action-ask', starter: 'vendor-selection', why: 'NodeQuickActions — the shared row on every node' },
-  { kind: 'BUTTON:Explore more options', starter: 'vendor-selection', why: "DecisionNode's own call-to-action button" },
+  /*
+   * ⭐ RE-POINTED, 23 Sep 2026 — LOCKED NODE-CARD DESIGN (ED 11:52Z point 1;
+   * ED 02:31Z D4). The Question card's "Explore more options" chip is now its
+   * ONE rail coaching icon — the same invitation, the same card, a different
+   * render path (`node-coaching-icon`). The instance is pinned by its name so
+   * the row still drives DecisionNode's own control, not another card's icon.
+   */
+  { kind: 'node-coaching-icon', name: 'Explore more options', starter: 'vendor-selection', why: "DecisionNode's own invitation — its rail coaching icon (was the chip)" },
   /*
    * ⚠⚠ RE-POINTED TWICE, BY TWO PRs, FOR TWO DIFFERENT REASONS — AND BOTH
    * CHANGES ARE KEPT. Either side taken alone REDs this row, so this is a
@@ -275,11 +282,19 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
    * (`kind`). Keeping only #1274's would name a deleted badge; keeping only
    * #1277's would name a kind the census no longer emits.
    */
+  /*
+   * ⭐ RE-POINTED A FOURTH TIME, 23 Sep 2026 — LOCKED NODE-CARD DESIGN. The
+   * `useScienceIcons` badges (UI-computed hints like "options clustered") are
+   * DETAILED-ONLY now (spec §7: no UI-only behavioural cue at rest), so this
+   * Standard-view harness no longer meets them. The in-node control that took
+   * their place on a FACTOR's resting face is the rail's coaching icon — the
+   * same "a control inside the card body" door this row exists to drive.
+   */
   {
-    kind: 'science-icon-trigger',
-    name: 'Options clustered around',
+    kind: 'node-coaching-icon',
+    name: 'What’s the evidence?',
     starter: 'vendor-selection',
-    why: 'a science/provenance badge (useScienceIcons) on a FACTOR node — the anchoring badge, after #1277 deleted the olumi-estimate one',
+    why: 'the rail coaching icon on a FACTOR node (the ScienceIcon badges it replaced are Detailed-only)',
   },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
   /*
@@ -302,11 +317,16 @@ const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?
    * `is_baseline === true` branch, same render path. Only the instance's name
    * moved, so only `name` moves.
    */
+  /*
+   * ⭐ RE-POINTED, 23 Sep 2026 — same reason as the row above: the baseline
+   * option's ScienceIcon is Detailed-only. The option card's resting RAIL icon
+   * (`option-edit-targets`, a `NodeRailIcon` — the component every rail data
+   * icon uses) is the in-node control on an OPTION node now.
+   */
   {
-    kind: 'science-icon-trigger',
-    name: 'Baseline',
+    kind: 'option-edit-targets',
     starter: 'vendor-selection',
-    why: 'the same ScienceIcon path on the BASELINE OPTION node — NOT NodeCoachingMarker, see above',
+    why: 'a NodeRailIcon (the rail data/action icon path) on an OPTION node — the ScienceIcon it replaced is Detailed-only',
   },
 ]
 

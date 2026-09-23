@@ -105,14 +105,27 @@ describe('an excluded option says so on the board', () => {
     expect(el).toBeTruthy()
     expect(el!.textContent).toBe('Not in this analysis')
     // The REASON is the producer's, not this component's.
-    expect(el!.getAttribute('title')).toBe(CEE_MESSAGE)
+    // Locked Canvas design (23 Sep 2026): the pill is now a BUTTON (StatusPill
+    // `onActivate`), so its title/accessible name append the route it opens.
+    // This option has no values and no `missing_value` blocker names a factor,
+    // so the action is "Tell Olumi what it changes." and no "Missing: …" clause.
+    // CEE's sentence still LEADS, verbatim.
+    expect(el!.getAttribute('title')).toBe(`${CEE_MESSAGE} Tell Olumi what it changes.`)
+    expect(el!.tagName).toBe('BUTTON')
+    expect(el!.getAttribute('aria-label')).toBe(el!.getAttribute('title'))
   })
 
   it('still marks it when CEE sent no sentence — excluded is excluded', () => {
     setReadiness([{ option_id: OPTION_ID, waived_by_exclusion: true }])
     renderNode('option', OPTION_ID)
     expect(pill()).toBeTruthy()
-    expect(pill()!.getAttribute('title')).toBe('The analysis will run without this option')
+    // Locked Canvas design (23 Sep 2026): the fallback still leads, then the
+    // pill's route (it is a button now). ⚠ SUSPECTED PRODUCTION DEFECT, left
+    // RED on purpose: the fallback has no full stop, so the joined accessible
+    // name reads "…without this option Tell Olumi what it changes." as one
+    // run-on sentence (BaseNode.tsx `'The analysis will run without this option'`
+    // joined with `' '`). Expected is the two-sentence form.
+    expect(pill()!.getAttribute('title')).toBe('The analysis will run without this option. Tell Olumi what it changes.')
   })
 
   /**

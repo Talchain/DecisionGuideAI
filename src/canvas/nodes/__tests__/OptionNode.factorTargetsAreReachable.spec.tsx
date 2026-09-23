@@ -21,6 +21,15 @@
  * CLAIM SCOPE (trap 3): jsdom pins the control and the strings, never layout,
  * visibility, or that the inspector's own editor is operable. That half is
  * `useOptionInterventionCommit`'s and the browser witness's.
+ *
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; spec §4, ED 11:52Z point 4, ED 02:31Z
+ * D2). The "N factor targets" line (`option-change-count-<id>`) is REMOVED from
+ * the face. The routes are now (1) a persistent rail PENCIL
+ * (`option-edit-targets-<id>`, accessible name = the SAME composed sentence,
+ * "N factor targets. Open the inspector to change them.") and (2) `+N more`
+ * (`option-change-more-<id>`) under the ≤2 change rows. Both open the inspector
+ * via `openNodeInspector`. Every test below keeps its claim and is re-pointed
+ * to those carriers; each also asserts the old line stays gone.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -59,6 +68,9 @@ const NODES = [
   { id: OPTION_ID, type: 'option', data: { label: 'Hybrid Platform Fee Plus Usage', type: 'option' } },
   { id: 'fac_usage_exposure', type: 'factor', data: { label: 'Usage-Based Pricing Exposure', type: 'factor' } },
   { id: 'fac_top_account', type: 'factor', data: { label: 'Top Account Revenue Concentration', type: 'factor' } },
+  // Carries no target in the default fixture; the third target for the
+  // `+N more` case (Locked Canvas design, 23 Sep 2026: ≤2 rows + `+N more`).
+  { id: 'fac_churn', type: 'factor', data: { label: 'Churn', type: 'factor' } },
 ]
 const EDGES = [
   { id: 'e1', source: OPTION_ID, target: 'fac_usage_exposure' },
@@ -67,6 +79,12 @@ const EDGES = [
 const CEE = {
   options: [{ id: OPTION_ID, interventions: { fac_usage_exposure: 0.6, fac_top_account: 0.3 } }],
 }
+/** Three targets: two rows on the card, one counted by `+1 more`. */
+const CEE_THREE = {
+  options: [{ id: OPTION_ID, interventions: { fac_usage_exposure: 0.6, fac_top_account: 0.3, fac_churn: 0.1 } }],
+}
+/** No targets at all — the contrast for the pencil's two labels. */
+const CEE_NONE = { options: [{ id: OPTION_ID, interventions: {} }] }
 
 vi.mock('../../store', () => ({
   useCanvasStore: vi.fn(),
@@ -93,7 +111,12 @@ const baseProps = {
   draggable: true,
 }
 
-function renderCard(viewMode: 'standard' | 'expert' = 'expert', dataOverride?: Record<string, unknown>, resultsStatus: string = 'idle') {
+/**
+ * Returns the route carrier. Locked Canvas design (23 Sep 2026): that is the
+ * rail pencil `option-edit-targets-<id>` — the "N factor targets" line it
+ * returned before is gone from the face (see `oldCountLine`).
+ */
+function renderCard(viewMode: 'standard' | 'expert' = 'expert', dataOverride?: Record<string, unknown>, resultsStatus: string = 'idle', cee: unknown = CEE) {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
     sensitivityRank: null, influence: null, confidence: null,
     inSensitivityAnalysis: false, achievementProbability: null,
@@ -105,7 +128,7 @@ function renderCard(viewMode: 'standard' | 'expert' = 'expert', dataOverride?: R
       hoveredOptionId: null,
       nodes: NODES,
       edges: EDGES,
-      ceeAnalysisReady: CEE,
+      ceeAnalysisReady: cee,
       results: { status: resultsStatus, report: null },
       highlightedNodes: new Set(),
       dimmedNodeIds: new Set(),
@@ -123,8 +146,13 @@ function renderCard(viewMode: 'standard' | 'expert' = 'expert', dataOverride?: R
       <OptionNode {...baseProps} data={{ ...NODES[0].data, ...(dataOverride ?? {}) }} />
     </ReactFlowProvider>,
   )
-  return container.querySelector(`[data-testid="option-change-count-${OPTION_ID}"]`)
+  // ⚠ Positive control: the card mounted, so a null below is an absence.
+  expect(container.querySelector('[data-testid="node-title"]'), 'the card did not mount').not.toBeNull()
+  return container.querySelector(`[data-testid="option-edit-targets-${OPTION_ID}"]`)
 }
+/** The REMOVED "N factor targets" line — asserted absent wherever the route is. */
+const oldCountLine = () => document.querySelector(`[data-testid="option-change-count-${OPTION_ID}"]`)
+const moreRoute = () => document.querySelector(`[data-testid="option-change-more-${OPTION_ID}"]`)
 
 describe('the factor-targets line is a route, not a sentence about one', () => {
   beforeEach(() => {
@@ -134,27 +162,61 @@ describe('the factor-targets line is a route, not a sentence about one', () => {
 
   it('renders as a real control', () => {
     const line = renderCard()
-    expect(line, 'the change-count line must still render').not.toBeNull()
+    // Locked Canvas design (23 Sep 2026; spec §4): the route is the rail pencil.
+    expect(line, 'the targets route (rail pencil) must render').not.toBeNull()
     expect(line?.tagName.toLowerCase()).toBe('button')
+    expect(oldCountLine(), 'the removed "N factor targets" line came back').toBeNull()
   })
 
   it('still states the count — the contrast control', () => {
     // If this REDs the change altered what the card ASSERTS, not what it
     // offers. `2` because the fixture carries two interventions.
-    expect(renderCard()?.textContent ?? '').toContain('2 factor targets')
+    // Locked Canvas design (23 Sep 2026): the count now rides the pencil's
+    // accessible name (the face shows the rows themselves).
+    expect(renderCard()?.getAttribute('aria-label') ?? '').toContain('2 factor targets')
   })
 
   it('opens THIS option, bound by id and not by "a call happened"', () => {
     ;(renderCard() as HTMLButtonElement).click()
     expect(openNodeInspector).toHaveBeenCalledWith(OPTION_ID)
+    // Locked Canvas design (23 Sep 2026): the SECOND route, `+N more`, opens
+    // the same option — three targets, two rows, one counted.
+    cleanup()
+    openNodeInspector.mockClear()
+    renderCard('expert', undefined, 'idle', CEE_THREE)
+    const more = moreRoute() as HTMLButtonElement | null
+    expect(more, '`+N more` must render when a target is not shown').not.toBeNull()
+    expect(more?.tagName.toLowerCase()).toBe('button')
+    expect(more?.textContent).toBe('+1 more')
+    more!.click()
+    expect(openNodeInspector).toHaveBeenCalledTimes(1)
+    expect(openNodeInspector).toHaveBeenCalledWith(OPTION_ID)
   })
 
   it('keeps both carriers — the glance count and the full sentence', () => {
+    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the glance count
+    // is now the change rows themselves plus `+N more`, with N from the ONE
+    // total; the full sentence is the pencil's accessible name.
     const line = renderCard()
-    const { short, full } = optionTargetsChannels({ count: 2 })
-    expect(line?.querySelector('[aria-hidden="true"]')?.textContent).toBe(short)
-    expect(line?.textContent).toContain(full)
-    expect(line?.getAttribute('title')).toBe(full)
+    const { full } = optionTargetsChannels({ count: 2 })
+    expect(line?.getAttribute('aria-label')).toBe(full)
+    const rows = document.querySelector(`[data-testid="option-change-rows-${OPTION_ID}"]`)
+    expect(rows, 'the change rows must render').not.toBeNull()
+    expect(rows!.querySelectorAll('dd').length).toBe(2)
+    expect(document.querySelector(`[data-testid="option-change-row-${OPTION_ID}-fac_usage_exposure"]`)).not.toBeNull()
+    expect(document.querySelector(`[data-testid="option-change-row-${OPTION_ID}-fac_top_account"]`)).not.toBeNull()
+    // Two targets, two rows shown: nothing left to count.
+    expect(moreRoute()).toBeNull()
+
+    // Three targets: two rows + `+1 more`, whose name carries the full sentence
+    // for the ONE total and says how many are not shown.
+    cleanup()
+    const three = renderCard('expert', undefined, 'idle', CEE_THREE)
+    const full3 = optionTargetsChannels({ count: 3 }).full
+    expect(three?.getAttribute('aria-label')).toBe(full3)
+    expect(document.querySelector(`[data-testid="option-change-rows-${OPTION_ID}"]`)!.querySelectorAll('dd').length).toBe(2)
+    expect(moreRoute()?.textContent).toBe('+1 more')
+    expect(moreRoute()?.getAttribute('aria-label')).toBe(`${full3} 1 more not shown on the card.`)
   })
 })
 
@@ -187,7 +249,9 @@ describe('the sentence is composed from the authority, not asserted', () => {
    * quietly with a weaker sentence on screen.
    */
   it('the card renders the LIVE sentence while the carrier is live', () => {
-    expect(renderCard()?.getAttribute('title')).toBe(
+    // Locked Canvas design (23 Sep 2026): the pencil's accessible name carries
+    // the sentence the removed line's `title` did.
+    expect(renderCard()?.getAttribute('aria-label')).toBe(
       optionTargetsChannels({ count: 2, routeIsLive: true }).full,
     )
   })
@@ -242,8 +306,20 @@ describe('the route line shows wherever a target exists, not only as a fallback'
     // the card must agree. If the card ever re-derives the rule inline, a change
     // to the predicate stops moving the card and this stops being evidence —
     // so the render and the predicate are asserted together.
+    // Locked Canvas design (23 Sep 2026; spec §4 "a persistent pencil"): the
+    // pencil renders for every non-baseline option; "targets exist" now decides
+    // which SENTENCE it carries. ⚠ `optionTargetsLineShows` has no production
+    // caller any more — the card reads `hasInterventions` directly (the same
+    // rule) — so this pairs the predicate with the label it now selects.
     expect(optionTargetsLineShows({ hasInterventions: true, deltasRendered: false })).toBe(true)
-    expect(renderCard()).not.toBeNull()
+    expect(renderCard()?.getAttribute('aria-label')).toBe(optionTargetsChannels({ count: 2 }).full)
+    // CONTRAST — no targets: the predicate says no line, and the pencil offers
+    // to SET targets instead of claiming any exist.
+    cleanup()
+    expect(optionTargetsLineShows({ hasInterventions: false, deltasRendered: false })).toBe(false)
+    const none = renderCard('expert', undefined, 'idle', CEE_NONE)
+    expect(none?.getAttribute('aria-label')).toBe('No factor targets yet. Open the inspector to set what this option changes.')
+    expect(none?.getAttribute('aria-label')).not.toMatch(/\d+ factor targets?/)
   })
 })
 
@@ -271,13 +347,16 @@ describe('the route line shows wherever a target exists, not only as a fallback'
  */
 describe('the route renders in the view the product opens in', () => {
   it('STANDARD view carries the route — the served-build case', () => {
+    // Locked Canvas design (23 Sep 2026; spec §4 "never Expert-only"): the pencil.
     const line = renderCard('standard')
-    expect(line, 'the route line must render in Standard view').not.toBeNull()
+    expect(line, 'the route must render in Standard view').not.toBeNull()
     expect(line?.tagName.toLowerCase()).toBe('button')
+    expect(oldCountLine()).toBeNull()
   })
 
   it('REGRESSION GUARD — Expert view still carries it, once', () => {
     expect(renderCard('expert')).not.toBeNull()
+    expect(oldCountLine()).toBeNull()
   })
 
   it('it is ONE control, not one per view — no duplicate in either view', () => {
@@ -288,15 +367,18 @@ describe('the route renders in the view the product opens in', () => {
       cleanup()
       vi.clearAllMocks()
       renderCard(view)
+      // Locked Canvas design (23 Sep 2026): the one route is the rail pencil.
       expect(
-        document.querySelectorAll(`[data-testid="option-change-count-${OPTION_ID}"]`).length,
-        `${view} rendered more than one route line`,
+        document.querySelectorAll(`[data-testid="option-edit-targets-${OPTION_ID}"]`).length,
+        `${view} rendered more than one route`,
       ).toBe(1)
+      expect(document.querySelectorAll(`[data-testid="option-change-count-${OPTION_ID}"]`).length).toBe(0)
     }
   })
 
   it('CONTRAST CONTROL — the line still states the count in Standard view', () => {
-    expect(renderCard('standard')?.textContent ?? '').toContain('2 factor targets')
+    // Locked Canvas design (23 Sep 2026): the count rides the pencil's name.
+    expect(renderCard('standard')?.getAttribute('aria-label') ?? '').toContain('2 factor targets')
   })
 
   /**
@@ -307,15 +389,26 @@ describe('the route renders in the view the product opens in', () => {
    * baseline, so nothing exercised it, and a preserved condition nothing tests
    * is a condition the next change deletes for free.
    */
-  it('a completed run still carries NO route — the other inherited condition, guarded', () => {
+  it('a completed run: the route PERSISTS on the rail, and the old line stays gone', () => {
     // `isPostAnalysis = resultsStatus === 'complete'`. A mutant dropping
     // `!isPostAnalysis` also survived until this existed.
-    expect(renderCard('standard', undefined, 'complete')).toBeNull()
+    // Locked Canvas design (23 Sep 2026; spec §4: "Standard view must indicate
+    // that real editable targets can be changed. A persistent pencil…"): the
+    // `!isPostAnalysis` gate was inherited from the old Expert fragment; the
+    // rail pencil is persistent, so after a run the targets stay reachable.
+    // The removed count line must not return in either phase.
+    const pencil = renderCard('standard', undefined, 'complete')
+    expect(pencil, 'the targets route must persist after a run').not.toBeNull()
+    expect(pencil?.getAttribute('aria-label')).toBe(optionTargetsChannels({ count: 2 }).full)
+    expect(oldCountLine()).toBeNull()
   })
 
   it('the baseline option still carries NO route — the inherited condition, guarded', () => {
+    // Locked Canvas design (23 Sep 2026): the pencil keeps `!isBaselineOption`.
     expect(renderCard('standard', { is_baseline: true })).toBeNull()
+    expect(oldCountLine()).toBeNull()
     cleanup()
     expect(renderCard('expert', { is_baseline: true })).toBeNull()
+    expect(oldCountLine()).toBeNull()
   })
 })

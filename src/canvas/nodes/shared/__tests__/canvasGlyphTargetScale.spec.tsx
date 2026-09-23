@@ -583,9 +583,21 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       const buttons = targetsIn(row)
       const gap = gapFromClass(cls(row))
       expect(gap, 'the row carries no gap class to measure from').not.toBeNull()
-      // `bottom-1.5 right-1.5` -> 6px, unscaled. Read from the row, not restated.
-      const inset = sizeFromClass(cls(row).replace(/(^|\s)(bottom|right)-/g, '$1h-'), 'h')
-      expect(inset, 'the row carries no corner inset to measure from').not.toBeNull()
+      // Locked Canvas design (23 Sep 2026): the corner inset moved OFF the row
+      // and onto the card rail wrapper (`node-card-rail-<id>`) that now holds
+      // the row (spec §2 "Bottom rail is one consistent location"; ED 02:31Z
+      // D4). Only WHERE the inset is read changed — the row's buttons are still
+      // the measured targets and the arithmetic below is identical. The rail is
+      // asserted to CONTAIN the row, so the inset read is the one the row sits
+      // at, and the fixture carries no resting group (no `coaching`, no
+      // `restingIcons`), so the footprint is still the row alone — a rail WITH
+      // resting members is a wider footprint this block does not measure.
+      const rail = screen.getByTestId('node-card-rail-node-a')
+      expect(rail.contains(row), 'the quick-action row is not inside the card rail').toBe(true)
+      expect(screen.queryByTestId('node-card-rail-resting-node-a')).toBeNull()
+      // `bottom-1.5 right-1.5` -> 6px, unscaled. Read from the rail, not restated.
+      const inset = sizeFromClass(cls(rail).replace(/(^|\s)(bottom|right)-/g, '$1h-'), 'h')
+      expect(inset, 'the rail carries no corner inset to measure from').not.toBeNull()
       let visual = 0
       for (const b of buttons) {
         const box = sizeFromClass(cls(b), 'w')

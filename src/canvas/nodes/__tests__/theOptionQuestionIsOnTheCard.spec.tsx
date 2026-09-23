@@ -30,10 +30,22 @@
  * is structural; the test pins that it stayed structural.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
+
+/**
+ * Locked Canvas design (23 Sep 2026; ED 02:31Z D4, ED 11:52Z point 5): the
+ * card's question no longer rides a face chip row (`option-card-question` is
+ * gone). It lives in the card RAIL as the ONE coaching icon
+ * (`node-coaching-icon-<id>`, accessible name = the chip's label), which asks
+ * the same `option_what_could_go_wrong` chip before a run. The icon renders
+ * only where an ask surface is registered, so the fixture registers one.
+ */
+const ICON = 'node-coaching-icon-opt_upmarket'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -87,6 +99,11 @@ const props = {
 function renderOption(data: Record<string, unknown> = {}, resultsStatus = 'idle') {
   cleanup()
   vi.mocked(useCanvasStore).mockImplementation((sel) => (sel as (s: unknown) => unknown)(state(resultsStatus) as never))
+  // The icon selects the node before asking (`useCanvasStore.getState()`).
+  ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => ({ selectNodeWithoutHistory: vi.fn() })
+  // An ask surface — without one the icon renders nothing (`canReceiveAsk`).
+  useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
+  useAskOlumiStore.setState({ isOpen: false, draft: '', label: '', context: '' } as never)
   render(
     <ReactFlowProvider>
       <OptionNode {...props} id={ID} data={{ label: 'Move upmarket to enterprise', kind: 'option', ...data }} />
@@ -99,20 +116,38 @@ function renderOption(data: Record<string, unknown> = {}, resultsStatus = 'idle'
 describe('the option card asks its own question, like every other kind', () => {
   it('⭐ a proposed option asks what could go wrong — on the card, no hover', () => {
     renderOption()
-    expect(screen.getByTestId('option-card-question')).toHaveTextContent('What could go wrong?')
+    // Locked Canvas design (23 Sep 2026): the rail icon is the card's question
+    // (ED 02:31Z D4) — still on the card, still no hover. The face chip row is gone.
+    const icon = screen.getByTestId(ICON)
+    expect(icon).toHaveAccessibleName('What could go wrong?')
+    expect(icon.getAttribute('data-coaching-chip-id')).toBe('option_what_could_go_wrong')
+    expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
 
   it('⭐ EXACTLY ONCE — the popover arm no longer renders the same chip', () => {
     renderOption()
-    // `getAllByText` rather than `getByText`: the failure this pins is a
-    // DUPLICATE, and `getByText` would throw a less legible error for it.
-    expect(screen.getAllByText('What could go wrong?')).toHaveLength(1)
+    // `getAllBy…` rather than `getBy…`: the failure this pins is a
+    // DUPLICATE, and `getBy…` would throw a less legible error for it.
+    // Locked Canvas design (23 Sep 2026): the one carrier is the rail icon,
+    // whose label is its accessible name (not text), so the count is taken by
+    // role+name — which also counts any popover chip button with that label.
+    const asks = screen.getAllByRole('button', { name: 'What could go wrong?' })
+    expect(asks).toHaveLength(1)
+    expect(asks[0].getAttribute('data-testid')).toBe(ICON)
+    // …and no visible-text copy of the chip anywhere (face or inline popover).
+    expect(screen.queryAllByText('What could go wrong?')).toHaveLength(0)
   })
 
   it('the message names the option, so the turn it opens is about this card', () => {
     renderOption({ label: 'Double down on self-serve' })
-    const chip = screen.getByTestId('option-card-question').querySelector('button')
-    expect(chip).toBeTruthy()
+    // Locked Canvas design (23 Sep 2026): the rail icon asks through
+    // `requestAsk` (untyped chip → an editable draft the user sends), bound to
+    // THIS node by `targetId` and carrying the option's own label.
+    fireEvent.click(screen.getByTestId(ICON))
+    const ask = useAskOlumiStore.getState() as unknown as { isOpen: boolean; draft: string; targetId?: string }
+    expect(ask.isOpen).toBe(true)
+    expect(ask.draft).toBe('What could go wrong if we choose Double down on self-serve?')
+    expect(ask.targetId).toBe('opt_upmarket')
   })
 
   /**
@@ -129,6 +164,8 @@ describe('the option card asks its own question, like every other kind', () => {
     // product (trap 16 — a self-authored input encodes the author's model of
     // the producer rather than the producer).
     renderOption({ is_baseline: true })
+    // Locked Canvas design (23 Sep 2026): the question's home is the rail icon.
+    expect(screen.queryByTestId(ICON)).toBeNull()
     expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
 
@@ -136,6 +173,8 @@ describe('the option card asks its own question, like every other kind', () => {
     // The flag is absent here, so `detectBaseline` decides — the other half of
     // the component's own predicate, which the flag-only case never exercises.
     renderOption({ label: 'Keep per-seat pricing (status quo)' })
+    // Locked Canvas design (23 Sep 2026): the question's home is the rail icon.
+    expect(screen.queryByTestId(ICON)).toBeNull()
     expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
 
@@ -146,6 +185,9 @@ describe('the option card asks its own question, like every other kind', () => {
    */
   it('⛔ CONTRAST: after a run the card question stands down', () => {
     renderOption({}, 'complete')
+    // Locked Canvas design (23 Sep 2026): after a run the icon asks the
+    // CLUSTER's first chip, never this pre-analysis card question.
+    expect(screen.queryByRole('button', { name: 'What could go wrong?' })).toBeNull()
     expect(screen.queryByTestId('option-card-question')).toBeNull()
   })
 })

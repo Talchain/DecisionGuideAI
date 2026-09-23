@@ -45,6 +45,13 @@
  * defect. (Measured while writing this slice.)
  *
  * Scope limit (trap 3): string presence/absence only.
+ *
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2). The prose readout
+ * is off the goal card's face: ONE NodeMetricRow (`goal-achievement-metric-row`)
+ * shows "Chance" + the register-formatted figure, and the sentence
+ * "X chance of reaching target" is that row's ACCESSIBLE NAME (and tooltip). So
+ * the readout is read off the row BY TESTID — its visible figure and its name —
+ * and the "never 0%" scan covers visible text AND every accessible name.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -59,6 +66,19 @@ vi.mock('@xyflow/react', async () => {
 
 /** A zero-percent readout that is not the tail of a larger number. */
 const BARE_ZERO_PERCENT = /(?<![\d.])0%/
+
+const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
+/** Locked Canvas design (23 Sep 2026): the Chance row's figure and its sentence. */
+const achievementRow = () => {
+  const row = screen.getByTestId(ACHIEVEMENT_ROW)
+  return { visible: row.textContent ?? '', name: row.getAttribute('aria-label') ?? '' }
+}
+/** Visible text plus every accessible name — what any reader of the card can get. */
+const everythingReadable = (): string =>
+  [
+    document.body.textContent ?? '',
+    ...Array.from(document.querySelectorAll('[aria-label]')).map(el => el.getAttribute('aria-label') ?? ''),
+  ].join('\n')
 
 let storeState: Record<string, unknown>
 
@@ -132,23 +152,32 @@ describe('GoalNode — the exact-zero goal readout', () => {
 
   it('positive control: a mid-range probability renders its own percentage', () => {
     renderGoalNodeWith(0.55)
-    expect(screen.getByText(/55% chance of reaching target/)).toBeInTheDocument()
+    // Locked Canvas design (23 Sep 2026): read off the Chance row (ED 11:52Z point 2).
+    const { visible, name } = achievementRow()
+    expect(visible).toContain('55%')
+    expect(name).toMatch(/55% chance of reaching target/)
   })
 
   it('renders an EXACT ZERO as the goal register floor, NOT "0%"', () => {
     // The divergence itself: the canvas said "0% chance of reaching target"
     // where every dock surface said "< 1%" for the same number.
     renderGoalNodeWith(0)
-    const text = document.body.textContent ?? ''
-    expect(text).toContain('< 1% chance of reaching target')
-    expect(text).not.toMatch(BARE_ZERO_PERCENT)
+    // Locked Canvas design (23 Sep 2026): the figure is the Chance row's; its
+    // sentence is the row's accessible name (ED 11:52Z point 2).
+    const { visible, name } = achievementRow()
+    expect(visible).toContain('< 1%')
+    expect(name).toContain('< 1% chance of reaching target')
+    expect(everythingReadable()).not.toMatch(BARE_ZERO_PERCENT)
   })
 
   it('keeps rendering a sub-1% NON-ZERO probability as the floor readout', () => {
     // The half that was already correct — pinned so the fix to the zero arm
     // cannot regress it.
     renderGoalNodeWith(0.0007)
-    expect(document.body.textContent ?? '').toContain('< 1% chance of reaching target')
+    // Locked Canvas design (23 Sep 2026): read off the Chance row.
+    const { visible, name } = achievementRow()
+    expect(visible).toContain('< 1%')
+    expect(name).toContain('< 1% chance of reaching target')
   })
 })
 

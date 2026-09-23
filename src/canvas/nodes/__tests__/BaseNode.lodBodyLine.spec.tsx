@@ -95,6 +95,10 @@ vi.mock('../../../flags', () => ({
   isGraphBadgesEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
   isGraphLensEnabled: vi.fn(() => false),
+  // Locked Canvas design (23 Sep 2026): the decision card's rail run icon reads
+  // `analysisHeldNotice` at mount, which asks `isV5CanonicalRunPath` — a flag
+  // this mock must now answer. Off: the V2 path, as before.
+  isV5CanonicalAnalysisEnabled: vi.fn(() => false),
 }))
 
 import { useCanvasStore } from '../../store'

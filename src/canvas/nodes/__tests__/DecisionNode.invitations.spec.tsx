@@ -20,6 +20,17 @@
  *
  * CLAUDE.md trap 3: these assert presence and absence of TEXT. jsdom cannot
  * prove visibility and nothing here claims it does.
+ *
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026) — THE INVITATION IS THE RAIL'S ONE
+ * COACHING ICON. ED 11:52Z point 1 ("coaching behind the one icon") took the
+ * chip rows off the Standard face; `node-coaching-icon-<id>` asks the FIRST
+ * resolved chip ("Explore more options" before a run) and the rest stay in
+ * Detailed. The property this file exists for is unchanged — the invitation is
+ * reachable WITHOUT a hover, is a real button, and is not duplicated into the
+ * popover — so every test is re-pointed to the icon, never deleted. What the
+ * icon SENDS for an untyped chip is now a prefill-and-confirm draft
+ * (`requestAsk` → the Ask-Olumi drawer), not an auto-dispatched turn, so the
+ * message is read from that draft.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, cleanup, fireEvent } from '@testing-library/react'
@@ -80,6 +91,7 @@ vi.mock('../../store', () => ({
  * same approach the sibling `restingState.spec.tsx` takes.
  */
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 
 const dispatched: Array<Record<string, unknown>> = []
 
@@ -132,25 +144,66 @@ const outsidePopover = (container: HTMLElement): string => {
   return clone.textContent ?? ''
 }
 
+/**
+ * Locked Canvas design (23 Sep 2026): the card's ONE coaching affordance — the
+ * rail icon — bound by IDENTITY (its testid), inside THIS render's container.
+ */
+const COACHING_ICON = `node-coaching-icon-${DECISION_ID}`
+const coachingIconIn = (container: HTMLElement): HTMLElement | null =>
+  container.querySelector<HTMLElement>(`[data-testid="${COACHING_ICON}"]`)
+
+/** Every control on the card OUTSIDE the popover whose accessible name is `name`. */
+const faceControlsNamed = (container: HTMLElement, name: string): HTMLElement[] =>
+  Array.from(container.querySelectorAll<HTMLElement>('button'))
+    .filter(b => !b.closest('[data-testid="decision-node-popover"]'))
+    .filter(b => (b.getAttribute('aria-label') ?? b.textContent ?? '').trim() === name)
+
 describe('DecisionNode — invitations in Standard view', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setStore()
     dispatched.length = 0
+    // `guidanceItems: []` — the coaching icon yields to a producer item that
+    // names this node, so the fixture states that none does.
     useGuidanceStore.setState({
       _dispatchAction: (a: Record<string, unknown>) => { dispatched.push(a) },
+      guidanceItems: [],
     } as never)
+    useAskOlumiStore.setState({ isOpen: false, draft: '', label: '', parameters: undefined })
   })
   afterEach(() => cleanup())
 
   it('offers "Explore more options" WITHOUT hovering', () => {
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the invitation is
+    // the rail's coaching icon, outside the popover; the chip row is off the face.
     const { container } = renderDecision()
-    expect(outsidePopover(container)).toContain('Explore more options')
+    const icon = coachingIconIn(container)
+    expect(icon, 'coaching icon missing').not.toBeNull()
+    expect(icon!.getAttribute('aria-label')).toBe('Explore more options')
+    expect(icon!.closest('[data-testid="decision-node-popover"]')).toBeNull()
+    expect(outsidePopover(container)).not.toContain('Explore more options')
   })
 
-  it('offers "What could go wrong?" WITHOUT hovering', () => {
+  it('"What could go wrong?" is off the Standard face (the icon asks the FIRST chip), reachable in the Standard popover and in Detailed', () => {
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — ONE coaching icon
+    // per card; the secondary chip keeps its home in Detailed's chip row.
     const { container } = renderDecision()
-    expect(outsidePopover(container)).toContain('What could go wrong?')
+    // Precondition: the fixture really resolves the second chip (no run CTA).
+    expect(coachingIconIn(container)?.getAttribute('aria-label')).toBe('Explore more options')
+    expect(outsidePopover(container)).not.toContain('What could go wrong?')
+    expect(faceControlsNamed(container, 'What could go wrong?')).toHaveLength(0)
+    // …but REACHABLE in Standard: the popover (hover or tap) offers every
+    // invitation EXCEPT the one the icon already asks — never the same question
+    // twice on one surface.
+    const popover = screen.getByTestId('decision-node-popover')
+    expect(within(popover).getByText('What could go wrong?')).toBeDefined()
+    expect(within(popover).queryByText('Explore more options')).toBeNull()
+    cleanup()
+
+    setStore({ viewMode: 'expert' })
+    const detailed = renderDecision()
+    const chip = within(detailed.container).getByText('What could go wrong?').closest('button')
+    expect(chip).not.toBeNull()
   })
 
   it('⭐ MOVED to the card, not duplicated onto it', () => {
@@ -161,27 +214,42 @@ describe('DecisionNode — invitations in Standard view', () => {
     // Stripping the popover and asserting what is LEFT is what distinguishes
     // "present" from "reachable"; asserting the popover no longer holds them is
     // what stops the duplication coming back.
+    //
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — re-pointed to the
+    // rail's coaching icon, and "not duplicated" is now counted: exactly ONE
+    // control on the whole card carries the invitation.
     const { container } = renderDecision()
     const popover = screen.queryByTestId('decision-node-popover')
     expect(popover, 'popover fixture missing — this test would pass vacuously').not.toBeNull()
-    expect(outsidePopover(container)).toContain('Explore more options')
+    expect(coachingIconIn(container)?.closest('[data-testid="decision-node-popover"]')).toBeNull()
+    expect(faceControlsNamed(container, 'Explore more options')).toHaveLength(1)
     expect(within(popover as HTMLElement).queryByText('Explore more options')).toBeNull()
+    expect(within(popover as HTMLElement).queryByRole('button', { name: 'Explore more options' })).toBeNull()
     // The popover keeps what it is uniquely good at.
     expect(popover?.textContent).toContain('Model readiness')
   })
 
   it('they are real BUTTONS, so tap and keyboard reach them with no key handling of ours', () => {
-    renderDecision()
-    const chip = screen.getAllByText('Explore more options')[0].closest('button')
-    expect(chip).not.toBeNull()
+    // Locked Canvas design (23 Sep 2026): the invitation is the rail icon.
+    const { container } = renderDecision()
+    const icon = coachingIconIn(container)
+    expect(icon?.tagName).toBe('BUTTON')
+    expect(icon?.getAttribute('type')).toBe('button')
   })
 
   it('says nothing when the decision has no options — an invitation to explore alternatives to nothing', () => {
     // A door on an empty tier asserts the tier ought to have members. Same rule
     // the reasoning frontier follows.
+    //
+    // Locked Canvas design (23 Sep 2026): re-pointed to the rail's coaching icon,
+    // which is where the invitation now lives — a text scan alone became vacuous
+    // once the chip row left the face. Positive control: the card rendered its
+    // no-options line, so the absence is the rule and not an unmounted card.
     setStore({ edges: [], nodes: [decisionNode] })
     const { container } = renderDecision()
+    expect(screen.getByTestId('decision-node-resting-state').textContent).toContain('No options')
     expect(outsidePopover(container)).not.toContain('Explore more options')
+    expect(faceControlsNamed(container, 'Explore more options')).toHaveLength(0)
   })
 
   it('the card never carries three chips at once', () => {
@@ -189,11 +257,27 @@ describe('DecisionNode — invitations in Standard view', () => {
     // Run CTA is up. Pinned here because the body now renders both, so a change
     // to that rule would show up as clutter on the anchor node rather than in a
     // popover nobody opens.
-    const { container } = renderDecision()
-    const text = outsidePopover(container)
-    const chips = ['Explore more options', 'What could go wrong?', 'Run analysis']
-      .filter(c => text.includes(c))
-    expect(chips.length).toBeLessThanOrEqual(2)
+    //
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the chips are rail
+    // icons now, so they are counted by ACCESSIBLE NAME rather than text, in
+    // both arms of the run rule: exactly ONE coaching question, plus the run
+    // icon only when the model is ready.
+    const QUESTIONS = ['Explore more options', 'What could go wrong?']
+    const countOn = (container: HTMLElement) => ({
+      questions: QUESTIONS.flatMap(q => faceControlsNamed(container, q)).length,
+      run: container.querySelectorAll(`[data-testid="decision-run-analysis-${DECISION_ID}"]`).length,
+    })
+
+    const notReady = renderDecision()
+    expect(countOn(notReady.container)).toEqual({ questions: 1, run: 0 })
+    cleanup()
+
+    // Run-ready: a stated target and no factor missing a value.
+    setStore({ goalThreshold: 0.5 })
+    const ready = renderDecision()
+    const readyCount = countOn(ready.container)
+    expect(readyCount).toEqual({ questions: 1, run: 1 })
+    expect(readyCount.questions + readyCount.run).toBeLessThanOrEqual(2)
   })
 
   it('asserts nothing about the model — these are invitations, not findings', () => {
@@ -208,15 +292,23 @@ describe('DecisionNode — invitations in Standard view', () => {
    * USER'S NAME — so it has to be true of the model it is sent from.
    */
   describe('what the chip sends, not what it shows', () => {
+    // Locked Canvas design (23 Sep 2026): the chip is the rail's coaching icon,
+    // and an UNTYPED chip is prefill-and-confirm (`requestAsk` → the Ask-Olumi
+    // drawer draft the user sends) — never auto-dispatched. So the "sent"
+    // message is the draft, and nothing may have been dispatched.
     const messageFor = (label: string): string => {
       dispatched.length = 0
+      useAskOlumiStore.setState({ isOpen: false, draft: '' })
       const { container } = renderDecision()
-      const btn = Array.from(container.querySelectorAll('button'))
-        .find(b => b.textContent?.includes(label))
-      if (!btn) throw new Error(`refusing to assert: no "${label}" chip rendered`)
+      const btn = coachingIconIn(container)
+      if (!btn || btn.getAttribute('aria-label') !== label) {
+        throw new Error(`refusing to assert: no "${label}" coaching icon rendered`)
+      }
       fireEvent.click(btn)
-      if (dispatched.length === 0) throw new Error('refusing to assert: click dispatched nothing')
-      return String(dispatched[dispatched.length - 1].message ?? '')
+      const ask = useAskOlumiStore.getState()
+      if (!ask.isOpen || ask.draft.length === 0) throw new Error('refusing to assert: click opened no draft')
+      if (dispatched.length !== 0) throw new Error('an untyped chip was dispatched on the user’s behalf')
+      return ask.draft
     }
 
     it('does not claim the model has exactly two options', () => {
@@ -265,16 +357,22 @@ describe('DecisionNode — invitations in Standard view', () => {
    * `useModelHealth.ts:180` already warns on the resulting state.
    */
   describe('counting the model honestly', () => {
+    // Locked Canvas design (23 Sep 2026): read from the rail icon's draft — see
+    // `messageFor` above for why the draft, not a dispatch.
     const messageWithEdges = (edges: unknown[], nodes: unknown[]): string => {
       dispatched.length = 0
+      useAskOlumiStore.setState({ isOpen: false, draft: '' })
       setStore({ edges, nodes })
       const { container } = renderDecision()
-      const btn = Array.from(container.querySelectorAll('button'))
-        .find(b => b.textContent?.includes('Explore more options'))
-      if (!btn) throw new Error('refusing to assert: no "Explore more options" chip rendered')
+      const btn = coachingIconIn(container)
+      if (!btn || btn.getAttribute('aria-label') !== 'Explore more options') {
+        throw new Error('refusing to assert: no "Explore more options" coaching icon rendered')
+      }
       fireEvent.click(btn)
-      if (dispatched.length === 0) throw new Error('refusing to assert: click dispatched nothing')
-      return String(dispatched[dispatched.length - 1].message ?? '')
+      const ask = useAskOlumiStore.getState()
+      if (!ask.isOpen || ask.draft.length === 0) throw new Error('refusing to assert: click opened no draft')
+      if (dispatched.length !== 0) throw new Error('an untyped chip was dispatched on the user’s behalf')
+      return ask.draft
     }
 
     it('one option linked twice is one option', () => {

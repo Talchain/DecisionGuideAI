@@ -134,7 +134,9 @@ describe('OutcomeNode — how many options move this', () => {
     (status) => {
       applyStore({ results: { status, report: null } })
       renderOutcome()
-      expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 options move this')
+      // Locked Canvas design (23 Sep 2026): MT-20 — the verb says what was
+      // counted ("connect"), not a causal effect nothing measured ("move").
+      expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 options connect to this')
     },
   )
 
@@ -145,7 +147,8 @@ describe('OutcomeNode — how many options move this', () => {
    */
   it('gives the other outcome on the same board its own answer, in the singular', () => {
     renderOutcome('outcome-2', 'Brand reach')
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('1 option moves this')
+    // Locked Canvas design (23 Sep 2026): MT-20 wording, singular kept.
+    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('1 option connects to this')
   })
 
   it('says nothing when no option reaches this outcome', () => {
@@ -177,7 +180,8 @@ describe('OutcomeNode — how many options move this', () => {
   it('is on the card in Standard view, where the popover content is not', () => {
     applyStore({ viewMode: 'standard' })
     renderOutcome()
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 options move this')
+    // Locked Canvas design (23 Sep 2026): MT-20 wording.
+    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 options connect to this')
     expect(screen.queryByText('Explore consequences')).toBeNull()
   })
 })

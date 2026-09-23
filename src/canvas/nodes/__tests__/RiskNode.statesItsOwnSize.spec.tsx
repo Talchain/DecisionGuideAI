@@ -30,7 +30,7 @@ import { render, screen, cleanup } from '@testing-library/react'
 import type { NodeProps } from '@xyflow/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
-import { METRIC_UNSET } from '../shared/metricVocabulary'
+import { METRIC_UNSET, LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -141,7 +141,15 @@ describe('a risk card states the size it records', () => {
     // may not say it about a magnitude nobody has estimated — different causes,
     // different next steps. Derived from the register, never a literal I typed.
     draw('risk-4', { label: 'Existing customers churn on the price rise', type: 'risk' }, withBridge('risk-4', 0.5))
-    expect(screen.getByTestId('risk-strength-row').textContent).toContain(METRIC_UNSET.standalone)
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z — "Distinguish the node's own
+    // likelihood/impact/value from relationship strength … call it link
+    // strength"; MT-15b — a producer `strength_mean` nobody settled reads
+    // "Olumi’s estimate", not "Not set yet". The row is named as the LINK's, and
+    // the node's own size slot stays empty: the two absences are still separate.
+    const row = screen.getByTestId('risk-strength-row')
+    expect(row.textContent).toContain(LINK_STRENGTH_COPY.noun)
+    expect(row.textContent).toContain(LINK_STRENGTH_COPY.olumiEstimate)
+    expect(row.textContent).not.toContain(METRIC_UNSET.standalone)
     expect(screen.queryByTestId('risk-recorded-value')).toBeNull()
   })
 

@@ -3,7 +3,7 @@
  * T9: Bridge edge data — contribution % + qualitative direction
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { METRIC_NOUN, METRIC_UNSET } from '../shared/metricVocabulary'
+import { METRIC_UNSET, LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
 /**
  * ⭐ THE SEEN HALF OF THE ROW, AND THE DISTINCTION IS LOAD-BEARING (3 Sep 2026).
@@ -251,7 +251,9 @@ describe('OutcomeNode', () => {
     // assumed edge strength, NOT a computed goal contribution. Post-analysis it
     // must keep the honest "assumed strength" wording and must NEVER relabel to
     // "of your goal" just because results.status flipped to 'complete'.
-    expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument() // UI-SEM-089: the noun, always
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is
+    // named "Link strength"; the noun is still asserted PRESENT (UI-SEM-089).
+    expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument() // UI-SEM-089: the noun, always
     expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
     expect(screen.queryByText(/of your goal/)).toBeNull()
     expect(screen.getByText(/75%/)).toBeDefined()
@@ -508,7 +510,8 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
     it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
       bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'user' })
       renderOutcome()
-      expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument() // UI-SEM-089: the noun, always
+      // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is named "Link strength".
+      expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument() // UI-SEM-089: the noun, always
     expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
       expect(screen.getByText(/60%/)).toBeDefined()
     })
@@ -531,7 +534,16 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'cee' })
       const { container } = renderOutcome()
       expect(seenText(container)).not.toMatch(/60%/)
-      expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
+      // Locked Canvas design (23 Sep 2026): MT-15b — "Not set yet" beside an edge
+      // that SHOWS a value was the defect. A producer value nobody settled reads
+      // "Olumi’s estimate" (whose guess, not "unset"); the figure stays in the
+      // disclosure only, never on the face.
+      const row = screen.getByTestId('outcome-strength-row')
+      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
+      expect(row).not.toHaveTextContent(METRIC_UNSET.standalone)
+      expect(row).not.toHaveTextContent(LINK_STRENGTH_COPY.notSet)
+      expect(row).toHaveAccessibleName(/Olumi is assuming 60%/)
+      expect(row.querySelector('[style]')).toBeNull() // no bar
       expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
     it('renders NO FIGURE for an edge nobody characterised (USER_EDGE_DEFAULTS) — it states the unknown', () => {
@@ -544,7 +556,11 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
       expect(seenText(container)).not.toMatch(/30%/)
       expect(screen.queryByTestId('estimate-marker')).toBeNull()
-      expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
+      // Locked Canvas design (23 Sep 2026): MT-15b — genuinely no value reads
+      // "not set" (and never "Olumi’s estimate": no producer supplied one).
+      const row = screen.getByTestId('outcome-strength-row')
+      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.notSet)
+      expect(row).not.toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
     })
 
     it('renders NO FIGURE for a bare DEFAULT_EDGE_DATA weight of 0.5 — unstamped, so the gate refuses it', () => {
@@ -558,7 +574,10 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       // carried a STAMPED wire 0.5 from the drafting model; a bare default is
       // unstamped, so it never reached the row. Pinned here so that path stays
       // refused. The row stays; the figure does not.
-      expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
+      // Locked Canvas design (23 Sep 2026): MT-15b — no value reads "not set".
+      const row = screen.getByTestId('outcome-strength-row')
+      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.notSet)
+      expect(row).not.toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
     })
 
     it('discloses CEE back-compat strength_mean as an assumption, without a settled bar', async () => {
@@ -566,7 +585,11 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       bridgeStore({ strength_mean: 0.45, weight: 0.3 })
       renderOutcome()
       const row = screen.getByTestId('outcome-strength-row')
-      expect(row).toHaveTextContent(METRIC_UNSET.standalone)
+      // Locked Canvas design (23 Sep 2026): MT-15b — a back-compat CEE
+      // `strength_mean` is Olumi's value, so the row names whose estimate it is
+      // rather than "Not set yet"; the figure stays in the disclosure only.
+      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
+      expect(row).not.toHaveTextContent(METRIC_UNSET.standalone)
       expect(row).not.toHaveTextContent('45%')
       expect(row.querySelector('[style]')).toBeNull()
       expect(row).toHaveAccessibleName(/assum.*45%/i)
@@ -611,15 +634,19 @@ describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an hone
     seedBridge('user')
     renderOutcome()
     expect(screen.getByText('85%')).toBeInTheDocument()
-    expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is named "Link strength".
+    expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument()
   })
 
   it('renders the NOUN and the unknown, and no figure, on the estimated branch', () => {
     seedBridge('cee')
     const { container } = renderOutcome()
     expect(seenText(container)).not.toMatch(/85%/)
-    expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
-    expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument()
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z noun "Link strength"; MT-15b —
+    // an unsettled CEE value reads "Olumi’s estimate", not "Not set yet".
+    expect(screen.getByText(LINK_STRENGTH_COPY.olumiEstimate)).toBeInTheDocument()
+    expect(screen.queryByText(METRIC_UNSET.standalone)).toBeNull()
+    expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument()
   })
 
   it.each([['user-stated', 'user'], ['estimated', 'cee']])(
@@ -633,7 +660,8 @@ describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an hone
       }
       // …and the permitted noun IS there, so this cannot pass by rendering
       // nothing at all — the failure mode an absence-only guard has.
-      expect(text).toMatch(new RegExp(METRIC_NOUN.strength))
+      // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is named "Link strength".
+      expect(text).toMatch(new RegExp(LINK_STRENGTH_COPY.noun))
     },
   )
 
@@ -644,18 +672,21 @@ describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an hone
      * the opposite-direction twin (CLAUDE.md trap 22b), and the reason this
      * asserts BOTH directions rather than only the one that was wrong.
      */
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z noun "Link strength"; MT-15b —
+    // the unsettled branch names Olumi's estimate instead of "Not set yet".
     seedBridge('user')
     const stated = renderOutcome()
-    expect(seenText(stated.container)).toMatch(new RegExp(METRIC_NOUN.strength))
+    expect(seenText(stated.container)).toMatch(new RegExp(LINK_STRENGTH_COPY.noun))
     expect(seenText(stated.container)).toMatch(/85%/)
+    expect(stated.queryByText(LINK_STRENGTH_COPY.olumiEstimate)).toBeNull()
     expect(stated.queryByText(METRIC_UNSET.standalone)).toBeNull()
     stated.unmount()
 
     seedBridge('cee')
     const estimated = renderOutcome()
-    expect(seenText(estimated.container)).toMatch(new RegExp(METRIC_NOUN.strength))
+    expect(seenText(estimated.container)).toMatch(new RegExp(LINK_STRENGTH_COPY.noun))
     expect(seenText(estimated.container)).not.toMatch(/85%/)
-    expect(estimated.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
+    expect(estimated.getByText(LINK_STRENGTH_COPY.olumiEstimate)).toBeInTheDocument()
     expect(estimated.queryByTestId('estimate-marker')).toBeNull()
   })
 })

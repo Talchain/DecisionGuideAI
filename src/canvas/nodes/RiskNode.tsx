@@ -5,7 +5,7 @@ import { NODE_REGISTRY, RiskNodeDataSchema } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
+import { METRIC_UNSET } from './shared/metricVocabulary'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
@@ -18,7 +18,7 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisIn
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
+import { LinkStrengthRow, linkStrengthLodLine } from './shared/LinkStrengthRow'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 
 /**
@@ -360,11 +360,8 @@ export const RiskNode = memo((props: NodeProps) => {
      * figure about itself.
      */
     if (recordedValue) return recordedValue
-    const pct = bridgeEdgeData.bridgeStrengthPct
-    if (pct != null) return `${METRIC_NOUN.strength} ${pct}%`
-    // The connection exists and nobody has said how strong it is. Saying so is
-    // the same true thing the full card says, in the width one line allows.
-    return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
+    // One wording on every rung — the row's own (`LinkStrengthRow`).
+    return linkStrengthLodLine(bridgeEdgeData)
   }, [bridgeEdgeData, recordedValue])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
@@ -467,12 +464,10 @@ export const RiskNode = memo((props: NodeProps) => {
     [cleanedLabel, riskContext],
   )
 
-  const riskFaceChip = useMemo(() => (
-    <CoachingChipRow
-      className="flex gap-1 flex-wrap mt-1.5"
-      chips={resolveNodeCoaching({ kind: 'risk', surface: 'card', state: riskCoachingState, context: riskCoachingContext })}
-    />
-  ), [riskCoachingState, riskCoachingContext])
+  const riskFaceCoaching = useMemo(
+    () => resolveNodeCoaching({ kind: 'risk', surface: 'card', state: riskCoachingState, context: riskCoachingContext }),
+    [riskCoachingState, riskCoachingContext],
+  )
 
   const riskPopoverChips = useMemo(() => (
     <CoachingChipRow
@@ -490,8 +485,9 @@ export const RiskNode = memo((props: NodeProps) => {
   ), [riskCoachingState, riskCoachingContext])
 
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
-  // (the existing probability×impact derivation, reused not re-added). P1.7: now
-  // rendered in the always-visible Standard body (Layer 1), not Expert/popover-only.
+  // (the existing probability×impact derivation, reused not re-added). P1.7 put it
+  // in the Standard body; since the locked Canvas design (23 Sep 2026) it is
+  // DETAILED-ONLY — its cut-offs are UI-chosen, so it is not a resting claim.
   const detailedMetrics = severity ? (
     <div
       // The `textAlign: 'center'` that was here is gone. This div carries no
@@ -597,7 +593,8 @@ export const RiskNode = memo((props: NodeProps) => {
         nodeType="risk"
         lodMetric={lodMetric}
         icon={metadata.icon}
-        headerSlot={scienceIcons.length > 0 ? (
+        coaching={riskFaceCoaching}
+        headerSlot={isDetailed && scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
@@ -706,40 +703,30 @@ export const RiskNode = memo((props: NodeProps) => {
              `title` and the screen-reader phrase, stated as an assumption.
              `NodeMetricRow` requires BOTH carriers: a `title` is unreachable by
              keyboard on a non-focusable row and absent on touch. */
-          bridgeEdgeData.strengthIsSettled ? (
-            <NodeMetricRow
-              label={METRIC_NOUN.strength}
-              value={bridgeEdgeData.bridgeStrengthPct / 100}
-              formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
-              fillClass="bg-danger"
-              testId="risk-strength-row"
-            />
-          ) : (
-            <NodeMetricRow
-              label={METRIC_NOUN.strength}
-              value={null}
-              unsetText={METRIC_UNSET.standalone}
-              testId="risk-strength-row"
-              title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
-              phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
-            />
-          )
+          <LinkStrengthRow bridge={bridgeEdgeData} fillClass="bg-danger" testId="risk-strength-row" />
         )}
 
-        {/* Severity badge + probability × impact pair — visible in STANDARD view
-            (P1.7). Both are derived/read straight from node data; no fabrication
+        {/* The probability × impact pair is the node's OWN entered data and stays
+            on the face; the derived severity badge beside it is Detailed-only
+            (locked design, 23 Sep 2026 — see the gate below). No fabrication
             when data is absent. */}
-        {detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
+        {/* ⭐ The derived severity badge ("High Risk") is Detailed information
+            (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
+            it is not a resting claim. The node's OWN entered likelihood/impact
+            below stays on the face — it is the user's data, not a verdict. */}
+        {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
         {riskExposureLine}
 
         {/* The leading-indicator question rides the CARD in Standard view; the
             reduce/mitigate pair stays in the popover. Detailed renders all
             three inline below. See `riskFaceChip` for the measurement. */}
-        {!isDetailed && riskFaceChip}
+        {/* ⛔ NO COACHING CHIPS ON THE FACE (ED 11:52Z point 5). The rail's coaching
+            icon asks "What would we see first?"; "How likely is this?" moves to
+            the popover and Detailed (ED 02:31Z D4 — not deleted). */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
-            Graph v1.1 Task 4: align with wireframe v4. The severity badge now
-            lives in Layer 1 (Standard-visible, P1.7) so it is NOT repeated here. */}
+            Graph v1.1 Task 4: align with wireframe v4. The severity badge renders
+            once, in the body above, Detailed-only — so it is NOT repeated here. */}
         {isDetailed && layer2ContentPost}
 
         {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
@@ -767,8 +754,8 @@ export const RiskNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {/* Severity badge lives in Layer 1 (Standard-visible, P1.7) — the popover
-              carries only the post-analysis detail + coaching chips. */}
+          {/* The popover carries only the post-analysis detail + coaching chips;
+              the severity badge is Detailed-only (locked design, 23 Sep 2026). */}
           {layer2ContentPost}
           {riskPopoverChips}
         </NodePopover>

@@ -255,15 +255,34 @@ describe('useResultsSectionData — an option the run never analysed', () => {
     expect(byId(options, MIGRATE).notAnalysedReason).toBe('no_interventions')
   })
 
-  it('OPPOSITE TWIN — an option WITH intervention edges that the run did not return is not_returned', () => {
+  /** Give an option intervention VALUES on the factor it is wired to. */
+  const giveValues = (id: string) =>
+    useCanvasStore.setState((st: { nodes: Array<{ id: string; data?: Record<string, unknown> }> }) => ({
+      nodes: st.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, interventions: { [FACTOR]: 0.5 } } } : n)),
+    }) as never)
+
+  it('OPPOSITE TWIN — an option WITH intervention edges AND values that the run did not return is not_returned', () => {
     // Same absence at the join, a DIFFERENT question about why (trap 21). The
     // user has nothing to configure here, so the copy must not prescribe one.
     seedStore({
       edges: [...INTERVENTION_EDGES, { id: 'e_migrate', source: MIGRATE, target: FACTOR }],
     })
+    giveValues(MIGRATE)
     const options = renderOptions()
     expect(byId(options, MIGRATE).notAnalysed).toBe(true)
     expect(byId(options, MIGRATE).notAnalysedReason).toBe('not_returned')
+  })
+
+  it('⭐ MT-21 — a LINKED option with NO values is no_interventions, not an engine miss', () => {
+    // Manual test on served `4c6ec07b`: an edge is not a value. The same wiring
+    // as the twin above WITHOUT values must keep the one action that fixes it
+    // ("Tell Olumi what it changes") instead of blaming the engine.
+    seedStore({
+      edges: [...INTERVENTION_EDGES, { id: 'e_migrate', source: MIGRATE, target: FACTOR }],
+    })
+    const options = renderOptions()
+    expect(byId(options, MIGRATE).notAnalysed).toBe(true)
+    expect(byId(options, MIGRATE).notAnalysedReason).toBe('no_interventions')
   })
 
   it('DOMAIN GUARD — a run that analysed NO option marks nothing not-analysed', () => {

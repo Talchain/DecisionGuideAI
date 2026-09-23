@@ -110,6 +110,7 @@
  * line numbers rather than summarised into a number that was wrong.
  */
 import { useCanvasStore } from '../store'
+import { resolveOptionInterventionCount } from '../nodes/shared/optionInterventionCount'
 import { useAnalysisResultsAreCurrent } from './useAnalysisResultsAreCurrent'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import type { ResultsReport } from '../../components/results/types'
@@ -253,7 +254,14 @@ export function useOptionLeftOutOfRun(optionNodeId: string): NotAnalysedReason |
     if (!runAnalysedAnyOption(optionProbabilities, optionNodeIds)) return null
     if (isAnalysedOption(optionProbabilities, optionNodeId)) return null
 
-    const reason = deriveNotAnalysedReason(optionNodeId, state.edges, optionNodeIds)
+    // MT-21: a linked option with NO values is `no_interventions`, not an
+    // engine miss — counted by the one owner of "how many values".
+    const reason = deriveNotAnalysedReason(optionNodeId, state.edges, optionNodeIds, (oid) =>
+      resolveOptionInterventionCount(oid, {
+        ceeOptions: state.ceeAnalysisReady?.options,
+        nodeInterventions: (state.nodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
+      }),
+    )
 
     // ⭐⭐ THE ONE ARM THAT BLAMES THE ENGINE IS WITHHELD UNLESS WE CAN VOUCH
     // FOR THE RESULT.

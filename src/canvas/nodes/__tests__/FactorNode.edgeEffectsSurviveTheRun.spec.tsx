@@ -12,6 +12,22 @@
  * target; an influence bar says how much it MATTERS. Trading one for the other
  * at exactly the moment the user has most reason to read the model as a causal
  * story is the same phase-swap defect as the option cards, one node kind over.
+ *
+ * ── ⭐ LOCKED CANVAS DESIGN (23 Sep 2026) — A DELIBERATE RE-RULING ───────────
+ * MT-19 + spec §3 (Normal order has no relationship row): the pills are OFF the
+ * resting face in BOTH phases. "Key relationship(s)" are Detailed information,
+ * and on the board the CONNECTORS themselves carry direction (colour/sign). In
+ * Detailed the pills say what they are (visible verb, neutral arrow, "Link
+ * strength") and stay PRE-analysis only, because post-analysis Detailed already
+ * names these targets in its "Influences:" list (see `FactorNode.tsx`, the
+ * `isDetailed && !needsInput && !isPostAnalysis` gate).
+ *
+ * So each case is re-pointed to where the effect now lives:
+ *   · the named target: Detailed — the pill pre-run, the "Influences:" row
+ *     post-run — and never the Standard face;
+ *   · the direction words: the Detailed pill, pre-run, still a DISCRIMINATING
+ *     pair on sign; post-run the card states no direction (the connector does).
+ * The face's absence is asserted beside each presence (rule 2 of the update).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
@@ -129,13 +145,17 @@ function topology(resultsStatus: 'idle' | 'complete', weight = 0.5) {
     goalConstraints: [],
     setHoveredOption: vi.fn(),
     runMeta: { ceeReview: null },
-    viewMode: 'standard' as const,
+    viewMode: 'standard' as 'standard' | 'expert',
   }
 }
 
-function renderAt(resultsStatus: 'idle' | 'complete', weight = 0.5) {
+function renderAt(
+  resultsStatus: 'idle' | 'complete',
+  weight = 0.5,
+  viewMode: 'standard' | 'expert' = 'standard',
+) {
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    selector(topology(resultsStatus, weight) as never),
+    selector({ ...topology(resultsStatus, weight), viewMode } as never),
   )
   return render(
     <ReactFlowProvider>
@@ -168,28 +188,41 @@ describe('a factor keeps saying what it DOES after the run', () => {
     } as never)
   })
 
-  it('PRE-ANALYSIS — the effect on its target is named on the card face', () => {
-    // PRECONDITION: if this arm does not render, the post-analysis assertion
-    // below would pass on a card that never showed the pill in either phase.
-    const { container } = renderAt('idle')
-    expect(container.textContent).toContain(TARGET_LABEL)
+  it('PRE-ANALYSIS — the effect on its target is named in Detailed, and NOT on the resting face', () => {
+    // Locked Canvas design (23 Sep 2026), MT-19 + spec §3: no relationship row
+    // on the Standard face…
+    const standard = renderAt('idle')
+    expect(standard.queryByTestId('edge-pill-verb-e1')).toBeNull()
+    expect(standard.queryByTestId('edge-pill-strength-estimate-e1')).toBeNull()
+    standard.unmount()
+
+    // …Detailed names it. PRECONDITION for the post-analysis case below: if this
+    // arm did not render, "still named after the run" would pass on a card that
+    // never named the target in either phase.
+    const detailed = renderAt('idle', 0.5, 'expert')
+    const verb = detailed.getByTestId('edge-pill-verb-e1')
+    // The pill that carries the verb names THIS target, verbatim.
+    expect(verb.parentElement!.textContent).toContain(TARGET_LABEL)
   })
 
-  it('POST-ANALYSIS — the SAME effect is still named', () => {
-    // ⭐ The defect. Before the fix this element was absent from the DOM once
-    // `results.status === 'complete'`.
-    const { container } = renderAt('complete')
-    // ⚠ PRECONDITION, PINNED IN-TEST — this is what the first version of this
-    // case lacked, and it was VACUOUS as a result. Post-analysis the expert
-    // view's "Influences:" ConnRow list ALSO names the target, so asserting the
-    // label alone cannot tell EdgePills from ConnRow: the case passed with the
-    // phase gate restored. Standard view renders no ConnRow list, so the label
-    // can only come from the pill.
-    expect(container.textContent, 'ConnRow list present — the assertion cannot discriminate').not.toContain('Influences:')
+  it('POST-ANALYSIS — the SAME target is still named, in Detailed\'s "Influences:" list', () => {
+    // ⭐ The original defect was the target leaving the card once a result
+    // arrived. Locked Canvas design (23 Sep 2026): it lives in Detailed now —
+    // post-run as an "Influences:" row (the pill is pre-run only there).
+    const detailed = renderAt('complete', 0.5, 'expert')
+    expect(detailed.container.textContent, 'Detailed lost its "Influences:" list').toContain('Influences:')
     expect(
-      container.textContent,
+      detailed.container.textContent,
       'the factor stopped naming what it affects once a result arrived',
     ).toContain(TARGET_LABEL)
+    // Named ONCE — the post-run pill does not duplicate the Influences row.
+    expect(detailed.queryByTestId('edge-pill-verb-e1')).toBeNull()
+    detailed.unmount()
+
+    // And the Standard face carries no pill after the run either.
+    const standard = renderAt('complete')
+    expect(standard.queryByTestId('edge-pill-verb-e1')).toBeNull()
+    expect(standard.queryByTestId('edge-pill-strength-estimate-e1')).toBeNull()
   })
 
   /**
@@ -198,52 +231,62 @@ describe('a factor keeps saying what it DOES after the run', () => {
    * node. `EdgePills` renders that name AND the polarity, and the label alone
    * survives the deletion of both direction spans. So this spec could have
    * stayed green while the pill stopped saying whether the factor RAISES or
-   * LOWERS its target — which is the entire reason the pill is the only
-   * card-face surface carrying edge direction, and the entire reason gating it
-   * post-analysis was worth guarding.
+   * LOWERS its target.
    *
    * A single-polarity assertion would not be enough either: asserting "Raises"
    * on a positive edge passes for a component that hardcodes the word. The
    * DISCRIMINATING PAIR is what binds it — the same render path must produce
    * the OPPOSITE word on the opposite sign, and must not produce both.
    *
-   * Direction is announced in an `sr-only` span, so it is in `textContent`
-   * while the glyphs beside it are `aria-hidden`. That is deliberate in the
-   * component and it is what makes this assertable at all.
+   * Locked Canvas design (23 Sep 2026): the pill — and so the words — live in
+   * Detailed, pre-analysis (MT-19). The verb is VISIBLE text now
+   * (`edge-pill-verb-<id>`), no longer sr-only. Post-analysis the card states no
+   * direction word in either view: the connector carries it on the board.
    */
-  it('POST-ANALYSIS — the pill still says WHICH WAY, and discriminates on sign', () => {
-    const positive = renderAt('complete', 0.5)
-    // Precondition: we are reading the pill, not a ConnRow list that also
-    // carries the target label — the same guard the case above establishes.
-    expect(
-      positive.container.textContent,
-      'ConnRow list present — this assertion cannot discriminate',
-    ).not.toContain('Influences:')
+  it('the Detailed pill says WHICH WAY, and discriminates on sign; post-run the card states no direction word', () => {
+    const positive = renderAt('idle', 0.5, 'expert')
+    expect(positive.getByTestId('edge-pill-verb-e1').textContent).toBe('Raises')
     expect(positive.container.textContent).toContain('Raises')
     expect(positive.container.textContent).not.toContain('Lowers')
     positive.unmount()
 
-    const negative = renderAt('complete', -0.5)
+    const negative = renderAt('idle', -0.5, 'expert')
+    expect(negative.getByTestId('edge-pill-verb-e1').textContent).toBe('Lowers')
     expect(negative.container.textContent).toContain('Lowers')
     expect(negative.container.textContent).not.toContain('Raises')
+    negative.unmount()
+
+    for (const view of ['standard', 'expert'] as const) {
+      const post = renderAt('complete', 0.5, view)
+      expect(post.container.textContent, `${view}: a direction word survived the run`).not.toContain('Raises')
+      expect(post.container.textContent, `${view}: a direction word survived the run`).not.toContain('Lowers')
+      post.unmount()
+    }
   })
 
   it('CONTRAST — the pill is bound to a REAL edge, not rendered unconditionally', () => {
     // ⭐ Without this, both cases above pass on a change that renders the target
     // label from somewhere else entirely — the node list, say — and the pills
     // could be gone while the assertions stay green.
-    vi.mocked(useCanvasStore).mockImplementation((selector) => {
-      const t = topology('complete')
-      return selector({ ...t, edges: [] } as never)
-    })
-    const { container } = render(
-      <ReactFlowProvider>
-        <FactorNode
-          {...baseFactorProps}
-          data={{ type: 'factor', label: 'Pro Plan Monthly Price', category: 'controllable', observedState: { value: 0.59, extractionType: 'explicit', source: 'user_override', unit: 'scale' } }}
-        />
-      </ReactFlowProvider>,
-    )
-    expect(container.textContent).not.toContain(TARGET_LABEL)
+    // Locked Canvas design (23 Sep 2026): asserted in Detailed, in BOTH phases —
+    // the views where the target is now named — so the contrast is taken where
+    // the positive cases above look.
+    for (const status of ['idle', 'complete'] as const) {
+      vi.mocked(useCanvasStore).mockImplementation((selector) => {
+        const t = topology(status)
+        return selector({ ...t, edges: [], viewMode: 'expert' } as never)
+      })
+      const { container, unmount } = render(
+        <ReactFlowProvider>
+          <FactorNode
+            {...baseFactorProps}
+            data={{ type: 'factor', label: 'Pro Plan Monthly Price', category: 'controllable', observedState: { value: 0.59, extractionType: 'explicit', source: 'user_override', unit: 'scale' } }}
+          />
+        </ReactFlowProvider>,
+      )
+      expect(container.textContent, `${status}: the card did not mount`).toContain('Pro Plan Monthly Price')
+      expect(container.textContent, status).not.toContain(TARGET_LABEL)
+      unmount()
+    }
   })
 })

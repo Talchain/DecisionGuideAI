@@ -1,0 +1,249 @@
+/**
+ * ⭐ WHAT THIS OPTION CHANGES, AT REST — the option card's compact anatomy
+ * (locked spec §4 "Always lead with what this option changes"; ED 11:52Z
+ * point 4: "max two change rows + `+N more` … selection must not grow the card";
+ * ED 02:31Z D2: a wrapped `from → to` is accepted, values are never truncated).
+ *
+ * ── ONE ROW ORDER FOR THE WHOLE OPTION ROW ──────────────────────────────────
+ *
+ * The purpose audit's finding on #1901: each card picked a DIFFERENT pair, so
+ * options could not be read side by side. So the order is chosen ONCE, for the
+ * whole set, and every card shows — in that order — the first two factors IT
+ * sets. Options that change the same things therefore show the same rows in the
+ * same places; an option that changes something no other option does still leads
+ * with its own change rather than an empty row.
+ *
+ * The order is STRUCTURAL, not a score: how many options set the factor (the
+ * changes the options have in common first), then the factor's position in the
+ * model. No distance heuristic, no magnitude sort — nothing that implies one
+ * change matters more than another.
+ *
+ * ── `+N more` COUNTS FROM THE ONE TOTAL ─────────────────────────────────────
+ *
+ * `N = totalInterventionCount − rows shown`, the SAME total the inspector route
+ * uses (`optionInterventionCount.ts`), so a card never states two totals (#1901
+ * finding 3). Every set target yields a row — a target with no reference still
+ * reads `→ £59` — so no row can silently drop out of the count.
+ */
+import {
+  formatInterventionChange,
+  formatInterventionTargetText,
+  isInterventionNoChange,
+} from '../../utils/interventionDisplay'
+import { cleanFactorLabel, sentenceCaseFactorLabel, compactFactorLabel } from '../../utils/labelUtils'
+import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
+import { classifyInterventionProvenance } from '../../domain/valueProvenance'
+import { collapseEstimateDisplay } from './collapseEstimateDisplay'
+
+export const OPTION_CARD_ROW_LIMIT = 2
+
+/**
+ * ⭐ ED 02:31Z (D2): "If a particular value makes the resting card materially
+ * taller, reduce visible rows at that LOD before truncating the value." A row
+ * whose `from → to` runs past two lines' worth of the row budget
+ * (`NODE_ROW_LABEL_MAX_CHARS`, the estate's own per-line budget, ×2) makes the
+ * card show ONE row, never a cut value — the rest are one `+N more` away.
+ * Measured on `build-vs-buy`: "Moderate engineering allocation (2 of 4
+ * engineers) → Very high" (62 chars) doubled the card's height at two rows.
+ */
+export const OPTION_ROW_CHANGE_BUDGET_CHARS = 2 * NODE_ROW_LABEL_MAX_CHARS
+
+export interface OptionTargetLike {
+  value: number
+  displayValue?: string | null
+  source?: string | null
+}
+
+export interface OptionSetLike {
+  id: string
+  isBaseline: boolean
+  /** factorId → the option's target for that factor. */
+  targets: ReadonlyMap<string, OptionTargetLike>
+}
+
+/**
+ * The shared factor order for the whole option row: most-shared first, then
+ * model order. Baseline options do not vote — they describe "no change".
+ */
+export function sharedChangeOrder(
+  options: ReadonlyArray<OptionSetLike>,
+  modelOrder: ReadonlyArray<string>,
+): string[] {
+  const coverage = new Map<string, number>()
+  for (const o of options) {
+    if (o.isBaseline) continue
+    for (const fid of o.targets.keys()) coverage.set(fid, (coverage.get(fid) ?? 0) + 1)
+  }
+  const position = new Map(modelOrder.map((id, i) => [id, i]))
+  return [...coverage.keys()].sort(
+    (a, b) =>
+      (coverage.get(b) ?? 0) - (coverage.get(a) ?? 0) ||
+      (position.get(a) ?? Number.MAX_SAFE_INTEGER) - (position.get(b) ?? Number.MAX_SAFE_INTEGER) ||
+      (a < b ? -1 : a > b ? 1 : 0),
+  )
+}
+
+/** The factors THIS option's card shows, in the shared order, capped. */
+export function rowFactorIdsFor(
+  option: OptionSetLike,
+  order: ReadonlyArray<string>,
+  limit: number = OPTION_CARD_ROW_LIMIT,
+): string[] {
+  const out: string[] = []
+  for (const fid of order) {
+    if (out.length >= limit) break
+    if (option.targets.has(fid)) out.push(fid)
+  }
+  // Any target the shared order did not reach (defensive — the order is built
+  // from every option's targets, so this is only reachable with a stale order).
+  if (out.length < limit) {
+    for (const fid of option.targets.keys()) {
+      if (out.length >= limit) break
+      if (!out.includes(fid)) out.push(fid)
+    }
+  }
+  return out
+}
+
+export interface FactorContext {
+  label: string
+  unit?: string
+  factorType?: string
+  cap?: number
+  observedValue?: number
+  observedRawValue?: string | number
+}
+
+export interface OptionChangeRow {
+  factorId: string
+  /** The row's visible label (compacted to the row budget, with recovery). */
+  label: string
+  fullLabel: string
+  /** `from → to`, or `→ to` when there is no reference to start from. */
+  change: string
+  /** The same change with nothing collapsed — the row's full-text recovery. */
+  fullChange: string
+  /** Where the "from" came from — stated in the row's tooltip. */
+  reference: 'baseline_option' | 'current_value' | 'none'
+  /** Olumi chose this target (`cee_hypothesis`) — stays marked (#1901 finding 2). */
+  estimated: boolean
+  /** The target equals the baseline option's — said, not hidden. */
+  sameAsReference: boolean
+}
+
+export function buildOptionChangeRow({
+  factorId,
+  target,
+  factor,
+  baselineOptionTarget,
+}: {
+  factorId: string
+  target: OptionTargetLike
+  factor: FactorContext
+  baselineOptionTarget: OptionTargetLike | null
+}): OptionChangeRow {
+  const fullLabel = sentenceCaseFactorLabel(cleanFactorLabel(factor.label || factorId)) || factorId
+  const label = compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS)
+  const estimated = classifyInterventionProvenance(target.source ?? null)?.kind === 'ai'
+  const context = {
+    label: fullLabel,
+    unit: factor.unit,
+    factorType: factor.factorType,
+    cap: factor.cap,
+    observedValue: factor.observedValue,
+    observedRawValue: factor.observedRawValue,
+  }
+  // At rest a tier reading sheds its parenthesised internal-scale number
+  // ("Very high (0.9)" → "Very high"), exactly as a factor's resting value does
+  // (`collapseEstimateDisplay`, R6; spec §3: "Never expose raw internal scales
+  // … by default"). The full string is the row's tooltip and the inspector's.
+  const rest = (text: string) => collapseEstimateDisplay(text) ?? text
+  const targetFull = formatInterventionTargetText({
+    ...context,
+    value: target.value,
+    displayValue: target.displayValue ?? undefined,
+  })
+  const targetText = rest(targetFull)
+  let fromFull = ''
+
+  // "from": the baseline OPTION's own target where one exists (the reference
+  // the estate already uses — `OptionNode.referenceFidelity`), else the
+  // factor's current value in the model. A display string on one side and a
+  // number on the other would compare two different scales, so the pair is
+  // only formed when both sides are the same kind.
+  let reference: OptionChangeRow['reference'] = 'none'
+  let fromText = ''
+  let sameAsReference = false
+  if (baselineOptionTarget && Boolean(baselineOptionTarget.displayValue) === Boolean(target.displayValue)) {
+    reference = 'baseline_option'
+    sameAsReference =
+      isInterventionNoChange(baselineOptionTarget.value, target.value) &&
+      (baselineOptionTarget.displayValue ?? null) === (target.displayValue ?? null)
+    if (!sameAsReference) {
+      fromFull = baselineOptionTarget.displayValue
+        ? baselineOptionTarget.displayValue
+        : formatInterventionTargetText({ ...context, value: baselineOptionTarget.value })
+      fromText = rest(fromFull)
+    }
+  } else if (!target.displayValue && typeof factor.observedValue === 'number') {
+    const change = formatInterventionChange({
+      baselineValue: factor.observedValue,
+      targetValue: target.value,
+      label: fullLabel,
+      unit: factor.unit,
+      factorType: factor.factorType,
+      cap: factor.cap,
+      observedValue: factor.observedValue,
+      observedRawValue: factor.observedRawValue,
+    })
+    if (change.changed && change.baselineText) {
+      fromFull = change.baselineText
+      fromText = rest(fromFull)
+      reference = 'current_value'
+    }
+  }
+  // ⛔ NEVER AN ARROW POINTING AT NOTHING. An unframed target (a `scale` value
+  // with no unit or reading) formats to '' — the row then says what the option
+  // DOES in words, the estate's directional fallback (`describeInterventionDirection`),
+  // rather than "→ ". Found by the option-spec review of this PR.
+  if (!targetText) {
+    const reference = baselineOptionTarget?.value ?? factor.observedValue
+    const direction =
+      typeof reference === 'number'
+        ? isInterventionNoChange(reference, target.value)
+          ? 'No change'
+          : target.value > reference ? 'Increases' : 'Decreases'
+        : 'Changes'
+    return {
+      factorId,
+      label,
+      fullLabel,
+      change: direction,
+      fullChange: direction,
+      reference: typeof reference === 'number' ? (baselineOptionTarget ? 'baseline_option' : 'current_value') : 'none',
+      estimated,
+      sameAsReference: direction === 'No change',
+    }
+  }
+  return {
+    factorId,
+    label,
+    fullLabel,
+    change: fromText ? `${fromText} → ${targetText}` : sameAsReference ? `${targetText} · same as baseline` : `→ ${targetText}`,
+    fullChange: fromFull ? `${fromFull} → ${targetFull}` : sameAsReference ? `${targetFull} · same as baseline` : `→ ${targetFull}`,
+    reference,
+    estimated,
+    sameAsReference,
+  }
+}
+
+/** The rows that fit the resting budget: two, or one when a value is long (D2). */
+export function fitRowsToBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
+  if (rows.length <= 1) return rows
+  return rows.some(r => r.change.length > OPTION_ROW_CHANGE_BUDGET_CHARS) ? rows.slice(0, 1) : rows
+}
+
+/** `+N more`, from the ONE total — never below zero. */
+export function moreCount(totalInterventionCount: number, rowsShown: number): number {
+  return Math.max(0, totalInterventionCount - rowsShown)
+}

@@ -168,7 +168,18 @@ export function deriveNotAnalysedReason(
   nodeId: string,
   edges: readonly OptionEdgeLike[],
   optionNodeIds: readonly string[],
+  /**
+   * ⭐ MT-21 (manual test on served `4c6ec07b`, 23 Sep 2026): an edge is not a
+   * VALUE. A LINKED option — wired to its factors but with no intervention
+   * values — was read as configured, so the card/panel blamed the engine
+   * (`not_returned`) for an option the user simply had not given numbers to,
+   * and withheld the one action that fixes it. When the caller can say how many
+   * values the option carries, zero values is `no_interventions` whatever the
+   * wiring. Absent the answer, the edge predicate stands, unchanged.
+   */
+  optionValueCount?: (optionId: string) => number | null,
 ): NotAnalysedReason {
+  if (optionValueCount?.(nodeId) === 0) return 'no_interventions'
   const optionIds = new Set(optionNodeIds)
   const hasInterventionEdge = edges.some((e) => e.source === nodeId && !optionIds.has(e.target))
   return hasInterventionEdge ? 'not_returned' : 'no_interventions'

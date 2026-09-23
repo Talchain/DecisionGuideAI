@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { classifyNodeProvenance, classifyValueProvenance } from '../../domain/valueProvenance'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 import { nodeProvenanceClaim, provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
@@ -10,6 +11,8 @@ import {
 } from '../../domain/valueProvenanceIcon'
 import Tooltip from '../../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
+import { useCanvasStore } from '../../store'
+import { resolveNodeTypeLiteral } from '../../domain/nodes'
 
 /**
  * ⭐⭐ WHO PUT THIS ELEMENT HERE — on the card, at a fixed position, on every
@@ -146,11 +149,46 @@ export interface NodeProvenanceMarkProps {
   nodeType: NodeType
   /** The node's `data`, straight off the node. Carries `provenance`. */
   data: unknown
+  /**
+   * The board's default provenance kind, passed AT REST only. A card whose marks
+   * all carry this kind renders none (spec §6: provenance EXCEPTIONS at rest).
+   */
+  hideKind?: ValueProvenanceKind | null
 }
 
-export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) {
+export function NodeProvenanceMark({ nodeType, data, hideKind = null }: NodeProvenanceMarkProps) {
+  const marks = resolveProvenanceMarks(nodeType, data)
+  if (marks.length === 0) return null
+  // ⭐ MODEL-LEVEL DEFAULT + LOCAL EXCEPTIONS (locked spec §6; ED 11:52Z point 8:
+  // "do not repeat noisy provenance text everywhere; model-level default + local
+  // exceptions is preferred"). At rest the caller passes the board's default
+  // kind, and a card whose marks all say ONLY that default renders none — the
+  // same AI mark on every card conveys nothing. Any mark that differs (a user
+  // value on an AI board, a disagreement pair) renders in full. Detailed and
+  // the inspector always show every mark.
+  if (hideKind !== null && marks.every(m => m.kind === hideKind)) return null
+  return (
+    <>
+      {marks.map(m => (
+        <Fragment key={`${m.claim}-${m.kind}`}>{renderMark(m.claim, m.kind)}</Fragment>
+      ))}
+    </>
+  )
+}
+
+export interface ResolvedProvenanceMark {
+  claim: Exclude<NodeProvenanceClaim, 'none'>
+  kind: ValueProvenanceKind
+}
+
+/**
+ * The marks a card is entitled to show, resolved WITHOUT rendering — extracted
+ * verbatim from `NodeProvenanceMark` (23 Sep 2026) so the board-wide default
+ * (`useProvenanceDefaultKind`) and the card read ONE answer.
+ */
+export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): ResolvedProvenanceMark[] {
   const claim = nodeProvenanceClaim(nodeType, data)
-  if (claim === 'none') return null
+  if (claim === 'none') return []
 
   const provenance = (data as Record<string, unknown> | null | undefined)?.provenance
   // ⚠ This type guard is defensive, not load-bearing: `classifyNodeProvenance`
@@ -360,18 +398,16 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
   const authorshipIsClaimable = !olumiAuthorshipIsAmbiguous(data)
 
   if (disagree && authorshipIsClaimable) {
-    return (
-      <>
-        {renderMark('structural', nodeAuthorship.kind)}
-        {renderMark('value', valueProvenance.kind)}
-      </>
-    )
+    return [
+      { claim: 'structural', kind: nodeAuthorship.kind },
+      { claim: 'value', kind: valueProvenance.kind },
+    ]
   }
 
   const cls = valueProvenance ?? nodeAuthorship
-  if (!cls) return null
+  if (!cls) return []
 
-  return renderMark(claim, cls.kind)
+  return [{ claim, kind: cls.kind }]
 }
 
 /**
@@ -434,4 +470,47 @@ function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProv
       </span>
     </Tooltip>
   )
+}
+
+/**
+ * ⭐ THE BOARD'S DEFAULT PROVENANCE KIND — the single-mark kind most cards on
+ * the canvas carry (a fresh AI draft: `ai`). `null` when there is no single
+ * most-common kind (a tie, or no marks), so nothing is ever hidden on a guess.
+ * Memoised per `nodes` array at module level: every card asks, one derivation.
+ */
+let defaultKindCache: { nodes: unknown; kind: ValueProvenanceKind | null } | null = null
+
+export function provenanceDefaultKind(
+  nodes: ReadonlyArray<{ type?: string; data?: unknown }> | undefined,
+): ValueProvenanceKind | null {
+  if (defaultKindCache && defaultKindCache.nodes === nodes) return defaultKindCache.kind
+  const counts = new Map<ValueProvenanceKind, number>()
+  for (const n of nodes ?? []) {
+    const nodeType = resolveNodeTypeLiteral(n)
+    if (!nodeType) continue
+    const marks = resolveProvenanceMarks(nodeType, n.data)
+    if (marks.length !== 1) continue
+    counts.set(marks[0].kind, (counts.get(marks[0].kind) ?? 0) + 1)
+  }
+  let kind: ValueProvenanceKind | null = null
+  let best = 0
+  let tied = false
+  for (const [k, c] of counts) {
+    if (c > best) {
+      kind = k
+      best = c
+      tied = false
+    } else if (c === best) {
+      tied = true
+    }
+  }
+  // A default is a REPEATED mark: one marked card is not a pattern to suppress.
+  const result = tied || best < 2 ? null : kind
+  defaultKindCache = { nodes, kind: result }
+  return result
+}
+
+export function useProvenanceDefaultKind(): ValueProvenanceKind | null {
+  const nodes = useCanvasStore((s) => s.nodes) as unknown as ReadonlyArray<{ type?: string; data?: unknown }> | undefined
+  return provenanceDefaultKind(nodes)
 }
