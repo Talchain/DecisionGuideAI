@@ -376,3 +376,29 @@ describe('structural_rename — the transport arm (turn threw) is settled by the
     expect(synthetic).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_transport)
   })
 })
+
+describe('the verdict lands BEFORE the send settles (the drain decides at that instant)', () => {
+  it('when the send rejects, the lifecycle is already terminal — the drain will not overwrite it with `unconfirmed`', async () => {
+    stubRefusal200('unused')
+    readback = { label: NEW_LABEL }
+    seed(true)
+    const intent = renameIntent()
+    const { result } = renderHook(() => useConversation())
+    let statusAtSettle: string | undefined
+    await act(async () => {
+      await result.current
+        .sendSystemEvent(
+          {
+            type: 'structural_rename',
+            payload: { node_id: NODE_ID, label: NEW_LABEL, expected_label: PREVIOUS_LABEL, base_graph_hash: BASE_GRAPH_HASH },
+          } as never,
+          { structuralRename: intent, debugSource: 'canvas_rename' },
+        )
+        .catch(() => {
+          // Exactly what `useStructuralRenameEvents` reads after its await.
+          statusAtSettle = useCanvasStore.getState().structuralRenameLifecycle.find((r) => r.intent.id === intent.id)?.status
+        })
+    })
+    expect(statusAtSettle).toBe('committed')
+  })
+})
