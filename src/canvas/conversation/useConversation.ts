@@ -169,6 +169,7 @@ import {
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
+import { withUnconfirmedEdgeEditsRolledBack } from './pendingEdgeEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
@@ -5229,8 +5230,25 @@ export function useConversation(): UseConversationReturn {
                 beforeReceipt.nodes as never,
                 beforeReceipt.edges as never,
               )
+              // ⭐ A LINK-STRENGTH EDIT'S OWN OPTIMISTIC WRITE IS NOT A STRANGER
+              // (23 Sep 02:49Z served witness). The edge carrier writes the
+              // canvas before it sends, so G₀ above is unacknowledged by the
+              // very edit this receipt applies, and the chain never fired — a
+              // whole-graph registration followed every applied link edit.
+              // Rolled back, the canvas is G₀ exactly as CEE held it, and the
+              // receipt's postimage is what the reconcile below lands. Any
+              // OTHER unacknowledged change still fails it closed — #1855
+              // preserved. (A write this receipt did not apply stays held by
+              // `editDeliveryHold` signal 5 until its own turn settles it.)
+              const receiptExtendsAcknowledgementPastItsOwnEdgeWrite =
+                !receiptExtendsAcknowledgement &&
+                isGraphServerAcknowledged(
+                  beforeReceipt.currentScenarioId,
+                  beforeReceipt.nodes as never,
+                  withUnconfirmedEdgeEditsRolledBack(beforeReceipt.edges) as never,
+                )
               const merged = reconcileAppliedGraph(inlineGraph as any)
-              if (receiptExtendsAcknowledgement) {
+              if (receiptExtendsAcknowledgement || receiptExtendsAcknowledgementPastItsOwnEdgeWrite) {
                 const afterReceipt = useCanvasStore.getState()
                 markGraphServerAcknowledged(
                   afterReceipt.currentScenarioId,

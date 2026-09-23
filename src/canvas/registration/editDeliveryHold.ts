@@ -39,6 +39,12 @@
  *     revert, so after the untyped 500 (value kept, "couldn't confirm") it
  *     stays up — and a registration must never launder that number into
  *     canonical state under Olumi's name.
+ *  5. the graph CARRIES A LINK MAGNITUDE the server has not confirmed — the
+ *     edge twin of 4 (`pendingEdgeEdit`). Witnessed 23 Sep 02:49Z: a refused
+ *     `edge_strength_edit` left its magnitude on the canvas and, once the wire
+ *     mark cleared, the side channel wrote the refused value into CEE. Settled
+ *     by the carrier: confirmed by the committed graph, reverted, or (on an
+ *     unverified send) kept on screen and held off the side channel.
  *
  * ⚠ SIGNAL 4 IS BOUND TO THE GRAPH, NOT TO THE REGISTER'S NON-EMPTINESS. The
  *   register is module-level and not scenario-scoped; "anything pending
@@ -63,6 +69,10 @@ import {
   pendingFactorEditValue,
   subscribePendingFactorEdits,
 } from '../conversation/pendingFactorEdit'
+import {
+  graphCarriesUnconfirmedEdgeEdit,
+  subscribePendingEdgeEdits,
+} from '../conversation/pendingEdgeEdit'
 
 /** Model-changing system_event turns currently on the wire. */
 let modelEditsOnTheWire = 0
@@ -99,6 +109,8 @@ export function beginModelEditDelivery(eventType: string | undefined): () => voi
 /** The store slice this module reads. Structural so tests can pass a literal. */
 export interface EditDeliveryState {
   readonly nodes: ReadonlyArray<{ id?: unknown; data?: unknown }>
+  /** Read by signal 5 only (an unconfirmed link magnitude). */
+  readonly edges?: ReadonlyArray<{ id?: unknown; data?: unknown }>
   readonly pendingEmittedEdits?: number
   readonly pendingStructuralDeletes?: ReadonlyArray<unknown>
   readonly pendingStructuralRenames?: ReadonlyArray<unknown>
@@ -116,6 +128,7 @@ export type EditDeliveryHold =
   | 'edit_queued'
   | 'structural_edit_queued'
   | 'unconfirmed_value_on_canvas'
+  | 'unconfirmed_edge_on_canvas'
   | 'unresolved_structural_edit'
 
 function currentValue(data: unknown): unknown {
@@ -183,16 +196,19 @@ export function editDeliveryHold(state: EditDeliveryState): EditDeliveryHold | n
       return 'unconfirmed_value_on_canvas'
     }
   }
+  if (graphCarriesUnconfirmedEdgeEdit((state.edges ?? []) as never)) return 'unconfirmed_edge_on_canvas'
   return null
 }
 
 function subscribe(listener: Listener): () => void {
   listeners.add(listener)
   const unsubscribePending = subscribePendingFactorEdits(listener)
+  const unsubscribePendingEdges = subscribePendingEdgeEdits(listener)
   const unsubscribeStore = useCanvasStore.subscribe(listener)
   return () => {
     listeners.delete(listener)
     unsubscribePending()
+    unsubscribePendingEdges()
     unsubscribeStore()
   }
 }

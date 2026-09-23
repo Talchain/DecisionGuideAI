@@ -10,6 +10,7 @@ import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
+import { markEdgeEditInFlight, resolveEdgeEditSettlement } from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
@@ -1131,7 +1132,17 @@ export function useEdgeMutations(edgeId: string) {
      * not crash the inspector. So the optional chain is defence against a
      * dynamic caller, and the type is what stops a real one omitting it.
      */
-    settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
+    // ⭐ ONE WRITER (23 Sep 02:49Z served witness): the send now has a life
+    // after it leaves. While the canvas shows a magnitude the server has not
+    // confirmed, registration is held (`editDeliveryHold` signal 5); when it
+    // settles, the committed graph decides — confirmed, reverted, or (on an
+    // unverified send) kept on screen and still held off the side channel.
+    // `edge.data` is the PRE-write read above, so a refusal restores exactly
+    // what the server holds.
+    markEdgeEditInFlight(edgeId, absWeight, edge.data as Record<string, unknown> | undefined)
+    settleSystemEventSend(sendSystemEvent(event), (settlement) =>
+      opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement)),
+    )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
