@@ -491,6 +491,21 @@ export interface DecisionResultData {
    * `undefined` ⇒ a pre-admission CEE, never a refusal.
    */
   analysisAdmission?: AnalysisAdmissionV1
+  /**
+   * The admission the DISPLAYED RUN was delivered under — read off the report
+   * (`ReportV1.run_analysis_admission`), captured from the same envelope as its
+   * `analysis_result` (#1206; ruling olumi-programme-docs#63, comment
+   * 5787026951). `analysisAdmission` above answers for the CURRENT graph; this
+   * answers for the result on screen, and the two are conjoined wherever a
+   * claim about that result is made.
+   *
+   * ⛔ WITHHOLD-ONLY, and for BACKWARD-LOOKING claims only: leader designation
+   * and stability words. Remedies, readiness, refusal copy and Run affordances
+   * describe the current graph and keep reading `analysisAdmission`.
+   * `undefined` ⇒ no run-own constraint (an older producer, or a restored /
+   * hydrated report with no record), never a refusal.
+   */
+  runAnalysisAdmission?: AnalysisAdmissionV1
   /** Task 6: Flip thresholds for tipping points visualisation */
   flipThresholds?: FlipThreshold[]
   /**

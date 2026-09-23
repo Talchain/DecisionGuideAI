@@ -25,7 +25,10 @@
  *                                                     (lattice ∧ this result's
  *                                                      separation) — QUOTED, not
  *                                                      re-implemented
- *   Q-STABILITY may we state stability/robustness?    lattice only
+ *   Q-STABILITY may we state stability/robustness?    lattice only — asked of
+ *                                                     the current admission
+ *                                                     AND the displayed run's
+ *                                                     own (#1206)
  *
  * ⚠ Q-LEADER IS NOT Q-STABILITY. They agree on three of the four modes and
  * diverge on the one that matters, and they answer to different evidence:
@@ -123,6 +126,10 @@ export interface AnalysisClaimPolicy {
    * ⚠ NOT conjoined with this run's separation. Robustness is a property of
    * the run's sensitivity, not of whether the arms separated; folding Q2 in
    * here would make a second question wear this one's name.
+   *
+   * ⭐ BUT IT IS ASKED OF TWO ADMISSIONS (#1206): the current graph's AND the
+   * one the displayed run was delivered under. Both must license it; either
+   * one absent is "no constraint from that side".
    */
   mayStateStability: boolean
 }
@@ -130,6 +137,12 @@ export interface AnalysisClaimPolicy {
 /** The subset of `DecisionResultData` this reader needs. Structural on purpose. */
 export interface ClaimPolicyInput {
   analysisAdmission?: AnalysisAdmissionV1
+  /**
+   * The admission the DISPLAYED RUN was delivered under (#1206). Conjoined into
+   * Q-STABILITY only — see `analysisClaimPolicy` below. Absent ⇒ no run-own
+   * constraint, exactly today's behaviour.
+   */
+  runAnalysisAdmission?: AnalysisAdmissionV1
   leaderDesignationPermitted?: boolean
   verdict?: { hasLeadingOption?: boolean }
 }
@@ -174,14 +187,35 @@ export function analysisClaimPolicy(
   rec: ClaimPolicyInput | null | undefined,
 ): AnalysisClaimPolicy {
   const mode = rec?.analysisAdmission?.permitted_analysis_mode
+  const runMode = rec?.runAnalysisAdmission?.permitted_analysis_mode
   return {
     mayShowComparativeFigures: figuresLicensed(mode),
     // QUOTED VERBATIM from the one module entitled to answer it. Not widened,
     // not narrowed, not re-derived — a second copy of this predicate is a
     // second chance to drift, which is the argument `leaderDesignation.ts`
     // itself makes for existing at all.
+    //
+    // ⚠ The run's own admission (#1206) reaches this answer UPSTREAM, not here:
+    // `useResultsSectionData` conjoins it into the composed
+    // `leaderDesignationPermitted` this quotes. Conjoining it again here would
+    // be the second copy the sentence above forbids.
     mayNameOrRankLeader: leaderDesignationPermitted(rec),
-    mayStateStability: stabilityLicensed(mode),
+    // ⛔ TWO ADMISSIONS, ONE CONJUNCTION (#1206; binding ruling
+    // olumi-programme-docs#63, comment 5787026951: "claim permitted = run-own
+    // admission permits it AND current effective admission permits it").
+    // `mode` answers for the CURRENT graph; `runMode` for the run on screen,
+    // recorded from the envelope that delivered it. WITNESSED on the served
+    // build, 23 Sep 2026: a `quantified_provisional` run whose `fragile` verdict
+    // was printed as "Sensitive" once a graph-only edit turn made
+    // `comparative_leader` live. Each term keeps `stabilityLicensed`'s absence
+    // arm (`true`), so an absent run record is exactly today's behaviour and the
+    // conjunct can only ever withhold.
+    //
+    // ⚠ Q-FIGURES IS DELIBERATELY NOT CONJOINED. It LICENSES rather than
+    // withholds and has no suppressing consumer (header); neither claim family
+    // this fix closes reads it, and folding the run in would make it a
+    // suppression nobody asked this answer to make.
+    mayStateStability: stabilityLicensed(mode) && stabilityLicensed(runMode),
   }
 }
 

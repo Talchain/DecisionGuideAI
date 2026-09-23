@@ -287,6 +287,14 @@ export interface V5ApplicatorStore {
    * ⚠ IT MARKS, IT DOES NOT DELETE. The user's numbers stay; the CLAIM goes.
    */
   resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  /**
+   * Record the admission THIS ENVELOPE delivered its `analysis_result` under,
+   * onto the report the slice holds (`ReportV1.run_analysis_admission`, #1206).
+   * `undefined` = the envelope carried none (an older producer) and removes the
+   * record. Optional like its siblings: a store view that predates it behaves
+   * exactly as it does today.
+   */
+  resultsRecordRunAdmission?: (admission: AnalysisAdmissionV1 | undefined) => void
   /** Step 5c — clears a withholding when the producer positively permits. */
   resultsRestoreLeaderClaim?: (verdict: unknown) => boolean
 }
@@ -2342,6 +2350,47 @@ export function applyV5State(
           skip_reason: 'duplicate_hash',
         })
       }
+
+      // ── THE RUN'S OWN ADMISSION, recorded beside the report it governs ─────
+      //
+      // #1206; binding ruling olumi-programme-docs#63, comment 5787026951:
+      // "claim permitted = run-own admission permits it AND current effective
+      // admission permits it". Witnessed on the served build, 23 Sep 2026: a
+      // `quantified_provisional` run, then a `factor_value_edit` turn carrying a
+      // graph patch, NO result, and a `comparative_leader` admission about the
+      // EDITED graph — which became live and printed the OLD run's `fragile`
+      // verdict as "Sensitive". The live slot answers for the current graph;
+      // this answers for the result on screen.
+      //
+      // ⚠ BOTH INPUTS COME FROM THIS ENVELOPE, AND THEY MUST — the step-2 caveat
+      // arm's rule, for the same reason. `ceeAnalysisReady` is replaced by every
+      // turn that carries readiness, and `retainedAnalysisAdmission` is harvested
+      // at every clear and overwritten by the next edit; either one read later
+      // answers for a DIFFERENT graph than the one this result was computed over.
+      //
+      // ⭐⭐ DELIBERATELY OUTSIDE THE `hash !== prevHash` GATE, like the delta
+      // write below and for the reason its note gives: the hash is a CONTENT
+      // hash and a byte-identical block is re-delivered on follow-up turns, so a
+      // duplicate hash is the same RESULT, not the same ADMISSION. Keying this on
+      // a hash change would let the first envelope's admission govern a result
+      // the producer has since re-stated under another.
+      // `runAdmissionIsRestatedByEveryEnvelope.spec.ts` pins it.
+      //
+      // ⚠ ONLY IN THE ARM THAT APPLIES THE RESULT, deliberately: a result this
+      // turn refused above as not about the current graph never landed, so its
+      // envelope says nothing about the report the user holds.
+      //
+      // ⚠ ABSENT ADMISSION → `undefined` → the record is removed: an older
+      // producer's result carries no run-own constraint, exactly today's
+      // behaviour. A non-object is treated as absent, never as a refusal.
+      const envelopeRunAdmission = (
+        response as { analysis_ready?: { analysis_admission?: unknown } }
+      ).analysis_ready?.analysis_admission
+      store.resultsRecordRunAdmission?.(
+        envelopeRunAdmission !== null && typeof envelopeRunAdmission === 'object'
+          ? (envelopeRunAdmission as AnalysisAdmissionV1)
+          : undefined,
+      )
 
       // ── "What's changed" — the run-over-run consequence ───────────────────
       //
