@@ -297,5 +297,5 @@ export const CAUSE_MUST_NAME: Record<HoldCause, readonly (string | RegExp)[]> = 
   unconfirmed_value: [/couldn['’]t confirm/i, FACTOR_LABEL, USER_VALUE_TEXT],
   unresolved_delete: [/couldn['’]t confirm/i, `that ${DELETED_LABEL} was removed from the saved model`],
   unresolved_delete_link: [/couldn['’]t confirm/i, `that ${LINK_NAME} was removed from the saved model`],
-  unconfirmed_link_value: [/couldn['’]t confirm/i, `your change to ${LINK_NAME}`],
+  unconfirmed_link_value: [/couldn['’]t confirm/i, `your change to the strength of ${LINK_NAME}`, /set the strength again/],
 }

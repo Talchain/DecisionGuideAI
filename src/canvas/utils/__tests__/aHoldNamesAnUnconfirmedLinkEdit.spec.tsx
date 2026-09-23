@@ -15,11 +15,15 @@
  *
  * ## What this pins
  *
- *  1. The sentence names the link, in the existing unconfirmed-value frame
- *     (no new copy): "Olumi couldn't confirm your change to the link from {A}
- *     to {B}, so analysis is waiting until it is settled. Would you like to set
- *     the value again?" No number is stated: the client does not know the
- *     model's, and the link has no projection of the user's.
+ *  1. The sentence names the link in its OWN frame, with the noun the UI uses
+ *     for a link's magnitude — Strength (`nodes/shared/metricVocabulary.ts`),
+ *     never "value" (Panel #1917 N1): "Olumi couldn't confirm your change to
+ *     the strength of the link from {A} to {B}, so analysis is waiting until it
+ *     is settled. Would you like to set the strength again?" With either end
+ *     unnamed: "your last link-strength change". No number is stated: the
+ *     client does not know the model's, and the link has no projection of the
+ *     user's. The frame is registered as composed copy, so the footer vet
+ *     classifies it as the product's own sentence, never as foreign text.
  *  2. It is a user-edit hold (`isUserEditHold`), so the banner withdraws its
  *     re-draft (swept with every cause in
  *     `StarterProvenanceBanner.editHoldHidesRedraft.spec.tsx`).
@@ -35,6 +39,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 
 import * as held from '../analysisHeldOnInjectedModel'
+import { classifyBlockedReason } from '../composeBlockedReason'
 import { ANALYSIS_HELD_NOTICE } from '../analysisHeldOnInjectedModel'
 import { NodeChip } from '../../nodes/shared/NodeChip'
 import { ToastProvider } from '../../ToastContext'
@@ -50,9 +55,18 @@ import {
   seedHeldCanvas,
 } from '../../registration/__tests__/helpers/editHoldCauses'
 
+/** The PROPOSED sentence (for Experience Design sign-off), verbatim. */
 const linkSentence = (named: string) =>
-  `Olumi couldn't confirm your change to ${named}, so analysis is waiting until it is settled. ` +
-  'Would you like to set the value again?'
+  `Olumi couldn't confirm your change to the strength of ${named}, so analysis is waiting until it is settled. ` +
+  'Would you like to set the strength again?'
+
+/** Either end unnamed: the link is not named, and the noun is still "link-strength". */
+const UNNAMED_LINK_SENTENCE =
+  "Olumi couldn't confirm your last link-strength change, so analysis is waiting until it is settled. " +
+  'Would you like to set the strength again?'
+
+/** "value" is the factor's noun. A link's magnitude is its Strength (`metricVocabulary.ts`). */
+const VALUE_NOUN = /\bvalue\b/i
 
 function seedCanonicalRunPath() {
   try { localStorage.setItem('feature.v5CanonicalAnalysis', '1') } catch { /* jsdom quirk */ }
@@ -92,12 +106,40 @@ describe('PRECONDITION — the state #1905 signal 5 holds on', () => {
 })
 
 describe('the shared authority names the link', () => {
-  it('"your change to the link from {A} to {B}", no re-draft, no number', () => {
+  it('"your change to the strength of the link from {A} to {B}", no re-draft, no number', () => {
     arrangeHoldCause('unconfirmed_link_value')
     const reason = held.heldReason(state())
     expect(reason?.sentence).toBe(linkSentence(LINK_NAME))
     expect(reason?.sentence).not.toMatch(/\d/)
     expect(held.isUserEditHold(reason ?? null)).toBe(true)
+  })
+
+  it('says "strength", never "value" (Panel #1917 N1)', () => {
+    arrangeHoldCause('unconfirmed_link_value')
+    const s = held.heldReason(state())?.sentence as string
+    expect(s).toMatch(/\bstrength\b/)
+    expect(s).not.toMatch(VALUE_NOUN)
+  })
+
+  it('an end with no name: "your last link-strength change", never "your last value change"', () => {
+    arrangeHoldCause('unconfirmed_link_value')
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.map((n) =>
+        n.id === 'fac_adoption' ? { ...n, data: { ...(n.data as object), label: '   ' } } : n,
+      ),
+    } as never)
+    expect(editDeliveryHold(state())).toBe('unconfirmed_edge_on_canvas')
+    const s = held.heldReason(state())?.sentence as string
+    expect(s).toBe(UNNAMED_LINK_SENTENCE)
+    expect(s).not.toMatch(VALUE_NOUN)
+  })
+
+  it('both forms are registered as composed copy, so the footer vet never treats them as foreign text', () => {
+    arrangeHoldCause('unconfirmed_link_value')
+    const named = held.heldReason(state())?.sentence as string
+    expect(named).toBe(linkSentence(LINK_NAME))
+    expect(classifyBlockedReason(named)).toBe('composed-safe')
+    expect(classifyBlockedReason(UNNAMED_LINK_SENTENCE)).toBe('composed-safe')
   })
 })
 
