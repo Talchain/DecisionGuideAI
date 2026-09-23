@@ -146,6 +146,23 @@ interface BaseNodeProps extends NodeProps {
    * So the owner declares it. When set, this WINS over the central resolver.
    */
   lodMetric?: string | null
+  /**
+   * ⭐ THE MODEL HAS CHANGED SINCE THE RUN THIS CARD'S FIGURES CAME FROM — the
+   * owner's `useModelChangedSinceRun()`, passed in already answered.
+   *
+   * Read by the two run-derived things this component draws for a card: the
+   * `Key driver N` badge and the factor influence arm of the reduced line.
+   * Both keep their figure and open with `LAST_RUN_PREFIX` (Paul's Ruling 3,
+   * ROADMAP 2.651: "out-of-date results are labelled, not withheld").
+   *
+   * ⚠ A PROP, NOT A HOOK HERE, deliberately. `BaseNode` hosts every card on the
+   * canvas and `sensitivityRank` is assigned to FACTORS ONLY
+   * (`useNodeDisplayMetadata`, inside its `nodeType === 'factor'` branch), so
+   * the one card that can carry either figure computes the answer once and
+   * the card's own two influence rows read the same local. Absent means the
+   * owner has no run-derived factor figure to label — never "current".
+   */
+  resultsFromLastRun?: boolean
 }
 
 /**
@@ -174,7 +191,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric, resultsFromLastRun = false }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   /**
    * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
@@ -449,7 +466,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
-    if (nodeType === 'factor') return { influenceRank }
+    if (nodeType === 'factor') return { influenceRank, influenceFromLastRun: resultsFromLastRun }
     if (nodeType !== 'option') return undefined
     return resolveLodMetricFacts({
       nodeType,
@@ -457,7 +474,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       data: data as Record<string, unknown> | undefined,
       ceeOptions: ceeAnalysisReady?.options,
     })
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, resultsFromLastRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
@@ -1829,9 +1846,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                `SENSITIVITY_RANK_CLAUSE`, the same constant the legend row is
                built from, so the two cannot say different things about this
                badge. The rendered string is unchanged. */
-            aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank)}
+            /* ⭐ A STALE RANK IS LABELLED, NOT WITHDRAWN (Ruling 3, ROADMAP
+               2.651). `Key driver 1` about a model the user has since edited
+               is a claim about the wrong graph; `Last run · Key driver 1` is
+               true. The prefix is applied INSIDE both builders, so the visible
+               string is still a literal prefix of the accessible name (WCAG
+               2.5.3) and both remain direct builder calls.
+               ⚠ WIDTH: this badge sits in the corner stack, which is
+               `absolute bottom-full` — a band ABOVE the card — so the longer
+               string cannot change the card's height; it widens leftwards,
+               the same envelope `OptionNode`'s `Last run · Most supported`
+               pill already occupies in this stack. */
+            aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank, resultsFromLastRun)}
           >
-            {sensitivityRankBadgeLabel(displayMetadata.sensitivityRank)}
+            {sensitivityRankBadgeLabel(displayMetadata.sensitivityRank, resultsFromLastRun)}
           </span>
         )}
 

@@ -420,7 +420,11 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    const group = screen.getByRole('group', { name: 'Relative influence' })
+    // A CEE-stated 'stale' composes to 'changed', so the withheld-rank row is
+    // also LABELLED as the last run's (Ruling 3, ROADMAP 2.651 — labelled, not
+    // withheld; pinned in `staleRun.labelsLastRun.spec.tsx`). The rank
+    // withholding this test is about is unchanged.
+    const group = screen.getByRole('group', { name: 'Last run · Relative influence' })
     expect(group.textContent).not.toContain('Most influential')
     expect(group.textContent).not.toContain('of 5')
     expect(group.textContent).toContain('100%')
