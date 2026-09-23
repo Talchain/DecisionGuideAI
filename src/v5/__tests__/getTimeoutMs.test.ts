@@ -11,24 +11,24 @@ import { describe, it, expect } from 'vitest'
 import { getTimeoutMs, TURN_WAIT_MS, SERVER_TURN_DEADLINE_MS, EXTENDED_TIMEOUT_MS } from '../getTimeoutMs'
 
 describe('getTimeoutMs', () => {
-  describe('extended timeout (130s) for draft-graph-triggering paths', () => {
-    it('explicit_generate (Generate Model button) → 130s', () => {
+  describe('extended timeout (175s) for draft-graph-triggering paths', () => {
+    it('explicit_generate (Generate Model button) → 175s', () => {
       expect(getTimeoutMs('explicit_generate')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('run_analysis → 130s', () => {
+    it('run_analysis → 175s', () => {
       expect(getTimeoutMs('run_analysis')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('analyse_now trigger surface → 130s', () => {
+    it('analyse_now trigger surface → 175s', () => {
       expect(getTimeoutMs('conversation', 'analyse_now')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('frame stage (composer first-turn on empty canvas) → 130s', () => {
+    it('frame stage (composer first-turn on empty canvas) → 175s', () => {
       expect(getTimeoutMs('conversation', undefined, 'frame')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('frame stage with explicit_generate → 130s (both conditions match)', () => {
+    it('frame stage with explicit_generate → 175s (both conditions match)', () => {
       expect(getTimeoutMs('explicit_generate', undefined, 'frame')).toBe(EXTENDED_TIMEOUT_MS)
     })
   })
@@ -77,13 +77,27 @@ describe('getTimeoutMs', () => {
   })
 
   describe('constant values', () => {
-    it('TURN_WAIT_MS is 130s and clears the server deadline', () => {
-      expect(TURN_WAIT_MS).toBe(130_000)
+    it('TURN_WAIT_MS is 175s and clears the server deadline', () => {
+      expect(TURN_WAIT_MS).toBe(175_000)
       expect(TURN_WAIT_MS).toBeGreaterThan(SERVER_TURN_DEADLINE_MS)
     })
 
-    it('EXTENDED_TIMEOUT_MS is 130s', () => {
-      expect(EXTENDED_TIMEOUT_MS).toBe(130_000)
+    it('EXTENDED_TIMEOUT_MS is 175s', () => {
+      expect(EXTENDED_TIMEOUT_MS).toBe(175_000)
+    })
+
+    // ⛔ THE DEADLINE THE SERVER ACTUALLY RUNS TO, not its code default (23 Sep 2026).
+    // cee-staging sets BROWSER_PROXY_TIMEOUT_MS=170000 (Render env, read by the
+    // OpenAI Connected PoC lane, #63 5797782532), overriding CEE's `.default(125_000)`.
+    // First Agent builds measured 104.2 s and 124.4 s on served CEE `2aaf794`, and CEE
+    // may legitimately answer up to 170 s — so a 130 s client wait destroyed turns
+    // CEE had already COMMITTED (the user sees a timeout; a retry reports an unknown
+    // outcome). A client wait above the code default but below the deployed deadline
+    // is the same coin toss this module's header says the user loses silently.
+    it('the server deadline covers the DEPLOYED staging proxy timeout (170 s), not only the code default', () => {
+      const STAGING_BROWSER_PROXY_TIMEOUT_MS = 170_000
+      expect(SERVER_TURN_DEADLINE_MS).toBeGreaterThanOrEqual(STAGING_BROWSER_PROXY_TIMEOUT_MS)
+      expect(TURN_WAIT_MS).toBeGreaterThan(STAGING_BROWSER_PROXY_TIMEOUT_MS)
     })
   })
 })

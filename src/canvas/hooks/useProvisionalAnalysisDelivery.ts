@@ -37,8 +37,8 @@
  * route's limiter is keyed PER CLIENT IP — not per key — and the same bucket
  * serves boot hydration and the in-session draft recovery, so a tight poll
  * spends a budget other paths need. Derived at CEE's tip: the `read` tier is
- * 90 rpm (`cee/config/limits.ts:47-50`); the schedule below spends 17 reads
- * over 130s, and at most 9 in any 60s window — a fraction of that bucket, and
+ * 90 rpm (`cee/config/limits.ts:47-50`); the schedule below spends 23 reads
+ * over 175s, and at most 9 in any 60s window — a fraction of that bucket, and
  * pinned as such in `provisionalDeliveryReachesSlowRuns.spec.ts`.
  *
  * The delays stay front-loaded around the expected commit, but the gap is
@@ -47,7 +47,7 @@
  * lazier than the first one.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * WHY THE BOUND IS 130s, AND NOT THE 60s IT WAS
+ * WHY THE BOUND IS THE CLIENT'S TURN WAIT (175s), AND NOT THE 60s IT WAS
  * ═══════════════════════════════════════════════════════════════════════════
  * The schedule was originally tuned to the ~20s run this header describes, and
  * stopped at 60s. A provisional run that committed AFTER 60s was therefore
@@ -56,8 +56,8 @@
  * user; it is never.
  *
  * The bound is now the manual path's own budget, and for the manual path's own
- * reason. `v5/getTimeoutMs.ts` sets `TURN_WAIT_MS` (130s) deliberately above
- * `SERVER_TURN_DEADLINE_MS` (125s, CEE's `BROWSER_PROXY_TIMEOUT_MS`), on the
+ * reason. `v5/getTimeoutMs.ts` sets `TURN_WAIT_MS` (175s) deliberately above
+ * `SERVER_TURN_DEADLINE_MS` (170s, cee-staging's DEPLOYED `BROWSER_PROXY_TIMEOUT_MS`), on the
  * stated invariant that the client must never stop waiting before the server's
  * own deadline — CEE runs a turn to completion and commits it whether or not
  * the browser is still listening. A provisional run is the SAME
@@ -65,8 +65,8 @@
  * by a click, so a bound below the manual one abandoned a class of runs this
  * same client would have waited for had the user pressed Run.
  *
- * ⚠ SCOPE OF THAT DERIVATION, STATED NARROWLY. 125s is CEE's bound on a
- * BROWSER-PROXIED turn, read from the manual path's own file. The provisional
+ * ⚠ SCOPE OF THAT DERIVATION, STATED NARROWLY. 170s is cee-staging's deployed bound on a
+ * BROWSER-PROXIED turn (its code default is 125s), read from the manual path's own file. The provisional
  * dispatch is a background job and its server-side bound was NOT read at CEE's
  * bytes for this change. The claim made here is only the comparative one — this
  * client should not give up on a scheduled run sooner than on a clicked one —
@@ -173,16 +173,18 @@ export function ceeReadinessOptionsAreOnCanvas(
  * ABSOLUTE offsets from arming, in ms — not gaps. Front-loaded around the ~20s
  * commit, then stepped at 6-8s out to the bound — never wider than the opening
  * wait, which is the property P2 actually pins. Measured gaps in seconds:
- * `8, 6, 6, 7, 8x12, 7`. An earlier version of this sentence said "a constant
- * 8s step"; the final step (123s -> 130s) is 7s, so it was false of the very
- * list it sits above.
+ * `8, 6, 6, 7, 8x12, 7, 8x5, 5`. An earlier version of this sentence said "a
+ * constant 8s step"; it was false of the very list it sits above. Extended to
+ * 175s on 23 Sep 2026 because `TURN_WAIT_MS` rose to cover cee-staging's
+ * deployed 170s deadline (#63 5797782532).
  *
  * Exported so the spec asserts the SCHEDULE rather than restating it (trap 12),
  * and so the budget claim in the header is checkable.
  */
 export const PROVISIONAL_DELIVERY_DELAYS_MS: readonly number[] = [
   8_000, 14_000, 20_000, 27_000, 35_000, 43_000, 51_000, 59_000, 67_000, 75_000, 83_000, 91_000,
-  99_000, 107_000, 115_000, 123_000, 130_000,
+  99_000, 107_000, 115_000, 123_000, 130_000, 138_000, 146_000, 154_000, 162_000, 170_000,
+  175_000,
 ]
 
 /**

@@ -19,8 +19,8 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * P1 · THE BOUND COVERS THE SERVER'S OWN BOUND.
  *      This client already answers the identical question on the MANUAL path:
- *      `v5/getTimeoutMs.ts` sets `TURN_WAIT_MS` (130s) deliberately above
- *      `SERVER_TURN_DEADLINE_MS` (125s, CEE's `BROWSER_PROXY_TIMEOUT_MS`), on
+ *      `v5/getTimeoutMs.ts` sets `TURN_WAIT_MS` (175s) deliberately above
+ *      `SERVER_TURN_DEADLINE_MS` (170s, cee-staging's deployed `BROWSER_PROXY_TIMEOUT_MS`), on
  *      the stated invariant that **the client must never stop waiting before
  *      the server's own deadline** — because CEE runs a turn to completion and
  *      commits it whether or not the browser is still listening.
@@ -169,7 +169,7 @@ describe('P2 — the dead gap never widens past the first wait', () => {
     expect(peak).toBeLessThanOrEqual(CEE_READ_TIER_RPM / 4)
 
     // The hook's header and the PR state two literals about THIS schedule —
-    // "17 reads over 130s, and at most 9 in any 60s window". A sentence cannot
+    // "23 reads over 175s, and at most 9 in any 60s window". A sentence cannot
     // be pinned; these two assertions can, and they exist so the header cannot
     // drift from the schedule silently: a change to the delay list must
     // change these numbers AND the sentence that quotes them, in one diff.
@@ -177,7 +177,7 @@ describe('P2 — the dead gap never widens past the first wait', () => {
     // the current list, deliberately tighter.) Measured before pinning: a
     // 4s-spaced list of 32 reads with peak 16 satisfied the bound above and
     // left the header's "at most 9" false with every test green.
-    expect(PROVISIONAL_DELIVERY_DELAYS_MS).toHaveLength(17)
+    expect(PROVISIONAL_DELIVERY_DELAYS_MS).toHaveLength(23)
     expect(peak).toBeLessThanOrEqual(9)
   })
 })
