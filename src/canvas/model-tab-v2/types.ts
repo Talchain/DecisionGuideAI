@@ -321,6 +321,17 @@ export interface ModelRow {
    */
   declaresNoRange?: boolean
   /**
+   * ⭐ THIS OPTION IS THE BASELINE — `is_baseline === true` on the node, read
+   * strictly, as CEE's run gate reads it (`analysable-option-gate.ts`
+   * `isBaselineOption`). Present only on such option rows.
+   *
+   * CEE holds a baseline with no effect values as READY ("every factor holds at
+   * its observed value, so no effect values are needed", `option-status.ts`),
+   * so no surface here may ask it for one: its detail offers no first-value
+   * input, and the section notice never tells it to link itself to a factor.
+   */
+  isBaseline?: true
+  /**
    * Present when a human has explicitly chosen to leave this row unresolved.
    *
    * ⚠ THIS SITS BESIDE `attention`, IT NEVER CLEARS IT. The two answer different

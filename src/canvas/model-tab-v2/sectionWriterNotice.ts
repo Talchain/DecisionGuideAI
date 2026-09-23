@@ -115,7 +115,13 @@ export function rowsThisSectionCannotResolve(
   return rows
     .filter(
       r =>
-        r.attention.includes('missing-intervention') && !optionIdsWithValueInputs.has(r.id),
+        r.attention.includes('missing-intervention') &&
+        !optionIdsWithValueInputs.has(r.id) &&
+        // ⛔ NEVER THE BASELINE. It has no first-value input by design (CEE
+        // holds it with no effect values), so without this conjunct a LINKED
+        // baseline would be named as "not linked to" a factor — and an
+        // unlinked one told to link itself so it can be given an effect.
+        r.isBaseline !== true,
     )
     .map(r => r.id)
 }

@@ -148,10 +148,6 @@ import {
   optionIdsWithValueInputs,
   type ModelProjectionInput,
 } from './adapters'
-import {
-  OPTION_STORED_EFFECTS_UNADDABLE_NOTICE,
-  optionStoredEffectsAreUnaddable,
-} from './optionFirstValue'
 import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 import { goalTargetBoundPhrase } from '../conversation/manualGoalTarget'
@@ -1257,19 +1253,6 @@ export function ModelTabV2Panel({
       // once keeps the fence below about ONE frozen identity rather than about
       // whatever the closure happens to hold later.
       const optionAtSend = interventionEdit.optionId
-      /*
-       * ⚠ KNOWN CEE EDGE, NAMED — NOT FIXED. CEE refuses
-       * `invalid_existing_intervention` when the stored option's `interventions`
-       * is present but not a plain object (`null` in practice), and the browser
-       * sees only the generic 422 `system_event_refused_no_write` — which
-       * settles below as `unverified`, whose honest-but-vague sentence would
-       * then be the only thing the user reads. Read at SEND time, from the same
-       * node data CEE's check reads, and used ONLY to choose the sentence after
-       * a send did not land. See `optionStoredEffectsAreUnaddable`.
-       */
-      const storedEffectsUnaddable = optionStoredEffectsAreUnaddable(
-        nodes.find(n => n.id === optionAtSend)?.data,
-      )
       const attempt = ++interventionAttemptRef.current
       setInterventionEdit(prev =>
         prev && prev.factorId === factorId
@@ -1345,13 +1328,6 @@ export function ModelTabV2Panel({
                   'Ask me anything about this decision, then set this value again.',
               }
             }
-            if (settlement === 'unverified' && storedEffectsUnaddable) {
-              // The one refusal whose CAUSE this surface can name without the
-              // wire's help — see `storedEffectsUnaddable` above. CEE's check on
-              // this shape precedes any write, so the row may say "not saved".
-              const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
-              return { ...rest, phase: 'editing', notice: OPTION_STORED_EFFECTS_UNADDABLE_NOTICE }
-            }
             if (settlement === 'unverified') {
               // ⚠⚠ NEITHER SAVED NOR REFUSED NOR UNSENT, AND THE COPY MAY NOT
               // PICK ONE. A write is not ruled out, so "not saved" would invite
@@ -1365,6 +1341,15 @@ export function ModelTabV2Panel({
               // exactly like being offline. The row states what is actually
               // known, offers no retry it cannot justify, and names the action
               // that SHOWS the user the answer instead of guessing it.
+              //
+              // ⛔ NO STORED SHAPE OVERRIDES THIS ARM. A branch here once read a
+              // canvas `interventions: null` and said "Not saved — this
+              // option's stored effect list…" on EVERY `unverified` settlement,
+              // transport failures and the retryable 500 included (Panel F1 on
+              // #1911). CEE's persistence projection coerces a null to `{}`
+              // (`sweepInvalidNodeInterventions`), so the cause it named could
+              // not occur; it was withdrawn. Only a settlement the producer
+              // certifies as no-write (`refused`) may say "not saved".
               const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
               return {
                 ...rest,
@@ -1409,7 +1394,7 @@ export function ModelTabV2Panel({
         }
       })
     },
-    [interventionEdit, authority, selectedDetail, currentScenarioId, nodes],
+    [interventionEdit, authority, selectedDetail, currentScenarioId],
   )
 
   /**

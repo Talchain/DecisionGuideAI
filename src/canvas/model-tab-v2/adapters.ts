@@ -292,6 +292,21 @@ export function optionHasNoInterventions(data: unknown): boolean {
   return !interventions || Object.keys(interventions).length === 0
 }
 
+/**
+ * Whether this option is the BASELINE — the strict flag CEE's run gate reads
+ * (`analysable-option-gate.ts` `isBaselineOption`: `option.is_baseline ===
+ * true`), the same reading as `useModelReadiness` and
+ * `computeOptionDifferentiation`.
+ *
+ * ⚠ NEVER THE LABEL. The label-idiom fallback other surfaces use for a BADGE is
+ * not what the run gate holds: an option labelled "Status quo" without the
+ * flag is not held by CEE, still needs an effect value, and must keep its
+ * first-value input.
+ */
+function optionIsBaseline(data: unknown): boolean {
+  return (data as { is_baseline?: unknown } | undefined)?.is_baseline === true
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Relationships in plain English
 // ─────────────────────────────────────────────────────────────────────────────
@@ -756,6 +771,10 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         primaryValue: unmapped ? null : `${count} ${count === 1 ? 'change' : 'changes'}`,
         attention: unmapped ? ['missing-intervention'] : [],
         editable: true,
+        // Read by the section notice, which must never tell the baseline to
+        // link itself to a factor (Panel N2 on #1911). Present only when true,
+        // so every other option row is unchanged.
+        ...(optionIsBaseline(data) ? { isBaseline: true as const } : {}),
       })
       continue
     }
@@ -1219,6 +1238,16 @@ function buildOptionInterventionCandidates(
   nodesById: ReadonlyMap<string, Node>,
 ): OptionInterventionCandidate[] {
   if (nodeKind(node) !== 'option') return []
+  /*
+   * ⛔ THE BASELINE IS NOT ASKED WHAT IT CHANGES (Panel N2 on #1911, probe R6).
+   * CEE holds a baseline with `{}` as ready — "every factor holds at its
+   * observed value, so no effect values are needed" (`option-status.ts`) — so
+   * "What does Status Quo change Team capacity to?" invites the user to give
+   * the counterfactual an effect, and supplying one stops it being the status
+   * quo. No candidates, so no input; and `optionIdsWithValueInputs`, which asks
+   * this same function, agrees by construction.
+   */
+  if (optionIsBaseline(node.data)) return []
   const already = new Set(
     Object.keys(
       ((node.data as Record<string, unknown> | undefined)?.interventions as
