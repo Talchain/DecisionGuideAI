@@ -152,10 +152,12 @@ import { useConversation } from '../../conversation/useConversation'
 import { editDeliveryHold } from '../editDeliveryHold'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
 import { useStructuralDeleteEvents } from '../../conversation/useStructuralDeleteEvents'
-import * as unconfirmedDeletes from '../../conversation/unconfirmedStructuralDelete'
+import {
+  __resetUnconfirmedDeletesForTest,
+  settleStructuralDeleteAttempt,
+  settleUnconfirmedDeletesProvenByReceipt,
+} from '../../conversation/unconfirmedStructuralDelete'
 import { STRUCTURAL_DELETE_NOTICE } from '../../mutations/structuralDelete'
-
-const { __resetUnconfirmedDeletesForTest, settleStructuralDeleteAttempt } = unconfirmedDeletes
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -1542,7 +1544,7 @@ const DELETE_200_UNPROVEN = {
 type Hook = Awaited<ReturnType<typeof mountAcknowledgedStructuralBoard>>
 
 function syntheticNotices(hook: Hook): string[] {
-  return (hook.result.current.messages as Array<Record<string, unknown>>)
+  return hook.result.current.messages
     .filter((m) => m.role === 'assistant' && m.synthetic === true)
     .map((m) => String(m.content))
 }
@@ -1956,13 +1958,7 @@ describe('12 · the receipt-proof rule, pure (through `editDeliveryHold`)', () =
       currentScenarioId: scenario,
     } as never)
   const proveBy = (scenarioId: string, response: unknown, canvasNodeIds: string[]) =>
-    (unconfirmedDeletes as unknown as {
-      settleUnconfirmedDeletesProvenByReceipt: (input: {
-        scenarioId: string | null
-        response: unknown
-        canvasNodeIds: readonly string[]
-      }) => void
-    }).settleUnconfirmedDeletesProvenByReceipt({ scenarioId, response, canvasNodeIds })
+    settleUnconfirmedDeletesProvenByReceipt({ scenarioId, response, canvasNodeIds })
 
   it('ALL, not ANY: a two-node record stands while ONE of its nodes is still committed, and settles once BOTH are gone', () => {
     settleStructuralDeleteAttempt(intentOf(['n1', 'n2']), 's1', 'unconfirmed')
