@@ -36,6 +36,20 @@
  * exception treatment applied to "unconfirmed" IS the default treatment, and the
  * graph reads as alarming when nothing is actually wrong.
  *
+ * ⭐ NARROWED AGAIN — THE LOCKED CONNECTOR GRAMMAR (Experience Design, 23 Sep
+ * 2026, which wins over the Canvas Final spec §5 where it refines it):
+ *   thickness = relationship magnitude · colour/sign = direction ·
+ *   dash = existence certainty ONLY · orange = AI-review SIGN disagreement only ·
+ *   fragility = a discreet exception cue, never a line style · no "contested"
+ *   without attributable human disagreement.
+ * Two rules left this module with it: the `contested` DASH (a review
+ * disagreement dashed the line, so a strength-only contest read as "this may
+ * not exist") and the `contested_needs_user_input` STROKE (full orange whenever
+ * pass 2 asked for input, whatever it disagreed about — the "orange/dotted"
+ * treatment Paul saw on staging `4c6ec07b`). Every other review disagreement is
+ * shown in the connection's inspector (`EdgeReviewDisagreement`), which is now
+ * where `pass2.needs_user_input` is read.
+ *
  * THE THREE RULES THIS MODULE ENCODES
  * -----------------------------------
  *  A. COLOUR IS POLARITY'S CHANNEL. Nothing overwrites the polarity stroke
@@ -74,13 +88,16 @@ import {
 export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
 
 /**
- * The exception hue. Reserved — see `resolveEdgeStroke` — for the two states
- * that earn it. `needsUserInput` gets it at full strength; a direction actually
- * in dispute gets the 70% mix, because "we cannot show you a direction" is a
- * quieter claim than "please resolve this".
+ * The exception hue, reserved — see `resolveEdgeStroke` — for the ONE state that
+ * earns it since 23 Sep 2026: Olumi's two review passes disagree about the SIGN.
+ *
+ * The value is the 70% mix it always was for this state; only the full-strength
+ * sibling (`needs_user_input`) is gone. Exported so the legend's swatch draws
+ * THIS value rather than a hand-typed `var(--semantic-warning)` beside it
+ * (trap 12 — a key that restates the canvas's colour teaches one it may no
+ * longer paint).
  */
-const WARNING_FULL = 'var(--semantic-warning)'
-const WARNING_MIXED = 'color-mix(in srgb, var(--semantic-warning) 70%, transparent)'
+export const DIRECTION_DISPUTED_STROKE = 'color-mix(in srgb, var(--semantic-warning) 70%, transparent)'
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -88,6 +105,12 @@ const WARNING_MIXED = 'color-mix(in srgb, var(--semantic-warning) 70%, transpare
  * The contested facts this module needs, already reduced from
  * `ValidationMetadata`. Kept as a named type so the reduction
  * (`readContestedState`) is separately testable from the precedence.
+ *
+ * ⚠ TWO FACTS, NOT FOUR, SINCE 23 SEP 2026. `needsUserInput` and the
+ * divergence-scaled `dash` were deleted WITH the two rules that read them, so no
+ * computed-but-unread value is left for a later change to wire back onto the
+ * line. The producer's `pass2.needs_user_input` is not thrown away: the
+ * inspector reads it (`EdgeReviewDisagreement`'s heading).
  */
 export interface ContestedState {
   /**
@@ -97,11 +120,6 @@ export interface ContestedState {
    */
   readonly isContested: boolean
   /**
-   * Pass 2 asked for the user's input on THIS edge. A genuine user-flagged
-   * state, and the strongest claim on the exception hue.
-   */
-  readonly needsUserInput: boolean
-  /**
    * The passes disagree about the SIGN (`contested_reasons` includes
    * `sign_flip`). Only then is the polarity itself untrustworthy.
    *
@@ -110,25 +128,21 @@ export interface ContestedState {
    * and the polarity stroke survives. Painting orange there would assert "we
    * disagree about this edge's direction" on no evidence (P5), and would delete
    * a direction that IS grounded in the edge's own provenance-gated field. The
-   * contest is still shown — the dash below fires for every contested edge.
+   * contest is still shown — in the connection's inspector.
    */
   readonly directionDisputed: boolean
-  /** Divergence-scaled dash, or null when not contested. */
-  readonly dash: string | null
 }
 
 export const NOT_CONTESTED: ContestedState = {
   isContested: false,
-  needsUserInput: false,
   directionDisputed: false,
-  dash: null,
 }
 
 /** The `ContestedReason` that puts the SIGN in dispute. */
 export const DIRECTION_DISPUTING_REASON = 'sign_flip'
 
 /**
- * Reduce a wire `validation` object to the four facts the precedence needs.
+ * Reduce a wire `validation` object to the two facts the precedence needs.
  *
  * Takes `unknown` on purpose: `validation` crosses the CEE→UI boundary through
  * `overlayEdge`, which has no `DEFAULT_EDGE_DATA` entry for it and therefore
@@ -148,20 +162,11 @@ export function readContestedState(validation: unknown): ContestedState {
     Number.isFinite(divergence)
   if (!isContested) return NOT_CONTESTED
 
-  const needsUserInput = v.pass2?.needs_user_input === true
   const reasons = v.contested_reasons
   const directionDisputed =
     Array.isArray(reasons) && reasons.includes(DIRECTION_DISPUTING_REASON)
 
-  // Dash: gap scales with divergence (0→1 maps to 4→8px); needs_user_input gets
-  // a tighter gap for a stronger signal. Unchanged from the original branch —
-  // this module moves WHERE the decision is made, not what the contested dash
-  // looks like.
-  const d = divergence as number
-  const gap = needsUserInput ? 3 : Math.round(4 + d * 4)
-  const dashWidth = Number((1.5 + d * 1.5).toFixed(1))
-
-  return { isContested, needsUserInput, directionDisputed, dash: `${dashWidth} ${gap}` }
+  return { isContested, directionDisputed }
 }
 
 /** Everything the two resolvers may read. Nothing else is in scope. */
@@ -218,9 +223,12 @@ export const EDGE_STROKE_RULES = [
   'lens_causal',
   /** Evidence lens: ditto. */
   'lens_evidence',
-  /** Pass 2 asked the user to act on THIS edge. Exception hue, full strength. */
-  'contested_needs_user_input',
-  /** The passes disagree about the SIGN — no honest polarity to show. */
+  /**
+   * The passes disagree about the SIGN — no honest polarity to show. The ONE
+   * contest rule (23 Sep 2026: "orange = AI review sign disagreement only").
+   * `contested_needs_user_input`, which sat above it and painted full orange
+   * whatever the passes disagreed about, is deleted.
+   */
   'contested_direction_disputed',
   /** Transient interaction highlight. */
   'highlighted',
@@ -266,18 +274,16 @@ export function resolveEdgeStroke(state: EdgePresentationState): EdgeStrokeDecis
     // An unrecognised class is not a claim we can paint; fall through.
   }
 
-  // ── The exception hue, and the only two states that earn it ───────────────
+  // ── The exception hue, and the ONE state that earns it ────────────────────
   //
-  // Both are narrower than `status === 'contested'`, which is the whole point:
-  // "contested" is a common outcome of a two-pass review and cannot carry an
-  // alarm colour without becoming the default. Contest is still ALWAYS visible
-  // — `resolveEdgeDash` fires the divergence-scaled dash for every contested
-  // edge, composing with whatever colour wins here.
-  if (state.contested.isContested && state.contested.needsUserInput) {
-    return { value: WARNING_FULL, rule: 'contested_needs_user_input' }
-  }
+  // Narrower than `status === 'contested'`, which is the whole point: a
+  // disagreement between two review passes is a common outcome and cannot
+  // carry an alarm colour without becoming the default. Only a dispute about
+  // the SIGN makes the polarity itself untrustworthy, so only that reaches the
+  // line. Every other disagreement — including one where pass 2 asked for the
+  // person's input — is shown in the connection's inspector, not on the canvas.
   if (state.contested.isContested && state.contested.directionDisputed) {
-    return { value: WARNING_MIXED, rule: 'contested_direction_disputed' }
+    return { value: DIRECTION_DISPUTED_STROKE, rule: 'contested_direction_disputed' }
   }
 
   if (state.isHighlighted) {
@@ -305,11 +311,13 @@ export function resolveEdgeStroke(state: EdgePresentationState): EdgeStrokeDecis
 export const EDGE_DASH_RULES = [
   /** Structural scaffolding is always solid. */
   'structural',
-  /**
-   * Every contested edge, whatever colour won above. This is the composing
-   * channel that keeps the contest visible once orange stops being automatic.
-   */
-  'contested',
+  // ⭐ NO `contested` RULE (Experience Design, 23 Sep 2026: "dash = existence
+  // certainty only"). It stood here and dashed EVERY contested edge at a
+  // divergence-scaled pattern, whatever the passes disagreed about — so a
+  // strength-only disagreement, where both passes state a high likelihood,
+  // drew as "this connection may not exist". Worse, it OUTRANKED the existence
+  // rule below, so on an edge that was both contested and genuinely unlikely
+  // the one honest existence mark was replaced by a disagreement mark.
   /**
    * NOBODY SUPPLIED A LIKELIHOOD, so this channel says nothing — and says it
    * by NAME rather than by falling through, because a fallthrough is what let
@@ -337,9 +345,7 @@ export interface EdgeDashDecision {
 
 export function resolveEdgeDash(state: EdgePresentationState): EdgeDashDecision {
   if (state.isStructural) return { value: undefined, rule: 'structural' }
-  if (state.contested.isContested && state.contested.dash !== null) {
-    return { value: state.contested.dash, rule: 'contested' }
-  }
+  // `state.contested` is deliberately NOT read here — see `EDGE_DASH_RULES`.
   // Provenance before value. Nobody stated a likelihood, so neither this
   // channel NOR the legacy `visual_props` map below may mark the edge: `style`
   // is a presentational field with no provenance at all, and letting it paint a
@@ -379,7 +385,7 @@ export function resolveEdgeDash(state: EdgePresentationState): EdgeDashDecision 
  *                          — which is not a colour rule in `EDGE_STROKE_RULES`
  *                          at all; selection changes stroke WIDTH.
  *
- * Neither is among the seven values `resolveEdgeStroke` can return, so both are
+ * Neither is among the values `resolveEdgeStroke` can return, so both are
  * deleted with this change rather than left as a decoy for the next lane.
  *
  * ⚠ WHAT THIS MARK IS NOT. It states DIRECTION OF CAUSATION (source causes
