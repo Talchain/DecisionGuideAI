@@ -71,6 +71,14 @@
 
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
 import { isGraphServerAcknowledged } from '../store/importRegistrationMarker'
+import {
+  editDeliveryHoldDetail,
+  type EditDeliveryState,
+} from '../registration/editDeliveryHold'
+import type { UnconfirmedDeleteSubject } from '../conversation/unconfirmedStructuralDelete'
+import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
+import { STRUCTURAL_DELETE_UNCONFIRMED_REMEDY } from '../mutations/structuralDelete'
+import { STRUCTURAL_RENAME_UNCONFIRMED_REMEDY } from '../mutations/structuralRename'
 
 /**
  * Which client-side injection put this graph on the canvas.
@@ -287,11 +295,274 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
 } as const
 
 /**
+ * ⭐⭐ WHEN THE HOLD IS REALLY THE USER'S OWN UNCONFIRMED EDIT, SAY SO.
+ *
+ * PROPOSED COPY — for Experience Design sign-off, 23 Sep 2026. Not yet ruled on.
+ *
+ * WHY (purpose audit, 23 Sep: #1892, #1893, delete-unconfirmed-hold, cross-
+ * cutting item 1). Since #1892 an unconfirmed Canvas edit keeps registration —
+ * and so the acknowledgement this hold releases on — waiting
+ * (`registration/editDeliveryHold.ts`). On a saved example that makes the
+ * user's own change the operative cause of the hold far more often than the
+ * example is. The only sentence on screen was `ANALYSIS_HELD_NOTICE`: the wrong
+ * cause, and a remedy that REPLACES the model the user is trying to settle
+ * (ROADMAP 2.1442 measured re-draft destroying user-set estimates).
+ *
+ * WHAT EACH SENTENCE MAY CLAIM, and why the remedies are the ones offered:
+ *  · IN DELIVERY (on the wire, or queued behind another turn) — only that it is
+ *    not confirmed yet. No forecast that analysis "will" be available: other
+ *    rungs of the gate can still refuse once the hold lifts.
+ *  · UNCONFIRMED VALUE (the untyped 500: value kept, register still pending) —
+ *    names the factor and the number the USER set, rendered by the card's own
+ *    projection. It does NOT name the model's value: nothing on the client
+ *    knows what CEE holds, and inventing it is the defect class. The one remedy
+ *    offered is the one the hold is known to clear on: setting the value again
+ *    (an applied receipt settles the register). ⛔ NOT "reload": #1892's
+ *    residual 4 records that after a reload the pending register is gone and it
+ *    is UNVERIFIED whether the canvas restores the number from autosave — in
+ *    which case a registration could carry it as Olumi's estimate, the very
+ *    corruption the hold exists to prevent.
+ *  · UNCONFIRMED LINK STRENGTH (#1905 signal 5) — the value remedy, in the
+ *    link's own frame: it names "the link from {A} to {B}" and no number, and
+ *    its noun is the UI's for a link's magnitude, Strength
+ *    (`nodes/shared/metricVocabulary.ts`), never the factor's "value" (Panel
+ *    #1917 N1). The link is on the canvas, so setting it again is reachable.
+ *  · UNCONFIRMED RENAME — names the label on the canvas. Renaming again (to the
+ *    same name or back) is an edit through the protocol; a later committed
+ *    rename of the same state, or a different label, releases the hold. The
+ *    remedy is `STRUCTURAL_RENAME_UNCONFIRMED_REMEDY`, the one the rename's own
+ *    transcript line gives (Panel #1917 N4: one state, one remedy).
+ *  · UNCONFIRMED ADD — names the added element. Removing it releases the hold
+ *    (its node is no longer on the canvas); adding it again goes through the
+ *    protocol with a receipt.
+ *  · UNCONFIRMED DELETE (#1905 residual 1: an untyped 500 or transport loss
+ *    keeps the deletion on the canvas) — names what was removed, by the name
+ *    the delete record kept (the element is no longer on the canvas to read it
+ *    from); a link deleted on its own is "the link from {A} to {B}". A delete of
+ *    several elements names none of them rather than picking one. A later
+ *    proven delete of the same element supersedes the record.
+ *    ⭐ ITS ONE EXIT IS THE CHAT (Panel #1917 F1). The element is not on the
+ *    canvas, so "remove it again" named nothing to select, and Undo is disabled
+ *    on the canvas (`canvasSemanticMutations: 'disabled'`). Asking Olumi goes
+ *    through the chat, not the canvas, and a later applied turn releases the hold both
+ *    ways — a committed graph without the element proves the delete, one with
+ *    it puts the element back (`oneWriterRegistration.spec` §13). The remedy is
+ *    `STRUCTURAL_DELETE_UNCONFIRMED_REMEDY`, the one the delete's own transcript
+ *    line gives (N4).
+ *
+ * Question-shaped where the user has a choice; plain statement where they have
+ * none. No em dashes (the footer copy sweep in `signals/__tests__/registry.spec`
+ * scans these). Straight apostrophes, matching the transcript's own
+ * "couldn't confirm" notices (`optimisticFactorEdit.ts`, `structuralRename.ts`),
+ * so the chat and the hold use one vocabulary for one state.
+ */
+export const ANALYSIS_HELD_ON_EDIT_COPY = {
+  editInDelivery: 'Your change is still being saved. Analysis waits until Olumi confirms it.',
+  unconfirmedValue: (label: string | null, value: string | null): string =>
+    `Olumi couldn't confirm ${label === null ? 'your last value change' : `your change to ${label}`}` +
+    `${value === null ? '' : ` (${value})`}, so analysis is waiting until it is settled. ` +
+    'Would you like to set the value again?',
+  unconfirmedLinkStrength: (link: string | null): string =>
+    `Olumi couldn't confirm ${link === null ? 'your last link-strength change' : `your change to the strength of ${link}`}, ` +
+    'so analysis is waiting until it is settled. Would you like to set the strength again?',
+  unconfirmedRename: (label: string | null): string =>
+    `Olumi couldn't confirm ${label === null ? 'your rename' : `your rename to ${label}`}, ` +
+    `so analysis is waiting until it is settled. ${STRUCTURAL_RENAME_UNCONFIRMED_REMEDY}`,
+  unconfirmedAdd: (label: string | null): string =>
+    `${label === null ? "Olumi couldn't confirm your addition to the saved model" : `Olumi couldn't confirm that ${label} was added to the saved model`}, ` +
+    'so analysis is waiting until it is settled. Would you like to remove it and add it again?',
+  unconfirmedDelete: (label: string | null): string =>
+    `Olumi couldn't confirm that ${label === null ? 'what you deleted' : label} was removed from the saved model, ` +
+    `so analysis is waiting until it is settled. ${STRUCTURAL_DELETE_UNCONFIRMED_REMEDY}`,
+} as const
+
+/** What is holding analysis — the ready-made model itself, or the user's own unconfirmed edit. */
+export type AnalysisHoldKind =
+  | ClientInjectedProvenance
+  | 'edit_in_delivery'
+  | 'unconfirmed_value'
+  | 'unconfirmed_rename'
+  | 'unconfirmed_add'
+  | 'unconfirmed_delete'
+
+/**
+ * The hold AND its sentence, as one value — the analogue of `analysisHeldOn`
+ * carrying both "is it held?" and "what do we call it?", for the same reason:
+ * a caller cannot supply one without the other.
+ */
+export interface AnalysisHoldReason {
+  readonly kind: AnalysisHoldKind
+  readonly sentence: string
+}
+
+/**
+ * True when the operative cause of the hold is the USER'S OWN edit (in
+ * delivery, or unconfirmed), rather than the ready-made model itself. Off
+ * `kind` alone, so no surface re-derives it from the sentence.
+ *
+ * Read by the saved-example banner to withdraw "Re-draft this live" (decision,
+ * 23 Sep 2026): a re-draft REPLACES the model, so while an edit is unconfirmed
+ * it would discard that change without warning.
+ */
+export function isUserEditHold(reason: AnalysisHoldReason | null): boolean {
+  return reason !== null && reason.kind !== 'starter' && reason.kind !== 'template'
+}
+
+/**
+ * The hold's input plus the edit registers `editDeliveryHold` reads. Every
+ * production reader passes the canvas store's own state (see
+ * `hooks/useAnalysisHold.ts`), so the two halves come from one snapshot.
+ */
+export type AnalysisHoldReasonState = AnalysisHoldState & EditDeliveryState
+
+/**
+ * ⚠ INTERNED, SO A STORE SELECTOR MAY RETURN IT. Zustand 5 compares selector
+ * results by identity and loops on a fresh object every call; equal content
+ * therefore returns the SAME object. Bounded, oldest out — the entry just
+ * returned is always the newest, so it is never the one evicted.
+ */
+const internedReasons = new Map<string, AnalysisHoldReason>()
+const MAX_INTERNED_REASONS = 64
+
+function intern(kind: AnalysisHoldKind, sentence: string): AnalysisHoldReason {
+  const key = `${kind}\u0000${sentence}`
+  const hit = internedReasons.get(key)
+  if (hit) return hit
+  const reason: AnalysisHoldReason = Object.freeze({ kind, sentence })
+  internedReasons.set(key, reason)
+  if (internedReasons.size > MAX_INTERNED_REASONS) {
+    const oldest = internedReasons.keys().next().value
+    if (oldest !== undefined) internedReasons.delete(oldest)
+  }
+  return reason
+}
+
+/**
+ * The hold reason for a ready-made model with NO user edit unresolved — the
+ * shipped saved-example (or template) sentence. `heldReason` returns exactly
+ * this in that state; exported so a caller that already holds a provenance
+ * (a gate fixture, say) builds the same interned value rather than a literal.
+ */
+export function savedExampleHold(provenance: ClientInjectedProvenance): AnalysisHoldReason {
+  return intern(provenance, ANALYSIS_HELD_NOTICE[provenance])
+}
+
+function nodeDataOf(state: AnalysisHoldReasonState, nodeId: string): Record<string, unknown> | null {
+  const node = state.nodes.find((n) => n.id === nodeId)
+  const data = node?.data
+  return data && typeof data === 'object' ? (data as Record<string, unknown>) : null
+}
+
+/** The element's name as the canvas shows it, or `null` — never a guessed or an id-shaped stand-in. */
+function labelOf(data: Record<string, unknown> | null): string | null {
+  const label = data?.label
+  return typeof label === 'string' && label.trim().length > 0 ? label.trim() : null
+}
+
+/**
+ * What an unconfirmed delete removed, as the sentence names it, or `null` (the
+ * frame's unlabelled form). A node's name is the one the delete record kept. A
+ * link's ends are still on the canvas, so their CURRENT names are read there
+ * first, then the record's; with either end unnamed, the link is not named.
+ */
+function removedName(state: AnalysisHoldReasonState, removed: UnconfirmedDeleteSubject): string | null {
+  switch (removed.kind) {
+    case 'node':
+      return removed.label
+    case 'link':
+      return linkName(
+        labelOf(nodeDataOf(state, removed.sourceId)) ?? removed.sourceLabel,
+        labelOf(nodeDataOf(state, removed.targetId)) ?? removed.targetLabel,
+      )
+    case 'several':
+      return null
+  }
+}
+
+/** "the link from {A} to {B}", or `null` when either end has no name. */
+function linkName(from: string | null, to: string | null): string | null {
+  return from !== null && to !== null ? `the link from ${from} to ${to}` : null
+}
+
+/** A link still on the canvas, named by its ends' current labels, or `null`. */
+function linkOnCanvasName(state: AnalysisHoldReasonState, edgeId: string): string | null {
+  const edges = state.edges as ReadonlyArray<{ id?: unknown; source?: unknown; target?: unknown }>
+  const edge = edges.find((e) => e.id === edgeId)
+  if (!edge || typeof edge.source !== 'string' || typeof edge.target !== 'string') return null
+  return linkName(labelOf(nodeDataOf(state, edge.source)), labelOf(nodeDataOf(state, edge.target)))
+}
+
+/**
+ * The user's number, rendered by the card's own projection (`factorDisplayText`
+ * with the pending value, exactly as `FactorNode` passes it) — never a second
+ * formatter. `null` when the projection declines to render it, in which case
+ * the sentence simply does not name a value.
+ */
+function pendingValueText(data: Record<string, unknown> | null, sentValue: number): string | null {
+  if (data === null) return null
+  const text = factorDisplayText({ ...data, pending_user_value: sentValue })
+  return typeof text === 'string' && text.trim().length > 0 ? text.trim() : null
+}
+
+/**
+ * ⭐ THE ONE FUNCTION every surface that states the hold reads: the run gate's
+ * reason (V3 footer, Model-tab reanalyse bar, composer tooltip, run toasts), the
+ * legacy footer, the run chip's caveat and the saved-example banner.
+ *
+ * Gating is UNCHANGED — non-null exactly when `analysisHeldOn` is. Only the
+ * sentence moves: while `editDeliveryHold` reports an unresolved user edit, the
+ * edit is the operative cause and is what is named; otherwise the shipped
+ * saved-example sentence, byte-identical. An acknowledged model has no hold, so
+ * no sentence, whatever is in flight.
+ */
+export function heldReason(state: AnalysisHoldReasonState): AnalysisHoldReason | null {
+  const held = analysisHeldOn(state)
+  if (held === null) return null
+  const edit = editDeliveryHoldDetail(state)
+  if (edit === null) return savedExampleHold(held)
+  switch (edit.cause) {
+    case 'edit_on_the_wire':
+    case 'edit_queued':
+    case 'structural_edit_queued':
+      return intern('edit_in_delivery', ANALYSIS_HELD_ON_EDIT_COPY.editInDelivery)
+    case 'unconfirmed_value_on_canvas': {
+      const data = nodeDataOf(state, edit.nodeId)
+      return intern(
+        'unconfirmed_value',
+        ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedValue(labelOf(data), pendingValueText(data, edit.sentValue)),
+      )
+    }
+    case 'unresolved_structural_edit': {
+      if (edit.edit === 'delete') {
+        return intern('unconfirmed_delete', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(removedName(state, edit.removed)))
+      }
+      const label = labelOf(nodeDataOf(state, edit.nodeId))
+      return edit.edit === 'rename'
+        ? intern('unconfirmed_rename', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename(label))
+        : intern('unconfirmed_add', ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(label))
+    }
+    // #1905's signal 5: an unconfirmed link strength. The link's own frame
+    // ("strength", never "value": Panel #1917 N1), naming the link; no number
+    // (the link has no projection of the user's, and the model's is unknown to
+    // the client). The kind stays `unconfirmed_value`: the hold is the same
+    // rung, and splitting the kind is a separate question (#1917 N2).
+    case 'unconfirmed_edge_on_canvas':
+      return intern(
+        'unconfirmed_value',
+        ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedLinkStrength(linkOnCanvasName(state, edit.edgeId)),
+      )
+  }
+}
+
+/**
  * The notice for the graph on the canvas, or `null` when analysis is not held —
  * so a caller CANNOT render the claim in a state where it is untrue. Returning
  * a string unconditionally is what let the banner go stale.
+ *
+ * It is `heldReason`'s sentence, so it names an unresolved user edit exactly as
+ * the gate does. Components read it through `useAnalysisHeldNotice`, which also
+ * re-renders when a module-level delivery register moves.
  */
-export function analysisHeldNotice(state: AnalysisHoldState): string | null {
-  const held = analysisHeldOn(state)
-  return held === null ? null : ANALYSIS_HELD_NOTICE[held]
+export function analysisHeldNotice(state: AnalysisHoldReasonState): string | null {
+  return heldReason(state)?.sentence ?? null
 }

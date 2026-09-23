@@ -39,7 +39,7 @@ import { useAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { useAnalysisMayRun } from '../hooks/useAnalysisReady'
 import { BLOCKED_REASON_COPY } from '../utils/composeBlockedReason'
 import { useShowToastSafe } from '../ToastContext'
-import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
+import { useAnalysisHoldReason } from '../hooks/useAnalysisHold'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import { ICON_STROKE } from './panelIcons'
 
@@ -537,13 +537,15 @@ export const ConversationPanel = memo(function ConversationPanel({
   })
   const isAnalysisRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  // Primitive selector (a provenance string or null): recomputes on store
-  // writes but only re-renders on a flip. Same honest gate as OutputsDock —
+  // The hold AND its sentence, from the one authority (`heldReason`) — the
+  // same value OutputsDock hands its gate, and reference-stable (interned), so
+  // it only re-renders on a genuine change. Same honest gate as OutputsDock —
   // without it this surface's run button re-created the exact panel-vs-engine
   // contradiction #343 fixed. It carries the WORDING too, which is why this
-  // surface's tooltip cannot describe the held model differently from the
-  // Analysis panel's refusal.
-  const heldOn = useCanvasStore((s) => analysisHeldOn(s))
+  // surface's tooltip cannot describe the hold differently from the Analysis
+  // panel's refusal — including when the hold is the user's own unconfirmed
+  // edit rather than the saved example.
+  const heldOn = useAnalysisHoldReason()
   // ROADMAP 2.122 — this surface is a run affordance too, so it needs the
   // streamed-draft honesty rung for the same reason OutputsDock does: between
   // GRAPH_READY (~36 s) and COMPLETE (~61 s) the canvas holds a graph whose

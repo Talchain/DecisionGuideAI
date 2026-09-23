@@ -50,6 +50,7 @@ import { makeData } from './analysisNewFixtures'
 import {
   canRunAnalysis,
   getRunButtonTooltip,
+  savedExampleHold,
   type GateBlockedListing,
 } from '../../../../canvas/utils/canRunAnalysis'
 
@@ -195,7 +196,7 @@ describe('⛔ the gate\'s single-blocker states — it refuses and publishes NO 
       readiness: null,
       hasBlockers: false,
       nodeCount: 19,
-      analysisHeldOn: 'starter',
+      analysisHeldOn: savedExampleHold('starter'),
     })
     expect(held.allowed, 'the gate refuses a model the engine cannot see').toBe(false)
     expect(
@@ -225,7 +226,7 @@ describe('⛔ the gate\'s single-blocker states — it refuses and publishes NO 
       readiness: null,
       hasBlockers: false,
       nodeCount: 19,
-      analysisHeldOn: 'starter',
+      analysisHeldOn: savedExampleHold('starter'),
     })
     renderPreRun({
       onReanalyse: vi.fn(),
@@ -252,7 +253,7 @@ describe('⛔ the gate\'s single-blocker states — it refuses and publishes NO 
       readiness: null,
       hasBlockers: false,
       nodeCount: 19,
-      analysisHeldOn: 'starter',
+      analysisHeldOn: savedExampleHold('starter'),
     })
     const reason = getRunButtonTooltip(held) as string
     renderPreRun({

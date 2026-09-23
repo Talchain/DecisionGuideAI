@@ -30,7 +30,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { canRunAnalysis } from '../canRunAnalysis'
-import { ANALYSIS_HELD_NOTICE, analysisHeldOn } from '../analysisHeldOnInjectedModel'
+import { ANALYSIS_HELD_NOTICE, analysisHeldOn, heldReason } from '../analysisHeldOnInjectedModel'
 
 const isV5CanonicalRunPathMock = vi.fn(() => true)
 vi.mock('../../../v5/eligibility', async (importOriginal) => {
@@ -77,7 +77,7 @@ describe('analysisHeldOn — starter provenance', () => {
       readiness: null,
       hasBlockers: false,
       nodeCount: 18,
-      analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
+      analysisHeldOn: heldReason(unregistered(starterNodes)),
     })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
@@ -87,7 +87,7 @@ describe('analysisHeldOn — starter provenance', () => {
       readiness: null,
       hasBlockers: false,
       nodeCount: 18,
-      analysisHeldOn: analysisHeldOn(unregistered(templateNodes)),
+      analysisHeldOn: heldReason(unregistered(templateNodes)),
     })
     expect(templateResult.reason).toBe(ANALYSIS_HELD_NOTICE.template)
     expect(ANALYSIS_HELD_NOTICE.template).not.toBe(ANALYSIS_HELD_NOTICE.starter)

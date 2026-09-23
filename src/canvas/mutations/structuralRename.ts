@@ -257,6 +257,23 @@ export const STRUCTURAL_RENAME_DEFERRED_NOTICE =
   "Renamed on the canvas. It isn't saved to the model yet — I'll save it with your next message. If you reload before then, the model will still hold the old name."
 
 /**
+ * ⭐ THE ONE REMEDY FOR A RENAME WE COULD NOT CONFIRM — said by the transcript
+ * (`STRUCTURAL_RENAME_NOTICE.unconfirmed_*`, `STRUCTURAL_RENAME_UNCONFIRMED_TOAST`)
+ * AND by the analysis hold (`ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedRename`),
+ * because they describe one state: the rename settled `unconfirmed` and its
+ * label is still on the canvas (Panel #1917 N4).
+ *
+ * Reachable: the canvas rename is live (`canvasNodeRenameWithServerHash:
+ * 'server_graph'`; a double-click opens it on every node kind), and a later
+ * committed rename of the node, or a different label on it, releases the hold.
+ * ⛔ NOT "reload this decision", which these lines said until N4.
+ *
+ * PROPOSED COPY — for Experience Design. Parity is pinned by
+ * `utils/__tests__/aHoldAndItsTranscriptGiveOneRemedy.spec.ts`.
+ */
+export const STRUCTURAL_RENAME_UNCONFIRMED_REMEDY = 'Would you like to rename it again, or change the name back?'
+
+/**
  * ⭐⭐ WHAT A USER IS TOLD WHEN THE RENAME'S TURN WAS INTERRUPTED — the review P1.
  *
  * `useConversation`'s catch block gates the whole optimistic resolution on
@@ -281,7 +298,8 @@ export const STRUCTURAL_RENAME_DEFERRED_NOTICE =
  * conversation's `addMessage` may belong to an unmounted tree.
  */
 export const STRUCTURAL_RENAME_UNCONFIRMED_TOAST =
-  "That rename was interrupted before the model answered, so I can't tell you whether it saved. It's on the canvas — reload this decision to see what the model actually holds."
+  "That rename was interrupted before the model answered, so I can't tell you whether it saved. It's on the canvas. " +
+  STRUCTURAL_RENAME_UNCONFIRMED_REMEDY
 
 /**
  * Where one rename gesture has got to. THREE outcomes, never two, and
@@ -733,13 +751,15 @@ export const STRUCTURAL_RENAME_NOTICE = {
    * keeping it, and it would discard the user's typing.
    */
   unconfirmed_server:
-    "I couldn't confirm that new name reached the saved model. It's on the canvas, but it may revert when you reload — reload this decision to see what the model actually holds.",
+    "I couldn't confirm that new name reached the saved model. It's on the canvas, but it may revert when you reload. " +
+    STRUCTURAL_RENAME_UNCONFIRMED_REMEDY,
   /**
    * Nothing reached the server. Same epistemic position, different cause; the
    * copy avoids blaming the model for a network failure.
    */
   unconfirmed_transport:
-    "That rename didn't reach the server, so the saved model may still hold the old name. It's changed on the canvas — reload this decision to see what the model actually holds.",
+    "That rename didn't reach the server, so the saved model may still hold the old name. It's changed on the canvas. " +
+    STRUCTURAL_RENAME_UNCONFIRMED_REMEDY,
 } as const
 
 export type StructuralRenameNoticeKey = keyof typeof STRUCTURAL_RENAME_NOTICE

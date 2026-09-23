@@ -128,7 +128,7 @@ import {
   RUN_LICENCE_SUPERSEDED_REFUSAL,
   type ReadinessVerdictLicence,
 } from '../utils/canRunAnalysis'
-import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
+import { useAnalysisHoldReason } from '../hooks/useAnalysisHold'
 import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
@@ -752,7 +752,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     nodes,
     edges,
     framing,
-    importPendingServerRegistration,
   } = useCanvasStore(
     useShallow(s => ({
       runMeta: s.runMeta,
@@ -763,10 +762,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       nodes: s.nodes,
       edges: s.edges,
       framing: s.currentScenarioFraming,
-      // Read HERE, in the same snapshot as `nodes`, because `analysisHeldOn`
-      // takes both together — see its `AnalysisHoldState` doc. Reading it in a
-      // second selector would re-create the drift that doc exists to prevent.
-      importPendingServerRegistration: s.importPendingServerRegistration,
     }))
   )
 
@@ -1479,6 +1474,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // scenario must not reach this gate at all. `draftStreamPhaseFor` owns that
   // decision; re-deriving it here is what M15/M16 punished.
   const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, overviewScenarioId))
+  // ⭐ THE HOLD AND ITS SENTENCE, from the one authority (`heldReason`). It
+  // names the user's own unconfirmed edit when that is what analysis is
+  // waiting on, and it re-renders when the wire mark or the pending-value
+  // register moves — neither of which is a store write.
+  const analysisHold = useAnalysisHoldReason()
 
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
@@ -1497,21 +1497,15 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
-    // ONE value carries both "is analysis held?" and "what do we call this
-    // model?" — see `analysisHeldOn`. Two parameters here is how the panel and
+    // ONE value carries both "is analysis held?" and "what does the user read
+    // about it?" — see `heldReason`. Two parameters here is how the panel and
     // the composer came within one review of naming the same state differently.
     // ⚠ THE FULL CURRENT STATE, NOT A RECONSTRUCTION. Passing only
-    // `{ nodes, importPendingServerRegistration }` computed an empty-edge
+    // `{ nodes, importPendingServerRegistration }` once computed an empty-edge
     // acknowledgement key, so a real receipt for an edge-bearing starter
-    // released the full-state selector but NOT this affordance.
-    analysisHeldOn: analysisHeldOn({
-      nodes,
-      edges,
-      // The panel already subscribes to this id; reuse it rather than adding a
-      // second selector that could drift from it.
-      currentScenarioId: overviewScenarioId,
-      importPendingServerRegistration,
-    }),
+    // released the full-state selector but NOT this affordance. The hook reads
+    // the store's whole state, edit registers included, in one snapshot.
+    analysisHeldOn: analysisHold,
     draftStreamPhase,
     optionsNeedingValues,
     readinessStale,
