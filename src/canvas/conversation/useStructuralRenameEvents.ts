@@ -52,11 +52,14 @@ export type StructuralRenameSender = (
 export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSender): void {
   const pending = useCanvasStore((s) => s.pendingStructuralRenames)
   /**
-   * ⭐⭐ SUBSCRIBED DELIBERATELY, AND IT IS HALF THE P0 FIX. A rename made on a
-   * restored graph is queued with a NULL base hash, because none exists yet —
-   * neither hydration nor the UI can supply one (see `structuralRename.ts`). The
-   * only real `base_graph_hash` arrives on a turn response, where `applyV5State`
-   * stamps it here. Keying the effect on `pending` ALONE would leave that intent
+   * ⭐⭐ SUBSCRIBED DELIBERATELY, AND IT IS HALF THE P0 FIX. A rename made
+   * before any base exists is queued with a NULL base hash. The UI never
+   * computes one; a real `base_graph_hash` is only ever CARRIED from CEE, by
+   * one of three writers: a turn response (`applyV5State`), a graph read whose
+   * graph is the one on screen (`serverGraphHydration`), or the read after an
+   * acknowledged registration (`seedWriteBaseAfterRegistration`, #1893 — the
+   * one that reaches a fresh example before any turn). Keying the effect on
+   * `pending` ALONE would leave that intent
    * sitting in the queue with nothing left to wake it: the gesture is long over,
    * so `pending` never changes again and the rename is never sent. Subscribing
    * to the hash is what closes `restored graph -> first typed rename -> canonical
@@ -80,8 +83,10 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
     // ⚠⚠ HOLD, DO NOT DISCARD. With no base hash yet there is nothing to stamp
     // onto a deferred intent, and dropping it here would reproduce the exact P0
     // one layer down — the label on the canvas, nothing on the wire. The queue
-    // survives; the next turn's `graph_hash` re-runs this effect through the
-    // `baseGraphHash` subscription above and the rename goes out then.
+    // survives; whichever writer stamps the first base — a turn's `graph_hash`,
+    // a hydration read, or the seed after an acknowledged registration (#1893)
+    // — re-runs this effect through the `baseGraphHash` subscription above and
+    // the rename goes out then.
     //
     // ⭐ WHY A SINGLE TOP-LEVEL GATE IS SUFFICIENT rather than a per-intent
     // partition — derived from the field's transitions, not assumed:

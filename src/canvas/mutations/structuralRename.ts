@@ -740,6 +740,40 @@ export const STRUCTURAL_RENAME_NOTICE = {
 
 export type StructuralRenameNoticeKey = keyof typeof STRUCTURAL_RENAME_NOTICE
 
+/**
+ * A node's `data` with a rename's `restore` record applied — the ONE
+ * implementation of "put this rename back", for both readers:
+ *   · `applyStructuralRenameRevert` (store) — a rename the server refused;
+ *   · `withQueuedRenamesRolledBack` (registration) — a rename still queued,
+ *     which a whole-graph registration must carry as CEE holds it.
+ *
+ * ⚠ RESTORES **TWO** FIELDS. `updateNodeLabel` also stamps
+ * `provenance: 'user_set'` on a GOAL (`provenanceAfterHumanAuthoredLabel`).
+ * Restoring only the label sends the AI's goal label under a human-authorship
+ * claim (#1893 review B1, CHANGES_REQUIRED @ 8b5a6f1e: a label-only rollback
+ * registered exactly that, and CEE stored it verbatim).
+ *
+ * ⚠ "Absent" and "present with value undefined" are different bytes, and only
+ * one of them is what `provenance` means, so a key that was not there before
+ * the rename is DELETED rather than written as undefined.
+ */
+export function nodeDataWithRenameRestored(
+  data: unknown,
+  restore: {
+    readonly label: string
+    readonly provenance?: unknown
+    readonly provenanceWasPresent: boolean
+  },
+): Record<string, unknown> {
+  const next: Record<string, unknown> = {
+    ...(data as Record<string, unknown> | undefined),
+    label: restore.label,
+  }
+  if (restore.provenanceWasPresent) next.provenance = restore.provenance
+  else delete next.provenance
+  return next
+}
+
 /** What a revert did — reported, never assumed. */
 export type StructuralRenameRevertOutcome =
   /** The previous label (and provenance) are back. */
