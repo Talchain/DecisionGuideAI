@@ -2359,6 +2359,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       resolveEffectiveAdmission(ceeAnalysisReady?.analysis_admission, retainedAnalysisAdmission),
     )
 
+    // Q1-RUN - THE DISPLAYED RUN'S OWN LICENCE. Q1 above answers for the
+    // CURRENT graph, and a turn that edits the graph brings a new answer about
+    // the EDITED one while this `report` stays on screen. WITNESSED on the served
+    // build, 23 Sep 2026: a `quantified_provisional` run, then a
+    // `factor_value_edit` turn with a graph patch, no result, and a
+    // `comparative_leader` admission — Q1 went `true` and the old run's claims
+    // were printed as if its own producer had licensed them.
+    //
+    // Binding ruling (olumi-programme-docs#63, comment 5787026951): "claim
+    // permitted = run-own admission permits it AND current effective admission
+    // permits it". The run's admission is recorded ON THE REPORT, from the SAME
+    // envelope as its `analysis_result` (`resultsRecordRunAdmission`, #1206).
+    //
+    // ⛔ SUPPRESSION ONLY, and structurally so: it is one more conjunct, and its
+    // absence arm is the SAME reader's `true` — a report with no record (an older
+    // producer, a restored or hydrated report) is exactly today's behaviour.
+    // ⚠ NOT folded into Q1 or `analysisAdmission` below: the refusal's REASON and
+    // remedy describe the current graph, and `buildAnalysisNewViewModel` composes
+    // them from that published field.
+    const runLicensesComparativeClaim = licensesComparativeLeaderClaim(report?.run_analysis_admission)
+
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
     // of the RUN. Quoted VERBATIM from the one module entitled to answer it —
     // not widened, not narrowed, not re-derived.
@@ -2404,7 +2425,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     //
     // The narrow true statement, which is all this comment may now assert:
     // neither term is read alone at a render site IN THIS MODULE.
-    const leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms
+    //
+    // Q1-RUN joins as a third conjunct on its own line (#1206). It shares Q1's
+    // absence arm (`true`), never Q2's, because it is the same question asked of
+    // a different admission — the producer's word about THIS run.
+    const leaderDesignationPermitted =
+      modelLicensesComparativeClaim && runLicensesComparativeClaim && resultSeparatesArms
 
     const designationsWithheld = !leaderDesignationPermitted
 
@@ -2672,6 +2698,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ceeAnalysisReady?.analysis_admission,
         retainedAnalysisAdmission,
       ),
+      // THE DISPLAYED RUN'S OWN ADMISSION, beside — never instead of — the one
+      // above (#1206). Read by `analysisClaimPolicy`'s stability answer; the
+      // leader gate above reads the same field off `report` directly. `?? undefined`
+      // folds a persisted `null` into the one absence spelling the type allows.
+      runAnalysisAdmission: report?.run_analysis_admission ?? undefined,
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].

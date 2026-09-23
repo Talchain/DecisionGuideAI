@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:135
 src/canvas/hooks/useScienceIcons.ts:150
-src/canvas/store.ts:7817
+src/canvas/store.ts:7878
 src/canvas/stores/readinessStore.ts:744
 src/canvas/stores/readinessStore.ts:840
 src/canvas/utils/briefValidation.ts:43
