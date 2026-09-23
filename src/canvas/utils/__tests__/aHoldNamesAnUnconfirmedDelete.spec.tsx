@@ -17,8 +17,14 @@
  *
  *  1. The sentence names the deleted element, in the PROPOSED copy:
  *     "Olumi couldn't confirm that {label} was removed from the saved model, so
- *     analysis is waiting until it is settled. Would you like to remove it
- *     again?" A link is named "the link from {A} to {B}".
+ *     analysis is waiting until it is settled. Would you like to ask Olumi to
+ *     remove it?" A link is named "the link from {A} to {B}".
+ *  1b. ITS ONE EXIT IS ONE THE USER CAN TAKE (Panel #1917 F1). The element is
+ *     not on the canvas, so "remove it again" names nothing to select, and Undo
+ *     is switched off on the canvas (`canvasSemanticMutations: 'disabled'`). The
+ *     chat box is always on screen, and a later applied turn releases the hold
+ *     whichever way CEE answers — proven through the real dispatcher in
+ *     `oneWriterRegistration.spec.tsx` §13.
  *  2. The name comes from the DELETE RECORD. Once the delete is applied the
  *     element is not on the canvas, so the canvas cannot supply it; the intent's
  *     `restore` payload holds it at delete time.
@@ -64,7 +70,14 @@ const REDRAFT = /re-?draft/i
 /** The PROPOSED sentence (for Experience Design sign-off), verbatim. */
 const deleteSentence = (named: string) =>
   `Olumi couldn't confirm that ${named} was removed from the saved model, so analysis is waiting until it is settled. ` +
-  'Would you like to remove it again?'
+  'Would you like to ask Olumi to remove it?'
+
+/**
+ * Exits the canvas cannot take while this hold stands (Panel #1917 F1): the
+ * element is gone, so there is nothing to remove "again", and Undo is disabled
+ * on the canvas (`mutationAuthority.ts` `canvasSemanticMutations`).
+ */
+const UNREACHABLE_EXIT = /remove it again|\bundo\b/i
 
 function seedCanonicalRunPath() {
   try { localStorage.setItem('feature.v5CanonicalAnalysis', '1') } catch { /* jsdom quirk */ }
@@ -144,6 +157,25 @@ describe('the shared authority names the deleted element', () => {
     applyDeleteToStore(intent)
     settleStructuralDeleteAttempt(intent, SCENARIO, 'unconfirmed')
     expect(sharedSentence()).toBe(deleteSentence('what you deleted'))
+  })
+
+  it.each([
+    ['a node', 'unresolved_delete'],
+    ['a link', 'unresolved_delete_link'],
+  ] as const)('F1: %s — the one exit named is the chat, never one the canvas cannot take', (_what, cause) => {
+    arrangeHoldCause(cause)
+    const s = sharedSentence() as string
+    expect(s.endsWith(' Would you like to ask Olumi to remove it?')).toBe(true)
+    expect(s).not.toMatch(UNREACHABLE_EXIT)
+  })
+
+  it('F1: several elements — the same exit, and no unreachable one', () => {
+    const intent = captureDelete([DELETED_ID, 'opt_b'])
+    applyDeleteToStore(intent)
+    settleStructuralDeleteAttempt(intent, SCENARIO, 'unconfirmed')
+    const s = sharedSentence() as string
+    expect(s.endsWith(' Would you like to ask Olumi to remove it?')).toBe(true)
+    expect(s).not.toMatch(UNREACHABLE_EXIT)
   })
 
   it.each(['unresolved_delete', 'unresolved_delete_link'] as const)('%s: never offers re-draft or blames the example', (cause) => {

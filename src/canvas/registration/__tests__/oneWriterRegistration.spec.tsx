@@ -41,6 +41,9 @@
  * 12. A LATER applied receipt that proves the removal releases the hold
  *     (Panel's #1905 item 2) — ALL removed elements absent, same scenario,
  *     overlapping graph; each guard has its own case.
+ * 13. The delete hold's ONE exit — "ask Olumi to remove it" — releases it
+ *     through the chat, whichever way CEE's committed graph answers (Panel
+ *     #1917 F1), with a no-receipt control.
  *
  * Assertions bind by IDENTITY — the exact register call and the exact factor's
  * `observed_state` in its payload — never by a count alone.
@@ -51,7 +54,7 @@ import type { Node, Edge } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
 import { clearImportRegistrationMarkers, isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
-import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
+import { analysisHeldOn, heldReason } from '../../utils/analysisHeldOnInjectedModel'
 import { captureOptimisticFactorEdit } from '../../conversation/optimisticFactorEdit'
 import { __resetPendingFactorEditsForTest } from '../../conversation/pendingFactorEdit'
 import { USER_VALUE_STAMP } from '../../domain/valueProvenance'
@@ -2002,5 +2005,147 @@ describe('12 · the receipt-proof rule, pure (through `editDeliveryHold`)', () =
     // CONTROL: the same receipt with overlap, in the same scenario, proves it.
     proveBy('s1', receipt(['n1']), ['n1'])
     expect(hold(['n1'], 's1')).toBeNull()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 13. THE DELETE HOLD'S ONE EXIT IS ONE THE USER CAN TAKE — Panel #1917 F1.
+//
+// While an unconfirmed delete holds analysis, the element is NOT on the canvas
+// (the hold stands only while every removed element is absent), so "remove it
+// again" names nothing to select; and Undo is disabled on the canvas
+// (`mutationAuthority.ts` `canvasSemanticMutations: 'disabled'`: ⌘Z answers
+// "Undo isn't available on the canvas", the menu item is disabled, the rail
+// button is a no-op). The chat box is always on screen, so the hold asks:
+// "Would you like to ask Olumi to remove it?"
+//
+// These cases pin that the exit it names RELEASES the hold, through the real
+// dispatcher and `sendMessage` (the chat path), in BOTH states of CEE's
+// committed graph:
+//   · A — the graph LACKS the node (CEE removed it on this turn, or had already
+//     committed the delete that answered 500): §12's receipt proof settles the
+//     record `proven`.
+//   · B — the graph still HOLDS it (CEE kept it): the reconcile puts the node
+//     back, so the deletion the hold protects is no longer on the canvas.
+//
+// ⚠ SCOPE, stated rather than implied: A and B are both an APPLIED receipt (a
+// committed `draft_graph`). Which reply CEE sends to "remove it" — above all
+// whether a turn that finds the node ALREADY gone carries its committed graph at
+// all — is a wire question this client spec does not answer. The CONTROL pins
+// the consequence: a chat reply with no committed graph releases nothing.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** What the user types into the chat box, as the hold invites. */
+const ASK_OLUMI_TO_REMOVE = 'Please remove Top Account Revenue Concentration from the model.'
+/** The hold's sentence for the witnessed delete target, verbatim (proposed copy, for Experience Design). */
+const DELETE_HOLD_ASKS_OLUMI =
+  "Olumi couldn't confirm that Top Account Revenue Concentration was removed from the saved model, " +
+  'so analysis is waiting until it is settled. Would you like to ask Olumi to remove it?'
+
+/** A — the chat turn's applied receipt: CEE's committed graph LACKS the node. */
+const CHAT_RECEIPT_WITHOUT_NODE = {
+  ok: true,
+  response: {
+    assistant_text: "Removed 'Top Account Revenue Concentration' along with 2 connections. That change is saved.",
+    blocks: [],
+    graph_hash: 'aag_after_chat_removal',
+    draft_graph: committedGraph({ without: CONCENTRATION }),
+  },
+}
+/** B — the chat turn's applied receipt: CEE's committed graph still HOLDS the node. */
+const CHAT_RECEIPT_STILL_HOLDING_NODE = {
+  ok: true,
+  response: {
+    assistant_text: 'Top Account Revenue Concentration is still in the saved model.',
+    blocks: [],
+    graph_hash: 'aag_node_still_held',
+    draft_graph: committedGraph(),
+  },
+}
+/** CONTROL — CEE answers in prose only: no committed graph, so no receipt. */
+const CHAT_REPLY_WITHOUT_RECEIPT = {
+  ok: true,
+  response: {
+    assistant_text: 'Which element would you like me to remove?',
+    blocks: [],
+  },
+}
+
+function holdKind(): unknown {
+  return heldReason(useCanvasStore.getState() as never)?.kind ?? null
+}
+function holdSentence(): string | null {
+  return heldReason(useCanvasStore.getState() as never)?.sentence ?? null
+}
+
+/** Delete the node against an untyped 500 and pin the hold the user then sees. */
+async function holdOnAnUnconfirmedDelete() {
+  await deleteConcentrationAndSettle(UNTYPED_500)
+  // PRECONDITIONS: the 500 kept the deletion on screen, the unconfirmed delete
+  // holds analysis, and the hold names the node and its ONE exit.
+  expect(concentrationOnCanvas()).toBe(false)
+  expect(heldCause()).toBe('unresolved_structural_edit')
+  expect(holdKind()).toBe('unconfirmed_delete')
+  expect(holdSentence()).toBe(DELETE_HOLD_ASKS_OLUMI)
+}
+
+/** The user takes the exit: a chat message — a USER turn, not a system event. */
+async function askOlumiToRemoveIt(hook: Hook, reply: unknown) {
+  replies.push(reply)
+  await userSends(hook, ASK_OLUMI_TO_REMOVE)
+  await act(async () => { await flush() })
+  // PRECONDITIONS, by identity: exactly one turn followed the delete, it was the
+  // user's own chat message, and it carried what they typed.
+  expect(sentKinds()).toEqual(['structural_delete', undefined])
+  expect(userTurnsSent()).toBe(1)
+  expect((dispatched[1] as { message?: unknown }).message).toBe(ASK_OLUMI_TO_REMOVE)
+}
+
+describe('13 · the delete hold\'s one exit — ask Olumi — releases it (Panel #1917 F1)', { timeout: 30_000 }, () => {
+  it('⭐ A — the chat turn\'s committed graph LACKS the node: the hold releases, and no registration carries anything but CEE\'s committed graph', async () => {
+    const hook = await mountAcknowledgedStructuralBoard()
+    await holdOnAnUnconfirmedDelete()
+    const registersWhileHeld = registerSpy.mock.calls.length
+    expect(registeredWithoutConcentration()).toEqual([])
+
+    await askOlumiToRemoveIt(hook, CHAT_RECEIPT_WITHOUT_NODE)
+
+    // The canvas is CEE's committed graph by ids: the node is gone on both sides.
+    expect(canvasNodeIds()).toEqual([BYSTANDER, TARGET].sort())
+    // ⭐ THE CLAIM: the exit the hold named released it.
+    expect(heldCause()).toBeNull()
+    expect(holdKind()).not.toBe('unconfirmed_delete')
+    expect(holdSentence()).not.toBe(DELETE_HOLD_ASKS_OLUMI)
+    for (const call of registerSpy.mock.calls.slice(registersWhileHeld)) {
+      expect(nodeIdsOf(call)).toEqual([BYSTANDER, TARGET].sort())
+    }
+  })
+
+  it('⭐ B — the chat turn\'s committed graph still HOLDS the node: it is back on the canvas and the hold releases', async () => {
+    const hook = await mountAcknowledgedStructuralBoard()
+    await holdOnAnUnconfirmedDelete()
+
+    await askOlumiToRemoveIt(hook, CHAT_RECEIPT_STILL_HOLDING_NODE)
+
+    // The reconcile put CEE's node back — the canvas no longer shows the
+    // deletion the hold was protecting.
+    expect(concentrationOnCanvas()).toBe(true)
+    // ⭐ THE CLAIM: released, and nothing ever registered the post-delete canvas.
+    expect(heldCause()).toBeNull()
+    expect(holdKind()).not.toBe('unconfirmed_delete')
+    expect(holdSentence()).not.toBe(DELETE_HOLD_ASKS_OLUMI)
+    expect(registeredWithoutConcentration()).toEqual([])
+  })
+
+  it('CONTROL — a chat reply with NO committed graph releases nothing: still held, still naming its one exit, nothing leaks', async () => {
+    const hook = await mountAcknowledgedStructuralBoard()
+    await holdOnAnUnconfirmedDelete()
+
+    await askOlumiToRemoveIt(hook, CHAT_REPLY_WITHOUT_RECEIPT)
+
+    expect(concentrationOnCanvas()).toBe(false)
+    expect(heldCause()).toBe('unresolved_structural_edit')
+    expect(holdSentence()).toBe(DELETE_HOLD_ASKS_OLUMI)
+    expect(registeredWithoutConcentration()).toEqual([])
   })
 })
