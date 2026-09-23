@@ -15,7 +15,7 @@
  * All action variants are now enabled with proper handlers.
  */
 
-import type { ElementType } from 'react'
+import type { ElementType, MouseEvent } from 'react'
 import { Tooltip } from '../../../components/Tooltip'
 
 type IconBtnVariant = 'default' | 'confirm' | 'edit' | 'assume' | 'primary' | 'ghost'
@@ -57,6 +57,15 @@ interface IconBtnProps {
    * (CLAUDE.md trap 19).
    */
   dataAttrs?: Readonly<Record<string, string>>
+  /**
+   * ⚠ FOR A BUTTON INSIDE A CLICKABLE ROW. The Model tab's rows are
+   * `role="option"` with their own `onClick`, so an act inside one must stop
+   * its click reaching the row, or confirming a value would also select the
+   * row. The text buttons this primitive replaced there each called
+   * `e.stopPropagation()`; `onClick` here takes no event, so the primitive does
+   * it. Optional and off by default, so every existing consumer is untouched.
+   */
+  stopPropagation?: boolean
 }
 
 const variantStyles: Record<IconBtnVariant, { enabled: string; disabled: string }> = {
@@ -98,6 +107,7 @@ export function IconBtn({
   ariaControls,
   testId,
   dataAttrs,
+  stopPropagation = false,
 }: IconBtnProps) {
   const styles = variantStyles[variant]
   const buttonStyle = disabled ? styles.disabled : styles.enabled
@@ -118,7 +128,8 @@ export function IconBtn({
    */
   const accessibleName = (ariaLabel ?? '').trim() || tooltip
 
-  const handleClick = () => {
+  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+    if (stopPropagation) e.stopPropagation()
     if (!disabled) {
       onClick?.()
     }

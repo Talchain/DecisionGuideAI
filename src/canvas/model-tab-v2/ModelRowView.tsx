@@ -49,7 +49,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
+import { IconBtn } from '../components/pre-analysis/primitives/IconBtn'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
@@ -322,13 +324,21 @@ export function valueMayShrink(display: string | null): boolean {
  * The number stays Olumi's. The judgement becomes the user's. That is the
  * whole act and the name now says it.
  */
+/*
+ * ⭐ `title` IS NOW THE TOOLTIP OF AN ICON, SO IT LEADS WITH THE WORD THE ICON
+ * REPLACED (23 Sep 2026, Paul: repeated row text becomes icons). The visible
+ * "Confirm" is gone from the row; a sighted reader who hovers the tick must meet
+ * that word first. The relationship arm keeps its 13 Sep sentence after it, so
+ * the claim is still judgement, never correctness. The accessible NAME (`label`)
+ * is unchanged, byte for byte.
+ */
 const CONFIRM_AS_IS_COPY = {
   value: {
     title: 'Confirm this value is correct',
     label: (rowLabel: string) => `Confirm ${rowLabel} is correct`,
   },
   relationship: {
-    title: 'Adopt this estimate as your own judgement',
+    title: 'Confirm. Adopt this estimate as your own judgement.',
     label: (rowLabel: string) => `Adopt Olumi’s estimate for ${rowLabel} as your own judgement`,
   },
 } as const
@@ -1160,11 +1170,34 @@ export function ModelRowView({
         is removing, at the scale of an attribute.
       */}
       {canConfirmAsIs && (
-        <button
-          type="button"
-          data-testid={`model-row-v2-${row.id}-confirm-as-is`}
-          title={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].title}
-          aria-label={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].label(row.label)}
+        /*
+         * ⭐⭐ A TICK, NOT THE WORD (23 Sep 2026, Paul). "Confirm" rendered on
+         * 21 of 21 relationship rows of the captured market-entry draft (19 of
+         * 19 on build-vs-buy). R4: the confirm ACT is `Check`; the confirmed
+         * STATUS it produces is `CheckCircle` ("Confirmed by you"), so act and
+         * outcome share one glyph family without sharing one glyph.
+         *
+         * ⚠ THE SHARED `IconBtn`, so the tooltip, the 44px touch target and the
+         * 28px visual are the panel's one treatment rather than a local copy.
+         * `variant` stays `default`: the `confirm` variant is `text-success`,
+         * 2.02:1 on the panel, under SC 1.4.11's 3:1.
+         *
+         * ⚠ `-my-1` KEEPS THE ROW AT ITS HEIGHT, UNMEASURED IN A BROWSER. The
+         * row's content line is 23px (row 36px = 23 + py-1.5 + border); a 28px
+         * button would grow every confirmable row by 5px. The negative margin
+         * lets the circle sit 2.5px into the row's own 6px padding instead.
+         * jsdom performs no layout, so this is arithmetic, not a measurement.
+         *
+         * ⚠ `stopPropagation` because the row is `role="option"` with its own
+         * `onClick` — the text button this replaced stopped it by hand.
+         */
+        <IconBtn
+          icon={Check}
+          testId={`model-row-v2-${row.id}-confirm-as-is`}
+          tooltip={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].title}
+          ariaLabel={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].label(row.label)}
+          stopPropagation
+          onClick={() => confirmHandler?.(row.id)}
           /*
            * ⚠ NOT CHANGED, AND THE RULING IS WHY. I made this yield too, and
            * `rowAtomsDoNotWrap.spec.tsx` REDDED it by name: *"Confirm never
@@ -1178,15 +1211,15 @@ export function ModelRowView({
            * OVERLAPS the value. A fake affordance and an affordance painted
            * across the number are both bad, and the ruling was written before
            * anything measured the second one. Raised, not resolved.
+           *
+           * ⭐ AND THE ICON DISSOLVES THE TENSION RATHER THAN RULING ON IT. The
+           * tick is a fixed 28px that cannot truncate, so it is still not a
+           * fake affordance, and it is narrower than the word it replaced, so
+           * the value has more room. Whether the 17 overlapping pairs at 280px
+           * reach zero is a browser question and is NOT measured here.
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
-          onClick={e => {
-            e.stopPropagation()
-            confirmHandler?.(row.id)
-          }}
-        >
-          Confirm
-        </button>
+          className="shrink-0 whitespace-nowrap -my-1"
+        />
       )}
 
       {/*
