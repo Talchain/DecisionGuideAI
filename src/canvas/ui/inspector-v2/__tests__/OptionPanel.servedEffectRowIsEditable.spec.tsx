@@ -239,8 +239,32 @@ describe('a pending effect ends — confirmed by the store, or reverted with a n
     expect(text).not.toMatch(/not saved|saved to/i)
   })
 
-  it('CONTRAST — SENT alone confirms nothing: the sent number stays shown until the store carries it', async () => {
+  it('⛔ SENT, TURN DONE, VALUE NOT IN THE MODEL: CEE answered without applying it — withdrawn, and said', async () => {
+    // `sendSystemEvent` resolves only after `sendTurn` has processed the reply,
+    // and an applied `option_intervention_edit` always carries its committed
+    // `draft_graph`, which that processing reconciles into the store. So a send
+    // that settled with the store NOT holding the number is CEE's 200 refusal
+    // (`refused_no_write`). Before this, the unsaved number stayed on screen
+    // until some unrelated store change (lane note, 22 Sep).
     sendSystemEvent.mockResolvedValue(undefined)
+    renderPanel()
+    editTo('0.8')
+    await flush()
+    expect(shown()).toBe('0.2')
+    expect(screen.getByTestId('option-intervention-notice').textContent ?? '').toMatch(/not saved/i)
+  })
+
+  it('CONTRAST — SENT with the receipt applied before the send settles: no notice, the row follows the record', async () => {
+    sendSystemEvent.mockImplementation(async () => {
+      useCanvasStore.setState({
+        nodes: useCanvasStore.getState().nodes.map(n =>
+          n.id === OPTION_ID
+            ? { ...n, data: { ...n.data, interventions: { [FACTOR_ID]: { value: 0.8, source: 'user_specified' } } } }
+            : n,
+        ),
+      } as never)
+      return undefined
+    })
     renderPanel()
     editTo('0.8')
     await flush()
@@ -249,17 +273,19 @@ describe('a pending effect ends — confirmed by the store, or reverted with a n
   })
 
   it('⭐ APPLIED: once the store carries the sent value the row follows the RECORD, so a later change shows', async () => {
-    sendSystemEvent.mockResolvedValue(undefined)
+    let finish!: () => void
+    sendSystemEvent.mockImplementation(() => new Promise<void>(r => { finish = r }))
     renderPanel()
     editTo('0.8')
     await flush()
-    storeSets(0.8) // the applied receipt
+    storeSets(0.8) // the applied receipt, while the turn is still being processed
+    await act(async () => { finish(); await Promise.resolve() })
     storeSets(0.3) // a later chat edit to the same target
     expect(shown()).toBe('0.3')
   })
 
-  it('CONTRAST — a receipt for a DIFFERENT value does not confirm this send', async () => {
-    sendSystemEvent.mockResolvedValue(undefined)
+  it('CONTRAST — a receipt for a DIFFERENT value does not confirm this send (while in flight)', async () => {
+    sendSystemEvent.mockImplementation(() => new Promise<void>(() => undefined))
     renderPanel()
     editTo('0.8')
     await flush()
