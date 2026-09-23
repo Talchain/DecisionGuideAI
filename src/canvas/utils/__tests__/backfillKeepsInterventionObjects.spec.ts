@@ -76,6 +76,14 @@ describe('backfillInterventionsOntoOptionNodes — a bare number never erases wh
     expect(interventionsOnCanvas()).toEqual({ fac_usage: 0.7, fac_friction: FROM_BRIEF })
   })
 
+  it('EXACTNESS: a near-miss number (0.61 against a person\'s 0.6) is NOT theirs — it comes back bare', () => {
+    // Panel's #1894 review, M2 survivor: \`===\` loosened to \`|Δ| < 0.05\` stayed
+    // 8/8 green, because every "changed" fixture moved by ≥ 0.1. A tolerance
+    // would stamp "Set by you" on a number the person never set.
+    backfillInterventionsOntoOptionNodes(readyWith({ fac_usage: 0.61, fac_friction: 0.4 }))
+    expect(interventionsOnCanvas()).toEqual({ fac_usage: 0.61, fac_friction: FROM_BRIEF })
+  })
+
   it('a key analysis_ready drops is dropped, and the key it keeps keeps its object', () => {
     backfillInterventionsOntoOptionNodes(readyWith({ fac_usage: 0.6 }))
     expect(interventionsOnCanvas()).toEqual({ fac_usage: USER_SET })
