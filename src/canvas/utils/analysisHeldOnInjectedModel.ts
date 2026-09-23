@@ -79,6 +79,7 @@ import type { UnconfirmedDeleteSubject } from '../conversation/unconfirmedStruct
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { STRUCTURAL_DELETE_UNCONFIRMED_REMEDY } from '../mutations/structuralDelete'
 import { STRUCTURAL_RENAME_UNCONFIRMED_REMEDY } from '../mutations/structuralRename'
+import { STRUCTURAL_ADD_UNCONFIRMED_REMEDY } from '../mutations/structuralAdd'
 
 /**
  * Which client-side injection put this graph on the canvas.
@@ -370,7 +371,7 @@ export const ANALYSIS_HELD_ON_EDIT_COPY = {
     `so analysis is waiting until it is settled. ${STRUCTURAL_RENAME_UNCONFIRMED_REMEDY}`,
   unconfirmedAdd: (label: string | null): string =>
     `${label === null ? "Olumi couldn't confirm your addition to the saved model" : `Olumi couldn't confirm that ${label} was added to the saved model`}, ` +
-    'so analysis is waiting until it is settled. Would you like to remove it and add it again?',
+    `so analysis is waiting until it is settled. ${STRUCTURAL_ADD_UNCONFIRMED_REMEDY}`,
   unconfirmedDelete: (label: string | null): string =>
     `Olumi couldn't confirm that ${label === null ? 'what you deleted' : label} was removed from the saved model, ` +
     `so analysis is waiting until it is settled. ${STRUCTURAL_DELETE_UNCONFIRMED_REMEDY}`,
