@@ -593,6 +593,8 @@ export function composeAnalysisState(
   //     (`complete_stale` states the change; `refused` / `unknown_degraded` /
   //     `running` state uncertainty; `never_run` / `blocked` have no result to
   //     vouch for), so an overlay has nothing to withdraw from them.
+  //     — WITH ONE CARVE-OUT, `unknown_degraded` / `no_graph_this_turn`, which
+  //     states no uncertainty about currency at all. See the next note.
   //
   // ⚠ AND IT MOVES THREE MEMBERS AS ONE UNIT — `semantic`, `displayedFreshness`
   // and `requiresRerun`. They are composed from one verdict and answer one
@@ -601,13 +603,77 @@ export function composeAnalysisState(
   // otherwise producer-owned and is NOT re-derived here: the producer's `false`
   // is a true answer about the graph it saw, and this withdraws it for the same
   // reason the currency claim is withdrawn, on the same input, at the same time.
+  //
+  // ⭐ `no_graph_this_turn` IS NOT A VERDICT, SO IT CANNOT OUTRANK A LOCAL EDIT.
+  //
+  // Witnessed on served `76e25c5f` (23 Sep): run → `complete_current`; the user
+  // sets a factor value in the Model tab; that `factor_value_edit` turn answers
+  // `run_state: { kind: 'unknown_degraded', cause: 'no_graph_this_turn' }`. The
+  // turn-scoped wire slice REPLACES the run's verdict with it (`applyV5State`
+  // step 4), so the `complete_current` arm could no longer fire, the kind mapped
+  // to cannot-confirm, and Reasoning lost its footer Re-analyse and offered
+  // "review or set an estimate" for the edit the user had just made.
+  //
+  // Keyed on the FIELD VALUE, never on text. Derived at the producer (CEE
+  // `orchestrator-v5/compose/analysis-state-v1.ts` @ `fa101898`): this cause is
+  // minted from exactly one input, `current_graph_hash_unavailable` — "no graph
+  // was in scope, so there was nothing to classify" — on the exits where
+  // "genuinely nothing was looked at (today: the `system_event` family …)", and
+  // `factor_value_edit` is a system event. A turn that did NOT EVALUATE currency
+  // has nothing to set against the UI's first-hand record of an edit. The other
+  // three causes (`store_unreadable`, `legacy_fact`, `refusal_unverified`) are
+  // real failures about a fact CEE did look for, and stay untouched.
+  //
+  // ⚠ READ SIDE, NOT WRITE SIDE — the smaller and safer of the two. Retaining
+  // the run's `complete_current` at `applyV5State` would also let the arm fire,
+  // but the slice is turn-scoped by contract ("non-null means CEE stated a
+  // verdict FOR THIS TURN") and every OTHER reader of it would inherit the stale
+  // turn with it: the Run gate's readiness (`selectAnalysisReadinessAuthority`),
+  // the leader withhold reason (`useAnalysisNewViewModel`), the producer-only
+  // usability members. This moves one question, on one shape, and changes
+  // nothing any other reader of the slice sees.
+  //
+  // ⚠ WHAT DECIDES "A CHANGE SINCE A RUN", WITH NO SECOND COPY OF THE RULES:
+  // the derived branch's own classifier — the answer this selector gives when no
+  // wire verdict has arrived — over the retained CEE freshness verdict and the
+  // overlay. Only its `'changed'` is admitted, so the arm inherits every boundary
+  // that rule already enforces (each pinned in
+  // `analysisStateSelector.noGraphThisTurnIsNotAVerdict.spec.tsx`):
+  //   · no edit → nothing moves: no staleness invented, and no currency either;
+  //   · no completed run → `'never_run'`, not "out of date" → nothing moves;
+  //   · a CEE-STATED `unknown` on the legacy slice → cannot-confirm → nothing moves.
+  //
+  // ⚠ `importHold: false` IS PASSED DELIBERATELY, AND THE HOLD IS STILL OBEYED.
+  // The question asked of the classifier is "is there evidence of a change
+  // since a run?", and the hold is then applied by the SAME output arm the
+  // `complete_current` supersession uses (`semantic` below: cannot-confirm under
+  // a hold, `'changed'` otherwise). Passing the real hold instead would split
+  // the held case in two — an inferred change would fall through with the
+  // producer's `requires_rerun`, a CEE-stated `stale` would reach `'changed'`
+  // under the hold — where the `complete_current` route answers both with
+  // cannot-confirm and a rerun. One output rule for both routes.
+  const localEditOverUnclassifiedTurn =
+    wire !== null &&
+    wire.run_state.kind === 'unknown_degraded' &&
+    wire.run_state.cause === 'no_graph_this_turn' &&
+    dirty === true &&
+    classifyFreshnessForDisplay(
+      resolveTrustEffectiveState(freshness, legacyTrust.orphaned).state,
+      dirty,
+      false,
+      hasCompletedFirstRun,
+    ) === 'changed'
   const wireCurrencySuperseded =
-    wire !== null && wire.run_state.kind === 'complete_current' && dirty === true
+    (wire !== null && wire.run_state.kind === 'complete_current' && dirty === true) ||
+    localEditOverUnclassifiedTurn
 
   // THE PRECEDENCE RULE. When the wire is present its verdict wins outright —
   // the legacy semantic is not consulted, not blended, and not used as a
   // tie-break. `classifyFreshnessForDisplay` is still the derived branch's
   // implementation (wrapped above), which is why there is no second copy of it.
+  // The ONE exception is the `no_graph_this_turn` shape above, which is not a
+  // verdict: there the classifier is asked whether the overlay records a change
+  // since a run, and only its `'changed'` is admitted.
   //
   // ⚠ THE SUPERSEDED WORDING IS `'changed'` — EXCEPT UNDER AN IMPORT HOLD.
   // `classifyFreshnessForDisplay` forbids the positive "you changed the model"
