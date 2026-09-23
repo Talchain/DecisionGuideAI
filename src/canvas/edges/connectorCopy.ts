@@ -18,7 +18,15 @@
  * ⛔ NONE OF THESE MAY SAY "contested", AND NONE MAY PRINT A BARE FLIP FIGURE.
  * `edges/__tests__/connectorCopyHonesty.spec.tsx` enforces both over every
  * perceivable string the edge and the key render.
+ *
+ * ⚠ LINK-STRENGTH WORDS ARE NOT SPELLED HERE (design integration, 23 Sep
+ * 2026). They are the node-card register's (`LINK_STRENGTH_COPY` in
+ * `nodes/shared/metricVocabulary.ts`), which the card rows, `EdgePills`, the
+ * reduced line and the legend already read — so the edge hover and the card
+ * cannot say one state two ways again (MT-15b). Pinned by
+ * `edges/__tests__/linkStrengthOneSource.spec.ts`.
  */
+import { LINK_STRENGTH_COPY } from '../nodes/shared/metricVocabulary'
 
 // ── The sign disagreement (the ONE disagreement that reaches the line) ──────
 
@@ -125,11 +133,12 @@ export const LEGEND_SENSITIVE_CAPTION =
 /**
  * The noun the cards already use for a connection's strength (`EdgePills`,
  * `PreAnalysisInboundRows`: "Link strength"), and the one the node-card PR puts
- * on the outcome and risk cards ("Link strength · Olumi's estimate"). The edge's
+ * on the outcome and risk cards ("Link strength · Olumi’s estimate") — READ
+ * from that register, never re-typed here. The edge's
  * hover used to show a bare bar and a percentage with no noun at all, so the
  * card and the edge described one state two ways (manual test MT-15b).
  */
-export const LINK_STRENGTH_NOUN = 'Link strength'
+export const LINK_STRENGTH_NOUN = LINK_STRENGTH_COPY.noun
 
 /**
  * The hover's caption for the strength row.
@@ -147,6 +156,10 @@ export function linkStrengthCaption(
 ): string {
   if (!unconfirmed) return LINK_STRENGTH_NOUN
   const whose =
-    source === 'cee' ? "Olumi's estimate" : source === 'template' ? 'template estimate' : 'estimate'
+    source === 'cee'
+      ? LINK_STRENGTH_COPY.olumiEstimate
+      : source === 'template'
+        ? LINK_STRENGTH_COPY.templateEstimate
+        : LINK_STRENGTH_COPY.estimate
   return `${LINK_STRENGTH_NOUN} · ${whose}`
 }

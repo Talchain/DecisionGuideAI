@@ -877,6 +877,16 @@ export const LINK_STRENGTH_COPY = {
   olumiEstimate: 'Olumi’s estimate',
   /** A producer value that is not Olumi's (e.g. a template's), not yet confirmed. */
   unconfirmedEstimate: 'Estimate, not confirmed',
+  /**
+   * The EDGE hover's author words for a non-Olumi unconfirmed strength
+   * (`edges/connectorCopy.ts` `linkStrengthCaption`, #1910 R8): a template's
+   * figure, and the agentless word for an unrecognised source. Held here so
+   * every link-strength word has ONE owner (design integration, 23 Sep 2026);
+   * the card row's `unconfirmedEstimate` is a different sentence for the same
+   * state and is NOT unified here — that is copy, not a join (rowed for ED).
+   */
+  templateEstimate: 'template estimate',
+  estimate: 'estimate',
   /** No value at all — the register's own unset wording, inline form. */
   notSet: METRIC_UNSET.inline,
 } as const

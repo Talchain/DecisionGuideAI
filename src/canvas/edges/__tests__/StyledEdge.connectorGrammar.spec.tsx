@@ -26,6 +26,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
+import { LINK_STRENGTH_COPY } from '../../nodes/shared/metricVocabulary'
 
 let capturedStyle: Record<string, unknown> | undefined
 let mockReport: Record<string, unknown> | null = null
@@ -390,10 +391,16 @@ describe('R7 — a disputed sign is not stated as fact on hover', () => {
 // ── R8: an unconfirmed strength reads as an estimate ────────────────────────
 
 describe("R8 — the hover names an unconfirmed strength as an estimate, and names whose", () => {
-  it("a producer's unconfirmed strength reads \"Link strength · Olumi's estimate\"", () => {
+  // ⭐ Design integration (23 Sep 2026): the words are the node-card register's
+  // (`LINK_STRENGTH_COPY`), the ONE source the card rows also read — see
+  // `linkStrengthOneSource.spec.ts`. The card's typographic apostrophe (’) is
+  // the one spelling; a straight-apostrophe literal here would let the negative
+  // arm below pass vacuously.
+  it("a producer's unconfirmed strength reads \"Link strength · Olumi’s estimate\"", () => {
     const { container } = renderEdge({ ...CEE_EDGE })
     const popover = openPopover(container)
-    expect(popover.textContent).toContain("Link strength · Olumi's estimate")
+    expect(popover.textContent).toContain(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
+    expect(popover.textContent).toContain('Link strength · Olumi’s estimate')
   })
 
   it("a TEMPLATE's unconfirmed strength is an estimate but is NOT credited to Olumi", () => {
@@ -401,7 +408,9 @@ describe("R8 — the hover names an unconfirmed strength as an estimate, and nam
     const popover = openPopover(container)
     expect(popover.textContent).toContain('Link strength · template estimate')
     // Not "Olumi" outright: the chat chip is legitimately "Ask Olumi to adjust it".
-    expect(popover.textContent).not.toContain("Olumi's estimate")
+    // Bound to the register's own spelling, so it cannot pass on an apostrophe.
+    expect(popover.textContent).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
+    expect(popover.textContent).not.toMatch(/Olumi['’]s estimate/)
   })
 
   it('a strength the person set reads "Link strength" with no estimate qualifier', () => {
