@@ -68,6 +68,7 @@ import {
   pendingFactorEditValue,
   subscribePendingFactorEdits,
 } from '../conversation/pendingFactorEdit'
+import { nodeDataWithRenameRestored } from '../mutations/structuralRename'
 
 /** Model-changing system_event turns currently on the wire. */
 let modelEditsOnTheWire = 0
@@ -158,27 +159,61 @@ function sendableQueuedRenames(state: EditDeliveryState): number {
 
 /**
  * The graph a registration may send while renames are queued: each queued
- * rename's node at the label CEE is expected to hold (`expectedLabel`), never
- * the unsent new one. The FIRST queued intent per node wins — its
- * `expectedLabel` is the label before any queued rename of that node.
+ * rename's node AS CEE HOLDS IT, never the unsent new state. The FIRST queued
+ * intent per node wins — its `restore` record is the node before any queued
+ * rename of it.
+ *
+ * ⛔ THE WHOLE RESTORE RECORD, NOT JUST THE LABEL (#1893 review B1,
+ * CHANGES_REQUIRED @ 8b5a6f1e). A goal rename also stamps
+ * `provenance: 'user_set'`, which the registration carries and the analytical
+ * digest hashes. A label-only rollback therefore (G1) registered the AI's goal
+ * label under a human-authorship claim, (G2) made an in-flight goal rename read
+ * as a superseded ack and stranded it, and (G3) sent a second registration
+ * mid-read. So the rollback applies the intent's own `restore` record through
+ * `nodeDataWithRenameRestored` — the same function a refused rename's revert
+ * uses, so the two cannot drift apart.
+ *
+ * An intent with no well-formed `restore` (unreachable from
+ * `captureStructuralRename`, which always writes one) still has its label
+ * rolled back to `expectedLabel`, and its provenance is left as it is.
  */
 export function withQueuedRenamesRolledBack<N extends { id: string; data?: unknown }>(
   nodes: ReadonlyArray<N>,
   queued: ReadonlyArray<unknown> | undefined,
 ): ReadonlyArray<N> {
   if (!queued || queued.length === 0) return nodes
-  const expected = new Map<string, string>()
+  type Restore = Parameters<typeof nodeDataWithRenameRestored>[1]
+  const restoreOf = new Map<string, Restore | { readonly label: string }>()
   for (const raw of queued) {
-    const intent = raw as { nodeId?: unknown; expectedLabel?: unknown } | null
+    const intent = raw as {
+      nodeId?: unknown
+      expectedLabel?: unknown
+      restore?: { label?: unknown; provenance?: unknown; provenanceWasPresent?: unknown }
+    } | null
     if (typeof intent?.nodeId !== 'string' || typeof intent.expectedLabel !== 'string') continue
-    if (!expected.has(intent.nodeId)) expected.set(intent.nodeId, intent.expectedLabel)
+    if (restoreOf.has(intent.nodeId)) continue
+    const r = intent.restore
+    restoreOf.set(
+      intent.nodeId,
+      r && typeof r.label === 'string' && typeof r.provenanceWasPresent === 'boolean'
+        ? {
+            label: r.label,
+            provenanceWasPresent: r.provenanceWasPresent,
+            ...(r.provenanceWasPresent ? { provenance: r.provenance } : {}),
+          }
+        : { label: intent.expectedLabel },
+    )
   }
-  if (expected.size === 0) return nodes
-  return nodes.map((n) =>
-    expected.has(n.id)
-      ? ({ ...n, data: { ...(n.data as Record<string, unknown>), label: expected.get(n.id) } } as N)
-      : n,
-  )
+  if (restoreOf.size === 0) return nodes
+  return nodes.map((n) => {
+    const r = restoreOf.get(n.id)
+    if (!r) return n
+    const data =
+      'provenanceWasPresent' in r
+        ? nodeDataWithRenameRestored(n.data, r)
+        : { ...(n.data as Record<string, unknown>), label: r.label }
+    return { ...n, data } as N
+  })
 }
 
 /**
