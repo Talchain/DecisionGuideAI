@@ -205,14 +205,49 @@ describe('fence 409 — the staleness banner must NOT render for a write-fence r
     expect(last.content).toMatch(/nothing was overwritten/i)
   })
 
-  it('user message still marked failed (delivery honesty unchanged by the copy fix)', async () => {
+  /**
+   * ⚠ CHANGED FROM `failed` TO `unconfirmed`, AND THE REASON IS RECORDED HERE
+   * RATHER THAN THE ASSERTION QUIETLY RE-PINNED.
+   *
+   * This case was written to pin that a COPY fix did not disturb delivery
+   * honesty, and it did that job. What moved it is a different change: the
+   * delivery-state rule now asks whether the SERVER ANSWERED, not whether the
+   * turn succeeded.
+   *
+   * A fence 409 is an HTTP response from CEE carrying a typed body — the three
+   * cases above assert the product names the cause from it ("stopped",
+   * "superseded", "nothing was overwritten"). **So delivery is PROVEN: the
+   * message arrived and was answered.** What failed is the WRITE.
+   *
+   * Marking the user's message `failed` told them it had not got through while
+   * the assistant, in the same view, answered it with a specific refusal —
+   * two statements about one turn that cannot both be true. That contradiction
+   * is the defect this PR exists to remove, and an independent review ratified
+   * the same rule for the sibling `BoundaryError` marker: *"a server-authored
+   * verdict proves delivery even when no usable reply returned."* A 409 with a
+   * typed fence body is a server-authored verdict by the same definition.
+   *
+   * ⭐ THE TURN IS STILL A FAILURE, AND THAT IS STILL ASSERTED. The two fields
+   * answer different questions and are deliberately not merged:
+   * `deliveryState` is about the MESSAGE reaching the server, `lastSendFailure`
+   * is about the OUTCOME. Keeping `lastSendFailure.kind === 'server'` in this
+   * test is what stops the change being read as "the fence stopped mattering".
+   *
+   * ⚠ NOT WIDENED TO `sent`. Delivery is arguably proven outright here, but
+   * `sent` is claimed only on a delivery-proving FRAME, and a 409 body is not
+   * one. `unconfirmed` is the honest rung: it says the message arrived and
+   * stops short of claiming the turn completed.
+   */
+  it('user message is UNCONFIRMED, not failed — the server answered it (see the block above)', async () => {
     stubFetchWith(409, fence409Body('unclaimed'))
     const { result } = renderHook(() => useConversation())
     await act(async () => {
       await result.current.sendMessage('Set Capital Expenditure to £300,000')
     })
     const userMsg = result.current.messages.find((m) => m.role === 'user')
-    expect(userMsg?.deliveryState).toBe('failed')
+    expect(userMsg?.deliveryState).toBe('unconfirmed')
+    // ⭐ The outcome is STILL a server failure. If this ever stops holding, the
+    // change above has been over-read and the fence has been silently demoted.
     expect(result.current.lastSendFailure?.kind).toBe('server')
   })
 })

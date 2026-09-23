@@ -134,11 +134,14 @@ function serverGraphResult(): ScenarioGraphResult {
     briefText: null,
     notModelled: null,
     identity: { value: 'srv-hash-1', projectionVersion: 'p1' },
-    // The write precondition for these bytes. `null` is the honest fixture:
-    // this suite is about GRAPH recovery on stream loss and asserts nothing
-    // about editability. Present rather than optional so a consumer cannot
-    // silently forget it — the parser always supplies it.
-    graphHash: null,
+    // ⚠ WAS `null`, AND THAT WAS A SHAPE THE WIRE CANNOT PRODUCE.
+    // `assist.v1.scenario-graph.ts` computes `graph_hash` from the graph it is
+    // returning whenever one is present, and sends null ONLY when the graph is
+    // absent — a case that never reaches this fixture, which carries a graph.
+    // The convenient null encoded a combination the producer cannot emit, and
+    // the recovery's causal check reads this field, so the fixture was quietly
+    // deciding the behaviour under test.
+    graphHash: 'srv-graph-hash-after-commit',
     layoutPresent: false,
     // ROADMAP 2.1271 — the recovery read carries the same analysis keys as
     // every other scenario-graph read. `null` on both is the honest fixture
@@ -278,6 +281,12 @@ beforeEach(() => {
     hasCompletedFirstRun: false,
     lastAuthoritativeGraph: null,
     serverGraphIdentity: null,
+    // ⚠ MUST BE RESET, and its absence made this suite ORDER-DEPENDENT.
+    // `adoptServerWriteBase` sets it on every successful read, so a test that
+    // recovered left its hash behind as the NEXT test's pre-turn base — and
+    // the recovery's causal check compares exactly those two. Six tests that
+    // pass in isolation failed in file order until this line existed.
+    lastServerGraphHash: null,
     results: { status: 'idle' } as never,
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   } as never)
@@ -600,6 +609,101 @@ describe('stream loss + fallback decline — the server HOLDS the draft', () => 
     expect(contents).not.toContain(DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE)
   })
 
+  /**
+   * ⛔ THE DOOR `'unchanged'` CANNOT COVER, AND IT IS THE COMMON CASE.
+   *
+   * The test above pins `'unchanged'`, which keys on `serverGraphIdentity` —
+   * and that field has exactly ONE non-test writer: the accepted exit of
+   * `serverGraphHydration` itself. Boot returns `'notReadable'` on a fresh
+   * scenario ~230 lines above that setter, `/graph/register`'s
+   * `graph_identity_hash` is read for telemetry only, and a turn never writes
+   * it. So in the session where drafting happens the token is null,
+   * `isSameServerGraph` fails closed, and the guard above CANNOT FIRE — the
+   * test passes only because it SEEDS the token by hand, which is a
+   * fabricated precondition.
+   *
+   * The reachable shape is this one: the token is absent, the merge runs, and
+   * the server hands back exactly the graph the preview already put on the
+   * canvas — i.e. this draft's values were never committed. The old code read
+   * that as `'merged'` and narrated it as a recovery over the user's own
+   * zeroed values.
+   *
+   * The DISCRIMINATING TWIN is the first test in this block: same drive, same
+   * single read, server holding the TERMINAL graph → recovery IS claimed.
+   * Neither alone shows anything; the pair is what proves the outcome tracks
+   * the server's contents rather than a constant.
+   */
+  it('a ZERO-DELTA merge is NOT a recovery: the server handing back what is already on the canvas claims nothing', async () => {
+    // Identity token deliberately NOT seeded — this is the production state.
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+    // The server holds the PREVIEW's graph: same identities, values still
+    // zeroed. Nothing this turn produced ever committed.
+    // One cast, at the producer's own result type: `READY_GRAPH` is derived
+    // from the wire fixture so its element types are widened, and
+    // `ScenarioGraphResult` is a union on which `graph` is variant-specific.
+    mockFetchScenarioGraph.mockResolvedValue({
+      ...serverGraphResult(),
+      graph: READY_GRAPH,
+    } as unknown as ScenarioGraphResult)
+    const result = await driveStreamLossDecline()
+
+    // The read WAS attempted and DID merge — this is about the claim, not the
+    // fetch, and not about short-circuiting before the merge.
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // The preview's zeroed values are untouched, because there was nothing to
+    // replace them with.
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+
+    // Standing unsettled behaviour, and no recovery claim in either voice.
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE)
+  })
+
+  /**
+   * ⛔ CANVAS MOVEMENT IS NOT CAUSAL ATTRIBUTION — returned by an independent
+   * review of the zero-delta fix, and it is the harder half.
+   *
+   * The zero-delta guard closes the case where the server hands back exactly
+   * what is already on the canvas. It does NOT close the case where the canvas
+   * was STALE or unhydrated: the merge then moves it, reports `changed: true`,
+   * and an older graph the server already held BEFORE this turn gets narrated
+   * as the recovered draft.
+   *
+   * The discriminator is the server's own identity against the base this client
+   * held when the read was issued — still the PRE-TURN value, because the
+   * failed turn never updated it. Equal means nothing this turn did is on the
+   * server's copy.
+   */
+  it('a server graph the client already knew about is NOT this turn\'s recovery, however much the canvas moves', async () => {
+    // The pre-turn authority: the client already knew this exact server graph.
+    useCanvasStore.setState({ lastServerGraphHash: 'srv-graph-hash-after-commit' } as never)
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveStreamLossDecline()
+
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // The merge DID move the canvas — that is the point. It still proves nothing.
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+  })
+
+  it('CONTRAST: a DIFFERENT server hash from the pre-turn base IS attributable, and recovers', async () => {
+    // Same drive, same moved canvas — only the server's identity differs from
+    // what this client knew before the turn. Without this twin, the test above
+    // is consistent with a guard that refuses everything.
+    useCanvasStore.setState({ lastServerGraphHash: 'srv-graph-hash-BEFORE-the-turn' } as never)
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveStreamLossDecline()
+
+    expect(result.current.messages.map((m) => m.content)).toContain(
+      DRAFT_RECOVERED_STREAM_LOSS_NOTICE,
+    )
+  })
+
   it('a transport-dead recovery read is a failure, not a recovery — same standing behaviour', async () => {
     // The read leg itself can die (the 2.1251 class). `unusable` must route
     // exactly like 404: no claim, standing notice, chip present.
@@ -831,6 +935,45 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
     expect(result.current.messages.some((m) => m.role === 'assistant' && m.synthetic)).toBe(true)
   })
 
+  /**
+   * ⛔ EVERY EXIT FROM THE WIDENED BRANCH MUST RESOLVE THE USER'S OWN BUBBLE.
+   *
+   * The widening made `deliveryState: 'sent'` conditional on
+   * `v5Result.kind === 'response'`, with the recovery read supplying the other
+   * proof. But the read has three exits that write nothing — ownership lost
+   * before it, ownership lost after it, and a read that finds nothing — and on
+   * the newly-covered arms none of them reached a write at all. The bubble was
+   * left `'pending'`, which renders as still-sending on a turn that has
+   * definitively ended, and `useThreadPersistence` commits a deferred user
+   * message only once it resolves to `'sent'`.
+   *
+   * `'unconfirmed'` is this estate's existing name for the fact (ROADMAP
+   * 2.665): the request reached the server — an OPENED stream witnesses that —
+   * and no reply came back. It renders "Sent — reply not received" with no
+   * retry chip, because a retry duplicates.
+   */
+  it("resolves the user's bubble to 'unconfirmed' when the fallback died and nothing was recovered", async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble, 'the user bubble must still exist').toBeDefined()
+    expect(userBubble?.deliveryState).toBe('unconfirmed')
+  })
+
+  /**
+   * THE OPPOSITE-DIRECTION TWIN. A recovery upgrades the same bubble to
+   * `'sent'` — so the assertion above is about the OUTCOME, not about a
+   * constant that happens to be written on every path.
+   */
+  it("CONTRAST: a recovered draft upgrades the same bubble to 'sent'", async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble?.deliveryState).toBe('sent')
+  })
+
   it('an absent server graph is not a recovery either, and is read only once', async () => {
     // `requestId` is part of the producer's `absent` variant
     // (`scenarioGraph.ts`: `return { status: 'absent', requestId }`), not
@@ -843,5 +986,87 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
     expect(result.current.messages.map((m) => m.content)).not.toContain(
       DRAFT_DELIVERY_RECOVERED_NOTICE,
     )
+  })
+})
+
+/**
+ * ⛔⛔ CODEX'S REQUIRED WITNESS — independent CHANGES_REQUIRED on #1803 at head
+ * `8b04406f`, 21 Sep 2026.
+ *
+ * The finding: `StreamedDraftTurnResult.streamOpened` was OPTIONAL, and **1 of
+ * this function's 7 return sites supplied it**. The caller's
+ * `streamed.streamOpened === true` then read `undefined` as "the stream never
+ * opened" on the other six.
+ *
+ * ⚠ EVERY DELIVERY TEST ABOVE DRIVES `driveTruncatedBeforeGraphReady`, so every
+ * one of them runs with **no preview on the canvas** — the arm where the fact
+ * happened to be carried. The reachable defect lives on the arm where a
+ * validated `GRAPH_READY` frame HAS rendered, which none of them touches. The
+ * suite was green and blind in one direction.
+ *
+ * The case, in the user's terms: their draft appears on the canvas, the socket
+ * dies, the buffered retry comes back with a CEE error envelope — and they are
+ * told **"Not delivered"** with a Retry control that duplicates the turn, for a
+ * turn CEE demonstrably received and drew.
+ */
+describe("an opened stream that DREW a preview is never reported as undelivered", () => {
+  /** CEE answered — with an error envelope rather than a turn body. */
+  const CEE_CLASS_ERROR = {
+    kind: 'boundary_error' as const,
+    error: { code: 'UPSTREAM_TIMEOUT', message: 'upstream timed out', retryable: true } as never,
+  }
+  /** Nothing answered: the transport died before any response existed. */
+  const TRANSPORT_ERROR = { kind: 'parse_error' as const, reason: 'network error: Failed to fetch' }
+
+  it("⛔ THE DEFECT: preview drawn, stream abandoned, CEE-class fallback error -> 'unconfirmed', never 'failed'", async () => {
+    // The recovery read finds nothing, so the bubble cannot be upgraded to
+    // 'sent' by that route — this isolates the DELIVERY fact as the only thing
+    // that can decide the outcome.
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    mockCallV5Turn.mockResolvedValue(CEE_CLASS_ERROR)
+
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    await stream.fail()
+    await act(async () => { await sent })
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble, 'precondition: the user bubble must still exist').toBeDefined()
+    expect(
+      userBubble?.deliveryState,
+      'the stream opened and delivered a GRAPH_READY frame, so the turn reached CEE',
+    ).toBe('unconfirmed')
+  })
+
+  /**
+   * ⭐ THE NEGATIVE CONTROL, and it is the half that makes the assertion above
+   * mean something. Fail the ORIGINAL open, then fail the fallback at transport
+   * before any response exists: nothing ever reached CEE, so "Not delivered" is
+   * the truth and must survive. Without this, a change that hard-codes
+   * `'unconfirmed'` passes the test above while making the product lie in the
+   * other direction.
+   */
+  it("CONTRAST: open fails AND the fallback dies at transport -> still 'failed'", async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    mockOpenStream.mockRejectedValue(new Error('network error: Failed to fetch'))
+    mockCallV5Turn.mockResolvedValue(TRANSPORT_ERROR)
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await (result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>)
+    })
+
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble, 'precondition: the user bubble must still exist').toBeDefined()
+    expect(
+      userBubble?.deliveryState,
+      'nothing ever reached the server, so non-delivery is verified and must still be said',
+    ).toBe('failed')
   })
 })

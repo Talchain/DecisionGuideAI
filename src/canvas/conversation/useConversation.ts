@@ -509,6 +509,39 @@ export interface StreamedDraftTurnResult {
    * See the return site for the router-log measurement.
    */
   missingGraphAfterFallback?: boolean
+  /**
+   * Did the SSE response OPEN before the turn was abandoned?
+   *
+   * Reported rather than inferred. The caller could derive it — inside
+   * `missingGraphAfterFallback`, a non-`response` result implies the stream
+   * opened, because the open-failure arm passes `false` — but that is a
+   * premise about THIS function's internals held in another module, and it
+   * would silently become false the first time a third arm is added here.
+   * It is the evidence the caller needs for one specific claim: an opened
+   * stream means the request reached the server, whatever happened after.
+   */
+  /**
+   * ⛔⛔ REQUIRED, AND THAT IS THE FIX. It was optional, and 1 of this
+   * function's 7 return sites supplied it — the caller's
+   * `streamed.streamOpened === true` then silently read `undefined` as
+   * "the stream never opened" on the other 6.
+   *
+   * Codex, independent review of #1803 at head `8b04406f`: the reachable case
+   * is an SSE that opens and delivers a validated GRAPH_READY preview, is then
+   * abandoned, and whose buffered fallback returns a CEE-class typed error.
+   * That arm returned `unsettledCause: 'stream_loss'` with no delivery fact, so
+   * the classifier emitted `failed` and the user saw **"Not delivered"** with a
+   * Retry control that duplicates the turn — for a turn that demonstrably
+   * reached CEE. This file's own comment on that branch says the rendered
+   * structure "came from a validated GRAPH_READY frame and is real": it knew
+   * the stream had delivered, and dropped the evidence one line later.
+   *
+   * ⭐ Required rather than defaulted, deliberately. A default would have fixed
+   * today's six sites and left the seventh free to omit it silently; the
+   * compiler now refuses a return site that forgets. That is the difference
+   * between fixing the instances and closing the class.
+   */
+  streamOpened: boolean
   /** The SAME shape the buffered path produces. Ingested identically. */
   result: V5CallResult
   /**
@@ -677,7 +710,7 @@ async function runStreamedDraftTurn(args: {
       // Outcome 1. The buffered body carries the whole graph, so the terminal
       // ingest replaces whatever the preview put up.
       useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-      return { result, previewOwnsCanvas: previewOnCanvas }
+      return { result, previewOwnsCanvas: previewOnCanvas, streamOpened }
     }
     if (previewOnCanvas) {
       // Outcome 2 — the honest failure. Phase stays non-idle so the run gate
@@ -686,7 +719,7 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
-      return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
+      return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss', streamOpened }
     }
     // No browser preview does not prove no server commit: frames can be lost
     // before the original draft finishes. The caller must read the canonical
@@ -719,15 +752,25 @@ async function runStreamedDraftTurn(args: {
       result,
       previewOwnsCanvas: false,
       missingGraphAfterFallback: result.kind === 'response' || streamOpened,
+      streamOpened,
     }
   }
 
   let res: Response
+  /**
+   * ⭐ THE ONE PLACE THE DELIVERY FACT IS BORN. Set the instant
+   * `openV5TurnStream` RESOLVES, so every later return reads one variable
+   * rather than each arm deciding for itself whether the turn reached CEE.
+   * `fallbackToBuffered` closes over it too, so its internal returns cannot
+   * disagree with the arm that called it.
+   */
+  let originalStreamOpened = false
   // Anchors the terminal-ingest record's duration. Taken BEFORE the open, so
   // it measures the turn the user waited for, not the frame parse.
   const streamStartedAt = Date.now()
   try {
     res = await openV5TurnStream(payload, { headers, signal })
+    originalStreamOpened = true
   } catch (e) {
     // The stream never opened, so nothing ran server-side and nothing committed.
     if ((e as Error)?.name === 'AbortError' || signal.aborted) {
@@ -981,11 +1024,12 @@ async function runStreamedDraftTurn(args: {
       // a different fact from a 200 that lost its graph, and one sentence
       // cannot state both truthfully.
       unsettledCause: terminalErrorKeepsModel ? 'terminal_error_model_kept' : 'stream_loss',
+      streamOpened: originalStreamOpened,
     }
   }
 
   useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-  return { result, previewOwnsCanvas }
+  return { result, previewOwnsCanvas, streamOpened: originalStreamOpened }
 }
 
 
@@ -4158,6 +4202,17 @@ export function useConversation(): UseConversationReturn {
       // Capture it once after lazy UUID allocation; never re-derive it from
       // the live store when this request eventually settles.
       const scenarioIdAtDispatch = currentScenarioId
+      // ⭐ THE PRE-TURN FACT RECOVERY ATTRIBUTION NEEDS, AND THE ONLY PLACE IT
+      // IS STILL TRUE. `lastServerGraphHash === null` answers two questions at
+      // once — "this scenario has no server graph yet" and "this canvas was
+      // RESTORED, so no turn has stamped a hash though the server holds a
+      // graph" — and a restored canvas is indistinguishable from a fresh one by
+      // that field alone (`structuralAdd.ts:74`, `structuralRename.ts:168`,
+      // `structuralDelete.ts:522` all record the null). Read HERE, at dispatch,
+      // it separates them: a restore has already put nodes on the canvas, and a
+      // first draft has not. Read any later and a streamed PREVIEW has already
+      // moved it, which is why the recovery module cannot derive this itself.
+      const canvasHadGraphAtDispatch = useCanvasStore.getState().nodes.length > 0
 
       const resolvedTurnType: TurnType = isSystemEvent
         ? 'system_event'
@@ -4382,6 +4437,14 @@ export function useConversation(): UseConversationReturn {
       // unsettled answer (there is no separate boolean that can disagree).
       let streamedPreviewOwnsCanvas = false
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
+      /**
+       * ⛔ HOISTED TO JOIN ITS TWO SIBLINGS, because the outer `catch` needs it
+       * and the inner block scope did not reach. It is declared per invocation
+       * of this function, i.e. per turn, so two concurrent turns cannot read
+       * each other's fact — which a hook-level ref would have allowed, and
+       * which is why one was not used.
+       */
+      let streamOpenedForTurn = false
 
       try {
         // Resolve session identity once — X-User-Id + Authorization Bearer
@@ -4488,6 +4551,7 @@ export function useConversation(): UseConversationReturn {
           streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
           streamedUnsettledCause = streamed.unsettledCause
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
+          streamOpenedForTurn = streamed.streamOpened === true
         } else {
           v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
         }
@@ -4579,7 +4643,19 @@ export function useConversation(): UseConversationReturn {
           // dead socket is not — marking those `sent` would assert delivery
           // this client cannot witness. The recovery read below supplies the
           // other honest proof (a persisted graph for this scenario can only
-          // exist if the turn arrived), and sets it THERE, after it returns.
+          // exist if the turn arrived), and upgrades it THERE, after it returns.
+          //
+          //
+          // ⚠ AND THE OTHER ARM IS RESOLVED DOWNSTREAM, NOT HERE. A second
+          // writer of this field in this branch was tried and removed: the
+          // turn's routing already ends at ONE classifier
+          // (`isTransportFailure` / `isUnverifiedDelivery`, below), which is
+          // the estate's designated authority for "was this delivered?", and
+          // it now accounts for an opened stream. A provisional write here
+          // would only have covered the ownership-lost exit — where the user
+          // has navigated away and the transcript holding this bubble is not
+          // on screen — and no test could distinguish it, which is the
+          // definition of an unpinned second authority for one question.
           if (userBubbleIdForTurn && v5Result.kind === 'response') {
             updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
           }
@@ -4615,6 +4691,7 @@ export function useConversation(): UseConversationReturn {
               userId: v5UserId,
               accessToken: v5Identity.accessToken,
               turnClientId,
+              hadGraphBeforeTurn: canvasHadGraphAtDispatch,
               signal: controller.signal,
               canApply: () =>
                 ownsRecovery() &&
@@ -4642,9 +4719,9 @@ export function useConversation(): UseConversationReturn {
               turnClientId,
             })
             if (recovered && userBubbleIdForTurn) {
-              // The honest proof deferred from the top of this branch: a
-              // persisted graph for this scenario cannot exist unless the turn
-              // reached the server, so delivery is now witnessed.
+              // The upgrade from the provisional state set above: a persisted
+              // graph for this scenario cannot exist unless the turn reached
+              // the server AND was served, so delivery is now fully witnessed.
               updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
             }
             if ((recovered || fallbackClaimsCompletedRun) && mode === 'user' && !hidden) {
@@ -4915,11 +4992,45 @@ export function useConversation(): UseConversationReturn {
           // "failed"/"unconfirmed" marker would assert something the held
           // frame refutes.
           const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
+          // ⛔ AND THE SAME PROOF, ONE RUNG WEAKER, FOR THE ARM THIS CHANGE
+          // OPENS — WITHOUT IT THE PRODUCT SAYS "NOT DELIVERED" ABOUT A TURN
+          // IT HAS JUST READ THE COMMITTED GRAPH FOR.
+          //
+          // `isUnverifiedDelivery` asks whether the FALLBACK request reached
+          // the server, and answers `false` for a network throw on the stated
+          // grounds that "no request ever completed, so non-delivery is
+          // VERIFIED" (`transportFailure.ts`). That grounds is sound for the
+          // turn it was written about and FALSE here: on a truncated streamed
+          // draft the SSE response had already opened and delivered frames, so
+          // this turn demonstrably reached CEE — and CEE finishes turns the
+          // client has stopped listening to. The fallback dying on the same
+          // dead socket is a fact about the retry, not about the turn.
+          //
+          // Two questions under one name, so they are named apart rather than
+          // reconciled: `unverified` = "did the FALLBACK get through?",
+          // `streamOpenedForTurn` = "did THIS TURN get through?". Only the
+          // second licenses a delivery claim, and it licenses `'unconfirmed'`
+          // — sent, reply not received — never `'sent'`, because no outcome
+          // ever came back. `'unconfirmed'` also withholds the retry chip,
+          // which matters: CEE keys its commit on its own per-request id, so a
+          // retry here DUPLICATES the turn.
+          //
+          // ⛔ I FIRST SCOPED THIS TO TRANSPORT-CLASS AND THE REVIEWER WAS
+          // RIGHT THAT IT ANSWERS THE WRONG QUESTION. `target` classifies the
+          // BUFFERED FALLBACK's result; `streamOpenedForTurn` is evidence
+          // about the ORIGINAL turn. A CEE-class `BoundaryError` from the
+          // fallback does not un-open the stream the original turn already
+          // opened — so the conjunct let "Not delivered" render for a message
+          // that demonstrably arrived. A later typed result may govern the
+          // turn's OUTCOME COPY (the server-fault sentence stays), but it
+          // cannot support a claim about DELIVERY. Two requests, two
+          // questions; the conjunct folded them back together after I had
+          // just written that they must not be.
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
               target.kind !== 'typed_error' || deliveryProvenByFrame
                 ? 'sent'
-                : unverified
+                : unverified || streamOpenedForTurn
                   ? 'unconfirmed'
                   : 'failed',
           })
@@ -5752,6 +5863,7 @@ export function useConversation(): UseConversationReturn {
             // attributed to a different session than the turn it recovers.
             accessToken: v5Identity.accessToken,
             turnClientId,
+            hadGraphBeforeTurn: canvasHadGraphAtDispatch,
           })
           if (recovery === 'recovered') {
             // The merge applied the server's committed values and released
@@ -5850,10 +5962,39 @@ export function useConversation(): UseConversationReturn {
         // Timeout-triggered aborts render their own bubble (above). User
         // stops and concurrent cancellations are silent by design.
         if (!isAbort && mode === 'user' && !hidden) {
-          // Transcript honesty: the dispatch itself threw — nothing
-          // reached the server, so the bubble must not read as sent.
+          /**
+           * Transcript honesty: the dispatch threw, so the bubble must not read
+           * as sent.
+           *
+           * ⛔⛔ BUT "THREW" IS NOT "NEVER REACHED THE SERVER", AND THIS LINE
+           * ASSERTED THAT IT WAS. The comment here read *"nothing reached the
+           * server"* and wrote a flat `'failed'`. Measured with an in-process
+           * probe on the real hook: on an opened SSE that delivered a validated
+           * GRAPH_READY frame and was then abandoned with a CEE-class fallback
+           * error, the classifier above computes the delivery fact CORRECTLY
+           * (`streamOpenedForTurn: true`) — and this writer runs AFTERWARDS and
+           * overwrites it. Probe order: `caller got:true` -> `classifier
+           * streamOpenedForTurn:true` -> `WRITER@5805`.
+           *
+           * ⭐⭐ SO THE DEFECT SURVIVED ITS OWN FIX. Codex's independent review
+           * (#1803, head `8b04406f`) found the evidence being DROPPED at 6 of 7
+           * return sites; carrying it at all 7 is necessary and was NOT
+           * sufficient, because `deliveryState` has NINE writers and only the
+           * classifier consulted the fact. A second authority that runs later
+           * beats a correct first one every time.
+           *
+           * The rule is the same one ROADMAP 2.665 states and the classifier
+           * already applies: an opened original stream means the request
+           * reached CEE, whatever happened after, so the honest marker is
+           * `'unconfirmed'` — "Sent — reply not received", and no retry chip,
+           * because CEE keys its commit on its own per-request id and a retry
+           * DUPLICATES the turn. Where the stream never opened, nothing reached
+           * the server, non-delivery is verified and `'failed'` is the truth.
+           */
           if (userBubbleIdForTurn) {
-            updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            updateMessage(userBubbleIdForTurn, {
+              deliveryState: streamOpenedForTurn ? 'unconfirmed' : 'failed',
+            })
           }
           addMessage({
             id: crypto.randomUUID(),

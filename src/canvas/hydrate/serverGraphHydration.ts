@@ -70,6 +70,32 @@ export interface HydrateFromServerOptions {
   timeoutMs?: number
   /** Optional in-session ownership fence, checked after the read, before any write. */
   canApply?: () => boolean
+  /**
+   * Called on the accepted exit, immediately before `'merged'` is returned,
+   * with whether the merge MOVED the canvas.
+   *
+   * ⚠ WHY THIS IS A SIDE CHANNEL AND NOT A NEW OUTCOME. `'merged'` deliberately
+   * covers the idempotent case — see the `!merge.accepted` gate's comment: boot
+   * hydration must NOT treat "the server matched the canvas" as a non-merge, or
+   * it re-merges forever. But a caller asking a DIFFERENT question — "did THIS
+   * turn's draft come back?" — cannot answer it from `'merged'` alone, because a
+   * graph that was already on the canvas before the turn merges idempotently
+   * and looks identical to a recovery. Two questions, one outcome name; naming
+   * them apart is the fix, and changing the outcome vocabulary would move boot.
+   *
+   * Every other caller omits it and is unaffected.
+   */
+  onMergeApplied?: (merge: {
+    readonly changed: boolean
+    /**
+     * The fetched graph's own identity, and the server base this client held
+     * when the read was ISSUED. Equal means the server is handing back the
+     * graph it already had before this turn — canvas movement then proves only
+     * that the canvas was behind, never that this turn caused anything.
+     */
+    readonly graphHash: string | null
+    readonly baseAtDispatch: string | null
+  }) => void
 }
 
 /**
@@ -439,6 +465,10 @@ export async function hydrateCanvasFromServer(
   )
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
+
+  // Reported from the one place that knows it, AFTER every write this function
+  // performs, so a caller acting on it is acting on a settled canvas.
+  opts.onMergeApplied?.({ changed: merge.changed, graphHash: result.graphHash, baseAtDispatch })
 
   return 'merged'
 }
