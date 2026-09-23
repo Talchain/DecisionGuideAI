@@ -10,6 +10,7 @@ import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
+import { markEdgeEditInFlight, resolveEdgeEditSettlement } from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
@@ -1131,7 +1132,21 @@ export function useEdgeMutations(edgeId: string) {
      * not crash the inspector. So the optional chain is defence against a
      * dynamic caller, and the type is what stops a real one omitting it.
      */
-    settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
+    //
+    // ⭐ ONE WRITER (served witnesses 23 Sep 02:49Z and, after #1895, 4c6ec07b):
+    // the send now has a life after it leaves. While the canvas shows a
+    // magnitude the server has not confirmed, registration is held
+    // (`editDeliveryHold` signal 5). The turn carries its own write
+    // (`optimisticEdgeEdit`) so an APPLIED receipt acknowledges the model past
+    // it — no whole-graph register follows, and none can drop the provenance
+    // CEE just recorded. A proven no-write reverts; anything unconfirmed keeps
+    // the number and stays held. `edge.data` is the PRE-write read above.
+    const before = (edge.data ?? {}) as Record<string, unknown>
+    markEdgeEditInFlight(edgeId, absWeight, before)
+    settleSystemEventSend(
+      sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before } }),
+      (settlement) => opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement)),
+    )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 

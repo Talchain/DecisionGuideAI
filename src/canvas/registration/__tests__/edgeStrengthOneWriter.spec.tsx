@@ -47,6 +47,7 @@ import { useCanvasStore } from '../../store'
 import { clearImportRegistrationMarkers, isGraphServerAcknowledged } from '../../store/importRegistrationMarker'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { __resetPendingFactorEditsForTest } from '../../conversation/pendingFactorEdit'
+import { __resetPendingEdgeEditsForTest } from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 
@@ -328,6 +329,7 @@ beforeEach(() => {
   releaseTurn = null
   clearImportRegistrationMarkers()
   __resetPendingFactorEditsForTest()
+  __resetPendingEdgeEditsForTest()
   __resetPersistenceSessionForTests()
   useCanvasStore.setState({
     nodes: [] as never,

@@ -145,7 +145,7 @@ export function useImportRegistration(): void {
    * rolled the edit back (500), and the register had already stored the number
    * as Olumi's. Measured twice independently that night (Model-tab edit,
    * request `368410a8…`: register committed at 24.119, the edit's CAS conflicted
-   * at 24.429). See `editDeliveryHold.ts` for the four signals.
+   * at 24.429). See `editDeliveryHold.ts` for the five signals.
    *
    * ⚠ ONE GATE, NOT TWO. #1882 landed a narrower cut of the same rule
    * (`anyFactorEditInFlight()` plus its own settle tick, factor edits only,
