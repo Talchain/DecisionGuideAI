@@ -1658,6 +1658,30 @@ describe('11 · every exit of a delete turn settles it (Panel #1905 item 1)', { 
     expect(heldCause()).toBe('unresolved_structural_edit')
   })
 
+  it('D8 — a delete QUEUED behind a turn in flight is not announced as unconfirmed before it is sent: it goes, CEE proves it, nothing holds and no toast', async () => {
+    const hook = await mountAcknowledgedStructuralBoard()
+    // The user's own turn is on the wire when they delete.
+    holdTurn = true
+    replies.push({ ok: true, response: { assistant_text: 'ok', blocks: [] } }, DELETE_APPLIED)
+    await userSends(hook, 'Which of these factors matters most?')
+    await deleteConcentration()
+    // PRECONDITION: the delete was DEFERRED, not dispatched — one turn on the wire.
+    expect(dispatched).toHaveLength(1)
+    expect(userTurnsSent()).toBe(1)
+    expect(toastLog).toEqual([])
+
+    holdTurn = false
+    await releaseHeldTurn()
+    await act(async () => { await flush() })
+
+    // The queue dispatched it, and its own receipt proved it.
+    expect(sentKinds()).toEqual([undefined, 'structural_delete'])
+    expect(concentrationOnCanvas()).toBe(false)
+    expect(heldCause()).toBeNull()
+    expect(toastLog).toEqual([])
+    expect(registeredWithoutConcentration()).toEqual([])
+  })
+
   describe('the arms that already resolve stay as they are — and gain no second notice', () => {
     it('D1 — untyped 500: held, unacknowledged, ONE "couldn\'t confirm" notice and no toast', async () => {
       const hook = await mountAcknowledgedStructuralBoard()
