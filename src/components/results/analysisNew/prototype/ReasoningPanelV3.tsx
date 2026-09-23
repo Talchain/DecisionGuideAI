@@ -311,7 +311,7 @@ export function ReasoningPanelV3({ vm, biasItems = [] }: ReasoningPanelV3Props) 
           testId="reasoning-v3-method"
         >
           <CritiqueWarningStrip critiques={vm.deeper.critiques} className="mb-2" />
-          <InferenceWarningStrip warnings={vm.deeper.caveats} className="mb-2" />
+          <InferenceWarningStrip warnings={vm.deeper.caveats} className="mb-2" heldBackListedUnder={null} />
           <WhatWeChecked checks={vm.checks} />
         </SectionShell>
       </div>

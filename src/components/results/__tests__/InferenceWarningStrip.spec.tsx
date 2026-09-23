@@ -71,7 +71,7 @@ describe('selectWarningSeverityEntries', () => {
 
 describe('InferenceWarningStrip', () => {
   it('renders HUMANISED copy for a warning-severity entry, never the raw producer message', () => {
-    render(<InferenceWarningStrip warnings={[WARNING_CONSTRAINT_TARGET]} />)
+    render(<InferenceWarningStrip heldBackListedUnder="The listing section" warnings={[WARNING_CONSTRAINT_TARGET]} />)
     const strip = screen.getByTestId('inference-warning-strip')
     expect(strip).toBeInTheDocument()
     const entry = screen.getByTestId('inference-warning-strip-entry')
@@ -103,7 +103,7 @@ describe('InferenceWarningStrip', () => {
       message: "observed_state.value missing for fac_marketing_spend, defaulted",
       severity: 'warning',
     }
-    render(<InferenceWarningStrip warnings={[missingObservedState]} />)
+    render(<InferenceWarningStrip heldBackListedUnder="The listing section" warnings={[missingObservedState]} />)
     const entry = screen.getByTestId('inference-warning-strip-entry')
     // Template-derived, human-readable — uses the producer-resolved label.
     expect(entry).toHaveTextContent('Marketing Spend is missing a current value')
@@ -113,15 +113,15 @@ describe('InferenceWarningStrip', () => {
 
   it('renders nothing when only info-severity entries exist (info stays hidden)', () => {
     const { container } = render(
-      <InferenceWarningStrip warnings={[INFO_EDGE_SENSITIVITY, INFO_CONSTRAINT_BASE]} />,
+      <InferenceWarningStrip heldBackListedUnder="The listing section" warnings={[INFO_EDGE_SENSITIVITY, INFO_CONSTRAINT_BASE]} />,
     )
     expect(container.firstChild).toBeNull()
   })
 
   it('renders nothing when warnings are absent or empty', () => {
-    const { container: empty } = render(<InferenceWarningStrip warnings={[]} />)
+    const { container: empty } = render(<InferenceWarningStrip heldBackListedUnder="The listing section" warnings={[]} />)
     expect(empty.firstChild).toBeNull()
-    const { container: absent } = render(<InferenceWarningStrip />)
+    const { container: absent } = render(<InferenceWarningStrip heldBackListedUnder="The listing section" />)
     expect(absent.firstChild).toBeNull()
   })
 
@@ -152,20 +152,40 @@ describe('InferenceWarningStrip', () => {
       severity: 'warning',
     }
     render(
-      <InferenceWarningStrip
+      <InferenceWarningStrip heldBackListedUnder="The listing section"
         warnings={[INFO_EDGE_SENSITIVITY, WARNING_CONSTRAINT_TARGET, second]}
       />,
     )
     expect(screen.getAllByTestId('inference-warning-strip-entry')).toHaveLength(1)
     const heldBack = screen.getByTestId('inference-warning-strip-held-back')
     expect(heldBack).toHaveTextContent('One more limitation')
-    expect(heldBack).toHaveTextContent('How this was worked out')
+    // Names the HOST's section, by identity — the strip no longer hardcodes one
+    // (it said "How this was worked out", true on no surface; panel F5).
+    expect(heldBack).toHaveTextContent('listed under The listing section.')
+  })
+
+  it('names no place when the host lists the held-back entries nowhere (null)', () => {
+    const second: InferenceWarning = {
+      code: 'CONSTRAINT_TARGET_UNRELIABLE',
+      affected_nodes: [],
+      message: "The target for 'out_roi' could not be reliably assessed - set an explicit range for this outcome to make the target meaningful.",
+      severity: 'warning',
+    }
+    render(
+      <InferenceWarningStrip
+        heldBackListedUnder={null}
+        warnings={[INFO_EDGE_SENSITIVITY, WARNING_CONSTRAINT_TARGET, second]}
+      />,
+    )
+    const heldBack = screen.getByTestId('inference-warning-strip-held-back')
+    expect(heldBack).toHaveTextContent('One more limitation is not shown here.')
+    expect(heldBack).not.toHaveTextContent('listed under')
   })
 
   it('says nothing about a remainder when there is none', () => {
     // The discriminating twin: without it the disclosure could be unconditional
     // furniture, naming a remainder that does not exist.
-    render(<InferenceWarningStrip warnings={[INFO_EDGE_SENSITIVITY, WARNING_CONSTRAINT_TARGET]} />)
+    render(<InferenceWarningStrip heldBackListedUnder="The listing section" warnings={[INFO_EDGE_SENSITIVITY, WARNING_CONSTRAINT_TARGET]} />)
     expect(screen.getAllByTestId('inference-warning-strip-entry')).toHaveLength(1)
     expect(screen.queryByTestId('inference-warning-strip-held-back')).toBeNull()
   })
