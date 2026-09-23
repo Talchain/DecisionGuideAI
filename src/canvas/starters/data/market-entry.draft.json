@@ -148,7 +148,7 @@
       "id": "goal_arr_growth",
       "kind": "goal",
       "label": "Grow Total ARR Materially Within 12 Months",
-      "goal_threshold": 0.73,
+      "goal_threshold": 0.7333333333333333,
       "goal_threshold_raw": 11,
       "goal_threshold_unit": "£M ARR",
       "goal_threshold_cap": 15,
@@ -1234,7 +1234,7 @@
     "goal_node_id": "goal_arr_growth",
     "status": "ready",
     "bias_findings": [],
-    "goal_threshold": 0.73,
+    "goal_threshold": 0.7333333333333333,
     "model_adjustments": [
       {
         "code": "category_reclassified",

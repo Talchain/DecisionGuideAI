@@ -69,7 +69,10 @@ export function staleReasonFromFreshness(freshness: string | null | undefined): 
  *      dirty, importHold)`, reached through `computeAnalysisTrust` (`:166`).
  *   2. wire present, `run_state.kind === 'complete_current'`, dirty overlay
  *      set, NO import hold → the literal `'changed'` (`wireCurrencySuperseded`,
- *      `:570`).
+ *      `:570`). AMENDED 23 Sep 2026: `wireCurrencySuperseded` also holds for
+ *      `unknown_degraded` / `no_graph_this_turn` + dirty overlay when route 1's
+ *      classifier, asked without the hold, answers `'changed'` — a turn that
+ *      evaluated no currency cannot outrank a local edit (see the selector).
  *   3. those same conditions WITH an import hold → the literal
  *      `'cannot_confirm'`.
  *   4. wire present, not superseded → `mapRunStateKindToSemantic(kind,

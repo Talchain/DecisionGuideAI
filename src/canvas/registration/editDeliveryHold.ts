@@ -141,21 +141,65 @@ function currentValue(data: unknown): unknown {
  * and the boot merge then shows CEE's graph). Fail closed: an edit nobody
  * confirmed is never promoted to canonical by the side channel.
  */
+/**
+ * ⛔ WHAT SUPERSEDES AN UNCONFIRMED ATTEMPT — ONLY A LATER COMMIT OF THE SAME
+ * STATE (#1892 review, twice).
+ *
+ *   @ 846997a1 — every `unconfirmed` record held forever: rename "Foo" (500) →
+ *     "Bar" (applied) → "Foo" (applied) left the first record matching the
+ *     canvas, walling registration off although CEE had applied "Foo".
+ *   @ 9dac7d3e — my fix ("only the latest attempt speaks") over-corrected: a
+ *     later REFUSAL erased the hold. "Foo" (500) → "Bar" refused, which rolls
+ *     the canvas back to the unconfirmed "Foo"; the latest record was the
+ *     refusal, nothing held, and the side channel could make "Foo" canonical.
+ *
+ * The rule: an `unconfirmed` attempt holds while its optimistic state is still
+ * on the canvas, UNLESS a later attempt on the same (scenario, node) was
+ * `committed` with that SAME state — an authoritative receipt establishing what
+ * the canvas shows. A refusal proves nothing about the earlier attempt, and a
+ * commit of a different state does not establish this one.
+ */
+function unconfirmedAttemptsStillStanding(
+  records: ReadonlyArray<unknown>,
+  sameState: (later: Record<string, unknown>, earlier: Record<string, unknown>) => boolean,
+): Array<Record<string, unknown>> {
+  type Rec = { status?: unknown; scenarioId?: unknown; intent?: { nodeId?: unknown } }
+  const list = records.map((raw) => (raw ?? {}) as Record<string, unknown> & Rec)
+  return list.filter((r, i) => {
+    if (r.status !== 'unconfirmed' || typeof r.intent?.nodeId !== 'string') return false
+    return !list.slice(i + 1).some(
+      (later) =>
+        later.status === 'committed' &&
+        (later.scenarioId ?? null) === (r.scenarioId ?? null) &&
+        later.intent?.nodeId === r.intent!.nodeId &&
+        sameState(later, r),
+    )
+  })
+}
+
+const labelOfIntent = (r: Record<string, unknown>) => (r.intent as { label?: unknown } | undefined)?.label
+
 function unresolvedStructuralEditOnCanvas(state: EditDeliveryState): boolean {
   const scenario = state.currentScenarioId ?? null
   const labelOf = (id: unknown): unknown => {
     const node = state.nodes.find((n) => n.id === id)
     return node ? (node.data as { label?: unknown } | undefined)?.label : undefined
   }
-  for (const raw of state.structuralRenameLifecycle ?? []) {
-    const r = raw as { status?: unknown; scenarioId?: unknown; intent?: { nodeId?: unknown; label?: unknown } }
-    if (r?.status !== 'unconfirmed' || (r.scenarioId ?? null) !== scenario) continue
-    if (r.intent && labelOf(r.intent.nodeId) === r.intent.label) return true
+  const renames = unconfirmedAttemptsStillStanding(
+    state.structuralRenameLifecycle ?? [],
+    (later, earlier) => labelOfIntent(later) === labelOfIntent(earlier),
+  )
+  for (const r of renames) {
+    if ((r.scenarioId ?? null) !== scenario) continue
+    const intent = r.intent as { nodeId?: unknown; label?: unknown }
+    if (labelOf(intent.nodeId) === intent.label) return true
   }
-  for (const raw of state.structuralAddLifecycle ?? []) {
-    const r = raw as { status?: unknown; scenarioId?: unknown; intent?: { nodeId?: unknown } }
-    if (r?.status !== 'unconfirmed' || (r.scenarioId ?? null) !== scenario) continue
-    if (r.intent && state.nodes.some((n) => n.id === r.intent!.nodeId)) return true
+  // An add's state is the node's existence: any later committed add of it establishes it.
+  const adds = unconfirmedAttemptsStillStanding(state.structuralAddLifecycle ?? [], () => true)
+  for (const r of adds) {
+    if ((r.scenarioId ?? null) !== scenario) continue
+    const nodeId = (r.intent as { nodeId?: unknown }).nodeId
+    if (state.nodes.some((n) => n.id === nodeId)) return true
   }
   return false
 }

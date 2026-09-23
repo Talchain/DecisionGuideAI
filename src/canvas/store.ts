@@ -1551,6 +1551,30 @@ interface CanvasState {
    */
   resultsWithholdLeaderClaim: (reason: LeaderClaimWithholdingReason) => void
   /**
+   * RECORD THE ADMISSION THE HELD REPORT'S OWN RUN WAS DELIVERED UNDER, as
+   * `report.run_analysis_admission` (#1206; ruling olumi-programme-docs#63,
+   * comment 5787026951). The field's own docblock (`adapters/plot/types.ts`)
+   * carries the harm and the design; this is the ONE writer.
+   *
+   * ⭐ CALLED ON EVERY APPLIED `analysis_result`, NEVER KEYED ON A HASH CHANGE.
+   * The hash is a CONTENT hash, and a byte-identical block is re-delivered on
+   * follow-up turns (`applyV5State`'s delta note), so "same report" does not
+   * mean "same admission". A later
+   * envelope that re-delivers the displayed result under a different admission
+   * is the producer re-stating what that result may claim, and it replaces the
+   * record — in either direction, because it is the same producer speaking
+   * about the same run.
+   *
+   * ⚠ `undefined` REMOVES THE RECORD. An envelope carrying the result but no
+   * admission is an older producer, and "no run-own constraint" is exactly
+   * today's behaviour — absence never becomes a refusal.
+   *
+   * ⛔ WITH NO REPORT HELD IT WRITES NOTHING: a record with no artefact to
+   * attach to would be a claim about nothing, and the next genuine result would
+   * arrive carrying it.
+   */
+  resultsRecordRunAdmission: (admission: AnalysisAdmissionV1 | undefined) => void
+  /**
    * ⭐ THE RECOVERY HALF — a later turn on which the producer POSITIVELY
    * PERMITS clears a withholding, instead of the user needing a whole new run.
    *
@@ -6017,6 +6041,43 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Never let a persistence failure take down the withholding — the claim
       // is already off the screen, which is the part that matters.
       console.warn('[resultsWithholdLeaderClaim] Failed to persist withholding to autosave', err)
+    }
+  },
+
+  /**
+   * See the declaration on `CanvasState`, and the field's docblock on
+   * `ReportV1.run_analysis_admission` for the harm and the design.
+   */
+  resultsRecordRunAdmission: (admission) => {
+    const held = get().results.report
+    if (!held) return
+    // IDEMPOTENT, structurally. The same block — and usually the same
+    // admission — is re-delivered on follow-up turns; re-stamping each time would allocate
+    // a new report object and re-render every results surface for no change.
+    // The admission is a small, JSON-shaped producer object, so its serialised
+    // form is its identity here.
+    const next = admission ?? undefined
+    if (JSON.stringify(held.run_analysis_admission ?? undefined) === JSON.stringify(next)) return
+
+    // Spread, never mutate — the same reason `resultsWithholdLeaderClaim` gives:
+    // the previous object is held by `previousReport` and the Compare capture.
+    // `undefined` REMOVES the key rather than writing an explicit empty slot, so
+    // an older producer's report is byte-for-byte a report that never had one.
+    const { run_analysis_admission: _superseded, ...withoutRecord } = held
+    const report = next === undefined ? withoutRecord : { ...withoutRecord, run_analysis_admission: next }
+    set(s => ({ results: { ...s.results, report: report as typeof held } }))
+
+    // ⭐ PERSISTED, for the reason both leader-claim actions above persist:
+    // `useAutosave`'s dirty check is GRAPH ONLY, and this changes no node and no
+    // edge. Without it the record would be live-only on a duplicate-hash turn,
+    // and a reload would restore the report under whatever admission the last
+    // graph-changing save happened to capture.
+    try {
+      scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(get())))
+    } catch (err) {
+      // Never let a persistence failure take down the record — it is already in
+      // force on screen, which is the part that matters.
+      console.warn('[resultsRecordRunAdmission] Failed to persist run admission to autosave', err)
     }
   },
 

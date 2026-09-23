@@ -1,6 +1,7 @@
 import type { DriversPayload } from '../driversAdapter'
 import type { CeeErrorCodeType } from '@talchain/schemas'
 import type { ProducerLeaderPermission } from '../../lib/decisionVerdict'
+import type { AnalysisAdmissionV1 } from '../cee/types'
 
 export type ConfidenceLevel = 'low' | 'medium' | 'high'
 
@@ -185,6 +186,54 @@ export interface ReportV1 {
    * restated here — one authority per fact.
    */
   producer_leader_permission?: ProducerLeaderPermission | null
+  /**
+   * THE ADMISSION THIS REPORT'S OWN RUN WAS DELIVERED UNDER — CEE's
+   * `analysis_ready.analysis_admission`, read from the SAME response envelope
+   * that carried the `analysis_result` this report was mapped from. (#1206;
+   * binding ruling olumi-programme-docs#63, comment 5787026951: "claim
+   * permitted = run-own admission permits it AND current effective admission
+   * permits it".)
+   *
+   *   WRITTEN  `canvas/store.ts` → `resultsRecordRunAdmission`, called by
+   *            `applyV5State` step 5 on EVERY applied `analysis_result`
+   *   READ     `results/useResultsSectionData.ts` → published as
+   *            `recommendation.runAnalysisAdmission`, conjoined into the
+   *            leader gate there and into `analysisClaimPolicy`'s stability
+   *            answer
+   *
+   * ⭐ WHY IT EXISTS. The live admission (`ceeAnalysisReady`) describes the
+   * CURRENT graph and is replaced by every turn that carries one — including a
+   * `factor_value_edit` turn that returns a graph patch and NO result. Witnessed
+   * on the served build, 23 Sep 2026: a `quantified_provisional` run showed no
+   * strength word; one edit later that turn's `comparative_leader` became live
+   * and the SAME run's `fragile` verdict was printed as "Sensitive". A licence
+   * about a graph the run was never computed over cannot make its verdict
+   * sayable, so the run's own admission is recorded HERE, beside the claim it
+   * governs.
+   *
+   * ⭐ ON THE REPORT, NOT THE SLICE, FOR `producer_leader_permission`'s REASON:
+   * the permission is bound to the artefact it is about. So it rides the
+   * autosave record and the reload restore with its report, and every writer
+   * that REPLACES or CLEARS the report (the provisional read leg, a Supabase
+   * hydration, a reset, a scenario switch) installs a report with no record,
+   * or none at all, by construction — there is no second list of clear sites
+   * to keep in step. A restore brings back only the restored report's OWN
+   * record. That is also why it is NOT in
+   * `DECISION_CONTEXT_CLEAR`: `hydrateGraphSlice` spreads that on non-switch
+   * boot restores where the report survives (`store/idleResults.ts`), and the
+   * fact must live and die with its report, not with the graph context.
+   *
+   * ⛔ IT MAY ONLY EVER WITHHOLD. Every reader conjoins it with the current
+   * effective admission, whose absence arm is unchanged. And ABSENCE — every
+   * report written before this change, every V1/V2 path, every restored or
+   * hydrated report, and every run whose envelope carried no admission (an
+   * older CEE) — reads as "no run-own constraint", NEVER as a refusal.
+   *
+   * ⚠ NOT FOR FORWARD-LOOKING USE. Run affordances, readiness, remedies and the
+   * refusal's own copy describe the CURRENT graph and keep reading the current
+   * effective admission (`recommendation.analysisAdmission`).
+   */
+  run_analysis_admission?: AnalysisAdmissionV1 | null
   // Goal node info for display
   goal_node?: {
     id: string

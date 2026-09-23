@@ -319,6 +319,14 @@ export interface StrengthenInputs {
    */
   analysisIdentityIsCurrent?: boolean
   /**
+   * May any surface state a stability verdict on this run? Quoted from
+   * `analysisClaimPolicy(rec).mayStateStability` by BOTH callers, never
+   * re-derived. `false` suppresses the commit row, whose copy says the numbers
+   * "held up under stress-testing" (#1206). Absent = an older caller, read as
+   * licensed, matching the policy's own absent-admission arm.
+   */
+  stabilityLicensed?: boolean
+  /**
    * ROADMAP 1.243 — the ONE boolean any surface must hold before asserting OR
    * presupposing a leading option. Never re-derived in `buildRecommendations`,
    * and never inferred from `analysisComplete`: a completed analysis is not an

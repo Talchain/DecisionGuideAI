@@ -25,6 +25,8 @@
  * shown `≥ 0.8` while the panel held `20000` and `£` one line away.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { render, cleanup } from '@testing-library/react'
 import { GoalPanel } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
@@ -71,10 +73,30 @@ describe('GoalPanel — the target is the user\'s own figure', () => {
     expect(goal, 'no starter node carries goal_threshold_raw — the cases below are stranded').toBeDefined()
     expect(goal?.goal_threshold_raw, 'the starter\'s raw target moved').toBe(110)
     expect(goal?.goal_threshold_unit, 'the starter\'s unit moved').toBe('%')
-    // ⭐ And the incoherence CEE reported is STILL SHIPPED: 1.1 is outside [0,1],
-    // and 110/140 = 0.7857, so this is not `raw / cap`. That is the whole reason
-    // the normalised magnitude must never be rendered as the target.
-    expect(goal?.goal_threshold, 'the starter no longer ships the out-of-range value').toBe(1.1)
+    // The SHIPPED starter's normalisation is now coherent: `build-starter-fixtures.mjs`
+    // transformation 4 re-mints it as CEE's draft projector would (`raw / cap`,
+    // rule 3 headroom cap 137.5 → 0.8). The reader's figure above did not move.
+    expect(goal?.goal_threshold, 'the shipped starter is not raw / cap').toBe(110 / 137.5)
+  })
+
+  /**
+   * ⛔ THE 1.1 CASE BELOW IS STILL REAL BYTES, ANCHORED WHERE THEY LIVE NOW. The
+   * source capture is append-only evidence and is never edited, so it still
+   * carries the incoherent 1.1 against cap 140 — and every scenario saved from
+   * the starter before transformation 4 registered exactly those bytes (the
+   * canvas sends node data verbatim). So the out-of-range case is what a
+   * persisted board can still hold; this pin keeps it from being stranded.
+   */
+  it('PROVENANCE PIN: the source capture still carries the out-of-range 1.1', () => {
+    const capturePath = resolve(__dirname, '../../../../../docs/evidence/starters/raw/pricing-model.capture.json')
+    const capture = JSON.parse(readFileSync(capturePath, 'utf8')) as { nodes?: Array<Record<string, unknown>> }
+    const goal = (capture.nodes ?? []).find((n) => n.id === 'goal_pricing_transition')
+    expect(goal, 'the capture no longer carries the pricing goal — the 1.1 case below is stranded').toBeDefined()
+    expect(goal?.goal_threshold_raw).toBe(110)
+    expect(goal?.goal_threshold_unit).toBe('%')
+    // 1.1 is outside [0,1], and 110/140 = 0.7857, so this is not `raw / cap`.
+    // That is the whole reason the normalised magnitude must never be rendered.
+    expect(goal?.goal_threshold, 'the capture no longer carries the out-of-range value').toBe(1.1)
     expect(goal?.goal_threshold_cap).toBe(140)
   })
 
