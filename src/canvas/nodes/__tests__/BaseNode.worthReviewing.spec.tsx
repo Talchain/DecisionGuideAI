@@ -41,11 +41,10 @@
  *                     never covered
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { CANVAS_CORNER_STACK_CLASSES } from '../shared/canvasGlyphScale'
+import type { ComponentProps } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
-import { sensitivityRankBadgeAccessibleName, sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
@@ -136,7 +135,7 @@ function makeItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
 const renderNode = () =>
   render(
     <ReactFlowProvider>
-      <DecisionNode {...(baseProps as never)} />
+      <DecisionNode {...(baseProps as unknown as ComponentProps<typeof DecisionNode>)} />
     </ReactFlowProvider>,
   )
 

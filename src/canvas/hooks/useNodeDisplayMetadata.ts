@@ -12,11 +12,8 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
 import {
-  compareByDisplayModel,
-  determinedRankDepth,
   hasMeaningfulMagnitude,
   rowCarriesMagnitudeMetric,
-  MAX_BADGED_RANK,
 } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
