@@ -13,7 +13,7 @@
  * - dangling-edge fail-closed drop
  * - fallback edge id collision handling
  * - strict no-op when the receipt carries nothing new
- * - deterministic placement right of the existing bounding box
+ * - deterministic placement at the end of the added node's own row
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -102,7 +102,12 @@ describe('reconcileAppliedGraph', () => {
     expect(factor1?.data?.observedState).toEqual({ value: 100 })
   })
 
-  it('places added nodes right of the existing bounding box (no re-layout of existing nodes)', () => {
+  it('places added nodes at the end of their OWN row, side by side (no re-layout of existing nodes)', () => {
+    // Was: "right of the existing bounding box", stacked in a column from the
+    // TOP-most y — which put an added node in the Question's row until the next
+    // analysis re-laid it out (founder report, 23 Sep 2026). Added factors now
+    // join factor-1's row. The full contract, on a canonical-layout canvas,
+    // lives in `addedNodePlacement.spec.ts`.
     reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
@@ -114,14 +119,16 @@ describe('reconcileAppliedGraph', () => {
     } as any)
 
     const { nodes } = useCanvasStore.getState()
-    const maxExistingX = 400
+    const factorRowY = 200 // factor-1's row
     const added2 = nodes.find((n) => n.id === 'factor-2') as any
     const added3 = nodes.find((n) => n.id === 'factor-3') as any
-    expect(added2.position.x).toBeGreaterThan(maxExistingX)
-    expect(added3.position.x).toBe(added2.position.x)
-    expect(added3.position.y).toBeGreaterThan(added2.position.y)
+    expect(added2.position.y).toBe(factorRowY)
+    expect(added3.position.y).toBe(factorRowY)
+    expect(added2.position.x).toBeGreaterThan(40)
+    expect(added3.position.x).toBeGreaterThan(added2.position.x)
     // Existing nodes did not move.
     expect((nodes.find((n) => n.id === 'goal-1') as any).position).toEqual({ x: 400, y: 40 })
+    expect((nodes.find((n) => n.id === 'factor-1') as any).position).toEqual({ x: 40, y: 200 })
   })
 
   it('does not re-add an existing edge whose local id differs from the wire id (endpoint-pair dedupe)', () => {

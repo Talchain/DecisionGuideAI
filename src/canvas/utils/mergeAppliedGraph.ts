@@ -67,8 +67,10 @@
  * ---------------------------------------------------------------------------
  *   - ADD: wire elements missing from the canvas are converted with the SAME
  *     mappers as the draft path (mapDraftNodeToCanvas / mapDraftEdgeToCanvas)
- *     and placed in a column right of the current bounding box — never a full
- *     re-layout of the user's graph.
+ *     and placed at the end of their kind's own row, clear of every existing
+ *     card (`newNodePlacement.placeAddedNodes`; a kind with no row yet falls
+ *     back to a column right of the bounding box) — never a full re-layout of
+ *     the user's graph.
  *   - UPDATE: wire elements already on the canvas have their ANALYTICAL fields
  *     overlaid onto the existing element. Layout-only state (position, size,
  *     measurement, selection, drag state) is preserved by construction: the
@@ -128,6 +130,7 @@ import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { placeAddedNodes } from './newNodePlacement'
 import { EDGE_PROVENANCED_FIELDS, edgeSourceKey } from '../domain/edgeValueProvenance'
 
 /** Derived from EDGE_PROVENANCED_FIELDS — never a hand-listed set. */
@@ -172,13 +175,11 @@ import {
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
 
 /**
- * Horizontal gap between the current bounding box and the added column.
- * Exported so the boot-hydration merge places added nodes identically —
- * two placement constants that must agree is a mirror, and mirrors drift.
+ * The fallback column's constants, re-exported from where the placement rule
+ * now lives (`newNodePlacement.placeAddedNodes`) so existing importers keep one
+ * definition rather than gaining a second.
  */
-export const ADDED_COLUMN_X_GAP = 260
-/** Vertical spacing between stacked added nodes. */
-export const ADDED_COLUMN_Y_STEP = 140
+export { ADDED_COLUMN_X_GAP, ADDED_COLUMN_Y_STEP } from './newNodePlacement'
 
 export interface ReconcileAppliedGraphResult {
   addedNodeCount: number
@@ -572,15 +573,17 @@ export function reconcileAppliedGraph(
   )
   const addedNodes = missingRawNodes.map((n: any) => mapDraftNodeToCanvas(n))
 
-  // Deterministic placement: a column to the right of the SURVIVING bounding
-  // box. Never re-layouts the user's existing nodes.
+  // Deterministic placement: each added node joins ITS OWN ROW (the tier
+  // `TIER_BY_KIND` gives its kind), right of that row's rightmost card and
+  // clear of every card on the SURVIVING canvas — the row the canonical layout
+  // would give it, so a later analysis no longer moves it to a different row.
+  // A kind with no row yet keeps the column right of the bounding box. Never
+  // re-layouts the user's existing nodes. ONE helper, shared with the boot
+  // merge (`mergeServerGraph`), so the two placements cannot drift.
   if (addedNodes.length > 0) {
-    const xs = reconciledNodes.map((n: any) => n.position?.x ?? 0)
-    const ys = reconciledNodes.map((n: any) => n.position?.y ?? 0)
-    const baseX = (xs.length ? Math.max(...xs) : 0) + ADDED_COLUMN_X_GAP
-    const baseY = ys.length ? Math.min(...ys) : 0
+    const positions = placeAddedNodes(reconciledNodes, addedNodes)
     addedNodes.forEach((n: any, idx: number) => {
-      n.position = { x: baseX, y: baseY + idx * ADDED_COLUMN_Y_STEP }
+      n.position = positions[idx]
     })
   }
 
