@@ -115,11 +115,17 @@ describe('EvidenceGapBadge', () => {
       expect(questionMark?.className).not.toContain('text-danger')
     })
 
-    it('uses warning colour classes for warning escalation', () => {
+    // Contract v3.1 (PILL-06; DS v5 §8.5 "No filled backgrounds on pills"):
+    // the escalation keeps its needs-judgement BORDER (`border-warning-ink`, the
+    // state-word ink) and loses the `bg-warning-light` fill — an outlined badge
+    // on the panel ground.
+    it('uses the outlined needs-judgement border for warning escalation, with no fill', () => {
       const { container } = render(<EvidenceGapBadge label="X" escalation="warning" />)
       const badge = container.querySelector('[data-testid="evidence-gap-badge"]')
-      expect(badge?.className).toContain('border-warning')
-      expect(badge?.className).toContain('bg-warning-light')
+      const cls = (badge?.className ?? '').split(/\s+/)
+      expect(cls).toContain('border-warning-ink')
+      expect(cls).toContain('bg-panel')
+      expect(cls).not.toContain('bg-warning-light')
     })
 
     it('includes escalation-specific tooltip text for warning', () => {

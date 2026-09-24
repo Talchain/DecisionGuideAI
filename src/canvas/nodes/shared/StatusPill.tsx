@@ -5,9 +5,10 @@
  * threshold). Replaces the legacy "?" overlay badge per Graph v1.1 wireframe v4
  * (FactorNeedsPre / GoalNoTargetPre).
  *
- * Spec (Polish 4 Task 6): 10px text, 500 weight, 2px×8px padding, 10px radius,
- * warning at 15% bg / 40% border, warning text colour. The original 9px/1px
- * spec was unreadable at typical canvas zoom (80–100%). British English: colour.
+ * Spec (Polish 4 Task 6, SUPERSEDED by contract v3.1 — see `STATE_WORD_CLASSES`):
+ * 10px text, 500 weight, 2px×8px padding, 10px radius, warning at 15% bg / 40%
+ * border, warning text colour. The original 9px/1px spec was unreadable at
+ * typical canvas zoom (80–100%). British English: colour.
  *
  * ⭐ 18 Aug 2026: that 11px was an INLINE `fontSize`, so it never saw the canvas
  * counter-scale and rendered at 5.5px at the 0.50 auto-fit floor — smaller than
@@ -94,18 +95,55 @@ interface StatusPillProps {
  *
  * ⛔ NOTHING ELSE MOVES: no padding, no border width, no `lineHeight`, no copy.
  * One token, so the pill's geometry is byte-identical and no card's height can
- * change.
+ * change. (That was the scope of the 17 Sep change. The wash, the border and
+ * the geometry moved on 24 Sep for contract v3.1 — below.)
  */
-const PILL_CLASSES =
-  `${typography.nodeLabel} shrink-0 whitespace-nowrap inline-flex items-center font-medium text-text-body bg-warning/15 border border-warning/40 rounded-[10px]`
-const PILL_STYLE = { padding: '2px 8px', lineHeight: 1.2, borderWidth: '0.5px' } as const
+/**
+ * ⭐⭐ THE STATE WORD — contract v3.1 `.node .state-word` (deltas T04 / T06 /
+ * F14 / FRAME-07 / PILL-01; DS v5 §8.5 "One treatment only: outlined. No
+ * filled backgrounds on pills. Ever.").
+ *
+ * The contract: `border:1px solid #DDC6AB; border-radius:99px; padding:1px 6px;
+ * font-size:10px; color:var(--ink); background:white`, weight normal. What it
+ * replaced read as warning styling: an amber WASH (`bg-warning/15`), 12px
+ * medium — the size of the body rows, where the contract's word is a step
+ * below them — and a 0.5px border that is NOT counter-scaled (~0.33 device px
+ * at the 65% landing zoom, so it vanished and left a tinted blob), with a 10px
+ * radius that stopped being round once the counter-scaled text grew the pill.
+ *
+ *   · colour — `border-warning-ink/35` composites to ~#D8C6B6 on the panel,
+ *     the nearest existing token to the contract's #DDC6AB (no new colour);
+ *     the ground is `bg-panel`, the text stays `text-text-body` (10.45:1).
+ *   · type — `edgeLabel` (11px × scale), the served ramp's equivalent of the
+ *     contract's 10px (the served canvas ramp runs one step above it), weight
+ *     normal.
+ *   · geometry — `rounded-full`; padding in `em`, the contract's 1px/6px at
+ *     10px, so it scales with the counter-scaled text instead of drifting; and
+ *     a 1px border that is counter-scaled like the text, so it is one screen
+ *     pixel at every zoom.
+ *
+ * The pill is a flex child of the ABSOLUTE corner stack, so no card box moves;
+ * it gets ~1px shorter and ~12% narrower. Exported so every state word (the
+ * goal's "Target not captured" chip, PILL-04) shares the one anatomy instead of
+ * restating it.
+ */
+export const STATE_WORD_CLASSES =
+  `${typography.edgeLabel} shrink-0 whitespace-nowrap inline-flex items-center gap-1 font-normal text-text-body bg-panel border border-solid border-warning-ink/35 rounded-full`
+export const STATE_WORD_STYLE = {
+  padding: '0.1em 0.6em',
+  lineHeight: 1.3,
+  borderWidth: 'calc(1px * var(--canvas-label-scale, 1))',
+} as const
+
+const PILL_CLASSES = STATE_WORD_CLASSES
+const PILL_STYLE = STATE_WORD_STYLE
 
 export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onActivate }: StatusPillProps) =>
   onActivate ? (
     <button
       type="button"
       aria-label={title ?? label}
-      className={`${PILL_CLASSES} nodrag nopan cursor-pointer hover:bg-warning/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      className={`${PILL_CLASSES} nodrag nopan cursor-pointer hover:bg-panel-hover hover:border-warning-ink/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       style={PILL_STYLE}
       title={title ?? label}
       data-testid={testId}
