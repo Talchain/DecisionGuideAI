@@ -30,7 +30,11 @@ import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-libra
 
 import type { WireSystemEvent } from '../../../conversation/types'
 import { SystemEventSendError } from '../../../conversation/useConversation'
-import { __resetPendingEdgeEditsForTest } from '../../../conversation/pendingEdgeEdit'
+import {
+  __resetPendingEdgeEditsForTest,
+  markEdgeEditInFlight,
+  unconfirmedEdgeEditOnGraph,
+} from '../../../conversation/pendingEdgeEdit'
 
 const sendSystemEvent = vi.fn<[WireSystemEvent, unknown?], Promise<unknown>>()
 
@@ -159,5 +163,43 @@ describe('a direction change is settled, never assumed', () => {
     expect(feedback().textContent).toContain(SENDING)
     await act(async () => { serverNowStates('negative'); answer(undefined) })
     await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'sent'))
+  })
+})
+
+/** Past `EditConfirmation`'s 1.5 s fade — real time: its timer is armed before any fake clock could be. */
+const pastTheFade = () => act(() => new Promise<void>(r => setTimeout(r, 1700)))
+
+describe('what outlasts the moment', () => {
+
+  it('a refusal notice does not vanish on a timer — only "Sent" fades', async () => {
+    sendSystemEvent.mockImplementation(() =>
+      Promise.reject(new SystemEventSendError('server', { conflictCategory: 'BASE_HASH_DIVERGED' })))
+    await flipToDecreases()
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+
+    await pastTheFade()
+    expect(feedback().textContent).toContain(NOT_RECORDED)
+    expect(feedback()).toHaveAttribute('role', 'alert')
+  })
+
+  it('CONTRAST — "Sent to Olumi" does fade', async () => {
+    sendSystemEvent.mockImplementation(async () => { serverNowStates('negative'); return undefined })
+    await flipToDecreases()
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'sent'))
+
+    await pastTheFade()
+    expect(feedback().textContent).not.toContain(SENT)
+  })
+})
+
+describe('the hold asks the sign as well as the magnitude', () => {
+  const before = { weight: 0.4, direction: 'positive' }
+
+  it('a pending flip is unconfirmed only while the canvas SHOWS the flipped sign', () => {
+    markEdgeEditInFlight('e1', 0.4, before, 'negative')
+    // Same magnitude, old sign on screen: this is not the pending write.
+    expect(unconfirmedEdgeEditOnGraph([{ id: 'e1', data: { weight: 0.4, direction: 'positive' } }])).toBeNull()
+    // CONTRAST — the flipped sign on screen is the pending write.
+    expect(unconfirmedEdgeEditOnGraph([{ id: 'e1', data: { weight: 0.4, direction: 'negative' } }])).toBe('e1')
   })
 })
