@@ -168,10 +168,12 @@ vi.mock('../../store', () => {
 // The rank the driver feed would supply for this factor; toggled per test.
 // Read inside the returned closure, so it is evaluated at render time.
 let sensitivityRank: number | null = null
-// The licence set's size (`influenceSetSize`). Read at render time.
+// The analysed set's size (`influenceSetSize`) — the PRINTED `M` of "Driver N
+// of M analysed" (ED #63 5806207128: "Denominator = eligible analysed
+// factors"). Read at render time.
 const SET_SIZE = 4
-// Contract v3.1 pt 5: the PRINTED `M` of "Driver N of M ranked in this run" —
-// the ranked count, deliberately different from SET_SIZE.
+// The ranked count — the publication guard only, deliberately different from
+// SET_SIZE so a caption that printed it would go red.
 const RANKED_COUNT = 3
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
@@ -205,7 +207,7 @@ vi.mock('../shared/useNodeAttention', () => ({
   useNodeAttention: vi.fn(() =>
     attentionMarked
       ? {
-          reasons: [{ kind: 'top_driver', order: 3, label: 'Driver 2 of 3 ranked in this run: the comparison responds strongly to it. How sure are you of its value?' }],
+          reasons: [{ kind: 'top_driver', order: 3, label: 'Driver 2 of 4 analysed: the comparison responds strongly to it. How sure are you of its value?' }],
           marked: true,
           markedCount: 1,
           candidateCount: 1,
@@ -291,7 +293,7 @@ describe('a ranked factor can still need input — the pair the contract called 
 
     // …and the rank is stated by the driver line on the SAME card, so the pair
     // the contract called impossible is still on screen, together.
-    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, RANKED_COUNT))
+    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, SET_SIZE))
   })
 
   it('CASE 2 — every member together: the pill in the body; attention marker · edited dot · coaching in the corner, in that order', () => {
@@ -320,7 +322,7 @@ describe('a ranked factor can still need input — the pair the contract called 
     expect(kids[2]).toBe(coaching)
 
     // The rank itself is on the driver line, rank 2 by identity.
-    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(2, RANKED_COUNT))
+    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(2, SET_SIZE))
   })
 
   it('CASE 3 — THE TWIN: a factor that HAS a value, ranked, states the rank and shows NO pill', () => {
@@ -333,7 +335,7 @@ describe('a ranked factor can still need input — the pair the contract called 
     // empty — and the rank is on the driver line.
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
     expect(stack.children).toHaveLength(0)
-    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, RANKED_COUNT))
+    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, SET_SIZE))
   })
 
   it('CASE 4 — THE OTHER TWIN: an unvalued factor the ranking did not determine shows the pill and states NO rank', () => {

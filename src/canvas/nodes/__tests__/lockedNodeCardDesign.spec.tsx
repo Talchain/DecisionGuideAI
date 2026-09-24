@@ -201,18 +201,18 @@ afterEach(() => cleanup())
 // FACTOR
 // ═════════════════════════════════════════════════════════════════════════════
 
-// Contract v3.1 pt 5: the printed M is the RANKED count (3), not the licence set (4).
+// ED #63 5806207128: the printed M is the ANALYSED set (4), never the ranked count (3).
 const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, influenceRankedCount: 3, inSensitivityAnalysis: true, isResultsMode: true }
 
 describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z D1a; ED 11:52Z point 3)', () => {
-  it('a current, ranked factor reads "Driver 1 of 3 ranked in this run" (contract v3.1 pt 5) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
+  it('a current, ranked factor reads "Driver 1 of 4 analysed" (ED 5806207128) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     const line = within(card).getByTestId('factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
@@ -260,16 +260,16 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = within(face('Trial conversion')).getByTestId('factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
     expect(within(face('Trial conversion')).getByTestId('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
     const line = within(face('Trial conversion')).getByTestId('factor-driver-line')
-    // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 analysed')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
-    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
     const tp = within(face('Trial conversion')).getByTestId('factor-turning-point')
     expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
     expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
@@ -331,9 +331,13 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setMeta({ 'fac-price': DRIVER_META, 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     expect(within(face('Monthly price')).queryByTestId('factor-turning-point')).toBeNull()
-    // Paul 23 Sep contract feedback point 3(d): "no turning point available" is
-    // the normal, quiet fallback — mounted on the card, not an edge case.
-    expect(within(face('Monthly price')).getByTestId('factor-turning-point-none').textContent).toMatch(/^No turning point (available|in this run)/)
+    // ⛔ Paul 23 Sep point 3(d)'s resting fallback is SUPERSEDED by ED #63
+    // 5806207128: "No `No turning point available/in this run` line at rest.
+    // Absence of a turning point = no mini-visual." Positive control: the
+    // ranked card mounted with its driver line.
+    expect(within(face('Monthly price')).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(within(face('Monthly price')).queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(face('Monthly price').textContent).not.toContain('No turning point')
     cleanup()
     renderCard(FactorNode as never, 'fac-conv')
     expect(within(face('Trial conversion')).getByTestId('factor-turning-point')).toBeTruthy()
@@ -734,10 +738,11 @@ describe('copy guard — the locked design’s ban list holds on every rendered 
     expect(lockedCardCopyViolations('You are anchored on the first number')).toHaveLength(1)
     expect(lockedCardCopyViolations('You have anchoring bias')).toHaveLength(1)
     // …and passes the locked wording.
-    // Contract v3.1 pt 5 wording (current, stale, unranked).
-    expect(lockedCardCopyViolations('Driver 1 of 3 ranked in this run')).toEqual([])
-    expect(lockedCardCopyViolations('Last run · Driver 1 of 3 ranked')).toEqual([])
+    // ED #63 5806207128 wording (current, stale), and the unranked AT line.
+    expect(lockedCardCopyViolations('Driver 1 of 6 analysed')).toEqual([])
+    expect(lockedCardCopyViolations('Last run · Driver 1 of 6 analysed')).toEqual([])
     expect(lockedCardCopyViolations('Not ranked in this run')).toEqual([])
+    expect(lockedCardCopyViolations('Current model · 55% of runs · Goal only')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs')).toEqual([])
     expect(lockedCardCopyViolations('Worth checking: anchoring. What would show whether it applies here?')).toEqual([])
     expect(lockedCardCopyViolations('Most supported')).toEqual([])

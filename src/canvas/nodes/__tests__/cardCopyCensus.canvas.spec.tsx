@@ -565,7 +565,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   // ⭐ ADJUDICATED 24 Sep 2026 — contract v3.1 pt 5 retires the unranked
   // driver line, so the quantity-noun caption `Influence` is gone. The ranked
-  // line reads `Driver N of 3 ranked in this run`, which VARIES per card, so it
+  // line reads `Driver N of M analysed` (ED #63 5806207128), which VARIES per card, so it
   // is no invariant run; its position is pinned by REACH (`factor · the driver
   // line`).
   'factor · post · standard': [],
@@ -686,7 +686,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
   // ⭐ ADJUDICATED 24 Sep 2026 (contract v3.1 pt 5): the factors are ranked
-  // now, so each has a reduced line — `Driver N of 3 ranked in this run`, which
+  // now, so each has a reduced line — `Driver N of M analysed`, which
   // varies per card — and no invariant run is left at this rung.
   'factor · post · lod-line': [],
   'risk · pre · lod-line': [],
