@@ -407,7 +407,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard pre non-baseline: shows "What could go wrong?" chip + from→to chip + differentiator footer', () => {
+  it('Standard pre non-baseline: coaching icon + from→to change row; no footer repeating that row (NODE-ANATOMY v3.2)', () => {
     const topology = twoOptionTopology('standard', 'pre')
     // The pair needs its own declared reference. The factor's observed value
     // alone must not license it; the missing-reference case keeps its footer.
@@ -437,14 +437,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // ⚠ WAS `expect(differentiatorP).toBeUndefined()` — brief scope 7 dropped
     // the footer as a duplicate. Paul's ruling 10 Sep 2026 — "both stay": the chip states the CHANGE, the footer states WHICH FACTOR differentiates. The dedup that dropped the footer is retired.
     // Locked Canvas design (23 Sep 2026): the CHANGE is now the change row
-    // (`option-change-row-*`, a `<dd>`), bound by identity; the footer is the
-    // differentiator `<p>` — both stay.
+    // (`option-change-row-*`, a `<dd>`), bound by identity.
+    // ⚠ NODE-ANATOMY v3.2 (24 Sep; ED #63 5806266691 "differentiator only when
+    // additive") narrows "both stay": the shared-factor footer "… → 9 engineers"
+    // would only repeat THIS row, so it does not render. (Where it adds — its
+    // factor behind "+N more", or "… is the key difference" among several
+    // changes — it still does: `OptionNode.differentiatorOnlyWhenAdditive.spec`.)
     expect(row.textContent).toContain('9 engineers')
     expect(row.textContent).toContain('→')
     const allPs = container.querySelectorAll('p')
     const differentiatorP = Array.from(allPs).find(p => p.textContent?.includes('→'))
-    expect(differentiatorP).toBeDefined()
-    expect(differentiatorP!.getAttribute('data-testid')).toBe('option-differentiator-option-1')
+    expect(differentiatorP).toBeUndefined()
+    expect(within(face).queryByTestId('option-differentiator-option-1')).toBeNull()
   })
 
   it('Standard pre: identical shared-factor values suppress differentiator on both options', () => {

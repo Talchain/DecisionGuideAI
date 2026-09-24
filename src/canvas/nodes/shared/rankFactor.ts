@@ -18,16 +18,19 @@ type DriverFeed = ReturnType<typeof selectDriverPolicyFeed>
 
 export interface FactorRanks {
   /**
-   * Distinct factors in the ranked set — the LICENCE set `influenceRankReadout`
-   * checks (a rank inside a comparison of at least two). No longer the printed
-   * `M`: see `rankedSetSize`.
+   * Distinct factors in the run's driver feed — the ELIGIBLE ANALYSED factors.
+   * Both the LICENCE set `influenceRankReadout` checks (a rank inside a
+   * comparison of at least two) AND, again since ED #63 5806207128, the printed
+   * `M` of "Driver N of M analysed" ("Denominator = eligible analysed factors,
+   * not 'number of ranks we happen to render'").
    */
   influenceSetSize: number
   /**
-   * Contract v3.1 pt 5: the `M` of "Driver N of M ranked in this run" — the
-   * number of factors this rule gives a rank (inside `determinedDepth`), so every one
-   * of the M ranks is on a card and none reads as omitted. Set-level, the same
-   * for every factor in the feed.
+   * The number of factors this rule gives a rank (inside `determinedDepth`).
+   * Set-level, the same for every factor in the feed. Since ED 5806207128 it
+   * is NOT printed: it is the fail-closed PUBLICATION guard `driverRankFor` and
+   * the attention plan read (a rank beyond it states nothing). Contract v3.1
+   * pt 5 had made it the printed `M`; that reading is retired.
    */
   rankedSetSize: number
   /** 1..MAX_BADGED_RANK where the ordering is determined; otherwise null. */
@@ -212,9 +215,9 @@ export function rankFactor(
   )
   const determinedDepth = Math.min(depthByBasis, depthByDisplayed)
   sensitivityRank = rank > 0 && rank <= determinedDepth ? rank : null
-  // Contract v3.1 pt 5: M counts the factors this rule gives a rank — the
-  // distinct keys whose position is inside the SAME depth that licenses each
-  // one (a duplicate row is one factor, as in `influenceSetSize`).
+  // The ranked count — the distinct keys whose position is inside the SAME
+  // depth that licenses each one (a duplicate row is one factor, as in
+  // `influenceSetSize`). A publication guard, not the printed M (ED 5806207128).
   const rankedSetSize = new Set(ranked.slice(0, determinedDepth).map((f) => f.key)).size
 
   // VoI rank: top-3 factors by value_of_information. Keyed off the shared

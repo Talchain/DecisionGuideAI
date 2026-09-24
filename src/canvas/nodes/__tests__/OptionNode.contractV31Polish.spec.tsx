@@ -197,7 +197,20 @@ describe('contract v3.1 — option card polish', () => {
   describe('reading order (OPT-09)', () => {
     it('the change rows AND the differentiator both precede the run result', () => {
       winRate = 0.42
-      renderCard({ store: { results: COMPLETE } })
+      // Two changes, so "Developer headcount is the key difference" says which
+      // one matters and the differentiator renders (NODE-ANATOMY v3.2: only
+      // when it adds beyond the rows — never "<only row> is the key difference").
+      renderCard({
+        store: {
+          results: COMPLETE,
+          ceeAnalysisReady: {
+            options: [
+              { id: 'option-1', interventions: { 'f-head': { value: 3, display_value: '3 engineers' }, 'f-cost': 5 } },
+              { id: 'option-2', interventions: { 'f-cost': 5 } },
+            ],
+          },
+        },
+      })
       const rows = byTestId('option-change-rows-option-1')
       const diff = byTestId('option-differentiator-option-1')
       const result = byTestId('option-analysis-currency-option-1')

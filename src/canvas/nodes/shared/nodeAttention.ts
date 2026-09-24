@@ -177,7 +177,7 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
       // line and reduced line read — never a re-spelled `influenceSetSize >= 2`,
       // which let a rank beyond its own set be stated and which
       // `theUiRendersItDoesNotDecide` rightly flags as a UI-chosen threshold.
-      // Contract v3.1 pt 5: and inside the ranked count, the same guard as
+      // And inside the ranked count — the same publication guard as
       // `driverRankFor`, so the reason never states a rank the line refuses.
       if (
         rank.sensitivityRank !== null &&
@@ -187,8 +187,8 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
         push(reasons, id, {
           kind: 'top_driver',
           order: 3,
-          // Contract v3.1 pt 5: the printed M is the ranked count, as on the card.
-          label: `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.rankedSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
+          // ED #63 5806207128: the printed M is the ANALYSED count, as on the card.
+          label: `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.influenceSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
         })
       }
     }

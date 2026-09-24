@@ -428,7 +428,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
    * every driver render on this card. (Historical: it fed the Standard-view
    * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
-   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M ranked in this run".) They show the same figure, so they carry the
+   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
    * same misread, and fixing one would have left `Relative influence … 100%`
    * reachable one view away — four presentations of one idea, which is the
    * inconsistency this card's rows were unified to remove.
@@ -497,14 +497,15 @@ export const FactorNode = memo((props: NodeProps) => {
    *   1  title
    *   2  `<value> <mark>` as plain text (no chip), OR "Needs input · Value not
    *      set yet" in the body (no border pill). Pre-run with a value: nothing more.
-   *   3+ ONLY for a factor the run RANKED: "Driver N of M ranked in this run" +
-   *      a thin neutral bar, then a found turning point OR "No turning point in
-   *      this run". A found turning point also shows on an unranked factor (it
-   *      is the run's finding for THIS factor — contract `if(n.flip)`).
-   *   NEVER "Structural influence"; "No turning point available" on an unranked
-   *      factor; a limit line (the Goal's); a badge on the border (Standard).
+   *   3+ ONLY for a factor the run RANKED: "Driver N of M analysed" + a thin
+   *      neutral bar, M = the eligible ANALYSED factors (ED #63 5806207128:
+   *      "not 'number of ranks we happen to render'"). Then a FOUND turning
+   *      point, on any factor (it is the run's finding for THIS factor).
+   *   NEVER "Structural influence"; any "No turning point …" line at rest (ED
+   *      5806207128: "Absence of a turning point = no mini-visual"); a limit
+   *      line (the Goal's); a badge on the border (Standard).
    *   STALE `Last run ·` only on the rank and a found turning point (ED #63
-   *      5805528520 §6).
+   *      5805528520 §6): `Last run · Driver 1 of 6 analysed`.
    * Pinned state by state in `__tests__/FactorNode.anatomyV32.spec.tsx`.
    *
    * ⭐ THE LOCKED FACTOR FACE (spec §3 Normal; ED 02:31Z D1a; ED 11:52Z point 3):
@@ -541,9 +542,10 @@ export const FactorNode = memo((props: NodeProps) => {
   const resultsFromLastRun = runCurrency === 'changed'
   const runCuesShown = runCurrency === 'current' || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
-  // Contract v3.1 pt 5: "Driver N of M ranked in this run" (M = the ranked
-  // count) on a RANKED factor only. A factor the run did not rank shows no line
-  // and no bar; it says "Not ranked in this run" to AT (`FactorDriverNotRanked`).
+  // ED #63 5806207128: "Driver N of M analysed" (M = the eligible analysed
+  // factors, `driverRankFor`) on a RANKED factor only. A factor the run did not
+  // rank shows no line, no bar and no substitute; it says "Not ranked in this
+  // run" to AT (`FactorDriverNotRanked`).
   const driverRank =
     isPostAnalysis && runCuesShown
       ? driverRankFor(
@@ -564,29 +566,35 @@ export const FactorNode = memo((props: NodeProps) => {
         }
       : null
   const driverNotRanked = isPostAnalysis && runCuesShown && driverRank === null
-  // Paul 23 Sep contract feedback point 3(d): the slot always says something
-  // after a run it may speak for — the track for a PLoT `found` row, else the
-  // quiet "No turning point …" fallback. Never-run / cannot-confirm stay null
-  // (the same `isPostAnalysis && runCuesShown` gate), so no past run is invented.
+  // The run's turning-point state for this factor: a PLoT `found` row, or the
+  // "none" fallback. Never-run / cannot-confirm stay null (the same
+  // `isPostAnalysis && runCuesShown` gate), so no past run is invented. What
+  // the CARD shows of it is `turningPointShown` below (ED 5806207128: only a
+  // found threshold at rest).
+  //
+  // ⛔ Paul 23 Sep point 3(d) ("make 'no turning point available' the normal
+  // fallback") is superseded at rest by ED #63 5806207128.
   const turningPointState = useMemo(
     () => (isPostAnalysis && runCuesShown ? selectFactorTurningPointState(resultsReport, props.id) : null),
     [isPostAnalysis, runCuesShown, resultsReport, props.id],
   )
   const turningPoint = turningPointState?.kind === 'found' ? turningPointState.turningPoint : null
   /*
-   * ⭐ NODE-ANATOMY v3.2, Factor row: findings "ONLY if the run RANKED it" — the
-   * driver line, then a found turning point OR `No turning point in this run`.
-   * Contract v3.1 `nodeHTML`: `if(n.flip) flipPlot(); else if(n.rank) noTurning()`.
-   * So a FOUND turning point (the run's finding for THIS factor) shows on any
-   * factor, and the "no turning point" fallback only under a rank it completes.
-   * On an unranked factor that fallback was the only analysis line left after
-   * the "Structural influence" arm went — it said nothing exists, which
-   * principle 1 forbids ("Nothing is shown just to say that nothing exists";
-   * audit F1). `driverLine` is the one gate: the fallback follows the line the
-   * card actually shows, in both views.
+   * ⭐ ED #63 5806207128 ("Factor anatomy"): "No `No turning point
+   * available/in this run` line at rest. Absence of a turning point = no
+   * mini-visual." So the RESTING card (Standard) shows the turning-point slot
+   * ONLY for a FOUND threshold — the run's finding for THIS factor, ranked or
+   * not. The "no turning point" fallback said that nothing exists, which
+   * principle 1 forbids ("Nothing is shown just to say that nothing exists").
+   *
+   * Detailed is not the resting card ("Detailed adds information"): there the
+   * fallback still completes a RANKED factor's driver line, as before, so the
+   * attested search ("No turning point in this run") stays one view away.
+   * `driverLine` is its gate, in that view only.
    */
   const turningPointShown =
-    turningPointState !== null && (turningPointState.kind === 'found' || driverLine !== null)
+    turningPointState !== null &&
+    (turningPointState.kind === 'found' || (isDetailed && driverLine !== null))
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -913,7 +921,7 @@ export const FactorNode = memo((props: NodeProps) => {
               provenance means no influence number is rendered. */}
           {/* ⭐ ONE DRIVER VOCABULARY IN EVERY VIEW. Detailed and the popover
               render the SAME `FactorDriverLine` the resting face does ("Driver N
-              of M ranked in this run" + relative bar, the % in its tooltip), and it
+              of M analysed" + relative bar, the % in its tooltip), and it
               is withheld on a stale run exactly as it is there. The old
               "Most influential ▬ of 5" row here was the fourth wording of one
               rank (purpose audit, #1899 finding 3). */}

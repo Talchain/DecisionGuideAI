@@ -29,6 +29,15 @@
  * MODEL, not the result. A run ranks options; it does not change which factor
  * differentiates them.
  *
+ * ⚠ NODE-ANATOMY v3.2 (24 Sep; ED #63 5806266691 "differentiator only when
+ * additive") NARROWS PAUL'S 10 SEP "BOTH STAY": the footer renders only when it
+ * adds something the change rows don't. The fixtures below are widened so the
+ * footer ADDS (the distinct case has two changes, so "… is the key difference"
+ * says which one matters; the shared `→ value` case hides the factor behind
+ * "+1 more"), and the run must still not delete it. Where the footer would
+ * only repeat a shown row, the ROW is what keeps the card from being bare —
+ * pinned in the shared block.
+ *
  * CLAIM SCOPE (CLAUDE.md trap 3): these are jsdom text assertions. They prove
  * PRESENCE and ABSENCE of a sentence in the DOM. They prove nothing about
  * layout, card height or whether the line is visible on screen.
@@ -43,9 +52,15 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 
-/** Two factors, two non-baseline options, each differing on its own factor. */
+/**
+ * Two non-baseline options, each differing on its own factor, plus one SHARED
+ * change they set identically (so option-1 has two changes and "… is the key
+ * difference" says which of them matters — NODE-ANATOMY v3.2).
+ */
+const FACTOR_SHARED = { id: 'f-shared', type: 'factor', data: { label: 'Tooling spend', type: 'factor' } }
 const FACTOR_HEAD = { id: 'f-head', type: 'factor', data: { label: 'Developer headcount', type: 'factor' } }
 const FACTOR_COST = { id: 'f-cost', type: 'factor', data: { label: 'Coordination cost', type: 'factor' } }
+const SHARED_EQUAL = { value: 3, display_value: '£3k' }
 const OPTION_1 = { id: 'option-1', type: 'option', data: { label: 'Hire two developers', type: 'option' } }
 const OPTION_2 = { id: 'option-2', type: 'option', data: { label: 'Hire a tech lead', type: 'option' } }
 
@@ -55,14 +70,14 @@ const EXPECTED = 'Developer headcount is the key difference'
 
 const CEE_READY = {
   options: [
-    { id: 'option-1', interventions: { 'f-head': 3 } },
-    { id: 'option-2', interventions: { 'f-cost': 5 } },
+    { id: 'option-1', interventions: { 'f-shared': SHARED_EQUAL, 'f-head': 3 } },
+    { id: 'option-2', interventions: { 'f-shared': SHARED_EQUAL, 'f-cost': 5 } },
   ],
 }
 
 const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   hoveredOptionId: null,
-  nodes: [FACTOR_HEAD, FACTOR_COST, OPTION_1, OPTION_2],
+  nodes: [FACTOR_SHARED, FACTOR_HEAD, FACTOR_COST, OPTION_1, OPTION_2],
   edges: [],
   ceeAnalysisReady: CEE_READY,
   // A run that COMPLETED and withheld its leader: a report with no
@@ -263,35 +278,51 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
   const paragraphTexts = (c: HTMLElement) =>
     Array.from(c.querySelectorAll('p')).map((p) => (p.textContent ?? '').trim()).filter(Boolean)
 
-  it('⭐ POST-ANALYSIS the card is not left bare — it still says which factor differs', () => {
+  it('⭐ POST-ANALYSIS the card is not left bare — its change row still says which factor differs', () => {
     const { container } = renderShared({ results: { status: 'complete', report: {} } })
-    const paras = paragraphTexts(container)
-    // Bind by IDENTITY to the shared factor's name, not by "some text exists".
-    expect(paras.join(' | ')).toContain('Developer headcount')
-    expect(paras.length).toBeGreaterThan(0)
+    // Bind by IDENTITY to THIS option's row for the shared factor.
+    const row = container.querySelector('[data-testid="option-change-row-option-1-f-head"]')
+    expect(row, 'the change row for the shared factor renders after the run').not.toBeNull()
+    expect(row!.textContent).toContain('3 engineers')
+    expect(container.textContent).toContain('Developer headcount')
+    // NODE-ANATOMY v3.2: the footer "Developer headcount → 3 engineers" would
+    // only repeat that row, so it does not render.
+    expect(paragraphTexts(container).join(' | ')).not.toContain('→')
   })
 
-  // ⭐ RULING 10 Sep 2026 (Paul): BOTH STAY. The chip states the CHANGE, the
-  // footer states WHICH FACTOR differentiates. The dedup that dropped the
-  // footer as a duplicate is retired, and it was phase-free, so this twin now
-  // asserts the same thing its post-analysis partner does.
-  it('THE TWIN: pre-analysis shows the footer too', () => {
-    // Was `toEqual([])`: pre-analysis the chip rendered and the footer was
-    // dropped as a duplicate. The ruling is phase-free, so the footer now
-    // renders in both phases and this twin asserts the same thing its
-    // post-analysis partner does.
+  it('THE TWIN: pre-analysis reads the same — the row, and no repeating footer', () => {
     const { container } = renderShared({ results: { status: 'idle', report: null } })
-    expect(paragraphTexts(container).join(' | ')).toContain('→')
+    expect(container.querySelector('[data-testid="option-change-row-option-1-f-head"]')).not.toBeNull()
+    expect(paragraphTexts(container).join(' | ')).not.toContain('→')
   })
 
-  it('PRECONDITION: the shared `→` form, AND the suppression was really in play', () => {
-    // Two preconditions, because either one failing makes the case above pass
-    // for the wrong reason (CLAUDE.md trap 13b).
-    const post = renderShared({ results: { status: 'complete', report: {} } })
-    const joined = paragraphTexts(post.container).join(' | ')
-    expect(joined).toContain('→')
-    expect(joined).not.toContain('is the key difference')
-    post.unmount()
+  it('⭐ WHERE THE `→ value` FOOTER ADDS (its factor is behind "+1 more"), it survives the run', () => {
+    // Two equal shared changes lead the shared order, so the differentiating
+    // factor is NOT a shown row and the footer names it.
+    const TOOLS = { id: 'f-tools', type: 'factor', data: { label: 'Tooling spend', type: 'factor' } }
+    const HOURS = { id: 'f-hours', type: 'factor', data: { label: 'Weekly hours', type: 'factor' } }
+    const equal = { 'f-tools': { value: 3, display_value: '£3k' }, 'f-hours': { value: 40, display_value: '40h' } }
+    const hidden = {
+      ceeAnalysisReady: {
+        options: [
+          { id: 'option-1', interventions: { ...equal, 'f-head': { value: 3, display_value: '3 engineers' } } },
+          { id: 'option-2', interventions: { ...equal, 'f-head': { value: 9, display_value: '9 engineers' } } },
+        ],
+      },
+      nodes: [TOOLS, HOURS, SHARED_FACTOR, OPTION_1, OPTION_2],
+    }
+    const pre = renderShared({ ...hidden, results: { status: 'idle', report: null } })
+    expect(pre.container.querySelector('[data-testid="option-change-row-option-1-f-head"]')).toBeNull()
+    const before = pre.container.querySelector('[data-testid="option-differentiator-option-1"]')?.textContent
+    expect(before).toBe('Developer headcount → 3 engineers')
+    pre.unmount()
+    const post = renderShared({ ...hidden, results: { status: 'complete', report: {} } })
+    expect(post.container.querySelector('[data-testid="option-differentiator-option-1"]')?.textContent).toBe(before)
+  })
+
+  it('PRECONDITION: the change row renders from the baseline, marked', () => {
+    // (Its first half — "the shared `→` footer renders" — is now the
+    // "+1 more" case above: v3.2 renders that footer only where it adds.)
 
     // ⭐ THE PRECONDITION THE FIRST CUT MISSED, KEPT AND RE-AIMED: pre-analysis
     // the chip must RENDER — without one there is nothing for the footer to sit
@@ -311,6 +342,5 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     // pt 7 (gap U12): a muted `·` sets the mark apart from the value.
     expect(row!.textContent).toBe('0 engineers → 3 engineers · no sourceSource not recorded')
     expect(row!.querySelector('[data-testid="option-change-row-source-option-1-f-head"]')?.getAttribute('data-value-source')).toBe('unknown')
-    expect(paragraphTexts(pre.container).join(' | ')).toContain('→')
   })
 })
