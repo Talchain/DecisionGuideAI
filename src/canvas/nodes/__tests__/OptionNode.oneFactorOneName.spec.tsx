@@ -326,7 +326,10 @@ describe('OptionNode — one factor, one name', () => {
     const p = screen.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
     // Same S4 cut as the first case (18 characters at the 260 card, 9914ffa3).
-    expect(p.textContent).toBe('Usage-based… → Very high (1)')
+    // S5 (24 Sep): at rest the reading sheds its internal-scale number, as
+    // every change row already does (R6: "Very high (0.9)" → "Very high"); the
+    // hover keeps the producer's full reading.
+    expect(p.textContent).toBe('Usage-based… → Very high')
     expect(p.textContent).not.toMatch(/Usage-Based/)
     expect(p.getAttribute('title')).toBe('Usage-based pricing exposure → Very high (1)')
   })

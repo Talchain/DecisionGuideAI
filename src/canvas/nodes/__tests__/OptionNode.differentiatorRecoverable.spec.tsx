@@ -260,7 +260,9 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     expect(screen.queryByTestId('option-change-row-option-1-factor-pe')).toBeNull()
     expect(screen.getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
     // Same S4 cut as above (18 characters at the 260 card, 9914ffa3).
-    const p = screen.getByText(/^Platform engineers… → Low \(0\)$/)
+    // S5 (24 Sep): at rest the reading sheds its internal-scale number (R6, as
+    // every change row does); the hover keeps the producer's full reading.
+    const p = screen.getByText(/^Platform engineers… → Low$/)
     expect(p.tagName).toBe('P')
     assertRecoverable(p, 'Platform engineers hired onto the team → Low (0)')
   })
