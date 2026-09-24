@@ -1,12 +1,12 @@
 /**
- * Contract v3.1 pt 5: "Driver N of M ranked in this run, where M is the number
- * of factors the run ranked. Show every one of the M ranks on its card."
- *
- * `rankFactor` now publishes `rankedSetSize` — the M the driver line prints —
- * beside `influenceSetSize` (the licence set, unchanged). The invariant pinned
- * here is the contract's own: over the whole feed, the published ranks are
- * EXACTLY 1..M, one factor each. So no rank is off-card and no card claims a
- * rank beyond M.
+ * `rankFactor` publishes `rankedSetSize` — how many factors its rule ranks —
+ * beside `influenceSetSize` (the analysed set). Contract v3.1 pt 5 made the
+ * ranked count the printed M; ED #63 5806207128 (24 Sep) restored the ANALYSED
+ * set as the printed M ("Driver 1 of 6 analysed"), so `rankedSetSize` is now
+ * the publication GUARD `driverRankFor` and the attention plan read. The
+ * invariant pinned here still holds and is what makes it a sound guard: over
+ * the whole feed, the published ranks are EXACTLY 1..M_ranked, one factor
+ * each — no card claims a rank beyond the ranked count.
  *
  * Positive control on every case: at least one factor is ranked, so a loop over
  * ranked factors cannot pass by testing nothing.
@@ -58,7 +58,7 @@ const assertRanksAreExactlyOneToM = (rows: ReturnType<typeof ranksOf>) => {
   expect(ranked.map((r) => r.sensitivityRank).sort()).toEqual(Array.from({ length: m }, (_, i) => i + 1))
 }
 
-describe('contract v3.1 pt 5 — M is the number of factors the rule ranked', () => {
+describe('the ranked count — the number of factors the rule ranked (the publication guard)', () => {
   it('six clear factors: the licence set is 6, M is 3, and ranks 1..3 each land on one factor', () => {
     const rows = ranksOf(SIX_CLEAR)
     expect(rows[0].influenceSetSize).toBe(6)
