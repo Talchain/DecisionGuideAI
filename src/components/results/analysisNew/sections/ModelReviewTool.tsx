@@ -287,7 +287,12 @@ export function ModelReviewTool({
             </button>
           </Tooltip>
         ) : (
-          <span />
+          <span
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid={`${testId}-empty`}
+          >
+            {COPY.nothingToReview}
+          </span>
         )}
         <PanelIconButton
           ai

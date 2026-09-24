@@ -104,6 +104,8 @@ describe('the collapsed row', () => {
     // 2 findings + 2 cee_inference factors with a number (f_ai, f_bare).
     expect(screen.getByTestId(`${TID}-count`)).toHaveTextContent(COPY.toReview(4))
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-label', COPY.toReviewName(4))
+    // CONTRAST: a non-empty queue shows its count, not the empty label.
+    expect(screen.queryByTestId(`${TID}-empty`)).toBeNull()
   })
 
   it('CONTRAST: an empty queue offers no count, and the framing ask stays', () => {
@@ -111,6 +113,8 @@ describe('the collapsed row', () => {
     render(<ModelReviewTool interventions={[]} onAsk={vi.fn()} />)
     expect(screen.queryByTestId(`${TID}-toggle`)).toBeNull()
     expect(screen.getByTestId(`${TID}-ask-framing`)).toBeInTheDocument()
+    // The row says its state, so the framing ask is never a lone icon.
+    expect(screen.getByTestId(`${TID}-empty`)).toHaveTextContent(COPY.nothingToReview)
   })
 
   it('the framing ask sends the estate\'s shared review-the-brief payload', () => {

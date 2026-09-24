@@ -61,6 +61,8 @@ export const REVIEW_TOOL_COPY = {
   toReviewName: (n: number) => `${n} to review. Open the review of this model`,
   entryTip: 'Framing, assumptions, relationships and values. Reviewing is not evidence validation.',
   askFraming: 'Ask Olumi to check the whole framing',
+  /** Empty queue: says the row's state so the framing ask is not a lone icon. */
+  nothingToReview: 'Nothing to review',
   heading: 'Review the thinking',
   pager: (k: number, n: number) => `${k} / ${n}`,
   previous: 'Previous review item',
