@@ -275,8 +275,11 @@ function baseEdgeAttr(container: HTMLElement, attr: 'data-stroke' | 'data-stroke
   return (el as HTMLElement).getAttribute(attr) ?? ''
 }
 
-const DANGER_STROKE = 'var(--semantic-danger, #ef4444)'
-const NEUTRAL_STROKE = 'var(--text-body, #3F3F3E)'
+// contract v3.1 (T16, 24 Sep 2026): the causal-lens strokes are the DS tokens
+// with no off-palette fallback hex (`#ef4444` was Tailwind red-500). The rule
+// and which token it picks are unchanged.
+const DANGER_STROKE = 'var(--semantic-danger)'
+const NEUTRAL_STROKE = 'var(--text-body)'
 /** Any character that claims a sign: ASCII plus/minus or U+2212 MINUS SIGN. */
 const SIGN_CHARS = /[+\-−]/
 

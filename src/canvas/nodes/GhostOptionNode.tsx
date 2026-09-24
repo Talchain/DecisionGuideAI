@@ -4,7 +4,18 @@
  * `requestAsk` — prefill-and-confirm, never send (Experience Design, #63
  * 5807363175, 24 Sep 2026). The person reads it and chooses to send it.
  *
- * Visible: pre-analysis always (both views). Post-analysis: Model view only.
+ * ⭐ THE OPTION QUESTION'S ONE ENTRY POINT (contract v3.1 pt 6; gap U9). No card
+ * repeats it. S4 (ED #63 5806207128): it is the options row's ROW-END PROMPT,
+ * one of four, placed by `withGhostTiers` at the end of the family's final
+ * sub-row and drawn at the 160-unit prompt box the layout reserves.
+ *
+ * ⚠ Its click still SENDS via `_sendMessage` (served behaviour). The switch to
+ * prefill (`requestAsk`) is held back: from a minimised Olumi panel that path
+ * left the conversation callbacks unregistered (#1926 Browser Gate,
+ * NORMALZOOMDIAG canAsk=false). It returns with that fix and its own proof.
+ *
+ * Visible in every view and phase (the post-analysis gate was retired by Paul,
+ * 1 Sep — see the `nodesWithGhost` memo in `ReactFlowGraph.tsx`).
  *
  * ⭐ THE SENTENCE IS BUILT FROM THE MODEL, AND NOT HERE.
  *
@@ -18,9 +29,9 @@
  * `data: {}`, so the model-aware option prompt was composed for a node nobody
  * mounted while this string was what users actually sent.
  *
- * `ghostOptionPrompt(nodes)` now composes it at the mount, from the same tier
- * table every other door uses. The node is a renderer; the sentence has one
- * author.
+ * `withGhostTiers` now composes it — the option tier's own prompt, from the
+ * same tier table every other door uses (S4 retired the hand-built node in
+ * `ReactFlowGraph.tsx`). The node is a renderer; the sentence has one author.
  *
  * ⚠ AND THERE IS NO FALLBACK, DELIBERATELY. Handed no prompt, this door sends
  * nothing rather than a generic sentence — a dead door is a visible failure, a
@@ -51,9 +62,15 @@ import { Plus } from 'lucide-react'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { typography } from '../../styles/typography'
 import { GHOST_OPTION_DOOR_LABEL } from '../utils/ghostTiers'
+import { useCanvasStore } from '../store'
+import { selectLodBodyHidden } from '../utils/zoomLegibility'
+import { ROW_PROMPT_H, ROW_PROMPT_PADDING_PX, ROW_PROMPT_W } from '../utils/nodeLayoutConstants'
 
 export const GhostOptionNode = memo((props: NodeProps) => {
   const prompt = (props.data as { prompt?: string } | undefined)?.prompt
+  // ED S4: row-end prompts hide at the far (`line`) rung — the same shared
+  // predicate the cards read. Hidden, not unmounted: the box stays reserved.
+  const farRung = useCanvasStore(selectLodBodyHidden)
 
   const handleClick = useCallback(() => {
     if (!prompt) return
@@ -66,8 +83,9 @@ export const GhostOptionNode = memo((props: NodeProps) => {
   return (
     <div
       role="button"
-      tabIndex={0}
+      tabIndex={farRung ? -1 : 0}
       aria-label={GHOST_OPTION_DOOR_LABEL}
+      aria-hidden={farRung ? true : undefined}
       // This is a flex ROW, so `justify-*` is the HORIZONTAL axis and
       // `justify-center` centred the icon+label block inside the door.
       // `items-center` is the vertical axis here and stays. The displacement
@@ -75,7 +93,9 @@ export const GhostOptionNode = memo((props: NodeProps) => {
       // minWidth with the content occupying most of it — but the shape is the
       // same defect as the ghost tier door one line-wrap away, and one reword
       // of the label makes it visible.
-      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex items-center nodrag nopan text-left"
+      // `rounded-sm` (8px): the same corner as every card (contract v3.1
+      // FRAME-01 `.node{border-radius:8px}`); `rounded-lg` rendered 14px.
+      className="rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex items-center nodrag nopan text-left"
       style={{
         // A11y (WCAG 1.4.11, 3:1 non-text contrast). The outline is the only
         // thing that marks this affordance's bounds, so it is measured against
@@ -105,16 +125,27 @@ export const GhostOptionNode = memo((props: NodeProps) => {
         // own review, not a free ride on a token edit. Whoever takes it must
         // re-measure both grounds here rather than trusting this note.
         //
-        // Quietness is carried by the dashed 1.5px stroke, not by hue. Note the
-        // incomplete-node border is ALSO dashed (2px --warning #FFA656), so hue
-        // is the only channel separating the two: ΔE2000 55.0 normal vision,
-        // 49.9 worst-case red-green CVD (was 22.3 / 19.7 with --border-emphasis).
-        border: '1.5px dashed var(--text-body, #3F3F3E)',
+        // ⭐ TAKEN, contract v3.1 T12 (contract `--muted`; DS v5 §3.12: neutral
+        // borders are chrome). The darkest line on the canvas was a
+        // placeholder's. `--text-light` is `rgb(110 107 107)` = #6E6B6B at this
+        // tip (brand.css `--text-light-rgb`); against the two grounds named
+        // above, #FEFEFE and #F4F0EA, WCAG relative luminance gives 5.23:1 and
+        // 4.65:1 — both clear SC 1.4.11's 3:1 for the only mark bounding this
+        // affordance. Dash and width unchanged.
+        //
+        // Quietness is carried by the dashed 1.5px stroke, not by hue. (The
+        // incomplete-node border this note once compared against is no longer
+        // dashed or amber — Paul's 8 Sep ruling moved that state to a badge.)
+        border: '1.5px dashed var(--text-light, #6E6B6B)',
         background: 'var(--bg-panel, #FEFEFE)',
-        minHeight: '56px',
-        minWidth: '140px',
-        maxWidth: '160px',
-        padding: '12px',
+        // ⭐ S4: exactly the row-end prompt box the layout reserves (ED: "160px
+        // … inside the row budget"), the same as the other three prompts. It
+        // was 140–160 and content-sized, so the row's reservation and the card
+        // could disagree by up to 20 units.
+        width: ROW_PROMPT_W,
+        minHeight: ROW_PROMPT_H,
+        padding: ROW_PROMPT_PADDING_PX,
+        visibility: farRung ? 'hidden' : undefined,
       }}
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
@@ -124,8 +155,8 @@ export const GhostOptionNode = memo((props: NodeProps) => {
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
 
       <div className="flex items-center gap-1.5">
-        <Plus size={14} className="text-text-light" />
-        <span className={`${typography.edgeLabel} text-text-light`}>
+        <Plus size={14} className="text-text-light shrink-0" aria-hidden="true" />
+        <span className={`${typography.edgeLabel} text-text-light break-words min-w-0`}>
           {GHOST_OPTION_DOOR_LABEL}
         </span>
       </div>

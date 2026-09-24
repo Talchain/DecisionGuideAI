@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NodeCoachingMarker } from '../NodeCoachingMarker'
-import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
+import { useGuidanceStore, guidanceCategoryIcon, type GuidanceItem } from '../../../stores/guidanceStore'
 import { useCanvasStore } from '../../../store'
 
 function makeItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
@@ -182,42 +182,65 @@ describe('NodeCoachingMarker — cap (1 + count)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Colour = state (tone from producer category)
+// Category = SHAPE; the canvas marker's colour is neutral (contract v3.1)
 // ---------------------------------------------------------------------------
+//
+// ⭐ SUPERSEDED BY CONTRACT v3.1 (24 Sep 2026, deltas PILL-07 / PILL-08 / T14(b)).
+// This block pinned "colour = state": must_fix / should_fix painted the marker
+// Danger (`border-danger/30` + `text-danger`), the rest Info. Contract v3.1 +
+// Paul 23 Sep pts 6 and 9: a coaching cue is muted at rest and Info on
+// hover/focus; Danger is the risk family's and Info at rest is the attention
+// cue's; no warning styling on a coaching cue. The CATEGORY is still carried —
+// by the glyph SHAPE (`guidanceCategoryIcon`, the inspector card's own glyph)
+// and by `data-guidance-category` — and the inspector card keeps its tone.
 
-describe('NodeCoachingMarker — colour by category', () => {
-  it('must_fix rides the danger channel', () => {
+describe('NodeCoachingMarker — category by shape, colour neutral on the canvas', () => {
+  const svgClass = (marker: HTMLElement) => marker.querySelector('svg')?.getAttribute('class') ?? ''
+  const glyphOf = (cat: GuidanceItem['category']) => {
+    const { Icon } = guidanceCategoryIcon(cat)
+    const r = render(<Icon />)
+    const name = (r.container.querySelector('svg')?.getAttribute('class') ?? '').split(/\s+/).find((t) => t.startsWith('lucide-'))
+    r.unmount()
+    return name
+  }
+
+  it('must_fix: its category glyph, but no Danger paint — muted at rest, Info on hover', () => {
     useGuidanceStore
       .getState()
       .setGuidanceItems([makeItem({ category: 'must_fix', target_object: { type: 'node', id: 'node-a' } })])
     render(<NodeCoachingMarker nodeId="node-a" />)
     const marker = screen.getByTestId('node-coaching-marker-node-a')
     expect(marker).toHaveAttribute('data-guidance-category', 'must_fix')
-    expect(marker.className).toContain('border-danger/30')
-    expect(marker.querySelector('svg')?.getAttribute('class')).toContain('text-danger')
+    expect(marker.className).not.toContain('danger')
+    expect(svgClass(marker)).not.toContain('text-danger')
+    expect(marker.className).toContain('text-text-light')
+    expect(marker.className).toContain('hover:text-info')
+    expect(svgClass(marker)).toContain(glyphOf('must_fix')!)
   })
 
-  it('could_fix rides the info channel', () => {
+  it('could_fix: its own (different) category glyph, the same neutral colour', () => {
     useGuidanceStore
       .getState()
       .setGuidanceItems([makeItem({ category: 'could_fix', target_object: { type: 'node', id: 'node-a' } })])
     render(<NodeCoachingMarker nodeId="node-a" />)
     const marker = screen.getByTestId('node-coaching-marker-node-a')
-    expect(marker.className).toContain('border-info/30')
-    expect(marker.querySelector('svg')?.getAttribute('class')).toContain('text-info')
+    expect(marker.className).toContain('text-text-light')
+    expect(svgClass(marker)).not.toContain('text-info')
+    expect(glyphOf('could_fix')).not.toBe(glyphOf('must_fix'))
+    expect(svgClass(marker)).toContain(glyphOf('could_fix')!)
   })
 
-  it('an uncategorised item falls to the info channel (honest absence, never invented severity)', () => {
+  it('an uncategorised item keeps the honest-absence glyph (never an invented severity)', () => {
     useGuidanceStore
       .getState()
       .setGuidanceItems([makeItem({ category: undefined, target_object: { type: 'node', id: 'node-a' } })])
     render(<NodeCoachingMarker nodeId="node-a" />)
     const marker = screen.getByTestId('node-coaching-marker-node-a')
     expect(marker).toHaveAttribute('data-guidance-category', 'uncategorised')
-    expect(marker.className).toContain('border-info/30')
+    expect(svgClass(marker)).toContain(glyphOf(undefined)!)
   })
 
-  it('tone follows the highest-severity item among several', () => {
+  it('the glyph follows the highest-severity item among several', () => {
     useGuidanceStore.getState().setGuidanceItems([
       makeItem({ item_id: 'low', category: 'could_fix', target_object: { type: 'node', id: 'node-a' } }),
       makeItem({ item_id: 'high', category: 'must_fix', target_object: { type: 'node', id: 'node-a' } }),
@@ -225,6 +248,6 @@ describe('NodeCoachingMarker — colour by category', () => {
     render(<NodeCoachingMarker nodeId="node-a" />)
     const marker = screen.getByTestId('node-coaching-marker-node-a')
     expect(marker).toHaveAttribute('data-guidance-category', 'must_fix')
-    expect(marker.className).toContain('border-danger/30')
+    expect(svgClass(marker)).toContain(glyphOf('must_fix')!)
   })
 })

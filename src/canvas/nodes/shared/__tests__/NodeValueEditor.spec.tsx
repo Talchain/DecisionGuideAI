@@ -32,15 +32,48 @@ const setup = (outcome: 'dispatched' | 'local_only' | 'not_encodable', value: nu
 }
 
 describe('editing a value on the card', () => {
-  it('⭐ shows the readout as a real, visible control at rest', () => {
+  it('⭐ shows the readout as a real control — a button in the tab order that says it edits', () => {
     setup('dispatched')
     const rest = screen.getByTestId('nve')
+    expect(rest.tagName).toBe('BUTTON')
     expect(rest.textContent).toContain('£60,000')
-    // The box is the same one the inspector's fields use, so "editable" looks
-    // the same everywhere. `border-field` is 3.70:1; the old 1.23:1 token is
-    // what made the panel's field invisible.
-    expect(rest.className).toContain('border-field')
     expect(rest.getAttribute('aria-label')).toMatch(/click to edit/i)
+    expect(rest.getAttribute('title')).toBe('Click to edit')
+  })
+
+  /**
+   * ⭐ NODE-ANATOMY v3.2 principle 4 — "no chips around values at rest" — and
+   * its Factor row: "`<value> <mark> <unit>`, plain text with no chip". Paul,
+   * 24 Sep: the `0.25 est.` bordered chip was part of "the content on the nodes
+   * is an absolute mess". This SUPERSEDES the card half of the earlier ruling
+   * that the canvas value wear the inspector's field box at rest; the inspector
+   * keeps that box (`controls.editableResting`, untouched).
+   *
+   * ⚠ TOKENS, NOT SUBSTRINGS: `hover:border-field` contains `border-field`, so
+   * the old `toContain('border-field')` would read the new hover cue as the old
+   * resting chip and pass either way.
+   */
+  it('⭐ v3.2: at rest the value is plain text; the 3.70:1 frame appears on hover and on focus', () => {
+    setup('dispatched')
+    const rest = new Set(screen.getByTestId('nve').className.split(/\s+/))
+    for (const chip of ['border-field', 'bg-panel-hover', 'w-full', 'px-2', 'py-1']) {
+      expect(rest.has(chip), `resting value still carries "${chip}"`).toBe(false)
+    }
+    expect(rest.has('border-transparent')).toBe(true)
+    expect(rest.has('hover:border-field')).toBe(true)
+    expect(rest.has('focus-visible:border-field')).toBe(true)
+  })
+
+  it('⭐ opening the editor moves nothing: the input takes the SAME box, now framed', () => {
+    setup('dispatched')
+    const box = (el: HTMLElement) =>
+      el.className.split(/\s+/).filter((t) => ['border', '-mx-1', '-my-px', 'px-[3px]', 'py-0', 'rounded-sm'].includes(t)).sort()
+    const restBox = box(screen.getByTestId('nve'))
+    expect(restBox).toHaveLength(6)
+    fireEvent.click(screen.getByTestId('nve'))
+    const input = screen.getByTestId('nve-input')
+    expect(box(input)).toEqual(restBox)
+    expect(input.className.split(/\s+/)).toContain('border-field')
   })
 
   it('⭐ opens an input seeded with the EXACT value, not the formatted readout', () => {

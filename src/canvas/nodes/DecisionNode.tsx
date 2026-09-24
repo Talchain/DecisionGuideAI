@@ -950,6 +950,24 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // ---- Render ----
 
   /**
+   * Contract v3.1 `.node .row-meta` (T04 / ANC-03): the row under the question
+   * is ONE muted run joined by " · " ("3 alternatives · Evidence priority:
+   * conversion"), not three type styles side by side separated by whitespace.
+   * The glyph is the file's own `READINESS_SEPARATOR`, so the card and the
+   * inspector's guidance line spell it once. Decorative: screen readers get the
+   * items, which are already separate elements.
+   */
+  const rowMetaSeparator = (
+    <span
+      aria-hidden="true"
+      data-testid="decision-row-meta-separator"
+      className={`${typography.edgeLabel} shrink-0 text-text-light`}
+    >
+      {READINESS_SEPARATOR.trim()}
+    </span>
+  )
+
+  /**
    * ⭐ ONE reasoning-focus signal, clamped to one line with FULL-TEXT RECOVERY
    * for every input class: the shared focusable tooltip (hover and keyboard)
    * and a screen-reader copy of the full sentence (ED 02:31Z: "do not rely on
@@ -962,7 +980,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         data-node-tooltip="true"
         data-testid={testId}
         {...extra}
-        className={`${typography.edgeLabel} min-w-0 flex-1 truncate text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+        className={`${typography.edgeLabel} min-w-0 flex-1 truncate text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
       >
         <span aria-hidden="true">{short}</span>
         <span className={typography.screenReaderOnly}>{full}</span>
@@ -974,7 +992,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     <button
       type="button"
       data-testid="decision-node-resting-cta"
-      className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan rounded hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+      /* Contract v3.1 ANC-12: the same link treatment as the goal's target
+         route (from-font, offset 2px, clear of descenders at 11px x scale) and
+         5px of hit slop, so the ~15px line box (15.1 + 10 = 25px at 1x) clears
+         the 24px target floor; the only thing under the left slop is the
+         aria-hidden separator glyph, which has no handler. The
+         resting underline STAYS: info and text-light differ by ~1.1:1, so
+         colour alone would not mark it as a link (WCAG 1.4.1). */
+      className={`${typography.edgeLabel} relative text-info underline decoration-from-font underline-offset-2 cursor-pointer nodrag nopan rounded before:absolute before:-inset-[5px] before:content-[''] hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
       onClick={handleRestingAsk}
       onPointerDown={(e) => e.stopPropagation()}
     >
@@ -985,6 +1010,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const focusSignal = isUnnamed || (!isPostAnalysisBranch && !isPreAnalysisBranch) ? (
     <>
       <span className={`${typography.edgeLabel} text-text-light`}>{resting.line}</span>
+      {restingCta !== null && rowMetaSeparator}
       {restingCta}
     </>
   ) : isPostAnalysisBranch ? (
@@ -1073,7 +1099,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               testId={`decision-run-analysis-${id}`}
               label={runHeldNotice ?? 'Run the analysis now'}
               icon={Play}
-              tone="info"
+              /* Contract v3.1 ANC-09: `.icon-btn` is muted at rest and Info on
+                 hover/focus; only `.attention` is Info at rest. The card's
+                 other rail icon (coaching) is already muted, so one rail no
+                 longer carries two resting treatments. */
+              tone="muted"
               onActivate={() => runAnalysisFromCard('decision_run_analysis', showToast)}
             />
           ) : undefined
@@ -1095,15 +1125,27 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             The coaching chips ("Explore more options", "Challenge this result")
             are the rail's ONE coaching icon — typed `what_would_flip` kept typed.
             Detailed adds the robustness line and the chip rows, as before. */}
+        {/* Contract v3.1 (FRAME-10, T04, ANC-03, ANC-13): the row is
+            `.node .row-meta` — 11px, muted, one run joined by " · ".
+            · The count is META, not a second title: it was the 14px value
+              token in body ink, so the card read "Question / 3 options" as
+              two headings. The value-token guard no longer lists this site
+              (tests/ci-guards/the-recorded-value-carries-its-weight.spec.ts).
+            · title → row is 7px, the wide card's gap (`.node.wide{gap:7px}`):
+              the header's 4px plus 3px here (was 4 + 4), so the card shrinks.
+            · the gap counter-scales like the text (4px at every zoom on
+              screen), and 4px x the bound scale 2 is the 8px it replaces, so
+              the row is never wider at the height the layout reserves. */}
         <div
-          className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5"
+          className="mt-[3px] flex min-w-0 flex-wrap items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] gap-y-0.5"
           data-testid="decision-node-resting-state"
         >
           {optionCountLineText !== null && (
-            <span data-testid="decision-node-option-count" className={`${typography.nodeValue} shrink-0 text-text-body`}>
+            <span data-testid="decision-node-option-count" className={`${typography.edgeLabel} shrink-0 text-text-light`}>
               {optionCountLineText}
             </span>
           )}
+          {optionCountLineText !== null && focusSignal !== null && rowMetaSeparator}
           {focusSignal}
         </div>
         {isDetailed && showStabilityLine && robustnessVerdict && (
@@ -1127,7 +1169,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           anchorRef={nodeElRef}
         >
           <div className={`${typography.edgeLabel} text-text-body space-y-1`}>
-            <div className="font-medium text-text-heading">Model readiness</div>
+            <div className="font-medium text-text-header">Model readiness</div>
             {readiness.explicitCount > 0 && (
               <div>{popoverLabel(DECISION_READINESS_COPY.explicit)}: {readiness.explicitCount}</div>
             )}
@@ -1142,7 +1184,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             )}
             {readiness.biasTriggers.length > 0 && (
               <>
-                <div className="font-medium text-text-heading mt-1">Bias triggers</div>
+                <div className="font-medium text-text-header mt-1">Bias triggers</div>
                 {readiness.biasTriggers.map(trigger => (
                   <div key={trigger}>{trigger}</div>
                 ))}
@@ -1179,7 +1221,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               percentage, so there is no bar and no figure. */}
           {robustnessVerdict && (
             <div className={`${typography.edgeLabel} text-text-body space-y-1.5`}>
-              <div className="font-medium text-text-heading">Robustness</div>
+              <div className="font-medium text-text-header">Robustness</div>
               <div className="text-text-light" data-testid="decision-robustness-popover-verdict">
                 {robustnessVerdict.verdict}
               </div>

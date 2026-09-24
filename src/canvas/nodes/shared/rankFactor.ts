@@ -17,8 +17,22 @@ import type { selectDriverPolicyFeed } from '../../../components/results/useResu
 type DriverFeed = ReturnType<typeof selectDriverPolicyFeed>
 
 export interface FactorRanks {
-  /** Distinct factors in the ranked set — the `M` of "Driver N of M". */
+  /**
+   * Distinct factors in the run's driver feed — the ELIGIBLE ANALYSED factors.
+   * Both the LICENCE set `influenceRankReadout` checks (a rank inside a
+   * comparison of at least two) AND, again since ED #63 5806207128, the printed
+   * `M` of "Driver N of M analysed" ("Denominator = eligible analysed factors,
+   * not 'number of ranks we happen to render'").
+   */
   influenceSetSize: number
+  /**
+   * The number of factors this rule gives a rank (inside `determinedDepth`).
+   * Set-level, the same for every factor in the feed. Since ED 5806207128 it
+   * is NOT printed: it is the fail-closed PUBLICATION guard `driverRankFor` and
+   * the attention plan read (a rank beyond it states nothing). Contract v3.1
+   * pt 5 had made it the printed `M`; that reading is retired.
+   */
+  rankedSetSize: number
   /** 1..MAX_BADGED_RANK where the ordering is determined; otherwise null. */
   sensitivityRank: number | null
   /** 1..3 by value of information; otherwise null. */
@@ -201,6 +215,10 @@ export function rankFactor(
   )
   const determinedDepth = Math.min(depthByBasis, depthByDisplayed)
   sensitivityRank = rank > 0 && rank <= determinedDepth ? rank : null
+  // The ranked count — the distinct keys whose position is inside the SAME
+  // depth that licenses each one (a duplicate row is one factor, as in
+  // `influenceSetSize`). A publication guard, not the printed M (ED 5806207128).
+  const rankedSetSize = new Set(ranked.slice(0, determinedDepth).map((f) => f.key)).size
 
   // VoI rank: top-3 factors by value_of_information. Keyed off the shared
   // feed's canonical key (node_id → factor_id → id → label), so a row
@@ -212,5 +230,5 @@ export function rankFactor(
     .sort((a, b) => b.voi - a.voi)
   const voiPos = rankedByVoi.findIndex(f => f.id === nodeId) + 1
   if (voiPos > 0 && voiPos <= 3) voiRank = voiPos
-  return { influenceSetSize, sensitivityRank, voiRank }
+  return { influenceSetSize, rankedSetSize, sensitivityRank, voiRank }
 }

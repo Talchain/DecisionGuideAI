@@ -162,6 +162,15 @@ describe('ModelExtentNotice — the sentence is a claim about the SCREEN, so it 
     expect(screen.getByTestId('model-extent-count')).toHaveTextContent('Showing 3 of 5 elements')
   })
 
+  it('⭐ contract v3.1 CHR-6: the overlay cell’s one floating-chrome elevation — DS shadow-2, not the resting-card shadow-1', () => {
+    mountChrome({ companion: true })
+    setNodes(NODES)
+    render(<ModelExtentNotice />)
+    const cls = screen.getByTestId('model-extent-notice').className.split(/\s+/)
+    for (const c of ['bg-panel', 'border', 'border-panel-border', 'shadow-2', 'rounded-lg']) expect(cls).toContain(c)
+    expect(cls).not.toContain('shadow-1')
+  })
+
   it('POSITIVE CONTROL: with the companion ABSENT the count is unchanged', () => {
     // The fix must not be "ignore the companion and therefore report more" — the
     // no-companion case is the one that was already right, and it must stay so.

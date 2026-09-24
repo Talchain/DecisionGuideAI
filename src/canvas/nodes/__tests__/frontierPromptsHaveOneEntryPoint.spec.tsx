@@ -15,12 +15,12 @@
  *
  * What stays reachable, bound here by identity (testid / exact label):
  *   · option  → the ghost card `__ghost-option__` ONLY (its send-vs-prefill
- *     behaviour is unchanged in this slice — see the DEFERRED note), which lands an
- *     editable draft (v3.1: "does not send or mutate silently");
- *   · factor / risk / outcome → the row's last card, inline, in BOTH views
- *     (Paul, 24 Sep: "We used to have little prompts for each of the node
- *     types… let's add them back in" — supersedes the Detailed-only gate of
- *     ED 11:52Z pt 5; row-end prompt cards replace this with the fit slice).
+ *     behaviour is unchanged in this slice — see the DEFERRED note: it SENDS;
+ *     v3.1's editable draft, "does not send or mutate silently", lands with #1931);
+ *   · factor / risk / outcome → the ROW-END PROMPT after the family's final
+ *     sub-row (S4, ED #63 5806207128 / 5806266691; Paul, 24 Sep: "bring back
+ *     the per-row prompts"), and never a link on a card. It sends too until
+ *     #1931 (50cfc25b).
  *
  * CLAUDE.md trap 3: jsdom proves presence/absence of elements, not visibility.
  */
@@ -28,14 +28,16 @@ import type { ComponentType } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import type { Node } from '@xyflow/react'
+import type { Node, NodeProps } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { GhostTierNode } from '../GhostTierNode'
 import {
   GHOST_TIERS,
   tierInvitations,
+  withGhostTiers,
 } from '../../utils/ghostTiers'
 
 vi.mock('@xyflow/react', async () => {
@@ -164,25 +166,60 @@ describe('the option question has ONE entry point: the ghost card', () => {
   // Served behaviour (send) is restored here; the fix lands with its own proof.
 })
 
-describe('the factor / risk / outcome questions stay reachable at rest (Paul 24 Sep)', () => {
-  it('⭐ Standard view: the factor row’s last card carries its question', () => {
-    expect(tierInvitations(MODEL).get('f2')?.[0]?.label).toBe(FACTOR_LABEL)
+/**
+ * ⭐ S4 (24 Sep 2026): THE FACTOR / RISK / OUTCOME QUESTIONS ARE ROW-END PROMPTS
+ * AGAIN, AND NO CARD CARRIES ONE. Experience Design (#63 5806207128 /
+ * 5806266691): "one row-end prompt for Factors / Outcomes / Risks while keeping
+ * the Option ghost as its sole entry point is correct. Do not also restore
+ * in-card prompt links." From 24 Sep until S4 these questions sat on the row's
+ * last card as a stopgap "until the row-end prompt cards return with the
+ * laptop-fit slice" — this is that slice, so the stopgap goes.
+ */
+describe('the factor / risk / outcome questions have ONE entry point: the row-end prompt (S4)', () => {
+  it('⭐ Standard view: the factor row’s last card carries NO in-card question', () => {
     mountCard('factor', 'f2', 'Monthly price')
-    expect(screen.getByTestId('tier-invitation-factor').getAttribute('aria-label')).toBe(FACTOR_LABEL)
+    expect(screen.queryByTestId('tier-invitations')).toBeNull()
+    expect(screen.queryByRole('button', { name: FACTOR_LABEL })).toBeNull()
   })
 
-  it('⭐ Detailed view keeps the question reachable on that card too', () => {
+  it('⭐ Detailed view too — never a card link AND a row-end prompt for the same question', () => {
     setView('expert')
     mountCard('factor', 'f2', 'Monthly price')
-    const link = screen.getByTestId('tier-invitation-factor')
-    expect(link.getAttribute('aria-label')).toBe(FACTOR_LABEL)
-    fireEvent.click(link)
-    expect(prefills.length).toBe(1)
-    expect(prefills[0]).toContain('Trial conversion')
-    expect(sends).toEqual([])
+    expect(screen.queryByTestId('tier-invitations')).toBeNull()
+    expect(screen.queryByRole('button', { name: FACTOR_LABEL })).toBeNull()
   })
 
-  it('⛔ CONTRAST: a factor that does not end its row carries none in either view', () => {
+  // ⚠ RE-POINTED TO WHAT THIS BRANCH SERVES (50cfc25b; #1926 S1 Browser Gate
+  // NORMALZOOMDIAG): the row-end prompts ask through the served `_sendMessage`,
+  // exactly as the ghost option card does, because `requestAsk` taken from a
+  // minimised Olumi panel left the conversation callbacks unregistered. PR #1931
+  // fixes that and switches every frontier prompt to prefill-and-confirm
+  // (`requestAsk`); THIS TEST FLIPS THERE — back to one prefill and zero sends.
+  // What stays pinned here: one entry point, after the row's last card, and a
+  // click that reaches the conversation with the row's own question, once.
+  it('⭐ …and the question IS reachable: the row-end prompt stands after the row’s last card and a click puts it in the composer, never sends (#1931)', () => {
+    const prompt = withGhostTiers(MODEL).find((n) => n.id === '__ghost-factor__')
+    expect(prompt, 'no factor prompt was placed for a model with factors').toBeDefined()
+    // After the card that ends the factor row (f2), on that row.
+    const f2 = MODEL.find((n) => n.id === 'f2')!
+    expect(prompt!.position.y).toBe(f2.position.y)
+    expect(prompt!.position.x).toBeGreaterThan(f2.position.x)
+    const props = { id: prompt!.id, type: 'ghost-tier', data: prompt!.data, selected: false, zIndex: 0, isConnectable: false, dragging: false } as unknown as NodeProps
+    render(
+      <ReactFlowProvider>
+        <GhostTierNode {...props} />
+      </ReactFlowProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: FACTOR_LABEL }))
+    // #1931 (merged 24 Sep, 5c4aa6f4): prefill-and-confirm, never send — the
+    // person reads the question in the composer and chooses to send it
+    // (Experience Design #63 5807363175).
+    expect(prefills.length, 'one click puts the question in the composer exactly once').toBe(1)
+    expect(prefills[0]).toContain('Trial conversion')
+    expect(sends, 'a canvas prompt never sends in the person\'s name').toEqual([])
+  })
+
+  it('⛔ CONTRAST: a factor that does not end its row carries none either', () => {
     setView('expert')
     mountCard('factor', 'f1', 'Trial conversion')
     expect(screen.queryByTestId('tier-invitations')).toBeNull()

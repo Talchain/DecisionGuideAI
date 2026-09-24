@@ -18,7 +18,7 @@
  * asserted here, and are carried by the live witness instead.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, fireEvent } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Position } from '@xyflow/react'
@@ -26,7 +26,11 @@ import { StyledEdge } from '../StyledEdge'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { USER_EDGE_DEFAULTS } from '../../domain/edges'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
-import { uncertaintyBandHalfWidth } from '../../utils/graphDisplayCalculations'
+import {
+  uncertaintyBandHalfWidth,
+  UNCERTAINTY_BAND_STROKE,
+  UNCERTAINTY_BAND_OPACITY,
+} from '../../utils/graphDisplayCalculations'
 
 const nodeKinds: Record<string, string> = {}
 
@@ -142,10 +146,22 @@ const NO_STD_DATA = ingest((() => {
   return { ...rest, strength: strengthRest }
 })())
 
-function renderEdge(data: Record<string, unknown>, kinds: Record<string, string>) {
+/**
+ * contract v3.1 (E1/T08, 24 Sep 2026): the ribbon is TRANSIENT — it paints only
+ * while the connection is selected, hovered or keyboard-focused. The presence
+ * and geometry assertions below therefore render the edge SELECTED by default;
+ * the resting (unselected, unhovered) state is asserted separately at the foot
+ * of this file, where it must draw NOTHING.
+ */
+function renderEdge(
+  data: Record<string, unknown>,
+  kinds: Record<string, string>,
+  opts: { selected?: boolean } = {},
+) {
   for (const k of Object.keys(nodeKinds)) delete nodeKinds[k]
   Object.assign(nodeKinds, kinds)
-  return render(<svg><StyledEdge {...(baseProps as any)} data={data as any} /></svg>)
+  const selected = opts.selected ?? true
+  return render(<svg><StyledEdge {...(baseProps as any)} selected={selected} data={data as any} /></svg>)
 }
 
 const CAUSAL_KINDS = { src: 'factor', tgt: 'outcome' }
@@ -274,5 +290,51 @@ describe('the ribbon width survives the camera', () => {
     // The fix must not turn the provenance gate into a mark that always paints.
     const { container } = renderEdge(NO_STD_DATA, CAUSAL_KINDS)
     expect(band(container)).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ contract v3.1 (E1/T08, 24 Sep 2026) — NO RESTING RIBBON, AND NEVER IN THE
+ * POLARITY HUE.
+ *
+ * The contract's resting connection is ONE stroke (colour = direction, width =
+ * strength, dash = existence doubt); its connection key has five channels and
+ * no ribbon. Drawn at rest in the line's own green or rose at 0.2, the ribbon
+ * read as a soft glow around every stamped edge — Paul's "soft glow halo".
+ * Bound by IDENTITY: the ribbon's own testid, and the exported paint constants
+ * the legend swatch also reads.
+ */
+describe('contract v3.1: the ribbon is transient detail, painted neutral', () => {
+  it('draws NOTHING at rest — not selected, not hovered — even with a stamped std', () => {
+    const { container } = renderEdge(CAUSAL_DATA, CAUSAL_KINDS, { selected: false })
+    // Contrast control: the edge itself did render, so the absence is the ribbon's.
+    expect(container.querySelector('[data-testid="base-edge"]')).not.toBeNull()
+    expect(band(container)).toBeNull()
+  })
+
+  it('draws on hover (pointer or keyboard focus, which sets the same state)', () => {
+    const { container } = renderEdge(CAUSAL_DATA, CAUSAL_KINDS, { selected: false })
+    expect(band(container)).toBeNull()
+    const group = container.querySelector('[data-testid="base-edge"]')!.closest('g')!
+    fireEvent.mouseEnter(group)
+    expect(band(container)).not.toBeNull()
+    fireEvent.mouseLeave(group)
+    expect(band(container)).toBeNull()
+  })
+
+  it('draws on selection', () => {
+    const { container } = renderEdge(CAUSAL_DATA, CAUSAL_KINDS, { selected: true })
+    expect(band(container)).not.toBeNull()
+  })
+
+  it('is painted in the shared NEUTRAL ink, never the polarity stroke', () => {
+    const { container } = renderEdge(CAUSAL_DATA, CAUSAL_KINDS, { selected: true })
+    const el = band(container)!
+    expect(el.getAttribute('stroke')).toBe(UNCERTAINTY_BAND_STROKE)
+    expect(el.getAttribute('opacity')).toBe(String(UNCERTAINTY_BAND_OPACITY))
+    // The capture edge is NEGATIVE (mean −0.3504): the old ribbon took the rose
+    // polarity token. Neither polarity token may reach the ribbon.
+    expect(el.getAttribute('stroke')).not.toContain('--edge-negative')
+    expect(el.getAttribute('stroke')).not.toContain('--edge-positive')
   })
 })

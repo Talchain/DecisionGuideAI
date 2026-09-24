@@ -32,7 +32,7 @@ import '@testing-library/jest-dom/vitest'
 import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/store', () => ({
   useCanvasStore: (sel: (s: unknown) => unknown) => sel({ currentScenarioId: 'scn-1' }),
@@ -62,6 +62,7 @@ vi.mock('../../../../canvas/stores/contextIntegrityStore', () => ({
 
 import { WhatIWasGivenSection } from '../../contextIntegrity/WhatIWasGivenSection'
 import { PANEL_SURFACE } from '../panelSurfaces'
+import { NOT_MODELLED_NOTICES_COPY } from '../../contextIntegrity/notModelledNotices'
 
 const SECTION = 'what-i-was-given-section'
 /** The exact container today's PARKED surface renders. */
@@ -133,5 +134,47 @@ describe('the Reasoning tab joins the grammar', () => {
     // would pass every positive assertion above.
     expect(box().className).not.toContain('rounded-lg')
     expect(box().className).not.toContain('py-1.5')
+  })
+})
+
+/**
+ * ⭐ V2 — A COLLAPSED ROW SHOWS ONLY ITS HEADER; THE REFUSAL LIVES INSIDE.
+ *
+ * Witnessed on the served build (24 Sep 2026): the "If you want to go further"
+ * group read as a pile of apologies, and this row was the clearest one —
+ * "What you gave me, and what I did with it / I can't show this yet", on the
+ * COLLAPSED row.
+ *
+ * ⚠ THE HONESTY RULE IS KEPT, NOT OVERRIDDEN. This component's header rules
+ * that `manifest === null` must refuse EXPLICITLY — "never an empty list, and
+ * never silence". So the row still mounts (the fixture above has a brief and no
+ * manifest), and opening it still shows the explicit refusal. What moves is
+ * WHERE the apology sits: off the resting row, into the opened body.
+ *
+ * Reasoning tab only: the PARKED Analysis tab keeps its resting subtitle.
+ */
+describe('⭐ the resting row carries no empty-state sentence (Reasoning tab)', () => {
+  it('⛔ opted in, at rest: no "I can\'t show this yet" under the heading', () => {
+    render(<WhatIWasGivenSection useSurfaceGrammar={true} />)
+    expect(screen.getByTestId('what-i-was-given-toggle')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('what-i-was-given-summary')).toBeNull()
+    expect(box().textContent ?? '').not.toContain("I can't show this yet")
+  })
+
+  it('⭐ the row still MOUNTS — silence would break the honesty rule', () => {
+    render(<WhatIWasGivenSection useSurfaceGrammar={true} />)
+    expect(box()).toBeInTheDocument()
+    expect(box().textContent ?? '').toContain('What you gave me, and what I did with it')
+  })
+
+  it('⭐ opened, the explicit refusal is there, whole', () => {
+    render(<WhatIWasGivenSection useSurfaceGrammar={true} />)
+    fireEvent.click(screen.getByTestId('what-i-was-given-toggle'))
+    expect(screen.getByTestId('what-i-was-given-unknown').textContent).toBe(NOT_MODELLED_NOTICES_COPY.unknown)
+  })
+
+  it('⛔ the PARKED surface keeps its resting subtitle — the twin that must not move', () => {
+    render(<WhatIWasGivenSection />)
+    expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe("I can't show this yet")
   })
 })

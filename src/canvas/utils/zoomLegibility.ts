@@ -697,6 +697,29 @@ export function resolveLodRung(zoom: number, previous?: LodRung): LodRung {
 }
 
 /**
+ * ⭐ THE LARGEST LABEL SCALE THE NORMAL (`full`) RUNG EVER DRAWS AT — its dead-band
+ * exit. Coming DOWN from `full` the rung holds until the zoom falls below
+ * `ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN` (≈0.661), so its scale peaks at ≈1.51;
+ * `full` is NEVER drawn at `MAX_LABEL_COUNTER_SCALE`.
+ *
+ * `measureNodeHeightsAtLabelBound` reads every card at BOTH rungs' own bound —
+ * the landing rung at `MAX_LABEL_COUNTER_SCALE` with its landing padding, Normal
+ * here with its Normal padding — and reserves the larger, so the reservation no
+ * longer depends on which rung the camera happened to be at when the layout ran
+ * (measured 24 Sep: the landing layout ran at zoom 2.85, Normal, ~0.9s before the
+ * fit reached 0.53, and reserved the Normal band at scale 2 under every card —
+ * 64–109-unit row gaps against the intended 48).
+ */
+export const MAX_NORMAL_RUNG_LABEL_SCALE = labelCounterScale(ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN)
+
+/**
+ * The card root's padding at each rung, as JSON `{landing, normal}` of the four
+ * padding longhands — written by `BaseNode`, read by the measurer. One attribute,
+ * so the two rungs' boxes cannot be declared by two hands.
+ */
+export const NODE_RUNG_PADDING_ATTR = 'data-rung-padding'
+
+/**
  * Whether a card hides its body at this rung — the ONE predicate every surface
  * that speaks about the blanked state must consume.
  *

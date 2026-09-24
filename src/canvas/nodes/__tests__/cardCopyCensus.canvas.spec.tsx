@@ -256,10 +256,15 @@ const FACTOR_IDS = ['factor-1', 'factor-2', 'factor-3']
 const RISK_IDS = ['risk-1', 'risk-2', 'risk-3']
 const OUTCOME_IDS = ['outcome-1', 'outcome-2', 'outcome-3']
 
+// Contract v3.1 pt 5: only a RANKED factor carries a driver line, so the three
+// factors carry a licensed ranking (set 3, ranked 3 — the contract fixture's
+// own "Driver N of 3"). Before v3.1 they were implicitly unranked (no set size)
+// and the line read the quantity noun `Influence`, which v3.1 retires.
+const RANKED = { influenceSetSize: 3, influenceRankedCount: 3 }
 const META: Record<string, Record<string, unknown>> = {
-  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true },
-  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true },
-  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true },
+  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true, ...RANKED },
+  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true, ...RANKED },
+  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true, ...RANKED },
   'option-1': { winRate: 0.47 },
   'option-2': { winRate: 0.31 },
   'option-3': { winRate: 0.15 },
@@ -498,9 +503,10 @@ const BUCKETS: Array<
  *    outcome cards at every rung — "Outcome/risk records are distinct from the
  *    strength of their connections". Removed from all eight risk/outcome
  *    buckets below, and its two REACH positions are retired with it.
- *  · The factor `Influence` row is now the driver line (ED 02:31Z D1a); on this
- *    fixture's unranked factors its caption is the quantity's own noun, still
- *    `Influence` — the same CAPTION at its new surface.
+ *  · The factor `Influence` row is now the driver line (ED 02:31Z D1a). Contract
+ *    v3.1 pt 5 then retired its unranked arm (the `Influence` noun caption):
+ *    the fixture's factors are ranked, and their `Driver N of 3 ranked in this
+ *    run` varies per card, so the caption is no invariant run any more.
  *  · The option face now LEADS with its change rows (spec §4; ED 11:52Z
  *    point 4). Their runs are data (a reading, a band, or a direction word), so
  *    they enter no bucket while the fixture stays disjoint AS RENDERED — see
@@ -508,6 +514,15 @@ const BUCKETS: Array<
  *    target with no reading while this change was in review; production now
  *    says the direction instead (`optionChangeRows.ts`, "NEVER AN ARROW
  *    POINTING AT NOTHING"), so a bare `→` is not in the allowed set anywhere.
+ *  · BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "Option = top change
+ *    pre-run or current-model share post-run … The fuller S3 reasoning detail
+ *    — change rows … — can move to the existing hover/focus popover"). In
+ *    STANDARD view the rows, `+N more` and the differentiator left the resting
+ *    card for the popover this census excludes. Pre-run the face keeps ONE line
+ *    — the top change, value and mark first — so its mark and separator stay in
+ *    `option · pre · standard`; post-run the share line replaces it, so they
+ *    LEAVE the two Standard post-run buckets. Detailed keeps its inline rows and
+ *    its buckets are unchanged.
  */
 const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · pre · standard': [
@@ -515,6 +530,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // deployed `79866c44`, 4 of 4 option cards asked nothing on their face).
     // Locked Canvas design (23 Sep 2026): the question is still on the card, as
     // the rail's coaching icon — no visible run. See REACH.
+    // Bounded anatomy (ED #63 5809278282): the two runs below now come from the
+    // face's ONE line — the top change's mark and its separators.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
@@ -531,9 +548,9 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
     //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
     //            sentence is on the `title` and in `sr-only` text.
-    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
-    //          option target is marked (this fixture's interventions carry no `source`).
-    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
+    // ⛔ `no source` and `·` LEFT this bucket (bounded anatomy, ED #63
+    // 5809278282): post-run the share line is the face's one line and the
+    // change rows — whose marks they were — are in the popover.
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
@@ -557,14 +574,14 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // `visibleRuns` reads LEAF elements only, so the run is never collected.
     // It is adjudicated by hand in the manifest (`factor · the edge pill …`).
   ],
-  'factor · post · standard': [
-    'Influence', // CAPTION — the driver line's quantity noun (`influenceBasisNoun`)
-    //              on an unranked factor; a ranked one reads `Driver N of M in
-    //              this model`, which varies. Locked Canvas design (23 Sep 2026).
-  ],
+  // ⭐ ADJUDICATED 24 Sep 2026 — contract v3.1 pt 5 retires the unranked
+  // driver line, so the quantity-noun caption `Influence` is gone. The ranked
+  // line reads `Driver N of M analysed` (ED #63 5806207128), which VARIES per card, so it
+  // is no invariant run; its position is pinned by REACH (`factor · the driver
+  // line`).
+  'factor · post · standard': [],
   'factor · post · expert': [
     'Confidence', // CAPTION
-    'Influence', // CAPTION — the driver line, face and layer 2
     'Influences:', // HEADING
     'View parameters', // CONTROL
   ],
@@ -574,6 +591,9 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // ⭐ WAS ALSO `What would we see first?` (CONTROL, ADJUDICATED 9 Sep 2026,
     // promoted from the hover popover). Locked Canvas design (23 Sep 2026): it
     // is the rail's coaching icon now — still on the card, no visible run.
+    '· entered', // PROVENANCE — ADJUDICATED 24 Sep 2026 (ED #63 5809278282: value
+    // provenance stays explicit on the card, never tooltip-only). The entered
+    // likelihood/impact pair's qualifier ("Entered estimate") in its short form.
   ],
   'risk · pre · expert': [
     'Driven by:', // HEADING
@@ -584,6 +604,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'risk · post · standard': [
     // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1). The
     // face question is the rail icon; see the pre bucket.
+    '· entered', // PROVENANCE — see the pre bucket.
   ],
   'risk · post · expert': [
     'Depends on:', // HEADING
@@ -595,10 +616,26 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1).
     // ⭐ WAS ALSO `What would falsify this?` (CONTROL, ADJUDICATED 9 Sep 2026).
     // Locked Canvas design (23 Sep 2026): the rail's coaching icon asks it now.
+    // ⭐ ADJUDICATED 24 Sep 2026 as KEPT — contract v3.1 OR-02 / RHY-09. STATE,
+    // by the `Not computed` precedent below: invariant on every unquantified
+    // outcome BY DESIGN, because it IS the statement of the state, and it sits
+    // in the position the outcome's own value takes when one exists (v3.1
+    // fixture: `small-state` / `own-value`). v3.1 point 8: "use that space for
+    // actual outcome state". The risk card's `Likelihood and impact not set
+    // yet` is the same kind of line; this fixture's risks carry values, so it
+    // does not appear in their buckets.
+    // ⭐ RE-ADJUDICATED 24 Sep 2026 — ED #63 5809278282 (bounded anatomy, "title
+    // + one primary line … Outcome/Risk = state"): the Standard line SHOWS the
+    // sentence's own tail, `Not quantified` (fits the ~19-character landing
+    // line); the whole sentence `Outcome not quantified` is on the `title`, in
+    // sr-only text and in the popover — none of which this census counts. Still
+    // STATE, still invariant by design; Detailed buckets keep the full sentence.
+    'Not quantified',
   ],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
     'Explore consequences', // CONTROL
+    'Outcome not quantified', // STATE — see `outcome · pre · standard`
     'What affects this?', // CONTROL
     'What would falsify this?', // CONTROL
   ],
@@ -606,21 +643,22 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1). The
     // falsification question is still asked after a run (the `!isPostAnalysis`
     // gate stays gone), by the rail icon.
+    'Not quantified', // STATE — see `outcome · pre · standard` (ED 5809278282 short form)
   ],
   'outcome · post · expert': [
     'Depends on:', // HEADING
     'Explore consequences', // CONTROL
+    'Outcome not quantified', // STATE — see `outcome · pre · standard`
     'Validate this assumption', // CONTROL
     // ⭐ ADJUDICATED 9 Sep 2026 — the phase gate that deleted this question on a
     // completed run is gone, so Detailed post now carries it as Detailed pre
     // always did.
     'What would falsify this?', // CONTROL
   ],
-  // ⚠⚠ EVERY LOD BUCKET BUT ONE IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED —
-  // DO NOT READ IT AS A CLEAN BILL. (The one: `factor · post · lod-line`, whose
-  // cards have no reduced line since the locked Canvas design withdrew the bare
-  // `Influence N%` fallback (ED 11:52Z) — so their body is not blanked at that
-  // rung and the driver line's caption is collected there; see that bucket.) At this rung the caption and its value are ONE
+  // ⚠⚠ EVERY LOD BUCKET IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED —
+  // DO NOT READ IT AS A CLEAN BILL. (Until contract v3.1 pt 5 the exception was
+  // `factor · post · lod-line`, whose unranked cards had no reduced line; the
+  // census factors are ranked now — see that bucket.) At this rung the caption and its value are ONE
   // leaf (`Ahead 47%`), so no invariant caption can be isolated here; a bucket
   // fires only if two cards' ENTIRE reduced lines match, and this fixture's
   // siblings are disjoint by construction. The zeros are consistent with the
@@ -647,9 +685,9 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // that explains the state is already where this lane would have put it:
     // on the `title` and in sr-only text, neither of which the census counts.
     'Not computed',
-    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
-    //          option target is marked (this fixture's interventions carry no `source`).
-    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
+    // ⛔ `no source` and `·` LEFT this bucket with the change rows (bounded
+    // anatomy, ED #63 5809278282): after a run the face's one line is the run's
+    // own line (here the not-computed badge); the rows are in the popover.
   ],
   // The change-COUNT fallback lives here and nowhere else. It does NOT enter
   // the census — `Changes 1 factor` / `Changes 2 factors` / `Changes 3 factors`
@@ -668,17 +706,17 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · pre · lod-line': [],
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
-  'factor · post · lod-line': [
-    // CAPTION — Locked Canvas design (23 Sep 2026). These unranked factors have
-    // no reduced line any more (no bare `Influence N%`, ED 11:52Z; no current
-    // rank to state), so `lodBodyBlanked` is false and the body — its driver
-    // line included — renders at this rung, exactly as the option card with no
-    // reduced line already does (see the REACH note on `option · pre ·
-    // lod-line`). The run is the same caption as `factor · post · standard`.
-    'Influence',
-  ],
+  // ⭐ ADJUDICATED 24 Sep 2026 (contract v3.1 pt 5): the factors are ranked
+  // now, so each has a reduced line — `Driver N of M analysed`, which
+  // varies per card — and no invariant run is left at this rung.
+  'factor · post · lod-line': [],
   'risk · pre · lod-line': [],
-  'outcome · pre · lod-line': [],
+  'outcome · pre · lod-line': [
+    // STATE — see `outcome · pre · standard`. The outcome declares no reduced
+    // line, so its body is not blanked at this rung and the state line is
+    // collected here, exactly as `factor · post · lod-line` collects its caption.
+    'Not quantified', // ED 5809278282 short form — see `outcome · pre · standard`
+  ],
 }
 
 /**
@@ -776,10 +814,30 @@ const ADJUDICATED_POSITIONS: Position[] = [
     present: byTestId('-win-readout-option-1'),
   },
   // Locked Canvas design (23 Sep 2026): the `Influence` metric row
-  // (`factor-influence-row`) is RETIRED; the driver line replaces it on the face
-  // (ED 02:31Z D1a). Bound by the new identity — an exact testid, so the
-  // Detailed copy (`factor-driver-line-detail`) cannot stand in for it.
-  { what: 'factor · the driver line', by: 'census', present: (c) => c.querySelector('[data-testid="factor-driver-line"]') != null },
+  // (`factor-influence-row`) is RETIRED; the driver line replaced it on the face
+  // (ED 02:31Z D1a).
+  // ⭐ RE-POINTED, ED #63 5809278282 (bounded anatomy, 24 Sep): "The fuller S3
+  // reasoning detail — change rows, driver wording, turning-point
+  // explanation/findings — can move to the existing hover/focus popover and
+  // inspector rather than expanding layout geometry." The driver line left the
+  // resting face for the factor's popover, which this census strips as "already
+  // the hover treatment" — so the census can no longer rule on it, and the row
+  // is a HAND call. `present` still binds by the exact testid, and refuses a
+  // match on the face: the line must be reached INSIDE the popover. (The face's
+  // wordless driver cue rides the value line, which these bare-amount fixtures
+  // do not print; it is pinned in `FactorNode.boundedAnatomy.spec.tsx`.)
+  {
+    what: 'factor · the driver line (popover content since ED 5809278282)',
+    by: 'hand',
+    why: 'COMPACTED — moved, not deleted: the S3 driver wording is hover/focus disclosure '
+      + 'now (ED #63 5809278282), outside the resting-copy census by construction. Its '
+      + 'wording and stale label are pinned where it lives: FactorNode.anatomyV32 / '
+      + 'driverLineContractV31 / influenceRanking, each bound inside the popover.',
+    present: (c) => {
+      const line = c.querySelector('[data-testid="factor-driver-line"]')
+      return line != null && line.closest('[data-testid="node-popover"]') != null
+    },
+  },
   // ⛔ RETIRED (contract v3.1, gap U1): 'risk · the `Link strength` metric row'
   // (`risk-strength-row`) and 'outcome · the `Link strength` metric row'
   // (`outcome-strength-row`). Their absence is pinned by identity in
@@ -788,6 +846,9 @@ const ADJUDICATED_POSITIONS: Position[] = [
   { what: 'factor · the `Confidence` readout', by: 'census', present: (_c, r) => r.some((x) => x.startsWith('Confidence')) },
   { what: 'risk · the coaching chips', by: 'census', present: (_c, r) => r.includes('What reduces this?') },
   { what: 'outcome · the coaching chip', by: 'census', present: (_c, r) => r.includes('Explore consequences') },
+  // Contract v3.1 OR-02 / RHY-09: the outcome's own-state line, bound by testid.
+  // ED 5809278282: shows `Not quantified`, announces `Outcome not quantified`.
+  { what: 'outcome · the own-state line `Not quantified`', by: 'census', present: (c) => c.querySelector('[data-testid="outcome-unquantified"]') != null },
   // Locked Canvas design (23 Sep 2026): the face question is the rail's
   // coaching icon on every kind (spec §2; ED 02:31Z D4). No visible text, so the
   // census's verdict on it is that it adds no run — which is only a measurement
@@ -827,22 +888,33 @@ const ADJUDICATED_POSITIONS: Position[] = [
       + 'participle carried nothing. The sentence survives on both carriers.',
     present: byTestId('-completeness-option-3'),
   },
+  // ⛔ RETIRED FROM THE RESTING CARD (bounded anatomy, ED #63 5809278282, 24 Sep
+  // 2026): 'option · the differentiator sentence'. Its hand verdict was KEPT —
+  // "the sentence frame IS the caption for the factor name it carries" — and it
+  // is kept, WHOLE, in the option's popover (which opens on hover, tap and
+  // keyboard focus), not deleted. This census measures the resting card and
+  // excludes the popover as "already the hover treatment", so no bucket can
+  // reach it here; its presence and wording are pinned by identity in
+  // `OptionNode.boundedAnatomy.spec.tsx` and
+  // `OptionNode.differentiatorRecoverable.spec.tsx`.
   {
-    what: 'option · the differentiator sentence',
+    what: 'option · the one primary change line (bounded anatomy)',
     by: 'hand',
-    why: 'KEPT — the sentence frame IS the caption for the factor name it '
-      + 'carries. Hovering the frame leaves a bare factor name directly beneath '
-      + 'a list of factor names, which on touch is an unexplained label.',
-    present: (_c, r) => r.some((x) => x.endsWith('is the key difference')),
+    why: 'KEPT — ED #63 5809278282: "Option = top change pre-run". Its value, '
+      + 'mark and factor label vary per option, so the census cannot rule on '
+      + 'them; the invariant runs it adds (the mark and its separator) are in '
+      + '`option · pre · standard`. The whole sentence is its title and sr-only text.',
+    present: byTestId('-primary-change-option-1'),
   },
   {
-    what: 'risk · the severity badge `{Severity} Risk`',
+    what: 'risk · the severity badge `{Severity} risk`',
     by: 'hand',
     why: 'KEPT — only the noun ` Risk` is invariant, and it says what "High" is '
       + 'high ON. That is the caption shape (`Ahead 47%`) written backwards, and '
       + 'captions stay. NOT deferred on card height, which was a false claim. '
-      + 'Detailed only since the locked Canvas design (23 Sep 2026).',
-    present: (_c, r) => r.some((x) => /^(High|Medium|Low) Risk$/.test(x)),
+      + 'Detailed only since the locked Canvas design (23 Sep 2026). Sentence '
+      + 'case since contract v3.1 (T13): the noun is kept, only its capital goes.',
+    present: (_c, r) => r.some((x) => /^(High|Medium|Low) risk$/.test(x)),
   },
   {
     // Locked Canvas design (23 Sep 2026), MT-19 — see `factor · pre · expert`.
@@ -948,7 +1020,10 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     for (const [bucket, runs] of Object.entries(measured)) {
       if (bucket.startsWith('risk') || bucket.startsWith('outcome')) expect(runs, bucket).not.toContain('Link strength')
     }
-    expect(measured['factor · post · standard']).toContain('Influence')
+    // Contract v3.1 pt 5 retired the factor's `Influence` noun caption; the
+    // factor register caption that MUST still be found is `Confidence`.
+    expect(measured['factor · post · expert']).toContain('Confidence')
+    expect(Object.values(measured).flat()).not.toContain('Influence')
     expect(measured['option · post · standard']).toContain('Current model')
     expect(Object.values(measured).flat()).not.toContain('Support')
     expect(Object.values(measured).flat()).not.toContain('Strength')

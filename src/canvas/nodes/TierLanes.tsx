@@ -41,9 +41,13 @@ import { deriveTierLanes } from '../utils/tierLanes'
  * paints last). With no rectangle there is nothing to stack.
  *
  * ⭐ ONE COLUMN, INSIDE THE FIT. Every title shares x = the graph's leftmost
- * card edge. That edge IS the fitted box's left edge, so a title can never sit
- * under the left toolbar at the landing fit — which is what clipped "Question",
- * "Options" and "Goal" on both PoCs. Per-lane x would put the Question and Goal
+ * card edge. That edge IS the fitted box's left edge (a row-end prompt only ever
+ * stands at a row's END), so whenever the board fits, a title cannot sit under
+ * the left toolbar at landing — which is what clipped "Question", "Options" and
+ * "Goal" on both PoCs. ⚠ When the board does NOT fit on width (a five-card row
+ * with its prompt at 1280×800 dock-open, 1740 units against 1520) the clamped
+ * camera spills the overflow evenly, and the column lands ~21px from the pane
+ * edge — the S4 shortfall, stated in `laptopFit.arithmetic.spec.ts`. Per-lane x would put the Question and Goal
  * titles mid-screen above their centred cards; one column keeps them "on the
  * left" as asked.
  *

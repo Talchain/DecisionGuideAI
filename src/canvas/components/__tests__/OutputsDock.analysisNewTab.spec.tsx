@@ -478,13 +478,13 @@ describe('C · THE SECTION STRUCTURE', () => {
       .map((h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent)
       .filter((t) => t === null || !GROUP_TITLES.includes(t))
     expect(sectionHeadings).toEqual([
-      // ⚠⚠ DRIVERS STILL LEAD THE SECTIONS — Paul's 17 Sep ruling that "what
-      // matters most" means the drivers. V2 moved "What moves the outcome" from
-      // the answer zone into "Challenge the thinking", which sits ABOVE the
-      // answer, so it still comes first.
-      ANALYSIS_NEW_COPY.sections.drivers,
-      // V2: the answer zone, headed by its own commitment block.
+      // ⚠ V2 FIRST SCREEN (24 Sep 2026): the answer zone's commitment block now
+      // leads the sections. Paul's 17 Sep "what matters most means the drivers"
+      // is still met BEFORE it, at rest, by the challenge's "Top drivers" signal
+      // rows (which carry no h3); the full drivers section, closed, follows the
+      // answer it explains so the options chart reaches the first screen.
       COMMITMENT_COPY.heading,
+      ANALYSIS_NEW_COPY.sections.drivers,
       ANALYSIS_NEW_COPY.sections.keyInsights,
       // ⭐ Uncertainty stays inside "How this was worked out", RUN DETAILS LAST
       // per the prototype — only "What we checked" left it (for About).

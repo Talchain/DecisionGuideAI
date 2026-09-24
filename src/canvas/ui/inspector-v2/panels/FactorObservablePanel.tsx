@@ -50,12 +50,40 @@ import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { resolveValueInputSeed } from '../../../conversation/factorValueEdit'
+import {
+  useModelEditAuthority,
+  type FactorValueProposalOutcome,
+} from '../../../hooks/useModelEditAuthority'
+import { ANALYSIS_NEW_COPY } from '../../../../components/results/analysisNew/analysisNewCopy'
+
+/**
+ * What the panel says after a value commit — the SAME three sentences every
+ * other `proposeFactorValue` surface uses (`ModelStrip`'s value editor), read
+ * from the register rather than re-typed. A `Record` over the authority's own
+ * outcome union, so a fourth outcome fails the typecheck instead of silently
+ * borrowing one of these.
+ */
+const VALUE_COMMIT_RECEIPT: Record<FactorValueProposalOutcome, string> = {
+  dispatched: ANALYSIS_NEW_COPY.modelStrip.valueDispatched,
+  local_only: ANALYSIS_NEW_COPY.modelStrip.valueLocalOnly,
+  not_encodable: ANALYSIS_NEW_COPY.modelStrip.valueNotEncodable,
+}
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
   techMode,
   onClose,
   onNavigate,
+  /**
+   * ⛔ A DUTY, NOT A PERMISSION (see `InspectorPanelProps`). The Router no
+   * longer wraps this pane, so every control that reaches a mutation WITHOUT a
+   * durable carrier sits behind this panel's own fence: the description and the
+   * advanced editor. The headline value is left live because it now commits
+   * through `factor_value_edit` — the same carrier `FactorControllablePanel`'s
+   * value uses.
+   */
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -117,10 +145,43 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   // Click-to-edit value (shared InlineNumberEditor); observation-first.
   const displayValue = rawValue ?? value
 
+  /**
+   * ⭐⭐ THE SEED IS THE SCALE AUTHORITY'S, NOT THIS PANEL'S.
+   *
+   * `buildFactorValueEditEvent` decides whether the committed number is a
+   * USER-UNIT magnitude or a MODEL-scale one by asking `resolveValueInputSeed`
+   * which number the input was showing. So the input must show exactly that
+   * number, or the builder would read a typed £60 as a 0-1 value (or a typed
+   * 0.6 as pounds). `FactorControllablePanel` seeds from the same call for the
+   * same reason. It is also the no-op baseline: committing the seed unchanged
+   * sends nothing.
+   */
+  const { seed: valueInputSeed } = resolveValueInputSeed(node?.data)
+
+  /**
+   * ⭐⭐ THE VALUE COMMIT GOES THROUGH THE SHARED WRITER, NOT A SECOND ONE.
+   *
+   * This was `mutations.setObservedValue(parsed)` — a bare local store write
+   * with no wire carrier, so the next server rehydrate discarded it (and the
+   * Router's blanket fence made it unreachable anyway). It now calls
+   * `useModelEditAuthority.proposeFactorValue`, the writer the factor card, the
+   * Model tab and the Reasoning tab already share: `buildFactorValueEditEvent`
+   * (the scale contract) → `captureOptimisticFactorEdit` (the undo) →
+   * `setObservedValue` → `sendSystemEvent` → `factor_value_edit`. CEE resolves
+   * the target by node id, so an observable factor needs nothing new.
+   *
+   * ⚠ THE OUTCOME IS NEVER FLATTENED TO "UPDATED". The authority answers
+   * `dispatched | local_only | not_encodable`; each gets its own sentence, and
+   * only a commit that wrote something arms the re-run prompt.
+   */
+  const authority = useModelEditAuthority(nodeId ?? null)
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<FactorValueProposalOutcome | null>(null)
+
   const handleValueSave = useCallback((parsed: number) => {
-    mutations.setObservedValue(parsed)
-    confirmEdit('value')
-  }, [mutations, confirmEdit])
+    const outcome = authority.proposeFactorValue(parsed)
+    setValueCommitOutcome(outcome)
+    if (outcome !== 'not_encodable') confirmEdit('value')
+  }, [authority, confirmEdit])
 
   /**
    * ⛔ ONLY THE UNITLESS FALLBACK CHANGED, AND THE OTHER TWO BRANCHES ARE LEFT
@@ -204,6 +265,13 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
       {/* ── Context group ─────────────────────────────────────── */}
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty */}
+        {/* `mutations.setDescription` writes to the local store ONLY — there is
+            no `description` carrier. Fenced HERE rather than at the Router so
+            the value control, which does have one, can stay live. The fence
+            wraps BOTH branches: the empty prompt performs no write itself, but
+            it invites text that cannot be saved (`FactorControllablePanel`
+            records the same reasoning). */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
         {description || isEditingDescription ? (
           <textarea
             value={description}
@@ -224,6 +292,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
             onStartEditing={() => setIsEditingDescription(true)}
           />
         )}
+        </fieldset>
 
         {/* Provenance pills: category identity + data source */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
@@ -364,20 +433,36 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           <InlineNumberEditor
             readout={displayValue != null ? formatValue(displayValue) : null}
             placeholder="No value set. Click to enter."
-            // Exact raw value (no scale conversion here) → unchanged-blur is a no-op (P1-4).
-            value={displayValue ?? null}
+            // The scale authority's seed, unrounded (P1-4): the number the
+            // builder will assume the input showed, and the no-op baseline.
+            value={valueInputSeed ?? null}
             onSave={handleValueSave}
             displayTestId="observable-value-display"
             inputTestId="observable-value-input"
             title="Click to enter a value"
           />
 
-          {/* Edit feedback */}
-          {lastConfirmed?.field === 'value' && (
+          {/* Edit feedback — WHAT HAPPENED, never a bare "Updated". The old
+              success tick fired on the local write alone, over an edit the
+              server never heard about. */}
+          {lastConfirmed?.field === 'value' && valueCommitOutcome !== null && valueCommitOutcome !== 'not_encodable' && (
             <div className="flex items-center gap-2 mt-1">
-              <EditConfirmation trigger={lastConfirmed.ts} />
+              <EditConfirmation
+                trigger={lastConfirmed.ts}
+                label={VALUE_COMMIT_RECEIPT[valueCommitOutcome]}
+                tone="pending"
+              />
               <InlineRerunPrompt visible={isStaleAfterEdit} />
             </div>
+          )}
+          {valueCommitOutcome === 'not_encodable' && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1`}
+              data-testid="observable-value-not-applied"
+              role="status"
+            >
+              {VALUE_COMMIT_RECEIPT.not_encodable}
+            </p>
           )}
 
           {/* Provenance inline below value */}
@@ -424,7 +509,13 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
       {/* ── Expert-only model detail ──────────────────────────── */}
       <TechnicalDisclosure visible={techMode}>
-        <FactorObservableEditor nodeId={nodeId} />
+        {/* ⚠ EVERY SETTER IN THIS EDITOR IS A BARE `updateNode` — including
+            `setObservedValue`, which writes the SAME slot as the headline value
+            WITHOUT the `factor_value_edit` send. Fenced, as
+            `FactorControllablePanel` fences its own advanced editor. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+          <FactorObservableEditor nodeId={nodeId} />
+        </fieldset>
       </TechnicalDisclosure>
     </div>
   )

@@ -42,6 +42,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, within, fireEvent, cleanup } from '@testing-library/react'
+import { openOptionPreview } from '../../../nodes/__tests__/__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 
 const sendSystemEvent = vi.fn()
@@ -178,6 +179,17 @@ function renderCard(optionData: Record<string, unknown>) {
   return utils.container
 }
 
+/**
+ * WHERE THE CARD'S CHANGE ROWS ARE READ (ED #63 5809278282, bounded anatomy):
+ * in Standard view the rows moved off the card body into the option's
+ * popover — the card keeps one primary line. The parity these tests pin is
+ * between the inspector and the rows the card SHOWS, so they are read from the
+ * popover, bound to it by identity (`option-preview-detail-<id>`).
+ */
+async function cardRows(card: HTMLElement): Promise<HTMLElement> {
+  return openOptionPreview(card, OPTION_ID)
+}
+
 /** The card's visible TARGET: the text after its arrow, without the source mark. */
 function cardTarget(card: HTMLElement, factorId: string): string {
   const dd = card.querySelector(`[data-testid="option-change-row-${OPTION_ID}-${factorId}"]`)
@@ -238,12 +250,12 @@ describe('(a) the inspector row reads like the card, never the internal 0–1 va
     expect(row(dialog, F_COST).textContent ?? '').not.toContain('0.5')
   })
 
-  it('⭐⭐ PARITY — the inspector’s target is the card’s target, and the mark agrees, on the real card', () => {
+  it('⭐⭐ PARITY — the inspector’s target is the card’s target, and the mark agrees, on the real card', async () => {
     const option = seed({
       [F_COST]: { value: 0.7, source: 'user_specified' },
       [F_PRICE]: { value: 0.295, source: 'brief_extraction' },
     })
-    const card = renderCard(option.data)
+    const card = await cardRows(renderCard(option.data))
     const dialog = openInspector()
 
     for (const fid of [F_COST, F_PRICE]) {
@@ -261,7 +273,7 @@ describe('(a) the inspector row reads like the card, never the internal 0–1 va
 })
 
 describe('(a) the SAME display source as the card — CEE’s analysis_ready, joined with its details', () => {
-  it('⭐⭐ the reading CEE authored in `intervention_details` reaches the inspector too (RED at a4434670)', () => {
+  it('⭐⭐ the reading CEE authored in `intervention_details` reaches the inspector too (RED at a4434670)', async () => {
     // `ceeAnalysisReady.options[]` carries the target as a FLAT number and the
     // words in a SIBLING `intervention_details` map (`factorOptionSetting.ts`).
     // The card joins them; the inspector read the node alone, which holds the
@@ -276,7 +288,7 @@ describe('(a) the SAME display source as the card — CEE’s analysis_ready, jo
         }],
       },
     )
-    const card = renderCard(option.data)
+    const card = await cardRows(renderCard(option.data))
     const dialog = openInspector()
 
     expect(cardTarget(card, F_COST)).toBe('£60k')
@@ -285,12 +297,12 @@ describe('(a) the SAME display source as the card — CEE’s analysis_ready, jo
     expect(text).toContain('£60k')
   })
 
-  it('⭐ a bare producer number does not erase the user’s own stamp — on either surface', () => {
+  it('⭐ a bare producer number does not erase the user’s own stamp — on either surface', async () => {
     const option = seed(
       { [F_COST]: { value: 0.7, source: 'user_specified' } },
       { options: [{ id: OPTION_ID, interventions: { [F_COST]: 0.7 } }] },
     )
-    const card = renderCard(option.data)
+    const card = await cardRows(renderCard(option.data))
     const dialog = openInspector()
 
     expect(cardMarkKind(card, F_COST)).toBe('you')

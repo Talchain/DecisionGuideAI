@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { useReactFlow, getNodesBounds } from '@xyflow/react'
+import { useReactFlow, getNodesBounds, getViewportForBounds } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { computeFitPadding } from '../utils/computeFitPadding'
-import { excludeNonModelNodes } from '../utils/fitTargets'
+import { excludeNonModelNodes, userFitNodes } from '../utils/fitTargets'
 import { paddingToInsets, readFocusCamera, topAnchoredViewportWhenClamped } from '../utils/cameraComfort'
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
@@ -153,7 +153,18 @@ export function useFitViewOnLayoutVersion(): void {
   // the re-fit would silently stop agreeing (and how three copies of the dock
   // bounds drifted before `dockWidth.ts` existed).
   const fitNow = useRef(() => {
-    const nodes = getNodesRef.current ? excludeNonModelNodes(getNodesRef.current()) : []
+    /**
+     * ⭐ S4: THE FRAME IS THE MODEL PLUS ITS ROW-END PROMPTS (ED S4; NODE-ANATOMY-v32
+     * L4: "the WHOLE graph (all rows plus the prompt cards) is visible at
+     * landing"). Both exits below read this one list, so the clamped top-anchor
+     * and the fitting `fitView` frame the same box. The readiness predicates
+     * above keep `excludeNonModelNodes` — "is there a MODEL to aim at?" is a
+     * count, and a prompt is never part of the count.
+     */
+    // A frame of prompts alone frames nothing the user owns — with no model
+    // node the fit falls back exactly as it did before (xyflow's fit-all).
+    // One helper for the landing fit and every user-invoked fit (S5).
+    const nodes = userFitNodes(getNodesRef.current ? getNodesRef.current() : [])
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
 
@@ -190,6 +201,36 @@ export function useFitViewOnLayoutVersion(): void {
         setViewportRef.current(anchored, { duration })
         return
       }
+      // ⭐⭐ THE PRODUCT'S FIT IS APPLIED NOW, NEVER QUEUED (#1932, 24 Sep 2026).
+      //
+      // xyflow 12's `fitView()` does not move the camera: it sets
+      // `fitViewQueued` and resolves at the NEXT `updateNodeInternals` — the next
+      // time any card changes size. On a settled canvas a second product fit
+      // (e.g. the reserved-box re-fit when a notice goes away) therefore sat
+      // queued until the PERSON zoomed: the zoom changed the rung, the cards
+      // re-measured, and the stale fit fired — throwing the camera back to the
+      // landing frame, byte-identical (Canvas Browser Gate `nodeKeyboardBleed`:
+      // "reset to 100%" stayed at 53%; runs 35996327607 and later). The user's
+      // camera claim cannot stop it: the fit was queued before the claim.
+      // Staging never saw it because its landing clamps, and the clamped branch
+      // above already writes the viewport directly.
+      //
+      // So the unclamped fit is computed here with xyflow's OWN
+      // `getViewportForBounds` (what `fitView` resolves through) and written at
+      // once — the same frame, with no deferred write left behind.
+      const { minZoom, maxZoom } = fitBoundsFor('product')
+      setViewportRef.current(
+        getViewportForBounds(
+          getNodesBounds(nodes),
+          cam.paneWidth,
+          cam.paneHeight,
+          minZoom ?? LABEL_LEGIBLE_ZOOM,
+          maxZoom ?? LABEL_LEGIBLE_ZOOM,
+          padding,
+        ),
+        { duration },
+      )
+      return
     }
 
     fitViewRef.current({

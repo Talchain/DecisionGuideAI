@@ -24,11 +24,14 @@ import {
   CanvasOverlayBandProvider,
   OVERLAY_PRIORITY,
   OVERLAY_BAND_HEIGHT,
+  OVERLAY_BAND_LEFT_PAD,
   OVERLAY_BAND_SELECTOR,
   useOverlayCell,
   type OverlayCell,
 } from '../CanvasOverlayBand'
 import { createPortal } from 'react-dom'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { FocusModeChip } from '../FocusModeChip'
 import { useCanvasStore } from '../../store'
 
@@ -229,6 +232,32 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
     expect(band!.style.height).toBe(`${OVERLAY_BAND_HEIGHT}px`)
     expect(band!.style.pointerEvents).toBe('none')
     expect(band!.style.position).toBe('absolute')
+  })
+
+  /**
+   * contract v3.1 CHR-12 — the band's left inset is the fitted card column's:
+   * the viewport toolbar's right edge (its `left` + `--leftsidebar-w`, read from
+   * the stylesheets rather than restated) plus `computeFitPadding`'s 16px GAP.
+   * It was 64, which started the bottom-left cell 4px from the toolbar.
+   */
+  it('⭐ CHR-12: the band starts one chrome GAP clear of the viewport toolbar — the card column’s own inset', () => {
+    const root = join(__dirname, '..', '..', '..', '..')
+    const toolbarCss = readFileSync(join(root, 'src/components/layout/CanvasFloatingToolbar.module.css'), 'utf8')
+    const indexCss = readFileSync(join(root, 'src/index.css'), 'utf8')
+    const fitSrc = readFileSync(join(root, 'src/canvas/utils/computeFitPadding.ts'), 'utf8')
+    const toolbarLeft = Number(/\.surface\s*\{[^}]*?\bleft:\s*(\d+)px/.exec(toolbarCss)?.[1])
+    const sidebarW = Number(/--leftsidebar-w:\s*(\d+)px/.exec(indexCss)?.[1])
+    const gap = Number(/const GAP = (\d+)/.exec(fitSrc)?.[1])
+    expect([toolbarLeft, sidebarW, gap]).toEqual([12, 48, 16])   // positive control on the reads
+    expect(OVERLAY_BAND_LEFT_PAD).toBe(toolbarLeft + sidebarW + gap)
+
+    const { container } = render(
+      <CanvasOverlayBandProvider>
+        <CanvasOverlayBand />
+      </CanvasOverlayBandProvider>,
+    )
+    const band = container.querySelector(OVERLAY_BAND_SELECTOR) as HTMLElement
+    expect(band.style.paddingLeft).toBe('76px')
   })
 
   it('an occupant LANDS INSIDE its declared cell — the portal path, asserted', () => {

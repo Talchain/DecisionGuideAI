@@ -83,10 +83,15 @@ describe('the invitation is on the card, because there is nowhere else to put it
    * keeping if the camera floor ever moves. What changed is that the canvas no
    * longer FEEDS its output to React Flow.
    */
-  it('⛔ the mount no longer adds tier doors to the rendered node set', () => {
+  it('⭐ S4: the mount feeds withGhostTiers to React Flow again — the doors are row-end prompts once more', () => {
+    // INVERTED BACK by Experience Design's S4 ruling (#63 5806207128 /
+    // 5806266691): the frame now fits the rows AND their prompts, so the doors
+    // return to the end of each row and the in-card copy is unmounted. The
+    // hand-placed option door this asserted is gone — all four go through one
+    // function.
     const src = readFileSync('src/canvas/ReactFlowGraph.tsx', 'utf8')
-    expect(src).toContain('return [...nodes, ghostNode]')
-    expect(src).not.toContain('return withGhostTiers(')
+    expect(src).toContain('return withGhostTiers(')
+    expect(src).not.toContain('return [...nodes, ghostNode]')
   })
 
   it('⛔ CONTRAST: the placement arithmetic itself still works and stays tested', () => {

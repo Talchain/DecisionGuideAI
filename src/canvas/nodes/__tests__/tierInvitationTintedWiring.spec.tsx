@@ -65,13 +65,21 @@ describe('the invitation is wired to the ground it is standing on', () => {
     expect(cls).not.toContain(invitationTextToken(true))
   })
 
-  it('⭐ the mount binds to the expression that PAINTS the tint, not to the lens', () => {
+  it('⛔ S4: the row is no longer MOUNTED on a card at all — the row-end prompt replaced it', () => {
+    /*
+     * Until S4 this read the mount and asserted it bound `onTintedGround` to the
+     * expression that paints the tint. Experience Design restored the row-end
+     * prompts and ruled "Do not also restore in-card prompt links" (#63
+     * 5806207128), so there is no card ground for the question to stand on any
+     * more: it stands on the canvas, at the end of the row. The component and its
+     * contrast decision (the two tests above) stay proven for as long as the
+     * component exists; the MOUNT is what must now be absent.
+     */
     const src = readFileSync(join(__dirname, '../BaseNode.tsx'), 'utf8')
-    const mount = /<TierInvitationRow[\s\S]*?\/>/.exec(src)
-    expect(mount, 'TierInvitationRow is no longer mounted in BaseNode').toBeTruthy()
-    expect(mount![0]).toContain('onTintedGround={evidenceBgStyle !== undefined}')
-    // CONTRAST CONTROL on the scan itself: the regex really did capture the
-    // mount and not an empty match, so `toContain` is answering a real question.
-    expect(mount![0]).toContain('invitations={myInvitations}')
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    expect(code, 'TierInvitationRow is mounted in BaseNode again — a second entry point for the row-end question').not.toMatch(/<TierInvitationRow\b/)
+    // CONTRAST CONTROL on the scan itself: the same probe sees a component that
+    // IS mounted in this file, so the absence above is a reading, not a blind one.
+    expect(code).toMatch(/<NodeQuickActions\b/)
   })
 })

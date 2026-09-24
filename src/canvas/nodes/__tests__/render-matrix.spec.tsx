@@ -18,6 +18,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, cleanup } from '@testing-library/react'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -407,7 +408,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard pre non-baseline: shows "What could go wrong?" chip + from→to chip + differentiator footer', () => {
+  it('Standard pre non-baseline: coaching icon + from→to change row; no footer repeating that row (NODE-ANATOMY v3.2)', () => {
     const topology = twoOptionTopology('standard', 'pre')
     // The pair needs its own declared reference. The factor's observed value
     // alone must not license it; the missing-reference case keeps its footer.
@@ -430,21 +431,36 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // the old delta list (spec §4 change rows). The reference IDENTITY is kept —
     // on the change row it qualifies, as that row's recovery title.
     expect(screen.queryByText('Reference: Keep current hiring')).toBeNull()
-    const row = within(face).getByTestId('option-change-row-option-1-factor-1')
+    // ⭐ BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "Option = top change
+    // pre-run … The fuller S3 reasoning detail — change rows … — can move to the
+    // existing hover/focus popover"): the change row lives in the option's
+    // popover detail; the FACE carries ONE line, which is this same change.
+    const row = within(optionPreviewDetail('option-1')!).getByTestId('option-change-row-option-1-factor-1')
+    expect(within(face).queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
+    const faceLine = within(face).getByTestId('option-primary-change-option-1')
+    expect(faceLine.getAttribute('data-factor-id')).toBe('factor-1')
+    expect(faceLine.getAttribute('title')).toContain('From Keep current hiring (the baseline option)')
     expect(row.getAttribute('title')).toContain('From Keep current hiring (the baseline option)')
     // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
     // "9 engineers"), so the change reads "3 engineers → 9 engineers".
     // ⚠ WAS `expect(differentiatorP).toBeUndefined()` — brief scope 7 dropped
     // the footer as a duplicate. Paul's ruling 10 Sep 2026 — "both stay": the chip states the CHANGE, the footer states WHICH FACTOR differentiates. The dedup that dropped the footer is retired.
     // Locked Canvas design (23 Sep 2026): the CHANGE is now the change row
-    // (`option-change-row-*`, a `<dd>`), bound by identity; the footer is the
-    // differentiator `<p>` — both stay.
+    // (`option-change-row-*`, a `<dd>`), bound by identity.
+    // ⚠ NODE-ANATOMY v3.2 (24 Sep; ED #63 5806266691 "differentiator only when
+    // additive") narrows "both stay": the shared-factor footer "… → 9 engineers"
+    // would only repeat THIS row, so it does not render. (Where it adds — its
+    // factor behind "+N more", or "… is the key difference" among several
+    // changes — it still does: `OptionNode.differentiatorOnlyWhenAdditive.spec`.)
     expect(row.textContent).toContain('9 engineers')
     expect(row.textContent).toContain('→')
-    const allPs = container.querySelectorAll('p')
-    const differentiatorP = Array.from(allPs).find(p => p.textContent?.includes('→'))
-    expect(differentiatorP).toBeDefined()
-    expect(differentiatorP!.getAttribute('data-testid')).toBe('option-differentiator-option-1')
+    // Every OTHER paragraph — the face's own change line is the one legitimate
+    // `<p>` carrying an arrow now, so it is excluded BY IDENTITY, not by text.
+    const allPs = Array.from(container.querySelectorAll('p'))
+      .filter(p => p.getAttribute('data-testid') !== 'option-primary-change-option-1')
+    const differentiatorP = allPs.find(p => p.textContent?.includes('→'))
+    expect(differentiatorP).toBeUndefined()
+    expect(screen.queryByTestId('option-differentiator-option-1')).toBeNull()
   })
 
   it('Standard pre: identical shared-factor values suppress differentiator on both options', () => {
@@ -459,12 +475,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
       },
     })
     const { container } = renderOption({})
-    // No differentiator <p> should exist — both would produce identical text
-    const allPs = container.querySelectorAll('p')
-    const differentiatorP = Array.from(allPs).find(
+    // No differentiator <p> should exist — both would produce identical text.
+    // Bounded anatomy (ED #63 5809278282): the face's one change line is a `<p>`
+    // with an arrow by design — excluded by identity; every other `<p>`, the
+    // popover's included, is scanned as before.
+    expect(screen.getByTestId('option-primary-change-option-1')).toBeTruthy()
+    const allPs = Array.from(container.querySelectorAll('p'))
+      .filter(p => p.getAttribute('data-testid') !== 'option-primary-change-option-1')
+    const differentiatorP = allPs.find(
       p => p.textContent?.includes('→') || /key difference/i.test(p.textContent ?? '')
     )
     expect(differentiatorP).toBeUndefined()
+    expect(screen.queryByTestId('option-differentiator-option-1')).toBeNull()
   })
 
   it('Standard post non-leading: shows "What would make this better supported?" chip and NO differentiator', () => {
@@ -1549,19 +1571,34 @@ describe('N1 — per-type selection ring', () => {
     } as any)
   })
 
-  it('a selected factor node wears the factor-type ring, not the old hardcoded info ring', () => {
+  /*
+   * ⭐ SUPERSEDED BY CONTRACT v3.1 (FRAME-09 / OR-10 / T03): selection is ONE
+   * 2px Info ring on every family, flush on the frame, with a soft lift —
+   * `.node.selected{box-shadow:0 0 0 2px var(--info),0 3px 12px #1B647417}`.
+   * N1's per-type ring was a 4px kind-hue halo plus a white offset; on a risk
+   * card that was a 4px Danger halo triggered by the neutral act of clicking.
+   * The discriminators kept: the ring is the SELECTION ring (2px, not the
+   * AI-highlight's 4px), and no kind hue survives on it.
+   */
+  const tokensOf = (el: Element) => el.className.split(/\s+/).filter(Boolean)
+
+  it('a selected factor node wears the one Info selection ring, not a factor-hued halo', () => {
     applyState()
     render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
-    const group = screen.getAllByRole('group')[0]
-    expect(group.className).toContain('ring-factor/50')
-    expect(group.className).not.toContain('ring-info')
+    const t = tokensOf(screen.getAllByRole('group')[0])
+    expect(t).toContain('ring-2')
+    expect(t).toContain('ring-info')
+    expect(t).not.toContain('ring-factor/50')
+    expect(t).not.toContain('ring-offset-2')
   })
 
-  it('a selected risk node wears the danger-type ring', () => {
+  it('a selected risk node wears the same Info ring — no Danger halo for a neutral act', () => {
     applyState()
     render(<ReactFlowProvider><RiskNode {...selProps} id="risk-1" type="risk" data={{ label: 'Attrition' }} /></ReactFlowProvider>)
-    const group = screen.getAllByRole('group')[0]
-    expect(group.className).toContain('ring-danger/50')
+    const t = tokensOf(screen.getAllByRole('group')[0])
+    expect(t).toContain('ring-2')
+    expect(t).toContain('ring-info')
+    expect(t).not.toContain('ring-danger/50')
   })
 
   it('selected + AI-highlighted: the highlight ring wins, the per-type selection ring is suppressed', () => {
@@ -1570,7 +1607,8 @@ describe('N1 — per-type selection ring', () => {
     const group = screen.getAllByRole('group')[0]
     // N2: the AI-highlight ring is the info/AI hue (not goal) and wins over selection.
     expect(group.className).toContain('ring-info/60')
-    expect(group.className).not.toContain('ring-factor/50')
+    // contract v3.1: the suppressed selection ring is now `ring-2 ring-info`.
+    expect(group.className.split(/\s+/)).not.toContain('ring-2')
   })
 
   it('N2: an AI-highlighted node gets the real pulse class (reduced-motion-safe in CSS)', () => {

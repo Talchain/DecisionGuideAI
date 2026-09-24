@@ -916,7 +916,64 @@ async function showNormalZoom(page: Page): Promise<void> {
   }
   await diag('before-reset')
   if (await reset.count()) {
+    // DIAGNOSTIC (24 Sep, #1932): a TIME SERIES from the click, so a reset that
+    // "does nothing" names what moved the camera back — the layout version, its
+    // initiator, the rung and the user's camera claim, every ~50ms until 6s after
+    // the click's claim lands, plus the rAF frame count (CI throttling).
+    // Log-only; asserts nothing. (The reset works locally; only CI fails it.)
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        useCanvasStore?: { getState: () => Record<string, unknown> }
+        __resetSeries?: unknown[]
+      }
+      const series: unknown[] = []
+      w.__resetSeries = series
+      const claimPath = '/src/canvas/utils/userCameraClaim.ts'
+      const claimMod = import(/* @vite-ignore */ claimPath).catch(() => null) as Promise<{ userOwnsCamera?: () => boolean } | null>
+      const t0 = performance.now()
+      let frames = 0
+      const countFrame = () => { frames += 1; if (performance.now() - t0 < 20_000) requestAnimationFrame(countFrame) }
+      requestAnimationFrame(countFrame)
+      let claimedAt: number | null = null
+      const tick = async () => {
+        const s = w.useCanvasStore?.getState?.() ?? {}
+        const m = await claimMod
+        series.push({
+          t: Math.round(performance.now() - t0),
+          vp: (document.querySelector('.react-flow__viewport') as HTMLElement | null)?.style.transform ?? null,
+          rung: s.lodRung ?? null,
+          lv: s.layoutVersion ?? null,
+          by: s.lastLayoutInitiatedBy ?? null,
+          pending: s.pendingLayout ?? null,
+          inProgress: s.layoutInProgress ?? null,
+          claim: m?.userOwnsCamera ? m.userOwnsCamera() : null,
+          frames,
+        })
+        const now = performance.now() - t0
+        if (claimedAt === null && m?.userOwnsCamera?.()) claimedAt = now
+        // Record until 6s AFTER the click's claim lands (Playwright's click can
+        // take seconds to pass actionability), capped at 20s.
+        if (now < 20_000 && (claimedAt === null || now - claimedAt < 6000)) setTimeout(tick, 50)
+      }
+      void tick()
+    })
     await reset.click()
+    await page
+      .waitForFunction(
+        () => {
+          const series = (window as unknown as { __resetSeries?: Array<{ claim: boolean | null; t: number }> }).__resetSeries ?? []
+          const first = series.findIndex((r) => r.claim === true)
+          return first >= 0 && series[series.length - 1].t - series[first].t >= 6000
+        },
+        undefined,
+        { timeout: 25_000 },
+      )
+      .catch(() => undefined)
+    const series = await page.evaluate(() => (window as unknown as { __resetSeries?: Array<Record<string, unknown>> }).__resetSeries ?? [])
+    const changes = series.filter(
+      (r, i) => i === 0 || i === series.length - 1 || JSON.stringify({ ...r, t: 0, frames: 0 }) !== JSON.stringify({ ...series[i - 1], t: 0, frames: 0 }),
+    )
+    console.log(`NORMALZOOMSERIES ${JSON.stringify(changes)}`)
     await waitForVisualQuiescence(page)
     /*
      * ⚠ WAIT FOR THE RUNG, NOT ONLY FOR PAINT (24 Sep, #1926 run 35945961363).

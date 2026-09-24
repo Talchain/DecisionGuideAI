@@ -34,6 +34,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { changeRow } from './__helpers__/optionChangeRowText'
 import { useCanvasStore } from '../../store'
 
 vi.mock('@xyflow/react', async () => {
@@ -108,13 +109,17 @@ describe('rule 2 — an option states what it sets before how it scored', () => 
     expect(document.querySelector(`[data-testid="option-analysis-currency-${candidate.id}"]`)).not.toBeNull()
     // Bound by IDENTITY — the exact pair in the target factor's unit — not by a
     // value predicate another row could satisfy.
-    expect(screen.getAllByText('40% → 80%').length).toBeGreaterThan(0)
+    // contract v3.1 OPT-03: the card row's "from" half is its own muted span,
+    // so the row is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('40% → 80%'))).toBeInTheDocument()
     expect(screen.getAllByText('Reference: Keep the original plan').length).toBeGreaterThan(0)
   })
 
   it('the own-unit change row precedes the support score in the DOM', () => {
     mount()
-    const delta = screen.getAllByText('40% → 80%')[0]
+    // Bound to the CARD's own change row by identity (contract v3.1 OPT-03) —
+    // `getAllByText(...)[0]` would now resolve to whatever else carries the text.
+    const delta = screen.getByText(changeRow('40% → 80%'))
     const support = document.querySelector(`[data-testid="option-analysis-currency-${candidate.id}"]`)
 
     /**

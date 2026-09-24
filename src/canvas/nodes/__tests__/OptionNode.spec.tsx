@@ -7,9 +7,11 @@
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { changeRow } from './__helpers__/optionChangeRowText'
+import { openOptionPreview } from './__helpers__/optionPreview'
 import { optionOrdinalBadgeAccessibleName, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
@@ -155,6 +157,24 @@ function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share:
   expect(screen.queryByText(/most supported/i)).toBeNull()
   expect(container.textContent ?? '').not.toMatch(/most supported/i)
 }
+
+
+/**
+ * NODE-ANATOMY v3.2 (ED #63 5806266691 "differentiator only when additive"):
+ * the footer renders only where it adds something the change rows don't. Two
+ * changes every option sets IDENTICALLY lead the shared row order (they are
+ * listed first in the model) and never differentiate, so a fixture that adds
+ * them puts its differentiating factor behind "+1 more" (value / direction
+ * forms) or gives "… is the key difference" a second change to pick from.
+ */
+const TWO_EQUAL_SHARED_CHANGES = {
+  'factor-shared-a': { value: 3, display_value: '£3k' },
+  'factor-shared-b': { value: 40, display_value: '40h' },
+}
+const TWO_EQUAL_SHARED_FACTORS = [
+  { id: 'factor-shared-a', type: 'factor', data: { label: 'Tooling spend' } },
+  { id: 'factor-shared-b', type: 'factor', data: { label: 'Weekly hours' } },
+]
 
 describe('OptionNode', () => {
   beforeEach(() => {
@@ -420,7 +440,9 @@ describe('OptionNode', () => {
     )
     renderOption()
     // 0.3 × 20 = 6 baseline, 0.804 × 20 = 16.08… → rounded whole counts.
-    expect(screen.getByText('6 developers → 16 developers')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('6 developers → 16 developers'))).toBeDefined()
     // No float-precision artefact leaks anywhere.
     expect(screen.queryByText((t: string) => t.includes('16.080'))).toBeNull()
   })
@@ -442,9 +464,12 @@ describe('OptionNode', () => {
     )
     renderOption()
     // 0.1 × 10 = 1 baseline, 0.15 × 10 = 1.5 → FTE keeps the fraction.
-    expect(screen.getByText((t: string) => t.includes('1 FTE') && t.includes('1.5 FTE'))).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow(/1 FTE.*1\.5 FTE/))).toBeDefined()
     // It must NOT be rounded to a whole number.
     expect(screen.queryByText((t: string) => /\b2 FTE\b/.test(t))).toBeNull()
+    expect(screen.queryByText(changeRow(/\b2 FTE\b/))).toBeNull()
   })
 
   // Scope A: a binary factor (0→1) with CEE display labels on BOTH sides —
@@ -469,9 +494,12 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.getByText('No tech lead in place → Tech lead in place')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('No tech lead in place → Tech lead in place'))).toBeDefined()
     // Neither the numeric fallback nor an invented "… active" heuristic appears.
     expect(screen.queryByText((t: string) => t.includes('0%') && t.includes('100%'))).toBeNull()
+    expect(screen.queryByText(changeRow(/0%.*100%/))).toBeNull()
   })
 
   // Scope A guard: a binary chip WITHOUT payload labels keeps its existing
@@ -503,7 +531,9 @@ describe('OptionNode', () => {
     // 'Low' for a 0.4 target would render "0% → Low", mixing two frames in one
     // chip. The real fix for this factor is an encoding_map or a binary
     // factor_type, not a reinstated percentage. Flagged for review.
-    expect(screen.getByText((t: string) => t.includes('Very low') && t.includes('Very high') && t.includes('→'))).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow(/Very low.*→.*Very high/))).toBeDefined()
     // Scope A's both-labels branch did NOT fire: no fabricated target label.
     expect(screen.queryByText((t: string) => t.includes('→ Tech lead in place'))).toBeNull()
   })
@@ -529,7 +559,9 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.getByText('Tech lead in place → No tech lead in place')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('Tech lead in place → No tech lead in place'))).toBeDefined()
   })
 
   it('does not borrow the factor observed label as an option reference', async () => {
@@ -552,6 +584,9 @@ describe('OptionNode', () => {
     const targets = await screen.findAllByText('Tech lead in place')
     expect(targets.some(element => element.classList.contains('font-semibold'))).toBe(true)
     expect(screen.queryByText('No tech lead in place → Tech lead in place')).toBeNull()
+    // contract v3.1 OPT-03: the card row is checked by identity too, or the
+    // negative above would pass vacuously on a split row.
+    expect(screen.queryByText(changeRow('No tech lead in place → Tech lead in place'))).toBeNull()
   })
 
   it('has displayName set', () => {
@@ -1104,34 +1139,38 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/^raised to 12$/)).toBeNull()
   })
 
-  it('differentiator sentence renders CEE display_value verbatim for shared-factor options', () => {
+  it('differentiator sentence renders CEE display_value verbatim for shared-factor options', async () => {
     // Two non-baseline options both intervening on the same factor with
     // distinct display_values. Phase 3 de-disambiguation should use the
     // verbatim CEE string rather than fabricating a tier label from the
     // scale-unit factor (which would produce "Very high" / "Very low").
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
-        viewMode: 'standard', // differentiator line shows in Standard pre-analysis
+        viewMode: 'standard', // differentiator line shows in the Standard popover (bounded anatomy)
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-1': { value: 0.9, display_value: 'Best in class' } } },
-            { id: 'option-2', interventions: { 'factor-1': { value: 0.1, display_value: 'Barely adequate' } } },
+            { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': { value: 0.9, display_value: 'Best in class' } } },
+            { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': { value: 0.1, display_value: 'Barely adequate' } } },
           ],
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { type: 'option', label: 'Premium' } },
           { id: 'option-2', type: 'option', data: { type: 'option', label: 'Budget' } },
+          ...TWO_EQUAL_SHARED_FACTORS,
           { id: 'factor-1', type: 'factor', data: { label: 'Quality', observedState: { unit: 'scale', value: 0.5 } } },
         ],
       }) as any)
     )
-    renderOption()
-    // Differentiator sentence uses compactFactorLabel → "→ Best in class"
-    // Locked Canvas design (23 Sep 2026; ED 02:31Z D2): the face now also leads
-    // with the change row for the same target, so "Best in class" appears in
-    // TWO carriers. Bound by identity to each, both verbatim.
-    expect(screen.getByTestId('option-differentiator-option-1').textContent).toContain('Best in class')
-    expect(screen.getByTestId('option-change-row-option-1-factor-1').textContent).toContain('Best in class')
+    const { container } = renderOption()
+    // Bounded anatomy (ED #63 5809278282): the rows and the differentiator live
+    // in the option's popover — opened here the way a pointer opens it.
+    const preview = within(await openOptionPreview(container, 'option-1'))
+    // Differentiator sentence → "→ Best in class"
+    // NODE-ANATOMY v3.2: the footer renders only where it ADDS, so the fixture
+    // puts `factor-1` behind "+1 more" (two equal shared changes lead the row
+    // order); the footer then carries the CEE string verbatim.
+    expect(preview.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
+    expect(preview.getByTestId('option-differentiator-option-1').textContent).toContain('Best in class')
     // Must NOT fabricate a tier label.
     expect(screen.queryByText(/Very high/)).toBeNull()
     expect(screen.queryByText(/^High$/)).toBeNull()
@@ -1374,7 +1413,9 @@ describe('OptionNode', () => {
       voiRank: null,
     })
     const { container } = renderOption()
-    const bar = container.querySelector('.bg-option.rounded-full') as HTMLElement | null
+    // contract v3.1 OPT-01: the run bar's fill is neutral `bg-text-light`, the
+    // factor driver bar's own token — no longer the option kind colour.
+    const bar = container.querySelector(`[data-testid="option-analysis-currency-option-1"] .bg-text-light.rounded-full`) as HTMLElement | null
     expect(bar).not.toBeNull()
     expect(bar?.style.width).toBe('max(4px, 2%)')
   })
@@ -1892,7 +1933,7 @@ describe('OptionNode — QA Brief C-series', () => {
   // Self-assessment fix #5: differentiator must NOT fire when other options
   // simply omit a factor that this option holds at the observed baseline.
   describe('Polish 4 review: differentiator uses observed baseline as fallback', () => {
-    it('does not flag a factor when this option intervenes at the observed baseline and others omit it', () => {
+    it('does not flag a factor when this option intervenes at the observed baseline and others omit it', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -1925,24 +1966,31 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hold' })
+      const { container } = renderOption({ label: 'Hold' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Positive control: the open popover carries option-1's own change row,
+      // so the absence below is an absence, not an unopened popover.
+      expect(preview.getByTestId('option-change-row-option-1-factor-1')).toBeTruthy()
       expect(screen.queryByText(/key difference/i)).toBeNull()
     })
 
-    it('still flags a factor when this option diverges from the observed baseline', () => {
+    it('still flags a factor when this option diverges from the observed baseline', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
               // Option A pushes factor-1 to 0.9 — far above the observed
               // baseline of 0.3, while Option B leaves it at 0.3.
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: {} },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Aggressive', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Hold', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -1955,29 +2003,33 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Aggressive' })
+      const { container } = renderOption({ label: 'Aggressive' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // diff = |0.9 - 0.3| = 0.6 > 0.1 threshold → differentiator fires.
-      expect(screen.getByText(/key difference/i)).toBeDefined()
+      expect(preview.getByText(/key difference/i)).toBeDefined()
     })
   })
 
   // Graph v2: differentiator deduplication — when 2+ options share the same
   // top factor, the label includes the formatted value to disambiguate.
   describe('Graph v2: differentiator deduplication', () => {
-    it('shows different differentiator text when two options share the same factor at different values', () => {
+    it('shows different differentiator text when two options share the same factor at different values', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
               // Both options intervene on factor-1 but at different values.
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.5 } } },
             { id: 'option-1', type: 'option', data: { label: 'Hire Tech Lead', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Hire Developers', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -1990,22 +2042,24 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hire Tech Lead' })
-      // Shared factor → option-1 at 0.9 on a % factor → "90%". Brief scope 7:
-      // the from→to chip already shows that value (e.g. "50% → 90%"), so the
-      // duplicate differentiator footer is dropped — the disambiguating value
-      // lives in the chip, not a repeated <p>.
-      // getAllByText: BOTH STAY, so the chip ("50% → 90%") and the footer
-      // ("Tech Lead Hired → 90%") both match this predicate.
-      const valueChips = screen.getAllByText((t: string) => t.includes('90%') && t.includes('→'))
-      expect(valueChips.length).toBeGreaterThan(1)
-      // ⚠ WAS toBeUndefined(). RULING 10 Sep 2026 (Paul): BOTH STAY — the
-      // footer is no longer dropped when the chip carries the same value.
-      const matches = screen.getAllByText(/tech lead hired/i)
-      expect(matches.find(el => el.tagName === 'P')).toBeDefined()
+      const { container } = renderOption({ label: 'Hire Tech Lead' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Shared factor → option-1 at 0.9 on a % factor → "90%".
+      // ⚠ NODE-ANATOMY v3.2 narrows Paul's 10 Sep "BOTH STAY" to the case where
+      // the footer ADDS: here `factor-1` sits behind "+1 more" (two equal shared
+      // changes lead the rows), so the footer disambiguates by value and is the
+      // card's one statement of it. (Where the row IS shown, the footer would
+      // repeat it and does not render — `OptionNode.differentiatorOnlyWhenAdditive.spec`.)
+      expect(preview.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
+      const footer = preview.getByTestId('option-differentiator-option-1')
+      expect(footer.tagName).toBe('P')
+      expect(footer.textContent).toMatch(/^Tech lead hired → /)
+      expect(footer.textContent).toContain('90%')
     })
 
-    it('suppresses differentiator when two options share same factor with identical values', () => {
+    it('suppresses differentiator when two options share same factor with identical values', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -2030,7 +2084,12 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Option A' })
+      const { container } = renderOption({ label: 'Option A' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Positive control: the open popover carries option-1's own change row.
+      expect(preview.getByTestId('option-change-row-option-1-factor-1')).toBeTruthy()
       // Both options produce identical differentiator text → suppressed.
       // The chip may still show the factor name, but no differentiator <p> should exist.
       expect(screen.queryByText(/key difference/i)).toBeNull()
@@ -2039,19 +2098,20 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(differentiatorP).toBeUndefined()
     })
 
-    it('uses directional language (not tier labels) when shared factor is a scale unit', () => {
+    it('uses directional language (not tier labels) when shared factor is a scale unit', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
               // Both options intervene on a scale factor (no raw_value) at different values
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Aggressive', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Conservative', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2066,11 +2126,16 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Aggressive' })
+      const { container } = renderOption({ label: 'Aggressive' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // option-1 has value 0.9, baseline 0.5 → "Increases Marketing expertise"
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.textContent).toBe('Increases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Increases /)
       // Negative assertions: no tier labels, no "scale" unit leaking through.
       expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|Moderate)\b/)
@@ -2078,7 +2143,7 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
-    it('says "Increases" for a small real shift (0.05) — "Does not change" needs exact equality', () => {
+    it('says "Increases" for a small real shift (0.05) — "Does not change" needs exact equality', async () => {
       // Audit §8 P0-4: the old ±0.1 display epsilon rendered "Does not
       // change" for genuinely different values (0.5→0.55, and the live
       // 0.5→0.6 boundary case). The single formatter reserves "Does not
@@ -2090,13 +2155,14 @@ describe('OptionNode — QA Brief C-series', () => {
               // Option A sits 0.05 above baseline — a real change;
               // Option B is far below. Shared factor → differentiator fires
               // for A via the neutral branch.
-              { id: 'option-1', interventions: { 'factor-1': 0.55 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.55 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Hold Steady', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2109,26 +2175,32 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hold Steady' })
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      const { container } = renderOption({ label: 'Hold Steady' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.textContent).toBe('Increases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Increases /)
     })
 
-    it('uses "Does not change" ONLY when the intervention exactly equals the baseline', () => {
+    it('uses "Does not change" ONLY when the intervention exactly equals the baseline', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
               // Option A matches the baseline exactly; Option B is far below.
-              { id: 'option-1', interventions: { 'factor-1': 0.5 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.5 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Hold Steady', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2141,25 +2213,31 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hold Steady' })
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      const { container } = renderOption({ label: 'Hold Steady' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.textContent).toBe('Does not change Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Does not change /)
     })
 
-    it('uses "Decreases" when scale-unit intervention is below baseline', () => {
+    it('uses "Decreases" when scale-unit intervention is below baseline', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
-              { id: 'option-1', interventions: { 'factor-1': 0.1 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.9 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Cut Back', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Invest', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2172,30 +2250,36 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Cut Back' })
+      const { container } = renderOption({ label: 'Cut Back' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // option-1 has value 0.1, baseline 0.5 → "Decreases Marketing expertise"
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.textContent).toBe('Decreases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Decreases /)
       // Negative assertions: no tier labels, no "scale" unit leaking through.
       expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|High|Low|Moderate)\b/)
       expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
-    it('shows unique differentiator without value when factor is not shared', () => {
+    it('shows unique differentiator without value when factor is not shared', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
               // Each option intervenes on a different factor
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: { 'factor-2': 0.9 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-2': 0.9 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2216,9 +2300,12 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Option A' })
+      const { container } = renderOption({ label: 'Option A' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // Unique factor → "Headcount is the key difference" (simple sentence)
-      expect(screen.getByText(/headcount is the key difference/i)).toBeDefined()
+      expect(preview.getByText(/headcount is the key difference/i)).toBeDefined()
     })
   })
 })
@@ -2467,7 +2554,9 @@ describe('OptionNode — display coherence (audit §8)', () => {
     )
     renderOption()
     // Pills render the from→to data…
-    expect(screen.getByText('40% → 80%')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('40% → 80%'))).toBeDefined()
     // …and the duplicated inline list is gone.
     expect(screen.queryByText('Interventions:')).toBeNull()
   })
@@ -3028,8 +3117,10 @@ describe('OptionNode — pre-analysis delta rows', () => {
   it('⭐ never shortens the VALUE, however long it is', () => {
     renderOption()
     // 40% → 80% for the long factor; the value renders complete and verbatim.
-    expect(screen.getByText('40% → 80%')).toBeInTheDocument()
-    expect(screen.getByText('50% → 90%')).toBeInTheDocument()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('40% → 80%'))).toBeInTheDocument()
+    expect(screen.getByText(changeRow('50% → 90%'))).toBeInTheDocument()
   })
 
   it('⭐ renders the label and its value as SEPARATE elements, so they cannot run together', () => {
@@ -3037,7 +3128,7 @@ describe('OptionNode — pre-analysis delta rows', () => {
     // "Low (0) → Very high (1)" read as one string, "market entryLow (0)".
     renderOption()
     const label = screen.getByText('Enterprise revenue…')
-    const value = screen.getByText('40% → 80%')
+    const value = screen.getByText(changeRow('40% → 80%'))
     expect(label).not.toBe(value)
     expect(label.contains(value)).toBe(false)
     expect(value.contains(label)).toBe(false)

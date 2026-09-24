@@ -16,12 +16,13 @@ import {
   REVIEW_KIND_LABEL,
   REVIEW_TOOL_COPY,
   reviewItemAskPayload,
-  reviewItemContextPayload,
+  reviewItemEditPayload,
   reviewKindFor,
   reviewValueProvenance,
   WHOLE_FRAMING_ASK,
   type ReviewQueueItem,
 } from '../buildReviewQueue'
+import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { buildRecommendations } from '../../strengthen/buildRecommendations'
 import type { Recommendation, StrengthenInputs } from '../../strengthen/strengthenTypes'
 import { REVIEW_BRIEF_ASK } from '../../decision-overview/actionsCatalogue'
@@ -336,10 +337,15 @@ describe('ask payloads', () => {
     expect(ask.label).toBe(phase3.action.label)
     expect(ask.targetId).toBe('f_b')
     expect(ask.attentionNote).not.toBeNull()
-    const addContext = reviewItemContextPayload(item)
+    // "Add evidence or context" / "Edit this belief" send through the item
+    // editor, which carries the same finding identity.
+    const addContext = reviewItemEditPayload(item, { evidence: 'Signed contract, March' }) as AskOlumiPayload
     expect(addContext.parameters).toEqual({ block_id: 'blk_assume' })
     expect(addContext.label).toBe(REVIEW_TOOL_COPY.addContext)
-    expect(addContext.draft).toBe(REVIEW_TOOL_COPY.addContextDraft(phase3.title))
+    expect(addContext.targetId).toBe('f_b')
+    expect(addContext.attentionNote).toEqual(ask.attentionNote)
+    const edited = reviewItemEditPayload(item, { belief: 'It will not hold' }) as AskOlumiPayload
+    expect(edited.label).toBe(REVIEW_TOOL_COPY.editBelief)
   })
 
   it('CONTRAST: a verify-list factor has no producer record, so it invents no parameters', () => {
@@ -348,6 +354,20 @@ describe('ask payloads', () => {
     expect(ask.parameters).toBeUndefined()
     expect(ask.targetId).toBe('f1')
     expect(ask.draft).toBe(REVIEW_TOOL_COPY.askFactorDraft('Vendor cost'))
-    expect(reviewItemContextPayload(item).parameters).toBeUndefined()
+    expect(reviewItemEditPayload(item, { evidence: 'A quote' })?.parameters).toBeUndefined()
+  })
+
+  it('the item editor sends nothing when every field is blank', () => {
+    const item = buildReviewQueue({ interventions: [phase3], nodes: [] })[0] as ReviewQueueItem
+    expect(reviewItemEditPayload(item, {})).toBeNull()
+    expect(reviewItemEditPayload(item, { belief: '  ', evidence: '\n', source: ' ' })).toBeNull()
+    // CONTRAST: a source alone is something to discuss.
+    expect(reviewItemEditPayload(item, { source: 'Board minutes' })?.draft).toBe(
+      [
+        REVIEW_TOOL_COPY.editReviewing(phase3.title),
+        REVIEW_TOOL_COPY.editSource('Board minutes'),
+        REVIEW_TOOL_COPY.editClosing,
+      ].join('\n'),
+    )
   })
 })

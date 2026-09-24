@@ -129,6 +129,16 @@ export interface OptionChangeRow {
   fullLabel: string
   /** `from → to`, or `→ to` when there is no reference to start from. */
   change: string
+  /**
+   * The two halves of a `from → to` row, so the card can set the tone of each
+   * (contract v3.1 OPT-03: `.delta-rows .before` is muted, arrow and target are
+   * ink). Present ONLY when the row has a "from"; `${before} → ${after}` is
+   * byte-identical to `change` — the split is presentation, never a second
+   * wording. Absent on target-only, direction-only and same-as-baseline rows,
+   * which render `change` whole.
+   */
+  before?: string
+  after?: string
   /** The same change with nothing collapsed — the row's full-text recovery. */
   fullChange: string
   /**
@@ -258,11 +268,34 @@ export function buildOptionChangeRow({
       sameAsReference: direction === 'No change',
     }
   }
+  // ⛔ NEVER "Low → Low". At rest both sides shed their internal-scale number
+  // (R6), so a real change INSIDE one band — "Low (0.2)" → "Low (0.3)" — would
+  // print the same word around an arrow: a row claiming a change and showing
+  // none (S5, seen on `pricing-model`). Keep the band word and say which way
+  // it moved; `fullChange` keeps both readings for the tooltip and the
+  // accessible text.
+  if (fromText && fromText === targetText && fromFull !== targetFull) {
+    const referenceValue = reference === 'baseline_option' ? baselineOptionTarget?.value : factor.observedValue
+    const direction = typeof referenceValue === 'number' && target.value < referenceValue ? 'slightly lower' : 'slightly higher'
+    return {
+      factorId,
+      label,
+      fullLabel,
+      change: `${targetText} · ${direction}`,
+      fullChange: `${fromFull} → ${targetFull}`,
+      target: targetFull,
+      reference,
+      estimated,
+      targetSource,
+      sameAsReference: false,
+    }
+  }
   return {
     factorId,
     label,
     fullLabel,
     change: fromText ? `${fromText} → ${targetText}` : sameAsReference ? `${targetText} · same as baseline` : `→ ${targetText}`,
+    ...(fromText ? { before: fromText, after: targetText } : {}),
     fullChange: fromFull ? `${fromFull} → ${targetFull}` : sameAsReference ? `${targetFull} · same as baseline` : `→ ${targetFull}`,
     target: targetFull,
     reference,

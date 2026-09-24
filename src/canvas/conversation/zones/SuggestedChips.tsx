@@ -26,6 +26,7 @@ import {
   useAnalysisStatus,
 } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { isChipRenderable } from '../chipDispatch'
@@ -340,6 +341,25 @@ export function SuggestedChips({
   function handleClick(chip: ActionChip) {
     if (disabled) return
     setChipError(null)
+    /*
+     * ⭐ A RUN CHIP ASKS THE RUN GATE, NOT THE CHAT (journey blocker, RC #63
+     * 5819467504). This chip used to dispatch `run_analysis` straight through
+     * `onChipClick`, consulting none of the six rungs of `canRunAnalysis` — so on
+     * a graph-health error, a still-settling streamed draft or
+     * `can_run_analysis:false` it started a run the panel's own Analyse control
+     * refuses. The panel already registers its GATED runner as the guidance
+     * store's `_runAnalysis` (`ConversationPanel.handleRunAnalysis`): it
+     * refuses out loud with the gate's own sentence, or dispatches the same
+     * canonical `run_analysis` action. Routing the click there makes the chip
+     * and the Analyse control one decision, with no second copy of the gate.
+     *
+     * No host registered (a headless mount) ⇒ the previous path, unchanged.
+     */
+    const gatedRun = isRunAnalysisAffordance(chip) ? useGuidanceStore.getState()._runAnalysis : null
+    if (gatedRun) {
+      gatedRun()
+      return
+    }
     onChipClick(chip).catch(() => {
       setChipError("That didn't work. Try typing your request instead.")
     })

@@ -68,6 +68,8 @@ import type {
   GlanceInputProvenance,
 } from '../analysisNewTypes'
 import { FactorValueControl } from '../FactorValueControl'
+import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
+import { InferenceWarningStrip } from '../../InferenceWarningStrip'
 import { PanelIconButton } from '../PanelIconButton'
 import { ACTION_FOCUS, icon } from '../panelSurfaces'
 
@@ -510,6 +512,18 @@ export function AboutThisAnalysis({
                       {key === 'values' ? (
                         <ValuesAndRanges options={analysed} fmt={fmt} normalised={outcomeFormat.isNormalised === true} goalOnly={vm.checks.sharesExcludeLimits} testId={testId} />
                       ) : key === 'limitations' ? (
+                        <>
+                        {/* ⭐ V2: THE ENGINE'S CAVEATS LIVE HERE NOW. They were an
+                            amber box at the top of the tab; the tab now carries one
+                            qualifier under the chart (`commitmentQualifier.ts`) and
+                            the full list is here. Same two components, unchanged,
+                            so the copy is the one the legacy tab also shows. */}
+                        <CritiqueWarningStrip critiques={vm.deeper.critiques} className="mb-2" />
+                        <InferenceWarningStrip
+                          warnings={vm.deeper.caveats}
+                          className="mb-2"
+                          heldBackListedUnder={vm.deeper.groups.length > 0 ? ABOUT_COPY.details.record : null}
+                        />
                         <ul className="m-0 list-none space-y-1 p-0">
                           {limitations.map((m) => (
                             <li
@@ -527,6 +541,7 @@ export function AboutThisAnalysis({
                             {SCIENCE_LIMITATIONS_DISCLOSURE}
                           </li>
                         </ul>
+                        </>
                       ) : (
                         <RunRecord
                           groups={vm.deeper.groups}

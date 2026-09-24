@@ -31,7 +31,7 @@ import {
   DEFAULT_NODE_HEIGHT,
   NODE_CARD_PADDING_X,
   NODE_HEADER_RESERVE_PX,
-  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  MAX_CARDS_PER_ROW,
   NODE_TITLE_MIN_MEASURE_PX,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
@@ -491,9 +491,12 @@ describe('balanced row splits (exact remainder)', () => {
   // ⚠ WAS 6 AND 7. `CANONICAL_LAYOUT_WIDTH` moved 1185 → 1482 so that seven-
   // and eight-wide tiers single-row; at 1185 those tiers split and three of the
   // five shipped starters came out portrait in a landscape pane.
-  it('8 factors do NOT split — the widest single row the canonical budget admits', async () => {
-    const sizes = rowSizesFor(await layoutFactors(8), 'f')
-    expect(sizes).toEqual([8])
+  it('8 factors split 4 + 4 (S4) — rows above five cards wrap; five is the widest single row', async () => {
+    // ⚠ WAS "8 factors do NOT split": the retired fair-share gate kept up to
+    // eight on one row. ED S4 (#63 5806207128): "Rows above 5 cards wrap into
+    // balanced sub-rows … 8→4+4".
+    expect(rowSizesFor(await layoutFactors(8), 'f')).toEqual([4, 4])
+    expect(rowSizesFor(await layoutFactors(5), 'f')).toEqual([5])
   })
 
   it('10 factors split balanced', async () => {
@@ -620,14 +623,14 @@ describe('constants contract', () => {
     // reinstate exactly the hand-maintained mirror that let the font scale and
     // the geometry drift apart in the first place (CLAUDE.md trap 12).
     //
-    // The row-split policy DID stay at 140 and is deliberately a separate
-    // constant — see NODE_SINGLE_ROW_FAIR_SHARE_W and the two `layout.spec.ts`
-    // branch regression-locks, which pin that the label scale cannot move a
-    // tier between branches.
+    // The row-split policy is deliberately NOT the card floor. It was the fair
+    // share `NODE_SINGLE_ROW_FAIR_SHARE_W` (140) until S4; it is now a COUNT,
+    // `MAX_CARDS_PER_ROW`, which by construction cannot move with the label
+    // scale.
     expect(NODE_LAYOUT_MIN_W).toBe(
       NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X,
     )
-    expect(NODE_SINGLE_ROW_FAIR_SHARE_W).toBe(140)
+    expect(MAX_CARDS_PER_ROW).toBe(5)
   })
 
   it('COLLISION_GAP does not exceed the rendered node-node gap', () => {

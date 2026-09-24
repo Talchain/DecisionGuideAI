@@ -597,8 +597,10 @@ describe('GoalNode', () => {
     expect(screen.queryByText(/Set a success target/)).toBeNull()
   })
 
-  // B9: Constraint badges pre-analysis — info/neutral styling
-  it('B9: constraint badges render pre-analysis with info styling', () => {
+  // B9: Constraint badges pre-analysis — neutral styling.
+  // Contract v3.1 PILL-12: the boundary is the NEUTRAL mini-pill line
+  // (`.pill.mini`, #DBD7D0 → DS `border-field/40`), no longer an Info ring.
+  it('B9: constraint badges render pre-analysis with the neutral mini-pill line', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         goalConstraints: [
@@ -609,9 +611,12 @@ describe('GoalNode', () => {
     const { container } = renderGoal()
     // Badge should render
     expect(screen.getByText(/4 months/)).toBeDefined()
-    // Pre-analysis: info styling (border-info/30 text-text-body)
-    const badge = container.querySelector('.border-info\\/30')
+    // Pre-analysis: neutral styling (border-field/40 text-text-body), bound to
+    // the badge by its test id rather than by a colour class.
+    const badge = container.querySelector('[data-testid="goal-constraint-badge"]')
     expect(badge).not.toBeNull()
+    expect(badge!.className).toContain('border-field/40')
+    expect(badge!.className).not.toContain('border-info/30')
   })
 
   /**
@@ -657,8 +662,9 @@ describe('GoalNode', () => {
     // element could carry.
     const badge = container.querySelector('[aria-label*="4 months"]')
     expect(badge, 'the constraint badge did not render').not.toBeNull()
-    expect(badge!.className).toContain('border-info/30')
-    expect(badge!.className).not.toMatch(/border-(success|warning|danger)/)
+    // Contract v3.1 PILL-12: the one neutral line is `border-field/40`.
+    expect(badge!.className).toContain('border-field/40')
+    expect(badge!.className).not.toMatch(/border-(success|warning|danger|info)/)
     // ⭐ The number is still there. This is a removal of interpretation, not of
     // information — without this line the test would also pass on a card that
     // had dropped the probability altogether.
