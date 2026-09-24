@@ -95,7 +95,7 @@ import {
 import { action, icon } from '../panelSurfaces'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
-import { OlumiAiIcon } from '../OlumiAiIcon'
+import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
 
 /**
@@ -802,16 +802,17 @@ export function SuccessTargetLine({
                 reinvented); the sr-only span carries what makes THIS ask
                 specific, the same two-tier pattern `detail-method` already
                 uses below in `ModelStrip`. */}
-            <button
-              type="button"
+            {/* ⚠ ICON-ONLY, as the prototype's `ai('ask-goal', …)`. The text
+                button ("Work through with Olumi") made this group 223px wide
+                and non-shrinking: measured on served `7f39c88b` at the 280px
+                dock, it pushed the tab into a horizontal scroll (scrollWidth
+                359 against 267). The accessible name keeps the specific ask. */}
+            <PanelIconButton
+              ai
+              label={ASK_DEFINE_SUCCESS_LABEL}
               onClick={openHelpDefineSuccess}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
-              data-testid={`${testId}-ask`}
-            >
-              <OlumiAiIcon className={`${icon('inline')}`} aria-hidden={true} />
-              {COPY.disclosure.askOlumi}
-              <span className="sr-only">{ASK_DEFINE_SUCCESS_LABEL}</span>
-            </button>
+              testId={`${testId}-ask`}
+            />
             <button
               type="button"
               onClick={() => {
