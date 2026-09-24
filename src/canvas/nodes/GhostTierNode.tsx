@@ -23,7 +23,7 @@ import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
-import { useGuidanceStore } from '../stores/guidanceStore'
+import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { typography } from '../../styles/typography'
 import { MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
 
@@ -126,9 +126,10 @@ export const GhostTierNode = memo((props: NodeProps) => {
 
   const open = useCallback(() => {
     if (!prompt) return
-    const send = useGuidanceStore.getState()._sendMessage
-    if (send) send(prompt)
-  }, [prompt])
+    // ⛔ Never `_sendMessage` — prefill-and-confirm (Experience Design, #63
+    // 5807363175). Same seam as the option ghost door.
+    requestAsk({ text: prompt, label: label ?? 'Ask Olumi', source: 'ghost-door' })
+  }, [prompt, label])
 
   return (
     <div

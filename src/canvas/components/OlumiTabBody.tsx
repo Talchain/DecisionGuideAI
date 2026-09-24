@@ -130,14 +130,60 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
   }, [dispatchAction])
 
   useEffect(() => {
+    const prefillChat = (text: string) => setDraft(text)
     useGuidanceStore.setState({
       _sendMessage: sendMessage,
-      _prefillChat: (text: string) => setDraft(text),
+      _prefillChat: prefillChat,
       ...(dispatchActionForStore ? { _dispatchAction: dispatchActionForStore } : {}),
     })
-    // No cleanup: OlumiTabBody stays mounted across tab switches (visibility
-    // toggled via the parent `hidden` class), so the callbacks should
+
+    /*
+     * ⭐ SURVIVOR TAKEOVER — the same duty `ConversationPanel` already has, and
+     * the reason is a SIBLING host, not this component's own child.
+     *
+     * The effect above re-runs only when its deps change, so it covers this
+     * component's OWN `ConversationPanel` leaving (via `realMessageCount`). It
+     * did not cover the FLOATING host leaving, and that is the path every
+     * fresh user takes: after the first draft the floating panel sits
+     * minimised to its pill, an ask from the canvas (`requestAsk`) reveals
+     * Olumi, the pill does not register a focus channel
+     * (`revealWouldImposeFloating`), so `revealOlumiSurface` claims the DOCK
+     * (`forceActivateOutputTab('olumi')`), and `FloatingOlumiPanel` yields and
+     * unmounts its `ConversationPanel`. That host's token-guarded unregister
+     * then nulls every slot — including the ones written here, because this
+     * write never mints a token (deliberately, see above), so the guard cannot
+     * see it. On an empty conversation nothing else re-registers: measured on
+     * the Canvas Browser Gate (#1926) as `canReceiveAsk` false, every
+     * `NodeCoachingIcon` unmounted, and the quick-action "Ask" gone — while
+     * the prefilled question sat in the docked composer with no door left to
+     * ask another.
+     *
+     * ⚠ IT FILLS HOLES; IT NEVER OVERWRITES. This keeps the promise above that
+     * this component "can only ever ADD a working dispatcher": a fuller host
+     * (a `ConversationPanel` that re-registered first, with its reveal-wrapped
+     * callbacks and token) is left untouched. The check reads the store NOW,
+     * not the listener's `state` argument — another listener in the same
+     * notification may already have re-registered, and the argument would be
+     * stale. Loop-free: after a fill the filled slots are non-null, and an
+     * empty patch is never written.
+     */
+    const unsubscribe = useGuidanceStore.subscribe(() => {
+      const now = useGuidanceStore.getState()
+      const patch: {
+        _sendMessage?: typeof sendMessage
+        _prefillChat?: typeof prefillChat
+        _dispatchAction?: NonNullable<typeof dispatchActionForStore>
+      } = {}
+      if (now._sendMessage === null) patch._sendMessage = sendMessage
+      if (now._prefillChat === null) patch._prefillChat = prefillChat
+      if (now._dispatchAction === null && dispatchActionForStore) patch._dispatchAction = dispatchActionForStore
+      if (Object.keys(patch).length > 0) useGuidanceStore.setState(patch)
+    })
+    // The cleanup removes the SUBSCRIPTION only. The callbacks themselves are
+    // still not cleared: OlumiTabBody stays mounted across tab switches
+    // (visibility toggled via the parent `hidden` class), so they should
     // persist for the duration of the canvas session.
+    return unsubscribe
   }, [sendMessage, setDraft, dispatchActionForStore, realMessageCount])
 
   const handleCollapse = useCallback(() => {
