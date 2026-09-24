@@ -5,6 +5,11 @@
  *   · "Show option scope where relevant."
  *   · "State what the displayed range/domain represents."
  *   · "Make 'no turning point available' the normal fallback, not an edge case."
+ *     ⛔ SUPERSEDED ON THE RESTING CARD by ED #63 5806207128 ("No `No turning
+ *     point available/in this run` line at rest. Absence of a turning point =
+ *     no mini-visual"). The `none` copy below now speaks only where a view
+ *     adds detail (Detailed, under a ranked driver line — `FactorNode`'s
+ *     `turningPointShown`); the resting face shows a FOUND threshold or nothing.
  *
  * Every sentence here is MODEL-RELATIVE ("the current model comparison"), never
  * advice. The option name, when present, is the producer's own
@@ -58,7 +63,10 @@ export const TURNING_POINT_TRACK_COPY = {
   internalScale: TURNING_POINT_COPY.internalScale,
   /** Why no number is shown: the row's unit is not this factor's unit. */
   unitMismatch: 'The turning point is in a different unit from this factor’s value, so no number or track is shown.',
-  /** The first-class fallback — quiet, and distinct for what the run established. */
+  /**
+   * The fallback — quiet, and distinct for what the run established. Detailed
+   * only (ED 5806207128: never on the resting card).
+   */
   none: {
     /** The producer ran the search and attested no flip (`isAttestedNoFlipReason`). */
     attested: (fromLastRun: boolean): string =>

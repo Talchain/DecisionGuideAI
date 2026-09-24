@@ -2317,7 +2317,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // colour-only fragility signal, in the hue point 9 reserves for
               // attention. The mark below is the ONE cue.
               // contract v3.1 (E10): the cue disc's ring is the contract's
-              // `#C5C7C0` neutral, taken as the muted-ink token at 40% rather
+              // light neutral, taken as the muted-ink token at 40% rather
               // than a new hex. The chip form keeps the panel border.
               isDark
                 ? 'border-gray-600'
