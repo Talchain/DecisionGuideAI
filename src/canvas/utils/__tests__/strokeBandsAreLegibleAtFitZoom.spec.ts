@@ -16,6 +16,17 @@
  *
  * The threshold is one DEVICE pixel on a 2x display, i.e. 0.5 CSS px, at
  * `LABEL_LEGIBLE_ZOOM`. Both terms are IMPORTED, never restated (trap 12).
+ *
+ * ⭐⭐ RE-DERIVED — contract v3.1 (E3, 24 Sep 2026). THE ZOOM TERM WAS STALE.
+ * The measurement above was taken while the line still scaled with the camera.
+ * `StyledEdge` now draws it with `vector-effect: non-scaling-stroke` (pinned in
+ * `StyledEdge.uncertaintyBand.spec.tsx`'s contrast control), so the declared
+ * width IS the on-screen width at `LABEL_LEGIBLE_ZOOM` and at every other zoom.
+ * Multiplying by the zoom asserted a property of a rendering the product no
+ * longer does — and, the other way round, would have refused the contract's
+ * lighter ladder for a reason that no longer exists. The PROPERTY is kept
+ * (adjacent rungs one device pixel apart at DPR 2, the thinnest measured rung a
+ * whole CSS px) and is now measured on the width the stroke actually paints.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -24,6 +35,13 @@ import {
   MEASURED_EDGE_STROKE_WIDTH_FLOOR,
 } from '../graphDisplayCalculations'
 import { LABEL_LEGIBLE_ZOOM } from '../zoomLegibility'
+
+/**
+ * The on-screen width of a declared stroke width at a camera zoom. The line is
+ * `non-scaling-stroke`, so the zoom does not enter — named as a function so the
+ * reason is stated once, beside the one place the zoom used to be multiplied in.
+ */
+const onScreenPx = (declared: number, _zoom: number): number => declared
 
 /**
  * ⭐ THE DISPLAY THIS PROPERTY IS ASSERTED AT, NAMED RATHER THAN ASSUMED.
@@ -61,7 +79,7 @@ describe('the width channel survives the zoom the product renders at', () => {
       .sort((a, b) => a - b)
     const tooClose: string[] = []
     for (let i = 1; i < ladder.length; i++) {
-      const onScreen = (ladder[i] - ladder[i - 1]) * LABEL_LEGIBLE_ZOOM
+      const onScreen = onScreenPx(ladder[i], LABEL_LEGIBLE_ZOOM) - onScreenPx(ladder[i - 1], LABEL_LEGIBLE_ZOOM)
       if (onScreen < MIN_SEPARATION_CSS_PX) {
         tooClose.push(`${ladder[i - 1]}->${ladder[i]} = ${onScreen}px at zoom ${LABEL_LEGIBLE_ZOOM} (DPR ${ASSERTED_DEVICE_PIXEL_RATIO})`)
       }
@@ -70,6 +88,16 @@ describe('the width channel survives the zoom the product renders at', () => {
   })
 
   it('the thinnest MEASURED band still draws at a whole CSS pixel at the fit zoom', () => {
-    expect(MEASURED_EDGE_STROKE_WIDTH_FLOOR * LABEL_LEGIBLE_ZOOM).toBeGreaterThanOrEqual(1)
+    expect(onScreenPx(MEASURED_EDGE_STROKE_WIDTH_FLOOR, LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(1)
+  })
+
+  /**
+   * contract v3.1 (E3): the width key tops out at 4 — "Width = modelled
+   * strength", drawn 2 / 3 / 4 in the contract's `lineKey`. The fifth rung (5)
+   * drew connections heavier than the contract at every zoom, because a
+   * non-scaling line does not shrink with the cards at the 0.65 landing zoom.
+   */
+  it('contract v3.1: the thickest measured rung is the contract key\'s top width, 4', () => {
+    expect(Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS))).toBe(4)
   })
 })
