@@ -15,11 +15,12 @@
  *
  * What stays reachable, bound here by identity (testid / exact label):
  *   · option  → the ghost card `__ghost-option__` ONLY (its send-vs-prefill
- *     behaviour is unchanged in this slice — see the DEFERRED note), which lands an
- *     editable draft (v3.1: "does not send or mutate silently");
+ *     behaviour is unchanged in this slice — see the DEFERRED note: it SENDS;
+ *     v3.1's editable draft, "does not send or mutate silently", lands with #1931);
  *   · factor / risk / outcome → the ROW-END PROMPT after the family's final
  *     sub-row (S4, ED #63 5806207128 / 5806266691; Paul, 24 Sep: "bring back
- *     the per-row prompts"), and never a link on a card.
+ *     the per-row prompts"), and never a link on a card. It sends too until
+ *     #1931 (50cfc25b).
  *
  * CLAUDE.md trap 3: jsdom proves presence/absence of elements, not visibility.
  */
@@ -27,7 +28,7 @@ import type { ComponentType } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import type { Node } from '@xyflow/react'
+import type { Node, NodeProps } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
@@ -188,7 +189,15 @@ describe('the factor / risk / outcome questions have ONE entry point: the row-en
     expect(screen.queryByRole('button', { name: FACTOR_LABEL })).toBeNull()
   })
 
-  it('⭐ …and the question IS reachable: the row-end prompt stands after the row’s last card and lands an editable draft', () => {
+  // ⚠ RE-POINTED TO WHAT THIS BRANCH SERVES (50cfc25b; #1926 S1 Browser Gate
+  // NORMALZOOMDIAG): the row-end prompts ask through the served `_sendMessage`,
+  // exactly as the ghost option card does, because `requestAsk` taken from a
+  // minimised Olumi panel left the conversation callbacks unregistered. PR #1931
+  // fixes that and switches every frontier prompt to prefill-and-confirm
+  // (`requestAsk`); THIS TEST FLIPS THERE — back to one prefill and zero sends.
+  // What stays pinned here: one entry point, after the row's last card, and a
+  // click that reaches the conversation with the row's own question, once.
+  it('⭐ …and the question IS reachable: the row-end prompt stands after the row’s last card and a click asks it in the conversation (send until #1931)', () => {
     const prompt = withGhostTiers(MODEL).find((n) => n.id === '__ghost-factor__')
     expect(prompt, 'no factor prompt was placed for a model with factors').toBeDefined()
     // After the card that ends the factor row (f2), on that row.
@@ -202,9 +211,11 @@ describe('the factor / risk / outcome questions have ONE entry point: the row-en
       </ReactFlowProvider>,
     )
     fireEvent.click(screen.getByRole('button', { name: FACTOR_LABEL }))
-    expect(prefills.length).toBe(1)
-    expect(prefills[0]).toContain('Trial conversion')
-    expect(sends, 'the prompt sent the question on the user’s behalf').toEqual([])
+    expect(sends.length, 'one click asks the question exactly once').toBe(1)
+    expect(sends[0]).toContain('Trial conversion')
+    // One path, not two: no draft is ALSO left in the composer (#1931 flips
+    // these two: prefills → 1, sends → []).
+    expect(prefills).toEqual([])
   })
 
   it('⛔ CONTRAST: a factor that does not end its row carries none either', () => {

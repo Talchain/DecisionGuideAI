@@ -2107,9 +2107,13 @@ describe('OptionNode — QA Brief C-series', () => {
       )
       renderOption({ label: 'Aggressive' })
       // option-1 has value 0.9, baseline 0.5 → "Increases Marketing expertise"
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
+      // elides "Marketing expertise" (19) on screen, so a text query for it finds
+      // nothing. Bound by the line's test id; the whole sentence is its hover
+      // recovery (`OptionNode.differentiatorRecoverable.spec`).
+      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Increases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Increases /)
       // Negative assertions: no tier labels, no "scale" unit leaking through.
       expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|Moderate)\b/)
@@ -2150,9 +2154,13 @@ describe('OptionNode — QA Brief C-series', () => {
         }) as any),
       )
       renderOption({ label: 'Hold Steady' })
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
+      // elides "Marketing expertise" (19) on screen, so a text query for it finds
+      // nothing. Bound by the line's test id; the whole sentence is its hover
+      // recovery (`OptionNode.differentiatorRecoverable.spec`).
+      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Increases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Increases /)
     })
 
@@ -2183,9 +2191,13 @@ describe('OptionNode — QA Brief C-series', () => {
         }) as any),
       )
       renderOption({ label: 'Hold Steady' })
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
+      // elides "Marketing expertise" (19) on screen, so a text query for it finds
+      // nothing. Bound by the line's test id; the whole sentence is its hover
+      // recovery (`OptionNode.differentiatorRecoverable.spec`).
+      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Does not change Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Does not change /)
     })
 
@@ -2216,9 +2228,13 @@ describe('OptionNode — QA Brief C-series', () => {
       )
       renderOption({ label: 'Cut Back' })
       // option-1 has value 0.1, baseline 0.5 → "Decreases Marketing expertise"
-      const matches = screen.queryAllByText(/marketing expertise/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
+      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
+      // elides "Marketing expertise" (19) on screen, so a text query for it finds
+      // nothing. Bound by the line's test id; the whole sentence is its hover
+      // recovery (`OptionNode.differentiatorRecoverable.spec`).
+      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      expect(differentiatorP.tagName).toBe('P')
+      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Decreases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Decreases /)
       // Negative assertions: no tier labels, no "scale" unit leaking through.
       expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|High|Low|Moderate)\b/)
