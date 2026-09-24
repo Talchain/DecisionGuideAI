@@ -24,7 +24,7 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
-import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   NODE_CARD_MAX_W,
@@ -1098,8 +1098,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // landing rung. The anchors (Question, Goal) keep their rail BESIDE the last
   // row at Normal zoom only; below it they follow the same rule (see
   // `anchorRailBeside`).
-  // → applied in `cardPaddingAt` (`bandReservedAtRung`), for the live rung AND
-  //   declared for both rungs on the root for the layout measurer.
+  const quickActionBandReserved = showQuickActions && atNormalZoom
 
   /**
    * ⭐⭐⭐ THE KIND HUE STAYS. "NEEDS YOUR JUDGEMENT" IS A BADGE (Paul, 8 Sep 2026).
@@ -1269,21 +1268,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // cards' rule instead: the hover row is drawn BELOW the card and the text keeps
   // the full width.
   const anchorRailBeside = isAnchorCard && showQuickActions && atNormalZoom
-  /**
-   * The card's padding AT A RUNG — `normal` is the Normal (`full`) rung, where the
-   * rail is beside an anchor and the band is reserved under every other card.
-   * Rendered at the live rung (`cardPadding`), and declared for BOTH rungs on the
-   * root (`NODE_RUNG_PADDING_ATTR`) so the layout measurer can reserve the larger
-   * of the two boxes whatever rung it runs at. `showQuickActions` at Normal is
-   * exactly the lens condition: the body is never hidden at `full`.
-   */
-  const cardPaddingAt = (normal: boolean): CSSProperties => {
+  const cardPadding = (): CSSProperties => {
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
-    const actionsAtRung = normal ? !isCausalLens && !isEvidenceLens : showQuickActions
-    const railBesideAtRung = isAnchorCard && actionsAtRung && normal
-    const bandReservedAtRung = actionsAtRung && normal
-    if (railBesideAtRung) {
+    if (anchorRailBeside) {
       // ⭐ S5 (24 Sep; Codex CHANGES_REQUIRED 5809540479): the rail's footprint is
       // reserved on the WHOLE anchor, title included — not only the body's last
       // row. On a shallow anchor the rail (20px × scale + its inset) is taller
@@ -1300,7 +1288,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         paddingLeft: side,
       }
     }
-    if (bandReservedAtRung) {
+    if (quickActionBandReserved) {
       const band = padAdj === 0
         ? NODE_QUICK_ACTION_BAND_CSS
         : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
@@ -1323,8 +1311,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     }
     return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
   }
-  const cardPadding = (): CSSProperties => cardPaddingAt(atNormalZoom)
-  const rungPadding = JSON.stringify({ landing: cardPaddingAt(false), normal: cardPaddingAt(true) })
 
   return (
     <div
@@ -1335,7 +1321,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {...(nodeType === 'factor' && data?.category === 'external' ? { title: 'Outside your control' } : {})}
       {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
       {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
-      {...{ [NODE_RUNG_PADDING_ATTR]: rungPadding }}
       // ⭐ `text-left` IS A DECLARATION, AND THE CARD PREVIOUSLY HAD NONE.
       //
       // Paul, 5 Sep 2026: node copy "should NEVER be centrally aligned". Two
