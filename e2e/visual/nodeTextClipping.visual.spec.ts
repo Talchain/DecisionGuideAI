@@ -129,7 +129,19 @@ test.describe('canvas node text is not clipped', () => {
               // leaves only — a wrapper's scrollWidth reports its children's
               if ([...he.children].some(c => (c.textContent ?? '').trim())) continue
               const lost = he.scrollWidth - he.clientWidth
-              if (lost > 1) {
+              // ⚠ THE ONE EXEMPTION, AND ITS CONDITION (ED #63 5809278282, bounded
+              // anatomy, 24 Sep 2026): a repeated card's primary line is ONE line,
+              // and the LABEL half may ellipsis — never a value, unit or mark. It is
+              // a caveat, not hiding, only because the full sentence is recoverable:
+              // the leaf says so with `data-truncates="label"` AND an ancestor inside
+              // the node carries the whole sentence in `title` (the popover and the
+              // accessible name carry it too). A `data-truncates` leaf with NO such
+              // title is still reported — the second control below proves it.
+              const marked = he.closest('[data-truncates="label"]')
+              const recoverable = marked && node.contains(marked) &&
+                ((marked.closest('[title]')?.getAttribute('title') ?? '').trim().length > 0) &&
+                node.contains(marked.closest('[title]'))
+              if (lost > 1 && !recoverable) {
                 out.push({
                   full: txt.slice(0, 90),
                   visibleWidth: he.clientWidth,
@@ -157,7 +169,33 @@ test.describe('canvas node text is not clipped', () => {
           probe.remove()
         }
 
-        return { hostFound: !!host, controlSeen, clips: scan() }
+        // SECOND CONTROL — the exemption's condition, not just its marker. A leaf
+        // that says `data-truncates="label"` but has NO recovering `title` must
+        // still be reported; the same leaf under a titled wrapper must not be.
+        let unrecoverableMarkedSeen = false
+        let recoverableMarkedSeen = true
+        if (host) {
+          const bare = document.createElement('div')
+          bare.dataset.truncates = 'label'
+          bare.textContent = 'ZZZ_MARKED_NO_TITLE_THIS_STRING_IS_FAR_TOO_LONG_TO_FIT'
+          bare.style.cssText = 'width:30px;height:16px;overflow:hidden;white-space:nowrap'
+          host.appendChild(bare)
+          const titled = document.createElement('div')
+          titled.title = 'ZZZ_MARKED_WITH_TITLE the whole sentence'
+          const inner = document.createElement('div')
+          inner.dataset.truncates = 'label'
+          inner.textContent = 'ZZZ_MARKED_WITH_TITLE_THIS_STRING_IS_FAR_TOO_LONG_TO_FIT'
+          inner.style.cssText = 'width:30px;height:16px;overflow:hidden;white-space:nowrap'
+          titled.appendChild(inner)
+          host.appendChild(titled)
+          const seen = scan()
+          unrecoverableMarkedSeen = seen.some(c => c.full.includes('ZZZ_MARKED_NO_TITLE'))
+          recoverableMarkedSeen = seen.some(c => c.full.includes('ZZZ_MARKED_WITH_TITLE'))
+          bare.remove()
+          titled.remove()
+        }
+
+        return { hostFound: !!host, controlSeen, unrecoverableMarkedSeen, recoverableMarkedSeen, clips: scan() }
       })
 
       expect(result.hostFound, 'no .react-flow__node mounted — nothing was measured').toBe(true)
@@ -166,6 +204,16 @@ test.describe('canvas node text is not clipped', () => {
         'the positive control was NOT detected — the scan cannot see a clipped element, ' +
           'so a clean result from it would mean nothing',
       ).toBe(true)
+
+      expect(
+        result.unrecoverableMarkedSeen,
+        'a `data-truncates` leaf with no recovering title was NOT reported — the exemption ' +
+          'is keyed on the marker alone, which would let any clipped text opt out',
+      ).toBe(true)
+      expect(
+        result.recoverableMarkedSeen,
+        'a `data-truncates` leaf under a titled wrapper WAS reported — the exemption does not apply',
+      ).toBe(false)
 
       const report = result.clips
         .sort((a, b) => b.pctHidden - a.pctHidden)
