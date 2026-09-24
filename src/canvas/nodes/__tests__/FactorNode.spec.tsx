@@ -80,6 +80,18 @@ vi.mock('../shared/NodePopover', () => ({
   ),
 }))
 
+/**
+ * ⭐ ED #63 5809278282 (bounded anatomy, 24 Sep): the Standard driver line moved
+ * off the card FACE into the factor's popover. Every "the face states the rank"
+ * claim below is re-pointed here: the line is bound INSIDE the popover and
+ * asserted ABSENT from BaseNode's face.
+ */
+const popoverDriverLine = () => {
+  const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+  expect(within(face).queryByTestId('factor-driver-line'), 'the driver line is on the card face').toBeNull()
+  return within(screen.getByTestId('factor-node-popover')).getByTestId('factor-driver-line')
+}
+
 // Default: graph badges OFF, lens OFF. Individual tests override as needed.
 // Spread the real flags module: `FactorNode` now reads the composed analysis
 // verdict (`useModelChangedSinceRun`), whose source classifier calls a flag
@@ -554,9 +566,11 @@ describe('FactorNode', () => {
     expect(screen.queryByTestId('sensitivity-rank-factor-1')).toBeNull()
     expect(screen.queryByText(sensitivityRankBadgeLabel(1))).toBeNull()
     expect(container.textContent).not.toContain('#1')
-    // The rank is stated by the driver line on the face instead.
+    // The rank is stated by the driver line instead — in the popover since the
+    // bounded anatomy (ED 5809278282), with the neutral cue on the face's row.
     // ED #63 5806207128: "Driver N of M analysed", M = the eligible analysed factors.
-    expect(captionOf(screen.getByTestId('factor-driver-line'))).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 5 analysed')
+    expect(screen.getByTestId('factor-driver-cue-factor-1').getAttribute('aria-label')).toBe('Driver 1 of 5 analysed')
     // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
     // members that remain in it are static flex children.
     // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
@@ -908,7 +922,9 @@ describe('FactorNode', () => {
     // stripped of the sentence that stops it being read as an absolute. Both
     // channels stay pinned — the opened tooltip and the accessible name — and
     // both carry the value AND its scale.
-    const line = screen.getByTestId('factor-driver-line')
+    // ⭐ AND MOVED AGAIN (ED 5809278282, bounded anatomy): the line is the
+    // popover's now; both channels are pinned there.
+    const line = popoverDriverLine()
     fireEvent.mouseEnter(line)
     const RANKED_DISCLOSURE =
       'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
@@ -1065,12 +1081,13 @@ describe('FactorNode', () => {
       renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('Standard view: influence is the face driver line; confidence is off the face, in the popover', () => {
+    it('Standard view: influence is the driver line (popover, ED 5809278282); confidence is off the face, in the popover', () => {
       setup('standard')
       // ⚠ THE HIERARCHY IS STILL THE POINT. Influence — the headline — is the
       // driver line; the retired `% influence` row is gone, and the line prints
-      // no figure (ED 11:52Z point 3).
-      const line = screen.getByTestId('factor-driver-line')
+      // no figure (ED 11:52Z point 3). Since the bounded anatomy it opens the
+      // popover (ED 5809278282), ahead of the confidence row.
+      const line = popoverDriverLine()
       expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
       expect(line.textContent).not.toContain('80%')
       expect(line).toHaveAccessibleName(/80% of the strongest factor/)
@@ -1083,6 +1100,8 @@ describe('FactorNode', () => {
       // the hover popover (mocked transparent here) for this top-ranked factor.
       const popover = screen.getByTestId('factor-node-popover')
       expect(within(popover).getByRole('group', { name: 'Confidence' })).toHaveTextContent('45%')
+      // ED 5809278282: the moved driver line opens the popover, ahead of confidence.
+      expect(line.compareDocumentPosition(within(popover).getByRole('group', { name: 'Confidence' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('Detailed view: the duplicate pills are gone; the labelled bars remain', () => {

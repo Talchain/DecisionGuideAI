@@ -24,6 +24,15 @@
  * reserves the GRID at scale 2 — the tallest form of all. Both directions leave
  * the reservation ≥ the rendered card. The browser geometry gates are the pixel
  * witness; this file pins the DOM contract (trap 3: jsdom proves no pixels).
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "The
+ * fuller S3 reasoning detail — change rows … — can move to the existing
+ * hover/focus popover and inspector rather than expanding layout geometry").
+ * In STANDARD view the rows left the card body for the option's popover, which
+ * is portalled outside the React Flow transform (`--canvas-label-scale` is 1
+ * there at every rung) — so there the stack is moot and the rows are ALWAYS the
+ * contract grid. The stack/grid switch survives where the rows still sit inline
+ * on the card: DETAILED view. Both halves are pinned below; nothing was deleted.
  */
 /**
  * ⭐ CONTRACT v3.1 — THE OPTION CARD'S POLISH DELTAS, PINNED BY IDENTITY.
@@ -90,6 +99,10 @@ vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
 }))
 
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
+}))
+
 vi.mock('../../layoutStore', () => ({
   useLayoutStore: vi.fn(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
     selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
@@ -141,12 +154,16 @@ const renderCard = (
 const rowsEl = () => screen.getByTestId('option-change-rows-option-1')
 const listEl = () => rowsEl().querySelector('dl') as HTMLElement
 const rowText = () => screen.getByTestId('option-change-row-option-1-f-head').textContent
+const inPopover = (el: Element) => document.querySelector('[data-testid="node-popover"]')?.contains(el) ?? false
 
-describe('S5: change rows stack below Normal zoom, grid at Normal zoom', () => {
+describe('S5: in DETAILED view the inline change rows stack below Normal zoom, grid at Normal zoom', () => {
   beforeEach(() => { winRate = null })
+  const expert = { viewMode: 'expert' }
 
   it('quiet rung (the landing zoom): rows are STACKED — no two-column grid', () => {
-    renderCard({ store: { lodRung: 'quiet' } })
+    renderCard({ store: { ...expert, lodRung: 'quiet' } })
+    // Precondition: Detailed keeps the rows ON THE CARD (not the popover).
+    expect(inPopover(rowsEl())).toBe(false)
     expect(rowsEl().getAttribute('data-row-layout')).toBe('stacked')
     expect(listEl().className).not.toMatch(/grid-cols-\[/)
     const dd = screen.getByTestId('option-change-row-option-1-f-head')
@@ -155,12 +172,12 @@ describe('S5: change rows stack below Normal zoom, grid at Normal zoom', () => {
   })
 
   it('line rung: also stacked', () => {
-    renderCard({ store: { lodRung: 'line' } })
+    renderCard({ store: { ...expert, lodRung: 'line' } })
     expect(rowsEl().getAttribute('data-row-layout')).toBe('stacked')
   })
 
   it('CONTRAST — full rung (Normal zoom): the contract grid, unchanged', () => {
-    renderCard({ store: { lodRung: 'full' } })
+    renderCard({ store: { ...expert, lodRung: 'full' } })
     expect(rowsEl().getAttribute('data-row-layout')).toBe('grid')
     expect(listEl().className).toContain('grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))]')
     const dd = screen.getByTestId('option-change-row-option-1-f-head')
@@ -168,11 +185,34 @@ describe('S5: change rows stack below Normal zoom, grid at Normal zoom', () => {
   })
 
   it('IDENTITY — the same row carries byte-identical text in both layouts', () => {
-    const a = renderCard({ store: { lodRung: 'full' } })
+    const a = renderCard({ store: { ...expert, lodRung: 'full' } })
     const full = rowText()
     a.unmount()
-    renderCard({ store: { lodRung: 'quiet' } })
+    renderCard({ store: { ...expert, lodRung: 'quiet' } })
     expect(rowText()).toBe(full)
     expect(full).toContain('3 engineers')
+  })
+})
+
+describe('bounded anatomy: in STANDARD view the rows are in the popover, the contract grid at EVERY rung', () => {
+  beforeEach(() => { winRate = null })
+
+  for (const lodRung of ['quiet', 'line', 'full'] as const) {
+    it(`${lodRung} rung: the popover rows are the grid, and the card carries none`, () => {
+      renderCard({ store: { lodRung } })
+      expect(inPopover(rowsEl()), 'the rows render in the popover').toBe(true)
+      expect(document.querySelectorAll('[data-testid="option-change-rows-option-1"]').length).toBe(1)
+      expect(rowsEl().getAttribute('data-row-layout')).toBe('grid')
+      expect(listEl().className).toContain('grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))]')
+    })
+  }
+
+  it('IDENTITY — the popover row is byte-identical to the Detailed inline row', () => {
+    const a = renderCard({ store: { viewMode: 'expert', lodRung: 'quiet' } })
+    const inline = rowText()
+    a.unmount()
+    renderCard({ store: { lodRung: 'quiet' } })
+    expect(inPopover(screen.getByTestId('option-change-row-option-1-f-head'))).toBe(true)
+    expect(rowText()).toBe(inline)
   })
 })

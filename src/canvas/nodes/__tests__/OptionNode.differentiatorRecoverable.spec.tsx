@@ -40,16 +40,32 @@
  * the key-difference form then says which of two changes matters, and the
  * "→ value" form names a change that sits behind "+N more". The recovery
  * standard is untouched.
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
+ * detail — including the differentiator — moves "to the existing hover/focus
+ * popover and inspector rather than expanding layout geometry"). The sentence
+ * is no longer a card footer compacted to the card's budget: it lives in the
+ * option's popover, which has the room, and renders WHOLE there. So the
+ * standard this file enforces gets STRONGER, not weaker — there is no elided
+ * form left anywhere in the DOM for a user to be stranded on, and the negative
+ * control still refuses a hover that merely repeats what is shown.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { compactFactorLabel } from '../../utils/labelUtils'
+import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
+// Pass-through popover: the moved detail is in the DOM to be read by identity.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
+}))
 
 const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   hoveredOptionId: null,
@@ -122,33 +138,31 @@ const renderOption = (data: Record<string, unknown> = {}) =>
   )
 
 /**
- * The RECOVERY STANDARD, applied to one `<p>`.
+ * The RECOVERY STANDARD, applied where the sentence now lives.
  *
- * `visible` must genuinely be an ellipsised string (otherwise the test would
- * pass on a sentence nothing elided, i.e. by testing nothing — so the
- * precondition is pinned IN-TEST, not assumed).
+ * The line must be the option's own popover line (identity: its test id, inside
+ * `option-preview-detail-<id>`), carry the WHOLE sentence — the specific words
+ * the card used to elide — with no "…", and the elided form must exist NOWHERE
+ * in the document (the defect was an ellipsis with nowhere to go; now there is
+ * no ellipsis to strand anyone on).
  */
-const assertRecoverable = (el: HTMLElement, expectedFullFragment: string) => {
-  const visible = el.textContent ?? ''
-  // Precondition: this really is an elided string. Without this the whole
-  // assertion could hold on a sentence that was never truncated.
-  expect(visible).toContain('…')
-  const prefix = visible.split('…')[0]
-  expect(prefix.length).toBeGreaterThan(0)
-
-  const title = el.getAttribute('title')
-  expect(title).not.toBeNull()
-  // The recovery must CONTAIN the visible prefix — a node-level aria-label
-  // that merely exists does not recover anything.
-  expect(title!).toContain(prefix)
-  // …and it must be LONGER than what is already on screen, or it recovers
-  // nothing.
-  expect(title!.length).toBeGreaterThan(visible.length)
-  // …and it must carry the specific elided words, bound by identity.
-  expect(title!).toContain(expectedFullFragment)
-  // The recovery is the whole sentence, not a bare label: it keeps the frame
-  // so the hover reads as the same claim.
-  expect(title!).not.toContain('…')
+const assertWhole = (el: HTMLElement, expectedFull: string, fullLabel: string) => {
+  // Identity: THIS option's line, inside THIS option's popover detail.
+  expect(el.getAttribute('data-testid')).toBe('option-differentiator-option-1')
+  expect(optionPreviewDetail('option-1')!.contains(el)).toBe(true)
+  // Precondition, COMPUTED by the card's own compaction at its own budget: the
+  // old footer really elided this label — so the test is about a sentence that
+  // used to be cut, not one that never was.
+  expect(expectedFull.startsWith(fullLabel)).toBe(true)
+  const compact = compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS)
+  expect(compact).toContain('…')
+  expect(el.textContent).toBe(expectedFull)
+  expect(el.textContent).not.toContain('…')
+  // …and the elided SENTENCE (the compact label followed by the sentence frame)
+  // exists nowhere. (The popover's own change row may still show the compact
+  // LABEL with its full name beside it — that is a row, not this claim.)
+  const elidedSentenceStart = compact + expectedFull.slice(fullLabel.length, fullLabel.length + 4)
+  expect(document.body.textContent).not.toContain(elidedSentenceStart)
 }
 
 describe('OptionNode differentiator — elided text is recoverable', () => {
@@ -203,7 +217,7 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     renderOption({ label: 'Hire Three Account Executives' })
 
     // IDENTITY binding: the sentence for THIS option's own top factor.
-    const p = screen.getByText(/is the key difference/i)
+    const p = screen.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
     // ⚠ CASING UPDATED WITH ITS REASON, never silently. The producer wrote
     // "Account Executives hired"; the card's intervention row has always
@@ -222,8 +236,9 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     // v3.2 L4 "the fix is card anatomy (shorter cards)"): the budget is now
     // derived from the 260 card — 18 characters — so the visible cut is earlier.
     // The label is still elided and the recovery standard is unchanged.
-    expect(p.textContent).toBe('Account executives… is the key difference')
-    assertRecoverable(p, 'Account executives hired in region is the key difference')
+    // Bounded anatomy: the card cut ("Account executives… is the key
+    // difference") is gone; the popover line is the whole sentence.
+    assertWhole(p, 'Account executives hired in region is the key difference', 'Account executives hired in region')
   })
 
   // Witnessed shape 2: "Platform Engineer… → Low (0)".
@@ -258,13 +273,16 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     // Same fixture lengthening as above, same reason.
     // Precondition: the factor it names is NOT a shown row (it is behind "+1 more").
     expect(screen.queryByTestId('option-change-row-option-1-factor-pe')).toBeNull()
-    expect(screen.getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
+    expect(within(optionPreviewDetail('option-1')!).getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
     // Same S4 cut as above (18 characters at the 260 card, 9914ffa3).
     // S5 (24 Sep): at rest the reading sheds its internal-scale number (R6, as
     // every change row does); the hover keeps the producer's full reading.
-    const p = screen.getByText(/^Platform engineers… → Low$/)
+    // Bounded anatomy: the popover line keeps the producer's full reading —
+    // the at-rest collapse ("→ Low") was a card-budget measure the popover
+    // does not need.
+    const p = screen.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
-    assertRecoverable(p, 'Platform engineers hired onto the team → Low (0)')
+    assertWhole(p, 'Platform engineers hired onto the team → Low (0)', 'Platform engineers hired onto the team')
   })
 
   // NEGATIVE CONTROL — nothing elided, so hover must NOT repeat the visible
@@ -298,8 +316,9 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     )
     renderOption({ label: 'Hire Three Account Executives' })
 
-    const p = screen.getByText(/is the key difference/i)
+    const p = screen.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
+    expect(optionPreviewDetail('option-1')!.contains(p)).toBe(true)
     expect(p.textContent).toBe('Budget is the key difference')
     expect(p.textContent).not.toContain('…')
     expect(p.getAttribute('title')).toBeNull()

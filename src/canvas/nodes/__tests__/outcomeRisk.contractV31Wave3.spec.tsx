@@ -20,6 +20,14 @@
  *
  * `NodePopover` is NOT mocked: hidden popover children are absent from the DOM,
  * so everything found in a resting render is on the card face.
+ *
+ * ⚠ RE-POINTED FOR ED #63 5809278282 (24 Sep 2026, bounded anatomy: "repeated
+ * cards may reduce to title + one primary line … Outcome/Risk = state"). In
+ * STANDARD view the state line shows its short form with the fixture sentence
+ * in `sr-only` + `title` (+ the popover — `outcomeRisk.boundedAnatomy.spec`),
+ * and the authored context moved to the popover. The fixture words stay
+ * byte-for-byte on the Detailed card, and the multi-row order/rhythm clauses
+ * (OR-08, RHY-06) are now Detailed-view clauses — asserted there.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -96,6 +104,9 @@ const TWELVE_MONTHS_OLUMI = { ...TWELVE_MONTHS_FROM_BRIEF, source: 'cee_inferenc
 
 const classes = (el: Element | null) => (el ? Array.from(el.classList) : [])
 const precedes = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+/** A Standard primary line's two carriers: what a sighted reader sees, and the sentence announced. */
+const shown = (el: Element) => el.querySelector('[aria-hidden="true"]')?.textContent ?? null
+const announced = (el: Element) => el.querySelector('.sr-only')?.textContent ?? null
 
 beforeEach(() => {
   cleanup()
@@ -104,17 +115,27 @@ beforeEach(() => {
 })
 
 describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
+  // ED 5809278282: Standard shows the short form, the fixture sentence rides sr-only + title; Detailed keeps it verbatim.
   it('an outcome with no number says so, in the fixture’s exact words', () => {
     renderOutcome()
-    expect(screen.getByTestId('outcome-unquantified').textContent).toBe('Outcome not quantified')
+    const line = screen.getByTestId('outcome-unquantified')
+    expect(shown(line)).toBe('Not quantified')
+    expect(announced(line)).toBe('Outcome not quantified')
+    expect(line.getAttribute('title')).toBe('Outcome not quantified')
     expect(OUTCOME_UNQUANTIFIED_LINE).toBe('Outcome not quantified')
     expect(screen.queryByTestId('outcome-recorded-value')).toBeNull()
+    cleanup()
+    applyStore({ viewMode: 'expert' })
+    renderOutcome()
+    expect(screen.getByTestId('outcome-unquantified').textContent).toBe('Outcome not quantified')
   })
 
   it('…in BOTH phases: an analysis does not quantify an outcome the record holds no number for', () => {
     applyStore({ results: { status: 'complete', report: null } })
     renderOutcome()
-    expect(screen.getByTestId('outcome-unquantified').textContent).toBe(OUTCOME_UNQUANTIFIED_LINE)
+    const line = screen.getByTestId('outcome-unquantified')
+    expect(shown(line)).toBe('Not quantified')
+    expect(announced(line)).toBe(OUTCOME_UNQUANTIFIED_LINE)
   })
 
   it('the outcome line and the risk unset line are ONE element: identical classes', () => {
@@ -151,9 +172,17 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
 })
 
 describe('OR-02 — the risk state line is a label, not a sentence', () => {
+  // ED 5809278282: byte for byte in Standard's sr-only + title and on the Detailed card; Standard shows the register's short form.
   it('has no trailing full stop, and renders byte for byte', () => {
     renderRisk()
     expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet')
+    const line = screen.getByTestId('risk-exposure-unset')
+    expect(announced(line)).toBe('Likelihood and impact not set yet')
+    expect(line.getAttribute('title')).toBe('Likelihood and impact not set yet')
+    expect(shown(line)).toBe('Not set yet')
+    cleanup()
+    applyStore({ viewMode: 'expert' })
+    renderRisk()
     expect(screen.getByTestId('risk-exposure-unset').textContent).toBe('Likelihood and impact not set yet')
   })
 })
@@ -186,9 +215,23 @@ describe('OR-06 — the risk’s own recorded size carries a visible source mark
   })
 })
 
-describe('OR-08 — authored context follows the card’s own state, at 11px', () => {
+// ED 5809278282: the authored context left the Standard body for the popover, so
+// the order/size clause is asserted where both rows still render — Detailed.
+describe('OR-08 — authored context follows the card’s own state, at 11px (Detailed)', () => {
   const EDGE_LABEL_SIZE = typography.edgeLabel.split(' ')[0]
   const NODE_LABEL_SIZE = typography.nodeLabel.split(' ')[0]
+  beforeEach(() => { applyStore({ viewMode: 'expert' }) })
+
+  it('CONTRAST — Standard carries no context row on the card at all (it is in the popover)', () => {
+    applyStore({ viewMode: 'standard' })
+    renderOutcome({ description: 'Share of accounts renewing at twelve months' })
+    renderRisk({ description: 'Two enterprise accounts are up for renewal' })
+    expect(screen.queryByTestId('outcome-context-preview')).toBeNull()
+    expect(screen.queryByTestId('risk-context-preview')).toBeNull()
+    // Same render: the cards' own state lines are there.
+    expect(screen.getByTestId('outcome-unquantified')).toBeTruthy()
+    expect(screen.getByTestId('risk-exposure-unset')).toBeTruthy()
+  })
 
   it('outcome: the state line comes first, the summary after it, one step smaller', () => {
     renderOutcome({ description: 'Share of accounts renewing at twelve months' })
@@ -213,7 +256,20 @@ describe('OR-08 — authored context follows the card’s own state, at 11px', (
   })
 })
 
+// ED 5809278282: Standard has ONE row (flush, nothing trailing — pinned below); the
+// multi-row rhythm is a Detailed clause now.
 describe('RHY-06 — one row rhythm: first row flush, later rows `mt-1`, nothing trailing', () => {
+  it('Standard: the one primary line is flush and trails nothing', () => {
+    renderRisk({ description: 'Two enterprise accounts are up for renewal' })
+    renderOutcome({ description: 'Share of accounts renewing' })
+    for (const id of ['risk-exposure-unset', 'outcome-unquantified']) {
+      expect(classes(screen.getByTestId(id))).not.toContain('mt-1')
+      expect(classes(screen.getByTestId(id))).not.toContain('mb-1')
+    }
+  })
+
+  describe('Detailed', () => {
+  beforeEach(() => { applyStore({ viewMode: 'expert' }) })
   it('risk, unsized, with context: exposure line is the first row; the summary takes the gap', () => {
     renderRisk({ description: 'Two enterprise accounts are up for renewal' })
     const exposure = screen.getByTestId('risk-exposure-unset')
@@ -242,6 +298,7 @@ describe('RHY-06 — one row rhythm: first row flush, later rows `mt-1`, nothing
     // A zero magnitude renders no state line, so the summary is the first row.
     renderOutcome({ description: 'Share of accounts renewing', observedState: { value: 0, raw_value: 0 } })
     expect(classes(screen.getByTestId('outcome-context-preview'))).not.toContain('mt-1')
+  })
   })
 })
 
@@ -274,6 +331,9 @@ describe('FRAME-15 / OR-12 / T13 — the Detailed severity badge is a sentence-c
     applyStore({ viewMode: 'standard' })
     renderRisk({ probability: 0.9, impact: 'high' })
     expect(screen.queryByTestId('risk-severity-badge')).toBeNull()
-    expect(screen.getByTestId('risk-exposure-line').textContent).toBe('Entered estimate · 90% likely · High impact')
+    // ED 5809278282: the figures are the line; the qualifier rides sr-only + title (+ popover).
+    const line = screen.getByTestId('risk-exposure-line')
+    expect(shown(line)).toBe('90% likely · High impact')
+    expect(announced(line)).toBe('Entered estimate · 90% likely · High impact')
   })
 })

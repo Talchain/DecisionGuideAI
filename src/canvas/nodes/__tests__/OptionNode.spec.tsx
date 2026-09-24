@@ -7,10 +7,11 @@
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { changeRow } from './__helpers__/optionChangeRowText'
+import { openOptionPreview } from './__helpers__/optionPreview'
 import { optionOrdinalBadgeAccessibleName, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
@@ -1138,14 +1139,14 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/^raised to 12$/)).toBeNull()
   })
 
-  it('differentiator sentence renders CEE display_value verbatim for shared-factor options', () => {
+  it('differentiator sentence renders CEE display_value verbatim for shared-factor options', async () => {
     // Two non-baseline options both intervening on the same factor with
     // distinct display_values. Phase 3 de-disambiguation should use the
     // verbatim CEE string rather than fabricating a tier label from the
     // scale-unit factor (which would produce "Very high" / "Very low").
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
-        viewMode: 'standard', // differentiator line shows in Standard pre-analysis
+        viewMode: 'standard', // differentiator line shows in the Standard popover (bounded anatomy)
         ceeAnalysisReady: {
           options: [
             { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': { value: 0.9, display_value: 'Best in class' } } },
@@ -1160,13 +1161,16 @@ describe('OptionNode', () => {
         ],
       }) as any)
     )
-    renderOption()
-    // Differentiator sentence uses compactFactorLabel → "→ Best in class"
+    const { container } = renderOption()
+    // Bounded anatomy (ED #63 5809278282): the rows and the differentiator live
+    // in the option's popover — opened here the way a pointer opens it.
+    const preview = within(await openOptionPreview(container, 'option-1'))
+    // Differentiator sentence → "→ Best in class"
     // NODE-ANATOMY v3.2: the footer renders only where it ADDS, so the fixture
     // puts `factor-1` behind "+1 more" (two equal shared changes lead the row
     // order); the footer then carries the CEE string verbatim.
-    expect(screen.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
-    expect(screen.getByTestId('option-differentiator-option-1').textContent).toContain('Best in class')
+    expect(preview.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
+    expect(preview.getByTestId('option-differentiator-option-1').textContent).toContain('Best in class')
     // Must NOT fabricate a tier label.
     expect(screen.queryByText(/Very high/)).toBeNull()
     expect(screen.queryByText(/^High$/)).toBeNull()
@@ -1929,7 +1933,7 @@ describe('OptionNode — QA Brief C-series', () => {
   // Self-assessment fix #5: differentiator must NOT fire when other options
   // simply omit a factor that this option holds at the observed baseline.
   describe('Polish 4 review: differentiator uses observed baseline as fallback', () => {
-    it('does not flag a factor when this option intervenes at the observed baseline and others omit it', () => {
+    it('does not flag a factor when this option intervenes at the observed baseline and others omit it', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -1962,11 +1966,17 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hold' })
+      const { container } = renderOption({ label: 'Hold' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Positive control: the open popover carries option-1's own change row,
+      // so the absence below is an absence, not an unopened popover.
+      expect(preview.getByTestId('option-change-row-option-1-factor-1')).toBeTruthy()
       expect(screen.queryByText(/key difference/i)).toBeNull()
     })
 
-    it('still flags a factor when this option diverges from the observed baseline', () => {
+    it('still flags a factor when this option diverges from the observed baseline', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -1993,16 +2003,19 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Aggressive' })
+      const { container } = renderOption({ label: 'Aggressive' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // diff = |0.9 - 0.3| = 0.6 > 0.1 threshold → differentiator fires.
-      expect(screen.getByText(/key difference/i)).toBeDefined()
+      expect(preview.getByText(/key difference/i)).toBeDefined()
     })
   })
 
   // Graph v2: differentiator deduplication — when 2+ options share the same
   // top factor, the label includes the formatted value to disambiguate.
   describe('Graph v2: differentiator deduplication', () => {
-    it('shows different differentiator text when two options share the same factor at different values', () => {
+    it('shows different differentiator text when two options share the same factor at different values', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -2029,21 +2042,24 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hire Tech Lead' })
+      const { container } = renderOption({ label: 'Hire Tech Lead' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // Shared factor → option-1 at 0.9 on a % factor → "90%".
       // ⚠ NODE-ANATOMY v3.2 narrows Paul's 10 Sep "BOTH STAY" to the case where
       // the footer ADDS: here `factor-1` sits behind "+1 more" (two equal shared
       // changes lead the rows), so the footer disambiguates by value and is the
       // card's one statement of it. (Where the row IS shown, the footer would
       // repeat it and does not render — `OptionNode.differentiatorOnlyWhenAdditive.spec`.)
-      expect(screen.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
-      const footer = screen.getByTestId('option-differentiator-option-1')
+      expect(preview.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
+      const footer = preview.getByTestId('option-differentiator-option-1')
       expect(footer.tagName).toBe('P')
       expect(footer.textContent).toMatch(/^Tech lead hired → /)
       expect(footer.textContent).toContain('90%')
     })
 
-    it('suppresses differentiator when two options share same factor with identical values', () => {
+    it('suppresses differentiator when two options share same factor with identical values', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -2068,7 +2084,12 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Option A' })
+      const { container } = renderOption({ label: 'Option A' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Positive control: the open popover carries option-1's own change row.
+      expect(preview.getByTestId('option-change-row-option-1-factor-1')).toBeTruthy()
       // Both options produce identical differentiator text → suppressed.
       // The chip may still show the factor name, but no differentiator <p> should exist.
       expect(screen.queryByText(/key difference/i)).toBeNull()
@@ -2077,7 +2098,7 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(differentiatorP).toBeUndefined()
     })
 
-    it('uses directional language (not tier labels) when shared factor is a scale unit', () => {
+    it('uses directional language (not tier labels) when shared factor is a scale unit', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -2105,15 +2126,16 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Aggressive' })
+      const { container } = renderOption({ label: 'Aggressive' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // option-1 has value 0.9, baseline 0.5 → "Increases Marketing expertise"
-      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
-      // elides "Marketing expertise" (19) on screen, so a text query for it finds
-      // nothing. Bound by the line's test id; the whole sentence is its hover
-      // recovery (`OptionNode.differentiatorRecoverable.spec`).
-      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
       expect(differentiatorP.tagName).toBe('P')
-      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Increases Marketing expertise')
+      expect(differentiatorP.textContent).toBe('Increases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Increases /)
       // Negative assertions: no tier labels, no "scale" unit leaking through.
       expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|Moderate)\b/)
@@ -2121,7 +2143,7 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
-    it('says "Increases" for a small real shift (0.05) — "Does not change" needs exact equality', () => {
+    it('says "Increases" for a small real shift (0.05) — "Does not change" needs exact equality', async () => {
       // Audit §8 P0-4: the old ±0.1 display epsilon rendered "Does not
       // change" for genuinely different values (0.5→0.55, and the live
       // 0.5→0.6 boundary case). The single formatter reserves "Does not
@@ -2153,18 +2175,19 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hold Steady' })
-      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
-      // elides "Marketing expertise" (19) on screen, so a text query for it finds
-      // nothing. Bound by the line's test id; the whole sentence is its hover
-      // recovery (`OptionNode.differentiatorRecoverable.spec`).
-      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      const { container } = renderOption({ label: 'Hold Steady' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
       expect(differentiatorP.tagName).toBe('P')
-      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Increases Marketing expertise')
+      expect(differentiatorP.textContent).toBe('Increases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Increases /)
     })
 
-    it('uses "Does not change" ONLY when the intervention exactly equals the baseline', () => {
+    it('uses "Does not change" ONLY when the intervention exactly equals the baseline', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -2190,18 +2213,19 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Hold Steady' })
-      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
-      // elides "Marketing expertise" (19) on screen, so a text query for it finds
-      // nothing. Bound by the line's test id; the whole sentence is its hover
-      // recovery (`OptionNode.differentiatorRecoverable.spec`).
-      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      const { container } = renderOption({ label: 'Hold Steady' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
       expect(differentiatorP.tagName).toBe('P')
-      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Does not change Marketing expertise')
+      expect(differentiatorP.textContent).toBe('Does not change Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Does not change /)
     })
 
-    it('uses "Decreases" when scale-unit intervention is below baseline', () => {
+    it('uses "Decreases" when scale-unit intervention is below baseline', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -2226,22 +2250,23 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Cut Back' })
+      const { container } = renderOption({ label: 'Cut Back' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // option-1 has value 0.1, baseline 0.5 → "Decreases Marketing expertise"
-      // S4 (9914ffa3; ED #63 5806207128): the 260 card's derived budget (18)
-      // elides "Marketing expertise" (19) on screen, so a text query for it finds
-      // nothing. Bound by the line's test id; the whole sentence is its hover
-      // recovery (`OptionNode.differentiatorRecoverable.spec`).
-      const differentiatorP = screen.getByTestId('option-differentiator-option-1')
+      // Bound by the line's test id, in the popover, where it renders WHOLE (the
+      // card's 18-character budget no longer applies — bounded anatomy).
+      const differentiatorP = preview.getByTestId('option-differentiator-option-1')
       expect(differentiatorP.tagName).toBe('P')
-      expect(differentiatorP.getAttribute('title') ?? differentiatorP.textContent).toBe('Decreases Marketing expertise')
+      expect(differentiatorP.textContent).toBe('Decreases Marketing expertise')
       expect(differentiatorP!.textContent).toMatch(/^Decreases /)
       // Negative assertions: no tier labels, no "scale" unit leaking through.
       expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|High|Low|Moderate)\b/)
       expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
-    it('shows unique differentiator without value when factor is not shared', () => {
+    it('shows unique differentiator without value when factor is not shared', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -2275,9 +2300,12 @@ describe('OptionNode — QA Brief C-series', () => {
           viewMode: 'standard',
         }) as any),
       )
-      renderOption({ label: 'Option A' })
+      const { container } = renderOption({ label: 'Option A' })
+      // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
+      // option's popover — opened, so every assertion (absences too) reads it.
+      const preview = within(await openOptionPreview(container, 'option-1'))
       // Unique factor → "Headcount is the key difference" (simple sentence)
-      expect(screen.getByText(/headcount is the key difference/i)).toBeDefined()
+      expect(preview.getByText(/headcount is the key difference/i)).toBeDefined()
     })
   })
 })

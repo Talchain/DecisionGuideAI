@@ -44,9 +44,15 @@
  * columns that are `shrink-0`, so it takes width from the bar beside it and
  * cannot add a line to the card by construction — but that is a reading of the
  * classes, not a measurement.
+ *
+ * ⭐ RE-POINTED FOR THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): "any stale
+ * run-derived figure shown on-card or in disclosure keeps `Last run ·`". The
+ * Standard driver line and turning point moved into the factor's popover, so
+ * their label rule is pinned THERE (bound by the popover's test id, and absent
+ * from the card face); absences are document-wide and so cover the popover.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -70,6 +76,20 @@ let displayMetadata: Record<string, unknown> = {}
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => displayMetadata),
 }))
+
+// ED 5809278282: the Standard findings live in the popover — transparent and
+// identity-bearing, so its content is observable and absences cover it.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="factor-node-popover">{children}</div>
+  ),
+}))
+/** A Standard finding: in the popover, never on the card face (ED 5809278282). */
+const inPopover = (testId: string) => {
+  const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+  expect(within(face).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
+  return within(screen.getByTestId('factor-node-popover')).getByTestId(testId)
+}
 
 const FACTOR_ID = 'fac_hiring_speed'
 const OTHER_FACTOR_ID = 'fac_delivery_capacity'
@@ -206,14 +226,14 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
 
     editTheModel()
     expect(semantic()).toBe('changed')
     // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 5 analysed')
+    expect(inPopover('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 5 analysed')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
-    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 5 analysed\. /)
+    expect(inPopover('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 5 analysed\. /)
     // The badge stays retired on the stale arm too.
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
   })
@@ -223,7 +243,7 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
   })
 
   it('cannot-confirm is NOT "changed" — no Last-run label, and no analysis cue (ED 02:31Z Q2)', () => {
@@ -244,11 +264,11 @@ describe('factor card — the turning-point track', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
+    expect(inPopover('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    const tp = screen.getByTestId('factor-turning-point')
+    const tp = inPopover('factor-turning-point')
     expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
     expect(tp.getAttribute('aria-label')).toMatch(/^Last run · Below 6\.5%, the model comparison changes\. /)
   })

@@ -30,7 +30,25 @@ import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark
  * (`domain/nodeRecordedValue` header) — not that the outcome cannot be
  * measured, is unimportant, or is at risk. No figure, no warning styling.
  */
-export const OUTCOME_UNQUANTIFIED_LINE = 'Outcome not quantified'
+export const OUTCOME_UNQUANTIFIED_SHORT = 'Not quantified'
+export const OUTCOME_UNQUANTIFIED_LINE = `Outcome ${OUTCOME_UNQUANTIFIED_SHORT.toLowerCase()}`
+
+/*
+ * ⭐ `OUTCOME_UNQUANTIFIED_SHORT` IS THE STANDARD CARD'S RESTING FORM, and the
+ * sentence above is DERIVED from it (one spelling of the state, never two).
+ *
+ * Experience Design #63 5809278282 (24 Sep 2026): *"Landing / quiet: repeated
+ * cards may reduce to **title + one primary line** inside the fixed fit-safe
+ * box … Outcome/Risk = state."* At the landing floor (`--canvas-label-scale` 2,
+ * a 260-unit card) a line holds ~19 characters and the sentence is 22, so as
+ * the ONE line it either wraps (another 28 units of reserved height on every
+ * outcome) or is cut — and a cut eats "quantified", the state itself. The
+ * short form is the sentence's own tail: the state survives, the leading noun
+ * (which the card's kind already says) moves.
+ *
+ * ⛔ NOT DELETED: the full sentence rides the line's `title`, an `sr-only` copy
+ * and the node popover (both phases); Detailed keeps it inline.
+ */
 
 /**
  * Does the record hold ANY number for this outcome, formatted or not?
@@ -176,6 +194,28 @@ export const OutcomeNode = memo((props: NodeProps) => {
             })}
           />
         </>
+      )}
+    </>
+  ) : null
+
+  /**
+   * ⭐ WHAT LEFT THE STANDARD BODY, IN THE POPOVER IT MOVED TO (ED 5809278282:
+   * "can move to the existing hover/focus popover and inspector rather than
+   * expanding layout geometry"). Both phases: the full unquantified sentence
+   * (only where the card shows the short form — a recorded value is on the
+   * card whole, so nothing is restated) and the authored consequence the card
+   * used to preview in two clamped lines. The description chevron and the
+   * inspector still carry the full text.
+   */
+  const outcomePopoverOwnState = showUnquantified || summary ? (
+    <>
+      {showUnquantified && (
+        <p className={`${typography.edgeLabel} text-text-body m-0`} data-testid="outcome-popover-state">{OUTCOME_UNQUANTIFIED_LINE}</p>
+      )}
+      {summary && (
+        <p className={`${typography.edgeLabel} text-text-light m-0${showUnquantified ? ' mt-1' : ''} line-clamp-3 break-words whitespace-pre-wrap`} data-testid="outcome-popover-context">
+          {summary}
+        </p>
       )}
     </>
   ) : null
@@ -326,33 +366,60 @@ export const OutcomeNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* ⭐ The outcome's own state, directly under the title (contract v3.1
-            OR-02 / RHY-09). The first body row, so no top margin: BaseNode's
-            header supplies the 4px (RHY-06). The absence line uses the risk
-            card's unset-line classes exactly, so the two sibling lines are one
-            element. */}
+        {/* ⭐⭐ STANDARD VIEW: ONE PRIMARY LINE, AND NOTHING ELSE IN THE BODY
+            (Experience Design #63 5809278282, 24 Sep 2026: "repeated cards may
+            reduce to title + one primary line inside the fixed fit-safe box …
+            Outcome/Risk = state … Keep one stable layout geometry"). The line
+            is the same DOM at every rung, so a Normal-zoom card is never taller
+            than the landing one. The recorded value + source mark (value first,
+            `shrink-0`, never the thing cut), or `Not quantified` with the full
+            sentence on `title` and in `sr-only`. The authored consequence moved
+            to the popover below (both phases); the chevron and the inspector
+            still carry it. The testids are the ones these states already had;
+            `data-card-primary-line` marks the body's only row.
+
+            Detailed keeps the full inline anatomy, unchanged: the recorded row
+            is ONE element for both views (only its classes follow the view),
+            and Detailed's absence line is the full sentence, directly under
+            the title (contract v3.1 OR-02 / RHY-09), first body row so no top
+            margin (RHY-06), with the risk card's Detailed unset-line classes
+            exactly. */}
         {recordedValue ? (
           <div
-            className={`${typography.nodeValue} text-text-body flex flex-wrap items-baseline gap-1`}
+            className={`${typography.nodeValue} text-text-body flex items-baseline gap-1 ${isDetailed ? 'flex-wrap' : 'whitespace-nowrap overflow-hidden'}`}
             data-testid="outcome-recorded-value"
+            {...(isDetailed ? {} : { 'data-card-primary-line': 'outcome' })}
           >
-            <span data-testid="outcome-recorded-readout">{recordedValue}</span>
+            <span className="shrink-0" data-testid="outcome-recorded-readout">{recordedValue}</span>
             {recordedValueMark && (
               <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} />
             )}
           </div>
         ) : showUnquantified ? (
-          <div className={`${typography.edgeLabel} text-text-light`} data-testid="outcome-unquantified">
-            {OUTCOME_UNQUANTIFIED_LINE}
-          </div>
+          isDetailed ? (
+            <div className={`${typography.edgeLabel} text-text-light`} data-testid="outcome-unquantified">
+              {OUTCOME_UNQUANTIFIED_LINE}
+            </div>
+          ) : (
+            <div
+              className={`${typography.edgeLabel} text-text-light whitespace-nowrap overflow-hidden text-ellipsis`}
+              data-testid="outcome-unquantified"
+              data-card-primary-line="outcome"
+              title={OUTCOME_UNQUANTIFIED_LINE}
+            >
+              <span aria-hidden="true">{OUTCOME_UNQUANTIFIED_SHORT}</span>
+              <span className={typography.screenReaderOnly}>{OUTCOME_UNQUANTIFIED_LINE}</span>
+            </div>
+          )
         ) : null}
 
         {/* Authored consequence, AFTER the card's own state and one step smaller
             (contract v3.1 OR-08: the title is followed by the node's own state;
             other prose is subordinate, at 11px or smaller). No trailing margin
             (RHY-06); the row gap is taken only when a state line precedes it.
-            The existing chevron retains its full description. */}
-        {summary && (
+            The existing chevron retains its full description. Detailed only
+            since ED 5809278282; Standard carries it in the popover. */}
+        {isDetailed && summary && (
           <p className={`${typography.edgeLabel} text-text-light m-0${hasStateLine ? ' mt-1' : ''} line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="outcome-context-preview">
             {summary}
           </p>
@@ -408,6 +475,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {outcomePopoverOwnState}
           {layer2ContentPost}
           {outcomePopoverChips}
         </NodePopover>
@@ -424,6 +492,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {outcomePopoverOwnState}
+          {outcomePopoverOwnState && preAnalysisPopoverContent && <Sep />}
           {preAnalysisPopoverContent}
           {outcomePopoverChips}
         </NodePopover>

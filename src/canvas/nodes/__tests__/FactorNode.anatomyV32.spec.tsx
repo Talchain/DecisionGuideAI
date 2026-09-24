@@ -43,9 +43,18 @@
  *
  * CLAIM SCOPE: jsdom — strings, test ids, classes and DOM order. Not pixels;
  * the served-build witness at 1280×800 is the acceptance, not this file.
+ *
+ * ⭐ RE-POINTED FOR THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): the
+ * Standard card is title + ONE primary line, so line 2 no longer wraps, the
+ * `Needs input` row shows the ruled word only (the sentence is its sr-only
+ * description and is in the popover), and the findings — the driver line and
+ * a found turning point — are pinned in the factor's POPOVER (bound by the
+ * popover's own test id) and pinned ABSENT from the card face. Every v3.2 rule
+ * below still binds; only the home of the findings moved. The fit itself is
+ * pinned in `FactorNode.boundedAnatomy.spec.tsx`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
@@ -67,6 +76,15 @@ vi.mock('../../../flags', async (importOriginal) => {
 let displayMetadata: Record<string, unknown> = {}
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => displayMetadata),
+}))
+
+// ED 5809278282: the findings live in the Standard popover. Transparent and
+// identity-bearing, so its CONTENT is observable and every document-wide
+// absence below covers the popover too.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="factor-node-popover">{children}</div>
+  ),
 }))
 
 const ID = 'fac_conversion'
@@ -174,6 +192,14 @@ const before = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) 
 
 /** The card mounted, with THIS title — the positive control every absence below needs. */
 const mounted = () => expect(screen.getByTestId('node-title').textContent).toContain('Trial conversion')
+/** BaseNode's root — the card FACE, which excludes the sibling popover. */
+const face = () => screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+const popover = () => screen.getByTestId('factor-node-popover')
+/** ED 5809278282: a finding is in the popover, never on the face. */
+const inPopoverNotOnFace = (id: string) => {
+  expect(within(face()).queryByTestId(id), `${id} is on the card face`).toBeNull()
+  return within(popover()).getByTestId(id)
+}
 
 /** The v3.2 "Never on the card" list, plus the border badges, in one place. */
 const expectNothingItMustNeverSay = () => {
@@ -200,7 +226,7 @@ afterEach(() => {
 })
 
 describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, nothing more', () => {
-  it('line 2 is the value and its mark, as plain text: no chip, no top margin, wraps inside the card', () => {
+  it('line 2 is the value and its mark, as plain text: no chip, no top margin, ONE line (ED 5809278282)', () => {
     seed(VALUED, { phase: 'pre' })
     renderFactor(VALUED)
     mounted()
@@ -216,10 +242,13 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     // …and says it is editable on hover and on focus, not at rest.
     expect(rest.has('hover:border-field')).toBe(true)
     expect(rest.has('focus-visible:border-field')).toBe(true)
-    // Title → value is the header's 4px, as on every family; the row wraps.
+    // Title → value is the header's 4px, as on every family.
     const rowTokens = tokens(row)
     expect(rowTokens.has('mt-1')).toBe(false)
-    expect(rowTokens.has('flex-wrap')).toBe(true)
+    // ED 5809278282 (bounded anatomy): the primary line no longer wraps — the
+    // mark is held on it (`factor-value-mark-slot`), and nothing is cut.
+    expect(rowTokens.has('flex-nowrap')).toBe(true)
+    expect(rowTokens.has('flex-wrap')).toBe(false)
   })
 
   it('the mark is upright (not italic)', () => {
@@ -251,13 +280,17 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
   })
 })
 
-describe('NODE-ANATOMY v3.2 · Factor · missing value — "Needs input · Value not set yet" in the BODY', () => {
+describe('NODE-ANATOMY v3.2 · Factor · missing value — "Needs input" in the BODY (the sentence: description + popover)', () => {
   it.each(['pre', 'post'] as const)('%s-run: the state is line 2 of the card, and no pill sits on the border', (phase) => {
     seed(MISSING, { phase, flipRows: [ATTESTED_NO_FLIP_ROW] })
     renderFactor(MISSING)
     mounted()
     const row = screen.getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    // ED 5809278282: one line at ~19 characters — the ruled word stays visible;
+    // "Value not set yet" is the row's sr-only description and is in the popover.
+    expect(visibleText(row)).toBe('Needs input')
+    expect(row.querySelector('.sr-only')?.textContent).toBe('Value not set yet')
+    expect(within(popover()).getByTestId(`factor-popover-needs-input-${ID}`).textContent).toBe('Needs input · Value not set yet')
     // ONE "Needs input" on the card, and it is the one in the body row.
     const pills = screen.getAllByTestId('needs-input-pill')
     expect(pills).toHaveLength(1)
@@ -271,17 +304,19 @@ describe('NODE-ANATOMY v3.2 · Factor · missing value — "Needs input · Value
 })
 
 describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found', () => {
-  it('value, then "Driver 1 of 6 analysed" + bar, then the turning point — in that order', () => {
+  it('value on the face; "Driver 1 of 6 analysed" + bar, then the turning point — in that order, in the popover (ED 5809278282)', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
-    const value = screen.getByTestId('factor-recorded-value')
-    const driver = screen.getByTestId('factor-driver-line')
-    const tp = screen.getByTestId('factor-turning-point')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
-    expect(screen.getByTestId('factor-driver-line-bar')).toBeTruthy()
-    expect(screen.getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    const value = within(face()).getByTestId('factor-recorded-value')
+    const driver = inPopoverNotOnFace('factor-driver-line')
+    const tp = inPopoverNotOnFace('factor-turning-point')
+    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(popover()).getByTestId('factor-driver-line-bar')).toBeTruthy()
+    expect(within(popover()).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    // The face keeps the neutral cue on the value line, named by the caption.
+    expect(within(value).getByTestId(`factor-driver-cue-${ID}`).getAttribute('aria-label')).toBe('Driver 1 of 6 analysed')
     expect(before(value, driver)).toBe(true)
     expect(before(driver, tp)).toBe(true)
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
@@ -293,8 +328,8 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
-    expect(tokens(screen.getByTestId('factor-driver-line-caption')).has('font-medium')).toBe(false)
-    const line = tokens(screen.getByTestId('factor-driver-line'))
+    expect(tokens(within(popover()).getByTestId('factor-driver-line-caption')).has('font-medium')).toBe(false)
+    const line = tokens(inPopoverNotOnFace('factor-driver-line'))
     expect(line.has('justify-between')).toBe(false)
     expect(line.has('w-full')).toBe(false)
   })
@@ -306,11 +341,11 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the ANALYSED c
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
-    const caption = screen.getByTestId('factor-driver-line-caption').textContent ?? ''
+    const caption = within(popover()).getByTestId('factor-driver-line-caption').textContent ?? ''
     expect(caption).toBe('Driver 1 of 6 analysed')
     expect(caption).not.toContain('of 3')
     expect(caption).not.toContain('ranked')
-    const note = screen.getByTestId('factor-driver-line').getAttribute('aria-description') ?? ''
+    const note = inPopoverNotOnFace('factor-driver-line').getAttribute('aria-description') ?? ''
     expect(note).toContain('“of 6” counts the factors in the last analysis')
     expect(note).not.toContain('of 3')
   })
@@ -319,7 +354,8 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the ANALYSED c
     displayMetadata = metadata(2, 4, 3, 0.7)
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 4 analysed')
+    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 4 analysed')
+    expect(screen.getByTestId(`factor-driver-cue-${ID}`).getAttribute('aria-label')).toBe('Driver 2 of 4 analysed')
   })
 })
 
@@ -332,8 +368,10 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — 
     seed(VALUED, { phase: 'post', flipRows: [...flipRows] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
-    // Positive control: the run's finding for this factor IS on the card.
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    // Positive control: the run's finding for this factor IS disclosed — in the
+    // popover (ED 5809278282), with the neutral cue on the face.
+    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(face()).getByTestId(`factor-driver-cue-${ID}`)).toBeTruthy()
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
     expectNothingItMustNeverSay()
@@ -369,8 +407,10 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, NOT ranked — the card says 
     displayMetadata = UNRANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
-    expect(screen.getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    inPopoverNotOnFace('factor-turning-point')
+    expect(within(popover()).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
   })
 })
 
@@ -381,12 +421,17 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    expect(screen.getByTestId('factor-turning-point-caption').textContent).toBe(
+    // ED 5809278282: "any stale run-derived figure shown on-card or in
+    // disclosure keeps `Last run ·`" — the popover's findings, and the face's cue.
+    inPopoverNotOnFace('factor-driver-line')
+    inPopoverNotOnFace('factor-turning-point')
+    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
+    expect(within(popover()).getByTestId('factor-turning-point-caption').textContent).toBe(
       'Last run · Below 6.5%, the model comparison changes.',
     )
+    expect(within(face()).getByTestId(`factor-driver-cue-${ID}`).getAttribute('aria-label')).toBe('Last run · Driver 1 of 6 analysed')
     // The run's value stays distinct from the current value line.
-    expect(screen.getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
+    expect(within(popover()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // The value is the factor's own state, not a finding: never prefixed.
     expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8%est.')
     expectNothingItMustNeverSay()
@@ -398,7 +443,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
+    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(document.body.textContent).not.toContain('in that run')
     expectNothingItMustNeverSay()

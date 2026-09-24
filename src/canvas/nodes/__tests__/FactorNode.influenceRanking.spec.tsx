@@ -49,6 +49,15 @@
  * noun; the percentage lives ONLY in its accessible name / tooltip, beside
  * "…N% of the strongest factor…" — demoted, never deleted.
  *
+ * ⭐ AND THE STANDARD LINE MOVED OFF THE FACE (ED #63 5809278282, 24 Sep —
+ * bounded anatomy): "The fuller S3 reasoning detail — change rows, driver
+ * wording, turning-point explanation/findings — can move to the existing
+ * hover/focus popover and inspector rather than expanding layout geometry."
+ * `factor-driver-line` is now rendered INSIDE the factor's Standard popover
+ * (mocked transparent here as `factor-node-popover`), and `popoverLine()` binds
+ * it THERE and asserts it is NOT on the card face. The face keeps a neutral,
+ * wordless driver cue (pinned in `FactorNode.boundedAnatomy.spec.tsx`).
+ *
  * Every claim below is re-pointed to that line at the same identity:
  *   · ranked → the new caption, no bare "%", the % in the accessible name;
  *   · both call sites (face + Detailed) — the two views cannot disagree;
@@ -217,8 +226,15 @@ const RANKED_NAME_LEADER =
 const NOT_RANKED = 'Not ranked in this run'
 const notRanked = () => screen.getByTestId('factor-driver-not-ranked')
 
-/** The face driver line, and the Detailed/popover one, bound by test id. */
-const faceLine = () => screen.getByTestId('factor-driver-line')
+/**
+ * The Standard driver line — in the POPOVER, never on the card face (ED
+ * 5809278282) — and the Detailed one, bound by test id.
+ */
+const popoverLine = () => {
+  const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+  expect(within(face).queryByTestId('factor-driver-line'), 'the driver line is on the card face').toBeNull()
+  return within(screen.getByTestId('factor-node-popover')).getByTestId('factor-driver-line')
+}
 const detailLine = () => screen.getByTestId('factor-driver-line-detail')
 const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).textContent
 /** The bar's FILL — the measurement, independent of the words. */
@@ -236,7 +252,7 @@ describe('Standard view — the driver line states the ranking', () => {
        mounts `layer2Content` a SECOND time inside the hover popover (mocked
        transparent here), so the Detailed driver line is also in the document.
        A `getByText` would be ambiguous (CLAUDE.md trap 19). */
-    const line = faceLine()
+    const line = popoverLine()
     expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
     /* ⛔ THE DELETE-MUTANT ASSERTION. Remove the rank from this call site and
        the line disappears (contract v3.1 pt 5), which the line above REJECTS.
@@ -251,7 +267,7 @@ describe('Standard view — the driver line states the ranking', () => {
     setStore('standard')
     setMetadata(1, 5, 1)
     renderFactor()
-    const line = faceLine()
+    const line = popoverLine()
     expect(line).toHaveAccessibleName(RANKED_NAME_LEADER)
     /* ⚠ THE NEGATIVE CONTROL for the old mangling ("Most influential: of 5.")
        — the caption and the set size are one phrase, never split by a colon. */
@@ -266,14 +282,14 @@ describe('Standard view — the driver line states the ranking', () => {
     // The NO-HIDING half of the claim. Taking the figure off the face of the
     // card is the change; taking it away from a reader who wants it would be
     // hiding a finding, which this estate forbids.
-    expect(faceLine()).toHaveAccessibleName(/100% of the strongest factor/)
+    expect(popoverLine()).toHaveAccessibleName(/100% of the strongest factor/)
   })
 
   it('rank 2 takes its own number — the leader is not the only case that renders', () => {
     setStore('standard')
     setMetadata(2, 5, 0.62)
     renderFactor()
-    const line = faceLine()
+    const line = popoverLine()
     expect(captionOf(line)).toBe('Driver 2 of 5 analysed')
     expect(line.textContent).not.toContain('62%')
     expect(line).toHaveAccessibleName(/62% of the strongest factor/)
@@ -376,7 +392,7 @@ describe('no denominator — contract v3.1 pt 5: no rank, no line, no bar, on ei
     setStore('standard')
     setMetadata(1, 5, 1)
     renderFactor()
-    expect(faceLine()).toBeTruthy()
+    expect(popoverLine()).toBeTruthy()
     expect(screen.queryByTestId('factor-driver-not-ranked')).toBeNull()
   })
 })
@@ -453,9 +469,9 @@ describe('the ranked claim is withheld when the result is not confirmably curren
 
     expect(screen.getByTestId('node-title')).toBeTruthy()
     // ED 5806207128 stale form: "Last run · Driver N of M analysed".
-    expect(captionOf(faceLine())).toBe('Last run · Driver 1 of 5 analysed')
+    expect(captionOf(popoverLine())).toBe('Last run · Driver 1 of 5 analysed')
     // Never the unlabelled current-run caption.
-    expect(captionOf(faceLine())!.startsWith('Driver')).toBe(false)
+    expect(captionOf(popoverLine())!.startsWith('Driver')).toBe(false)
   })
 
   it('CONTROL: the same rank and the same set size on a current result DO publish', () => {
@@ -466,7 +482,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    expect(captionOf(faceLine())).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(popoverLine())).toBe('Driver 1 of 5 analysed')
   })
 
   it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {

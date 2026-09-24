@@ -11,6 +11,15 @@
  * CLAIM SCOPE (CLAUDE.md trap 3): jsdom. These prove the CLASS TOKENS, TEXT and
  * DOM ORDER the card emits. They do not prove rendered pixels; the height
  * argument for each change is in the component's own comments.
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "The
+ * fuller S3 reasoning detail — change rows … — can move to the existing
+ * hover/focus popover and inspector"). In Standard view the change rows,
+ * `+N more` and the differentiator render in the option's popover
+ * (`option-preview-detail-<id>`), so every row-grammar pin below reads them
+ * THERE, by identity; the reading-order pins (OPT-09) are asserted where the
+ * inline anatomy still exists — Detailed view — and, for the popover, in the
+ * popover's own order. The grammar itself is unchanged.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -18,11 +27,18 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { typography } from '../../../styles/typography'
 import { changeRow, changeRowValueText } from './__helpers__/optionChangeRowText'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
+
+// A pass-through popover, so the moved detail is in the DOM to be read BY
+// IDENTITY (`optionPreviewDetail`). Opening it is `usePopoverHover`'s contract.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
+}))
 
 const FACTOR_HEAD = {
   id: 'f-head', type: 'factor',
@@ -122,6 +138,9 @@ const renderCard = (
 
 const tokens = (el: Element | null) => new Set((el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
 const byTestId = (id: string) => document.querySelector(`[data-testid="${id}"]`)
+/** An element inside THIS option's popover detail block — bound to the popover by identity. */
+const inPreview = (id: string, optionId = 'option-1') =>
+  optionPreviewDetail(optionId)?.querySelector(`[data-testid="${id}"]`) ?? null
 
 describe('contract v3.1 — option card polish', () => {
   beforeEach(() => {
@@ -195,7 +214,19 @@ describe('contract v3.1 — option card polish', () => {
 
   // ── OPT-09: the option's own facts first, the run below ──────────────────
   describe('reading order (OPT-09)', () => {
-    it('the change rows AND the differentiator both precede the run result', () => {
+    it('DETAILED (the inline anatomy): the change rows precede the run result on the card', () => {
+      winRate = 0.42
+      renderCard({ store: { results: COMPLETE, viewMode: 'expert' } })
+      const rows = byTestId('option-change-rows-option-1')
+      const result = byTestId('option-analysis-currency-option-1')
+      expect(rows, 'precondition: change rows render inline').not.toBeNull()
+      expect(result, 'precondition: the result row renders').not.toBeNull()
+      expect(optionPreviewDetail('option-1')?.contains(rows!) ?? false).toBe(false)
+      // The defect this pins: the run's row sat BEFORE the option's own facts.
+      expect(rows!.compareDocumentPosition(result!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('STANDARD: the popover keeps the rows before the differentiator; the card carries the run result alone', () => {
       winRate = 0.42
       // Two changes, so "Developer headcount is the key difference" says which
       // one matters and the differentiator renders (NODE-ANATOMY v3.2: only
@@ -211,25 +242,34 @@ describe('contract v3.1 — option card polish', () => {
           },
         },
       })
-      const rows = byTestId('option-change-rows-option-1')
-      const diff = byTestId('option-differentiator-option-1')
+      const rows = inPreview('option-change-rows-option-1')
+      const diff = inPreview('option-differentiator-option-1')
       const result = byTestId('option-analysis-currency-option-1')
-      expect(rows, 'precondition: change rows render').not.toBeNull()
-      expect(diff, 'precondition: the differentiator renders after the run').not.toBeNull()
+      expect(rows, 'precondition: change rows render in the popover').not.toBeNull()
+      expect(diff, 'precondition: the differentiator renders in the popover after the run').not.toBeNull()
       expect(result, 'precondition: the result row renders').not.toBeNull()
       expect(rows!.compareDocumentPosition(diff!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      // The defect this pins: the run's row sat BETWEEN the rows and the differentiator.
-      expect(diff!.compareDocumentPosition(result!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      // The run's row is the card's ONE line; it is not inside the moved detail.
+      expect(optionPreviewDetail('option-1')!.contains(result!)).toBe(false)
     })
 
-    it('the baseline card states it is the baseline before the run result', () => {
+    it('DETAILED: the baseline card states it is the baseline before the run result', () => {
       winRate = 0.3
-      renderCard({ id: 'option-b', data: { label: 'Status quo', is_baseline: true }, store: { results: COMPLETE } })
+      renderCard({ id: 'option-b', data: { label: 'Status quo', is_baseline: true }, store: { results: COMPLETE, viewMode: 'expert' } })
       const meta = byTestId('option-baseline-meta-option-b')
       const result = byTestId('option-analysis-currency-option-b')
       expect(meta).not.toBeNull()
       expect(result).not.toBeNull()
       expect(meta!.compareDocumentPosition(result!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('STANDARD, after a run: the baseline statement moves to the popover, the share line keeps the card', () => {
+      winRate = 0.3
+      renderCard({ id: 'option-b', data: { label: 'Status quo', is_baseline: true }, store: { results: COMPLETE } })
+      const meta = byTestId('option-baseline-meta-option-b')
+      expect(meta).not.toBeNull()
+      expect(inPreview('option-baseline-meta-option-b', 'option-b')).toBe(meta)
+      expect(optionPreviewDetail('option-b')!.contains(byTestId('option-analysis-currency-option-b')!)).toBe(false)
     })
   })
 
@@ -237,9 +277,9 @@ describe('contract v3.1 — option card polish', () => {
   describe('change row tones (OPT-03)', () => {
     it('the "from" value is its own muted span; the arrow and target stay in the ink cell', () => {
       renderCard()
-      const dd = byTestId('option-change-row-option-1-f-head')
-      expect(dd, 'precondition: the from → to row renders').not.toBeNull()
-      const before = byTestId('option-change-row-before-option-1-f-head')
+      const dd = inPreview('option-change-row-option-1-f-head')
+      expect(dd, 'precondition: the from → to row renders in the popover').not.toBeNull()
+      const before = inPreview('option-change-row-before-option-1-f-head')
       expect(before).not.toBeNull()
       expect(before!.textContent).toBe('0 engineers')
       expect(tokens(before).has('text-text-light')).toBe(true)
@@ -250,15 +290,15 @@ describe('contract v3.1 — option card polish', () => {
 
     it('the split is presentation only: the value text is byte-identical', () => {
       renderCard()
-      expect(changeRowValueText(byTestId('option-change-row-option-1-f-head')!)).toBe('0 engineers → 3 engineers')
+      expect(changeRowValueText(inPreview('option-change-row-option-1-f-head')!)).toBe('0 engineers → 3 engineers')
       expect(screen.getByText(changeRow('0 engineers → 3 engineers'))).toBeInTheDocument()
     })
 
     it('a target-only row is not split — it renders its change whole', () => {
       // option-2 sets f-cost, which the baseline does not: no "from" to mute.
       renderCard({ id: 'option-2', data: { label: 'Hire a tech lead' } })
-      const dd = byTestId('option-change-row-option-2-f-cost')
-      expect(dd, 'precondition: the target-only row renders').not.toBeNull()
+      const dd = inPreview('option-change-row-option-2-f-cost', 'option-2')
+      expect(dd, 'precondition: the target-only row renders in the popover').not.toBeNull()
       expect(byTestId('option-change-row-before-option-2-f-cost')).toBeNull()
       expect(changeRowValueText(dd!).startsWith('→ ')).toBe(true)
     })
@@ -268,7 +308,7 @@ describe('contract v3.1 — option card polish', () => {
   describe('change row grammar (OPT-04, OPT-05, RHY-04, T08 b+c)', () => {
     it('label takes what the amount does not need; the amount is capped at the old 3fr share', () => {
       renderCard()
-      const dl = byTestId('option-change-rows-option-1')!.querySelector('dl')
+      const dl = inPreview('option-change-rows-option-1')!.querySelector('dl')
       const t = tokens(dl)
       expect(t.has('grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))]')).toBe(true)
       expect(t.has('grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')).toBe(false)
@@ -278,7 +318,7 @@ describe('contract v3.1 — option card polish', () => {
 
     it('label and amount are both the 11px label size at tight leading', () => {
       renderCard()
-      const dd = byTestId('option-change-row-option-1-f-head')!
+      const dd = inPreview('option-change-row-option-1-f-head')!
       const dt = dd.previousElementSibling!
       expect(dt.tagName).toBe('DT')
       for (const cell of [dt, dd]) {
@@ -290,9 +330,9 @@ describe('contract v3.1 — option card polish', () => {
       expect(tokens(dd).has('min-w-0')).toBe(true)
     })
 
-    it('the rows block sits 4px under the title, not 6px', () => {
+    it('the rows block keeps its 4px top rhythm (in the popover it sits 4px under the popover edge)', () => {
       renderCard()
-      const t = tokens(byTestId('option-change-rows-option-1'))
+      const t = tokens(inPreview('option-change-rows-option-1'))
       expect(t.has('mt-1')).toBe(true)
       expect(t.has('mt-1.5')).toBe(false)
     })
@@ -311,8 +351,8 @@ describe('contract v3.1 — option card polish', () => {
           },
         },
       })
-      const more = byTestId('option-change-more-option-1')
-      expect(more, 'precondition: the overflow link renders').not.toBeNull()
+      const more = inPreview('option-change-more-option-1')
+      expect(more, 'precondition: the overflow link renders in the popover').not.toBeNull()
       expect(more!.textContent).toBe('+1 more')
       const t = tokens(more)
       expect(t.has('text-info')).toBe(true)

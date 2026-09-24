@@ -28,9 +28,15 @@
  *
  * CLAIM SCOPE: jsdom — strings, test ids, classes and accessible names. Not
  * pixels.
+ *
+ * ⭐ RE-POINTED FOR THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): the
+ * Standard driver line moved off the card body into the factor's popover.
+ * Every ranked assertion now binds the line INSIDE the popover (its own test
+ * id) and asserts it is NOT on the card face; every absence is document-wide,
+ * so it covers the popover too (the mock below renders the popover's content).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
@@ -45,6 +51,20 @@ let displayMetadata: Record<string, unknown> = {}
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => displayMetadata),
 }))
+
+// ED 5809278282: the Standard driver line lives in the popover — transparent,
+// identity-bearing, so its content is observable and absences cover it.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="factor-node-popover">{children}</div>
+  ),
+}))
+const face = () => screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+/** The Standard driver line: in the popover, never on the card face (ED 5809278282). */
+const popoverLine = (testId = 'factor-driver-line') => {
+  expect(within(face()).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
+  return within(screen.getByTestId('factor-node-popover')).getByTestId(testId)
+}
 
 const FACTOR_ID = 'fac_conversion'
 const UNVALUED = { label: 'Trial conversion', type: 'factor', category: 'external' }
@@ -190,14 +210,14 @@ describe('ED 5806207128 — a RANKED factor reads "Driver N of M analysed", M = 
     seedCompletedRun()
     renderFactor()
     expect(semantic()).toBe('current')
-    const caption = screen.getByTestId('factor-driver-line-caption').textContent
+    const caption = popoverLine('factor-driver-line-caption').textContent
     expect(caption).toBe('Driver 2 of 6 analysed')
     expect(caption).not.toContain('of 3')
     // The line keeps its bar, and says nothing about being unranked.
-    expect(screen.getByTestId('factor-driver-line-bar')).toBeTruthy()
+    expect(popoverLine('factor-driver-line-bar')).toBeTruthy()
     expect(screen.queryByTestId('factor-driver-not-ranked')).toBeNull()
     // Hover/description define the denominator.
-    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-description')).toContain(
+    expect(popoverLine().getAttribute('aria-description')).toContain(
       '“of 6” counts the factors in the last analysis.',
     )
   })
@@ -206,7 +226,7 @@ describe('ED 5806207128 — a RANKED factor reads "Driver N of M analysed", M = 
     displayMetadata = metadata(1, 4, 2, 1)
     seedCompletedRun()
     renderFactor()
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    expect(popoverLine('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
   })
 
   it('stale run: "Last run · Driver N of M analysed", and the name still opens with it', () => {
@@ -215,8 +235,8 @@ describe('ED 5806207128 — a RANKED factor reads "Driver N of M analysed", M = 
     renderFactor()
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 6 analysed')
-    const line = screen.getByTestId('factor-driver-line')
+    expect(popoverLine('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 6 analysed')
+    const line = popoverLine()
     expect(line.getAttribute('aria-label')).toMatch(/^Last run · Driver 2 of 6 analysed\. /)
     expect(line.getAttribute('aria-description')).toContain('“of 6” counts the factors in the last analysis.')
   })
@@ -244,9 +264,9 @@ describe('ED 5806207128 — a RANKED factor reads "Driver N of M analysed", M = 
     seedCompletedRun()
     renderFactor()
     // 30 × 3px counter-scaled with the caption (audit F3; NODE-ANATOMY v3.2).
-    const track = new Set(screen.getByTestId('factor-driver-line-bar').className.split(/\s+/))
+    const track = new Set(popoverLine('factor-driver-line-bar').className.split(/\s+/))
     expect(track.has('h-[calc(3px*var(--canvas-label-scale,1))]')).toBe(true)
     expect(track.has('w-[calc(30px*var(--canvas-label-scale,1))]')).toBe(true)
-    expect(screen.getByTestId('factor-driver-line-bar-fill').className).toContain('bg-text-light')
+    expect(popoverLine('factor-driver-line-bar-fill').className).toContain('bg-text-light')
   })
 })

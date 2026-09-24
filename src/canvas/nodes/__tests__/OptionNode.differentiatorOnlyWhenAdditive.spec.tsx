@@ -24,16 +24,27 @@
  * (and factor id), and every absence has a positive control in the same render.
  *
  * CLAIM SCOPE: jsdom — test ids and text. Not pixels.
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
+ * detail — change rows, `+N more`, the differentiator — moves "to the existing
+ * hover/focus popover and inspector"). The rule is unchanged; the rows and the
+ * line it compares now live together in the option's popover, so every query
+ * below reads THAT block (`option-preview-detail-<id>`) by identity.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
+// Pass-through popover: the moved detail is in the DOM to be read by identity.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
+}))
 
 const FACTOR_HEAD = {
   id: 'f-head', type: 'factor',
@@ -98,8 +109,11 @@ const renderOption1 = (options: Array<{ id: string; interventions: Record<string
   )
 }
 
-const row = (factorId: string) => screen.queryByTestId(`option-change-row-option-1-${factorId}`)
-const differentiator = () => screen.queryByTestId('option-differentiator-option-1')
+/** Everything this rule compares lives in option-1's popover detail block. */
+const preview = () => within(optionPreviewDetail('option-1')!)
+const row = (factorId: string) => preview().queryByTestId(`option-change-row-option-1-${factorId}`)
+const differentiator = () => preview().queryByTestId('option-differentiator-option-1')
+const more = () => preview().queryByTestId('option-change-more-option-1')
 /**
  * The whole sentence the line states: its visible text when nothing was elided,
  * else its hover recovery (`OptionNode.differentiatorRecoverable.spec` pins that
@@ -118,7 +132,7 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
     ])
     // Positive control: the option's one change IS on the card.
     expect(row('f-head')).not.toBeNull()
-    expect(screen.queryByTestId('option-change-more-option-1')).toBeNull()
+    expect(more()).toBeNull()
     expect(differentiator()).toBeNull()
     expect(document.body.textContent).not.toContain('is the key difference')
   })
@@ -137,7 +151,7 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
     ])
     expect(row('f-head')).not.toBeNull()
     expect(row('f-cost')).not.toBeNull()
-    expect(screen.queryByTestId('option-change-more-option-1')).toBeNull()
+    expect(more()).toBeNull()
     expect(fullSentence(differentiator())).toBe('Developer headcount is the key difference')
     expect(differentiator()?.textContent).toMatch(/ is the key difference$/)
   })
@@ -154,7 +168,7 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
     expect(row('f-head')).not.toBeNull()
     expect(row('f-cost')).not.toBeNull()
     expect(row('f-risk')).toBeNull()
-    expect(screen.getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
+    expect(more()?.textContent).toBe('+1 more')
     expect(differentiator()?.textContent).toBe('Delivery risk is the key difference')
   })
 
@@ -178,8 +192,8 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
       { id: 'option-1', interventions: { 'f-head': head, 'f-cost': cost, 'f-risk': { value: 9, display_value: '9 incidents' } } },
       { id: 'option-2', interventions: { 'f-head': head, 'f-cost': cost, 'f-risk': { value: 1, display_value: '1 incident' } } },
     ])
-    const rows = screen.getAllByTestId(/^option-change-row-option-1-f-/)
+    const rows = preview().getAllByTestId(/^option-change-row-option-1-f-/)
     expect(rows).toHaveLength(2)
-    expect(screen.getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
+    expect(more()?.textContent).toBe('+1 more')
   })
 })

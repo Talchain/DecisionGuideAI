@@ -1,5 +1,6 @@
 import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
+import { BarChartHorizontal } from 'lucide-react'
 import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
 import type { EvidenceGapEscalation } from './EvidenceGapBadge'
@@ -23,7 +24,10 @@ import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { useRunCurrency } from './shared/runCurrency'
-import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
+import { FactorDriverLine, FactorDriverNotRanked, driverLineCaption } from './shared/FactorDriverLine'
+import { LAST_RUN_PREFIX } from './shared/metricVocabulary'
+import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
+import { CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { selectFactorTurningPointState } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
@@ -161,7 +165,6 @@ export const FactorNode = memo((props: NodeProps) => {
     ? displayMetadata.sensitivityRank
     : preAnalysisFactorRank
   const isHighPriority = priorityRank != null && priorityRank <= 3
-  const isLowPriority = !isHighPriority
 
   const interventionDisplayValue = useMemo(() => {
     if (!hoveredOptionId) return null
@@ -595,6 +598,54 @@ export const FactorNode = memo((props: NodeProps) => {
   const turningPointShown =
     turningPointState !== null &&
     (turningPointState.kind === 'found' || (isDetailed && driverLine !== null))
+
+  /**
+   * ⭐⭐ BOUNDED ANATOMY — the Standard card is TITLE + ONE PRIMARY LINE.
+   *
+   * Experience Design, #63 5809278282 (24 Sep 2026), quoted:
+   *   "Proceed with (2), modified; do not build rung-triggered re-layout … Keep
+   *   one stable layout geometry.
+   *   - Landing / quiet: repeated cards may reduce to title + one primary line
+   *     inside the fixed fit-safe box. … Factor = value + provenance mark …
+   *   - Do not turn the Canvas into an inventory-only surface. At Normal/Focused,
+   *     keep a quiet reasoning signal visible at rest where one exists (attention
+   *     mark and neutral driver cue). The fuller S3 reasoning detail — change
+   *     rows, driver wording, turning-point explanation/findings — can move to
+   *     the existing hover/focus popover and inspector rather than expanding
+   *     layout geometry.
+   *   - Truth does not become progressive-disclosure debt: `Needs input` and
+   *     value provenance remain explicit; any stale run-derived figure shown
+   *     on-card or in disclosure keeps `Last run ·`, with the whole-graph stale
+   *     cue still present. Never hide provenance or staleness in tooltip-only
+   *     copy.
+   *   - This is a fit implementation of the locked anatomy, not a new design gate."
+   *
+   * WHY: at 1280×800 with the dock open the landing zoom is the 0.5 floor, where
+   * `--canvas-label-scale` = 2 (~19 characters per line) and the layout reserves
+   * each card's height AT that bound (`measureNodeHeightsAtLabelBound`). Every
+   * body line costs 28 flow units of whole-graph height; the allowance is title
+   * + EXACTLY ONE line.
+   *
+   * So, in the STANDARD view only (Detailed keeps its inline detail):
+   *   · card body = the value line (value + mark) OR the `Needs input` row —
+   *     one row, whose mark can never wrap or be cut (`factor-value-mark-slot`);
+   *   · the S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
+   *     the external prior-range line — MOVE, verbatim and with their
+   *     `Last run ·` labels, into this factor's `NodePopover` (`standardFindings`
+   *     below), which now mounts for them whatever the factor's priority; the
+   *     inspector is untouched and still carries them;
+   *   · a RANKED factor keeps a quiet reasoning signal at the Normal rung only:
+   *     `FactorDriverCue`, INLINE at the end of the primary line (never a row), so
+   *     a `full` card can never be taller than the same card at `quiet` — the
+   *     height-safety invariant. It follows the one resting-glyph rung gate
+   *     (`selectRestingGlyphsShown`), like the rail's coaching icon.
+   * Pinned in `__tests__/FactorNode.boundedAnatomy.spec.tsx`.
+   */
+  const restingGlyphsShown = useCanvasStore(selectRestingGlyphsShown)
+  const driverCue =
+    !isDetailed && restingGlyphsShown && driverLine !== null ? (
+      <FactorDriverCue nodeId={props.id} rank={driverLine.rank} fromLastRun={resultsFromLastRun} />
+    ) : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -1008,6 +1059,89 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const layer2Content = isPostAnalysis ? postAnalysisLayer2 : preAnalysisLayer2
 
+  /* The range is a TEXT line on the locked face (#1915 deviation 3). Once the
+     user has stated a value the owner restates it as REPLACED ("Your value
+     replaces the range a to b"), because the analysis no longer samples it —
+     see `userValueReplacesPrior` (#1889). The turning-point precedence is
+     unchanged (visual contract v3: a displaced range stays "disclosed as
+     superseded, not plotted as active uncertainty"). The test id carries the
+     node id (#1889) so a reader binds to THIS factor's line by identity.
+     ONE renderer, two homes: the Detailed card body, and (ED 5809278282) the
+     Standard popover — never both at once, since each is gated on the view. */
+  const priorRangeShown =
+    nodeCategory === 'external' && priorRangeDisplay !== null && (!turningPoint || isDetailed)
+  const priorRangeLine = priorRangeShown ? (
+    <div
+      className={`${typography.edgeLabel} mt-1 text-text-light`}
+      data-testid={`factor-prior-range-${props.id}`}
+    >
+      {priorRangeDisplay}
+      {/* Point 1: a range that is the card's ONLY figure is never left
+          unmarked — but it does NOT borrow the VALUE's mark. Who set a
+          range is unknowable from the node: the inspector's quick-set
+          (`setPriorRange`) writes `prior` with no stamp, so `est.` / "filled
+          in for you" would label a person's judgement as Olumi's
+          (`factorPriorRange.ts`: "drafted" is an attribution the node
+          cannot support). It says so instead: "no source" / "Source not
+          recorded". When a value line exists it carries the mark, and a
+          user value restates this line as replaced — so never twice. */}
+      {valueDisplay === null && (
+        <> <ValueSourceMark mark={PRIOR_RANGE_SOURCE_MARK} testId={`factor-range-source-${props.id}`} /></>
+      )}
+    </div>
+  ) : null
+
+  /**
+   * ⭐ WHERE THE S3 FINDINGS LIVE IN THE STANDARD VIEW NOW (ED 5809278282: "can
+   * move to the existing hover/focus popover and inspector rather than
+   * expanding layout geometry"). Exactly the lines the resting card used to
+   * carry, in the same order and under the same gates — moved, not re-worded:
+   *   · the `Needs input · Value not set yet` sentence (the card keeps the
+   *     ruled word `Needs input`; this is the longer sentence);
+   *   · `Driver N of M analysed` + its neutral bar, `Last run · ` when stale;
+   *   · a FOUND turning point (Standard never shows the "none" fallback —
+   *     ED 5806207128), `Last run · ` when stale;
+   *   · the external prior-range line, with its `no source` mark when it is
+   *     the only figure.
+   * `null` in Detailed, where these stay inline on the card.
+   */
+  const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
+  const hasStandardFindings =
+    !isDetailed &&
+    (needsInputSentenceMoved || driverLine !== null || (turningPointShown && turningPointState !== null) || priorRangeLine !== null)
+  const standardFindings = hasStandardFindings ? (
+    <div data-testid={`factor-popover-findings-${props.id}`} className="mb-1">
+      {needsInputSentenceMoved && (
+        <p
+          data-testid={`factor-popover-needs-input-${props.id}`}
+          className={`${typography.edgeLabel} text-text-body m-0`}
+        >
+          Needs input &middot; Value not set yet
+        </p>
+      )}
+      {driverLine && (
+        <FactorDriverLine
+          nodeId={props.id}
+          rank={driverLine.rank}
+          value={driverLine.value}
+          provenance={driverLine.provenance}
+          importanceBasis={driverLine.importanceBasis}
+          fromLastRun={resultsFromLastRun}
+        />
+      )}
+      {turningPointShown && turningPointState ? (
+        <FactorTurningPointSlot
+          nodeId={props.id}
+          factorLabel={cleanedLabel}
+          state={turningPointState}
+          fromLastRun={resultsFromLastRun}
+          factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
+        />
+      ) : null}
+      {priorRangeLine}
+    </div>
+  ) : null
+
   return (
     <div
       ref={nodeElRef as React.Ref<HTMLDivElement>}
@@ -1106,11 +1240,21 @@ export const FactorNode = memo((props: NodeProps) => {
             so "unmarked" never has to be read as "Olumi's". */}
         {/* ⭐ NODE-ANATOMY v3.2 line 2: `<value> <mark>` as plain text. No top
             margin — title → value is the header's 4px on every family (audit
-            F6; RiskNode's value row is `m-0`) — and the row WRAPS, so a long
-            value plus its mark stays inside the card. */}
+            F6; RiskNode's value row is `m-0`).
+            ⭐ ED 5809278282 (bounded anatomy): in STANDARD this is the card's
+            ONE primary line. The row does not wrap (`flex-nowrap`): the mark
+            sits in a `shrink-0 whitespace-nowrap` slot, so it can never drop
+            to a second line or be cut, and nothing on the line is ellipsised —
+            values are never cut. Only a value longer than the whole line would
+            wrap, and then inside its own `min-w-0` span, with the mark still
+            beside it. A ranked factor's neutral driver cue ends the line at the
+            Normal rung (`driverCue`) — inline, never a row. Detailed keeps the
+            wrapping row it had. */}
         {valueDisplay !== null && (
           <div
-            className={`${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`}
+            className={isDetailed
+              ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
+              : `${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
             data-testid="factor-recorded-value"
           >
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
@@ -1153,17 +1297,24 @@ export const FactorNode = memo((props: NodeProps) => {
                 rounded string once committed 0.38 for a 0.376 and destroyed the
                 producer's precision. */}
             {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
-              <NodeValueEditor
-                value={observedState.value}
-                readout={recordedValueReadout}
-                onCommit={(v) => editAuthority.proposeFactorValue(v)}
-                ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
-                testId={`node-value-editor-${props.id}`}
-              />
+              <span className="min-w-0">
+                <NodeValueEditor
+                  value={observedState.value}
+                  readout={recordedValueReadout}
+                  onCommit={(v) => editAuthority.proposeFactorValue(v)}
+                  ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
+                  testId={`node-value-editor-${props.id}`}
+                />
+              </span>
             ) : (
-              <span>{recordedValueReadout}</span>
+              <span className="min-w-0 break-words">{recordedValueReadout}</span>
             )}
-            {renderValueSourceMark()}
+            {valueSourceMark !== null && (
+              <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
+                {renderValueSourceMark()}
+              </span>
+            )}
+            {driverCue}
           </div>
         )}
 
@@ -1175,8 +1326,14 @@ export const FactorNode = memo((props: NodeProps) => {
             it ONCE (audit PILL-02: the corner pill straddled the top border and
             reached the connector glyph at landing zoom). Same `StatusPill`, same
             test id and accessible name the corner used, so "the card says Needs
-            input" is still bound by identity. */}
-        {needsInput && valueDisplay === null && (
+            input" is still bound by identity.
+            ⭐ ED 5809278282 (bounded anatomy): in STANDARD the row is ONE line
+            — "Needs input · Value not set yet" is ~31 characters and the landing
+            rung holds ~19 — so the card keeps the ruled word `Needs input`
+            (explicit, never tooltip-only) and the sentence is the row's sr-only
+            description and hover `title`, and is in the popover
+            (`factor-popover-needs-input-{id}`). Detailed keeps both inline. */}
+        {needsInput && valueDisplay === null && (isDetailed ? (
           <div
             className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5"
             data-testid={`factor-needs-input-row-${props.id}`}
@@ -1184,23 +1341,25 @@ export const FactorNode = memo((props: NodeProps) => {
             <StatusPill label="Needs input" title="Missing required input" />
             <span className={`${typography.edgeLabel} text-text-light`}>Value not set yet</span>
           </div>
-        )}
+        ) : (
+          <div
+            className="flex max-w-full min-w-0 flex-nowrap items-center gap-x-1.5"
+            data-testid={`factor-needs-input-row-${props.id}`}
+            title="Needs input · Value not set yet"
+          >
+            <StatusPill label="Needs input" title="Missing required input" />
+            <span className={typography.screenReaderOnly}>Value not set yet</span>
+            {driverCue}
+          </div>
+        ))}
 
         {/* ⭐ THE TINY RELATIVE DRIVER VISUAL — a current run, or a known-changed
             model's last run LABELLED `Last run · ` (never-run / cannot-confirm
-            hide it). Detailed renders the same line once, inside its Layer 2
-            block (with the confidence row), so the rank is never stated twice
-            on one card. */}
-        {!isDetailed && driverLine && (
-          <FactorDriverLine
-            nodeId={props.id}
-            rank={driverLine.rank}
-            value={driverLine.value}
-            provenance={driverLine.provenance}
-            importanceBasis={driverLine.importanceBasis}
-            fromLastRun={resultsFromLastRun}
-          />
-        )}
+            hide it). ⭐ ED 5809278282: OFF THE STANDARD CARD BODY — it is in
+            the popover (`standardFindings`), and the card keeps the inline
+            `driverCue` on its primary line. Detailed renders the line once,
+            inside its Layer 2 block (with the confidence row), so the rank is
+            never stated twice on one card. */}
         {/* Contract v3.1 pt 5: no rank, no line, no bar — said once to AT, in
             both views. */}
         {driverNotRanked && <FactorDriverNotRanked fromLastRun={resultsFromLastRun} />}
@@ -1209,8 +1368,11 @@ export const FactorNode = memo((props: NodeProps) => {
             (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external
             factor's producer prior — never a fabricated fallback), else nothing.
             Detailed shows the range beside the turning point: it adds
-            information, not a different card. */}
-        {turningPointShown && turningPointState ? (
+            information, not a different card.
+            ⭐ ED 5809278282: both lines are off the STANDARD card body — they
+            are in the popover (`standardFindings`) under the same gates and
+            precedence. Detailed keeps them here. */}
+        {isDetailed && turningPointShown && turningPointState ? (
           <FactorTurningPointSlot
             nodeId={props.id}
             factorLabel={cleanedLabel}
@@ -1221,34 +1383,8 @@ export const FactorNode = memo((props: NodeProps) => {
             factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
           />
         ) : null}
-        {/* The range is a TEXT line on the locked face (#1915 deviation 3). Once
-            the user has stated a value the owner restates it as REPLACED ("Your
-            value replaces the range a to b"), because the analysis no longer
-            samples it — see `userValueReplacesPrior` (#1889). Same slot, same
-            type; the turning-point precedence above is unchanged (visual
-            contract v3: a displaced range stays "disclosed as superseded, not
-            plotted as active uncertainty"). The test id carries the node id
-            (#1889) so a reader binds to THIS card's line by identity. */}
-        {nodeCategory === 'external' && priorRangeDisplay && (!turningPoint || isDetailed) && (
-          <div
-            className={`${typography.edgeLabel} mt-1 text-text-light`}
-            data-testid={`factor-prior-range-${props.id}`}
-          >
-            {priorRangeDisplay}
-            {/* Point 1: a range that is the card's ONLY figure is never left
-                unmarked — but it does NOT borrow the VALUE's mark. Who set a
-                range is unknowable from the node: the inspector's quick-set
-                (`setPriorRange`) writes `prior` with no stamp, so `est.` / "filled
-                in for you" would label a person's judgement as Olumi's
-                (`factorPriorRange.ts`: "drafted" is an attribution the node
-                cannot support). It says so instead: "no source" / "Source not
-                recorded". When a value line exists it carries the mark, and a
-                user value restates this line as replaced — so never twice. */}
-            {valueDisplay === null && (
-              <> <ValueSourceMark mark={PRIOR_RANGE_SOURCE_MARK} testId={`factor-range-source-${props.id}`} /></>
-            )}
-          </div>
-        )}
+        {/* The range line — see `priorRangeLine` for its rules. */}
+        {isDetailed && priorRangeLine}
 
         {/* ⭐⭐ EDGE PILLS — DIRECTION + STRENGTH + TARGET, AND THEY NO LONGER
             VANISH WHEN THE RESULT ARRIVES.
@@ -1363,31 +1499,21 @@ export const FactorNode = memo((props: NodeProps) => {
 
       {/* ===== LAYER 2: Popover (Standard view) =====
           Graph v1.1 Task 2: low-priority factors are visually quieted in
-          Standard, so the popover (ConnRows, BiasNote, coaching chips) is
-          suppressed too. The user can promote the node by switching to
-          Detailed view or selecting it in the inspector. */}
-      {!isDetailed && isHighPriority && (
-        <NodePopover
-          visible={showPopover}
-          width={240}
-          onMouseEnter={popoverHandlers.onMouseEnter}
-          onMouseLeave={popoverHandlers.onMouseLeave}
-          anchorRef={nodeElRef}
-        >
-          {layer2Content}
-          {renderOptionValuesBlock(true)}
-        </NodePopover>
-      )}
+          Standard, so their full layer 2 (ConnRows, confidence, coaching lines)
+          is suppressed in the popover; the user can promote the node by
+          switching to Detailed view or selecting it in the inspector.
 
-      {/* Graph v2 Task 3: low-priority controllable factors get a table-only
-          popover. The Graph v1.1 quietening rules suppress the full layer 2
-          (bars / ConnRows / coaching) for low-priority factors, but the
-          option-comparison table is genuinely useful regardless of rank — a
-          low-leverage cost factor that all options change differently is
-          exactly where comparison helps. External factors stay suppressed
-          (gated by renderOptionValuesBlock’s nodeCategory check). The chip
-          cluster appears beneath the table when both are present. */}
-      {!isDetailed && isLowPriority && hasOptionValues && (
+          Graph v2 Task 3: a low-priority controllable factor still gets the
+          option-comparison table — a low-leverage cost factor that all options
+          change differently is exactly where comparison helps. External
+          factors stay suppressed (renderOptionValuesBlock's category check).
+
+          ⭐ ED 5809278282 (bounded anatomy): the S3 findings that left the
+          Standard card body (`standardFindings`) are what this popover opens
+          with, and it mounts for them WHATEVER the factor's priority and in
+          either phase — a moved line must stay reachable, and "quieted" was
+          never a licence to drop a finding the run made about this factor. */}
+      {!isDetailed && (isHighPriority || hasOptionValues || hasStandardFindings) && (
         <NodePopover
           visible={showPopover}
           width={240}
@@ -1395,7 +1521,9 @@ export const FactorNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {renderOptionValuesBlock(false)}
+          {standardFindings}
+          {isHighPriority && layer2Content}
+          {renderOptionValuesBlock(isHighPriority || hasStandardFindings)}
         </NodePopover>
       )}
 
@@ -1410,3 +1538,50 @@ export const FactorNode = memo((props: NodeProps) => {
 })
 
 FactorNode.displayName = 'FactorNode'
+
+/**
+ * ⭐ THE NEUTRAL DRIVER CUE — the quiet reasoning signal a RANKED factor keeps at
+ * rest once its driver wording moved to the popover (ED #63 5809278282: "At
+ * Normal/Focused, keep a quiet reasoning signal visible at rest where one exists
+ * (attention mark and neutral driver cue)").
+ *
+ *   · NO WORDS AND NO FIGURE. A fixed glyph, not the bar: the bar's length is a
+ *     run-derived figure (% of the strongest factor), and a figure on the card
+ *     would need a visible `Last run ·` it has no room for. The cue says only
+ *     "the run ranked this factor"; the rank, its denominator and the bar are
+ *     the popover's `FactorDriverLine` and the inspector's.
+ *   · ITS NAME IS THE CAPTION, from the same `driverLineCaption` the popover's
+ *     line prints, prefixed `Last run · ` when the model changed since the run —
+ *     so AT and hover read exactly what the popover shows, never a second
+ *     wording. The visible stale statement stays the popover's caption and the
+ *     whole-graph stale cue; the name is not the only place it is said.
+ *   · NEUTRAL INK (`text-text-light`): Info blue is the attention marker's
+ *     channel (Paul 23 Sep contract feedback point 9 — the driver cue must not
+ *     compete with attention). Counter-scaled like every canvas glyph.
+ *   · INLINE, `shrink-0`, at the END of the primary line: it can never become a
+ *     row, which is what keeps a `full`-rung card no taller than the same card
+ *     at `quiet` (where the caller does not render it).
+ */
+function FactorDriverCue({
+  nodeId,
+  rank,
+  fromLastRun,
+}: {
+  nodeId: string
+  rank: { rank: number; setSize: number }
+  fromLastRun: boolean
+}) {
+  const name = `${fromLastRun ? LAST_RUN_PREFIX : ''}${driverLineCaption(rank)}`
+  return (
+    <span
+      role="img"
+      aria-label={name}
+      title={name}
+      data-testid={`factor-driver-cue-${nodeId}`}
+      data-from-last-run={fromLastRun ? 'true' : undefined}
+      className="shrink-0 inline-flex items-center self-center text-text-light"
+    >
+      <BarChartHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+    </span>
+  )
+}

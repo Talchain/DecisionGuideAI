@@ -34,17 +34,31 @@
  *
  * CLAIM SCOPE (CLAUDE.md trap 3): jsdom text assertions. They prove PRESENCE
  * and ABSENCE of text in the DOM, never layout or visibility.
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
+ * change rows move "to the existing hover/focus popover and inspector"; the card
+ * keeps ONE line — the top change pre-run, the share post-run). The claim is
+ * unchanged — the run deletes none of this — and the change row is now read in
+ * the option's popover detail (`option-preview-detail-<id>`), which is mounted
+ * in both phases. The baseline statement is bound by its test id and may sit on
+ * the card (its one line) or in the popover (after a run); either way the run
+ * has not deleted it.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { changeRow } from './__helpers__/optionChangeRowText'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
+// Pass-through popover: the moved detail is in the DOM to be read by identity.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
+}))
 
 /** Two factors, two non-baseline options, each differing on its own factor. */
 const FACTOR_HEAD = { id: 'f-head', type: 'factor', data: { label: 'Developer headcount', type: 'factor' } }
@@ -171,8 +185,10 @@ describe('OptionNode — the run must not delete the model content', () => {
    */
   const ROW = 'option-change-row-option-1-f-head'
   const REFERENCE_TITLE = 'From Status quo (the baseline option)'
+  /** option-1's popover detail — where its change rows live (bounded anatomy). */
+  const preview = () => within(optionPreviewDetail('option-1')!)
   const expectReferenceOnTheRow = () => {
-    const row = screen.getByTestId(ROW)
+    const row = preview().getByTestId(ROW)
     // Paul 23 Sep contract feedback point 7: the target's source is named on the
     // row. This fixture's intervention carries no `source`, so the row says
     // "no source" — never "you", and never Olumi's estimate (Codex #63
@@ -182,8 +198,12 @@ describe('OptionNode — the run must not delete the model content', () => {
     // The title also restates the full row ("<factor>: <from> → <to>."); the
     // reference clause is the claim this file owns.
     expect(row.getAttribute('title')).toContain(REFERENCE_TITLE)
-    // The old face line must not come back beside it.
-    expect(screen.queryByText(/Reference: Status quo/)).toBeNull()
+    // The old FACE line must not come back on the card. (After a run the
+    // popover's own "What this option sets:" list names its reference in words —
+    // that is the preview, which this pass-through mock now renders, not the face.)
+    for (const el of screen.queryAllByText(/Reference: Status quo/)) {
+      expect(screen.getByTestId('node-popover').contains(el)).toBe(true)
+    }
   }
 
   it('PRECONDITION: pre-analysis the card renders the delta chip and its reference', () => {
@@ -192,16 +212,16 @@ describe('OptionNode — the run must not delete the model content', () => {
     renderCard(IDLE)
     // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
     // chip is found by the change-row identity matcher, not one text node.
-    expect(screen.getByText(changeRow(CHIP))).toBeInTheDocument()
+    expect(preview().getByText(changeRow(CHIP))).toBeInTheDocument()
     expectReferenceOnTheRow()
   })
 
-  it('⭐ POST-ANALYSIS: the delta chip is still on the card', () => {
+  it('⭐ POST-ANALYSIS: the delta chip is still there — in the option\'s popover', () => {
     renderCard(COMPLETE)
-    expect(screen.getByText(changeRow(CHIP))).toBeInTheDocument()
+    expect(preview().getByText(changeRow(CHIP))).toBeInTheDocument()
   })
 
-  it('⭐ POST-ANALYSIS: the reference line is still on the card', () => {
+  it('⭐ POST-ANALYSIS: the reference is still there — on the popover row', () => {
     // What the option is measured AGAINST. Without it a delta names a number
     // with no basis, and a ranking has nothing to be a ranking of.
     renderCard(COMPLETE)
@@ -210,14 +230,14 @@ describe('OptionNode — the run must not delete the model content', () => {
 
   it('⭐ POST-ANALYSIS: the baseline card still says it is the baseline', () => {
     renderCard(COMPLETE, { is_baseline: true }, 'option-b')
-    expect(screen.getByText('Baseline option')).toBeInTheDocument()
+    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline option')
   })
 
   it('THE TWIN: pre-analysis baseline is UNCHANGED', () => {
     // Held constant so the pair isolates `isPostAnalysis` alone: a mutant that
     // restores either gate REDs a POST case and leaves its twin GREEN.
     renderCard(IDLE, { is_baseline: true }, 'option-b')
-    expect(screen.getByText('Baseline option')).toBeInTheDocument()
+    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline option')
   })
 
   /**

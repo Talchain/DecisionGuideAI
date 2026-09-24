@@ -41,16 +41,28 @@
  * CLAIM SCOPE (CLAUDE.md trap 3): these are jsdom text assertions. They prove
  * PRESENCE and ABSENCE of a sentence in the DOM. They prove nothing about
  * layout, card height or whether the line is visible on screen.
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
+ * detail — change rows, the differentiator — moves "to the existing hover/focus
+ * popover and inspector", and the card keeps ONE line: the top change pre-run,
+ * the share post-run). The claim is unchanged and now reads where the reason
+ * lives: the run must not delete it from the option's POPOVER, which is
+ * available in both phases, and the card must still carry its one line.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
+// Pass-through popover: the moved detail is in the DOM to be read by identity.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
+}))
 
 /**
  * Two non-baseline options, each differing on its own factor, plus one SHARED
@@ -82,7 +94,8 @@ const EXPECTED = 'Developer headcount is the key difference'
 const DIFF_TESTID = 'option-differentiator-option-1'
 const fullSentence = (el: Element | null) => el?.getAttribute('title') ?? el?.textContent
 const shownLine = () => {
-  const el = screen.getByTestId(DIFF_TESTID)
+  // Bounded anatomy: the line lives in option-1's popover detail — found THERE.
+  const el = within(optionPreviewDetail('option-1')!).getByTestId(DIFF_TESTID)
   return { el, sentence: fullSentence(el), visible: el.textContent, title: el.getAttribute('title') }
 }
 
@@ -296,26 +309,41 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     )
   }
 
-  /** Every paragraph the card renders — the seat measured ZERO of these. */
-  const paragraphTexts = (c: HTMLElement) =>
-    Array.from(c.querySelectorAll('p')).map((p) => (p.textContent ?? '').trim()).filter(Boolean)
+  /** THIS option's row for a factor, inside its popover detail (bounded anatomy). */
+  const previewRow = (factorId: string) =>
+    optionPreviewDetail('option-1')?.querySelector(`[data-testid="option-change-row-option-1-${factorId}"]`) ?? null
+  /**
+   * The card's ONE body line — the seat measured ZERO lines on the bare card.
+   * Everything outside the popover detail that is a primary or run line.
+   */
+  const cardLine = () => {
+    const ids = ['option-primary-change-option-1', 'option-analysis-currency-option-1', 'option-result-unavailable-option-1']
+    return ids.map((id) => document.querySelector(`[data-testid="${id}"]`)).filter((el): el is Element => el !== null)
+  }
 
   it('⭐ POST-ANALYSIS the card is not left bare — its change row still says which factor differs', () => {
     const { container } = renderShared({ results: { status: 'complete', report: {} } })
-    // Bind by IDENTITY to THIS option's row for the shared factor.
-    const row = container.querySelector('[data-testid="option-change-row-option-1-f-head"]')
+    // Bind by IDENTITY to THIS option's row for the shared factor — in its popover.
+    const row = previewRow('f-head')
     expect(row, 'the change row for the shared factor renders after the run').not.toBeNull()
     expect(row!.textContent).toContain('3 engineers')
     expect(container.textContent).toContain('Developer headcount')
+    // The card is not bare: it carries exactly ONE line of its own, outside the popover.
+    const lines = cardLine()
+    expect(lines).toHaveLength(1)
+    expect(optionPreviewDetail('option-1')!.contains(lines[0])).toBe(false)
     // NODE-ANATOMY v3.2: the footer "Developer headcount → 3 engineers" would
-    // only repeat that row, so it does not render.
-    expect(paragraphTexts(container).join(' | ')).not.toContain('→')
+    // only repeat that row, so it does not render — anywhere.
+    expect(screen.queryByTestId(DIFF_TESTID)).toBeNull()
+    expect(document.body.textContent).not.toContain('Developer headcount → 3 engineers')
   })
 
   it('THE TWIN: pre-analysis reads the same — the row, and no repeating footer', () => {
-    const { container } = renderShared({ results: { status: 'idle', report: null } })
-    expect(container.querySelector('[data-testid="option-change-row-option-1-f-head"]')).not.toBeNull()
-    expect(paragraphTexts(container).join(' | ')).not.toContain('→')
+    renderShared({ results: { status: 'idle', report: null } })
+    expect(previewRow('f-head')).not.toBeNull()
+    expect(cardLine()).toHaveLength(1)
+    expect(screen.queryByTestId(DIFF_TESTID)).toBeNull()
+    expect(document.body.textContent).not.toContain('Developer headcount → 3 engineers')
   })
 
   it('⭐ WHERE THE `→ value` FOOTER ADDS (its factor is behind "+1 more"), it survives the run', () => {
@@ -334,15 +362,17 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
       nodes: [TOOLS, HOURS, SHARED_FACTOR, OPTION_1, OPTION_2],
     }
     const pre = renderShared({ ...hidden, results: { status: 'idle', report: null } })
-    expect(pre.container.querySelector('[data-testid="option-change-row-option-1-f-head"]')).toBeNull()
-    // Whole sentence via the S4-elided line's recovery (see `fullSentence`).
-    const preEl = pre.container.querySelector(`[data-testid="${DIFF_TESTID}"]`)
+    expect(previewRow('f-head')).toBeNull()
+    // Positive control for that absence: the popover DOES carry this option's rows.
+    expect(previewRow('f-tools')).not.toBeNull()
+    // Whole sentence, from the popover line (bounded anatomy: it renders whole there).
+    const preEl = optionPreviewDetail('option-1')!.querySelector(`[data-testid="${DIFF_TESTID}"]`)
     const before = fullSentence(preEl)
     const beforeVisible = preEl?.textContent
     expect(before).toBe('Developer headcount → 3 engineers')
     pre.unmount()
-    const post = renderShared({ ...hidden, results: { status: 'complete', report: {} } })
-    const postEl = post.container.querySelector(`[data-testid="${DIFF_TESTID}"]`)
+    renderShared({ ...hidden, results: { status: 'complete', report: {} } })
+    const postEl = optionPreviewDetail('option-1')!.querySelector(`[data-testid="${DIFF_TESTID}"]`)
     expect(fullSentence(postEl)).toBe(before)
     expect(postEl?.textContent).toBe(beforeVisible)
   })
@@ -361,7 +391,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     // `<li>` list is replaced by the compact change rows. Bound by identity to
     // THIS option's row for the shared factor, from the baseline's value.
     expect(pre.container.querySelectorAll('li').length).toBe(0)
-    const row = pre.container.querySelector('[data-testid="option-change-row-option-1-f-head"]')
+    const row = previewRow('f-head')
     expect(row, 'the change row for the shared factor must render').not.toBeNull()
     // Paul 23 Sep contract feedback point 7: an unsourced target is marked on
     // the row (never left bare, never "you") — as "no source", not as Olumi's
