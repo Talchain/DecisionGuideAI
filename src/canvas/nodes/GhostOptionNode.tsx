@@ -1,15 +1,8 @@
 /**
  * GhostOptionNode — dashed placeholder node that invites the user to explore another option.
- * Click lands the question its `data.prompt` carries as an editable draft (`requestAsk`,
- * prefill-and-confirm); the user presses Send.
+ * Click sends the question its `data.prompt` carries, via guidanceStore._sendMessage.
  *
- * ⭐ THE OPTION QUESTION'S ONE ENTRY POINT (contract v3.1 pt 6; gap U9). No card
- * repeats it (`CARD_INVITATION_TIERS`). It used to auto-send via `_sendMessage`;
- * v3.1: coaching "does not send or mutate silently", so it now uses the seam
- * `TierInvitation` and the rail's coaching icon already use.
- *
- * Visible in every view and phase (the post-analysis gate was retired by Paul,
- * 1 Sep — see the `nodesWithGhost` memo in `ReactFlowGraph.tsx`).
+ * Visible: pre-analysis always (both views). Post-analysis: Model view only.
  *
  * ⭐ THE SENTENCE IS BUILT FROM THE MODEL, AND NOT HERE.
  *
@@ -53,7 +46,7 @@ import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
-import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { typography } from '../../styles/typography'
 import { GHOST_OPTION_DOOR_LABEL } from '../utils/ghostTiers'
 
@@ -62,10 +55,8 @@ export const GhostOptionNode = memo((props: NodeProps) => {
 
   const handleClick = useCallback(() => {
     if (!prompt) return
-    // Prefill-and-confirm, never a silent send (contract v3.1). `requestAsk`
-    // returns 'none' and does nothing when no surface can receive the draft —
-    // the same no-op the old `_sendMessage` null-guard gave.
-    requestAsk({ text: prompt, label: GHOST_OPTION_DOOR_LABEL, source: 'ghost-option' })
+    const send = useGuidanceStore.getState()._sendMessage
+    if (send) send(prompt)
   }, [prompt])
 
   return (

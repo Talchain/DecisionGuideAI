@@ -14,7 +14,8 @@
  * coaching to move behind the one coaching affordance.
  *
  * What stays reachable, bound here by identity (testid / exact label):
- *   · option  → the ghost card `__ghost-option__` ONLY, which now lands an
+ *   · option  → the ghost card `__ghost-option__` ONLY (its send-vs-prefill
+ *     behaviour is unchanged in this slice — see the DEFERRED note), which lands an
  *     editable draft (v3.1: "does not send or mutate silently");
  *   · factor / risk / outcome → the row's last card, inline, in BOTH views
  *     (Paul, 24 Sep: "We used to have little prompts for each of the node
@@ -27,17 +28,13 @@ import type { ComponentType } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import type { Node, NodeProps } from '@xyflow/react'
+import type { Node } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
-import { GhostOptionNode } from '../GhostOptionNode'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import {
-  GHOST_OPTION_DOOR_LABEL,
-  GHOST_OPTION_NODE_ID,
   GHOST_TIERS,
-  ghostOptionPrompt,
   tierInvitations,
 } from '../../utils/ghostTiers'
 
@@ -160,26 +157,11 @@ describe('the option question has ONE entry point: the ghost card', () => {
     expect(screen.queryByRole('button', { name: OPTION_LABEL })).toBeNull()
   })
 
-  it('⭐ the ghost card lands an editable draft of THIS model’s question — never a silent send', () => {
-    const props = {
-      id: GHOST_OPTION_NODE_ID,
-      type: 'ghost-option',
-      data: { prompt: ghostOptionPrompt(MODEL) },
-      selected: false,
-      zIndex: 0,
-      isConnectable: false,
-      dragging: false,
-    } as unknown as NodeProps
-    render(
-      <ReactFlowProvider>
-        <GhostOptionNode {...props} />
-      </ReactFlowProvider>,
-    )
-    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
-    expect(prefills).toEqual([ghostOptionPrompt(MODEL)])
-    expect(prefills[0]).toContain('Move to £59')
-    expect(sends, 'the ghost card sent the question on the user’s behalf').toEqual([])
-  })
+  // ⚠ DEFERRED (24 Sep, #1926 S1): the ghost card's prefill-not-send change is
+  // held back to a follow-up. Its requestAsk path, taken from a minimised Olumi
+  // panel, left the conversation callbacks unregistered in CI (every coaching
+  // icon vanished — Browser Gate nodeKeyboardBleed, NORMALZOOMDIAG canAsk=false).
+  // Served behaviour (send) is restored here; the fix lands with its own proof.
 })
 
 describe('the factor / risk / outcome questions stay reachable at rest (Paul 24 Sep)', () => {

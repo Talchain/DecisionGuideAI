@@ -18,15 +18,10 @@
  *
  * ⚠ WHAT THIS FILE ASSERTS THAT A SOURCE-TEXT GUARD CANNOT. It RENDERS the
  * component and CLICKS it, so the assertion is about the bytes that reach
- * the user's draft — the user's own transcript, under the user's own
- * name, once they press Send. `ghostTiersPrompt.spec.ts` proves the composer
- * builds the right sentence and that the mount hands it over; this proves the
- * door drafts what it was handed and invents nothing when it is handed nothing.
- *
- * ⭐ DRAFTED, NOT SENT (contract v3.1 pt 6; gap U9). The door used to auto-send
- * via `_sendMessage`; v3.1 says coaching "does not send or mutate silently". It
- * now lands the sentence through `requestAsk` (prefill-and-confirm), so these
- * tests read `_prefillChat` and assert `_sendMessage` is never called.
+ * `guidanceStore._sendMessage` — the user's own transcript, under the user's own
+ * name. `ghostTiersPrompt.spec.ts` proves the composer builds the right
+ * sentence and that the mount hands it over; this proves the door sends what it
+ * was handed and invents nothing when it is handed nothing.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -81,27 +76,19 @@ function mount(data: Record<string, unknown>) {
   )
 }
 
-/**
- * Install spies on the store's draft AND send channels. `calls` is what reached
- * the user's draft; `sent` is anything dispatched on their behalf, which must
- * stay empty (contract v3.1: never a silent send).
- */
-function captureSends(): { calls: string[]; sent: string[] } {
+/** Install a spy as the store's send channel and return it. */
+function captureSends(): { calls: string[] } {
   const calls: string[] = []
-  const sent: string[] = []
-  useGuidanceStore.setState({
-    _prefillChat: (text: string) => { calls.push(text) },
-    _sendMessage: (text: string) => { sent.push(text) },
-  } as never)
-  return { calls, sent }
+  useGuidanceStore.setState({ _sendMessage: (text: string) => { calls.push(text) } })
+  return { calls }
 }
 
 beforeEach(() => {
-  useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
+  useGuidanceStore.setState({ _sendMessage: null })
 })
 
-describe('the pre-analysis option door drafts the model-aware sentence', () => {
-  it('drafts EXACTLY what the composer built for this model — bound by equality, not by keyword', () => {
+describe('the pre-analysis option door sends the model-aware sentence', () => {
+  it('sends EXACTLY what the composer built for this model — bound by equality, not by keyword', () => {
     // ⚠ BOUND TO THE COMPOSER, NOT TO A PHRASE. Asserting only that the sent
     // text "contains Segment" would pass for any sentence that happened to
     // mention an option; asserting equality with `ghostOptionPrompt(MODEL)`
@@ -114,8 +101,6 @@ describe('the pre-analysis option door drafts the model-aware sentence', () => {
 
     expect(sent.calls).toHaveLength(1)
     expect(sent.calls[0]).toBe(ghostOptionPrompt(MODEL))
-    // contract v3.1: drafted for the user to send, never sent for them.
-    expect(sent.sent).toEqual([])
   })
 
   it('that sentence actually names this model — the CONTRAST CONTROL for the equality above', () => {
@@ -167,7 +152,7 @@ describe('the pre-analysis option door drafts the model-aware sentence', () => {
     expect(second.calls[0]).not.toContain('Segment')
   })
 
-  it('drafts NOTHING rather than a generic sentence when it is handed no prompt', () => {
+  it('sends NOTHING rather than a generic sentence when it is handed no prompt', () => {
     // ⭐ THE FALLBACK IS THE DEFECT. Keeping the static string as a safety net
     // would mean any path that forgot to compose one silently re-opens exactly
     // what this change closes — a hand-maintained mirror in a click handler,
@@ -182,13 +167,12 @@ describe('the pre-analysis option door drafts the model-aware sentence', () => {
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
 
     expect(sent.calls).toEqual([])
-    expect(sent.sent).toEqual([])
   })
 
   it('does not throw when the store has no send channel at all', () => {
-    // The pre-existing null-guard, re-pinned: with no surface registered
-    // `requestAsk` returns 'none' and the click is a no-op.
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
+    // The pre-existing null-guard, re-pinned: the click path now reads two
+    // things that can be absent instead of one.
+    useGuidanceStore.setState({ _sendMessage: null })
     mount({ prompt: ghostOptionPrompt(MODEL) })
     expect(() =>
       fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })),
