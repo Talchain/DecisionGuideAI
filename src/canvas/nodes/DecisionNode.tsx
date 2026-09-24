@@ -972,6 +972,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * for every input class: the shared focusable tooltip (hover and keyboard)
    * and a screen-reader copy of the full sentence (ED 02:31Z: "do not rely on
    * native `title` as the only full-text recovery for a one-line clamp").
+   *
+   * ⭐ THE CLAMP BREAKS AT A WORD (polish #4, Paul's staging 24 Sep: "3 options
+   * A success target on your model can't be eval…"). It was `truncate` —
+   * `nowrap` + `text-overflow: ellipsis`, whose ellipsis is CHARACTER-granular,
+   * so it cut wherever the width ran out. `line-clamp-1` on a WRAPPING run
+   * breaks the line at a word and shows only that first line: still ONE line
+   * (no card grows at any rung), full sentence still in the tooltip and the
+   * `.sr-only` copy. Same shape as `ActionNode`'s `line-clamp-1 break-words`.
    */
   const clampedSignal = (testId: string, short: string, full: string, extra?: Record<string, string>) => (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={full}>
@@ -980,7 +988,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         data-node-tooltip="true"
         data-testid={testId}
         {...extra}
-        className={`${typography.edgeLabel} min-w-0 flex-1 truncate text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+        className={`${typography.edgeLabel} min-w-0 flex-1 line-clamp-2 break-words text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
       >
         <span aria-hidden="true">{short}</span>
         <span className={typography.screenReaderOnly}>{full}</span>
