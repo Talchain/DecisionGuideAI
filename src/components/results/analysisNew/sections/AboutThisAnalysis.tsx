@@ -137,12 +137,15 @@ export const ABOUT_COPY = {
   } satisfies Record<GlanceInputProvenance, string>,
   inputsNotReported: 'Not reported',
   estimatedCount: (n: number): string => `Olumi estimated ${n} ${n === 1 ? 'value' : 'values'}`,
+  /** Called only when at least one is present (`methodRow` drops the row otherwise). */
   method: (samples: string | null, seed: string | null): string =>
     samples !== null && seed !== null
       ? `${samples} simulations, seed ${seed}`
       : samples !== null
         ? `${samples} simulations`
-        : `Seed ${seed ?? ''}`,
+        : seed !== null
+          ? `Seed ${seed}`
+          : '',
   details: {
     values: 'Values and ranges',
     limitations: 'Limitations',
@@ -190,8 +193,12 @@ export interface AboutThisAnalysisProps {
   vm: AnalysisNewViewModel
   /** The value the body already passes `useAnalysisNewViewModel`. */
   nSamples?: number
-  /** The value the body already passes `useAnalysisNewViewModel`. */
-  seedUsed?: number | string
+  /**
+   * The value the body already passes `useAnalysisNewViewModel`. ⚠ `null` IS
+   * REAL: the dock hands over `(report as any)?.meta?.seed`, which is `null` for
+   * a run with no recorded seed. Typed here so the guard below has to meet it.
+   */
+  seedUsed?: number | string | null
   /**
    * ⚠ REQUIRED, NEVER DEFAULTED. `outcomeRange` carries bare numbers; printed
    * without the run's unit they read as the user's own scale, which is the
@@ -298,10 +305,24 @@ function inputsRow(
   }
 }
 
-function methodRow(nSamples: number | undefined, seedUsed: number | string | undefined): StatusRow | null {
+/**
+ * ⛔ NEVER PRINTS "null" OR "undefined". Served build, 24 Sep 2026: the Method
+ * row read "Seed null" — the old guard checked `!== undefined` only, and
+ * `String(null)` is four letters. An absent seed now says NOTHING (the row
+ * carries the samples alone, or is dropped when neither is known), rather than
+ * a placeholder claiming something about the run.
+ */
+function presentSeed(seedUsed: number | string | null | undefined): string | null {
+  if (seedUsed === null || seedUsed === undefined) return null
+  if (typeof seedUsed === 'number' && !Number.isFinite(seedUsed)) return null
+  const text = String(seedUsed).trim()
+  return text === '' || text === 'null' || text === 'undefined' || text === 'NaN' ? null : text
+}
+
+function methodRow(nSamples: number | undefined, seedUsed: number | string | null | undefined): StatusRow | null {
   const samples =
     typeof nSamples === 'number' && Number.isFinite(nSamples) ? nSamples.toLocaleString('en-GB') : null
-  const seed = seedUsed !== undefined && String(seedUsed) !== '' ? String(seedUsed) : null
+  const seed = presentSeed(seedUsed)
   if (samples === null && seed === null) return null
   return { key: 'method', Icon: Dices, value: ABOUT_COPY.method(samples, seed), detail: [] }
 }

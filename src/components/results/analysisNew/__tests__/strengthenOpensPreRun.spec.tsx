@@ -216,12 +216,18 @@ describe('THE INSTRUMENT — the precondition, pinned in test', () => {
   /** The opposite precondition, for the empty twin: this model grounds NONE. */
   it('with a target already stated, the engine grounds none', () => {
     draw(targetAlreadySet(), true)
-    // Contrast: the review tool IS mounted (its whole-framing ask is always
-    // there), so the absent entry below is the queue being empty, not a
-    // failed render.
-    expect(screen.getByTestId(`${REVIEW}-ask-framing`)).toBeInTheDocument()
+    // Contrast: the review tool IS mounted — as a hidden, childless marker —
+    // so the absent entry below is the queue being empty, not a failed render.
+    // V2 design pass (24 Sep 2026): an empty review tool draws nothing — no
+    // "Nothing to review" row, no lone AI icon.
+    expect(screen.getByTestId(REVIEW)).toHaveAttribute('hidden')
+    expect(screen.queryByTestId(`${REVIEW}-ask-framing`)).toBeNull()
     expect(screen.queryByTestId(`${REVIEW}-toggle`)).toBeNull()
     expect(groundedFindingIds()).toEqual([])
+    // ⭐ The whole-framing ask is NOT stranded: the method strip's overflow
+    // sends the same shared review-the-brief payload.
+    fireEvent.click(screen.getByTestId('analysis-new-method-strip-more'))
+    expect(screen.getByTestId('analysis-new-method-strip-menu-action-edit_brief')).toBeInTheDocument()
   })
 })
 
