@@ -146,6 +146,8 @@ import {
   CANVAS_LABEL_SCALE_MARKER_SELECTOR,
   LOD_BLANKED_BODY_SELECTOR,
   MAX_LABEL_COUNTER_SCALE,
+  MAX_NORMAL_RUNG_LABEL_SCALE,
+  NODE_RUNG_PADDING_ATTR,
 } from './zoomLegibility'
 
 /**
@@ -156,6 +158,27 @@ import {
  * root, no mounted nodes). Never throws: a layout that cannot be improved must
  * still run.
  */
+const PADDING_SIDES = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'] as const
+type PaddingBox = Partial<Record<(typeof PADDING_SIDES)[number], string>>
+interface RungPadding { landing: PaddingBox; normal: PaddingBox }
+
+function parseRungPadding(raw: string | null): RungPadding | null {
+  if (!raw) return null
+  try {
+    const v = JSON.parse(raw) as Partial<RungPadding>
+    return v && typeof v.landing === 'object' && typeof v.normal === 'object' ? (v as RungPadding) : null
+  } catch {
+    return null
+  }
+}
+
+function applyPadding(card: HTMLElement, box: PaddingBox): void {
+  for (const side of PADDING_SIDES) {
+    const value = box[side]
+    if (typeof value === 'string') card.style[side] = value
+  }
+}
+
 export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   const out = new Map<string, number>()
   if (typeof document === 'undefined') return out
@@ -212,6 +235,9 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   // taller by blanking it), so the release lifts that cap too; `height` is still
   // released for any caller that sets it inline.
   const previousBodyMaxHeights: string[] = []
+  const paddedCards: Array<HTMLElement | null> = []
+  const previousPadding: Array<string[] | null> = []
+  const rungPadding: Array<RungPadding | null> = []
 
   try {
     root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
@@ -222,6 +248,29 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
       e.style.height = 'auto'
       e.style.maxHeight = 'none'
     }
+    // ⭐ EACH RUNG AT ITS OWN BOUND (24 Sep, bounded anatomy). A card that
+    // declares its padding per rung (`NODE_RUNG_PADDING_ATTR`, written by
+    // `BaseNode`) is read TWICE: at `MAX_LABEL_COUNTER_SCALE` with its LANDING
+    // padding, and at `MAX_NORMAL_RUNG_LABEL_SCALE` with its NORMAL padding; the
+    // reservation is the larger. Before this the card was read with whatever
+    // padding the LIVE rung had — and the landing layout runs at xyflow's mount
+    // zoom (Normal), so every card reserved the Normal band at scale 2, a state
+    // no zoom ever draws (Normal never reaches scale 2).
+    for (const el of nodes) {
+      const e = el as HTMLElement
+      const card = e.querySelector<HTMLElement>(`[${NODE_RUNG_PADDING_ATTR}]`)
+      const rungs = card ? parseRungPadding(card.getAttribute(NODE_RUNG_PADDING_ATTR)) : null
+      if (card && rungs) {
+        paddedCards.push(card)
+        previousPadding.push(PADDING_SIDES.map(side => card.style[side]))
+        rungPadding.push(rungs)
+        applyPadding(card, rungs.landing)
+      } else {
+        paddedCards.push(null)
+        previousPadding.push(null)
+        rungPadding.push(null)
+      }
+    }
     for (const el of nodes) {
       const e = el as HTMLElement
       const id = e.dataset.id
@@ -230,7 +279,26 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
       const h = e.offsetHeight
       if (id !== undefined && id !== '' && h > 0) out.set(id, h)
     }
+    if (rungPadding.some(r => r !== null)) {
+      root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_NORMAL_RUNG_LABEL_SCALE))
+      nodes.forEach((_, i) => { const r = rungPadding[i]; if (r) applyPadding(paddedCards[i]!, r.normal) })
+      nodes.forEach((el, i) => {
+        if (rungPadding[i] === null) return
+        const e = el as HTMLElement
+        const id = e.dataset.id
+        const h = e.offsetHeight
+        if (id !== undefined && id !== '' && h > (out.get(id) ?? 0)) out.set(id, h)
+      })
+    }
   } finally {
+    // Padding first, index-paired like the body restore below and bounded by
+    // what was RECORDED: a card never touched is never "restored".
+    for (let i = 0; i < previousPadding.length; i++) {
+      const was = previousPadding[i]
+      const card = paddedCards[i]
+      if (!was || !card) continue
+      PADDING_SIDES.forEach((side, j) => { card.style[side] = was[j] })
+    }
     if (previous === '') root.style.removeProperty(CANVAS_LABEL_SCALE_VAR)
     else root.style.setProperty(CANVAS_LABEL_SCALE_VAR, previous)
     // Index-paired with the NodeList above, which is static (`querySelectorAll`),
