@@ -150,6 +150,7 @@ import {
   buildOptionChangeRow,
   fitRowsToBudget,
   moreCount,
+  OPTION_ROW_SOURCE_MARK_SEPARATOR,
   rowFactorIdsFor,
   sharedChangeOrder,
   type OptionSetLike,
@@ -158,7 +159,6 @@ import {
 import { NodeRailIcon } from './shared/NodeRailIcons'
 import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
-import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
 import { ValueSourceMark } from './shared/valueSourceMark'
 
 /** Strip known suffixes from factor labels for contextual display. */
@@ -2067,29 +2067,34 @@ export const OptionNode = memo((props: NodeProps) => {
                     ].filter(Boolean).join(' ')}
                   >
                     {r.change}
-                    {r.estimated && (
-                      <span
-                        className="text-text-light italic"
-                        data-testid={`option-change-row-estimate-${props.id}-${r.factorId}`}
-                        title="Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it."
-                      >
-                        {' '}{UNCONFIRMED_ESTIMATE_TOKEN}
-                      </span>
-                    )}
                     {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
                         whether 7% came from you / Olumi / brief. Olumi keeps the
-                        served `est.` above; every OTHER source now carries its own
-                        one-word mark instead of silence, so an unmarked target is
-                        never left to be read as Olumi's. */}
-                    {!r.estimated && (
-                      <>
-                        {' '}
-                        <ValueSourceMark
-                          mark={r.targetSource}
-                          testId={`option-change-row-source-${props.id}-${r.factorId}`}
-                        />
-                      </>
-                    )}
+                        served `est.` (and its test id); every OTHER source carries
+                        its own one-word mark instead of silence, so an unmarked
+                        target is never left to be read as Olumi's.
+                        Contract v3.1 pt 7 + pt 1 (gap U12, "→ 1 brief" read as a
+                        unit): a muted separator sets the mark apart from the value,
+                        the cluster never wraps apart, and every mark — `est.`
+                        included — is the factor card's muted italic mark with an
+                        accessible name. */}
+                    {' '}
+                    <span
+                      className="whitespace-nowrap"
+                      data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
+                    >
+                      <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>
+                        {OPTION_ROW_SOURCE_MARK_SEPARATOR}{' '}
+                      </span>
+                      <ValueSourceMark
+                        mark={r.targetSource}
+                        testId={r.estimated
+                          ? `option-change-row-estimate-${props.id}-${r.factorId}`
+                          : `option-change-row-source-${props.id}-${r.factorId}`}
+                        title={r.estimated
+                          ? 'Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it.'
+                          : undefined}
+                      />
+                    </span>
                   </dd>
                 </Fragment>
               ))}

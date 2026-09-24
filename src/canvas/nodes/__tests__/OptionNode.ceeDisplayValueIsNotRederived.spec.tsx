@@ -206,8 +206,13 @@ describe('OptionNode — CEE display_value is printed, never re-derived', () => 
   it('does not silently drop an intervention whose unit the UI cannot anchor', () => {
     // `d41770fd`: this is the change the card called "the key difference" and
     // then did not show. CEE authored both sides; the card states them.
-    const text = renderCard().container.textContent ?? ''
-    expect(text).toContain('0.8 scale')
+    // Contract v3.1 pt 7 (gap U12): the placeholder WORD `scale` is dropped and
+    // the authored figures kept — the factor card's rule — so the claim is now
+    // bound to this option's row for this factor: CEE's own 0.2 → 0.8, no "scale".
+    const row = renderCard().container.querySelector('[data-testid="option-change-row-option-1-f-rel"]')
+    expect(row, 'the f-rel change row must render').not.toBeNull()
+    expect(row!.textContent ?? '').toContain('0.2 → 0.8')
+    expect(row!.textContent ?? '').not.toMatch(/scale/i)
   })
 
   /**
