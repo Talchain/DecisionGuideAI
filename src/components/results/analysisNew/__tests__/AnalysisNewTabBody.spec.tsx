@@ -211,13 +211,12 @@ describe('F · the three scenario classes (§24F)', () => {
     // comparison is the licensed printer. If it stops rendering, the subtraction
     // below silently becomes `body.textContent` and the case changes meaning.
     expect(options, 'the comparison must render, or this assertion is a different one').not.toBeNull()
-    // ⚠ V2 (24 Sep 2026): OPENED BY IDENTITY FIRST. The section now opens by
-    // default only where it draws a figure the glance does not state, and with
-    // the win shares gone from the resting view this fixture (no ranges, no
-    // goal) draws none — so it mounts CLOSED and printed no label to subtract.
-    // The licensed printer must be showing its labels for the claim to bite.
-    openSection('analysis-new-options')
-    expect(options).toHaveAttribute('data-section-open', 'true')
+    // ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 17): NO OPENING STEP
+    // LEFT. The section is `bare` inside "Move towards commitment" now — no
+    // `SectionShell`, no toggle, no closed state — so its labels are in the
+    // DOM unconditionally and `openSection` (a no-op against a section with no
+    // `-toggle`) is not needed to reach them.
+    expect(options).not.toHaveAttribute('data-section-open')
     expect(options!.textContent).toContain('Raise price')
     const elsewhere = (body.textContent ?? '').split(options!.textContent ?? '\u0000').join('')
     expect(elsewhere).not.toContain('Raise price')

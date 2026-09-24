@@ -61,18 +61,28 @@ const barClass = (which: 'lowers' | 'raises'): string => {
 }
 
 describe('a driver bar states a side, not a verdict', () => {
+  /**
+   * ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 13): THE INK MOVED FROM
+   * `text-header` (charcoal) TO `bg-info` (blue) — `PanelFigure.tsx`'s SAME
+   * "how much" ink used for `share`/`goal`/`influence` everywhere else on this
+   * tab ("Top drivers", the flip bars on "What would change your mind"). The
+   * two chart's bars were drawn in two different inks for one quantity before
+   * this change; `bg-info` is not on `STATUS_HUE` (success/warning/danger), so
+   * the rule this file exists to pin — a direction is a SIDE, never a
+   * good/bad VERDICT — is unmoved: the absence assertion below still holds.
+   */
   it('the LOWERS bar is ink, not a warning', () => {
     draw([row({ id: 'cost', label: 'Unit cost', direction: 'negative' })])
     const cls = barClass('lowers')
     expect(cls).not.toMatch(STATUS_HUE) // the absence
-    expect(cls).toMatch(/text-header/) // the contrast, same run
+    expect(cls).toMatch(/bg-info/) // the contrast, same run
   })
 
   it('the RAISES bar is ink, not a success', () => {
     draw([row({ id: 'cap', label: 'Sales capacity', direction: 'positive' })])
     const cls = barClass('raises')
     expect(cls).not.toMatch(STATUS_HUE)
-    expect(cls).toMatch(/text-header/)
+    expect(cls).toMatch(/bg-info/)
   })
 
   /**
@@ -149,6 +159,7 @@ describe('a driver bar states a side, not a verdict', () => {
     draw([row({ id: 'cost', label: 'Unit cost', direction: 'negative' })])
     const cls = barClass('lowers')
     expect(cls).not.toMatch(/bg-text-light\b/)
-    expect(cls).toMatch(/bg-text-header/) // contrast: it does carry an ink
+    // ⭐ V2 FIDELITY (gap 13): `bg-info`, not `bg-text-header` — see above.
+    expect(cls).toMatch(/bg-info/) // contrast: it does carry an ink
   })
 })

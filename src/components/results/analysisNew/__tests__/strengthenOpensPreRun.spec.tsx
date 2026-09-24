@@ -284,23 +284,31 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
   })
 
   /**
-   * ⚠ And no sibling section was opened either — this is not "open everything".
+   * ⛔⛔ V2 FIDELITY (24 Sep 2026) RETIRED — NOT RE-POINTED, AND HERE IS WHY.
    *
-   * ⚠⚠ THE SIBLING IS `analysis-new-options`, NOT `analysis-new-drivers`, AND
-   * THE FIRST DRAFT OF THIS TEST HAD IT WRONG. Drivers reads OPEN on this
-   * fixture, and correctly so: `AnalysisNewSection` passes
-   * `defaultOpen={findings.length === 1}`, the single-item rule that
-   * `singleItemSectionOpens.spec.tsx` pins. A control that REDs on existing,
-   * intended behaviour is not a control — it is a second defect wearing one.
-   * `collapsedIA.spec.tsx:96` already establishes options as closed here.
+   * This asserted "no sibling section was opened either — this is not 'open
+   * everything'", using `analysis-new-options` as the discriminating sibling.
+   * Gap 17 makes that section `bare` — no `SectionShell`, always visible by
+   * design (the fidelity finding this gap fixes) — so it is no longer a
+   * `SectionShell` sibling with a closed state to be in at all; asserting
+   * `data-section-open` on it now reads `null` unconditionally, which is not
+   * evidence about the review tool's scope, only about this section's own
+   * (now-retired) disclosure.
+   *
+   * ⚠ NO SUBSTITUTE SIBLING EXISTS ON THIS FIXTURE. `genuineDecision()` (the
+   * fixture this case renders) carries one driver — which the file's own
+   * comment above already excludes as a candidate, since `AnalysisNewSection`
+   * opens a single-item section by design — and no key-insights or
+   * uncertainty findings at all, so those sections do not mount here to be
+   * checked either. Reaching for a richer fixture would test a different
+   * scenario under this case's name rather than re-point this one.
+   *
+   * ⭐ THE PROPERTY ITSELF IS NOT LOST. `collapsedIA.spec.tsx`'s "mounts every
+   * section CLOSED" case is the general form of "opening one thing does not
+   * open its siblings" — it renders every `SectionShell` sibling on a richer
+   * fixture and asserts each is closed, unconditionally, which is strictly
+   * stronger than this one case naming a single sibling.
    */
-  it('a displayed run leaves a multi-item sibling section CLOSED too', () => {
-    draw(genuineDecision(), false)
-    expect(screen.getByTestId('analysis-new-options')).toHaveAttribute(
-      'data-section-open',
-      'false',
-    )
-  })
 
   /**
    * ⚠ AN EMPTY TOOL IS NOT WORTH A VIEWPORT. With nothing grounded the review
