@@ -10,11 +10,26 @@
  * who cannot see the field cannot tell a runaway leader from a coin flip, and
  * cannot see that an option they care about took no part in the comparison.
  *
+ * ── V2 (24 Sep 2026): TWO LENSES, AND NO WIN SHARES AT REST ──────────────
+ *
+ * The section now answers through one of two lenses, chosen by the reader:
+ * "Modelled outcome" (each option's own p10-p90 range and its p50 dot, on one
+ * shared scale) and "Goal fit" (each option's chance of reaching the user's own
+ * target). What the lenses read is decided in `../comparisonLens.ts`.
+ *
+ * ⛔ THE WIN SHARES ARE NO LONGER DRAWN OR PRINTED HERE AT REST. The per-option
+ * share bar, its "Highest in this model N%" readout and the partition track are
+ * gone from this section. Paul's staging test read 81 / 17 / 2 as a ranking,
+ * and the V2 design drops them. `winReadout` / `winFraction` stay on the view
+ * model, untouched, for the tab to expose in "About this analysis"; and
+ * `noneNumbered` below still reads them, because "did any option come back
+ * with a figure?" is still the question that sentence answers.
+ *
  * ── WHAT THIS SECTION IS ENTITLED TO PUT ON SCREEN ────────────────────────
  *
- * Names, own win shares, and the sanctioned sentence for an option the run did
- * not analyse. That is all, and each omission below is a rule this estate has
- * already paid for:
+ * Names, each option's own range and goal figure, and the sanctioned sentence
+ * for an option the run did not analyse. That is all, and each omission below
+ * is a rule this estate has already paid for:
  *
  *  · NO ORDINALS. `OptionResult.rank` exists, and printing it would put a
  *    RANKING on screen on a run whose verdict withheld one. The ordering claim
@@ -26,8 +41,9 @@
  *    2026-08-10: a difference of two Monte Carlo estimates carries more
  *    uncertainty than either, and printed bare it reads as the most precise
  *    number on the panel while being the least reliable. Own-probability
- *    statements only. The reader still SEES the gap — that is what the bars are
- *    for — they are simply not handed a spurious integer for it.
+ *    statements only. The reader still SEES how the options sit against each
+ *    other, which is what the shared range scale is for; they are simply not
+ *    handed a spurious integer for it.
  *
  *  · NO LEADER MARKER. The entitled leader is already named at the top of this
  *    surface by `AtAGlance`, under the one gate that licenses naming it. A
@@ -35,13 +51,10 @@
  *    one, since `isRecommended` is set from the winner selection rather than
  *    from the leader VERDICT.
  *
- *  · NO COMPARATIVE MAGNITUDE THE RUN HAS NOT LICENSED. The bars are a drawn
- *    comparative claim, so they render only where `comparativeClaim` is
- *    `'value'` — the glance's own three-valued answer, carried on this section
- *    and consumed rather than re-derived. The gate and its three states are set
- *    out at `mayDrawMagnitude` below; the short version is that the figure
- *    became a claim when it became legible, and a claim needs the licence that
- *    governs claims of that kind.
+ *  · NO COMPARATIVE MAGNITUDE AT REST. The win-share bars and the partition
+ *    were the section's comparative magnitudes, and V2 removes them (above).
+ *    Neither lens draws one: a range is each option's own spread and a goal
+ *    figure is each option's own chance of reaching the user's target.
  *
  *  · NO AUTHORED SENTENCES. Every string a reader meets here is either a label
  *    the producer sent, a number the estate's own formatter produced, or one of
@@ -146,8 +159,9 @@
  * self-teaching, and the sentence a screen reader needs is the button's name.
  */
 
-import { useCallback, useId, useState } from 'react'
-import { Scale, Sparkles } from 'lucide-react'
+import { Fragment, useCallback, useId, useState } from 'react'
+import { Crosshair, Info, Lock, Scale, Search, Sparkles } from 'lucide-react'
+import Tooltip from '../../../Tooltip'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -170,7 +184,17 @@ import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { PanelFigure } from '../PanelFigure'
 import { action, icon } from '../panelSurfaces'
+import { PanelIconButton } from '../PanelIconButton'
+import { PanelActRow } from '../PanelActRow'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+import {
+  COMPARISON_LENSES,
+  COMPARISON_LENS_COPY as LENS_COPY,
+  comparisonLensAvailability,
+  initialComparisonLens,
+  outcomeRangeScale,
+  type ComparisonLens,
+} from '../comparisonLens'
 
 /**
  * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
@@ -190,6 +214,8 @@ export interface OptionsComparisonProps {
    * wording covers one fact and the two cannot drift" — applies to its cause.
    */
   leaderWithholdCause?: string | null
+  /** `checks.sharesExcludeLimits` — see the type. States "Goal only" above the shares. */
+  sharesExcludeLimits?: boolean
   /**
    * Send a message as the user, on the surface's EXISTING writer.
    *
@@ -222,22 +248,57 @@ export interface OptionsComparisonProps {
    *
    * ⛔ IT MOVES NOTHING BUT VISIBILITY. Every entitlement rule in this file's
    * header is evaluated the same way open or closed: no ordinal is printed,
-   * no leader is marked, and `mayDrawMagnitude` reads `comparativeClaim`,
-   * which is computed upstream in the view model and cannot be influenced by a
-   * disclosure state that does not exist until render.
+   * no leader is marked, and the lens availability reads only rows the view
+   * model built, which a disclosure state that does not exist until render
+   * cannot influence.
    */
   defaultOpen?: boolean
+  /**
+   * ⭐ THE ROW ACTIONS (V2). Each is OPTIONAL and each renders only where it is
+   * supplied: a host with no Model route renders no "Inspect in Model", never a
+   * control that routes nowhere.
+   *
+   * ⚠ SUPPLYING ANY ONE CHANGES WHAT A CLICK ON THE OPTION'S NAME DOES. With
+   * none, the name keeps its existing act (focus the canvas and open the
+   * option's panel, below). With at least one, the name opens this row's
+   * actions inline instead, and the canvas act becomes one of them
+   * (`onFocusOption`). The row's hover highlight is the same either way.
+   *
+   * No action sends or composes a message: `onAskAboutOption` hands the host
+   * the option's id and name, and what Olumi is asked is the host's decision.
+   */
+  onInspectOption?: (optionId: string) => void
+  onFocusOption?: (optionId: string) => void
+  onAskAboutOption?: (optionId: string, label: string) => void
   testId?: string
 }
 
 export function OptionsComparison({
   options,
   leaderWithholdCause = null,
+  sharesExcludeLimits = false,
   onSendMessage,
   defaultOpen = false,
+  onInspectOption,
+  onFocusOption,
+  onAskAboutOption,
   testId = 'analysis-new-options',
 }: OptionsComparisonProps) {
   const showToast = useShowToastSafe()
+
+  /**
+   * ⭐ THE READER'S LENS CHOICE, NOT THE LENS SHOWN. `null` until the reader
+   * picks one. What renders is this choice where it still has something to
+   * draw, and otherwise the default for the rows now on screen, so a run that
+   * arrives after mount and drops the goal figures cannot leave the section on
+   * an empty lens.
+   */
+  const [chosenLens, setChosenLens] = useState<ComparisonLens | null>(null)
+  const lensGroupId = useId()
+  /** The range explanation, behind its info button. */
+  const [rangeInfoOpen, setRangeInfoOpen] = useState(false)
+  /** The one row whose actions are open, by option id. */
+  const [actionsOpenFor, setActionsOpenFor] = useState<string | null>(null)
 
   /**
    * ⭐⭐ THE LENS ARM — WHICH END OF EACH RANGE THE DOT MARKS.
@@ -267,6 +328,10 @@ export function OptionsComparison({
    * supplies it, so a store would be a second authority over a presentational
    * choice. If a sibling surface ever needs the same arm, lift it then — with a
    * reason — rather than pre-building the seam.
+   *
+   * ⚠ V2: OFF THE RESTING VIEW. The arm control now sits behind the range info
+   * button beside the axis, with the legend it governs. At rest the dot is the
+   * mid-point (p50), and the info button's name says so.
    */
   const [rangeAppetite, setRangeAppetite] = useState<RangeLensArm>('middle')
   const rangeLensId = useId()
@@ -356,155 +421,32 @@ export function OptionsComparison({
     options.rows.every((o) => o.kind !== 'analysed' || o.winReadout === null)
 
   /**
-   * ⭐⭐⭐ MAY A COMPARATIVE MAGNITUDE BE DRAWN ON THIS RUN — THE GLANCE'S
-   * ANSWER, CONSUMED. Not re-derived, not widened, not combined with anything.
+   * ⭐ WHICH LENSES HAVE ANYTHING TO DRAW, AND WHICH ONE IS SHOWN.
    *
-   * ── WHY THIS GATE ONLY BECAME NECESSARY WITH THE SIZE CHANGE ──────────────
+   * Both answers come from `../comparisonLens.ts`, which reads only what the
+   * view model built. The shown lens is the reader's choice where that lens
+   * still has something to draw, and otherwise the default for these rows.
    *
-   * The track below was `h-1`: a 4px hairline. Paul's reading of the deployed
-   * tab is that this section shows *"three plain option names with no comparison
-   * of any kind"*, and at 4px that is very nearly a literal description of the
-   * figure. A hairline is decoration, and decoration makes no claim.
-   *
-   * At a size a reader can actually measure — which is the whole point of the
-   * change — four bars on a shared baseline are READ COMPARATIVELY, whatever the
-   * author intended each one to mean on its own. So the figure starts making a
-   * comparative claim at exactly the moment it becomes legible, and a claim needs
-   * the licence that governs claims of that kind. **The gate is required BY the
-   * size change; it is not an unrelated tightening shipped alongside one.**
-   *
-   * ── THE THREE STATES, EACH HANDLED, NONE COLLAPSED ────────────────────────
-   *
-   *  · `'value'` — the run's comparative MAGNITUDE is on screen and licensed
-   *    (`AtAGlance` is printing "Scored highest in N% of simulated futures").
-   *    The bars draw. This is the state the size change exists for.
-   *
-   *  · `'order'` — a superlative or an ordering verdict is licensed, but no
-   *    percentage is. What is licensed is the ORDER, and the order is ALREADY on
-   *    screen: it is the array order, authored once upstream by
-   *    `sortOptionsForDisplay` and withheld there when the verdict withholds
-   *    (ROADMAP 1.267). So the licensed material renders and no magnitude does,
-   *    and this component adds nothing — printing `rank` here would be the
-   *    ordinal this file's header bans in its first rule.
-   *
-   *  · `'none'` — nothing set-dependent is licensed. Nothing comparative is
-   *    drawn. The withheld-comparison sentence above is untouched by this gate
-   *    and keeps its own authority (`noneNumbered`), because "did any row come
-   *    back with a number?" and "may a magnitude be claimed?" are different
-   *    questions and must not acquire one name between them.
-   *
-   * ⚠ `=== 'value'` AND NOT `!== 'none'`. The two are different gates and only
-   * one of them is this one: `!== 'none'` would draw a magnitude at `'order'`,
-   * which is precisely the state whose definition is "an ordering renders, but
-   * no percentage". A three-valued authority read as a boolean loses the middle
-   * state silently, and the middle state is the one that licenses the LEAST.
-   *
-   * ⚠ IT GATES THE FIGURE AND NOTHING ELSE. The win READOUT beside each name is
-   * an own-probability statement with its own shape rule (a `null` readout and a
-   * `null` fraction arrive together), the badges answer "why is there no
-   * number", and the producer's per-option sentence is the producer's. None of
-   * them is a comparative magnitude and none of them moves with this gate —
-   * widening it to cover them would delete licensed material, which is the
-   * opposite harm and cannot share this parameter (CLAUDE.md trap 22b).
+   * ⛔ THE WIN-SHARE GATE (`mayDrawMagnitude`) AND THE PARTITION ARE GONE WITH
+   * THE FIGURES THEY GATED. Neither lens draws a comparative magnitude: a range
+   * is each option's own spread, and a goal figure is each option's own chance
+   * of reaching the user's target, which ranks nothing against anything.
    */
+  const rangeScale = outcomeRangeScale(options.rows)
+  const lensAvailability = comparisonLensAvailability(options)
+  const lens: ComparisonLens | null =
+    chosenLens !== null && lensAvailability[chosenLens]
+      ? chosenLens
+      : initialComparisonLens(lensAvailability)
   /**
-   * ⭐⭐ THE BARS DRAW ON EVERY RUN THAT HAS SHARES TO DRAW — PAUL'S RULING,
-   * 15 Sep 2026, made deliberately against the rule it replaces.
-   *
-   * ── WHAT THIS OVERTURNS, STATED FAIRLY ────────────────────────────────────
-   * `#1483` gated the bars on `comparativeClaim === 'value'`, reasoning that a
-   * flip threshold or an ordering verdict *"licenses a SENTENCE and never a
-   * magnitude"*. That is a coherent position and it was ratified with specs.
-   * It is not being called a defect here; it is being changed, by the person
-   * entitled to change it, on the evidence below.
-   *
-   * ── THE EVIDENCE ──────────────────────────────────────────────────────────
-   * Witnessed on the deployed build `079d080b`, a real guest run, read off the
-   * DOM: three option rows carrying **48% · 4% · 48%** and **ZERO bars**. Two
-   * options tied at 48%, and the reader had to notice that by comparing
-   * numerals. Paul, on being shown it: *"I think these are powerful."*
-   *
-   * ── WHY THIS DOES NOT MAKE A CLAIM THE RUN REFUSED ───────────────────────
-   * ⚠ THE SECTION IS ALREADY PRINTING THESE NUMBERS. `winFraction` and
-   * `winReadout` are set together from one `hasWin` in the view model, so a row
-   * that draws is exactly a row that already prints. Nothing becomes visible
-   * that was not on screen in text; what changes is whether a reader can see a
-   * tie, or a dominant option, without arithmetic.
-   *
-   * ⚠ AND THE QUALIFIER STAYS. `ComparisonScopeNote` still renders, and still
-   * takes `detail` only where the claim licenses it — so a partial comparison
-   * is still qualified in words beneath the figures it qualifies. The bars did
-   * not inherit the sentence's entitlement; the sentence keeps its own.
-   *
-   * ⛔ WHAT IS NOT TOUCHED, DELIBERATELY: no ordinal is printed, no leader is
-   * marked, and the withheld-leader rules are unchanged. Drawing a magnitude
-   * the run measured is a different act from NAMING the option that won, and
-   * this estate has been burned twice on exactly that distinction (#709/#737).
-   * A run that withholds its leader still withholds it — it just draws the
-   * numbers it already prints.
+   * The control is offered only where the outcome lens has a view. With goal
+   * figures alone there is one lens and nothing to choose; with neither there
+   * is no lens at all. Goal fit without figures is shown LOCKED rather than
+   * absent, so the reader learns the lens exists and what it needs.
    */
-  /**
-   * ⭐ THE PARTITION, OR `null` — derived from the rows this list DREW, never
-   * from a predicate re-expressed over the producer's option array. The fork
-   * that produces those rows is three-way (not analysed / not computed /
-   * analysed) and restating it here would be a second copy of someone else's
-   * rule, drifting the first time either moves (trap 12).
-   *
-   * ⛔ THREE CONDITIONS, ALL REQUIRED. At least two analysed rows (one share is
-   * not a partition); every analysed row carries a share (a missing one makes
-   * the picture assert a completeness the run lacks); and the shares sum to one
-   * within a tolerance that admits ordinary rounding and nothing more.
-   *
-   * ⚠ THE TOLERANCE IS DELIBERATELY TIGHT. It exists for float error in a set
-   * the producer already normalised, not to wave through a set that genuinely
-   * does not add up — a 0.9 sum drawn as a full track would be a tenth of the
-   * runs silently unaccounted for.
-   */
-  const PARTITION_TOLERANCE = 0.01
-  /**
-   * ⭐⭐ ONE SCALE FOR EVERY BAR, OR THE BARS LIE.
-   *
-   * The whole point of drawing ranges is that a reader can see two of them
-   * OVERLAP. Per-row normalisation would give every option a full-width bar and
-   * destroy exactly the comparison the drawing exists to make — the same defect
-   * as the old tornado chart, which rescaled one option's spread per factor.
-   *
-   * ⚠ NULL UNLESS AT LEAST TWO ROWS CARRY A RANGE. A single bar has nothing to
-   * be compared against, and a lone full-width track reads as a measurement of
-   * something rather than as one option's spread.
-   *
-   * ⚠ A ZERO-WIDTH DOMAIN IS REFUSED rather than divided by. If every option
-   * shares one p10 and one p90 the denominator is 0; there is no honest bar for
-   * that, and `null` draws nothing.
-   */
-  const rangeScale = (() => {
-    const ranges = options.rows.flatMap((r) =>
-      // ⚠ `!= null`, LOOSE, AND IT IS NOT A STYLE CHOICE. `outcomeRange` is
-      // REQUIRED on the type, but fixtures across the suite build these rows
-      // without it, so at runtime the value is `undefined` — which passes a
-      // strict `!== null` and then throws on `.p10`. CI caught exactly that:
-      // "Cannot read properties of undefined (reading 'p10')", six times.
-      // A field being required in TypeScript is not a guarantee about a value
-      // arriving from a fixture, a cast, or an older cached view model.
-      r.kind === 'analysed' && r.outcomeRange != null ? [r.outcomeRange] : [],
-    )
-    if (ranges.length < 2) return null
-    const lo = Math.min(...ranges.map((r) => r.p10))
-    const hi = Math.max(...ranges.map((r) => r.p90))
-    if (!(hi > lo)) return null
-    return { lo, hi, span: hi - lo }
-  })()
-
-  const partition = (() => {
-    const analysed = options.rows.filter(
-      (r): r is Extract<typeof r, { kind: 'analysed' }> => r.kind === 'analysed',
-    )
-    if (analysed.length < 2) return null
-    if (analysed.some((r) => r.winFraction === null)) return null
-    const fractions = analysed.map((r) => ({ id: r.id, fraction: r.winFraction as number }))
-    const sum = fractions.reduce((acc, f) => acc + f.fraction, 0)
-    return Math.abs(sum - 1) <= PARTITION_TOLERANCE ? fractions : null
-  })()
+  const offerLensControl = lensAvailability.outcome
+  const rowActionsEnabled =
+    onInspectOption !== undefined || onFocusOption !== undefined || onAskAboutOption !== undefined
 
   /**
    * ⭐⭐ THE PROVENANCE SENTENCE, SAID ONCE WHEN SEVERAL OPTIONS SHARE IT.
@@ -542,8 +484,6 @@ export function OptionsComparison({
     if (origins.length < 2) return null
     return origins.every((x) => x === origins[0]) ? origins[0] : null
   })()
-
-  const mayDrawMagnitude = true
 
   return (
     <SectionShell
@@ -584,46 +524,115 @@ export function OptionsComparison({
         </p>
       ) : null}
 
-      {/* ⭐⭐ THE SHARES ARE ONE WHOLE, AND THREE SEPARATE BARS CANNOT SAY SO.
-          Comparative shares PARTITION the simulated runs: they are the fraction
-          of runs in which each option out-ranked the others, and they sum to 1.
-          A row of individual bars shows each share's size and loses the fact
-          that together they account for every run — and it makes a TIE
-          something the reader has to compare across rows rather than see. On
-          the run witnessed tonight two options sat at 48% and 48%; side by side
-          in one track that reads instantly.
+      {/* ⭐ THE RUN PAUL MET (RC 5803875794 P0 #3): figures ON screen, leader
+          withheld because the limits could not be checked. The paragraph above
+          renders only when no option has a figure, so without this line the
+          shares sat there as if the whole decision had been assessed. One line,
+          the producer's own cause appended, and nothing when figures are absent
+          (the paragraph above already carries the cause there). */}
+      {sharesExcludeLimits && !noneNumbered ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
+          data-testid={`${testId}-goal-only`}
+        >
+          {COPY.optionFigures.goalOnlyQualifier}
+          {leaderWithholdCause !== null ? ` ${leaderWithholdCause}` : null}
+        </p>
+      ) : null}
 
-          ⛔ IT RENDERS ONLY WHERE THE SHARES ACTUALLY PARTITION. If any
-          analysed option carries no share, or the shares do not sum to one
-          within tolerance, this picture would assert a completeness the run does
-          not have — the same complete-field rule the goal figures follow, and
-          the reason it is computed over the rows the list actually drew rather
-          than over a predicate re-expressed here.
+      {/* ⭐ THE TWO LENSES (V2). A radio group because exactly one lens is
+          shown at a time, with the same keyboard contract as the range-arm
+          control below: one tab stop on the selected arm, arrow keys traverse
+          and wrap, and focus follows the selection.
 
-          ⛔ ONE COLOUR, DIVIDED BY GAPS — NEVER A GRADED FILL. A graded or
-          alternating fill reads as a ranking, and #1593 is the ruling that a bar
-          states magnitude and does not grade the number. The widths carry the
-          information; the gaps only say how many there are.
+          ⚠ GOAL FIT LOCKED, NOT HIDDEN, when the view model sent no goal
+          figures. It stays reachable by the arrow keys so its reason (tooltip,
+          and `aria-describedby` for a screen reader) can be met, but it cannot
+          be selected, so no reader lands on an empty lens.
 
-          ⚠ AND IT IS GATED ON THE SAME MAGNITUDE LICENCE AS THE ROW BARS
-          (`mayDrawMagnitude`), because unlike the goal figure this IS a
-          comparative magnitude — the thing a withheld leader claim withholds. */}
-      {/* ⚠ `mb-2`, NOT `mb-3`, SINCE 18 Sep 2026 — 4px reclaimed so the whole
-          comparison clears the fold at 1440×860. Still on the shell spacing scale,
-          and still a clear break between the bar and the rows it partitions. */}
-      {mayDrawMagnitude && partition !== null ? (
-        <div className="mb-2" data-testid={`${testId}-partition`}>
-          <PanelFigure
-            variant="partition"
-            segments={partition}
-            testId={`${testId}-partition-bar`}
-          />
-          <p
-            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-            data-testid={`${testId}-partition-caption`}
+          ⛔ A LENS REORDERS NOTHING. It changes which figure sits under each
+          name and never which name comes first; the rows below are rendered in
+          the order the view model gave them. */}
+      {offerLensControl ? (
+        <div className="mb-2" data-testid={`${testId}-lens-control`}>
+          <span id={`${lensGroupId}-label`} className="sr-only">
+            {LENS_COPY.groupLabel}
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby={`${lensGroupId}-label`}
+            className="flex w-full items-center gap-1 rounded-md border border-panel-border p-0.5"
+            data-testid={`${testId}-lens`}
           >
-            {COPY.optionFigures.partitionCaption}
-          </p>
+            {COMPARISON_LENSES.map((arm, i) => {
+              const locked = !lensAvailability[arm]
+              const selected = lens === arm
+              const control = (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-disabled={locked ? true : undefined}
+                  aria-describedby={locked ? `${lensGroupId}-${arm}-locked` : undefined}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => {
+                    if (!locked) setChosenLens(arm)
+                  }}
+                  onKeyDown={(e) => {
+                    const step =
+                      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                        ? 1
+                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                          ? -1
+                          : 0
+                    if (step === 0) return
+                    e.preventDefault()
+                    const next =
+                      COMPARISON_LENSES[
+                        (i + step + COMPARISON_LENSES.length) % COMPARISON_LENSES.length
+                      ]
+                    if (lensAvailability[next]) setChosenLens(next)
+                    e.currentTarget
+                      .closest('[role="radiogroup"]')
+                      ?.querySelector<HTMLButtonElement>(`[data-lens="${next}"]`)
+                      ?.focus()
+                  }}
+                  className={`${typography.panelMeta} ${action('quiet')} flex-1 justify-center gap-1 px-2 no-underline ${
+                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                  } ${locked ? 'cursor-default opacity-60' : ''}`}
+                  data-lens={arm}
+                  data-locked={locked ? 'true' : undefined}
+                  data-testid={`${testId}-lens-${arm}`}
+                >
+                  {locked ? (
+                    <Lock
+                      className={icon('inline')}
+                      aria-hidden="true"
+                      data-testid={`${testId}-lens-${arm}-lock`}
+                    />
+                  ) : null}
+                  {LENS_COPY.arms[arm]}
+                </button>
+              )
+              return locked ? (
+                <Tooltip key={arm} asChild content={LENS_COPY.goalLocked}>
+                  {control}
+                </Tooltip>
+              ) : (
+                <Fragment key={arm}>{control}</Fragment>
+              )
+            })}
+          </div>
+          {COMPARISON_LENSES.filter((arm) => !lensAvailability[arm]).map((arm) => (
+            <span
+              key={arm}
+              id={`${lensGroupId}-${arm}-locked`}
+              className="sr-only"
+              data-testid={`${testId}-lens-${arm}-locked-reason`}
+            >
+              {LENS_COPY.goalLocked}
+            </span>
+          ))}
         </div>
       ) : null}
 
@@ -631,7 +640,11 @@ export function OptionsComparison({
           `SHELL_SPACING_SCALE_PX` — this both reclaims 6px and puts the row rhythm
           on the sanctioned scale, which is why it is a correction and not only a
           trim. */}
-      <ul className="list-none p-0 m-0 space-y-2">
+      <ul
+        className="list-none p-0 m-0 space-y-2"
+        data-comparison-lens={lens ?? 'none'}
+        data-testid={`${testId}-rows`}
+      >
         {options.rows.map((o) => (
           <li
             key={o.id}
@@ -644,9 +657,7 @@ export function OptionsComparison({
                model answers, before committing to a camera move. It carries no
                role, no tabIndex and no semantics: it is a mouse convenience, and
                the keyboard's equivalent lives on the button below where it is
-               reachable. Putting the highlight ONLY here would be the
-               hover-only defect; putting it only on the button would shrink the
-               target to the width of a word. */
+               reachable. */
             onMouseEnter={() => highlightNode(o.id)}
             onMouseLeave={clearHighlight}
           >
@@ -654,66 +665,47 @@ export function OptionsComparison({
               {/* ⚠ THE BUTTON WRAPS THE LABEL AND NOTHING ELSE, AND THAT IS AN
                   ACCESSIBILITY DECISION RATHER THAN A LAYOUT ONE. An
                   `aria-label` REPLACES an element's name with the given string,
-                  so a button wrapping the whole row would announce "Show
-                  Segment on the canvas" and put the win percentage, the bar,
-                  the producer's sentence and the not-analysed reason inside a
-                  control whose name has already been decided — the row's
-                  content would stop being independently readable. Wrapping the
-                  label alone costs nothing: the string the label carries IS the
-                  option name, which the `aria-label` states in full. Everything
-                  that qualifies it stays outside the control, as text. */}
+                  so a button wrapping the whole row would put every figure and
+                  reason inside a control whose name has already been decided.
+
+                  ⭐ TWO ACTS, AND THE HOST CHOOSES WHICH BY WHAT IT SUPPLIES.
+                  With no row-action handler this is the existing act (focus the
+                  canvas and open the option's panel). With any, it opens this
+                  row's actions inline, and says so in its name and in
+                  `aria-expanded`. */}
               <button
                 type="button"
                 data-testid={`${testId}-focus`}
-                aria-label={COPY.canvas.focusOption(o.label)}
-                onClick={() => activate(o.id)}
-                /* Keyboard parity with the row hover above — tabbing across the
-                   list rings each option in turn without moving the camera the
-                   reader did not ask for. `onBlur` clears for the same reason
-                   `onMouseLeave` does: the ring is a POINTER and belongs to the
-                   gesture, and it sits on a shared channel the applied-edit
-                   pulse also writes to, so leaving one behind would be a stray
-                   claim about the model. */
+                aria-label={
+                  rowActionsEnabled
+                    ? LENS_COPY.rowActions(o.label)
+                    : COPY.canvas.focusOption(o.label)
+                }
+                aria-expanded={rowActionsEnabled ? actionsOpenFor === o.id : undefined}
+                onClick={() => {
+                  if (rowActionsEnabled) {
+                    setActionsOpenFor((current) => (current === o.id ? null : o.id))
+                    return
+                  }
+                  activate(o.id)
+                }}
+                /* Keyboard parity with the row hover above. `onBlur` clears for
+                   the same reason `onMouseLeave` does: the ring is a POINTER. */
                 onFocus={() => highlightNode(o.id)}
                 onBlur={clearHighlight}
-                /* ⭐ 24px MINIMUM, MEASURED ON THE DEPLOYED BUILD RATHER THAN
-                   ASSUMED. `62879fc1`, prototype route: this control rendered
-                   **20px high, six of six** — and after #1668 and #1708 repaired
-                   `trust-line-open-method` (131×15 → 147×24) and
-                   `model-strip-target-edit` (→ 76×24), it was the ONLY target on
-                   the whole panel still under WCAG 2.2 AA's 24×24: 6 of 36
-                   interactive targets, all of them this one.
-
-                   ⛔ PADDING ALONE, AND NO `min-h-[24px]` HERE — the literal is
-                   BANNED in this file. `everyInlineActIsReachableByTouch` sweeps
-                   every section carrying `action('inline')` and fails on a
-                   hand-rolled touch target, because the tier is meant to be the
-                   single owner. This control cannot take a tier (it is the
-                   option's NAME, and `inline`'s underline + `text-info` would
-                   repaint it), so the 24px comes from padding, measured on the
-                   deployed DOM rather than asserted: 20 → 24 on all six.
-
-                   ⚠ 2px OF PADDING, AND EXPLICITLY NOT
-                   `inline-flex items-center`. Centring the label that way was my
-                   first draft and it is wrong here: this button is already a
-                   flex ITEM (`flex-1`) whose CONTENTS are inline — a wrapping
-                   label and an inline origin mark. Making it a flex CONTAINER
-                   turns those into flex items side by side, which changes how a
-                   long option name wraps. Padding reaches the same 24px and
-                   leaves inline flow exactly as it was.
-
-                   ⚠ 4px PER ROW IS THE WHOLE COST, and it is paid deliberately
-                   in the block this lane is otherwise trying to SHORTEN. `min-h`
-                   rather than `h` because the label wraps: a fixed height would
-                   clip the second line. */
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                /* ⭐ 24px MINIMUM FROM PADDING, AND NO `min-h-[24px]` HERE — the
+                   literal is banned in a file carrying `action('inline')`
+                   (`everyInlineActIsReachableByTouch`). This control cannot take
+                   a tier: it is the option's NAME. 2px of padding, and not
+                   `inline-flex items-center`, which would change how a long
+                   option name wraps. */
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
                   /* ⚠ `role="img"` WITH THE FULL SENTENCE AS ITS NAME. A bare
                      glyph has no accessible name at all, and this one carries a
-                     provenance claim — the reader who cannot see it is exactly
-                     the reader who must still be told. */
+                     provenance claim. */
                   <span
                     role="img"
                     aria-label={OPTION_ORIGIN_COPY[o.origin]}
@@ -727,51 +719,12 @@ export function OptionsComparison({
                 ) : null}
               </button>
 
-              {/* ⚠ THE NUMBER IS THE SMALLEST TYPE IN THE ROW, AND THAT IS A
-                  RULE RATHER THAN A PREFERENCE. A win probability set larger
-                  than the option it belongs to is read AS the answer, which is
-                  the anchoring Olumi's alignment principle says the product
-                  must mitigate — "especially anchoring on a number the AI
-                  supplied", and on a fresh run every input behind this share is
-                  Olumi's own estimate. The name leads; the share qualifies it. */}
-              {o.kind === 'analysed' ? (
-                o.winReadout !== null ? (
-                  <>
-                    {/* ⭐⭐ NAMED ONLY WHEN A SECOND NUMBER SHARES THE ROW, and
-                        the condition is the whole argument. Alone, a bare
-                        percentage under "How the options compare" is
-                        unambiguous enough to live unlabelled — which is what
-                        shipped. Beside a goal figure it is not: two bare
-                        percentages on one row are two numbers with no way to
-                        tell which question either answers, which is worse than
-                        one. So the label appears exactly when the ambiguity
-                        does, and a run with no target renders byte-identically
-                        to what it rendered before. */}
-                    {o.goalReadout !== null ? (
-                      <span
-                        className={`${typography.panelMeta} text-text-light shrink-0`}
-                        data-testid={`${testId}-win-label`}
-                      >
-                        {COPY.optionFigures.winLabel}
-                      </span>
-                    ) : null}
-                    <span
-                      className={`${typography.panelMeta} text-text-light shrink-0 tabular-nums`}
-                      data-testid={`${testId}-win`}
-                    >
-                      {o.winReadout}
-                    </span>
-                  </>
-                ) : null
-              ) : (
-                /* ⚠ THE BADGE NAMES WHICH NUMBERLESS STATE THIS IS, and the two
-                   are not interchangeable. "Not analysed" says the option was
-                   left OUT of the comparison — attributing the gap to the
-                   user's configuration. On an option the analysis RAN ON and
-                   could not compute, that sentence is false and blames the
-                   wrong party. Switched on `kind` (the union) rather than on a
-                   nullable flag, so a new numberless state cannot silently
-                   inherit either badge. */
+              {/* ⚠ THE BADGE NAMES WHICH NUMBERLESS STATE THIS IS, and the two
+                  are not interchangeable. "Not analysed" says the option was
+                  left OUT of the comparison; on an option the analysis RAN ON
+                  and could not compute, that sentence is false and blames the
+                  wrong party. Switched on `kind` (the union). */}
+              {o.kind !== 'analysed' ? (
                 <span
                   className={`${typography.panelMeta} text-text-light shrink-0`}
                   data-testid={
@@ -782,50 +735,27 @@ export function OptionsComparison({
                 >
                   {o.kind === 'not_computed' ? NOT_COMPUTED_BADGE : NOT_ANALYSED_BADGE}
                 </span>
-              )}
+              ) : null}
             </div>
 
-            {/* The bar exists ONLY for a measured share. An option with no
-                probability — analysed or not — gets no track and no fill:
-                an empty track reads as a measured zero, which is the precise
-                claim absence does not license.
+            {/* ⭐⭐ MODELLED OUTCOME: THE RANGE THIS OPTION ACTUALLY PRODUCED.
+                Its p10-p90 band and its dot on ONE scale shared by every row,
+                so a reader sees two ranges OVERLAP, where the order between
+                them is not settled.
 
-                ⭐ AND ONLY WHEN THE RUN LICENSES A COMPARATIVE MAGNITUDE AT ALL
-                (`mayDrawMagnitude`, derived at the top of this component from
-                the glance's own answer). The two conditions are conjoined and
-                answer different questions: `winFraction !== null` asks whether
-                THIS OPTION has a share to draw, and the licence asks whether
-                THIS RUN may put a comparative magnitude on screen. Either one
-                alone would be the wrong gate. */}
-            {mayDrawMagnitude && o.kind === 'analysed' && o.winFraction !== null ? (
-              <PanelFigure
-                variant="share"
-                className="mt-1"
-                fraction={o.winFraction}
-                testId={`${testId}-bar`}
-              />
-            ) : null}
-
-            {/* ⭐⭐ THE RANGE THIS OPTION ACTUALLY PRODUCED.
-                The share above says how OFTEN this option came top. This says
-                how WIDE the outcome was when it did — and where two of these
-                overlap, the ordering the shares imply is not settled. Measured
-                on a real run: RudderStack p10 −0.163 / p90 0.211 against
-                Segment −0.235 / 0.188, printed as "56%" beside "36%".
-
-                ⚠ PRESENTATIONAL ONLY, AND IT MAKES NO CLAIM IN UNITS. No
-                number is printed from these percentiles: the goal target may be
-                in currency, a count or a normalised scale, and this section
-                does not know which. The bar says WHERE and HOW WIDE relative to
-                the other options, which is exactly what the reader needs to see
-                an overlap, and nothing more. */}
-            {o.kind === 'analysed' && o.outcomeRange != null && rangeScale !== null ? (
+                ⚠ PRESENTATIONAL ONLY, AND IT MAKES NO CLAIM IN UNITS. No number
+                is printed from these percentiles: the outcome may be in
+                currency, a count or a normalised scale, and the view model
+                carries no unit for it. The band says WHERE and HOW WIDE
+                relative to the other options, and nothing more. */}
+            {lens === 'outcome' &&
+            o.kind === 'analysed' &&
+            o.outcomeRange != null &&
+            rangeScale !== null ? (
               (() => {
-                // ⭐ THE ONLY ARITHMETIC THAT STAYS HERE: turning this option's
-                // percentiles into positions on the SHARED domain. `PanelFigure`
-                // is handed fractions and never sees a p10 — which is what keeps
-                // its "claims nothing in units" rule true by construction rather
-                // than by every call site remembering it.
+                // The only arithmetic here: this option's percentiles as
+                // positions on the SHARED domain. `PanelFigure` is handed
+                // fractions and never sees a p10.
                 const toFraction = (v: number) => (v - rangeScale.lo) / rangeScale.span
                 const markAt =
                   rangeAppetite === 'cautious'
@@ -851,39 +781,21 @@ export function OptionsComparison({
               })()
             ) : null}
 
-            {/* ⭐⭐ THE OTHER QUESTION — "does this reach the target I set?"
-                — AND IT IS NOT A RE-CUT OF THE SHARE ABOVE.
-
-                The bar above is comparative: the share of simulated futures in
-                which this option out-ranked the others. Those shares partition
-                the runs and sum to 1. This one is absolute and per-option — the
+            {/* ⭐⭐ GOAL FIT: "does this reach the target I set?" — the
                 probability THIS option reaches the user's own target, computed
-                independently for each — so they do not sum to anything and an
-                option can be behind on one and ahead on the other. That is the
-                whole reason it is worth drawing: it is the question the person
-                actually asked, and the panel has had the number all along and
-                spent it only on choosing a sentence.
+                independently per option, so the figures do not sum to anything
+                and rank nothing against anything.
 
-                ⛔ NOT STACKED, AND NOT A SEGMENT OF THE BAR ABOVE. `WinGauge`'s
-                header states the same rule from the other side: a stacked bar
-                is an honest picture of a distribution that partitions, and a
-                dishonest one of independent per-option probabilities. Separate
-                track, separate row, same width scale.
-
-                ⚠ EVERY GATE IS THE VIEW MODEL'S. Absent here means one of four
-                real states — no user target (UI-SEM-071), the producer withheld
-                or omitted this option's figure, the figure is a substituted
-                joint one, or any analysed option lacks one (the complete-field
-                rule). This component asks only whether there is a figure.
-
-                ⚠ AND IT IS NOT GATED ON `mayDrawMagnitude`. That licence is
-                about putting a COMPARATIVE magnitude on screen — the thing a
-                withheld leader claim withholds. A per-option probability of
-                reaching the user's own target ranks nothing against anything,
-                so the licence it would need is a different one, and the run
-                that withholds a ranking has not withheld this. */}
-            {o.kind === 'analysed' && o.goalReadout !== null && o.goalFraction !== null ? (
-              <div className="mt-2">
+                ⚠ EVERY GATE IS THE VIEW MODEL'S. Absent here means no user
+                target (UI-SEM-071), the producer withheld or omitted a figure,
+                the figure is a substituted joint one, or any analysed option
+                lacks one (the complete-field rule). This component asks only
+                whether there is a figure. */}
+            {lens === 'goal' &&
+            o.kind === 'analysed' &&
+            o.goalReadout !== null &&
+            o.goalFraction !== null ? (
+              <div className="mt-1">
                 <div className="flex items-baseline gap-2">
                   <span
                     className={`${typography.panelMeta} text-text-light min-w-0 flex-1`}
@@ -904,13 +816,9 @@ export function OptionsComparison({
                   fraction={o.goalFraction}
                   testId={`${testId}-goal-bar`}
                 />
-                {/* Display-honesty (ROADMAP 1.6b / PLoT #204): the figure is
-                    scored from a modelled forward-propagated outcome
-                    distribution rather than a directly-set starting value, and
-                    the estate's rule is that the caveat renders ADJACENT to the
-                    number it qualifies, never separately. The shared constant,
-                    never a re-wording of it — `OptionCards`, the analysis-hero
-                    detail line and the canvas goal badge all import this one. */}
+                {/* Display-honesty (ROADMAP 1.6b / PLoT #204): the caveat
+                    renders ADJACENT to the number it qualifies, never
+                    separately. The shared constant, never a re-wording of it. */}
                 {o.goalBasisIsModelled ? (
                   <p
                     className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
@@ -923,37 +831,11 @@ export function OptionsComparison({
             ) : null}
 
             {/* ⭐⭐ WHOSE IDEA THIS OPTION WAS — ON EVERY ROW, NOT JUST THE
-                LEADER'S.
-
-                The measured defect: the product invented a hybrid option the
-                user never named, it ranked THIRD of four, and nothing on the
-                surface marked it as ours. The glance carries this sentence for
-                the LEADING option only, and on that run the leader was the
-                user's own — so the one honest channel correctly said nothing,
-                and the invention two rows down went unremarked.
-
-                ⛔ IT NEVER SUPPRESSES, RE-RANKS OR RE-WORDS ANYTHING. It adds a
-                line under a name that is on screen regardless. Olumi inventing
-                options is the product working — 10 syntheses, 3 status-quo
-                baselines and 2 novel moves across the measured corpus — and the
-                defect was the silence about it, not the invention.
-
-                ⚠ SILENT UNLESS THE CLAIM IS WARRANTED, and `null` is the common
-                answer: the user's own option, CEE's ambiguous
-                `ai_inferred`-with-a-quote case, an unstamped node, and any host
-                that passes no origin map all render nothing. There is no
-                fallback wording, because every other wording attributes the
-                idea to somebody.
-
-                ⚠ THE SAME COPY CONSTANT THE GLANCE RENDERS, not a second
-                phrasing of one fact — two wordings of one claim on one screen
-                is how a reader learns to distrust both. */}
+                LEADER'S. Silent unless the claim is warranted; the same copy
+                constant the glance renders. */}
             {o.origin !== null && !(sharedOrigin !== null && o.origin === sharedOrigin) ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
-                /* BOUND BY THIS ROW'S OWN ID. A shared testid would let a spec
-                   find another option's sentence and pass — the trap-19 defect
-                   this disclosure exists to correct, reproduced in its guard. */
                 data-testid={`${testId}-option-origin-${o.id}`}
                 data-option-origin={o.origin}
               >
@@ -961,11 +843,7 @@ export function OptionsComparison({
               </p>
             ) : null}
 
-            {/* ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION, VERBATIM.
-                `story_headlines[optionId]` carries one for NON-LEADING options
-                too, which is exactly the material this section existed to be
-                missing: without it a reader learns that RudderStack scored 6%
-                and nothing about why. Nothing here is composed — if the
+            {/* ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION, VERBATIM. If the
                 producer sent no sentence, none is shown. */}
             {o.kind === 'analysed' && o.why !== null ? (
               <p
@@ -976,11 +854,7 @@ export function OptionsComparison({
               </p>
             ) : null}
 
-            {/* WHY there is no number. The sanctioned sentence, verbatim — it
-                states the consequence ("no rank and no probability") rather
-                than leaving the reader to infer it from an empty row. A row
-                that silently omits numbers reads as a rendering gap; a row that
-                says why reads as a decision. */}
+            {/* WHY there is no number. The sanctioned sentence, verbatim. */}
             {o.kind === 'not_analysed' ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
@@ -992,32 +866,15 @@ export function OptionsComparison({
 
             {/* ⭐ THE ACT — and it ASKS. It sends a question naming this option
                 and the run's own stated ground for leaving it out, and that is
-                ALL it does: no add, no value change, no re-run. The adjacent
-                receipt's `addAction` records why (15 arms over 5 rounds against
-                the live CEE router: every add phrasing refused, every ask
-                phrasing answered), and the acceptance condition for an add is
-                knowledge this surface does not have. Whatever the user does
-                with the answer is a later turn through the existing writers.
-                Two honest steps beat one false promise.
-
-                ⛔ NOT ON `not_computed`. That option WAS in the comparison and
-                the computation failed, so there is nothing to bring in and the
-                question would misdescribe the run (CLAUDE.md trap 21 — the two
-                numberless rows are not two spellings of one state).
-
-                ⚠ GATED ON THE WRITER, so a host with no composer renders
-                nothing rather than a control that cannot act. */}
+                ALL it does. ⛔ NOT ON `not_computed` (trap 21). ⚠ GATED ON THE
+                WRITER, so a host with no composer renders nothing. */}
             {o.kind === 'not_analysed' && onSendMessage ? (
               <button
                 type="button"
                 data-testid={`${testId}-bring-in-${o.id}`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  /* BOUND BY IDENTITY. The question is composed from THIS row's
-                     own label and THIS row's own ground, both carried on the
-                     row object — never read back off the rendered sentence and
-                     never looked up by label, which another option could
-                     share. */
+                  // BOUND BY IDENTITY: this row's own label and ground.
                   onSendMessage(bringIntoComparisonQuestion(o.label, o.reason))
                 }}
                 className={`${typography.panelMeta} mt-1 inline-flex items-center ${action('inline')}`}
@@ -1027,12 +884,8 @@ export function OptionsComparison({
             ) : null}
 
             {/* WHY the computation produced no number, as opposed to why the
-                option was left out. A DISTINCT testid so a spec cannot pass by
-                finding the other state's sentence, and so the two can never be
-                asserted interchangeably. The copy is resolved in the view model
-                (`notComputedReasonCopy`) and rendered verbatim — including the
-                clause that says this is not a verdict on the option, which is
-                the whole reason the state exists as its own row. */}
+                option was left out. A DISTINCT testid so the two can never be
+                asserted interchangeably. */}
             {o.kind === 'not_computed' ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
@@ -1040,6 +893,39 @@ export function OptionsComparison({
               >
                 {o.reasonCopy}
               </p>
+            ) : null}
+
+            {/* ⭐ THE ROW'S ACTIONS, INLINE, AT MOST THREE. Each renders only
+                where the host supplied its handler, and each is named with the
+                option it acts on so three rows' buttons are never three
+                identical names. */}
+            {rowActionsEnabled && actionsOpenFor === o.id ? (
+              <PanelActRow className="mt-1" testId={`${testId}-row-actions-${o.id}`}>
+                {onInspectOption ? (
+                  <PanelIconButton
+                    Icon={Search}
+                    label={LENS_COPY.inspectInModel(o.label)}
+                    onClick={() => onInspectOption(o.id)}
+                    testId={`${testId}-inspect-${o.id}`}
+                  />
+                ) : null}
+                {onFocusOption ? (
+                  <PanelIconButton
+                    Icon={Crosshair}
+                    label={LENS_COPY.focusOnCanvas(o.label)}
+                    onClick={() => onFocusOption(o.id)}
+                    testId={`${testId}-canvas-${o.id}`}
+                  />
+                ) : null}
+                {onAskAboutOption ? (
+                  <PanelIconButton
+                    ai
+                    label={LENS_COPY.askOlumi(o.label)}
+                    onClick={() => onAskAboutOption(o.id, o.label)}
+                    testId={`${testId}-ask-${o.id}`}
+                  />
+                ) : null}
+              </PanelActRow>
             ) : null}
           </li>
         ))}
@@ -1055,8 +941,7 @@ export function OptionsComparison({
       </ul>
 
       {/* ⭐ THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
-          constant the rows used and the glance renders — not a second phrasing
-          of one fact, which is how a reader learns to distrust both. */}
+          constant the rows used and the glance renders. */}
       {sharedOrigin !== null ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-center gap-1`}
@@ -1068,118 +953,98 @@ export function OptionsComparison({
         </p>
       ) : null}
 
-      {/* ⭐⭐ THE SENTENCE THE BARS EXIST FOR.
-          Without it the ranges are decoration; with it they are an argument.
-          "Where ranges overlap, treat the order as unsettled" is the one line
-          on this section that tells a reader when NOT to trust the ordering the
-          percentages above imply — which is the difference between a tool that
-          ranks options and a tool that improves reasoning.
+      {/* ⭐⭐ THE AXIS, AND THE SENTENCE THE RANGES EXIST FOR, BEHIND ITS INFO
+          BUTTON (V2). "Where ranges overlap, treat the order as unsettled" is
+          the one line that tells a reader when NOT to trust the order; it is
+          now the info button's accessible name and tooltip, and its click
+          discloses the same sentence inline (a tooltip alone does not reach a
+          touch reader) together with the range-arm control.
 
-          ⚠ Rendered only alongside the bars it describes. A legend for
-          something not on screen is furniture, the defect this panel has
-          adjudicated out twice (the empty zone label, "Nothing addressed yet").
+          ⚠ THE NAME IS A FUNCTION OF THE ARM, because the sentence names the
+          percentile the dot marks. The arm persists while the disclosure is
+          closed, so the name must follow it or it would name p50 over a p90 dot.
 
-          ⚠ It describes the DRAWING, not the numbers. No units are claimed,
-          because this section does not know the goal's units — see the bar. */}
-      {/* ⭐⭐ THE CONTROL AND ITS LEGEND SHARE ONE GATE, because they describe
-          the same drawing. `rangeScale === null` means fewer than two rows carry
-          a range, or the domain has no width — in both states there are no dots
-          to read, so an arm control would offer three views of nothing. That is
-          the 2.238 defect in its general form: an affordance live while the view
-          it governs is unavailable. Absent, never disabled, never defaulted. */}
-      {rangeScale !== null ? (
-        <div className="mt-1 flex items-center gap-1 flex-wrap">
-          <span
-            id={`${rangeLensId}-label`}
-            className={`${typography.panelMeta} text-text-light mr-1`}
-          >
-            {COPY.optionFigures.rangeLensLabel}
-          </span>
-          {/* ⚠⚠ THE ARROW KEYS ARE IMPLEMENTED, NOT ASSUMED. `role="radio"` is a
-              PROMISE to a screen-reader user about how the control behaves; ARIA
-              supplies the announcement and none of the behaviour. A radiogroup
-              without roving tabindex and arrow traversal tells an assistive-tech
-              user to press the arrow keys and then ignores them — a control that
-              announces an affordance it does not have, which is the same defect
-              class this section already polices in its figures.
-
-              ⚠ ONE TAB STOP, WHICH IS THE OTHER HALF OF THE PATTERN. Three
-              separately-tabbable arms would make a keyboard user traverse the
-              lens to reach the rows; the selected arm holds the only `tabIndex`
-              of 0, exactly as a native radio group does.
-
-              ⚠ 24px MINIMUM. The panel carries a measured finding that 7 of 17
-              interactive targets were under WCAG 2.2 AA's 24×24; a new control
-              arriving under it would re-open a defect this lane is mid-way
-              through closing. */}
-          <div
-            role="radiogroup"
-            aria-labelledby={`${rangeLensId}-label`}
-            className="flex items-center gap-1"
-            data-testid={`${testId}-range-lens`}
-          >
-            {RANGE_LENS_ARMS.map((arm, i) => {
-              const selected = rangeAppetite === arm
-              return (
-                <button
-                  key={arm}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => setRangeAppetite(arm)}
-                  onKeyDown={(e) => {
-                    const step =
-                      e.key === 'ArrowRight' || e.key === 'ArrowDown'
-                        ? 1
-                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
-                          ? -1
-                          : 0
-                    if (step === 0) return
-                    e.preventDefault()
-                    // Wraps, as a native radio group does.
-                    const next =
-                      RANGE_LENS_ARMS[
-                        (i + step + RANGE_LENS_ARMS.length) % RANGE_LENS_ARMS.length
-                      ]
-                    setRangeAppetite(next)
-                    // Selection FOLLOWS focus here, so focus must follow with
-                    // it — otherwise the arm a screen reader announces and the
-                    // arm the group considers current diverge after one press.
-                    e.currentTarget.parentElement
-                      ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
-                      ?.focus()
-                  }}
-                  /* ⛔ THE TIER OWNS THE TOUCH TARGET. My first version spelled
-                     `min-h-[24px] … inline-flex items-center` out here, which is
-                     the exact arrangement `everyInlineActIsReachableByTouch`
-                     bans: *"if a later call site hand-rolls its own touch
-                     target, the tier is no longer the single owner and the next
-                     one added will miss it again."* That is how the 133×15
-                     review-estimates control happened, in this same directory.
-                     `no-underline` because an underline is `quiet`'s emphasis
-                     for a text link and reads wrong on a segmented control —
-                     the same override the Strengthen row toggle uses. */
-                  className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
-                  }`}
-                  data-arm={arm}
-                  data-testid={`${testId}-range-lens-${arm}`}
-                >
-                  {COPY.optionFigures.rangeLensArms[arm]}
-                </button>
-              )
-            })}
-          </div>
+          ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn: a
+          legend for something not on screen is furniture. */}
+      {lens === 'outcome' && rangeScale !== null ? (
+        <div className="mt-1 flex items-center justify-end" data-testid={`${testId}-axis`}>
+          <PanelIconButton
+            Icon={Info}
+            label={COPY.optionFigures.rangeLegend(rangeAppetite)}
+            expanded={rangeInfoOpen}
+            onClick={() => setRangeInfoOpen((open) => !open)}
+            testId={`${testId}-range-info`}
+          />
         </div>
       ) : null}
-      {rangeScale !== null ? (
-        <p
-          className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-          data-testid={`${testId}-outcome-range-legend`}
-        >
-          {COPY.optionFigures.rangeLegend(rangeAppetite)}
-        </p>
+      {lens === 'outcome' && rangeScale !== null && rangeInfoOpen ? (
+        <div data-testid={`${testId}-range-detail`}>
+          <p
+            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+            data-testid={`${testId}-outcome-range-legend`}
+          >
+            {COPY.optionFigures.rangeLegend(rangeAppetite)}
+          </p>
+          <div className="mt-1 flex items-center gap-1 flex-wrap">
+            <span
+              id={`${rangeLensId}-label`}
+              className={`${typography.panelMeta} text-text-light mr-1`}
+            >
+              {COPY.optionFigures.rangeLensLabel}
+            </span>
+            {/* ⚠⚠ THE ARROW KEYS ARE IMPLEMENTED, NOT ASSUMED. `role="radio"`
+                is a PROMISE to a screen-reader user; ARIA supplies the
+                announcement and none of the behaviour. One tab stop, on the
+                selected arm. The tier owns the 24px touch target. */}
+            <div
+              role="radiogroup"
+              aria-labelledby={`${rangeLensId}-label`}
+              className="flex items-center gap-1"
+              data-testid={`${testId}-range-lens`}
+            >
+              {RANGE_LENS_ARMS.map((arm, i) => {
+                const selected = rangeAppetite === arm
+                return (
+                  <button
+                    key={arm}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => setRangeAppetite(arm)}
+                    onKeyDown={(e) => {
+                      const step =
+                        e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                          ? 1
+                          : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                            ? -1
+                            : 0
+                      if (step === 0) return
+                      e.preventDefault()
+                      // Wraps, as a native radio group does.
+                      const next =
+                        RANGE_LENS_ARMS[
+                          (i + step + RANGE_LENS_ARMS.length) % RANGE_LENS_ARMS.length
+                        ]
+                      setRangeAppetite(next)
+                      // Selection FOLLOWS focus, so focus must follow with it.
+                      e.currentTarget.parentElement
+                        ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
+                        ?.focus()
+                    }}
+                    className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                      selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                    }`}
+                    data-arm={arm}
+                    data-testid={`${testId}-range-lens-${arm}`}
+                  >
+                    {COPY.optionFigures.rangeLensArms[arm]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       ) : null}
     </SectionShell>
   )

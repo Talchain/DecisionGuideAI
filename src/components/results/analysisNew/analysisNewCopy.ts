@@ -1694,6 +1694,13 @@ export const ANALYSIS_NEW_COPY = {
       optimistic: 'High end',
     },
     partitionCaption: 'In this model, every simulated scenario is accounted for above.',
+    /**
+     * Above the shares when the leader was withheld because the user's limits
+     * could not be checked (RC 5803875794 P0 #3). The shares are computed on
+     * the goal outcome alone; this says so, and claims nothing about which
+     * limit or why. Same words as Canvas's option-card qualifier (#63 5804041993).
+     */
+    goalOnlyQualifier: "Goal only: your limits aren't in these shares.",
   },
   modelStrip: {
     /**

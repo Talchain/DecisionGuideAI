@@ -3520,6 +3520,10 @@ function buildChecks(
      * So the fact gets its own field, from the same gate.
      */
     leaderWithheld: leaderCode === 'leader_not_assessed',
+    sharesExcludeLimits:
+      leaderCode === 'leader_not_assessed' &&
+      typeof producerWithholdReason === 'string' &&
+      producerWithholdReason.trim() === 'constraint_verdict_withheld',
     /**
      * ⭐⭐⭐ A DIFFERENT QUESTION AGAIN: WOULD RUNNING IT AGAIN CHANGE THIS?
      *
@@ -3811,7 +3815,7 @@ export function buildAnalysisNewViewModel(
         // distinction matters downstream — the glance ribbon uses this to
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
-        { items: [], leaderWithholdCause: null, leaderWithheld: false, rerunWouldNotHelp: false }
+        { items: [], leaderWithholdCause: null, leaderWithheld: false, sharesExcludeLimits: false, rerunWouldNotHelp: false }
       : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }

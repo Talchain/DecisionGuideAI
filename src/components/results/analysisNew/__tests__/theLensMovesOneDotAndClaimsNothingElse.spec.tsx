@@ -153,6 +153,13 @@ function renderFor(allOptions: OptionResult[]) {
   })
   const utils = render(<OptionsComparison options={vm.optionsComparison} />)
   fireEvent.click(screen.getByTestId(`${TESTID}-toggle`))
+  // ⚠ V2 (24 Sep 2026): THE ARM CONTROL AND ITS LEGEND LEFT THE RESTING VIEW.
+  // They sit behind the range info button beside the axis, so opening that
+  // disclosure is now part of arranging the state, exactly as opening the
+  // section is. Opened only where the button exists: on the rangeless run it is
+  // absent by the same gate as the arms, and property 3 asserts that absence.
+  const info = screen.queryByTestId(`${TESTID}-range-info`)
+  if (info !== null) fireEvent.click(info)
   return { vm, ...utils }
 }
 

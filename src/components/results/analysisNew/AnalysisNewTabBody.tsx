@@ -1253,6 +1253,7 @@ export function AnalysisNewTabBody({
       <OptionsComparison
         options={vm.optionsComparison}
         leaderWithholdCause={vm.checks.leaderWithholdCause}
+        sharesExcludeLimits={vm.checks.sharesExcludeLimits}
         /* The SAME writer this body already hands `WhatIWasGivenSection` for
            its own ask (:1253). One composer, one validation, one policy — a
            second route to the chat would be a second thing to keep honest. */
