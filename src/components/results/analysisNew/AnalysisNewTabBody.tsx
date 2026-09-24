@@ -55,6 +55,9 @@ import { distinctDriverSubjects } from './driverSubjectCount'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewTypes'
+
+/** Stable empty list, so a withheld run does not hand the memo a new array per render. */
+const NO_FINDINGS: AnalysisNewFinding[] = []
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
 import { buildModelStrip, stripHasContent, stripRendersTargetAffordance } from './buildModelStrip'
@@ -901,6 +904,17 @@ export function AnalysisNewTabBody({
    * Both inputs are the view model's own lists, passed rather than re-selected:
    * this surface never mints a recommendation or a driver.
    */
+  /**
+   * ⛔ ONE LICENCE-GATED LIST FOR "WHAT WOULD CHANGE YOUR MIND", READ BY EVERY
+   * SURFACE THAT SHOWS ITS ROWS. Every row is a fragile edge whose weakening
+   * switches the recommended option, so on a run whose leader is withheld none
+   * of it may be said. Gating only the section left the Model strip pointing at
+   * it: independent review 5811790177 picked the edge's source node on a
+   * withheld run and read "Also in What would change your mind: … could lead".
+   * The section, its caption and the strip's mentions all read THIS list.
+   */
+  const sensitivityFindings = vm.leaderClaimPermitted ? vm.sensitivity.findings : NO_FINDINGS
+
   const nodeInsights = useMemo(
     () =>
       buildNodeInsights({
@@ -937,7 +951,7 @@ export function AnalysisNewTabBody({
          * A pointer list in DOM order is walkable; an arbitrary one is not.
          */
         mentionSections: mentionSectionsFrom({
-          sensitivity: vm.sensitivity.findings,
+          sensitivity: sensitivityFindings,
           keyInsights: vm.keyInsights.insights,
           drivers: vm.drivers.findings,
           uncertainty: vm.uncertainty.findings,
@@ -950,7 +964,7 @@ export function AnalysisNewTabBody({
     [
       vm.strengthen.interventions,
       vm.atAGlance.drivers,
-      vm.sensitivity.findings,
+      sensitivityFindings,
       vm.keyInsights.insights,
       vm.drivers.findings,
       vm.uncertainty.findings,
@@ -2305,11 +2319,38 @@ export function AnalysisNewTabBody({
 
             ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
             carries them. A reader meeting one sentence in two sections is a
-            defect this panel has already shipped. */}
+            defect this panel has already shipped.
 
+            ⛔⛔ LEADER-GATED AS A WHOLE — 24 Sep 2026, witnessed live (UI
+            `3cf9fbd0`, OpenAI path, scenario `aca54686`). With `leader_claim
+            {permitted: false, producer_cause: 'constraint_verdict_withheld'}`
+            this section still read: *Bars show how often a different option
+            was stronger in the runs where that assumption came out weak. /
+            Enterprise price → MRR / If this changes significantly, "Raise Pro
+            to £59" could lead in this model / 24%*. "Could lead" and "a
+            different option was stronger" both presuppose a current leader —
+            the order this run refused to state. #1933 withheld the glance's
+            "Could change if" and the hinge line for exactly that; the header
+            above was already gated on `leaderClaimPermitted`. The rows were the
+            one place left saying it.
+
+            ⚠ THE WHOLE SECTION, NOT THE SENTENCE, AND THAT IS NOT CAUTION FOR
+            ITS OWN SAKE. Every row here is a fragile edge — a relationship
+            whose weakening SWITCHES THE RECOMMENDED OPTION (`switch_probability`
+            is defined that way), so the row, its bar and the caption are all
+            statements about a leader. Blanking `implication` alone would not
+            hold: on a set whose rows cannot be titled, the row's HEADLINE is
+            that same sentence, cut, alternative included. And the header is
+            already empty on this run, so what would remain is a heading over
+            relationship names whose only meaning is the withheld comparison.
+            The rule is the same one `sensitivityHeaderTips` follows, one level
+            up: no leader licence, nothing that speaks relative to a leader —
+            and no heading left over nothing. */}
+
+        {vm.leaderClaimPermitted ? (
         <AnalysisNewSection
           title={COPY.sections.sensitivity}
-          findings={vm.sensitivity.findings}
+          findings={sensitivityFindings}
           /* ⭐⭐ THE SHARED CONCLUSION, SAID ONCE, ABOVE THE ROWS THAT SAY IT
              THREE TIMES.
 
@@ -2374,7 +2415,7 @@ export function AnalysisNewTabBody({
              furniture describing nothing, which is the same defect as the
              per-row label it replaces, one level up. */
           caveat={
-            vm.sensitivity.findings.some((f) => f.flipFraction !== undefined)
+            sensitivityFindings.some((f) => f.flipFraction !== undefined)
               ? COPY.disclosure.flipCaption
               : null
           }
@@ -2387,6 +2428,7 @@ export function AnalysisNewTabBody({
           icon={GitBranch}
           testId="analysis-new-sensitivity"
         />
+        ) : null}
         </>
         )}
         </div>

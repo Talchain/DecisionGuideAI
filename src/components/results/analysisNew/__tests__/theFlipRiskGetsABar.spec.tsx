@@ -43,7 +43,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { manyFragileEdges } from './analysisNewFixtures'
+import { manyFragileEdges, withLeaderLicensed } from './analysisNewFixtures'
 
 /**
  * V2 RE-POINT (Reasoning V2, 24 Sep 2026). "What would change your mind" moved
@@ -85,7 +85,9 @@ const renderBody = (data: ResultsSectionDataReturn) => {
  * descending.
  */
 const withFlips = (probs: ReadonlyArray<number | undefined>): ResultsSectionDataReturn => {
-  const data = manyFragileEdges()
+  // ⚠ LICENSED (24 Sep 2026): the section mounts only on a run allowed to name
+  // a leader, and this spec's subject is the bar, not the licence.
+  const data = withLeaderLicensed(manyFragileEdges())
   const rows = data.confidence.uncertainties.filter((u) => u.code === 'SENSITIVE_ASSUMPTION')
   expect(rows.length, 'precondition: the fixture emits fragile-edge rows').toBeGreaterThanOrEqual(probs.length)
   let i = 0

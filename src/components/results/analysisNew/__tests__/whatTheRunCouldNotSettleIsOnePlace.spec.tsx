@@ -41,7 +41,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { openGroups } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
-import { manyFragileEdges } from './analysisNewFixtures'
+import { manyFragileEdges, withLeaderLicensed } from './analysisNewFixtures'
 
 const precedes = (a: Element, b: Element) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -70,7 +70,9 @@ const CHECK_ROWS = ['evidence', 'robustness', 'leader'] as const
 const renderStale = () =>
   render(
     <AnalysisNewTabBody
-      resultsSectionData={manyFragileEdges()}
+      // LICENSED (24 Sep 2026): "What would change your mind" is one of the
+      // blocks this file places, and it mounts only on a licensed run.
+      resultsSectionData={withLeaderLicensed(manyFragileEdges())}
       isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
     />,
   )

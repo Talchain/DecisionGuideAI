@@ -27,7 +27,12 @@ import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { genuineDecision, manyFragileEdges, openStrategicChallenge } from './analysisNewFixtures'
+import {
+  genuineDecision,
+  manyFragileEdges,
+  openStrategicChallenge,
+  withLeaderLicensed,
+} from './analysisNewFixtures'
 import { openGroups } from './openNamedGroups'
 
 const SECTIONS = [
@@ -66,7 +71,10 @@ afterEach(() => cleanup())
 
 describe('the surface below the glance is a list of collapsed rows', () => {
   it('mounts every section CLOSED, with its content unmounted rather than hidden', () => {
-    renderBody(manyFragileEdges())
+    // ⚠ LICENSED (24 Sep 2026): "What would change your mind" mounts only on a
+    // run allowed to name a leader; unlicensed, it would drop out of `present`
+    // and this rule would stop covering it.
+    renderBody(withLeaderLicensed(manyFragileEdges()))
     openGroups()
     const present = SECTIONS.filter((id) => screen.queryByTestId(id))
     // POSITIVE CONTROL: a run rendering no sections would satisfy the loop
@@ -123,7 +131,9 @@ describe('the surface below the glance is a list of collapsed rows', () => {
   })
 
   it('states the count on the CLOSED row, so the row promises what is behind it', () => {
-    renderBody(manyFragileEdges())
+    // LICENSED for the same reason as the first case: the sensitivity row's
+    // count is half of this claim.
+    renderBody(withLeaderLicensed(manyFragileEdges()))
     openGroups()
     const count = screen.getByTestId('analysis-new-uncertainty-count')
     expect(count).toBeInTheDocument()
