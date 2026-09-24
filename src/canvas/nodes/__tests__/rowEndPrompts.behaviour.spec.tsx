@@ -57,21 +57,22 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('a click PRE-FILLS the question; it never sends and never mutates', () => {
-  it('⭐ the risk prompt pre-fills exactly its composed question, and sends nothing', () => {
+describe('a click asks the tier question (served send path; prefill held back) and never mutates', () => {
+  // ⚠ HELD BACK (24 Sep, #1926): prefill-and-confirm returns with the fix for
+  // requestAsk from a minimised Olumi panel. Until then the door sends, exactly
+  // as its sibling GhostOptionNode does.
+  it('⭐ the risk prompt asks exactly its composed question', () => {
     const asks = captureAsks()
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.click(screen.getByRole('button', { name: RISK.label }))
-    expect(asks.prefilled).toEqual([RISK_PROMPT])
-    expect(asks.sent, 'the prompt sent a message on the user\'s behalf').toEqual([])
+    expect(asks.sent).toEqual([RISK_PROMPT])
   })
 
   it('…and by keyboard, the same way', () => {
     const asks = captureAsks()
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.keyDown(screen.getByRole('button', { name: RISK.label }), { key: 'Enter' })
-    expect(asks.prefilled).toEqual([RISK_PROMPT])
-    expect(asks.sent).toEqual([])
+    expect(asks.sent).toEqual([RISK_PROMPT])
   })
 
   it('⛔ a click leaves the model untouched — no node, no edge', () => {
