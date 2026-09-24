@@ -97,6 +97,12 @@ export default defineConfig({
       PLOT_API_URL: UNREACHABLE, ASSIST_BFF_URL: UNREACHABLE,
       VITE_SUPABASE_URL: 'http://localhost:54321', VITE_SUPABASE_ANON_KEY: 'test_anon_key',
       VITE_FEATURE_SSE: '0', TZ: 'UTC',
+      // SAME-ORIGIN V5 endpoint, so the app's own `useConversation` can send a
+      // turn at all (`v5Adapter.resolveEndpoint` throws when it is unset). Vite
+      // has no `/proxy` route: a turn a spec does NOT route-fulfil comes back as
+      // SPA HTML and fails to parse — it can never reach a model. Added for the
+      // #1973 Run-chip witness; the other specs here send no turn through the hook.
+      VITE_V5_ENDPOINT: '/proxy/v5/turn',
     },
   },
 })
