@@ -47,8 +47,9 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { useStrengthenStore, recordKey } from '../../../../canvas/stores/strengthenStore'
 import { useCanvasStore } from '../../../../canvas/store'
 import { PanelIconButton } from '../PanelIconButton'
-import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
+import { PanelActRow } from '../PanelActRow'
 import { action } from '../panelSurfaces'
+import { useFindingDissent } from '../useFindingDissent'
 
 export interface ChallengeCardProps {
   /** The body's `glancePrimary` — `vm.strengthen.interventions`' pick. */
@@ -108,6 +109,7 @@ export function ChallengeCard({
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
   const seedIfAbsent = useStrengthenStore((st) => st.seedIfAbsent)
   const scenarioId = useCanvasStore((st) => st.currentScenarioId)
+  const dissent = useFindingDissent()
 
   const shown = resolveShown(intervention, methodId)
 
@@ -124,6 +126,8 @@ export function ChallengeCard({
 
   const menuOpen = shown !== null && menuFor === shown.key
   const basisOpen = shown !== null && shown.kind === 'intervention' && basisFor === shown.key
+  const disputeOpen = shown !== null && shown.kind === 'intervention' && dissent.openId === shown.rec.id
+  const standingDispute = shown !== null && shown.kind === 'intervention' ? dissent.standing(shown.rec) : undefined
 
   useEffect(() => {
     if (!menuOpen) return
@@ -248,20 +252,18 @@ export function ChallengeCard({
                   >
                     {ZONE.whyThis}
                   </button>
-                  {onDisagree ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuFor(null)
-                        onDisagree(shown.rec)
-                      }}
-                      className={`${typography.panelBody} w-full px-3 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                      data-testid={`${testId}-disagree`}
-                    >
-                      {REVIEW_TOOL_COPY.disagree}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuFor(null)
+                      dissent.open(shown.rec, analysisHash)
+                    }}
+                    className={`${typography.panelBody} w-full px-3 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    data-testid={`${testId}-disagree`}
+                  >
+                    {standingDispute ? COPY.dissent.edit : COPY.dissent.open}
+                  </button>
                   <button
                     type="button"
                     role="menuitem"
@@ -303,6 +305,88 @@ export function ChallengeCard({
             </p>
           ) : null}
         </div>
+      ) : null}
+      {/* "I disagree" (E18) — the SAME writer `StrengthenTheReasoning` already
+          ships: `strengthenStore.dispute` (session), `dissentStore.recordDissent`
+          (durable) and the `finding_dissent` system event, ported by
+          `useFindingDissent`. See that hook's docblock for the documented
+          product-decision tension this PR surfaces rather than resolves. */}
+      {disputeOpen && shown.kind === 'intervention' ? (
+        <form
+          className="mt-1.5"
+          data-testid={`${testId}-disagree-form`}
+          onSubmit={(e) => {
+            e.preventDefault()
+            dissent.commit(shown.rec)
+          }}
+        >
+          <label
+            className={`${typography.panelMeta} block text-text-light mb-1`}
+            htmlFor={`${testId}-disagree-input`}
+            data-testid={`${testId}-disagree-prompt`}
+          >
+            {dissent.willSend() ? COPY.dissent.promptSendsToOlumi : COPY.dissent.prompt}
+          </label>
+          <textarea
+            id={`${testId}-disagree-input`}
+            value={dissent.draft}
+            onChange={(e) => dissent.setDraft(e.target.value)}
+            rows={2}
+            className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel-hover px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid={`${testId}-disagree-input`}
+          />
+          {dissent.saveError ? (
+            <p
+              role="alert"
+              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+              data-testid={`${testId}-disagree-save-error`}
+            >
+              {dissent.saveError}
+            </p>
+          ) : null}
+          <PanelActRow className="mt-1">
+            <button
+              type="submit"
+              className={`${typography.panelMeta} ${action('inline')}`}
+              data-testid={`${testId}-disagree-save`}
+            >
+              {COPY.dissent.save}
+            </button>
+            <button
+              type="button"
+              onClick={dissent.close}
+              className={`${typography.panelMeta} rounded text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-disagree-cancel`}
+            >
+              {COPY.dissent.cancel}
+            </button>
+            {/* Ruling c5806258826.md §3 / the map's own fix note: "the chat
+                route can stay as an option." Offered only when the host still
+                wires it — this PR does not touch what TB passes. */}
+            {onDisagree ? (
+              <button
+                type="button"
+                onClick={() => {
+                  dissent.close()
+                  onDisagree(shown.rec)
+                }}
+                className={`${typography.panelMeta} rounded text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid={`${testId}-disagree-chat-instead`}
+              >
+                {ZONE.discussInChat}
+              </button>
+            ) : null}
+          </PanelActRow>
+        </form>
+      ) : standingDispute ? (
+        <p
+          className={`${typography.panelBody} mt-1.5 mb-0 rounded border border-attention/40 bg-panel-hover px-2 py-1 text-text-body`}
+          data-testid={`${testId}-disagreement`}
+          data-recommendation-id={shown.kind === 'intervention' ? shown.rec.id : undefined}
+        >
+          <span className={`${typography.panelMeta} text-text-light`}>{COPY.dissent.standing}: </span>
+          {standingDispute}
+        </p>
       ) : null}
     </div>
   )

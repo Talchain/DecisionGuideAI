@@ -50,8 +50,14 @@
  * `rec.title`, verbatim, for every kind) and keeps the paragraph and its source
  * behind "Why this?" on the same card. The catalogue/producer split in the
  * first case below is RETIRED (X): V2 renders both kinds the same way.
- * ⛔ The second case ("every disagreement affordance survives") is NOT
- * re-pointed: V2 offers no "I disagree" anywhere on this tab (reported).
+ * ⭐ UPDATED 24 Sep 2026 (E18, ruling `c5806258826.md` §3: "keep `I disagree`
+ * available"). The line above was wrong the day after it was written: V2 DOES
+ * offer "I disagree" on this card, and it now opens the proper save path
+ * (`useFindingDissent`: `strengthenStore.dispute` + `dissentStore.
+ * recordDissent` + the `finding_dissent` system event) rather than jumping
+ * straight to a chat draft. The chat door stays reachable as a secondary
+ * option inside the composer, per the same ruling — this case now asserts
+ * both halves rather than only the one that used to exist.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -205,6 +211,13 @@ describe.each([
     expect(screen.getByTestId('analysis-new-challenge-why')).toBeInTheDocument()
     expect(screen.getByTestId('analysis-new-challenge-not-useful')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
+    // E18: "I disagree" now opens the proper save path on the card itself —
+    // nothing is sent to the drawer just by opening the composer.
+    expect(screen.getByTestId('analysis-new-challenge-disagree-form')).toBeInTheDocument()
+    expect(vi.mocked(openAskOlumi)).not.toHaveBeenCalled()
+    // The chat door survives as the ruling's "option" — TB still wires
+    // `onDisagree`, so the composer offers it.
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-chat-instead'))
     expect(vi.mocked(openAskOlumi)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(openAskOlumi).mock.calls[0][0].label).toBe(REVIEW_TOOL_COPY.disagree)
   })

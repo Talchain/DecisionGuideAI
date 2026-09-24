@@ -28,4 +28,11 @@ export const CHALLENGE_ZONE_COPY = {
   inspectInModel: 'Inspect in Model',
   /** Row act: opens the ask drawer about this row. */
   askAboutThis: 'Ask Olumi about this',
+  /**
+   * The dissent composer's secondary door (E18, ruling `c5806258826.md` §3:
+   * "the chat route can stay as an option"). Offered only when the host still
+   * wires `onDisagree`; Save above it is the primary act and writes a durable
+   * record regardless of whether this is ever clicked.
+   */
+  discussInChat: 'Discuss this in chat instead',
 } as const
