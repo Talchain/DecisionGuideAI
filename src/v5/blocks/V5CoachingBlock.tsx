@@ -294,8 +294,15 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
     `resolveFreshnessNotice` from the same mechanism module: the producer's
     verdict wins where it has said anything (stale/pending/failed); the derived
     verdict fills its silence and never overwrites its speech.
+
+    The card's run-turn provenance rides along: a `run_analysis` card is
+    current only for the run it was written about (the three-part rule in
+    `coachingCurrency.ts`); every other handler's verdict is unchanged.
   */
-  const currency = useCoachingCurrency(block.graph_hash_at_generation)
+  const currency = useCoachingCurrency(block.graph_hash_at_generation, {
+    sourceHandler: block.source_handler,
+    createdAt: block.created_at,
+  })
   const freshnessNotice = resolveFreshnessNotice(block.freshness, currency)
   /*
     ONE VERDICT, TWO CONSEQUENCES. When the card says its advice may no longer

@@ -28,6 +28,10 @@
  * it render-relevant (the derived staleness sentence): every adapter now
  * carries it VERBATIM when present, and its ABSENCE still never suppresses
  * the block — it costs the currency verdict (cannot-confirm), not the card.
+ * `source_handler` and `created_at` followed it out of that set for the
+ * COACHING adapter only, when the run-turn currency rule (a `run_analysis`
+ * card is current only for the run it was written about) made them
+ * render-relevant. Same terms: verbatim when present, never required.
  *
  * Validation-strictness choices:
  *   - `severity` (review_card) must be one of the 0.13.x enum values —
@@ -269,6 +273,17 @@ export function adaptTypedCoachingBlock(
   // compare unequal to everything and manufacture a permanent false "changed".
   const graphHashAtGeneration = nonEmptyString(raw.graph_hash_at_generation)
 
+  // ── Run-turn provenance (ADDITIVE; coaching only) ──────────────────────
+  // `source_handler` and `created_at` left the ignored-metadata set for THIS
+  // adapter when the run-turn currency rule made them render-relevant: a
+  // `run_analysis` card is current only while its `created_at` equals the
+  // current `run_state.computed_at` (coachingCurrency.ts). Carried verbatim,
+  // never parsed or normalised; absent / non-string / blank ⇒ omitted, and
+  // their absence NEVER suppresses the card — it costs the currency verdict
+  // (historical), not the card. The other Phase 3 adapters are unchanged.
+  const sourceHandler = nonEmptyString(raw.source_handler)
+  const createdAt = nonEmptyString(raw.created_at)
+
   return {
     type: 'v5_coaching',
     block_id: blockId,
@@ -291,6 +306,11 @@ export function adaptTypedCoachingBlock(
     ...(signalLine ? { signal: signalLine } : {}),
     ...(claimProvenance ? { dsk_claim_provenance: claimProvenance } : {}),
     ...(graphHashAtGeneration ? { graph_hash_at_generation: graphHashAtGeneration } : {}),
+    // Appended LAST so the pre-existing keys keep their order: stripping these
+    // two reproduces the previous adapter's output byte-for-byte
+    // (phase3TypedBlocks.currencyFields.spec.ts pins that over every capture).
+    ...(sourceHandler ? { source_handler: sourceHandler } : {}),
+    ...(createdAt ? { created_at: createdAt } : {}),
   }
 }
 
