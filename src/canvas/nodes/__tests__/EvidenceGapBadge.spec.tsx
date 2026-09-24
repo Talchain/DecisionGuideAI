@@ -1,6 +1,8 @@
 /**
  * EvidenceGapBadge unit tests
- * Verifies: rendering, accessible attributes, pointer-events-none, hover zone, no deps on store.
+ * Verifies: rendering, accessible attributes, pointer-events-none, hover zone.
+ * Since contract v3.1 pt 6 the badge reads ONE store slice, `lodRung` (rendered
+ * at `full` only); these render at the real store's default `full` rung.
  */
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'

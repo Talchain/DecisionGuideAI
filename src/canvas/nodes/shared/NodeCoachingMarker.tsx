@@ -56,6 +56,12 @@
  * single-owner FIVE-MEMBER contract (`BaseNode.tsx:1206-1240`); the two sources here
  * are mutually exclusive, so this slot renders at most one glyph and the contract
  * is unchanged. A sixth sibling was rejected on exactly that ground.
+ *
+ * ⭐ NORMAL ZOOM ONLY — contract v3.1 pt 6 (gap U6). The whole slot, producer
+ * AND structural, renders at the `full` rung and at no other, on the same gate
+ * as the rail's coaching icon (`selectRestingGlyphsShown`). At `quiet`/`line`
+ * the producer's item stays reachable through selection and the inspector
+ * (`InspectorGuidanceSection`), and the structural finding through its panel row.
  */
 
 import { useCallback, useMemo } from 'react'
@@ -69,6 +75,8 @@ import {
 import { typography } from '../../../styles/typography'
 import { openNodeInspector } from './openNodeInspector'
 import { NodeStructuralMarker } from './NodeStructuralMarker'
+import { useCanvasStore } from '../../store'
+import { selectRestingGlyphsShown } from './restingGlyphRung'
 
 interface NodeCoachingMarkerProps {
   /** The canvas node id this marker sits on. */
@@ -81,6 +89,8 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // be cached" loop (see InspectorGuidanceSection's identical note).
   const allItems = useGuidanceStore((s) => s.guidanceItems)
   const setActiveGuidanceItem = useGuidanceStore((s) => s.setActiveGuidanceItem)
+  // Contract v3.1 pt 6: no coaching glyph at the quiet/line rungs.
+  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
 
   // Producer-named targets only: an item counts iff its target_object names THIS
   // node. Identical filter to InspectorGuidanceSection so the marker and the
@@ -109,6 +119,10 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
     },
     [top, nodeId, setActiveGuidanceItem],
   )
+
+  // Contract v3.1 pt 6: at quiet/line neither source renders (hooks above stay
+  // unconditional). Checked BEFORE the precedence `if` below.
+  if (!shownAtThisRung) return null
 
   // No live item names this node → the slot falls through to the client-derived
   // channel, which self-gates and renders null unless THIS node is one the

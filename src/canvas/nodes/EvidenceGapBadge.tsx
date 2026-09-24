@@ -13,6 +13,12 @@
  * Post-analysis escalation (A.9): when the factor has high VoI, the badge
  * escalates visually (colour shift + pulse animation). The pulse respects
  * prefers-reduced-motion per DS v5 §7.6.
+ *
+ * ⭐ NORMAL ZOOM ONLY — contract v3.1 pt 6 (gap U6). This "?" was the corner
+ * marker on Paul's 65% screenshot: the one resting glyph still on the cards at
+ * the `quiet` rung after the coaching icon had left. Far zoom is "readable
+ * identity and a simple attention cue", so it renders at the `full` rung only
+ * (`selectRestingGlyphsShown`), the same gate as the coaching icon.
  */
 
 import { memo } from 'react'
@@ -22,6 +28,8 @@ import {
   CANVAS_CORNER_OFFSET_CLASSES,
 } from './shared/canvasGlyphScale'
 import { INVESTIGATION_VALUE_INVITATION } from '../domain/investigationValue'
+import { useCanvasStore } from '../store'
+import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 
 export type EvidenceGapEscalation = 'none' | 'warning' | 'critical'
 
@@ -176,6 +184,8 @@ export const EvidenceGapBadge = memo(function EvidenceGapBadge({
   label,
   escalation = 'none',
 }: EvidenceGapBadgeProps) {
+  // Contract v3.1 pt 6: hidden at the quiet/line rungs (see the header).
+  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
   const tooltip = `No observed data for "${label}". ${ESCALATION_TOOLTIP[escalation]}`
   const styles = ESCALATION_STYLES[escalation]
   /**
@@ -189,6 +199,8 @@ export const EvidenceGapBadge = memo(function EvidenceGapBadge({
    * empty, and named — not deleted quietly here.
    */
   const shouldPulse = false
+
+  if (!shownAtThisRung) return null
 
   return (
     <>
