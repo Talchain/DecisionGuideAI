@@ -44,6 +44,8 @@
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { openAskOlumi } from '../../../components/results/coaching/askOlumiStore'
+import { useCanvasStore } from '../../store'
+import { bindAskTarget } from './askTargetBinding'
 
 /**
  * The one semantic. Exported so a guard can pin it: if this string ever
@@ -80,6 +82,19 @@ export function requestAsk(req: AskRequest): 'composer' | 'drawer' | 'none' {
 
   const state = useGuidanceStore.getState()
   const needsTypedDispatch = req.parameters !== undefined
+
+  // The ask's target rides to Send with it (Codex 5810867282): its explicit
+  // `targetId`, else the selection the door just set (edge and multi asks).
+  if (state._prefillChat || state._sendMessage || state._dispatchAction) {
+    // Defensive read, as `buildPayload`'s: a store stubbed without `getState`
+    // (a test, an early boot) binds only the explicit target.
+    const selection = useCanvasStore.getState?.()?.selection
+    bindAskTarget(
+      text,
+      req.targetId ? [req.targetId] : (selection?.nodeIds ?? []),
+      req.targetId ? [] : (selection?.edgeIds ?? []),
+    )
+  }
 
   if (!needsTypedDispatch && state._prefillChat) {
     state._prefillChat(text)
