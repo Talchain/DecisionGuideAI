@@ -467,6 +467,23 @@ describe('Run record — every vm.deeper group, with DeeperAnalysis\'s statement
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
+describe('detail rows open independently', () => {
+  it('opening a second detail row keeps the first one open (all three can be open at once)', () => {
+    renderAbout(build(genuineDecision()))
+    open()
+    openDetail('values')
+    openDetail('limitations')
+    openDetail('record')
+    for (const key of ['values', 'limitations', 'record'] as const) {
+      expect(screen.getByTestId(`${TID}-detail-${key}-toggle`)).toHaveAttribute('aria-expanded', 'true')
+    }
+    // CONTRAST: toggling one closes only that one.
+    openDetail('limitations')
+    expect(screen.getByTestId(`${TID}-detail-limitations-toggle`)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByTestId(`${TID}-detail-values-toggle`)).toHaveAttribute('aria-expanded', 'true')
+  })
+})
+
 describe('the AI act — hands the rows as context, invents nothing', () => {
   it('calls onAsk once with the label, the draft and the rendered row values', () => {
     const onAsk = vi.fn()
