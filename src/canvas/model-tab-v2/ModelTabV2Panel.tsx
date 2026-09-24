@@ -155,6 +155,7 @@ import { formatValueWithUnit } from '../components/model-tab/utils'
 import type { ConstraintType } from '../../v5/chipParameters'
 import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
 import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspectorMutations'
+import { optionInterventionDeclinedNotice } from '../ui/inspector-v2/shared/useOptionInterventionCommit'
 
 /**
  * ⭐⭐ WHAT THE ROW SAYS WHEN AGREEING WITH AN ESTIMATE DOES NOT LAND.
@@ -1271,7 +1272,7 @@ export function ModelTabV2Panel({
         // Two of the sender's three answers mean the turn has NOT happened.
         // Without reading them the row said "sent" over an edit that was queued
         // behind another turn, or one that was never queued at all.
-        onSendSettled: settlement => {
+        onSendSettled: (settlement, detail) => {
           setInterventionEdit(prev => {
             if (!prev) return prev
             // ⭐⭐ FENCED BY THE ATTEMPT, plus the option and factor it addressed.
@@ -1314,12 +1315,26 @@ export function ModelTabV2Panel({
             // for the rest of the session: a stuck label, the same class of
             // harm as the optimistic write this surface replaced.
             if (settlement === 'refused') {
-              // Proven no-write. For this event the certified category is a
-              // stale base — CEE refuses before any write and hands back the
-              // current hash. The recovery is the one that actually refreshes
-              // the base, and it is the SAME action `needs_fresh_base` names,
-              // because it is the same problem arriving one moment later.
               const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+              // ⚠ TWO PROVEN NO-WRITES, AND ONLY ONE OF THEM IS A STALE BASE.
+              // CEE also declines an unhonourable request outright and says so
+              // on `details.reason` (`system_event_refused_no_write`,
+              // non-retryable). That one did not move — so "the model moved on"
+              // would be false about it, and "set this value again" would
+              // re-send a request the producer says cannot succeed. It takes
+              // the declined line, shared with the inspector's editor.
+              if (detail.refusal === 'declined') {
+                return {
+                  ...rest,
+                  phase: 'editing',
+                  notice: optionInterventionDeclinedNotice(detail.reason),
+                }
+              }
+              // Proven no-write CONFLICT. For this event the certified category
+              // is a stale base — CEE refuses before any write and hands back
+              // the current hash. The recovery is the one that actually
+              // refreshes the base, and it is the SAME action `needs_fresh_base`
+              // names, because it is the same problem arriving one moment later.
               return {
                 ...rest,
                 phase: 'editing',

@@ -78,6 +78,16 @@ const F_PRICE = 'fac_pro_plan_price'
 const F_PRICE_LABEL = 'Pro Plan Monthly Price'
 const F_PRICE_OBSERVED = { value: 0.245, raw_value: 49, cap: 200, unit: 'GBP/month' }
 
+/**
+ * CONSTRUCTED (trap 22): the CDP cost factor with its `cap` removed. Without a
+ * declared scale a typed £ amount has no conversion (`optionTargetEntry`), so
+ * this row's field stays on the model scale — the case the route sentence and
+ * the technical-detail box still exist for.
+ */
+const F_COST_NO_CAP = 'fac_annual_platform_cost_no_cap'
+const F_COST_NO_CAP_LABEL = 'Annual Platform Cost (no declared scale)'
+const F_COST_NO_CAP_OBSERVED = { value: 0.5, raw_value: 60000, unit: '£' }
+
 /** Wire shape: a unitless factor whose target CEE writes as a tier reading. */
 const F_FRICTION = 'fac_bottom_up_adoption_friction'
 const F_FRICTION_LABEL = 'Bottom-Up Adoption Friction'
@@ -105,6 +115,7 @@ function seed(interventions: Record<string, unknown>, ceeAnalysisReady: unknown 
       factorNode(F_COST, F_COST_LABEL, F_COST_OBSERVED),
       factorNode(F_PRICE, F_PRICE_LABEL, F_PRICE_OBSERVED),
       factorNode(F_FRICTION, F_FRICTION_LABEL, F_FRICTION_OBSERVED),
+      factorNode(F_COST_NO_CAP, F_COST_NO_CAP_LABEL, F_COST_NO_CAP_OBSERVED),
     ] as never[],
     edges: [],
     results: { status: 'idle' },
@@ -333,25 +344,55 @@ describe('(b) the input is in the default view, labelled, where it holds the num
     expect(payload.factor_id).toBe(F_FRICTION)
   })
 
-  it('⭐⭐ a £ target keeps its internal input OUT of the default view and names the reachable control', () => {
+  /**
+   * ⚠ SUPERSEDES "a £ target keeps its internal input OUT of the default view".
+   * That held while the field could only take the model's 0–1 value; the
+   * route sentence's own docblock said that when the input-parsing path
+   * accepted a target in its reading's unit, the box belonged in the default
+   * view. `optionTargetEntry` is that path, so a £ row whose factor declares
+   * its scale now has its £ field here — and the rows it cannot convert keep
+   * the old behaviour, pinned in the next test.
+   */
+  it('⭐⭐ a £ target whose factor declares its scale has a £ field in the DEFAULT view, holding the card\'s figure, labelled', () => {
     seed({
       [F_COST]: { value: 0.5, display_value: '£60k' },
       [F_FRICTION]: { value: 0.1, display_value: 'Low (0.1)', source: 'brief_extraction' },
     })
     const dialog = openInspector()
 
+    const input = within(dialog).getByRole('textbox', {
+      name: `Target for ${F_COST_LABEL} under ${OPTION_LABEL}`,
+    }) as HTMLInputElement
+    expect(row(dialog, F_COST).contains(input)).toBe(true)
+    // The card's figure, in the card's unit — never the model's 0.5.
+    expect(input.value).toBe('60,000')
+    expect(row(dialog, F_COST).textContent).toContain('£')
+    expect(row(dialog, F_COST).textContent ?? '').not.toMatch(/model value|internal scale/i)
+    expect(readout(dialog, F_COST)).toContain('£60k')
+    // Every row has its box, so the route sentence is not shown.
+    expect(inputs(dialog, F_FRICTION)).toHaveLength(1)
+    expect(within(dialog).queryByTestId('option-target-edit-route')).toBeNull()
+  })
+
+  it('⭐⭐ a £ target whose factor declares NO usable scale keeps its internal input OUT of the default view and names the reachable control', () => {
+    seed({
+      [F_COST_NO_CAP]: { value: 0.5, display_value: '£60k' },
+      [F_FRICTION]: { value: 0.1, display_value: 'Low (0.1)', source: 'brief_extraction' },
+    })
+    const dialog = openInspector()
+
     // Contrast in the same render: the tier row HAS its input.
     expect(inputs(dialog, F_FRICTION)).toHaveLength(1)
-    // The £ row has none in the default view — its only input is on the
+    // This £ row has none in the default view — its only input is on the
     // model's 0–1 scale, which is not what the row shows.
-    expect(inputs(dialog, F_COST)).toHaveLength(0)
+    expect(inputs(dialog, F_COST_NO_CAP)).toHaveLength(0)
     const route = within(dialog).getByTestId('option-target-edit-route')
     expect(route.textContent).toContain('Show technical detail')
     // ⭐ A remedy in copy must be a reachable control: the control it names
     // exists on this inspector under exactly that accessible name — and
-    // pressing it puts the £ row's box on screen.
+    // pressing it puts this row's box on screen.
     toggleTechnicalDetail(dialog)
-    expect(inputs(dialog, F_COST)).toHaveLength(1)
+    expect(inputs(dialog, F_COST_NO_CAP)).toHaveLength(1)
   })
 
   it('CONTRAST — no route sentence when every target already has its box', () => {
@@ -375,7 +416,29 @@ describe('(b) the input is in the default view, labelled, where it holds the num
 })
 
 describe('(c) technical detail keeps the internal value, labelled as the model’s internal scale', () => {
-  it('⭐⭐ the £ row’s input appears under technical detail, labelled, beside the same £ reading (RED at a4434670)', () => {
+  it('⭐⭐ a model-scale row’s input appears under technical detail, labelled, beside the same £ reading', () => {
+    seed({ [F_COST_NO_CAP]: { value: 0.5, display_value: '£60k' } })
+    const dialog = openInspector()
+    toggleTechnicalDetail(dialog)
+
+    const input = within(dialog).getByRole('textbox', {
+      name: `Target for ${F_COST_NO_CAP_LABEL} under ${OPTION_LABEL}`,
+    }) as HTMLInputElement
+    expect(row(dialog, F_COST_NO_CAP).contains(input)).toBe(true)
+    expect(input.value).toBe('0.5')
+    expect(row(dialog, F_COST_NO_CAP).textContent).toContain("model's internal scale (0–1)")
+    // The reading does not go away when the internal value appears.
+    expect(readout(dialog, F_COST_NO_CAP)).toContain('£60k')
+  })
+
+  /**
+   * ⚠ REPLACES "the £ row’s input appears under technical detail … input.value
+   * '0.5'". A £ row whose factor declares its scale keeps its £ field under
+   * technical detail too — one field per row, one frame per field — and the
+   * model's own number is stated BESIDE it, labelled as the internal scale, so
+   * technical detail still shows it.
+   */
+  it('⭐⭐ a £ row under technical detail keeps its £ field and states the internal value beside it, labelled', () => {
     seed({ [F_COST]: { value: 0.5, display_value: '£60k' } })
     const dialog = openInspector()
     toggleTechnicalDetail(dialog)
@@ -384,9 +447,18 @@ describe('(c) technical detail keeps the internal value, labelled as the model�
       name: `Target for ${F_COST_LABEL} under ${OPTION_LABEL}`,
     }) as HTMLInputElement
     expect(row(dialog, F_COST).contains(input)).toBe(true)
-    expect(input.value).toBe('0.5')
-    expect(row(dialog, F_COST).textContent).toContain("model's internal scale (0–1)")
-    // The reading does not go away when the internal value appears.
+    expect(input.value).toBe('60,000')
+    expect(inputs(dialog, F_COST)).toHaveLength(1)
+    const internal = within(row(dialog, F_COST)).getByTestId(`intervention-internal-scale-${F_COST}`)
+    expect(internal.textContent).toContain('0.5')
+    expect(internal.textContent).toContain("model's internal scale (0–1)")
     expect(readout(dialog, F_COST)).toContain('£60k')
+  })
+
+  it('CONTRAST — the internal value is NOT user copy in the default view of the same row', () => {
+    seed({ [F_COST]: { value: 0.5, display_value: '£60k' } })
+    const dialog = openInspector()
+    expect(within(row(dialog, F_COST)).queryByTestId(`intervention-internal-scale-${F_COST}`)).toBeNull()
+    expect(row(dialog, F_COST).textContent ?? '').not.toContain('0.5')
   })
 })

@@ -18,6 +18,7 @@ import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
+import { resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -81,9 +82,13 @@ export const OPTION_EDIT_ROUTE_NOTE =
  * this same panel: a sentence repeated against every factor turns the
  * inventory into a wall of the same message.
  *
- * ⛔ WHEN THE INPUT-PARSING PATH ACCEPTS A TARGET IN ITS READING'S UNIT, these
- * boxes belong in the default view and this sentence goes: flip
- * `inputMatchesReading` for the rows it converts.
+ * ⭐ THE INPUT-PARSING PATH NOW ACCEPTS A TARGET IN ITS READING'S UNIT
+ * (`optionTargetEntry`: `80000`, `80,000`, `£80,000`, `80k`), so a row whose
+ * factor supports that frame has its box in the default view, and
+ * `inputMatchesReading` is flipped for it below. This sentence remains ONLY for
+ * the rows that frame cannot convert — a unit with no usable cap, an anchor that
+ * disagrees with the cap, a direction-only reading — whose box is still the
+ * model-scale one.
  */
 export const OPTION_TARGET_EDIT_ROUTE_NOTE =
   "Targets shown without a box are changed under Show technical detail (</>), where they are entered on the model's internal 0–1 scale."
@@ -211,6 +216,8 @@ export const OptionPanel = memo(function OptionPanel({
     commit: commitIntervention,
     pending: pendingIntervention,
     notice: interventionNotice,
+    unapplied: unappliedIntervention,
+    dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
@@ -326,6 +333,13 @@ export const OptionPanel = memo(function OptionPanel({
          */
         recordedBaseline: unwrapInterventionValue(obs?.baseline).value ?? undefined,
         unit: obs?.unit as string | undefined,
+        /*
+         * ⭐ THE FACTOR'S CAP, so the row can take the amount the CARD shows
+         * (`£80,000`) and convert it through the one raw→model rule — rather
+         * than showing `0.5` beside a card that says `£60k` and ignoring
+         * `80000` (served `a4434670`, CDP starter). Same defensive unwrap.
+         */
+        cap: unwrapInterventionValue(obs?.cap).value ?? undefined,
         value,
         displayValue: displayValue ?? undefined,
         /*
@@ -488,9 +502,12 @@ export const OptionPanel = memo(function OptionPanel({
    * ⚠ THE INPUT'S NUMBER IS STILL `iv.value` — this node's own record, the
    * value the commit path compares against — and the default view shows the
    * box only when the reading visibly prints that number
-   * (`readingShowsModelValue`). A stale CEE value that disagrees with the
-   * node therefore moves the box behind technical detail rather than putting
-   * two different numbers side by side.
+   * (`readingShowsModelValue`), OR when the field takes amounts in the
+   * factor's own unit (`resolveOptionTargetEntryFrame` → `user_units`, the
+   * same frame, from the same props, the row resolves) and the reading is a
+   * figure for that same record. A stale CEE value that disagrees with the
+   * node therefore still moves the box behind technical detail rather than
+   * putting two different numbers side by side.
    */
   const targetReadings = useMemo(() => {
     const out = new Map<string, {
@@ -519,10 +536,19 @@ export const OptionPanel = memo(function OptionPanel({
         baselineReference,
       })
       const reading = row.target || row.change
+      const fieldTakesTheReadingsUnit =
+        row.target !== '' &&
+        target.value === iv.value &&
+        resolveOptionTargetEntryFrame({
+          unit: iv.unit,
+          cap: iv.cap,
+          observedValue: iv.baseline,
+          observedRawValue: iv.rawBaseline,
+        }).kind === 'user_units'
       out.set(iv.factorId, {
         reading,
         readingIsTarget: row.target !== '',
-        inputMatchesReading: readingShowsModelValue(reading, iv.value),
+        inputMatchesReading: fieldTakesTheReadingsUnit || readingShowsModelValue(reading, iv.value),
         provenanceSource: target.source ?? undefined,
       })
     }
@@ -688,6 +714,7 @@ export const OptionPanel = memo(function OptionPanel({
                 }
                 displayValue={iv.displayValue}
                 unit={iv.unit}
+                cap={iv.cap}
                 /* The card's resolved stamp — `undefined` INCLUDED, so a target
                    the card marks "no source" is never given this node's stamp
                    instead. The node's own stamp is the fallback only when no
@@ -701,6 +728,12 @@ export const OptionPanel = memo(function OptionPanel({
                 readingIsTarget={targetReadings.get(iv.factorId)?.readingIsTarget ?? true}
                 inputMatchesReading={targetReadings.get(iv.factorId)?.inputMatchesReading ?? false}
                 optionLabel={optionAccessibleLabel}
+                /* ⭐ A value that did not land stays on ITS row, marked, until
+                   dismissed — bound by factor identity, never by position. */
+                unapplied={
+                  unappliedIntervention?.factorId === iv.factorId ? unappliedIntervention : null
+                }
+                onDismissUnapplied={dismissIntervention}
                 onChange={v => commitIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
                 /**
@@ -749,8 +782,17 @@ export const OptionPanel = memo(function OptionPanel({
               a control that silently does nothing is the defect this change
               exists to close, wearing a different face. Rendered here, below
               the rows it is about, so it cannot be mistaken for a notice about
-              the option as a whole. */}
-          {interventionNotice !== null && (
+              the option as a whole.
+
+              ⭐ AND ITS HOME IS NOW THE ROW, NOT HERE (Experience Design, #63
+              5806266691, S2): `<state> · <specific reason>` directly under the
+              field it is about, with the typed value kept in the field. This
+              list-level line is the FALLBACK for a refusal whose row is no
+              longer on screen, so it can never be silent — and it never repeats
+              a sentence the row is already saying. */}
+          {interventionNotice !== null &&
+            !(unappliedIntervention !== null &&
+              interventions.some(iv => iv.factorId === unappliedIntervention.factorId)) && (
             <p
               className={`${typography.panelMeta} text-text-light mt-1.5`}
               data-testid="option-intervention-notice"

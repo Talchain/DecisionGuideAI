@@ -3,10 +3,18 @@
  * Used in OptionPanel §6.2: "What this option changes"
  */
 
-import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react'
+import { useState, useCallback, useEffect, useId, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { typography } from '../../../../styles/typography'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
+import { INTERVENTION_NO_CHANGE_EPSILON } from '../../../utils/interventionDisplay'
+import {
+  admitOptionTargetEntry,
+  describeOptionTargetValue,
+  optionTargetEntryAdornment,
+  optionTargetEntrySeed,
+  resolveOptionTargetEntryFrame,
+} from './optionTargetEntry'
 import {
   classifyInterventionProvenance,
   type ValueProvenanceKind,
@@ -121,6 +129,13 @@ export const INTERVENTION_ROW_STRINGS = {
    * so an operator typing into it knows which scale they are on.
    */
   internalScaleQualifier: "model's internal scale (0–1)",
+  /**
+   * The two actions under a refused field (ED #63 5806266691, S2: "offer
+   * retry/change/discard as appropriate"). The field itself is the change.
+   * Retry appears only where sending the same value again can succeed.
+   */
+  retryLabel: 'Try again',
+  discardLabel: 'Discard',
 } as const
 
 interface InterventionRowProps {
@@ -191,6 +206,29 @@ interface InterventionRowProps {
    * one level up from the one this prop closes.
    */
   provenanceSource?: string
+  /**
+   * The factor's `observed_state.cap`. With a real `unit` it is the scale a
+   * typed AMOUNT is converted through — see `optionTargetEntry.ts` for when a
+   * row takes amounts in the factor's unit and when it stays on the model
+   * scale. Absent → the model scale, exactly as before.
+   */
+  cap?: number
+  /**
+   * ⭐ A VALUE THE READER ASKED FOR THAT DID NOT LAND — or may not have. The
+   * FIELD keeps it (the reader's typed value stays visible) and `message` —
+   * `<state> · <specific reason>`, e.g. `Not saved · …` — is printed directly
+   * under the field, until the reader discards it, changes it, or tries again
+   * (Experience Design, #63 5806266691, S2). `value` is on the model scale.
+   *
+   * ⛔ NEVER WRITTEN ANYWHERE, AND NEVER THE READOUT. The record is
+   * `currentValue`, and the readout above the field keeps printing the last
+   * authoritative saved value (`reading`) — a rejected draft is not canonical
+   * state, so it lives in the field and nowhere else.
+   */
+  unapplied?: { value: number; message: string; retryable?: boolean } | null
+  /** Drop `unapplied`; the row shows the saved value again. */
+  onDismissUnapplied?: () => void
+  /** Called with a MODEL-SCALE value, whatever frame the reader typed in. */
   onChange: (newValue: number) => void
   onNavigate?: () => void
   disabled?: boolean
@@ -240,6 +278,9 @@ export function InterventionRow({
   displayValue,
   unit = '',
   provenanceSource,
+  cap,
+  unapplied = null,
+  onDismissUnapplied,
   onChange,
   onNavigate,
   disabled = false,
@@ -250,8 +291,32 @@ export function InterventionRow({
   inputMatchesReading = false,
   optionLabel,
 }: InterventionRowProps) {
-  const [draft, setDraft] = useState(String(currentValue))
+  /**
+   * ⭐⭐ WHICH NUMBER THE FIELD IS — decided once, from the factor's own unit,
+   * cap and anchor, by `optionTargetEntry`. The card prints `£60k`; a field that
+   * printed `0.5` beside it and then ignored `80000` was the witnessed defect
+   * (served `a4434670`, CDP starter).
+   */
+  const anchor = useMemo(
+    () => ({ observedValue: baseline, observedRawValue: rawBaseline }),
+    [baseline, rawBaseline],
+  )
+  const frame = useMemo(
+    () => resolveOptionTargetEntryFrame({ unit, cap, ...anchor }),
+    [unit, cap, anchor],
+  )
+  const adornment = optionTargetEntryAdornment(frame)
+  /** What the field shows: the reader's unapplied value while one stands, else the record. */
+  const shownValue = unapplied ? unapplied.value : currentValue
+  const seedText = optionTargetEntrySeed(shownValue, frame, anchor)
+  const [draft, setDraft] = useState(seedText)
+  /** Why the typed text was not sent — rendered, never swallowed. */
+  const [entryRefusal, setEntryRefusal] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  /** Set by the key that caused the blur, read once by the blur. */
+  const blurIntentRef = useRef<'enter' | 'escape' | null>(null)
+  /** The line under the field, so the field can point at it (`aria-describedby`). */
+  const messageId = useId()
 
   /**
    * ⭐⭐ THE INPUT MUST SHOW THE RECORD, NOT THE LAST THING THIS INSTANCE SAW.
@@ -279,28 +344,57 @@ export function InterventionRow({
    */
   useEffect(() => {
     if (inputRef.current && document.activeElement === inputRef.current) return
-    setDraft(String(currentValue))
-  }, [currentValue])
+    setDraft(seedText)
+    setEntryRefusal(null)
+  }, [seedText])
 
+  /**
+   * ⛔⛔ NO SILENT OUTCOME. The old body was `parseFloat` and, on anything it
+   * could not read, `setDraft(String(currentValue))` — the typed text vanished
+   * and nothing said why. Every path below either sends, or leaves the typed
+   * text in place with a sentence saying why it was not sent.
+   */
   const handleBlur = useCallback(() => {
-    const parsed = parseFloat(draft)
-    if (!isNaN(parsed) && parsed !== currentValue) {
-      onChange(parsed)
-    } else {
-      setDraft(String(currentValue))
+    const intent = blurIntentRef.current
+    blurIntentRef.current = null
+    if (intent === 'escape') {
+      setDraft(seedText)
+      setEntryRefusal(null)
+      return
     }
-  }, [draft, currentValue, onChange])
+    if (draft === seedText) {
+      // Nothing was changed. A blur never re-sends; Enter on a value that did
+      // not land is the explicit retry.
+      setEntryRefusal(null)
+      if (intent === 'enter' && unapplied) onChange(unapplied.value)
+      return
+    }
+    const admission = admitOptionTargetEntry(draft, frame, anchor, shownValue)
+    if (!admission.ok) {
+      setEntryRefusal(admission.reason)
+      return
+    }
+    setEntryRefusal(null)
+    if (Math.abs(admission.value - currentValue) <= INTERVENTION_NO_CHANGE_EPSILON) {
+      // The saved value, typed again: nothing to send, and nothing unapplied.
+      if (unapplied) onDismissUnapplied?.()
+      else setDraft(seedText)
+      return
+    }
+    onChange(admission.value)
+  }, [draft, seedText, frame, anchor, shownValue, currentValue, unapplied, onChange, onDismissUnapplied])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
+      blurIntentRef.current = 'enter'
       inputRef.current?.blur()
     } else if (e.key === 'Escape') {
       e.preventDefault()
-      setDraft(String(currentValue))
+      blurIntentRef.current = 'escape'
       inputRef.current?.blur()
     }
-  }, [currentValue])
+  }, [])
 
   /**
    * ⛔⛔ THERE IS NO PERCENTAGE, AND NO REFERENCE, IN THE ORDINARY ROW. THIS IS
@@ -432,6 +526,140 @@ export function InterventionRow({
     ? `Target for ${factorLabel} under ${optionLabel}`
     : `Target for ${factorLabel}`
 
+  /**
+   * ⭐ DISCARD — the reader's way back to the saved value (ED #63 5806266691,
+   * S2: "offer retry/change/discard as appropriate"). Drops the typed text, the
+   * field's own refusal and the unapplied value together. Set directly rather
+   * than left to the re-seed effect, which is focus-guarded and keyed on
+   * `seedText` — neither guarantees a reset from here.
+   */
+  const discard = useCallback(() => {
+    blurIntentRef.current = null
+    setDraft(optionTargetEntrySeed(currentValue, frame, anchor))
+    setEntryRefusal(null)
+    if (unapplied) onDismissUnapplied?.()
+  }, [currentValue, frame, anchor, unapplied, onDismissUnapplied])
+
+  /** RETRY — the same value again. Offered only where repeating it can succeed. */
+  const retry = useCallback(() => {
+    if (unapplied) onChange(unapplied.value)
+  }, [unapplied, onChange])
+
+  const fieldIsInvalid = entryRefusal !== null || unapplied !== null
+  /** The field's own refusal speaks for what is in it now; else the value that did not land. */
+  const underFieldMessage = entryRefusal ?? unapplied?.message ?? null
+
+  /**
+   * The editable field, with the unit on the side the card prints it.
+   *
+   * ⚠ `border-danger` IS THE ESTATE'S EXISTING REFUSED-FIELD TREATMENT, not a
+   * new one: `NodeValueEditor` swaps `border-field` for it on the same event,
+   * for the reason it records — a non-text indicator answers the 3:1 floor,
+   * while the WORDS under the field stay `text-text-body`, because no danger
+   * token clears 4.5:1 for text. The border reinforces the sentence; the
+   * sentence and `aria-invalid` carry the meaning.
+   */
+  const renderField = (trailing: ReactNode) => (
+    <span className="inline-flex items-center gap-1">
+      {adornment.prefix && (
+        <span className={`${typography.panelMeta} text-text-light`}>{adornment.prefix}</span>
+      )}
+      <input
+        ref={inputRef}
+        type="text"
+        value={draft}
+        aria-label={inputAccessibleName}
+        aria-invalid={fieldIsInvalid ? true : undefined}
+        aria-describedby={underFieldMessage !== null ? messageId : undefined}
+        onChange={e => {
+          setDraft(e.target.value)
+          if (entryRefusal !== null) setEntryRefusal(null)
+        }}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
+          fieldIsInvalid ? 'border-danger' : 'border-info'
+        }`}
+      />
+      {adornment.suffix && (
+        <span className={`${typography.panelMeta} text-text-light`}>{adornment.suffix}</span>
+      )}
+      {trailing}
+    </span>
+  )
+
+  /**
+   * ⭐⭐ `<state> · <specific reason>`, DIRECTLY UNDER THE FIELD — Experience
+   * Design's field-level pattern for a refused option-target edit (#63
+   * 5806266691, S2). The field keeps the reader's typed value; this line says
+   * why it did not land; the two buttons are the retry and the discard, and
+   * the field itself is the change. The readout above keeps the last saved
+   * value — a rejected draft is not canonical state.
+   *
+   * ⚠ WHEN THE FIELD IS NOT ON SCREEN (its box lives under technical detail and
+   * the reader has left it), the line names the value itself, so "keep the
+   * typed value visible" still holds without putting the box back.
+   *
+   * ⚠ THE BUTTONS DO NOT TAKE FOCUS ON PRESS. This field commits on blur, so a
+   * press that blurred it first would send whatever was typed before the
+   * button's own action ran.
+   */
+  const renderUnderField = (fieldOnScreen: boolean) => {
+    const refusal = fieldOnScreen ? entryRefusal : null
+    if (refusal === null && unapplied === null) return null
+    const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault()
+    return (
+      <div className="mt-1">
+        {refusal !== null ? (
+          <p
+            id={messageId}
+            role="alert"
+            data-testid={`intervention-entry-refusal-${factorId}`}
+            className={`${typography.panelMeta} text-text-body m-0`}
+          >
+            {refusal}
+          </p>
+        ) : (
+          <p
+            id={messageId}
+            role="alert"
+            data-testid={`intervention-unapplied-${factorId}`}
+            className={`${typography.panelMeta} text-text-body m-0`}
+          >
+            {unapplied!.message}
+            {!fieldOnScreen && (
+              <span data-testid={`intervention-unapplied-value-${factorId}`}>
+                {' '}Your entry: {describeOptionTargetValue(unapplied!.value, frame, anchor)}.
+              </span>
+            )}
+          </p>
+        )}
+        <div className="flex items-center gap-3 mt-0.5">
+          {refusal === null && unapplied?.retryable && (
+            <button
+              type="button"
+              onMouseDown={keepFocus}
+              onClick={retry}
+              data-testid={`intervention-unapplied-retry-${factorId}`}
+              className={`${typography.panelMeta} text-info hover:underline`}
+            >
+              {INTERVENTION_ROW_STRINGS.retryLabel}
+            </button>
+          )}
+          <button
+            type="button"
+            onMouseDown={keepFocus}
+            onClick={discard}
+            data-testid={`intervention-unapplied-dismiss-${factorId}`}
+            className={`${typography.panelMeta} text-info hover:underline`}
+          >
+            {INTERVENTION_ROW_STRINGS.discardLabel}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (reading !== undefined) {
     /**
      * ⭐⭐ THE ROW READS LIKE THE CARD (DEFECT 5 + ED #63 §9).
@@ -442,19 +670,23 @@ export function InterventionRow({
      *    ("Low (0.1)" / "0.2"): the input, labelled. That is the row the card's
      *    "Open the inspector to change them" promises, and it was hidden behind
      *    "Show technical detail" on every row CEE had written a reading for.
-     *  · Default view, when it is not ("£60k", "59 GBP/month"): no box — the
+     *  · Default view, on a row whose field takes amounts in the factor's own
+     *    unit (`optionTargetEntry` — "£60k" beside a `£ [60,000]` field): the
+     *    input, labelled. The caller says so through `inputMatchesReading`.
+     *  · Default view, when neither holds (a model-scale field beside "£60k"
+     *    from a factor with no usable cap, "15%", "Increases"): no box — its
      *    only box is on the model's 0–1 scale, and "0.295 model value" beside
      *    "59 GBP/month" is the defect. The panel names the control that opens
      *    it ONCE, above the list (`OPTION_TARGET_EDIT_ROUTE_NOTE`), never per
      *    row — the density ruling `OPTION_EDIT_ROUTE_NOTE` already carries.
      *  · Technical detail: the same reading, the operator diagnostics, and the
-     *    input, labelled as the model's internal scale.
+     *    input — a model-scale input labelled as the model's internal scale; a
+     *    user-unit input keeps its unit, and the model's own number is printed
+     *    beside it, labelled as the internal scale.
      *
-     * ⛔ THE BOX IS STILL THE MODEL-SCALE BUFFER. Its seed, its parse and its
-     * commit (`handleBlur`, above) are the carrier's contract and are NOT
-     * changed here; entering a target in the reading's own unit is the
-     * input-parsing path's to add. Until it does, a £ row's box lives under
-     * technical detail rather than pretending to be in £.
+     * ⭐ THE FIELD'S SEED, PARSE AND COMMIT ARE `optionTargetEntry`'s (above),
+     * in whichever frame the factor supports — the commit still sends the
+     * model-scale value the carrier's contract takes.
      */
     const showInput = !disabled && (techMode || inputMatchesReading)
     return (
@@ -497,25 +729,35 @@ export function InterventionRow({
 
         {showInput && (
           <div className="flex items-center gap-2 mt-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={draft}
-              aria-label={inputAccessibleName}
-              onChange={e => setDraft(e.target.value)}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel border-info`}
-            />
-            {techMode && (
-              <span
-                className={`${typography.panelMeta} text-text-light`}
-                data-testid={`intervention-internal-scale-${factorId}`}
-              >
-                {INTERVENTION_ROW_STRINGS.internalScaleQualifier}
-              </span>
+            {renderField(
+              techMode && frame.kind === 'model_scale' ? (
+                <span
+                  className={`${typography.panelMeta} text-text-light`}
+                  data-testid={`intervention-internal-scale-${factorId}`}
+                >
+                  {INTERVENTION_ROW_STRINGS.internalScaleQualifier}
+                </span>
+              ) : null,
             )}
           </div>
+        )}
+
+        {/* Directly under the field: why a value did not land, and the way out. */}
+        {!disabled && renderUnderField(showInput)}
+
+        {/* ⭐ A USER-UNIT FIELD UNDER TECHNICAL DETAIL: the box is in £, so the
+            model's own number is stated beside it, on its own line, labelled —
+            the only place this row prints the internal value. */}
+        {!disabled && techMode && frame.kind === 'user_units' && (
+          <span
+            data-testid={`intervention-internal-scale-${factorId}`}
+            className={`${typography.panelBody} block mt-1 text-text-body`}
+          >
+            {targetDisplay}
+            <span className={`${typography.panelMeta} text-text-light ml-1`}>
+              {INTERVENTION_ROW_STRINGS.internalScaleQualifier}
+            </span>
+          </span>
         )}
 
         {/* A fenced row states the internal number only where internal numbers
@@ -686,30 +928,26 @@ export function InterventionRow({
               )}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1">
-              <input
-                ref={inputRef}
-                type="text"
-                value={draft}
-                aria-label={inputAccessibleName}
-                onChange={e => setDraft(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel border-info`}
-              />
-              {/* ⚠ THE BOX NEEDS THE SAME TRUTH THE VALUE DOES. Being editable
-                  never made an unlabelled number scientifically valid — an
-                  operator typing into it is entitled to know which scale they
-                  are typing on. */}
-              {!displayValue && (
+            /* ⚠ THE BOX NEEDS THE SAME TRUTH THE VALUE DOES. Being editable
+               never made an unlabelled number scientifically valid — an
+               operator typing into it is entitled to know which scale they
+               are typing on. A user-unit row names its unit instead (the
+               field's own adornment), because that is the scale it reads. */
+            renderField(
+              frame.kind === 'model_scale' && !displayValue ? (
                 <span className={`${typography.panelMeta} text-text-light`}>
                   {INTERVENTION_ROW_STRINGS.modelValueQualifier}
                 </span>
-              )}
-            </span>
+              ) : null,
+            )
           )}
         </div>
       )}
+
+      {/* ⭐ DIRECTLY UNDER THE FIELD — outside the numeric surface, so a value
+          that did not land stays said (and named) when the row shows CEE's
+          `display_value` for the saved target instead of the field. */}
+      {!disabled && renderUnderField(showNumericSurface)}
 
       {/*
         ⭐ WHO CHOSE THIS NUMBER — IN THE SAME GLANCE AS THE NUMBER.
