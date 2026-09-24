@@ -13,6 +13,47 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisIn
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
+import { nodeRecordedValue } from '../domain/nodeRecordedValue'
+import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+
+/**
+ * ⭐ THE OUTCOME'S OWN STATE — contract v3.1 point 8 (OR-02, RHY-09): "Use that
+ * space for actual outcome state." The v3.1 fixture renders, for an outcome
+ * with no value, `<div class="small-state">Outcome not quantified</div>`, and
+ * the same `own-value` row as a factor (value + source mark) when one exists.
+ * The risk card beside it already states its own (`RISK_EXPOSURE_UNSET_LINE`),
+ * so the two cards in the consequence tier now share one anatomy and, with the
+ * same title length, one height.
+ *
+ * ⛔ A FACT ABOUT THE MODEL, NEVER ABOUT THE WORLD. It says Olumi holds no
+ * quantity for this outcome — measured, 0 of 15 corpus outcomes carry one
+ * (`domain/nodeRecordedValue` header) — not that the outcome cannot be
+ * measured, is unimportant, or is at risk. No figure, no warning styling.
+ */
+export const OUTCOME_UNQUANTIFIED_LINE = 'Outcome not quantified'
+
+/**
+ * Does the record hold ANY number for this outcome, formatted or not?
+ *
+ * ⚠ WIDER THAN `nodeRecordedValue` ON PURPOSE. That reader declines to format
+ * some numbers (a zero magnitude — see its header), and "not quantified" must
+ * never render over a number the record DOES hold. So the absence sentence is
+ * gated on this, the value row on `nodeRecordedValue`, and a record in between
+ * (a number nobody can format honestly) renders neither.
+ */
+function recordsAnyNumber(data: Record<string, unknown> | undefined): boolean {
+  if (!data) return false
+  for (const key of ['observedState', 'observed_state'] as const) {
+    const obs = data[key] as Record<string, unknown> | undefined
+    if (!obs || typeof obs !== 'object') continue
+    for (const field of ['value', 'raw_value'] as const) {
+      const v = obs[field]
+      if (typeof v === 'number' && Number.isFinite(v)) return true
+      if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return true
+    }
+  }
+  return false
+}
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -41,6 +82,17 @@ export const OutcomeNode = memo((props: NodeProps) => {
     : summary
   const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled outcome', description: fullDescription ?? undefined }
   const outcomeContext = fullDescription ? `\nOutcome context: ${fullDescription}` : ''
+
+  // The outcome's own state (see `OUTCOME_UNQUANTIFIED_LINE`). The value branch
+  // has no producer today, so it ships dark; it reads the same owners the factor
+  // and risk cards read, so it cannot disagree with them when one arrives.
+  const recordedValue = useMemo(
+    () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
+    [props.data],
+  )
+  const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
+  const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)
+  const hasStateLine = recordedValue != null || showUnquantified
 
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
@@ -272,14 +324,39 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
-        {/* Authored consequence; the existing chevron retains its full description. */}
+        {/* ===== LAYER 1: Standard body (always visible) ===== */}
+
+        {/* ⭐ The outcome's own state, directly under the title (contract v3.1
+            OR-02 / RHY-09). The first body row, so no top margin: BaseNode's
+            header supplies the 4px (RHY-06). The absence line uses the risk
+            card's unset-line classes exactly, so the two sibling lines are one
+            element. */}
+        {recordedValue ? (
+          <div
+            className={`${typography.nodeValue} text-text-body flex flex-wrap items-baseline gap-1`}
+            data-testid="outcome-recorded-value"
+          >
+            <span data-testid="outcome-recorded-readout">{recordedValue}</span>
+            {recordedValueMark && (
+              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} />
+            )}
+          </div>
+        ) : showUnquantified ? (
+          <div className={`${typography.edgeLabel} text-text-light`} data-testid="outcome-unquantified">
+            {OUTCOME_UNQUANTIFIED_LINE}
+          </div>
+        ) : null}
+
+        {/* Authored consequence, AFTER the card's own state and one step smaller
+            (contract v3.1 OR-08: the title is followed by the node's own state;
+            other prose is subordinate, at 11px or smaller). No trailing margin
+            (RHY-06); the row gap is taken only when a state line precedes it.
+            The existing chevron retains its full description. */}
         {summary && (
-          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="outcome-context-preview">
+          <p className={`${typography.edgeLabel} text-text-light m-0${hasStateLine ? ' mt-1' : ''} line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="outcome-context-preview">
             {summary}
           </p>
         )}
-
-        {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
         {/* ⛔ No link-strength row and no option-reach line (contract v3.1 —
             see the note above `inboundConnections`). */}
