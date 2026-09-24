@@ -53,6 +53,16 @@ export interface ScienceIconDef {
 
 const MAX_ICONS = 2
 
+/**
+ * ⭐ NEUTRAL, NOT AMBER — contract v3.1 (deltas ICON-08 / T14(a)). DS v5 §9.2:
+ * "Bias category icons: always `text-text-light`". Paul 23 Sep pt 9 reserves
+ * Warning/amber for AI sign-disagreement, and none of these local-rule
+ * observations is that; `text-warning` also measured 1.92:1 on the card
+ * (`NodeProvenanceMark`), under SC 1.4.11's 3:1. The glyph's SHAPE names the
+ * trigger; `ScienceIcon` turns it Info on hover and keyboard focus.
+ */
+export const SCIENCE_ICON_COLOUR = 'text-text-light'
+
 export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIconDef[] {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -112,7 +122,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           icon: FileQuestion,
           tooltip: 'No observed data for this factor.',
           action: `Help me estimate ${label}`,
-          colour: 'text-warning',
+          colour: SCIENCE_ICON_COLOUR,
           priority: 1,
         })
       }
@@ -138,7 +148,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
               icon: Anchor,
               tooltip: 'Options clustered around current value.',
               action: `Consider a wider range for ${label}`,
-              colour: 'text-warning',
+              colour: SCIENCE_ICON_COLOUR,
               priority: 7,
             })
           }
@@ -153,7 +163,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           icon: Gauge,
           tooltip: 'No supporting evidence recorded for this assumption.',
           action: `What evidence supports ${label}?`,
-          colour: 'text-warning',
+          colour: SCIENCE_ICON_COLOUR,
           priority: 4,
         })
       }
@@ -178,7 +188,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icon: Unlink,
         tooltip: `This relationship is uncertain. ${pctText}`,
         action: `What evidence supports the connection involving ${label}?`,
-        colour: 'text-warning',
+        colour: SCIENCE_ICON_COLOUR,
         priority: 5,
       })
     }
@@ -193,7 +203,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           icon: Frame,
           tooltip: 'Few options modelled.',
           action: 'Suggest more options for this decision',
-          colour: 'text-warning',
+          colour: SCIENCE_ICON_COLOUR,
           priority: 2,
         })
       }
@@ -206,7 +216,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           icon: ShieldAlert,
           tooltip: 'Few risks modelled. What else could go wrong?',
           action: 'What could go wrong with this decision?',
-          colour: 'text-warning',
+          colour: SCIENCE_ICON_COLOUR,
           priority: 2,
         })
       }
@@ -236,7 +246,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           // counts. It is the guard doing its job, not an obstacle.
           tooltip: `${BASELINE_OPTION_LABEL} — modelled as no change from today.`,
           action: 'What could go wrong with staying on the baseline?',
-          colour: 'text-warning',
+          colour: SCIENCE_ICON_COLOUR,
           priority: 6,
         })
       }
