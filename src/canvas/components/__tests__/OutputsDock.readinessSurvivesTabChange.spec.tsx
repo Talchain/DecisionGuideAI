@@ -264,15 +264,29 @@ function ensureScrollIntoView() {
 }
 
 /** A decision, a goal, three options, one factor — the drafted model a fresh
- *  guest is looking at when the blocked footer appears. */
-function seedCanvasWithModel() {
+ *  guest is looking at when the blocked footer appears.
+ *
+ *  ⚠ `everyFactorValued` (24 Sep 2026). By default `Support headcount` has NO
+ *  value, so the canvas marks it `Needs input` — and since the pre-run surfaces
+ *  stopped saying "Analysis available" beside a `Needs input` marker (Paul's
+ *  OpenAI test; `ValueAwaitingInput` in `readinessDisplay.ts`), a test that
+ *  means "nothing objects" must say so for the canvas too. READY / RESTING /
+ *  ENABLE IN PLACE pass `true`; every other test keeps the old fixture. */
+function seedCanvasWithModel({ everyFactorValued = false }: { everyFactorValued?: boolean } = {}) {
   const nodes = [
     { id: 'd1', type: 'decision', position: { x: 0, y: 0 }, data: { kind: 'decision', label: 'How do we protect retention?' } },
     { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Grow retained revenue' } },
     ...Object.entries(OPTION_LABELS).map(([id, label], i) => ({
       id, type: 'option', position: { x: 10 * i, y: 0 }, data: { kind: 'option', label },
     })),
-    { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Support headcount' } },
+    {
+      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
+      data: {
+        kind: 'factor',
+        label: 'Support headcount',
+        ...(everyFactorValued ? { observed_state: { value: 0.4, raw_value: 12, unit: 'people' } } : {}),
+      },
+    },
   ]
   useCanvasStore.setState({
     nodes: nodes as never,
@@ -507,7 +521,7 @@ describe('the bar is honest in both directions', () => {
     // The discriminating half. A bar that were merely always-disabled decoration
     // would satisfy the blocked case above and fail here.
     seedSideCar(SIDE_CAR_AGREES)
-    seedCanvasWithModel()
+    seedCanvasWithModel({ everyFactorValued: true })
     useCanvasStore.setState({
       analysisStateV1: analysisState({ status: 'ready', blockers: [] } as AnalysisStateV1['readiness']),
     } as never)
@@ -739,7 +753,7 @@ describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
 describe('THE TWO SURFACES AGREE — the resting arm too', () => {
   it('RESTING — a verdict exists and nothing objects: the same headline on both', async () => {
     seedSideCar(SIDE_CAR_AGREES)
-    seedCanvasWithModel()
+    seedCanvasWithModel({ everyFactorValued: true })
     useCanvasStore.setState({
       analysisStateV1: analysisState({ status: 'ready', blockers: [] } as AnalysisStateV1['readiness']),
     } as never)
@@ -768,6 +782,49 @@ describe('THE TWO SURFACES AGREE — the resting arm too', () => {
   }, 30_000)
 })
 
+/**
+ * ⭐ THE PRODUCER SAYS MAY RUN, THE CANVAS SAYS `Needs input` (Paul's OpenAI
+ * test, 24 Sep 2026, export `2f1b374e`). The mounted dock, the real gate, the
+ * real wiring: `analysis_state.readiness` is the unsupplied sentinel
+ * `{status:'unknown', blockers:[]}`, `analysis_ready` is `{status:'ready',
+ * may_run:true}` — exactly the export — and a factor has no value. Neither
+ * surface may say "Analysis available"; both must say the SAME conservative
+ * headline; and neither may invent a second gate.
+ */
+describe('THE TWO SURFACES AGREE — may_run true while the canvas says Needs input', () => {
+  it('EVIDENCE — both say "Needs input before a run", the control stays the gate’s', async () => {
+    seedSideCar(SIDE_CAR_AGREES)
+    seedCanvasWithModel()
+    useCanvasStore.setState({
+      analysisStateV1: analysisState({ status: 'unknown', blockers: [] } as AnalysisStateV1['readiness']),
+      ceeAnalysisReady: {
+        goal_node_id: 'g1',
+        status: 'ready',
+        may_run: true,
+        options: Object.keys(OPTION_LABELS).map((id) => ({ id, status: 'ready' })),
+      },
+    } as never)
+
+    render(<Wrapper><OutputsDock /></Wrapper>)
+
+    const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+    // Precondition pinned in-test: the GATE is open — this is not a refusal.
+    expect(analyse).toBeEnabled()
+    const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
+    expect(footerHeadline).toBe(FOOTER_COPY.needsInputBeforeRun)
+    expect(screen.getByTestId('pre-analysis-v3-footer-subline')).toHaveTextContent(
+      'No value yet for Support headcount.',
+    )
+
+    clickOlumiTab()
+    expect(olumiIsFronted()).toBe(true)
+    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').toBe(footerHeadline)
+    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').not.toBe(FOOTER_COPY.ready)
+    expect(screen.getByTestId('analysis-readiness-bar-analyse')).toBeEnabled()
+    expect(screen.getByTestId('analysis-readiness-bar')).toHaveAttribute('data-blocked', 'false')
+  }, 30_000)
+})
+
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
@@ -793,7 +850,9 @@ describe('THE TWO SURFACES AGREE — the resting arm too', () => {
 describe('ENABLE IN PLACE — the answer lands and the action is already there', () => {
   it('blocked in the chat → the producer answers → THE SAME button enables, Olumi never loses front', async () => {
     seedSideCar(SIDE_CAR_OBJECTS)
-    seedCanvasWithModel()
+    // The canvas value is FIXED from the start so the one moving variable is
+    // still the producer's verdict (see this describe's header).
+    seedCanvasWithModel({ everyFactorValued: true })
     useCanvasStore.setState({ analysisStateV1: analysisState(fourBlockers()) } as never)
 
     render(<Wrapper><OutputsDock /></Wrapper>)

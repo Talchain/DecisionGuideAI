@@ -2,8 +2,11 @@
  * V5AnalysisResultBlock — renders V5 OlumiResponse.analysis_result.
  *
  * Card content:
- *   - Always: summary text, uncertainty calibration copy, win_probabilities
- *     as pills.
+ *   - Always: summary text and win_probabilities as pills. The UI's
+ *     uncertainty calibration line renders UNLESS the card already renders
+ *     CEE's own robustness sentence (each caveat once — `ceeStatesRobustness`).
+ *   - An "Earlier run" marker when this card's result is not the analysis on
+ *     display, bound by result hash (`cardRunCurrency`).
  *   - When the turn carries a 0.30 `decision_review` with prose: the five
  *     fields no other wire block delivers — `narrative_summary`,
  *     `story_headlines`, `robustness_explanation`, `readiness_rationale`,
@@ -54,7 +57,9 @@ import {
   buildV5VerdictReportLike,
   resolveLeaderKeys,
   resolveOptionLabelById,
+  v5AnalysisBlockContentHash,
 } from '../mapV5AnalysisToReport'
+import { useCanvasStore } from '../../canvas/store'
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
@@ -119,6 +124,43 @@ function formatProbability(p: number): string {
  * the live-browser probe, which is declared undone.
  */
 const PROSE_WRAP = 'whitespace-pre-wrap break-words min-w-0'
+
+/**
+ * ⭐ THE HISTORICAL MARKER (Paul's OpenAI test, 24 Sep 2026, screenshot
+ * `0c49ba79…`): a transcript card reads "Ran analysis on your current scenario"
+ * for ever, while the Analysis tab and canvas move on to a later result. A card
+ * for a run that is NOT the analysis on display now says so; the card that IS
+ * on display says nothing extra.
+ *
+ * Copy reused, not minted: "Earlier run" is the Compare tab's own name for a
+ * run that is not the current one (`compare-tab/RunSelector.tsx`).
+ */
+export const EARLIER_RUN_MARKER = 'Earlier run'
+
+/**
+ * Which run this card is, relative to the analysis on display — by IDENTITY,
+ * never by position in the transcript.
+ *
+ * The identity is the content hash `v5AnalysisBlockContentHash`, which is the
+ * very derivation the store writes to `results.hash` for a conversational or
+ * hydrated V5 result (`applyV5State` → `mapV5AnalysisToReport(block)`), and the
+ * one #1923's one-card-per-run dedupe keys on — so "same result" means the same
+ * thing on the card, in the transcript and on the Analysis tab.
+ *
+ *   · `current` — the displayed analysis IS this card's result.
+ *   · `earlier` — an analysis is displayed and it is a DIFFERENT result.
+ *   · `unknown` — nothing is displayed (no `results.hash`). No claim either way:
+ *     a card cannot be called earlier than an analysis that is not there.
+ */
+export type CardRunCurrency = 'current' | 'earlier' | 'unknown'
+
+export function cardRunCurrency(
+  cardHash: string,
+  displayedHash: string | null | undefined,
+): CardRunCurrency {
+  if (typeof displayedHash !== 'string' || displayedHash === '') return 'unknown'
+  return displayedHash === cardHash ? 'current' : 'earlier'
+}
 
 function finiteNumber(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
@@ -303,7 +345,26 @@ function V5AnalysisResultBlockImpl({
   // enrichment passthrough. Honest-render: null when the wire carries no
   // robustness signal at all.
   const uncertaintyInputs = resolveUncertaintyInputs(block.enrichment, block.leading_option_id)
-  const uncertaintyCopy = calibrateUncertaintyCopy(uncertaintyInputs)
+  // ⭐ EACH CAVEAT ONCE. The calibrated line is UI-authored and restates the
+  // robustness verdict. When this card also renders CEE's own robustness
+  // sentence (`decision_review.robustness_explanation.summary`, which carries
+  // the producer's number — "holds in only about 42% of variations"), the
+  // UI line was the SAME caveat a second time, a few lines apart: the live
+  // walkA capture put "tentative… substantial" beside "substantial instability".
+  // CEE's sentence wins because it is the producer's and says more; the UI
+  // line stays the fallback wherever that sentence is absent (every Agent-lane
+  // card seen in Paul's 24 Sep test, which carried no decision review).
+  // CEE-authored repeats (`summary` vs `robustness_explanation`, answer prose
+  // vs `summary`) are NOT suppressed here — they are recorded for Core.
+  const ceeStatesRobustness =
+    showProse && review030?.robustness_explanation?.summary != null
+  const uncertaintyCopy = ceeStatesRobustness ? null : calibrateUncertaintyCopy(uncertaintyInputs)
+
+  // The historical marker — see `cardRunCurrency`. Hash computed once per block
+  // (the card is memoised on `block`); the store read is one string.
+  const cardHash = useMemo(() => v5AnalysisBlockContentHash(block), [block])
+  const displayedHash = useCanvasStore((s) => s.results?.hash ?? null)
+  const runCurrency = cardRunCurrency(cardHash, displayedHash)
 
   // ROADMAP 1.267 — WHO leads and WHETHER anyone does are different questions.
   //
@@ -365,14 +426,25 @@ function V5AnalysisResultBlockImpl({
       data-testid="v5-analysis-result"
       data-has-decision-review={hasReview ? 'true' : 'false'}
       data-decision-review-state={reviewState.kind}
+      data-run-currency={runCurrency}
       className="rounded-md border border-panel-border bg-panel p-4 space-y-3"
     >
-      <h3
-        className={typography.panelHeader}
-        data-testid="v5-analysis-result-heading"
-      >
-        Analysis result
-      </h3>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3
+          className={typography.panelHeader}
+          data-testid="v5-analysis-result-heading"
+        >
+          Analysis result
+        </h3>
+        {runCurrency === 'earlier' && (
+          <span
+            className={`${typography.panelMeta} text-text-light flex-none`}
+            data-testid="v5-analysis-result-earlier-run"
+          >
+            {EARLIER_RUN_MARKER}
+          </span>
+        )}
+      </div>
       <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
         {block.summary}
       </p>

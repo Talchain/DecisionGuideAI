@@ -30,6 +30,7 @@ import { ContestedSection } from './contested/ContestedSection'
 import { YourDecisionSection } from './model/YourDecisionSection'
 import { AdvancedSection } from './advanced/AdvancedSection'
 import { PanelFooter } from './footer/PanelFooter'
+import type { ValueAwaitingInput } from './footer/readinessDisplay'
 import type { LadderStep, SignalView } from './types'
 
 /**
@@ -59,9 +60,22 @@ export interface PreAnalysisPanelV3Props {
   blockedReason?: string
   /** The itemised form of `blockedReason` — see `GateBlockedListing`. */
   blockedListing?: GateBlockedListing
+  /**
+   * OutputsDock's `valuesAwaitingInput` — the factors the canvas marks
+   * `Needs input`. The same value the Olumi bar receives; see
+   * `ValueAwaitingInput` in `footer/readinessDisplay.ts`.
+   */
+  valuesAwaitingInput?: readonly ValueAwaitingInput[]
 }
 
-function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListing }: PreAnalysisPanelV3Props) {
+function PanelBody({
+  onAnalyse,
+  isAnalysing,
+  canRun,
+  blockedReason,
+  blockedListing,
+  valuesAwaitingInput,
+}: PreAnalysisPanelV3Props) {
   const model = usePreAnalysisModel()
   const { sendPrompt } = useConversationActions()
   const showToast = useShowToast()
@@ -206,6 +220,7 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListi
         // ladder when a second pre-run surface appeared; the flag rides here so
         // this surface reaches it through the same owner the shell's bar does.
         nothingHasAnswered={model.nothingHasAnswered}
+        valuesAwaitingInput={valuesAwaitingInput}
       />
     </div>
   )
