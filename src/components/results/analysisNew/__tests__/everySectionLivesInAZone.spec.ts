@@ -76,9 +76,11 @@ const BODY = path.resolve(__dirname, '../AnalysisNewTabBody.tsx')
  *   `ModelStrip` as that strip's own "N to review" affordance. It reviews the
  *   model the strip describes, so it sits with the strip, above the zones.
  */
+// ⚠ V2 first screen (24 Sep 2026): `CritiqueWarningStrip` and
+// `InferenceWarningStrip` LEFT this list — they no longer mount above the zones.
+// The tab carries one qualifier under the chart and About › Limitations lists
+// the entries (`theAnswerIsOnTheFirstScreen.spec.tsx`).
 const ABOVE_THE_ZONES = [
-  'CritiqueWarningStrip',
-  'InferenceWarningStrip',
   'ModelStrip',
   'MethodStrip',
   'ModelReviewTool',
@@ -109,7 +111,9 @@ describe('the zone grammar has contents, not just names', () => {
 
   it('PRECONDITION: the four zones are found in the source — otherwise this spec reads nothing', () => {
     // V2: "Challenge the thinking" (the `also` group) now sits ABOVE the answer.
-    expect(zoneOpens.map((z) => z.m[1])).toEqual(['focus', 'also', 'answer', 'further'])
+    // V2 first screen (24 Sep 2026): "Focus now" follows the answer — the
+    // prototype goes model → challenge → commitment with nothing between.
+    expect(zoneOpens.map((z) => z.m[1])).toEqual(['also', 'answer', 'focus', 'further'])
   })
 
   it('PRECONDITION: the render root is found, and it precedes the first zone', () => {
