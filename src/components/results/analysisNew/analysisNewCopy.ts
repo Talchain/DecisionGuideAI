@@ -1330,6 +1330,7 @@ export const ANALYSIS_NEW_COPY = {
     rationaleLabel: 'Because',
     assumptionLabel: 'Assumption to watch',
     revisitLabel: 'Revisit',
+    nextActionLabel: 'Next action',
     /**
      * ⚠ "of 100", NOT "%". The capture field is labelled "Confidence, 0–100"
      * and the producer is the user's own typed number. Rendering it as a
