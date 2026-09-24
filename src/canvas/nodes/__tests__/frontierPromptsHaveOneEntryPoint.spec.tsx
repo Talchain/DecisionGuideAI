@@ -16,8 +16,10 @@
  * What stays reachable, bound here by identity (testid / exact label):
  *   · option  → the ghost card `__ghost-option__` ONLY, which now lands an
  *     editable draft (v3.1: "does not send or mutate silently");
- *   · factor / risk / outcome → the row's last card, inline, in Detailed view —
- *     where every secondary coaching question already renders (ED 02:31Z D4).
+ *   · factor / risk / outcome → the row's last card, inline, in BOTH views
+ *     (Paul, 24 Sep: "We used to have little prompts for each of the node
+ *     types… let's add them back in" — supersedes the Detailed-only gate of
+ *     ED 11:52Z pt 5; row-end prompt cards replace this with the fit slice).
  *
  * CLAUDE.md trap 3: jsdom proves presence/absence of elements, not visibility.
  */
@@ -180,17 +182,14 @@ describe('the option question has ONE entry point: the ghost card', () => {
   })
 })
 
-describe('the factor / risk / outcome questions leave the resting card', () => {
-  it('⭐ Standard view: the factor row’s last card renders no invitation row', () => {
-    // Positive control: the anchor resolver DOES pick this card, so an absence
-    // below is the view gate, not a mis-anchored invitation.
+describe('the factor / risk / outcome questions stay reachable at rest (Paul 24 Sep)', () => {
+  it('⭐ Standard view: the factor row’s last card carries its question', () => {
     expect(tierInvitations(MODEL).get('f2')?.[0]?.label).toBe(FACTOR_LABEL)
     mountCard('factor', 'f2', 'Monthly price')
-    expect(screen.queryByTestId('tier-invitations')).toBeNull()
-    expect(screen.queryByRole('button', { name: FACTOR_LABEL })).toBeNull()
+    expect(screen.getByTestId('tier-invitation-factor').getAttribute('aria-label')).toBe(FACTOR_LABEL)
   })
 
-  it('⛔ CONTRAST: Detailed view keeps the question reachable on that card', () => {
+  it('⭐ Detailed view keeps the question reachable on that card too', () => {
     setView('expert')
     mountCard('factor', 'f2', 'Monthly price')
     const link = screen.getByTestId('tier-invitation-factor')
