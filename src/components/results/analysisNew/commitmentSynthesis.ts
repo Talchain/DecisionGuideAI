@@ -159,10 +159,19 @@ const isRobustnessNotEstablished = (code: ChecksCode): code is RobustnessNotEsta
  * The `modelImplication` block's LEAD where the lead is itself a reading
  * (aligned, diverged), else its FIRST statement (`needs_target`, whose lead is a
  * limitation, "Only one reading of this run is available", not a reading).
- * `none` says nothing, and neither does this. On a withheld verdict the view
- * model already returns `none`, so this bullet is absent there by construction.
+ * `none` says nothing, and neither does this.
+ *
+ * ⛔ NOT WHEN THE CHECKS SAY THE LEADER WAS NOT ASSESSED. The implication
+ * withholds only on a verdict that arrived and refused (`rec.verdict != null`);
+ * a run with NO verdict still yields `aligned` ("X is most likely…"), while
+ * `checks` reads the same run as `leader_not_assessed`. Side by side those were
+ * two bullets contradicting each other (witnessed on the Rich fixture: bullet 1
+ * "most likely", bullet 2 "could not confirm which option is most likely"). The
+ * checks' reading is the conservative one, so a withheld leader silences this
+ * bullet whatever the implication says.
  */
 function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
+  if (vm.checks.leaderWithheld) return null
   const mi = vm.modelImplication
   switch (mi.kind) {
     case 'aligned':

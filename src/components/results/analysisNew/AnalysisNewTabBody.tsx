@@ -2369,12 +2369,8 @@ export function AnalysisNewTabBody({
             own: furniture that looked like a block would add the weight this
             change exists to remove. Sized and coloured as `panelMeta`, the
             quietest of the panel's three sizes. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-answer"
-        >
-          Move towards commitment
-        </p>
+        {/* V2: no separate zone label here — the commitment block below carries
+            the zone's heading ("Move towards commitment") with its own acts. */}
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}

@@ -179,6 +179,21 @@ describe('bullet 1 — what seems well-founded (vm.modelImplication)', () => {
     // CONTRAST: the permitted twin of the same run does speak.
     expect(buildCommitmentSynthesis(vmOf(twoOptionRun(null))).founded).not.toBeNull()
   })
+
+  it('⛔ NO VERDICT: the implication still says "most likely" but the checks say not assessed → no bullet', () => {
+    // The Rich-fixture contradiction: `modelImplication` withholds only on a
+    // verdict that arrived and refused; with NO verdict it stays `aligned`
+    // while `checks` reads `leader_not_assessed`. Side by side, bullet 1 said
+    // "most likely" and bullet 2 "could not confirm which option is most likely".
+    const noVerdict = twoOptionRun({ a: 0.8, b: 0.3 }, {
+      verdict: undefined,
+      leaderDesignationPermitted: undefined,
+    } as Partial<DecisionResultData>)
+    const vm = vmOf(noVerdict)
+    expect(vm.modelImplication.kind, 'PRECONDITION: the implication still speaks').toBe('aligned')
+    expect(vm.checks.leaderWithheld, 'PRECONDITION: the checks say not assessed').toBe(true)
+    expect(buildCommitmentSynthesis(vm).founded).toBeNull()
+  })
 })
 
 describe('bullet 2 — what remains uncertain, by fixed priority', () => {

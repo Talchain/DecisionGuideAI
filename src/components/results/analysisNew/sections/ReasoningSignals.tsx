@@ -90,7 +90,7 @@ export function ReasoningSignals({
       {drivers.length > 0 ? (
         <div data-testid={`${testId}-drivers`}>
           <div className="flex items-center justify-between">
-            <span className={`${typography.panelMeta} text-text-light`}>{COPY.sections.whatMovesTheOutcome}</span>
+            <span className={`${typography.panelMeta} text-text-light`}>{ZONE.driversKicker}</span>
             {/* The scale denial travels with the bars. The tooltip carries it
                 for a pointer; the press shows it inline for touch, where a
                 tooltip cannot be opened. Gated on the view model's own flag. */}

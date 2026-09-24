@@ -9,6 +9,8 @@
  * ahead, or whether a technique applies here.
  */
 export const CHALLENGE_ZONE_COPY = {
+  /** The drivers kicker. Not "What moves the outcome": that names the full section below it. */
+  driversKicker: 'Top drivers',
   /** The card's one AI act: runs the existing intervention or method route. */
   workThrough: 'Work through this with Olumi',
   /** The overflow trigger's accessible name. */
