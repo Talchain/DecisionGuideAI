@@ -210,11 +210,23 @@ describe('the convergence line', () => {
       { id: 'opt_hold', label: 'Hold Price at Current Level' },
       { id: 'opt_hold', label: 'Hold Price at Current Level' },
     ]
-    renderBody(withAlternatives(AGREE, false))
+    // ⛔ AMENDED 24 Sep 2026: rendered WITHOUT opening the section, because on a
+    // withheld run there is no section to open. Its rows were read here as the
+    // contrast ("the section IS on screen"), but every one of them is a fragile
+    // edge — it says which option could lead — and a served withheld run showed
+    // exactly that. So the whole section is now absent, and the contrast that
+    // proves the null is the licence's doing is the permitted twin below.
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={withAlternatives(AGREE, false)}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="convergence_line"
+      />,
+    )
     expect(line(), '"towards <option>" names an order a withheld run may not state').toBeNull()
-    // Contrast, same run: the section and its rows ARE on screen, so the null is
-    // the gate and not an absent section.
-    expect(screen.queryAllByTestId('analysis-new-sensitivity-row')).toHaveLength(3)
+    expect(screen.queryByTestId('analysis-new-sensitivity')).toBeNull()
     cleanup()
     // …and the permitted twin of exactly this shape DOES render it.
     renderBody(withAlternatives(AGREE, true))

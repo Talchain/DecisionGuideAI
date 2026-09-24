@@ -218,16 +218,38 @@ describe('the tipping point reaches the screen', () => {
   /**
    * ⛔ THE GATE'S OWN TWIN. The same two found rows, the leader licence
    * withheld: "…before <option> leads" presupposes a current leader, so NEITHER
-   * surface may state a tipping point. The section still renders (its rows are
-   * not leader claims) and is asserted open, so the absence is read off a
-   * mounted region rather than a closed one.
+   * surface may state a tipping point.
+   *
+   * ⛔ AMENDED 24 Sep 2026 — this said *"The section still renders (its rows
+   * are not leader claims)"*, and that premise was refuted on the served build:
+   * a withheld run's row read *If this changes significantly, "Raise Pro to
+   * £59" could lead in this model*. Every row there is a fragile edge — an edge
+   * whose weakening switches the recommended option — so the rows ARE leader
+   * claims, and on a withheld run the section is now absent as a whole. The
+   * contrast therefore moves to the licensed twin, rendered in the same test:
+   * it shows the section and its header tip, so the withheld zeros are the
+   * licence's doing rather than a fixture that renders nothing.
    */
   it('⛔ a WITHHELD run states no tipping point on either surface', () => {
-    renderBody(withFlipThresholds([REAL_ROWS[0], SECOND_FOUND], false))
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={withFlipThresholds([REAL_ROWS[0], SECOND_FOUND], false)}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="tipping_point"
+      />,
+    )
     expect(screen.queryAllByTestId(SIGNAL_TIP), 'the signals row must not name a leader').toHaveLength(0)
     expect(screen.queryAllByTestId(SECTION_TIP), 'the section header must not name a leader').toHaveLength(0)
-    // Contrast in the same run: the section IS on screen with its rows, so the
-    // zero above is the gate, not an absent section.
+    expect(
+      screen.queryByTestId(SENSITIVITY),
+      'the section whose every row names a leader is absent on a withheld run',
+    ).toBeNull()
+    cleanup()
+    // Contrast: the licensed twin — same rows, same thresholds — renders both.
+    renderBody(withFlipThresholds([REAL_ROWS[0], SECOND_FOUND], true))
+    expect(screen.queryAllByTestId(SECTION_TIP).length).toBeGreaterThan(0)
     expect(screen.queryAllByTestId('analysis-new-sensitivity-row').length).toBeGreaterThan(0)
   })
 })
