@@ -918,7 +918,8 @@ async function showNormalZoom(page: Page): Promise<void> {
   if (await reset.count()) {
     // DIAGNOSTIC (24 Sep, #1932): a TIME SERIES from the click, so a reset that
     // "does nothing" names what moved the camera back — the layout version, its
-    // initiator, the rung and the user's camera claim, every ~50ms for 4s.
+    // initiator, the rung and the user's camera claim, every ~50ms until 6s after
+    // the click's claim lands, plus the rAF frame count (CI throttling).
     // Log-only; asserts nothing. (The reset works locally; only CI fails it.)
     await page.evaluate(() => {
       const w = window as unknown as {
@@ -930,6 +931,10 @@ async function showNormalZoom(page: Page): Promise<void> {
       const claimPath = '/src/canvas/utils/userCameraClaim.ts'
       const claimMod = import(/* @vite-ignore */ claimPath).catch(() => null) as Promise<{ userOwnsCamera?: () => boolean } | null>
       const t0 = performance.now()
+      let frames = 0
+      const countFrame = () => { frames += 1; if (performance.now() - t0 < 20_000) requestAnimationFrame(countFrame) }
+      requestAnimationFrame(countFrame)
+      let claimedAt: number | null = null
       const tick = async () => {
         const s = w.useCanvasStore?.getState?.() ?? {}
         const m = await claimMod
@@ -942,15 +947,32 @@ async function showNormalZoom(page: Page): Promise<void> {
           pending: s.pendingLayout ?? null,
           inProgress: s.layoutInProgress ?? null,
           claim: m?.userOwnsCamera ? m.userOwnsCamera() : null,
+          frames,
         })
-        if (performance.now() - t0 < 4000) setTimeout(tick, 50)
+        const now = performance.now() - t0
+        if (claimedAt === null && m?.userOwnsCamera?.()) claimedAt = now
+        // Record until 6s AFTER the click's claim lands (Playwright's click can
+        // take seconds to pass actionability), capped at 20s.
+        if (now < 20_000 && (claimedAt === null || now - claimedAt < 6000)) setTimeout(tick, 50)
       }
       void tick()
     })
     await reset.click()
-    await page.waitForTimeout(4200)
+    await page
+      .waitForFunction(
+        () => {
+          const series = (window as unknown as { __resetSeries?: Array<{ claim: boolean | null; t: number }> }).__resetSeries ?? []
+          const first = series.findIndex((r) => r.claim === true)
+          return first >= 0 && series[series.length - 1].t - series[first].t >= 6000
+        },
+        undefined,
+        { timeout: 25_000 },
+      )
+      .catch(() => undefined)
     const series = await page.evaluate(() => (window as unknown as { __resetSeries?: Array<Record<string, unknown>> }).__resetSeries ?? [])
-    const changes = series.filter((r, i) => i === 0 || JSON.stringify({ ...r, t: 0 }) !== JSON.stringify({ ...series[i - 1], t: 0 }))
+    const changes = series.filter(
+      (r, i) => i === 0 || i === series.length - 1 || JSON.stringify({ ...r, t: 0, frames: 0 }) !== JSON.stringify({ ...series[i - 1], t: 0, frames: 0 }),
+    )
     console.log(`NORMALZOOMSERIES ${JSON.stringify(changes)}`)
     await waitForVisualQuiescence(page)
     /*
