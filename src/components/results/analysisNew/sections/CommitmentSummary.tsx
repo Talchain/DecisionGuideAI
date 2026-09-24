@@ -148,7 +148,10 @@ function RecordYourView({
           className="w-full -ml-2 flex items-center justify-between gap-1.5 min-h-6 px-2 py-1 rounded text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           data-testid={`${testId}-open`}
         >
-          <span className={`${typography.panelBody} inline-flex items-center gap-1.5 text-info`}>
+          {/* Body colour, not `text-info`: the prototype's `.disclose` door is
+              `--text-body` with an icon and a chevron, and a blue label with no
+              underline relied on colour alone (render-discipline RULE B). */}
+          <span className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body`}>
             <NotebookPen className={`${icon('inline')} text-text-light`} aria-hidden={true} />
             {COMMITMENT_COPY.record.open}
           </span>
