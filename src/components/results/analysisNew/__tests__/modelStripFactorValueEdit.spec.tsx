@@ -170,6 +170,8 @@ describe('the edit dispatches through the one write authority, and reports what 
   it('an empty or non-numeric entry never reaches the authority', () => {
     openDetailFor('f_ai')
     fireEvent.click(screen.getByTestId(`${TID}-detail-value-edit`))
+    // The field now opens seeded with the current number; the reader clears it.
+    fireEvent.change(screen.getByTestId(`${TID}-detail-value-input`), { target: { value: '' } })
     fireEvent.click(screen.getByTestId(`${TID}-detail-value-save`))
     expect(proposeFactorValue).not.toHaveBeenCalled()
     expect(showToast).toHaveBeenCalledWith(COPY.modelStrip.valueNotEncodable)
@@ -190,5 +192,43 @@ describe('the edit dispatches through the one write authority, and reports what 
     fireEvent.click(other)
     expect(screen.queryByTestId(`${TID}-detail-value-input`)).not.toBeInTheDocument()
     expect(screen.getByTestId(`${TID}-detail-value-text`)).toHaveTextContent(COPY.modelStrip.noValue)
+  })
+})
+
+/**
+ * ⭐ THE FIELD OPENS WITH THE CURRENT NUMBER — IN THE UNITS THE COMMIT READS.
+ * Served witness, UI `11ed8874`, scenario `ecd6f779`: "Change this value" on
+ * Customer count (5,000 customers) opened EMPTY, so the reader had to retype a
+ * number the panel was showing them. The old reason for opening empty stands —
+ * the DISPLAY string ("£49", "5,000 customers") must never seed a numeric input —
+ * so the seed is read from the canonical field by `resolveValueInputSeed`, the
+ * SAME function `buildFactorValueEditEvent` uses to decide whether a typed number
+ * is user units or model scale. What the field shows and how the commit reads
+ * it cannot disagree (the 24 Sep 08:09Z P0 was exactly that disagreement).
+ */
+describe('the value field opens with the current number, in the units the commit reads', () => {
+  const openEditor = (nodeId: string) => {
+    openDetailFor(nodeId)
+    fireEvent.click(screen.getByTestId(`${TID}-detail-value-edit`))
+    return screen.getByTestId(`${TID}-detail-value-input`) as HTMLInputElement
+  }
+
+  it('a factor with a user-unit magnitude opens with that magnitude (raw 49 for £49), not the display text', () => {
+    expect(openEditor('f_ai').value).toBe('49')
+  })
+
+  it('a factor with only a model-scale value opens with that value', () => {
+    nodes.push({ id: 'f_model', type: 'factor', data: { label: 'Adoption', observedState: { value: 0.7 } } })
+    expect(openEditor('f_model').value).toBe('0.7')
+  })
+
+  it('CONTRAST: a factor with no number still opens empty', () => {
+    expect(openEditor('f_bare').value).toBe('')
+  })
+
+  it('saving the untouched seed proposes the same number back', () => {
+    openEditor('f_ai')
+    fireEvent.click(screen.getByTestId(`${TID}-detail-value-save`))
+    expect(proposeFactorValue).toHaveBeenCalledWith(49)
   })
 })
