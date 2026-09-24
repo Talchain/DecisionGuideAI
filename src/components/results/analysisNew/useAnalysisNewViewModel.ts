@@ -166,7 +166,9 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    * report identity change, and so the memo below can list it (it does).
    */
   const producerLeaderWithholdReason = useCanvasStore((s) =>
-    resultBoundLeaderWithholdCause(s.results.report?.producer_leader_permission),
+    // `results` itself can be null (no analysis yet): that is the no-cause path,
+    // never a crash (Codex pre-read on #1924, shard 4: 13 mounts threw).
+    resultBoundLeaderWithholdCause(s.results?.report?.producer_leader_permission),
   )
 
   /**
