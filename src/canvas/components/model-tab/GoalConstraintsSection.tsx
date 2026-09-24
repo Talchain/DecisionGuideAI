@@ -208,7 +208,17 @@ export function GoalConstraintsSection({
     <section
       data-testid={GOAL_CONSTRAINTS_SECTION_TESTID}
       aria-label={GOAL_CONSTRAINTS_COPY.heading}
-      className="border border-panel-border rounded-lg p-2 space-y-1.5"
+      /**
+       * ⭐⭐ V2 GAP 35 — NO NESTED CARD. `FIDELITY-GAPS-INDEX-20260924.txt`
+       * #35: this was a `rounded-lg border … p-2` box, with each row a
+       * SECOND `border rounded-lg` box inside it — a card within a card.
+       * The design authority has no boxes below the outline: lists sit
+       * directly under a divider-led section
+       * (`.tiny-list{padding:0;margin:8px 0;list-style:none}`). One
+       * `border-b … py-2.5` rule, the same shape `PANEL_SURFACE` gives
+       * Reasoning's own top-level sections.
+       */
+      className="border-b border-panel-border py-2.5 space-y-1.5"
     >
       <header className="space-y-0.5">
         <h3 className={`${typography.panelHeader} text-text-header`}>
@@ -219,7 +229,8 @@ export function GoalConstraintsSection({
         </p>
       </header>
 
-      <div className="space-y-1.5">
+      {/* V2 gap 35 — a plain list, not a stack of cards. */}
+      <ul className="space-y-1.5 list-none p-0 m-0">
         {constraints.map((constraint, index) => {
           const identity = constraintIdentity(constraint, index)
           const constraintText = goalConstraintText(constraint, nodes)
@@ -227,10 +238,10 @@ export function GoalConstraintsSection({
           const attached = namesAnElementInThisModel(constraint, nodes)
 
           return (
-            <div
+            <li
               key={identity}
               data-testid={GOAL_CONSTRAINT_ROW_TESTID(identity)}
-              className="px-2.5 py-1.5 bg-panel border border-panel-border rounded-lg"
+              className="py-1.5"
             >
               <div className="flex items-start justify-between gap-2">
                 <span className={`${typography.panelBody} text-text-body break-words`}>
@@ -303,10 +314,10 @@ export function GoalConstraintsSection({
                   {GOAL_CONSTRAINTS_COPY.unattached}
                 </p>
               )}
-            </div>
+            </li>
           )
         })}
-      </div>
+      </ul>
 
       <p className={`${typography.panelMeta} text-text-light`}>
         {GOAL_CONSTRAINTS_COPY.readOnly}

@@ -39,6 +39,7 @@ import { useModelHealth } from '../../hooks/useModelHealth'
 import { useCanvasStore } from '../../store'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { typography } from '../../../styles/typography'
+import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../../domain/canvasLabels'
 
 /** The one check this surface reports. Narrow by construction, not by filtering later. */
 const CONNECTOR_ISSUE_PREFIX = 'disconnected-option-'
@@ -51,12 +52,17 @@ export function StructuralIssuesSection() {
   // what CX292 refused, and the other checks carry their own vocabulary that has not been read.
   const connectorGaps = issues.filter(i => i.key.startsWith(CONNECTOR_ISSUE_PREFIX))
 
+  /**
+   * ⭐⭐ V2 GAP 35 — NO RAW WIRE ID MAY REACH THE READER. This fell back to the
+   * bare `nodeId` when a label was blank — exactly the `label ?? <id>` shape
+   * `modelTabNoRawIdFallback.sourceScan.spec.ts` bans in the sibling
+   * canonical editor, one door over from the guard's own reach. THE ONE id →
+   * label policy (`ModelTabBody.tsx` uses the identical pair) resolves a
+   * genuine label or names the absence honestly — never the id itself.
+   */
   const labelFor = useCallback(
-    (nodeId: string): string => {
-      const node = (nodes ?? []).find(n => n.id === nodeId)
-      const label = (node?.data as Record<string, unknown> | undefined)?.label
-      return typeof label === 'string' && label.trim().length > 0 ? label : nodeId
-    },
+    (nodeId: string): string =>
+      resolveCanvasLabel(nodeId, buildCanvasLabelMap(nodes ?? [])) ?? UNNAMED_ELEMENT_LABEL,
     [nodes],
   )
 
@@ -66,9 +72,16 @@ export function StructuralIssuesSection() {
     <section
       data-testid="structural-issues-section"
       aria-label="Options with no connector path shown to the goal"
-      className="rounded-lg border border-panel-border bg-panel px-3 py-2.5"
+      // V2 gap 35 — no card. The same full-width hairline every other
+      // top-level Model-tab section uses.
+      className="border-b border-panel-border py-2.5"
     >
-      <h3 className={`${typography.nodeLabel} mb-1 text-text-header`}>
+      {/* V2 gap 35 — `panelHeader`/`panelBody`, not `nodeLabel`. `nodeLabel`
+          is the CANVAS type token: it scales with `--canvas-label-scale`, a
+          variable this panel chrome has no business tracking (a reader who
+          zooms the canvas would find this section's text growing or
+          shrinking with it). */}
+      <h3 className={`${typography.panelHeader} mb-1 text-text-header`}>
         {connectorGaps.length === 1
           ? 'One option has no connector path shown to your goal'
           : `${connectorGaps.length} options have no connector path shown to your goal`}
@@ -76,7 +89,7 @@ export function StructuralIssuesSection() {
       {/* ⛔ VISIBLE, not an aria-label. This canvas's honesty layer is almost entirely invisible to
           a sighted reader, and the whole point of this surface is that it must not be mistaken for
           an analysis verdict. */}
-      <p className={`${typography.nodeLabel} mb-2 text-text-light`}>
+      <p className={`${typography.panelBody} mb-2 text-text-light`}>
         This describes the connectors drawn on your canvas. It is not an analysis result.
       </p>
       <ul className="flex flex-col gap-1.5">
@@ -88,7 +101,7 @@ export function StructuralIssuesSection() {
               data-testid={`structural-issue-${issue.key}`}
               className="flex items-center justify-between gap-2"
             >
-              <span className={`${typography.nodeLabel} text-text-light`}>{labelFor(nodeId)}</span>
+              <span className={`${typography.panelBody} text-text-light`}>{labelFor(nodeId)}</span>
               {/* The mounted action CX292 asked for: a route to the node, not another warning.
                   `focusNodeById` selects and centres it — the same helper ContestedEdgeCard uses
                   from this directory — and mutates no graph structure. */}
@@ -96,7 +109,7 @@ export function StructuralIssuesSection() {
                 type="button"
                 data-testid={`structural-issue-show-${nodeId}`}
                 onClick={() => focusNodeById(nodeId)}
-                className={`${typography.nodeLabel} shrink-0 rounded border border-panel-border px-2 py-0.5 text-text-header hover:bg-panel-hover`}
+                className={`${typography.panelBody} shrink-0 rounded border border-panel-border px-2 py-0.5 text-text-header hover:bg-panel-hover`}
               >
                 Show on canvas
               </button>
