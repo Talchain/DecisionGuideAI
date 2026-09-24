@@ -112,6 +112,24 @@ export function useMeasureThenLayout(): void {
   // computed against, it overlaps the row beneath. Recording the heights is
   // what makes that detectable without re-running the layout to find out.
   const laidOutHeightsRef = useRef<Map<string, number>>(new Map())
+  /**
+   * ⭐ S5 (24 Sep): …AND THE RUNG THEY WERE RECORDED AT, WITH ONE BASELINE PER
+   * RUNG. `measureNodeHeightsAtLabelBound` pins the SCALE to the bound but not
+   * the RUNG, and since S5 the landing rung (`quiet`) and Normal (`full`)
+   * render different content (stacked rows / no band vs grid / band). At
+   * `full` the bound read is a state that never renders — compared with a
+   * `quiet` recording it looked like growth, and the first zoom-in re-laid out
+   * (and re-fitted to the floor). Growth is now judged against a baseline taken
+   * AT THE SAME RUNG: the first reading at a rung with no baseline becomes it
+   * and lays out nothing; a layout records the current rung and drops the rest,
+   * so growth that happened at one rung is still caught at the other (never
+   * absorbed). `laidOutHeightsRef` stays the current rung's view of it.
+   */
+  const baselineByRungRef = useRef<Map<string, Map<string, number>>>(new Map())
+  const recordLayoutHeights = (heights: Map<string, number>) => {
+    laidOutHeightsRef.current = heights
+    baselineByRungRef.current = new Map([[useCanvasStore.getState().lodRung ?? 'full', heights]])
+  }
 
   useEffect(() => {
     const measured = allUnlockedNodesMeasured(storeNodes, nodeLookup)
@@ -205,7 +223,7 @@ export function useMeasureThenLayout(): void {
       !pendingLayout
     ) {
       laidOutWithFallbackRef.current = false
-      laidOutHeightsRef.current = currentHeights()
+      recordLayoutHeights(currentHeights())
       handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, initiatedBy: 'product' }))
       return
     }
@@ -242,14 +260,24 @@ export function useMeasureThenLayout(): void {
        * is the same defect one step later.
        */
       const heights = currentHeights()
-      const grown = grownNodeId(heights)
-      if (grown !== null) {
-        // Record BEFORE dispatching. The heights are already settled, so if the
-        // layout is superseded mid-flight the recorded set still describes what
-        // is on screen — and a node cannot re-trigger on the same growth.
+      const rung = useCanvasStore.getState().lodRung ?? 'full'
+      const rungBaseline = baselineByRungRef.current.get(rung)
+      if (!rungBaseline) {
+        // A rung this layout was not recorded at: its first reading IS its
+        // baseline. Nothing grew — the rung changed (S5; see the ref above).
+        baselineByRungRef.current.set(rung, heights)
         laidOutHeightsRef.current = heights
-        handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, initiatedBy: 'product' }))
-        return
+      } else {
+        laidOutHeightsRef.current = rungBaseline
+        const grown = grownNodeId(heights)
+        if (grown !== null) {
+          // Record BEFORE dispatching. The heights are already settled, so if the
+          // layout is superseded mid-flight the recorded set still describes what
+          // is on screen — and a node cannot re-trigger on the same growth.
+          recordLayoutHeights(heights)
+          handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, initiatedBy: 'product' }))
+          return
+        }
       }
     }
 
@@ -264,7 +292,7 @@ export function useMeasureThenLayout(): void {
       fallbackDeadlineRef.current = null
       // This layout has real heights, so there is nothing left to correct.
       laidOutWithFallbackRef.current = false
-      laidOutHeightsRef.current = currentHeights()
+      recordLayoutHeights(currentHeights())
       handleLayoutWithRecovery(() =>
         applyLayout({ skipHistory: true, requestId: capturedId, initiatedBy: 'product' }),
       )
