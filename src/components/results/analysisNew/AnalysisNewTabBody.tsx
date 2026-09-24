@@ -1313,7 +1313,7 @@ export function AnalysisNewTabBody({
       record={decisionRecord}
       onRecord={openDecisionRecord}
       onAsk={openAskOlumi}
-      qualifier={buildCommitmentQualifier(vm)}
+      qualifier={buildCommitmentQualifier(vm, { runProvisional: vm.status.runProvisional })}
     >
         <OptionsComparison
           options={vm.optionsComparison}

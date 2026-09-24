@@ -214,6 +214,13 @@ export interface AnalysisNewViewModelInputs {
    * this surface can state it. Never rendered directly.
    */
   producerLeaderWithholdReason?: string | null
+  /**
+   * `results.report.run_provenance.provisional === true`: CEE's typed marker
+   * for the run Olumi started by itself (see `mapV5AnalysisToReport`). Absent
+   * or anything but `true` = not an automatic run. Licenses the qualifier's
+   * "automatic first pass" clause and nothing else.
+   */
+  runProvisional?: boolean
   /** Engine output, already lifecycle-filtered by the hook. */
   recommendations: Recommendation[]
   isPreRun: boolean
@@ -3418,6 +3425,9 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
     // completeness verdict is the second, independent source — but only its
     // REQUIRED keys speak for it (see REQUIRED_RESULT_KEYS above).
     isProvisional: status === 'partial' || missingRequired.length > 0,
+    // ⚠ A DIFFERENT QUESTION from `isProvisional` (partial results): this is
+    // who started the run, as CEE typed it.
+    runProvisional: inputs.runProvisional === true,
     // Producer-owned, verbatim. Never authored here.
     statusNote: data.recommendation.statusReason ?? null,
     /**

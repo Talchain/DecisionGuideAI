@@ -250,3 +250,22 @@ describe('the automatic-first-pass clause', () => {
     expect(buildCommitmentQualifier({ ...vm, status: { ...vm.status, isPreRun: true } }, { runProvisional: true })).toBeNull()
   })
 })
+
+describe('the marker, read from the stored report, reaches the qualifier on the tab', () => {
+  it('a report stamped provisional leads the qualifier with "automatic first pass"', async () => {
+    const { useCanvasStore } = await import('../../../../canvas/store')
+    const previous = useCanvasStore.getState().results
+    useCanvasStore.setState({ results: { ...previous, report: { run_provenance: { initiated_by: 'auto_post_construction', provisional: true } } } } as never)
+    try {
+      renderBody(decisionWithLeaderWithheldAndReason())
+      expect(screen.getByTestId('analysis-new-commitment-qualifier').textContent).toMatch(/^Provisional · automatic first pass/)
+    } finally {
+      useCanvasStore.setState({ results: previous } as never)
+    }
+  })
+
+  it('CONTRAST: an unstamped report never says "automatic"', () => {
+    renderBody(decisionWithLeaderWithheldAndReason())
+    expect(screen.getByTestId('analysis-new-commitment-qualifier').textContent ?? '').not.toMatch(/automatic/)
+  })
+})
