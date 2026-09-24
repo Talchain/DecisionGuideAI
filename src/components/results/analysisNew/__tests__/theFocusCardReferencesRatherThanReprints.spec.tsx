@@ -60,7 +60,6 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
-import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { genuineDecision, openStrategicChallenge } from './analysisNewFixtures'
@@ -110,11 +109,6 @@ const renderBody = (data: ResultsSectionDataReturn) =>
     />,
   )
 
-const openAll = () => {
-  openAllSections()
-  const more = screen.queryByTestId('analysis-new-strengthen-show-more')
-  if (more) fireEvent.click(more)
-}
 
 afterEach(() => cleanup())
 

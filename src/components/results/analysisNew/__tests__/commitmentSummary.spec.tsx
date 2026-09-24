@@ -65,11 +65,12 @@ const vmOf = (data: ResultsSectionDataReturn, over: Partial<AnalysisNewViewModel
 
 const FULL: CommitmentSynthesis = {
   describesLastRun: false,
+  staleKind: null,
   founded: { text: 'In this model, Segment is most likely on both readings of this run.', source: 'implication_aligned_lead' },
   open: { text: COPY.checks.robustness_not_assessed.meaning, source: 'robustness' },
   before: { text: 'Define what success looks like', source: 'intervention' },
 }
-const EMPTY: CommitmentSynthesis = { describesLastRun: false, founded: null, open: null, before: null }
+const EMPTY: CommitmentSynthesis = { describesLastRun: false, staleKind: null, founded: null, open: null, before: null }
 
 const RECORD: DecisionRecord = {
   optionId: 'opt_b',
