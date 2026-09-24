@@ -191,7 +191,11 @@ describe('the panel is grouped into named zones', () => {
       checked += 1
       const name = (label.textContent ?? '').trim().toLowerCase()
       expect(name.length, 'precondition: the label says something').toBeGreaterThan(0)
+      // ⚠ V2 gap 16: a zone whose label IS its section title (an h3, the
+      // "Move towards commitment" grammar) is not restating itself, so the
+      // label element is excluded from the headings it is compared against.
       const headings = Array.from(group.querySelectorAll('h1,h2,h3,h4,h5,h6'))
+        .filter((h) => h !== label)
         .map((h) => (h.textContent ?? '').trim().toLowerCase())
       expect(headings, `${z}: the zone label restates a heading inside it`).not.toContain(name)
     }

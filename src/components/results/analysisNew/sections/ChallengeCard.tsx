@@ -53,6 +53,9 @@ import { action } from '../panelSurfaces'
 import { respondToIntervention, respondToMethod } from '../challengeResponse'
 import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 
+
+/** 14px, medium weight: one of the panel's three sizes, one step under the zone's h3. */
+const ITEM_TEXT = 'text-sm font-medium font-sans leading-snug'
 export interface ChallengeCardProps {
   /** The body's `glancePrimary` — `vm.strengthen.interventions`' pick. */
   intervention: Recommendation | null
@@ -236,9 +239,13 @@ export function ChallengeCard({
         </p>
       ) : null}
       <div className="flex items-start gap-1">
-        <h3 className={`${typography.panelHeader} text-text-header min-w-0 flex-1`} data-testid={`${testId}-heading`}>
-          {shown.heading}
-        </h3>
+        {/* ⭐ V2 (fidelity gap 16): the item is the zone's QUESTION, not a
+            second section title. 14px medium with a quiet leading dot, under
+            the zone's h3; still `.title` verbatim (ruling §3). */}
+        <p className={`${ITEM_TEXT} text-text-header m-0 min-w-0 flex-1 flex gap-1.5`}>
+          <span className="text-text-light" aria-hidden={true}>·</span>
+          <span className="min-w-0" data-testid={`${testId}-heading`}>{shown.heading}</span>
+        </p>
         <div className="flex shrink-0 items-center gap-1">
           <button
             ref={respondRef}

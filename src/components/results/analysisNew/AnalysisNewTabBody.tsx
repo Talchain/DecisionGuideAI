@@ -1962,12 +1962,16 @@ export function AnalysisNewTabBody({
             own: furniture that looked like a block would add the weight this
             change exists to remove. Sized and coloured as `panelMeta`, the
             quietest of the panel's three sizes. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+        {/* ⭐ V2 (fidelity gap 16): the zone is a SECTION TITLE, the same
+            grammar as "Move towards commitment" (a rule, then a 14px h3), not an
+            11px caption over a bold item. That inverted hierarchy read the
+            zone's name as a footnote to its own finding. */}
+        <h3
+          className={`${typography.panelHeader} text-text-header m-0 pt-3`}
           data-testid="analysis-new-zone-also"
         >
           Challenge the thinking
-        </p>
+        </h3>
         {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
             instruction to shorten the answer zone so both "what matters most"
             and "how the options compare" fit at 1440.

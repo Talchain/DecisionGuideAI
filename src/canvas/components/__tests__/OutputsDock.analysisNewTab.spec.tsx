@@ -476,6 +476,10 @@ describe('C · THE SECTION STRUCTURE', () => {
       .map((h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent)
       .filter((t) => t === null || !GROUP_TITLES.includes(t))
     expect(sectionHeadings).toEqual([
+      // ⭐ V2 fidelity gap 16 (24 Sep 2026): the challenge zone's name is now
+      // its section title (an h3, the "Move towards commitment" grammar), so it
+      // opens the census. The finding under it is a 14px question, not an h3.
+      'Challenge the thinking',
       // ⚠ V2 FIRST SCREEN (24 Sep 2026): the answer zone's commitment block now
       // leads the sections. Paul's 17 Sep "what matters most means the drivers"
       // is still met BEFORE it, at rest, by the challenge's "Top drivers" signal
@@ -589,11 +593,17 @@ describe('C · THE SECTION STRUCTURE', () => {
      * varies with the finding. It REDs the moment any section creeps above it.
      */
     const all = Array.from(body.querySelectorAll('h3'))
+    // ⚠ RE-POINTED, V2 fidelity gap 16 (24 Sep 2026): the zone's own title is
+    // now the h3 ("Challenge the thinking", the same grammar as "Move towards
+    // commitment") and the finding is its 14px-medium question under it. What
+    // this pins is unchanged: the coaching is the FIRST heading on the tab.
+    const zoneTitle = screen.getByTestId('analysis-new-zone-also')
     const card = screen.getByTestId('analysis-new-challenge-heading')
-    expect(all.indexOf(card as HTMLHeadingElement), 'the coaching must be the first heading on the tab').toBe(0)
+    expect(all.indexOf(zoneTitle as HTMLHeadingElement), 'the coaching must be the first heading on the tab').toBe(0)
+    expect(zoneTitle.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING, 'its finding follows it').toBeTruthy()
     const uncertainty = document.getElementById('analysis-new-uncertainty-heading')
     expect(uncertainty, 'precondition: the detail this is measured against rendered').not.toBeNull()
-    expect(all.indexOf(card as HTMLHeadingElement)).toBeLessThan(all.indexOf(uncertainty as HTMLHeadingElement))
+    expect(all.indexOf(zoneTitle as HTMLHeadingElement)).toBeLessThan(all.indexOf(uncertainty as HTMLHeadingElement))
     // …and the rest of the findings are one step above it: the review tool
     // sits under the model strip, before the card in document order.
     const review = screen.getByTestId('analysis-new-review')
