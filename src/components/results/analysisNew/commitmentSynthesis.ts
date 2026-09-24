@@ -256,7 +256,7 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
  */
 function beforeBullet(
   vm: CommitmentSynthesisInput,
-  excludeInterventionId: string | null,
+  excluded: ReadonlySet<string>,
 ): CommitmentBullet<BeforeSource> | null {
   if (vm.status.isStale && !vm.checks.rerunWouldNotHelp) {
     return { text: COPY.status.reanalyseToBeSure, source: 'rerun' }
@@ -264,7 +264,7 @@ function beforeBullet(
   // ⛔ NOT THE CARD'S OWN ITEM. The Challenge card already shows the promoted
   // intervention's title at rest; repeating it here put the same sentence on
   // screen twice (V2 census, B1). Skip it, as the review queue does.
-  const top = vm.strengthen.interventions.find((r) => r.id !== excludeInterventionId)
+  const top = vm.strengthen.interventions.find((r) => !excluded.has(r.id))
   if (top && top.title.trim() !== '') return { text: top.title, source: 'intervention' }
   return null
 }
@@ -277,7 +277,7 @@ const EMPTY: CommitmentSynthesis = { describesLastRun: false, staleKind: null, f
  */
 export function buildCommitmentSynthesis(
   vm: CommitmentSynthesisInput,
-  opts: { excludeInterventionId?: string | null } = {},
+  opts: { excludeInterventionIds?: ReadonlyArray<string | null | undefined> } = {},
 ): CommitmentSynthesis {
   if (vm.status.isPreRun) return EMPTY
   return {
@@ -285,7 +285,10 @@ export function buildCommitmentSynthesis(
     staleKind: vm.status.isStale ? vm.status.staleKind : null,
     founded: foundedBullet(vm),
     open: openBullet(vm),
-    before: beforeBullet(vm, opts.excludeInterventionId ?? null),
+    before: beforeBullet(
+      vm,
+      new Set((opts.excludeInterventionIds ?? []).filter((id): id is string => typeof id === 'string')),
+    ),
   }
 }
 

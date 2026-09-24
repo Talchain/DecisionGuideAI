@@ -407,6 +407,22 @@ export function reviewItemDisagreePayload(item: ReviewQueueItem): AskOlumiPayloa
   }
 }
 
+/**
+ * "I disagree" with an engine finding, wherever it is shown (the Challenge card
+ * or a review item): the same conversation route, context and `block_id`, so
+ * both surfaces send Olumi the same thing about the same finding.
+ */
+export function disagreeWithRecommendationPayload(rec: Recommendation): AskOlumiPayload {
+  return {
+    context: rec.whyNow || rec.signal,
+    draft: REVIEW_TOOL_COPY.disagreeDraft(rec.title),
+    label: REVIEW_TOOL_COPY.disagree,
+    ...(rec.targetId ? { targetId: rec.targetId } : {}),
+    ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
+    attentionNote: attentionNoteForRecommendation(rec),
+  }
+}
+
 function factorContext(item: ReviewQueueItem): string {
   const value = reviewValueText(item.factor)
   const parts = [value ? `${item.name}: ${value}.` : `${item.name}.`]

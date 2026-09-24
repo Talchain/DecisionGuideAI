@@ -219,3 +219,30 @@ describe('"Not useful right now" is the Strengthen lifecycle dismissal', () => {
     expect(screen.getByTestId('analysis-new-challenge-dismissed-notice')).toBeInTheDocument()
   })
 })
+
+describe('"I disagree" on the promoted finding', () => {
+  it('is offered in the card menu and hands the finding to the host, which continues into the conversation', () => {
+    const onDisagree = vi.fn()
+    const finding = rec({ id: 'strengthen:phase3:blk_x' })
+    render(
+      <ChallengeCard
+        intervention={finding}
+        methodId={null}
+        onRunIntervention={vi.fn()}
+        onRunMethod={vi.fn()}
+        onDisagree={onDisagree}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
+    expect(onDisagree).toHaveBeenCalledWith(finding)
+  })
+
+  it('CONTRAST: without a host handler there is no disagree item', () => {
+    render(
+      <ChallengeCard intervention={rec({ id: 'strengthen:phase3:blk_y' })} methodId={null} onRunIntervention={vi.fn()} onRunMethod={vi.fn()} />,
+    )
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
+    expect(screen.queryByTestId('analysis-new-challenge-disagree')).toBeNull()
+  })
+})

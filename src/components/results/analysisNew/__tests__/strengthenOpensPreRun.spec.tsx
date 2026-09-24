@@ -339,15 +339,18 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
    * plainly rather than dressed up as RED-first. Its evidence is the mutant:
    * re-adding the `key` turns it red.
    */
-  it('an in-progress disagreement survives a run completing', () => {
+  it('a disagreement survives a run completing (V2: it lives in the conversation, not the panel)', async () => {
+    // V2 has no in-panel composer: "I disagree" opens the ask with the
+    // finding's context, and the draft lives in the ask store outside this
+    // tab, so a completing run cannot remount it away. What the panel owns is
+    // that the act stays reachable on both sides of the transition.
+    const { openAskOlumi } = await import('../../coaching/askOlumiStore')
+    vi.mocked(openAskOlumi).mockClear()
     const { rerender } = draw(openStrategicChallenge(), true)
-    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
-    const box = document.querySelector('textarea') as HTMLTextAreaElement | null
-    // PRECONDITION PINNED IN-TEST: without a composer and a value in it, the
-    // assertion after the rerender would pass on an absence.
-    expect(box, 'no composer opened — the guard would be vacuous').not.toBeNull()
-    fireEvent.change(box!, { target: { value: 'The target should be NRR, not ARR' } })
-    expect(box!.value).toBe('The target should be NRR, not ARR')
+    openReview()
+    fireEvent.click(screen.getByTestId(`${REVIEW}-more`))
+    fireEvent.click(screen.getByTestId(`${REVIEW}-disagree`))
+    expect(vi.mocked(openAskOlumi).mock.calls.at(-1)?.[0].label).toBe(REVIEW_TOOL_COPY.disagree)
 
     rerender(
       <AnalysisNewTabBody
@@ -358,10 +361,17 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
         responseHash="run_abc123"
       />,
     )
-
-    const after = document.querySelector('textarea') as HTMLTextAreaElement | null
-    expect(after, 'the composer was destroyed by the transition').not.toBeNull()
-    expect(after!.value).toBe('The target should be NRR, not ARR')
+    // Post-run the act is on the Challenge card (the promoted finding) or on a
+    // review item; at least one must offer it.
+    const cardMore = screen.queryByTestId(`${CHALLENGE}-more`)
+    if (cardMore) fireEvent.click(cardMore)
+    else {
+      openReview()
+      fireEvent.click(screen.getByTestId(`${REVIEW}-more`))
+    }
+    expect(
+      screen.queryByTestId(`${CHALLENGE}-disagree`) ?? screen.queryByTestId(`${REVIEW}-disagree`),
+    ).not.toBeNull()
   })
 
   /**

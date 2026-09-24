@@ -428,7 +428,7 @@ describe("bullet 3 never repeats the Challenge card's own item (V2 census B1)", 
   it('skips the intervention the card is showing and takes the next one', () => {
     const s = buildCommitmentSynthesis(
       vmOf(genuineDecision(), { recommendations: [rec({ id: 'r1', title: 'Card item' }), rec({ id: 'r2', title: 'Next item' })] }),
-      { excludeInterventionId: 'r1' },
+      { excludeInterventionIds: ['r1'] },
     )
     expect(s.before?.text).toBe('Next item')
   })
@@ -436,6 +436,6 @@ describe("bullet 3 never repeats the Challenge card's own item (V2 census B1)", 
   it('CONTRAST: with nothing excluded, the top item is used; with only the card item, no bullet', () => {
     const vm = vmOf(genuineDecision(), { recommendations: [rec({ id: 'r1', title: 'Card item' })] })
     expect(buildCommitmentSynthesis(vm).before?.text).toBe('Card item')
-    expect(buildCommitmentSynthesis(vm, { excludeInterventionId: 'r1' }).before).toBeNull()
+    expect(buildCommitmentSynthesis(vm, { excludeInterventionIds: ['r1'] }).before).toBeNull()
   })
 })

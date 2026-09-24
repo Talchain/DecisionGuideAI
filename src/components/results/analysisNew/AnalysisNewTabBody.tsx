@@ -91,6 +91,7 @@ import { ChallengeCard } from './sections/ChallengeCard'
 import { ReasoningSignals } from './sections/ReasoningSignals'
 import { AboutThisAnalysis, ABOUT_COPY } from './sections/AboutThisAnalysis'
 import { ModelReviewTool } from './sections/ModelReviewTool'
+import { disagreeWithRecommendationPayload } from './buildReviewQueue'
 import { runMethod } from './runMethod'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { methodIdsRaisedBy } from './recommendationMethod'
@@ -1258,7 +1259,17 @@ export function AnalysisNewTabBody({
    * reuses the existing decision record. The ModelImplication card's lead is
    * bullet one, so the card itself is no longer mounted here.
    */
-  const commitmentSynthesis = buildCommitmentSynthesis(vm)
+  // Bullet 3 never repeats what is already asked at rest: the Challenge card's
+  // own item, nor the success target when the model strip already offers it
+  // (V2 census B1/B2).
+  const sensitivityConvergence = vm.leaderClaimPermitted ? vm.sensitivity.convergence : null
+  const sensitivityHeaderTips = vm.leaderClaimPermitted ? vm.sensitivity.tippingPoints.slice(1) : []
+  const commitmentSynthesis = buildCommitmentSynthesis(vm, {
+    excludeInterventionIds: [
+      glancePrimary?.id,
+      stripOffersTarget ? SUCCESS_MEASURE_RECOMMENDATION_ID : null,
+    ],
+  })
   const answerBlock = (
     <CommitmentSummary
       synthesis={commitmentSynthesis}
@@ -1937,6 +1948,7 @@ export function AnalysisNewTabBody({
             const method = METHOD_CATALOGUE.find((m) => m.id === id)
             if (method) runMethod(method)
           }}
+          onDisagree={(rec) => openAskOlumi(disagreeWithRecommendationPayload(rec))}
           analysisHash={responseHash ?? null}
         />
         <ReasoningSignals
@@ -2305,15 +2317,23 @@ export function AnalysisNewTabBody({
              component would be a field three of them can never fill — the
              shape that invites a fourth caller to fill it with something
              else. */
+          /* ⛔ V2: LEADER-GATED, AND THE FIRST TIPPING POINT HAS ONE OWNER.
+             Both sentences presuppose a current leader ("…before <option>
+             leads", "…towards <option>"), so on a run whose leader claim is
+             withheld they are the panel naming an order it may not state (the
+             rule #1881 applies to its own leader words; DATA-MAP truth risk 1).
+             And the first tipping point is already the Challenge signals row,
+             so this header carries only the rest — otherwise a header-only
+             section opened itself and put the same sentence on screen twice. */
           header={
-            vm.sensitivity.convergence || vm.sensitivity.tippingPoints.length > 0 ? (
+            sensitivityConvergence || sensitivityHeaderTips.length > 0 ? (
               <>
-                {vm.sensitivity.convergence ? (
+                {sensitivityConvergence ? (
                   <p
                     className={`${typography.panelBody} text-text-body`}
                     data-testid="analysis-new-sensitivity-convergence"
                   >
-                    {COPY.disclosure.convergence(vm.sensitivity.convergence.label)}
+                    {COPY.disclosure.convergence(sensitivityConvergence.label)}
                   </p>
                 ) : null}
                 {/* ⭐ THE THRESHOLD THE RUN FOUND, STATED. This array reached the
@@ -2322,7 +2342,7 @@ export function AnalysisNewTabBody({
                     the producer marked `found` rendered nowhere. Every number
                     and both names are the producer's; see `tippingPoints.ts`
                     for why the gate is `flip_reason` and not a non-null value. */}
-                {vm.sensitivity.tippingPoints.map((t) => (
+                {sensitivityHeaderTips.map((t) => (
                   <p
                     key={`${t.factorLabel}:${t.flipValue}`}
                     className={`${typography.panelBody} text-text-body`}

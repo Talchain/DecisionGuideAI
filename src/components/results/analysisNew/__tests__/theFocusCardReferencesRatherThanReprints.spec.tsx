@@ -62,6 +62,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { genuineDecision, openStrategicChallenge } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
@@ -196,20 +197,21 @@ describe.each([
     expect(reprintedChunks([heading!], why)).toEqual([])
   })
 
-  it('every disagreement affordance survives on the promoted row', () => {
+  it('every disagreement affordance survives on the promoted item (V2: the Challenge card)', async () => {
     // The product thesis rendered: the human is the author, not the recipient.
-    // Whatever the promoted card drops, these must stay reachable.
+    // V2 moved the promoted item to the Challenge card (the review queue
+    // excludes it), so the card itself must carry the disagreement acts.
+    const { openAskOlumi } = await import('../../coaching/askOlumiStore')
+    vi.mocked(openAskOlumi).mockClear()
     renderBody(fixture())
-    openAll()
-    const promotedId = screen
-      .getByTestId('analysis-new-glance-primary-intervention')
-      .getAttribute('data-recommendation-id')
-    const row = screen
-      .getAllByTestId('analysis-new-strengthen-item')
-      .find((r) => r.getAttribute('data-recommendation-id') === promotedId)
-    expect(row).toBeTruthy()
-    expect(within(row!).getByTestId('analysis-new-strengthen-disagree')).toBeInTheDocument()
-    expect(within(row!).getByTestId('analysis-new-strengthen-dismiss')).toBeInTheDocument()
-    expect(within(row!).getByTestId('analysis-new-strengthen-source')).toBeInTheDocument()
+    const card = screen.getByTestId('analysis-new-challenge')
+    const promotedId = card.getAttribute('data-recommendation-id')
+    expect(promotedId, 'PRECONDITION: a promoted finding').toMatch(/^strengthen:/)
+    fireEvent.click(within(card).getByTestId('analysis-new-challenge-more'))
+    expect(screen.getByTestId('analysis-new-challenge-why')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-challenge-not-useful')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
+    expect(vi.mocked(openAskOlumi)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(openAskOlumi).mock.calls[0][0].label).toBe(REVIEW_TOOL_COPY.disagree)
   })
 })

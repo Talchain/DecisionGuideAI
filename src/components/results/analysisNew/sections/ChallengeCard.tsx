@@ -47,6 +47,7 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { useStrengthenStore, recordKey } from '../../../../canvas/stores/strengthenStore'
 import { useCanvasStore } from '../../../../canvas/store'
 import { PanelIconButton } from '../PanelIconButton'
+import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { action } from '../panelSurfaces'
 
 export interface ChallengeCardProps {
@@ -58,6 +59,8 @@ export interface ChallengeCardProps {
   onRunIntervention: (recommendationId: string) => void
   /** The existing `runMethod` route, by catalogue id. */
   onRunMethod: (methodId: string) => void
+  /** "I disagree" on a grounded finding: continues into the conversation. */
+  onDisagree?: (rec: Recommendation) => void
   /** The run the dismissal is seeded against (`responseHash ?? null`). */
   analysisHash?: string | null
   testId?: string
@@ -97,6 +100,7 @@ export function ChallengeCard({
   methodId,
   onRunIntervention,
   onRunMethod,
+  onDisagree,
   analysisHash = null,
   testId = 'analysis-new-challenge',
 }: ChallengeCardProps) {
@@ -244,6 +248,20 @@ export function ChallengeCard({
                   >
                     {ZONE.whyThis}
                   </button>
+                  {onDisagree ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuFor(null)
+                        onDisagree(shown.rec)
+                      }}
+                      className={`${typography.panelBody} w-full px-3 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      data-testid={`${testId}-disagree`}
+                    >
+                      {REVIEW_TOOL_COPY.disagree}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     role="menuitem"
