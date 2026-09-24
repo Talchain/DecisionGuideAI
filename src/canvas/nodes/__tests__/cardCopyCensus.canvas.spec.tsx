@@ -601,10 +601,20 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1).
     // ⭐ WAS ALSO `What would falsify this?` (CONTROL, ADJUDICATED 9 Sep 2026).
     // Locked Canvas design (23 Sep 2026): the rail's coaching icon asks it now.
+    // ⭐ ADJUDICATED 24 Sep 2026 as KEPT — contract v3.1 OR-02 / RHY-09. STATE,
+    // by the `Not computed` precedent below: invariant on every unquantified
+    // outcome BY DESIGN, because it IS the statement of the state, and it sits
+    // in the position the outcome's own value takes when one exists (v3.1
+    // fixture: `small-state` / `own-value`). v3.1 point 8: "use that space for
+    // actual outcome state". The risk card's `Likelihood and impact not set
+    // yet` is the same kind of line; this fixture's risks carry values, so it
+    // does not appear in their buckets.
+    'Outcome not quantified',
   ],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
     'Explore consequences', // CONTROL
+    'Outcome not quantified', // STATE — see `outcome · pre · standard`
     'What affects this?', // CONTROL
     'What would falsify this?', // CONTROL
   ],
@@ -612,10 +622,12 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1). The
     // falsification question is still asked after a run (the `!isPostAnalysis`
     // gate stays gone), by the rail icon.
+    'Outcome not quantified', // STATE — see `outcome · pre · standard`
   ],
   'outcome · post · expert': [
     'Depends on:', // HEADING
     'Explore consequences', // CONTROL
+    'Outcome not quantified', // STATE — see `outcome · pre · standard`
     'Validate this assumption', // CONTROL
     // ⭐ ADJUDICATED 9 Sep 2026 — the phase gate that deleted this question on a
     // completed run is gone, so Detailed post now carries it as Detailed pre
@@ -678,7 +690,12 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   // varies per card — and no invariant run is left at this rung.
   'factor · post · lod-line': [],
   'risk · pre · lod-line': [],
-  'outcome · pre · lod-line': [],
+  'outcome · pre · lod-line': [
+    // STATE — see `outcome · pre · standard`. The outcome declares no reduced
+    // line, so its body is not blanked at this rung and the state line is
+    // collected here, exactly as `factor · post · lod-line` collects its caption.
+    'Outcome not quantified',
+  ],
 }
 
 /**
@@ -788,6 +805,8 @@ const ADJUDICATED_POSITIONS: Position[] = [
   { what: 'factor · the `Confidence` readout', by: 'census', present: (_c, r) => r.some((x) => x.startsWith('Confidence')) },
   { what: 'risk · the coaching chips', by: 'census', present: (_c, r) => r.includes('What reduces this?') },
   { what: 'outcome · the coaching chip', by: 'census', present: (_c, r) => r.includes('Explore consequences') },
+  // Contract v3.1 OR-02 / RHY-09: the outcome's own-state line, bound by testid.
+  { what: 'outcome · the own-state line `Outcome not quantified`', by: 'census', present: (c) => c.querySelector('[data-testid="outcome-unquantified"]') != null },
   // Locked Canvas design (23 Sep 2026): the face question is the rail's
   // coaching icon on every kind (spec §2; ED 02:31Z D4). No visible text, so the
   // census's verdict on it is that it adds no run — which is only a measurement
@@ -836,13 +855,14 @@ const ADJUDICATED_POSITIONS: Position[] = [
     present: (_c, r) => r.some((x) => x.endsWith('is the key difference')),
   },
   {
-    what: 'risk · the severity badge `{Severity} Risk`',
+    what: 'risk · the severity badge `{Severity} risk`',
     by: 'hand',
     why: 'KEPT — only the noun ` Risk` is invariant, and it says what "High" is '
       + 'high ON. That is the caption shape (`Ahead 47%`) written backwards, and '
       + 'captions stay. NOT deferred on card height, which was a false claim. '
-      + 'Detailed only since the locked Canvas design (23 Sep 2026).',
-    present: (_c, r) => r.some((x) => /^(High|Medium|Low) Risk$/.test(x)),
+      + 'Detailed only since the locked Canvas design (23 Sep 2026). Sentence '
+      + 'case since contract v3.1 (T13): the noun is kept, only its capital goes.',
+    present: (_c, r) => r.some((x) => /^(High|Medium|Low) risk$/.test(x)),
   },
   {
     // Locked Canvas design (23 Sep 2026), MT-19 — see `factor · pre · expert`.

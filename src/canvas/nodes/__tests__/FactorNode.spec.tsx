@@ -12,6 +12,7 @@ import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
+import { nodeColors } from '../colors'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
@@ -708,7 +709,9 @@ describe('FactorNode', () => {
     const tokens = cardTokens(container)
     expect(tokens).not.toContain('border-goal')
     expect(tokens).not.toContain('border-warning')
-    expect(tokens).toContain('border-factor')
+    // contract v3.1 FRAME-08: the kind hue survives as the factor's FRAME token
+    // (76% toward the warm neutral), not the full-strength `border-factor`.
+    expect(tokens).toContain(nodeColors.factor.frame)
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 
@@ -722,8 +725,9 @@ describe('FactorNode', () => {
     const tokens = cardTokens(container)
     expect(tokens).not.toContain('border-goal')
     // ⭐ THE RE-RULING. This replaces `toContain('border-warning')`: the kind hue
-    // must SURVIVE the incomplete state rather than be replaced by it.
-    expect(tokens).toContain('border-factor')
+    // must SURVIVE the incomplete state rather than be replaced by it — as the
+    // factor's frame token since contract v3.1 FRAME-08.
+    expect(tokens).toContain(nodeColors.factor.frame)
     expect(tokens).not.toContain('border-warning')
     // ⭐ …and the state must still be announced, or the ruling is half-done.
     expect(screen.getByTestId('needs-input-pill')).toBeTruthy()

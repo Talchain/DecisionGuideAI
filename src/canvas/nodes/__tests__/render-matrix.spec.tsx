@@ -1549,19 +1549,34 @@ describe('N1 — per-type selection ring', () => {
     } as any)
   })
 
-  it('a selected factor node wears the factor-type ring, not the old hardcoded info ring', () => {
+  /*
+   * ⭐ SUPERSEDED BY CONTRACT v3.1 (FRAME-09 / OR-10 / T03): selection is ONE
+   * 2px Info ring on every family, flush on the frame, with a soft lift —
+   * `.node.selected{box-shadow:0 0 0 2px var(--info),0 3px 12px #1B647417}`.
+   * N1's per-type ring was a 4px kind-hue halo plus a white offset; on a risk
+   * card that was a 4px Danger halo triggered by the neutral act of clicking.
+   * The discriminators kept: the ring is the SELECTION ring (2px, not the
+   * AI-highlight's 4px), and no kind hue survives on it.
+   */
+  const tokensOf = (el: Element) => el.className.split(/\s+/).filter(Boolean)
+
+  it('a selected factor node wears the one Info selection ring, not a factor-hued halo', () => {
     applyState()
     render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
-    const group = screen.getAllByRole('group')[0]
-    expect(group.className).toContain('ring-factor/50')
-    expect(group.className).not.toContain('ring-info')
+    const t = tokensOf(screen.getAllByRole('group')[0])
+    expect(t).toContain('ring-2')
+    expect(t).toContain('ring-info')
+    expect(t).not.toContain('ring-factor/50')
+    expect(t).not.toContain('ring-offset-2')
   })
 
-  it('a selected risk node wears the danger-type ring', () => {
+  it('a selected risk node wears the same Info ring — no Danger halo for a neutral act', () => {
     applyState()
     render(<ReactFlowProvider><RiskNode {...selProps} id="risk-1" type="risk" data={{ label: 'Attrition' }} /></ReactFlowProvider>)
-    const group = screen.getAllByRole('group')[0]
-    expect(group.className).toContain('ring-danger/50')
+    const t = tokensOf(screen.getAllByRole('group')[0])
+    expect(t).toContain('ring-2')
+    expect(t).toContain('ring-info')
+    expect(t).not.toContain('ring-danger/50')
   })
 
   it('selected + AI-highlighted: the highlight ring wins, the per-type selection ring is suppressed', () => {
@@ -1570,7 +1585,8 @@ describe('N1 — per-type selection ring', () => {
     const group = screen.getAllByRole('group')[0]
     // N2: the AI-highlight ring is the info/AI hue (not goal) and wins over selection.
     expect(group.className).toContain('ring-info/60')
-    expect(group.className).not.toContain('ring-factor/50')
+    // contract v3.1: the suppressed selection ring is now `ring-2 ring-info`.
+    expect(group.className.split(/\s+/)).not.toContain('ring-2')
   })
 
   it('N2: an AI-highlighted node gets the real pulse class (reduced-motion-safe in CSS)', () => {
