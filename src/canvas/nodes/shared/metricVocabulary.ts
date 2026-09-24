@@ -581,7 +581,7 @@ export const sensitivityRankBadgeLabel = (rank: number, fromLastRun = false): st
 export const SENSITIVITY_RANK_LEGEND_NOUN = 'Driver N of M'
 // ⭐ LOCKED DESIGN (23 Sep 2026; ED 02:31Z D1a): the corner "Key driver N" badge
 // is RETIRED and the rank is stated once, on the factor card's driver line —
-// "Driver N of M analysed" (`DRIVER_LINE_COPY.rank`). The legend heading
+// "Driver N of M ranked in this run" (`DRIVER_LINE_COPY.rank`, contract v3.1 pt 5). The legend heading
 // moves with it, so the key names the marking a reader actually meets.
 
 /**
@@ -855,11 +855,18 @@ export const MAX_GLOSS_LENGTH = 110
  * The relative/not-absolute half of the spec sentence is kept word for word.
  */
 export const DRIVER_LINE_COPY = {
-  // Paul 23 Sep contract feedback point 5: "if it says `1 of 3`, users must
-  // understand what the 3 means". M is the factors in the last analysis's
-  // driver feed (`rankFactor`), not the cards on the board — "in this model"
-  // invited counting cards. `FactorDriverLine`'s disclosure states the rest.
-  rank: (rank: number, setSize: number): string => `Driver ${rank} of ${setSize} analysed`,
+  // Contract v3.1 pt 5 (supersedes the 23 Sep "M = the factors in the driver
+  // feed" reading): "Driver N of M ranked in this run", where M is the number
+  // of factors the run RANKED (`rankFactor`'s `rankedSetSize`), so every one of
+  // the M ranks is on a card. Stale form: "Last run · Driver N of M ranked" —
+  // the caller still owns the `LAST_RUN_PREFIX`; `fromLastRun` only drops the
+  // "in this run" that would contradict it.
+  rank: (rank: number, rankedCount: number, fromLastRun = false): string =>
+    `Driver ${rank} of ${rankedCount} ranked${fromLastRun ? '' : ' in this run'}`,
+  // Contract v3.1 pt 5: "A factor the run did not rank shows no rank, and its
+  // detail says 'Not ranked in this run'". The stale form mirrors the rank's
+  // (the caller prefixes `LAST_RUN_PREFIX`).
+  notRanked: (fromLastRun = false): string => (fromLastRun ? 'Not ranked' : 'Not ranked in this run'),
   relativeDisclosure:
     'Relative to the strongest factor in this model, not an absolute causal percentage.',
   rankBasis:

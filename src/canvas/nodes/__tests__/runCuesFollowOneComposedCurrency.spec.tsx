@@ -47,7 +47,8 @@ const UNVALUED = { label: 'Hiring speed', type: 'factor', category: 'external' }
 
 const RANKED = {
   sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity',
-  influenceImportanceBasis: null, influenceSetSize: 5, confidence: null,
+  // Contract v3.1 pt 5: the printed M is the ranked count (3), not the set (5).
+  influenceImportanceBasis: null, influenceSetSize: 5, influenceRankedCount: 3, confidence: null,
   confidenceIsDefaulted: false, confidenceIsProvisional: false, inSensitivityAnalysis: true,
   achievementProbability: null, achievementProbabilityIsModelledBasis: false,
   stabilityPercentage: null, winRate: null, isResultsMode: true, predictedOutcome: null,
@@ -123,7 +124,7 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
     renderFactor()
     expect(semantic()).toBe('current')
     const caption = screen.getByTestId('factor-driver-line-caption').textContent ?? ''
-    expect(caption).toMatch(/Driver 1 of 5/)
+    expect(caption).toBe('Driver 1 of 3 ranked in this run')
     expect(caption).not.toMatch(/Last run/)
     expect(screen.getByTestId('factor-turning-point')).toBeInTheDocument()
     expect(screen.getByTestId('factor-turning-point').textContent ?? '').not.toMatch(/Last run/)
@@ -149,6 +150,8 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
       // Nor any other run-derived claim in words: an unconfirmed run licenses no
       // turning-point sentence, including a "no turning point" one.
       expect(document.body.textContent ?? '').not.toMatch(/turning point|Driver \d+ of \d+/i)
+      // Contract v3.1 pt 5: nor a "Not ranked" claim — no run is vouched for.
+      expect(screen.queryByTestId('factor-driver-not-ranked')).not.toBeInTheDocument()
     })
   }
 
