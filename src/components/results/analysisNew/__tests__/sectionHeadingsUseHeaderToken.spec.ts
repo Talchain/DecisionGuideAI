@@ -89,14 +89,24 @@ describe('Analysis (New) — a section title is typed as a section title', () =>
    * value-predicate binding this directory's own header bans. The count is now
    * asserted, so the claim and the check are the same claim.
    */
-  it('the two headings this closed are on panelHeader — one heading per file, asserted', () => {
+  //
+  // ⚠ RE-BOUND (V2 fidelity gaps 10 and 16): the Reasoning tab's zone names
+  // are now section-title h3s in `AnalysisNewTabBody.tsx` ("Challenge the
+  // thinking", "Focus now"), so that file holds more than one heading and a
+  // per-file count no longer identifies anything. Its binding moved to the
+  // heading's own testid, still asserted exactly once. The new titles are held
+  // to panelHeader by the positive requirement below and by their own specs.
+  it('the two headings this closed are on panelHeader — each bound by identity, asserted', () => {
     const all = headings()
-    const byFile = (f: string) => all.filter((h) => h.file.endsWith(f))
-    for (const f of ['sections/WhatWeChecked.tsx', 'AnalysisNewTabBody.tsx']) {
-      const found = byFile(f)
-      expect(found.length, `${f} must hold exactly one h1-h3 for this binding to BE an identity binding`).toBe(1)
-      expect(/typography\.panelHeader/.test(found[0]!.snippet), f).toBe(true)
-    }
+    const whatWeChecked = all.filter((h) => h.file.endsWith('sections/WhatWeChecked.tsx'))
+    expect(whatWeChecked.length, 'WhatWeChecked must hold exactly one h1-h3 for this binding to BE an identity binding').toBe(1)
+    expect(/typography\.panelHeader/.test(whatWeChecked[0]!.snippet), 'WhatWeChecked').toBe(true)
+
+    const voi = all.filter(
+      (h) => h.file.endsWith('AnalysisNewTabBody.tsx') && h.snippet.includes('data-testid="analysis-new-decision-voi-heading"'),
+    )
+    expect(voi.length, 'the decision-VOI heading, bound by its testid, exactly once').toBe(1)
+    expect(/typography\.panelHeader/.test(voi[0]!.snippet), 'decision-VOI heading').toBe(true)
   })
 
   /**
