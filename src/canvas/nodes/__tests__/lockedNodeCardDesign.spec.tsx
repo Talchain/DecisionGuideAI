@@ -201,17 +201,18 @@ afterEach(() => cleanup())
 // FACTOR
 // ═════════════════════════════════════════════════════════════════════════════
 
-const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, inSensitivityAnalysis: true, isResultsMode: true }
+// Contract v3.1 pt 5: the printed M is the RANKED count (3), not the licence set (4).
+const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, influenceRankedCount: 3, inSensitivityAnalysis: true, isResultsMode: true }
 
 describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z D1a; ED 11:52Z point 3)', () => {
-  it('a current, ranked factor reads "Driver 1 of 4 analysed" with a bar — no "%", no "#"; the % lives in its disclosure', () => {
+  it('a current, ranked factor reads "Driver 1 of 3 ranked in this run" (contract v3.1 pt 5) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     const line = within(card).getByTestId('factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
@@ -219,13 +220,18 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     expect(line.getAttribute('aria-label')).toContain('not an absolute causal percentage')
   })
 
-  it('an unranked factor with a measured quantity carries the quantity’s own noun, never a bare bar', () => {
+  // ⛔ SUPERSEDED BY CONTRACT v3.1 pt 5 (was: "carries the quantity’s own
+  // noun, never a bare bar"): "A factor the run did not rank shows no rank, and
+  // its detail says 'Not ranked in this run'". No line and no bar at all.
+  it('an unranked factor shows no rank, no line and no bar; it says "Not ranked in this run" to AT', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': { ...DRIVER_META, sensitivityRank: null, influence: 0.4 } })
     renderCard(FactorNode as never, 'fac-price')
-    const caption = within(face('Monthly price')).getByTestId('factor-driver-line-caption')
-    expect(caption.textContent).toBe('Outcome sensitivity')
+    const card = face('Monthly price')
+    expect(within(card).queryByTestId('factor-driver-line')).toBeNull()
+    expect(within(card).queryByTestId('factor-driver-line-bar')).toBeNull()
+    expect(within(card).getByTestId('factor-driver-not-ranked').textContent).toBe('Not ranked in this run')
   })
 
   it('⛔ NO "% influence" ROW OR "Relative influence" ON THE FACE — control: the driver line is present', () => {
@@ -254,15 +260,16 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = within(face('Trial conversion')).getByTestId('factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     expect(within(face('Trial conversion')).getByTestId('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
     const line = within(face('Trial conversion')).getByTestId('factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 analysed')
+    // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
-    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked')).toBe(true)
     const tp = within(face('Trial conversion')).getByTestId('factor-turning-point')
     expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
     expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
@@ -722,7 +729,10 @@ describe('copy guard — the locked design’s ban list holds on every rendered 
     expect(lockedCardCopyViolations('You are anchored on the first number')).toHaveLength(1)
     expect(lockedCardCopyViolations('You have anchoring bias')).toHaveLength(1)
     // …and passes the locked wording.
-    expect(lockedCardCopyViolations('Driver 1 of 4 analysed')).toEqual([])
+    // Contract v3.1 pt 5 wording (current, stale, unranked).
+    expect(lockedCardCopyViolations('Driver 1 of 3 ranked in this run')).toEqual([])
+    expect(lockedCardCopyViolations('Last run · Driver 1 of 3 ranked')).toEqual([])
+    expect(lockedCardCopyViolations('Not ranked in this run')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs')).toEqual([])
     expect(lockedCardCopyViolations('Worth checking: anchoring. What would show whether it applies here?')).toEqual([])
     expect(lockedCardCopyViolations('Most supported')).toEqual([])

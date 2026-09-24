@@ -126,6 +126,14 @@ export interface NodeDisplayMetadata {
    */
   influenceSetSize?: number | null
   /**
+   * Contract v3.1 pt 5: the `M` the driver line PRINTS — how many factors the
+   * run's rank rule ranked (`rankFactor`'s `rankedSetSize`). Optional for the
+   * same mock-ratchet reason as `influenceSetSize`; assigned beside it,
+   * unconditionally in the factor branch. Absent ⇒ `driverRankFor` states no
+   * rank (fail closed, never a borrowed denominator).
+   */
+  influenceRankedCount?: number | null
+  /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
    * producer sent none OR when the ruled policy says the figure is not fit to
@@ -320,6 +328,7 @@ export function useNodeDisplayMetadata(
         influenceProvenance: null,
         influenceImportanceBasis: null,
         influenceSetSize: null,
+        influenceRankedCount: null,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
@@ -345,6 +354,7 @@ export function useNodeDisplayMetadata(
     let influenceProvenance: DriverDisplayProvenance | null = null
     let influenceImportanceBasis: string | null = null
     let influenceSetSize: number | null = null
+    let influenceRankedCount: number | null = null
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -374,6 +384,7 @@ export function useNodeDisplayMetadata(
       // attention plan cannot disagree about a factor's rank.
       const ranks = rankFactor(rows, displayModel, nodeId)
       influenceSetSize = ranks.influenceSetSize
+      influenceRankedCount = ranks.rankedSetSize
       sensitivityRank = ranks.sensitivityRank
       voiRank = ranks.voiRank
 
@@ -648,6 +659,7 @@ export function useNodeDisplayMetadata(
       influenceProvenance,
       influenceImportanceBasis,
       influenceSetSize,
+      influenceRankedCount,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,
