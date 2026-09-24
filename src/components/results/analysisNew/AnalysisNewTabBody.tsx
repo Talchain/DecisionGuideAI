@@ -78,17 +78,17 @@ import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSec
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChanged } from './sections/WhatsChanged'
 import { AtAGlance } from './sections/AtAGlance'
-import { PrimaryIntervention } from './sections/PrimaryIntervention'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
-import { WhatWeChecked } from './sections/WhatWeChecked'
-import { TrustLine } from './sections/TrustLine'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
 import { SectionShell } from './sections/SectionShell'
 import { MethodStrip } from './sections/MethodStrip'
+import { ChallengeCard } from './sections/ChallengeCard'
+import { ReasoningSignals } from './sections/ReasoningSignals'
+import { AboutThisAnalysis, ABOUT_COPY } from './sections/AboutThisAnalysis'
 import { ModelReviewTool } from './sections/ModelReviewTool'
 import { runMethod } from './runMethod'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
@@ -97,7 +97,6 @@ import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
-import { DeeperAnalysis } from './sections/DeeperAnalysis'
 
 /**
  * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
@@ -1053,8 +1052,7 @@ export function AnalysisNewTabBody({
     vm.drivers.findings.length > 0 ||
     vm.drivers.influenceRows.length > 0 ||
     driversEmpty !== null ||
-    vm.uncertainty.decisionVoi !== 'not_computed' ||
-    vm.deeper.groups.length > 0
+    vm.uncertainty.decisionVoi !== 'not_computed'
   /**
    * ⚠ `WhatIWasGiven` READS ITS OWN STORE AND RENDERS PRE-RUN BY DESIGN — it is
    * about the brief, not the run — so this group is never empty in practice. The
@@ -1160,6 +1158,8 @@ export function AnalysisNewTabBody({
       riskCount: countOf('risk'),
     })
   }, [modelStrip, resultsSectionData.recommendation.hasGoalTarget])
+  /** V2: the method the user picked in the strip; the Challenge card shows it. */
+  const [pickedMethodId, setPickedMethodId] = useState<string | null>(null)
   const glancePrimary = useMemo(() => {
     const interventions = vm.strengthen.interventions
     if (!stripOffersTarget) return interventions[0] ?? null
@@ -1444,14 +1444,11 @@ export function AnalysisNewTabBody({
             It replaces BOTH the "Methods you can run" chip shelf and this tab's
             Actions dropdown, which rendered the same seven methods twice. Five
             icons + one overflow; the overflow keeps the rest of the catalogue
-            and the global actions (edit brief, review inputs, re-run). Until the
-            Challenge card lands, choosing a method opens it as before. */}
+            and the global actions (edit brief, review inputs, re-run). Choosing a
+            method shows it in the Challenge card; choosing it again clears it. */}
         <MethodStrip
-          activeMethodId={null}
-          onSelectMethod={(id) => {
-            const method = METHOD_CATALOGUE.find((m) => m.id === id)
-            if (method) runMethod(method)
-          }}
+          activeMethodId={pickedMethodId}
+          onSelectMethod={(id) => setPickedMethodId((cur) => (cur === id ? null : id))}
           raisedMethodIds={raisedMethodIds}
           canRerun={canRunAnalysis === true && !vm.status.isPreRun}
         />
@@ -1658,7 +1655,7 @@ export function AnalysisNewTabBody({
           warnings={vm.deeper.caveats}
           className="mb-2"
           // The held-back entries render in DeeperAnalysis, inside this section.
-          heldBackListedUnder={COPY.sections.whatMovesTheOutcome}
+          heldBackListedUnder={ABOUT_COPY.title}
         />
 
         {/* ── YOUR MODEL SO FAR ────────────────────────────────────────────
@@ -1859,8 +1856,14 @@ export function AnalysisNewTabBody({
             is the one that matters most here, because that is where `AtAGlance`
             carries "no option can be called the leader until you have set at
             least one". */}
-        {vm.status.isPreRun ? null : (
-        <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
+        {/* ── ZONE: ALSO ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
@@ -1868,114 +1871,195 @@ export function AnalysisNewTabBody({
             quietest of the panel's three sizes. */}
         <p
           className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-answer"
+          data-testid="analysis-new-zone-also"
         >
-          What your model shows
+          Challenge the thinking
         </p>
-        <AtAGlance
-          glance={vm.atAGlance}
-          onFocusTarget={focusTarget}
-          /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
-             ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
-             `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
-             on the stated rationale that "the estimates live on the Model tab".
-             That was true when it was written and false the next morning — see
-             `reviewEstimates` above for the derivation and for why this body,
-             and only this body, can compose the two.
+        {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
+            instruction to shorten the answer zone so both "what matters most"
+            and "how the options compare" fit at 1440.
 
-             `AtAGlance` is still fail-closed and still not told where anything
-             lives: it receives one handler or `undefined`, exactly as before,
-             and `reviewEstimates` is `undefined` when there is neither an
-             in-page act nor a route. */
-          onReviewEstimates={reviewEstimates}
-          isStale={vm.status.isStale && !vm.status.isPreRun}
-          staleKind={vm.status.staleKind}
-          isProvisional={vm.status.isProvisional}
-          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
-             passed because they answer different questions and the section uses
-             each for its own. */
-          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
-          onReanalyse={onReanalyse}
-          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
-             IT — and not the verdict itself. `runRefusedByGate` is
-             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
-             in it), and the reason is masked by that same boolean so a
-             permitted control carries no refusal text. What `AtAGlance` gets
-             is therefore a PRESENTATION predicate over the one admission, in
-             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
-             not either of the two values the dock handed this component. */
-          reanalyseBlocked={runRefusedByGate}
-          reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
-          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
-             questions the ribbon control has to answer. `reanalyseBlocked`
-             above says whether the gate REFUSED; this says whether a run is
-             ALREADY IN FLIGHT, and the button is disabled on either while only
-             the first may caption it.
+            It rendered inside `AtAGlance`, which put a NEXT ACTION in the zone
+            that holds the ANSWER. Its own heading there said so: "WHAT TO THINK
+            ABOUT NEXT". This zone is labelled "Also worth doing".
 
-             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
-             AGAINST — this prop, the dock's local flag — and deliberately NOT
-             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
-             which answers the cover's question, not the gate's; pairing the
-             verdict with it would test a different run than the one that
-             produced the verdict. Two flags, two questions, and this is the
-             one the gate itself consumed. */
-          isRunning={isRunning}
-          missingResults={vm.status.missingResults}
+            ⭐ MEASURED, not preferred. At 1440×860 (fold 729) the options
+            comparison sat 89px below the fold. Every information-preserving
+            spacing trim COMBINED saved 63px — still 26 short. Moving this card
+            saves 90px including its gap, on its own, and deletes nothing.
+
+            ⚠ The composition stays in this body rather than moving into the
+            component, for the reason every other composition does: the card is
+            presentational and must not grow a second derivation of what the
+            producer recommended. */}
+        {/* ⭐ V2 — ONE GROUNDED INTERVENTION, then the few signals that matter.
+            The card shows the method the user picked, else the engine's top
+            finding (`glancePrimary`), verbatim. The signals are the top three
+            drivers (rank + bar, no percentage), one tipping condition and one
+            gap.
+            ⛔ THE TIPPING ROW IS LEADER-GATED HERE. Its sentence says "before
+            <option> leads", which presupposes a current leader; on a run whose
+            leader claim is withheld that is the panel naming an order it may not
+            state (the same rule #1881 applies to the panel's own leader words).
+            So the thresholds are passed only when the claim is permitted. */}
+        <ChallengeCard
+          intervention={glancePrimary}
+          methodId={pickedMethodId}
+          onRunIntervention={runIntervention}
+          onRunMethod={(id) => {
+            const method = METHOD_CATALOGUE.find((m) => m.id === id)
+            if (method) runMethod(method)
+          }}
+          analysisHash={responseHash ?? null}
         />
-        {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
-            reachable on this tab for the first time. `robustness_caveat` rides
-            `results.report.decision_brief`, which the browser already holds; it
-            had exactly one consumer estate-wide and that consumer mounts only on
-            the parked tab.
+        <ReasoningSignals
+          vm={vm}
+          flipThresholds={vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
+          onFocus={focusTarget}
+          onInspect={onReviewTarget}
+          onAsk={openAskOlumi}
+        />
+        {/* V2: "Strengthen the reasoning" and this tab's Actions dropdown are
+            gone from here. Their findings are the review tool's queue (under
+            the model strip) and their methods/actions are the method strip. */}
 
-            ⚠⚠ GATED ON THE LEADER AUTHORITY, REQUIRED AND NEVER DEFAULTED. It is
-            a LEADER-RANKING member: CEE strips it on a withheld turn, so its
-            presence must never be read as licence to speak about a ranking. The
-            value is quoted from the view model's single call, not re-derived.
+        {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
+            ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
+            USER-INVOKED. Derived at the mapping (`recommendationMethod.ts`),
+            with a contrast control:
 
-            ⚠ AND HANDED THE VERDICT SENTENCE ALREADY ON SCREEN, so it cannot say
-            the same thing twice — the defect `ModelHeldUp` records having shipped
-            when it quoted `display_verdict_reason` beside a glance that already
-            did. Different wire fields, but the reader sees only the words. */}
-        {/* ── WHAT'S CHANGED ────────────────────────────────────────────────
-            ⭐ DIRECTLY UNDER THE GLANCE, BECAUSE IT QUALIFIES THE READING THE
-            GLANCE JUST GAVE. A person who changed something and re-ran arrives
-            asking "did that do anything?", and the glance answers a different
-            question — it describes THIS result, not its relationship to the last
-            one. Put below the fold this would be a footnote on a reading already
-            made (the placement rule this file states at the warning strips).
+              pre_mortem        reachable — only on PRE_MORTEM / overconfidence
+              review_bias       reachable — only on COGNITIVE_BIAS
+              outside_view      reachable — only on an anchoring finding
+              different_option  reachable — only on LOW_OPTION_COUNT
+              consider_opposite reachable — only when a flip condition exists
+              reframe_problem   ⛔ NOT REACHABLE FROM THIS TAB
+              explore_tradeoffs ⛔ NOT REACHABLE FROM THIS TAB
 
-            It renders on re-runs only: the producer emits no delta on a first
-            run, and absence renders nothing at all. */}
-        {/* ⭐⭐⭐ WHAT MATTERS MOST READS FIRST — Paul's ruling, 18 Sep 2026.
-            "Take option (d) — reorder so drivers come first."
+            Every one of the first five is gated on the PRODUCER emitting a
+            particular signal. Not one was available because the PERSON wanted
+            it — and a tool for critical and creative thinking has to let the
+            thinker choose the move. The two needing no signal at all are the
+            two most generative: "is the question too narrow?" and "what does
+            each option gain and give up?".
 
-            ⛔ THE FOLD WIN FROM #1665 WAS WORTH ±20px OF RUN CONTENT. Measured
-            on three deployed states at 1600×1000 (fold 869): a fresh withheld
-            run cleared it by +17px; #1668's touch-target repair took that to
-            +10px; and after one estimate and a re-run it was **−3px, BELOW the
-            fold**. A bar item that depends on which factors a reader happens to
-            have estimated is not met, it is lucky.
+            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE — AND THAT WAS
+            ALREADY FALSE BY THREE DAYS WHEN THIS BLOCK WAS WRITTEN.
 
-            ⭐ THIS REORDER COSTS NO HEIGHT AND BUYS 366px OF MARGIN. Measured
-            by moving the node on the deployed build before writing this: the
-            drivers' bottom goes 858 → 491 against the same 869 fold — **+12px
-            of margin becomes +378px** — and the options comparison stays above
-            it (bottom 778, +91px). No copy, no behaviour, no new element.
+            The sentence here read: *"Its only mount is inside
+            `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
+            ruling parks."* That was the whole argument for adding a second
+            surface, and it was untrue at the time. Derived at the history:
 
-            ⚠ AND THE HONEST LIMIT, MEASURED AT A SECOND VIEWPORT: at 1440×860
-            (fold 729) the answer zone EXCEEDS the viewport and this becomes an
-            either/or — drivers +238px above, options −49px below. So this does
-            not "solve" the fold; it decides WHICH of the two sits above it, the
-            way Paul's earlier ruling already did. Shortening the zone is the
-            only route to having both on a 1440 laptop, and that is rowed.
+              15 Sep  #1590 `9dc8cf47`  mounts `<ActionsMenu />` on THIS tab
+              18 Sep  #1694 `c522af9e`  adds this shelf, arguing from the
+                                        pre-#1590 state
 
-            ⛔ IT GOES BEFORE THE WHOLE PAIR, NOT BETWEEN ITS HALVES, AND THAT
-            IS NOT A PREFERENCE. `answerBlock` binds `ModelImplication` to
-            `OptionsComparison` because "every claim moves with its
-            entitlement" — splitting them is what once put a withheld claim on
-            screen. Inserting between them would be exactly that split, so the
-            only placement that respects the binding is above both. */}
+            `<ActionsMenu />` sits 25 lines ABOVE this comment. So the premise
+            was refutable by reading the same file, and every session since has
+            inherited it.
+
+            ⚠ THE SHELF IS NOT WITHDRAWN AND MUST NOT BE. Paul's 18 Sep ruling
+            was "make it first-screen", and a collapsed menu near the foot of
+            the panel does not satisfy that whatever its reachability. The shelf
+            earns its place on the RULING; it never needed the false premise.
+
+            ⚠ WHAT THE TAB ACTUALLY SHIPS, measured on deployed `b6673341` via
+            the guest path: the `Actions` menu carries TEN items — all seven
+            methods verbatim, plus `Edit decision brief`, `Review all inputs`
+            and `Rerun analysis`. Seven of ten duplicate the shelf above.
+            `ActionsMenu.tsx` knows this and resolves the part that matters:
+            both surfaces build their payload through one `runMethod`, so there
+            is no second answer to "what does this method ask?".
+
+            ⛔ WHETHER TWO SURFACES SHOULD CARRY THE SAME SEVEN IS A DESIGN CALL
+            AND IS PAUL'S, NOT THIS FILE'S. It is recorded, not acted on: he has
+            ruled on this placement twice, an approved prototype governs it, and
+            no measurement here shows the duplication costs a reader anything.
+            Do not "reconcile" it by deleting either surface on a tidiness
+            argument. This estate's chronic failure #1 is real — but the cure is
+            not a third mount minted from a stale sentence.
+
+            ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
+            routes every ask through `openAskOlumi` — the same drawer this file
+            already opens at :1163 — with an EDITABLE prefilled draft rather
+            than a hidden dispatch. Nothing here decides what the method says.
+
+            ⚠ PLACED AFTER THE PRODUCER'S OWN SUGGESTIONS, DELIBERATELY. What
+            the run raised comes first; this is the shelf for when it raised
+            nothing, or nothing you wanted. Ahead of the decision record,
+            because a method is a move you make BEFORE you write down what you
+            decided. */}
+        {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
+            On a real run this rendered between the trust line and "What would
+            change your mind", asking the reader to RECORD A DECISION before
+            they had met the thing that would change it. The prompt is honest
+            and the placement was not: it belongs after the act, where a reader
+            who has finished reading can use it.
+
+            ⚠ No new block — the same one, later. The panel stays at its
+            ratcheted count. */}
+        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
+            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
+            above reads the model. This is the one place the team writes down
+            what they will DO, and the one place a later session reads it back.
+
+            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
+            component header. `ModelHeldUp` above renders on almost no runs by
+            design; the read-back here renders on all of them, because the
+            quality of a result has no bearing on whether a team may record, or
+            re-read, the choice they made from it. A fragile or stale run is
+            when the reasoning is most worth keeping.
+
+            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
+            first version gated on `!isPreRun` alone and offered a door onto a
+            modal that opens disabled during any rerun — see `canCapture`.
+
+            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
+            `useDecisionRecordForScenario` resolves `currentScenarioId` through
+            `resolveScenarioKey`, so it survives re-runs and returns to the same
+            scenario — which is the capability — and cannot distinguish the run
+            it was captured against. The section's copy is scoped accordingly. */}
+        <DecisionRecorded
+          isPreRun={vm.status.isPreRun}
+          canCapture={canCaptureDecision}
+          record={decisionRecord}
+          onRecord={openDecisionRecord}
+          testId="analysis-new-decision-record"
+        />
+
+        {/* ⛔⛔ TWO RULINGS COLLIDED HERE AND GROUPING IS WHAT MADE THEM
+            COLLIDE (CLAUDE.md trap 21). `whatIWasGivenMount` pins "what I was
+            given" ABOVE the coaching; `AnalysisNewTabBody.spec` and
+            `whatTheRunCouldNotSettleIsOnePlace` pin the coaching above EVERY
+            detail section, checks included. Those two members now sit in one
+            group, so the group cannot be both above and below the act.
+
+            ⭐ RESOLVED BY WHAT EACH RULING PROTECTS, not by which is older. The
+            coaching-above-detail rule guards FOUR sections and is stated twice.
+            The what-I-was-given rule guards ONE, and its stated argument is
+            that the section must not be buried below the detail — which a
+            NAMED, CLOSED group one click from the trust line does not do. The
+            protection survives; the literal ordering does not.
+
+            ⚠ The other spec was updated to assert the protection rather than
+            the position, and says so in its own file. */}
+        {/* ── COACHING AND METHOD ───────────────────────────────────────────
+            ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
+            the most method-bearing payload the producer sends — a mechanism, a
+            citation and a costed micro-intervention per finding — and it was
+            sitting TWELFTH, below four caveat boxes. Grouping it with key
+            insights gives it a named home a reader can go to, instead of a
+            position in a stack they were scrolling past.
+
+            ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
+            the panel under a heading that says what is inside; before, it was
+            twelve blocks down under a heading that did not. */}
+        {/* V2: the detail behind the challenge signals — the full driver
+            section and "What would change your mind" — lives in this zone,
+            closed, instead of in the answer zone. Post-run only, as before. */}
+        {vm.status.isPreRun ? null : (
+        <>
         {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
             ⭐⭐⭐ MOVED INTO THE ANSWER ZONE, 17 Sep 2026, ON PAUL'S RULING.
 
@@ -2144,123 +2228,8 @@ export function AnalysisNewTabBody({
           ) : null}
 
           {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
-          <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
           </SectionShell>
         ) : null}
-
-        {/* ⭐⭐ THE ANSWER, ALWAYS HERE. This used to render in one of TWO places
-            depending on whether the glance withheld its figures — promoted to
-            the top on a withheld run, and fifteen blocks down otherwise. The
-            conditional was solving the right problem in the wrong direction:
-            "how the options compare" and "what your model implies" ARE the
-            answer, so they belong beside the glance on every run, not only on
-            the runs where the glance had nothing to say.
-
-            ⚠ THE PAIR STAYS BOUND. `answerBlock` carries `ModelImplication`
-            and `OptionsComparison` together because the claim moves with its
-            entitlement; splitting them is what put a withheld claim on screen
-            before. Moving the fragment moves both. */}
-        {answerBlock}
-
-        {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
-            One line where seven sections answered one question. It states the
-            producer's verdict and routes to the method; it combines nothing and
-            scores nothing. See `TrustLine` for why a single "trust score" is
-            the one thing this must never render. */}
-        {/* ⭐⭐ NO TRUST READOUT BEFORE A RUN — AND THIS IS NOT A REVERSAL OF
-            "ABSENCE IS A STATE". `TrustLine`'s own header rules that a missing
-            verdict must SAY the basis was never established rather than render
-            nothing, and that ruling stands untouched for the case it was written
-            about: a run that HAPPENED and returned no verdict. That is a fact
-            about the analysis and the reader deserves it.
-
-            ⛔ IT WAS ALSO FIRING WHERE NO RUN HAD HAPPENED AT ALL, and there the
-            same words make a statement about a result that does not exist.
-            Witnessed by Paul on his own manual test, 18 Sep 2026: the panel said
-            "No analysis has run yet for this model" and then, on the same first
-            screen, "How far this holds was not established · 0 checks ran ·
-            0 open questions". "How far this holds" has no referent there, and
-            the two zeros are the shape this estate's own rule refuses — a count
-            of nothing read as a measurement of nothing.
-
-            ⚠ TWO QUESTIONS UNDER ONE ABSENCE (trap 21). "The producer sent no
-            verdict" and "there is no producer output" are different facts with
-            different honest answers; `verdict === null` cannot tell them apart,
-            so the caller — which knows the run state — makes the distinction and
-            the component stays presentational, as every other section here is.
-
-            ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
-            it, including the no-verdict one. */}
-        {vm.status.isPreRun ? null : (
-        <TrustLine
-          verdict={vm.atAGlance.verdict}
-          checksRan={vm.checks.items.length}
-          openQuestions={vm.uncertainty.findings.length}
-          methodOpen={methodOpen}
-          onOpenMethod={() => setMethodOpen(true)}
-        />
-        )}
-
-        <WhatsChanged view={vm.whatsChanged} />
-
-        <RobustnessCaveat
-          leaderClaimPermitted={vm.leaderClaimPermitted}
-          verdictReason={vm.atAGlance.verdict?.reason ?? null}
-        />
-
-        {/* ── THE MODEL HELD UP ─────────────────────────────────────────────
-            ⭐ DIRECTLY UNDER THE GLANCE, and it renders on almost no runs —
-            which is the point. It is the panel's TERMINAL state: when the model
-            holds up, every section below has nothing to say and the surface
-            goes quiet at exactly the moment the team should be handed their
-            decision. Placed after the reading it concludes, never before it. */}
-        <ModelHeldUp
-          /**
-           * ⛔⛔ THESE TWO WERE MISSING AND THE DEFAULTS WERE DOING REAL WORK.
-           * `ModelHeldUp` consults `useRobustnessCaveatOnScreen` so the two
-           * trust surfaces cannot contradict each other. That hook needs the
-           * SAME two inputs `RobustnessCaveat` is given four lines up — and this
-           * mount passed neither, so it fell back to `leaderClaimPermitted =
-           * true` on every run.
-           *
-           * The consequence was the exact failure the fix exists to prevent,
-           * inverted: on a WITHHELD run the caveat correctly renders nothing,
-           * while this section believed one was on screen and silenced itself —
-           * so the reader got NEITHER statement. My spec passed
-           * `leaderClaimPermitted={false}` explicitly and was green; the product
-           * used the default. A guard that supplies what the mount omits tests
-           * the component and not the product (CLAUDE.md trap 3b's shape).
-           *
-           * ⚠ QUOTED FROM THE SAME TWO EXPRESSIONS `RobustnessCaveat` reads, not
-           * recomputed — two spellings of one question is how this pair came to
-           * disagree in the first place.
-           */
-          leaderClaimPermitted={vm.leaderClaimPermitted}
-          verdictReason={vm.atAGlance.verdict?.reason ?? null}
-          verdictTone={vm.atAGlance.verdict?.tone ?? null}
-          /* ⚠⚠ BOTH LIMBS, AND THE FIRST IS WHAT KEEPS THIS HONEST. "Assessed,
-             none found" and "never assessed" both produce an empty array, and
-             congratulating a team on a model whose evidence was never examined
-             is a lie told in the surface's most confident voice. */
-          evidenceAssessed={vm.uncertainty.evidenceAssessed}
-          gapCount={vm.uncertainty.findings.length}
-          isStale={vm.status.isStale}
-          isPreRun={vm.status.isPreRun}
-          /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
-             above renders `missingResults` on a provisional run — without this
-             the panel names the results that did not come back and then
-             congratulates the reader on the model, in that order. */
-          isProvisional={vm.status.isProvisional}
-          /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
-             The banner's predicate answers "did this model hold up?"; the act
-             answers "may I write down what we chose?" — and hanging the second
-             off the first made recording a decision reachable ONLY on a run
-             that held up, which is backwards (CLAUDE.md trap 21). The act is
-             now the section directly below, on its own gate. */
-          testId="analysis-new-held-up"
-        />
-
-
         {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
             ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
             Witnessed on staging `e685dafa`: the single most decision-relevant
@@ -2370,6 +2339,231 @@ export function AnalysisNewTabBody({
           icon={GitBranch}
           testId="analysis-new-sensitivity"
         />
+        </>
+        )}
+        </div>
+        {vm.status.isPreRun ? null : (
+        <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
+        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
+            of blocks, so it carries no border, no fill and no radius of its
+            own: furniture that looked like a block would add the weight this
+            change exists to remove. Sized and coloured as `panelMeta`, the
+            quietest of the panel's three sizes. */}
+        <p
+          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+          data-testid="analysis-new-zone-answer"
+        >
+          Move towards commitment
+        </p>
+        <AtAGlance
+          glance={vm.atAGlance}
+          onFocusTarget={focusTarget}
+          /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
+             ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
+             `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
+             on the stated rationale that "the estimates live on the Model tab".
+             That was true when it was written and false the next morning — see
+             `reviewEstimates` above for the derivation and for why this body,
+             and only this body, can compose the two.
+
+             `AtAGlance` is still fail-closed and still not told where anything
+             lives: it receives one handler or `undefined`, exactly as before,
+             and `reviewEstimates` is `undefined` when there is neither an
+             in-page act nor a route. */
+          onReviewEstimates={reviewEstimates}
+          isStale={vm.status.isStale && !vm.status.isPreRun}
+          staleKind={vm.status.staleKind}
+          isProvisional={vm.status.isProvisional}
+          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
+             passed because they answer different questions and the section uses
+             each for its own. */
+          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
+          onReanalyse={onReanalyse}
+          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
+             IT — and not the verdict itself. `runRefusedByGate` is
+             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
+             in it), and the reason is masked by that same boolean so a
+             permitted control carries no refusal text. What `AtAGlance` gets
+             is therefore a PRESENTATION predicate over the one admission, in
+             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
+             not either of the two values the dock handed this component. */
+          reanalyseBlocked={runRefusedByGate}
+          reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
+          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
+             questions the ribbon control has to answer. `reanalyseBlocked`
+             above says whether the gate REFUSED; this says whether a run is
+             ALREADY IN FLIGHT, and the button is disabled on either while only
+             the first may caption it.
+
+             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
+             AGAINST — this prop, the dock's local flag — and deliberately NOT
+             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
+             which answers the cover's question, not the gate's; pairing the
+             verdict with it would test a different run than the one that
+             produced the verdict. Two flags, two questions, and this is the
+             one the gate itself consumed. */
+          isRunning={isRunning}
+          missingResults={vm.status.missingResults}
+        />
+        {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
+            reachable on this tab for the first time. `robustness_caveat` rides
+            `results.report.decision_brief`, which the browser already holds; it
+            had exactly one consumer estate-wide and that consumer mounts only on
+            the parked tab.
+
+            ⚠⚠ GATED ON THE LEADER AUTHORITY, REQUIRED AND NEVER DEFAULTED. It is
+            a LEADER-RANKING member: CEE strips it on a withheld turn, so its
+            presence must never be read as licence to speak about a ranking. The
+            value is quoted from the view model's single call, not re-derived.
+
+            ⚠ AND HANDED THE VERDICT SENTENCE ALREADY ON SCREEN, so it cannot say
+            the same thing twice — the defect `ModelHeldUp` records having shipped
+            when it quoted `display_verdict_reason` beside a glance that already
+            did. Different wire fields, but the reader sees only the words. */}
+        {/* ── WHAT'S CHANGED ────────────────────────────────────────────────
+            ⭐ DIRECTLY UNDER THE GLANCE, BECAUSE IT QUALIFIES THE READING THE
+            GLANCE JUST GAVE. A person who changed something and re-ran arrives
+            asking "did that do anything?", and the glance answers a different
+            question — it describes THIS result, not its relationship to the last
+            one. Put below the fold this would be a footnote on a reading already
+            made (the placement rule this file states at the warning strips).
+
+            It renders on re-runs only: the producer emits no delta on a first
+            run, and absence renders nothing at all. */}
+        {/* ⭐⭐⭐ WHAT MATTERS MOST READS FIRST — Paul's ruling, 18 Sep 2026.
+            "Take option (d) — reorder so drivers come first."
+
+            ⛔ THE FOLD WIN FROM #1665 WAS WORTH ±20px OF RUN CONTENT. Measured
+            on three deployed states at 1600×1000 (fold 869): a fresh withheld
+            run cleared it by +17px; #1668's touch-target repair took that to
+            +10px; and after one estimate and a re-run it was **−3px, BELOW the
+            fold**. A bar item that depends on which factors a reader happens to
+            have estimated is not met, it is lucky.
+
+            ⭐ THIS REORDER COSTS NO HEIGHT AND BUYS 366px OF MARGIN. Measured
+            by moving the node on the deployed build before writing this: the
+            drivers' bottom goes 858 → 491 against the same 869 fold — **+12px
+            of margin becomes +378px** — and the options comparison stays above
+            it (bottom 778, +91px). No copy, no behaviour, no new element.
+
+            ⚠ AND THE HONEST LIMIT, MEASURED AT A SECOND VIEWPORT: at 1440×860
+            (fold 729) the answer zone EXCEEDS the viewport and this becomes an
+            either/or — drivers +238px above, options −49px below. So this does
+            not "solve" the fold; it decides WHICH of the two sits above it, the
+            way Paul's earlier ruling already did. Shortening the zone is the
+            only route to having both on a 1440 laptop, and that is rowed.
+
+            ⛔ IT GOES BEFORE THE WHOLE PAIR, NOT BETWEEN ITS HALVES, AND THAT
+            IS NOT A PREFERENCE. `answerBlock` binds `ModelImplication` to
+            `OptionsComparison` because "every claim moves with its
+            entitlement" — splitting them is what once put a withheld claim on
+            screen. Inserting between them would be exactly that split, so the
+            only placement that respects the binding is above both. */}
+
+        {/* ⭐⭐ THE ANSWER, ALWAYS HERE. This used to render in one of TWO places
+            depending on whether the glance withheld its figures — promoted to
+            the top on a withheld run, and fifteen blocks down otherwise. The
+            conditional was solving the right problem in the wrong direction:
+            "how the options compare" and "what your model implies" ARE the
+            answer, so they belong beside the glance on every run, not only on
+            the runs where the glance had nothing to say.
+
+            ⚠ THE PAIR STAYS BOUND. `answerBlock` carries `ModelImplication`
+            and `OptionsComparison` together because the claim moves with its
+            entitlement; splitting them is what put a withheld claim on screen
+            before. Moving the fragment moves both. */}
+        {answerBlock}
+
+        {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
+            One line where seven sections answered one question. It states the
+            producer's verdict and routes to the method; it combines nothing and
+            scores nothing. See `TrustLine` for why a single "trust score" is
+            the one thing this must never render. */}
+        {/* ⭐⭐ NO TRUST READOUT BEFORE A RUN — AND THIS IS NOT A REVERSAL OF
+            "ABSENCE IS A STATE". `TrustLine`'s own header rules that a missing
+            verdict must SAY the basis was never established rather than render
+            nothing, and that ruling stands untouched for the case it was written
+            about: a run that HAPPENED and returned no verdict. That is a fact
+            about the analysis and the reader deserves it.
+
+            ⛔ IT WAS ALSO FIRING WHERE NO RUN HAD HAPPENED AT ALL, and there the
+            same words make a statement about a result that does not exist.
+            Witnessed by Paul on his own manual test, 18 Sep 2026: the panel said
+            "No analysis has run yet for this model" and then, on the same first
+            screen, "How far this holds was not established · 0 checks ran ·
+            0 open questions". "How far this holds" has no referent there, and
+            the two zeros are the shape this estate's own rule refuses — a count
+            of nothing read as a measurement of nothing.
+
+            ⚠ TWO QUESTIONS UNDER ONE ABSENCE (trap 21). "The producer sent no
+            verdict" and "there is no producer output" are different facts with
+            different honest answers; `verdict === null` cannot tell them apart,
+            so the caller — which knows the run state — makes the distinction and
+            the component stays presentational, as every other section here is.
+
+            ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
+            it, including the no-verdict one. */}
+
+        <WhatsChanged view={vm.whatsChanged} />
+
+        <RobustnessCaveat
+          leaderClaimPermitted={vm.leaderClaimPermitted}
+          verdictReason={vm.atAGlance.verdict?.reason ?? null}
+        />
+
+        {/* ── THE MODEL HELD UP ─────────────────────────────────────────────
+            ⭐ DIRECTLY UNDER THE GLANCE, and it renders on almost no runs —
+            which is the point. It is the panel's TERMINAL state: when the model
+            holds up, every section below has nothing to say and the surface
+            goes quiet at exactly the moment the team should be handed their
+            decision. Placed after the reading it concludes, never before it. */}
+        <ModelHeldUp
+          /**
+           * ⛔⛔ THESE TWO WERE MISSING AND THE DEFAULTS WERE DOING REAL WORK.
+           * `ModelHeldUp` consults `useRobustnessCaveatOnScreen` so the two
+           * trust surfaces cannot contradict each other. That hook needs the
+           * SAME two inputs `RobustnessCaveat` is given four lines up — and this
+           * mount passed neither, so it fell back to `leaderClaimPermitted =
+           * true` on every run.
+           *
+           * The consequence was the exact failure the fix exists to prevent,
+           * inverted: on a WITHHELD run the caveat correctly renders nothing,
+           * while this section believed one was on screen and silenced itself —
+           * so the reader got NEITHER statement. My spec passed
+           * `leaderClaimPermitted={false}` explicitly and was green; the product
+           * used the default. A guard that supplies what the mount omits tests
+           * the component and not the product (CLAUDE.md trap 3b's shape).
+           *
+           * ⚠ QUOTED FROM THE SAME TWO EXPRESSIONS `RobustnessCaveat` reads, not
+           * recomputed — two spellings of one question is how this pair came to
+           * disagree in the first place.
+           */
+          leaderClaimPermitted={vm.leaderClaimPermitted}
+          verdictReason={vm.atAGlance.verdict?.reason ?? null}
+          verdictTone={vm.atAGlance.verdict?.tone ?? null}
+          /* ⚠⚠ BOTH LIMBS, AND THE FIRST IS WHAT KEEPS THIS HONEST. "Assessed,
+             none found" and "never assessed" both produce an empty array, and
+             congratulating a team on a model whose evidence was never examined
+             is a lie told in the surface's most confident voice. */
+          evidenceAssessed={vm.uncertainty.evidenceAssessed}
+          gapCount={vm.uncertainty.findings.length}
+          isStale={vm.status.isStale}
+          isPreRun={vm.status.isPreRun}
+          /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
+             above renders `missingResults` on a provisional run — without this
+             the panel names the results that did not come back and then
+             congratulates the reader on the model, in that order. */
+          isProvisional={vm.status.isProvisional}
+          /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
+             The banner's predicate answers "did this model hold up?"; the act
+             answers "may I write down what we chose?" — and hanging the second
+             off the first made recording a decision reachable ONLY on a run
+             that held up, which is backwards (CLAUDE.md trap 21). The act is
+             now the section directly below, on its own gate. */
+          testId="analysis-new-held-up"
+        />
+
+
         </div>
         )}
 
@@ -2513,207 +2707,6 @@ export function AnalysisNewTabBody({
             question to be asked: the acts belong TOGETHER, so the answer was a
             shared wrapper rather than a raised ceiling. What the run suggests
             and what you can ask for regardless are one zone. */}
-        {/* ── ZONE: ALSO ─────────────────────────────────────────────
-            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
-            makes the zone grammar a REDUCTION: the panel goes from a flat stack
-            of equal-weight cards to a few named groups, and the regrowth
-            ratchet counts it as one child rather than several. A label added
-            loose would have raised the count by five and the ceiling with it,
-            which is the opposite of what the prototype asks for. */}
-        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
-        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
-            of blocks, so it carries no border, no fill and no radius of its
-            own: furniture that looked like a block would add the weight this
-            change exists to remove. Sized and coloured as `panelMeta`, the
-            quietest of the panel's three sizes. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-also"
-        >
-          Also worth doing
-        </p>
-        {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
-            instruction to shorten the answer zone so both "what matters most"
-            and "how the options compare" fit at 1440.
-
-            It rendered inside `AtAGlance`, which put a NEXT ACTION in the zone
-            that holds the ANSWER. Its own heading there said so: "WHAT TO THINK
-            ABOUT NEXT". This zone is labelled "Also worth doing".
-
-            ⭐ MEASURED, not preferred. At 1440×860 (fold 729) the options
-            comparison sat 89px below the fold. Every information-preserving
-            spacing trim COMBINED saved 63px — still 26 short. Moving this card
-            saves 90px including its gap, on its own, and deletes nothing.
-
-            ⚠ The composition stays in this body rather than moving into the
-            component, for the reason every other composition does: the card is
-            presentational and must not grow a second derivation of what the
-            producer recommended. */}
-        <PrimaryIntervention
-          primaryIntervention={
-                glancePrimary
-                  ? {
-                      id: glancePrimary.id,
-                      label: glancePrimary.action.label,
-                      /* ⭐ `title`, NOT `signal`. The glance card used to be handed
-                         `signal` — the finding's paragraph — which the Strengthen
-                         row below also prints, because `strengthenWhyLine` begins
-                         with `signal` on every arm. The promoted card is a
-                         reference to the row, so it is handed the finding's NAME
-                         and the paragraph is left to the row that carries the
-                         severity, the grounding and the disagreement controls.
-                         Guarded by `theFocusCardReferencesRatherThanReprints`. */
-                      title: glancePrimary.title,
-                      signalCode: glancePrimary.signalCode,
-                      /* The producer's own bias on a bias-signal finding, so this
-                         card names the SAME technique as the row it promotes. */
-                      biasCode: glancePrimary.biasCode,
-                      /* ⚠ The CATALOGUE path renders this and the phase-3 path does
-                         not — see `AtAGlance`'s `signal` prop. Passed for both
-                         because the card, not the caller, owns which kind it is. */
-                      signal: glancePrimary.signal,
-                    }
-                  : null
-          }
-          onRunIntervention={runIntervention}
-        />
-        {/* V2: "Strengthen the reasoning" and this tab's Actions dropdown are
-            gone from here. Their findings are the review tool's queue (under
-            the model strip) and their methods/actions are the method strip. */}
-
-        {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
-            ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
-            USER-INVOKED. Derived at the mapping (`recommendationMethod.ts`),
-            with a contrast control:
-
-              pre_mortem        reachable — only on PRE_MORTEM / overconfidence
-              review_bias       reachable — only on COGNITIVE_BIAS
-              outside_view      reachable — only on an anchoring finding
-              different_option  reachable — only on LOW_OPTION_COUNT
-              consider_opposite reachable — only when a flip condition exists
-              reframe_problem   ⛔ NOT REACHABLE FROM THIS TAB
-              explore_tradeoffs ⛔ NOT REACHABLE FROM THIS TAB
-
-            Every one of the first five is gated on the PRODUCER emitting a
-            particular signal. Not one was available because the PERSON wanted
-            it — and a tool for critical and creative thinking has to let the
-            thinker choose the move. The two needing no signal at all are the
-            two most generative: "is the question too narrow?" and "what does
-            each option gain and give up?".
-
-            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE — AND THAT WAS
-            ALREADY FALSE BY THREE DAYS WHEN THIS BLOCK WAS WRITTEN.
-
-            The sentence here read: *"Its only mount is inside
-            `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
-            ruling parks."* That was the whole argument for adding a second
-            surface, and it was untrue at the time. Derived at the history:
-
-              15 Sep  #1590 `9dc8cf47`  mounts `<ActionsMenu />` on THIS tab
-              18 Sep  #1694 `c522af9e`  adds this shelf, arguing from the
-                                        pre-#1590 state
-
-            `<ActionsMenu />` sits 25 lines ABOVE this comment. So the premise
-            was refutable by reading the same file, and every session since has
-            inherited it.
-
-            ⚠ THE SHELF IS NOT WITHDRAWN AND MUST NOT BE. Paul's 18 Sep ruling
-            was "make it first-screen", and a collapsed menu near the foot of
-            the panel does not satisfy that whatever its reachability. The shelf
-            earns its place on the RULING; it never needed the false premise.
-
-            ⚠ WHAT THE TAB ACTUALLY SHIPS, measured on deployed `b6673341` via
-            the guest path: the `Actions` menu carries TEN items — all seven
-            methods verbatim, plus `Edit decision brief`, `Review all inputs`
-            and `Rerun analysis`. Seven of ten duplicate the shelf above.
-            `ActionsMenu.tsx` knows this and resolves the part that matters:
-            both surfaces build their payload through one `runMethod`, so there
-            is no second answer to "what does this method ask?".
-
-            ⛔ WHETHER TWO SURFACES SHOULD CARRY THE SAME SEVEN IS A DESIGN CALL
-            AND IS PAUL'S, NOT THIS FILE'S. It is recorded, not acted on: he has
-            ruled on this placement twice, an approved prototype governs it, and
-            no measurement here shows the duplication costs a reader anything.
-            Do not "reconcile" it by deleting either surface on a tidiness
-            argument. This estate's chronic failure #1 is real — but the cure is
-            not a third mount minted from a stale sentence.
-
-            ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
-            routes every ask through `openAskOlumi` — the same drawer this file
-            already opens at :1163 — with an EDITABLE prefilled draft rather
-            than a hidden dispatch. Nothing here decides what the method says.
-
-            ⚠ PLACED AFTER THE PRODUCER'S OWN SUGGESTIONS, DELIBERATELY. What
-            the run raised comes first; this is the shelf for when it raised
-            nothing, or nothing you wanted. Ahead of the decision record,
-            because a method is a move you make BEFORE you write down what you
-            decided. */}
-        {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
-            On a real run this rendered between the trust line and "What would
-            change your mind", asking the reader to RECORD A DECISION before
-            they had met the thing that would change it. The prompt is honest
-            and the placement was not: it belongs after the act, where a reader
-            who has finished reading can use it.
-
-            ⚠ No new block — the same one, later. The panel stays at its
-            ratcheted count. */}
-        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
-            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
-            above reads the model. This is the one place the team writes down
-            what they will DO, and the one place a later session reads it back.
-
-            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
-            component header. `ModelHeldUp` above renders on almost no runs by
-            design; the read-back here renders on all of them, because the
-            quality of a result has no bearing on whether a team may record, or
-            re-read, the choice they made from it. A fragile or stale run is
-            when the reasoning is most worth keeping.
-
-            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
-            first version gated on `!isPreRun` alone and offered a door onto a
-            modal that opens disabled during any rerun — see `canCapture`.
-
-            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
-            `useDecisionRecordForScenario` resolves `currentScenarioId` through
-            `resolveScenarioKey`, so it survives re-runs and returns to the same
-            scenario — which is the capability — and cannot distinguish the run
-            it was captured against. The section's copy is scoped accordingly. */}
-        <DecisionRecorded
-          isPreRun={vm.status.isPreRun}
-          canCapture={canCaptureDecision}
-          record={decisionRecord}
-          onRecord={openDecisionRecord}
-          testId="analysis-new-decision-record"
-        />
-
-        {/* ⛔⛔ TWO RULINGS COLLIDED HERE AND GROUPING IS WHAT MADE THEM
-            COLLIDE (CLAUDE.md trap 21). `whatIWasGivenMount` pins "what I was
-            given" ABOVE the coaching; `AnalysisNewTabBody.spec` and
-            `whatTheRunCouldNotSettleIsOnePlace` pin the coaching above EVERY
-            detail section, checks included. Those two members now sit in one
-            group, so the group cannot be both above and below the act.
-
-            ⭐ RESOLVED BY WHAT EACH RULING PROTECTS, not by which is older. The
-            coaching-above-detail rule guards FOUR sections and is stated twice.
-            The what-I-was-given rule guards ONE, and its stated argument is
-            that the section must not be buried below the detail — which a
-            NAMED, CLOSED group one click from the trust line does not do. The
-            protection survives; the literal ordering does not.
-
-            ⚠ The other spec was updated to assert the protection rather than
-            the position, and says so in its own file. */}
-        {/* ── COACHING AND METHOD ───────────────────────────────────────────
-            ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
-            the most method-bearing payload the producer sends — a mechanism, a
-            citation and a costed micro-intervention per finding — and it was
-            sitting TWELFTH, below four caveat boxes. Grouping it with key
-            insights gives it a named home a reader can go to, instead of a
-            position in a stack they were scrolling past.
-
-            ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
-            the panel under a heading that says what is inside; before, it was
-            twelve blocks down under a heading that did not. */}
-        </div>
         {/* ── ZONE: FURTHER ─────────────────────────────────────────────
             ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
             makes the zone grammar a REDUCTION: the panel goes from a flat stack
@@ -2935,7 +2928,6 @@ export function AnalysisNewTabBody({
               Costs one wrapped line at rest and renders NOTHING pre-run
               (`vm.checks` is `{ items: [] }`, which the component returns null
               for) — so a heading never appears without something under it. */}
-          <WhatWeChecked checks={vm.checks} />
 
           {/* ⭐⭐ §4 — ONE PLACE FOR WHAT THE RUN COULD NOT SETTLE.
               Measured on a reconstruction of the run Paul screenshotted: EIGHT
@@ -2985,6 +2977,21 @@ export function AnalysisNewTabBody({
 
 
         </div>
+        {/* ⭐ V2 — ONE COLLAPSED AUDIT SURFACE AT THE BOTTOM. It absorbs the
+            trust line, "What we checked" and the deeper run record, as short
+            status rows. Nothing pre-run. */}
+        <AboutThisAnalysis
+          vm={vm}
+          nSamples={nSamples}
+          seedUsed={seedUsed}
+          outcomeFormat={{
+            unit: resultsSectionData.recommendation.outcomeUnit,
+            symbol: resultsSectionData.recommendation.outcomeUnitSymbol,
+            isNormalised: resultsSectionData.recommendation.isNormalised,
+          }}
+          offerFactorValueControl={true}
+          onAsk={openAskOlumi}
+        />
       </div>
     </div>
   )
