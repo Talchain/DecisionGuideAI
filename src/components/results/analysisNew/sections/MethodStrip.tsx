@@ -278,7 +278,7 @@ export function MethodStrip({
                   <span className={`${typography.panelMeta} block text-text-light`}>{m.description}</span>
                   {raised.has(m.id) ? (
                     <span
-                      className={`${typography.panelMeta} block text-info-ink`}
+                      className={`${typography.panelMeta} block text-text-light`}
                       data-testid={`${testId}-menu-method-${m.id}-raised`}
                     >
                       {METHOD_STRIP_COPY.raised}
