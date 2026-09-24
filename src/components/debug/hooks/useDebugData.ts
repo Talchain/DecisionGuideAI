@@ -83,7 +83,9 @@ import {
 // LLM-authored conversation turns (chat/clarify/draft), independent of
 // the single-turn analysis-producing selector above. See module docs.
 import {
+  describeAnalysisIdentity,
   selectRecentConversationTurns,
+  type AnalysisIdentity,
   type RecentConversationTurnsResult,
 } from '../../../lib/recentConversationTurns'
 import {
@@ -1192,6 +1194,13 @@ export interface DebugData {
    * bundle assembler defaults to an empty result when absent.
    */
   recent_conversation_turns?: RecentConversationTurnsResult
+  /**
+   * 24 Sep — the LATEST CONVERSATION TURN vs the DISPLAYED ANALYSIS, and
+   * which of them `payloads.cee_*` / `analysis_evidence_trace` describe.
+   * See `describeAnalysisIdentity`. Optional so pre-existing fixtures
+   * compile; the bundle records `available: false` when absent.
+   */
+  analysis_identity?: AnalysisIdentity
 }
 
 /**
@@ -3925,7 +3934,9 @@ export function useDebugData(): DebugData {
     // ROADMAP 1.31 (Brief I): independent multi-turn capture. Does NOT
     // feed `payloads.cee_request`/`cee_response` — those stay pinned to
     // `analysisProducing.selected` above, unchanged.
-    const recentConversationTurns = selectRecentConversationTurns(tracedPayloads)
+    const recentConversationTurns = selectRecentConversationTurns(tracedPayloads, {
+      displayedResultsHash: resultsHash,
+    })
     // Fallback path: when the analysis-producing V5 selector returns
     // undefined, fall through to `findBestPayload` so V1 / non-analysis
     // V5 turns still surface honestly.
@@ -4590,6 +4601,16 @@ export function useDebugData(): DebugData {
       // ROADMAP 1.31 (Brief I): recent conversation turns, incl.
       // LLM-authored text + prompt identity.
       recent_conversation_turns: recentConversationTurns,
+
+      // 24 Sep: latest turn vs displayed analysis, and what
+      // `payloads.cee_*` / `analysis_evidence_trace` each describe.
+      analysis_identity: describeAnalysisIdentity({
+        payloads: tracedPayloads,
+        recentTurns: recentConversationTurns,
+        resultsHash,
+        analysisPayloadTraceId: selectedCeeTraceId,
+        analysisEvidenceTraceId: analysisEvidenceTraceId,
+      }),
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap, currentScenarioId, resultsHash])
 }

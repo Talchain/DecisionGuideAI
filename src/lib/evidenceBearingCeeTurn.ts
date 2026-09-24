@@ -51,6 +51,8 @@
 
 import {
   ANALYSIS_PRODUCING_ACTION_TYPES,
+  locateDisplayedAnalysisTurn,
+  matchDisplayedAnalysis,
   matchingScenarioAnalysisReads,
   readResponseHashWithSource,
   readScenarioId,
@@ -561,10 +563,15 @@ export function findLatestEvidenceBearingCeeTurn(
 
   // Turn action types establish analysis production; reads carry an actual
   // matching analysis block, without manufacturing an action or turn fact.
+  // ⭐ 24 Sep: so does IDENTITY — the V5 turn whose response delivered the
+  // DISPLAYED analysis is admitted whatever its request type (a free-text
+  // approval turn can run analysis). See `locateDisplayedAnalysisTurn`.
+  const displayed = locateDisplayedAnalysisTurn(payloads, resultsHash)
   const analysisProducing = ceeTurns.filter((p) => isV5TurnEndpoint(p) || reads.includes(p))
     .map((p, idx) => ({ p, idx }))
     .filter(({ p }) => {
       if (reads.includes(p)) return true
+      if (p === displayed.trace) return true
       const t = readTurnOrActionType(p)
       return t !== null && ANALYSIS_PRODUCING_ACTION_TYPES.has(t)
     })
@@ -603,11 +610,11 @@ export function findLatestEvidenceBearingCeeTurn(
   for (const c of evidenceBearing) {
     candidateHashes.set(c.p, readResponseHashWithSource(c.p))
   }
-  const isExactHashMatch = (p: SelectorTracedPayload): boolean => {
-    if (resultsHash === null) return false
-    const reading = candidateHashes.get(p) ?? null
-    return reading !== null && reading.hash === resultsHash
-  }
+  // Identity-aware: on the V5 path `results.hash` is the store's CONTENT
+  // hash of the block, which no producer response-hash reading can equal —
+  // `matchDisplayedAnalysis` compares the block's content hash first.
+  const isExactHashMatch = (p: SelectorTracedPayload): boolean =>
+    matchDisplayedAnalysis(p, resultsHash) !== null
 
   // (6) Scenario gate. Hash match is checked FIRST per the brief's
   //     preference order — a hash-matched candidate is the actual
@@ -692,10 +699,13 @@ export function findLatestEvidenceBearingCeeTurn(
   // evidence-bearing, they pick the same trace.
   const score = (p: SelectorTracedPayload, idx: number): number => {
     let s = 0
-    const reading = candidateHashes.get(p) ?? null
-    if (resultsHash !== null && reading && reading.hash === resultsHash) {
+    if (isExactHashMatch(p)) {
       s += 1000
     }
+    // Among carriers of the displayed analysis, the turn that DELIVERED it
+    // (not a later re-send of the same block) — same pin as the
+    // conversational selector.
+    if (p === displayed.trace && displayed.match === 'analysis_result_content_hash') s += 500
     s += 50 // analysis-producing + evidence-bearing offset (constant)
     if (isCompletedTwoXx(p)) s += 10
     s += Math.max(0, 9 - idx)
@@ -706,7 +716,10 @@ export function findLatestEvidenceBearingCeeTurn(
     (a, b) => score(b.p, b.idx) - score(a.p, a.idx),
   )
   const selected = ranked[0].p
-  const selectedReading = candidateHashes.get(selected) ?? null
+  const selectedReading: ResponseHashReading | null =
+    matchDisplayedAnalysis(selected, resultsHash) === 'analysis_result_content_hash'
+      ? { hash: resultsHash as string, source: 'body_blocks_analysis_result_content_hash' }
+      : (candidateHashes.get(selected) ?? null)
   const selectedScenarioId = readScenarioId(selected)
 
   // Dominant-signal labelling.
