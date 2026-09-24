@@ -345,9 +345,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const isAssistantFocused = useAssistantFocusStore(
     (state) => state.target?.kind === 'node' && state.target.id === id,
   )
-  // N3: edited since the last analysis run (amber corner dot; undefined-safe
-  // for node-spec store doubles without the slice).
-  const isEditedSinceRun = useCanvasStore(s => s.editedSinceRunNodeIds?.has(id) === true)
   // Analysis-graph projection: this node is a key driver being viewed in the V7
   // evidence disclosure. Primitive-boolean selector (React #185) + optional
   // chaining so store doubles without the slice stay safe.
@@ -2095,21 +2092,18 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             its reasons in a focusable tooltip and as its accessible name. */}
         {attentionText !== null && <NodeAttentionMarker nodeId={id} sentence={attentionText} />}
 
-        {/* N3 (graph-visuals): amber corner dot — this node was edited since the
-            last analysis run (device-local diff vs the run snapshot; the
-            freshness strip stays the single freshness owner, this is WHERE).
-            Amber = the warning family per Paul's C2 hue ruling. A static flex
-            child here (no absolute/offset of its own) so it sits beside — never
-            under — the coaching marker. `shrink-0` keeps the 10px dot round. */}
-        {isEditedSinceRun && (
-          <span
-            data-testid={`edited-since-run-${id}`}
-            role="img"
-            aria-label="Edited since the last analysis"
-            title="Edited since the last analysis"
-            className="shrink-0 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
-          />
-        )}
+        {/* ⛔ GAP-11 (DESIGN-GAP-AUDIT-20260924.md row 11; Paul v3.1 pt14):
+            the per-card amber "edited since run" dot is REMOVED. It duplicated
+            the single graph-level stale cue the canvas already carries
+            (`AnalysisStateCue`, "Model changed · previous findings shown as
+            Last run") — Paul's pt14 asks for ONE overall analysis-state cue,
+            not a second one repeated on every touched card. The freshness
+            strip remains the single freshness owner; this corner no longer
+            duplicates it. The local `isEditedSinceRun` selector is removed
+            with it (checked: no other reader of `editedSinceRunNodeIds`
+            remains in `src/canvas` outside `store.ts`'s own definition/setter);
+            the store slice itself is left as-is, since retiring IT is a
+            separate, store-level question this gap does not reach. */}
 
         {/* On-canvas coaching marker — renders ONLY when a live guidance item
             names this node (target_object.id). Replaces the permanently-empty

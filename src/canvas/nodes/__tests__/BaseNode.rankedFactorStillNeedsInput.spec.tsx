@@ -296,7 +296,14 @@ describe('a ranked factor can still need input — the pair the contract called 
     expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, SET_SIZE))
   })
 
-  it('CASE 2 — every member together: the pill in the body; attention marker · edited dot · coaching in the corner, in that order', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-11, DESIGN-GAP-AUDIT-20260924.md row 11; Paul
+   * v3.1 pt14): the edited-since-run dot no longer occupies a corner slot —
+   * removed entirely as a per-card duplicate of the single graph-level stale
+   * cue. `editedNodeIds.add` below is kept to prove the removal holds even
+   * where the OLD three-member case used to reach it.
+   */
+  it('CASE 2 — remaining members together: the pill in the body; attention marker · coaching in the corner, in that order (the edited dot is gone)', () => {
     sensitivityRank = 2
     attentionMarked = true
     editedNodeIds.add(FACTOR_ID)
@@ -308,18 +315,17 @@ describe('a ranked factor can still need input — the pair the contract called 
     // Locked Canvas design (23 Sep 2026): the "Worth reviewing" marker holds the
     // retired rank badge's slot (spec §2; ED 02:31Z D1a/D1b).
     const marker = screen.getByTestId(`attention-marker-${FACTOR_ID}`)
-    const edited = screen.getByTestId(`edited-since-run-${FACTOR_ID}`)
     const coaching = screen.getByTestId(`node-coaching-marker-${FACTOR_ID}`)
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
+    expect(screen.queryByTestId(`edited-since-run-${FACTOR_ID}`)).toBeNull()
 
     const kids = Array.from(stack.children)
     // NODE-ANATOMY v3.2: the pill is line 2 of the card, not a corner member
     // (it was FOUR here while it sat on the border).
     expect(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toContainElement(pill)
-    expect(kids).toHaveLength(3)
+    expect(kids).toHaveLength(2)
     expect(kids[0]).toBe(marker)
-    expect(kids[1]).toBe(edited)
-    expect(kids[2]).toBe(coaching)
+    expect(kids[1]).toBe(coaching)
 
     // The rank itself is on the driver line, rank 2 by identity.
     expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(2, SET_SIZE))

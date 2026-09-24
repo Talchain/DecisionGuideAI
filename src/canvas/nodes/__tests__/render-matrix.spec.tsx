@@ -1619,25 +1619,24 @@ describe('N1 — per-type selection ring', () => {
     expect(group.className).toContain('ring-info/60')
   })
 
-  it('N3: a node in editedSinceRunNodeIds wears the amber edited dot', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-11, DESIGN-GAP-AUDIT-20260924.md row 11; Paul
+   * v3.1 pt14). The per-card amber "edited since run" dot is REMOVED — it
+   * duplicated the single graph-level stale cue the canvas already carries
+   * (`AnalysisStateCue`), and pt14 asks for ONE overall analysis-state cue,
+   * not one repeated per touched card. These two tests used to assert the
+   * dot's presence and accessible name; both are replaced by one twin test
+   * proving the removal is UNCONDITIONAL — the dot never renders even when
+   * `editedSinceRunNodeIds` names this exact node — plus the third (below,
+   * unchanged) which already asserted the negative case and needed no edit.
+   */
+  it('N3: a node in editedSinceRunNodeIds no longer wears any per-card dot (GAP-11)', () => {
     vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
       sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
     )
     render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
-    expect(screen.getByTestId('edited-since-run-factor-1')).toBeInTheDocument()
-  })
-
-  it('N3: the edited dot carries the ratified accessible name (screen readers, not just hover)', () => {
-    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
-      sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
-    )
-    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
-    // A bare span with only `title` has no accessible name for most screen
-    // readers — the ratified N3 spec requires the dot itself to announce
-    // "Edited since the last analysis".
-    expect(screen.getByRole('img', { name: 'Edited since the last analysis' })).toBe(
-      screen.getByTestId('edited-since-run-factor-1'),
-    )
+    expect(screen.queryByTestId('edited-since-run-factor-1')).toBeNull()
+    expect(screen.queryByRole('img', { name: 'Edited since the last analysis' })).toBeNull()
   })
 
   it('N3: no edited dot when the node is not in the set (and no crash without the slice)', () => {

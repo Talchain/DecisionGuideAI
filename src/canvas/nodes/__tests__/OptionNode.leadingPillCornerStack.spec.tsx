@@ -241,36 +241,46 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
     expectNoLeaderPill(container)
   })
 
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-11, DESIGN-GAP-AUDIT-20260924.md row 11; Paul
+   * v3.1 pt14): the edited-since-run dot is removed from the corner — a
+   * per-card duplicate of the single graph-level stale cue. It used to be
+   * this fixture's default always-present sibling (`editedSinceRunNodeIds`
+   * seeds `NODE_ID` by default, line ~161), proving the stack container
+   * itself renders. The container's own testid now carries that proof
+   * directly — it is unconditionally mounted regardless of its children
+   * (`BaseNode.cornerStack.spec.tsx`'s "each child self-gates" contract).
+   */
   it('no pill in the stack that owns this corner — the stack is there, the pill is not', () => {
     // WAS "DEFECT SIGNATURE: the pill is inside the stack". The stack itself is
     // the contrast control: it IS mounted, so the pill's absence from it is a
     // statement about the pill, not about a missing container.
     const { container } = renderOption()
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-    expect(stack).toContainElement(screen.getByTestId(`edited-since-run-${NODE_ID}`))
+    expect(screen.queryByTestId(`edited-since-run-${NODE_ID}`)).toBeNull()
     expect(stack.querySelector('[data-testid^="leading-option-"]')).toBeNull()
     expect(stack.textContent ?? '').not.toMatch(/most supported/i)
     expectNoLeaderPill(container)
   })
 
-  it('ALL REACHABLE: on the leader, the ONE stack holds exactly the edited dot and coaching, in order — no pill', () => {
-    // WAS three members (pill, dot, coaching). With the pill retired, the
-    // LARGEST set this leading card can produce is the dot and the coaching
-    // marker (the rank badge cannot render on an option node — pinned below).
+  it('ALL REACHABLE: on the leader, the ONE stack holds exactly coaching, in order — no pill, no dot', () => {
+    // WAS three members (pill, dot, coaching), then two (dot, coaching) once
+    // the pill was retired. GAP-11 removes the dot too, so the largest set
+    // this leading card can produce is coaching alone (the rank badge cannot
+    // render on an option node — pinned below).
     useGuidanceStore.getState().setGuidanceItems([makeGuidanceItem()])
     const { container } = renderOption()
 
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-    const edited = screen.getByTestId(`edited-since-run-${NODE_ID}`)
     const coaching = screen.getByTestId(`node-coaching-marker-${NODE_ID}`)
+    expect(screen.queryByTestId(`edited-since-run-${NODE_ID}`)).toBeNull()
 
     // Order, bound by IDENTITY (trap 19). The length assertion is what makes
     // this a statement about the WHOLE container: a pill re-inserted anywhere
-    // in the stack makes it three.
+    // in the stack makes it two.
     const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(2)
-    expect(kids[0]).toBe(edited)
-    expect(kids[1]).toBe(coaching)
+    expect(kids).toHaveLength(1)
+    expect(kids[0]).toBe(coaching)
     expectNoLeaderPill(container)
   })
 
@@ -295,12 +305,18 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
    * vacuous either way (trap 13).
    */
   it('IMPOSSIBILITY PIN: the rank badge cannot render on an option node', () => {
+    // ⛔ UPDATED 24 Sep 2026 (GAP-11): the contrast control used to be the
+    // fixture's default edited-since-run dot, now removed. A guidance item is
+    // seeded here so the coaching marker is the present sibling instead —
+    // same role: proving the corner-stack query family resolves a REAL child
+    // before trusting it to resolve an absent one.
+    useGuidanceStore.getState().setGuidanceItems([makeGuidanceItem()])
     renderOption()
 
     // Contrast control FIRST: the same query family resolves a corner-stack
     // child that IS present, so the absence below is the rank badge's and not
     // a dead render or a mistyped id.
-    expect(screen.getByTestId(`edited-since-run-${NODE_ID}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`node-coaching-marker-${NODE_ID}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`sensitivity-rank-${NODE_ID}`)).toBeNull()
 
     const metadataHook = readFileSync(
@@ -411,12 +427,15 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
     expect(screen.queryByText("Most supported")).toBeNull()
     expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).not.toBeInTheDocument()
 
-    // Positive control: the card rendered, and the corner stack still holds the
-    // occupant this state can produce — so the absence above is the pill's, not
-    // a dead render.
+    // Positive control: the card rendered — so the absence above is the
+    // pill's, not a dead render.
+    // ⛔ UPDATED 24 Sep 2026 (GAP-11): used to also assert the corner stack
+    // held the edited-since-run dot (this fixture's default). The dot is
+    // removed; the stack's own testid resolving is proof enough that it is
+    // mounted (it renders unconditionally regardless of its children).
     expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
-    const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-    expect(stack).toContainElement(screen.getByTestId(`edited-since-run-${NODE_ID}`))
+    expect(screen.getByTestId(`node-corner-stack-${NODE_ID}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`edited-since-run-${NODE_ID}`)).toBeNull()
   })
 
   it('NOTHING ELSE IN THE CORNER: with no dot or coaching the leader\'s stack is EMPTY — the pill does not fill it', () => {

@@ -165,34 +165,37 @@ describe('BaseNode — "Needs input" pill joins the corner stack', () => {
     expect(pill.className).not.toContain('z-10')
   })
 
-  it('MEASURED PAIR — pill and edited-since-run dot are ordered siblings, pill first (widest-first)', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-11, DESIGN-GAP-AUDIT-20260924.md row 11; Paul
+   * v3.1 pt14): the edited-since-run dot is removed from the corner — a
+   * per-card duplicate of the single graph-level stale cue. `editedNodeIds`
+   * is kept opted-in below to prove the pill alone now owns the stack even
+   * when the store says the node was edited.
+   */
+  it('the pill alone owns the stack — the (now-removed) edited-since-run dot never joins it', () => {
     editedNodeIds.add('node-a')
     renderNode()
     const stack = screen.getByTestId('node-corner-stack-node-a')
     const pill = screen.getByTestId('needs-input-pill')
-    const edited = screen.getByTestId('edited-since-run-node-a')
     expect(stack).toContainElement(pill)
-    expect(stack).toContainElement(edited)
+    expect(screen.queryByTestId('edited-since-run-node-a')).toBeNull()
     const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(2)
-    // Bind by IDENTITY, never by position alone.
+    expect(kids).toHaveLength(1)
     expect(kids[0]).toBe(pill)
-    expect(kids[1]).toBe(edited)
   })
 
-  it('pill · edited-dot · coaching are three ordered siblings, coaching rightmost', () => {
+  it('pill · coaching are two ordered siblings, coaching rightmost (the edited-dot no longer sits between them)', () => {
     editedNodeIds.add('node-a')
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderNode()
     const stack = screen.getByTestId('node-corner-stack-node-a')
     const pill = screen.getByTestId('needs-input-pill')
-    const edited = screen.getByTestId('edited-since-run-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
+    expect(screen.queryByTestId('edited-since-run-node-a')).toBeNull()
     const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(3)
+    expect(kids).toHaveLength(2)
     expect(kids[0]).toBe(pill)
-    expect(kids[1]).toBe(edited)
-    expect(kids[2]).toBe(coaching)
+    expect(kids[1]).toBe(coaching)
     expect(coaching.className).not.toContain('absolute')
   })
 
@@ -237,9 +240,16 @@ describe('BaseNode — "Needs input" pill joins the corner stack', () => {
     // Read the arms out of `isIncomplete` itself, bounded by the next
     // declaration after it, so a phase gate elsewhere in the file cannot be
     // mistaken for one inside an arm.
+    //
+    // ⛔ UPDATED 24 Sep 2026 (GAP-17, DESIGN-GAP-AUDIT-20260924.md row 17):
+    // the boundary used to be `const controllability =`, which GAP-17 deleted
+    // — the dashed-frame logic it fed was removed (card frames are always
+    // solid now; contract §02/§03). `const borderStyle = ''` is the next
+    // declaration in file order and is just as good a bound: this test only
+    // needs SOME marker after `isIncomplete`'s close, not that specific one.
     const open = baseNode.indexOf('const isIncomplete = (() => {')
     expect(open).toBeGreaterThan(-1)
-    const close = baseNode.indexOf('const controllability =', open)
+    const close = baseNode.indexOf("const borderStyle = ''", open)
     expect(close).toBeGreaterThan(open)
     const isIncompleteSrc = baseNode.slice(open, close)
 
