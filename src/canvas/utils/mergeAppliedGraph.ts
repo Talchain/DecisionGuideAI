@@ -183,6 +183,7 @@ import {
   mapDraftEdgeToCanvas,
   mapDraftNodeToCanvas,
 } from './applyDraftResult'
+import { hasAnalyticalGraphChange } from '../domain/analyticalChange'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
 
 /**
@@ -940,7 +941,36 @@ export function reconcileAppliedGraph(
   // the canvas TO the analysed graph, so "the analysis no longer describes the
   // canvas" would be false. Unconditional, this re-dirtied every run that
   // followed an edit ~39 ms after the run cleared it (D1, served `a4434670`).
-  if (!analysedGraphAttested) useCanvasStore.getState().markGraphStructurallyEdited?.()
+  //
+  // ⛔ AND EXCEPT when nothing ANALYSIS-AFFECTING actually moved (served UI
+  // `11ed8874` / CEE `8428207`, 24 Sep 2026, pinned by
+  // `renameDoesNotClaimModelChanged.spec.ts`). `changed` above is TRUE for any
+  // node/edge-data byte difference the overlay picks up — cosmetic fields
+  // (`label`, `category`, …) included, because `overlayNode`/`overlayEdge`
+  // exist to let the wire win on EVERY key it carries, not only the
+  // analytical ones. A `structural_rename` receipt is never the attested
+  // analysed graph (it carries no fresh `analysis_ready` hash pair — it is
+  // not an analysis turn), so before this gate ANY cosmetic diff in the
+  // echoed committed graph — a renamed label the optimistic write had not
+  // already applied, a bookkeeping field the canvas's copy lacked — marked
+  // the model "structurally edited" and the canvas told the user their
+  // current, CEE-confirmed-current analysis had gone stale. `changed` still
+  // decides the COMMIT (layout/position aside, the canvas must still show
+  // what CEE holds); only the DIRTY CLAIM is now asked to clear the same
+  // analytical-fields bar `hasAnalyticalNodeChange`/`hasAnalyticalGraphChange`
+  // already enforce for every other mutator (`analyticalChange.ts`) — one
+  // taxonomy of "does this change the analysis", not a second one here.
+  const priorGraph = { nodes: survivingNodes, edges: survivingEdges }
+  const nextGraph = {
+    nodes: [...reconciledNodes, ...addedNodes],
+    edges: [...reconciledEdges, ...addedEdges],
+  }
+  if (
+    !analysedGraphAttested &&
+    hasAnalyticalGraphChange(priorGraph as never, nextGraph as never)
+  ) {
+    useCanvasStore.getState().markGraphStructurallyEdited?.()
+  }
 
   // Warning-only schema validation on the added nodes (mirrors applyDraftResult).
   validateNodesBatch(addedNodes)
