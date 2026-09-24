@@ -221,6 +221,40 @@ describe('edgePresentation — colour belongs to polarity', () => {
   })
 })
 
+// ── GAP 1 (design-gap audit row 13, contract §03 "Colour and sign = direction")
+//
+// A selected node's path edges used to lose their +/− polarity colour and turn
+// Info blue while highlighted — the ONE case in this file where the `rule` id
+// alone (`'highlighted'`) was not enough evidence, because the test above only
+// checked rule MEMBERSHIP, never the VALUE the rule produced. The soft Info
+// emphasis belongs on a separate channel (a glow, asserted at the StyledEdge
+// DOM level in `StyledEdge.pathHighlightColour.spec.tsx`), not a stroke
+// recolour — recolouring erases the one channel a red-green dichromat relies
+// on for the whole highlighted path, not just one edge.
+describe('edgePresentation — GAP 1: a highlighted path keeps its direction colour', () => {
+  const POLARITY_ROSE = 'var(--edge-negative)'
+
+  it('a highlighted positive edge paints the SAME colour polarity alone would — not Info', () => {
+    const highlighted = resolveEdgeStroke(state({ isHighlighted: true, polarityStroke: POLARITY_GREEN }))
+    expect(highlighted.rule).toBe('highlighted')
+    expect(highlighted.value).toBe(POLARITY_GREEN)
+    expect(highlighted.value).not.toBe('var(--semantic-info)')
+  })
+
+  it('CONTRAST: the same edge unhighlighted resolves to the identical value — highlighting repaints nothing', () => {
+    const highlighted = resolveEdgeStroke(state({ isHighlighted: true, polarityStroke: POLARITY_GREEN }))
+    const quiet = resolveEdgeStroke(state({ isHighlighted: false, polarityStroke: POLARITY_GREEN }))
+    expect(highlighted.value).toBe(quiet.value)
+  })
+
+  it('OPPOSITE-DIRECTION TWIN: a highlighted negative edge keeps rose, not the same Info blue', () => {
+    const d = resolveEdgeStroke(state({ isHighlighted: true, polarityStroke: POLARITY_ROSE }))
+    expect(d.rule).toBe('highlighted')
+    expect(d.value).toBe(POLARITY_ROSE)
+    expect(d.value).not.toBe('var(--semantic-info)')
+  })
+})
+
 describe('edgePresentation — the dash is existence certainty ONLY', () => {
   // ⭐ REWRITTEN 23 Sep 2026 (Experience Design: "dash = existence certainty
   // only"). This block used to be titled "the contest is ALWAYS visible, on the

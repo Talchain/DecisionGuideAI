@@ -309,7 +309,16 @@ export function resolveEdgeStroke(state: EdgePresentationState): EdgeStrokeDecis
   }
 
   if (state.isHighlighted) {
-    return { value: 'var(--semantic-info)', rule: 'highlighted' }
+    // GAP 1 fix (design-gap audit row 13, contract §03 "Colour and sign =
+    // direction"): a selected node's path edges used to recolour to Info
+    // blue here, which erases the +/− polarity a red-green dichromat relies
+    // on across the WHOLE highlighted path, not just one edge. The contract
+    // asks for a soft Info EMPHASIS on a selected path, not a repaint — that
+    // is delivered as a separate `filter: drop-shadow` glow in StyledEdge
+    // (`EDGE_GLOW.selected`, composed alongside this stroke), so the two
+    // channels stay independent and the line keeps stating what it always
+    // stated: which direction, by colour and sign.
+    return { value: state.polarityStroke, rule: 'highlighted' }
   }
 
   return { value: state.polarityStroke, rule: 'polarity' }
