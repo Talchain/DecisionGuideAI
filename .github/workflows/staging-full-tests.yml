@@ -796,10 +796,17 @@ jobs:
             echo "touched=false" >> "$GITHUB_OUTPUT"
           fi
 
+  # ⛔ OPENAI-ONLY PROGRAMME CONSTRAINT (24 Sep 2026): no Anthropic calls without
+  # Paul's explicit permission. `draftAsGuest` opens `staging--olumi.netlify.app/#/`
+  # with no `?ai=`, and `resolveAiComparisonMode` (src/v5/aiComparisonMode.ts)
+  # defaults a staging host to `conventional` — the Anthropic path — so every run
+  # spent ≥3 Anthropic draft calls, on EVERY push to `staging`. Held off unless the
+  # repository variable `CORE_E2E_ANTHROPIC_ALLOWED` is 'true'. The suite and its
+  # Conventional path are untouched; setting the variable restores the old behaviour.
   core-e2e:
     name: Core E2E · System E (advisory)
     needs: [install, core-scope]
-    if: needs.core-scope.outputs.touched == 'true'
+    if: needs.core-scope.outputs.touched == 'true' && vars.CORE_E2E_ANTHROPIC_ALLOWED == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     # 30 -> 45. The resolve step now waits up to 15 minutes for Netlify to publish the
