@@ -155,9 +155,17 @@ describe('contract v3.1 — no dashed card for "uncertain" (FRAME-06; Paul pt 4:
     },
   )
 
-  it('twin: an EXTERNAL factor keeps its dash — that is a different claim, not uncertainty', () => {
+  // GAP-17 (DESIGN-GAP-AUDIT-20260924.md row 17), updated 24 Sep 2026: this
+  // test used to PIN the exact behaviour the gap flags — "an EXTERNAL factor
+  // keeps its dash" — reusing the connection-only existence-doubt channel on
+  // a card frame. Row 17's own reasoning applies here too: dash is a
+  // connection channel (contract §03; v3.1 pt4), never a card-frame one, and
+  // no other card channel is being pressed into service to replace it — see
+  // `BaseNode.gap17NoDashedFactorFrame.spec.tsx` for the full RED/green pin.
+  // Flipped from `toContain` to `not.toContain`.
+  it('twin: an EXTERNAL factor is SOLID, not dashed — controllability is not a frame channel (GAP-17)', () => {
     const { root } = renderCard('factor', { label: 'Weather', category: 'external' })
-    expect(tokens(root)).toContain('border-dashed')
+    expect(tokens(root)).not.toContain('border-dashed')
   })
 })
 

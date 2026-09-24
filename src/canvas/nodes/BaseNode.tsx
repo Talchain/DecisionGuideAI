@@ -14,7 +14,7 @@ import { nodeTitleChannels } from './shared/nodeRenameAffordance'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { linkedOptionIds } from '../domain/linkedOptions'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
-import type { NodeType, Controllability } from '../domain/nodes'
+import type { NodeType } from '../domain/nodes'
 import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
@@ -37,7 +37,6 @@ import {
 } from '../utils/nodeLayoutConstants'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
-import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
@@ -858,29 +857,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     return false
   })()
 
-  // Decision Graph Display v2 Task 6 + P1 Hotfix: Controllability-based border style for factors
-  // P1 Hotfix: Don't default factors to dashed — only show dashed when explicitly 'partial'
-  // When controllability is undefined or 'unknown', use solid (we don't claim anything)
-  const controllability = nodeType === 'factor' ? (data?.controllability as Controllability | undefined) : undefined
-  const borderStyle = (() => {
-    // Scope 5 (display-only): external factors — keyed ONLY on the explicit
-    // `category` field — get the dashed "outside your control" treatment.
-    // No inference/reclassification; the controllability-derived styling below
-    // is untouched (its graphDisplayCalculations behaviour is unchanged).
-    if (nodeType === 'factor' && data?.category === 'external') {
-      return 'border-dashed'
-    }
-    if (nodeType === 'factor' && controllability) {
-      return getControllabilityBorderStyle(controllability)
-    }
-    // ⛔ NO DASHED FRAME FOR AN "UNCERTAIN" NON-FACTOR (contract v3.1 FRAME-06).
-    // `data.uncertainty > 0.4` used to dash any goal, outcome, risk, option or
-    // question card — the dashed amber goal Paul saw. A dash means EXISTENCE
-    // doubt, on a connection only (Paul pt 4); a card's uncertainty is carried
-    // in words where it is known, never as a frame channel. The factor arms
-    // above (external / controllability) are a different claim and stay.
-    return ''
-  })()
+  // ⛔ GAP-17 (DESIGN-GAP-AUDIT-20260924.md row 17; contract §02 `.node{border:
+  // 1px solid …}`, §03 "Dash = a recorded doubt about existence", v3.1 pt4
+  // "Dash remains existence certainty only"). That channel belongs to
+  // CONNECTIONS, never a card frame. The two arms this used to hold —
+  // `category === 'external'` -> 'border-dashed', and factor `controllability`
+  // routed through `getControllabilityBorderStyle` (dashed for
+  // observable/partial, dotted for external) — both borrowed the
+  // edge-existence dash to mean "outside your control" / "downstream, not
+  // directly set". Neither BaseNode nor FactorNode carries any OTHER channel
+  // for that distinction today (checked: `getControllabilityBorderStyle` has
+  // no other caller), so per the fix instruction — reuse an existing
+  // non-dash channel or drop the dash — the dash is dropped outright. Card
+  // frames are always solid. (External factors keep their `title="Outside
+  // your control"` tooltip below, unrelated to this branch and untouched.)
+  // `getControllabilityBorderStyle` itself is left as-is for its own unit
+  // coverage; BaseNode simply no longer calls it.
+  const borderStyle = ''
 
   // Accessible name combines node type and label
   // ⚠ THE TYPE DESCRIPTION RIDES HERE BECAUSE ITS TOOLTIP IS GONE. Moving the
@@ -1159,18 +1152,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * ⚠ THE STYLE CHANNEL IS LEFT EXACTLY AS FOUND, and that is why this arm still
    * exists rather than falling through. It emits a hue and NO style class, so an
    * incomplete node renders SOLID — same as before. Falling through to the final
-   * branch would append `borderStyle`, which returns `border-dashed` for a factor
-   * whose `controllability` is `observable` or `partial`: that would re-open the
-   * false "outside your control" claim on incomplete cards, one PR after it was
-   * closed. The ruling was about the HUE; nothing here touches the dash.
+   * branch used to append `borderStyle`, which returned `border-dashed` for a
+   * factor whose `controllability` was `observable` or `partial`: that would
+   * have re-opened the false "outside your control" claim on incomplete cards,
+   * one PR after it was closed. [UPDATE, GAP-17] `borderStyle` is now always
+   * `''` — the dash was dropped from the card frame entirely (contract §02/§03,
+   * v3.1 pt4: dash is a connection-only channel) — so this concern is now moot
+   * either way, and the paragraph is kept for the history of why the arms were
+   * ordered as they are.
    *
    * ⚠ EXTERNAL FACTORS ARE UNAFFECTED, and the reason sits UPSTREAM of this line
    * rather than inside it: `isFactorNeedsInput` returns false for
-   * `category === 'external'`, so an external factor never enters this arm and
-   * its dash comes from `borderStyle` in the final branch. That is what keeps
-   * "external factors NEVER get the treatment" true structurally — and it is what
-   * carries the exemption over to the BADGE for free, since the badge reads the
-   * same `isIncomplete`.
+   * `category === 'external'`, so an external factor never enters this arm.
+   * Before GAP-17 its dash came from `borderStyle` in the final branch; now
+   * `borderStyle` never produces a dash for anyone. That is what keeps
+   * "external factors NEVER get the [amber] treatment" true structurally — and
+   * it is what carries the exemption over to the BADGE for free, since the
+   * badge reads the same `isIncomplete`.
    *
    * ⚠ PRECEDENCE IS UNCHANGED and is NOT the same question. `isIncomplete` still
    * wins over `borderClassOverride`. That is a separate, pre-existing

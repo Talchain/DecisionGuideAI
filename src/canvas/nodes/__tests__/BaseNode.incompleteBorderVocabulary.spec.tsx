@@ -59,6 +59,18 @@
  * className string would let `hover:border-option/80` satisfy a
  * `'border-option'` assertion — a value predicate a different token can meet
  * (CLAUDE.md trap 19). The card's class list is split and matched token-exact.
+ *
+ * ── SUPERSEDED, 24 Sep 2026 (GAP-17, DESIGN-GAP-AUDIT-20260924.md row 17) ──
+ * The "WHY BOTH DIRECTIONS" paragraph above is now half-superseded: the
+ * external-factor dash it called "a REAL signal that external factors depend
+ * on" turned out to be the SAME channel the visual contract reserves for a
+ * recorded doubt about a CONNECTION's existence (contract §02/§03; Paul's
+ * v3.1 pt4: "Dash remains existence certainty only"). Card frames are always
+ * solid now — the "twin" test below is flipped accordingly, and is no longer
+ * a twin of the incomplete-card test above it, because there is only one
+ * direction left to assert (never dashed), not two. `getControllabilityBorderStyle`
+ * is untouched (still tested directly in `graphDisplayCalculations.spec.ts`);
+ * `BaseNode` simply stopped calling it for card frames.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -204,21 +216,26 @@ describe('an incomplete node keeps its kind hue and says so in words', () => {
   })
 })
 
-describe('⛔ THE TWIN — the dash still means what it has always meant', () => {
+describe('⛔ THE TWIN — GAP-17: the dash no longer means "outside your control" on a card', () => {
   /**
-   * The harm the ruling above must not cause. Same component, same missing
-   * value; only `category` differs — so a pass here cannot be explained by the
-   * change having simply deleted a treatment, only by the dash still being
-   * bound to "outside your control".
+   * GAP-17 (24 Sep 2026): this case used to require `border-dashed` here —
+   * "the dash still being bound to 'outside your control'". The visual
+   * contract reserves the dash for a recorded doubt about a CONNECTION's
+   * existence only (§02/§03; Paul v3.1 pt4), so a card frame keeping that
+   * dash was reusing the wrong channel. Same component, same missing value,
+   * only `category` differs — so a pass here cannot be explained by the fix
+   * having simply deleted a treatment everywhere; the amber/badge assertions
+   * below are UNCHANGED and still prove the external exemption from the
+   * "needs your judgement" state stands.
    */
-  it('EXTERNAL factor with no value — dashed, NEVER amber, and NO badge', () => {
+  it('EXTERNAL factor with no value — SOLID (not dashed), NEVER amber, and NO badge', () => {
     const { container } = renderFactor({
       label: 'Market rate',
       type: 'factor',
       category: 'external',
     })
     const tokens = cardTokens(container)
-    expect(tokens).toContain('border-dashed')
+    expect(tokens).not.toContain('border-dashed')
     expect(tokens).not.toContain('border-warning')
     // And it is not incomplete at all — `isFactorNeedsInput` exempts external
     // factors, which is what keeps "external NEVER gets amber" true upstream of
