@@ -71,7 +71,7 @@ import { FactorValueControl } from '../FactorValueControl'
 import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../../InferenceWarningStrip'
 import { PanelIconButton } from '../PanelIconButton'
-import { ACTION_FOCUS, icon } from '../panelSurfaces'
+import { ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Copy. Furniture and short status values only; every claim-bearing sentence
@@ -411,7 +411,9 @@ export function AboutThisAnalysis({
 
   return (
     <section
-      className="border-t border-panel-border"
+      /* fidelity gap 6/11: `PANEL_RULE` — the shared full-width rule, not a
+         bare `border-t` inset inside the column's own `px-4` gutter. */
+      className={PANEL_RULE}
       data-testid={testId}
       aria-labelledby={`${testId}-heading`}
       data-about-open={open ? 'true' : 'false'}
