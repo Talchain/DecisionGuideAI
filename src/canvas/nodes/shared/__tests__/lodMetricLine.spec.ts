@@ -58,7 +58,7 @@ const DRIVER_2_OF_5 = { driverRank: { rank: 2, setSize: 5 } }
 describe('the deployed defect: a factor with no stated value said nothing', () => {
   it('falls back to the driver rank the card already shows', () => {
     // Locked Canvas design (23 Sep 2026): the card's driver line reads
-    // "Driver N of M analysed" (ED 02:31Z D1a), so the reduced line says
+    // "Driver N of M ranked in this run" (contract v3.1 pt 5), so the reduced line says
     // the same words — it once said the bare "Influence 62%".
     expect(
       resolveLodMetricLine({
@@ -68,7 +68,19 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
         displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
         facts: DRIVER_2_OF_5,
       }),
-    ).toBe('Driver 2 of 5 analysed')
+    ).toBe('Driver 2 of 5 ranked in this run') // contract v3.1 pt 5
+  })
+
+  it('contract v3.1 pt 5 stale form — "Last run · Driver N of M ranked", no "in this run"', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Team capacity' },
+        label: 'Team capacity',
+        displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
+        facts: { ...DRIVER_2_OF_5, influenceFromLastRun: true },
+      }),
+    ).toBe('Last run · Driver 2 of 5 ranked')
   })
 
   it('⛔ the bare "Influence N%" fallback is GONE — influence with no current rank says nothing analysis-derived', () => {
@@ -420,7 +432,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
         facts: { driverRank: { rank: 1, setSize: 4 } },
       }),
-    ).toBe('Driver 1 of 4 analysed')
+    ).toBe('Driver 1 of 4 ranked in this run') // contract v3.1 pt 5
   })
 
   it('TWIN — influence with NO current rank falls through to the prior range, never to a bare percentage', () => {
