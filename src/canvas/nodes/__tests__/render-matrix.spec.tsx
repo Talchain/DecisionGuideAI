@@ -84,9 +84,21 @@ afterEach(() => {
   useGuidanceStore.setState(ASK_SURFACE_NULLS as never)
 })
 
-/** The card's own face — BaseNode's root group, which excludes the sibling popover. */
+/**
+ * The card's own face — BaseNode's root group, which excludes the sibling
+ * popover.
+ *
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the accessible name changed shape from "<code id> node:
+ * <label>." to "<Kind>: <label>. Open details." — the literal word "node" is
+ * gone (a screen reader now hears "Factor: Demand", not "factor node:
+ * Demand"). The colon immediately before the label is the one thing common
+ * to every kind's name under BOTH the old and new template, so matching on
+ * that alone (rather than re-adding a specific kind word here) keeps this
+ * helper correct regardless of which of the six kinds a given call names.
+ */
 const faceOf = (label: string) =>
-  screen.getByRole('group', { name: new RegExp(`node: ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
+  screen.getByRole('group', { name: new RegExp(`: ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
 
 // Make NodePopover transparent so we can read its rendered content directly
 // (otherwise the popover is hidden behind a 300ms hover delay).

@@ -1,4 +1,8 @@
 /**
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the `getByLabelText` positive controls below now match
+ * "Outcome: …" (the user-facing Kind word), not the old "outcome node: …".
+ *
  * ⛔⛔ RETIRED BY CONTRACT v3.1 pt 8 (gap U2, 24 Sep 2026): THE OUTCOME CARD NO
  * LONGER SAYS HOW MANY OPTIONS CONNECT TO IT — IN ANY VIEW, IN EITHER PHASE.
  *
@@ -135,14 +139,14 @@ describe('OutcomeNode — no option-reach count on the card (contract v3.1 pt 8)
   ])('%s view, %s phase: the 2-of-3 outcome carries no count line', (viewMode, status) => {
     applyStore({ viewMode, results: { status, report: null } })
     const { container } = renderOutcome()
-    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
     expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
     expect(container.textContent).not.toMatch(COUNT)
   })
 
   it('the 1-of-3 outcome on the same board carries none either', () => {
     const { container } = renderOutcome('outcome-2', 'Brand reach')
-    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
     expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
     expect(container.textContent).not.toMatch(COUNT)
   })
@@ -152,7 +156,7 @@ describe('OutcomeNode — no option-reach count on the card (contract v3.1 pt 8)
       edges: EDGES.filter(e => e.id !== 'o1f1' && e.id !== 'o2f2'),
     })
     const { container } = renderOutcome()
-    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
     expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
     expect(container.textContent).not.toMatch(/No option moves/i)
   })

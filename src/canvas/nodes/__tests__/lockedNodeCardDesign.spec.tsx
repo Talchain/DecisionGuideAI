@@ -186,8 +186,17 @@ const FactorCard = FactorNode as unknown as CardComponent
 const renderCard = (Comp: CardComponent, id: string) =>
   render(<ReactFlowProvider><Comp {...props(id)} /></ReactFlowProvider>)
 
-/** The card's own face: BaseNode's root, which excludes the sibling popover. */
-const face = (label: string) => screen.getByRole('group', { name: new RegExp(`node: ${label}`) })
+/**
+ * The card's own face: BaseNode's root, which excludes the sibling popover.
+ *
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the accessible name dropped the literal word "node" —
+ * "<code id> node: <label>." became "<Kind>: <label>. Open details." The
+ * colon before the label is the one thing common to both templates and to
+ * every kind, so matching on that (rather than re-adding a specific kind
+ * word) keeps this helper correct across all six kinds.
+ */
+const face = (label: string) => screen.getByRole('group', { name: new RegExp(`: ${label}`) })
 /**
  * ⭐ ED #63 5809278282 (bounded anatomy, 24 Sep): the factor's S3 findings —
  * the driver line, a found turning point, the prior-range line — moved off the

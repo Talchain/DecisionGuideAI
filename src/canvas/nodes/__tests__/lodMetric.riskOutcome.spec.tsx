@@ -179,7 +179,7 @@ describe('contract v3.1 — the reduced line never borrows the connection’s st
     )
     expect(lodLine()).toBeNull()
     expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
-    expect(screen.getByLabelText(/outcome node/i)).toBeTruthy()
+    expect(screen.getByLabelText(/^Outcome:/i)).toBeTruthy()
   })
 
   it('a strength a PERSON set is still the connection’s fact — no "Link strength 50%" on the card', () => {

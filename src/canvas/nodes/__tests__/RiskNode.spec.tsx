@@ -98,7 +98,7 @@ describe('RiskNode', () => {
 
   it('renders shape indicator (type line removed in v1.1)', () => {
     renderRisk()
-    expect(screen.getByLabelText(/risk node/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Risk:/i)).toBeDefined()
   })
 
   // ED #63 5809278282 (bounded anatomy): in Standard the preview moved off the
@@ -119,7 +119,7 @@ describe('RiskNode', () => {
     await userEvent.keyboard('{Enter}')
     expect(container.querySelector('.node-description')).toHaveTextContent(description)
     expect(container.querySelector('.node-description')).toHaveTextContent(body)
-    expect(screen.getByLabelText(/risk node:/i)).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByLabelText(/^Risk:/i)).toHaveAttribute('aria-expanded', 'true')
   })
 
   it.each([undefined, '   '])('uses the authored body when description is %s', async (description) => {

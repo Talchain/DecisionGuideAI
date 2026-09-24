@@ -88,6 +88,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { NODE_REGISTRY } from '../../domain/nodes'
 
 const applyStore = (overrides: Record<string, unknown> = {}) =>
   vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState(overrides) as never))
@@ -128,8 +129,16 @@ const draw = (kind: Kind, data: Record<string, unknown>) => {
   )
 }
 
-/** The card itself (BaseNode's `role="group"`), excluding the popover beside it. */
-const cardFace = (kind: Kind) => screen.getByRole('group', { name: new RegExp(`^${kind} node:`, 'i') })
+/**
+ * The card itself (BaseNode's `role="group"`), excluding the popover beside it.
+ *
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the accessible name changed from "<code id> node: …" to
+ * "<Kind>: … Open details.", where Kind is the user-facing word
+ * (`NODE_REGISTRY[kind].label` — "Outcome"/"Risk" for this file's two kinds),
+ * not the lower-case code id this helper used to spell directly.
+ */
+const cardFace = (kind: Kind) => screen.getByRole('group', { name: new RegExp(`^${NODE_REGISTRY[kind].label}:`, 'i') })
 
 /** Element children of the body that take height — the reduced line is absolute. */
 const flowChildren = (body: Element) =>

@@ -133,7 +133,9 @@ describe('GoalNode', () => {
   it('renders shape indicator (type line removed in v1.1)', () => {
     renderGoal()
     // Type text label removed in v1.1 — shape icon with tooltip replaces it
-    expect(screen.getByLabelText(/goal node/i)).toBeDefined()
+    // ⛔ UPDATED 24 Sep 2026 (GAP-36): accessible name is now "Goal: …", not
+    // "goal node: …" (contract §01, NODE_REGISTRY's user-facing Kind word).
+    expect(screen.getByLabelText(/^Goal:/i)).toBeDefined()
   })
 
   // T10: Achievement probability

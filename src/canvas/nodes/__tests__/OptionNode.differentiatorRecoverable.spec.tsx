@@ -17,11 +17,13 @@
  * ⭐ THE RECOVERY STANDARD THESE TESTS ENFORCE, and why it is not
  * `toBeTruthy()`: the first probe of the deployed build reported "zero
  * unrecoverable" because it counted ANY ancestor `title`/`aria-label` as
- * recovery. Both nodes carry a node-level aria-label ("option node: Hire
- * Three Account Executives. One possible course of action") which does NOT
- * contain the truncated words. A recovery only counts when the recovering
- * string ACTUALLY CONTAINS the visible prefix and is LONGER than the visible
- * text. Every assertion below is written to that standard.
+ * recovery. Both nodes carry a node-level aria-label (GAP-36, 24 Sep 2026:
+ * now "Option: Hire Three Account Executives. Open details.", was "option
+ * node: Hire Three Account Executives. One possible course of action") which
+ * does NOT contain the truncated words either way. A recovery only counts
+ * when the recovering string ACTUALLY CONTAINS the visible prefix and is
+ * LONGER than the visible text. Every assertion below is written to that
+ * standard.
  *
  * ⚠ NOT a licence to un-truncate. The file's standing rule is "label
  * truncates, value NEVER truncates" (PR #1220, merged and deployed). The
