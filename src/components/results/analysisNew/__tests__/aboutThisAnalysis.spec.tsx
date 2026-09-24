@@ -407,6 +407,35 @@ describe('Method — simulations and seed, the values the body already hands the
     open()
     expect(screen.queryByTestId(`${TID}-row-method`)).toBeNull()
   })
+  /*
+   * ⛔ "Seed null" ON THE SERVED BUILD (24 Sep 2026). OutputsDock hands the body
+   * `(report as any)?.meta?.seed`, and a run with no recorded seed carries
+   * `null` there (`hydrateAnalysis` maps an absent seed to `null`, never a
+   * fabricated 0). `String(null)` is the four letters "null", so the old
+   * `!== undefined` guard let it through.
+   */
+  it('a null seed with samples ⇒ the samples alone, never "seed null"', () => {
+    renderAbout(build(genuineDecision()), { nSamples: 10000, seedUsed: null })
+    open()
+    expect(valueOf('method')).toBe(ABOUT_COPY.method((10000).toLocaleString('en-GB'), null))
+    expect(valueOf('method')).not.toMatch(/null|undefined/i)
+  })
+  it('a null seed and no samples ⇒ no row at all, never "Seed null"', () => {
+    renderAbout(build(genuineDecision()), { seedUsed: null })
+    open()
+    expect(screen.queryByTestId(`${TID}-row-method`)).toBeNull()
+    // CONTRAST: the rows DID render, so the absence above is the method row's own.
+    expect(screen.getByTestId(`${TID}-row-freshness`)).toBeInTheDocument()
+    expect(screen.getByTestId(`${TID}-rows`).textContent).not.toMatch(/\bnull\b|\bundefined\b/i)
+  })
+  it('a seed that is the literal text "null" or "undefined" is treated as absent', () => {
+    for (const literal of ['null', 'undefined', ' ']) {
+      const { unmount } = renderAbout(build(genuineDecision()), { nSamples: 500, seedUsed: literal })
+      open()
+      expect(valueOf('method')).toBe(ABOUT_COPY.method((500).toLocaleString('en-GB'), null))
+      unmount()
+    }
+  })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════

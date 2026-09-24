@@ -3,7 +3,8 @@
  * relationships, values, alternatives and evidence, one item at a time.
  *
  * Collapsed, it is one row: "N to review" and an ask to check the whole
- * framing. Open, it pages through `buildReviewQueue`'s items with the acts a
+ * framing. Empty, it draws nothing (see the note above the return). Open, it
+ * pages through `buildReviewQueue`'s items with the acts a
  * reader needs on each: inspect it in the Model, focus it on the canvas, ask
  * Olumi about it, change its value, confirm an estimate as their own.
  *
@@ -261,10 +262,36 @@ export function ModelReviewTool({
    */
   const menuItemClass = `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`
 
+  /*
+   * ⛔ AN EMPTY QUEUE DRAWS NOTHING (V2 design pass, 24 Sep 2026). At rest it
+   * drew "Nothing to review" beside an AI icon: a row that says nothing is to
+   * be done, in the first viewport, is noise.
+   *
+   * ⭐ WHY DROPPING THE WHOLE-FRAMING ASK HERE STRANDS NOTHING. The same act is
+   * reachable on the same tab: `MethodStrip`'s overflow, "Edit decision brief"
+   * (`GLOBAL_ACTIONS.edit_brief`), sends `{ ...REVIEW_BRIEF_ASK, source: 'chip' }`
+   * — byte-identical to `WHOLE_FRAMING_ASK` — and `AnalysisNewTabBody` mounts
+   * that strip unconditionally, above this tool. With a non-empty queue the ask
+   * stays on this row, beside the count it belongs with.
+   *
+   * ⚠ BUT NOT WHILE AN UNDO IS PENDING. Dismissing the LAST item empties the
+   * queue; the "Recommendation dismissed · Undo" notice must outlive it, or
+   * the undo would vanish with the row that offered it.
+   *
+   * ⚠ AN EMPTY, `hidden` MARKER, NOT `null`. It draws nothing — `hidden` is
+   * `display: none`, and Tailwind 3's `space-y-*` skips `[hidden]` children, so
+   * it adds no gap — but it keeps the tool's slot in document order, which the
+   * tab's zone-order specs read, and lets a reader tell "mounted, nothing
+   * queued" from "failed to render".
+   */
+  if (total === 0 && undoable === null) {
+    return <div data-testid={testId} data-review-empty="true" hidden />
+  }
+
   return (
     <div data-testid={testId} className="border-b border-panel-border py-1">
-      <div className="flex items-center justify-between gap-1">
-        {total > 0 ? (
+      {total > 0 ? (
+        <div className="flex items-center justify-between gap-1">
           <Tooltip asChild content={COPY.entryTip}>
             <button
               type="button"
@@ -287,21 +314,14 @@ export function ModelReviewTool({
               )}
             </button>
           </Tooltip>
-        ) : (
-          <span
-            className={`${typography.panelMeta} text-text-light`}
-            data-testid={`${testId}-empty`}
-          >
-            {COPY.nothingToReview}
-          </span>
-        )}
-        <PanelIconButton
-          ai
-          label={COPY.askFraming}
-          onClick={() => onAsk(WHOLE_FRAMING_ASK)}
-          testId={`${testId}-ask-framing`}
-        />
-      </div>
+          <PanelIconButton
+            ai
+            label={COPY.askFraming}
+            onClick={() => onAsk(WHOLE_FRAMING_ASK)}
+            testId={`${testId}-ask-framing`}
+          />
+        </div>
+      ) : null}
 
       {isOpen && current ? (
         <div

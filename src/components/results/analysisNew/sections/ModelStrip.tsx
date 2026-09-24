@@ -211,6 +211,14 @@ import { action, icon } from '../panelSurfaces'
  */
 const NO_SUBJECT_LABEL = 'Your model so far'
 
+/** A label's subject for comparison only: a leading "Decision:" dropped, trimmed, case-folded, runs of space collapsed. */
+const subjectOf = (label: string): string =>
+  label.trim().replace(/^decision\s*:\s*/i, '').replace(/\s+/g, ' ').trim().toLowerCase()
+
+/** True when two header labels name the same subject — the second would only restate the first. */
+const sameSubject = (a: string | null, b: string | null): boolean =>
+  a !== null && b !== null && subjectOf(a) === subjectOf(b)
+
 /**
  * A stable empty index, so an unwired mount does not allocate a new Map on
  * every render and re-run every memo downstream of it.
@@ -413,7 +421,15 @@ export function ModelStrip({
    */
   const decisionLeads = strip.decisionLabel !== null && strip.decisionLabel !== strip.goalLabel
   const leadLabel = decisionLeads ? strip.decisionLabel : strip.goalLabel
-  const subjectSubLabel = decisionLeads ? strip.goalLabel : null
+  /*
+   * ⛔ AND NOT WHEN THE SUBTITLE ONLY RESTATES THE LEAD'S SUBJECT. Served build,
+   * 24 Sep 2026: "Decision: MRR" with "MRR" directly beneath it — two strings
+   * that differ only by a "Decision: " prefix passed the exact-equality test
+   * above. Compared with that prefix stripped, case-insensitively and trimmed;
+   * a goal that says anything more still renders.
+   */
+  const subjectSubLabel =
+    decisionLeads && !sameSubject(strip.decisionLabel, strip.goalLabel) ? strip.goalLabel : null
   const valueInputId = useId()
   /**
    * ⚠ THE NODE ID, NOT A BOOLEAN, AND FOR THE SAME REASON `activeNodeId` IS AN

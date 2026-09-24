@@ -108,18 +108,38 @@ describe('the collapsed row', () => {
     expect(screen.queryByTestId(`${TID}-empty`)).toBeNull()
   })
 
-  it('CONTRAST: an empty queue offers no count, and the framing ask stays', () => {
+  /*
+   * ⛔ V2 DESIGN PASS, 24 Sep 2026: at rest with nothing queued the tool drew a
+   * "Nothing to review" row plus an AI icon — noise in the first viewport. It
+   * now draws NOTHING (a hidden, childless marker). The whole-framing ask is
+   * not stranded: the tab's MethodStrip overflow ("Edit decision brief")
+   * sends the byte-identical `REVIEW_BRIEF_ASK` payload, and is mounted
+   * unconditionally above this tool.
+   */
+  it('an empty queue draws nothing at all — no count, no empty label, no lone AI icon', () => {
     nodes.length = 0
     render(<ModelReviewTool interventions={[]} onAsk={vi.fn()} />)
+    // A hidden, childless marker keeps the tool's slot in document order.
+    const root = screen.getByTestId(TID)
+    expect(root).toHaveAttribute('hidden')
+    expect(root).not.toBeVisible()
+    expect(root).toBeEmptyDOMElement()
     expect(screen.queryByTestId(`${TID}-toggle`)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-empty`)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-ask-framing`)).toBeNull()
+  })
+
+  it('CONTRAST: the same empty canvas with one finding renders the row and its framing ask', () => {
+    nodes.length = 0
+    render(<ModelReviewTool interventions={[ROBUSTNESS]} onAsk={vi.fn()} />)
+    expect(screen.getByTestId(TID)).not.toHaveAttribute('hidden')
+    expect(screen.getByTestId(`${TID}-count`)).toHaveTextContent(COPY.toReview(1))
     expect(screen.getByTestId(`${TID}-ask-framing`)).toBeInTheDocument()
-    // The row says its state, so the framing ask is never a lone icon.
-    expect(screen.getByTestId(`${TID}-empty`)).toHaveTextContent(COPY.nothingToReview)
   })
 
   it('the framing ask sends the estate\'s shared review-the-brief payload', () => {
     const onAsk = vi.fn()
-    render(<ModelReviewTool interventions={[]} onAsk={onAsk} />)
+    render(<ModelReviewTool interventions={[ROBUSTNESS]} onAsk={onAsk} />)
     const ask = screen.getByTestId(`${TID}-ask-framing`)
     expect(ask).toHaveAttribute('aria-label', COPY.askFraming)
     expect(ask).toHaveAttribute('data-ai', 'true')
@@ -412,6 +432,23 @@ describe('Not relevant writes the lifecycle store the Strengthen cards write, wi
       fireEvent.click(screen.getByTestId(`${TID}-dismissed-undo`))
     })
     expect(useStrengthenStore.getState().records[key]?.status).not.toBe('dismissed')
+  })
+
+  it('dismissing the LAST item keeps its undo on screen, though the queue is now empty', () => {
+    nodes.length = 0
+    const { rerender } = render(
+      <ModelReviewTool interventions={[ROBUSTNESS]} onAsk={vi.fn()} analysisHash="run_x" />,
+    )
+    openTool()
+    fireEvent.click(screen.getByTestId(`${TID}-more`))
+    fireEvent.click(screen.getByTestId(`${TID}-dismiss`))
+    // The view model drops a dismissed finding, so the caller re-renders with none.
+    rerender(<ModelReviewTool interventions={[]} onAsk={vi.fn()} analysisHash="run_x" />)
+    expect(screen.queryByTestId(`${TID}-toggle`)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-empty`)).toBeNull()
+    expect(screen.getByTestId(TID)).not.toHaveAttribute('hidden')
+    expect(screen.getByTestId(`${TID}-dismissed-notice`)).toHaveTextContent(ROBUSTNESS.title)
+    expect(screen.getByTestId(`${TID}-dismissed-undo`)).toBeInTheDocument()
   })
 
   it('CONTRAST: a verify-list factor is not a finding, so it cannot be dismissed', () => {

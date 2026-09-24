@@ -136,6 +136,36 @@ describe('what the panel leads with', () => {
     expect(screen.queryByTestId(`${TID}-goal`)).toBeNull()
   })
 
+  /*
+   * ⛔ SERVED BUILD, 24 Sep 2026: the header read "Decision: MRR" with "MRR"
+   * directly beneath it. The strings differ only by the "Decision: " prefix, so
+   * the exact-equality guard above let the goal line through as a duplicate.
+   */
+  it('⛔ states the subject once when the goal is the decision minus a "Decision: " prefix', () => {
+    setNodes([node('d1', 'decision', 'Decision: MRR'), node('g1', 'goal', 'MRR'), OPTION])
+    // PRECONDITION: the builder really does hand over two DIFFERENT strings.
+    const strip = buildModelStrip(nodes as never)
+    expect(strip.decisionLabel).toBe('Decision: MRR')
+    expect(strip.goalLabel).toBe('MRR')
+    mount()
+
+    expect(screen.getByTestId(`${TID}-lead`)).toHaveTextContent('Decision: MRR')
+    expect(screen.queryByTestId(`${TID}-goal`)).toBeNull()
+  })
+
+  it('⛔ the prefix match ignores case and surrounding space', () => {
+    setNodes([node('d1', 'decision', '  decision:   mrr '), node('g1', 'goal', 'MRR'), OPTION])
+    mount()
+    expect(screen.queryByTestId(`${TID}-goal`)).toBeNull()
+  })
+
+  it('CONTRAST: a goal that says MORE than the decision still renders beneath it', () => {
+    setNodes([node('d1', 'decision', 'Decision: MRR'), node('g1', 'goal', 'MRR above £2m by Q4'), OPTION])
+    mount()
+    expect(screen.getByTestId(`${TID}-lead`)).toHaveTextContent('Decision: MRR')
+    expect(screen.getByTestId(`${TID}-goal`)).toHaveTextContent('MRR above £2m by Q4')
+  })
+
   it('names no subject rather than rendering an empty lead when the model names neither', () => {
     setNodes([OPTION])
     mount()
