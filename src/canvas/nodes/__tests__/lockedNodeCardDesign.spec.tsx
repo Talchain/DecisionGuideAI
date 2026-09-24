@@ -652,7 +652,11 @@ describe('"Worth reviewing" — one selective, grounded, NON-warning cue (spec �
     expect(marker.getAttribute('aria-label')).toMatch(/^Worth reviewing: Worth checking: anchoring\./)
     // It reads as "worth thinking about", never as a warning or error.
     expect(marker.outerHTML).not.toMatch(/warning|danger/)
-    expect(within(marker).getByTestId('attention-marker-ring').className).toContain('border-info')
+    // Contract v3.1 (PILL-03 / ICON-05): the ring is now the contract's target
+    // GLYPH (an svg), and the Info identity sits on the marker itself — the one
+    // Info-at-rest mark on the card. (Was: the CSS donut's `border-info`.)
+    expect(within(marker).getByTestId('attention-marker-ring').tagName.toLowerCase()).toBe('svg')
+    expect(marker.className.split(/\s+/)).toContain('text-info')
     expect(within(card).getByTestId('node-rail-behaviour-fac-conv')).toBeTruthy()
   })
 
