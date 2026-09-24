@@ -160,7 +160,8 @@
  */
 
 import { Fragment, useCallback, useId, useState } from 'react'
-import { Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
+import { ChevronRight, Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
+import { NodeMark } from '../nodeMarks'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -182,7 +183,7 @@ import type { OptionOrigin } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { PanelFigure } from '../PanelFigure'
-import { action, icon } from '../panelSurfaces'
+import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
@@ -253,6 +254,23 @@ export interface OptionsComparisonProps {
    */
   defaultOpen?: boolean
   /**
+   * ⭐⭐ BARE (V2 fidelity, gap 17): NO `SectionShell` — no heading, icon
+   * circle, count or chevron, and no disclosure. Renders the same body
+   * (qualifiers, lens control, rows, range detail) in a plain wrapper.
+   *
+   * ⚠ FOR THE ONE MOUNT WHERE THE COMPARISON IS ALREADY THE ANSWER. Nested
+   * inside "Move towards commitment", `SectionShell` gave this section its
+   * own 14px heading beside the zone's own, and closed it at rest whenever the
+   * glance named a leader — hiding the chart on the run it is the entitled
+   * account of. `defaultOpen` (above) is now IGNORED when `bare` is true: a
+   * bare mount has no disclosure state to default.
+   *
+   * ⚠ DEFAULT `false`. Every other caller of this component — the standalone
+   * specs, `collapsedIA.spec.tsx` — renders it unbare and keeps the existing
+   * toggle, count and region.
+   */
+  bare?: boolean
+  /**
    * ⭐ THE ROW ACTIONS (V2). Each is OPTIONAL and each renders only where it is
    * supplied: a host with no Model route renders no "Inspect in Model", never a
    * control that routes nowhere.
@@ -278,6 +296,7 @@ export function OptionsComparison({
   sharesExcludeLimits = false,
   onSendMessage,
   defaultOpen = false,
+  bare = false,
   onInspectOption,
   onFocusOption,
   onAskAboutOption,
@@ -487,17 +506,14 @@ export function OptionsComparison({
     return origins.every((x) => x === origins[0]) ? origins[0] : null
   })()
 
-  return (
-    <SectionShell
-      title={COPY.sections.options}
-      icon={Scale}
-      // The count is the FULL population, and the body accounts for every one
-      // of them — named rows plus the unnamed disclosure. A collapsed row is a
-      // promise about what is behind it.
-      count={options.totalCount}
-      defaultOpen={defaultOpen}
-      testId={testId}
-    >
+  /**
+   * ⭐ V2 FIDELITY (gap 17): THE BODY, SEPARATED FROM ITS SHELL. `bare` (below)
+   * needs the exact same qualifiers/lens/rows/range-detail this section has
+   * always drawn — one JSX tree, built once, so a bare mount and a shelled one
+   * can never quietly diverge. Each wrapper only decides the CHROME.
+   */
+  const body = (
+    <>
       {/* ⚠ THIS SECTION'S OWN HALF OF A SENTENCE THAT USED TO SERVE TWO.
           `checks.leader_not_assessed.meaning` is "What we checked"'s — it
           answers what the run CHECKED. This answers HOW TO READ THIS LIST, and
@@ -558,10 +574,15 @@ export function OptionsComparison({
           <span id={`${lensGroupId}-label`} className="sr-only">
             {LENS_COPY.groupLabel}
           </span>
+          {/* ⭐ V2 FIDELITY (gap 19): PILL, NOT A SQUARED BOX. `rounded-md`
+              read as ~12px on a ~30px-tall box, close to a pill already; the
+              arms inside it were the squared part (`rounded` ≈ 4px against the
+              prototype's 99px). `p-[3px] gap-[3px]` matches the prototype's
+              own `.lens{padding:3px;gap:3px}`. */}
           <div
             role="radiogroup"
             aria-labelledby={`${lensGroupId}-label`}
-            className="flex w-full items-center gap-1 rounded-md border border-panel-border p-0.5"
+            className="flex w-full items-center rounded-full border border-panel-border p-[3px] gap-[3px]"
             data-testid={`${testId}-lens`}
           >
             {COMPARISON_LENSES.map((arm, i) => {
@@ -592,8 +613,19 @@ export function OptionsComparison({
                       ?.querySelector<HTMLButtonElement>(`[data-lens="${next}"]`)
                       ?.focus()
                   }}
-                  className={`${typography.panelMeta} ${action('quiet')} flex-1 justify-center gap-1 px-2 no-underline ${
-                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                  /* ⭐ V2 FIDELITY (gap 19): a SOLID selected state, not a
+                     cream tint. `bg-panel-hover` on `bg-panel` measured at
+                     1.038:1 (`SectionShell.tsx`'s own contrast note) — which
+                     of the two lenses was active was barely readable, and DS
+                     v5 bans a tinted background outright. `bg-primary
+                     text-text-on-color` is the panel's ONE filled control
+                     (`ACTION_TIER.primary`); unselected arms drop to
+                     `text-text-body` so the pair reads as "chosen" vs "not",
+                     never as two different intensities of one tint. Not
+                     `action('quiet')` — that tier is UNDERLINED text-light
+                     furniture, the opposite of a segmented control's arm. */
+                  className={`${typography.panelBody} ${ACTION_FOCUS} flex-1 inline-flex items-center justify-center min-h-[28px] gap-1 rounded-full px-2 no-underline ${
+                    selected ? 'bg-primary text-text-on-color' : 'text-text-body hover:text-info'
                   }`}
                   data-lens={arm}
                   data-testid={`${testId}-lens-${arm}`}
@@ -672,6 +704,13 @@ export function OptionsComparison({
                    option name wraps. */
                 className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
+                {/* ⭐ V2 FIDELITY (gap 20): THE OPTION'S OWN SHAPE, before its
+                    name — the row head's `.option-top` grid in the prototype
+                    leads with an 8px option square; this row had no mark at
+                    all, so nothing on it said "option" the way the canvas
+                    already does. `aria-hidden` by construction (`NodeMark`),
+                    so it adds nothing to the button's `aria-label`. */}
+                <NodeMark kind="option" className="w-2 h-2 mr-1 inline-block align-[-1px]" />
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
                   /* ⚠ `role="img"` WITH THE FULL SENTENCE AS ITS NAME. A bare
@@ -706,6 +745,23 @@ export function OptionsComparison({
                 >
                   {o.kind === 'not_computed' ? NOT_COMPUTED_BADGE : NOT_ANALYSED_BADGE}
                 </span>
+              ) : null}
+
+              {/* ⭐ V2 FIDELITY (gap 20): AN EXPAND CUE, where the row has
+                  actions to expand. The button above already toggles
+                  `actionsOpenFor` and carries `aria-expanded`; nothing on
+                  screen said so, so a reader met a row that opened with no
+                  visible affordance for it. Decorative only — `aria-hidden`,
+                  because the button's own `aria-expanded`/`aria-label` already
+                  say this to assistive tech. */}
+              {rowActionsEnabled ? (
+                <ChevronRight
+                  className={`${icon('inline')} text-text-light shrink-0 transition-transform ${
+                    actionsOpenFor === o.id ? 'rotate-90' : ''
+                  }`}
+                  aria-hidden={true}
+                  data-testid={`${testId}-row-chevron-${o.id}`}
+                />
               ) : null}
             </div>
 
@@ -975,10 +1031,12 @@ export function OptionsComparison({
                 is a PROMISE to a screen-reader user; ARIA supplies the
                 announcement and none of the behaviour. One tab stop, on the
                 selected arm. The tier owns the 24px touch target. */}
+            {/* ⭐ V2 FIDELITY (gap 19): the same pill treatment as the
+                comparison lens above — one segmented-control grammar, not two. */}
             <div
               role="radiogroup"
               aria-labelledby={`${rangeLensId}-label`}
-              className="flex items-center gap-1"
+              className="flex items-center rounded-full border border-panel-border p-[3px] gap-[3px]"
               data-testid={`${testId}-range-lens`}
             >
               {RANGE_LENS_ARMS.map((arm, i) => {
@@ -1011,8 +1069,8 @@ export function OptionsComparison({
                         ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
                         ?.focus()
                     }}
-                    className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-                      selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                    className={`${typography.panelBody} ${ACTION_FOCUS} inline-flex items-center justify-center min-h-[28px] rounded-full px-2 no-underline ${
+                      selected ? 'bg-primary text-text-on-color' : 'text-text-body hover:text-info'
                     }`}
                     data-arm={arm}
                     data-testid={`${testId}-range-lens-${arm}`}
@@ -1025,6 +1083,44 @@ export function OptionsComparison({
           </div>
         </div>
       ) : null}
+    </>
+  )
+
+  /**
+   * ⭐⭐ BARE (V2 fidelity, gap 17): NO `SectionShell`. Mounted inside "Move
+   * towards commitment", the comparison IS the answer that zone promises — a
+   * closed "How the options compare 3 ›" row hid the only evidence the zone
+   * has, on every run that named a leader (the deployed-build measurement
+   * behind this gap). `bare` renders the identical body with no heading, no
+   * count, no chevron and no disclosure: the one caller that passes it
+   * (`AnalysisNewTabBody.tsx`'s commitment mount) has already decided this
+   * content belongs on screen at rest.
+   *
+   * ⚠ EVERY OTHER MOUNT IS UNCHANGED. `bare` defaults to `false`, and
+   * `collapsedIA.spec.tsx` plus the standalone `OptionsComparison` specs
+   * render this component with no `bare` prop, so they keep the existing
+   * `SectionShell` toggle, count and region untouched.
+   */
+  if (bare) {
+    return (
+      <div data-testid={testId} data-comparison-bare="true">
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <SectionShell
+      title={COPY.sections.options}
+      icon={Scale}
+      // The count is the FULL population, and the body accounts for every one
+      // of them — named rows plus the unnamed disclosure. A collapsed row is a
+      // promise about what is behind it.
+      count={options.totalCount}
+      defaultOpen={defaultOpen}
+      testId={testId}
+    >
+      {body}
     </SectionShell>
   )
 }

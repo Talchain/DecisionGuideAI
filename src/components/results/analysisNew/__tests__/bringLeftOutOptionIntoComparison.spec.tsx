@@ -263,7 +263,13 @@ describe('the act reaches the surface the deployed flags mount', () => {
         {...over}
       />,
     )
-    expand()
+    // ⛔ V2 FIDELITY (24 Sep 2026, gap 17): NO `expand()` HERE ANY MORE. On the
+    // real tab body, `OptionsComparison` mounts `bare` inside "Move towards
+    // commitment" — no `SectionShell`, no toggle, no closed state to open.
+    // The rows (and this row's act) are already in the DOM; calling `expand()`
+    // against a section with no `-toggle` would throw before either case below
+    // ran. `draw()` (above), which renders the section STANDALONE with no
+    // `bare` prop, still needs it — that call is unchanged.
     return r
   }
 

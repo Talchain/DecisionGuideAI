@@ -49,10 +49,12 @@
  * into the shared component would either add a `diverging` variant that no other
  * caller wants, or flatten a distinction the chart exists to draw.
  *
- * ⭐ WHAT IT DOES SHARE, and must keep sharing: the `h-2` track height, so the
- * panel's figures still read at one weight. `everyFigureHasOneGrammar` asserts
- * the height even here, because the height IS the grammar and only the
- * DIRECTIONALITY is the exception.
+ * ⭐ WHAT IT DOES SHARE, and must keep sharing: the track height, so the
+ * panel's figures still read at one weight. V2 fidelity (gap 13) drops that
+ * shared height from `h-2` to `PanelFigure`'s `h-[5px]` — this chart is not
+ * `PanelFigure` (see the opt-out above) so the literal is repeated here, by
+ * hand, kept in step rather than imported, because the height IS the grammar
+ * and only the DIRECTIONALITY is the exception.
  */
 import { useId, useState } from 'react'
 import { ArrowLeft, ArrowRight, Minus } from 'lucide-react'
@@ -145,11 +147,18 @@ const HALF = 'w-1/2 flex items-center'
  *
  * ⚠ INK, NOT A STATUS TOKEN, and deliberately not `bg-primary` either — that
  * is `ACTION_TIER.primary`, the panel's one act, and a chart bar is not an
- * affordance. `text-header` is the panel's strongest ink and carries no state;
- * at 80% it stays clearly distinct from the zero line's `bg-text-light/70`,
- * which the bars must never be confused with.
+ * affordance.
+ *
+ * ⭐ V2 FIDELITY (24 Sep 2026, gap 13): WAS `text-header` (charcoal). The SAME
+ * drivers render `bg-info` (blue) in "Top drivers" (`ReasoningSignals.tsx`,
+ * `PanelFigure variant="influence"`) and in the flip bars on "What would
+ * change your mind" (`DisclosureRow.tsx`) — so one factor's influence was
+ * drawn in two different inks depending which section a reader was on. The
+ * prototype's own driver figure (`.signal-item .barwrap>i`) is `--info`, so
+ * `bg-info` is the one ink this panel already uses for "how much", everywhere
+ * else it draws it.
  */
-const BAR_INK = 'bg-text-header/80'
+const BAR_INK = 'bg-info'
 
 export function DriverInfluenceChart({
   rows,
@@ -372,7 +381,7 @@ export function DriverInfluenceChart({
                     {row.direction === 'negative' ? COPY.driverChart.lowers : COPY.driverChart.raises}
                   </span>
                 ) : null}
-                <span className="flex items-stretch h-2 mt-0.5" aria-hidden="true">
+                <span className="flex items-stretch h-[5px] mt-0.5" aria-hidden="true">
                   <span className={`${HALF} justify-end`}>
                     {row.direction === 'negative' ? (
                       <span

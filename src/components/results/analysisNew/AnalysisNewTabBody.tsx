@@ -96,7 +96,6 @@ import { SectionShell } from './sections/SectionShell'
 import { MethodStrip } from './sections/MethodStrip'
 import { CommitmentSummary } from './sections/CommitmentSummary'
 import { buildCommitmentSynthesis } from './commitmentSynthesis'
-import { comparisonDrawsAFigure } from './comparisonLens'
 import { ChallengeCard } from './sections/ChallengeCard'
 import { ReasoningSignals } from './sections/ReasoningSignals'
 import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
@@ -1349,6 +1348,19 @@ export function AnalysisNewTabBody({
              its own ask (:1253). One composer, one validation, one policy — a
              second route to the chat would be a second thing to keep honest. */
           onSendMessage={onSendMessage}
+          /* ⭐⭐ V2 FIDELITY (24 Sep 2026, gap 17): BARE, AND ALWAYS OPEN.
+             This chart is the answer "Move towards commitment" promises, not
+             a sub-section of it: `SectionShell` gave it its own 14px heading
+             beside the zone's own and closed it at rest on every run that
+             named a leader (the fidelity finding's own measurement, deployed
+             `4549b66b`), hiding the only evidence this zone has on the run it
+             most needs to be read. `bare` renders the identical rows with no
+             heading, no count and no chevron — see `OptionsComparison.tsx`'s
+             own docblock on the prop for what stays gated (leader-naming,
+             ordinals, comparative magnitude are unchanged; this moves
+             VISIBILITY only). Replaces the `defaultOpen` conditional below,
+             which is now moot: a bare mount has no disclosure state. */
+          bare
           /* ⭐⭐ THE ONE STATE WHERE THE READER IS LEFT WITH NOTHING, AND IT IS
              THE STATE THIS SECTION EXISTS FOR.
 
@@ -1401,11 +1413,10 @@ export function AnalysisNewTabBody({
              state belongs to the toggle from the first render on, and a reader
              who closes it keeps it closed. The collapsed IA is UNCHANGED on
              every run that names a leader, which is the state its measurement
-             was taken in. */
-          /* V2: open when the section draws a figure and the glance does not
-             already state the reading (`comparisonDrawsAFigure`, not the removed
-             win readout). */
-          defaultOpen={vm.atAGlance.headline === null && comparisonDrawsAFigure(vm.optionsComparison)}
+             was taken in. Superseded by `bare` above (gap 17): a bare mount
+             has no disclosure state left for `defaultOpen` to set, so the
+             conditional that used to sit here is removed rather than left
+             dead. */
           onFocusOption={focusTarget}
           onInspectOption={onReviewTarget}
           onAskAboutOption={(optionId, label) =>

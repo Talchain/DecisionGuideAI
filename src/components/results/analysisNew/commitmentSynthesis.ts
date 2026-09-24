@@ -40,16 +40,25 @@ import type { AnalysisNewViewModel, ChecksCode } from './analysisNewTypes'
 export const COMMITMENT_COPY = {
   /** The zone heading. Names the section; asserts nothing about the run. */
   heading: 'Move towards commitment',
+  /**
+   * ⭐ V2 FIDELITY (24 Sep 2026, gap 18): SHORTENED to the prototype's own three
+   * words (`commit-synthesis`'s `<b>` labels). "What seems well-founded" was the
+   * longest label on the panel at the 280px dock floor — it alone filled most of
+   * the first line — and "well-founded" made a claim about EVIDENCE the
+   * docblock above already disclaims ("No 'well-founded' claim about EVIDENCE").
+   * The BODY of each bullet, and every rule that selects it, is unchanged: only
+   * the heading word shortens.
+   */
   labels: {
-    founded: 'What seems well-founded',
+    founded: 'What we have',
     /**
      * ⚠ "UNCERTAIN", NOT "UNCERTAIN OR DISPUTED". Every source this bullet reads
      * is a statement about the RUN (a withheld leader, a threshold, an unmade
      * check, an evidence gap). None is a record of disagreement, so the word
      * "disputed" would claim a dispute nothing measured.
      */
-    open: 'What remains uncertain',
-    before: 'Before committing',
+    open: 'Still open',
+    before: 'Before acting',
   },
   ask: {
     /** Tooltip and accessible name of the AI icon. */
