@@ -212,3 +212,41 @@ describe('every clause of the qualifier is a fact the view model already states'
     expect(buildCommitmentQualifier({ ...vm, status: { ...vm.status, isPreRun: true } })).toBeNull()
   })
 })
+
+/**
+ * ⭐ THE TYPED PROVISIONAL MARKER (RC 5818628860; Runtime 5818605567):
+ * `analysis_result.enrichment.run_provenance.provisional`. It licenses
+ * "Provisional" by itself, so an automatic first run is never unlabelled, and
+ * nothing else can license its clause.
+ */
+describe('the automatic-first-pass clause', () => {
+  const settled = () => {
+    const vm = vmOf(decisionWithLeaderWithheldAndReason())
+    return {
+      ...vm,
+      atAGlance: { ...vm.atAGlance, inputProvenance: 'user_supplied' as const, verdict: vm.atAGlance.verdict ?? { label: 'Holds', tone: 'stable' as const } },
+      checks: { ...vm.checks, items: vm.checks.items.map((i) => (i.id === 'evidence' ? { ...i, code: 'evidence_none_flagged' as const } : i)) },
+      deeper: { ...vm.deeper, critiques: [], caveats: [] },
+    } as never
+  }
+
+  it('PRECONDITION: with no marker the settled run licenses no line', () => {
+    expect(buildCommitmentQualifier(settled())).toBeNull()
+  })
+
+  it('the marker alone licenses the line, and leads it', () => {
+    expect(buildCommitmentQualifier(settled(), { runProvisional: true })).toBe('Provisional · automatic first pass')
+    const full = buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason()), { runProvisional: true }) ?? ''
+    expect(full).toMatch(/^Provisional · automatic first pass · /)
+  })
+
+  it('CONTRAST: an explicit or unmarked run never says "automatic"', () => {
+    expect(buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason()), { runProvisional: false }) ?? '').not.toMatch(/automatic/)
+    expect(buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason())) ?? '').not.toMatch(/automatic/)
+  })
+
+  it('pre-run: nothing, marker or not', () => {
+    const vm = vmOf(decisionWithLeaderWithheldAndReason())
+    expect(buildCommitmentQualifier({ ...vm, status: { ...vm.status, isPreRun: true } }, { runProvisional: true })).toBeNull()
+  })
+})
