@@ -24,6 +24,8 @@ import {
   NODE_HEADER_RESERVE_PX,
   NODE_LAYOUT_MIN_W,
   NODE_TITLE_MIN_MEASURE_PX,
+  restingCardWidthForKind,
+  REPEATED_CARD_W,
 } from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
@@ -112,13 +114,19 @@ describe('BaseNode — the card floor comes from the shared derivation', () => {
     expect(wrapper.style.minWidth).toBe(`${narrow - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX}px`)
   })
 
-  it('a short label is not promoted to the maximum card width', () => {
+  it('a short label is not promoted to the maximum card width — nor is a long one (S4)', () => {
     // Opposite-direction twin: the floor grew, so prove the CAP did not follow
-    // it and a short label still packs at the floor.
-    const { card } = renderNode(SHORT_LABEL)
-    expect(card.style.minWidth).toBe(`${NODE_LAYOUT_MIN_W}px`)
-    expect(card.style.maxWidth).toBe(`${NODE_CARD_MAX_W}px`)
-    expect(NODE_LAYOUT_MIN_W).toBeLessThan(NODE_CARD_MAX_W)
+    // it. ⭐ S4: before any layout publishes a width, a factor rests at its
+    // kind's width (`REPEATED_CARD_W`), not at `NODE_CARD_MAX_W` — and the width
+    // is the kind's, whatever the label (ED: one long title must not widen a
+    // row).
+    const short = renderNode(SHORT_LABEL).card
+    expect(short.style.minWidth).toBe(`${NODE_LAYOUT_MIN_W}px`)
+    expect(short.style.maxWidth).toBe(`${restingCardWidthForKind('factor')}px`)
+    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_W)
+    expect(REPEATED_CARD_W).toBeLessThan(NODE_CARD_MAX_W)
+    const long = renderNode(LONG_LABEL).card
+    expect(long.style.maxWidth).toBe(short.style.maxWidth)
   })
 })
 

@@ -18,7 +18,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { useRestoredLayoutWidth } from '../hooks/useRestoredLayoutWidth'
-import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W } from '../utils/nodeLayoutConstants'
+import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W } from '../utils/nodeLayoutConstants'
 
 function n(id: string, type: string, x: number, y: number): Node {
   return { id, type, position: { x, y }, data: { label: id } } as Node
@@ -28,10 +28,12 @@ function n(id: string, type: string, x: number, y: number): Node {
  * A graph whose widest tier is `factors` factors, positioned on a REAL spread
  * (never stacked), i.e. exactly the shape a restore installs.
  *
- * `factors >= 7` is the compressed branch (cards at NODE_LAYOUT_MIN_W); `<= 6`
- * is the single-row branch (NODE_CARD_MAX_W). Both are exercised, because a
- * suite that only ever saw the compressed case could not tell "derives
- * correctly" from "always returns the minimum".
+ * ⭐ S4 (24 Sep 2026): Experience Design put every repeated card at ONE width
+ * (`REPEATED_CARD_W`) whether its row wraps or not, so the SINGLE width this
+ * hook derives is the same for every graph. The discriminating twins below
+ * therefore observe the hook through what still varies — the PER-KIND record
+ * (the Question is wide, repeated cards are not) and the latch itself (a
+ * sentinel width the hook must leave alone, or must replace on a new restore).
  */
 function restoredGraph(factors: number): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [
@@ -97,35 +99,47 @@ describe('useRestoredLayoutWidth', () => {
     expect(useLayoutStore.getState().layoutNodeWidth).not.toBe(NODE_CARD_MAX_W)
   })
 
-  it('[saved reload] derives the FULL width for a restored 4-wide model', () => {
-    // The discriminating twin of the case above: the hook must not simply
-    // install the minimum on every restore.
+  it('[saved reload] a restored 4-wide model derives the SAME repeated width (S4) — and the per-kind record still tells the Question from a factor', () => {
+    // The discriminating twin of the case above. Under S4 the single width is
+    // the repeated width at every tier size (ED: split rows keep full card
+    // width), so the twin that proves the hook is not "always install one
+    // value" moves to the per-kind record, which a measured restore publishes.
     const { nodes, edges } = restoredGraph(4)
-    seed({ nodes, edges, currentScenarioId: 'scB' })
+    const measured = nodes.map((x) => ({ ...x, measured: { width: 260, height: 120 } })) as Node[]
+    seed({ nodes: measured, edges, currentScenarioId: 'scB' })
 
     renderHook(() => useRestoredLayoutWidth())
 
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
+    const perKind = useLayoutStore.getState().layoutCardWidths
+    expect(perKind?.factor).toBe(REPEATED_CARD_W)
+    expect(perKind?.decision).toBe(ANCHOR_CARD_MAX_W)
+    expect(perKind?.decision).not.toBe(perKind?.factor)
   })
 
   it('[saved reload] fires once, and re-arms on a scenario SWITCH', () => {
     const wide = restoredGraph(9)
     seed({ nodes: wide.nodes, edges: wide.edges, currentScenarioId: 'scA' })
     const { rerender } = renderHook(() => useRestoredLayoutWidth())
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
 
-    // A re-render with no restore must not re-derive.
+    // A re-render with no restore must not re-derive. Observed with a SENTINEL,
+    // because under S4 a re-derivation would return the same value and be
+    // invisible: the latch must leave a width it did not just derive alone.
+    act(() => { useLayoutStore.getState().setLayoutNodeWidth(NODE_CARD_MAX_W) })
     const spy = vi.spyOn(useLayoutStore.getState(), 'setLayoutNodeWidth')
     rerender()
     expect(spy).not.toHaveBeenCalled()
     spy.mockRestore()
+    expect(useLayoutStore.getState().layoutNodeWidth, 'the latch re-derived on a plain re-render').toBe(NODE_CARD_MAX_W)
 
     // A DIFFERENT scenario is a new restore — nothing sets layoutVersion on a
-    // restore path, so this is reachable on reload-then-switch.
+    // restore path, so this is reachable on reload-then-switch — and the hook
+    // replaces the stale sentinel with the derived width.
     const narrow = restoredGraph(3)
     seed({ nodes: narrow.nodes, edges: narrow.edges, currentScenarioId: 'scB' })
     rerender()
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
   })
 
   // ── DOES NOT FIRE: the "stored width wins" direction ──────────────────────
@@ -163,7 +177,11 @@ describe('useRestoredLayoutWidth', () => {
     const six = restoredGraph(6)
     seed({ nodes: six.nodes, edges: six.edges, currentScenarioId: 'scA' })
     const { rerender } = renderHook(() => useRestoredLayoutWidth())
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
+    // S4: the derived width no longer differs between six and nine, so the
+    // latch is observed through a SENTINEL standing for "the width the restored
+    // positions are drawn at" — it must survive the edit untouched.
+    act(() => { useLayoutStore.getState().setLayoutNodeWidth(NODE_CARD_MAX_W) })
 
     const nine = restoredGraph(9)
     seed({ nodes: nine.nodes, edges: nine.edges, currentScenarioId: 'scA', layoutVersion: 0 })
@@ -208,10 +226,12 @@ describe('useRestoredLayoutWidth', () => {
   })
 
   // ── The persisted layout options are real inputs, not decoration ──────────
-  it('[saved reload] honours the persisted direction', () => {
-    // A 4-wide tier is the single-row branch under DOWN but the clamped branch
-    // under RIGHT — so the persisted direction changes the answer, and a hook
-    // that ignored it would be wrong for every non-DOWN user.
+  it('[saved reload] honours the persisted direction — and under S4 every direction derives the repeated width', () => {
+    // Until S4 a 4-wide tier took the full width under DOWN and a clamped one
+    // under RIGHT, so the persisted direction changed the answer. S4 removed
+    // that dependence: the card width is the repeated width in every direction
+    // (only DOWN wraps rows). Pinned, so a direction-dependent width cannot
+    // come back unnoticed.
     const { nodes, edges } = restoredGraph(4)
     act(() => {
       useLayoutStore.setState({ direction: 'RIGHT' } as never)
@@ -222,7 +242,7 @@ describe('useRestoredLayoutWidth', () => {
 
     const width = useLayoutStore.getState().layoutNodeWidth
     expect(width).not.toBeNull()
+    expect(width).toBe(REPEATED_CARD_W)
     expect(width).not.toBe(NODE_CARD_MAX_W)
-    expect(width).toBeGreaterThan(NODE_LAYOUT_MIN_W)
   })
 })

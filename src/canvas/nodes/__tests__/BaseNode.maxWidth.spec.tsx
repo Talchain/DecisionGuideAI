@@ -9,7 +9,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
-import { NODE_CARD_MAX_W } from '../../utils/nodeLayoutConstants'
+import { NODE_CARD_MAX_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W, restingCardWidthForKind } from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -70,17 +70,21 @@ describe('BaseNode — maxWidth (H1)', () => {
     expect(nodeEl.style.maxWidth).toBe('200px')
   })
 
-  it('uses NODE_CARD_MAX_W fallback when no maxWidth prop and no layoutNodeWidth', () => {
-    // BaseNode's pre-layout fallback is sourced from the ELK NODE_CARD_MAX_W
-    // constant (imported from ../utils/nodeLayoutConstants) so the rendered
-    // width matches ELK's assumed box size once a layout has run. We assert
-    // against the imported constant rather than a hardcoded literal so that
-    // future tweaks to NODE_CARD_MAX_W only need to change one place.
-    const { container } = render(
-      <BaseNode {...baseProps} nodeType="factor" icon={Target} />
-    )
-    const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.maxWidth).toBe(`${NODE_CARD_MAX_W}px`)
+  it('uses the KIND\'s resting width as the fallback when no maxWidth prop and no layout width (S4)', () => {
+    // BaseNode's pre-layout fallback is the width the layout will give this
+    // kind (`restingCardWidthForKind`), so the heights the first layout
+    // measures are heights at the width it lays out — not at NODE_CARD_MAX_W,
+    // which drew every card 76 units wider than its S4 slot and made the first
+    // layout's heights stale. Asserted against the imported derivation, never a
+    // literal, and for two kinds so one constant cannot satisfy both.
+    // `deletable`/`selectable`/`draggable` are required by `BaseNodeProps` and read by no
+    // assertion here; supplied so this case adds no type error to the file's baseline.
+    const factor = render(<BaseNode {...baseProps} deletable={false} selectable draggable={false} nodeType="factor" icon={Target} />)
+    expect((factor.container.firstChild as HTMLElement).style.maxWidth).toBe(`${restingCardWidthForKind('factor')}px`)
+    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_W)
+    const decision = render(<BaseNode {...baseProps} deletable={false} selectable draggable={false} nodeType="decision" icon={Target} />)
+    expect((decision.container.firstChild as HTMLElement).style.maxWidth).toBe(`${ANCHOR_CARD_MAX_W}px`)
+    expect(REPEATED_CARD_W).not.toBe(NODE_CARD_MAX_W)
   })
 
   it('label element has break-words class to prevent overflow', () => {

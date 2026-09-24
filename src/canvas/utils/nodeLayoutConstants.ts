@@ -213,6 +213,84 @@ export const NODE_LAYOUT_MIN_W =
 export const NODE_CARD_MAX_W = 336
 
 /**
+ * ⭐⭐ S4 LAPTOP FIT — THE RESTING CARD WIDTHS (Experience Design, #63
+ * 5806207128 + 5806266691, 24 Sep 2026: "Repeated cards target 248px: Option,
+ * Factor, Outcome and Risk … Question and Goal ≤460px, wide and shallow").
+ *
+ * ## The unit
+ * These are FLOW units — the unit `layoutGraph` places in and `BaseNode` draws
+ * at, and the unit the contract's 248px is in at 100% zoom (the fixture's 1:1
+ * frame). ED compared 248 against the measured 300–430 option widths, which
+ * `FIT-MEASURE-20260924.md` records in flow units, and the approved L4
+ * arithmetic spends 248 against a flow budget (1520 = 760px at the 0.5 floor).
+ * Read as SCREEN px at the 0.5 landing it would be 496 flow — wider than the
+ * 336 it replaces, the opposite of S4.
+ *
+ * ## ⚠ THE BOUNDED EXCEPTION: 260, NOT 248
+ * ED: "248 is the target unless a specific title/legibility test proves a
+ * bounded exception is necessary … existing layout legibility tests still win if
+ * code proves a hard minimum." The code proves one: `NODE_LAYOUT_MIN_W` (260) is
+ * the card's own CSS `minWidth` in `BaseNode`, pinned by `nodeLabelFit.spec.ts`,
+ * and derived from the widest starter word at the counter-scale bound. A 248
+ * layout slot would hold a 260 card and overlap its neighbour by 12. So the
+ * rendered width is the target, raised to the floor — and it follows the floor
+ * back down to 248 if `LABEL_LEGIBLE_ZOOM` or the type ramp ever moves it.
+ */
+export const REPEATED_CARD_TARGET_W = 248
+
+/** The width Option, Factor, Outcome and Risk cards actually render at. */
+export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W)
+
+/** The Question and the Goal: singletons, wide and shallow (ED S4: "≤460px"). */
+export const ANCHOR_CARD_MAX_W = 460
+
+/**
+ * ⭐ ROWS ABOVE FIVE REAL CARDS WRAP into balanced sub-rows under ONE family
+ * label (ED S4): 6→3+3, 7→4+3, 8→4+4, 9→5+4, 10→5+5. A COUNT, not a width
+ * threshold, so the label scale can never move a tier between packings — the
+ * property `NODE_SINGLE_ROW_FAIR_SHARE_W` (retired with this change) existed to
+ * protect, now true by construction. Row-end prompts are not real cards and are
+ * not counted.
+ */
+export const MAX_CARDS_PER_ROW = 5
+
+/**
+ * ⭐ THE ROW-END REASONING PROMPT (ED S4: "160px is approved as the target width
+ * and they count inside the row budget"). Flow units, like the cards.
+ */
+export const ROW_PROMPT_W = 160
+
+/**
+ * The prompt's height at the counter-scale bound — a FLOOR the layout reserves,
+ * derived from the type the prompt renders, never hand-tuned.
+ *
+ * Three lines of `typography.edgeLabel` (11px, `leading-snug` 1.375) at
+ * `MAX_LABEL_COUNTER_SCALE`, plus unscaled chrome (6px padding and a 1.5px
+ * border, each side). Three because a 160 box leaves ~72 declared px of measure
+ * and `GhostTierNode`'s 3 Sep browser measurement recorded that the risk and
+ * outcome questions already spill to three lines at 80 declared px; the option
+ * and factor questions need two or three.
+ *
+ * ⚠ JSDOM CANNOT PROVE THE LINE COUNT (no text metrics). The box uses
+ * `min-height`, never a fixed height, so a fourth line costs height, not a
+ * clipped word; the stacked outcome/risk pair is the case to witness in a real
+ * browser (`e2e/geometry/ghostDoorVisibility.measure.ts`).
+ */
+export const ROW_PROMPT_LINES = 3
+const ROW_PROMPT_LABEL_PX = 11
+const ROW_PROMPT_LINE_HEIGHT = 1.375
+export const ROW_PROMPT_PADDING_PX = 6
+export const ROW_PROMPT_BORDER_PX = 1.5
+export const ROW_PROMPT_H = Math.ceil(
+  ROW_PROMPT_LINES * ROW_PROMPT_LABEL_PX * ROW_PROMPT_LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE +
+    ROW_PROMPT_PADDING_PX * 2 +
+    ROW_PROMPT_BORDER_PX * 2,
+)
+
+/** Vertical gap between the two prompts of a shared Outcome + Risk column. */
+export const ROW_PROMPT_STACK_GAP = 8
+
+/**
  * ⭐⭐ HOW MANY CHARACTERS OF A FACTOR NAME FIT ON ONE ROW — DERIVED, NOT GUESSED.
  *
  * Three places on this canvas cut text by CHARACTER COUNT inside a card sized in
@@ -270,115 +348,34 @@ const AVG_CHAR_EM = 296 / 25 / 24
 /** The declared size of `typography.nodeLabel`, which these rows use. */
 const ROW_LABEL_DECLARED_PX = 12
 
+/**
+ * ⭐ S4: THE BUDGET FOLLOWS THE CARD IT IS SPENT IN. The option rows now render
+ * in a `REPEATED_CARD_W` card, not a `NODE_CARD_MAX_W` one, so the budget is
+ * derived from that width — at 336 it was 25, at 260 it is 18. Leaving it on
+ * 336 would hand a 260 card a label ~76 flow units wider than its row, which is
+ * horizontal overflow `nodeTextClipping.visual.spec.ts` exists to catch.
+ * `ROW_LABEL_INSET_PX` is chrome (padding and gutter), so it stays the measured
+ * 40 whatever the card width.
+ */
 export const NODE_ROW_LABEL_MAX_CHARS = Math.floor(
-  (NODE_CARD_MAX_W - ROW_LABEL_INSET_PX) /
+  (REPEATED_CARD_W - ROW_LABEL_INSET_PX) /
     (ROW_LABEL_DECLARED_PX * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
 )
 
 
 /**
- * Fair share of a row, per node in the widest tier, below which `layout.ts`
- * abandons the single-row plan and splits the tier across multiple rows.
- *
- * ⚠ POLICY, NOT A TEXT MEASURE — and deliberately NOT `NODE_LAYOUT_MIN_W`,
- * which it merely USED to equal, back when the card floor was also 140.
- *
- * Keeping them fused would have made this lane a layout change it is not
- * licensed to be. Measured (17 Aug 2026, five shipped starters × two
- * viewports): with the threshold fused to the scaled floor, two starters'
- * factor tiers flipped from the single-row branch into multi-row splitting,
- * and the pre-existing same-row overlap defect went with them — overlapping
- * node-pair AREA rose from 4,554 to 115,988 px² (headcount-allocation) and
- * 5,589 to 140,396 px² (pricing-model), while two more titles began to
- * ellipsise. Decoupled, both keep the branch they already had and neither
- * number moves.
- *
- * So this holds the shipped value: when the tier splits is unchanged by the
- * label scale; only HOW WIDE the cards are once it splits follows the scale.
- * `layout.spec.ts`'s branch regression-locks pin that this did not move.
- *
- * ⚠ RE-DERIVED 18 Aug 2026 at 6524caed — THE OVERLAP FIGURES ABOVE DO NOT
- * REPRODUCE, and the sentence they support ("the pre-existing multi-row overlap
- * defect") is not observable at this tip. The 17 Aug numbers are left standing
- * as the dated record of what was measured then; this note is APPENDED rather
- * than substituted, because a measurement is evidence and evidence is
- * append-only (CLAUDE.md trap 14b).
- *
- * What was measured, and how: `layoutGraph` driven with BROWSER-REAL node
- * heights (Chromium, `e2e/visual/harness.ts` seeding at 1280x800, captured to
- * `__tests__/__fixtures__/starter-node-heights.browser-capture-2026-08-18.json`)
- * over all five shipped starters x eight canvas widths x three node-spacing
- * settings — 120 cells spanning BOTH packing branches, including the forced
- * multi-row packings. Same-row overlap was 0 px² in every cell and the minimum
- * same-row neighbour gap was 44 px in every cell.
- *
- * Decisively: deleting the `applyCollisionGuard` call from `layoutGraph`
- * produced a BYTE-IDENTICAL node-position signature across 25 cells
- * (sha256/16 = a36fe11f1762b6b5 both before and after). `centreRowsOnSpine`
- * runs immediately before the guard and re-snaps every row to a uniform
- * `elkBoxW + gap` stride, so on every reachable input the guard's precondition
- * is already satisfied and it moves nothing.
- *
- * The guard is NOT dead, and that was shown by execution rather than asserted:
- * shrinking the stride by 30 px with the guard removed REDs 15 of the 22 cases
- * in `__tests__/layout.sameRowGap.spec.ts`, and the same shrink WITH the guard
- * in place stays fully green — the guard fires and restores the 44 px gap.
- * It is a working net that has never had to catch anything.
- *
- * Consequence for anyone briefed off the 17 Aug numbers: a spec written to
- * "assert the multi-row flip no longer overlaps" would pass at pristine and its
- * prescribed mutant ("disable the guard for one row → must RED") CANNOT BITE,
- * because removing an inert call changes nothing. Pin the PROPERTY and the
- * AUTHORITY instead — which is what `layout.sameRowGap.spec.ts` does.
+ * ⛔ `NODE_SINGLE_ROW_FAIR_SHARE_W` (140) AND `MIN_GAP` (15) ARE RETIRED (S4,
+ * 24 Sep 2026). Together they were the single-row GATE: a tier stayed on one row
+ * while `floor((budget − (T−1)·MIN_GAP) / T) ≥ 140 + LAYOUT_PADDING_X`, which at
+ * the 1482 budget kept up to EIGHT cards on one row (a 2544-unit factor row).
+ * Experience Design replaced that policy with a COUNT — rows above
+ * `MAX_CARDS_PER_ROW` wrap — so neither number is read by the layout any more,
+ * and a constant nothing reads is how the next lane re-wires the old policy by
+ * accident. Their derivations, measurements and retractions are in git history
+ * at `4b04b733`; the property they protected ("the label scale must not move a
+ * tier between packings") now holds by construction, because a count cannot
+ * move with the type ramp.
  */
-/**
- * ⛔⛔ 140 STANDS, AND I TRIED TO DERIVE IT AWAY. THE RETRACTION IS THE COMMENT.
- *
- * On 12 Sep 2026 this was changed to `NODE_LAYOUT_MIN_W` on the reasoning that a
- * second hand-tuned number beside a derived one is the estate's hand-maintained
- * mirror (CLAUDE.md trap 12). **That reasoning was wrong here, and `layout.ts`
- * said so in the branch itself before the edit was made:**
- *
- * > "WHEN the tier splits is a row-packing policy and is deliberately NOT the
- * > (label-scale-derived) card floor... Fusing the two moved tiers between
- * > branches when the label scale changed, which dragged the pre-existing
- * > multi-row overlap defect onto graphs that did not have it."
- *
- * The two constants answer DIFFERENT QUESTIONS (CLAUDE.md trap 21), which is
- * exactly why they must not share a value:
- *
- *   NODE_LAYOUT_MIN_W            "how narrow may a CARD be and still hold its
- *                                 title?"   -> a RENDERING floor, and it MUST
- *                                 track the type ramp.
- *   NODE_SINGLE_ROW_FAIR_SHARE_W "is this tier worth trying on ONE ROW?"
- *                                 -> a PACKING policy, and it MUST NOT track
- *                                 the type ramp, or raising the font silently
- *                                 re-shapes every shared model.
- *
- * ⛔ AND THE MEASUREMENT THAT JUSTIFIED THE CHANGE WAS A MISREADING OF THE
- * BRANCH. The retracted comment claimed a seven-wide tier "packed into a SINGLE
- * ROW of ~168-unit cards - about nine characters a line". `planLayoutBox` never
- * lays a card out at the fair share: on the single-row branch it returns
- * `NODE_CARD_MAX_W + LAYOUT_PADDING_X`, full width. The fair share is a GATE,
- * never a width. No card was ever going to render at 168.
- *
- * WHAT THE PAIR ACTUALLY DID, derived over T = 2..12:
- *
- *   1185 / 140  (this file, before and after)  single-row to T=6, widest row 2544u
- *   1920 / 260  (the 12 Sep pair)              single-row to T=6, widest row 2544u
- *   1920 / 140  (budget raised, fair share not) single-row to T=10, widest row 4240u
- *
- * The first two rows are IDENTICAL in every output. Raising the budget pushes
- * the cliff out; raising the fair share pulls it back; together they cancel. The
- * third row is why they had to be changed together: 4240u needs zoom 0.41 to fit
- * a 1730px pane, under `LABEL_LEGIBLE_ZOOM`. So the pair bought no behaviour at
- * all and cost a documented decoupling - both halves are reverted.
- *
- * ⭐ The cards still got wider. That came from `NODE_CARD_MAX_W` (320 -> 400)
- * and `NODE_LAYOUT_MIN_W` (230 -> 260), which is where card width is actually
- * decided. The budget only ever chose the BRANCH.
- */
-export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
 
 /**
  * ⭐⭐ THE CANONICAL LAYOUT WIDTH — the ONE budget the canonical model is packed
@@ -559,6 +556,27 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  * That is not a stylistic preference: it is the difference between a shared
  * model and a per-screen rendering of one.
  */
+/**
+ * ⭐⭐ S4 (24 Sep 2026): THE VALUE STANDS; ITS JOB CHANGED. READ THIS FIRST.
+ *
+ * Everything above describes the budget as the single-row GATE's input — the
+ * cliffs, the band and the midpoint are all cliffs of that retired policy. Under
+ * S4 the packing is a count (`MAX_CARDS_PER_ROW`), so this budget no longer
+ * decides WHETHER a tier wraps. It is now the ROW BUDGET a card's width is a
+ * fair share of (ED S4: "a card is never wider than its row's fair share"):
+ *
+ *     cardW = clamp( floor((BUDGET − promptSlot − (k−1)·gap) / k) − padding,
+ *                    NODE_LAYOUT_MIN_W,  tier cap )
+ *
+ * for the widest sub-row of k cards. With today's floor (260) and caps (260 /
+ * 460) the share never binds on a repeated tier — the floor and the cap are the
+ * same number — and a five-card row with its 160 prompt (1740 units visible)
+ * OVERRUNS this budget, because legibility wins over the budget. That overrun
+ * is stated in `laptopFit.arithmetic.spec.ts`, not hidden here.
+ *
+ * R1 is untouched: it is still a constant, still viewport-independent, and
+ * `layoutViewportIndependence.guard.spec.ts` still enforces that at the bytes.
+ */
 export const CANONICAL_LAYOUT_WIDTH = 1482
 
 /** Horizontal padding added around the rendered card to form the ELK box. */
@@ -604,25 +622,11 @@ export const DEFAULT_NODE_HEIGHT = 100
 // ─── Spacing ─────────────────────────────────────────────────────────────────
 
 /**
- * Width-calc safety reserve used in `floor((availableWidth - (N-1)*MIN_GAP) / N)`
- * to decide whether a tier renders at NODE_CARD_MAX_W or compresses to
- * NODE_LAYOUT_MIN_W with multi-row splitting. NOT a visual floor on the
- * rendered gap — the actual rendered gap is `effectiveNodeSpacing` in
- * `layout.ts`, clamped by `Math.max(20, spacing)` and the post-layout
- * `applyCollisionGuard` (COLLISION_GAP). Lowering this value relaxes the
- * width-calc threshold (more tiers render at MAX_W).
- */
-export const MIN_GAP = 15
-
-/**
  * Post-layout safety gap. Fires when ELK / multi-row splitting leaves two
- * same-row nodes closer than this threshold (rare; rounding-induced).
- *
- * Note: now larger than `MIN_GAP` (15) after the MIN_GAP 30 → 15 change.
- * The historical `COLLISION_GAP < MIN_GAP` relation no longer holds and
- * is not required — the two constants serve unrelated concerns. MIN_GAP
- * is a width-calc safety reserve only; COLLISION_GAP matches the
- * rendered node-node gap (`Math.max(20, spacing)` in layout.ts).
+ * same-row nodes closer than this threshold (rare; rounding-induced). It is a
+ * last-resort repair, deliberately below `LAYOUT_NODE_GAP`, never a second
+ * spacing authority. (`MIN_GAP`, the width-calc reserve it used to be compared
+ * with, is retired — see the S4 note above `CANONICAL_LAYOUT_WIDTH`.)
  */
 export const COLLISION_GAP = 20
 
@@ -772,16 +776,73 @@ export const TIER_BY_KIND: Record<string, number> = {
  * IS a tier (`TIER_BY_KIND`). `factor`/`action`/`constraint` share tier 2 and
  * `outcome`/`risk` share tier 3, so they necessarily share a cap.
  */
+/**
+ * ⭐⭐ S4 SUPERSEDES THE WIDENING ABOVE (Experience Design, #63 5806207128 /
+ * 5806266691, 24 Sep 2026): *"Paul's earlier 'they don't all have to be the same
+ * width' was permission, not a requirement to keep Options at ~300–430px. 248 is
+ * the target"* for Option, Factor, Outcome and Risk; *"Question and Goal ≤460px,
+ * wide and shallow."* The measurement and the reasoning above stay as the record
+ * of why the tiers were widened; the laptop-fit measurement
+ * (`FIT-MEASURE-20260924.md`: a 1904-unit board, 22% over the 1280 frame at the
+ * floor) is why they are narrowed.
+ *
+ * ⚠ THE "NOTHING BELOW 336" RULE ABOVE IS DISCHARGED, NOT IGNORED. It held
+ * because character budgets were derived against 336; the one that cuts option
+ * rows (`NODE_ROW_LABEL_MAX_CHARS`) is now derived from `REPEATED_CARD_W`, so it
+ * shrinks with the card instead of overflowing it.
+ *
+ * Keyed by tier for the reason the note above gives: a row is a tier.
+ */
 export const CARD_W_CAP_BY_TIER: Readonly<Record<number, number>> = {
-  0: 560, // decision — the Question. Paul: "a lot wider". Always alone in its row.
-  1: 440, // option — the heaviest content of any populated tier (median 250 chars).
-  2: 380, // factor / action / constraint — median 141, and it carries a value row.
-  3: NODE_CARD_MAX_W, // outcome / risk — median 86/73. Widening these buys nothing.
-  5: 480, // goal — alone in its row, and it carries the target sentence.
+  0: ANCHOR_CARD_MAX_W, // decision — the Question: one card, wide and shallow.
+  1: REPEATED_CARD_W, // option
+  2: REPEATED_CARD_W, // factor / action / constraint
+  3: REPEATED_CARD_W, // outcome / risk
+  5: ANCHOR_CARD_MAX_W, // goal: one card, wide and shallow.
 }
 
-/** The cap for a tier, defaulting to today's single width for any tier absent
- *  from the map — "no better information", never zero. */
+/** The cap for a tier, defaulting to the repeated-card width for any tier absent
+ *  from the map — the width `tierOf` gives an unknown kind (tier 2). */
 export function cardWidthCapForTier(tier: number): number {
-  return CARD_W_CAP_BY_TIER[tier] ?? NODE_CARD_MAX_W
+  return CARD_W_CAP_BY_TIER[tier] ?? REPEATED_CARD_W
+}
+
+/**
+ * The width a card of this kind rests at before any layout has published one —
+ * the fallback `BaseNode` draws at on a first render, so the heights the first
+ * layout measures are heights at the width it will actually lay out.
+ */
+export function restingCardWidthForKind(kind: string | undefined): number {
+  const tier = kind !== undefined ? TIER_BY_KIND[kind] : undefined
+  return cardWidthCapForTier(tier ?? 2)
+}
+
+/**
+ * ⭐ WHICH ROWS END IN A REASONING PROMPT, AND IN WHAT ORDER (ED S4). Keyed by
+ * layout tier, because the prompt stands at the end of a ROW, and a row is a
+ * tier: options → "What else could you do?", factors → "What else drives
+ * this?", and the consequence row's ONE frontier column holding outcomes'
+ * "Where else could this lead?" above risks' "What else could go wrong?".
+ * A kind with no members contributes no prompt — the column holds only what the
+ * row has.
+ */
+export const ROW_PROMPT_KINDS_BY_TIER: Readonly<Record<number, readonly string[]>> = {
+  1: ['option'],
+  2: ['factor'],
+  3: ['outcome', 'risk'],
+}
+
+/**
+ * The prompt kinds a tier's final sub-row carries, given the kinds present in
+ * the tier — the ONE answer the layout (which reserves the slot) and the render
+ * layer (which places the prompts) both read.
+ */
+export function rowPromptKindsFor(tier: number, kindsPresent: ReadonlySet<string>): string[] {
+  return (ROW_PROMPT_KINDS_BY_TIER[tier] ?? []).filter((k) => kindsPresent.has(k))
+}
+
+/** Height of the frontier column that holds `count` stacked prompts. */
+export function rowPromptColumnHeight(count: number): number {
+  if (count <= 0) return 0
+  return count * ROW_PROMPT_H + (count - 1) * ROW_PROMPT_STACK_GAP
 }
