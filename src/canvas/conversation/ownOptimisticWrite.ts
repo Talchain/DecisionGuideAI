@@ -50,7 +50,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { readStructuralDeleteReceipt, type StructuralDeleteIntent } from '../mutations/structuralDelete'
 import { readStructuralRenameReceipt, type StructuralRenameIntent } from '../mutations/structuralRename'
 import { canvasEdgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
-import { edgeDataWithStrengthWriteUndone, edgeMagnitudeOf } from './pendingEdgeEdit'
+import { edgeDataWithStrengthWriteUndone, edgeEditWrittenKeys, edgeShowsPendingWrite } from './pendingEdgeEdit'
 
 /**
  * The optimistic link-strength write ONE `edge_strength_edit` turn announces.
@@ -161,21 +161,21 @@ export function receiptProvesOwnEdgeEdit(
 function beforeOwnEdgeEdit(write: OptimisticEdgeEdit, response: unknown, canvas: CanvasGraph): CanvasGraph | null {
   if (!receiptProvesOwnEdgeEdit(write, response, canvas.edges)) return null
   const edge = canvas.edges.find((e) => e.id === write.edgeId)
-  if (!edge || edgeMagnitudeOf(edge) !== write.sentMagnitude) return null
-  if (
-    write.sentDirection !== undefined &&
-    ((edge.data as Record<string, unknown> | undefined)?.direction === 'negative' ? 'negative' : 'positive') !==
-      write.sentDirection
-  ) {
-    return null
-  }
+  // The same "does the canvas still show this write" test the revert uses — a
+  // direction write by its sign alone, never the server's magnitude against
+  // the canvas weight (5820664860).
+  if (!edge || !edgeShowsPendingWrite(edge, write)) return null
   return {
     nodes: canvas.nodes,
     edges: canvas.edges.map((e) =>
       e.id === write.edgeId
         ? ({
             ...e,
-            data: edgeDataWithStrengthWriteUndone((e.data ?? {}) as Record<string, unknown>, write.before),
+            data: edgeDataWithStrengthWriteUndone(
+              (e.data ?? {}) as Record<string, unknown>,
+              write.before,
+              edgeEditWrittenKeys(write),
+            ),
           } as Edge)
         : e,
     ),

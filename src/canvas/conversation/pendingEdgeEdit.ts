@@ -67,6 +67,19 @@ export interface PendingEdgeEdit {
 /** Keys the optimistic write can add or change (`setStrength`). A revert restores exactly these. */
 export const EDGE_EDIT_WRITTEN_KEYS = ['weight', 'weightSource', 'direction', 'directionSource'] as const
 
+/**
+ * Keys a DIRECTION edit writes (`setDirection`) — and so the only keys its
+ * refusal may restore. Restoring the strength keys too would undo a strength
+ * drag that is still pending beside it (independent review of #1950,
+ * 5820664860, scenario B).
+ */
+export const EDGE_DIRECTION_WRITTEN_KEYS = ['direction', 'directionSource'] as const
+
+/** The keys THIS edit wrote: a direction edit wrote only the direction. */
+export function edgeEditWrittenKeys(edit: { readonly sentDirection?: unknown }): readonly string[] {
+  return edit.sentDirection !== undefined ? EDGE_DIRECTION_WRITTEN_KEYS : EDGE_EDIT_WRITTEN_KEYS
+}
+
 /** The in-flight edit per edge. A second edit to the same link replaces the first. */
 const inFlight = new Map<string, PendingEdgeEdit>()
 
@@ -87,10 +100,21 @@ function edgeDirectionOf(edge: { data?: unknown } | undefined): 'positive' | 'ne
   return (edge?.data as Record<string, unknown> | undefined)?.direction === 'negative' ? 'negative' : 'positive'
 }
 
-/** Does the canvas still show exactly this pending write — its magnitude, and its sign when one was sent? */
-function edgeShowsPendingWrite(edge: { data?: unknown } | undefined, entry: PendingEdgeEdit): boolean {
-  if (!edge || edgeMagnitudeOf(edge) !== entry.sentMagnitude) return false
-  return entry.sentDirection === undefined || edgeDirectionOf(edge) === entry.sentDirection
+/**
+ * Does the canvas still show this pending write? A strength edit: its
+ * magnitude. A DIRECTION edit: its SIGN, and only its sign — its
+ * `sentMagnitude` is the SERVER's `|mean|` (`edgeStrengthEdit.ts`, "THE
+ * MAGNITUDE IS THE SERVER'S, NOT THE CANVAS'S"), which the canvas weight need
+ * not equal: an unconfirmed strength drag beside the flip is the natural case,
+ * and comparing the two left a refused flip on screen (5820664860, A and B).
+ */
+export function edgeShowsPendingWrite(
+  edge: { data?: unknown } | undefined,
+  entry: { readonly sentMagnitude: number; readonly sentDirection?: 'positive' | 'negative' },
+): boolean {
+  if (!edge) return false
+  if (entry.sentDirection !== undefined) return edgeDirectionOf(edge) === entry.sentDirection
+  return edgeMagnitudeOf(edge) === entry.sentMagnitude
 }
 
 /** Record that `sentMagnitude` for `edgeId` is with the engine and unanswered. Called where the send is ADMITTED. */
@@ -102,12 +126,14 @@ export function markEdgeEditInFlight(
 ): void {
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
   const prior = inFlight.get(edgeId)
-  // A newer edit to the same link keeps the ORIGINAL pre-edit data: that is
-  // what the server still holds while both are unanswered.
+  // A newer STRENGTH edit to the same link keeps the ORIGINAL pre-edit data:
+  // that is what the server still holds while both are unanswered. A
+  // DIRECTION edit keeps its OWN: its refusal restores only the direction keys,
+  // and the direction to restore is the one on screen when it was pressed.
   inFlight.set(edgeId, {
     edgeId,
     sentMagnitude,
-    before: prior?.before ?? { ...(before ?? {}) },
+    before: sentDirection !== undefined ? { ...(before ?? {}) } : prior?.before ?? { ...(before ?? {}) },
     ...(sentDirection !== undefined ? { sentDirection } : {}),
   })
   emit()
@@ -153,9 +179,10 @@ export function unconfirmedEdgeEditOnGraph(edges: ReadonlyArray<{ id?: unknown; 
 export function edgeDataWithStrengthWriteUndone(
   current: Readonly<Record<string, unknown>>,
   before: Readonly<Record<string, unknown>>,
+  keys: readonly string[] = EDGE_EDIT_WRITTEN_KEYS,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { ...current }
-  for (const k of EDGE_EDIT_WRITTEN_KEYS) out[k] = before[k]
+  for (const k of keys) out[k] = before[k]
   return out
 }
 
@@ -169,7 +196,11 @@ function revertEdgeEdit(entry: PendingEdgeEdit): void {
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     store.updateEdge(entry.edgeId, {
-      data: edgeDataWithStrengthWriteUndone((edge.data ?? {}) as Record<string, unknown>, entry.before),
+      data: edgeDataWithStrengthWriteUndone(
+        (edge.data ?? {}) as Record<string, unknown>,
+        entry.before,
+        edgeEditWrittenKeys(entry),
+      ),
     } as never)
   } finally {
     store.endExternalGraphMutation?.()

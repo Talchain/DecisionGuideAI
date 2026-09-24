@@ -203,3 +203,68 @@ describe('the hold asks the sign as well as the magnitude', () => {
     expect(unconfirmedEdgeEditOnGraph([{ id: 'e1', data: { weight: 0.4, direction: 'negative' } }])).toBe('e1')
   })
 })
+
+/**
+ * ⛔ THE CANVAS WEIGHT IS NOT THE SERVER'S MAGNITUDE (independent review of
+ * #1950 at `b16c4177`, 5820664860). The flip is sent at the SERVER's `|mean|`;
+ * the canvas can show another weight — an unconfirmed strength drag is the
+ * natural case. A guard that compared the two left the refused flip on screen,
+ * beside its own "Not recorded". The refusal must restore the DIRECTION, and
+ * only the direction: the drag beside it is not this edit's to undo.
+ */
+describe('a refused flip beside a canvas weight the server has not confirmed', () => {
+  const refuse = () => sendSystemEvent.mockImplementation(() =>
+    Promise.reject(new SystemEventSendError('server', { conflictCategory: 'BASE_HASH_DIVERGED' })))
+
+  function canvasWeight(w: number) {
+    useCanvasStore.setState((st: any) => ({
+      edges: st.edges.map((e: any) => e.id !== 'e1' ? e : { ...e, data: { ...e.data, weight: w, weightSource: 'user' } }),
+    }))
+  }
+
+  it('A — canvas weight 0.6, server mean 0.4: the direction comes back and the weight stays', async () => {
+    canvasWeight(0.6)
+    refuse()
+    await flipToDecreases()
+
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(readEdgeData().direction).toBe('positive')
+    expect(readEdgeData().weight).toBe(0.6)
+    expect(screen.getByTestId('edge-direction-decreases')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('B — a strength drag to 0.6 still in flight: the refused flip is undone, the drag is not', async () => {
+    markEdgeEditInFlight('e1', 0.6, EDGE.data)
+    canvasWeight(0.6)
+    refuse()
+    await flipToDecreases()
+
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(readEdgeData().direction).toBe('positive')
+    expect(readEdgeData().weight).toBe(0.6)
+    expect(readEdgeData().weightSource).toBe('user')
+  })
+
+  it('C — a pending drag took the sign negative; a refused "increases" restores NEGATIVE, what was on screen', async () => {
+    markEdgeEditInFlight('e1', 0.6, EDGE.data)
+    useCanvasStore.setState((st: any) => ({
+      edges: st.edges.map((e: any) => e.id !== 'e1' ? e : {
+        ...e, data: { ...e.data, weight: 0.6, weightSource: 'user', direction: 'negative', directionSource: 'user' },
+      }),
+    }))
+    refuse()
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={() => {}} />)
+    fireEvent.click(await screen.findByTestId('edge-direction-increases'))
+    await waitFor(() => expect(sendSystemEvent).toHaveBeenCalledTimes(1))
+
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(readEdgeData().direction).toBe('negative')
+    expect(readEdgeData().weight).toBe(0.6)
+  })
+
+  it('the hold follows the flipped SIGN whatever the canvas weight', () => {
+    markEdgeEditInFlight('e1', 0.4, { weight: 0.4, direction: 'positive' }, 'negative')
+    expect(unconfirmedEdgeEditOnGraph([{ id: 'e1', data: { weight: 0.6, direction: 'negative' } }])).toBe('e1')
+    expect(unconfirmedEdgeEditOnGraph([{ id: 'e1', data: { weight: 0.6, direction: 'positive' } }])).toBeNull()
+  })
+})
