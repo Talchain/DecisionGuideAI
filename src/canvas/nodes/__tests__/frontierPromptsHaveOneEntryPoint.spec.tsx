@@ -197,7 +197,7 @@ describe('the factor / risk / outcome questions have ONE entry point: the row-en
   // (`requestAsk`); THIS TEST FLIPS THERE — back to one prefill and zero sends.
   // What stays pinned here: one entry point, after the row's last card, and a
   // click that reaches the conversation with the row's own question, once.
-  it('⭐ …and the question IS reachable: the row-end prompt stands after the row’s last card and a click asks it in the conversation (send until #1931)', () => {
+  it('⭐ …and the question IS reachable: the row-end prompt stands after the row’s last card and a click puts it in the composer, never sends (#1931)', () => {
     const prompt = withGhostTiers(MODEL).find((n) => n.id === '__ghost-factor__')
     expect(prompt, 'no factor prompt was placed for a model with factors').toBeDefined()
     // After the card that ends the factor row (f2), on that row.
@@ -211,11 +211,12 @@ describe('the factor / risk / outcome questions have ONE entry point: the row-en
       </ReactFlowProvider>,
     )
     fireEvent.click(screen.getByRole('button', { name: FACTOR_LABEL }))
-    expect(sends.length, 'one click asks the question exactly once').toBe(1)
-    expect(sends[0]).toContain('Trial conversion')
-    // One path, not two: no draft is ALSO left in the composer (#1931 flips
-    // these two: prefills → 1, sends → []).
-    expect(prefills).toEqual([])
+    // #1931 (merged 24 Sep, 5c4aa6f4): prefill-and-confirm, never send — the
+    // person reads the question in the composer and chooses to send it
+    // (Experience Design #63 5807363175).
+    expect(prefills.length, 'one click puts the question in the composer exactly once').toBe(1)
+    expect(prefills[0]).toContain('Trial conversion')
+    expect(sends, 'a canvas prompt never sends in the person\'s name').toEqual([])
   })
 
   it('⛔ CONTRAST: a factor that does not end its row carries none either', () => {
