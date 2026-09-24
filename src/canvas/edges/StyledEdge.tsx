@@ -1311,6 +1311,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
     const onEdgeKeyDown = (event: KeyboardEvent) => {
       if (event.target !== rfEdge) return
+      // A modified Enter belongs to the canvas shortcuts (Cmd/Ctrl+Enter runs),
+      // never to "open this link" (review 5823365172 N1).
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
       if (event.key !== 'Enter' && event.key !== ' ') return
       event.preventDefault()
       rfEdge.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
@@ -2950,7 +2953,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 data-testid="edge-hover-arrow-sentence"
                 className={`${typography.edgeLabel} text-text-body`}
               >
-                {edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel)}
+                {edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel, { signDisputed })}
                 {existenceDash.kind === 'stated' && existenceDash.dash !== undefined
                   ? ` ${EDGE_EXISTENCE_DOUBT_SENTENCE}`
                   : ''}

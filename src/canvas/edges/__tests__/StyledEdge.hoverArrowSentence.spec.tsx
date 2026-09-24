@@ -162,6 +162,26 @@ describe('StyledEdge hover popover — the arrow sentence (contract §03)', () =
     expect(el!.textContent).not.toMatch(/Negative/)
   })
 
+  // ⛔ Review 5823365172 B1: the popover already rules that a DISPUTED sign is
+  // named only inside the sentence that says it is disputed.
+  const CONTESTED = { status: 'contested', user_action: 'pending', contested_reasons: ['sign_flip'], max_divergence: 0.6 }
+
+  it('⭐ PIN: a sign DISPUTED by Olumi\'s review states the arrow alone — no settled direction, no "not stated"', async () => {
+    const { el } = await hoverAndGetSentence({
+      weight: 0.3, direction: 'positive', directionSource: 'user', beliefExists: 0.9, beliefExistsSource: 'user',
+      validation: CONTESTED,
+    })
+    expect(el).not.toBeNull()
+    expect(el!.textContent).toBe('n1 → n2.')
+  })
+
+  it('OPPOSITE CONTROL — the same link with no contest states its direction', async () => {
+    const { el } = await hoverAndGetSentence({
+      weight: 0.3, direction: 'positive', directionSource: 'user', beliefExists: 0.9, beliefExistsSource: 'user',
+    })
+    expect(el!.textContent).toContain('n1 → n2. Positive direction in this model.')
+  })
+
   it('PIN: a recorded existence doubt (likelihood below the certainty band) appends the doubt sentence', async () => {
     const { el } = await hoverAndGetSentence({
       weight: 0.3, direction: 'positive', directionSource: 'user',

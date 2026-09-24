@@ -72,7 +72,15 @@ export function edgeArrowSentence(
   sourceLabel: string,
   targetLabel: string,
   directionWord: 'Positive' | 'Negative' | null,
+  /**
+   * ⛔ A DISPUTED SIGN IS NOT A FACT (review 5823365172). When Olumi's own
+   * review disputes the sign, the arrow is stated alone: the popover's
+   * disputed block names the direction inside a sentence that says it is
+   * disputed. "Not stated" would be false too — a direction IS stated.
+   */
+  opts?: { readonly signDisputed?: boolean },
 ): string {
+  if (opts?.signDisputed) return `${sourceLabel} → ${targetLabel}.`
   const clause = directionWord === null
     ? 'Direction not stated in this model.'
     : `${directionWord} direction in this model.`

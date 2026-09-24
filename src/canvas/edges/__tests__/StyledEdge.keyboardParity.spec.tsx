@@ -690,6 +690,19 @@ describe('StyledEdge — Enter/Space on the focused edge triggers the SAME click
     expect(onClick, 'Enter must reach the same click React Flow\'s own onClick consumes').toHaveBeenCalledTimes(1)
   })
 
+  it.each(['metaKey', 'ctrlKey', 'altKey', 'shiftKey'] as const)(
+    'CONTRAST: a MODIFIED Enter (%s) is left to the canvas shortcuts — no click (review 5823365172 N1)',
+    (modifier) => {
+      const { rfEdge } = renderEdgeInReactFlowWrapper()
+      const onClick = withClickSpy(rfEdge)
+      focusEdge(rfEdge)
+      act(() => {
+        fireEvent.keyDown(rfEdge, { key: 'Enter', [modifier]: true })
+      })
+      expect(onClick).not.toHaveBeenCalled()
+    },
+  )
+
   it('PIN: Space (" ") does the same, and its default (page scroll) is prevented', () => {
     const { rfEdge } = renderEdgeInReactFlowWrapper()
     const onClick = withClickSpy(rfEdge)
