@@ -756,6 +756,23 @@ const SELECT_MODE_PAN_BUTTONS = [1]
 const CANVAS_GRID_DOT_COLOUR = 'var(--border-emphasis)'
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
+/**
+ * A wheel, pinch or drag is the user moving the camera too. xyflow passes the DOM
+ * event for a gesture and `null` for a programmatic move (every product fit), so
+ * only the person's own moves claim (Codex CR 5811958756).
+ *
+ * ⚠ MODULE SCOPE, SO ITS IDENTITY NEVER CHANGES (#1932, 24 Sep 2026). xyflow 12
+ * carries `onMoveEnd` through `StoreUpdater`, which writes the prop into its store
+ * whenever its identity changes — i.e. after every render when it was an inline
+ * arrow. The only Canvas Browser Gate pass of the claim (`c07bbc49`) had a stable
+ * handler; the inline-arrow head (`0abb993c`) failed `nodeKeyboardBleed` with the
+ * reset to 100% leaving the transform byte-identical at 53%. A module function is
+ * stable without a hook, so the rules-of-hooks ratchet is unchanged.
+ */
+function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
+  if (isUserCameraMove(event)) claimCameraForUser(currentModelKey())
+}
+
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
@@ -2482,12 +2499,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     claimCameraForUser(currentModelKey())
     zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) })
   }, [])
-  // A wheel, pinch or drag is the user moving the camera too. xyflow passes the
-  // DOM event for a gesture and `null` for a programmatic move (every product
-  // fit), so only the person's own moves claim.
-  // (Inline at the `onMoveEnd` prop, not a `useCallback`: it needs no stable
-  // identity, and a new hook here would add to this file's rules-of-hooks
-  // ratchet — CI `lint:hooks-ratchet`, 117.)
+  // A wheel, pinch or drag claims too: `claimCameraOnUserMoveEnd` (module scope,
+  // above this component) is wired to `onMoveEnd`.
   // The USER-invoked "Fit to view".
   //
   // ⚠⚠ THIS CALL USED TO PASS `minZoom: LABEL_LEGIBLE_ZOOM`, AND THE COMMENT
@@ -2725,7 +2738,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
             onMoveStart={handleMoveStart}
-            onMoveEnd={(event) => { if (isUserCameraMove(event)) claimCameraForUser(currentModelKey()) }}
+            onMoveEnd={claimCameraOnUserMoveEnd}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}

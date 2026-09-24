@@ -38,7 +38,22 @@ describe('an explicit zoom claims the camera for this model', () => {
   })
 
   it('the gesture move-end claims only for a person\'s move, and is wired to ReactFlow', () => {
-    expect(GRAPH).toMatch(/onMoveEnd=\{\(event\) => \{ if \(isUserCameraMove\(event\)\) claimCameraForUser\(currentModelKey\(\)\) \}\}/)
+    const start = GRAPH.indexOf('function claimCameraOnUserMoveEnd(')
+    expect(start, 'PRECONDITION: the move-end handler exists').toBeGreaterThan(-1)
+    expect(GRAPH.slice(start, GRAPH.indexOf('\n}\n', start))).toMatch(/if \(isUserCameraMove\(event\)\) claimCameraForUser\(currentModelKey\(\)\)/)
+    expect(GRAPH).toMatch(/onMoveEnd=\{claimCameraOnUserMoveEnd\}/)
+  })
+
+  it('the move-end handler has a STABLE identity — module scope, declared before the component (#1932 gate)', () => {
+    // xyflow 12 writes `onMoveEnd` into its store whenever the prop's identity
+    // changes; an inline arrow changed it on every render. Pin: no inline arrow
+    // at the prop, and the handler is declared outside ReactFlowGraphInner.
+    expect(GRAPH).not.toMatch(/onMoveEnd=\{\s*\(/)
+    const handler = GRAPH.indexOf('function claimCameraOnUserMoveEnd(')
+    const component = GRAPH.indexOf('const ReactFlowGraphInner = memo(')
+    expect(handler, 'PRECONDITION: both exist').toBeGreaterThan(-1)
+    expect(component).toBeGreaterThan(-1)
+    expect(handler, 'declared at module scope, before the component').toBeLessThan(component)
   })
 
   it('CONTRAST — the Fit-to-view claim is unchanged (the scan sees an existing claim)', () => {
