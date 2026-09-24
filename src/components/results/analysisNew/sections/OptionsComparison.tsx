@@ -190,6 +190,8 @@ export interface OptionsComparisonProps {
    * wording covers one fact and the two cannot drift" — applies to its cause.
    */
   leaderWithholdCause?: string | null
+  /** `checks.sharesExcludeLimits` — see the type. States "Goal only" above the shares. */
+  sharesExcludeLimits?: boolean
   /**
    * Send a message as the user, on the surface's EXISTING writer.
    *
@@ -233,6 +235,7 @@ export interface OptionsComparisonProps {
 export function OptionsComparison({
   options,
   leaderWithholdCause = null,
+  sharesExcludeLimits = false,
   onSendMessage,
   defaultOpen = false,
   testId = 'analysis-new-options',
@@ -580,6 +583,22 @@ export function OptionsComparison({
               A withheld claim is not a missing one, and without the cause the
               sentence above reads as "something did not come back" — which on
               the run that produced this fix was the one thing it was not. */}
+          {leaderWithholdCause !== null ? ` ${leaderWithholdCause}` : null}
+        </p>
+      ) : null}
+
+      {/* ⭐ THE RUN PAUL MET (RC 5803875794 P0 #3): figures ON screen, leader
+          withheld because the limits could not be checked. The paragraph above
+          renders only when no option has a figure, so without this line the
+          shares sat there as if the whole decision had been assessed. One line,
+          the producer's own cause appended, and nothing when figures are absent
+          (the paragraph above already carries the cause there). */}
+      {sharesExcludeLimits && !noneNumbered ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
+          data-testid={`${testId}-goal-only`}
+        >
+          {COPY.optionFigures.goalOnlyQualifier}
           {leaderWithholdCause !== null ? ` ${leaderWithholdCause}` : null}
         </p>
       ) : null}

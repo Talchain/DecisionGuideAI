@@ -1160,6 +1160,15 @@ export interface ChecksSection {
    */
   leaderWithheld: boolean
   /**
+   * ⭐ THE SHARES COMPARE THE GOAL ONLY — the leader was withheld BECAUSE the
+   * check against the user's limits could not support one
+   * (`constraint_verdict_withheld`). "How the options compare" states it above
+   * the shares (RC 5803875794 P0 #3). Only that reason: `separation_unavailable`
+   * says nothing about limits, and a permitted run carrying a stale reason is
+   * gated out by the leader code, exactly as `leaderWithholdCause` is.
+   */
+  sharesExcludeLimits: boolean
+  /**
    * ⭐⭐ WOULD RUNNING IT AGAIN CHANGE THIS? A THIRD QUESTION, and the one a
    * re-run affordance must bind to.
    *

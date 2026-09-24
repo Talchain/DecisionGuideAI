@@ -49,7 +49,7 @@ import { getUserActions } from '../../../lib/debug-state'
 import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
 // ROADMAP 1.31 (Brief I): most-recent-N V5 CEE turn capture, INCLUDING
 // LLM-authored conversation turns.
-import type { RecentConversationTurnsResult } from '../../../lib/recentConversationTurns'
+import type { AnalysisIdentity, RecentConversationTurnsResult } from '../../../lib/recentConversationTurns'
 // Round-5 review (P1): use the shared V5 endpoint helper for the
 // service-metadata classification too, so the bundle can't
 // reintroduce substring false positives (e.g. `/turning` or
@@ -2019,6 +2019,17 @@ interface DebugBundle {
   recent_conversation_turns: RecentConversationTurnsResult
 
   /**
+   * 24 Sep (Paul's exports 2f1b374e / a390efd9): the LATEST CONVERSATION
+   * TURN and the DISPLAYED ANALYSIS are different identities and a bundle
+   * must not let one stand for the other. Names both, says which one
+   * `payloads.cee_*` and `analysis_evidence_trace` describe, and states it
+   * in one sentence when they differ — so an empty latest payload can never
+   * read as "no analysis / no card". `available: false` only when the
+   * exporting `DebugData` predates the field.
+   */
+  analysis_identity: AnalysisIdentity | { available: false; reason: 'not_computed_by_caller' }
+
+  /**
    * Round-8 diagnostic: PLoT-side selection detail. Mirrors
    * `cee_capture_selection` for the PLoT v1 engine and V2 paths.
    *
@@ -2246,6 +2257,7 @@ Despite redaction, payloads may still contain decision content
 - orchestrator — Conversation orchestrator context (turn count, blocks, coaching signals)
 - schema_versions — Schema versions used for CEE/PLoT requests/responses
 - feature_flags_at_request — All VITE_ENABLE_/VITE_FEATURE_ flags at export time
+- analysis_identity — READ FIRST: the latest conversation turn vs the displayed analysis, and which one payloads.cee_* describes
 
 ## Usage
 
@@ -3763,6 +3775,11 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       user_agent: navigator.userAgent,
     },
     builds: data.builds,
+    // 24 Sep: placed high so a reader meets it before the payloads.
+    analysis_identity: data.analysis_identity ?? {
+      available: false,
+      reason: 'not_computed_by_caller',
+    },
     // ROADMAP 1.31 (Brief I): defaults to an empty result for DebugData
     // fixtures that predate this field (same optional-on-input,
     // required-on-output pattern as `payload_trace_store_summary`).

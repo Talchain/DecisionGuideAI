@@ -32,6 +32,7 @@ import { buildAnalysisNewViewModel } from './buildAnalysisNewViewModel'
 import { buildRunDeltaView } from './runDeltaView'
 import { runDeltaDescribesDisplayedAnalysis } from '../../../canvas/state/storedRunDelta'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
+import { readProducerLeaderPermission } from '../../../lib/decisionVerdict'
 
 /**
  * Lifecycle statuses that REMOVE a recommendation from the live list.
@@ -42,6 +43,41 @@ import type { AnalysisNewViewModel } from './analysisNewTypes'
  * defect than the new tab showing nothing.
  */
 const RETIRED_STATUSES = new Set(['dismissed', 'addressed'])
+
+/**
+ * The producer's own withhold cause, as carried ON THE DISPLAYED RESULT, or null.
+ *
+ * ⭐ THE RULE, IN ORDER:
+ *  1. The report's stamp must be an explicit refusal —
+ *     `readProducerLeaderPermission(stamp) === false`, the module's one sanctioned
+ *     reader (strict boolean; a malformed or absent stamp is "not spoken").
+ *  2. Its `producer_cause` must be a non-empty string; it is returned trimmed,
+ *     verbatim. `leaderWithholdCause` in the builder remains the ONE place that
+ *     decides whether a token can be stated.
+ *  3. Anything else → null. Nothing is inferred.
+ *
+ * ⛔ NEVER FROM `withheld_reason` ON THE STAMP. That is this UI's collapsed
+ * two-value enum (`'leader_claim_withheld' | 'analysis_unusable'`); reading it
+ * as a cause would turn every generic refusal into a named one.
+ *
+ * ⛔ AND NO FALLBACK TO THE LIVE `analysisStateV1`. #1921 gives the envelope no
+ * binding to a held result other than its own writer: all three legs that set a
+ * withheld envelope (turn `applyV5State`, poll `applyScenarioAnalysisRead`, boot
+ * `serverGraphHydration` → `applyBootLeaderClaimWithholding`) stamp that same
+ * cause onto the held report in the same synchronous step. So a live cause that
+ * belongs to the displayed result is ALREADY here, and a live cause that is NOT
+ * here belongs to no held result, or to a different one — using it would let a
+ * stale envelope qualify shares it never described. This is also exactly what
+ * the canvas option card does (`OptionNode.tsx`, `shareIsGoalOnly`), so the two
+ * surfaces cannot disagree about the same result.
+ */
+function resultBoundLeaderWithholdCause(stamp: unknown): string | null {
+  if (readProducerLeaderPermission(stamp) !== false) return null
+  const cause = (stamp as { producer_cause?: unknown }).producer_cause
+  if (typeof cause !== 'string') return null
+  const token = cause.trim()
+  return token === '' ? null : token
+}
 
 export interface UseAnalysisNewViewModelArgs {
   /** THE SAME instance OutputsDock hands ResultsBody. Never re-derived. */
@@ -105,18 +141,21 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
 
   /**
-   * ⭐⭐ THE PRODUCER'S REASON FOR WITHHOLDING THE LEADING OPTION, read straight
-   * off the verdict it arrived on.
+   * ⭐⭐ THE PRODUCER'S REASON FOR WITHHOLDING THE LEADING OPTION, read off the
+   * RESULT it qualifies — `results.report.producer_leader_permission.producer_cause`
+   * (#1921), the same carrier the canvas option card reads.
    *
-   * ⛔ WHY IT IS READ HERE AND NOT THROUGH THE REPORT. The store DOES stamp a
-   * withholding onto the report (`resultsWithholdLeaderClaim` →
-   * `producer_leader_permission: { permitted, withheld_reason }`) but the value
-   * it stamps is the UI's OWN two-value enum
-   * (`'leader_claim_withheld' | 'analysis_unusable'`,
-   * `canvas/hydrate/applyScenarioAnalysisRead.ts`), which answers "on whose
-   * account" and NOT "why". The producer's cause is discarded at that boundary,
-   * which is the whole reason this panel could only say "could not confirm".
-   * `analysisStateV1` is the verdict as it arrived, so the cause survives there.
+   * ⛔ NOT THE SESSION-LOCAL ENVELOPE ANY MORE (Codex pre-read on #1922,
+   * 5804383098). This used to read `analysisStateV1.leader_claim.withheld_reason`,
+   * which is never persisted (`store.ts`, the field's doc) and is cleared by any
+   * later turn that omits `analysis_state` (`applyV5State.ts`, step 4). The
+   * saved comparison's shares then came back after a reload, or after an
+   * ordinary follow-up turn, without the "Goal only" qualification that belongs
+   * to them. The cause now travels WITH the result through the existing
+   * report → autosave → restore path.
+   *
+   * ⭐ PRECEDENCE — ONE AUTHORITY, NO FALLBACK. See `resultBoundLeaderWithholdCause`
+   * (top of this module) for the rule and why the live envelope is never consulted.
    *
    * ⚠ NOT A SECOND WITHHOLD AUTHORITY. Whether the leader IS withheld stays
    * `buildChecks`' own `leaderCode`, derived exactly as before. This supplies a
@@ -124,10 +163,12 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    * refusal happened.
    *
    * Subscribed as a primitive string so the panel cannot re-render on every
-   * verdict identity change.
+   * report identity change, and so the memo below can list it (it does).
    */
-  const producerLeaderWithholdReason = useCanvasStore(
-    (s) => s.analysisStateV1?.leader_claim?.withheld_reason ?? null,
+  const producerLeaderWithholdReason = useCanvasStore((s) =>
+    // `results` itself can be null (no analysis yet): that is the no-cause path,
+    // never a crash (Codex pre-read on #1924, shard 4: 13 mounts threw).
+    resultBoundLeaderWithholdCause(s.results?.report?.producer_leader_permission),
   )
 
   /**
@@ -239,6 +280,10 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
      */
     [
       data,
+      // The builder reads it (`checks.sharesExcludeLimits`, the withheld
+      // cause); a later turn can re-stamp it while every result input is the
+      // same object (Codex pre-read on #1922).
+      producerLeaderWithholdReason,
       recommendations,
       isPreRun,
       isRunning,
