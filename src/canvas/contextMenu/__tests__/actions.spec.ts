@@ -355,12 +355,14 @@ describe('askAI', () => {
     expect(selectedIds).toEqual(['f1', 'g1'])
   })
 
-  it('shows warning toast when _sendMessage is unavailable after polling budget', () => {
+  it('shows warning toast when no ask surface registers within the polling budget', () => {
     vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout'] })
     try {
-      // Override guidance store mock to return null _sendMessage
+      // Override guidance store mock: NO channel registered. All three slots are
+      // null (not absent) — `canReceiveAsk` reads `!== null`, as the real store
+      // initialises them.
       const origGetState = useGuidanceStore.getState
-      ;(useGuidanceStore as any).getState = () => ({ _sendMessage: null })
+      ;(useGuidanceStore as any).getState = () => ({ _sendMessage: null, _prefillChat: null, _dispatchAction: null })
 
       // Stub requestAnimationFrame to call callback synchronously
       const origRaf = globalThis.requestAnimationFrame
@@ -379,7 +381,7 @@ describe('askAI', () => {
       vi.advanceTimersByTime(1100)
 
       expect(showToast).toHaveBeenCalledWith(
-        'Could not send message — try typing your question directly.',
+        'Could not open a draft — try typing your question directly.',
         'warning',
       )
 
