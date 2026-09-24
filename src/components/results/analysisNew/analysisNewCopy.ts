@@ -2224,6 +2224,7 @@ export const ANALYSIS_NEW_COPY = {
     latestRunFailed: 'The latest analysis run did not complete.',
     firstRunFailed: 'The analysis run did not complete.',
     showingPrevious: 'Showing the previous result.',
+    latestBlocked: 'The model now needs a change before it can be analysed again.',
     /**
      * ⚠ NAMED FOR THE OUTCOME, NOT THE MECHANISM. "Re-analyse" describes what
      * the system does; "to be sure" says what the READER gets, which is the

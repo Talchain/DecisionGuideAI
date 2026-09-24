@@ -163,3 +163,39 @@ describe('a run in flight supersedes the note', () => {
     expect(screen.queryByTestId('analysis-new-status-run-failed')).toBeNull()
   })
 })
+
+/**
+ * ⛔ REVIEW 5820019088 (BLOCKING): the wire can say `blocked` with NO typed
+ * refusal held (a reachable mapper state, `useAnalysisRunState.mapping.spec.ts`),
+ * and the note fell through to silence. It is stated as the model needing a
+ * change, never as an attempt that was stopped.
+ */
+describe('the wire says blocked, with no refusal held', () => {
+  it('before a run: the model needs a change, not "No analysis has run yet"', () => {
+    runState.value = 'blocked'
+    renderTab(openStrategicChallenge(), { isPreRun: true })
+    const block = screen.getByTestId('analysis-new-status-pre-run')
+    const note = screen.getByTestId('analysis-new-status-blocked')
+    expect(block).toContainElement(note)
+    expect(note).toHaveTextContent(ANALYSIS_REFUSAL_REASON_COPY.analysis_not_ready)
+    expect(block).not.toHaveTextContent(COPY.status.preRun)
+    expect(screen.queryByTestId('analysis-new-status-did-not-run')).toBeNull()
+  })
+
+  it('after a run: the status line says the model needs a change and this is the previous result', () => {
+    runState.value = 'blocked'
+    renderTab(genuineDecision(), { isPreRun: false })
+    const note = screen.getByTestId('analysis-new-status-blocked')
+    expect(note).toHaveTextContent(COPY.status.latestBlocked)
+    expect(note).toHaveTextContent(COPY.status.showingPrevious)
+  })
+})
+
+describe('the wire\'s precedence holds over a stale error flag', () => {
+  it('a wire-current run with a leftover results error carries no "did not complete" note', () => {
+    runState.value = 'complete_current'
+    setResultsStatus('error')
+    renderTab(genuineDecision(), { isPreRun: false })
+    expect(screen.queryByTestId('analysis-new-status-run-failed')).toBeNull()
+  })
+})

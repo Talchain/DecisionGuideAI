@@ -71,6 +71,7 @@ import { deriveLatestRunNote } from './latestRunNote'
 import {
   ANALYSIS_REFUSAL_HEADLINE,
   ANALYSIS_REFUSAL_POINTER,
+  ANALYSIS_REFUSAL_REASON_COPY,
 } from '../../../canvas/store/analysisRefusalNotice'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
 // The act below takes its geometry from the tier, never from this call site —
@@ -1601,6 +1602,13 @@ export function AnalysisNewTabBody({
               >
                 {ANALYSIS_REFUSAL_HEADLINE} {latestRunNote.reason} {ANALYSIS_REFUSAL_POINTER}
               </p>
+            ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'blocked' ? (
+              <p
+                className={`${typography.panelBody} text-text-body`}
+                data-testid="analysis-new-status-blocked"
+              >
+                {ANALYSIS_REFUSAL_REASON_COPY.analysis_not_ready}
+              </p>
             ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'failed' ? (
               <p
                 className={`${typography.panelBody} text-text-body`}
@@ -2309,10 +2317,15 @@ export function AnalysisNewTabBody({
                     testId: 'analysis-new-status-did-not-run',
                     text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
                   }
-                : {
-                    testId: 'analysis-new-status-run-failed',
-                    text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
-                  }
+                : latestRunNote.kind === 'blocked'
+                  ? {
+                      testId: 'analysis-new-status-blocked',
+                      text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
+                    }
+                  : {
+                      testId: 'analysis-new-status-run-failed',
+                      text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
+                    }
           }
           isProvisional={vm.status.isProvisional}
           /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
