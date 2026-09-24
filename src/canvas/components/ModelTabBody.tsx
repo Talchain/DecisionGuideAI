@@ -547,17 +547,22 @@ export const ModelTabBody = memo(function ModelTabBody({
   const modelAdjustments = useMemo(() => {
     const raw = (ceeAnalysisReady as Record<string, unknown> | null)?.model_adjustments
     if (!Array.isArray(raw)) return []
+    /**
+     * ⭐⭐ V2 GAP 35 — THE FALLBACK WAS A TITLE-CASED WIRE ID, WHICH IS STILL A
+     * RAW ID. `target.replace(/^fac_/, '').replace(/_/g, ' ')…` turns
+     * `opt_segment_2` into `Opt Segment 2` — legible, but it is the wire
+     * token with capitals and spaces added, not a name the model gave this
+     * element. THE ONE id → label policy this file already imports
+     * (`resolveCanvasLabel` / `buildCanvasLabelMap` / `UNNAMED_ELEMENT_LABEL`,
+     * used four times elsewhere in this same file) resolves a genuine label
+     * or names the absence honestly instead of re-deriving one from the id.
+     */
+    const labels = buildCanvasLabelMap(nodes)
     return raw.map((adj: Record<string, unknown>) => {
       const target = adj.target
       if (!target || typeof target !== 'string') return adj
-      const node = nodes.find(n => n.id === target)
-      const nodeLabel = node ? (node.data as { label?: string })?.label : null
-      if (nodeLabel) return { ...adj, target: nodeLabel, targetNodeId: target }
-      const cleaned = target
-        .replace(/^fac_/, '')
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c: string) => c.toUpperCase())
-      return { ...adj, target: cleaned, targetNodeId: target }
+      const resolved = resolveCanvasLabel(target, labels) ?? UNNAMED_ELEMENT_LABEL
+      return { ...adj, target: resolved, targetNodeId: target }
     })
   }, [ceeAnalysisReady, nodes])
 
