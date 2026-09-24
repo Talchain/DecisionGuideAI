@@ -2485,9 +2485,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // A wheel, pinch or drag is the user moving the camera too. xyflow passes the
   // DOM event for a gesture and `null` for a programmatic move (every product
   // fit), so only the person's own moves claim.
-  const handleMoveEnd = useCallback((event: MouseEvent | TouchEvent | null) => {
-    if (isUserCameraMove(event)) claimCameraForUser(currentModelKey())
-  }, [])
+  // (Inline at the `onMoveEnd` prop, not a `useCallback`: it needs no stable
+  // identity, and a new hook here would add to this file's rules-of-hooks
+  // ratchet — CI `lint:hooks-ratchet`, 117.)
   // The USER-invoked "Fit to view".
   //
   // ⚠⚠ THIS CALL USED TO PASS `minZoom: LABEL_LEGIBLE_ZOOM`, AND THE COMMENT
@@ -2725,7 +2725,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
             onMoveStart={handleMoveStart}
-            onMoveEnd={handleMoveEnd}
+            onMoveEnd={(event) => { if (isUserCameraMove(event)) claimCameraForUser(currentModelKey()) }}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}

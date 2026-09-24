@@ -38,8 +38,7 @@ describe('an explicit zoom claims the camera for this model', () => {
   })
 
   it('the gesture move-end claims only for a person\'s move, and is wired to ReactFlow', () => {
-    expect(handlerBody('handleMoveEnd')).toMatch(/if \(isUserCameraMove\(event\)\) claimCameraForUser\(currentModelKey\(\)\)/)
-    expect(GRAPH).toMatch(/onMoveEnd=\{handleMoveEnd\}/)
+    expect(GRAPH).toMatch(/onMoveEnd=\{\(event\) => \{ if \(isUserCameraMove\(event\)\) claimCameraForUser\(currentModelKey\(\)\) \}\}/)
   })
 
   it('CONTRAST — the Fit-to-view claim is unchanged (the scan sees an existing claim)', () => {

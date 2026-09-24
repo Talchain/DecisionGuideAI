@@ -106,7 +106,11 @@ const cardHtmlAt = (rung: LodRung, node: React.ReactElement): string => {
   setRung(rung)
   const { container, unmount } = render(<ReactFlowProvider>{node}</ReactFlowProvider>)
   expect(screen.getByTestId('node-title'), 'the card did not mount').toBeTruthy()
-  const html = container.innerHTML
+  // `data-rung-padding` DECLARES both rungs' boxes for the layout measurer
+  // (per-rung reservation, #1932 edeb32b3): it names the Normal band at every
+  // rung by design. What this file pins is the box the card RENDERS, so the
+  // declaration is dropped before comparing.
+  const html = container.innerHTML.replace(/ data-rung-padding="[^"]*"/g, '')
   unmount()
   return html
 }
@@ -203,7 +207,7 @@ describe('the `quiet` rung spends only the rail (S5) — the card still says exa
       </ReactFlowProvider>,
     )
     expect(screen.getByTestId('node-title'), 'the card did not mount').toBeTruthy()
-    const withoutSlice = container.innerHTML
+    const withoutSlice = container.innerHTML.replace(/ data-rung-padding="[^"]*"/g, "")
     unmount()
 
     expect(withoutSlice, 'a store double without the rung slice did not render an ordinary card').toBe(
