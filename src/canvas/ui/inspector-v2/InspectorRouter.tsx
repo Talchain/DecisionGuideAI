@@ -19,9 +19,9 @@ import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 import { EdgePanel } from './panels/EdgePanel'
 import { EdgeLabelModeToggle } from './shared/EdgeLabelModeToggle'
 import { OptionPanel } from './panels/OptionPanel'
-import { GoalPanel } from './panels/GoalPanel'
+import { GoalPanel, INSPECTOR_GOAL_REASON } from './panels/GoalPanel'
 import { FactorControllablePanel } from './panels/FactorControllablePanel'
-import { DecisionPanel } from './panels/DecisionPanel'
+import { DecisionPanel, DecisionAddOption } from './panels/DecisionPanel'
 import { FactorObservablePanel } from './panels/FactorObservablePanel'
 import { FactorExternalPanel } from './panels/FactorExternalPanel'
 import { OutcomePanel } from './panels/OutcomePanel'
@@ -432,6 +432,25 @@ export const InspectorRouter = memo(function InspectorRouter({
    * that names a remedy the UI does not provide is a dead end wearing an
    * explanation.
    *
+   * ⭐ FOURTH PANEL — `factor-observable`, and the carrier is the SAME ONE as
+   * the controllable pane's. Its headline value used to commit through a bare
+   * `setObservedValue` (no wire carrier) inside this wrap, so one whole factor
+   * category had zero editable surface. It now commits through
+   * `useModelEditAuthority.proposeFactorValue` → `factor_value_edit`, the writer
+   * the factor card and the Model tab already share; CEE resolves that event by
+   * node id, so nothing new was needed on the server. The pane fences its
+   * description and advanced editor itself (`data-writer-fence`), pinned by
+   * `FactorObservablePanel.valueReachesTheModel.spec.tsx`.
+   *
+   * ⭐ FIFTH PANEL — `goal`, and the carrier is the Model tab's. The pane's own
+   * target control was `GoalThresholdEditor`, whose commit is a store-only
+   * `setGoalThresholdAndUpdateNode`, so it stayed in this wrap. On this pane it
+   * is now `SuccessTargetLine` itself — the Model tab's control — committing
+   * through `useModelEditAuthority.proposeGoalTarget` → a typed
+   * `add_constraint`. Description, constraints and the advanced editor are
+   * fenced by the pane (`data-writer-fence`), pinned by
+   * `GoalPanel.targetReachesTheModel.spec.tsx`.
+   *
    * ⚠ THIS COMMENT SAID "OPT-IN, ONE PANEL, DELIBERATELY" while the set below
    * already held TWO. Corrected rather than extended: the rule was never a
    * COUNT, it is a TEST — does this panel own a control that reaches a durable
@@ -449,7 +468,7 @@ export const InspectorRouter = memo(function InspectorRouter({
    * asserts as a discriminating pair — every writer disabled AND every
    * non-writer enabled — so it cannot pass by fencing everything or nothing.
    */
-  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external'])
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable', 'goal'])
   const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
@@ -512,6 +531,16 @@ export const InspectorRouter = memo(function InspectorRouter({
             panelType={panelType}
             askContext={attentionAskContext(attention.reasons)}
           />
+          {/* ⭐⭐ THE DECISION'S "+ Add option", OUTSIDE THE FENCE BY THE SAME
+              TEST THE RENAME PASSED. Its gesture captures a durable
+              `structural_add` for the new option (CEE `'mutating'`), so it may
+              sit beside the header rather than inside the `<fieldset disabled>`
+              below, which inerted it for every user while its own isolated spec
+              stayed green. ONLY this control moves — the decision panel stays in
+              the blanket wrap, so none of its other controls is released. See
+              `DecisionAddOption`, and the escape guard's `DELIBERATELY_OUTSIDE`
+              entry in `inspectorAuthorityBinding.spec.tsx`. */}
+          {panelType === 'decision' && <DecisionAddOption decisionId={nodeId} />}
         </>
       }
     >
@@ -528,13 +557,22 @@ export const InspectorRouter = memo(function InspectorRouter({
             name, the factor pane also saves the value. Keyed by panel type so
             adding a third cannot silently inherit a sentence written about
             another surface. */}
+        {/* ⚠ `factor-observable` TAKES THE CONTROLLABLE PANE'S SENTENCE BECAUSE
+            IT IS THE SAME FACTS: the name saves (conditionally), the value
+            saves through the same `factor_value_edit` carrier, and other edits
+            are not sent. The constant names no category, so nothing in it is
+            false of an observed factor. It is NOT allowed to fall through to
+            the option string below, which would tell the reader about factor
+            targets this pane does not have. */}
         {!panelOwnsAuthority
           ? INSPECTOR_READ_ONLY_REASON
-          : panelType === 'factor-controllable'
+          : panelType === 'factor-controllable' || panelType === 'factor-observable'
             ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
             : panelType === 'factor-external'
               ? INSPECTOR_FACTOR_EXTERNAL_REASON
-              : INSPECTOR_OPTION_READ_ONLY_REASON}
+              : panelType === 'goal'
+                ? INSPECTOR_GOAL_REASON
+                : INSPECTOR_OPTION_READ_ONLY_REASON}
       </InspectorAgencyNote>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto
