@@ -2668,7 +2668,7 @@ export function AnalysisNewTabBody({
                 general shelf — prominence for the shelf was the instruction,
                 not precedence over the run. */}
             {focusApplicableIds.length > 0 ? (
-              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+              <FocusNowContainer applicableStaticIds={focusApplicableIds} bare />
             ) : null}
           </div>
         ) : null}
