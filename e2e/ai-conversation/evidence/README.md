@@ -19,3 +19,4 @@ For `07-*`, `/bff/cee/graph-readiness` is also fulfilled from a fixture (`runChi
 
 Limit: Google Fonts is aborted, so the fallback sans replaces Inter.
 Re-run: `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm exec playwright test -c playwright.aiconversation.config.ts`
+| `08-readiness-outage-chip-vs-dock.png` | #1973 merge `89afedbe`: exploratory run, not asserted | EXISTING DEFECT (not from #1973): graph-readiness 503 keeps a stale `can_run_analysis:false`. The chip reason says "Olumi is checking again", while the dock says "Could not re-check readiness (HTTP 503)" |
