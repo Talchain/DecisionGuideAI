@@ -611,15 +611,6 @@ export function AboutThisAnalysis({
  * Per option, the range this run produced and the share figure — the same
  * `outcomeRange` and `winReadout` the comparison draws from, in the order the
  * view model gave them (a designation authored upstream, never re-sorted here).
- *
- * V2 gap 28: ONE compact table, matching the prototype's `.audit-table`
- * grammar (`<table><thead><tr><th>Option</th><th>P10</th>…`). This used to
- * print a label plus a four-row `dl` PER OPTION — three options ran to
- * fifteen lines against the prototype's header-plus-three-rows. Each fact's
- * name (`ABOUT_COPY.values.low/mid/high/share`) is now said ONCE, in the
- * header row, instead of once per option; every value, every fallback
- * (`notReturned`) and every testid a caller could already query are
- * unchanged — this is a layout change, not a content change.
  */
 function ValuesAndRanges({
   options,
@@ -642,8 +633,6 @@ function ValuesAndRanges({
      served withheld run (c3a39ae7) they printed with no word that the limits
      are not in them. Only when a share figure is actually on screen. */
   const showsAShare = options.some((o) => o.winReadout != null)
-  const headerCellClass = `${typography.panelMeta} text-text-light text-right font-normal whitespace-nowrap pb-0.5 pl-3`
-  const valueCellClass = `${typography.panelMeta} text-text-body text-right tabular-nums py-0.5 pl-3`
   return (
     <div className="space-y-2">
       {goalOnly && showsAShare ? (
@@ -656,51 +645,31 @@ function ValuesAndRanges({
           {ABOUT_COPY.values.normalised}
         </p>
       ) : null}
-      {/* `overflow-x-auto` — the prototype's `.table-wrap{overflow:auto}` — so
-          the table works at 280px without the panel itself scrolling. */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse" data-testid={`${testId}-values-table`}>
-          <thead>
-            <tr>
-              <th scope="col" className={`${typography.panelMeta} text-text-light text-left font-normal pb-0.5`}>
-                {/* No visible column label: the option column is the row's own
-                    `<th scope="row">` name, mirroring the prototype's
-                    `<th>Option</th>` without adding a copy string this rule
-                    ("no copy rewrites beyond demoting a heading to a label")
-                    does not license. */}
-              </th>
-              <th scope="col" className={headerCellClass}>{ABOUT_COPY.values.low}</th>
-              <th scope="col" className={headerCellClass}>{ABOUT_COPY.values.mid}</th>
-              <th scope="col" className={headerCellClass}>{ABOUT_COPY.values.high}</th>
-              <th scope="col" className={headerCellClass}>{ABOUT_COPY.values.share}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {options.map((o) => (
-              <tr key={o.id} data-testid={`${testId}-values-${o.id}`} className="border-t border-panel-border">
-                <th
-                  scope="row"
-                  className={`${typography.panelBody} text-text-body text-left font-normal py-0.5 break-words`}
+      {options.map((o) => (
+        <div key={o.id} data-testid={`${testId}-values-${o.id}`}>
+          <p className={`${typography.panelBody} text-text-body m-0 break-words`}>{o.label}</p>
+          <dl className="m-0 mt-0.5 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5">
+            {(
+              [
+                ['low', ABOUT_COPY.values.low, cell(o.outcomeRange?.p10)],
+                ['mid', ABOUT_COPY.values.mid, cell(o.outcomeRange?.p50)],
+                ['high', ABOUT_COPY.values.high, cell(o.outcomeRange?.p90)],
+                ['share', ABOUT_COPY.values.share, o.winReadout ?? ABOUT_COPY.values.notReturned],
+              ] as const
+            ).map(([k, label, value]) => (
+              <div key={k} className="contents">
+                <dt className={`${typography.panelMeta} text-text-light min-w-0 break-words`}>{label}</dt>
+                <dd
+                  className={`${typography.panelMeta} text-text-body m-0 text-right tabular-nums`}
+                  data-testid={`${testId}-values-${o.id}-${k}`}
                 >
-                  {o.label}
-                </th>
-                <td className={valueCellClass} data-testid={`${testId}-values-${o.id}-low`}>
-                  {cell(o.outcomeRange?.p10)}
-                </td>
-                <td className={valueCellClass} data-testid={`${testId}-values-${o.id}-mid`}>
-                  {cell(o.outcomeRange?.p50)}
-                </td>
-                <td className={valueCellClass} data-testid={`${testId}-values-${o.id}-high`}>
-                  {cell(o.outcomeRange?.p90)}
-                </td>
-                <td className={valueCellClass} data-testid={`${testId}-values-${o.id}-share`}>
-                  {o.winReadout ?? ABOUT_COPY.values.notReturned}
-                </td>
-              </tr>
+                  {value}
+                </dd>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </dl>
+        </div>
+      ))}
     </div>
   )
 }
