@@ -70,6 +70,7 @@ vi.mock('../../../../v5/eligibility', async (importOriginal) => {
 
 import { OptionPanel } from '../panels/OptionPanel'
 import {
+  OPTION_INTERVENTION_NOT_SAVED_CONFLICT,
   OPTION_INTERVENTION_NOT_SAVED_DECLINED,
   OPTION_INTERVENTION_UNCONFIRMED,
 } from '../shared/useOptionInterventionCommit'
@@ -459,5 +460,78 @@ describe('D3 — a £ target takes the amount the card shows, and says why when 
       'Not saved · this row is on the model scale. Enter a plain number between 0 and 1.',
     )
     expect(sentOptionTargetEdits()).toHaveLength(0)
+  })
+})
+
+/**
+ * MANUAL-EDIT-REWITNESS-0753Z N1, 24 Sep 2026 — rows 5b/5c on served UI
+ * `25314672`: a real stale-base 409 on the OpenAI lane read "Could not confirm ·
+ * the model may or may not have this value…" with [Try again], and Try again
+ * re-sent the same stale base into the same 409. The body carried the lane's
+ * `_diagnostic_trace` + `_provider_calls`, which the strict error schema refused.
+ */
+const LANE_SIDECARS = {
+  _diagnostic_trace: { exit_path: 'agent_lane_forwarded', forwarded_kind: 'system_event' },
+  _provider_calls: [],
+}
+
+/** The witnessed 409 (rewitness row 5b), in `route-v2.ts`'s envelope. */
+const STALE_BASE_409 = {
+  error: 'GRAPH_DIVERGED',
+  boundary: 'B1',
+  direction: 'egress',
+  validator: 'turn_commit',
+  details: {
+    retryable: false,
+    reason: 'graph_write_conflict',
+    conflict_category: 'stale_base_graph_hash',
+    recovery_action: 'refresh_and_reconfirm',
+    expected_base_graph_hash: '00b6c7c26699cc11',
+    event_kind: 'option_intervention_edit',
+  },
+  request_id: 'req_cdp_409',
+  retryable: false,
+}
+
+describe('N1 — a refusal the OpenAI lane delivers says "Not saved", and offers no retry that cannot succeed', () => {
+  it('⭐ stale-base 409 + lane sidecars → the conflict line, no Try again — RED at 25314672 ("Could not confirm" + Try again)', async () => {
+    answers.push({ status: 409, body: { ...STALE_BASE_409, ...LANE_SIDECARS } })
+    renderPanel()
+
+    await typeAndEnter(GDPR, '0.65')
+
+    const line = await screen.findByTestId(`intervention-unapplied-${GDPR}`)
+    expect(line.textContent).toBe(OPTION_INTERVENTION_NOT_SAVED_CONFLICT)
+    expect(line.textContent).toBe(
+      'Not saved · the model changed while this was sending, so nothing was written. Ask Olumi anything, then set this again.',
+    )
+    expect(line.textContent ?? '').not.toMatch(/could not confirm|may or may not/i)
+    // Repeating the same send hits the same stale base, so no retry is offered.
+    expect(screen.queryByTestId(`intervention-unapplied-retry-${GDPR}`)).toBeNull()
+    expect(screen.getByTestId(`intervention-unapplied-dismiss-${GDPR}`).textContent).toBe('Discard')
+    expect(inputFor(GDPR).value).toBe('0.65')
+    expect(sentOptionTargetEdits()).toHaveLength(1)
+  })
+
+  it('⭐ 422 `system_event_refused_no_write` + lane sidecars → the declined line — RED at 25314672', async () => {
+    answers.push({ status: 422, body: { ...REFUSED_NO_WRITE_422, ...LANE_SIDECARS } })
+    renderPanel()
+
+    await typeAndEnter(GDPR, '0.55')
+
+    const line = await screen.findByTestId(`intervention-unapplied-${GDPR}`)
+    expect(line.textContent).toBe(OPTION_INTERVENTION_NOT_SAVED_DECLINED)
+    expect(screen.queryByTestId(`intervention-unapplied-retry-${GDPR}`)).toBeNull()
+  })
+
+  it('⛔ CONTRAST — an undeclared NON-underscore root key is not a sidecar: the hedge stays, with its retry', async () => {
+    answers.push({ status: 409, body: { ...STALE_BASE_409, ...LANE_SIDECARS, recovery: { action: 'reload' } } })
+    renderPanel()
+
+    await typeAndEnter(GDPR, '0.65')
+
+    const line = await screen.findByTestId(`intervention-unapplied-${GDPR}`)
+    expect(line.textContent).toBe(OPTION_INTERVENTION_UNCONFIRMED)
+    expect(screen.getByTestId(`intervention-unapplied-retry-${GDPR}`).textContent).toBe('Try again')
   })
 })
