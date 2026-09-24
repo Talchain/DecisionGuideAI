@@ -62,6 +62,8 @@ export interface OptimisticEdgeEdit {
   readonly edgeId: string
   readonly sentMagnitude: number
   readonly before: Readonly<Record<string, unknown>>
+  /** Set only by a direction edit — see `PendingEdgeEdit.sentDirection`. */
+  readonly sentDirection?: 'positive' | 'negative'
 }
 
 /** What this turn wrote to the canvas ahead of its own receipt. */
@@ -148,13 +150,25 @@ export function receiptProvesOwnEdgeEdit(
   if (pair === null || wire === null) return false
   const committed = wire.find((e) => wireEdgePairKey(e) === pair)
   const mean = committed?.strength?.mean
-  return typeof mean === 'number' && Math.abs(mean) === write.sentMagnitude
+  if (typeof mean !== 'number' || Math.abs(mean) !== write.sentMagnitude) return false
+  // A direction edit keeps `|mean|`, so the magnitude alone was already true
+  // before it landed: the committed SIGN must be the one sent. Zero states no
+  // sign, so it proves no direction.
+  if (write.sentDirection === undefined) return true
+  return mean !== 0 && (mean < 0 ? 'negative' : 'positive') === write.sentDirection
 }
 
 function beforeOwnEdgeEdit(write: OptimisticEdgeEdit, response: unknown, canvas: CanvasGraph): CanvasGraph | null {
   if (!receiptProvesOwnEdgeEdit(write, response, canvas.edges)) return null
   const edge = canvas.edges.find((e) => e.id === write.edgeId)
   if (!edge || edgeMagnitudeOf(edge) !== write.sentMagnitude) return null
+  if (
+    write.sentDirection !== undefined &&
+    ((edge.data as Record<string, unknown> | undefined)?.direction === 'negative' ? 'negative' : 'positive') !==
+      write.sentDirection
+  ) {
+    return null
+  }
   return {
     nodes: canvas.nodes,
     edges: canvas.edges.map((e) =>

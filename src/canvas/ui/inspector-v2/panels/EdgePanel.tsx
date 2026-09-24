@@ -411,6 +411,15 @@ export const EdgePanel = memo(function EdgePanel({
    */
   const [strengthEditSend, setStrengthEditSend] =
     useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' } | null>(null)
+  /**
+   * ⭐ HOW THE LAST DIRECTION CHANGE SETTLED — its own state, for the reason
+   * `strengthEditSend` is apart from `strengthConfirm`: a different act with its
+   * own control. `'pending'` is stated at the press, not inferred from `null`;
+   * the sequence number drops a late answer to a superseded click.
+   */
+  const [directionEditSend, setDirectionEditSend] =
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' | 'pending' } | null>(null)
+  const directionSendSeqRef = useRef(0)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -713,7 +722,17 @@ export const EdgePanel = memo(function EdgePanel({
    */
   const handleDirectionChange = useCallback((next: 'positive' | 'negative') => {
     if (direction === next) return
-    mutations.setDirection(next)
+    const seq = ++directionSendSeqRef.current
+    setDirectionEditSend({ ts: Date.now(), settlement: 'pending' })
+    const outcome = mutations.setDirection(next, {
+      onSendSettled: (settlement) => {
+        if (seq !== directionSendSeqRef.current) return
+        setDirectionEditSend({ ts: Date.now(), settlement })
+      },
+    })
+    // Anything but a dispatch means no settlement is coming (the strength
+    // controls' `noteStrengthOutcome` rule): say so rather than wait.
+    if (outcome !== 'dispatched') setDirectionEditSend({ ts: Date.now(), settlement: 'not_sent' })
   }, [direction, mutations])
 
   const handleBeliefChange = useCallback((v: number) => {
@@ -1015,6 +1034,40 @@ export const EdgePanel = memo(function EdgePanel({
                       {EDGE_DIRECTION_COPY.decreases(targetLabel)}
                     </button>
                   </div>
+                  {/* The direction change's settlement — the strength edit's
+                      register and the same two-harms rule: a refusal is never
+                      "Sent" (and the revert has already put the model's
+                      direction back on the buttons), a lost answer keeps the
+                      flip and says it may not be recorded. Only "Sent" fades;
+                      a notice that the model does NOT hold what the buttons
+                      showed must not vanish on a timer. */}
+                  {directionEditSend !== null && (
+                    <div
+                      className="flex items-center gap-2 mt-1"
+                      data-testid="edge-direction-feedback"
+                      data-settlement={directionEditSend.settlement}
+                      role={directionEditSend.settlement === 'refused' || directionEditSend.settlement === 'blocked'
+                        ? 'alert'
+                        : undefined}
+                    >
+                      <EditConfirmation
+                        trigger={directionEditSend.ts}
+                        label={directionEditSend.settlement === 'pending'
+                          ? ACTION_LABELS.strengthEditSending
+                          : directionEditSend.settlement === 'queued'
+                            ? ACTION_LABELS.strengthEditQueued
+                            : directionEditSend.settlement === 'not_sent'
+                              ? ACTION_LABELS.strengthConfirmNotSent
+                              : directionEditSend.settlement === 'refused' || directionEditSend.settlement === 'blocked'
+                                ? ACTION_LABELS.strengthEditNotRecorded
+                                : directionEditSend.settlement === 'unverified'
+                                  ? ACTION_LABELS.strengthEditUnverified
+                                  : ACTION_LABELS.strengthConfirmSent}
+                        tone="pending"
+                        hold={directionEditSend.settlement !== 'sent'}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               <p className={`${typography.panelBody} text-text-body mb-1.5`}>

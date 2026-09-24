@@ -54,6 +54,14 @@ export interface PendingEdgeEdit {
   readonly sentMagnitude: number
   /** The edge's data BEFORE the optimistic write — what a refusal restores. */
   readonly before: Readonly<Record<string, unknown>>
+  /**
+   * The direction sent, set ONLY by a direction edit (`setDirection`). A flip
+   * keeps `|mean|`, so every magnitude-keyed test below passes before the
+   * server has said anything about the SIGN; with this set, each of them asks
+   * the sign too. Absent on a strength edit, which is then judged exactly as
+   * before.
+   */
+  readonly sentDirection?: 'positive' | 'negative'
 }
 
 /** Keys the optimistic write can add or change (`setStrength`). A revert restores exactly these. */
@@ -74,24 +82,49 @@ export function edgeMagnitudeOf(edge: { data?: unknown } | undefined): number | 
   return typeof w === 'number' && Number.isFinite(w) ? Math.abs(w) : null
 }
 
+/** The direction the canvas shows — `'positive'` when unstated (UI-SEM-029's default). */
+function edgeDirectionOf(edge: { data?: unknown } | undefined): 'positive' | 'negative' {
+  return (edge?.data as Record<string, unknown> | undefined)?.direction === 'negative' ? 'negative' : 'positive'
+}
+
+/** Does the canvas still show exactly this pending write — its magnitude, and its sign when one was sent? */
+function edgeShowsPendingWrite(edge: { data?: unknown } | undefined, entry: PendingEdgeEdit): boolean {
+  if (!edge || edgeMagnitudeOf(edge) !== entry.sentMagnitude) return false
+  return entry.sentDirection === undefined || edgeDirectionOf(edge) === entry.sentDirection
+}
+
 /** Record that `sentMagnitude` for `edgeId` is with the engine and unanswered. Called where the send is ADMITTED. */
 export function markEdgeEditInFlight(
   edgeId: string,
   sentMagnitude: number,
   before: Readonly<Record<string, unknown>> | undefined,
+  sentDirection?: 'positive' | 'negative',
 ): void {
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
   const prior = inFlight.get(edgeId)
   // A newer edit to the same link keeps the ORIGINAL pre-edit data: that is
   // what the server still holds while both are unanswered.
-  inFlight.set(edgeId, { edgeId, sentMagnitude, before: prior?.before ?? { ...(before ?? {}) } })
+  inFlight.set(edgeId, {
+    edgeId,
+    sentMagnitude,
+    before: prior?.before ?? { ...(before ?? {}) },
+    ...(sentDirection !== undefined ? { sentDirection } : {}),
+  })
   emit()
 }
 
-/** End the pending state for `edgeId` — stands down if a newer edit superseded `sentMagnitude`. */
-export function settleEdgeEdit(edgeId: string, sentMagnitude: number): boolean {
+/**
+ * End the pending state for `edgeId` — stands down if a newer edit superseded
+ * this one. A direction edit and a strength edit at the same magnitude are
+ * different edits: the sign is part of the match.
+ */
+export function settleEdgeEdit(
+  edgeId: string,
+  sentMagnitude: number,
+  sentDirection?: 'positive' | 'negative',
+): boolean {
   const entry = inFlight.get(edgeId)
-  if (!entry || entry.sentMagnitude !== sentMagnitude) return false
+  if (!entry || entry.sentMagnitude !== sentMagnitude || entry.sentDirection !== sentDirection) return false
   inFlight.delete(edgeId)
   emit()
   return true
@@ -106,7 +139,7 @@ export function unconfirmedEdgeEditOnGraph(edges: ReadonlyArray<{ id?: unknown; 
   if (inFlight.size === 0) return null
   for (const entry of inFlight.values()) {
     const edge = edges.find((e) => e.id === entry.edgeId)
-    if (edge && edgeMagnitudeOf(edge) === entry.sentMagnitude) return entry.edgeId
+    if (edgeShowsPendingWrite(edge, entry)) return entry.edgeId
   }
   return null
 }
@@ -129,9 +162,9 @@ export function edgeDataWithStrengthWriteUndone(
 function revertEdgeEdit(entry: PendingEdgeEdit): void {
   const store = useCanvasStore.getState()
   const edge = store.edges.find((e) => e.id === entry.edgeId)
-  // Only while the canvas still shows the sent magnitude — a person who has
+  // Only while the canvas still shows the sent write — a person who has
   // moved on keeps what they see.
-  if (!edge || edgeMagnitudeOf(edge) !== entry.sentMagnitude) return
+  if (!edge || !edgeShowsPendingWrite(edge, entry)) return
   // ⚠ A ROLLBACK, NOT A USER EDIT — the same framing the factor revert uses.
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
@@ -173,24 +206,30 @@ export function resolveEdgeEditSettlement(
   edgeId: string,
   sentMagnitude: number,
   settlement: SystemEventSendSettlement,
+  sentDirection?: 'positive' | 'negative',
 ): SystemEventSendSettlement {
   const entry = inFlight.get(edgeId)
-  if (!entry || entry.sentMagnitude !== sentMagnitude) return settlement
+  if (!entry || entry.sentMagnitude !== sentMagnitude || entry.sentDirection !== sentDirection) return settlement
   if (settlement === 'unverified' || settlement === 'queued') return settlement
   if (settlement === 'blocked') {
-    settleEdgeEdit(edgeId, sentMagnitude)
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
     return settlement
   }
   if (settlement === 'refused') {
     revertEdgeEdit(entry)
-    settleEdgeEdit(edgeId, sentMagnitude)
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
     return 'refused'
   }
-  // 'sent'
+  // 'sent' — for a direction edit the SIGN must be the model's too: a flip
+  // keeps `|mean|`, so the magnitude alone is already true before it lands.
   const edge = useCanvasStore.getState().edges.find((e) => e.id === edgeId)
   const stated = serverStatedStrengthOf(edge?.data as Record<string, unknown> | undefined)
-  if (stated && Math.abs(stated.mean) === sentMagnitude) {
-    settleEdgeEdit(edgeId, sentMagnitude)
+  if (
+    stated &&
+    Math.abs(stated.mean) === sentMagnitude &&
+    (sentDirection === undefined || stated.effect_direction === sentDirection)
+  ) {
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
     return 'sent'
   }
   return 'unverified'

@@ -171,3 +171,40 @@ describe('edge_strength_edit', () => {
     expect(canvasBeforeOwnAppliedWrite('option_intervention_edit', own, proven, canvas)).toBeNull()
   })
 })
+
+/**
+ * A DIRECTION edit rides the same carrier but keeps `|mean|` — so the magnitude
+ * test is already true of the graph BEFORE the flip lands. The committed SIGN
+ * is what proves it (independent review of #1950, 5820041073).
+ */
+describe('edge_strength_edit carrying a direction flip', () => {
+  const before = { weight: 0.4, direction: 'positive', serverStrength: { mean: 0.4, effect_direction: 'positive' } }
+  const flipped = edge('e-7', 'fac_a', 'out_nrr', { ...before, direction: 'negative', directionSource: 'user' })
+  const canvas: CanvasGraph = { nodes: [A], edges: [flipped] }
+  const own = { optimisticEdgeEdit: { edgeId: 'e-7', sentMagnitude: 0.4, before, sentDirection: 'negative' as const } }
+  const landed = committed([{ id: 'fac_a' }], [{ from: 'fac_a', to: 'out_nrr', strength: { mean: -0.4 } }])
+  const unchanged = committed([{ id: 'fac_a' }], [{ from: 'fac_a', to: 'out_nrr', strength: { mean: 0.4 } }])
+
+  it('the committed graph still carries the OLD sign at the same magnitude: not proven', () => {
+    expect(receiptProvesOwnEdgeEdit(own.optimisticEdgeEdit, unchanged, [flipped])).toBe(false)
+    expect(canvasBeforeOwnAppliedWrite('edge_strength_edit', own, unchanged, canvas)).toBeNull()
+  })
+
+  it('CONTRAST — the committed graph carries the sent sign: proven, and the undo restores the old direction', () => {
+    expect(receiptProvesOwnEdgeEdit(own.optimisticEdgeEdit, landed, [flipped])).toBe(true)
+    const data = canvasBeforeOwnAppliedWrite('edge_strength_edit', own, landed, canvas)?.edges[0]?.data as Record<string, unknown>
+    expect(data.direction).toBe('positive')
+    expect(data.directionSource).toBeUndefined()
+  })
+
+  it('a zero mean states no sign, so it proves no direction', () => {
+    const zero = committed([{ id: 'fac_a' }], [{ from: 'fac_a', to: 'out_nrr', strength: { mean: 0 } }])
+    const atZero = { ...own.optimisticEdgeEdit, sentMagnitude: 0 }
+    expect(receiptProvesOwnEdgeEdit(atZero, zero, [flipped])).toBe(false)
+  })
+
+  it('the canvas has moved back to the old sign: the undo declines', () => {
+    const movedBack = { nodes: [A], edges: [edge('e-7', 'fac_a', 'out_nrr', { ...before })] }
+    expect(canvasBeforeOwnAppliedWrite('edge_strength_edit', own, landed, movedBack)).toBeNull()
+  })
+})
