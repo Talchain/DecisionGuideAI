@@ -1281,7 +1281,15 @@ export function AnalysisNewTabBody({
     >
         <OptionsComparison
           options={vm.optionsComparison}
-          leaderWithholdCause={vm.checks.leaderWithholdCause}
+          /* ⭐ ONE OWNER FOR THE CAUSE IN THIS SECTION. "What remains uncertain"
+             already states it when bullet (a) fires, a few lines above the
+             comparison it wraps; appending it to the qualifier too printed the
+             same sentence twice at rest (served V2, scenario 3d00c023). Keyed
+             on the bullet's own SOURCE, so the comparison keeps the cause
+             whenever the bullet did not say it. */
+          leaderWithholdCause={
+            commitmentSynthesis.open?.source === 'leader_withheld_cause' ? null : vm.checks.leaderWithholdCause
+          }
           sharesExcludeLimits={vm.checks.sharesExcludeLimits}
           /* The SAME writer this body already hands `WhatIWasGivenSection` for
              its own ask (:1253). One composer, one validation, one policy — a

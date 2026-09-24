@@ -58,9 +58,8 @@ export const COMMITMENT_COPY = {
     draft: 'What remains open before I commit to a view on this decision?',
   },
   compare: {
+    /** Only ever rendered with a route. There is no disabled state to name. */
     label: 'Compare with the last run',
-    /** Disabled state. Says the control cannot act here, and claims no reason. */
-    unavailable: 'Comparing with the last run is not available here',
   },
   record: {
     /** The door. The user's view, never an Olumi decision. */

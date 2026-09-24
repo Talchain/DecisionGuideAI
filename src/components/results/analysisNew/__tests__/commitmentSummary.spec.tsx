@@ -316,11 +316,15 @@ describe('the header acts', () => {
     })
   })
 
-  it('compare is disabled, and says so, when no route is supplied', () => {
+  /* ⛔ NO PLACEHOLDER ACT. The agreed rule (ChatGPT review on #63, 5806411059):
+     render Compare only when a real route exists. No path passes one today, and
+     the OpenAI lane sends no `run_delta`, so a greyed icon was the only
+     "comparison" a reader met after a re-run, and it could never act. */
+  it('no compare control at all when no route is supplied', () => {
     renderZone()
-    const cmp = screen.getByTestId(`${TID}-compare`)
-    expect(cmp).toBeDisabled()
-    expect(cmp).toHaveAttribute('aria-label', COMMITMENT_COPY.compare.unavailable)
+    expect(screen.queryByTestId(`${TID}-compare`)).toBeNull()
+    const header = screen.getByTestId(TID).firstElementChild as HTMLElement
+    expect(header.querySelectorAll('button:disabled').length, 'no disabled act on the header row').toBe(0)
   })
 
   it('CONTRAST: with a route, compare is enabled and calls it', () => {

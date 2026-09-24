@@ -182,12 +182,21 @@ function expectSharesOnScreen() {
   expect(within(section).queryByTestId('analysis-new-options-no-figures'), 'PRECONDITION: not the no-figures state').toBeNull()
 }
 
+/**
+ * The qualifier sits on the figures, and the producer's cause is said ONCE in
+ * the section that holds both: "What remains uncertain" states it, so the
+ * qualifier below does not append it again. Served V2 (c3a39ae7, scenario
+ * 3d00c023) printed the cause twice at rest, a few lines apart.
+ */
 function expectQualified() {
   expectSharesOnScreen()
   const line = qualifier()
   expect(line, 'the "Goal only" qualifier is missing').not.toBeNull()
   expect(line!.textContent).toContain(COPY.optionFigures.goalOnlyQualifier)
-  expect(line!.textContent).toContain(leaderWithholdCause(LIMITS_UNSCORED) as string)
+  const cause = leaderWithholdCause(LIMITS_UNSCORED) as string
+  const zone = screen.getByTestId('analysis-new-commitment')
+  expect(zone.textContent!.split(cause).length - 1, 'the cause is said once in "Move towards commitment"').toBe(1)
+  expect(screen.getByTestId('analysis-new-commitment-open-text').textContent).toBe(cause)
 }
 
 beforeEach(() => {
