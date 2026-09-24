@@ -5,7 +5,7 @@
  * the separate Impact / Investigation value sections.
  */
 
-import { memo, useState, useMemo, useCallback, useRef } from 'react'
+import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Link, MessageSquare } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { useCanvasStore } from '../../../store'
@@ -49,7 +49,7 @@ import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
-import { SEND_BLOCKED } from '../../../conversation/useConversation'
+import { SEND_BLOCKED, SEND_DEFERRED } from '../../../conversation/useConversation'
 import {
   acceptsElicitedBelief,
   buildFactorValueEditEvent,
@@ -131,7 +131,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * `sending` is the honest state while the promise is open. It is not a
    * success claim: no tick, no success tone.
    */
-  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | null>(null)
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | null>(null)
   /**
    * Which commit the notice belongs to. The wire attempt is fire-and-forget,
    * so its outcome can land after a later commit — or after the person has
@@ -268,6 +268,19 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   // is what makes "commit the same value → nothing happens" true.
   const { seed: inputDisplayValue } = resolveValueInputSeed(node?.data)
   const [draftValue, setDraftValue] = useState<string>(inputDisplayValue != null ? String(inputDisplayValue) : '')
+  /**
+   * ⭐ THE FIELD FOLLOWS THE MODEL WHEN THE PERSON IS NOT TYPING IN IT. The
+   * draft was seeded once, at mount, and never again — so when CEE refused an
+   * edit (HTTP 200, nothing written) and the dispatcher reverted the optimistic
+   * write, the CARD went back to £70,000 while this field kept the refused
+   * £150000 (served `11ed8874`, 24 Sep). Never while focused: a model change
+   * must not rewrite what someone is typing.
+   */
+  const valueFieldFocusedRef = useRef(false)
+  useEffect(() => {
+    if (valueFieldFocusedRef.current) return
+    setDraftValue(inputDisplayValue != null ? String(inputDisplayValue) : '')
+  }, [inputDisplayValue])
 
   // ROADMAP 1.346 — the inspector value-commit is a REAL TURN.
   //
@@ -376,6 +389,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // ruling intact. The number moves now; the claim waits for the engine.
       // The comment above is about the UNDO twin; this is its provenance twin,
       // and leaving it armed is the same way the class keeps coming back.
+      // What the field showed before this commit's optimistic write — the value
+      // a refusal's revert restores (see the settle below).
+      const seedBeforeWrite = resolveValueInputSeed(
+        useCanvasStore.getState().nodes.find(n => n.id === nodeId)?.data,
+      ).seed
       const undo = captureOptimisticFactorEdit(
         nodeId ?? '',
         modelValue,
@@ -410,6 +428,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // "Sent to Olumi".
       const commitSeq = ++valueCommitSeqRef.current
       const commitNodeId = nodeId
+      const seedAfterWrite = resolveValueInputSeed(
+        useCanvasStore.getState().nodes.find(n => n.id === commitNodeId)?.data,
+      ).seed
       setValueCommitOutcome('sending')
     // Fire-and-forget: the response is ingested by the shared turn path
     // (applyV5State applies graph_patch + analysis_ready for system-event turns
@@ -431,7 +452,23 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       ).then(outcome => {
         // A later commit, or a move to another factor, owns the notice now.
         if (commitSeq !== valueCommitSeqRef.current || commitNodeId !== shownNodeIdRef.current) return
-        setValueCommitOutcome(outcome === SEND_BLOCKED ? 'local_only' : 'sent')
+        if (outcome === SEND_BLOCKED) return setValueCommitOutcome('local_only')
+        // `sendTurn` resolves AFTER it has ingested the response and applied or
+        // reverted the optimistic write, so the store now says which. A 200
+        // that wrote nothing is reverted to the pre-edit value: the seed is
+        // back where it was before this commit, and no longer the one it wrote.
+        // A deferred send has no response yet, and stays `sent`.
+        const seedNow = resolveValueInputSeed(
+          useCanvasStore.getState().nodes.find(n => n.id === commitNodeId)?.data,
+        ).seed
+        const reverted = outcome !== SEND_DEFERRED && seedAfterWrite !== seedBeforeWrite && seedNow === seedBeforeWrite
+        setValueCommitOutcome(reverted ? 'not_applied' : 'sent')
+        // Put the model's value back in the field HERE too, not only through
+        // the seed effect: when the write and its revert land in one render,
+        // the seed never visibly changes and the effect never fires.
+        if (reverted && !valueFieldFocusedRef.current) {
+          setDraftValue(seedNow != null ? String(seedNow) : '')
+        }
       }).catch(() => {
         // A genuine send failure leaves the edit local. Saying so is the whole
         // point of this state — the store write did happen, the wire one did not.
@@ -739,8 +776,10 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             <input
               type="number"
               value={draftValue}
+              aria-label={`Value for ${String(node.data?.label ?? '')}`}
               onChange={e => setDraftValue(e.target.value)}
-              onBlur={handleValueBlur}
+              onFocus={() => { valueFieldFocusedRef.current = true }}
+              onBlur={() => { valueFieldFocusedRef.current = false; handleValueBlur() }}
               onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
               placeholder="Enter value"
               className={`${typography.panelHeader} text-xl ${controls.editableField}`}
@@ -967,7 +1006,18 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 Reported to the guard's owner rather than left as a near-miss.
                 The label now states what this app did, which is the part we
                 can actually vouch for. */}
-            {valueCommitOutcome === 'sending' ? (
+            {valueCommitOutcome === 'not_applied' ? (
+              // The model answered and kept its value. Persistent, not a fading
+              // notice: the field has just changed under the person's hands, and
+              // the reason is in Olumi's reply.
+              <p
+                role="alert"
+                data-testid="factor-value-not-saved"
+                className={`${typography.panelMeta} text-danger`}
+              >
+                Not saved. The model kept its previous value; Olumi&apos;s reply says why.
+              </p>
+            ) : valueCommitOutcome === 'sending' ? (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sending to Olumi…" tone="pending" hold />
             ) : valueCommitOutcome === 'local_only' ? (
               <EditConfirmation trigger={lastConfirmed.ts} label="Not sent to Olumi" tone="pending" />
