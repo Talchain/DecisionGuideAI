@@ -587,14 +587,22 @@ describe('Question — wide and shallow: option count + ONE focus signal; coachi
 })
 
 describe('Goal — wide and shallow: target state + one Chance row; provenance compact; coaching behind the icon (ED 11:52Z point 2)', () => {
-  it('"From your brief" is the rail provenance icon with its full notice — not a row of its own', () => {
+  // Contract v3.1 pt 1 ("The separate rail source icons are removed") supersedes
+  // the rail provenance icon ED 11:52Z point 2 put here. At rest the goal face
+  // carries no brief icon; the label's notice is in the card's details.
+  it('"From your brief" is NOT a rail icon at rest (v3.1 pt 1) — the notice sits in the details (Detailed inline)', () => {
     setState({ phase: 'pre' })
     renderCard(GoalNode as never, 'goal-1')
     const card = face('Grow net revenue')
-    const icon = within(card).getByTestId('pre-analysis-v3-goal-from-brief')
-    expect(icon.tagName).toBe('BUTTON')
-    expect(icon.getAttribute('aria-label')).toMatch(/^From your brief\. /)
+    expect(within(card).queryByTestId('pre-analysis-v3-goal-from-brief')).toBeNull()
+    expect(within(card).queryByRole('button', { name: /^From your brief/ })).toBeNull()
     expect(within(card).queryByText('From your brief')).toBeNull()
+    cleanup()
+    setState({ phase: 'pre', viewMode: 'expert' })
+    renderCard(GoalNode as never, 'goal-1')
+    const notice = within(face('Grow net revenue')).getByTestId('pre-analysis-v3-goal-from-brief')
+    expect(notice.tagName).not.toBe('BUTTON')
+    expect(notice.textContent).toMatch(/^Taken from your brief/)
   })
 
   it('no "Is this the real goal?" chip and no "Run analysis" chip on the face — the rail icon asks the question', () => {
