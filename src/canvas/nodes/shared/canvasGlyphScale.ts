@@ -162,8 +162,24 @@ export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Ob
  * constant, so the next legitimate move of this anchor is a one-line change
  * and the invariant they actually exist for keeps biting.
  */
+/**
+ * ⭐ CONTRACT v3.1 (FRAME-12 + PILL-11): NOTHING OVERHANGS THE FRAME, AND THE
+ * OFFSETS SCALE WITH THE MEMBERS THEY SEPARATE.
+ *
+ * · `right-3`, not `right-[-8px]`. The stack hung 8px past the card's right
+ *   border, detached from the frame — the pill Paul saw "sitting on the top
+ *   edge". 12px is the card's own padding, so the stack now right-aligns with
+ *   the title and header-glyph column instead of floating off the corner.
+ * · `mb-` and `gap-` carry `--canvas-label-scale`. They were a fixed 2px and
+ *   4px while every member scales, so at the 0.65 landing zoom the stack sat
+ *   1.3 screen px above the border — reading as ON it — and members sat 2.6px
+ *   apart. Counter-scaled, both are a steady 4 screen px at every zoom ≥ 0.5
+ *   (the same reasoning `CANVAS_GAP_CLASSES` records for the rail).
+ * The stack stays OUT OF FLOW (`bottom-full`), so no card box changes.
+ * ⚠ No spaces inside the arbitrary values — Tailwind would split the class.
+ */
 export const CANVAS_CORNER_STACK_CLASSES =
-  'absolute bottom-full right-[-8px] mb-[2px] z-10 flex items-center gap-1'
+  'absolute bottom-full right-3 mb-[calc(4px*var(--canvas-label-scale,1))] z-10 flex items-center gap-[calc(4px*var(--canvas-label-scale,1))]'
 
 /**
  * ⭐⭐ THE RIGHT-HAND GROUP OF THE CARD HEADER — one string, every group that
@@ -282,6 +298,13 @@ export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
  *
  * ─── WHY IT IS SIZED AT THE BOUND AND IS NOT ITSELF A `calc(... * var(...))` ──
  *
+ * ⚠ READ THIS SECTION AS THE LAYOUT'S RULE, NOT THE RENDERED CARD'S (contract
+ * v3.1 RHY-01). This constant is still what the layout reserves, and it is
+ * still sized at the bound. The card itself now renders
+ * `NODE_QUICK_ACTION_BAND_CSS` below, which EQUALS this constant whenever the
+ * layout measures (the measurer pins the scale to the bound) — so the drift
+ * argued against here cannot arise from it. See that constant's header.
+ *
  * The obvious repair is to make the reservation track the live scale, exactly
  * as the row does. **That is measurably wrong here, and the measurement already
  * exists in this repo.**
@@ -312,6 +335,83 @@ export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
 export const NODE_QUICK_ACTION_BAND_PX =
   CANVAS_QUICK_ACTION_INSET_PX +
   (CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX) * MAX_LABEL_COUNTER_SCALE
+
+/**
+ * ⭐⭐ THE BAND AS THE CARD RENDERS IT — `calc()` over the live scale, which is
+ * EXACTLY `NODE_QUICK_ACTION_BAND_PX` at the bound (contract v3.1 RHY-01, Paul
+ * pt 13 "don't create empty space").
+ *
+ * ⚠ THIS SUPERSEDES THE "WHY IT IS SIZED AT THE BOUND" ARGUMENT ABOVE FOR THE
+ * RENDERED CARD, AND NOT FOR THE LAYOUT — the distinction that argument did not
+ * draw. Its premise was that a reservation tracking the live scale would make
+ * the LAYOUT's heights depend on the zoom it happened to run at. That premise
+ * no longer holds: `measureNodeHeightsAtLabelBound` pins
+ * `--canvas-label-scale` to `MAX_LABEL_COUNTER_SCALE` on the React Flow root
+ * before it reads `offsetHeight`, so this `calc()` resolves to exactly
+ * `NODE_QUICK_ACTION_BAND_PX` during every layout read. Rows are therefore
+ * reserved against the SAME height as before, and the only change is what the
+ * user sees between reads: a card at a zoom above the settle zoom now draws
+ * the band its rail actually needs (6 + 22 × scale) instead of 50px. At 100%
+ * that was 22px of dead space under the last row of every card.
+ *
+ * The rendered card can only be SHORTER than its reservation, never taller —
+ * `--canvas-label-scale` never exceeds its bound — so the bbox cannot grow.
+ * The gate that must stay green is `e2e/geometry/heightVsZoom.measure.ts`
+ * (`cardsThatGrew: 0`).
+ */
+export const NODE_QUICK_ACTION_BAND_CSS =
+  `calc(${CANVAS_QUICK_ACTION_INSET_PX}px + ${CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX}px * var(--canvas-label-scale, 1))`
+
+/**
+ * ⭐ THE WIDTH THE ANCHOR RAIL NEEDS BESIDE ITS LAST ROW (contract v3.1 ANC-02 /
+ * RHY-02: `.node.wide .target-row,.node.wide .row-meta{padding-right:58px}`,
+ * `.node.wide .rail{position:absolute;right:6px;bottom:6px}`).
+ *
+ * The Question and Goal cards no longer reserve a band BELOW their last row;
+ * the rail sits BESIDE it, so that row keeps its text clear of the rail. The
+ * reserve is the rail's own run — `buttons` boxes of `CANVAS_QUICK_ACTION_BOX_PX`
+ * with the scaled 6px gap between them — plus one more gap so text never
+ * touches a button, all counter-scaled like the rail, plus the rail's unscaled
+ * corner inset.
+ *
+ * ⚠ LITERAL CLASS STRINGS, ONE PER REACHABLE COUNT (3–6), NOT A FUNCTION AND
+ * NOT A CUSTOM PROPERTY. Tailwind emits CSS only for class text it can SEE, so
+ * a template-built class renders nothing; and an inline `--anchor-rail-w`
+ * definition is invisible to `scripts/css-var-census.mjs`, which reported the
+ * first cut of this as an undefined reference (the required
+ * `css-var-resolution` guard). `anchorRailReservePx` below is the derivation,
+ * and `canvasGlyphScale.contractV31.spec.ts` parses every literal back
+ * and asserts it equals it, so the numbers are hand-typed once and checked
+ * forever. The `[&>:last-child]` variant targets the body wrapper's LAST row
+ * only: the rows above keep the card's full measure.
+ *
+ * Reachable counts: Challenge + More + one of Ask / coaching icon (mutually
+ * exclusive in `NodeQuickActions`) = 3, plus the caller's `railIcons` and the
+ * evidence / behaviour icons `NodeSignalRailIcons` draws — at most 6.
+ */
+export const ANCHOR_RAIL_MIN_BUTTONS = 3 as const
+export const ANCHOR_RAIL_MAX_BUTTONS = 6 as const
+export type AnchorRailButtons = 3 | 4 | 5 | 6
+
+/** The scaled run the reserve covers, in px at scale 1 (see the classes). */
+export function anchorRailReservePx(buttons: AnchorRailButtons): number {
+  return buttons * CANVAS_QUICK_ACTION_BOX_PX + buttons * 6
+}
+
+export const ANCHOR_RAIL_RESERVE_CLASSES: Readonly<Record<AnchorRailButtons, string>> = Object.freeze({
+  3: '[&>:last-child]:pr-[calc(6px+78px*var(--canvas-label-scale,1))]',
+  4: '[&>:last-child]:pr-[calc(6px+104px*var(--canvas-label-scale,1))]',
+  5: '[&>:last-child]:pr-[calc(6px+130px*var(--canvas-label-scale,1))]',
+  6: '[&>:last-child]:pr-[calc(6px+156px*var(--canvas-label-scale,1))]',
+})
+
+/** Clamp a counted rail to a key of `ANCHOR_RAIL_RESERVE_CLASSES`. */
+export function anchorRailButtonsKey(count: number): AnchorRailButtons {
+  const n = Math.floor(count)
+  if (n <= ANCHOR_RAIL_MIN_BUTTONS) return ANCHOR_RAIL_MIN_BUTTONS
+  if (n >= ANCHOR_RAIL_MAX_BUTTONS) return ANCHOR_RAIL_MAX_BUTTONS
+  return n as AnchorRailButtons
+}
 
 /**
  * WCAG 2.2 AA 2.5.8's minimum target, in the px a user actually gets.

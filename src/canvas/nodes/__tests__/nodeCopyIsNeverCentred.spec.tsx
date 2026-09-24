@@ -292,7 +292,8 @@ describe('the five walked components render no centred copy (see header: 9 of 14
   })
 
   /**
-   * Locked Canvas design (23 Sep 2026): the derived severity badge ("High Risk")
+   * Locked Canvas design (23 Sep 2026): the derived severity badge ("High risk" —
+   * sentence case since contract v3.1 T13)
    * is Detailed-only now (ED 11:52Z — the resting Risk face keeps the entered
    * exposure line, the badge is Detailed information). So the badge is walked
    * WHERE IT NOW RENDERS, and the Standard face is still walked in full — the
@@ -307,7 +308,7 @@ describe('the five walked components render no centred copy (see header: 9 of 14
     // resting face, and nothing there is centred.
     const standard = mount(<RiskNode {...riskProps} />)
     expect(standard.textContent).toContain('Key engineer leaves')
-    expect(standard.textContent).not.toContain('High Risk')
+    expect(standard.textContent).not.toMatch(/High risk/i)
     const foundStandard = centredCopy(standard)
     expect(foundStandard, `RiskNode (Standard) centres copy:\n${report(foundStandard)}`).toEqual([])
 
@@ -316,7 +317,7 @@ describe('the five walked components render no centred copy (see header: 9 of 14
     // severity cannot pass this by rendering nothing.
     useStoreState({ viewMode: 'expert' })
     const detailed = mount(<RiskNode {...riskProps} />)
-    expect(detailed.textContent).toContain('High Risk')
+    expect(detailed.textContent).toContain('High risk')
     const found = centredCopy(detailed)
     expect(found, `RiskNode (Detailed) centres copy:\n${report(found)}`).toEqual([])
   })

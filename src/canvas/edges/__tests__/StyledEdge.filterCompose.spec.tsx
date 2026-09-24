@@ -14,13 +14,19 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
-import { StyledEdge } from '../StyledEdge'
+import { StyledEdge, EDGE_GLOW } from '../StyledEdge'
 import { Position } from '@xyflow/react'
 
-const INFO_GLOW = 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
+// contract v3.1 (E5/T09, 24 Sep 2026): both glows come from the ONE recipe
+// (`EDGE_GLOW`), info token at partial alpha with no off-palette fallback. They
+// were literals here — `drop-shadow(0 0 2px var(--semantic-info, #3b82f6))` and
+// the 4px twin — pinning the superseded full-alpha values. Bound to the
+// exported identities now, and the two stay DIFFERENT strings (asserted below)
+// so "both composed" remains distinguishable from "one twice".
+const INFO_GLOW = EDGE_GLOW.sensitivity
 // R6: the fragility halo moved off the warning hue — under the default lens,
 // orange on an edge means CONTESTED and nothing else.
-const WARNING_HALO = 'drop-shadow(0 0 4px var(--semantic-info, #3b82f6))'
+const WARNING_HALO = EDGE_GLOW.flipRisk
 
 // Mutable, per-test scenario knobs.
 let lensActive: 'full' | 'sensitivity' = 'full'
@@ -123,6 +129,22 @@ afterEach(() => {
   sensitivityWeights = new Map()
   sensitivityQuartiles = null
   analysisHighlight = { source: null, edgeIds: new Set(), nodeIds: new Set() }
+})
+
+describe('contract v3.1 (E5): the glow recipe', () => {
+  it('the two composable glows are distinct strings, so composition is observable', () => {
+    expect(INFO_GLOW).not.toBe(WARNING_HALO)
+  })
+
+  it('every glow is the info TOKEN at partial alpha — no full-strength bloom, no fallback hex', () => {
+    for (const [name, glow] of Object.entries(EDGE_GLOW)) {
+      expect(glow, name).toContain('var(--semantic-info)')
+      expect(glow, name).toMatch(/color-mix\(in srgb, var\(--semantic-info\) \d+%, transparent\)/)
+      expect(glow, name).not.toContain('#3b82f6')
+    }
+    // The contract's selected glow is 2px at about a third alpha.
+    expect(EDGE_GLOW.selected).toBe('drop-shadow(0 0 2px color-mix(in srgb, var(--semantic-info) 35%, transparent))')
+  })
 })
 
 describe('StyledEdge — filter composition', () => {

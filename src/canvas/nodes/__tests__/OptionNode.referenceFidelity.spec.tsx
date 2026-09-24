@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { changeRow } from './__helpers__/optionChangeRowText'
 import { useCanvasStore } from '../../store'
 
 vi.mock('@xyflow/react', async () => {
@@ -55,6 +56,9 @@ describe('option targets and their declared reference through the real store', (
     // would hide the row or claim no change instead of this identified pair.
     expect(screen.getAllByText('Reference: Keep the original plan').length).toBeGreaterThan(0)
     expect(screen.getAllByText('40% → 80%').length).toBeGreaterThan(0)
+    // contract v3.1 OPT-03: the CARD row, by identity (its "from" half is a
+    // separate muted span, so the plain text query above finds only the popover).
+    expect(screen.getByText(changeRow('40% → 80%'))).toBeInTheDocument()
     expect(screen.queryByText(/\(\+100/)).toBeNull()
     expect(screen.queryByText(/current state/i)).toBeNull()
   })
@@ -86,6 +90,8 @@ describe('option targets and their declared reference through the real store', (
     expect(screen.getByText('80%')).toBeInTheDocument()
     expect(screen.queryByText(/Reference:/)).toBeNull()
     expect(screen.queryByText('40% → 80%')).toBeNull()
+    // contract v3.1 OPT-03: by identity too, or a split card row passes vacuously.
+    expect(screen.queryByText(changeRow('40% → 80%'))).toBeNull()
   })
 
   it('does not select an arbitrary reference when two options declare themselves baseline', () => {
@@ -114,6 +120,8 @@ describe('option targets and their declared reference through the real store', (
       ceeAnalysisReady: { options: [{ id: 'candidate', interventions: { price: { value: 0.8, display_value: 'Proposed level' } } }] },
     })
     expect(screen.getAllByText('Original level → Proposed level').length).toBeGreaterThan(0)
+    // contract v3.1 OPT-03: the CARD row, by identity.
+    expect(screen.getByText(changeRow('Original level → Proposed level'))).toBeInTheDocument()
     expect(screen.queryByText(/Observed level/)).toBeNull()
   })
 })

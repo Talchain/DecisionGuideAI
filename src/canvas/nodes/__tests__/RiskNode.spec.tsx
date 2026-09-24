@@ -144,7 +144,7 @@ describe('RiskNode', () => {
   it.each([NaN, Infinity, -0.1, 1.1, '0.8'])('does not turn malformed probability %s into a risk estimate', (probability) => {
     renderRisk({ probability, impact: 'high' })
     expect(screen.queryByText(/% likely/)).toBeNull()
-    expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
+    expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
     expect(screen.getByText('Entered estimate · High impact')).toBeDefined()
   })
 
@@ -171,20 +171,21 @@ describe('RiskNode', () => {
   })
 
   // Severity badge
-  it('shows High Risk badge when probability is high and impact is high', () => {
+  // contract v3.1 T13: the badge is sentence case — "High risk", not "High Risk".
+  it('shows High risk badge when probability is high and impact is high', () => {
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByText('High Risk')).toBeDefined()
+    expect(screen.getByText('High risk')).toBeDefined()
   })
 
-  it('shows Low Risk badge when probability is low and impact is low', () => {
+  it('shows Low risk badge when probability is low and impact is low', () => {
     renderRisk({ probability: 0.1, impact: 'low' })
-    expect(screen.getByText('Low Risk')).toBeDefined()
+    expect(screen.getByText('Low risk')).toBeDefined()
   })
 
   it('does not show severity badge when probability and impact are absent', () => {
     renderRisk()
-    // Severity badge shows "High Risk", "Medium Risk", etc. — not the plain "Risk" type label
-    expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
+    // Severity badge shows "High risk", "Medium risk", etc. — not the plain "Risk" type label
+    expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
   })
 
   // P1.7 — severity badge visible in STANDARD view (was Expert/popover-only).
@@ -198,7 +199,7 @@ describe('RiskNode', () => {
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     const standard = renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
+    expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
     // Positive control in the SAME render: the entered exposure line is there.
     expect(screen.getByText('Entered estimate · 90% likely · High impact')).toBeDefined()
     standard.unmount()
@@ -207,7 +208,7 @@ describe('RiskNode', () => {
       selector(makeStoreState({ viewMode: 'expert' }) as any)
     )
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByText('High Risk')).toBeDefined()
+    expect(screen.getByText('High risk')).toBeDefined()
   })
 
   // P1.7 — the defining probability × impact pair is shown in the body.
