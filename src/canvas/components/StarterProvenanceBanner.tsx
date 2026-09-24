@@ -221,12 +221,19 @@ export function StarterProvenanceBanner() {
       // band's height is charged to every user as bottom fit inset (+63px
       // today), and it is charged whether or not this banner is on screen,
       // whereas this padding is paid only by the banner.
-      className="pointer-events-auto flex items-center gap-3 rounded-lg bg-panel px-4 py-1 shadow-2"
+      //
+      // contract v3.1 CHR-6 / CHR-14: the cell's one floating-chrome recipe
+      // gains the full neutral border every other occupant carries, and the
+      // headline drops from `bodySmall` (14px) to the notice family's one body
+      // size — `caption` with a `font-medium` head, the `AnalysisStateCue`
+      // pattern. The type shrink more than pays for the 2px of border, so the
+      // banner is never taller than the 63px measured above; `py-1` holds.
+      className="pointer-events-auto flex items-center gap-3 rounded-lg border border-panel-border bg-panel px-4 py-1 shadow-2"
       style={{ maxWidth: 'min(720px, 100%)' }}
     >
       <BookmarkCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-info" />
       <div className="min-w-0 flex-1">
-        <p className={`${typography.bodySmall} leading-snug text-text-header`}>
+        <p className={`${typography.caption} font-medium leading-snug text-text-header`}>
           Saved example — Olumi drafted this model on {starter.provenance.capturedAt}. It wasn’t generated just now.
         </p>
         {/* Says ONLY what the gate actually does. An earlier draft of this copy
@@ -253,7 +260,8 @@ export function StarterProvenanceBanner() {
         aria-label="Dismiss saved-example notice"
         data-testid="starter-provenance-dismiss"
         onClick={() => setDismissed(true)}
-        className="shrink-0 rounded-md p-1 text-text-light transition-colors duration-fast hover:text-text-body"
+        // contract v3.1 CHR-9: every notice's dismiss carries a visible focus ring.
+        className="shrink-0 rounded-md p-1 text-text-light transition-colors duration-fast hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
       >
         <X aria-hidden="true" className="h-4 w-4" />
       </button>

@@ -175,10 +175,13 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
             <button
               type="button"
               onClick={() => onRemove(toast.id)}
-              className="flex-shrink-0 p-1 hover:bg-black/5 rounded transition-colors text-text-light"
+              // contract v3.1 CHR-15: the neutral hover is the DS token
+              // `bg-panel-hover`, not a pure-black tint; muted at rest, body
+              // colour on hover, focus ring — the notices' one dismiss (CHR-9).
+              className="flex-shrink-0 p-1 hover:bg-panel-hover rounded-md transition-colors text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
               aria-label="Dismiss"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         )

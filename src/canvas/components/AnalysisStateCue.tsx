@@ -78,7 +78,9 @@ export function AnalysisStateCue() {
         data-testid={ANALYSIS_STATE_CUE_TESTID}
         role="status"
         aria-live="polite"
-        className={`${styles.cue ?? ''} pointer-events-auto inline-flex max-w-full items-start gap-1.5 rounded-lg border border-panel-border bg-panel px-2.5 py-1 shadow-sm`}
+        // contract v3.1 CHR-6: the overlay band's one floating-chrome recipe —
+        // warm DS `shadow-2`, not Tailwind's cool `shadow-sm`.
+        className={`${styles.cue ?? ''} pointer-events-auto inline-flex max-w-full items-start gap-1.5 rounded-lg border border-panel-border bg-panel px-2.5 py-1 shadow-2`}
       >
         <History className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" aria-hidden="true" />
         <p className={`${typography.caption} min-w-0 text-text-body`}>

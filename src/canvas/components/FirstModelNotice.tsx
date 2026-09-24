@@ -184,13 +184,18 @@ export function FirstModelNotice() {
   // several — so the invitation is no longer a second visible sentence; it
   // stays reachable as the notice's accessible description and hover title.
   // The ruled sentence itself (`witnessedCopyRulings.spec.ts`) is unchanged.
+  //
+  // contract v3.1 CHR-6: the cell's ONE floating-chrome recipe — `bg-panel`, a
+  // full `border-panel-border`, the warm DS `shadow-2` (was Tailwind's cool
+  // `shadow-sm`, not a DS token). The pill radius stays: it is this cell's
+  // one-line grammar (DS v5 §6.2 `pill`).
   const body = (
     <div
       data-testid={FIRST_MODEL_NOTICE_TESTID}
       role="status"
       title={FIRST_MODEL_NOTICE_INVITATION}
       aria-describedby={`${FIRST_MODEL_NOTICE_TESTID}-invitation`}
-      className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
+      className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-2"
     >
       <span className={`${typography.panelMeta} text-text-body`}>
         {FIRST_MODEL_NOTICE_COPY}
@@ -203,9 +208,14 @@ export function FirstModelNotice() {
         data-testid={`${FIRST_MODEL_NOTICE_TESTID}-dismiss`}
         aria-label="Dismiss the first-model notice"
         onClick={() => setDismissed(true)}
-        className="flex-none rounded text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        // contract v3.1 CHR-9: the same dismiss affordance as every other
+        // notice — a 24px hit area (WCAG 2.5.8; it was the bare 12px glyph),
+        // muted at rest, body colour on hover, a visible focus ring. The
+        // negative margin cancels the padding in layout, so the pill's size and
+        // the glyph's position do not move by a pixel.
+        className="-m-1.5 flex-none rounded-md p-1.5 text-text-light transition-colors duration-fast hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
       >
-        <X size={12} aria-hidden="true" />
+        <X className="h-3 w-3" aria-hidden="true" />
       </button>
     </div>
   )
