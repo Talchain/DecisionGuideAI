@@ -27,6 +27,14 @@ import {
 export type LatestRunNote =
   | { readonly kind: 'did_not_run'; readonly reason: string }
   | { readonly kind: 'failed' }
+  /**
+   * The WIRE says the analysis is blocked, with no typed refusal held for a
+   * run attempt. Review 5820019088: `blocked` without the refusal slice is a
+   * reachable state of the mapper (`useAnalysisRunState.mapping.spec.ts`), and
+   * it fell through to silence. It is stated as the model needing a change,
+   * never as a run that was attempted and stopped.
+   */
+  | { readonly kind: 'blocked' }
 
 export function deriveLatestRunNote(input: {
   runState: AnalysisRunStateKind
@@ -43,6 +51,13 @@ export function deriveLatestRunNote(input: {
       reason: describeAnalysisRefusalReason(refusal.blockedReason) ?? ANALYSIS_REFUSAL_GENERIC_REASON,
     }
   }
-  if (resultsStatus === 'error') return { kind: 'failed' }
+  if (runState === 'blocked') return { kind: 'blocked' }
+  // ⚠ THE WIRE'S PRECEDENCE HOLDS: a legacy 'error' status is a failed attempt
+  // only where the mapper itself did not settle the run (it maps 'error' to
+  // `unknown_degraded` after a first run, and leaves `never_run` before one).
+  // A wire `complete_current` / `complete_stale` beats a stale error flag.
+  if (resultsStatus === 'error' && (runState === 'unknown_degraded' || runState === 'never_run')) {
+    return { kind: 'failed' }
+  }
   return null
 }
