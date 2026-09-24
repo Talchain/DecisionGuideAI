@@ -43,8 +43,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { typography } from '../../../styles/typography'
-import { changeRow, changeRowValueText } from './__helpers__/optionChangeRowText'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -63,11 +61,6 @@ const BASELINE_SETS_VALUES = {
   id: 'option-b', type: 'option',
   data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
 }
-const BASELINE_SETS_NOTHING = {
-  id: 'option-b', type: 'option',
-  data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: {} },
-}
-
 const CEE_READY = {
   options: [
     { id: 'option-1', interventions: { 'f-head': { value: 3, display_value: '3 engineers' } } },
@@ -133,8 +126,6 @@ const baseProps = {
   selectable: true,
   draggable: true,
 }
-
-const COMPLETE = { status: 'complete', report: {} }
 
 const renderCard = (
   { id = 'option-1', data = {}, store = {} }: { id?: string; data?: Record<string, unknown>; store?: Record<string, unknown> } = {},
