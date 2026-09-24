@@ -26,7 +26,7 @@ function makeBlock(
     type: 'v5_analysis_result',
     summary: 'Hire Two Senior Engineers Locally looks strongest.',
     leading_option_id: 'opt_hire_local',
-    win_probabilities: { opt_hire_local: 0.72 },
+    win_probabilities: { opt_hire_local: 0.72, opt_hire_remote: 0.28 },
     enrichment: {
       option_comparison: [
         {
@@ -40,10 +40,26 @@ function makeBlock(
             p90: overrides.p90 ?? undefined,
           },
         },
+        {
+          id: 'opt_hire_remote',
+          option_id: 'opt_hire_remote',
+          option_label: 'Hire Remote Contractors',
+          win_probability: 0.28,
+          outcome: { p10: -0.2, p50: 0.05, p90: 0.3 },
+        },
       ],
       robustness: {
         ...(overrides.robustnessLevel ? { level: overrides.robustnessLevel } : {}),
         ...(overrides.robustnessLabel ? { label: overrides.robustnessLabel } : {}),
+        // A PERMITTED run: the producer names the leader. The confident tier
+        // renders only when the card may name one (withheldIsNotConfident.spec.tsx).
+        near_tie: {
+          is_tie: false,
+          top_option_id: 'opt_hire_local',
+          second_option_id: 'opt_hire_remote',
+          gap: 0.44,
+          threshold: 0.1,
+        },
       },
     },
   }
