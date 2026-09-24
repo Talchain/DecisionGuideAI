@@ -22,7 +22,7 @@ import {
 } from '../utils/interventionDisplay'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { BriefIcon, NodePopover, ScienceIcon } from './shared'
+import { NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
@@ -1114,10 +1114,6 @@ export const OptionNode = memo((props: NodeProps) => {
     setHoveredOption(null)
   }, [setHoveredOption])
 
-  const isOptionFromCee = useMemo(() =>
-    ceeAnalysisReady?.options?.some(opt => opt.id === props.id) ?? false,
-  [ceeAnalysisReady, props.id])
-
   // A factor to investigate, selected by shared influence policy among this option's inputs.
   const winsVia = useMemo(() => {
     if (!isPostAnalysis || !isRecommended || !resultsReport) return null
@@ -1558,17 +1554,15 @@ export const OptionNode = memo((props: NodeProps) => {
         <p className={`${typography.nodeLabel} text-text-body m-0`}>Baseline option.</p>
       )}
 
-      {isOptionFromCee && !isBaselineOption && (
-        <div className="mt-0.5">
-          <BriefIcon />
-        </div>
-      )}
-
+      {/* ⛔ NO CARD-LEVEL "From your brief" ICON — contract v3.1 pts 1/7 (gap
+          U8): each change row carries its own source mark, and the card-level
+          source icon is removed. It was also not a brief fact: it fired for
+          any option listed in `analysis_ready.options`, whoever authored it. */}
       {/* Coaching chips — Standard view: live in popover; Detailed view: live
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionReference, isOptionFromCee, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionReference, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {

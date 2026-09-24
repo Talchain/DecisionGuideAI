@@ -255,6 +255,10 @@ const SURFACES: {
   {
     name: 'EvidenceGapBadge',
     mount: () => {
+      // Contract v3.1 pt 6: the badge renders at the `full` rung only (hidden
+      // at quiet/far zoom), so it is measured where it renders; the geometry
+      // claim is unchanged.
+      useCanvasStore.setState({ lodRung: 'full' } as never)
       render(<EvidenceGapBadge label="Churn rate" escalation="critical" />)
     },
     minTargets: 1,
@@ -425,6 +429,8 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
    */
   describe('EvidenceGapBadge — the div+text mark the svg sweep cannot see', () => {
     it('counter-scales the circle and the "?" it holds', () => {
+      // Contract v3.1 pt 6: rendered at the `full` rung only (see the registry entry).
+      useCanvasStore.setState({ lodRung: 'full' } as never)
       render(<EvidenceGapBadge label="Churn rate" escalation="critical" />)
       const circle = screen.getByTestId('evidence-gap-badge')
       const box = sizeFromClass(cls(circle), 'h')
