@@ -349,6 +349,58 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     )
   })
 
+  /**
+   * ⛔ REVIEW 5819068969 (BLOCKING): the note was keyed only by the open state,
+   * so it outlived a pick-change — reopening Respond on the next item showed the
+   * old words and Send put them under the NEW heading.
+   */
+  it('⭐ a note written for one item never reaches another after the pick changes', () => {
+    const a = METHOD_CATALOGUE.find((m) => m.id === 'pre_mortem')!
+    const b = METHOD_CATALOGUE.find((m) => m.id !== 'pre_mortem')!
+    const { rerender, onRunIntervention, onRunMethod } = renderCard({ intervention: viaVm(FLIP), methodId: a.id })
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-respond'))
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), {
+      target: { value: 'CONCERN ABOUT METHOD A ONLY' },
+    })
+
+    // The pick moves on WITHOUT a Cancel.
+    rerender(
+      <ChallengeCard
+        intervention={viaVm(FLIP)}
+        methodId={b.id}
+        onRunIntervention={onRunIntervention}
+        onRunMethod={onRunMethod}
+        analysisHash="hash_1"
+      />,
+    )
+    expect(screen.getByTestId('analysis-new-challenge-heading')).toHaveTextContent(b.title)
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-respond'))
+    expect(screen.getByTestId('analysis-new-challenge-respond-note')).toHaveValue('')
+    expect(screen.getByTestId('analysis-new-challenge-respond-send')).toBeDisabled()
+
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), { target: { value: 'About B' } })
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
+    const payload = (openAskOlumi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(payload.draft).toBe(`${b.title}\n\nMy thinking: About B`)
+    expect(payload.draft).not.toContain('METHOD A')
+  })
+
+  it('opening focuses the note; Escape closes it, writes nothing, and returns focus to Respond', () => {
+    renderCard({ intervention: viaVm(FLIP) })
+    const trigger = screen.getByTestId('analysis-new-challenge-respond')
+    fireEvent.click(trigger)
+    const note = screen.getByTestId('analysis-new-challenge-respond-note')
+    expect(note).toHaveFocus()
+    fireEvent.change(note, { target: { value: 'half a thought' } })
+    fireEvent.keyDown(note, { key: 'Escape' })
+    expect(screen.queryByTestId('analysis-new-challenge-respond-form')).toBeNull()
+    expect(openAskOlumi).not.toHaveBeenCalled()
+    expect(trigger).toHaveFocus()
+    // Reopening starts clean.
+    fireEvent.click(trigger)
+    expect(screen.getByTestId('analysis-new-challenge-respond-note')).toHaveValue('')
+  })
+
   it('carries no parameters when the rec holds none — never fabricating a block id', () => {
     const r = viaVm(rec({ id: 'strengthen:flip:edge_noparam' }))
     expect(r.action.parameters, 'PRECONDITION: this fixture must hold no parameters').toBeUndefined()
