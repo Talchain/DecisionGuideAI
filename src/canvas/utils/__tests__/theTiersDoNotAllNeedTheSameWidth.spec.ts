@@ -36,6 +36,18 @@
  * today's width, so no graph gets wider. `theBoardDoesNotGrow` asserts that
  * over all five shipped starters rather than reasoning about it.
  */
+/*
+ * ⭐⭐ S4 (24 Sep 2026) SUPERSEDES THE OPTION WIDENING, AND THIS FILE SAYS WHICH
+ * HALF. Experience Design (#63 5806207128 / 5806266691): "Paul's earlier 'they
+ * don't all have to be the same width' was permission, not a requirement to
+ * keep Options at ~300–430px. 248 is the target" for Option, Factor, Outcome and
+ * Risk (260 here — the legibility floor wins), and "Question and Goal ≤460px,
+ * wide and shallow." So the title's claim survives — the tiers still do NOT all
+ * share one width: the Question and the Goal are wide and the repeated families
+ * are narrow — but "options wider than outcomes" is retired by ruling, and the
+ * "never below 336" rule is discharged because the one character budget that
+ * needed it (`NODE_ROW_LABEL_MAX_CHARS`) now follows the card.
+ */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import { layoutGraph, solveLayoutCardWidths } from '../layout'
@@ -45,6 +57,8 @@ import {
   TIER_BY_KIND,
   LAYOUT_NODE_GAP,
   LAYOUT_PADDING_X,
+  REPEATED_CARD_W,
+  ANCHOR_CARD_MAX_W,
 } from '../nodeLayoutConstants'
 
 import capture from '../../__tests__/__fixtures__/starter-node-heights.browser-capture-2026-08-18.json'
@@ -115,11 +129,14 @@ describe('a tier may use width the board is already paying for', () => {
     }
   })
 
-  it('⭐ options draw wider than outcomes — the tier carrying 3.4x the content', async () => {
+  it('⭐ S4: options, factors, outcomes and risks all draw at ONE repeated width', async () => {
+    // Retires "options draw wider than outcomes" by ruling (see the header).
     for (const id of IDS) {
       const { nodes } = buildGraph(id)
       const widths = solveLayoutCardWidths(nodes)
-      expect(widths.option, `${id}: option vs outcome`).toBeGreaterThan(widths.outcome)
+      for (const kind of ['option', 'factor', 'outcome', 'risk']) {
+        expect(widths[kind], `${id}: ${kind}`).toBe(REPEATED_CARD_W)
+      }
     }
   })
 
@@ -128,16 +145,17 @@ describe('a tier may use width the board is already paying for', () => {
    * EVERYTHING would pass both tests above — and that is the change that makes
    * the board too wide to read, which is the defect from the other end.
    */
-  it('⛔ CONTRAST: the widest tier is unchanged — it is already at the bound', async () => {
+  it('⛔ CONTRAST: only the Question and the Goal are wide — and never past 460', async () => {
+    // Without this, a change that simply widened EVERYTHING would pass the
+    // Question/Goal test above — the change that makes the board too wide to
+    // fit a laptop, which is the defect S4 exists to fix.
     for (const id of IDS) {
       const { nodes } = buildGraph(id)
       const widths = solveLayoutCardWidths(nodes)
-      // Outcome/risk is the most populous tier on every shipped starter, so it
-      // is the one with no slack. Its cap is `NODE_CARD_MAX_W` and it must land
-      // there exactly — never above it, and never below (a narrower box would
-      // re-open the character-budget truncation).
-      expect(widths.outcome, `${id}: outcome`).toBe(NODE_CARD_MAX_W)
-      expect(widths.risk, `${id}: risk`).toBe(NODE_CARD_MAX_W)
+      expect(widths.decision, `${id}: decision`).toBeLessThanOrEqual(ANCHOR_CARD_MAX_W)
+      expect(widths.goal, `${id}: goal`).toBeLessThanOrEqual(ANCHOR_CARD_MAX_W)
+      const wide = Object.entries(widths).filter(([, w]) => w > REPEATED_CARD_W).map(([k]) => k).sort()
+      expect(wide, `${id}: a repeated family drew wide`).toEqual(['decision', 'goal'])
     }
   })
 
@@ -186,10 +204,16 @@ describe('a tier may use width the board is already paying for', () => {
     }
   })
 
-  it('every cap is at or above the single card width — never below it', () => {
-    for (const [tier, cap] of Object.entries(CARD_W_CAP_BY_TIER)) {
-      expect(cap, `tier ${tier}`).toBeGreaterThanOrEqual(NODE_CARD_MAX_W)
+  it('S4 caps: the anchors at 460, every repeated tier at the repeated width — below 336 on purpose', () => {
+    // "Never below NODE_CARD_MAX_W" held while a character budget was derived
+    // against 336; that budget now follows `REPEATED_CARD_W`
+    // (`rowLabelBudgetDerived.spec.ts`), so the rule is discharged, not ignored.
+    expect(CARD_W_CAP_BY_TIER[TIER_BY_KIND.decision]).toBe(ANCHOR_CARD_MAX_W)
+    expect(CARD_W_CAP_BY_TIER[TIER_BY_KIND.goal]).toBe(ANCHOR_CARD_MAX_W)
+    for (const kind of ['option', 'factor', 'outcome', 'risk']) {
+      expect(CARD_W_CAP_BY_TIER[TIER_BY_KIND[kind]], kind).toBe(REPEATED_CARD_W)
     }
+    expect(REPEATED_CARD_W).toBeLessThan(NODE_CARD_MAX_W)
   })
 
   /**

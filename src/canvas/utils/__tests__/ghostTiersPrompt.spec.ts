@@ -320,48 +320,48 @@ describe('the legacy option door composes from the same tier table as every othe
   })
 })
 
-describe('the mount hands that sentence to the legacy ghost node', () => {
+describe('the mount hands that sentence to the option prompt', () => {
   /**
-   * ⚠ COMMENTS STRIPPED FIRST. Without it, every assertion below can be
-   * satisfied by prose — a review proved exactly that on the sibling mount-path
-   * spec, by replacing a live call with a comment carrying the same call text.
+   * ⭐ S4 (24 Sep 2026): THE OPTION PROMPT IS NO LONGER HAND-BUILT IN THE MOUNT.
+   * From 15 Sep `ReactFlowGraph` composed the `__ghost-option__` literal itself
+   * and this block scanned that literal for `data: { prompt: ghostOptionPrompt(`
+   * — the guard against the `data: {}` that once shipped the hardcoded sentence.
+   * Experience Design restored every row-end prompt, and the mount now places
+   * all four through `withGhostTiers`, so the guard moves to the node that
+   * function emits: bound by id, by type, and by the exact sentence.
    */
   const mountSource = (): string => {
     const raw = readFileSync(resolve(__dirname, '../../ReactFlowGraph.tsx'), 'utf-8')
     const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
-    // POSITIVE CONTROL: a strip that ate the file would make every `not.toMatch`
-    // below pass by matching nothing, and the `toMatch` ones fail loudly — but
-    // only if something asserts the input is non-empty first.
     if (code.length < 1000) throw new Error('ReactFlowGraph.tsx read or stripped to nothing')
     return code
   }
+  const optionPrompt = () => withGhostTiers(MODEL).find((g) => g.id === GHOST_OPTION_NODE_ID)
 
-  /** The legacy ghost node's object literal, isolated so the assertions bind to IT. */
-  const ghostNodeLiteral = (): string => {
-    const m = /id:\s*GHOST_OPTION_NODE_ID[\s\S]{0,600}?connectable:\s*false,/.exec(mountSource())
-    if (!m) throw new Error('could not locate the ghost-option node literal in ReactFlowGraph.tsx')
-    return m[0]
-  }
-
-  it('POSITIVE CONTROL: the literal was found, and it is the ghost-option one', () => {
-    const block = ghostNodeLiteral()
-    expect(block).toContain('GHOST_OPTION_NODE_ID')
-    expect(block).toContain("'ghost-option'")
+  it('POSITIVE CONTROL: the option prompt is produced, and it is the ghost-option node', () => {
+    const node = optionPrompt()
+    expect(node, 'no option prompt was produced for a model with options').toBeDefined()
+    expect(node!.type).toBe('ghost-option')
   })
 
-  it('builds it with a prompt from `ghostOptionPrompt`, not with an empty data bag', () => {
-    // `data: {}` is what shipped the defect: the node carried nothing, so the
-    // component's hardcoded sentence was what the user actually sent.
-    expect(ghostNodeLiteral()).toMatch(/data:\s*\{\s*prompt:\s*ghostOptionPrompt\(/)
-    expect(ghostNodeLiteral()).not.toMatch(/data:\s*\{\s*\}/)
+  it('carries exactly `ghostOptionPrompt(model)`, never an empty data bag', () => {
+    const data = optionPrompt()!.data as { prompt?: string }
+    expect(data.prompt).toBe(ghostOptionPrompt(MODEL))
+    expect(data.prompt!.length).toBeGreaterThan(0)
   })
 
-  it('NEGATIVE CONTROL: a fabricated name does not match', () => {
-    // Guards the two assertions above against a regex that matches anything.
-    expect(ghostNodeLiteral()).not.toMatch(/data:\s*\{\s*prompt:\s*ghostOptionPromptV99Fabricated\(/)
+  it('NEGATIVE CONTROL: a different model gets a different sentence on the same node', () => {
+    const other = [
+      n('d1', 'decision', 'Replace our customer data platform before the March renewal'),
+      n('o1', 'option', 'Snowplow'),
+    ]
+    const otherPrompt = (withGhostTiers(other).find((g) => g.id === GHOST_OPTION_NODE_ID)!.data as { prompt?: string }).prompt
+    expect(otherPrompt).not.toBe((optionPrompt()!.data as { prompt?: string }).prompt)
   })
 
-  it('imports it from the tier module rather than re-deriving a sentence locally', () => {
-    expect(mountSource()).toMatch(/import\s*\{[^}]*ghostOptionPrompt[^}]*\}\s*from\s*'\.\/utils\/ghostTiers'/)
+  it('the mount builds it through `withGhostTiers`, imported from the tier module — not a sentence of its own', () => {
+    expect(mountSource()).toMatch(/import\s*\{[^}]*withGhostTiers[^}]*\}\s*from\s*'\.\/utils\/ghostTiers'/)
+    expect(mountSource()).toMatch(/withGhostTiers\s*\(/)
+    expect(mountSource()).not.toMatch(/data:\s*\{\s*prompt:/)
   })
 })

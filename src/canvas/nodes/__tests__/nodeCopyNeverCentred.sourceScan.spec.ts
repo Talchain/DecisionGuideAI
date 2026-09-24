@@ -291,14 +291,21 @@ describe('canvas node surface — copy is never centrally aligned', () => {
     expect(hits((l) => l.includes('flex-col') && l.includes('items-center'))).toEqual([])
   })
 
-  it('the ghost tier door does not centre its copy block (flex-col ⇒ items-* is horizontal)', () => {
+  it('the ghost tier door does not centre its copy block (flex-row ⇒ justify-* is horizontal)', () => {
     // Bound by IDENTITY to the file, not to a value predicate another element
-    // could satisfy. This door's label is a full sentence ("What else could
-    // you do?") in a box sized for two lines by design, so wrapping is the
-    // intended state and centring it is the defect Paul reported.
+    // could satisfy. This door's label is a full sentence ("What else could go
+    // wrong?") in a box sized for three lines, so wrapping is the intended state
+    // and centring it is the defect Paul reported.
+    //
+    // ⭐ S4: the door is now laid out like its sibling option prompt — a flex
+    // ROW, icon beside the question — so the four row-end prompts read as one
+    // family. On a row `items-center` is the VERTICAL axis and correct (asserted
+    // present so this is not read as a ban on the class); the horizontal axis
+    // is `justify-*`, and nothing may centre the copy on it.
     const src = blankComments(readFileSync(join(NODES_DIR, 'GhostTierNode.tsx'), 'utf8'))
-    expect(src).toContain('flex-col')
-    expect(src).not.toContain('items-center')
+    expect(src).not.toContain('flex-col')
+    expect(src).toContain('items-center')
+    expect(src).not.toContain('justify-center')
     expect(src).not.toContain('text-center')
   })
 

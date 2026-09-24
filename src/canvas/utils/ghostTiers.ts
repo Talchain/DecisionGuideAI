@@ -19,9 +19,15 @@
  * where the thing would be, and a question sent to Olumi when the user opens
  * it. The user decides whether anything comes back worth keeping.
  *
- * ⚠ AND THE GHOSTS ARE NOT THE MODEL. They are excluded from the camera fit and
- * from every count, exactly as `__ghost-option__` already is, so they cannot
- * inflate what the graph appears to contain.
+ * ⚠ AND THE GHOSTS ARE NOT THE MODEL. They are excluded from every count, from
+ * inference and from persistence (they exist only in the render layer), so they
+ * cannot inflate what the graph appears to contain.
+ *
+ * ⭐ S4 (Experience Design, #63 5806207128 / 5806266691, 24 Sep 2026): they are
+ * back at the END of each family's row — "reasoning-frontier affordances, not
+ * graph nodes/truth" — and they ARE in the camera fit and the row budget, so the
+ * landing view shows them. `fitFrameNodes` (fitTargets) is the fit's list;
+ * `excludeNonModelNodes` stays the count's.
  */
 
 import type { Node } from '@xyflow/react'
@@ -29,7 +35,7 @@ import type { Node } from '@xyflow/react'
 // exclusion. Imported rather than restated: this file used to declare its own
 // copies of the first two, so the filter and the ids it filtered were two
 // independent lists that happened to agree.
-import { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID } from './fitTargets'
+import { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
 // The producer's own word for "this node has no name". Imported, never
 // re-spelled: the estate already carries eight hand-copied `'Untitled'`
 // literals, and a ninth that drifted would silently re-open B2(a).
@@ -39,6 +45,15 @@ import { UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
 // sentence carrying a hand-copied 'Decision' would still be saying the retired
 // word in the user's transcript today.
 import { DECISION_NODE_LABEL, GOAL_NODE_LABEL } from '../domain/vocabulary'
+import {
+  LAYOUT_NODE_GAP,
+  LAYOUT_PADDING_X,
+  ROW_PROMPT_H,
+  ROW_PROMPT_STACK_GAP,
+  TIER_BY_KIND,
+  restingCardWidthForKind,
+  rowPromptKindsFor,
+} from './nodeLayoutConstants'
 
 export { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
 
@@ -394,6 +409,13 @@ function contextFor(siblings: readonly Node[], subject: ModelSubject | null): Gh
  * twice (Paul's screenshot B, served `24e06704`). Resolved by id, like
  * `OPTION_TIER` below, so a reorder of `GHOST_TIERS` cannot drop the wrong tier.
  */
+/*
+ * ⛔ S4: NO LONGER MOUNTED. `BaseNode` stopped rendering the in-card row when the
+ * row-end prompts returned (ED #63 5806207128: "Do not also restore in-card
+ * prompt links"). This list, `tierInvitations` and `nodes/shared/TierInvitation.tsx`
+ * are kept only until the lane that owns that component deletes the three
+ * together; nothing on the canvas reads them.
+ */
 export const CARD_INVITATION_TIERS: readonly GhostTier[] = GHOST_TIERS.filter(
   (t) => t.id !== GHOST_OPTION_NODE_ID,
 )
@@ -479,88 +501,163 @@ export function tierInvitations(
   return out
 }
 
-/**
- * The rightmost occupant of the row this tier sits on, whatever its kind.
- * Lifted out of `withGhostTiers` unchanged so the on-card invitation and the
- * graph-space door cannot pick different cards.
- */
-function rowAnchorFor(nodes: Node[], ghosts: Node[], siblings: Node[]): Node | undefined {
-  const anchorY = Math.round(
-    siblings.reduce<number>((acc, n) => Math.max(acc, n.position?.y ?? 0), Number.NEGATIVE_INFINITY),
-  )
-  const rowOccupants = [...nodes, ...ghosts].filter(
-    (n) => Math.round(n.position?.y ?? 0) === anchorY,
-  )
-  if (rowOccupants.length === 0) return undefined
-  const rowMaxX = Math.max(...rowOccupants.map((n) => n.position?.x ?? 0))
-  return rowOccupants.find((n) => (n.position?.x ?? 0) === rowMaxX)
+/** A node's kind, by the producer's spellings — `type`, then `data.type`. */
+function kindOf(n: Node): string | undefined {
+  if (typeof n.type === 'string' && n.type.length > 0) return n.type
+  const d = n.data as { type?: unknown; kind?: unknown } | undefined
+  if (typeof d?.type === 'string') return d.type
+  return typeof d?.kind === 'string' ? d.kind : undefined
 }
 
-export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[] = GHOST_TIERS): Node[] {
-  const ghosts: Node[] = []
-  const subject = readSubject(nodes)
+/** The layout row a node sits in — `layout.ts`'s rule: unknown kinds join tier 2. */
+function layoutTierOf(n: Node): number {
+  const kind = kindOf(n)
+  return kind !== undefined && TIER_BY_KIND[kind] !== undefined ? TIER_BY_KIND[kind] : 2
+}
 
+/** Same-row tolerance, in flow units — `layout.ts`'s `groupByYRow` default. */
+const ROW_Y_TOLERANCE = 10
+
+/**
+ * The rendered width a prompt must clear: the measurement when there is one,
+ * else the width the layout gives this kind at rest. Never a guessed constant —
+ * a 200 fallback here once put a door inside the card it stood beside.
+ */
+function defaultWidthOf(n: Node): number {
+  const m = n as { measured?: { width?: number }; width?: number }
+  return m.measured?.width ?? m.width ?? restingCardWidthForKind(kindOf(n))
+}
+
+/**
+ * ⭐ THE CARD THAT ENDS A FAMILY'S FINAL SUB-ROW — the one anchor both
+ * affordances read, so they cannot pick different cards.
+ *
+ * The family is the LAYOUT tier (a row is a tier: outcomes and risks share
+ * one), its final sub-row is the lowest, and the anchor is the occupant whose
+ * RIGHT EDGE is furthest right, whatever its kind. That is why a risk prompt can
+ * never be painted over an outcome card again (measured on `pricing-model`
+ * before 15 Sep: `__ghost-risk__` 2px from `out_nrr`, wholly inside it).
+ */
+function finalRowAnchor(
+  model: readonly Node[],
+  tier: number,
+  widthOf: (n: Node) => number,
+): { anchor: Node; rowY: number } | undefined {
+  const members = model.filter((n) => layoutTierOf(n) === tier)
+  if (members.length === 0) return undefined
+  const rowY = members.reduce<number>((acc, n) => Math.max(acc, n.position?.y ?? 0), Number.NEGATIVE_INFINITY)
+  const occupants = members.filter((n) => Math.abs((n.position?.y ?? 0) - rowY) <= ROW_Y_TOLERANCE)
+  let anchor = occupants[0]
+  for (const n of occupants) {
+    if ((n.position?.x ?? 0) + widthOf(n) > (anchor.position?.x ?? 0) + widthOf(anchor)) anchor = n
+  }
+  return { anchor, rowY }
+}
+
+/**
+ * The legacy in-card invitation's anchor, kept on the one rule above.
+ * (`tierInvitations` is no longer mounted — S4 restored the row-end prompts and
+ * ED ruled one entry point per question — but while it exists it must not
+ * resolve "which card ends this row" a second way.)
+ */
+function rowAnchorFor(nodes: Node[], _ghosts: Node[], siblings: Node[]): Node | undefined {
+  if (siblings.length === 0) return undefined
+  const model = nodes.filter((n) => !isGhostNode(n.id))
+  return finalRowAnchor(model, layoutTierOf(siblings[0]), defaultWidthOf)?.anchor
+}
+
+export interface RowEndPromptOptions {
+  /**
+   * The rendered width of a card. The mount passes the measurement, then the
+   * layout's published per-kind width; the default does the same without the
+   * layout store, so this module stays free of store imports.
+   */
+  readonly widthOf?: (node: Node) => number
+}
+
+/**
+ * ⭐⭐ THE ROW-END REASONING PROMPTS (Experience Design S4, #63 5806207128 /
+ * 5806266691; Paul, 24 Sep: "bring back the per-row prompts").
+ *
+ * One prompt at the END of each family's FINAL sub-row — never one per wrapped
+ * sub-row:
+ *   · Options  → "What else could you do?"   (`ghost-option`, the existing card)
+ *   · Factors  → "What else drives this?"
+ *   · Outcomes → "Where else could this lead?"
+ *   · Risks    → "What else could go wrong?"
+ * Outcomes and risks share one row, so they share ONE 160-unit frontier column,
+ * outcome above risk — "rather than spending another 160px horizontally".
+ *
+ * ⭐ WHERE, EXACTLY: one card-gap after the anchor's right edge
+ * (`LAYOUT_PADDING_X + LAYOUT_NODE_GAP`, the gap between two cards), top-aligned
+ * with the row. That is the slot `layoutGraph` reserved inside the row budget,
+ * so on a laid-out board the prompt lands in space the board already paid for.
+ *
+ * ⛔ NOT GRAPH NODES. Rendered only (never written to the store, so never saved
+ * or sent), excluded from every count by the shared `__ghost-` prefix, carry no
+ * edges, and are neither selectable, draggable nor connectable. A tier with no
+ * members gets no prompt — a door on an empty tier would assert the tier OUGHT
+ * to have members, which is a judgement this affordance exists not to make.
+ *
+ * ⚠ HISTORY, KEPT BECAUSE IT IS THE REASON THIS IS SAFE NOW: on 15 Sep these
+ * doors moved onto the cards because at the 0.5 camera floor 14 of 20 fell
+ * outside the frame. S4 fixes the frame (narrower cards, five-card rows, the
+ * prompt slot inside the row budget, the fit including the prompts), which is
+ * what licenses bringing them back — one problem, not two (NODE-ANATOMY-v32 L3).
+ */
+export function withGhostTiers(
+  nodes: Node[],
+  enabledTiers: readonly GhostTier[] = GHOST_TIERS,
+  options: RowEndPromptOptions = {},
+): Node[] {
+  const model = nodes.filter((n) => !isGhostNode(n.id))
+  const widthOf = options.widthOf ?? defaultWidthOf
+  const subject = readSubject(model)
+
+  // Which enabled prompts have members, grouped by the layout row they end.
+  const presentByTier = new Map<number, Set<string>>()
+  const tierByKind = new Map<string, GhostTier>()
   for (const tier of enabledTiers) {
-    const siblings = siblingsOf(nodes, tier.siblingType)
-    if (siblings.length === 0) continue
+    if (siblingsOf(model, tier.siblingType).length === 0) continue
+    tierByKind.set(tier.siblingType, tier)
+    const row = TIER_BY_KIND[tier.siblingType] ?? 2
+    const set = presentByTier.get(row)
+    if (set) set.add(tier.siblingType)
+    else presentByTier.set(row, new Set([tier.siblingType]))
+  }
 
-    // ⭐⭐ THE DOOR STANDS AT THE END OF ITS ROW, NOT AT THE END OF ITS KIND.
-    //
-    // This took the rightmost sibling OF THE SAME TYPE and placed the ghost to
-    // its right. That was correct only while every kind owned a row to itself.
-    // When risks joined the outcome tier (14 Sep 2026, founder ruling — see
-    // `TIER_BY_KIND`), the rightmost RISK stopped being the rightmost node in
-    // the risk row, and the "What else could go wrong?" door was painted ON TOP
-    // OF an outcome card.
-    //
-    // MEASURED on `pricing-model` at 1600x1000 before the fix:
-    //   `__ghost-risk__` at (886, 782) 94x44  over  `out_nrr` at (884, 782) 168x110
-    // — two pixels apart, the door's whole box inside the card's.
-    //
-    // ⛔ FOUND BY LOOKING AT A SCREENSHOT, NOT BY A GUARD. The tier change kept
-    // 493 spec files green and its own comment had already named the intra-row
-    // hazard — and then missed it, because the hazard was reasoned about as an
-    // EDGE and arrived as a GHOST. Naming a risk is not the same as enumerating
-    // the things that can realise it.
-    //
-    // The anchor is now the rightmost occupant of the row this tier sits on,
-    // whatever its kind. That is the general rule the old one was a special case
-    // of, so it needs no knowledge of which kinds now share a tier.
-    const anchorY = Math.round(
-      siblings.reduce<number>((acc, n) => Math.max(acc, n.position?.y ?? 0), Number.NEGATIVE_INFINITY),
-    )
-    const widthOf = (n: unknown): number =>
-      (n as { measured?: { width?: number }; width?: number } | undefined)?.measured?.width ??
-      (n as { width?: number } | undefined)?.width ??
-      200
-
-    // ⚠ ALREADY-PLACED GHOSTS COUNT AS OCCUPANTS. Two doors now share the
-    // consequence row ("What else could go wrong?" and "Where else could this
-    // lead?"), and anchoring both to the same rightmost card would stack them on
-    // each other — trading a collision with a card for a collision with a door.
-    // Shared with `tierInvitations` so the card that ends this row cannot be
-    // resolved two different ways by the two affordances.
-    const rowAnchor = rowAnchorFor(nodes, ghosts, siblings)
-    const rowMaxX = rowAnchor?.position?.x ?? 0
-    const measuredW = widthOf(rowAnchor)
-
-    ghosts.push({
-      id: tier.id,
-      type: 'ghost-tier',
-      position: { x: rowMaxX + measuredW + 60, y: anchorY },
-      data: {
-        label: tier.label,
-        // Composed HERE, where the siblings are already in hand, rather than in
-        // the node component — the door should not have to re-derive the model
-        // it is standing in, and two derivations of one list is how they come
-        // to disagree.
-        prompt: tier.prompt(contextFor(siblings, subject)),
-        tier: tier.siblingType,
-      },
-      selectable: false,
-      draggable: false,
-      connectable: false,
-    } as Node)
+  const ghosts: Node[] = []
+  for (const [row, present] of [...presentByTier.entries()].sort((a, b) => a[0] - b[0])) {
+    const placed = finalRowAnchor(model, row, widthOf)
+    if (!placed) continue
+    const { anchor, rowY } = placed
+    const x = (anchor.position?.x ?? 0) + widthOf(anchor) + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
+    // Stack order is the layout's (`ROW_PROMPT_KINDS_BY_TIER`) — the layout
+    // reserved exactly this column's height, so the two cannot disagree.
+    const stack = rowPromptKindsFor(row, present)
+    // A kind outside the table still gets a door, after the table's own.
+    for (const kind of present) if (!stack.includes(kind)) stack.push(kind)
+    stack.forEach((kind, i) => {
+      const tier = tierByKind.get(kind)!
+      const siblings = siblingsOf(model, kind)
+      ghosts.push({
+        id: tier.id,
+        type: tier.id === GHOST_OPTION_NODE_ID ? 'ghost-option' : 'ghost-tier',
+        position: { x, y: rowY + i * (ROW_PROMPT_H + ROW_PROMPT_STACK_GAP) },
+        data: {
+          label: tier.label,
+          // Composed HERE, where the siblings are already in hand, rather than in
+          // the node component — the door should not have to re-derive the model
+          // it is standing in, and two derivations of one list is how they come
+          // to disagree.
+          prompt: tier.prompt(contextFor(siblings, subject)),
+          tier: tier.siblingType,
+        },
+        selectable: false,
+        draggable: false,
+        connectable: false,
+      } as Node)
+    })
   }
 
   return ghosts.length > 0 ? [...nodes, ...ghosts] : nodes
