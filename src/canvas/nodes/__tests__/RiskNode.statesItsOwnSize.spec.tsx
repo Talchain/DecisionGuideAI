@@ -141,15 +141,15 @@ describe('a risk card states the size it records', () => {
     // may not say it about a magnitude nobody has estimated — different causes,
     // different next steps. Derived from the register, never a literal I typed.
     draw('risk-4', { label: 'Existing customers churn on the price rise', type: 'risk' }, withBridge('risk-4', 0.5))
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z — "Distinguish the node's own
-    // likelihood/impact/value from relationship strength … call it link
-    // strength"; MT-15b — a producer `strength_mean` nobody settled reads
-    // "Olumi’s estimate", not "Not set yet". The row is named as the LINK's, and
-    // the node's own size slot stays empty: the two absences are still separate.
-    const row = screen.getByTestId('risk-strength-row')
-    expect(row.textContent).toContain(LINK_STRENGTH_COPY.noun)
-    expect(row.textContent).toContain(LINK_STRENGTH_COPY.olumiEstimate)
-    expect(row.textContent).not.toContain(METRIC_UNSET.standalone)
+    // Contract v3.1 (gap U1): "Outcome/risk records are distinct from the
+    // strength of their connections" — the link row that used to name the
+    // CONNECTION's state here (ED 11:52Z "link strength"; MT-15b) is off the
+    // card. The two absences stay separate: the risk's own unset statement is
+    // about likelihood and impact, never about the link, and the size slot is
+    // still empty rather than filled by the edge's figure.
+    expect(screen.queryByTestId('risk-strength-row')).toBeNull()
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+    expect(screen.getByTestId('risk-exposure-unset').textContent).toBe(`Likelihood and impact ${METRIC_UNSET.inline}.`)
     expect(screen.queryByTestId('risk-recorded-value')).toBeNull()
   })
 

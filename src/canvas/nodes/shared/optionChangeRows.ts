@@ -32,10 +32,18 @@ import {
 } from '../../utils/interventionDisplay'
 import { cleanFactorLabel, sentenceCaseFactorLabel, compactFactorLabel } from '../../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
+import { placeholderMagnitudeNumber } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
 
 export const OPTION_CARD_ROW_LIMIT = 2
+
+/**
+ * The muted separator between a row's value and its source mark (contract v3.1
+ * pt 7, gap U12: "→ 1 brief" read the mark as the value's unit). Decorative —
+ * the mark carries its own accessible name.
+ */
+export const OPTION_ROW_SOURCE_MARK_SEPARATOR = '·'
 
 /**
  * ⭐ ED 02:31Z (D2): "If a particular value makes the resting card materially
@@ -168,11 +176,16 @@ export function buildOptionChangeRow({
   // (`collapseEstimateDisplay`, R6; spec §3: "Never expose raw internal scales
   // … by default"). The full string is the row's tooltip and the inspector's.
   const rest = (text: string) => collapseEstimateDisplay(text) ?? text
-  const targetFull = formatInterventionTargetText({
+  // Contract v3.1 pt 7 (gap U12): a placeholder unit word ("0.3 scale") names
+  // no real-world scale, so the row drops the WORD and keeps the producer's own
+  // figure — the factor card's rule (`placeholderMagnitudeNumber`), not a new one.
+  // Nothing to recover, so the full text drops it too. Real units are untouched.
+  const unitless = (text: string) => placeholderMagnitudeNumber(text) ?? text
+  const targetFull = unitless(formatInterventionTargetText({
     ...context,
     value: target.value,
     displayValue: target.displayValue ?? undefined,
-  })
+  }))
   const targetText = rest(targetFull)
   let fromFull = ''
 
@@ -190,9 +203,9 @@ export function buildOptionChangeRow({
       isInterventionNoChange(baselineOptionTarget.value, target.value) &&
       (baselineOptionTarget.displayValue ?? null) === (target.displayValue ?? null)
     if (!sameAsReference) {
-      fromFull = baselineOptionTarget.displayValue
+      fromFull = unitless(baselineOptionTarget.displayValue
         ? baselineOptionTarget.displayValue
-        : formatInterventionTargetText({ ...context, value: baselineOptionTarget.value })
+        : formatInterventionTargetText({ ...context, value: baselineOptionTarget.value }))
       fromText = rest(fromFull)
     }
   } else if (!target.displayValue && typeof factor.observedValue === 'number') {
@@ -207,7 +220,7 @@ export function buildOptionChangeRow({
       observedRawValue: factor.observedRawValue,
     })
     if (change.changed && change.baselineText) {
-      fromFull = change.baselineText
+      fromFull = unitless(change.baselineText)
       fromText = rest(fromFull)
       reference = 'current_value'
     }

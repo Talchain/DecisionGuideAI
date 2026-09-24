@@ -11,9 +11,12 @@
  *    icon. The SAME string is this card's reduced line below the legibility
  *    floor — see `targetLine`, which is the only place it is built.
  *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
+ *    — only when the run PRODUCED one; no Chance row otherwise (contract v3.1 goal anatomy, gap U3)
  *  - No risks chip (always)
+ *  - No rail source icon (contract v3.1 pt 1, gap U8)
  *
  * Layer 2 (popover in Standard / inline in Detailed):
+ *  - "From your brief" label notice, when the label is an unconfirmed brief extract
  *  - Stability bar + percentage
  *  - Constraint badges (if any)
  *  - Chips: "Why is this so low?", "Is my target realistic?"
@@ -33,8 +36,6 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
-import { NodeRailIcon } from './shared/NodeRailIcons'
-import { FileText } from 'lucide-react'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import {
   canCaptureGoalTarget,
@@ -705,11 +706,18 @@ export const GoalNode = memo((props: NodeProps) => {
   // Whether to show Layer 2 inline (Detailed view)
   const showLayer2Inline = isDetailed
 
+  // The label is an unconfirmed extract from the brief. Stated in Layer 2 below
+  // (contract v3.1 pt 1 retired the rail icon that used to carry it).
+  const briefExtract = goalLabelIsUnconfirmedBriefExtract(
+    props.data as { provenance?: unknown } | undefined,
+  )
+
   // Layer 2 content exists when there's anything to show (stability,
   // constraints, warning) OR when post-analysis chips need a home (every
   // post-analysis goal with a threshold gets at least the "Is my target
   // realistic?" coaching chip).
   const hasLayer2 = (
+    briefExtract ||
     stabilityValue !== null ||
     (activeConstraints && activeConstraints.length > 0) ||
     hasConstraintDefaultWarning ||
@@ -722,6 +730,18 @@ export const GoalNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = hasLayer2 ? (
     <>
+      {/* The label's provenance, stated once, in the card's details (contract
+          v3.1 pt 1: the rail source icon is gone; the source detail keeps the
+          fact). Same testid and same copy constant the rail icon carried. */}
+      {briefExtract && (
+        <p
+          className={`${typography.edgeLabel} text-text-body m-0 mb-1`}
+          data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
+        >
+          {GOAL_LABEL_FROM_BRIEF_COPY.notice}
+        </p>
+      )}
+
       {/* Stability bar — stale-dimmed when the model changed since the run */}
       {stabilityValue !== null && (
         <div
@@ -869,9 +889,6 @@ export const GoalNode = memo((props: NodeProps) => {
     </button>
   )
 
-  const briefExtract = goalLabelIsUnconfirmedBriefExtract(
-    props.data as { provenance?: unknown } | undefined,
-  )
   const goalCoaching = useMemo(
     () =>
       resolveNodeCoaching({
@@ -890,11 +907,6 @@ export const GoalNode = memo((props: NodeProps) => {
     hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
     analysisChanged ? 'The model has changed since this run.' : null,
   ].filter(Boolean).join(' ')
-  const noProbabilitySentence = analysisChanged
-    ? 'Target set. Rerun the analysis to update your results.'
-    : displayMetadata.goalFitAvailable
-      ? 'Target set. No overall goal probability for this run — see Goal fit for each option’s chance.'
-      : 'Target set. This run did not produce a goal probability.'
 
   return (
     <div
@@ -915,25 +927,14 @@ export const GoalNode = memo((props: NodeProps) => {
         icon={metadata.icon}
         borderClassOverride={goalBorderOverride ?? undefined}
         coaching={goalCoaching}
-        railIcons={
-          /* ⭐ PROVENANCE, COMPACT (ED 11:52Z point 2: "provenance compact"). The
-             "From your brief" pill was a full row of height stating one fact; it
-             is now the rail's provenance icon, an informative EXCEPTION (spec §2)
-             that renders only while the label is an unconfirmed brief extract.
-             The FULL notice — including its imperative, which is true on this
-             surface (the label is editable from this node) — is the icon's
-             tooltip and accessible name, and a click opens the goal's details.
-             The testid is the pill's, so the claim keeps its identity. */
-          briefExtract ? (
-            <NodeRailIcon
-              testId={GOAL_LABEL_FROM_BRIEF_TESTID}
-              label={`${GOAL_LABEL_FROM_BRIEF_COPY.pill}. ${GOAL_LABEL_FROM_BRIEF_COPY.notice}`}
-              icon={FileText}
-              tone="muted"
-              onActivate={() => openNodeInspector(props.id)}
-            />
-          ) : undefined
-        }
+        /* ⭐ NO RAIL SOURCE ICON (contract v3.1 pt 1: "The separate rail source
+           icons are removed"; supersedes ED 11:52Z pt 2's rail provenance icon).
+           The target's source mark sits beside the target line; the label's
+           "From your brief" notice lives in Layer 2 (popover / Detailed). */
+        /* One state, once (contract v3.1, gap U4): while this card's own
+           "Target not captured" chip is stating the gap, BaseNode withholds its
+           goal "Needs input" pill. The pill's goal arm has no other reason. */
+        incompleteStatedOnCard={canCaptureTarget}
         headerSlot={isDetailed && scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (
@@ -948,8 +949,8 @@ export const GoalNode = memo((props: NodeProps) => {
 
             Row 1 — the target, or its capture state: "Target: …" (a route to
             the editor where one is live) or "Target not captured".
-            Row 2 — after a run, ONE Chance row (the prose readout and the bar
-            said the same number twice); its basis caveats and the "may be
+            Row 2 — after a run that PRODUCED a goal chance, ONE Chance row
+            (none otherwise: contract v3.1, gap U3); its basis caveats and the "may be
             ambitious" prompt are in its tooltip, the popover and Detailed.
             `Last run ·` prefixes it ONLY when the model is known to have
             changed (ED 02:31Z: "Goal stale rule: `changed` only").
@@ -997,16 +998,9 @@ export const GoalNode = memo((props: NodeProps) => {
             phrase={achievementTitle}
           />
         )}
-        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
-          <NodeMetricRow
-            label={METRIC_NOUN.chance}
-            value={null}
-            unsetText={analysisChanged ? 'Rerun to update' : displayMetadata.goalFitAvailable ? 'See each option' : 'Not produced by this run'}
-            testId="goal-achievement-unset"
-            title={noProbabilitySentence}
-            phrase={noProbabilitySentence}
-          />
-        )}
+        {/* No Chance row when the run produced no goal chance (contract v3.1
+            goal anatomy, gap U3): the old unset row ("Not produced by this run" /
+            "See each option" / "Rerun to update") is gone, not reworded. */}
 
         {/* Detailed adds information, not a different card: the basis caveat
             and the "may be ambitious" prompt, as before. */}

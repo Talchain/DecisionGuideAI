@@ -511,7 +511,7 @@ describe('Option — MT-21: "Not in this analysis" routes to the option\'s own v
 // OUTCOME + RISK
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('Outcome/Risk — coaching behind the one icon; link strength named as a link (ED 11:52Z point 5)', () => {
+describe('Outcome/Risk — coaching behind the one icon; link strength off the card (ED 11:52Z point 5; contract v3.1)', () => {
   it('the outcome face has no "What would falsify this?" chip — the rail icon asks it', () => {
     setState({ phase: 'pre' })
     renderCard(OutcomeNode as never, 'outcome-1')
@@ -520,21 +520,26 @@ describe('Outcome/Risk — coaching behind the one icon; link strength named as 
     expect(within(card).getByTestId('node-coaching-icon-outcome-1')).toHaveAccessibleName('What would falsify this?')
   })
 
-  it('⭐ MT-15b: an unconfirmed Olumi strength reads "Link strength · Olumi’s estimate", never "Strength Not set yet"', () => {
+  // ⚠ SUPERSEDED BY CONTRACT v3.1 (gap U1): these two cases pinned the card's
+  // "Link strength" row (MT-15b wording; ED 11:52Z "if strength is shown
+  // on-node, call it link strength"). v3.1: "Outcome/risk records are distinct
+  // from the strength of their connections" — strength is not shown on-node.
+  it('an unconfirmed Olumi strength is not on the outcome card at all — control: the card’s coaching icon is', () => {
     setState({ phase: 'pre' })
     renderCard(OutcomeNode as never, 'outcome-1')
-    const row = within(face('Revenue')).getByTestId('outcome-strength-row')
-    expect(row.textContent).toContain('Link strength')
-    expect(row.textContent).toContain('Olumi’s estimate')
-    expect(row.textContent).not.toContain('Not set')
+    const card = face('Revenue')
+    expect(within(card).getByTestId('node-coaching-icon-outcome-1')).toBeTruthy()
+    expect(within(card).queryByTestId('outcome-strength-row')).toBeNull()
+    expect(card.textContent).not.toMatch(/Link strength|Olumi’s estimate|82%/)
   })
 
-  it('a human-settled link shows its figure under the "Link strength" noun', () => {
+  it('a human-settled link keeps its figure on the connection, not the risk card — control: the risk’s own unset line', () => {
     setState({ phase: 'pre' })
     renderCard(RiskNode as never, 'risk-1')
-    const row = within(face('Churn spike')).getByTestId('risk-strength-row')
-    expect(row.textContent).toContain('Link strength')
-    expect(row.textContent).toContain('50%')
+    const card = face('Churn spike')
+    expect(within(card).getByTestId('risk-exposure-unset').textContent).toBe('Likelihood and impact not set yet.')
+    expect(within(card).queryByTestId('risk-strength-row')).toBeNull()
+    expect(card.textContent).not.toMatch(/Link strength|50%/)
   })
 
   it('the risk face asks "What would we see first?" by icon; "How likely is this?" moves to the popover, not deleted (ED 02:31Z)', () => {
@@ -546,11 +551,16 @@ describe('Outcome/Risk — coaching behind the one icon; link strength named as 
     expect(within(screen.getByTestId('node-popover')).getByText('How likely is this?')).toBeTruthy()
   })
 
-  it('⛔ MT-20: the outcome counts options that CONNECT — no causal "move"; names its denominator (Paul 23 Sep point 8)', () => {
+  // ⚠ SUPERSEDED BY CONTRACT v3.1 pt 8 (gap U2): this pinned "2 of 4 options
+  // connect to this" (MT-20 verb; Paul 23 Sep point 8's first cut). v3.1 drops
+  // the count from every outcome unless it genuinely differentiates.
+  it('the outcome carries no option-reach count, though 2 of 4 options reach it — control: the card renders', () => {
     setState({ phase: 'pre' })
     renderCard(OutcomeNode as never, 'outcome-1')
-    const line = within(face('Revenue')).getByTestId('outcome-options-moving')
-    expect(line.textContent).toBe('2 of 4 options connect to this')
+    const card = face('Revenue')
+    expect(within(card).getByTestId('node-coaching-icon-outcome-1')).toBeTruthy()
+    expect(within(card).queryByTestId('outcome-options-moving')).toBeNull()
+    expect(card.textContent).not.toMatch(/options? connects? to this|options? moves? this/)
   })
 })
 
@@ -587,14 +597,22 @@ describe('Question — wide and shallow: option count + ONE focus signal; coachi
 })
 
 describe('Goal — wide and shallow: target state + one Chance row; provenance compact; coaching behind the icon (ED 11:52Z point 2)', () => {
-  it('"From your brief" is the rail provenance icon with its full notice — not a row of its own', () => {
+  // Contract v3.1 pt 1 ("The separate rail source icons are removed") supersedes
+  // the rail provenance icon ED 11:52Z point 2 put here. At rest the goal face
+  // carries no brief icon; the label's notice is in the card's details.
+  it('"From your brief" is NOT a rail icon at rest (v3.1 pt 1) — the notice sits in the details (Detailed inline)', () => {
     setState({ phase: 'pre' })
     renderCard(GoalNode as never, 'goal-1')
     const card = face('Grow net revenue')
-    const icon = within(card).getByTestId('pre-analysis-v3-goal-from-brief')
-    expect(icon.tagName).toBe('BUTTON')
-    expect(icon.getAttribute('aria-label')).toMatch(/^From your brief\. /)
+    expect(within(card).queryByTestId('pre-analysis-v3-goal-from-brief')).toBeNull()
+    expect(within(card).queryByRole('button', { name: /^From your brief/ })).toBeNull()
     expect(within(card).queryByText('From your brief')).toBeNull()
+    cleanup()
+    setState({ phase: 'pre', viewMode: 'expert' })
+    renderCard(GoalNode as never, 'goal-1')
+    const notice = within(face('Grow net revenue')).getByTestId('pre-analysis-v3-goal-from-brief')
+    expect(notice.tagName).not.toBe('BUTTON')
+    expect(notice.textContent).toMatch(/^Taken from your brief/)
   })
 
   it('no "Is this the real goal?" chip and no "Run analysis" chip on the face — the rail icon asks the question', () => {

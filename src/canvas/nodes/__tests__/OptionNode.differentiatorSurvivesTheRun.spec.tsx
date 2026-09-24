@@ -307,8 +307,9 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     expect(row, 'the change row for the shared factor must render').not.toBeNull()
     // Paul 23 Sep contract feedback point 7: an unsourced target is marked on
     // the row (never left bare, never "you") — as "no source", not as Olumi's
-    // estimate (Codex #63 5801529767; reviewer blocker, 23 Sep).
-    expect(row!.textContent).toBe('0 engineers → 3 engineers no sourceSource not recorded')
+    // estimate (Codex #63 5801529767; reviewer blocker, 23 Sep). Contract v3.1
+    // pt 7 (gap U12): a muted `·` sets the mark apart from the value.
+    expect(row!.textContent).toBe('0 engineers → 3 engineers · no sourceSource not recorded')
     expect(row!.querySelector('[data-testid="option-change-row-source-option-1-f-head"]')?.getAttribute('data-value-source')).toBe('unknown')
     expect(paragraphTexts(pre.container).join(' | ')).toContain('→')
   })

@@ -113,7 +113,12 @@ const baseProps = {
   positionAbsoluteY: 0,
   dragging: false,
   zIndex: 0,
-  data: { label: 'Reach profitability', type: 'goal' },
+  // ⚠ CONTRACT v3.1 (gap U4, 24 Sep 2026): a goal with NO target now states the
+  // gap once, in its own "Target not captured" chip, and BaseNode withholds the
+  // pill. The pill still reaches a goal whose NODE carries a target while the
+  // STORE scalar (`goalThreshold: null` below) has none — so the fixture carries
+  // a node-level target to keep this file's corner-stack claims about the pill.
+  data: { label: 'Reach profitability', type: 'goal', goal_threshold_raw: 12, goal_threshold_unit: '%' },
 }
 
 function makeItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {

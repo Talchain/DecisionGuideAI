@@ -7,8 +7,6 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_UNSET } from './shared/metricVocabulary'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
-import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
-import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
@@ -18,7 +16,6 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisIn
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { LinkStrengthRow, linkStrengthLodLine } from './shared/LinkStrengthRow'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 
 /**
@@ -75,9 +72,10 @@ import { nodeRecordedValue } from '../domain/nodeRecordedValue'
  * exactly as before.
  *
  * ⚠ `not set yet` IS DERIVED FROM `METRIC_UNSET.inline`, NEVER RE-TYPED, and
- * that is load-bearing rather than tidiness. The same three words already
- * declare an unset bridge strength two rows above this one on this very card.
- * Two hand-typed copies on one card is the hand-maintained mirror this estate
+ * that is load-bearing rather than tidiness. The same three words declare an
+ * unset link strength on the connection (`EdgePills`, the edge hover); this
+ * card no longer shows that row (contract v3.1). Hand-typed copies of one
+ * register word are the hand-maintained mirror this estate
  * keeps paying for (CLAUDE.md trap 12), and `metricVocabulary.ts`'s own header
  * spends a paragraph on why the word travels by reference. Re-word the register
  * and this sentence follows; it cannot drift out of step with the row beside it.
@@ -87,18 +85,18 @@ import { nodeRecordedValue } from '../domain/nodeRecordedValue'
  * is an invitation… a card that reads as an apology for missing data teaches a
  * reader to ignore it."*
  *
- * ⚠ TWO DIFFERENT ABSENCES, NAMED APART (CLAUDE.md trap 21). The strength row
- * above says `Not set yet` about the CONNECTION from this risk to the goal —
- * an edge property, settled by `strengthIsHumanSettled`. This line is about the
- * risk's OWN size. A card can be in either state independently, and pooling
- * them under one sentence is the reconciliation that keeps costing this estate
- * real time.
+ * ⚠ TWO DIFFERENT ABSENCES, NAMED APART (CLAUDE.md trap 21). An unset
+ * strength on the CONNECTION from this risk to the goal is an edge property,
+ * settled by `strengthIsHumanSettled` and shown on the connection since
+ * contract v3.1 took the row off this card. This line is about the risk's OWN
+ * size. Pooling the two under one sentence is the reconciliation that keeps
+ * costing this estate real time.
  *
  * ⛔⛔ IT NAMES TWO FIELDS AND NEVER SAYS "NOTHING" — AND THIS CARD HAS ALREADY
- * SHIPPED THE DEFECT THAT RULES OUT THE SHORTER SENTENCE. `lodMetric`'s header
- * records it: a risk carrying a recorded `4 months` sat under **`Strength not
- * set yet`**, and *"the card announced that nothing was recorded while holding
- * the thing that was."* A risk can carry its own magnitude through
+ * SHIPPED THE DEFECT THAT RULES OUT THE SHORTER SENTENCE (recorded in the
+ * pre-v3.1 `lodMetric` header, now in git history): a risk carrying a recorded
+ * `4 months` sat under **`Strength not set yet`**, and *"the card announced
+ * that nothing was recorded while holding the thing that was."* A risk can carry its own magnitude through
  * `nodeRecordedValue`/`observed_state` independently of `probability` and
  * `impact`, so *"Nothing recorded yet"* — the obvious phrasing, and the one the
  * backlog reaches for — would be FALSE on exactly that card. Naming the two
@@ -193,8 +191,6 @@ export const RiskNode = memo((props: NodeProps) => {
   const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled risk', description: fullDescription ?? undefined }
   const riskContext = fullDescription ? `\nRisk context: ${fullDescription}` : ''
 
-  const edges = useCanvasStore(state => state.edges)
-  const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
@@ -206,162 +202,22 @@ export const RiskNode = memo((props: NodeProps) => {
   // Science icons (spec Section 4.1)
   const scienceIcons = useScienceIcons(props.id, 'risk')
 
-  // Bridge edge to goal — contribution %
-  const bridgeEdgeData = useMemo(() => {
-    const goalNode = nodes.find(n => n.data?.type === 'goal' || n.type === 'goal')
-    if (!goalNode) return null
-    const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
-    if (!edge) return null
-    // ⛔ Provenance gate. The previous test — `strength_mean` present OR
-    // `weight != null` — could NOT fire: `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS`
-    // always define `weight`, so `hasStrength` was true for every edge that
-    // exists in the product and this rendered `USER_EDGE_DEFAULTS.weight` (0.3)
-    // as a bold coloured "contribution" figure. Same shape as the F1 defect in
-    // `RelationshipsSection`: a gate whose condition is a tautology.
-    const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
-    const signedMean = display.show ? display.value : null
-    const assumedPct = signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null
-    // ⚠ WHO SUPPLIED THE FIGURE — needed only to NAME the assumer in the unset
-    // row's disclosure, never to decide whether to draw it. `'template'` is a
-    // real third author (`useBlueprintInsert`), so the sentence cannot hardcode
-    // Olumi; `unconfirmedStrengthDisclosure` owns that wording.
-    const assumedSource = edgeValueSource(edge.data as Record<string, unknown> | undefined, 'weight')
-    /**
-     * ⛔ THE ONE QUESTION THIS ROW ASKS: HAS A HUMAN ACCEPTED RESPONSIBILITY FOR
-     * THIS STRENGTH? — and it does NOT answer it here.
-     *
-     * ⚠⚠ CORRECTED 3 Sep 2026, AND THE CORRECTION IS THE WHOLE POINT. This line
-     * read `weightSource === 'user'`, and the paragraph here defended that as
-     * "the one question this row asks: did a human SET this strength". It was
-     * the wrong field for the sentence beside it. `weightSource` answers *whose
-     * number is this?*; the row's copy claims *nobody has set it*. Those are
-     * different questions (CLAUDE.md trap 21), and they DIVERGE on a state a
-     * live affordance produces: `ContestedEdgeCard`'s "Accept review" →
-     * `ModelTabBody.handleResolveContested` stamps `weightSource: 'cee'`
-     * deliberately (the value IS the producer's) while recording the user's
-     * adjudication in `validation`. The card therefore told a user who had just
-     * settled this strength that nobody had.
-     *
-     * ⛔ AND THE REMEDY IS NOT TO READ TWO FIELDS HERE. That would be a second
-     * answer to a question `selectAssumedStrengthToResolve` already owns, free
-     * to drift. `strengthIsHumanSettled` is the ONE admission both consume.
-     *
-     * ⚠ SCOPE BOUNDARY, STATED SO THE NEXT LANE INHERITS IT RATHER THAN
-     * REDISCOVERS IT. A producer strength that is genuinely MEASURED rather
-     * than assumed is withheld by this predicate too. Nothing on the wire
-     * distinguishes the two today — CEE stamps `'cee'` for both — so the CEE
-     * lane that makes real strengths arrive must land a distinguishable
-     * provenance, and `edgeStrengthSettlement.ts` is the single place to widen.
-     */
-    /**
-     * ⚠ A DISCRIMINATED UNION, NOT TWO NULLABLE FIELDS. The settled arm's
-     * `bridgeStrengthPct` is `number`, so the render site cannot reach for a
-     * `?? 0` fallback — the previous shape carried one, and an unreachable
-     * fallback that would silently draw a 0% bar is exactly the "measured, and
-     * it is nought" claim this row refuses to make.
-     */
-    if (assumedPct !== null && strengthIsHumanSettled(edge.data as Record<string, unknown> | undefined)) {
-      /** The figure to DRAW. Present only where a human has settled it. */
-      return {
-        strengthIsSettled: true as const,
-        bridgeStrengthPct: assumedPct,
-        assumedPct: null,
-        assumedSource: null,
-      }
-    }
-    /** The figure to DISCLOSE — a producer's guess, or nothing at all. */
-    return { strengthIsSettled: false as const, bridgeStrengthPct: null, assumedPct, assumedSource }
-  }, [edges, nodes, props.id])
-
   /**
-   * The reduced line this card keeps below the legibility floor.
+   * The reduced line this card keeps below the legibility floor: the risk's
+   * OWN recorded size, or nothing.
    *
-   * ⚠ BRIDGE STRENGTH, BECAUSE IT IS WHAT THIS CARD RELIABLY HAS. Measured on
-   * deployed `30bd7f8c`: every risk and every outcome on a real guest model
-   * rendered `strength · N% · est.` and NOTHING ELSE — no severity band, no
-   * achievement probability. The central resolver asked for those two and lit
-   * 0 of 3 risks and 0 of 3 outcomes, which is the very defect it was written to
-   * fix (asking for the datum the node lacks) reproduced one type along.
+   * ⛔ NO LINK-STRENGTH LINE — contract v3.1 (VC-01): "Outcome/risk records are
+   * distinct from the strength of their connections" (served as gap U1, 24 Sep).
+   * This used to fall back to `Link strength · …` from the goal bridge edge; that
+   * is the CONNECTION's fact, carried by its line, hover and inspector. With no
+   * recorded size the line is `null`, so `BaseNode` keeps the body (the
+   * likelihood/impact statement) rather than blanking it, and the central
+   * resolver may still name a severity band from the risk's own entered data.
    *
-   * ⚠⚠ AND THE RULE THAT USED TO SIT HERE WAS RIGHT ABOUT THE PRINCIPLE AND
-   * WRONG ABOUT THE REMEDY. It read: *"`est.` RIDES WITH THE NUMBER AND IS NOT
-   * OPTIONAL… a bare 'Strength 50%' at low zoom would state as measured what
-   * the card two zoom levels up states as estimated."* The principle is exact.
-   * The remedy — keep the number, append a 7px marker — treated the disclaimer
-   * as the fix when the FIGURE was the claim. Measured on a real canvas
-   * (3 Sep 2026): five cards reading `Strength 50% est.` at once, each drawing a
-   * bar exactly half full.
-   *
-   * ⚠⚠ THE REASON THAT USED TO END THAT PARAGRAPH — *"because 0.5 is
-   * `DEFAULT_EDGE_DATA.weight`, the no-information default"* — IS WITHDRAWN AS
-   * REFUTED. The canonical, measured root-cause record is in
-   * `shared/metricVocabulary.ts` and is deliberately NOT restated here: round 1
-   * of this change wrote the diagnosis out in five files and had it wrong in all
-   * five, which is the hand-maintained mirror this estate keeps paying for.
-   *
-   * ⛔ SO THE LINE NOW STATES THE PROVENANCE INSTEAD OF QUALIFYING IT. Where a
-   * human has SETTLED the weight there is a figure and no marker, exactly as
-   * before. Where nobody has, there is no figure to qualify.
+   * ⭐ RULE 2 STILL HOLDS: the node's own unit comes first — `recordedValue`
+   * (months, pounds) from `observedState`. See `domain/nodeRecordedValue`.
    */
-  const lodMetric = useMemo(() => {
-    if (!bridgeEdgeData) {
-      /* ⭐ STRICTLY ADDITIVE, AND THE ADDITIVENESS IS THE SAFETY ARGUMENT. This
-         branch returned `null`, which renders an EMPTY BOX below the legibility
-         floor — the defect `shared/lodMetricLine.ts` exists to close, still open
-         for any risk with no bridge edge. Every branch that spoke before speaks
-         identically now; only the silent one gained a voice. A fix for a blank
-         card must not be able to change a card that was already speaking
-         (CLAUDE.md trap 22b, the opposite-direction twin).
-
-         ⭐ AND IT OBEYS THAT MODULE'S OWN RULE: *ask for the datum the card is
-         already displaying at full zoom, not the one an analysis would produce.*
-         This is the string the body renders one zoom step up, read from the same
-         owner, so the two cannot disagree. It needs no run — which matters
-         because zooming out to grasp the whole model is something people do
-         BEFORE they analyse. */
-      return recordedValue ?? null
-    }
-    /**
-     * ⭐⭐ THE RISK'S OWN MAGNITUDE OUTRANKS A SCORE ABOUT ONE OF ITS EDGES.
-     *
-     * Node design system, rule 2: *"The node's own unit comes before any score.
-     * A normalised figure with no unit is not a compact presentation of a value,
-     * it is a different quantity wearing its name."* And the anatomy: *"The
-     * node's own value in its own unit comes first… A run adds relative scores
-     * BELOW that — never in place of it."*
-     *
-     * ⛔ THIS BRANCH INVERTED BOTH, AND THE INVERSION WAS INVISIBLE BECAUSE THE
-     * TWO LIVED IN DIFFERENT ARMS OF ONE `if`. `recordedValue` — the risk's own
-     * size, in months or pounds, from `observedState` — was reachable ONLY on
-     * the `!bridgeEdgeData` arm. Give the same risk a bridge edge and the line
-     * became `Strength 40%`: a normalised 0..1 weight belonging to an EDGE,
-     * displacing a native quantity belonging to the NODE.
-     *
-     * ⛔⛔ AND THE UNSET ARM WAS WORSE THAN A DISPLACEMENT — IT WAS AN ABSENCE
-     * CLAIM OVER A PRESENT VALUE. A risk carrying a recorded `4 months`, on an
-     * edge nobody has weighted, rendered **`Strength not set yet`**. The card
-     * announced that nothing was recorded while holding the thing that was.
-     *
-     * ⭐ THE PRECEDENCE IS NOT INVENTED HERE. `GoalNode` already ships
-     * `targetLine ?? …` for exactly this question — the node's own target wins
-     * the single line, and the derived figure takes it only when the target is
-     * absent. Reusing that rule rather than minting a second one is deliberate:
-     * two rules for one question is how the two authorities behind the last two
-     * P0s in this lane came to disagree.
-     *
-     * ⚠ THIS IS NOT STRICTLY ADDITIVE AND MUST NOT BE SOLD AS SUCH. A risk that
-     * has BOTH a recorded magnitude and a weighted bridge edge changes what it
-     * says: `Strength 40%` → `4 months`. There is one line at this rung, so
-     * "below" is not available and the rule's own precedence decides which
-     * survives. Measured coverage bounds the blast radius: `display_value` is
-     * carried by **4 of 23** risks on the captures, so at most four cards can
-     * change, and every one of them changes from a figure about an edge to a
-     * figure about itself.
-     */
-    if (recordedValue) return recordedValue
-    // One wording on every rung — the row's own (`LinkStrengthRow`).
-    return linkStrengthLodLine(bridgeEdgeData)
-  }, [bridgeEdgeData, recordedValue])
+  const lodMetric = recordedValue ?? null
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
@@ -618,55 +474,17 @@ export const RiskNode = memo((props: NodeProps) => {
 
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Assumed bridge-strength percentage — honest in ALL states.
-            UI-SEM-089 (display honesty — assumed input never presented as
-            computed output): this number is the STATIC graph edge weight
-            (the assumed drag toward the goal), not an engine-computed
-            contribution. It previously flipped its label from "assumed
-            strength" to "goal drag" the moment results.status became
-            'complete' — masquerading an un-computed input as a computed
-            goal contribution without any producer attribution behind it.
-            Removal trigger: a producer supplies a typed per-node
-            goal-attribution field.
-
-            ⚠ R6 REVISED AFTER REVIEW. The first attempt at R6 dropped the noun
-            entirely and left a bare "85%", which re-opens exactly the defect
-            UI-SEM-089 exists to close: an unlabelled percentage beside a goal
-            reads as a computed contribution. Measured by the reviewer — the
-            relabel-to-"% contribution" mutant REDs at base and SURVIVED at that
-            head, i.e. the guard had been inverted from a PRESENCE assertion to
-            an ABSENCE one and could no longer see the masquerade.
-
-            The noun therefore stays on BOTH branches.
-
-            ⚠⚠ AND THE SENTENCE THAT USED TO CLOSE THIS BLOCK IS WITHDRAWN AS OF
-            3 Sep 2026, BECAUSE IT DESCRIBED A RENDERING THAT NO LONGER EXISTS
-            AND DEFENDED ONE THAT SHOULD NOT HAVE. It read: *"What R6 actually
-            removes is the word 'assumed'… '85% strength' when somebody set it,
-            '85% strength · est.' when nobody did. The honesty claim and the
-            placeholder-wall claim are different claims and both are satisfied."*
-            Both claims were NOT satisfied. Collapsing "assumed" to a 7px `est.`
-            left a full percentage and a proportional bar making the assessment
-            claim, with the only qualification rendered as the smallest thing on
-            the card. Measured on a real canvas: five cards reading
-            `Strength 50% est.`, each with a bar exactly half full — figures the
-            DRAFTING MODEL supplied, which no human had settled. (Round 1 read
-            that 0.5 as `DEFAULT_EDGE_DATA.weight`. Refuted: an unstamped default
-            cannot reach this row at all. Canonical record —
-            `shared/metricVocabulary.ts`.) The `est.`-beside-the-figure
-            branch is gone; where nobody set the weight there is no figure. */}
         {/* ⭐⭐ THE RISK'S OWN MAGNITUDE, ABOVE EVERY FIGURE THAT IS ABOUT
             SOMETHING ELSE. The severity band beneath is derived from probability ×
-            impact and the link row after it describes a CONNECTION's strength —
-            neither of which is this risk's size. A risk labelled "Time to Reach
-            Customer Target" holds `12 months` in its own data and printed none
+            impact, which is not this risk's size either. A risk labelled "Time to
+            Reach Customer Target" holds `12 months` in its own data and printed none
             of it (`RiskNode` carried zero `observedState` references against a
             contrast of twenty in `FactorNode`).
 
             ⛔ NO BAR, AND THAT IS THE POINT RATHER THAN AN OMISSION. A
             proportional bar is measurement grammar for a 0..1 share — what
-            `NodeMetricRow` requires and what the strength row beneath uses. A
-            recorded magnitude in months or pounds has no such scale, and drawing
+            `NodeMetricRow` requires. A recorded magnitude in months or pounds
+            has no such scale, and drawing
             one would put a native value on a normalised axis, which is the
             confusion this row exists to end.
 
@@ -694,42 +512,10 @@ export const RiskNode = memo((props: NodeProps) => {
         {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
         {riskExposureLine}
 
-        {/* ⭐ THE LINK ROW COMES AFTER THE RISK'S OWN SIZE (Paul 23 Sep contract
-            feedback point 13, with the contract's rule "outcome/risk records are
-            distinct from the strength of their connections"). The recorded
-            magnitude, the severity band and likelihood/impact are ONE group
-            about the risk; they used to sit split around this row. Outcome
-            and risk now share one anatomy — own state, then the link — so a
-            mixed row reads alike without any filler line. */}
-        {bridgeEdgeData && (
-          /* ⭐ TWO ROWS, ONE CAPTION COLUMN — AND THE BAR IS THE THING THAT MOVES.
-
-             A proportional bar is measurement grammar: it is the same visual
-             scale an option's COMPUTED win share uses two cards along, and a
-             half-full one says "assessed, and middling". The five cards that
-             prompted this drew exactly that bar for the DRAFTING MODEL'S own
-             0.5 — a figure something DID supply, and no human had settled.
-
-             ⚠ NOT a bare `DEFAULT_EDGE_DATA.weight`, which is what round 1
-             claimed and is REFUTED: the default carries no provenance stamp, so
-             `resolveEdgeSignedStrengthDisplay` returns `{show:false}` and the
-             pre-PR gate rendered NO ROW. For `Strength 50%` to appear a wire
-             value must have arrived. Canonical record, including why the
-             flattening is modal (4 of 12 draws) rather than constant:
-             `shared/metricVocabulary.ts`.
-
-             ⛔ THE ROW IS NOT DELETED, AND THAT IS THE OTHER HALF OF THE FIX.
-             An absent row reads as "nothing to see"; the reader needs to know
-             the connection EXISTS and that its strength is an open question —
-             one they can settle. The caption stays in the shared 3.5rem column
-             on both branches, so a board still scans as one table.
-
-             ⚠ THE PRODUCER'S NUMBER IS DEMOTED, NOT DELETED. It rides the
-             `title` and the screen-reader phrase, stated as an assumption.
-             `NodeMetricRow` requires BOTH carriers: a `title` is unreachable by
-             keyboard on a non-focusable row and absent on touch. */
-          <LinkStrengthRow bridge={bridgeEdgeData} fillClass="bg-danger" testId="risk-strength-row" />
-        )}
+        {/* ⛔ NO LINK-STRENGTH ROW (contract v3.1: "Outcome/risk records are
+            distinct from the strength of their connections"; gap U1). The card
+            carries the risk's own state only — recorded size, likelihood and
+            impact, or the unset sentence; the connection carries its strength. */}
 
         {/* The leading-indicator question rides the CARD in Standard view; the
             reduce/mitigate pair stays in the popover. Detailed renders all

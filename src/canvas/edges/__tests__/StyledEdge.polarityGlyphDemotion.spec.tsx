@@ -28,7 +28,13 @@ import { typography } from '../../../styles/typography'
 
 let mockReport: Record<string, unknown> | null = null
 let mockEdges: Array<Record<string, unknown>> = []
-let mockViewMode = 'standard'
+/**
+ * contract v3.1 (U10): a PERSISTENT strength row now paints in Detailed view
+ * only — the default view pins none — so the suppression this suite pins is
+ * exercised there. The default view's own case is pinned in the first
+ * describe ("contract v3.1 U10: in the DEFAULT view …").
+ */
+let mockViewMode = 'detailed'
 let mockStatus = 'complete'
 /**
  * ⚠ THIS WAS HARD-MOCKED TO 'human', AND THAT IS WHY THE FIRST VERSION OF THIS
@@ -137,7 +143,7 @@ function pinAsTopStrength(): void {
 beforeEach(() => {
   mockReport = null
   mockEdges = []
-  mockViewMode = 'standard'
+  mockViewMode = 'detailed'
   mockStatus = 'complete'
   mockLabelMode = 'human'
 })
@@ -169,6 +175,14 @@ describe('polarity glyph — suppressed only where a persistent chip already say
 
     expect(strengthText(container)).toBeNull()
     expect(glyph(container)).not.toBeNull()
+  })
+
+  it('contract v3.1 U10: in the DEFAULT view a top-strength edge pins no chip, so the glyph stays', () => {
+    mockViewMode = 'standard'
+    pinAsTopStrength()
+    const { container } = render(<StyledEdge {...(props as any)} />)
+    expect(strengthText(container), 'a strength row rests on the default view').toBeNull()
+    expect(glyph(container), 'the glyph was suppressed with no label beside it').not.toBeNull()
   })
 
   it('CONTROL: an edge with no chip at all keeps the glyph', () => {
